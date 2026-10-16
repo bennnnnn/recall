@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import math
 from uuid import UUID
@@ -14,6 +13,7 @@ from app.modules import todos as todos_service
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.chat.finalize_registry import clear_pending_finalize
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup, StreamContext
 from app.modules.memory import is_explicit_memory_command, memory_extract_user_text
 from app.repositories import chats as chats_repo
@@ -92,7 +92,7 @@ async def finalize_stream_turn_db(
     ctx: StreamContext,
     assistant_text: str,
     usage: dict[str, int],
-    result: dict[str, object] | None,
+    outcome: TurnOutcome | None,
 ) -> None:
     usage_input = usage.get("input")
     input_tokens = (
@@ -188,17 +188,16 @@ async def finalize_stream_turn_db(
                     message_id=assistant_message.id,
                     commit=False,
                 )
-            if result is not None:
+            if outcome is not None:
                 # stream_and_finalize preassigns these; direct callers also
                 # receive the flushed row's identity before commit returns.
-                result.setdefault("message_id", str(assistant_message.id))
-                result.setdefault("resolved_model", ctx.model)
-                if ctx.recalled_count:
-                    result.setdefault("recalled", str(ctx.recalled_count))
-                if ctx.memory_hints:
-                    result.setdefault("memory_hints", json.dumps(ctx.memory_hints))
-                if ctx.context_summarized:
-                    result.setdefault("context_summarized", str(ctx.context_summarized))
+                if outcome.message_id is None:
+                    outcome.message_id = str(assistant_message.id)
+                if outcome.resolved_model is None:
+                    outcome.resolved_model = ctx.model
+                outcome.recalled = outcome.recalled or ctx.recalled_count
+                outcome.memory_hints = outcome.memory_hints or list(ctx.memory_hints)
+                outcome.context_summarized = outcome.context_summarized or ctx.context_summarized
 
             await chats_repo.touch_by_id(session, ctx.chat_id, commit=False)
 

@@ -7,7 +7,6 @@ failure keeps it.
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 from app.modules.chat.finalize_subjects import fallback_text
@@ -56,8 +55,8 @@ def add_search_sources(state: FinalizeState) -> str:
         return text
     web_search = state.deps.web_search
     text = web_search.strip_sources_from_text(text)
-    if state.result is not None:
-        state.result["search_sources"] = json.dumps(web_search.sources_payload(ctx.search_sources))
+    if state.outcome is not None:
+        state.outcome.search_sources = web_search.sources_payload(ctx.search_sources)
     sources_fence = web_search.format_sources_fence(ctx.search_sources)
     if sources_fence and not (state.should_cancel and state.should_cancel()):
         text = f"{text}{sources_fence}".strip()

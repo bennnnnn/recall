@@ -632,7 +632,6 @@ async def _related_prompts_event(
 
 
 def schedule_related_prompts(
-    result: dict[str, Any] | None,
     redis: Redis,
     settings: Settings,
     *,
@@ -641,20 +640,20 @@ def schedule_related_prompts(
     answer: str,
     prior: Sequence[Any] | None = None,
     allow_general: bool = True,
-) -> None:
+    completion: str | None = None,
+) -> asyncio.Task[dict[str, Any] | None] | None:
     """Start the model call without waiting. The transport sends the event after done.
 
     ``prior`` is the turn's recent window, which ties a "why?" to its problem.
     ``allow_general`` is off for a turn that was never a question (a greeting,
-    an instant reply); subject follow-ups do not depend on it.
+    an instant reply); subject follow-ups do not depend on it. A reply that was
+    stopped or cut off (``completion``) gets none.
     """
-    if result is not None and result.get("completion") not in (None, "complete"):
-        return
-    if not collapse_ws(answer):
-        return
+    if completion not in (None, "complete") or not collapse_ws(answer):
+        return None
     if _follow_up_topic(question, answer, prior, allow_general=allow_general) is None:
-        return
-    task = create_background_task(
+        return None
+    return create_background_task(
         _related_prompts_event(
             redis,
             settings,
@@ -666,5 +665,3 @@ def schedule_related_prompts(
         ),
         name="related_prompts",
     )
-    if result is not None:
-        result["_related_task"] = task

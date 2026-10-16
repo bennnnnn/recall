@@ -22,7 +22,6 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
 
 from redis.asyncio import Redis
 
@@ -56,6 +55,7 @@ from app.modules.chat.finalize_text import (
     strip_recipient_placeholders,
 )
 from app.modules.chat.turn_deps import ChatTurnDeps
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class FinalizeState:
     raw: str
     text: str
     usage: dict[str, int]
-    result: dict[str, Any] | None
+    outcome: TurnOutcome | None
     was_cancelled: bool
     assistant_parts: list[str]
     should_cancel: Callable[[], bool] | None
@@ -195,7 +195,7 @@ async def enrich_final_content(
     *,
     assistant_text: str,
     usage: dict[str, int],
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
     was_cancelled: bool,
     assistant_parts: list[str],
     should_cancel: Callable[[], bool] | None,
@@ -208,23 +208,23 @@ async def enrich_final_content(
         raw=assistant_text,
         text=assistant_text,
         usage=usage,
-        result=result,
+        outcome=outcome,
         was_cancelled=was_cancelled,
         assistant_parts=assistant_parts,
         should_cancel=should_cancel,
     )
     enriched = await run_finalize_passes(state)
     # Last, on the finished text: no later pass can fail and lose its card.
-    text = await apply_reminder_pass(deps, redis, settings, ctx, state.text, result)
+    text = await apply_reminder_pass(deps, redis, settings, ctx, state.text, outcome)
 
     # One write: done.final_content must equal the string we persist. Skip on
     # an unchanged normal turn so done payloads stay small. After a failure the
     # client settles what it streamed unless done carries the text, so a
     # stripped forged marker (or a marked instant card) is sent back, but an
     # empty fallback never blanks the reply.
-    if result is not None:
+    if outcome is not None:
         if was_cancelled and text:
-            result["final_content"] = text
+            outcome.final_content = text
         elif text != assistant_text and (text or enriched):
-            result["final_content"] = text
+            outcome.final_content = text
     return text

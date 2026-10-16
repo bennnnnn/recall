@@ -7,6 +7,7 @@ and silently miss the other — the backend is documented as client-agnostic, an
 a future web client binds to this same contract.
 """
 
+import asyncio
 import json
 import re
 from pathlib import Path
@@ -14,6 +15,8 @@ from pathlib import Path
 import pytest
 
 from app.modules.chat import stream_events
+from app.modules.chat.stream_events import DoneEvent, StreamEndEvent
+from app.modules.chat.turn_outcome import TurnOutcome
 
 _CHAT = Path(__file__).resolve().parents[3] / "modules" / "chat"
 _WS = _CHAT / "ws_api.py"
@@ -25,8 +28,8 @@ _BUILDERS = {
     "token": lambda: stream_events.build_token_event("hi"),
     "status": lambda: stream_events.build_status_event("thinking", None),
     "reasoning": lambda: stream_events.build_reasoning_event("hmm"),
-    "stream_end": lambda: stream_events.build_stream_end_payload({}),
-    "done": lambda: stream_events.build_done_payload({}),
+    "stream_end": lambda: StreamEndEvent.from_outcome(TurnOutcome()).model_dump(),
+    "done": lambda: DoneEvent.from_outcome(TurnOutcome()).model_dump(),
     "related_prompts": lambda: stream_events.build_related_prompts_event(
         "abc",
         ["Why is the force the product of mass and acceleration?"],
@@ -40,38 +43,77 @@ def test_builder_emits_its_declared_type(event_type: str) -> None:
 
 
 def test_stream_end_carries_model_fields_when_present() -> None:
-    payload = stream_events.build_stream_end_payload(
-        {"resolved_model": "smart-chat", "fallback_used": "free-chat"}
-    )
-    assert payload == {
+    outcome = TurnOutcome(resolved_model="smart-chat", fallback_used=True)
+    assert StreamEndEvent.from_outcome(outcome).model_dump() == {
         "type": "stream_end",
         "resolved_model": "smart-chat",
-        "fallback_used": "free-chat",
+        "fallback_used": "1",
     }
 
 
 def test_stream_end_omits_absent_model_fields() -> None:
-    assert stream_events.build_stream_end_payload({"resolved_model": None}) == {
-        "type": "stream_end"
-    }
+    assert StreamEndEvent.from_outcome(TurnOutcome()).model_dump() == {"type": "stream_end"}
 
 
 def test_done_includes_completion_when_interrupted() -> None:
-    payload = stream_events.build_done_payload({"message_id": "abc", "completion": "interrupted"})
+    outcome = TurnOutcome(message_id="abc", completion="interrupted")
+    payload = DoneEvent.from_outcome(outcome).model_dump()
     assert payload["type"] == "done"
     assert payload["completion"] == "interrupted"
     assert payload["message_id"] == "abc"
 
 
-def test_done_does_not_carry_related_prompts() -> None:
-    payload = stream_events.build_done_payload(
-        {
-            "message_id": "abc",
-            "related_prompts": ["Why is the force the product of mass and acceleration?"],
-        }
-    )
+async def test_done_does_not_carry_related_prompts() -> None:
+    async def follow_ups() -> dict[str, object]:
+        return stream_events.build_related_prompts_event("abc", ["Why?"])
+
+    related_task = asyncio.create_task(follow_ups())
+    outcome = TurnOutcome(message_id="abc", related_task=related_task)
+    payload = DoneEvent.from_outcome(outcome).model_dump()
     assert "related_prompts" not in payload
+    assert "prompts" not in payload
     assert payload["message_id"] == "abc"
+    await related_task
+
+
+def test_done_is_the_shape_installed_phones_read() -> None:
+    """Every field, in this order; the flag and the lists are strings until ES-45."""
+    outcome = TurnOutcome(
+        message_id="m1",
+        final_content="Café ✓",
+        resolved_model="smart-chat",
+        fallback_used=True,
+        completion="interrupted",
+        recalled=2,
+        memory_hints=["Likes cats"],
+        context_summarized=6,
+        search_sources=[{"title": "Moon", "url": "https://example.com", "snippet": "Orbit."}],
+        todos_changed=True,
+    )
+    wire = json.dumps(DoneEvent.from_outcome(outcome).model_dump(), separators=(",", ":"))
+    assert wire == (
+        '{"type":"done","message_id":"m1","recalled":"2","memory_hints":"[\\"Likes cats\\"]",'
+        '"context_summarized":"6","todos_sync":"1","search_sources":"[{\\"title\\": '
+        '\\"Moon\\", \\"url\\": \\"https://example.com\\", \\"snippet\\": \\"Orbit.\\"}]",'
+        '"final_content":"Caf\\u00e9 \\u2713","resolved_model":"smart-chat",'
+        '"fallback_used":"1","completion":"interrupted"}'
+    )
+
+
+def test_done_while_the_commit_runs_has_no_id_and_says_persisting() -> None:
+    outcome = TurnOutcome(message_id="m1", resolved_model="free-chat", todos_changed=True)
+    payload = DoneEvent.from_outcome(outcome, persisting=True).model_dump()
+    assert payload == {
+        "type": "done",
+        "todos_sync": "1",
+        "resolved_model": "free-chat",
+        "persisting": True,
+    }
+
+
+def test_done_leaves_out_empty_fields() -> None:
+    outcome = TurnOutcome(message_id="", final_content="", memory_hints=[], search_sources=[])
+    assert DoneEvent.from_outcome(outcome).model_dump() == {"type": "done"}
 
 
 def test_related_prompts_event_shape() -> None:
@@ -83,11 +125,11 @@ def test_related_prompts_event_shape() -> None:
 @pytest.mark.parametrize("router", [_WS, _SSE], ids=["ws", "sse"])
 def test_related_prompts_follow_done(router: Path) -> None:
     source = router.read_text()
-    assert source.rindex("build_done_payload") < source.rindex("take_related_prompts_event")
+    assert source.rindex("DoneEvent.from_outcome") < source.rindex("take_related_prompts_event")
 
 
 def test_done_omits_complete_completion() -> None:
-    payload = stream_events.build_done_payload({"message_id": "abc"})
+    payload = DoneEvent.from_outcome(TurnOutcome(message_id="abc")).model_dump()
     assert "completion" not in payload
 
 

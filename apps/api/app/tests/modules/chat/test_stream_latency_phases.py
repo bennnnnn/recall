@@ -77,7 +77,7 @@ async def test_gateway_interval_starts_after_prep_and_ends_at_first_visible_toke
                 ctx,
                 usage={},
                 should_cancel=None,
-                result=None,
+                outcome=None,
                 on_reasoning=None,
                 accum=StreamAccum(),
             )

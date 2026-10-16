@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.tests.modules.chat.chat_test_support import (
     FakeSessionCM as _FakeSessionCM,
 )
@@ -121,7 +122,7 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
-        result: dict[str, str] = {}
+        outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
             AsyncMock(),
@@ -133,10 +134,10 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="second turn info",
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize = result.get("_finalize_task")
+        finalize = outcome.finalize_task
         if finalize is not None:
             await finalize
 
@@ -189,7 +190,7 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
-        result: dict[str, str] = {}
+        outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
             AsyncMock(),
@@ -197,10 +198,10 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="second turn info",
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize = result.get("_finalize_task")
+        finalize = outcome.finalize_task
         if finalize is not None:
             await finalize
 
@@ -247,7 +248,7 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
-        result: dict[str, str] = {}
+        outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
             AsyncMock(),
@@ -257,10 +258,10 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="turn two chit chat",
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize = result.get("_finalize_task")
+        finalize = outcome.finalize_task
         if finalize is not None:
             await finalize
 
@@ -366,7 +367,7 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
-        result: dict[str, str] = {}
+        outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
             AsyncMock(),
@@ -378,22 +379,22 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="Sounds good for tomorrow",
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize = result.get("_finalize_task")
+        finalize = outcome.finalize_task
         if finalize is not None:
             await finalize
 
     job_types = [call.args[1] for call in enqueue_job.call_args_list]
     assert ("todos" in job_types) is not proposals
-    assert result.get("todos_sync") == "1"
+    assert outcome.todos_changed
 
 
 @pytest.mark.asyncio
 async def test_stream_sets_final_content_on_cancel(stream_offline_io):
     """On a user-initiated stop, the server persists text the client may not have
-    rendered yet; `result["final_content"]` carries the authoritative persisted
+    rendered yet; `outcome.final_content` carries the authoritative persisted
     text so the client can reconcile (stop/regenerate desync fix)."""
     from app.modules import chat as chat_module
 
@@ -437,7 +438,7 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
-        result: dict[str, object] = {}
+        outcome = TurnOutcome()
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
             offline_deps(),
@@ -447,17 +448,17 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
             chat_id=MagicMock(),
             content="question",
             should_cancel=should_cancel,
-            result=result,
+            outcome=outcome,
         ):
             yielded.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
     # Only the first token was yielded before cancel broke the loop.
     assert yielded == ["one "]
     # The authoritative persisted text is exposed for client reconciliation.
-    assert result.get("final_content") == "one"
+    assert outcome.final_content == "one"
 
 
 @pytest.mark.asyncio
@@ -491,7 +492,7 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
         skip_memory_jobs=True,
     )
 
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
     with ExitStack() as stack:
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
@@ -507,10 +508,10 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=should_cancel,
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
@@ -547,7 +548,7 @@ async def test_stream_and_finalize_starts_before_user_message_persist(stream_off
         skip_memory_jobs=True,
         user_message_persist=asyncio.create_task(persist()),
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
     with ExitStack() as stack:
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
@@ -562,7 +563,7 @@ async def test_stream_and_finalize_starts_before_user_message_persist(stream_off
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         )
         token = await agen.__anext__()
         assert token == "ok"
@@ -573,7 +574,7 @@ async def test_stream_and_finalize_starts_before_user_message_persist(stream_off
         persist_hold.set()
         async for _ in agen:
             pass
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
@@ -666,7 +667,7 @@ async def test_try_image_gen_leaves_a_stem_turn_to_its_subject(content: str):
         user=user,
         chat_id=uuid4(),
         content=content,
-        result=None,
+        outcome=None,
         create_user_message=True,
     )
 
@@ -695,7 +696,7 @@ async def test_try_image_gen_skips_recent_lookup_when_text_cannot_be_revision():
             user=user,
             chat_id=uuid4(),
             content=long_text,
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -719,7 +720,7 @@ async def test_try_image_gen_skips_recent_lookup_for_greeting(greeting: str):
             user=user,
             chat_id=uuid4(),
             content=greeting,
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -742,7 +743,7 @@ async def test_try_image_gen_looks_up_recent_when_text_could_be_revision():
             user=user,
             chat_id=uuid4(),
             content="make it blue",
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -765,7 +766,7 @@ async def test_try_image_gen_uses_preloaded_recent_without_lookup():
             user=user,
             chat_id=uuid4(),
             content="make it blue",
-            result=None,
+            outcome=None,
             create_user_message=True,
             recent_messages=[],
         )
@@ -790,7 +791,7 @@ async def test_try_image_gen_skips_recent_lookup_for_chat_openers(text: str):
             user=user,
             chat_id=uuid4(),
             content=text,
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -814,7 +815,7 @@ async def test_try_image_gen_skips_recent_lookup_on_empty_chat():
             user=user,
             chat_id=uuid4(),
             content="red",
-            result=None,
+            outcome=None,
             create_user_message=True,
             skip_revision_lookup=True,
         )
@@ -845,7 +846,7 @@ async def test_try_image_gen_dog_then_image_uses_prior_subject():
             user=user,
             chat_id=uuid4(),
             content="Image",
-            result=None,
+            outcome=None,
             create_user_message=True,
             recent_messages=[dog],
         )
@@ -881,7 +882,7 @@ async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
             user=user,
             chat_id=uuid4(),
             content="Generate image: a cat",
-            result=None,
+            outcome=None,
             create_user_message=False,
             replace_assistant_id=old_id,
         )
@@ -932,7 +933,7 @@ async def test_image_regen_deletes_prior_assistant_only_after_success():
             user=user,
             chat_id=chat_id,
             content="Generate image: a cat",
-            result={},
+            outcome=TurnOutcome(),
             create_user_message=False,
             replace_assistant_id=old_id,
         )
@@ -956,7 +957,7 @@ async def test_try_image_lookup_returns_false_when_disabled():
             user=user,
             chat_id=uuid4(),
             content="show me an ear",
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -977,7 +978,7 @@ async def test_try_image_lookup_returns_false_when_no_query_match():
             user=user,
             chat_id=uuid4(),
             content="what's the weather",
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -985,7 +986,7 @@ async def test_try_image_lookup_returns_false_when_no_query_match():
 
 
 @pytest.mark.asyncio
-async def test_try_image_lookup_succeeds_and_populates_result():
+async def test_try_image_lookup_succeeds_and_populates_outcome():
     from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
 
     user = MagicMock()
@@ -998,7 +999,7 @@ async def test_try_image_lookup_succeeds_and_populates_result():
     asst_msg.model = "image-search-model"
 
     search_and_attach = AsyncMock(return_value=(user_msg, asst_msg))
-    result: dict = {}
+    outcome = TurnOutcome()
 
     with patch(
         "app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value="human ear"
@@ -1009,14 +1010,14 @@ async def test_try_image_lookup_succeeds_and_populates_result():
             user=user,
             chat_id=chat_id,
             content="show me an ear",
-            result=result,
+            outcome=outcome,
             create_user_message=True,
         )
 
     assert handled is True
-    assert result["message_id"] == str(asst_msg.id)
-    assert result["final_content"] == asst_msg.content
-    assert result["resolved_model"] == "image-search-model"
+    assert outcome.message_id == str(asst_msg.id)
+    assert outcome.final_content == asst_msg.content
+    assert outcome.resolved_model == "image-search-model"
     search_and_attach.assert_awaited_once()
     _args, kwargs = search_and_attach.call_args
     assert kwargs["query"] == "human ear"
@@ -1045,7 +1046,7 @@ async def test_try_image_lookup_quota_exceeded_raises():
             user=user,
             chat_id=uuid4(),
             content="show me an ear",
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -1071,7 +1072,7 @@ async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int
             user=user,
             chat_id=uuid4(),
             content="show me an ear",
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -1099,7 +1100,7 @@ async def test_try_image_lookup_other_error_raises_chat_service_error():
             user=user,
             chat_id=uuid4(),
             content="show me an ear",
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -1129,7 +1130,7 @@ async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
 
     with ExitStack() as stack:
         stack.enter_context(
@@ -1146,16 +1147,16 @@ async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             tokens.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
     assert tokens == ["partial "]
-    assert result.get("final_content") == "partial"
-    assert result.get("completion") == "user_stop"
+    assert outcome.final_content == "partial"
+    assert outcome.completion == "user_stop"
     finalize.assert_awaited()
 
 
@@ -1181,7 +1182,7 @@ async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
     tokens: list[str] = []
 
     async def consume() -> None:
@@ -1191,7 +1192,7 @@ async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             tokens.append(tok)
 
@@ -1211,13 +1212,13 @@ async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
         task.cancel()
         with suppress(asyncio.CancelledError):
             await task
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if isinstance(finalize_db, asyncio.Task):
             await finalize_db
 
     assert tokens == ["partial "]
-    assert result.get("final_content") == "partial"
-    assert result.get("completion") == "user_stop"
+    assert outcome.final_content == "partial"
+    assert outcome.completion == "user_stop"
     finalize.assert_awaited()
 
 
@@ -1257,7 +1258,7 @@ async def test_hard_cancel_with_empty_reply_reraises(stream_offline_io):
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result={},
+            outcome=TurnOutcome(),
         ):
             pass
 
@@ -1289,7 +1290,7 @@ async def test_provider_fail_with_partial_reply_marks_interrupted(stream_offline
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
 
     with ExitStack() as stack:
         stack.enter_context(
@@ -1306,15 +1307,15 @@ async def test_provider_fail_with_partial_reply_marks_interrupted(stream_offline
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             tokens.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
     assert tokens == ["partial "]
-    assert result.get("completion") == "interrupted"
+    assert outcome.completion == "interrupted"
     finalize.assert_awaited()
 
 
@@ -1344,7 +1345,7 @@ async def test_token_limit_finish_reason_marks_interrupted(stream_offline_io):
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
 
     with ExitStack() as stack:
         stack.enter_context(
@@ -1360,14 +1361,14 @@ async def test_token_limit_finish_reason_marks_interrupted(stream_offline_io):
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
-    assert result.get("completion") == "interrupted"
+    assert outcome.completion == "interrupted"
     finalize.assert_awaited()
 
 
@@ -1400,7 +1401,7 @@ async def test_soft_cancel_mid_stream_marks_user_stop(stream_offline_io):
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
 
     with ExitStack() as stack:
         stack.enter_context(
@@ -1417,15 +1418,15 @@ async def test_soft_cancel_mid_stream_marks_user_stop(stream_offline_io):
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=should_cancel,
-            result=result,
+            outcome=outcome,
         ):
             tokens.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
     assert tokens == ["keep "]
-    assert result.get("completion") == "user_stop"
+    assert outcome.completion == "user_stop"
     finalize.assert_awaited()
 
 
@@ -1680,7 +1681,7 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
             )
         )
 
-        result: dict[str, object] = {}
+        outcome = TurnOutcome()
         collected: list[str] = []
         async for tok in chat_module.stream_chat_response(
             offline_deps(),
@@ -1689,11 +1690,11 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="question",
-            result=result,
+            outcome=outcome,
             user=fake_user,
         ):
             collected.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
@@ -1741,7 +1742,7 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
-        result: dict[str, object] = {}
+        outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
             AsyncMock(),
@@ -1749,14 +1750,14 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="question",
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
-    assert "final_content" not in result
+    assert outcome.final_content is None
 
 
 @pytest.mark.asyncio
@@ -2158,7 +2159,7 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
 
     captured: dict[str, object] = {}
 
-    async def capture_finalize(_redis, _ctx, assistant_text, usage, _result):
+    async def capture_finalize(_redis, _ctx, assistant_text, usage, _outcome):
         captured["usage"] = dict(usage)
         captured["assistant_text"] = assistant_text
 
@@ -2175,7 +2176,7 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
         skip_memory_jobs=True,
     )
 
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
     with (
         patch(
             "app.modules.chat.stream_pipeline.finalize_stream_turn_db", side_effect=capture_finalize
@@ -2189,10 +2190,10 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             tokens.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
@@ -2243,7 +2244,7 @@ async def test_web_search_tool_round_streams_final_instead_of_regenerating(
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
     with ExitStack() as stack:
         stack.enter_context(
             patch(
@@ -2269,10 +2270,10 @@ async def test_web_search_tool_round_streams_final_instead_of_regenerating(
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=True),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             yielded.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 

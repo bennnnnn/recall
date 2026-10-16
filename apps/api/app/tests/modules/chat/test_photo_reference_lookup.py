@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.images.lookup_intent import extract_image_lookup_query, is_reference_subject
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -108,7 +109,7 @@ async def test_show_me_her_image_searches_the_person_from_the_chat() -> None:
         user=user,
         chat_id=uuid4(),
         content="Show me her image",
-        result={},
+        outcome=TurnOutcome(),
         create_user_message=True,
         recent_messages=list(_CALMENT_ROWS),
     )
@@ -139,7 +140,7 @@ async def test_unclear_reference_falls_through_to_the_model() -> None:
         user=user,
         chat_id=uuid4(),
         content="show me her image",
-        result={},
+        outcome=TurnOutcome(),
         create_user_message=True,
         recent_messages=[],
     )
@@ -177,7 +178,7 @@ async def test_after_a_generated_picture_it_is_left_to_the_editor() -> None:
         user=user,
         chat_id=uuid4(),
         content="Show it at night",
-        result={},
+        outcome=TurnOutcome(),
         create_user_message=True,
         recent_messages=rows,
     )
@@ -206,7 +207,7 @@ async def test_a_named_subject_needs_no_resolver() -> None:
         user=user,
         chat_id=uuid4(),
         content="can you show me a picture of Jeanne Calment",
-        result={},
+        outcome=TurnOutcome(),
         create_user_message=True,
     )
 
@@ -245,7 +246,7 @@ async def test_regenerating_a_reference_lookup_reads_history_without_the_old_pho
         user=user,
         chat_id=uuid4(),
         content="Show me her image",
-        result={},
+        outcome=TurnOutcome(),
         create_user_message=False,
         replace_assistant_id=old_photo.id,
     )

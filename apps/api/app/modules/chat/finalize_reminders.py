@@ -9,12 +9,12 @@ fail and throw away a card the user was already offered (ES-03).
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.modules.chat.turn_deps import ChatTurnDeps
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.services.md_fence_scan import next_fence_marker_line
 
@@ -48,18 +48,18 @@ async def apply_reminder_pass(
     settings: Settings,
     ctx: StreamContext,
     text: str,
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
 ) -> str:
-    """The reply with its reminder changes applied; ``todos_sync`` when the list changed.
+    """The reply with its reminder changes applied; ``todos_changed`` when the list changed.
 
     A failure keeps the text it was given: every pass before this one succeeded.
     """
     try:
         text, created = await _materialize(deps, redis, settings, ctx, text)
-        if result is not None and not ctx.skip_memory_jobs:
+        if outcome is not None and not ctx.skip_memory_jobs:
             transcript = f"User: {ctx.user_message_content}\nAssistant: {text}"
             if created > 0 or deps.todos.transcript_implies_todo_sync(transcript):
-                result["todos_sync"] = "1"
+                outcome.todos_changed = True
     except Exception:
         logger.exception("Reminder pass failed; keeping the finished reply")
     return text
