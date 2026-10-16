@@ -149,10 +149,6 @@
       "lines": 894,
       "why": "Over 500 before the standards; tracked in ES-34"
     },
-    "apps/api/app/modules/math/tools/school/geometry_measures.py": {
-      "lines": 1221,
-      "why": "Over 500 before the standards; split in ES-30"
-    },
     "apps/api/app/modules/math/tools/school/trig.py": {
       "lines": 526,
       "why": "Over 500 before the standards; tracked in ES-37"
