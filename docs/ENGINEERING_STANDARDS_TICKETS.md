@@ -302,6 +302,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-10 — The triangle laws are computed once
 
+- **Status:** done. Every copy calls `math/solve/triangle.py`, which takes exact values from SymPy.
 - **Problem:** the cosine rule is computed three times with three different validity checks:
   - `math/solve/geometry.py:268` `triangle_sides_geometry` (SSS, with Heron)
   - `math/tools/school/geometry_measures.py:711` `_extreme_angle` (SSS, checks the triangle
@@ -1115,7 +1116,6 @@ Not exceptions:
   `math/followup.py:261-275` (plus `math/tools/work_request.py:113`). Chemistry has none, so "I got
   21.3 g, am I right?" is not checked there. A neutral `services/student_claim.py` would serve all
   three subjects.
-- `algebra_facts.py:226` "exact" cosines come from a three-entry table. ES-10 replaces it.
 - Gateways repeat inline httpx timeouts (`apple_auth.py:46` 10 s; `expo_push_gateway.py:55,159`,
   `revenuecat_gateway.py:21` and `email_gateway.py:75` 15 s). Named per-gateway constants, or one
   `gateways/http_client.py` default, would make them reviewable.

@@ -124,6 +124,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 |-------|------|
 | Neutral subject dispatch | `apps/api/app/services/subject_solving.py`, `services/solving.py` |
 | SymPy core | `apps/api/app/modules/math/solve/` |
+| Triangle laws | `apps/api/app/modules/math/solve/triangle.py`: cosine and sine rules, Heron's formula, validity; exact where SymPy has the cosine (30°, 45°, 60° and their supplements) |
 | Physics (peer subject) | `apps/api/app/modules/physics/` — `catalog/`, `extractors/`, `solvers/`, plus `extract.py`, `solver.py`, `direct.py`, `block.py` |
 | Pre-stream inject | `apps/api/app/modules/math/tools/` |
 | Whole-request integrity | `apps/api/app/modules/math/request_consumption.py` |

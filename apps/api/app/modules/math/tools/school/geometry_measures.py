@@ -24,6 +24,7 @@ from dataclasses import dataclass, replace
 from fractions import Fraction
 
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve import triangle as triangle_laws
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.services.workout import Workout, math_line, render_workout
 
@@ -712,16 +713,13 @@ def _extreme_angle(numbers: list[float], words: list[str]) -> _Solved | None:
     """The largest angle is opposite the longest side: ``\\cos C = (a^2 + b^2 - c^2) / 2ab``."""
     largest = words[0] != "smallest"
     sides = sorted(numbers)
-    if sides[0] + sides[1] <= sides[2]:
+    if not triangle_laws.triangle_valid(*sides):
         return None
-    if largest:
-        a, b, c = sides[0], sides[1], sides[2]
-    else:
-        a, b, c = sides[1], sides[2], sides[0]
+    a, b, c = sides if largest else (sides[1], sides[2], sides[0])
+    angle = triangle_laws.cosine_rule_angle(a, b, c)
     top = a * a + b * b - c * c
     bottom = 2 * a * b
-    angle = math.degrees(math.acos(top / bottom))
-    ratio = Fraction(top / bottom).limit_denominator(1000)
+    ratio = Fraction(str(triangle_laws.cosine_rule_cosine(a, b, c)))
     which = "largest" if largest else "smallest"
     return _Solved(
         (math_line(f"a = {_n(a)}"), math_line(f"b = {_n(b)}"), math_line(f"c = {_n(c)}")),
@@ -742,7 +740,7 @@ def _extreme_angle(numbers: list[float], words: list[str]) -> _Solved | None:
                 rf"C = \cos^{{-1}}\left(\frac{{{ratio.numerator}}}{{{ratio.denominator}}}\right)"
             ),
         ),
-        rf"\approx {_approx(angle, 1)}^\circ",
+        ("" if angle.is_Rational else r"\approx ") + _degrees(float(angle)),
     )
 
 
@@ -1033,9 +1031,7 @@ def _perpendicular_bisector(numbers: list[float], words: list[str]) -> _Solved |
 def _sine_rule(numbers: list[float], words: list[str]) -> _Solved | None:
     known, known_angle, target_angle = numbers
     known_name, target_name = words
-    if known_angle + target_angle >= 180:
-        return None
-    value = known * math.sin(math.radians(target_angle)) / math.sin(math.radians(known_angle))
+    value = triangle_laws.sine_rule_side(known, known_angle, target_angle)
     k, t = known_name, target_name
     return _Solved(
         (
@@ -1055,7 +1051,10 @@ def _sine_rule(numbers: list[float], words: list[str]) -> _Solved | None:
                 rf"{{\sin {_degrees(known_angle)}}}"
             ),
         ),
-        rf"\approx {_approx(value)}",
+        # At exact angles a surd whose square is whole (4\sqrt{2}); otherwise the decimal.
+        rf"\approx {_approx(float(value))}"
+        if value.is_Float
+        else _surd_answer(float(value**2), None),
     )
 
 
