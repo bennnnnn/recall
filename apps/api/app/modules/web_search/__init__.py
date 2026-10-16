@@ -35,9 +35,9 @@ from app.modules.web_search.geo_intent import (
     names_its_place,
 )
 from app.modules.web_search.query_builders import build_search_queries, build_search_query
-from app.modules.web_search.search_cache import run_cached_search
+from app.modules.web_search.search_cache import TurnTavilyBudget, run_cached_search
 from app.modules.web_search.subject import resolve_search_subject
-from app.modules.web_search.tool import WebSearchAdapter, bind_search_quota_context
+from app.modules.web_search.tool import WebSearchAdapter
 from app.modules.web_search.turn_query import search_queries_for_turn
 
 __all__ = [
@@ -47,9 +47,9 @@ __all__ = [
     "LOCAL_PLACES_FORMAT_HINT",
     "WEB_SEARCH_HINT",
     "SearchCommand",
+    "TurnTavilyBudget",
     "WebSearchAdapter",
     "augment_prompt_messages",
-    "bind_search_quota_context",
     "build_search_augmentation",
     "build_search_queries",
     "build_search_query",

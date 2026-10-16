@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.services import tool_loop
+from app.tests.tool_context import tool_context
 
 
 def _call(call_id: str, name: str, args: dict) -> dict:
@@ -36,6 +37,7 @@ async def _run(query: str, calls: list[dict], invoke: AsyncMock):
                 {"type": "function", "function": {"name": "sympy"}},
                 {"type": "function", "function": {"name": "web_search"}},
             ],
+            ctx=tool_context(),
             on_status=None,
             should_cancel=None,
         )

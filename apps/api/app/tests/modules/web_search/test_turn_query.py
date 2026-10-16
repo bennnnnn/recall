@@ -10,6 +10,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.web_search import turn_query
 from app.services import tool_loop
+from app.tests.tool_context import tool_context
 
 
 def _awaited(mock: AsyncMock) -> Any:
@@ -90,6 +91,7 @@ async def test_standalone_question_is_its_own_query() -> None:
 async def test_tool_loop_searches_the_topic_not_the_request() -> None:
     """The screenshot: "Do a seearch" used to reach Tavily as the words "Do a seearch"."""
     run_search = AsyncMock(return_value=([], ["Bini name meaning"]))
+    ctx = tool_context()
     with (
         patch.object(turn_query, "resolve_reference", AsyncMock(return_value="Bini name meaning")),
         patch("app.modules.web_search.search_cache.run_cached_search", run_search),
@@ -98,11 +100,11 @@ async def test_tool_loop_searches_the_topic_not_the_request() -> None:
             settings=Settings(web_search_enabled=True),
             messages=list(_NAME_CHAT),
             search_hits=[],
-            user=None,
-            redis=None,
+            ctx=ctx,
             on_status=None,
             should_cancel=None,
             search_required=True,
         )
     assert hits == []
     assert _awaited(run_search).args[1] == ["Bini name meaning"]
+    assert _awaited(run_search).kwargs["budget"] is ctx.tavily_budget

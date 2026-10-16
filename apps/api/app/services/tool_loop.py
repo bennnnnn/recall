@@ -30,16 +30,15 @@ from app.core.config import Settings, get_settings
 from app.gateways import litellm_gateway
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp import registry as mcp_registry
+from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.modules.billing import plan as plan_service
 from app.modules.chat.stream_status import StreamStatusFn, clip_status_detail
-from app.modules.images.gen_tool import bind_image_gen_context
-from app.modules.images.search_tool import bind_image_search_context
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.tools import VerifiedMathBlock
 from app.modules.math.tools.extract import trig_domain_would_be_dropped
-from app.modules.web_search import bind_search_quota_context
+from app.modules.web_search import TurnTavilyBudget
 
 logger = logging.getLogger(__name__)
 
@@ -189,12 +188,10 @@ async def _force_web_search_if_needed(
     settings: Settings,
     messages: list[dict[str, Any]],
     search_hits: list[WebSearchHit],
-    user: User | None,
-    redis: Redis | None,
+    ctx: ToolContext,
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
     search_required: bool = False,
-    user_timezone: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[WebSearchHit]]:
     """If the model skipped web_search on a turn that needs live results, search once.
 
@@ -230,15 +227,16 @@ async def _force_web_search_if_needed(
         # "do a search" / "when did she die?" search for what the chat was
         # about, not for the words of the request.
         queries = await search_queries_for_turn(
-            settings, user_text, messages, user_timezone=user_timezone
+            settings, user_text, messages, user_timezone=ctx.user_timezone
         )
         if on_status is not None:
             await on_status("searching", clip_status_detail(queries[0] if queries else user_text))
         hits, tried = await run_cached_search(
             settings,
             queries or [user_text],
-            user=user,
-            redis=redis,
+            user=ctx.user,
+            redis=ctx.redis,
+            budget=ctx.tavily_budget,
         )
         if hits:
             block = wrap_untrusted("web search", format_search_block(hits))
@@ -559,6 +557,16 @@ async def run_tool_rounds(
         return messages, None, None, []
 
     user_text = _last_user_content(messages)
+    # One context for the turn: every tool call and the forced search share
+    # its Tavily budget.
+    ctx = ToolContext(
+        user=user,
+        redis=redis,
+        chat_id=chat_id,
+        user_timezone=user_timezone,
+        user_query=user_text,
+        tavily_budget=TurnTavilyBudget(settings=settings, user=user),
+    )
     # An obvious lookup used to spend a model round deciding to call
     # web_search, then a second round writing the answer. Search first
     # and let the caller stream the reply once. Math and image turns
@@ -573,48 +581,34 @@ async def run_tool_rounds(
             settings=settings,
             messages=messages,
             search_hits=[],
-            user=user,
-            redis=redis,
+            ctx=ctx,
             on_status=on_status,
             should_cancel=should_cancel,
             search_required=True,
-            user_timezone=user_timezone,
         )
         return working, None, None, hits
 
-    with (
-        bind_search_quota_context(
-            user=user,
-            redis=redis,
-            settings=settings,
-            query=_last_user_content(messages),
-            user_timezone=user_timezone,
-        ),
-        bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
-        bind_image_search_context(user=user, redis=redis, chat_id=chat_id),
-    ):
-        working, verified, terminal, hits = await _run_tool_rounds_bound(
-            settings=settings,
-            model_alias=model_alias,
-            messages=messages,
-            usage=usage,
-            tools=tools,
-            on_status=on_status,
-            should_cancel=should_cancel,
-            user_texts=_user_texts(messages, user_text),
-        )
-        working, hits = await _force_web_search_if_needed(
-            settings=settings,
-            messages=working,
-            search_hits=hits,
-            user=user,
-            redis=redis,
-            on_status=on_status,
-            should_cancel=should_cancel,
-            search_required=web_search is True,
-            user_timezone=user_timezone,
-        )
-        return working, verified, terminal, hits
+    working, verified, terminal, hits = await _run_tool_rounds_bound(
+        settings=settings,
+        model_alias=model_alias,
+        messages=messages,
+        usage=usage,
+        tools=tools,
+        ctx=ctx,
+        on_status=on_status,
+        should_cancel=should_cancel,
+        user_texts=_user_texts(messages, user_text),
+    )
+    working, hits = await _force_web_search_if_needed(
+        settings=settings,
+        messages=working,
+        search_hits=hits,
+        ctx=ctx,
+        on_status=on_status,
+        should_cancel=should_cancel,
+        search_required=web_search is True,
+    )
+    return working, verified, terminal, hits
 
 
 async def _run_tool_rounds_bound(
@@ -624,6 +618,7 @@ async def _run_tool_rounds_bound(
     messages: list[dict[str, Any]],
     usage: dict[str, int],
     tools: list[dict[str, Any]],
+    ctx: ToolContext,
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
     user_texts: list[str] | None = None,
@@ -744,7 +739,7 @@ async def _run_tool_rounds_bound(
             phase = _status_for_tool(name) if name else None
             if on_status is not None and phase is not None:
                 await on_status(phase, _status_detail_for_tool(name, raw_args))
-            result = await mcp_registry.invoke_validated(name, raw_args)
+            result = await mcp_registry.invoke_validated(name, raw_args, ctx)
             content = result.content if result else f"Unknown tool: {name}"
             fence = _canonical_from_tool_result(result) if result else None
             answer = _canonical_answer_from_tool_result(result) if result else None

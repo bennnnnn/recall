@@ -13,10 +13,11 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.gateways.mcp.base import ToolContext
 from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.chat import is_lightweight_chat_turn
-from app.modules.web_search import WebSearchAdapter, bind_search_quota_context
+from app.modules.web_search import TurnTavilyBudget, WebSearchAdapter
 from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
@@ -76,14 +77,15 @@ async def execute_tool(
             elif not settings.web_search_enabled or is_lightweight_chat_turn(query):
                 result = {"content": "Web search is unavailable or unnecessary for this question."}
             else:
-                with bind_search_quota_context(
-                    settings=settings,
+                ctx = ToolContext(
                     user=user,
                     redis=redis,
-                    query=query,
+                    chat_id=None,
                     user_timezone=getattr(user, "timezone", None),
-                ):
-                    found = await WebSearchAdapter(settings).invoke({"query": query})
+                    user_query=query,
+                    tavily_budget=TurnTavilyBudget(settings=settings, user=user),
+                )
+                found = await WebSearchAdapter(settings).invoke({"query": query}, ctx)
                 result = {
                     "content": found.content[:8000],
                     "sources": (found.data or {}).get("hits", []),

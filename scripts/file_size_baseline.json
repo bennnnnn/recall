@@ -250,7 +250,7 @@
       "why": "Over 500 before the standards; tracked in ES-04"
     },
     "apps/api/app/services/tool_loop.py": {
-      "lines": 839,
+      "lines": 834,
       "why": "Over 500 before the standards; split in ES-26"
     },
     "apps/mobile/components/MathEquationScanner.tsx": {

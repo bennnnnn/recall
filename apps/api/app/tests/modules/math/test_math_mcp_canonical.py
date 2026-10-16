@@ -9,6 +9,7 @@ from app.modules.math import solve as math_solve
 from app.modules.math import tools as math_tools
 from app.modules.math.schemas import MathSeriesResult
 from app.modules.math.tool import SympyAdapter
+from app.tests.tool_context import tool_context
 
 
 @pytest.mark.asyncio
@@ -60,7 +61,7 @@ async def test_tool_and_heuristic_canonical_answers_agree(question, args, answer
 
     adapter = SympyAdapter(settings)
     with patch.object(adapter, "_run_off_loop", side_effect=compute_locally):
-        result = await adapter.invoke(args)
+        result = await adapter.invoke(args, tool_context())
     if answer is None:
         assert result.data is None
     else:
@@ -81,7 +82,7 @@ async def test_unsolved_tool_series_does_not_attach_an_answer():
             )
         ),
     ):
-        result = await adapter.invoke({"action": "series", "expr": "x"})
+        result = await adapter.invoke({"action": "series", "expr": "x"}, tool_context())
     assert result.data is None
     assert "not evaluated" in result.content
 
@@ -91,7 +92,7 @@ async def test_failed_definite_integral_does_not_retry_as_indefinite():
     adapter = SympyAdapter(Settings(_env_file=None))
     with patch.object(adapter, "_run_off_loop", AsyncMock(return_value=None)) as solve:
         result = await adapter.invoke(
-            {"action": "integrate", "expr": "x^2", "lower": "0", "upper": "1"}
+            {"action": "integrate", "expr": "x^2", "lower": "0", "upper": "1"}, tool_context()
         )
     solve.assert_awaited_once_with(math_solve.integrate_definite, "x^2", "x", "0", "1")
     assert result.data is None
@@ -101,7 +102,9 @@ async def test_failed_definite_integral_does_not_retry_as_indefinite():
 async def test_incomplete_integral_bounds_do_not_become_indefinite():
     adapter = SympyAdapter(Settings(_env_file=None))
     with patch.object(adapter, "_run_off_loop", AsyncMock()) as solve:
-        result = await adapter.invoke({"action": "integrate", "expr": "x^2", "lower": "0"})
+        result = await adapter.invoke(
+            {"action": "integrate", "expr": "x^2", "lower": "0"}, tool_context()
+        )
     solve.assert_not_awaited()
     assert result.data is None
     assert "both integral bounds" in result.content

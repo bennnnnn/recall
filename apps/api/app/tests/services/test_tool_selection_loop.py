@@ -5,6 +5,7 @@ import pytest
 
 from app.core.config import Settings
 from app.services import tool_loop
+from app.tests.tool_context import tool_context
 
 
 @pytest.mark.asyncio
@@ -19,6 +20,7 @@ async def test_tool_selection_uses_own_budget_and_preserves_visible_cap(budget):
             messages=[{"role": "user", "content": "Solve this"}],
             usage={},
             tools=[],
+            ctx=tool_context(),
             on_status=None,
             should_cancel=None,
         )
@@ -56,6 +58,7 @@ async def test_truncated_complete_json_never_invokes_a_tool():
             messages=messages,
             usage=usage,
             tools=[{"type": "function", "function": {"name": "calendar"}}],
+            ctx=tool_context(),
             on_status=None,
             should_cancel=None,
         )
@@ -87,6 +90,7 @@ async def test_cancel_after_selection_prevents_invocation_and_failure_context():
             messages=messages,
             usage={},
             tools=[],
+            ctx=tool_context(),
             on_status=None,
             should_cancel=lambda: stopped,
         )
