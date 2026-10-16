@@ -7,7 +7,7 @@ A missing input declines. ``formula_laws.FORMULA_LAWS`` merges this dict in.
 
 from __future__ import annotations
 
-from app.modules.chemistry.formula_laws import FormulaLaw, _law
+from app.modules.chemistry.formula_record import FormulaLaw, _law
 
 _LOG10 = "log(10)"
 

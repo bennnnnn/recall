@@ -6,7 +6,7 @@ import math
 
 from pint.errors import PintError
 
-from app.modules.chemistry import sig_figs
+import app.modules.chemistry.sig_figs as sig_figs
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.schemas import ChemistryIntent

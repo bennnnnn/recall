@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from app.modules.chemistry import sig_figs
+import app.modules.chemistry.sig_figs as sig_figs
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import convert, to_liters
 from app.modules.chemistry.schemas import ChemistryIntent

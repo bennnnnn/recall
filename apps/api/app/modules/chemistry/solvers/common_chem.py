@@ -6,7 +6,7 @@ from __future__ import annotations
 import math
 from itertools import pairwise
 
-from app.modules.chemistry import sig_figs
+import app.modules.chemistry.sig_figs as sig_figs
 from app.modules.chemistry.solvers.types import (
     INPUT_FIGURES,
     ChemistryResult,
