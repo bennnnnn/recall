@@ -236,7 +236,7 @@ async def test_final_gate_reuses_both_prefetched_verdicts(verdict):
     with (
         patch("app.modules.web_search.detection.should_web_search", AsyncMock()) as classify,
         patch(
-            "app.services.tool_loop.run_tool_rounds",
+            "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
         ) as run,
     ):

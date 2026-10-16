@@ -14,7 +14,8 @@ import pytest
 
 from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolResult
-from app.services import tool_loop
+from app.modules.chat import tool_loop
+from app.modules.chat.tool_loop import selection
 from app.services.prompt_safety import wrap_untrusted
 
 from .tool_loop_support import settings
@@ -79,9 +80,9 @@ async def _run(messages: list[dict[str, Any]], *, user_text: str | None = None):
     complete = AsyncMock(return_value=_generate_image_call("a dragon"))
     invoke = AsyncMock(return_value=_terminal_image())
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
-        patch("app.services.tool_loop.plan_service.can_use", return_value=True),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.chat.tool_loop.selection.plan_service.can_use", return_value=True),
     ):
         result = await tool_loop.run_tool_rounds(
             settings=_image_settings(),
@@ -156,8 +157,8 @@ async def test_tool_loop_user_asking_for_a_picture_still_gets_image_generation(
 def test_tools_for_user_offers_image_generation_only_for_a_picture_ask(
     image_tools_registered, user_text: str, offered: bool
 ) -> None:
-    with patch("app.services.tool_loop.plan_service.can_use", return_value=True):
-        tools = tool_loop._tools_for_user(_image_settings(), MagicMock(), user_text=user_text)
+    with patch("app.modules.chat.tool_loop.selection.plan_service.can_use", return_value=True):
+        tools = selection._tools_for_user(_image_settings(), MagicMock(), user_text=user_text)
     names = [(tool.get("function") or {}).get("name") for tool in tools]
     assert ("generate_image" in names) is offered
     assert "sympy" in names

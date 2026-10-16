@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat import tool_loop
 from app.modules.math.tool_check import tool_call_matches_user_text
-from app.services import tool_loop
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -136,9 +136,12 @@ def _solve_result(answer: str) -> MagicMock:
 
 async def _run(prompt: str, args: dict[str, Any], answer: str) -> tuple[list[dict[str, Any]], Any]:
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", _sympy_round(args)),
         patch(
-            "app.services.tool_loop.mcp_registry.invoke_validated",
+            "app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools",
+            _sympy_round(args),
+        ),
+        patch(
+            "app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated",
             AsyncMock(return_value=_solve_result(answer)),
         ),
         patch("app.core.sympy_executor.run_sympy", _inline),
@@ -186,10 +189,9 @@ async def _tool_loop_path(ctx_verified: Any, tool_verified: Any) -> Any:
     ctx.web_search_classified = None
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
-        patch.object(tool_loop, "turn_needs_tool_loop", return_value=True),
-        patch.object(
-            tool_loop,
-            "run_tool_rounds",
+        patch("app.modules.chat.tool_loop.turn_needs_tool_loop", return_value=True),
+        patch(
+            "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(ctx.prompt_messages, tool_verified, None, [])),
         ),
     ):

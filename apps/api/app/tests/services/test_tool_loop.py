@@ -8,26 +8,25 @@ import pytest
 from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolContext, ToolResult
 from app.gateways.web_search_gateway import WebSearchHit
-from app.services import tool_loop
+from app.modules.chat import tool_loop
+from app.modules.chat.tool_loop import calls, rounds, selection
 from app.tests.tool_context import tool_context
 
 from .tool_loop_support import settings
 
 
 def test_status_for_tool_omits_generic_thinking():
-    assert tool_loop._status_for_tool("web_search") == "searching"
-    assert tool_loop._status_for_tool("sympy") == "calculating"
-    assert tool_loop._status_for_tool("generate_image") == "image_gen"
-    assert tool_loop._status_for_tool("search_image") == "image_gen"
-    assert tool_loop._status_for_tool("calendar") is None
-    assert tool_loop._status_for_tool("") is None
+    assert calls._status_for_tool("web_search") == "searching"
+    assert calls._status_for_tool("sympy") == "calculating"
+    assert calls._status_for_tool("generate_image") == "image_gen"
+    assert calls._status_for_tool("search_image") == "image_gen"
+    assert calls._status_for_tool("calendar") is None
+    assert calls._status_for_tool("") is None
 
 
 def test_status_detail_for_tool_uses_query_for_search_image():
-    assert (
-        tool_loop._status_detail_for_tool("search_image", '{"query": "human ear"}') == "human ear"
-    )
-    assert tool_loop._status_detail_for_tool("generate_image", '{"prompt": "a fox"}') == "a fox"
+    assert calls._status_detail_for_tool("search_image", '{"query": "human ear"}') == "human ear"
+    assert calls._status_detail_for_tool("generate_image", '{"prompt": "a fox"}') == "a fox"
 
 
 @pytest.mark.asyncio
@@ -87,8 +86,8 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
         statuses.append((phase, detail))
 
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
     ):
         out, verified, terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
@@ -129,10 +128,10 @@ async def test_tool_loop_gives_every_call_and_the_forced_search_one_turn_context
     forced = AsyncMock(return_value=([], []))
 
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
-        patch("app.modules.web_search.search_cache.run_cached_search", forced),
-        patch("app.services.tool_loop.plan_service.can_use", return_value=False),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
+        patch("app.modules.chat.tool_loop.selection.plan_service.can_use", return_value=False),
     ):
         await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
@@ -175,8 +174,8 @@ async def test_tool_loop_max_rounds(web_search_registered):
     invoke = AsyncMock(return_value=MagicMock(content="ok"))
 
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
     ):
         await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=2),
@@ -204,8 +203,8 @@ async def test_tool_loop_caps_calls_per_round(web_search_registered):
     invoke = AsyncMock(return_value=MagicMock(content="ok", data=None))
 
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
     ):
         out, _verified, _terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(
@@ -241,9 +240,9 @@ async def test_tool_loop_invoke_timeout_skips_remaining(web_search_registered):
     invoke = AsyncMock(return_value=MagicMock(content="ok", data=None))
 
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
-        patch("app.services.tool_loop.time.monotonic", side_effect=[0.0, 0.0, 30.0]),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.chat.tool_loop.calls.time.monotonic", side_effect=[0.0, 0.0, 30.0]),
     ):
         out, _verified, _terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(
@@ -298,8 +297,8 @@ async def test_tool_loop_collects_sympy_canonical_fence(sympy_registered):
     )
 
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
     ):
         _out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
@@ -345,8 +344,8 @@ async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(web_search
     invoke = AsyncMock(return_value=MagicMock(content="ok"))
 
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
     ):
         out, _verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
@@ -375,9 +374,9 @@ def test_first_unanswered_assistant_idx_detects_partial_tools():
         },
         {"role": "tool", "tool_call_id": "a", "content": "ok"},
     ]
-    assert tool_loop._first_unanswered_assistant_idx(msgs) == 1
+    assert rounds._first_unanswered_assistant_idx(msgs) == 1
     msgs.append({"role": "tool", "tool_call_id": "b", "content": "ok"})
-    assert tool_loop._first_unanswered_assistant_idx(msgs) is None
+    assert rounds._first_unanswered_assistant_idx(msgs) is None
 
 
 @pytest.mark.asyncio
@@ -439,9 +438,11 @@ async def test_tool_loop_generate_image_is_terminal():
 
         pro_user = MagicMock()
         with (
-            patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-            patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
-            patch("app.services.tool_loop.plan_service.can_use", return_value=True),
+            patch(
+                "app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete
+            ),
+            patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
+            patch("app.modules.chat.tool_loop.selection.plan_service.can_use", return_value=True),
         ):
             _out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
                 settings=settings(
@@ -513,9 +514,11 @@ async def test_tool_loop_search_image_is_terminal():
 
         free_user = MagicMock()
         with (
-            patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-            patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
-            patch("app.services.tool_loop.plan_service.can_use", return_value=False),
+            patch(
+                "app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete
+            ),
+            patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
+            patch("app.modules.chat.tool_loop.selection.plan_service.can_use", return_value=False),
         ):
             _out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
                 settings=settings(
@@ -549,8 +552,8 @@ async def test_tools_for_user_omits_image_gen_for_free():
     mcp_registry.clear()
     mcp_registry.register(ImageGenAdapter(settings(image_generation_enabled=True)))
     try:
-        with patch("app.services.tool_loop.plan_service.can_use", return_value=False):
-            tools = tool_loop._tools_for_user(settings(image_generation_enabled=True), MagicMock())
+        with patch("app.modules.chat.tool_loop.selection.plan_service.can_use", return_value=False):
+            tools = selection._tools_for_user(settings(image_generation_enabled=True), MagicMock())
         names = [(t.get("function") or {}).get("name") for t in tools]
         assert "generate_image" not in names
     finally:
@@ -565,8 +568,8 @@ async def test_tools_for_user_keeps_search_image_for_free():
     mcp_registry.clear()
     mcp_registry.register(ImageSearchAdapter(settings(image_search_enabled=True)))
     try:
-        with patch("app.services.tool_loop.plan_service.can_use", return_value=False):
-            tools = tool_loop._tools_for_user(settings(image_search_enabled=True), MagicMock())
+        with patch("app.modules.chat.tool_loop.selection.plan_service.can_use", return_value=False):
+            tools = selection._tools_for_user(settings(image_search_enabled=True), MagicMock())
         names = [(t.get("function") or {}).get("name") for t in tools]
         assert "search_image" in names
     finally:
@@ -580,7 +583,7 @@ async def test_tools_for_user_omits_search_image_when_disabled():
     mcp_registry.clear()
     mcp_registry.register(ImageSearchAdapter(settings(image_search_enabled=True)))
     try:
-        tools = tool_loop._tools_for_user(settings(image_search_enabled=False), MagicMock())
+        tools = selection._tools_for_user(settings(image_search_enabled=False), MagicMock())
         names = [(t.get("function") or {}).get("name") for t in tools]
         assert "search_image" not in names
     finally:

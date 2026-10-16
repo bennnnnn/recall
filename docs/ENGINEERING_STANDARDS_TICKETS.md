@@ -713,6 +713,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-26 — Split `services/tool_loop.py` (839) and move it into `modules/chat/`
 
+- **Status:** done. `modules/chat/tool_loop/` holds `selection.py` (does the turn need the loop, which tools it offers), `rounds.py` (`run_tool_rounds`, and `_run_tool_rounds_bound` renamed `_run_rounds`: `_select_tool_calls` → `calls._execute_calls` → `ToolResults.merge` → stop and `_hand_off`, each under 50 lines), `calls.py` (refuse a call, or run it and check it against the user's problem), `results.py`, `text_calls.py` and `forced_search.py` (the search the model skipped). `calls.py` and `forced_search.py` keep `rounds.py` under 300 lines. `services/tool_loop.py` is deleted and listed as retired; `stream_paths.py` reads the package. Chat imports `math.tool_check`, so math declares it public. The loop still runs one selection round, as it has since #940: every round hands off, so `mcp_tool_loop_max_rounds` changes nothing. The capture is byte-identical: 15,211 lines covering all 1,412 battery and sweep turns through the routing and `run_tool_rounds`, every tool, text-embedded calls, refusals, selection errors, cancellation at each check and max rounds 0–5.
 - **Problem:** one file holds four jobs:
   - tool-result parsing (`_canonical_*`, `_search_hits_*`, `_terminal_image_*`)
   - turn routing (`turn_needs_tool_loop`, `_needs_non_web_tool`, `_user_asks_for_image`,

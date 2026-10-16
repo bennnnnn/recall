@@ -5,11 +5,11 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat.tool_loop import turn_needs_tool_loop
 from app.modules.math import match as math_match
 from app.modules.math import school as math_school
 from app.modules.math import tools as math_tools
 from app.modules.math.tools.extract import extract_math_intent
-from app.services.tool_loop import turn_needs_tool_loop
 
 _SETTINGS = Settings(math_tools_enabled=True, mcp_tool_loop_enabled=True)
 

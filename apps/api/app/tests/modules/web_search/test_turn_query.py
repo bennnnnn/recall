@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat.tool_loop import forced_search
 from app.modules.web_search import turn_query
-from app.services import tool_loop
 from app.tests.tool_context import tool_context
 
 
@@ -94,9 +94,9 @@ async def test_tool_loop_searches_the_topic_not_the_request() -> None:
     ctx = tool_context()
     with (
         patch.object(turn_query, "resolve_reference", AsyncMock(return_value="Bini name meaning")),
-        patch("app.modules.web_search.search_cache.run_cached_search", run_search),
+        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", run_search),
     ):
-        _messages, hits = await tool_loop._force_web_search_if_needed(
+        _messages, hits = await forced_search._force_web_search_if_needed(
             settings=Settings(web_search_enabled=True),
             messages=list(_NAME_CHAT),
             search_hits=[],

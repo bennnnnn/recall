@@ -1,0 +1,186 @@
+"""Answering each call of a selection round: refuse it, or run it and merge what it found.
+
+Every call gets exactly one tool message, in order, so the provider accepts the
+message list. A call over the round's cap, past its deadline, for a tool this turn
+was not offered, or for a trig solve that would drop the user's domain is refused
+in that message and never runs.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
+
+from app.core.config import Settings
+from app.gateways.mcp import registry as mcp_registry
+from app.gateways.mcp.base import ToolContext
+from app.modules.chat.stream_status import StreamStatusFn, clip_status_detail
+from app.modules.chat.tool_loop.results import (
+    ToolResults,
+    _canonical_answer_from_tool_result,
+    _canonical_from_tool_result,
+)
+from app.modules.math.tools.extract import trig_domain_would_be_dropped
+
+logger = logging.getLogger(__name__)
+
+_UNMATCHED_TOOL_NOTE = (
+    "\nNote: this call's input does not match the problem as the user wrote it, so this "
+    "result is not verified for the user's question. Re-read the user's problem before "
+    "using it, and do not call it verified."
+)
+_TRIG_DOMAIN_REFUSAL = (
+    "This trig solve cannot verify the domain requested by the user. "
+    "No solution was certified. Preserve the requested domain when "
+    "answering; do not substitute an unrestricted real solution."
+)
+
+
+@dataclass(frozen=True)
+class _Round:
+    """What every call in the turn's selection round shares."""
+
+    settings: Settings
+    offered: frozenset[str]
+    ctx: ToolContext
+    on_status: StreamStatusFn | None
+    should_cancel: Callable[[], bool] | None
+    # The user's own words, newest first: a result is verified only for these.
+    user_texts: list[str]
+    # The last user prompt message, whose requested trig domain a solve must keep.
+    user_text: str
+
+    def cancelled(self) -> bool:
+        return bool(self.should_cancel and self.should_cancel())
+
+
+def _status_for_tool(name: str) -> str | None:
+    if name == "web_search":
+        return "searching"
+    if name == "sympy":
+        return "calculating"
+    if name in ("generate_image", "search_image"):
+        return "image_gen"
+    return None
+
+
+def _status_detail_for_tool(name: str, raw_args: str) -> str | None:
+    """Surface the tool's subject (e.g. the search query) for the status label."""
+    if name in ("web_search", "search_image"):
+        key = "query"
+    elif name == "generate_image":
+        key = "prompt"
+    else:
+        return None
+    try:
+        args = json.loads(raw_args)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(args, dict):
+        return None
+    value = args.get(key)
+    return clip_status_detail(value) if isinstance(value, str) else None
+
+
+async def _tool_call_matches_user(raw_args: Any, user_texts: list[str], settings: Settings) -> bool:
+    """A tool result is the verified answer only for the problem the user wrote."""
+    from app.core.sympy_executor import run_sympy
+    from app.modules.math.tool_check import tool_call_matches_user_text
+
+    try:
+        matched = await run_sympy(
+            tool_call_matches_user_text,
+            raw_args,
+            user_texts,
+            timeout=settings.math_solve_timeout_seconds,
+        )
+    except Exception:
+        logger.info("tool-call match check did not finish; result stays unverified", exc_info=True)
+        return False
+    return bool(matched)
+
+
+def _sympy_solve_drops_trig_domain(name: str, raw_args: Any, user_text: str) -> bool:
+    if name != "sympy":
+        return False
+    try:
+        args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+    except (TypeError, ValueError):
+        return False  # Let the registry report malformed arguments normally.
+    if not isinstance(args, dict) or str(args.get("action") or "solve").strip().lower() != "solve":
+        return False
+    return trig_domain_would_be_dropped(
+        f"{args.get('lhs') or ''} {args.get('rhs') or ''}", user_text
+    )
+
+
+async def _execute_calls(
+    turn: _Round,
+    tool_calls: list[dict[str, Any]],
+    working: list[dict[str, Any]],
+    collected: ToolResults,
+) -> None:
+    """Append one tool message per call, in order, until the turn is cancelled."""
+    max_calls = max(1, turn.settings.mcp_tool_loop_max_calls_per_round)
+    invoke_deadline = time.monotonic() + max(
+        0.0, turn.settings.mcp_tool_loop_invoke_timeout_seconds
+    )
+    for index, call in enumerate(tool_calls):
+        if turn.cancelled():
+            break
+        fn = call.get("function") or {}
+        name = str(fn.get("name") or "")
+        raw_args = fn.get("arguments") or "{}"
+        refusal = _refusal(
+            turn, name, raw_args, over_cap=index >= max_calls, deadline=invoke_deadline
+        )
+        content = (
+            refusal if refusal is not None else await _run_call(turn, name, raw_args, collected)
+        )
+        working.append(
+            {"role": "tool", "tool_call_id": str(call.get("id") or name), "content": content}
+        )
+
+
+def _refusal(
+    turn: _Round, name: str, raw_args: Any, *, over_cap: bool, deadline: float
+) -> str | None:
+    """Why this call must not run, as its tool message; None when it may run."""
+    if over_cap:
+        return "Too many tool calls in one round."
+    if time.monotonic() >= deadline:
+        return "Tool round timed out."
+    if name not in turn.offered:
+        # A provider can return a call to a tool it was not given.
+        # Never run it (e.g. generate_image the user did not ask for).
+        return f"Tool {name or '(unnamed)'} is not available for this turn."
+    if _sympy_solve_drops_trig_domain(name, raw_args, turn.user_text):
+        # This solver owns all-real trig solutions. The tool schema
+        # cannot express the requested interval or alternative domain;
+        # do not reintroduce an answer rejected during turn preparation.
+        # Other computations and tool calls remain available.
+        return _TRIG_DOMAIN_REFUSAL
+    return None
+
+
+async def _run_call(turn: _Round, name: str, raw_args: Any, collected: ToolResults) -> str:
+    """Run one offered call, merge what it found, and return its tool message."""
+    phase = _status_for_tool(name) if name else None
+    if turn.on_status is not None and phase is not None:
+        await turn.on_status(phase, _status_detail_for_tool(name, raw_args))
+    result = await mcp_registry.invoke_validated(name, raw_args, turn.ctx)
+    content = result.content if result else f"Unknown tool: {name}"
+    fence = _canonical_from_tool_result(result) if result else None
+    answer = _canonical_answer_from_tool_result(result) if result else None
+    if (fence is not None or answer) and not await _tool_call_matches_user(
+        raw_args, turn.user_texts, turn.settings
+    ):
+        # The tool solved what the model typed, not what the user asked.
+        fence, answer = None, None
+        content = f"{content}{_UNMATCHED_TOOL_NOTE}"
+    collected.merge(result, fence=fence, answer=answer)
+    return content

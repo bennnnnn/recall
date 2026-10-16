@@ -41,7 +41,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 **Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry SVG, native Skia math graphs (SVG fallback), physics scenes, free-body diagrams, circuit schematics, ray diagrams and waves (`simulation`, schema v2: [docs/physics.md](./docs/physics.md#pictures)), chemistry (SMILES), lesson cards (`quiz` with Check answer, `array` index boxes, `steps` trace). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
 
-**Owned tool loop, on by default:** module-owned adapters (`web_search`, `sympy`, `generate_image`, `search_image`) register through `gateways/mcp/` and run via `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
+**Owned tool loop, on by default:** module-owned adapters (`web_search`, `sympy`, `generate_image`, `search_image`) register through `gateways/mcp/` and run via `modules/chat/tool_loop/`. `mcp_tool_loop_enabled` defaults to `true`. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
 
 **Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; full duplex / interruptible voice; arbitrary user MCP servers. Attachment RAG, chat-history RAG, and live talk (Pro, monthly minutes) are shipped. `apps/web` is slice 1 only (login + chat SSE); remaining web surfaces are deferred.
 
