@@ -1,6 +1,6 @@
-"""Detect composer reference-photo *lookup* intent (mirrors mobile imageLookupIntent.ts).
+"""Detect reference-photo *lookup* intent in a message: the word rules ``intent.py`` reads.
 
-Shared cases with the phone: ``docs/fixtures/image_intent_cases.json``.
+Cases: ``docs/fixtures/image_intent_cases.json``.
 
 Separate from ``image_gen_intent`` (creative generation). "Show me an ear" /
 "what does a golden retriever look like" want a real photo, not AI art —

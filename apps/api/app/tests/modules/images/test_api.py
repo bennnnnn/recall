@@ -333,38 +333,3 @@ def test_generate_image_deletes_storage_when_persist_fails():
     # Reserved once, refunded after persist fail.
     assert fake_redis.incrby.await_count == 2
     assert fake_redis.incrby.await_args_list[1].args[1] == -1
-
-
-@pytest.mark.parametrize(
-    "text, subject",
-    [
-        ("draw ethanol", "chemistry"),
-        ("draw caffeine", "chemistry"),
-        ("draw benzene", "chemistry"),
-        ("A lens has focal length 15 cm. Where's the image?", "physics"),
-        ("draw me a cat", None),
-        ("draw me a cute cartoon atom for our chemistry club poster", None),
-        ("Generate an image of a lighthouse", None),
-    ],
-)
-def test_image_intent_names_the_subject_that_owns_the_turn(text, subject):
-    """The phone asks before its own intercept: STEM turns are not pictures."""
-    client = TestClient(_app_with_user(_fake_user(plan="free")))
-    r = client.post("/images/intent", headers={"Authorization": "Bearer tok"}, json={"text": text})
-    assert r.status_code == 200
-    assert r.json() == {"subject": subject}
-
-
-def test_image_intent_leaves_a_structure_to_the_picture_when_chemistry_is_off():
-    client = TestClient(_app_with_user(_fake_user(), settings=Settings(chemistry_enabled=False)))
-    r = client.post(
-        "/images/intent", headers={"Authorization": "Bearer tok"}, json={"text": "draw ethanol"}
-    )
-    assert r.status_code == 200
-    assert r.json() == {"subject": None}
-
-
-def test_image_intent_requires_sign_in():
-    client = TestClient(create_app())
-    r = client.post("/images/intent", json={"text": "draw ethanol"})
-    assert r.status_code == 401

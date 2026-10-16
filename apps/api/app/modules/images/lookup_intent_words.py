@@ -1,8 +1,7 @@
 """The word lists the photo lookup reads (``lookup_intent.py``).
 
 Kept apart from the matching logic, as ``gen_intent_words.py`` is for image
-generation. The phone's ``imageLookupIntent.ts`` holds the same sets; the shared
-fixture ``docs/fixtures/image_intent_cases.json`` keeps both sides in step.
+generation. Cases: ``docs/fixtures/image_intent_cases.json``.
 """
 
 from app.modules.images.gen_intent_words import NON_IMAGE_WORDS

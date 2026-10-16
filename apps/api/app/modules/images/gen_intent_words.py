@@ -1,8 +1,7 @@
-"""Word lists for composer image intent (mirrors mobile imageGenIntentWords.ts).
+"""Word lists for image-generation intent.
 
 Kept apart from the matchers in ``gen_intent.py`` so a vocabulary change is a
-data change. Edit the TypeScript twin and ``docs/fixtures/image_intent_cases.json``
-in the same change.
+data change; add its cases to ``docs/fixtures/image_intent_cases.json``.
 """
 
 from __future__ import annotations

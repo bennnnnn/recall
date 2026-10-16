@@ -1,8 +1,7 @@
-"""Detect composer image-generation intent (mirrors mobile imageGenIntent.ts).
+"""Detect image-generation intent in a message: the word rules ``intent.py`` reads.
 
-The phone runs the same rules before it sends, so each helper has a same-named
-TypeScript twin. Change both, and ``docs/fixtures/image_intent_cases.json``,
-together; both test suites assert every case in that file.
+The server is their only reader; ``docs/fixtures/image_intent_cases.json`` holds
+the cases (``tests/modules/images/test_intent_contract.py``).
 
 Matching is linear token scans — no ``\\s+`` / ``.+`` regex on user chat text
 (CodeQL ``py/polynomial-redos``).
@@ -354,8 +353,6 @@ def stem_subject(text: str, *, chemistry_enabled: bool = True) -> SubjectName | 
 
     "draw ethanol" is a structure and "A lens has focal length 15 cm. Where's the
     image?" is optics; the text rules above would read both as picture requests.
-    The phone has no ``detect_subject``, so it asks ``POST /images/intent`` before its
-    own intercept; the shared text rules stay the contract.
     Art stays art: "a cute cartoon atom for our chemistry club poster" is a picture.
     """
     from app.services.subject_solving import detect_subject
@@ -447,17 +444,18 @@ def prior_user_contents_for_image_gen(messages: list[Any], current: str) -> list
     return out
 
 
-def _is_deictic_subject(subject: str) -> bool:
+def is_deictic_subject(subject: str) -> bool:
+    """``that car`` / ``it``: a subject named earlier in the chat."""
     first = _fold_token(subject.split()[0]) if subject.split() else ""
     return first in DEICTIC_SUBJECTS
 
 
 def _resolve_deictic_subject(direct: str, prior_user_contents: list[str]) -> str:
-    if not _is_deictic_subject(direct):
+    if not is_deictic_subject(direct):
         return direct
     for prior in reversed(prior_user_contents):
         subject = extract_image_gen_prompt(prior)
-        if subject and not _is_deictic_subject(subject):
+        if subject and not is_deictic_subject(subject):
             return subject
     return direct
 
@@ -469,7 +467,6 @@ def extract_image_gen_prompt_from_thread(
     """Same as ``extract_image_gen_prompt``, plus 'Dog' then 'Image' follow-ups.
 
     A picture of "that car" uses the previous concrete subject.
-    Mirrors mobile ``extractImageGenPromptFromThread``.
     """
     direct = extract_image_gen_prompt(text)
     if direct:
