@@ -3,7 +3,8 @@ import { Dimensions, StyleSheet } from "react-native";
 
 import { MathText } from "@/components/rich/MathText";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
-import { findLayouts, layoutMath, layoutProblems } from "@/lib/math/layout";
+import { layoutMath } from "@/lib/math/layout";
+import { findLayouts, layoutProblems } from "@/lib/math/layoutChecks";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex } from "@/lib/math/text";
 
