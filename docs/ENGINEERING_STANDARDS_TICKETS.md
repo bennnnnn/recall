@@ -451,6 +451,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-16 — One embedding fan-out
 
+- **Status:** done. `embedding_gateway.embed_many` (input order, a failed text is None in its slot) under one `embedding_concurrency` setting (8; memory's re-embeds were 6). `MEMORY_EMBED_CONCURRENCY` was in no deploy config, so it was renamed without an alias.
 - **Problem:** the same bounded-concurrency embed loop exists three times:
   - `modules/attachments/rag.py:104,140` (`_EMBED_CONCURRENCY = 8`, `_embed_pieces`)
   - `modules/chat/history_rag.py:20,38` (an identical copy; jscpd)

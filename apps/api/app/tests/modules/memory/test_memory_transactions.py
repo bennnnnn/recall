@@ -122,7 +122,7 @@ async def test_apply_memory_facts_bounds_embed_concurrency_and_backfill():
         patch("app.modules.home.invalidate_home_cache", AsyncMock()),
     ):
         await apply_memory_facts(
-            Settings(memory_embed_concurrency=3, memory_embed_backfill_per_pass=4),
+            Settings(embedding_concurrency=3, memory_embed_backfill_per_pass=4),
             user_id=uuid4(),
             writes=[MemoryFactWrite(op="add", type="fact", text="Fact 0", confidence=0.9)],
             session_factory=session_factory,
