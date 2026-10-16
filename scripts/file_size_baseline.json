@@ -290,11 +290,11 @@
       "why": "Exception: Key and accessibility tables (321 lines of data)"
     },
     "apps/mobile/lib/math/latexParse.ts": {
-      "lines": 563,
+      "lines": 510,
       "why": "Exception: One parser; the file stays and its one long function splits (ES-38)"
     },
     "apps/mobile/lib/math/layout.ts": {
-      "lines": 597,
+      "lines": 533,
       "why": "Exception: One layout algorithm; the file stays and `measureSegment` splits (ES-38)"
     },
     "apps/mobile/lib/physics/circuit.ts": {

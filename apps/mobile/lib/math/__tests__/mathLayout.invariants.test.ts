@@ -1,12 +1,11 @@
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import {
-  findLayouts,
   inlineMathNeedsScroll,
   layoutMath,
-  layoutProblems,
   measureRunWidth,
   measureTextWidth,
 } from "@/lib/math/layout";
+import { findLayouts, layoutProblems } from "@/lib/math/layoutChecks";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex, readableLatexFallback, segmentsToPlain } from "@/lib/math/text";
 
