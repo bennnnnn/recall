@@ -92,7 +92,8 @@ Do not add a per-feature layout; build a `Workout`.
 
 A bare `log` (and `lg`) is base 10, as on a school calculator; `ln` is the natural log; `log_2`,
 `log2(…)`, `\log_{b}` and `log(x, b)` keep their written base. The parser
-(`solve/parse.py`), the symbolic physics grammar, the phone's graph resampler
+(`solve/parse.py`, its rewrites in `solve/latex_normalize.py`), the symbolic physics grammar,
+the phone's graph resampler
 (`lib/math/graphExpr.ts`), the extraction prompts, and the chat prompt all agree;
 `docs/fixtures/graph_expr_cases.json` holds the resampler to the parser's SymPy values. The
 graph fence's `expr` is the parser's reading printed in the resampler's grammar
@@ -117,7 +118,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 
 - **Symbol toolbar** (`MathKeyboardBar` / `mathKeyboardSymbols.ts`) inserts LaTeX snippets (`$...$` when the caret is outside math). A key types into the box the caret is in; ← → (`lib/math/caretStops.ts`) move between boxes. The server reads what the keys type: `^{-1}` after a function name is the inverse (`\cot^{-1}` → `acot`), `\mathrm{i}` is the imaginary unit (so is a typed `i` in an expression of numbers and `i` alone, as in `i^23` or `(1 + i)/(1 - i)`; beside other letters it stays a variable), and `modules/math/tools/keyboard_notation.py` rewrites `\int_{a}^{b}…\,dx`, `\frac{d}{dx}`, `\binom`, and `^{\circ}` into the notation the extractors read.
 - **Ordinary typing and native paste** preserve the exact input and native caret. Autocorrect and spellcheck stay disabled so notation such as `sqrt` and assignment expressions cannot be rewritten while typing.
-- **Explicit math keypad / Paste controls** opt into formatted math editing. `mathPasteNormalize.ts` maps pasted Unicode math glyphs to LaTeX (the same glyph set spirit as `_UNICODE_OP_SUBS` in `math/solve/parse.py`). The in-app Paste button reads clipboard text only; it does not import an image. Use Scan Math or a photo attachment for image input.
+- **Explicit math keypad / Paste controls** opt into formatted math editing. `mathPasteNormalize.ts` maps pasted Unicode math glyphs to LaTeX (the same glyph set spirit as `_UNICODE_OP_SUBS` in `math/solve/unicode_normalize.py`). The in-app Paste button reads clipboard text only; it does not import an image. Use Scan Math or a photo attachment for image input.
 - **Scan Math** captures a camera frame or imports a photo. Imported photos fit inside the preview so the initial crop contains the full image; camera previews retain their fill/crop behavior. For math, physics, and chemistry, Solve crops and opens **I read this as** (`components/mathScanner/ScanReadingReview.tsx`): the reading arrives in an editable field, **Solve** sends the checked text, **Send photo** sends the crop at once without waiting, and **Retake** returns to the camera. Biology still sends the crop immediately, with no read-back.
 - Backslashes, `_`, and `*` inside math are protected during Markdown preprocessing and restored at the native/MathJax-SVG parser boundary, so Markdown cannot consume math escapes or reinterpret subscripts/multiplication as emphasis.
 

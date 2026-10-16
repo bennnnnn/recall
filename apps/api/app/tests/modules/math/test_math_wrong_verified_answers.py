@@ -607,7 +607,7 @@ def test_a_maths_verb_with_a_maths_object_is_maths(text: str) -> None:
 def test_a_large_rounded_product_keeps_scientific_notation() -> None:
     from sympy import Float
 
-    from app.modules.math.solve.parse import format_verified_latex
+    from app.modules.math.solve.display import format_verified_latex
 
     assert format_verified_latex(Float(6.02e23) * 2) != "1203999999999999857393664"
     assert "10^{24}" in format_verified_latex(Float(6.02e23) * 2)

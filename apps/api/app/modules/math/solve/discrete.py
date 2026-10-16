@@ -250,7 +250,7 @@ def _matrix_basis_latex(vectors: list[object]) -> str:
 
 def compute_matrix(data: MatrixInput) -> MatrixResult:
     """Small-matrix ops via sympy.Matrix using exact rational entries."""
-    from app.modules.math.solve.parse import format_verified_latex
+    from app.modules.math.solve.display import format_verified_latex
 
     mat = _matrix_from_rows(data.rows)
     square_ops = {"determinant", "inverse", "eigenvalues", "eigenvectors", "diagonalize"}

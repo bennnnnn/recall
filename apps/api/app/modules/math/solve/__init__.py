@@ -30,6 +30,9 @@ from app.modules.math.solve.discrete import (
     compute_statistics,
     guess_variables,
 )
+from app.modules.math.solve.display import (
+    format_verified_latex as format_verified_latex,
+)
 from app.modules.math.solve.extract_eq import (
     rejected_equality_chain,
     try_extract_compound_inequality_from_text,
@@ -62,17 +65,14 @@ from app.modules.math.solve.graph import (
     sample_parametric_curve,
     sample_polar_curve,
 )
+from app.modules.math.solve.latex_normalize import (
+    _normalize_latex_to_sympy as _normalize_latex_to_sympy,
+)
 from app.modules.math.solve.parse import (
     _SAFE_EXPR_CHARS as _SAFE_EXPR_CHARS,
 )
 from app.modules.math.solve.parse import (
-    _normalize_latex_to_sympy as _normalize_latex_to_sympy,
-)
-from app.modules.math.solve.parse import (
     _parse_expression as _parse_expression,
-)
-from app.modules.math.solve.parse import (
-    format_verified_latex as format_verified_latex,
 )
 from app.modules.math.solve.parse import (
     parse_equation as parse_equation,

@@ -39,11 +39,11 @@ from app.modules.math.schemas import (
     NewtonMethodResult,
     SystemOfEquationsInput,
 )
+from app.modules.math.solve.display import format_verified_latex
 from app.modules.math.solve.parse import (
     MathServiceError,
     _expr_needs_real_domain,
     _parse_expression,
-    format_verified_latex,
     parse_equation,
 )
 

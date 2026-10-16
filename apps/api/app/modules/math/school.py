@@ -87,7 +87,7 @@ def _defined_value_latex(value: Any) -> str:
     """
     from sympy import nan, oo, zoo
 
-    from app.modules.math.solve.parse import format_verified_latex
+    from app.modules.math.solve.display import format_verified_latex
 
     if value is nan or value is zoo or value.has(nan, zoo):
         return UNDEFINED_LATEX

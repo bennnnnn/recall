@@ -299,7 +299,7 @@ def can_direct_number_line(
     already stripped ("show steps for 2x+3<7" leaves the bare inequality).
     """
     from app.modules.math.match import prepare
-    from app.modules.math.solve.parse import _rewrite_bare_abs_bars
+    from app.modules.math.solve.latex_normalize import _rewrite_bare_abs_bars
 
     answer = (verified.canonical_answer or "").strip()
     fences = solver_fences(verified)

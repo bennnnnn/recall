@@ -895,7 +895,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-34 — Math solve and parse splits, and the end of `tools/helpers.py`
 
-- **Status:** part 1 of 5 done (tools/helpers.py). `tools/request_text.py` has the filler, lead-ins and the text after a calculus verb, `tools/expr_rewrite.py` the LaTeX, `dx`, English powers and `math_expr_or_none`, `tools/function_def.py` `peel_function_definition` and the `let x = 5` substitution, and `direct_newton.py` the Newton guess and lead-in, which the numerical-method extractor imports when it runs (a module import would cycle through `direct_calculus` and `extract`); all 28 definitions kept their AST, and a capture of 59,351 prompts and 47,174 synthetic intents and the math STEM sweep are unchanged.
+- **Status:** part 2 of 5 done (tools/helpers.py, solve/parse.py): helpers became `tools/request_text.py`, `tools/expr_rewrite.py`, `tools/function_def.py` and `direct_newton.py`, and parse became `solve/latex_normalize.py`, `solve/unicode_normalize.py` (the glyphs, which kept the LaTeX file under 500 lines), `solve/parse.py` and `solve/display.py`, with every moved definition keeping its AST.
 - **Problem:**
   - `math/tools/helpers.py` (499, 17 importers) is a catch-all: LaTeX normalization,
     request-text filler and lead-in stripping, English powers, function-definition peeling and

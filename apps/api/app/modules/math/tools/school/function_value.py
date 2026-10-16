@@ -323,7 +323,7 @@ def _call_tex(call: _Call) -> str:
 def _block_function_value(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
     from sympy import latex, sympify
 
-    from app.modules.math.solve.parse import format_verified_latex
+    from app.modules.math.solve.display import format_verified_latex
 
     if intent.school_op == "expression_value" and intent.system_equations:
         given = {name: sympify(number) for name, number in intent.system_equations}

@@ -10,11 +10,8 @@ from sympy import Expr, Poly, Symbol
 from sympy.polys.polyerrors import PolynomialError
 
 from app.modules.math.schemas import GraphBlockSpec
-from app.modules.math.solve.parse import (
-    MathServiceError,
-    _normalize_latex_to_sympy,
-    _parse_expression,
-)
+from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
+from app.modules.math.solve.parse import MathServiceError, _parse_expression
 
 
 def affine_inequality_graph_spec(
