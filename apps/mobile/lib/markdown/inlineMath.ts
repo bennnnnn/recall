@@ -1,7 +1,7 @@
 import { codeSpanOpensWithin, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { latexHasNestedMathView, latexHasStackedFrac, restoreMathEscapes } from "@/lib/math/text";
 
-type InlineMathPart = { type: "text" | "math"; value: string };
+export type InlineMathPart = { type: "text" | "math"; value: string };
 
 function escapedAt(text: string, at: number): boolean {
   let slashes = 0;

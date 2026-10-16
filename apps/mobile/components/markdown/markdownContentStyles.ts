@@ -248,6 +248,8 @@ export function compactMdStyles<T extends ReturnType<typeof makeMdStyles>>(style
   };
 }
 
+/** The style map react-native-markdown-display hands each render rule. */
+export type StyleMap = Record<string, object>;
 export type MdTableStyles = ReturnType<typeof makeMdTable>;
 export type MdMathStyles = ReturnType<typeof makeMdMath>;
 export type MdImgStyles = ReturnType<typeof makeMdImg>;
