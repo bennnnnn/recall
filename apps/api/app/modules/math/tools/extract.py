@@ -154,10 +154,10 @@ def _numeric_statement(text: str, intent: MathIntent) -> bool:
     or "all real numbers", which is wrong or meaningless to a student. A
     typed ``solve 0 = 1`` still reads as the contradiction it is.
     """
-    if intent.kind != "equation" or intent.system_equations:
+    if intent.kind not in {"equation", "inequality"} or intent.system_equations:
         return False
-    sides = _FUNCTION_NAMES.sub(" ", f"{intent.lhs or ''} {intent.rhs or ''}")
-    if re.search(r"[A-Za-z]", sides):
+    sides = _FUNCTION_NAMES.sub(" ", f"{intent.lower or ''} {intent.lhs or ''} {intent.rhs or ''}")
+    if re.search(r"[A-Za-df-z]", sides):  # e is Euler's number, never the unknown
         return False
     return re.search(r"\bsolve\b", text, re.IGNORECASE) is None
 

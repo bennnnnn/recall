@@ -17,12 +17,11 @@ from app.core.config import get_settings
 from app.core.sympy_notation import use_school_log_notation
 from app.modules.math.function_names import (
     HYPERBOLIC,
-    MATH_FUNCTION_NAMES,
     TRIG,
     function_name_alternation,
-    names_longest_first,
 )
 from app.modules.math.schemas import EquationInput
+from app.modules.math.solve.written_names import lone_quantity, reject_unwritten_symbols
 from app.services.solving import MathServiceError
 
 logger = logging.getLogger(__name__)
@@ -658,13 +657,18 @@ def _normalize_latex_to_sympy(expr: str) -> str:
 _GLUED_EXPONENT_END = frozenset("+-*/=<>),] \t\n")
 
 
+def _exponent_mark(prev: str, ch: str) -> bool:
+    """The e of ``1e5`` or ``1.8e-5``: a float literal's exponent, never Euler's e."""
+    return ch == "e" and (prev.isdigit() or prev == ".")
+
+
 def _lift_glued_exponents(text: str) -> str:
     """`3x2+4` is `3x**2+4`, not `3*x*2`.
 
     Homework and OCR write `x2` for `x^2`. Implicit multiplication would
     otherwise split that into `x*2` and solve a different equation (`6x`).
-    `x0` / `x1` stay names, and a digit run after another letter (`sin2`,
-    `log2`) is not an exponent.
+    `x0` / `x1` stay names, a capital with digits (`P2`, `K2`) is a subscripted
+    quantity, and a digit run after another letter (`sin2`, `log2`) is not an exponent.
     """
     out: list[str] = []
     i = 0
@@ -672,7 +676,7 @@ def _lift_glued_exponents(text: str) -> str:
     while i < n:
         ch = text[i]
         prev = text[i - 1] if i else ""
-        if ch.isalpha() and not prev.isalpha() and prev != "\\":
+        if ch.islower() and not prev.isalpha() and prev != "\\" and not _exponent_mark(prev, ch):
             j = i + 1
             if j < n and text[j].isdigit():
                 k = j + 1
@@ -701,7 +705,7 @@ def _normalize_expr(text: str) -> str:
     # Python tokenizes 0x as the start of a hexadecimal literal before
     # SymPy's implicit-multiplication transform can see it. Explicitly mark
     # every number-letter boundary (2x, 0x, 3pi) as multiplication.
-    s = re.sub(r"(?<=\d)(?=[A-Za-z])", "*", s)
+    s = re.sub(r"(?<=\d)(?![eE][+-]?\d)(?=[A-Za-z])", "*", s)
     s = re.sub(r"\s+", " ", s)
     return s
 
@@ -711,6 +715,7 @@ def _normalize_expr(text: str) -> str:
 # gadget would need to reach beyond a plain arithmetic/algebraic expression.
 _SAFE_EXPR_CHARS = re.compile(r"^[\w\s+\-*/().,=<>!]*$")
 _DECIMAL_NUMBER = re.compile(r"\d+(?:\.\d*)?|\.\d+")
+_LONG_EXPONENT = re.compile(r"\d[eE][+-]?\d{4}")
 
 
 def _reject_unsafe_expr(normalized: str) -> None:
@@ -739,48 +744,14 @@ def _reject_unsafe_expr(normalized: str) -> None:
     """
     if "__" in normalized:
         raise MathServiceError("Invalid expression")
+    if _LONG_EXPONENT.search(normalized):  # 1e-1000000 is beyond any number a student means
+        raise MathServiceError("Number out of range")
     if "[" in normalized or "]" in normalized:
         raise MathServiceError("Invalid expression")
     if "." in _DECIMAL_NUMBER.sub("", normalized):
         raise MathServiceError("Invalid expression")
     if not _SAFE_EXPR_CHARS.match(normalized):
         raise MathServiceError("Invalid expression")
-
-
-# Longest first, so ``sinh`` is not read as ``sin`` + ``h``.
-_FUNCTION_WORDS = names_longest_first(MATH_FUNCTION_NAMES)
-# A unit after a number is not a product of variables: ``5 kg`` is not 5*k*g.
-_UNIT_AFTER_NUMBER_RE = re.compile(
-    r"\d\s*(?:kg|km|cm|mm|mg|mL|ml|ms|mol|kJ|kN|kW|kPa|hPa|Pa|Hz|hrs?|min|mph)\b"
-)
-_LETTER_RUN_RE = re.compile(r"[^\W\d_]+")
-
-
-def _written_letters(text: str) -> set[str]:
-    """Single letters the writer used as names, not inside a function or unit word."""
-    letters: set[str] = set()
-    for run in _LETTER_RUN_RE.findall(_UNIT_AFTER_NUMBER_RE.sub(" ", text)):
-        lowered = run.lower()
-        for word in _FUNCTION_WORDS:
-            if lowered.startswith(word):
-                run = run[len(word) :]
-                break
-        letters.update(run)
-    return letters
-
-
-def _reject_unwritten_symbols(expr: str, parsed: Any) -> None:
-    """Every one-letter symbol must be a letter the writer wrote as a name.
-
-    Implicit multiplication splits any letter run it cannot resolve, so
-    ``log2(x)`` became ``2*g*l*o*x``, ``cos2x`` became ``2*c*o*s*x`` and
-    ``5 kg`` became ``5*g*k``; each then solved as ordinary algebra and was
-    certified. A symbol that only exists inside such a word means the parse
-    is not what was written.
-    """
-    names = {symbol.name for symbol in getattr(parsed, "free_symbols", ()) if len(symbol.name) == 1}
-    if names and not names <= _written_letters(expr):
-        raise MathServiceError(f"Could not parse expression: {expr}")
 
 
 def _parse_expression(
@@ -795,9 +766,8 @@ def _parse_expression(
         raise MathServiceError("Expression too long")
     _reject_unsafe_expr(normalized)
     local_dict = dict(_LOCALS)
-    if variable_names:
-        for name in variable_names:
-            local_dict[name] = Symbol(name, real=True) if real else Symbol(name)
+    for name in [*(variable_names or []), *lone_quantity(expr)]:
+        local_dict[name] = Symbol(name, real=True) if real else Symbol(name)
     try:
         parsed = parse_expr(
             normalized,
@@ -807,7 +777,7 @@ def _parse_expression(
         )
     except Exception as exc:
         raise MathServiceError(f"Could not parse expression: {expr}") from exc
-    _reject_unwritten_symbols(expr, parsed)
+    reject_unwritten_symbols(expr, parsed)
     return parsed
 
 

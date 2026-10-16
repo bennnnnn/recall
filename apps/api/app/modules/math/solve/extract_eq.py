@@ -35,7 +35,7 @@ _SYSTEM_PREFIXES = (
 # Two-letter words that sit between homework steps after collapse_ws
 # ("…=0 or x-3=0"). 1-letter tokens stay variables; ln/pi stay math.
 _TWO_LETTER_ENGLISH = frozenset(
-    {"or", "if", "so", "to", "of", "it", "is", "be", "as", "at", "by", "an", "we"}
+    {"or", "if", "so", "to", "of", "it", "is", "be", "as", "at", "by", "an", "we", "my"}
 )
 
 
@@ -59,8 +59,13 @@ def _english_run_len(s: str, i: int) -> int:
 
 
 def _english_after(s: str, i: int) -> bool:
-    """True when the next token (skipping spaces) is English."""
+    """True when the next token (skipping spaces) is English.
+
+    Inside a word there is no next token: the ``qrt`` of ``sqrt`` is not English.
+    """
     n = len(s)
+    if 0 < i < n and s[i - 1].isalpha() and s[i].isalpha():
+        return False
     pos = i
     while pos < n and s[pos] == " ":
         pos += 1
@@ -81,12 +86,15 @@ def _english_before(s: str, i: int) -> bool:
 
 
 def _sentence_period(text: str, index: int) -> bool:
-    """A `.` that ends a word, not a decimal point (`3.14`, `.5`, `3.`)."""
+    """A `.` that ends a word or a sentence, not a decimal point (`3.14`, `.5`, `3.`).
+
+    A decimal point is never followed by a space: ``x = 7. A tool`` ends at 7.
+    """
     if index < 0 or index >= len(text) or text[index] != ".":
         return False
     prev = text[index - 1] if index else ""
     nxt = text[index + 1] if index + 1 < len(text) else ""
-    return not prev.isdigit() and not nxt.isdigit()
+    return (not prev.isdigit() or nxt.isspace()) and not nxt.isdigit()
 
 
 def _is_equation_side(s: str) -> bool:
@@ -244,6 +252,11 @@ def _equation_spans(text: str) -> list[tuple[int, int, str, str]]:
             # left ``(x)=2``. A side cut short by a math symbol is not the side.
             start = right if right > eq + 1 else eq + 1
             continue
+        if cleaned[left - 1 : left] == "=" and not (spans and spans[-1][1] == eq):
+            # The tail of ``a = b = c`` whose first link was no equation: lines of
+            # working run together, never an equation of their own.
+            start = right if right > eq + 1 else eq + 1
+            continue
         if _is_equation_side(lhs) and _is_equation_side(rhs):
             spans.append((left, right, lhs, rhs))
         start = right if right > eq + 1 else eq + 1
@@ -251,9 +264,16 @@ def _equation_spans(text: str) -> list[tuple[int, int, str, str]]:
 
 
 def _stopped_at_math_symbol(text: str, index: int) -> bool:
-    """True when the walk ended at a symbol (``∛``, ``∫``, ``∑``), not prose or a break."""
+    """True when the walk ended at a symbol (``∛``, ``∫``, ``∑``), not prose or a break.
+
+    LaTeX the normalizer left (``\\,dx``) is one too: the side runs on past it.
+    """
     if not 0 <= index < len(text):
         return False
+    if index and text[index - 1] == "\\":  # the comma of a thin space
+        return True
+    if text[index] == "\\" and not text.startswith("\\text{", index):  # \text{or} is a word
+        return True
     return unicodedata.category(text[index]).startswith("S") and not text[index].isascii()
 
 
@@ -444,9 +464,12 @@ def try_extract_inequality_from_text(text: str) -> tuple[str, str, str] | None:
             right += 1
         lhs = cleaned[left:start].strip()
         rhs = cleaned[after:right].strip()
+        if cleaned[left - 1 : left] in {"<", ">", "≤", "≥", "="}:
+            return None  # one link of a chain the compound reader could not read
         if _is_equation_side(lhs) and _is_equation_side(rhs):
-            if best is None or start < best[0]:
-                best = (start, lhs, rhs, canon)
+            if best is not None:
+                return None  # ``x < -1 or x > 1``: two inequalities, not one
+            best = (start, lhs, rhs, canon)
     if best is None:
         return None
     return best[1], best[2], best[3]

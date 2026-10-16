@@ -302,7 +302,7 @@ def _one_equation_in(text: str, variable: str) -> tuple[str, str] | None:
     """The single equation in one unknown that ``text`` states, or None."""
     from app.modules.math.solve import guess_variables
     from app.modules.math.solve.extract_eq import try_extract_equations_from_text
-    from app.modules.math.tools.extractors.algebra import already_solved
+    from app.modules.math.tools.extractors.stated import already_solved
 
     pairs = {
         (lhs.strip(" *:"), rhs.strip(" *:."))

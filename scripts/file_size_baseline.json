@@ -122,7 +122,7 @@
       "why": "Over 500 before the standards; tracked in ES-39"
     },
     "apps/api/app/modules/math/solve/parse.py": {
-      "lines": 823,
+      "lines": 793,
       "why": "Over 500 before the standards; tracked in ES-34"
     },
     "apps/api/app/modules/math/solve/traces.py": {
