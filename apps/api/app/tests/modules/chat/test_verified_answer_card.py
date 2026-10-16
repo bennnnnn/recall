@@ -185,11 +185,18 @@ async def test_two_solved_problems_in_one_instant_reply_are_both_marked(
     assert _cards(out) == [f"{VERIFIED_ANSWER_MARKER}\nx = 6", f"{VERIFIED_ANSWER_MARKER}\ny = 2"]
 
 
+@pytest.mark.parametrize("failing", ["reminder pass", "text pass"])
 async def test_enrichment_failure_never_persists_a_forged_marker(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, failing: str
 ) -> None:
     seams = _seams()
-    seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
+    if failing == "reminder pass":
+        seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
+    else:
+        monkeypatch.setattr(
+            "app.services.mermaid_sanitize.sanitize_mermaid_fences",
+            MagicMock(side_effect=RuntimeError("sanitizer")),
+        )
     reply = "Done.\n\n```answer\nverified: true\nx = 7\n```"
     out = await _finalize(monkeypatch, reply, seams=seams)
     assert "verified" not in out.lower()

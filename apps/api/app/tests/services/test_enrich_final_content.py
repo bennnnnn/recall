@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import re
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -11,11 +14,27 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
+from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
 from app.modules.chat.stream_pipeline import _replace_failed_subject_fences, enrich_final_content
+from app.modules.todos import repository as todos_repo
 from app.modules.web_search.formatting import format_sources_fence
+from app.repositories import chats as chats_repo
+from app.repositories import users as users_repo
 from app.services.answer_fence import mark_server_answer_fences
 from app.services.solving import VerifiedPhysicsBlock
+
+_CARD = re.compile(r"```reminder_proposal\n(.*?)\n```", re.DOTALL)
+_MERMAID_REPLY = "```mermaid\nflowchart TD\n  D --> E[Grind Beans (Medium Grind)]\n```"
+
+
+def _fail_mermaid_pass(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pure text pass late in finalize raises (any of them could)."""
+
+    def _boom(_text: str) -> str:
+        raise RuntimeError("mermaid sanitizer failed")
+
+    monkeypatch.setattr("app.services.mermaid_sanitize.sanitize_mermaid_fences", _boom)
 
 
 def _passthrough_math(content: str, verified: object = None, correct: bool = True) -> str:
@@ -592,3 +611,241 @@ async def test_unverified_working_names_its_first_slip(
         should_cancel=None,
     )
     assert ("Check this step:" in persisted) is noted
+
+
+# --- ES-03: a failed text pass never throws away a side effect that already happened ---------
+
+_DENTIST_ASK = "add dentist tomorrow at 3pm to my reminders"
+
+
+async def _reminder_turn(
+    db_session: Any, fake_redis: Any, reply: str, *, proposals: bool, was_cancelled: bool = False
+) -> tuple[str, dict[str, Any], list[Any], Any]:
+    """Finalize ``reply`` to ``_DENTIST_ASK`` with the real reminder pass on Postgres."""
+    user = await users_repo.create(
+        db_session,
+        email=f"{uuid4()}@example.com",
+        name="Test User",
+        avatar_url=None,
+        google_sub=str(uuid4()),
+    )
+    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
+
+    @asynccontextmanager
+    async def _session() -> Any:
+        yield db_session
+
+    seams = _seams()
+    seams.SessionLocal = _session
+    seams.todos_service = todos_service
+    ctx = _ctx()
+    ctx.user_id = user.id
+    ctx.chat_id = chat.id
+    ctx.user_message_content = _DENTIST_ASK
+    ctx.prompt_messages = [{"role": "user", "content": _DENTIST_ASK}]
+
+    result: dict[str, Any] = {}
+    persisted = await enrich_final_content(
+        seams,
+        fake_redis,
+        Settings(chemistry_enabled=False, reminder_proposals_enabled=proposals),
+        ctx,
+        assistant_text=reply,
+        usage={"input": 4, "output": 8},
+        result=result,
+        was_cancelled=was_cancelled,
+        assistant_parts=[reply],
+        should_cancel=None,
+    )
+    rows = await todos_repo.list_for_user(db_session, user.id, limit=10)
+    return persisted, result, rows, user
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("proposals", [True, False], ids=["card offered", "row written"])
+@pytest.mark.parametrize("text_pass_fails", [False, True], ids=["passes ok", "text pass fails"])
+async def test_a_failed_text_pass_keeps_the_reminder_change(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Any,
+    fake_redis: Any,
+    proposals: bool,
+    text_pass_fails: bool,
+) -> None:
+    """A text pass that failed after the reminder pass persisted the raw reply.
+
+    The card was lost while its proposal sat in Redis, or the row was written
+    while the reply showed only the hidden fence, and ``todos_sync`` never told
+    the phone to refresh its list.
+    """
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    if text_pass_fails:
+        _fail_mermaid_pass(monkeypatch)
+    due = (datetime.now(UTC) + timedelta(days=1)).replace(hour=15, minute=0, second=0)
+    fence = json.dumps({"title": "Dentist", "due_at": due.isoformat()})
+    reply = f"I'll set a reminder for that.\n\n```reminder\n{fence}\n```"
+
+    persisted, result, rows, user = await _reminder_turn(
+        db_session, fake_redis, reply, proposals=proposals
+    )
+
+    assert persisted.startswith("I'll set a reminder for that.")
+    assert "```reminder\n" not in persisted
+    assert result["final_content"] == persisted
+    assert result["todos_sync"] == "1"
+    if proposals:
+        card = _CARD.search(persisted)
+        assert card is not None, persisted
+        assert json.loads(card.group(1))["items"][0]["title"] == "Dentist"
+        assert await fake_redis.keys(f"todos:proposal:{user.id}:*")
+        assert rows == []
+    else:
+        assert "Dentist" in persisted
+        assert "```reminder_proposal" not in persisted
+        assert [row.content for row in rows] == ["Dentist"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("was_cancelled", [True, False], ids=["stopped", "stream dropped"])
+async def test_a_reply_cut_inside_its_reminder_fence_still_offers_the_card(
+    monkeypatch: pytest.MonkeyPatch, db_session: Any, fake_redis: Any, was_cancelled: bool
+) -> None:
+    """An open fence is never applied, even though finalize closes open fences
+    before the reminder pass: the user's own words still make the card."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    reply = 'Sure, I\'ll set a reminder.\n\n```reminder\n{"title": "Den'
+
+    persisted, _result, rows, _user = await _reminder_turn(
+        db_session, fake_redis, reply, proposals=True, was_cancelled=was_cancelled
+    )
+
+    card = _CARD.search(persisted)
+    assert card is not None, persisted
+    assert json.loads(card.group(1))["items"][0]["title"].lower() == "dentist"
+    assert "Could not save" not in persisted
+    assert "```reminder\n" not in persisted
+    assert rows == []
+
+
+@pytest.mark.asyncio
+async def test_a_failed_reminder_pass_keeps_the_finished_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every text pass already succeeded, so their work persists, not the raw reply."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    seams = _seams()
+    seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
+
+    result: dict[str, Any] = {}
+    persisted = await enrich_final_content(
+        seams,
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(),
+        assistant_text=_MERMAID_REPLY,
+        usage={"input": 4, "output": 8},
+        result=result,
+        was_cancelled=False,
+        assistant_parts=[_MERMAID_REPLY],
+        should_cancel=None,
+    )
+
+    assert 'E["Grind Beans (Medium Grind)"]' in persisted
+    assert result["final_content"] == persisted
+    assert "todos_sync" not in result
+
+
+@pytest.mark.asyncio
+async def test_a_failed_text_pass_keeps_the_attached_answer_photo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.images import answer_photo
+
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    _fail_mermaid_pass(monkeypatch)
+    photo_id = uuid4()
+    monkeypatch.setattr(
+        answer_photo.image_search, "photos_for_answer", AsyncMock(return_value=[photo_id])
+    )
+    ctx = _ctx()
+    ctx.answer_photo = answer_photo.AnswerPhoto(Settings(), MagicMock())
+    ctx.answer_photo.feed(PHOTO_REPLY)
+
+    result: dict[str, Any] = {}
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text=PHOTO_REPLY,
+        usage={"input": 4, "output": 8},
+        result=result,
+        was_cancelled=False,
+        assistant_parts=[PHOTO_REPLY],
+        should_cancel=None,
+    )
+
+    assert persisted.startswith(f"[Image: /attachments/{photo_id}/file]\n\nEthiopia lies")
+    assert "```photo" not in persisted
+    assert result["final_content"] == persisted
+    assert ctx.answer_photo_ids == [photo_id]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_text_pass_keeps_the_source_chips(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``done`` already carries the sources, so the saved reply keeps their fence."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    _fail_mermaid_pass(monkeypatch)
+    hits = [
+        WebSearchHit(
+            title="Example Source",
+            url="https://example.com/a",
+            snippet="A snippet about the topic.",
+        )
+    ]
+    prose = "Here is the latest on the topic."
+
+    result: dict[str, Any] = {}
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(search_sources=hits),
+        assistant_text=prose,
+        usage={"input": 10, "output": 20},
+        result=result,
+        was_cancelled=False,
+        assistant_parts=[prose],
+        should_cancel=None,
+    )
+
+    assert persisted == f"{prose}{format_sources_fence(hits)}".strip()
+    assert result["final_content"] == persisted
+    assert "https://example.com/a" in result["search_sources"]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_text_pass_before_any_side_effect_persists_the_raw_reply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With nothing committed, the text passes are all or nothing."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    _fail_mermaid_pass(monkeypatch)
+
+    result: dict[str, Any] = {}
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(),
+        assistant_text=_MERMAID_REPLY,
+        usage={"input": 4, "output": 8},
+        result=result,
+        was_cancelled=False,
+        assistant_parts=[_MERMAID_REPLY],
+        should_cancel=None,
+    )
+
+    assert persisted == _MERMAID_REPLY
+    assert "final_content" not in result

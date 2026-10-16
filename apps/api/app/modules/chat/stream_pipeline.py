@@ -13,6 +13,7 @@ from redis.asyncio import Redis
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.gateways.litellm_gateway import ModelUnavailableError
+from app.modules.chat.finalize_reminders import apply_reminder_pass, drop_cut_reminder_fence
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.stream_events import await_ignoring_cancel, clear_task_cancellation
 from app.modules.chat.tool_gate import should_classify_tool_web_search
@@ -358,35 +359,22 @@ def _fallback_text(raw: str, *, server_text: bool) -> str:
         return "\n".join(line for line in lines if "verified" not in line.lower())
 
 
-def _prior_assistant_text(ctx: StreamContext) -> str:
-    """The reply before this turn ("" when none), for "mark it done"."""
-    return _prior_text(ctx, "assistant")
+async def _attach_answer_photo(
+    ctx: StreamContext, text: str, was_cancelled: bool
+) -> tuple[str, bool]:
+    """Swap the reply's ```photo fence for the photo found while it streamed.
 
-
-def _prior_user_text(ctx: StreamContext) -> str:
-    """The user's message before this one: "whats next on my reminders" then "done"."""
-    return _prior_text(ctx, "user")
-
-
-def _prior_text(ctx: StreamContext, role: str) -> str:
-    for message in reversed(ctx.prompt_messages[:-1]):
-        if message.get("role") == role:
-            content = message.get("content")
-            return content if isinstance(content, str) else ""
-    return ""
-
-
-async def _attach_answer_photo(ctx: StreamContext, text: str, was_cancelled: bool) -> str:
-    """Swap the reply's ```photo fence for the photo found while it streamed."""
+    True once a photo is linked to the reply, so a fallback keeps its marker.
+    """
     from app.modules.images.answer_photo import strip_photo_fences
 
     photo = ctx.answer_photo
     if photo is None or was_cancelled:
         if photo is not None:
             photo.cancel()
-        return strip_photo_fences(text)
+        return strip_photo_fences(text), False
     text, ctx.answer_photo_ids = await photo.attach(text)
-    return text
+    return text, bool(ctx.answer_photo_ids)
 
 
 async def enrich_final_content(
@@ -404,34 +392,21 @@ async def enrich_final_content(
     completion: str = "complete",
 ) -> str:
     raw_assistant_text = assistant_text
-    reminder_created = 0
     # An instant reply is wholly server text: every card in it is the server's.
     server_text = ctx.instant_reply is not None
+    # The text as of the last side effect (a linked photo, source chips). A failed
+    # text pass falls back to it, never to the raw reply (ES-03).
+    committed: str | None = None
     try:
+        # Before the fence repair below can close it for the reminder pass.
+        assistant_text = drop_cut_reminder_fence(assistant_text)
         if not server_text:
             assistant_text = _prepare_model_reply(assistant_text, ctx.verified_subject)
-        assistant_text = await _attach_answer_photo(ctx, assistant_text, was_cancelled)
-        user = ctx.user
-        if user is None:
-            async with seams.SessionLocal() as session:
-                user = await seams.users_repo.get_by_id(session, ctx.user_id)
-        if user is not None:
-            async with seams.SessionLocal() as session:
-                (
-                    assistant_text,
-                    reminder_created,
-                ) = await seams.todos_service.materialize_reminder_fences(
-                    session,
-                    user_id=ctx.user_id,
-                    chat_id=ctx.chat_id,
-                    assistant_text=assistant_text,
-                    user_timezone=ctx.user_timezone or getattr(user, "timezone", None),
-                    user_text=ctx.user_message_content,
-                    prior_assistant=_prior_assistant_text(ctx),
-                    prior_user=_prior_user_text(ctx),
-                    redis=redis,
-                    confirm=settings.reminder_proposals_enabled,
-                )
+        assistant_text, photo_linked = await _attach_answer_photo(
+            ctx, assistant_text, was_cancelled
+        )
+        if photo_linked:
+            committed = _fallback_text(assistant_text, server_text=server_text)
 
         from app.core.sympy_executor import run_sympy
         from app.services.solving import VerifiedPhysicsBlock
@@ -559,13 +534,11 @@ async def enrich_final_content(
                 assistant_parts[:] = [assistant_text] if assistant_text.strip() else []
                 assistant_parts.append(places_fence)
                 assistant_text = "".join(assistant_parts).strip()
+        if ctx.search_sources:
+            committed = assistant_text  # done already carries these chips
         if ctx.instant_reply and not usage:
             usage["output"] = 0
             usage["input"] = 0
-        if result is not None and not ctx.skip_memory_jobs:
-            transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
-            if reminder_created > 0 or seams.todos_service.transcript_implies_todo_sync(transcript):
-                result["todos_sync"] = "1"
 
         # Prose artifact cleanup — runs last so it never interferes with
         # fence parsing. Strips orphan colon lines and collapses 3+ blank
@@ -613,26 +586,27 @@ async def enrich_final_content(
             locale = ctx.user.locale if ctx.user is not None else None
             assistant_text = format_shown_clock_answer(ctx.user_timezone, locale)
         assistant_text = correct_weekday_dates(assistant_text)
+        enriched = True
     except Exception:
-        logger.exception("Post-stream enrichment failed; persisting raw assistant text")
-        assistant_text = _fallback_text(raw_assistant_text, server_text=server_text)
-        ctx.answer_photo_ids = []
-        # The client settles what it streamed unless done carries the text, so a
-        # stripped forged marker (or a marked instant card) must be sent back.
-        if (
-            result is not None
-            and assistant_text
-            and (was_cancelled or assistant_text != raw_assistant_text)
-        ):
-            result["final_content"] = assistant_text
-        return assistant_text
+        logger.exception("Post-stream enrichment failed; persisting the last committed text")
+        if committed is None:
+            committed = _fallback_text(raw_assistant_text, server_text=server_text)
+            ctx.answer_photo_ids = []
+        assistant_text = committed
+        enriched = False
+
+    # Last, on the finished text: no later pass can fail and lose its card.
+    assistant_text = await apply_reminder_pass(seams, redis, settings, ctx, assistant_text, result)
 
     # One write: done.final_content must equal the string we persist. Skip on
-    # an unchanged normal turn so done payloads stay small.
+    # an unchanged normal turn so done payloads stay small. After a failure the
+    # client settles what it streamed unless done carries the text, so a
+    # stripped forged marker (or a marked instant card) is sent back, but an
+    # empty fallback never blanks the reply.
     if result is not None:
         if was_cancelled and assistant_text:
             result["final_content"] = assistant_text
-        elif assistant_text != raw_assistant_text:
+        elif assistant_text != raw_assistant_text and (assistant_text or enriched):
             result["final_content"] = assistant_text
     return assistant_text
 
