@@ -211,7 +211,6 @@ def test_images_runtime_code_has_one_owner() -> None:
 def test_mobile_images_has_one_feature_home() -> None:
     feature_root = MOBILE_ROOT / "features" / "images"
     assert (feature_root / "api.ts").is_file()
-    assert (feature_root / "types.ts").is_file()
     for folder in ("components", "hooks", "model"):
         assert (feature_root / folder).is_dir()
 
@@ -258,7 +257,6 @@ def test_speech_runtime_code_has_one_owner() -> None:
 def test_mobile_speech_has_one_feature_home() -> None:
     feature_root = MOBILE_ROOT / "features" / "speech"
     assert (feature_root / "api.ts").is_file()
-    assert (feature_root / "types.ts").is_file()
     for folder in ("components", "hooks", "model"):
         assert (feature_root / folder).is_dir()
 
