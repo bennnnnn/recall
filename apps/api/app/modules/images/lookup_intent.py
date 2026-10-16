@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import re
 
+from app.modules.images.gen_intent_words import NON_IMAGE_WORDS
+
 _ARTICLES = frozenset({"a", "an", "the"})
 _POSSESSIVES = frozenset({"my", "your", "our", "his", "her", "their", "its"})
 _REFERENCE_NOUNS = frozenset(
@@ -83,69 +85,16 @@ _PHOTO_FETCH_VERBS = frozenset({"send", "find", "get", "give", "pull", "bring"})
 
 # "show me my todos", "show me the code", "show me how to solve this" — this
 # extremely common product phrase must NOT be hijacked into an image search.
-# Extends image_gen_intent's non-image denylist with app/chat content nouns
-# and explanation cues that "show me" / "what does X look like" commonly ask
-# for outside of visual object identification.
-_NON_IMAGE_WORDS = frozenset(
+# Generation's denylist (code, writing, app content) plus the maths, chemistry,
+# plan and explanation nouns that "show me" / "what does X look like" ask for
+# outside of visual object identification.
+_LOOKUP_ONLY_NON_IMAGE_WORDS = frozenset(
     {
-        "todo",
-        "todos",
-        "task",
-        "tasks",
-        "list",
-        "lists",
-        "reminder",
-        "reminders",
-        "project",
-        "projects",
-        "account",
-        "accounts",
-        "script",
-        "scripts",
-        "code",
-        "function",
-        "functions",
-        "class",
-        "classes",
-        "file",
-        "files",
-        "folder",
-        "folders",
-        "chat",
-        "chats",
-        "note",
-        "notes",
-        "summary",
-        "summaries",
-        "plan",
-        "plans",
-        "schedule",
-        "schedules",
-        "event",
-        "events",
-        "meeting",
-        "meetings",
-        "quiz",
-        "quizzes",
-        "flashcard",
-        "flashcards",
         "deck",
         "decks",
-        "email",
-        "emails",
-        "message",
-        "messages",
-        "reply",
-        "replies",
-        "draft",
-        "drafts",
-        "report",
-        "reports",
         "settings",
         "profile",
         "subscription",
-        "password",
-        "passwords",
         "history",
         "progress",
         "streak",
@@ -154,27 +103,8 @@ _NON_IMAGE_WORDS = frozenset(
         "scores",
         "result",
         "results",
-        "example",
-        "examples",
-        "problem",
-        "problems",
-        "equation",
-        "equations",
-        "question",
-        "questions",
-        "exercise",
-        "exercises",
-        "homework",
-        "solution",
-        "solutions",
         "answer",
         "answers",
-        "proof",
-        "proofs",
-        "worksheet",
-        "worksheets",
-        "assignment",
-        "assignments",
         "step",
         "steps",
         "math",
@@ -210,17 +140,6 @@ _NON_IMAGE_WORDS = frozenset(
         "derivatives",
         "integral",
         "integrals",
-        # How-to / listicle heads — "show me the stops of becoming smart"
-        # (typo of steps) must not become a stock infographic.
-        "stops",
-        "ways",
-        "tips",
-        "tip",
-        "secrets",
-        "habits",
-        "tricks",
-        "stages",
-        "phases",
         "graph",
         "graphs",
         "chart",
@@ -229,8 +148,6 @@ _NON_IMAGE_WORDS = frozenset(
         "diagrams",
         "flowchart",
         "flowcharts",
-        "table",
-        "tables",
         "formula",
         "formulas",
         "calculation",
@@ -283,9 +200,7 @@ _NON_IMAGE_WORDS = frozenset(
         "days",
         "week",
         "weekend",
-        "routine",
         "budget",
-        "itinerary",
         "option",
         "options",
         "choices",
@@ -318,6 +233,24 @@ _NON_IMAGE_WORDS = frozenset(
         "logarithmic",
     },
 )
+# Code or writing nouns that also name a thing to see; they block only as the whole subject.
+_DUAL_USE_WORDS = frozenset(
+    {
+        "bug",
+        "bugs",
+        "branch",
+        "hook",
+        "test",
+        "story",
+        "stage",
+        "phase",
+        "phases",
+        "opening",
+        "screen",
+        "button",
+    }
+)
+_NON_IMAGE_WORDS = (NON_IMAGE_WORDS | _LOOKUP_ONLY_NON_IMAGE_WORDS) - _DUAL_USE_WORDS
 
 # "show me how to solve this" / "what does X mean" — explanation cues embedded
 # in the subject, not an object to photograph.
@@ -401,6 +334,9 @@ def _clean_subject(raw: str) -> str | None:
     if folded[0] in _DEICTICS and len(folded) > 1 and folded[1] in _NOT_A_NOUN:
         return None
     if any(w in _NON_IMAGE_WORDS or w in _EXPLANATION_CUES for w in folded):
+        return None
+    # "show me the bug (again)" is about code; "show me a bed bug" wants a photo.
+    if folded[0] in _DUAL_USE_WORDS and all(w in _NOT_A_NOUN for w in folded[1:]):
         return None
     return subject
 

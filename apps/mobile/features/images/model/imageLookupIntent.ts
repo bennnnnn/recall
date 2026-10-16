@@ -12,6 +12,8 @@
  * "show me a picture of X" bug).
  */
 
+import { NON_IMAGE_WORDS as GEN_NON_IMAGE_WORDS } from "@/features/images/model/imageGenIntentWords";
+
 const ARTICLES = new Set(["a", "an", "the"]);
 const POSSESSIVES = new Set(["my", "your", "our", "his", "her", "their", "its"]);
 const REFERENCE_NOUNS = new Set(["picture", "pictures", "photo", "photos", "image", "images", "pic", "pics"]);
@@ -34,35 +36,21 @@ const SEE_LEADS: string[][] = [
 // restaurant" and "give me a list" would turn into photo searches.
 const PHOTO_FETCH_VERBS = new Set(["send", "find", "get", "give", "pull", "bring"]);
 
-// Keep in sync with lookup_intent.py's _NON_IMAGE_WORDS.
-const NON_IMAGE_WORDS = new Set([
-  "todo", "todos", "task", "tasks", "list", "lists", "reminder", "reminders",
-  "project", "projects", "account", "accounts", "script", "scripts", "code",
-  "function", "functions", "class", "classes", "file", "files", "folder",
-  "folders", "chat", "chats", "note", "notes", "summary", "summaries", "plan",
-  "plans", "schedule", "schedules", "event", "events", "meeting", "meetings",
-  "quiz", "quizzes", "flashcard", "flashcards", "deck", "decks", "email",
-  "emails", "message", "messages", "reply", "replies", "draft", "drafts",
-  "report", "reports", "settings", "profile", "subscription", "password",
-  "passwords", "history", "progress", "streak", "streaks", "score", "scores",
-  "result", "results", "example", "examples", "problem", "problems",
-  "equation", "equations", "question", "questions", "exercise", "exercises",
-  "homework", "solution", "solutions", "answer", "answers", "proof", "proofs",
-  "worksheet", "worksheets", "assignment", "assignments", "step", "steps",
-  // How-to / listicle heads — not stock infographics. Do not add "way"
-  // (milky way) or "guide" (tour-guide photos).
-  "stops", "ways", "tips", "tip", "secrets", "habits", "tricks", "stages",
-  "phases",
-  "graph", "graphs", "chart", "charts", "diagram", "diagrams",
-  "flowchart", "flowcharts",
-  "table",
-  "tables", "formula", "formulas", "calculation", "calculations",
+// "show me my todos", "show me the code": generation's denylist (code, writing,
+// app content) plus the maths, chemistry, plan and explanation nouns that
+// "show me" / "what does X look like" ask for outside of visual identification.
+const LOOKUP_ONLY_NON_IMAGE_WORDS = [
+  "deck", "decks", "settings", "profile", "subscription", "history", "progress",
+  "streak", "streaks", "score", "scores", "result", "results", "answer", "answers",
+  "step", "steps",
   "math", "maths", "arithmetic", "algebra", "algebraic", "calculus",
   "addition", "add", "subtraction", "subtract", "multiplication", "multiply",
   "division", "divide", "sum", "difference", "product", "quotient",
   "remainder", "divisor", "dividend", "fraction", "fractions", "numerator",
   "denominator", "polynomial", "polynomials", "inequality", "inequalities",
   "derivative", "derivatives", "integral", "integrals",
+  "graph", "graphs", "chart", "charts", "diagram", "diagrams",
+  "flowchart", "flowcharts", "formula", "formulas", "calculation", "calculations",
   "translation", "definition", "meaning", "transcript", "attachment",
   "attachments", "document", "documents", "pdf", "explanation", "breakdown",
   "method", "methods", "working", "workings", "derivation",
@@ -72,7 +60,7 @@ const NON_IMAGE_WORDS = new Set([
   "bond", "bonds", "triangle", "triangles", "square", "squares", "circle",
   "circles", "rectangle", "rectangles", "geometry", "geometric",
   // Plans and choices — "what does a typical day in Tokyo look like".
-  "day", "days", "week", "weekend", "routine", "budget", "itinerary", "option",
+  "day", "days", "week", "weekend", "budget", "option",
   "options", "choices", "menu", "menus", "route", "routes", "directions",
   "price", "prices", "cost", "costs", "timeline", "agenda",
   // "Show me some love", "show me some support": not a photo.
@@ -80,7 +68,15 @@ const NON_IMAGE_WORDS = new Set([
   // Curves the app draws as a graph: "what does a sine wave look like".
   "sine", "cosine", "parabola", "parabolas", "hyperbola", "asymptote",
   "exponential", "logarithmic",
+];
+// Code or writing nouns that also name a thing to see; they block only as the whole subject.
+const DUAL_USE_WORDS = new Set([
+  "bug", "bugs", "branch", "hook", "test", "story", "stage", "phase", "phases",
+  "opening", "screen", "button",
 ]);
+const NON_IMAGE_WORDS = new Set(
+  [...GEN_NON_IMAGE_WORDS, ...LOOKUP_ONLY_NON_IMAGE_WORDS].filter((word) => !DUAL_USE_WORDS.has(word)),
+);
 
 const DEICTICS = new Set(["that", "this", "these", "those"]);
 const PHOTO_ADJECTIVES = new Set(["real", "actual", "nice", "good", "clear"]);
@@ -131,6 +127,8 @@ function cleanSubject(raw: string): string | null {
   // "Show me that again but simpler" asks to repeat an answer.
   if (DEICTICS.has(folded[0]) && folded.length > 1 && NOT_A_NOUN.has(folded[1])) return null;
   if (folded.some((w) => NON_IMAGE_WORDS.has(w) || EXPLANATION_CUES.has(w))) return null;
+  // "show me the bug (again)" is about code; "show me a bed bug" wants a photo.
+  if (DUAL_USE_WORDS.has(folded[0]) && folded.slice(1).every((w) => NOT_A_NOUN.has(w))) return null;
   return subject;
 }
 
