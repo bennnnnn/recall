@@ -5,9 +5,10 @@ import {
   deriveAssistantMessageContent,
   type AssistantMessageContent,
 } from "@/lib/markdown/assistantMessageContent";
+import { isServerPresentedRow } from "@/lib/markdown/presentation";
 
 type Options = {
-  message: Pick<Message, "id" | "content" | "search_sources" | "renderKey">;
+  message: Pick<Message, "id" | "content" | "search_sources" | "renderKey" | "created_at">;
   liveContent?: string;
   liveSearchSources?: Message["search_sources"];
   priorUserText?: string | null;
@@ -24,7 +25,7 @@ export function useAssistantMessageContent({
   layoutFrozen,
   isGenerating,
   isUser,
-}: Options): AssistantMessageContent & { content: string } {
+}: Options): AssistantMessageContent & { content: string; markdownPresented: boolean } {
   const content = liveContent ?? message.content;
 
   // Streaming input is already throttled once at the draft→UI boundary
@@ -62,5 +63,8 @@ export function useAssistantMessageContent({
     ...derived,
     content,
     hasContent: content.trim().length > 0,
+    // A saved row the server presented is shown as saved; a live draft is the
+    // model's own text and the phone presents it.
+    markdownPresented: liveContent === undefined && !isUser && isServerPresentedRow(message),
   };
 }

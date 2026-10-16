@@ -239,6 +239,18 @@ describe("markdownPreprocessStream", () => {
     expect(noFormat.prepared).not.toContain("\\boxed");
   });
 
+  it("does not reuse a stable prefix prepared for the other presentation", () => {
+    // A row the server presented can be held in stream layout while it settles;
+    // its stable prefix must not come from the draft's cache.
+    const content = "Turn at**40 km/h**.\n\nMore tex";
+    const draft = preprocessMarkdownForStream(content, null);
+    const saved = preprocessMarkdownForStream(content, draft.cache, undefined, { presented: true });
+    expect(draft.prepared.startsWith("Turn at **40 km/h**.")).toBe(true);
+    expect(saved.prepared.startsWith("Turn at**40 km/h**.")).toBe(true);
+    expect(saved.cache.presented).toBe(true);
+    expect(preprocessMarkdownForStream(content, saved.cache).prepared).toBe(draft.prepared);
+  });
+
   it("holds back a trailing pipe-table row until the next non-table line", () => {
     const open = "| Month | Rain |\n| --- | --- |\n| Apr | 5.7 |\n";
     expect(findStableMarkdownPrefixLen(open)).toBe(0);

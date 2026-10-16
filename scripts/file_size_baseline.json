@@ -18,8 +18,8 @@
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/chat/calculation_layout.py": {
-      "lines": 553,
-      "why": "Over 500 before the standards; tracked in ES-06"
+      "lines": 551,
+      "why": "Over 500 before the standards; one algorithm, held to its twin by docs/fixtures/presentation_cases.json (ES-06); split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/chat/prompt_constants/format.py": {
       "lines": 670,
@@ -258,7 +258,7 @@
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/components/MessageBubble.tsx": {
-      "lines": 607,
+      "lines": 605,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/components/markdown/markdownRenderRules.tsx": {
@@ -326,8 +326,8 @@
       "why": "Exception: Prism grammar registration: Metro needs about 47 literal `require`s in one module"
     },
     "apps/mobile/lib/markdown/calculationLayout.ts": {
-      "lines": 536,
-      "why": "Over 500 before the standards; tracked in ES-06"
+      "lines": 532,
+      "why": "Over 500 before the standards; one algorithm, held to its twin by docs/fixtures/presentation_cases.json (ES-06); split by responsibility after the ticketed files"
     },
     "apps/mobile/lib/math/draftSlots.ts": {
       "lines": 566,

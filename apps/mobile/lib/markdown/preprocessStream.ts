@@ -1,4 +1,4 @@
-import { preprocessMarkdown } from "@/lib/markdown/preprocess";
+import { preprocessMarkdown, type PreprocessOptions } from "@/lib/markdown/preprocess";
 import { presentStreamTail } from "@/lib/markdown/presentation";
 
 export type StreamingPreprocessCache = {
@@ -13,6 +13,8 @@ export type StreamingPreprocessCache = {
    * scan" (e.g. a new stream, or a cache that predates this field).
    */
   scanState: StableScanState | null;
+  /** `preparedStable` was prepared as server-presented text (PreprocessOptions). */
+  presented: boolean;
 };
 
 /**
@@ -314,28 +316,32 @@ function scanStableMarkdownPrefix(
 /**
  * Incrementally preprocess append-only streaming markdown.
  * Stable prefix is fully preprocessed; the trailing unstable region stays raw
- * until it closes (or the stream ends and a full preprocess runs).
+ * until it closes (or the stream ends and a full preprocess runs). The text
+ * still streaming is the model's own and is presented here; `presented` text
+ * is a saved row held in stream layout while it settles.
  */
 export function preprocessMarkdownForStream(
   content: string,
   cache: StreamingPreprocessCache | null,
   mathFormat?: (expr: string) => string,
+  options: PreprocessOptions = {},
 ): { prepared: string; cache: StreamingPreprocessCache } {
+  const presented = options.presented === true;
   const scanState = scanStableMarkdownPrefix(content, cache?.scanState ?? null);
   const stableLen = scanState.stableEnd;
 
   if (stableLen === 0) {
     return {
-      prepared: presentStreamTail(content),
-      cache: { rawStableLen: 0, preparedStable: "", scanState },
+      prepared: presentStreamTail(content, presented),
+      cache: { rawStableLen: 0, preparedStable: "", scanState, presented },
     };
   }
 
   if (stableLen === content.length) {
-    const prepared = preprocessMarkdown(content, mathFormat);
+    const prepared = preprocessMarkdown(content, mathFormat, options);
     return {
       prepared,
-      cache: { rawStableLen: stableLen, preparedStable: prepared, scanState },
+      cache: { rawStableLen: stableLen, preparedStable: prepared, scanState, presented },
     };
   }
 
@@ -343,15 +349,16 @@ export function preprocessMarkdownForStream(
   let preparedStable = cache?.preparedStable ?? "";
   if (
     !cache ||
+    cache.presented !== presented ||
     cache.rawStableLen !== stableLen ||
     content.slice(0, cache.rawStableLen) !== stableRaw
   ) {
-    preparedStable = preprocessMarkdown(stableRaw, mathFormat);
+    preparedStable = preprocessMarkdown(stableRaw, mathFormat, options);
   }
 
   const tail = content.slice(stableLen);
   return {
-    prepared: preparedStable + presentStreamTail(tail),
-    cache: { rawStableLen: stableLen, preparedStable, scanState },
+    prepared: preparedStable + presentStreamTail(tail, presented),
+    cache: { rawStableLen: stableLen, preparedStable, scanState, presented },
   };
 }
