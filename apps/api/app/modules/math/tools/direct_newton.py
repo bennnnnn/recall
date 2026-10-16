@@ -8,10 +8,11 @@ from typing import Any
 
 from app.modules.math import solve as math_solve
 from app.modules.math.tools.direct_calculus import _compact, _expression
+from app.services.number_text import bounded_decimal
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import Workout, math_line, render_workout, text_line
 
-_NUMBER = r"[+-]?(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
+_NUMBER = bounded_decimal(12)
 _START = re.compile(
     rf"(.+) (?:starting at|with initial guess(?: of)?) "
     rf"(?:([A-Za-z])(?:_?0)?\s*=\s*)?({_NUMBER})",

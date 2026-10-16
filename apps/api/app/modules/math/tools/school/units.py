@@ -11,14 +11,14 @@ from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
-from app.modules.math.tools.school._parse import _PROB_NUMBER
+from app.services.number_text import SIGNED_DECIMAL
 from app.services.workout import Workout, math_line, render_workout
 
 _UNIT_PATTERN = r"[A-Za-zµμ°][A-Za-z0-9µμ°*/^._-]{0,63}"
 _TWICE_HOT_TAIL = re.compile(
     rf"^({_UNIT_PATTERN})\s*[.?!,;]*\s*(?:then\s+)?"
     rf"(?:(?:tell|explain)\s+me\s+)?(?:whether\s+|if\s+)?"
-    rf"({_PROB_NUMBER})\s*({_UNIT_PATTERN})\s+is\s+twice\s+as\s+hot\s*[.?!]*$",
+    rf"({SIGNED_DECIMAL})\s*({_UNIT_PATTERN})\s+is\s+twice\s+as\s+hot\s*[.?!]*$",
     re.IGNORECASE,
 )
 

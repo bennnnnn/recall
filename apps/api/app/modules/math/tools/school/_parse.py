@@ -2,16 +2,10 @@
 
 from __future__ import annotations
 
-import math
 import re
 
-from app.modules.math import match as mtm
+from app.services.number_text import DECIMAL_LITERAL, finite_match_value
 from app.services.text_match import word_index
-
-_PROB_NUMBER = r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)"
-
-
-_LABELED_NUMBER = r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)"
 
 # The side a triangle question asks for: "Find c", "calculate the length of side b". The words
 # are read in any case; the letter only as written, since "C" names the angle opposite side "c".
@@ -33,35 +27,13 @@ def _has_any_word(lower: str, words: tuple[str, ...]) -> bool:
     return any(word_index(lower, word) != -1 for word in words)
 
 
-def _finite_match_value(match: re.Match[str]) -> float | None:
-    try:
-        value = float(match.group(0))
-    except ValueError:
-        return None
-    if not math.isfinite(value):
-        return None
-    return value
-
-
-def _number_immediately_before(text: str, idx: int) -> re.Match[str] | None:
-    end = idx
-    while end > 0 and text[end - 1].isspace():
-        end -= 1
-    found = None
-    for match in mtm._NUM.finditer(text[:end]):
-        found = match
-    if found is None or found.end() != end:
-        return None
-    return found
-
-
 def _exactly_n_numbers(cleaned: str, count: int) -> list[float] | None:
-    matches = list(mtm._NUM.finditer(cleaned))
+    matches = list(DECIMAL_LITERAL.finditer(cleaned))
     if len(matches) != count:
         return None
     values: list[float] = []
     for match in matches:
-        value = _finite_match_value(match)
+        value = finite_match_value(match)
         if value is None:
             return None
         values.append(value)
@@ -73,7 +45,7 @@ def _colon_ratio_parts(text: str) -> tuple[list[float], list[tuple[int, int]]] |
     search_from = 0
     length = len(text)
     while search_from < length:
-        match = mtm._NUM.search(text, search_from)
+        match = DECIMAL_LITERAL.search(text, search_from)
         if match is None:
             return None
         cursor = match.end()
@@ -82,7 +54,7 @@ def _colon_ratio_parts(text: str) -> tuple[list[float], list[tuple[int, int]]] |
         if cursor >= length or text[cursor] != ":":
             search_from = match.end()
             continue
-        values = [_finite_match_value(match)]
+        values = [finite_match_value(match)]
         spans = [(match.start(), match.end())]
         if values[0] is None:
             search_from = match.end()
@@ -91,10 +63,10 @@ def _colon_ratio_parts(text: str) -> tuple[list[float], list[tuple[int, int]]] |
         while True:
             while cursor < length and text[cursor].isspace():
                 cursor += 1
-            nxt = mtm._NUM.match(text, cursor)
+            nxt = DECIMAL_LITERAL.match(text, cursor)
             if nxt is None:
                 break
-            parsed = _finite_match_value(nxt)
+            parsed = finite_match_value(nxt)
             if parsed is None:
                 break
             values.append(parsed)

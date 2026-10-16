@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import re
 
-from app.modules.math import match as mtm
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.helpers import (
     _strip_trailing_filler,
     math_expr_or_none,
     peel_function_definition,
 )
+from app.services.number_text import DECIMAL_LITERAL
 
 # "find dy/dx if x^2 + y^2 = 25": an equation in x and y, so implicit, without the word.
 _DY_DX_GIVEN = re.compile(
@@ -164,10 +164,10 @@ def extract_linear_approx_intent(cleaned: str) -> MathIntent | None:
     if of_at == -1 or at_at == -1 or at_at < of_at:
         return None
     expr = math_expr_or_none(cleaned[of_at + 4 : at_at].strip())
-    point_m = mtm._NUM.search(cleaned, at_at)
+    point_m = DECIMAL_LITERAL.search(cleaned, at_at)
     if expr is None or point_m is None:
         return None
-    if mtm._NUM.search(cleaned, point_m.end()) is not None:
+    if DECIMAL_LITERAL.search(cleaned, point_m.end()) is not None:
         return None
     return MathIntent(
         kind="calculus",

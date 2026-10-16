@@ -14,6 +14,7 @@ from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.triangle import cos_degrees, cosine_rule_side
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.school._parse import _SIDE_ASKED
+from app.services.number_text import DECIMAL
 from app.services.workout import Workout, math_line, render_workout
 
 ALGEBRA_FACT_OPS = frozenset({"complete_square", "cosine_rule", "polynomial_remainder"})
@@ -29,7 +30,7 @@ _REMAINDER = re.compile(
     r"(?P<dividend>.+?)\s+is\s+divided\s+by\s+(?P<divisor>.+)",
     re.IGNORECASE,
 )
-_NUMBER = r"(\d+(?:\.\d+)?)"
+_NUMBER = rf"({DECIMAL})"
 _SIDE = rf"\b([a-c])\s*=\s*{_NUMBER}"
 _ANGLE = rf"\b([A-C])\s*=\s*{_NUMBER}\s*(?:°|degrees?|deg)?"
 

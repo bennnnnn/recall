@@ -6,13 +6,13 @@ from dataclasses import dataclass
 from itertools import pairwise
 
 from app.modules.math.match.scan import (
-    _NUM,
     first_dim_pair,
     first_dim_triple,
     number_after,
     two_numbers_after,
 )
 from app.modules.math.match.types import SolidShape
+from app.services.number_text import DECIMAL_LITERAL
 from app.services.text_match import word_index
 
 _SOLID_ALGEBRA_PHRASES = (
@@ -213,7 +213,7 @@ def parse_solid(cleaned: str) -> SolidParse | None:
 
 
 def _first_positive_number(text: str) -> float | None:
-    m = _NUM.search(text)
+    m = DECIMAL_LITERAL.search(text)
     if m is None:
         return None
     value = float(m.group(0))
@@ -264,7 +264,7 @@ def triangle_sides_signal(text: str) -> tuple[float, float, float] | None:
         idx = lower.find(prefix)
         if idx == -1:
             continue
-        nums = [m.group(0) for m in _NUM.finditer(text, idx + len(prefix))]
+        nums = [m.group(0) for m in DECIMAL_LITERAL.finditer(text, idx + len(prefix))]
         if len(nums) >= 3:
             try:
                 return float(nums[0]), float(nums[1]), float(nums[2])
@@ -295,7 +295,7 @@ def triangle_angles_signal(text: str) -> tuple[float, float, float] | None:
     )
     if not has_angle_cue:
         return None
-    matches = list(_NUM.finditer(text))
+    matches = list(DECIMAL_LITERAL.finditer(text))
     if len(matches) != 3:
         return None
     for left, right in pairwise(matches):

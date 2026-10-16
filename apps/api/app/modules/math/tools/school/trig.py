@@ -12,9 +12,9 @@ from app.modules.math import school as math_school
 from app.modules.math.schemas import EquationInput, MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.helpers import math_expr_or_none
-from app.modules.math.tools.school._parse import _LABELED_NUMBER
 from app.modules.math.tools.school.coordinate import extract_sas_area, sas_area_block
 from app.modules.math.tools.school.teaching import _attach_picture
+from app.services.number_text import DECIMAL_LITERAL, SIGNED_DECIMAL
 from app.services.workout import Workout, math_line, render_workout, text_line
 
 _TRIG_FUNCS = ("sine", "cosine", "tangent", "sin", "cos", "tan")
@@ -38,12 +38,12 @@ _TRIG_PREFIXES = (
 
 
 _DEGREE_TRIG_CALL = re.compile(
-    rf"(?<![A-Za-z])(sin|cos|tan)\s*\(\s*({_LABELED_NUMBER})\s*(?:degrees?|deg|°)\s*\)",
+    rf"(?<![A-Za-z])(sin|cos|tan)\s*\(\s*({SIGNED_DECIMAL})\s*(?:degrees?|deg|°)\s*\)",
     re.IGNORECASE,
 )
 _BOUNDED_DEGREE_DOMAIN = re.compile(
-    rf"\bfor\s+({_LABELED_NUMBER})\s*(?:degrees?|deg|°)?\s*(<=|<|≤)\s*"
-    rf"([a-zA-Z])\s*(<=|<|≤)\s*({_LABELED_NUMBER})\s*(?:degrees?|deg|°)"
+    rf"\bfor\s+({SIGNED_DECIMAL})\s*(?:degrees?|deg|°)?\s*(<=|<|≤)\s*"
+    rf"([a-zA-Z])\s*(<=|<|≤)\s*({SIGNED_DECIMAL})\s*(?:degrees?|deg|°)"
     rf"(?=\s|[.?!]|$)",
     re.IGNORECASE,
 )
@@ -257,7 +257,7 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
     if arg is None:
         return None
     canon = _TRIG_CANON.get(func, func)
-    numeric = mtm._NUM.fullmatch(arg)
+    numeric = DECIMAL_LITERAL.fullmatch(arg)
     if angle_unit == "degrees" or (angle_unit is None and numeric is not None):
         # Keep the established school shorthand sin 30 = sin(30 degrees).
         return MathIntent(

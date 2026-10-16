@@ -7,7 +7,6 @@ import re
 
 from app.modules.math.match.scan import (
     _BARE_COORD,
-    _NUM,
     VIZ_COMMANDS,
     _alpha_run_end,
     has_viz_command,
@@ -15,6 +14,7 @@ from app.modules.math.match.scan import (
     split_glued_viz_runs,
     strip_inline_math_delims,
 )
+from app.services.number_text import DECIMAL_LITERAL
 
 _GRAPH_PLOT_PREFIXES = ("graph ", "plot ")
 # Plot verbs that must not steal geometry (`draw a triangle`) or Vega
@@ -593,7 +593,7 @@ def vertical_line_x(text: str) -> float | None:
         if hit is None:
             return None
         eq_at, after_eq = hit
-        m = _NUM.match(lower, after_eq)
+        m = DECIMAL_LITERAL.match(lower, after_eq)
         if m is None:
             idx = eq_at + 1
             continue

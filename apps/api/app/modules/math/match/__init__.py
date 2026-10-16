@@ -48,9 +48,6 @@ from app.modules.math.match.needs import (
     school_homework_cue,
 )
 from app.modules.math.match.scan import (
-    _NUM as _NUM,
-)
-from app.modules.math.match.scan import (
     first_dim_pair,
     first_dim_triple,
     geometry_dim_context,
