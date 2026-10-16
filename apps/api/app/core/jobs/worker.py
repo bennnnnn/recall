@@ -16,6 +16,7 @@ from app.core.jobs.dedupe import (
     _claim_dedupe,
     _dedupe_is_complete,
     _extend_dedupe,
+    _give_back_delivery,
     _refresh_running_claim,
     _refresh_running_claim_loop,
     _release_dedupe,
@@ -76,6 +77,8 @@ async def _process_one_entry(
         claim = await _claim_entry(redis, entry_id, dedupe_key)
         if claim != "run":
             should_ack = claim == "done"
+            if claim == "in_flight":
+                await _give_back_delivery(redis, entry_id)
             return
         owns_claim = True
         if dedupe_key:
