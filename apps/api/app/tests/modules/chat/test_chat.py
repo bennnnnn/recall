@@ -5,18 +5,18 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.prompt_builder import (
-    build_prompt_messages,
-    format_user_name_only_block,
-    format_user_profile_block,
-    should_include_profile_email,
-)
+from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import (
     is_broad_self_question,
     is_lightweight_chat_turn,
     is_personal_advice_question,
     is_writing_deliverable_request,
     needs_rich_context,
+)
+from app.modules.chat.prompt_profile import (
+    format_user_name_only_block,
+    format_user_profile_block,
+    should_include_profile_email,
 )
 from app.modules.chat.turn_prep import resolve_client_geo
 from app.services.context_window import estimate_tokens
@@ -442,7 +442,8 @@ def test_format_contract_is_markdown_not_ui_fences():
     assert "plain labels such as `A.` or `I.`" in FORMAT_CONTRACT
     assert "```smiles" not in VISUALIZATION_HINTS
     assert "```chemistry" not in VISUALIZATION_HINTS
-    from app.modules.chat.prompt_constants import CHEMISTRY_FENCE_HINT, MATH_SOLVER_HINT
+    from app.modules.chat.prompt_constants import CHEMISTRY_FENCE_HINT
+    from app.modules.math.reply_policy import MATH_SOLVER_HINT
 
     assert "```smiles" in CHEMISTRY_FENCE_HINT
     assert "Do not emit ```molecule3d" in CHEMISTRY_FENCE_HINT
@@ -460,7 +461,7 @@ def test_format_contract_is_markdown_not_ui_fences():
 def test_math_formula_shape_rule_is_unified():
     """Global hints and math-solver hints must agree: inline $ for steps,
     ```math only for standalone display — not contradictory guidance."""
-    from app.modules.chat.prompt_constants import MATH_INTENT_HINT, MATH_SOLVER_HINT
+    from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_SOLVER_HINT
 
     for blob in (MATH_INTENT_HINT, MATH_SOLVER_HINT):
         assert "inline" in blob.lower()
@@ -491,7 +492,7 @@ def test_math_solver_hint_does_not_overclaim_unverified_scope():
     """Stats/combo/NT/matrix used to be listed as broadly "in scope", and
     geometry few-shots embedded concrete dims that taught inventing measures.
     Gate advanced topics on a verified block; mark sample dims illustrative."""
-    from app.modules.chat.prompt_constants import MATH_INTENT_HINT, MATH_SOLVER_HINT
+    from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_SOLVER_HINT
 
     lower = MATH_SOLVER_HINT.lower()
     assert "never invent" in lower
@@ -503,7 +504,7 @@ def test_math_solver_hint_does_not_overclaim_unverified_scope():
     assert "trajectory" not in lower
     assert "physics" not in lower
     assert "simulation" not in lower
-    from app.modules.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
+    from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
 
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in MATH_SOLVER_HINT
     # Must not claim bare "are also in scope" without the verified-block gate.

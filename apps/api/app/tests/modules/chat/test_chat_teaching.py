@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.prompt_builder import _style_format_hints, build_prompt_messages
+from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
     HOWTO_FORMAT_HINT,
@@ -26,6 +26,7 @@ from app.modules.chat.prompt_constants import (
     lesson_step,
     programming_lesson_contract,
 )
+from app.modules.chat.prompt_format import _style_format_hints
 
 LESSON_ONE = (
     "Let's learn Python dictionaries 🐍 — the structure behind every JSON body your API returns.\n\n"

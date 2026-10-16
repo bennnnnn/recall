@@ -8,8 +8,9 @@ raw ```latex/```tex/```copy fences for math so verified math still has latex/fen
 
 from __future__ import annotations
 
-from app.modules.chat.prompt_builder import _style_format_hints
-from app.modules.chat.prompt_constants import MATH_FENCE_SAFETY_HINT, SHORT_MATH_SAFETY_HINT
+from app.modules.chat.prompt_constants import MATH_FENCE_SAFETY_HINT
+from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.math.reply_policy import SHORT_MATH_SAFETY_HINT
 
 
 def _hints(style: str) -> list[str]:
@@ -51,12 +52,12 @@ def test_short_style_still_includes_math_safety_guardrails():
 
 
 def test_short_style_math_query_respects_brevity_and_explicit_explanations():
-    from app.modules.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import STYLE_HINTS
+    from app.modules.math.reply_policy import (
         MATH_INTENT_HINT,
         MATH_SHORT_RESPONSE_HINT,
         MATH_SOLVER_HINT,
         MATH_TUTORING_HINT,
-        STYLE_HINTS,
     )
 
     parts = _hints("short")
@@ -72,7 +73,7 @@ def test_short_style_math_query_respects_brevity_and_explicit_explanations():
 
 
 def test_compact_math_query_gets_step_hints_not_just_safety():
-    from app.modules.chat.prompt_constants import (
+    from app.modules.math.reply_policy import (
         MATH_INTENT_HINT,
         MATH_SHORT_RESPONSE_HINT,
         MATH_SOLVER_HINT,
@@ -106,10 +107,10 @@ def test_balanced_style_injects_universal_format_baseline():
 def test_closed_form_math_prompt_is_instance_first_not_a_lecture():
     """4! used to get 'start with n! definition + numbered steps + You can check'
     plus a fun-fact callout. Prompt now matches a one-line identity."""
-    from app.modules.chat.prompt_constants import MATH_INTENT_HINT, SHORT_MATH_SAFETY_HINT
+    from app.modules.math.reply_policy import MATH_INTENT_HINT, SHORT_MATH_SAFETY_HINT
 
     assert "Closed-form" in SHORT_MATH_SAFETY_HINT
-    from app.modules.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
+    from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
 
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in SHORT_MATH_SAFETY_HINT
     assert "$3 + 0 = 3$" in MATH_INTENT_HINT
@@ -154,11 +155,8 @@ def test_balanced_style_includes_math_tutoring_hint():
 
 def test_slim_casual_turn_uses_compact_math_safety_not_viz_pack():
     """Help-me-think / slim chat must not dump the format+viz+solver bible."""
-    from app.modules.chat.prompt_constants import (
-        FORMAT_CONTRACT,
-        MATH_SOLVER_HINT,
-        VISUALIZATION_HINTS,
-    )
+    from app.modules.chat.prompt_constants import FORMAT_CONTRACT, VISUALIZATION_HINTS
+    from app.modules.math.reply_policy import MATH_SOLVER_HINT
 
     parts = _style_format_hints(
         query_text="I want to talk something through — ask me a good opening question.",
@@ -221,12 +219,8 @@ def test_compact_image_turn_when_generation_disabled_does_not_ask_to_retry():
 
 
 def test_rich_turn_injects_format_contract_once_and_keeps_math():
-    from app.modules.chat.prompt_constants import (
-        COMPARISON_FORMAT_HINT,
-        FORMAT_CONTRACT,
-        MATH_INTENT_HINT,
-        MATH_SOLVER_HINT,
-    )
+    from app.modules.chat.prompt_constants import COMPARISON_FORMAT_HINT, FORMAT_CONTRACT
+    from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_SOLVER_HINT
 
     parts = _hints("balanced")
     assert parts.count(FORMAT_CONTRACT) == 1
@@ -555,7 +549,7 @@ def test_quote_query_gets_blockquote_layout():
 
 def test_integration_hints_wraps_todos_section():
     from app.core.config import Settings
-    from app.modules.chat.prompt_builder import _integration_hints
+    from app.modules.chat.prompt_sections import _integration_hints
 
     parts = _integration_hints(
         settings=Settings(
@@ -580,9 +574,9 @@ def test_explain_transformers_gets_format_contract_not_compact():
     from app.modules.chat.prompt_constants import (
         COMPACT_RESPONSE_FORMAT_HINT,
         FORMAT_CONTRACT,
-        MATH_SOLVER_HINT,
         VISUALIZATION_HINTS,
     )
+    from app.modules.math.reply_policy import MATH_SOLVER_HINT
 
     parts = _style_format_hints(
         query_text="explain how transformers work",
@@ -599,11 +593,8 @@ def test_explain_transformers_gets_format_contract_not_compact():
 
 
 def test_top_10_tips_gets_format_contract_not_compact():
-    from app.modules.chat.prompt_constants import (
-        COMPACT_RESPONSE_FORMAT_HINT,
-        FORMAT_CONTRACT,
-        MATH_SOLVER_HINT,
-    )
+    from app.modules.chat.prompt_constants import COMPACT_RESPONSE_FORMAT_HINT, FORMAT_CONTRACT
+    from app.modules.math.reply_policy import MATH_SOLVER_HINT
 
     parts = _style_format_hints(
         query_text="give me the top 10 productivity tips",
@@ -636,7 +627,7 @@ def test_pasted_fragment_still_uses_compact():
 
 
 def test_writing_caption_does_not_get_math_intent_pack():
-    from app.modules.chat.prompt_constants import MATH_INTENT_HINT, MATH_SOLVER_HINT
+    from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_SOLVER_HINT
 
     parts = _style_format_hints(
         query_text="write me a caption about a complex launch",

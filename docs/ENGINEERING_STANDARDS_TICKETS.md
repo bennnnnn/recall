@@ -578,6 +578,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-21 — Prompt assembly: `build_prompt_messages` (301) and `_style_format_hints` (244)
 
+- **Status:** done. `build_prompt_messages` is orchestration: `_context_plan` (rich context, the attachment probe), `prompt_window.py` (window, omit, gap, adjacency, history text) and `prompt_sections.py` (`PROMPT_SECTIONS` and `NEARBY_CONTRACTS`, ordered `PromptSection(applies, render)` over a `PromptTurn`); the profile block is `prompt_profile.py`. `_style_format_hints` is the ordered `HINT_RULES` table over a `StyleTurn`. Subject hints live with the subject (`math/reply_policy.py`, `physics/reply_policy.py`, `chemistry/reply_policy.py`) and chat lists them in `prompt_subjects.py`, with no registration; statistics and biology have no module, so their hints stay in `prompt_constants/format.py`. Byte-identical: `test_prompt_golden.py` checks 268 recorded prompts (every battery case, one in eight sweep turns with history, 95 branch cases); all 618 matched locally.
 - **Problem:**
   - `chat/prompt_builder.py:389` mixes deciding rich context and the RAG probe, loading the
     window and omitting ids, classifying adjacency, the memory, RAG and summary gather, system
@@ -1112,7 +1113,7 @@ in this list grows logic beyond its table, it leaves the list.
 | `modules/chemistry/catalog.py` | 537 | The one operation list (CLAUDE.md names it so) |
 | `modules/chemistry/stated_laws.py` | 534 | Law catalog; all data |
 | `modules/physics/schemas/simulation.py` | 600 | Pydantic wire schema for the `simulation` fence v2 (425 lines of model classes) |
-| `modules/chat/prompt_constants/format.py` | 675 | Prompt copy (66% text); the functions are classifiers keyed to that copy |
+| `modules/chat/prompt_constants/format.py` | 670 | Prompt copy (66% text); the functions are classifiers keyed to that copy |
 | `modules/chat/prompt_constants/teaching.py` | 672 | Prompt copy (59% text), same rule |
 | `modules/chat/prompt_constants/routing.py` | 662 | Prompt copy (53% text), same rule; review if the functions pass 250 lines |
 | `modules/web_search/patterns.py` | 608 | Regex pattern table plus thin predicates; the phone twin is under ES-07 |

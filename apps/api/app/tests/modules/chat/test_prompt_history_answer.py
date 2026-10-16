@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.modules.chat.prompt_builder import _strip_prompt_owned_fences
+from app.modules.chat.prompt_window import _strip_prompt_owned_fences
 
 
 @pytest.mark.parametrize(

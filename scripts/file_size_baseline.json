@@ -21,12 +21,8 @@
       "lines": 553,
       "why": "Over 500 before the standards; tracked in ES-06"
     },
-    "apps/api/app/modules/chat/prompt_builder.py": {
-      "lines": 689,
-      "why": "Over 500 before the standards; tracked in ES-21"
-    },
     "apps/api/app/modules/chat/prompt_constants/format.py": {
-      "lines": 675,
+      "lines": 670,
       "why": "Exception: Prompt copy (66% text); the functions are classifiers keyed to that copy"
     },
     "apps/api/app/modules/chat/prompt_constants/routing.py": {
@@ -36,10 +32,6 @@
     "apps/api/app/modules/chat/prompt_constants/teaching.py": {
       "lines": 672,
       "why": "Exception: Prompt copy (59% text), same rule"
-    },
-    "apps/api/app/modules/chat/prompt_format.py": {
-      "lines": 529,
-      "why": "Over 500 before the standards; tracked in ES-21"
     },
     "apps/api/app/modules/chat/related_prompts.py": {
       "lines": 670,

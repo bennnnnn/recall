@@ -44,4 +44,4 @@ __all__ = [
 ]
 
 # Seams the chat turn uses: question detection, follow-ups, and post-stream fences.
-_MODULE_EXPORTS = ("context", "fence", "followup", "request")
+_MODULE_EXPORTS = ("context", "fence", "followup", "reply_policy", "request")
