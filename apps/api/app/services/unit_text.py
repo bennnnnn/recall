@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+from app.services.number_text import SIGNED_DECIMAL
+
 LENGTH_UNITS = {
     alias: symbol
     for symbol, aliases in {
@@ -30,7 +32,7 @@ TIME_UNITS = {
     for alias in aliases
 }
 
-QUANTITY_NUMBER = re.compile(r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)")
+QUANTITY_NUMBER = re.compile(SIGNED_DECIMAL)
 
 
 def unit_after_quantity(text: str, number_end: int) -> tuple[str, int] | None:
