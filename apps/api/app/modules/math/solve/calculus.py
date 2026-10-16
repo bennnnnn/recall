@@ -26,9 +26,9 @@ from app.modules.math.schemas import (
     MathLimitResult,
     MathSeriesResult,
 )
-from app.modules.math.solve.algebra import _expr_equal
 from app.modules.math.solve.display import derivative_latex, format_verified_latex
 from app.modules.math.solve.parse import MathServiceError, _parse_expression
+from app.modules.math.solve.root_latex import _expr_equal
 
 
 def _term_derivative_step(term: Any, sym: Any) -> str:

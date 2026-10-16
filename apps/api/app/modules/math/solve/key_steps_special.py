@@ -138,7 +138,7 @@ def fractional_power_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
     exponent = power.exp
     if not (getattr(exponent, "is_Rational", False) and exponent.q != 1 and exponent.q % 2 == 1):
         return None
-    from app.modules.math.solve.algebra import _real_fractional_power_solutions
+    from app.modules.math.solve.equations import _real_fractional_power_solutions
 
     solutions = _real_fractional_power_solutions(power, target, var)
     if not solutions:
@@ -382,7 +382,7 @@ def absolute_value_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | No
     split = _eq_tex(inside, rhs)
     if rhs != 0:
         split += rf" \quad\text{{or}}\quad {_eq_tex(inside, -rhs)}"
-    from app.modules.math.solve.algebra import compact_root_answer_lines
+    from app.modules.math.solve.root_latex import compact_root_answer_lines
 
     lines = compact_root_answer_lines(str(var), solutions)
     final = lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)

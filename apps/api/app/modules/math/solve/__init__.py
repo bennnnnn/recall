@@ -2,17 +2,6 @@
 
 from __future__ import annotations
 
-from app.modules.math.solve.algebra import (
-    expand_expression,
-    factor_expression,
-    factored_key_step,
-    newton_method,
-    simplify_expression,
-    solve_compound_inequality,
-    solve_equation,
-    solve_inequality,
-    solve_system,
-)
 from app.modules.math.solve.calculus import (
     compute_limit,
     differentiate_at_point,
@@ -32,6 +21,13 @@ from app.modules.math.solve.discrete import (
 )
 from app.modules.math.solve.display import (
     format_verified_latex as format_verified_latex,
+)
+from app.modules.math.solve.equations import solve_equation
+from app.modules.math.solve.expressions import (
+    expand_expression,
+    factor_expression,
+    factored_key_step,
+    simplify_expression,
 )
 from app.modules.math.solve.extract_eq import (
     rejected_equality_chain,
@@ -65,9 +61,11 @@ from app.modules.math.solve.graph import (
     sample_parametric_curve,
     sample_polar_curve,
 )
+from app.modules.math.solve.inequalities import solve_compound_inequality, solve_inequality
 from app.modules.math.solve.latex_normalize import (
     _normalize_latex_to_sympy as _normalize_latex_to_sympy,
 )
+from app.modules.math.solve.numeric import newton_method
 from app.modules.math.solve.parse import (
     _SAFE_EXPR_CHARS as _SAFE_EXPR_CHARS,
 )
@@ -78,6 +76,7 @@ from app.modules.math.solve.parse import (
     parse_equation as parse_equation,
 )
 from app.modules.math.solve.statistics import compute_bivariate_statistics
+from app.modules.math.solve.systems import solve_system
 from app.modules.math.solve.written_names import defined_variable
 from app.services.solving import (
     MathServiceError as MathServiceError,

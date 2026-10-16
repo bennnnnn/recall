@@ -448,7 +448,7 @@ def _inflection_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock
 def _monotonic_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
     from sympy import S, diff, latex, simplify, solveset
 
-    from app.modules.math.solve.algebra import inequality_solution_latex
+    from app.modules.math.solve.inequalities import inequality_solution_latex
 
     parsed = _parse(intent.expr or "", intent.variable)
     if parsed is None:

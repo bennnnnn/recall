@@ -40,6 +40,9 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.modules.chemistry.legacy_alias",
     "app.modules.home.legacy_alias",
     "app.modules.math.legacy_alias",
+    # Split by job: ``equations``, ``equation_conditions``, ``root_latex``, ``systems``,
+    # ``numeric``, ``expressions``, ``inequalities`` (ES-34).
+    "app.modules.math.solve.algebra",
     "app.modules.math.sympy_executor",
     # Split by job: ``request_text``, ``expr_rewrite``, ``function_def``, ``direct_newton`` (ES-34).
     "app.modules.math.tools.helpers",
