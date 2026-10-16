@@ -57,5 +57,12 @@
   {"id": "rg-069", "area": "math lookalike", "prompt": "my recipe makes 12 cookies, how many should I bake for the party?", "reply": "Plan on 2–3 cookies per guest, so for 15 people about 3 batches.", "expect": "answer"},
   {"id": "rg-070", "area": "math lookalike", "prompt": "I booked 2 rooms for 3 nights. How many towels come with that?", "reply": "Hotels usually give one bath towel and one hand towel per guest, refreshed on request. Ask the front desk for extras.", "expect": "answer"},
   {"id": "rg-071", "area": "math lookalike", "prompt": "A recipe needs 3 cups of flour for 12 cookies, is that a lot?", "reply": "That's a fairly standard ratio for drop cookies, maybe a bit flour-heavy if you like them chewy.", "expect": "answer"},
-  {"id": "rg-072", "area": "math lookalike", "prompt": "we need 2 pizzas for 6 people, what toppings should we get?", "reply": "One margherita to keep everyone happy, plus a pepperoni or a veggie supreme.", "expect": "answer"}
+  {"id": "rg-072", "area": "math lookalike", "prompt": "we need 2 pizzas for 6 people, what toppings should we get?", "reply": "One margherita to keep everyone happy, plus a pepperoni or a veggie supreme.", "expect": "answer"},
+
+  {"id": "rg-073", "area": "places", "prompt": "What\u2019s my current location?", "reply": "", "expect": "instant"},
+  {"id": "rg-074", "area": "places", "prompt": "What\u2019s my current location?", "location": "Westlands, Nairobi, Kenya", "reply": "", "expect": "instant"},
+  {"id": "rg-075", "area": "places", "prompt": "where\u2019s my location right now", "location": "Westlands, Nairobi, Kenya", "reply": "", "expect": "instant"},
+  {"id": "rg-076", "area": "places", "prompt": "what\u2019s the current location of the ISS?", "reply": "The ISS is over the **South Pacific** right now, about 420 km up, moving at roughly 28,000 km/h. It circles the Earth every 90 minutes, so that changes fast.", "expect": "search"},
+  {"id": "rg-077", "area": "places", "prompt": "what\u2019s my current location in the game?", "reply": "I can\u2019t see your game, so I can\u2019t tell where you are in it. If you tell me which game and what\u2019s around you, I can help you work it out.", "expect": "answer"},
+  {"id": "rg-078", "area": "places", "prompt": "where\u2019s my phone", "location": "Westlands, Nairobi, Kenya", "reply": "I can\u2019t see your phone. On an iPhone, open **Find My** on another Apple device or sign in at icloud.com/find; on Android, use **Find My Device** at google.com/android/find.", "expect": "answer"}
 ]

@@ -1029,6 +1029,7 @@ not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
 
 ### ES-42 — "What’s my current location?" with a curly apostrophe is not a location ask
 
+- **Status:** done. Both sides straighten curly apostrophes first (`straighten_apostrophes`, the time rule's too); the "current" entries are written folded, and a test holds every entry to the fold.
 - **Problem:** the iPhone keyboard types a curly apostrophe by default. Neither the server nor
   the phone reads "What’s my current location?" as a location question. The typo-spelling list
   in `services/time_context.py` collapses doubled letters, so its two "current" entries can
