@@ -16,17 +16,13 @@ from app.modules.attachments.markers import strip_attachment_from_content
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup
-from app.modules.images.gen_intent import (
-    could_be_image_revision,
-    could_be_image_thread_followup,
-    extract_image_gen_prompt,
-    extract_image_gen_prompt_from_thread,
-    extract_image_revision_prompt,
-    image_gen_revision_context,
-    prior_user_contents_for_image_gen,
-    stem_subject_claims,
-)
+from app.modules.images.gen_intent import stem_subject_claims
 from app.modules.images.generation import ImageGenerationError
+from app.modules.images.intent import (
+    image_gen_request,
+    last_reply_is_generated_image,
+    reads_thread,
+)
 from app.modules.images.lookup_intent import (
     dated_lookup_query,
     extract_image_lookup_query,
@@ -71,37 +67,27 @@ async def _image_gen_prompt(
     skip_revision_lookup: bool,
     recent_messages: list[Any] | None,
 ) -> tuple[str | None, list[UUID] | None]:
-    """The prompt to draw, and the earlier picture an edit starts from."""
-    image_prompt = extract_image_gen_prompt(content)
-    if image_prompt:
-        return image_prompt, None
-    trimmed = content.strip()
-    followup = could_be_image_thread_followup(content)
-    too_long = not trimmed or len(trimmed) > 120 or len(trimmed.split()) > 8
-    revisionish = not skip_revision_lookup and not too_long and could_be_image_revision(content)
-    if not followup and not revisionish:
+    """The prompt to draw, and the earlier picture an edit starts from.
+
+    Read by ``images.intent``, which the phone's composer asks too. History is
+    read only when it can change the answer.
+    """
+    revisions = not skip_revision_lookup
+    recent: list[Any] = []
+    if reads_thread(content, revisions=revisions):
+        if recent_messages is not None:
+            recent = recent_messages
+        else:
+            async with deps.session_factory() as session:
+                recent = await deps.messages.list_recent(session, chat_id, limit=20)
+    request = image_gen_request(content, recent, revisions=revisions)
+    if request is None:
         return None, None
-    if recent_messages is not None:
-        recent = recent_messages
-    else:
-        async with deps.session_factory() as session:
-            recent = await deps.messages.list_recent(session, chat_id, limit=20)
-    priors = prior_user_contents_for_image_gen(recent, content)
-    image_prompt = extract_image_gen_prompt_from_thread(content, priors)
-    reference_ids = None
-    if not image_prompt and revisionish:
-        last_image_only, previous_subject = image_gen_revision_context(recent)
-        image_prompt = extract_image_revision_prompt(
-            content,
-            last_assistant_is_image_only=last_image_only,
-            previous_subject=previous_subject,
-        )
-        if image_prompt and create_user_message:
-            for row in reversed(recent):
-                if row.role == "assistant":
-                    reference_ids = deps.image_generation.image_reference_ids(row.content)
-                    break
-    return image_prompt, reference_ids
+    # Regenerate draws again from the references the turn was first made from.
+    reference_ids = (
+        list(request.reference_ids) if request.revision and create_user_message else None
+    )
+    return request.prompt, reference_ids
 
 
 async def try_image_gen_for_turn(
@@ -178,8 +164,7 @@ async def _photo_subject_from_chat(
             )
     if replace_assistant_id is not None:
         recent = [row for row in recent if getattr(row, "id", None) != replace_assistant_id]
-    last_is_generated_image, _subject = image_gen_revision_context(recent)
-    if last_is_generated_image:
+    if last_reply_is_generated_image(recent):
         return None
     return await deps.references.resolve_reference(
         settings,

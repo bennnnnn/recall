@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Literal, cast
 from uuid import UUID, uuid4
 
@@ -27,6 +26,7 @@ from app.modules.attachments.service import (
     normalize_content_type,
 )
 from app.modules.billing import can_use
+from app.modules.images.intent import image_reference_ids as image_reference_ids
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
@@ -388,16 +388,3 @@ async def _turn_reference_ids(session: AsyncSession, turn: Message | None) -> li
         if is_image_content_type(row.content_type)
     ]
     return list(dict.fromkeys([*image_reference_ids(turn.content), *hidden]))[:2]
-
-
-def image_reference_ids(content: str) -> list[UUID]:
-    return list(
-        dict.fromkeys(
-            UUID(value)
-            for value in re.findall(
-                r"\[Image: /attachments/([0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}"
-                r"[0-9a-fA-F]{12})/file\]",
-                content,
-            )
-        )
-    )[:2]

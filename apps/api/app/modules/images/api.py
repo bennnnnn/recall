@@ -5,7 +5,7 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.models.orm import User
 from app.models.schemas.chats import MessageOut
 from app.modules.images import generation as image_generation_service
-from app.modules.images.gen_intent import stem_subject
+from app.modules.images import intent as image_intent_service
 from app.modules.images.schemas import (
     ImageGenerateIn,
     ImageGenerateOut,
@@ -47,14 +47,29 @@ async def generate_image(
 @router.post("/intent", response_model=ImageIntentOut)
 async def image_intent(
     body: ImageIntentIn,
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> ImageIntentOut:
-    """Whether maths, physics or chemistry owns text the phone would send to ``/generate``.
+    """How the phone's composer sends a turn: a photo lookup, a picture, or chat.
 
-    The phone's composer rules read "draw ethanol" as a picture and intercept it
-    before the chat path; it asks here first so it leaves the same turns to their
-    subject as the chat path's image intercept does.
+    The phone reads no image intent itself; it asks here before a send that might
+    be a picture, and this answers with the chat turn's own reading of the text and
+    the chat's recent turns. A chat that is not the user's is not found.
     """
-    subject = stem_subject(body.text, chemistry_enabled=settings.chemistry_enabled)
-    return ImageIntentOut(subject=subject)
+    verdict = await image_intent_service.composer_intent_for_chat(
+        settings,
+        user_id=user.id,
+        text=body.text,
+        chat_id=body.chat_id,
+        image_attached=body.image_attached,
+    )
+    if verdict is None:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    request = verdict.request
+    return ImageIntentOut(
+        subject=verdict.subject,
+        lookup_query=verdict.lookup_query,
+        generate_prompt=request.prompt if request else None,
+        revision=bool(request and request.revision),
+        reference_attachment_ids=list(request.reference_ids) if request else [],
+    )

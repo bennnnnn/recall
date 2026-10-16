@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import ExitStack, suppress
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -689,16 +689,15 @@ async def test_try_image_gen_skips_recent_lookup_when_text_cannot_be_revision():
     list_recent = AsyncMock(return_value=[])
     long_text = "x" * 121
 
-    with patch("app.modules.chat.turn_intercepts.extract_image_gen_prompt", return_value=None):
-        handled = await try_image_gen_for_turn(
-            _image_gen_deps(messages={"list_recent": list_recent}),
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content=long_text,
-            outcome=None,
-            create_user_message=True,
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content=long_text,
+        outcome=None,
+        create_user_message=True,
+    )
 
     assert handled is False
     list_recent.assert_not_awaited()
@@ -713,16 +712,15 @@ async def test_try_image_gen_skips_recent_lookup_for_greeting(greeting: str):
     user.id = uuid4()
     list_recent = AsyncMock(return_value=[])
 
-    with patch("app.modules.chat.turn_intercepts.extract_image_gen_prompt", return_value=None):
-        handled = await try_image_gen_for_turn(
-            _image_gen_deps(messages={"list_recent": list_recent}),
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content=greeting,
-            outcome=None,
-            create_user_message=True,
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content=greeting,
+        outcome=None,
+        create_user_message=True,
+    )
 
     assert handled is False
     list_recent.assert_not_awaited()
@@ -736,16 +734,15 @@ async def test_try_image_gen_looks_up_recent_when_text_could_be_revision():
     user.id = uuid4()
     list_recent = AsyncMock(return_value=[])
 
-    with patch("app.modules.chat.turn_intercepts.extract_image_gen_prompt", return_value=None):
-        handled = await try_image_gen_for_turn(
-            _image_gen_deps(messages={"list_recent": list_recent}),
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content="make it blue",
-            outcome=None,
-            create_user_message=True,
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content="make it blue",
+        outcome=None,
+        create_user_message=True,
+    )
 
     assert handled is False
     list_recent.assert_awaited_once()
@@ -759,17 +756,16 @@ async def test_try_image_gen_uses_preloaded_recent_without_lookup():
     user.id = uuid4()
     list_recent = AsyncMock(return_value=[])
 
-    with patch("app.modules.chat.turn_intercepts.extract_image_gen_prompt", return_value=None):
-        handled = await try_image_gen_for_turn(
-            _image_gen_deps(messages={"list_recent": list_recent}),
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content="make it blue",
-            outcome=None,
-            create_user_message=True,
-            recent_messages=[],
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content="make it blue",
+        outcome=None,
+        create_user_message=True,
+        recent_messages=[],
+    )
 
     assert handled is False
     list_recent.assert_not_awaited()
@@ -784,16 +780,15 @@ async def test_try_image_gen_skips_recent_lookup_for_chat_openers(text: str):
     user.id = uuid4()
     list_recent = AsyncMock(return_value=[])
 
-    with patch("app.modules.chat.turn_intercepts.extract_image_gen_prompt", return_value=None):
-        handled = await try_image_gen_for_turn(
-            _image_gen_deps(messages={"list_recent": list_recent}),
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content=text,
-            outcome=None,
-            create_user_message=True,
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content=text,
+        outcome=None,
+        create_user_message=True,
+    )
 
     assert handled is False
     list_recent.assert_not_awaited()
@@ -808,17 +803,16 @@ async def test_try_image_gen_skips_recent_lookup_on_empty_chat():
     user.id = uuid4()
     list_recent = AsyncMock(return_value=[])
 
-    with patch("app.modules.chat.turn_intercepts.extract_image_gen_prompt", return_value=None):
-        handled = await try_image_gen_for_turn(
-            _image_gen_deps(messages={"list_recent": list_recent}),
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content="red",
-            outcome=None,
-            create_user_message=True,
-            skip_revision_lookup=True,
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content="red",
+        outcome=None,
+        create_user_message=True,
+        skip_revision_lookup=True,
+    )
 
     assert handled is False
     list_recent.assert_not_awaited()
@@ -839,20 +833,88 @@ async def test_try_image_gen_dog_then_image_uses_prior_subject():
     dog.role = "user"
     dog.content = "Dog"
 
-    with patch("app.modules.chat.turn_intercepts.extract_image_gen_prompt", return_value=None):
-        handled = await try_image_gen_for_turn(
-            _image_gen_deps(image_generation={"generate_for_chat": generate}),
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content="Image",
-            outcome=None,
-            create_user_message=True,
-            recent_messages=[dog],
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(image_generation={"generate_for_chat": generate}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content="Image",
+        outcome=None,
+        create_user_message=True,
+        recent_messages=[dog],
+    )
 
     assert handled is True
     assert generate.await_args.kwargs["prompt"] == "Dog"
+
+
+def _turn_row(role: str, content: str, model: str | None = None) -> MagicMock:
+    row = MagicMock()
+    row.role = role
+    row.content = content
+    row.model = model
+    return row
+
+
+_PICTURE_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+_AFTER_PICTURE = (
+    ("user", "draw me a dog", None),
+    ("assistant", f"[Image: /attachments/{_PICTURE_ID}/file]", "image-gen-model"),
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content, recent, create_user_message, prompt, references",
+    [
+        # "that car" is the car named earlier, as the composer reads it.
+        (
+            "create a picture of that car",
+            (("user", "draw a red sports car", None), ("assistant", "Which style?", None)),
+            True,
+            "red sports car",
+            None,
+        ),
+        # An edit starts from the last picture; regenerating lets generation pick it.
+        ("make it blue", _AFTER_PICTURE, True, "dog, blue", [UUID(_PICTURE_ID)]),
+        ("make it blue", _AFTER_PICTURE, False, "dog, blue", None),
+        # A new request after a picture is a new picture.
+        ("draw a fox", _AFTER_PICTURE, True, "fox", None),
+    ],
+)
+async def test_try_image_gen_reads_the_chat_like_the_composer(
+    content: str,
+    recent: tuple[tuple[str, str, str | None], ...],
+    create_user_message: bool,
+    prompt: str,
+    references: list[UUID] | None,
+):
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    asst_msg = MagicMock()
+    asst_msg.id = uuid4()
+    asst_msg.content = "[Image: /attachments/x/file]"
+    asst_msg.model = "image-gen-model"
+    generate = AsyncMock(return_value=(MagicMock(), asst_msg))
+
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(image_generation={"generate_for_chat": generate}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content=content,
+        outcome=None,
+        create_user_message=create_user_message,
+        recent_messages=[_turn_row(*row) for row in recent],
+    )
+
+    assert handled is True
+    call = generate.await_args
+    assert call is not None
+    assert call.kwargs["prompt"] == prompt
+    assert call.kwargs["reference_attachment_ids"] == references
 
 
 @pytest.mark.asyncio
@@ -875,17 +937,16 @@ async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
         },
     )
 
-    with patch("app.modules.chat.turn_intercepts.extract_image_gen_prompt", return_value="a cat"):
-        handled = await try_image_gen_for_turn(
-            deps,
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content="Generate image: a cat",
-            outcome=None,
-            create_user_message=False,
-            replace_assistant_id=old_id,
-        )
+    handled = await try_image_gen_for_turn(
+        deps,
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content="Generate image: a cat",
+        outcome=None,
+        create_user_message=False,
+        replace_assistant_id=old_id,
+    )
 
     assert handled is False
     delete_message.assert_not_awaited()
@@ -926,17 +987,16 @@ async def test_image_regen_deletes_prior_assistant_only_after_success():
         image_generation={"generate_for_chat": generate_for_chat},
     )
 
-    with patch("app.modules.chat.turn_intercepts.extract_image_gen_prompt", return_value="a cat"):
-        handled = await try_image_gen_for_turn(
-            deps,
-            Settings(),
-            user=user,
-            chat_id=chat_id,
-            content="Generate image: a cat",
-            outcome=TurnOutcome(),
-            create_user_message=False,
-            replace_assistant_id=old_id,
-        )
+    handled = await try_image_gen_for_turn(
+        deps,
+        Settings(),
+        user=user,
+        chat_id=chat_id,
+        content="Generate image: a cat",
+        outcome=TurnOutcome(),
+        create_user_message=False,
+        replace_assistant_id=old_id,
+    )
 
     assert handled is True
     assert order == ["generate", f"purge:{old_id}", f"delete:{old_id}"]
