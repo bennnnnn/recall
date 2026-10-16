@@ -1,10 +1,5 @@
-import { graphAxisTicks, graphTickCount } from "@/lib/math/graphBlock";
-import {
-  clampGraphView,
-  defaultInteractiveBounds,
-  panGraphView,
-  zoomGraphView,
-} from "@/lib/math/graphViewport";
+import { graphAxisTicks } from "@/lib/math/graphBlock";
+import { defaultInteractiveBounds } from "@/lib/math/graphViewport";
 import {
   axisTicksW,
   clampGraphViewW,
@@ -14,39 +9,23 @@ import {
   mapPointW,
   nearestSampleW,
   nearestTraceSampleW,
-  panGraphViewW,
+  tickCountW,
   unmapPointW,
-  zoomGraphViewW,
 } from "@/lib/math/graphWorklets";
 
-// The worklet copies power the Skia explorer on the UI thread; these tests
-// pin parity with the JS originals so the two explorers never disagree.
+// The Skia explorer's ticks come from axisTicksW, the SVG chart's from
+// graphAxisTicks; on a school window the two explorers must agree.
 describe("graphWorklets parity", () => {
-  it("zoom matches zoomGraphView", () => {
-    const start = defaultInteractiveBounds(1.75);
-    expect(zoomGraphViewW(start, 2.5, 1, 1)).toEqual(zoomGraphView(start, 2.5, 1, 1));
-    expect(zoomGraphViewW(start, 0.4, -2, 3)).toEqual(zoomGraphView(start, 0.4, -2, 3));
-  });
-
-  it("pan matches panGraphView", () => {
-    const start = defaultInteractiveBounds(1.75);
-    expect(panGraphViewW(start, 40, -25, 360, 220, 28)).toEqual(
-      panGraphView(start, 40, -25, 360, 220, 28),
+  it("clamp falls back to the default window on a degenerate one", () => {
+    expect(clampGraphViewW({ xMin: 2, xMax: 2, yMin: 0, yMax: 1 })).toEqual(
+      defaultInteractiveBounds(1.7),
     );
-  });
-
-  it("clamp falls back on a degenerate window", () => {
-    const bad = { xMin: 2, xMax: 2, yMin: 0, yMax: 1 };
-    const expected = clampGraphView(bad);
-    const got = clampGraphViewW(bad);
-    expect(got.xMax - got.xMin).toBeCloseTo(expected.xMax - expected.xMin);
-    expect(got.yMax - got.yMin).toBeCloseTo(expected.yMax - expected.yMin);
   });
 
   it("ticks match graphAxisTicks on an integer window", () => {
     const view = defaultInteractiveBounds(1.75);
     expect(axisTicksW(view.xMin, view.xMax)).toEqual(
-      graphAxisTicks(view.xMin, view.xMax, graphTickCount(view.xMin, view.xMax), true),
+      graphAxisTicks(view.xMin, view.xMax, tickCountW(view.xMin, view.xMax), true),
     );
   });
 

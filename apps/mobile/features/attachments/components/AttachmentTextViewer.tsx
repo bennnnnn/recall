@@ -7,44 +7,29 @@ import {
   View,
 } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { useAuthToken } from "@/contexts/AuthContext";
+import {
+  AttachmentViewerChrome,
+  type AttachmentViewerProps,
+} from "@/features/attachments/components/AttachmentViewerChrome";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { fetchAttachmentBytes } from "@/features/attachments/model/fetchAttachmentBytes";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
-import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
-import { HeaderButton } from "@/ui/controls/HeaderButton";
+import { Type } from "@/lib/type";
 
 const MAX_PREVIEW_CHARS = 200_000;
 
-type Props = {
-  visible: boolean;
-  onClose: () => void;
+type Props = AttachmentViewerProps & {
   attachmentId?: string | null;
   path?: string | null;
-  fileName: string;
-  onShare: () => void;
-  /** The share is being prepared: the button spins and waits. */
-  sharing?: boolean;
 };
 
-export function AttachmentTextViewer({
-  visible,
-  onClose,
-  attachmentId,
-  path,
-  fileName,
-  onShare,
-  sharing = false,
-}: Props) {
+export function AttachmentTextViewer({ visible, attachmentId, path, ...chrome }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
   const token = useAuthToken();
   const [text, setText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -82,57 +67,34 @@ export function AttachmentTextViewer({
   }, [visible, remoteUri, token]);
 
   return (
-    <FullScreenModal visible={visible} animationType="slide" onRequestClose={onClose}>
-      {/* Toasts (a failed share) show inside the viewer, not under it. */}
-      <ActionFeedbackProvider>
-        <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-          <View style={s.toolbar}>
-            <HeaderButton icon="close" onPress={onClose} accessibilityLabel={t("preview.close")} />
-            <Text style={s.title} numberOfLines={1} ellipsizeMode="middle">
-              {fileName}
+    <AttachmentViewerChrome
+      {...chrome}
+      visible={visible}
+      closeLabel={t("preview.close")}
+      shareLabel={t("preview.share")}
+    >
+      <View style={s.body}>
+        {loading ? (
+          <ActivityIndicator color={theme.primary} size="large" />
+        ) : failed || text == null ? (
+          <Text style={s.error}>{t("gallery.file_preview_failed")}</Text>
+        ) : (
+          <ScrollView
+            testID="attachment-text-preview"
+            contentContainerStyle={s.scroll}
+          >
+            <Text style={s.fileText} selectable>
+              {text}
             </Text>
-            <HeaderButton
-              icon="share"
-              onPress={onShare}
-              busy={sharing}
-              accessibilityLabel={t("preview.share")}
-            />
-          </View>
-          <View style={s.body}>
-            {loading ? (
-              <ActivityIndicator color={theme.primary} size="large" />
-            ) : failed || text == null ? (
-              <Text style={s.error}>{t("gallery.file_preview_failed")}</Text>
-            ) : (
-              <ScrollView
-                testID="attachment-text-preview"
-                contentContainerStyle={s.scroll}
-              >
-                <Text style={s.fileText} selectable>
-                  {text}
-                </Text>
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </ActionFeedbackProvider>
-    </FullScreenModal>
+          </ScrollView>
+        )}
+      </View>
+    </AttachmentViewerChrome>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    root: { flex: 1, backgroundColor: t.bg },
-    toolbar: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      borderBottomWidth: 1,
-      borderBottomColor: t.border,
-    },
-    title: { flex: 1, ...Type.body, ...Weight.semibold, color: t.text },
     body: { flex: 1 },
     scroll: { padding: Space.md },
     fileText: { ...Type.body, color: t.text },

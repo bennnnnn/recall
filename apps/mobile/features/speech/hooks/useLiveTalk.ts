@@ -26,17 +26,7 @@ import {
   type RealtimeVoiceSession,
 } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-
-type DraftChat = {
-  prepareDraftChat: (
-    model?: string,
-    opts?: { force?: boolean },
-  ) => Promise<string | null>;
-  skipLoadForChatIdRef: React.MutableRefObject<string | null>;
-  draftChatIdRef: React.MutableRefObject<string | null>;
-  setDraftChatId: React.Dispatch<React.SetStateAction<string | null>>;
-  creatingRef: React.MutableRefObject<boolean>;
-};
+import type { useDraftChat } from "@/hooks/useDraftChat";
 
 type Options = {
   token: string | null;
@@ -44,7 +34,7 @@ type Options = {
   setChatId: React.Dispatch<React.SetStateAction<string | null>>;
   setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  draft: DraftChat;
+  draft: ReturnType<typeof useDraftChat>;
   router: ReturnType<typeof useRouter>;
   selectedModel: string;
   isOffline: boolean;

@@ -3,9 +3,9 @@ import { ClipPath, Defs, Line, Rect, Text as SvgText } from "react-native-svg";
 import {
   formatAxisNumber,
   graphAxisTicks,
-  graphTickCount,
   mapGraphPoint,
 } from "@/lib/math/graphBlock";
+import { tickCountW } from "@/lib/math/graphWorklets";
 import { UI_FONT } from "@/lib/uiFont";
 
 type Bounds = {
@@ -57,13 +57,13 @@ export function CartesianAxes({
   const xTicks = graphAxisTicks(
     bounds.xMin,
     bounds.xMax,
-    graphTickCount(bounds.xMin, bounds.xMax),
+    tickCountW(bounds.xMin, bounds.xMax),
     fractionalTicks,
   );
   const yTicks = graphAxisTicks(
     bounds.yMin,
     bounds.yMax,
-    graphTickCount(bounds.yMin, bounds.yMax),
+    tickCountW(bounds.yMin, bounds.yMax),
     fractionalTicks,
   );
 
