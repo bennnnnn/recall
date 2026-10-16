@@ -825,6 +825,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-31 — Split `math/tools/block/discrete.py` (1164) by topic
 
+- **Status:** done. `block/calculus.py` is the guards plus `_CALCULUS_OPERATIONS` (simplify, differentiate, integrate, factor, expand: one function each, over `integrals.py` and `derivatives.py`); `calculus_applications.py` has one function each for area, arc length and volume (disks or shells); limits, series, statistics and matrix have their own files, and `discrete.py` keeps combinatorics and number theory (110 lines). A capture of 33,907 prompts and 2,166 synthetic intents through extraction, `_build_verified_block`, the raw builder and the direct reply is byte-identical before and after, and the math STEM sweep is unchanged.
 - **Problem:** "discrete" holds calculus, limits, series, statistics, combinatorics, number theory
   and matrices. It contains two of the 25 longest functions: `_verified_block_calculus` (217
   lines, :412) and `_verified_calculus_application` (199, :47). It also has 7 silent
