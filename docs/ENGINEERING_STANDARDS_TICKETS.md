@@ -1051,6 +1051,7 @@ not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
 
 ### ES-44 — Photo lookup: a dual-use word beside an unblocked one still searches
 
+- **Status:** done. A code word beside a dual-use word blocks the lookup (`_CODE_CONTEXT_WORDS`, both sides).
 - **Problem:** after ES-02, a dual-use word (branch, hook, test, ...) blocks a lookup only when it
   is the whole subject. "show me the git branch" and "show me a custom hook" still run a photo
   search, as they did before ES-02.
