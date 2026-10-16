@@ -786,6 +786,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-29 — Split `components/markdown/markdownRenderRules.tsx` (1182; `makeSharedRules` 511)
 
+- **Status:** done. `makeSharedRules` spreads partial rule sets from `components/markdown/rules/`: `links.tsx` (image, link), `textWithMath.tsx` (text, drawn from the pure, table-tested `segmentTextWithMath` in `textWithMathSegments.ts`), `inline.tsx` (textgroup, breaks, span, strong, em), `lists.tsx`, `blocks.tsx` (blockquote, paragraph, which draws `workout.tsx` and `lesson.tsx` layouts), `code.tsx` (inline code and heading sizes) and `tables.tsx`, leaving the entry at 55 lines with no overlapping keys. A capture of the whole React tree `MarkdownContent` draws for 5,613 inputs (the presentation corpus, the markdown, math-render and lesson tests, API sweep replies, STEM reply fixtures and hand cases per rule), light and dark, settled, streaming and cut mid-stream, plus direct `text` rule calls on 11,440 distinct lines, is byte-identical (only the rules object's key order moved), and catches a flipped spread winner, a heading size and a dropped segment branch.
 - **Problem:** the file mixes:
   - lesson and workout rendering (77-419)
   - `renderTextWithMath` (192 lines, 439-631)
