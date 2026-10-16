@@ -80,7 +80,7 @@ function sceneLines(scene: Json): string[] {
 }
 
 export function chemSceneMarkdown(body: string): string {
-  let scene: Json | null = null;
+  let scene: Json | null;
   try {
     scene = record(JSON.parse(body.trim()));
   } catch {
