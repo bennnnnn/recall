@@ -835,8 +835,8 @@ def test_consolidate_memories_skipped_when_memory_disabled():
 def test_list_memories_skips_consolidation_scan_when_already_locked():
     """BUG FIX (perf): GET /memories runs on every plain list load. Once a
     consolidation job is already queued/locked for this user, a repeat load
-    must not re-run sections_need_consolidation's text scan over every
-    memory section — it should short-circuit on the cheap lock check."""
+    must not re-run facts_need_consolidation's text scan over every
+    memory fact — it should short-circuit on the cheap lock check."""
     import fakeredis.aioredis
 
     user = _fake_user()

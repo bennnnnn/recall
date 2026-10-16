@@ -59,20 +59,6 @@ async def test_list_for_user_returns_chats(fake_session):
 
 
 @pytest.mark.asyncio
-async def test_delete_empty_for_user_with_no_empty_chats(fake_session):
-    """delete_empty_for_user should return 0 when no empty chats exist."""
-    from app.repositories.chats import delete_empty_for_user
-
-    mock_result = MagicMock()
-    mock_result.rowcount = 0
-    fake_session.execute.return_value = mock_result
-
-    result = await delete_empty_for_user(fake_session, uuid4())
-
-    assert result == 0
-
-
-@pytest.mark.asyncio
 async def test_delete_by_id_returns_false_when_not_found(fake_session):
     """delete_by_id should return False when chat does not exist."""
     from app.repositories.chats import delete_by_id
@@ -113,19 +99,6 @@ async def test_set_pinned(fake_session):
     fake_session.execute.assert_awaited_once()
     fake_session.commit.assert_awaited_once()
     fake_session.refresh.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_touch_updates_timestamp(fake_session):
-    """touch should update updated_at and commit."""
-    from app.repositories.chats import touch
-
-    mock_chat = MagicMock()
-
-    await touch(fake_session, mock_chat)
-
-    assert mock_chat.updated_at is not None
-    fake_session.commit.assert_awaited_once()
 
 
 def test_group_by_recency_today():

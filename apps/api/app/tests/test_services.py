@@ -181,14 +181,14 @@ async def test_stream_chat_completion_mock():
 @pytest.mark.asyncio
 async def test_complete_structured_mock_returns_none():
     from app.gateways import litellm_gateway
-    from app.models.schemas import TitleGenerationResult
+    from app.models.schemas import MemorySectionItem
 
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     result = await litellm_gateway.complete_structured(
         settings=settings,
         model_alias="title-model",
         messages=[{"role": "user", "content": "hi"}],
-        schema=TitleGenerationResult,
+        schema=MemorySectionItem,
     )
     assert result is None
 
@@ -201,16 +201,14 @@ async def test_generate_title_mock():
 
 
 @pytest.mark.asyncio
-async def test_revise_memory_sections_mock():
+async def test_revise_memory_facts_mock():
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    result = await memory_llm.revise_memory_sections(
-        settings, "User likes Python", existing_sections={}
-    )
+    result = await memory_llm.revise_memory_facts(settings, "User likes Python", existing_facts=[])
     assert result is None or hasattr(result, "ops")
 
 
 @pytest.mark.asyncio
-async def test_revise_memory_sections_prompt_user_stated_only():
+async def test_revise_memory_facts_prompt_user_stated_only():
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="test-key")
     captured: dict[str, object] = {}
 
@@ -222,10 +220,10 @@ async def test_revise_memory_sections_prompt_user_stated_only():
         "app.modules.memory.llm.litellm_gateway.complete_structured",
         _capture,
     ):
-        await memory_llm.revise_memory_sections(
+        await memory_llm.revise_memory_facts(
             settings,
             "User: I work at Acme\nAssistant: Congrats on the new role!",
-            existing_sections={},
+            existing_facts=[],
         )
 
     system = captured["messages"][0]["content"]  # type: ignore[index]

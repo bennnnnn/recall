@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.modules.chemistry.block import build_verified_chemistry
-from app.modules.chemistry.coordination import parse_coordination
+from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.elements import BY_NUMBER, BY_SYMBOL, ELEMENTS, get_element_info
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
@@ -249,8 +249,8 @@ def test_organic_facts_and_coordination_names() -> None:
     assert alanine is not None and alanine.chirality == ("atom 2 (C): S",)
     assert isomer_relationship("CCO", "COC") == "constitutional isomers"
 
-    cobalt = parse_coordination("[Co(NH3)6]Cl3")
-    iron = parse_coordination("K4[Fe(CN)6]")
+    cobalt = parse_complex_formula("[Co(NH3)6]Cl3")
+    iron = parse_complex_formula("K4[Fe(CN)6]")
     assert cobalt is not None
     assert cobalt.oxidation_state == 3
     assert cobalt.coordination_number == 6

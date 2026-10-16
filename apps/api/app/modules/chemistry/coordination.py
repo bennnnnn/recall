@@ -228,11 +228,6 @@ def _analyze(formula: str, forced_charge: int | None) -> CoordinationComplex | N
     )
 
 
-def parse_coordination(formula: str) -> CoordinationComplex | None:
-    """A complex whose charge is carried by its counter-ions, e.g. ``K4[Fe(CN)6]``."""
-    return _analyze(formula, None)
-
-
 def parse_complex_formula(formula: str) -> CoordinationComplex | None:
     """Parse a complex, including an ion charge written after the brackets."""
     text = formula.replace(" ", "")

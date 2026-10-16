@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
+from typing import get_args
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,7 +20,7 @@ from app.modules.chat.prompt_constants import (
     DAY_PLANNING_ANSWER_HINT,
     PRIVACY_HINT,
 )
-from app.modules.chat.stream_status import STREAM_STATUS_PHASES
+from app.modules.chat.stream_status import StreamStatusPhase
 from app.modules.todos import TODO_HINT
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -101,8 +102,8 @@ def test_settings_have_no_integration_flags() -> None:
 
 
 def test_stream_has_no_calendar_or_inbox_status() -> None:
-    assert "loading_calendar" not in STREAM_STATUS_PHASES
-    assert "checking_inbox" not in STREAM_STATUS_PHASES
+    assert "loading_calendar" not in get_args(StreamStatusPhase)
+    assert "checking_inbox" not in get_args(StreamStatusPhase)
 
 
 def test_prompts_say_recall_has_no_calendar_or_inbox() -> None:

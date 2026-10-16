@@ -269,12 +269,6 @@ def twice_as_many(total: float) -> str:
     return f"{_format_school_number(small)} and {_format_school_number(large)}"
 
 
-def verify_identity(lhs: str, rhs: str) -> str:
-    """Return whether ``lhs = rhs`` is an identity over the real numbers."""
-    holds, _condition, _counterexample = analyze_identity(lhs, rhs)
-    return "true" if holds else "false"
-
-
 def analyze_identity(lhs: str, rhs: str) -> tuple[bool, str | None, str | None]:
     """Identity truth, equality set, and a small exact counterexample."""
     from app.modules.math.solve.discrete import guess_variables

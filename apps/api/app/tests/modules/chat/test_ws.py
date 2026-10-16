@@ -12,7 +12,7 @@ from app.core.access_tokens import create_access_token
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatNotFoundError, QuotaExceededError
 from app.main import create_app
-from app.services.quota import QUOTA_EXCEEDED_MESSAGE
+from app.services.quota import QUOTA_EXCEEDED_MESSAGE_FREE
 
 
 @pytest.fixture(autouse=True)
@@ -727,7 +727,7 @@ def test_ws_invalid_message_payload():
 @pytest.mark.parametrize(
     "error,code",
     [
-        (QuotaExceededError(QUOTA_EXCEEDED_MESSAGE), "quota_exceeded"),
+        (QuotaExceededError(QUOTA_EXCEEDED_MESSAGE_FREE), "quota_exceeded"),
         (AttachmentValidationError("Attach the file again."), "attachment_rejected"),
     ],
 )

@@ -23,10 +23,6 @@ from app.services import reminder_timing
 
 logger = logging.getLogger(__name__)
 
-# Patchable names used by build_home_screen (and underscore aliases for tests).
-_resolve_home_tz = resolve_home_tz
-_urgent_subtitle = urgent_subtitle
-
 
 async def build_home_screen(
     session: AsyncSession,
