@@ -1,10 +1,12 @@
 """Attachment router tests."""
 
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import fakeredis.aioredis
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
@@ -16,6 +18,7 @@ from app.gateways.storage_gateway import (
 )
 from app.main import create_app
 from app.models.orm import User
+from app.services.quota import counters
 
 
 def _fake_user() -> User:
@@ -68,9 +71,7 @@ def test_presign_upload_success():
             api_upload=True,
         )
     )
-    fake_redis = AsyncMock()
-    fake_redis.incrby = AsyncMock(return_value=1)
-    fake_redis.expire = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
     with (
         patch("app.modules.attachments.upload.get_storage_gateway", return_value=gateway),
@@ -150,23 +151,22 @@ def test_presign_upload_returns_503_when_storage_unconfigured():
     fake_redis.incrby.assert_not_called()
 
 
-def test_presign_upload_refunds_image_quota_when_presign_fails():
+def test_presign_upload_refunds_image_quota_when_presign_fails(quota_clock):
+    """Storage failing after UTC midnight gives the slot back to the day it was taken."""
     user = _fake_user()
     app = _app_with_user(user)
+
+    async def storage_down_after_midnight(**_kwargs):
+        quota_clock.day = quota_clock.next_day
+        raise RuntimeError("storage down")
+
     gateway = MagicMock(spec=LocalStorageGateway)
-    gateway.presign_upload = AsyncMock(side_effect=RuntimeError("storage down"))
-    fake_redis = AsyncMock()
-    fake_redis.incrby = AsyncMock(return_value=1)
-    fake_redis.expire = AsyncMock()
-    refund_mock = AsyncMock()
+    gateway.presign_upload = AsyncMock(side_effect=storage_down_after_midnight)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
     with (
-        patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway),
+        patch("app.modules.attachments.upload.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
-        patch(
-            "app.modules.attachments.upload.counters.refund",
-            refund_mock,
-        ),
     ):
         client = TestClient(app, raise_server_exceptions=False)
         r = client.post(
@@ -174,12 +174,13 @@ def test_presign_upload_refunds_image_quota_when_presign_fails():
             headers={"Authorization": "Bearer tok"},
             json={"content_type": "image/png", "size_bytes": 128},
         )
+        keys = [f"imgup:{user.id}:2026-10-{n}" for n in (16, 17)]
+        assert asyncio.run(fake_redis.mget(keys)) == ["0", None]
 
     assert r.status_code == 500
-    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
 
 
-def test_presign_upload_refunds_image_quota_when_create_pending_fails():
+def test_presign_upload_refunds_image_quota_when_create_pending_fails(quota_clock):
     user = _fake_user()
     app = _app_with_user(user)
     attachment_id = uuid4()
@@ -193,9 +194,7 @@ def test_presign_upload_refunds_image_quota_when_create_pending_fails():
             api_upload=True,
         )
     )
-    fake_redis = AsyncMock()
-    fake_redis.incrby = AsyncMock(return_value=1)
-    fake_redis.expire = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     refund_mock = AsyncMock()
 
     with (
@@ -218,7 +217,7 @@ def test_presign_upload_refunds_image_quota_when_create_pending_fails():
         )
 
     assert r.status_code == 500
-    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id, day=quota_clock.day)
 
 
 def test_presign_upload_does_not_refund_for_non_image():
@@ -451,16 +450,13 @@ def test_confirm_upload_noop_for_local_backend():
     assert r.status_code == 204
 
 
-def test_presign_upload_rejects_image_over_daily_limit():
+def test_presign_upload_rejects_image_over_daily_limit(quota_clock):
     user = _fake_user()
     app = _app_with_user(user)
-    fake_redis = AsyncMock()
-
-    async def _incrby_over_limit(key, amount):
-        return 6
-
-    fake_redis.incrby = _incrby_over_limit
-    fake_redis.expire = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    key = f"imgup:{user.id}:2026-10-16"
+    cap = counters.limit("image_upload", user, Settings())
+    asyncio.run(fake_redis.set(key, cap, ex=60))
 
     with patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis):
         client = TestClient(app)
@@ -469,6 +465,7 @@ def test_presign_upload_rejects_image_over_daily_limit():
             headers={"Authorization": "Bearer tok"},
             json={"content_type": "image/png", "size_bytes": 128},
         )
+        assert asyncio.run(fake_redis.get(key)) == str(cap)
 
     assert r.status_code == 429
 

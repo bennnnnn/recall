@@ -215,7 +215,8 @@ async def search_and_attach_for_chat(
             quota_service.IMAGE_SEARCH_SPEND_CAP_MESSAGE,
             status_code=429,
         )
-    if not await counters.reserve("image_search", redis, user, settings):
+    day = await counters.reserve("image_search", redis, user, settings)
+    if not day:
         raise ImageSearchError(
             counters.limit_message("image_search", user),
             status_code=429,
@@ -277,11 +278,11 @@ async def search_and_attach_for_chat(
             await session.commit()
     except ImageSearchError:
         await _rollback_written_bytes(gateway, written_keys)
-        await counters.refund("image_search", redis, user.id)
+        await counters.refund("image_search", redis, user.id, day=day)
         raise
     except BaseException:
         await _rollback_written_bytes(gateway, written_keys)
-        await counters.refund("image_search", redis, user.id)
+        await counters.refund("image_search", redis, user.id, day=day)
         raise
 
     try:
@@ -308,7 +309,8 @@ async def photos_for_answer(settings: Settings, *, user: User, query: str) -> li
     redis = get_redis_client()
     if await quota_service.global_spend_exceeded(redis, settings):
         return []
-    if not await counters.reserve("image_search", redis, user, settings):
+    day = await counters.reserve("image_search", redis, user, settings)
+    if not day:
         return []
 
     written_keys: list[str] = []
@@ -322,16 +324,16 @@ async def photos_for_answer(settings: Settings, *, user: User, query: str) -> li
             await session.commit()
     except ImageSearchError:
         await _rollback_written_bytes(gateway, written_keys)
-        await counters.refund("image_search", redis, user.id)
+        await counters.refund("image_search", redis, user.id, day=day)
         return []
     except Exception:
         logger.exception("Answer photo lookup failed")
         await _rollback_written_bytes(gateway, written_keys)
-        await counters.refund("image_search", redis, user.id)
+        await counters.refund("image_search", redis, user.id, day=day)
         return []
     except BaseException:
         await _rollback_written_bytes(gateway, written_keys)
-        await counters.refund("image_search", redis, user.id)
+        await counters.refund("image_search", redis, user.id, day=day)
         raise
 
     try:

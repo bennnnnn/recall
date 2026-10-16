@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import date
 from typing import Literal, cast
 from uuid import UUID, uuid4
 
@@ -226,11 +227,12 @@ class _ReservedQuota:
     """``async with``: hold one of today's image-generation slots for the block.
 
     Entering refuses with 429 at the plan's cap. When the block raises anything
-    (a cancellation too), ``undo`` runs first, then the slot is given back
-    unless the error is a 403 or 429 ImageGenerationError. An exception out of
-    ``undo`` skips the refund; it, or one out of the refund, propagates in place
-    of the block's. A class rather than ``@asynccontextmanager``, whose
-    generator would turn a StopAsyncIteration out of Redis into a RuntimeError.
+    (a cancellation too), ``undo`` runs first, then the slot is given back to
+    the day it was taken from unless the error is a 403 or 429
+    ImageGenerationError. An exception out of ``undo`` skips the refund; it,
+    or one out of the refund, propagates in place of the block's. A class
+    rather than ``@asynccontextmanager``, whose generator would turn a
+    StopAsyncIteration out of Redis into a RuntimeError.
     """
 
     def __init__(
@@ -240,9 +242,11 @@ class _ReservedQuota:
         self.user = user
         self.settings = settings
         self.undo = undo
+        self.day: date | None = None
 
     async def __aenter__(self) -> None:
-        if not await counters.reserve("image_generation", self.redis, self.user, self.settings):
+        self.day = await counters.reserve("image_generation", self.redis, self.user, self.settings)
+        if not self.day:
             raise ImageGenerationError(
                 counters.limit_message("image_generation", self.user), status_code=429
             )
@@ -254,7 +258,7 @@ class _ReservedQuota:
             return
         await self.undo()
         if not (isinstance(exc, ImageGenerationError) and exc.status_code in _SLOT_KEPT_ON_STATUS):
-            await counters.refund("image_generation", self.redis, self.user.id)
+            await counters.refund("image_generation", self.redis, self.user.id, day=self.day)
 
 
 class _WrittenBytes:

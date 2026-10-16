@@ -334,6 +334,29 @@ async def test_skip_tavily_when_user_missing(fake_redis):
     reserve.assert_not_called()
 
 
+@pytest.mark.parametrize("used_today, skip", [(0, False), (1, True)])
+@pytest.mark.asyncio
+async def test_skip_tavily_follows_the_daily_cap(fake_redis, quota_clock, used_today, skip):
+    """Tavily runs while a slot is left today (reserve returns its day), then DuckDuckGo."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.modules.billing.entitlements import setting_name
+    from app.modules.web_search.search_cache import TurnTavilyBudget
+
+    settings = Settings(
+        tavily_api_key="test-key", **{setting_name("daily_web_searches", "free"): 1}
+    )
+    user = MagicMock(id=uuid4(), plan="free")
+    key = f"tavily:{user.id}:2026-10-16"
+    if used_today:
+        await fake_redis.set(key, used_today, ex=60)
+    budget = TurnTavilyBudget(settings=settings, user=user)
+    assert await budget.skip_tavily(fake_redis) is skip
+    # A reserved search stays spent; one past the cap is given back at once.
+    assert await fake_redis.get(key) == "1"
+
+
 @pytest.mark.asyncio
 async def test_skip_tavily_on_redis_reserve_error(fake_redis):
     from unittest.mock import MagicMock
