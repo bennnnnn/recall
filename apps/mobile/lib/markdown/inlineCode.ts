@@ -8,7 +8,8 @@
  * The API's twin is apps/api/app/modules/chat/inline_code.py.
  */
 
-function escapedAt(text: string, at: number): boolean {
+/** True when an odd run of backslashes escapes `text[at]`. */
+export function escapedAt(text: string, at: number): boolean {
   let slashes = 0;
   for (let i = at - 1; i >= 0 && text[i] === "\\"; i -= 1) slashes += 1;
   return slashes % 2 === 1;

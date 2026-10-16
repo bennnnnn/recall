@@ -249,6 +249,13 @@
       "expected": "Step one gives $1.$ Step two gives $2$."
     },
     {
+      "id": "price-tiers-stay-as-written",
+      "area": "boundaries",
+      "input": "Try Joe's ($$) or Bob's ($$$) tonight.",
+      "expected": "Try Joe's ($$) or Bob's ($$$) tonight.",
+      "note": "A price tier is not a $$ pair."
+    },
+    {
       "id": "code-spaced",
       "area": "inline_code",
       "input": "Use `yield` when appropriate.",
@@ -633,6 +640,49 @@
       "area": "maths",
       "input": "\\[ F = ma = 2 \\times 3 = 6 \\]",
       "expected": "\\[ F = ma = 2 \\times 3 = 6 \\]"
+    },
+    {
+      "id": "display-block-plain-chain",
+      "area": "maths",
+      "input": "$$\nv = d/t = 50/10 = 5\n$$",
+      "expected": "$$\nv = d/t = 50/10 = 5\n$$",
+      "note": "The phone draws the block as one maths fence and lays its rows out."
+    },
+    {
+      "id": "bracket-block-plain-chain",
+      "area": "maths",
+      "input": "\\[\nv = d/t = 50/10 = 5\n\\]",
+      "expected": "\\[\nv = d/t = 50/10 = 5\n\\]"
+    },
+    {
+      "id": "bracket-line-plain-chain",
+      "area": "maths",
+      "input": "\\[ v = d/t = 50/10 = 5 \\]",
+      "expected": "\\[ v = d/t = 50/10 = 5 \\]"
+    },
+    {
+      "id": "bracket-line-in-prose",
+      "area": "maths",
+      "input": "Then \\[ a = b = c \\] here",
+      "expected": "Then \\[ a = b = c \\] here"
+    },
+    {
+      "id": "display-block-then-inline-chain",
+      "area": "maths",
+      "input": "Speed:\n\n$$\nv = d/t = 100/20 = 5\n$$\n\nSo $v = d/t = 5$.",
+      "expected": "Speed:\n\n$$\nv = d/t = 100/20 = 5\n$$\n\nSo\n$v = d/t$  \n$v = 5$."
+    },
+    {
+      "id": "price-tiers-are-not-maths",
+      "area": "maths",
+      "input": "Joe's ($$) and Bob's ($$$) are open.\n\nThen $v = d/t = 50/10 = 5$.",
+      "expected": "Joe's ($$) and Bob's ($$$) are open.\n\nThen\n$v = d/t$  \n$v = 50/10$  \n$v = 5$."
+    },
+    {
+      "id": "code-span-dollars-are-not-maths",
+      "area": "maths",
+      "input": "Write `$$` around display maths.\n\nThen $v = d/t = 50/10 = 5$.",
+      "expected": "Write `$$` around display maths.\n\nThen\n$v = d/t$  \n$v = 50/10$  \n$v = 5$."
     },
     {
       "id": "code-fence-left-alone",

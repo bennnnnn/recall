@@ -4,8 +4,8 @@
  * docs/fixtures/presentation_cases.json holds both to the same output.
  */
 
-import { codeSpanOpensWithin } from "@/lib/markdown/inlineCode";
-import { leaveProseLine, rewriteFenced } from "@/lib/markdown/markdownRegions";
+import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
+import { displayMathLines, leaveProseLine, rewriteFenced } from "@/lib/markdown/markdownRegions";
 import { charAt, LETTER } from "@/lib/markdown/unicodeChars";
 import { readFenceMarker } from "@/lib/mdFenceScan";
 
@@ -370,7 +370,8 @@ function layoutBody(body: string): string {
     if (!rows) return body;
     return withIndent(body, joinRows(rows, sole.delim, sole.punct));
   }
-  if (!body.includes("$") && !body.includes("`")) {
+  // A closed \[...\] on one line is one display formula, drawn as a maths block.
+  if (!body.includes("$") && !body.includes("`") && !body.includes("\\[")) {
     const plain = plainChain(body);
     if (plain != null) return withIndent(body, plain);
   }
@@ -407,12 +408,6 @@ function layoutLine(line: string): string {
     .split("\n")
     .map((row, index) => (index === 0 ? prefix + row : pad + row))
     .join("\n");
-}
-
-function escapedAt(text: string, index: number): boolean {
-  let slashes = 0;
-  for (let cursor = index - 1; cursor >= 0 && text[cursor] === "\\"; cursor -= 1) slashes += 1;
-  return slashes % 2 === 1;
 }
 
 function interiorLineBlocksFold(line: string): boolean {
@@ -499,7 +494,9 @@ function foldClosedParenMath(text: string): string {
 }
 
 function layoutProse(prose: string): string {
-  return foldClosedParenMath(prose).split("\n").map(layoutLine).join("\n");
+  const lines = foldClosedParenMath(prose).split("\n");
+  const kept = displayMathLines(lines);
+  return lines.map((line, index) => (kept[index] ? line : layoutLine(line))).join("\n");
 }
 
 function unwrapMathLine(line: string): string {

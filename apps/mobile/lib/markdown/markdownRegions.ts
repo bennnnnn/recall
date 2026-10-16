@@ -4,7 +4,11 @@
  * presentation passes on both sides walk a reply the same way.
  */
 
+import { escapedAt, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { readFenceMarker } from "@/lib/mdFenceScan";
+
+/** Restaurant price tiers, ($) to ($$$$), are not maths. */
+export const PRICE_TIER = /\(\s*\$+\s*\)/;
 
 /**
  * Rewrite prose, and replace a closed fence when `rewriteFence` returns text.
@@ -59,4 +63,47 @@ export function rewriteFenced(
 export function leaveProseLine(line: string): boolean {
   if (line.startsWith("    ") || line.startsWith("\t")) return true;
   return line.trimStart().startsWith(">");
+}
+
+/**
+ * Which lines belong to a display formula left open across lines. A `$$` or
+ * `\[` that a line leaves open makes every line up to its closer one formula,
+ * which the phone draws as one maths block: none of them is a prose line to
+ * lay out. Inline code and price tiers hold no maths.
+ */
+export function displayMathLines(lines: string[]): boolean[] {
+  const priceTiers = new RegExp(PRICE_TIER.source, "g");
+  let closer: string | null = null;
+  return lines.map((line) => {
+    const after = displayCloser(line.replace(priceTiers, ""), closer);
+    const kept = closer != null || after != null;
+    closer = after;
+    return kept;
+  });
+}
+
+/** The display closer (`$$` or `\]`) still awaited after `line`. */
+function displayCloser(line: string, open: string | null): string | null {
+  let closer = open;
+  let index = 0;
+  while (index < line.length) {
+    const codeEnd = closer == null ? readInlineCodeSpan(line, index) : null;
+    if (codeEnd != null) {
+      index = codeEnd;
+    } else if (escapedAt(line, index)) {
+      index += 1;
+    } else if (line.startsWith("$$", index)) {
+      if (closer == null || closer === "$$") closer = closer == null ? "$$" : null;
+      index += 2;
+    } else if (line.startsWith("\\[", index) && closer == null) {
+      closer = "\\]";
+      index += 2;
+    } else if (line.startsWith("\\]", index) && closer === "\\]") {
+      closer = null;
+      index += 2;
+    } else {
+      index += 1;
+    }
+  }
+  return closer;
 }

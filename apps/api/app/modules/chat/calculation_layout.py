@@ -8,8 +8,13 @@ two independent equations, becomes separate rows.
 
 from __future__ import annotations
 
-from app.modules.chat.inline_code import code_span_opens_within, is_bare_number
-from app.modules.chat.markdown_regions import leave_prose_line, read_fence_marker, rewrite_fenced
+from app.modules.chat.inline_code import code_span_opens_within, escaped_at, is_bare_number
+from app.modules.chat.markdown_regions import (
+    display_math_lines,
+    leave_prose_line,
+    read_fence_marker,
+    rewrite_fenced,
+)
 
 _MATH_FENCE_LANGS = {"math", "latex", "tex", "equation"}
 _TEXT_COMMANDS = {"text", "mathrm", "mathbf", "textrm", "operatorname", "textbf", "mbox"}
@@ -385,7 +390,8 @@ def _layout_body(body: str) -> str:
         if not indent:
             return joined
         return "\n".join(f"{indent}{line}" for line in joined.split("\n"))
-    if "$" not in body and "`" not in body:
+    # A closed \[...\] on one line is one display formula, drawn as a maths block.
+    if "$" not in body and "`" not in body and "\\[" not in body:
         plain = _plain_chain(body)
         if plain is not None:
             indent = body[: len(body) - len(body.lstrip(" "))]
@@ -428,15 +434,6 @@ def _layout_line(line: str) -> str:
     return "\n".join(prefix + row if index == 0 else pad + row for index, row in enumerate(rows))
 
 
-def _escaped(text: str, index: int) -> bool:
-    slashes = 0
-    cursor = index - 1
-    while cursor >= 0 and text[cursor] == "\\":
-        slashes += 1
-        cursor -= 1
-    return slashes % 2 == 1
-
-
 def _interior_line_blocks_fold(line: str) -> bool:
     """A new block inside \\(...\\) is not one inline formula."""
     if leave_prose_line(line):
@@ -469,7 +466,7 @@ def _find_paren_closer(text: str, start: int) -> int | None:
             if code_end is not None:
                 index = code_end
                 continue
-        if text.startswith(r"\)", index) and not _escaped(text, index):
+        if text.startswith(r"\)", index) and not escaped_at(text, index):
             return index
         index += 1
     return None
@@ -493,7 +490,7 @@ def _fold_closed_paren_math(text: str) -> str:
                 out.append(text[index:code_end])
                 index = code_end
                 continue
-        if text.startswith(r"\(", index) and not _escaped(text, index):
+        if text.startswith(r"\(", index) and not escaped_at(text, index):
             close = _find_paren_closer(text, index + 2)
             if close is None:
                 out.append(text[index:])
@@ -517,8 +514,9 @@ def _fold_closed_paren_math(text: str) -> str:
 
 
 def _layout_prose(prose: str) -> str:
-    folded = _fold_closed_paren_math(prose)
-    return "\n".join(_layout_line(line) for line in folded.split("\n"))
+    lines = _fold_closed_paren_math(prose).split("\n")
+    pairs = zip(lines, display_math_lines(lines), strict=True)
+    return "\n".join(line if kept else _layout_line(line) for line, kept in pairs)
 
 
 def _unwrap_math_line(line: str) -> str:
