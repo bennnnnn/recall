@@ -30,6 +30,7 @@ from app.modules.chat.turn_prep.context import (
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import _classify_turn_mode
+from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
@@ -247,7 +248,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         def stub(target: str, value: Any) -> None:
             stack.enter_context(patch(target, value))
 
-        stub("app.modules.chat.turn_prep.context.SessionLocal", lambda: _Session())
+        stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
         stub("app.repositories.messages.list_recent", AsyncMock(return_value=list(rows)))
         stub("app.repositories.messages.get_last_assistant", AsyncMock(return_value=last_assistant))
@@ -256,7 +257,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stub("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
         stub("app.modules.billing.plan.chat_fallback_models", lambda *_a, **_k: [])
         stub(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
             AsyncMock(return_value=prior_users),
         )
         stub("app.modules.web_search.search_cache.run_cached_search", run_search)
@@ -269,20 +270,22 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
 
         turn_mode = await _classify_turn_mode(AsyncMock(), chat, text)
         bundle = await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            text,
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content=text,
+                model="free-chat",
+                client_timezone=USER_TIMEZONE,
+                client_location=case.location,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=turn_mode,
+                recent_messages=list(rows),
+            ),
             settings,
             AsyncMock(),
-            client_timezone=USER_TIMEZONE,
-            client_location=case.location,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=turn_mode,
-            recent_messages=list(rows),
         )
         ctx = stream_context_from_bundle(
             bundle,

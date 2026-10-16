@@ -1833,13 +1833,13 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
         )
         stack.enter_context(
             patch(
-                "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+                "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
                 AsyncMock(return_value=(None, None, [], None, False, None, None)),
             )
         )
         stack.enter_context(
             patch(
-                "app.modules.chat.turn_prep.context.inject_web_and_tools",
+                "app.modules.chat.turn_prep.augment.inject_web_and_tools",
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
         )
@@ -1906,8 +1906,8 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
     fake_last_user = MagicMock()
     fake_last_user.content = "question"
 
-    async def track_build(*_args, **kwargs):
-        captured["omit"] = kwargs.get("omit_message_ids")
+    async def track_build(request, *_args):
+        captured["omit"] = request.omit_message_ids
         return TurnPromptBundle(
             prompt_messages=[{"role": "system", "content": "sys"}],
             meta={},
@@ -2079,13 +2079,13 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         )
         stack.enter_context(
             patch(
-                "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+                "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
                 fetch_web,
             )
         )
         stack.enter_context(
             patch(
-                "app.modules.chat.turn_prep.context.inject_web_and_tools",
+                "app.modules.chat.turn_prep.augment.inject_web_and_tools",
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
         )

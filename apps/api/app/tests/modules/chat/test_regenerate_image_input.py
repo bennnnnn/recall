@@ -13,11 +13,11 @@ from app.models.orm import Chat, User
 from app.modules.chat import stream_entry
 from app.modules.chat.turn_prep.attachments import vision_reserve_tokens
 from app.modules.chat.turn_prep.context import (
-    ClientGeoContext,
     TurnPromptBundle,
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
+from app.modules.chat.turn_prep.request import ClientGeoContext
 from app.tests.modules.chat.chat_test_support import FakeSessionCM
 
 _MODULE = "app.modules.chat.turn_prep.regenerate_vision"
@@ -170,9 +170,8 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
     async def resources(*_args, **_kwargs):
         yield resource
 
-    async def build(*args, **kwargs):
-        captured["build_model"] = args[3]
-        captured["build_kwargs"] = kwargs
+    async def build(request, *_args):
+        captured["request"] = request
         return TurnPromptBundle(
             prompt_messages=[
                 {"role": "system", "content": "policy"},
@@ -241,9 +240,10 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         ]
     assert result == ["Regenerated answer"]
     ctx = captured["ctx"]
-    assert ctx.model == captured["build_model"] == ("vision-chat" if with_image else "free-chat")
-    assert captured["build_kwargs"]["has_image_attachment"] is with_image
-    assert captured["build_kwargs"]["omit_message_ids"] == {previous.id}
+    request = captured["request"]
+    assert ctx.model == request.model == ("vision-chat" if with_image else "free-chat")
+    assert request.has_image_attachment is with_image
+    assert request.omit_message_ids == {previous.id}
     assert resource.reserve.await_args.kwargs["vision_extra"] == vision_reserve_tokens(
         _SETTINGS, int(with_image)
     )

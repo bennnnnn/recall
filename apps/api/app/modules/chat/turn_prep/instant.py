@@ -1,0 +1,119 @@
+"""Replies the server writes itself, so the turn never calls a model.
+
+A recurring-pay estimate, the local time or date, where the user is, a fact from
+their profile, a settings change to confirm, and the "location not set" answer to
+a nearby question that has no place to search from.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from redis.asyncio import Redis
+
+from app.core.config import Settings
+from app.core.db import SessionLocal
+from app.modules import memory as memory_service
+from app.modules import web_search as web_search_service
+from app.modules.account import settings_proposal as settings_proposal_service
+from app.modules.account.settings_intent import extract_settings_changes
+from app.modules.chat.prompt_constants.routing import profile_question_to_answer
+from app.modules.chat.turn_prep.followups import SubjectFollowup
+from app.modules.chat.turn_prep.request import ClientGeoContext, TurnIdentity, TurnRequest
+from app.modules.memory.profile_reply import reply_for_profile_question
+from app.services import recurring_pay as recurring_pay_service
+from app.services import time_context as time_context_service
+from app.services.text_normalize import collapse_ws
+
+
+def recurring_pay_reply(request: TurnRequest, local_tz: str) -> str | None:
+    """A recurring-pay estimate, fully owned by local date arithmetic.
+
+    Checked before any prompt work: building memory/RAG context and probing model
+    health for a reply that never calls a model added about a second before the
+    first token. A photo goes to vision instead.
+    """
+    if request.has_image_attachment:
+        return None
+    return recurring_pay_service.maybe_recurring_pay_reply(request.content, local_tz)
+
+
+async def resolve_instant_reply(
+    request: TurnRequest, identity: TurnIdentity, settings: Settings, redis: Redis
+) -> str | None:
+    """Phase A: runs beside the prompt build and the fallback-model health read."""
+    content = request.content
+    # Time/location answers are CPU-only. Skip year/date/time instant-replies
+    # when a photo is attached — vision should see it.
+    if not request.has_image_attachment:
+        now_reply = time_context_service.maybe_local_now_reply(
+            content, identity.local_tz, identity.user.locale
+        )
+        if now_reply is not None:
+            return now_reply
+    if time_context_service.is_location_question(content):
+        return time_context_service.format_location_answer(
+            identity.geo.user_location, identity.local_tz
+        )
+    asked = profile_question_to_answer(
+        content, _earlier_user_texts(request.recent_messages, content)
+    )
+    if asked:
+        async with SessionLocal() as session:
+            rows = await memory_service.list_for_user(
+                session,
+                identity.user.id,
+                include_muted=False,
+                include_superseded=False,
+            )
+        return reply_for_profile_question(asked, [row.text for row in rows])
+    settings_changes = extract_settings_changes(
+        content,
+        prior_assistant=_last_recent_assistant_content(request.recent_messages),
+    )
+    if not settings_changes:
+        return None
+    return await settings_proposal_service.materialize_settings_reply(
+        redis, identity.user, settings, settings_changes
+    )
+
+
+def location_not_set_reply(
+    content: str, geo: ClientGeoContext, followup: SubjectFollowup
+) -> str | None:
+    """A nearby question with no location to search from, answered without the model.
+
+    A question that names its own place ("best restaurant in DC") needs no location,
+    and "how far does it go?" after a physics problem asks about the car, not the user.
+    """
+    if (
+        geo.geo_query
+        and not geo.has_geo_fix
+        and not followup.found
+        and not web_search_service.names_its_place(content)
+    ):
+        return web_search_service.format_location_not_set_answer()
+    return None
+
+
+def _earlier_user_texts(recent_messages: list[Any] | None, content: str) -> list[str]:
+    texts = [
+        message.content
+        for message in recent_messages or []
+        if getattr(message, "role", None) == "user"
+        and isinstance(getattr(message, "content", None), str)
+    ]
+    if texts and collapse_ws(texts[-1]) == collapse_ws(content):
+        texts = texts[:-1]
+    return texts
+
+
+def _last_recent_assistant_content(recent_messages: list[Any] | None) -> str | None:
+    if not recent_messages:
+        return None
+    for message in reversed(recent_messages):
+        role = getattr(message, "role", None)
+        content = getattr(message, "content", None)
+        if role == "assistant" and isinstance(content, str) and content.strip():
+            return content.strip()
+    return None

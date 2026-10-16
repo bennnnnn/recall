@@ -20,7 +20,7 @@ from app.modules.chat.prompt_constants import (
     is_lightweight_chat_turn,
     is_short_reply,
 )
-from app.modules.chat.turn_prep import RegenerateBackup
+from app.modules.chat.turn_prep import RegenerateBackup, TurnRequest
 from app.modules.chat.turn_prep.mode import _classify_turn_mode
 from app.modules.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
 from app.modules.chat.turn_timing import TurnTimingTracker
@@ -580,13 +580,11 @@ async def stream_regenerate_response(
             vision_extra=seams.vision_reserve_tokens(settings, len(current_image_ids)),
             seed=True,
         )
-        bundle = await seams.build_stream_prompt_context(
-            user_id,
-            chat_id,
-            user_message_content,
-            model,
-            settings,
-            redis,
+        request = TurnRequest(
+            user_id=user_id,
+            chat_id=chat_id,
+            content=user_message_content,
+            model=model,
             client_timezone=client_timezone,
             client_location=client_location,
             client_latitude=client_latitude,
@@ -599,6 +597,7 @@ async def stream_regenerate_response(
             turn_mode=turn_mode,
             has_image_attachment=bool(current_image_ids),
         )
+        bundle = await seams.build_stream_prompt_context(request, settings, redis)
         if current_image_ids:
             await inject_regenerated_image_content(
                 bundle.prompt_messages,
