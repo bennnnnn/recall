@@ -20,17 +20,7 @@ import {
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
 import { uploadChatAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
-
-type DraftChat = {
-  prepareDraftChat: (
-    model?: string,
-    opts?: { force?: boolean },
-  ) => Promise<string | null>;
-  skipLoadForChatIdRef: React.MutableRefObject<string | null>;
-  draftChatIdRef: React.MutableRefObject<string | null>;
-  setDraftChatId: React.Dispatch<React.SetStateAction<string | null>>;
-  creatingRef: React.MutableRefObject<boolean>;
-};
+import type { useDraftChat } from "@/hooks/useDraftChat";
 
 type Options = {
   token: string | null;
@@ -38,7 +28,7 @@ type Options = {
   setChatId: React.Dispatch<React.SetStateAction<string | null>>;
   setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
   setMessages: React.Dispatch<React.SetStateAction<import("@/lib/api").Message[]>>;
-  draft: DraftChat;
+  draft: ReturnType<typeof useDraftChat>;
   router: ReturnType<typeof useRouter>;
   selectedModel: string;
   streaming: boolean;

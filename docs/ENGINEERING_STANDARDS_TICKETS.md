@@ -1026,6 +1026,14 @@ not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
 
 ### ES-40 — Small duplicates the clone detector found
 
+- **Status:** done. `_read_operator_subscript`, `core/request_limits.reject_oversized`,
+  `solvers/display.py` + `solvers/constants.py` (no `common_chem.py`), the worklet viewport, unmap,
+  tick-step and tick-count functions in place of their JS copies, `lib/audio/wav.ts`,
+  `AttachmentViewerChrome` and `ReturnType<typeof useDraftChat>`. Skipped the intercept tail
+  (ES-23 already made it `_replace_old_assistant` + `_record`) and kept `axisTicksW`/`formatTickW`
+  apart from `graphAxisTicks`/`formatAxisNumber`: `formatTickW` snaps within 1e-9 of a whole
+  number and blanks non-finite values, so their ticks differ on nanoscale windows.
+
 **API**
 
 - `chat/stream_entry.py:117-129` and `:225-238`: the image-generation and photo-lookup intercepts
