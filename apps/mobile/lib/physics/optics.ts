@@ -442,7 +442,7 @@ export function layoutMeasure(
 // --- ray diagram geometry -------------------------------------------------------
 
 /** A direction mark on a ray: where its head's tip goes, and which way it points. */
-type RayMark = { x: number; y: number; ux: number; uy: number };
+export type RayMark = { x: number; y: number; ux: number; uy: number };
 
 /** Visible segments shorter than this carry no direction mark. */
 const RAY_MARK_MIN_LENGTH = 18;
