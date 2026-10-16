@@ -378,5 +378,56 @@
   "prompt": "integrate by parts of the team into the new project",
   "reply": "Bring people in gradually: start with one person from each team on the kickoff, then add the rest as tasks open up.",
   "expect": "answer"
+ },
+ {
+  "id": "ml-049",
+  "area": "math lookalike",
+  "prompt": "My career has felt really linear lately. How do I make the next 5 years more interesting?",
+  "reply": "A few ways to bend the line: take a stretch project outside your usual lane, learn a skill next to your job for a few months, or try a sideways move into a team you rarely work with. Pick one and give it a real quarter before you judge it.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-050",
+  "area": "math lookalike",
+  "prompt": "Can you explain nonlinear storytelling, like in Memento or Pulp Fiction?",
+  "reply": "Nonlinear storytelling shows events out of the order they happened. **Memento** runs its main story backwards, so you know as little as the hero does; **Pulp Fiction** shuffles its chapters so the ending loops back to the start. You put the timeline together yourself.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-051",
+  "area": "math lookalike",
+  "prompt": "Our onboarding is too linear. How do I let new hires skip the first 2 weeks of training?",
+  "reply": "Split those two weeks into modules with a short check at the start of each. Anyone who passes a check skips that module; everyone still does the parts about your own tools and people.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-052",
+  "area": "math lookalike",
+  "prompt": "I'm near the end of chapter 3 of my thesis and totally out of steam. Any tips?",
+  "reply": "Shrink the goal: write the last section badly today and fix it tomorrow. Set a 25-minute timer, close everything else, and stop mid-sentence so tomorrow starts easily.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-053",
+  "area": "math lookalike",
+  "prompt": "We're nearly at 100 subscribers! How should I celebrate with my audience?",
+  "reply": "Congratulations! Thank people by name in a short post, run a small giveaway or a live Q&A, and share a peek at what's coming next.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-054",
+  "area": "math lookalike",
+  "prompt": "Rewrite this sentence: The nearby river rose 2 feet overnight.",
+  "reply": "Overnight, the river nearby climbed two feet.",
+  "expect": "answer",
+  "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "ml-055",
+  "area": "math lookalike",
+  "prompt": "In my story the hero hears a nearby wolf howl 3 times. What should happen next?",
+  "reply": "After the third howl the forest goes quiet, which is worse. Have the hero find fresh tracks circling the camp, then a stranger steps out of the trees who seems to know why the pack is following them.",
+  "expect": "answer",
+  "location": "Addis Ababa, Ethiopia"
  }
 ]

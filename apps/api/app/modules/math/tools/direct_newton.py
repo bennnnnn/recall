@@ -39,11 +39,16 @@ def has_newton_request(text: str) -> bool:
 _DEFAULT_NEWTON_GUESS = 1.0
 
 
-def _parse_newton_guess(cleaned: str) -> tuple[float, str]:
-    """Return ``(guess, text_for_eq)`` after stripping a trailing guess clause."""
-    guess = _DEFAULT_NEWTON_GUESS
-    text_for_eq = cleaned
-    lower = cleaned.lower()
+def _whole_label(label: str) -> re.Pattern[str]:
+    # A word edge is a word boundary: "near" is not inside "nonlinear" or "linear".
+    start = r"\b" if label[0].isalnum() else ""
+    end = r"\b" if label[-1].isalnum() else ""
+    return re.compile(f"{start}{re.escape(label)}{end}")
+
+
+# Tried in this order: the longer spelling of a cue before its shorter one.
+_GUESS_LABELS = tuple(
+    _whole_label(label)
     for label in (
         "starting at x0 =",
         "starting at x=",
@@ -55,11 +60,21 @@ def _parse_newton_guess(cleaned: str) -> tuple[float, str]:
         "near",
         "guess",
         "x0 =",
-    ):
-        idx = lower.find(label)
-        if idx == -1:
+    )
+)
+
+
+def _parse_newton_guess(cleaned: str) -> tuple[float, str]:
+    """Return ``(guess, text_for_eq)`` after stripping a trailing guess clause."""
+    guess = _DEFAULT_NEWTON_GUESS
+    text_for_eq = cleaned
+    lower = cleaned.lower()
+    for label in _GUESS_LABELS:
+        found = label.search(lower)
+        if found is None:
             continue
-        m = DECIMAL_LITERAL.search(cleaned, idx + len(label))
+        idx = found.start()
+        m = DECIMAL_LITERAL.search(cleaned, found.end())
         if m:
             guess = float(m.group(0))
             # Guess clauses are almost always trailing — drop from the cue onward.
