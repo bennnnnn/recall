@@ -16,7 +16,7 @@ from app.gateways import web_search_gateway
 from app.gateways.mcp.base import TavilyBudget
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
-from app.services import quota as quota_service
+from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
 
@@ -64,11 +64,8 @@ class TurnTavilyBudget:
                 self._skip_tavily = False
                 self._decided = True
                 return False
-            limit = quota_service.tavily_search_limit_for_user(self.user, self.settings)
             try:
-                reserved = await quota_service.reserve_tavily_search(
-                    redis, self.user.id, limit=limit
-                )
+                reserved = await counters.reserve("tavily_search", redis, self.user, self.settings)
                 self._skip_tavily = not reserved
             except asyncio.CancelledError:
                 raise

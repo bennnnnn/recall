@@ -139,6 +139,7 @@ module = [
     "app.services.attachment_ocr",
     "app.services.attachment_upload",
     "app.services.quota",
+    "app.services.quota.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

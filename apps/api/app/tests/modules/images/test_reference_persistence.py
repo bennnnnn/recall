@@ -48,14 +48,10 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
         patch("app.modules.images.generation.get_redis_client", return_value=AsyncMock()),
         patch("app.modules.images.generation.load_reference_images", load),
         patch(
-            "app.modules.images.generation.quota_service.image_generation_limit_for_user",
-            return_value=10,
-        ),
-        patch(
-            "app.modules.images.generation.quota_service.reserve_image_generation",
+            "app.modules.images.generation.counters.reserve",
             AsyncMock(return_value=True),
         ),
-        patch("app.modules.images.generation.quota_service.refund_image_generation", refund),
+        patch("app.modules.images.generation.counters.refund", refund),
         patch("app.modules.images.generation.generate_image", generated),
         patch("app.modules.images.generation.bytes_match_claimed", return_value=True),
         patch(
@@ -125,14 +121,10 @@ async def test_generate_for_chat_refunds_on_cancelled_error():
         patch("app.modules.images.generation.get_redis_client", return_value=AsyncMock()),
         patch("app.modules.images.generation.load_reference_images", AsyncMock(return_value=[])),
         patch(
-            "app.modules.images.generation.quota_service.image_generation_limit_for_user",
-            return_value=10,
-        ),
-        patch(
-            "app.modules.images.generation.quota_service.reserve_image_generation",
+            "app.modules.images.generation.counters.reserve",
             AsyncMock(return_value=True),
         ),
-        patch("app.modules.images.generation.quota_service.refund_image_generation", refund),
+        patch("app.modules.images.generation.counters.refund", refund),
         patch("app.modules.images.generation.generate_image", boom),
     ):
         with pytest.raises(asyncio.CancelledError):
@@ -168,7 +160,7 @@ async def test_generate_for_chat_skips_reserve_when_spend_capped():
             "app.modules.images.generation.quota_service.global_spend_exceeded",
             AsyncMock(return_value=True),
         ),
-        patch("app.modules.images.generation.quota_service.reserve_image_generation", reserve),
+        patch("app.modules.images.generation.counters.reserve", reserve),
     ):
         with pytest.raises(ImageGenerationError, match="temporarily unavailable"):
             await generate_for_chat(
@@ -221,11 +213,7 @@ def _patched_generation(
         patch("app.modules.images.generation.get_redis_client", return_value=AsyncMock()),
         patch("app.modules.images.generation.load_reference_images", load),
         patch(
-            "app.modules.images.generation.quota_service.image_generation_limit_for_user",
-            return_value=10,
-        ),
-        patch(
-            "app.modules.images.generation.quota_service.reserve_image_generation",
+            "app.modules.images.generation.counters.reserve",
             AsyncMock(return_value=True),
         ),
         patch(

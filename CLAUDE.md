@@ -122,7 +122,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Chat history | `modules/chat/` (HTTP `/chats`) | drawer history; `features/chat/api.ts` |
 | Chat stream | `modules/chat/` (`ws_api.py` WebSocket, `stream_api.py` SSE; `stream_entry.py`, `turn_deps.py`, `turn_prep/`, `stream_pipeline.py`, `stream_paths.py`, `finalize_passes.py`, `post_turn.py`) | `features/chat/` (`screens/ChatScreen.tsx`, `hooks/useChat*.ts`, `components/`, `model/` stream, socket and cache); `app/index.tsx` route only |
 | Memory | `modules/memory/` (HTTP `/memories`, `/memories/documents`, `/memories/instruct`) | `features/memory/`; `app/memory/` routes only (list + `[key]` page) |
-| Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
+| Models / quota | `routers/models.py`, `model_catalog.py`, `quota/`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
 | Follow-up questions | `modules/chat/related_prompts.py` (after `done`; `modules/suggestions/` + `/suggestions` are legacy, no longer fed) | `features/suggestions/` (`RelatedPromptLines`) |
 | Todos / reminders | `modules/todos/` (HTTP `/todos`; chat changes wait for a tap: `write_log.py` + `proposals.py`, `POST /todos/proposals/{id}/confirm`) | `features/todos/` (`ReminderProposalCard`); `app/todos.tsx` route only |

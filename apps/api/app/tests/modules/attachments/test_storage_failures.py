@@ -201,9 +201,7 @@ async def test_invalid_confirmation_refunds_only_the_call_that_deleted_row(remov
         ),
         patch.object(attachment_workflow, "get_storage_gateway", return_value=gateway),
         patch.object(attachment_workflow, "get_redis_client", return_value=AsyncMock()),
-        patch.object(
-            attachment_workflow.quota_service, "refund_image_upload", AsyncMock()
-        ) as refund,
+        patch.object(attachment_workflow.counters, "refund", AsyncMock()) as refund,
         pytest.raises(attachment_workflow.AttachmentWorkflowError),
     ):
         await attachment_workflow.confirm_upload(AsyncMock(), Settings(), user, row.id)

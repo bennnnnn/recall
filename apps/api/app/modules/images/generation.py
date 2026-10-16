@@ -32,6 +32,7 @@ from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
 from app.services.model_catalog import get as get_model
 from app.services.model_catalog import openrouter_slug
+from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
 
@@ -160,16 +161,15 @@ async def generate_for_chat(
             quota_service.IMAGE_GENERATION_SPEND_CAP_MESSAGE,
             status_code=429,
         )
-    daily_limit = quota_service.image_generation_limit_for_user(user, settings)
-    if not await quota_service.reserve_image_generation(redis, user.id, limit=daily_limit):
+    if not await counters.reserve("image_generation", redis, user, settings):
         raise ImageGenerationError(
-            quota_service.image_generation_limit_exceeded_message(user),
+            counters.limit_message("image_generation", user),
             status_code=429,
         )
 
     cleaned = prompt.strip()
     if not cleaned:
-        await quota_service.refund_image_generation(redis, user.id)
+        await counters.refund("image_generation", redis, user.id)
         raise ImageGenerationError("Prompt is required", status_code=400)
 
     written_key: str | None = None
@@ -310,13 +310,13 @@ async def generate_for_chat(
         for key in reference_keys:
             await _rollback_written_bytes(gateway, key)
         if exc.status_code not in (403, 429):
-            await quota_service.refund_image_generation(redis, user.id)
+            await counters.refund("image_generation", redis, user.id)
         raise
     except BaseException:
         await _rollback_written_bytes(gateway, written_key)
         for key in reference_keys:
             await _rollback_written_bytes(gateway, key)
-        await quota_service.refund_image_generation(redis, user.id)
+        await counters.refund("image_generation", redis, user.id)
         raise
 
     try:

@@ -145,7 +145,7 @@ def _lookup_patches(gateway, *, reserve=True, hits=(_HIT,)):
             AsyncMock(return_value=False),
         ),
         patch(
-            "app.modules.images.search.quota_service.reserve_image_search",
+            "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=reserve),
         ),
         patch(
@@ -178,7 +178,7 @@ async def test_photos_for_answer_stores_one_unlinked_photo():
         patches[7] as create_pending,
         patches[8],
         patches[9],
-        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()) as refund,
+        patch("app.modules.images.search.counters.refund", AsyncMock()) as refund,
     ):
         ids = await photos_for_answer(
             settings, user=MagicMock(id=uuid4(), plan="free"), query="Ethiopia  map"
@@ -204,7 +204,7 @@ async def test_photos_for_answer_is_quiet_when_nothing_is_found():
         patches[7],
         patches[8],
         patches[9],
-        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()) as refund,
+        patch("app.modules.images.search.counters.refund", AsyncMock()) as refund,
     ):
         ids = await photos_for_answer(
             Settings(image_search_enabled=True), user=MagicMock(id=uuid4()), query="nothing"
