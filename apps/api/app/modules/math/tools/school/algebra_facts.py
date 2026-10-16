@@ -13,6 +13,7 @@ from typing import Any
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.triangle import cos_degrees, cosine_rule_side
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.school._parse import _SIDE_ASKED
 from app.services.workout import Workout, math_line, render_workout
 
 ALGEBRA_FACT_OPS = frozenset({"complete_square", "cosine_rule", "polynomial_remainder"})
@@ -31,10 +32,6 @@ _REMAINDER = re.compile(
 _NUMBER = r"(\d+(?:\.\d+)?)"
 _SIDE = rf"\b([a-c])\s*=\s*{_NUMBER}"
 _ANGLE = rf"\b([A-C])\s*=\s*{_NUMBER}\s*(?:°|degrees?|deg)?"
-_FIND_SIDE = re.compile(
-    r"\b(?:find|calculate|what\s+is|work\s+out)\s+(?:the\s+(?:length\s+of\s+)?)?"
-    r"(?:side\s+)?([a-c])\b"
-)
 
 
 def extract_algebra_fact_intent(cleaned: str) -> MathIntent | None:
@@ -96,7 +93,7 @@ def _cosine_rule_intent(body: str) -> MathIntent | None:
     """Two sides, the angle between them, and the third side asked for."""
     sides = {match.group(1): float(match.group(2)) for match in re.finditer(_SIDE, body)}
     angles = {match.group(1): float(match.group(2)) for match in re.finditer(_ANGLE, body)}
-    find = _FIND_SIDE.search(body)
+    find = _SIDE_ASKED.search(body)
     if find is None or len(sides) != 2 or len(angles) != 1:
         return None
     target = find.group(1)

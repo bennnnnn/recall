@@ -13,6 +13,13 @@ _PROB_NUMBER = r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)"
 
 _LABELED_NUMBER = r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)"
 
+# The side a triangle question asks for: "Find c", "calculate the length of side b". The words
+# are read in any case; the letter only as written, since "C" names the angle opposite side "c".
+_SIDE_ASKED = re.compile(
+    r"\b(?i:(?:find|calculate|determine|what\s+is|work\s+out)\s+"
+    r"(?:the\s+(?:length\s+of\s+)?)?(?:side\s+)?)([a-c])\b"
+)
+
 
 def _count_char(text: str, needle: str) -> int:
     count = 0
