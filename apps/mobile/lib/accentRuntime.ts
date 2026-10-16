@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+
 import { DEFAULT_ACCENT, type AccentPreference } from "@/lib/accent";
 
 type Listener = () => void;
@@ -18,6 +20,11 @@ export function setAccentSnapshot(next: AccentPreference): void {
 export function subscribeAccent(listener: Listener): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
+}
+
+/** The accent color the user picked (Settings → Accent color). */
+export function useAccentPreference(): AccentPreference {
+  return useSyncExternalStore(subscribeAccent, getAccentSnapshot, getAccentSnapshot);
 }
 
 /** Test helper — reset store between cases. */

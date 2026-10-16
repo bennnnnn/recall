@@ -8,7 +8,6 @@
  * ≥ 4.5:1 (button labels), and the bubble text on userBubble ≥ 7:1.
  * No green (reads as success) and no red (reads as danger).
  */
-import type { Theme } from "@/lib/theme";
 
 type AccentTones = {
   primary: string;
@@ -158,26 +157,4 @@ export function normalizeAccentPreference(raw: string | null | undefined): Accen
 /** The swatch a picker shows for a preset in the current scheme. */
 export function accentSwatch(accent: AccentPreference, scheme: "light" | "dark"): string {
   return ACCENTS[accent][scheme].primary;
-}
-
-/** The theme with one accent's tones in every brand slot. */
-export function applyAccent(theme: Theme, accent: AccentPreference): Theme {
-  const tones = ACCENTS[accent][theme.scheme];
-  return {
-    ...theme,
-    primary: tones.primary,
-    primaryLight: tones.primaryLight,
-    primaryDark: tones.primaryDark,
-    accent: tones.primary,
-    accentLight: tones.primaryLight,
-    accentDark: tones.primaryDark,
-    userBubble: tones.userBubble,
-    onPrimary: tones.onPrimary,
-    graphSeries: [
-      tones.primary,
-      theme.graphSeries[1],
-      theme.graphSeries[2],
-      "series4" in tones ? tones.series4 : theme.graphSeries[3],
-    ],
-  };
 }

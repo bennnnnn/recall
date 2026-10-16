@@ -9,9 +9,9 @@
  *  `bg` (background), `surface`, `text` (textPrimary), `textSecondary`,
  *  `border`, `primary` / `accent` (same indigo).
  */
-import { useAccentPreference } from "@/hooks/useAccentPreference";
-import { useResolvedColorScheme } from "@/hooks/useResolvedColorScheme";
-import { applyAccent, DEFAULT_ACCENT, type AccentPreference } from "@/lib/accent";
+import { ACCENTS, DEFAULT_ACCENT, type AccentPreference } from "@/lib/accent";
+import { useAccentPreference } from "@/lib/accentRuntime";
+import { useResolvedColorScheme } from "@/lib/colorScheme";
 
 export type Theme = {
   scheme: "light" | "dark";
@@ -249,6 +249,28 @@ export const darkTheme: Theme = {
 
   brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", google: "#4285F4", googleRed: "#EA4335", googleYellow: "#FBBC05", googleGreen: "#34A853", apple: "#000000", appleInk: "#FFFFFF" },
 };
+
+/** The theme with one accent's tones in every brand slot. */
+export function applyAccent(theme: Theme, accent: AccentPreference): Theme {
+  const tones = ACCENTS[accent][theme.scheme];
+  return {
+    ...theme,
+    primary: tones.primary,
+    primaryLight: tones.primaryLight,
+    primaryDark: tones.primaryDark,
+    accent: tones.primary,
+    accentLight: tones.primaryLight,
+    accentDark: tones.primaryDark,
+    userBubble: tones.userBubble,
+    onPrimary: tones.onPrimary,
+    graphSeries: [
+      tones.primary,
+      theme.graphSeries[1],
+      theme.graphSeries[2],
+      "series4" in tones ? tones.series4 : theme.graphSeries[3],
+    ],
+  };
+}
 
 const accented = new Map<string, Theme>();
 

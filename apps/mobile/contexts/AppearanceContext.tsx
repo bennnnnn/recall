@@ -12,14 +12,13 @@ import {
   getAppearancePreference,
   setAppearancePreference as persistAppearancePreference,
 } from "@/lib/appearancePrefs";
-import { useAccentPreference } from "@/hooks/useAccentPreference";
-import { useResolvedColorScheme } from "@/hooks/useResolvedColorScheme";
 import type { AccentPreference } from "@/lib/accent";
 import {
   getAccentPreference,
   setAccentPreference as persistAccentPreference,
 } from "@/lib/accentPrefs";
-import { setAccentSnapshot } from "@/lib/accentRuntime";
+import { setAccentSnapshot, useAccentPreference } from "@/lib/accentRuntime";
+import { useResolvedColorScheme } from "@/lib/colorScheme";
 import { hapticsEnabled, setHapticsEnabledSnapshot, subscribeHaptics } from "@/lib/haptics";
 import { getHapticsPreference, setHapticsPreference } from "@/lib/hapticsPrefs";
 

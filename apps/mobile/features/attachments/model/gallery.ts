@@ -1,4 +1,4 @@
-import type { AttachmentListItem } from "@/lib/api";
+import type { AttachmentListItem } from "@/features/attachments/types";
 
 export const GALLERY_SEARCH_DEBOUNCE_MS = 300;
 export const GALLERY_PAGE_SIZE = 30;
