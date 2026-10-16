@@ -4,7 +4,6 @@ import {
   COMPOSER_CONTROL_SIZE,
   COMPOSER_INPUT_LINE_HEIGHT,
   COMPOSER_INPUT_MAX_HEIGHT,
-  COMPOSER_INPUT_MIN_HEIGHT,
 } from "@/features/chat/model/composerLogic";
 import { Layer } from "@/lib/layer";
 import { Radius } from "@/lib/radius";
@@ -84,7 +83,7 @@ export function makeChatComposerStyles(theme: Theme) {
     inputField: {
       flex: 1,
       justifyContent: "flex-end",
-      minHeight: COMPOSER_INPUT_MIN_HEIGHT,
+      minHeight: COMPOSER_CONTROL_SIZE,
       position: "relative",
     },
     inputFieldExpanded: { justifyContent: "flex-start", minHeight: 0, paddingBottom: 0 },

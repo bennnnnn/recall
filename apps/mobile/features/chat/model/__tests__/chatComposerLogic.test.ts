@@ -1,9 +1,9 @@
 import {
   buildModelOptions,
   CHAT_ACTION_ROW_HEIGHT,
+  COMPOSER_CONTROL_SIZE,
   COMPOSER_INPUT_LINE_HEIGHT,
   COMPOSER_INPUT_MAX_HEIGHT,
-  COMPOSER_INPUT_MIN_HEIGHT,
   composerGapFadeHeight,
   composerInputFrameHeight,
   composerInputMetrics,
@@ -25,14 +25,14 @@ import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGen
 describe("composerInputFrameHeight", () => {
   it("grows one line per Return and caps at the field max", () => {
     expect(composerInputFrameHeight("", 80)).toEqual({
-      height: COMPOSER_INPUT_MIN_HEIGHT,
+      height: COMPOSER_CONTROL_SIZE,
       overflows: false,
     });
     expect(composerInputFrameHeight("\n\n", 0).height).toBeGreaterThan(
-      COMPOSER_INPUT_MIN_HEIGHT,
+      COMPOSER_CONTROL_SIZE,
     );
     expect(composerInputFrameHeight("K\nk", 20).height).toBeGreaterThan(
-      COMPOSER_INPUT_MIN_HEIGHT,
+      COMPOSER_CONTROL_SIZE,
     );
     expect(composerInputFrameHeight("line\n".repeat(12), 400)).toEqual({
       height: COMPOSER_INPUT_MAX_HEIGHT,
@@ -46,22 +46,22 @@ describe("composerInputFrameHeight", () => {
     expect(composerSoftWrapLineCount("ab\ncd", 200)).toBe(2);
     expect(composerSoftWrapLineCount("hello", 0)).toBe(1);
     const wrapped = composerInputFrameHeight("a".repeat(40), 0, 200);
-    expect(wrapped.height).toBe(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT);
+    expect(wrapped.height).toBe(COMPOSER_CONTROL_SIZE + COMPOSER_INPUT_LINE_HEIGHT);
     expect(wrapped.overflows).toBe(false);
-    expect(composerInputFrameHeight("a".repeat(40), 0).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    expect(composerInputFrameHeight("a".repeat(40), 0).height).toBe(COMPOSER_CONTROL_SIZE);
     // A native content size larger than the text must not keep growing the field.
-    expect(composerInputFrameHeight("hello", 400, 220).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    expect(composerInputFrameHeight("hello", 400, 220).height).toBe(COMPOSER_CONTROL_SIZE);
     expect(composerInputFrameHeight("a".repeat(40), 400, 200).height).toBe(
-      COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT,
+      COMPOSER_CONTROL_SIZE + COMPOSER_INPUT_LINE_HEIGHT,
     );
   });
 
   it("keeps centering slack out of the text box so the caret stays on the last line", () => {
-    expect(composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT)).toBe(
+    expect(composerInputTextBoxHeight(COMPOSER_CONTROL_SIZE)).toBe(
       COMPOSER_INPUT_LINE_HEIGHT,
     );
     expect(
-      composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT),
+      composerInputTextBoxHeight(COMPOSER_CONTROL_SIZE + COMPOSER_INPUT_LINE_HEIGHT),
     ).toBe(COMPOSER_INPUT_LINE_HEIGHT * 2);
     expect(composerInputTextBoxHeight(COMPOSER_INPUT_MAX_HEIGHT)).toBe(
       COMPOSER_INPUT_LINE_HEIGHT * 6,
@@ -73,9 +73,9 @@ describe("composerInputFrameHeight", () => {
     // The default size keeps the fixed field.
     expect(composerInputMetrics(1)).toEqual({
       line: COMPOSER_INPUT_LINE_HEIGHT,
-      min: COMPOSER_INPUT_MIN_HEIGHT,
+      min: COMPOSER_CONTROL_SIZE,
       max: COMPOSER_INPUT_MAX_HEIGHT,
-      slack: COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT,
+      slack: COMPOSER_CONTROL_SIZE - COMPOSER_INPUT_LINE_HEIGHT,
     });
     // 1.5x: the line fills the row, so there is no centering slack.
     expect(composerInputMetrics(1.5)).toEqual({ line: 36, min: 36, max: 216, slack: 0 });

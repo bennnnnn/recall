@@ -45,8 +45,8 @@ import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,
+  COMPOSER_CONTROL_SIZE,
   COMPOSER_GAP_FADE_OVERLAP,
-  COMPOSER_INPUT_MIN_HEIGHT,
   composerInputFrameHeight,
   composerInputMetrics,
   composerInputTextBoxHeight,
@@ -172,7 +172,7 @@ export const ChatComposer = memo(function ChatComposer({
     onChangeInputProp ??
     (draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput);
   const [scanHint, setScanHint] = useState(false);
-  const [inputHeight, setInputHeight] = useState<number>(COMPOSER_INPUT_MIN_HEIGHT);
+  const [inputHeight, setInputHeight] = useState<number>(COMPOSER_CONTROL_SIZE);
   const [inputContentWidth, setInputContentWidth] = useState(0);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -227,7 +227,7 @@ export const ChatComposer = memo(function ChatComposer({
     const revision = draft?.revision ?? 0;
     if (!input) {
       measuredContent.current = null;
-      setInputHeight(COMPOSER_INPUT_MIN_HEIGHT);
+      setInputHeight(COMPOSER_CONTROL_SIZE);
       setComposerExpanded(false);
       return;
     }
@@ -247,7 +247,7 @@ export const ChatComposer = memo(function ChatComposer({
   const returnFrame = composerInputFrameHeight(input, 0, 0, fontScale);
   const inputFrameExtra = composerExpanded
     ? 0
-    : Math.max(0, returnFrame.height - COMPOSER_INPUT_MIN_HEIGHT);
+    : Math.max(0, returnFrame.height - COMPOSER_CONTROL_SIZE);
   useEffect(() => {
     onInputFrameExtraChange?.(visible ? inputFrameExtra : 0);
   }, [inputFrameExtra, onInputFrameExtraChange, visible]);
