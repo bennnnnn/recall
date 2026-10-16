@@ -42,6 +42,10 @@ _DIMENSION_GLUE = {
 }
 
 
+# "in m3": an answer asked in another unit needs a conversion this reader does not make.
+_ASKED_IN_UNIT = re.compile(r"\bin\s+([a-z]+)(?:\^?[23])?[\s?.!]*$")
+
+
 def solid_length_unit(cleaned: str) -> str | None:
     """One consistent printed length unit, or generic units when none is given.
 
@@ -73,9 +77,11 @@ def solid_length_unit(cleaned: str) -> str | None:
             ):
                 return None
         found.add(LENGTH_UNITS[name])
-    if len(found) > 1:
+    unit = next(iter(found), "units")
+    asked = _ASKED_IN_UNIT.search(cleaned.lower())
+    if len(found) > 1 or (asked and LENGTH_UNITS.get(asked.group(1), unit) != unit):
         return None
-    return next(iter(found), "units")
+    return unit
 
 
 def strip_geometry_length_units(cleaned: str) -> str:

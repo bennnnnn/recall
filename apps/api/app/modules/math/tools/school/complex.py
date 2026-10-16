@@ -73,6 +73,8 @@ def _extract_complex_intent(cleaned: str) -> MathIntent | None:
                 break
         else:
             break
+    if op is None and not mtm.looks_like_math_expr(expr):  # "Solve over the complex numbers"
+        return None
     return MathIntent(kind="complex", school_op=op or "eval", expr=expr, operation="solve")
 
 

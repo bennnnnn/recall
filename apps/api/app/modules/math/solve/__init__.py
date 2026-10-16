@@ -78,6 +78,7 @@ from app.modules.math.solve.parse import (
     parse_equation as parse_equation,
 )
 from app.modules.math.solve.statistics import compute_bivariate_statistics
+from app.modules.math.solve.written_names import defined_variable
 from app.services.solving import (
     MathServiceError as MathServiceError,
 )
@@ -95,6 +96,7 @@ __all__ = [
     "compute_matrix",
     "compute_number_theory",
     "compute_statistics",
+    "defined_variable",
     "differentiate_at_point",
     "differentiate_expression",
     "evaluate_series_sum",
