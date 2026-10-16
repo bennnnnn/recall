@@ -78,7 +78,7 @@
       "why": "Over 500 before the standards; tracked in ES-22"
     },
     "apps/api/app/modules/math/match/calculus.py": {
-      "lines": 607,
+      "lines": 605,
       "why": "Over 500 before the standards; tracked in ES-40"
     },
     "apps/api/app/modules/math/match/discrete.py": {
@@ -194,7 +194,7 @@
       "why": "Exception: Pydantic wire schema for the `simulation` fence v2 (425 lines of model classes)"
     },
     "apps/api/app/modules/speech/api.py": {
-      "lines": 546,
+      "lines": 530,
       "why": "Over 500 before the standards; tracked in ES-40"
     },
     "apps/api/app/modules/todos/spoken_add.py": {

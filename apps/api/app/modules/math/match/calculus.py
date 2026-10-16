@@ -292,12 +292,12 @@ def _limit_direction(rest: str) -> tuple[Literal["+", "-", "+-"], str]:
     return "+-", rest
 
 
-def _parse_latex_limit(text: str) -> LimitHit | None:
-    """Parse ``\\lim_{x \\to 0} expr`` without optional-space regex pumps."""
-    idx = text.find("\\lim")
+def _read_operator_subscript(text: str, cmd: str) -> tuple[str, str] | None:
+    """The variable that opens ``cmd``'s subscript (``\\lim_{x``), and the text after it."""
+    idx = text.find(cmd)
     if idx == -1:
         return None
-    rest = text[idx + 4 :]
+    rest = text[idx + len(cmd) :]
     while rest.startswith("_") or rest.startswith(" "):
         rest = rest[1:]
     if rest.startswith("{"):
@@ -305,8 +305,15 @@ def _parse_latex_limit(text: str) -> LimitHit | None:
     rest = rest.lstrip(" ")
     if not rest or not rest[0].isalpha():
         return None
-    var = rest[0]
-    rest = rest[1:].lstrip(" ")
+    return rest[0], rest[1:].lstrip(" ")
+
+
+def _parse_latex_limit(text: str) -> LimitHit | None:
+    """Parse ``\\lim_{x \\to 0} expr`` without optional-space regex pumps."""
+    subscript = _read_operator_subscript(text, "\\lim")
+    if subscript is None:
+        return None
+    var, rest = subscript
     arrow = None
     for candidate in ("\\to", "->", "→"):
         if rest.startswith(candidate):
@@ -445,19 +452,10 @@ class SeriesHit:
 
 def _parse_latex_series(text: str) -> SeriesHit | None:
     """Parse ``\\sum_{n=1}^{\\infty} expr`` without optional-space regex pumps."""
-    idx = text.find("\\sum")
-    if idx == -1:
+    subscript = _read_operator_subscript(text, "\\sum")
+    if subscript is None:
         return None
-    rest = text[idx + 4 :]
-    while rest.startswith("_") or rest.startswith(" "):
-        rest = rest[1:]
-    if rest.startswith("{"):
-        rest = rest[1:]
-    rest = rest.lstrip(" ")
-    if not rest or not rest[0].isalpha():
-        return None
-    var = rest[0]
-    rest = rest[1:].lstrip(" ")
+    var, rest = subscript
     if not rest.startswith("="):
         return None
     rest = rest[1:].lstrip(" ")

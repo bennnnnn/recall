@@ -296,7 +296,7 @@ is drawn as tetrahedral, not square planar.
 | Turn integration | `apps/api/app/modules/chemistry/context.py` |
 | Balance / formula primitives | `apps/api/app/modules/chemistry/equations.py`, `stoichiometry.py` |
 | Species, elements, units | `species.py`, `formula.py`, `elements.py`, `quantity.py` |
-| Notation / number format | `notation.py`, `sig_figs.py`, `solvers/types.py`, `solvers/common_chem.py`, `solvers/constants.py`, `solvers/params.py` |
+| Notation / number format | `notation.py`, `sig_figs.py`, `solvers/types.py`, `solvers/display.py`, `solvers/constants.py`, `solvers/params.py` |
 | Structure / organic / nuclear | `structure.py`, `lewis.py`, `organic.py`, `coordination.py`, `nuclear.py` |
 | Ionic names (ion table) | `apps/api/app/modules/chemistry/nomenclature.py` |
 | SMILES / 3D / post-stream | `apps/api/app/modules/chemistry/smiles.py`, `fence.py` |

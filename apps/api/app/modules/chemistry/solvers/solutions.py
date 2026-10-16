@@ -7,7 +7,8 @@ import app.modules.chemistry.sig_figs as sig_figs
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import convert, to_liters
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import (
+from app.modules.chemistry.solvers.constants import GAS_R
+from app.modules.chemistry.solvers.display import (
     const,
     converted_from,
     fixed,
@@ -19,7 +20,6 @@ from app.modules.chemistry.solvers.common_chem import (
     typed_unit,
     verified,
 )
-from app.modules.chemistry.solvers.constants import GAS_R
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.services.solving import SolveServiceError
