@@ -12,11 +12,7 @@ from app.modules.math.tools.extractors.stated import (
     names_a_constant,
     one_of_several_answers,
 )
-from app.modules.math.tools.helpers import (
-    _parse_newton_guess,
-    _strip_newton_leadin,
-    substituted_eval_expr,
-)
+from app.modules.math.tools.function_def import substituted_eval_expr
 
 _SOLVE_FOR_VAR_RE = re.compile(
     r"\bsolve\s+for\s+(?:the\s+value\s+of\s+)?([a-zA-Z])(?![a-zA-Z])",
@@ -253,6 +249,9 @@ def _extract_numerical_method_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not ("newton" in lower or "numerically" in lower or "root of" in lower):
         return None
+    # Deferred: direct_newton loads direct_calculus, which loads extract, which loads this.
+    from app.modules.math.tools.direct_newton import _parse_newton_guess, _strip_newton_leadin
+
     guess, text_for_eq = _parse_newton_guess(cleaned)
     text_for_eq = _strip_newton_leadin(text_for_eq)
     newton_pairs = math_solve.try_extract_equations_from_text(text_for_eq)
@@ -391,7 +390,7 @@ def _extract_equation_intent(cleaned: str) -> MathIntent | None:
     if substituted_eval_expr(probe) is not None:
         return None
     lhs, rhs = eq_pairs[0] if len(eq_pairs) == 1 else _primary_equation_pair(eq_pairs)
-    from app.modules.math.tools.helpers import math_expr_or_none
+    from app.modules.math.tools.expr_rewrite import math_expr_or_none
 
     if math_expr_or_none(lhs) is None or math_expr_or_none(rhs) is None:
         return None

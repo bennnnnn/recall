@@ -10,7 +10,7 @@ from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.extractors.readings import read
-from app.modules.math.tools.helpers import substituted_eval_expr
+from app.modules.math.tools.function_def import substituted_eval_expr
 from app.modules.math.tools.school.fractions import _block_fraction
 from app.modules.math.tools.school.interest import (
     _block_interest,

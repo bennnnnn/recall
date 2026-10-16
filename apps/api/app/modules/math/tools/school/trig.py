@@ -11,7 +11,7 @@ from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import EquationInput, MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
-from app.modules.math.tools.helpers import math_expr_or_none
+from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.school.coordinate import extract_sas_area, sas_area_block
 from app.modules.math.tools.school.teaching import _attach_picture
 from app.services.number_text import DECIMAL_LITERAL, SIGNED_DECIMAL

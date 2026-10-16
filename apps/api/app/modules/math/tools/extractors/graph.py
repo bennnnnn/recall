@@ -6,7 +6,8 @@ import re
 
 from app.modules.math.match.scan import MATH_MULTI_LETTER
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.helpers import _strip_trailing_filler, math_expr_or_none
+from app.modules.math.tools.expr_rewrite import math_expr_or_none
+from app.modules.math.tools.request_text import _strip_trailing_filler
 
 
 def _extract_point_intent(cleaned: str) -> MathIntent | None:

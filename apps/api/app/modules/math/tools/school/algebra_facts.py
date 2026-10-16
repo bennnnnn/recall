@@ -41,7 +41,7 @@ def extract_algebra_fact_intent(cleaned: str) -> MathIntent | None:
         return None
     square = _COMPLETE_SQUARE.fullmatch(body)
     if square is not None:
-        from app.modules.math.tools.helpers import math_expr_or_none
+        from app.modules.math.tools.expr_rewrite import math_expr_or_none
 
         raw = (square["expr"] or square["expr2"] or "").strip(" :")
         raw = re.sub(r"\s*=\s*0$", "", raw)
@@ -62,7 +62,7 @@ def _polynomial(text: str) -> Any | None:
     from sympy import Poly, Symbol
 
     from app.modules.math import solve as math_solve
-    from app.modules.math.tools.helpers import math_expr_or_none
+    from app.modules.math.tools.expr_rewrite import math_expr_or_none
 
     expr = math_expr_or_none(text.strip().strip("()") if text.count("(") == 1 else text.strip())
     if expr is None or "=" in expr:

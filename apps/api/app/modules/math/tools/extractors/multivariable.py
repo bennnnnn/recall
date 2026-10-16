@@ -7,7 +7,7 @@ directional derivative, divergence and curl. ``calculus.py`` runs these in its r
 from __future__ import annotations
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.helpers import _normalize_latex_expr, math_expr_or_none
+from app.modules.math.tools.expr_rewrite import _normalize_latex_expr, math_expr_or_none
 from app.services.text_match import word_index
 
 

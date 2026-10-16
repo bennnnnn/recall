@@ -9,6 +9,7 @@ from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.match.literal_plot import literal_plot_point
 from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.schemas import MathIntent
+from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.extractors.algebra import (
     ALGEBRA_EXTRACTORS,
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
@@ -27,16 +28,15 @@ from app.modules.math.tools.extractors.geometry_graph import (
 )
 from app.modules.math.tools.extractors.geometry_request import finish_geometry_intent
 from app.modules.math.tools.extractors.readings import read
-from app.modules.math.tools.helpers import (
-    _split_response_instruction_sentence,
+from app.modules.math.tools.function_def import (
     has_assignment_evaluation_request,
-    math_expr_or_none,
     peel_function_definition,
 )
 from app.modules.math.tools.keyboard_notation import (
     keyboard_bounds_read_first,
     keyboard_math_to_plain,
 )
+from app.modules.math.tools.request_text import _split_response_instruction_sentence
 from app.modules.math.tools.school import SCHOOL_EXTRACTORS
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (

@@ -6,6 +6,11 @@ import re
 from typing import Literal
 
 from app.modules.math.schemas import MathIntent
+from app.modules.math.tools.expr_rewrite import (
+    _normalize_latex_expr,
+    _strip_trailing_differential,
+    math_expr_or_none,
+)
 from app.modules.math.tools.extractors.calculus_methods import (
     extract_average_value_intent,
     extract_implicit_intent,
@@ -18,14 +23,11 @@ from app.modules.math.tools.extractors.multivariable import (
     extract_gradient_intent,
     extract_triple_integral_intent,
 )
-from app.modules.math.tools.helpers import (
+from app.modules.math.tools.function_def import peel_function_definition
+from app.modules.math.tools.request_text import (
     _calc_expr_tail,
-    _normalize_latex_expr,
     _strip_series_prefix,
-    _strip_trailing_differential,
     _strip_trailing_filler,
-    math_expr_or_none,
-    peel_function_definition,
 )
 
 _WRT_VARIABLE = re.compile(r"\b(?:with\s+respect\s+to|wrt)\s+([a-zA-Z])\b", re.IGNORECASE)
