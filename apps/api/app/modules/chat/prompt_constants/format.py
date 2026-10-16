@@ -616,13 +616,8 @@ CALCULATION_LAYOUT_CONTRACT = (
     "Do not force a line break with HTML."
 )
 
-CHEMISTRY_PRESENTATION_HINT = (
-    "This is a chemistry answer. Keep species, amounts, and units easy to scan. "
-    "Write species with Unicode sub- and superscripts (H₂O, Fe³⁺, SO₄²⁻), reactions with → "
-    "or ⇌, and never put a bare species or unit in LaTeX. "
-    "When you calculate, follow the calculation layout: one reasoning state per row."
-)
-
+# Statistics and biology have no module yet: chat's continuation_subject names them, so
+# their presentation hints stay here until a subject module owns them.
 STATISTICS_PRESENTATION_HINT = (
     "This is a statistics answer. Name the statistic and the values that enter it. "
     "When you calculate, follow the calculation layout: one reasoning state per row."

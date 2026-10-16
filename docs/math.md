@@ -140,7 +140,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 | Word problems | `apps/api/app/modules/math/tools/word_problem.py` (gate, number guard, structured call), `tools/word_templates.py` (textbook shapes read without a call), `solve/word_problem.py`, `tools/block/word.py`, `modules/math/schemas/word_problem.py` |
 | Recurring pay + date arithmetic | `apps/api/app/services/recurring_pay.py`, hooked before prompt/model work in `modules/chat/turn_prep/instant.py` |
 | MCP sympy | `apps/api/app/modules/math/tool.py` |
-| Prompt hints | `apps/api/app/modules/chat/prompt_constants/` (`math.py`, …) |
+| Prompt hints | `apps/api/app/modules/math/reply_policy.py` (the maths pack and reply policy; chat lists it in `modules/chat/prompt_subjects.py`) |
 | Mobile preprocess | `apps/mobile/lib/markdown/markdownPreprocess.ts`, `apps/mobile/lib/math/normalizeImplicit.ts` |
 | Composer math input | `apps/mobile/lib/math/pasteNormalize.ts`, `keyboardSymbols.ts`, `features/chat/components/MathKeyboardBar.tsx` |
 | Render | `MathText`, `MathView` / `MathSvgView` (MathJax-SVG), `GeometryBlock`, `FunctionGraphBlock` + `rich/skia/` graph, number-line, and inequality canvases |
