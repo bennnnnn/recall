@@ -351,10 +351,6 @@ export function isMathDiagramLang(lang: string): boolean {
   return id === "math" || id === "arithmetic" || id === "geometry" || id === "graph";
 }
 
-export function isAnswerFenceLang(lang: string): boolean {
-  return fenceIdForLang(lang) === "answer";
-}
-
 export function isChartFenceLang(lang: string): boolean {
   return fenceIdForLang(lang) === "chart";
 }

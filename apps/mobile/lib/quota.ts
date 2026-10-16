@@ -39,11 +39,3 @@ export function formatUsageSummary(
   const pct = Math.round(usageRemainingPercent(usage));
   return isPaid ? t("settings.usage_left_paid", { pct }) : t("settings.usage_left", { pct });
 }
-
-export function quotaAlertTitle(isPaid: boolean, t: (key: string) => string): string {
-  return isPaid ? t("chat.quota_title_pro") : t("chat.quota_title");
-}
-
-export function formatTokenCount(n: number): string {
-  return Math.round(n).toLocaleString("en-US");
-}

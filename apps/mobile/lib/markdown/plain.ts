@@ -460,8 +460,3 @@ export function markdownToCopyText(markdown: string): string {
 export function markdownToSpeechText(markdown: string): string {
   return convertMarkdown(markdown, "speech");
 }
-
-/** @deprecated Prefer markdownToSpeechText; kept as the TTS alias. */
-export function markdownToPlainText(markdown: string): string {
-  return markdownToSpeechText(markdown);
-}

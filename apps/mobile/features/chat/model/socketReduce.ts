@@ -44,10 +44,6 @@ export function parseChatWsPayload(raw: string): ChatWsPayload | null {
   }
 }
 
-export function appendToken(buffer: string, token: string | undefined): string {
-  return buffer + (token ?? "");
-}
-
 function parsePayloadSearchSources(
   raw: string | undefined,
 ): SearchSource[] | undefined {

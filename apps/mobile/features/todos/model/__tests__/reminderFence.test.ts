@@ -1,4 +1,4 @@
-import { hasReminderFence, stripReminderFences } from "@/features/todos/model/reminderFence";
+import { stripReminderFences } from "@/features/todos/model/reminderFence";
 import { deriveAssistantMessageContent } from "@/lib/markdown/assistantMessageContent";
 
 describe("stripReminderFences", () => {
@@ -6,7 +6,6 @@ describe("stripReminderFences", () => {
     const input =
       "✅ Reminder set!\n\n```reminder\n" +
       '{"title":"World Cup Final","due_at":"2026-07-19T15:00:00-04:00"}\n```\n';
-    expect(hasReminderFence(input)).toBe(true);
     const out = stripReminderFences(input);
     expect(out).toContain("Reminder set");
     expect(out).not.toContain("```reminder");

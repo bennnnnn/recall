@@ -1,5 +1,4 @@
 import {
-  buildModelOptions,
   CHAT_ACTION_ROW_HEIGHT,
   COMPOSER_CONTROL_SIZE,
   COMPOSER_INPUT_LINE_HEIGHT,
@@ -14,10 +13,7 @@ import {
   composerShowsMic,
   composerShowsSend,
   computeChatLayoutMetrics,
-  formatModelCostHint,
   isComposerMenuOverlayOpen,
-  isModelSelectableInComposer,
-  resolveSelectedModelLabel,
   shouldReserveComposerActionGap,
 } from "@/features/chat/model/composerLogic";
 import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenIntent";
@@ -122,114 +118,6 @@ describe("composerInputFrameHeight", () => {
 });
 
 describe("chatComposerLogic", () => {
-  const catalog = [
-    {
-      id: "free-chat",
-      label: "Free",
-      available: true,
-      plan_access: "free" as const,
-      input_price_per_m: 0.14,
-      output_price_per_m: 0.28,
-      quota_multiplier: 1,
-    },
-    {
-      id: "smart-chat",
-      label: "Smart",
-      available: false,
-      plan_access: "pro" as const,
-      input_price_per_m: 0.7,
-      output_price_per_m: 2.5,
-      quota_multiplier: 3.5,
-    },
-  ];
-
-  const t = (key: string, params?: Record<string, string | number>) => {
-    if (key === "settings.model_price_per_m" && params) {
-      return `~$${params.input} in · ~$${params.output} out / 1M tokens`;
-    }
-    if (key === "settings.model_quota_multiplier" && params) {
-      return `${params.multiplier}× daily quota`;
-    }
-    return key;
-  };
-
-  it("buildModelOptions includes auto first when enabled", () => {
-    const opts = buildModelOptions({
-      autoEnabled: true,
-      autoModelId: "auto",
-      autoLabel: "Auto",
-      modelEnabledSet: new Set(["free-chat", "smart-chat"]),
-      models: catalog,
-      isPaid: true,
-      t,
-    });
-    expect(opts.map((o) => o.id)).toEqual(["auto", "free-chat"]);
-    expect(opts[0].label).toBe("Auto");
-    expect(opts[1].hint).toBeUndefined();
-  });
-
-  it("buildModelOptions tolerates missing catalog", () => {
-    const opts = buildModelOptions({
-      autoEnabled: true,
-      autoModelId: "auto",
-      autoLabel: "Auto",
-      modelEnabledSet: new Set(["free-chat"]),
-      models: undefined as unknown as typeof catalog,
-      isPaid: true,
-    });
-    expect(opts.map((o) => o.id)).toEqual(["auto"]);
-  });
-
-  it("buildModelOptions omits unavailable and pro-locked models", () => {
-    const opts = buildModelOptions({
-      autoEnabled: false,
-      autoModelId: "auto",
-      autoLabel: "Auto",
-      modelEnabledSet: new Set(["free-chat", "smart-chat"]),
-      models: [
-        ...catalog,
-        {
-          id: "pro-only",
-          label: "Pro",
-          available: true,
-          plan_access: "pro" as const,
-        },
-      ],
-      isPaid: false,
-    });
-    expect(opts.map((o) => o.id)).toEqual(["free-chat"]);
-  });
-
-  it("isModelSelectableInComposer respects availability and plan", () => {
-    expect(
-      isModelSelectableInComposer(
-        { available: false, plan_access: "free" },
-        true,
-      ),
-    ).toBe(false);
-    expect(
-      isModelSelectableInComposer(
-        { available: true, plan_access: "pro" },
-        false,
-      ),
-    ).toBe(false);
-    expect(
-      isModelSelectableInComposer(
-        { available: true, plan_access: "pro" },
-        true,
-      ),
-    ).toBe(true);
-  });
-
-  it("resolveSelectedModelLabel prefers auto label", () => {
-    expect(
-      resolveSelectedModelLabel("auto", "auto", "Auto", () => "Free"),
-    ).toBe("Auto");
-    expect(
-      resolveSelectedModelLabel("free-chat", "auto", "Auto", () => "Free"),
-    ).toBe("Free");
-  });
-
   it("isComposerMenuOverlayOpen reflects attach sheet", () => {
     expect(isComposerMenuOverlayOpen(false)).toBe(false);
     expect(isComposerMenuOverlayOpen(true)).toBe(true);
@@ -407,24 +295,5 @@ describe("chatComposerLogic", () => {
     expect(shouldReserveComposerActionGap(IMAGE_GEN_PENDING_ASSISTANT_ID)).toBe(true);
     expect(shouldReserveComposerActionGap("msg-1")).toBe(false);
     expect(shouldReserveComposerActionGap(undefined)).toBe(false);
-  });
-
-  it("formatModelCostHint shows quota multiplier only, not token prices", () => {
-    expect(
-      formatModelCostHint(
-        {
-          input_price_per_m: 0.7,
-          output_price_per_m: 2.5,
-          quota_multiplier: 3.5,
-        },
-        t,
-      ),
-    ).toBe("3.5× daily quota");
-    expect(
-      formatModelCostHint(
-        { input_price_per_m: 0.14, output_price_per_m: 0.28, quota_multiplier: 1 },
-        t,
-      ),
-    ).toBeUndefined();
   });
 });

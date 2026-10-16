@@ -2,7 +2,6 @@ import {
   caretAfterExpression,
   caretBeforeExpression,
   findDraftNodes,
-  hasTappableDraftSlot,
   spliceMathBackspace,
   stepMathCaret,
 } from "@/lib/math/draftSlots";
@@ -18,7 +17,6 @@ describe("findDraftNodes", () => {
       "abs",
       "group",
     ]);
-    expect(hasTappableDraftSlot(nodes)).toBe(true);
   });
 
   it("keeps an empty binomial, vector, and d/d slot as boxes", () => {

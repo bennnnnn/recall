@@ -44,15 +44,3 @@ export function reminderNotifyDate(
   }
   return new Date(notifyMs);
 }
-
-/** True when a push/local alert should fire for this due time and lead preference. */
-export function isWithinReminderLeadWindow(
-  dueAt: Date,
-  now: Date,
-  leadMinutes: number,
-): boolean {
-  const dueMs = dueAt.getTime();
-  if (Number.isNaN(dueMs)) return false;
-  if (dueMs < now.getTime()) return true;
-  return dueMs <= now.getTime() + leadMsFromMinutes(leadMinutes);
-}

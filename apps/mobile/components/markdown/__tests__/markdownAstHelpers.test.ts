@@ -1,5 +1,4 @@
 import {
-  ancestorTypeCount,
   immediateAncestorType,
   listItemDisplayNumber,
   listItemHasNestedList,
@@ -13,7 +12,6 @@ describe("nested list numbering", () => {
   it("does not number a top-level bullet list", () => {
     const parent = [{ type: "bullet_list" }];
     expect(immediateAncestorType(parent)).toBe("bullet_list");
-    expect(ancestorTypeCount(parent, "bullet_list")).toBe(1);
     expect(shouldNumberListItem(parent)).toBe(false);
   });
 

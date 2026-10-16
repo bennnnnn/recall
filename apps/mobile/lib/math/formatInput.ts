@@ -14,7 +14,6 @@
 import {
   applyImplicitPowerNotation,
   fixImplicitExponents,
-  isMathLike,
 } from "@/lib/math/normalizeImplicit";
 
 type MathFormatOptions = {
@@ -391,16 +390,6 @@ export function formatAssistantMathExpr(expr: string): string {
   return formatMathExpr(withFracs, { power: false, slashFrac: false });
 }
 
-function formatDollarSpans(text: string): string {
-  return text.replace(/\$([^$\n]+)\$/g, (_m, inner: string) => `$${formatMathExpr(inner)}$`);
-}
-
-function formatMathFences(text: string): string {
-  return text.replace(/```math\n([\s\S]*?)```/gi, (_m, body: string) => {
-    return "```math\n" + formatMathExpr(String(body).trim()) + "\n```";
-  });
-}
-
 /** Format a single math expression (no prose). */
 export function formatMathExpr(
   expr: string,
@@ -425,19 +414,4 @@ export function formatMathExpr(
     s = spaceOperators(s);
   }
   return s.replace(/\s+/g, " ").trim();
-}
-
-/**
- * Format math in a whole composer/send payload: `$...$` and ```math bodies,
- * or wrap a bare math-like message in `$...$`.
- */
-export function formatMathMessage(text: string): string {
-  const trimmed = text.trim();
-  if (!trimmed) return trimmed;
-  let out = formatMathFences(trimmed);
-  out = formatDollarSpans(out);
-  if (!out.includes("$") && !/```math/i.test(out) && isMathLike(out)) {
-    return `$${formatMathExpr(out)}$`;
-  }
-  return out;
 }

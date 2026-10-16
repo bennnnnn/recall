@@ -3,7 +3,6 @@ import {
   isDistanceQuery,
   isGeoQuery,
   isLocationQuestion,
-  isPlacesListQuery,
   isProximityQuery,
 } from "@/lib/localPlacesQuery";
 
@@ -14,8 +13,6 @@ describe("geo intent", () => {
     expect(isProximityQuery("closest casino")).toBe(true);
     expect(isProximityQuery("Best coffee shops near me")).toBe(true);
     expect(isGeoQuery("Best coffee shops near me")).toBe(true);
-    expect(isPlacesListQuery("Best coffee shops near me")).toBe(true);
-    expect(isPlacesListQuery("The nearest gas station")).toBe(true);
   });
 
   it("detects distance and directions", () => {
@@ -26,7 +23,6 @@ describe("geo intent", () => {
     );
     expect(isDistanceQuery("how long is the drive")).toBe(true);
     expect(isGeoQuery("how far is the airport")).toBe(true);
-    expect(isPlacesListQuery("how far is the airport")).toBe(false);
   });
 
   it.each([
@@ -92,7 +88,6 @@ describe("geo intent", () => {
     expect(isLocationQuestion("Where am iI")).toBe(true);
     expect(isGeoQuery("Where am I right now")).toBe(true);
     expect(isGeoQuery("Where am iI")).toBe(true);
-    expect(isPlacesListQuery("Where am I right now")).toBe(false);
     expect(isLocationQuestion("where am I going tomorrow")).toBe(false);
   });
 

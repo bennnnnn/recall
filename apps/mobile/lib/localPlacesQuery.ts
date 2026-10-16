@@ -164,12 +164,6 @@ export function isGeoQuery(text: string): boolean {
   return isProximityQuery(text) || isDistanceQuery(text) || isLocationQuestion(text);
 }
 
-/** Native ```places card — find venues, not mileage-only. */
-export function isPlacesListQuery(text: string): boolean {
-  if (isAmbiguousLocalPlacesQuery(text)) return false;
-  return isProximityQuery(text);
-}
-
 export function isAmbiguousLocalPlacesQuery(text: string): boolean {
   const cleaned = text.trim();
   if (!isProximityQuery(cleaned)) return false;

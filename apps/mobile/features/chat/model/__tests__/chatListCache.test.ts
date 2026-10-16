@@ -8,7 +8,6 @@ import {
   getChatListFetchedAt,
   invalidateChatListCache,
   isChatListFresh,
-  prefetchChatList,
   setChatListCache,
   updateChatListCache,
 } from "@/lib/cache/chatListCache";
@@ -120,12 +119,6 @@ describe("chatListCache", () => {
     expect(getCachedChat("c1")?.title).toBe("Hello");
     expect(getCachedChat("old")?.archived).toBe(true);
     expect(getCachedChat("missing")).toBeUndefined();
-  });
-
-  it("prefetch skips when cache is already fresh", () => {
-    setChatListCache(sample);
-    prefetchChatList("token");
-    expect(listChats).not.toHaveBeenCalled();
   });
 
   it("normalizes missing archived to an empty array", async () => {

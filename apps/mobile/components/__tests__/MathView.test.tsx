@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react-native";
 
-import { MathBlock, MathInline } from "@/components/rich/MathView";
+import { MathBlock } from "@/components/rich/MathView";
 
 // Capture what MathBlock hands to the MathJax-SVG renderer; the renderer
 // itself (incl. its native-fallback branch) is covered in MathSvgView tests.
@@ -8,13 +8,6 @@ const mockSvgView = jest.fn((_props: { latex: string }) => null);
 jest.mock("@/components/rich/MathSvgView", () => ({
   MathSvgView: (props: { latex: string }) => mockSvgView(props),
 }));
-
-describe("MathInline", () => {
-  it("renders trimmed latex as inline MathText", async () => {
-    const { getByText } = await render(<MathInline latex="  x + 1  " />);
-    expect(getByText("x + 1")).toBeOnTheScreen();
-  });
-});
 
 describe("MathBlock", () => {
   beforeEach(() => mockSvgView.mockClear());

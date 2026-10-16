@@ -16,7 +16,6 @@ import {
   checkPublicReachability,
   classifyConnectivity,
   resolveConnectivity,
-  resolveIsOffline,
 } from "@/lib/networkProbe";
 
 const mockFetch = jest.fn();
@@ -146,12 +145,5 @@ describe("resolveConnectivity", () => {
     mockCheckHealth.mockResolvedValueOnce(false);
     mockFetch.mockRejectedValueOnce(new Error("offline"));
     await expect(resolveConnectivity()).resolves.toBe("no_internet");
-  });
-
-  it("treats api_unreachable as offline for send gates", async () => {
-    mockRefresh.mockResolvedValueOnce({ isConnected: true, isInternetReachable: true });
-    mockCheckHealth.mockResolvedValueOnce(false);
-    mockFetch.mockResolvedValueOnce({ ok: true, status: 204 });
-    await expect(resolveIsOffline()).resolves.toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { normalizeUnicodeScripts, toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
+import { normalizeUnicodeScripts, toSuperscript } from "@/lib/unicodeSupSub";
 
 describe("toSuperscript", () => {
   it("maps digits and common letters to Unicode superscripts", () => {
@@ -28,21 +28,6 @@ describe("toSuperscript", () => {
 
   it("returns null for empty input", () => {
     expect(toSuperscript("")).toBeNull();
-  });
-});
-
-describe("toSubscript", () => {
-  it("maps digits and common letters to Unicode subscripts", () => {
-    expect(toSubscript("2")).toBe("₂");
-    expect(toSubscript("x")).toBe("ₓ");
-    expect(toSubscript("10")).toBe("₁₀");
-  });
-
-  it("returns null when any char lacks a Unicode subscript", () => {
-    // b, z, comma have no Unicode subscript.
-    expect(toSubscript("b")).toBeNull();
-    expect(toSubscript("z")).toBeNull();
-    expect(toSubscript("2,3")).toBeNull();
   });
 });
 

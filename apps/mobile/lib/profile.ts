@@ -26,17 +26,3 @@ export function getInitials(name: string | null | undefined): string {
     .toUpperCase();
   return letters || "?";
 }
-
-export function formatJoinedDate(
-  iso: string | undefined,
-  locale: string | undefined,
-): string {
-  if (!iso) return "";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(locale || undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}

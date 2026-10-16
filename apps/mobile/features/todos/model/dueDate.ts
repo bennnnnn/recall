@@ -48,17 +48,6 @@ export function describeDueAt(iso: string | null | undefined): {
   };
 }
 
-/** When a checked to-do was marked done, including the calendar date and time. */
-export function describeCompletedAt(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const done = new Date(iso);
-  if (Number.isNaN(done.getTime())) return null;
-  return i18n.t("todos.completed_on", {
-    date: formatMonthDayYear(done),
-    time: formatClockTime(done),
-  });
-}
-
 export function toDueAtIso(date: Date): string {
   return date.toISOString();
 }

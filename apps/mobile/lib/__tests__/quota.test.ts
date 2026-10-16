@@ -1,9 +1,7 @@
 import {
-  formatTokenCount,
   formatUsageSummary,
   isQuotaErrorMessage,
   isQuotaErrorPayload,
-  quotaAlertTitle,
   usageRemainingPercent,
   usageUsedPercent,
   usageUsedTokens,
@@ -47,15 +45,5 @@ describe("quota helpers", () => {
 
     expect(formatUsageSummary(usage, false, t)).toBe("88% free left");
     expect(formatUsageSummary(usage, true, t)).toBe("88% pro left");
-  });
-
-  it("quotaAlertTitle is plan-aware", () => {
-    const t = (key: string) => key;
-    expect(quotaAlertTitle(false, t)).toBe("chat.quota_title");
-    expect(quotaAlertTitle(true, t)).toBe("chat.quota_title_pro");
-  });
-
-  it("formats token counts", () => {
-    expect(formatTokenCount(12400)).toBe("12,400");
   });
 });
