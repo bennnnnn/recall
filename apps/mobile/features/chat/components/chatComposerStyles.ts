@@ -34,12 +34,6 @@ export function makeChatComposerStyles(theme: Theme) {
       height: MATH_KEYBOARD_GAP_FADE_HEIGHT,
       zIndex: 2,
     },
-    composerDocked: {
-      overflow: "visible",
-      backgroundColor: "transparent",
-      paddingHorizontal: Space.md,
-      paddingTop: Space.xxs,
-    },
     composerBlockExpanded: {
       zIndex: Layer.composerExpanded,
       backgroundColor: theme.bg,
