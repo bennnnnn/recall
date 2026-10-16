@@ -165,8 +165,3 @@ def fold_scientific(text: str, style: Literal["e", "product"] = "e") -> str:
     if "10" not in text:
         return text
     return _SCIENTIFIC.sub(_e_literal if style == "e" else _product, text)
-
-
-def read_scientific_numbers(text: str) -> str:
-    """``fold_scientific(text)`` until physics and chemistry call it by name."""
-    return fold_scientific(text)
