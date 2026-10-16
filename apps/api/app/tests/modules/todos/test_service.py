@@ -2244,7 +2244,7 @@ async def test_materialize_reminder_fences_clears_date_using_existing_topic():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
         patch(
-            "app.modules.todos.reminder_fences.apply_todo_actions",
+            "app.modules.todos.reminder_writes.apply_todo_actions",
             AsyncMock(return_value=1),
         ) as apply,
     ):
@@ -2263,7 +2263,7 @@ async def test_materialize_reminder_fences_clears_date_using_existing_topic():
 
 
 def test_format_schedule_result_set_line():
-    from app.modules.todos.reminder_fences import format_schedule_result
+    from app.modules.todos.reminder_writes import format_schedule_result
 
     due = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
     line = format_schedule_result(

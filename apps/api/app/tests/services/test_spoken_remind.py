@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.modules.todos.reminder_fences import parse_spoken_remind
+from app.modules.todos.reminder_fence_parse import parse_spoken_remind
 
 
 def test_parse_spoken_remind_today_and_tomorrow():

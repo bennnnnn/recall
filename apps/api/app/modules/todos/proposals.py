@@ -107,7 +107,7 @@ def card_action(write: PlannedWrite) -> CardAction:
 
 
 def card_item(write: PlannedWrite, user_timezone: str | None) -> CardItem:
-    from app.modules.todos.reminder_fences import format_schedule_when
+    from app.modules.todos.reminder_writes import format_schedule_when
 
     action = card_action(write)
     shows_time = action in {"add", "set_due", "move"} and write.due_at is not None
@@ -317,7 +317,7 @@ def cards_as_text(content: str) -> str:
     """
     if f"```{FENCE_LANG}" not in content:
         return content
-    from app.modules.todos.reminder_fences import result_prefix
+    from app.modules.todos.reminder_writes import result_prefix
 
     def replace(match: re.Match[str]) -> str:
         try:
@@ -340,7 +340,7 @@ def cards_as_text(content: str) -> str:
 
 def is_card_line(line: str, writes: list[PlannedWrite]) -> bool:
     """A result line the card replaces: "Set: gym — Thursday, 6:00 PM."."""
-    from app.modules.todos.reminder_fences import OK_PREFIXES
+    from app.modules.todos.reminder_writes import OK_PREFIXES
 
     text = line.strip()
     if not text.startswith(OK_PREFIXES):
