@@ -1,4 +1,4 @@
-"""Interest extractor and verified blocks."""
+"""Interest extractors and verified blocks."""
 
 from __future__ import annotations
 
@@ -120,6 +120,47 @@ def _extract_interest_intent(cleaned: str, lower: str) -> MathIntent | None:
         kind="arithmetic",
         school_op=op,
         percent_base=principal,
+        percent_rate=rate,
+        combo_n=years,
+        operation="solve",
+    )
+
+
+def extract_present_value(cleaned: str, lower: str) -> MathIntent | None:
+    if "present value" not in lower:
+        return None
+    if cleaned.count("%") != 1 or "year" not in lower:
+        return None
+    if any(word_index(lower, word) != -1 for word in ("month", "weekly", "daily", "continuous")):
+        return None
+    nums = list(mtm._NUM.finditer(cleaned))
+    if len(nums) != 3:
+        return None
+    pct_at = cleaned.find("%")
+    year_at = lower.find("year")
+    rate_m = _number_immediately_before(cleaned, pct_at)
+    years_m = _number_immediately_before(cleaned, year_at)
+    if rate_m is None or years_m is None:
+        return None
+    amount_m = None
+    for match in nums:
+        if match.span() not in {rate_m.span(), years_m.span()}:
+            amount_m = match
+            break
+    if amount_m is None:
+        return None
+    rate = _finite_match_value(rate_m)
+    years_value = _finite_match_value(years_m)
+    amount = _finite_match_value(amount_m)
+    if rate is None or years_value is None or amount is None or not years_value.is_integer():
+        return None
+    years = int(years_value)
+    if years < 1 or years > 100:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="present_value",
+        percent_base=amount,
         percent_rate=rate,
         combo_n=years,
         operation="solve",

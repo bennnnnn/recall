@@ -1,4 +1,4 @@
-"""Coordinate geometry extractor and verified block."""
+"""Coordinate geometry extractors and verified blocks, and the SAS triangle area."""
 
 from __future__ import annotations
 
@@ -6,16 +6,77 @@ import re
 from dataclasses import replace
 
 from app.core.config import Settings
+from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.match.coordinate_vector import literal_math_tuples
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.school._parse import _exactly_n_numbers, _finite_match_value
+from app.services.text_match import word_index
 from app.services.workout import Workout, math_line, render_workout
 
 
-def _extract_coord_intent(cleaned: str) -> MathIntent | None:
-    from app.modules.math.tools.extractors.formulas import extract_coord_formulas
+def _linear_abc(cleaned: str) -> tuple[float, float, float] | None:
+    from sympy import Symbol, diff
 
+    from app.modules.math.solve import try_extract_equation_from_text
+    from app.modules.math.solve.parse import _parse_expression
+
+    extracted = try_extract_equation_from_text(cleaned)
+    if extracted is None:
+        return None
+    parsed = _parse_expression(f"({extracted.lhs})-({extracted.rhs})", ["x", "y"])
+    x, y = Symbol("x"), Symbol("y")
+    if parsed.free_symbols - {x, y}:
+        return None
+    if diff(parsed, x, 2) != 0 or diff(parsed, y, 2) != 0 or diff(parsed, x, y) != 0:
+        return None
+    a = float(parsed.coeff(x))
+    b = float(parsed.coeff(y))
+    c = float(parsed.subs({x: 0, y: 0}))
+    if a == 0 and b == 0:
+        return None
+    return a, b, c
+
+
+def extract_coord_formulas(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    points = literal_math_tuples(cleaned, "(", ")")
+    if any(word_index(lower, word) != -1 for word in ("slope", "gradient", "midpoint")):
+        return None
+    if points is not None and len(points) == 2 and all(len(pt) == 2 for pt in points):
+        if word_index(lower, "distance") != -1:
+            return None
+        if "line" not in lower and "equation" not in lower:
+            return None
+        (x1, y1), (x2, y2) = (points[0][0], points[0][1]), (points[1][0], points[1][1])
+        return MathIntent(
+            kind="coord",
+            school_op="line",
+            point_x=x1,
+            point_y=y1,
+            x2=x2,
+            y2=y2,
+            operation="solve",
+        )
+    if word_index(lower, "distance") == -1:
+        return None
+    if points is None or len(points) != 1 or len(points[0]) != 2:
+        return None
+    coeffs = _linear_abc(cleaned)
+    if coeffs is None:
+        return None
+    return MathIntent(
+        kind="coord",
+        school_op="point_to_line",
+        point_x=points[0][0],
+        point_y=points[0][1],
+        vec_a=[coeffs[0], coeffs[1], coeffs[2]],
+        operation="solve",
+    )
+
+
+def _extract_coord_intent(cleaned: str) -> MathIntent | None:
     extra = extract_coord_formulas(cleaned)
     if extra is not None:
         return extra
@@ -54,6 +115,54 @@ def _two_points(text: str) -> tuple[tuple[float, float], tuple[float, float]] | 
     if found is None or len(found) != 2 or any(len(point) != 2 for point in found):
         return None
     return (found[0][0], found[0][1]), (found[1][0], found[1][1])
+
+
+def extract_sas_area(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if "area" not in lower or "triangle" not in lower:
+        return None
+    if "angle" not in lower:
+        return None
+    if word_index(lower, "sides") == -1 and "included" not in lower:
+        return None
+    values = _exactly_n_numbers(cleaned, 3)
+    if values is None:
+        return None
+    angle = None
+    for cue in ("angle", "included"):
+        idx = word_index(lower, cue)
+        if idx == -1:
+            continue
+        after = mtm._NUM.search(cleaned, idx)
+        if after is not None:
+            angle = _finite_match_value(after)
+            break
+    if angle is None:
+        return None
+    sides = [value for value in values if value != angle]
+    if len(sides) != 2:
+        return None
+    return MathIntent(
+        kind="trig",
+        school_op="sas_area",
+        percent_base=sides[0],
+        percent_rate=sides[1],
+        point_x=angle,
+        operation="solve",
+    )
+
+
+def sas_area_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    """The area from two sides and the angle between them; the trig block dispatches here."""
+    if intent.percent_base is None or intent.percent_rate is None or intent.point_x is None:
+        return None
+    from app.modules.math import formulas as math_formulas
+
+    answer = math_formulas.sas_triangle_area(
+        intent.percent_base, intent.percent_rate, intent.point_x
+    )
+    lines.append(f"SAS area = {answer}")
+    return _finish_with_answer(lines, answer)
 
 
 def _verified_block_coord(
