@@ -2,8 +2,11 @@
 
 import asyncio
 import logging
+from typing import cast
 
 from redis.asyncio import Redis
+
+from app.core.jobs.queue import JOBS_GROUP, JOBS_STREAM
 
 logger = logging.getLogger("app.core.jobs")
 
@@ -112,3 +115,33 @@ async def _release_dedupe(redis: Redis, dedupe_key: str | None) -> None:
         await redis.delete(job_done_key(dedupe_key))
     except Exception:
         logger.debug("job dedupe release failed key=%s", dedupe_key, exc_info=True)
+
+
+async def _give_back_delivery(redis: Redis, entry_id: str) -> None:
+    """Uncount the delivery of an entry skipped because its job is in flight.
+
+    XREADGROUP and XAUTOCLAIM count every delivery, and reclaim dead-letters
+    an entry delivered more than MAX_JOB_DELIVERIES times. A skip runs
+    nothing, yet a peer reclaims a long run's entries every idle window, so
+    they went to the DLQ while the job ran, and a crashed run's live claim
+    burnt the count before the job could run again. XCLAIM to the same
+    owner with RETRYCOUNT sets it back (JUSTID: no increment of its own).
+    """
+    try:
+        rows = await redis.xpending_range(
+            JOBS_STREAM, JOBS_GROUP, min=entry_id, max=entry_id, count=1
+        )
+        if not rows:
+            return
+        delivered = int(rows[0]["times_delivered"])
+        await redis.xclaim(
+            JOBS_STREAM,
+            JOBS_GROUP,
+            cast(str, rows[0]["consumer"]),  # the jobs client decodes responses
+            0,
+            [entry_id],
+            retrycount=max(delivered - 1, 0),
+            justid=True,
+        )
+    except Exception:
+        logger.debug("job delivery give-back failed id=%s", entry_id, exc_info=True)
