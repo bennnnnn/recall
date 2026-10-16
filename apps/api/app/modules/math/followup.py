@@ -10,6 +10,7 @@ from app.modules.math.response_intent import (
 )
 from app.modules.math.tools.prompt import needs_symbolic_math
 from app.services.answer_fence import answer_fence_value
+from app.services.number_text import FRACTION_OR_DECIMAL
 
 MATH_FOLLOWUP_HINT = (
     "This short request refers to the immediately preceding math exchange. Give only "
@@ -258,7 +259,6 @@ def restated_math_problem(
     return problem
 
 
-_CLAIM_NUMBER = r"[-+]?\s*(?:\d+(?:\.\d+)?|\.\d+)(?:\s*/\s*\d+)?"
 _CLAIM_LEAD = re.compile(
     r"^(?:(?:can|could)\s+you\s+|please\s+)?"
     r"(?:(?:check|verify|mark)\s+(?:my|this|the)\s+(?:answer|solution|result|work)\s*[:,-]?\s*"
@@ -272,10 +272,10 @@ _CLAIM_TAIL = re.compile(
     re.IGNORECASE,
 )
 _CLAIM = re.compile(
-    rf"(?P<var>[A-Za-z])\s*=\s*(?P<first>{_CLAIM_NUMBER})"
-    rf"(?P<more>(?:\s*(?:,|\bor\b|\band\b)\s*(?:(?P=var)\s*=\s*)?{_CLAIM_NUMBER})*)",
+    rf"(?P<var>[A-Za-z])\s*=\s*(?P<first>{FRACTION_OR_DECIMAL})"
+    rf"(?P<more>(?:\s*(?:,|\bor\b|\band\b)\s*(?:(?P=var)\s*=\s*)?{FRACTION_OR_DECIMAL})*)",
 )
-_MORE_VALUES = re.compile(_CLAIM_NUMBER)
+_MORE_VALUES = re.compile(FRACTION_OR_DECIMAL)
 
 
 def _claimed_values(query: str) -> tuple[str, list[str]] | None:

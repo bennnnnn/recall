@@ -14,6 +14,7 @@ from typing import Any
 
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.services.number_text import FRACTION_OR_DECIMAL as _NUMBER
 from app.services.workout import Workout, math_line, render_workout
 
 CURVE_POINT_OPS = frozenset(
@@ -28,7 +29,6 @@ CURVE_POINT_OPS = frozenset(
     }
 )
 
-_NUMBER = r"[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:\s*/\s*\d+)?"
 _CURVE = r"(?:the\s+(?:curve|graph|function)\s+)?(?:(?:y|[a-z]\s*\(\s*x\s*\))\s*=\s*)?"
 _TANGENT = re.compile(
     rf"\b(?P<kind>tangent|normal)(?:\s+line)?\s+(?:to|of|for)\s+{_CURVE}(?P<expr>.+?)\s+"

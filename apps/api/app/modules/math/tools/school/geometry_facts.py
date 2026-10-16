@@ -12,9 +12,10 @@ from dataclasses import replace
 
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.services.number_text import DECIMAL
 from app.services.workout import Workout, math_line, render_workout
 
-_NUMBER = r"(\d+(?:\.\d+)?)"
+_NUMBER = rf"({DECIMAL})"
 _RIGHT = r"\bright(?:[- ]angled?)?\s+triangle\b"
 _IS = r"\s+(?:of\s+|is\s+|=\s*)?"
 _HYPOTENUSE = rf"\bhypotenuse{_IS}{_NUMBER}"

@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import re
 
-from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.school._parse import (
     _count_char,
-    _finite_match_value,
-    _number_immediately_before,
 )
+from app.services.number_text import DECIMAL_LITERAL, finite_match_value, number_immediately_before
 from app.services.text_match import word_index
 
 _INTEREST_YEAR_MAX = 100
@@ -49,7 +47,7 @@ def _years_number(cleaned: str, lower: str) -> re.Match[str] | None:
     """The number written right before "year(s)", wherever "per year" also appears."""
     start = 0
     while (year_at := lower.find("year", start)) != -1:
-        found = _number_immediately_before(cleaned, year_at)
+        found = number_immediately_before(cleaned, year_at)
         if found is not None:
             return found
         start = year_at + 4
@@ -69,7 +67,7 @@ def _extract_interest_intent(cleaned: str, lower: str) -> MathIntent | None:
         return None
     if any(word_index(lower, word) != -1 for word in _OTHER_PERIODS):
         return None
-    nums = list(mtm._NUM.finditer(cleaned))
+    nums = list(DECIMAL_LITERAL.finditer(cleaned))
     if len(nums) != 3:
         return None
     on_at = word_index(lower, "on")
@@ -78,12 +76,12 @@ def _extract_interest_intent(cleaned: str, lower: str) -> MathIntent | None:
     pct_at = cleaned.find("%")
     if pct_at == -1:
         return None
-    rate_m = _number_immediately_before(cleaned, pct_at)
+    rate_m = number_immediately_before(cleaned, pct_at)
     years_m = _years_number(cleaned, lower)
     if rate_m is None or years_m is None:
         return None
     if on_at != -1:
-        principal_m = mtm._NUM.search(cleaned, on_at + 2)
+        principal_m = DECIMAL_LITERAL.search(cleaned, on_at + 2)
     elif any(word_index(lower, word) != -1 for word in _PRINCIPAL_WORDS):
         # "$5000 invested at 4% ... for 3 years": the one number left is the principal.
         principal_m = next(
@@ -100,9 +98,9 @@ def _extract_interest_intent(cleaned: str, lower: str) -> MathIntent | None:
     if asks_amount and (asks_interest or simple):
         # Two quantities, or the simple-interest total, which is not modelled.
         return None
-    principal = _finite_match_value(principal_m)
-    rate = _finite_match_value(rate_m)
-    years_value = _finite_match_value(years_m)
+    principal = finite_match_value(principal_m)
+    rate = finite_match_value(rate_m)
+    years_value = finite_match_value(years_m)
     if principal is None or rate is None or years_value is None:
         return None
     if principal <= 0 or rate < 0 or not years_value.is_integer():
@@ -133,13 +131,13 @@ def extract_present_value(cleaned: str, lower: str) -> MathIntent | None:
         return None
     if any(word_index(lower, word) != -1 for word in ("month", "weekly", "daily", "continuous")):
         return None
-    nums = list(mtm._NUM.finditer(cleaned))
+    nums = list(DECIMAL_LITERAL.finditer(cleaned))
     if len(nums) != 3:
         return None
     pct_at = cleaned.find("%")
     year_at = lower.find("year")
-    rate_m = _number_immediately_before(cleaned, pct_at)
-    years_m = _number_immediately_before(cleaned, year_at)
+    rate_m = number_immediately_before(cleaned, pct_at)
+    years_m = number_immediately_before(cleaned, year_at)
     if rate_m is None or years_m is None:
         return None
     amount_m = None
@@ -149,9 +147,9 @@ def extract_present_value(cleaned: str, lower: str) -> MathIntent | None:
             break
     if amount_m is None:
         return None
-    rate = _finite_match_value(rate_m)
-    years_value = _finite_match_value(years_m)
-    amount = _finite_match_value(amount_m)
+    rate = finite_match_value(rate_m)
+    years_value = finite_match_value(years_m)
+    amount = finite_match_value(amount_m)
     if rate is None or years_value is None or amount is None or not years_value.is_integer():
         return None
     years = int(years_value)

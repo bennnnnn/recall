@@ -6,9 +6,10 @@ import math
 import re
 
 from app.modules.math.match.discrete import _STATS_WORDS, stats_signal
+from app.services.number_text import bounded_decimal
 from app.services.text_match import word_index
 
-_NUMBER = r"[+-]?(?:[0-9]{1,24}(?:\.[0-9]{1,24})?|\.[0-9]{1,24})(?:[eE][+-]?[0-9]{1,4})?"
+_NUMBER = bounded_decimal(24, exponent_digits=4)
 _VALUE = re.compile(rf"({_NUMBER})(?:\s*/\s*({_NUMBER}))?")
 _CLOSING = {"[": "]", "(": ")", "{": "}"}
 

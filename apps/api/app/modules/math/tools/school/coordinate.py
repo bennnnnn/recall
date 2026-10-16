@@ -6,12 +6,12 @@ import re
 from dataclasses import replace
 
 from app.core.config import Settings
-from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.match.coordinate_vector import literal_math_tuples
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
-from app.modules.math.tools.school._parse import _exactly_n_numbers, _finite_match_value
+from app.modules.math.tools.school._parse import _exactly_n_numbers
+from app.services.number_text import DECIMAL_LITERAL, finite_match_value
 from app.services.text_match import word_index
 from app.services.workout import Workout, math_line, render_workout
 
@@ -133,9 +133,9 @@ def extract_sas_area(cleaned: str) -> MathIntent | None:
         idx = word_index(lower, cue)
         if idx == -1:
             continue
-        after = mtm._NUM.search(cleaned, idx)
+        after = DECIMAL_LITERAL.search(cleaned, idx)
         if after is not None:
-            angle = _finite_match_value(after)
+            angle = finite_match_value(after)
             break
     if angle is None:
         return None

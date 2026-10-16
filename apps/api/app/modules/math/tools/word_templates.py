@@ -24,9 +24,10 @@ from app.modules.math.schemas.word_problem import (
     WordTarget,
     WordUnknown,
 )
+from app.services.number_text import DECIMAL
 
 _MAX_CHARS = 400
-_NUM = r"\d+(?:\.\d+)?"
+_NUM = DECIMAL
 _SMALL_COUNTS = {"two": 2, "three": 3, "four": 4, "five": 5}
 _ORDINALS = ("first", "second", "third", "fourth", "fifth")
 _END = r"\s*[?.!]?\s*"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
+from app.services.number_text import DECIMAL_LITERAL, fold_scientific
 from app.services.symbolic_text import (
     collapse_repeated_si_unit_powers as _collapse_repeated_si_unit_powers,
 )
@@ -15,9 +16,6 @@ from app.services.symbolic_text import (
 from app.services.text_match import has_equation, word_index
 
 _MAX = 1000
-# Keep a leading decimal point (and its sign) in the numeric token. Skipping
-# it used to turn a sector/circle radius of .5 into a verified radius of 5.
-_NUM = re.compile(r"-?(?:\d+(?:\.\d+)?|\.\d+)")
 # Math keyboard / Unicode units: m/s² and m/s^{2} must match m/s^2.
 _BARE_COORD = re.compile(r"^\((?P<x>-?\d+(?:\.\d+)?),(?P<y>-?\d+(?:\.\d+)?)\)$")
 _CALC_OP = re.compile(
@@ -348,10 +346,12 @@ def collapse_repeated_si_unit_powers(s: str) -> str:
 
 
 def prepare(text: str) -> str | None:
-    cleaned = normalize_symbolic_request(text)
+    # ``1.8 x 10^-5`` is the product it means, never an unknown x, and folding
+    # it before superscripts become carets reads ``1.8·10⁻⁵`` too.
+    cleaned = normalize_symbolic_request(fold_scientific(text, style="product"))
     if cleaned is None:
         return None
-    return fold_scientific_notation(fold_digit_groups(fix_leading_solve_typo(cleaned)))
+    return fold_digit_groups(fix_leading_solve_typo(cleaned))
 
 
 # "slove 4x - 8 = 12": the command a student meant, as the first word only.
@@ -426,28 +426,6 @@ def fold_digit_groups(text: str) -> str:
         return lead + groups.replace(",", "")
 
     return _DIGIT_GROUPS.sub(fold, text)
-
-
-# ``1.8 x 10^-5``: the x is "times", never an unknown.
-_SCIENTIFIC = re.compile(
-    r"\b(?<!\.)(\d+(?:\.\d+)?)\s*[xX]\s*10\s*\^\s*"
-    r"(?:\{\s*([+\-\u2212]?\d+)\s*\}|\(\s*([+\-\u2212]?\d+)\s*\)|([+\-\u2212]?\d+))"
-    r"(?![\d.])"
-)
-
-
-def fold_scientific_notation(text: str) -> str:
-    """Write ``1.8 x 10^-5`` as ``1.8*10^(-5)``, the product it means."""
-    if "10" not in text or "^" not in text:
-        return text
-
-    def fold(match: re.Match[str]) -> str:
-        power = next(group for group in match.groups()[1:] if group is not None)
-        power = power.replace("\u2212", "-").lstrip("+")
-        exponent = f"({power})" if power.startswith("-") else power
-        return f"{match.group(1)}*10^{exponent}"
-
-    return _SCIENTIFIC.sub(fold, text)
 
 
 def geometry_dim_context(lower: str) -> bool:
@@ -717,7 +695,7 @@ def number_after(text: str, label: str) -> float | None:
     idx = lower.find(label)
     if idx == -1:
         return None
-    m = _NUM.search(text, idx + len(label))
+    m = DECIMAL_LITERAL.search(text, idx + len(label))
     return float(m.group(0)) if m else None
 
 
@@ -730,7 +708,7 @@ def two_numbers_after(text: str, label: str) -> tuple[float, float] | None:
     found: list[float] = []
     pos = idx + len(label)
     while True:
-        m = _NUM.search(text, pos)
+        m = DECIMAL_LITERAL.search(text, pos)
         if m is None:
             break
         try:

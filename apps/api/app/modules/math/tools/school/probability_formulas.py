@@ -13,10 +13,11 @@ from dataclasses import replace
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.school._parse import _exactly_n_numbers
+from app.services.number_text import SIGNED_DECIMAL
 from app.services.text_match import word_index
 from app.services.workout import Workout, math_line, render_workout
 
-_NAMED_PROBABILITY_NUMBER = r"([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(%|percent(?:age)?)?"
+_NAMED_PROBABILITY_NUMBER = rf"({SIGNED_DECIMAL})\s*(%|percent(?:age)?)?"
 
 
 def _named_probability(cleaned: str, name: str) -> float | None:

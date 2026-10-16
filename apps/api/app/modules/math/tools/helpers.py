@@ -12,6 +12,7 @@ from app.modules.math.match.scan import (
     ddx_expr_after,
     looks_like_math_expr,
 )
+from app.services.number_text import DECIMAL_LITERAL
 from app.services.text_normalize import collapse_ws
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,6 @@ def _strip_series_prefix(expr: str) -> str:
 
 
 _DEFAULT_NEWTON_GUESS = 1.0
-_NEWTON_NUM = re.compile(r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)")
 
 _TRAILING_FILLER_SUFFIXES = (
     " please",
@@ -464,7 +464,7 @@ def _parse_newton_guess(cleaned: str) -> tuple[float, str]:
         idx = lower.find(label)
         if idx == -1:
             continue
-        m = _NEWTON_NUM.search(cleaned, idx + len(label))
+        m = DECIMAL_LITERAL.search(cleaned, idx + len(label))
         if m:
             guess = float(m.group(0))
             # Guess clauses are almost always trailing — drop from the cue onward.

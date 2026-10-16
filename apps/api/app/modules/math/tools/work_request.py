@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
+from app.services.number_text import FRACTION_OR_DECIMAL
 
 _MAX_TEXT = 1000
 _MAX_LINES = 12
@@ -125,14 +126,15 @@ _COMPARATOR = re.compile(r"<=|>=|<|>|=")
 _MATH_CHARS = re.compile(r"^[0-9A-Za-z\s+\-*/^().=<>]+$")
 _WORD = re.compile(r"[A-Za-z]+")
 _WORDY_TOKEN = re.compile(r"^[A-Za-z']+[:,!?]?$")
-_NUMBER = r"[-+]?\s*(?:\d+(?:\.\d+)?|\.\d+)(?:\s*/\s*\d+(?:\.\d+)?)?"
 _ISOLATED = re.compile(
-    rf"^\s*(?:(?P<var>[A-Za-z])\s*(?:<=|>=|<|>|=)\s*{_NUMBER}"
-    rf"|{_NUMBER}\s*(?:<=|>=|<|>|=)\s*(?P<var2>[A-Za-z]))\s*$"
+    rf"^\s*(?:(?P<var>[A-Za-z])\s*(?:<=|>=|<|>|=)\s*{FRACTION_OR_DECIMAL}"
+    rf"|{FRACTION_OR_DECIMAL}\s*(?:<=|>=|<|>|=)\s*(?P<var2>[A-Za-z]))\s*$"
 )
-_EQUALS_VALUE = re.compile(rf"^\s*(?P<var>[A-Za-z])\s*=\s*(?P<value>{_NUMBER})\s*$")
-_BARE_VALUE = re.compile(rf"^\s*(?P<value>{_NUMBER})\s*$")
-_PLUS_MINUS = re.compile(rf"^\s*(?P<var>[A-Za-z])\s*=\s*(?:\+-|\+/-)\s*(?P<value>{_NUMBER})\s*$")
+_EQUALS_VALUE = re.compile(rf"^\s*(?P<var>[A-Za-z])\s*=\s*(?P<value>{FRACTION_OR_DECIMAL})\s*$")
+_BARE_VALUE = re.compile(rf"^\s*(?P<value>{FRACTION_OR_DECIMAL})\s*$")
+_PLUS_MINUS = re.compile(
+    rf"^\s*(?P<var>[A-Za-z])\s*=\s*(?:\+-|\+/-)\s*(?P<value>{FRACTION_OR_DECIMAL})\s*$"
+)
 _OR_SPLIT = re.compile(r"\s(?:or|and)\s+", re.IGNORECASE)
 _AND_SPLIT = re.compile(r"\sand\s+", re.IGNORECASE)
 _ORDER = re.compile(r"[<>]")
@@ -146,7 +148,7 @@ _ROOT_CLAIM = re.compile(
 _ANSWER_CLAIM = re.compile(
     rf"\b(?:i\s+(?:got|found|get|have)|my\s+answer\s+(?:is|was)"
     rf"|i\s+think\s+(?:it'?s|it\s+is))\s+"
-    rf"(?P<var>[A-Za-z])\s*=\s*(?P<value>{_NUMBER})"
+    rf"(?P<var>[A-Za-z])\s*=\s*(?P<value>{FRACTION_OR_DECIMAL})"
     rf"\s+(?:for|in|on|when\s+solving|solving)\s+(?P<equation>.+)",
     re.IGNORECASE,
 )

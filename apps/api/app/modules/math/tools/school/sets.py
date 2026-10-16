@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
-from app.modules.math.tools.school._parse import _finite_match_value
+from app.services.number_text import DECIMAL_LITERAL, finite_match_value
 from app.services.text_match import word_index
 
 
@@ -21,11 +20,11 @@ def _parse_brace_set(text: str, start: int) -> tuple[list[float], int] | None:
         return None
     values: list[float] = []
     last = 0
-    for match in mtm._NUM.finditer(inner):
+    for match in DECIMAL_LITERAL.finditer(inner):
         gap = inner[last : match.start()].strip()
         if gap not in {"", ","}:
             return None
-        parsed = _finite_match_value(match)
+        parsed = finite_match_value(match)
         if parsed is None:
             return None
         values.append(parsed)
@@ -52,7 +51,7 @@ def _brace_sets(text: str) -> list[list[float]] | None:
             i += 1
     if len(found) != 2:
         return None
-    for match in mtm._NUM.finditer(text):
+    for match in DECIMAL_LITERAL.finditer(text):
         if not any(start < match.start() and match.end() < end for start, end in spans):
             return None
     return found

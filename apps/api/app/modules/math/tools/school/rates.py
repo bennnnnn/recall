@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 from app.modules.math import school as math_school
-from app.modules.math.match.scan import _NUM
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.services.number_text import DECIMAL_LITERAL
 from app.services.text_match import word_index
 
 
 def _hour_quantities(text: str) -> list[float]:
     lower = text.lower()
     found: list[float] = []
-    for match in _NUM.finditer(text):
+    for match in DECIMAL_LITERAL.finditer(text):
         after = lower[match.end() :]
         k = 0
         while k < len(after) and after[k].isspace():
@@ -46,7 +46,7 @@ def _extract_mixture_intent(cleaned: str, lower: str) -> MathIntent | None:
         return None
     volumes: list[float] = []
     percents: list[float] = []
-    for match in _NUM.finditer(cleaned):
+    for match in DECIMAL_LITERAL.finditer(cleaned):
         after = cleaned[match.end() :].lstrip()
         value = float(match.group(0))
         if after.startswith("%"):
@@ -69,7 +69,7 @@ def _extract_twice_as_many_intent(cleaned: str, lower: str) -> MathIntent | None
         return None
     if word_index(lower, "together") == -1:
         return None
-    nums = [float(match.group(0)) for match in _NUM.finditer(cleaned)]
+    nums = [float(match.group(0)) for match in DECIMAL_LITERAL.finditer(cleaned)]
     total: float | None = None
     if "twice as many" in lower and len(nums) == 1:
         total = nums[0]

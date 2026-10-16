@@ -458,6 +458,10 @@ def test_scientific_notation_is_not_an_unknown_x(text: str) -> None:
         ("1.8 x 10^-5 * 2", r"3.6 \cdot 10^{-5}"),
         ("3 x 10^4 + 2 x 10^3", "32000"),
         ("solve 3x + 10 = 4", "x = -2"),
+        # Every spelling of the power of ten, with the superscript minus folded first.
+        ("1.8·10⁻⁵ divided by 3", r"6.0 \cdot 10^{-6}"),
+        ("1.8 × 10⁻⁵ / 3", r"6.0 \cdot 10^{-6}"),
+        (r"1.8 \times 10^{-5} / 3", r"6.0 \cdot 10^{-6}"),
     ],
 )
 async def test_scientific_notation_reads_as_a_number(text: str, answer: str) -> None:

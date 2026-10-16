@@ -38,7 +38,7 @@ _STATS_WORDS: tuple[tuple[str, StatsOp], ...] = (
     ("mean", "mean"),
 )
 
-_DATA_NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
+_DATA_NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"  # keeps "5." whole: "5., 6., 7."
 _DATA_VALUE = re.compile(rf"{_DATA_NUMBER}(?:\s*/\s*{_DATA_NUMBER})?")
 
 

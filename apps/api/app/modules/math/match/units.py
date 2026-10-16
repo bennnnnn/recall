@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from app.services.number_text import DECIMAL_LITERAL
 from app.services.unit_text import LENGTH_UNITS, unit_after_quantity
 
 
@@ -47,10 +48,8 @@ def solid_length_unit(cleaned: str) -> str | None:
     Mixed units need per-dimension conversion; do not relabel those raw numbers
     as if they used the same scale.
     """
-    from app.modules.math.match.scan import _NUM
-
     found: set[str] = set()
-    for number in _NUM.finditer(cleaned):
+    for number in DECIMAL_LITERAL.finditer(cleaned):
         after = cleaned[number.end() :].lstrip()
         word = re.match(r"[A-Za-z]+", after)
         if word is None:
@@ -85,11 +84,9 @@ def strip_geometry_length_units(cleaned: str) -> str:
     The caller separately validates the single common unit. Strip only recognized
     scalar length tokens, never arbitrary words or compound units.
     """
-    from app.modules.math.match.scan import _NUM
-
     chunks: list[str] = []
     start = 0
-    for number in _NUM.finditer(cleaned):
+    for number in DECIMAL_LITERAL.finditer(cleaned):
         unit = unit_after_quantity(cleaned, number.end())
         if unit is None or unit[0].lower() not in {*LENGTH_UNITS, "unit", "units"}:
             continue
