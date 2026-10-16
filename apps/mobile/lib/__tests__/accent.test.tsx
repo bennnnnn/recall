@@ -1,12 +1,11 @@
 import {
   ACCENT_OPTIONS,
   ACCENTS,
-  applyAccent,
   DEFAULT_ACCENT,
   normalizeAccentPreference,
   type AccentPreference,
 } from "@/lib/accent";
-import { darkTheme, lightTheme, themeFor } from "@/lib/theme";
+import { applyAccent, darkTheme, lightTheme, themeFor } from "@/lib/theme";
 
 /** WCAG 2.1 relative luminance of a #RRGGBB color. */
 function luminance(hex: string): number {
