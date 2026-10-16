@@ -14,8 +14,8 @@ from typing import Any
 
 from sympy import Add, Mul, Symbol, cos, diff, exp, latex, log, simplify, sin, tan
 
+from app.modules.math.solve.display import derivative_latex
 from app.modules.math.solve.key_steps import KeyStep
-from app.modules.math.solve.parse import derivative_latex
 
 _MAX_TERMS = 6
 

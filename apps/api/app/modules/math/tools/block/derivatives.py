@@ -64,7 +64,7 @@ def _higher_derivative_at_point(intent: MathIntent, lines: list[str]) -> Verifie
     """
     from sympy import Symbol, diff, latex, simplify, sympify
 
-    from app.modules.math.solve.parse import format_verified_latex
+    from app.modules.math.solve.display import format_verified_latex
     from app.modules.math.tools.school.function_value import _substituted_tex
 
     order = intent.derivative_order

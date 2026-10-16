@@ -27,12 +27,8 @@ from app.modules.math.schemas import (
     MathSeriesResult,
 )
 from app.modules.math.solve.algebra import _expr_equal
-from app.modules.math.solve.parse import (
-    MathServiceError,
-    _parse_expression,
-    derivative_latex,
-    format_verified_latex,
-)
+from app.modules.math.solve.display import derivative_latex, format_verified_latex
+from app.modules.math.solve.parse import MathServiceError, _parse_expression
 
 
 def _term_derivative_step(term: Any, sym: Any) -> str:
