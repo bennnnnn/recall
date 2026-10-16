@@ -8,6 +8,7 @@ from typing import Any
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block.canonical import _finish_with_answer
+from app.modules.math.tools.block.integrals import _bound_tex
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import Workout, math_line, render_workout, text_line
 
@@ -38,7 +39,7 @@ def _verified_calculus_application(
 
 
 def _interval(low: str, var: str, high: str) -> str:
-    return math_line(rf"{low} \le {var} \le {high}")
+    return math_line(rf"{_bound_tex(low)} \le {var} \le {_bound_tex(high)}")
 
 
 def _area_between_curves(
@@ -126,7 +127,8 @@ def _area_working(
     """Upper minus lower, integrated; or the absolute difference where the curves cross."""
     from sympy import integrate, latex
 
-    low, high, var = intent.integral_lower, intent.integral_upper, intent.variable
+    low, high = _bound_tex(intent.integral_lower), _bound_tex(intent.integral_upper)
+    var = intent.variable
     if order is None:
         return (
             math_line(
@@ -175,6 +177,7 @@ def _arc_length(
     parsed = math_solve._parse_expression(expr, [var], real=True)
     derivative = diff(parsed, sym)
     integrand = sqrt(1 + derivative**2)
+    integral = rf"\int_{{{_bound_tex(low)}}}^{{{_bound_tex(high)}}}"
     workout = Workout(
         given=(math_line(f"y = {latex(parsed)}"), _interval(low, var, high)),
         find=(math_line("L", "arc length"),),
@@ -183,7 +186,7 @@ def _arc_length(
         ),
         substitution=(
             math_line(f"y' = {latex(derivative)}"),
-            math_line(f"L = \\int_{{{low}}}^{{{high}}} {latex(integrand)}\\,d{var}"),
+            math_line(f"L = {integral} {latex(integrand)}\\,d{var}"),
             math_line(f"= {answer}"),
         ),
     )
@@ -226,7 +229,8 @@ def _disk_working(
     """About the x-axis: pi times the integral of y squared."""
     from sympy import integrate, latex, simplify
 
-    low, high, var = intent.integral_lower, intent.integral_upper, intent.variable
+    low, high = _bound_tex(intent.integral_lower), _bound_tex(intent.integral_upper)
+    var = intent.variable
     low_expr, high_expr = bounds
     cross_section = simplify(parsed**2)
     antiderivative = integrate(cross_section, sym)
@@ -256,7 +260,8 @@ def _shell_working(
     """About the y-axis: 2 pi times the integral of x times y."""
     from sympy import integrate, latex, simplify
 
-    low, high, var = intent.integral_lower, intent.integral_upper, intent.variable
+    low, high = _bound_tex(intent.integral_lower), _bound_tex(intent.integral_upper)
+    var = intent.variable
     low_expr, high_expr = bounds
     shell_integrand = simplify(sym * parsed)
     antiderivative = integrate(shell_integrand, sym)
