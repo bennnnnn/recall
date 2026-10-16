@@ -17,19 +17,14 @@ import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import {
   buildOptimisticUserMessage,
   buildPendingSendAfterCreate,
-  shouldBlockSend,
   type ComposerSendDraft,
 } from "@/features/chat/model/sendLogic";
+import { canSend } from "@/features/chat/model/sendGuards";
+import { resolveSendIntercept, type SendIntercept } from "@/features/chat/model/sendIntercept";
+import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
+import { uploadSendAttachment, useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
 import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
-import {
-  extractImageGenPromptFromThread,
-  extractAttachedImageEditPrompt,
-  extractImageRevisionPrompt,
-  imageGenRevisionContext,
-} from "@/features/images/model/imageGenIntent";
-import { extractImageLookupQuery } from "@/features/images/model/imageLookupIntent";
-import { stemSubjectOwnsTurn } from "@/features/images/model/stemSubjectOwnsTurn";
 import type { ClientGeo } from "@/lib/clientGeo";
 import {
   queryNeedsClientGeo,
@@ -43,7 +38,6 @@ import {
   PhotoLibraryPermissionError,
   pickFromCamera,
   pickFromPhotoLibrary,
-  uploadChatAttachment,
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
 import {
@@ -128,6 +122,16 @@ type Options = {
   imageGenerating?: boolean;
 };
 
+/** One send, from the tap that started it. */
+type SendTurn = {
+  text: string;
+  composerText: string;
+  attachment: PendingAttachment | null;
+  threadKey: string;
+  isCurrentSession: () => boolean;
+  isCurrentView: () => boolean;
+};
+
 export function useChatSend({
   token,
   chatId,
@@ -152,14 +156,7 @@ export function useChatSend({
   onGenerateImage,
   imageGenerating = false,
 }: Options) {
-  const {
-    draftChatIdRef,
-    skipLoadForChatIdRef,
-    creatingRef,
-    prepareDraftChat,
-    setDraftChatId,
-    discardEmptyChat,
-  } = draft;
+  const { creatingRef, discardEmptyChat } = draft;
   const { newMessageCountRef } = scroll;
 
   const {
@@ -172,13 +169,8 @@ export function useChatSend({
     getThreadKey,
   } = useComposerDraftApi();
   const feedback = useActionFeedbackOptional();
-  const [pendingAttachment, setPendingAttachmentState] = useState<PendingAttachment | null>(null);
-  const pendingAttachmentRef = useRef<PendingAttachment | null>(null);
-  const setPendingAttachment = useCallback((value: React.SetStateAction<PendingAttachment | null>) => {
-    const next = typeof value === "function" ? value(pendingAttachmentRef.current) : value;
-    pendingAttachmentRef.current = next;
-    setPendingAttachmentState(next);
-  }, []);
+  const { pendingAttachment, pendingAttachmentRef, setPendingAttachment } = useSendAttachment();
+  const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
   const attachBusy = false;
   const [attachPicking, setAttachPicking] = useState(false);
   const [sendPhase, setSendPhase] = useState<ChatSendPhase>("idle");
@@ -291,305 +283,230 @@ export function useChatSend({
     }
   }, [chatId, routeChatId, session, pendingSend, sendMessage, stashFailedDraftForThread]);
 
-  const handleSend = useCallback(
-    async (overrideText?: string) => {
-      if (
-        sendInFlightRef.current || chatLoading ||
-        (routeChatId != null && routeChatId !== chatId)
-      ) return;
-      const version = viewRef.current.version;
-      const isCurrentSession = () => session === getSessionGeneration();
-      const isCurrentView = () => isCurrentSession() && viewRef.current.version === version;
-      const composerText = overrideText ?? inputRef.current;
-      const text = composerText.trim();
-      if (isOffline) {
-        // Keep the draft; banner + dimmed send already signal offline. A modal
-        // Alert feels unfinished without a send queue — use a soft toast instead.
-        notifyOfflineSendBlocked({
-          warn: notifyWarning,
-          showToast: onOfflineBlocked,
-        });
-        return;
-      }
-      if (streaming && (text || pendingAttachmentRef.current)) {
-        onStreamBusy?.();
-        return;
-      }
-      if (
-        shouldBlockSend({
-          text,
-          hasAttachment: Boolean(pendingAttachmentRef.current),
-          streaming,
-          token,
-          creating: creatingRef.current,
-          attachBusy,
-          isOffline,
-        })
-      )
-        return;
-      tap();
-      if (onBeforeSend?.(text) === true) return;
-      const queuedAttachment = pendingAttachmentRef.current;
-      const sendThreadKey = getThreadKey();
-
-      // Reference-photo lookup ("show me an ear") wants a real photo, not AI
-      // art — checked first so generation's bare colloquial fallback can't
-      // misclassify "show me a picture of X" as a draw request. A match
-      // here skips the generate-image intercept below and falls through to
-      // the normal send; the backend's image_search tool/intercept attaches
-      // the photo as an ordinary assistant message.
-      const isImageLookup = !queuedAttachment && Boolean(extractImageLookupQuery(text));
-
-      // Image-gen intent → /images/generate from the composer (no sheet, no LLM stub).
-      // Do not gate on client isPaid — plan can be stale while the API still knows Pro;
-      // submitPrompt / the API open upgrade or generate. Never let the model invent
-      // "the app will attach an image shortly" without calling generate.
-      if (
-        !isImageLookup &&
-        onGenerateImage &&
-        (!queuedAttachment || queuedAttachment.kind === "image")
-      ) {
-        const revisionContext = imageGenRevisionContext(messages);
-        const revision = queuedAttachment?.kind === "image"
-          ? extractAttachedImageEditPrompt(text)
-          : extractImageRevisionPrompt(text, revisionContext);
-        let imagePrompt = extractImageGenPromptFromThread(text, messages) ?? revision;
-        if (imagePrompt) {
-          if (imageGenerating) return;
-          sendInFlightRef.current = true;
-          setSendPhase("preparing");
-          const ownedBySubject = await stemSubjectOwnsTurn(token, text);
-          if (!isCurrentView()) {
-            sendInFlightRef.current = false;
-            setSendPhase("idle");
-            return;
-          }
-          // "draw ethanol" is a structure and a lens question is optics: the
-          // server leaves them to their subject, so the chat send below takes them.
-          if (ownedBySubject) imagePrompt = null;
-        }
-        if (imagePrompt) {
-          const draftsPromise = flushEmailDrafts();
-          setInput("");
-          setPendingAttachment(null);
-          Keyboard.dismiss();
-          const restoreImageDraft = () => {
-            if (!isCurrentSession()) return;
-            if (!isCurrentView() || getThreadKey() !== sendThreadKey) {
-              stashFailedDraftForThread(sendThreadKey, composerText);
-              return;
-            }
-            if (
-              !pendingAttachmentRef.current &&
-              shouldRestoreFailedSend(inputRef.current, composerText)
-            ) {
-              setInput(composerText);
-              setPendingAttachment(queuedAttachment);
-              return;
-            }
-            feedback?.error(t("chat.restore_draft_blocked"));
-          };
-          const reference = queuedAttachment ? { attachment: queuedAttachment }
-            : revision && revisionContext.referenceAttachmentId
-              ? { ids: [revisionContext.referenceAttachmentId] } : undefined;
-          onGenerateImage(imagePrompt, text, reference, {
-            ready: draftsPromise,
-            onFailure: restoreImageDraft,
-          });
-          sendInFlightRef.current = false;
-          setSendPhase("idle");
+  /** Hands an image request to generation; persistence failure brings the draft back. */
+  const generateFromComposer = useCallback(
+    (intercept: Extract<SendIntercept, { kind: "generate" }>, turn: SendTurn) => {
+      const draftsPromise = flushEmailDrafts();
+      setInput("");
+      setPendingAttachment(null);
+      Keyboard.dismiss();
+      const restoreImageDraft = () => {
+        if (!turn.isCurrentSession()) return;
+        if (!turn.isCurrentView() || getThreadKey() !== turn.threadKey) {
+          stashFailedDraftForThread(turn.threadKey, turn.composerText);
           return;
         }
+        if (
+          !pendingAttachmentRef.current &&
+          shouldRestoreFailedSend(inputRef.current, turn.composerText)
+        ) {
+          setInput(turn.composerText);
+          setPendingAttachment(turn.attachment);
+          return;
+        }
+        feedback?.error(t("chat.restore_draft_blocked"));
+      };
+      onGenerateImage?.(intercept.prompt, turn.text, intercept.reference, {
+        ready: draftsPromise,
+        onFailure: restoreImageDraft,
+      });
+      sendInFlightRef.current = false;
+      setSendPhase("idle");
+    },
+    [setInput, setPendingAttachment, pendingAttachmentRef, getThreadKey, stashFailedDraftForThread, inputRef, feedback, t, onGenerateImage],
+  );
+
+  /** Clears the composer and paints the user's bubble; returns its id. */
+  const paintUserTurn = useCallback((text: string, attached: PendingAttachment | null) => {
+    // Clear the composer immediately so the next draft can be typed.
+    // Keep Send/Attach busy until the turn is accepted — an idle button
+    // with sendInFlightRef set looked finished and ate the next tap.
+    setInput("");
+    setPendingAttachment(null);
+    Keyboard.dismiss();
+
+    const optimisticId = `local-${Date.now()}`;
+    const createdAt = new Date().toISOString();
+    setPendingOutboundId(optimisticId);
+    setMessages((prev) => [
+      ...prev,
+      buildOptimisticUserMessage({
+        text,
+        attached,
+        optimisticId,
+        createdAt,
+      }),
+    ]);
+    newMessageCountRef.current += 1;
+    return optimisticId;
+  }, [setInput, setPendingAttachment, setMessages, newMessageCountRef]);
+
+  /** Takes the bubble back and returns the draft to the thread it was typed in. */
+  const restoreFailedSend = useCallback(
+    (turn: SendTurn, optimisticId: string, attached: PendingAttachment | null) => {
+      clearPendingChatTtft(optimisticId);
+      if (!turn.isCurrentSession()) return;
+      if (!turn.isCurrentView()) {
+        stashFailedDraftForThread(turn.threadKey, turn.text);
+        return;
+      }
+      setPendingOutboundId(null);
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
+      if (getThreadKey() === turn.threadKey) {
+        if (!pendingAttachmentRef.current && shouldRestoreFailedSend(inputRef.current, turn.text)) {
+          setInput(turn.text);
+          setPendingAttachment(attached);
+        }
+      } else {
+        stashFailedDraftForThread(turn.threadKey, turn.text);
+      }
+      sendInFlightRef.current = false;
+      setSendPhase("idle");
+    },
+    [stashFailedDraftForThread, setMessages, newMessageCountRef, getThreadKey, pendingAttachmentRef, inputRef, setInput, setPendingAttachment],
+  );
+
+  const handleSend = useCallback(
+    async (overrideText?: string) => {
+      const version = viewRef.current.version;
+      const composerText = overrideText ?? inputRef.current;
+      const text = composerText.trim();
+      const verdict = canSend({
+        sendInFlight: sendInFlightRef.current,
+        chatLoading,
+        chatId,
+        routeChatId,
+        isOffline,
+        streaming,
+        text,
+        hasAttachment: Boolean(pendingAttachmentRef.current),
+        token,
+        creating: creatingRef.current,
+        attachBusy,
+      });
+      // Offline keeps the draft; banner + dimmed send already signal it. A modal
+      // Alert feels unfinished without a send queue — use a soft toast instead.
+      if (verdict === "offline") notifyOfflineSendBlocked({ warn: notifyWarning, showToast: onOfflineBlocked });
+      if (verdict === "streaming") onStreamBusy?.();
+      if (verdict !== "send") return;
+      tap();
+      if (onBeforeSend?.(text) === true) return;
+      const isCurrentSession = () => session === getSessionGeneration();
+      const turn: SendTurn = {
+        text,
+        composerText,
+        attachment: pendingAttachmentRef.current,
+        threadKey: getThreadKey(),
+        isCurrentSession,
+        isCurrentView: () => isCurrentSession() && viewRef.current.version === version,
+      };
+
+      const deciding = resolveSendIntercept({
+        text,
+        attachment: turn.attachment,
+        messages,
+        canGenerate: Boolean(onGenerateImage),
+        imageGenerating,
+        token,
+        isCurrentView: turn.isCurrentView,
+        onServerCheck: () => {
+          sendInFlightRef.current = true;
+          setSendPhase("preparing");
+        },
+      });
+      const intercept = deciding instanceof Promise ? await deciding : deciding;
+      if (intercept.kind === "drop") return;
+      if (intercept.kind === "stale") {
+        sendInFlightRef.current = false;
+        setSendPhase("idle");
+        return;
+      }
+      if (intercept.kind === "generate") {
+        generateFromComposer(intercept, turn);
+        return;
       }
 
       const authToken = token;
       if (!authToken) return;
-
-      let attached = queuedAttachment;
-      const needsClientGeo = queryNeedsClientGeo(text);
+      let attached = turn.attachment;
       sendInFlightRef.current = true;
       setSendPhase(
-        needsClientGeo ? "locating" : attached ? "uploading" : "preparing",
+        queryNeedsClientGeo(text) ? "locating" : attached ? "uploading" : "preparing",
       );
-
       // Geo intents: resolve the OS permission before painting anything, so a
       // deny never makes a just-painted bubble vanish. Instant for non-geo text.
       const geoResult = await resolveClientGeoForQuery(authToken, text, t, updateUser);
-      if (!geoResult.ok || !isCurrentView()) {
+      if (!geoResult.ok || !turn.isCurrentView()) {
         sendInFlightRef.current = false;
         setSendPhase("idle");
         return;
       }
-      const clientGeo = geoResult.clientGeo;
       setSendPhase(attached ? "uploading" : "preparing");
-
-      // Clear the composer immediately so the next draft can be typed.
-      // Keep Send/Attach busy until the turn is accepted — an idle button
-      // with sendInFlightRef set looked finished and ate the next tap.
-      setInput("");
-      setPendingAttachment(null);
-      Keyboard.dismiss();
-
-      const optimisticId = `local-${Date.now()}`;
-      const createdAt = new Date().toISOString();
-      setPendingOutboundId(optimisticId);
-      setMessages((prev) => [
-        ...prev,
-        buildOptimisticUserMessage({
-          text,
-          attached,
-          optimisticId,
-          createdAt,
-        }),
-      ]);
-      newMessageCountRef.current += 1;
-
-      const restoreDraft = () => {
-        clearPendingChatTtft(optimisticId);
-        if (!isCurrentSession()) return;
-        if (!isCurrentView()) {
-          stashFailedDraftForThread(sendThreadKey, text);
-          return;
-        }
-        setPendingOutboundId(null);
-        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-        newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
-        if (getThreadKey() === sendThreadKey) {
-          if (!pendingAttachmentRef.current && shouldRestoreFailedSend(inputRef.current, text)) {
-            setInput(text);
-            setPendingAttachment(attached);
-          }
-        } else {
-          stashFailedDraftForThread(sendThreadKey, text);
-        }
-        sendInFlightRef.current = false;
-        setSendPhase("idle");
-      };
+      const optimisticId = paintUserTurn(text, attached);
+      const restoreDraft = () => restoreFailedSend(turn, optimisticId, attached);
 
       // Flush in-progress email card edits in parallel with the attachment
       // upload instead of blocking the optimistic bubble on the flush.
       const draftsPromise = flushEmailDrafts();
-
       let attachmentIds: string[] | undefined;
       if (attached) {
         try {
-          const id = await uploadChatAttachment(authToken, attached);
-          attachmentIds = [id];
-          attached = { ...attached, existingAttachmentId: id };
-          if (!isCurrentView()) {
+          ({ ids: attachmentIds, attachment: attached } = await uploadSendAttachment(authToken, attached));
+          if (!turn.isCurrentView()) {
             restoreDraft();
             return;
           }
         } catch (error) {
           restoreDraft();
-          if (isCurrentView()) feedback?.error(
+          if (turn.isCurrentView()) feedback?.error(
             error instanceof Error ? error.message : t("chat.attach_failed"),
           );
           return;
         }
       }
-
       const draftsSaved = await draftsPromise;
-      if (!isCurrentView()) return;
+      if (!turn.isCurrentView()) return;
       if (!draftsSaved) {
         restoreDraft();
         return;
       }
 
-      if (!chatId) {
-        creatingRef.current = true;
-        setSendPhase("creating");
-        try {
-          const id = await prepareDraftChat(selectedModel);
-          if (!id) throw new Error("Could not create chat");
-          if (!isCurrentView()) {
-            if (draftChatIdRef.current === id) {
-              draftChatIdRef.current = null;
-              setDraftChatId(null);
-            }
-            discardEmptyChat(id);
-            restoreDraft();
-            return;
-          }
-          skipLoadForChatIdRef.current = id;
-          setChatTitle(null);
-          setChatId(id);
-          draftChatIdRef.current = null;
-          setDraftChatId(null);
-          adoptComposerThread(id);
-          router.setParams({ chatId: id });
-          setPendingSend({
-            chatId: id,
-            session,
-            originViewVersion: version,
-            ...buildPendingSendAfterCreate({
-              text,
-              composerText,
-              attached,
-              attachmentIds,
-              optimisticId,
-              clientGeo,
-              model: selectedModel,
-            }),
-          });
-        } catch {
-          restoreDraft();
-          if (isCurrentView()) feedback?.error(t("chat.error_generic"));
-        } finally {
-          creatingRef.current = false;
-        }
-        return;
-      }
       const pending = buildPendingSendAfterCreate({
         text,
         composerText,
         attached,
         attachmentIds,
         optimisticId,
-        clientGeo,
+        clientGeo: geoResult.clientGeo,
         model: selectedModel,
       });
-      sendMessage(pending.text, pending);
-      setPendingOutboundId(null);
-      sendInFlightRef.current = false;
-      setSendPhase("idle");
+      if (chatId) {
+        sendMessage(pending.text, pending);
+        setPendingOutboundId(null);
+        sendInFlightRef.current = false;
+        setSendPhase("idle");
+        return;
+      }
+      setSendPhase("creating");
+      try {
+        const id = await ensureChatId({
+          isCurrent: turn.isCurrentView,
+          discard: discardEmptyChat,
+          adopt: adoptComposerThread,
+        });
+        if (!id) restoreDraft();
+        else setPendingSend({ chatId: id, session, originViewVersion: version, ...pending });
+      } catch {
+        restoreDraft();
+        if (turn.isCurrentView()) feedback?.error(t("chat.error_generic"));
+      }
     },
     [
-      setPendingAttachment,
-      session,
-      inputRef,
-      setInput,
-      streaming,
-      token,
-      creatingRef,
-      attachBusy,
-      chatId,
-      chatLoading,
-      routeChatId,
-      newMessageCountRef,
-      selectedModel,
-      setMessages,
-      prepareDraftChat,
-      skipLoadForChatIdRef,
-      draftChatIdRef,
-      setDraftChatId,
-      discardEmptyChat,
-      router,
-      sendMessage,
-      updateUser,
-      t,
-      onStreamBusy,
-      onOfflineBlocked,
-      isOffline,
-      onBeforeSend,
-      onGenerateImage,
-      imageGenerating,
-      messages,
-      feedback,
-      setChatId,
-      setChatTitle,
-      getThreadKey,
-      stashFailedDraftForThread,
+      session, inputRef, chatLoading, chatId, routeChatId, isOffline, streaming, pendingAttachmentRef,
+      token, creatingRef, attachBusy, onOfflineBlocked, onStreamBusy, onBeforeSend, getThreadKey,
+      messages, onGenerateImage, imageGenerating, generateFromComposer, t, updateUser, paintUserTurn,
+      restoreFailedSend, feedback, selectedModel, sendMessage, ensureChatId, discardEmptyChat,
       adoptComposerThread,
     ],
   );
@@ -607,7 +524,7 @@ export function useChatSend({
     setInput(recovered.text);
     setPendingAttachment(recovered.attachment);
     return true;
-  }, [session, viewVersion, getThreadKey, composerThread, streaming, inputRef, feedback, t, setInput, setPendingAttachment]);
+  }, [session, viewVersion, getThreadKey, composerThread, streaming, inputRef, pendingAttachmentRef, feedback, t, setInput, setPendingAttachment]);
 
   const handlePickAttachment = useCallback(() => {
     if (!token || attachBusy || streaming || sendInFlightRef.current || attachPickInFlightRef.current) return;
