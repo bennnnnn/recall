@@ -39,6 +39,9 @@ def test_subject_scan_prompts_match_mobile_protocol() -> None:
 
 def test_scanner_camera_subject_matches_only_protocol_prefixes() -> None:
     assert scanner_camera_subject(MATH_CAMERA_PROMPT) == "math"
+    assert (
+        scanner_camera_subject(f"{MATH_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} 2x+7=15") == "math"
+    )
     assert scanner_camera_subject(PHYSICS_CAMERA_PROMPT.upper()) == "physics"
     assert scanner_camera_subject(CHEMISTRY_CAMERA_PROMPT) == "chemistry"
     assert scanner_camera_subject(BIOLOGY_CAMERA_PROMPT) == "biology"

@@ -70,10 +70,9 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return False
     if not cleaned and not has_image_attachment:
         return False
-    from app.modules.math.image_extract import is_math_camera_prompt
     from app.services.subject_scan import scanner_camera_subject
 
-    if has_image_attachment and is_math_camera_prompt(cleaned):
+    if has_image_attachment and scanner_camera_subject(cleaned) == "math":
         return True
     # The raw text: prepare() folds the newline that ends a camera caption.
     if scanner_camera_subject(text) not in (None, "math"):
