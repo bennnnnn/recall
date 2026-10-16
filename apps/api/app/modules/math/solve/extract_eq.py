@@ -5,7 +5,7 @@ from __future__ import annotations
 import unicodedata
 from itertools import pairwise
 
-from app.modules.math.match.scan import MATH_MULTI_LETTER, peel_edge_english
+from app.modules.math.match.letter_runs import MATH_MULTI_LETTER, peel_edge_english
 from app.modules.math.schemas import EquationInput
 from app.modules.math.solve.discrete import guess_variables
 from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy

@@ -13,6 +13,13 @@ from collections.abc import Callable
 from app.modules.math.match.arithmetic import bare_arithmetic_expr
 from app.modules.math.match.calculus import calc_object, calc_op, parse_limit, parse_series
 from app.modules.math.match.coordinate_vector import is_closed_coordinate_vector_request
+from app.modules.math.match.dimensions import (
+    first_dim_pair,
+    geometry_dim_context,
+    has_draw_shape,
+    number_after,
+    two_numbers_after,
+)
 from app.modules.math.match.discrete import (
     combinatorics_signal,
     gcd_lcm_list_signal,
@@ -30,14 +37,9 @@ from app.modules.math.match.graph import bare_coord, graph_expr, plot_point, ver
 from app.modules.math.match.literal_geometry import parse_named_rectangle_request
 from app.modules.math.match.scan import (
     bare_equation_system,
-    first_dim_pair,
-    geometry_dim_context,
     has_algebraic_equation,
-    has_draw_shape,
     has_math_keyword,
     inequality_signal,
-    number_after,
-    two_numbers_after,
 )
 from app.modules.math.match.statistics import bivariate_stats_signal
 from app.modules.math.match.units import strip_geometry_length_units

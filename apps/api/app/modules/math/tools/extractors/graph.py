@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.math.match.scan import MATH_MULTI_LETTER
+from app.modules.math.match.letter_runs import MATH_MULTI_LETTER
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.request_text import _strip_trailing_filler

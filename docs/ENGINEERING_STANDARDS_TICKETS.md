@@ -896,7 +896,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-34 — Math solve and parse splits, and the end of `tools/helpers.py`
 
-- **Status:** part 2 of 5 done (tools/helpers.py, solve/parse.py): helpers became `tools/request_text.py`, `tools/expr_rewrite.py`, `tools/function_def.py` and `direct_newton.py`, and parse became `solve/latex_normalize.py`, `solve/unicode_normalize.py` (the glyphs, which kept the LaTeX file under 500 lines), `solve/parse.py` and `solve/display.py`, with every moved definition keeping its AST.
+- **Status:** part 2 of 5 done (tools/helpers.py, solve/parse.py): helpers became `tools/request_text.py`, `tools/expr_rewrite.py`, `tools/function_def.py` and `direct_newton.py`, and parse became `solve/latex_normalize.py`, `solve/unicode_normalize.py` (the glyphs, which kept the LaTeX file under 500 lines), `solve/parse.py` and `solve/display.py`, with every moved definition keeping its AST. Part 4 (match/scan.py) is done: the geometry dimension readers moved to `match/dimensions.py` and the letter-run masking (English runs, maths names, viz commands) to `match/letter_runs.py`, leaving prepare, number folding, command words and the equation gates in `match/scan.py` (347 lines); all 53 definitions keep their AST, and a capture of 64,121 prompts, 47,174 synthetic intents and a 134,270-input grid calling every old definition directly is byte-identical before and after and catches five mutants.
 - **Problem:**
   - `math/tools/helpers.py` (499, 17 importers) is a catch-all: LaTeX normalization,
     request-text filler and lead-in stripping, English powers, function-definition peeling and

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import pairwise
 
-from app.modules.math.match.scan import (
+from app.modules.math.match.dimensions import (
     first_dim_pair,
     first_dim_triple,
     number_after,

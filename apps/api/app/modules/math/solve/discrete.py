@@ -10,7 +10,7 @@ from typing import Literal
 from sympy import latex
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES, function_name_alternation
-from app.modules.math.match.scan import mask_unknown_letter_runs
+from app.modules.math.match.letter_runs import mask_unknown_letter_runs
 from app.modules.math.schemas import (
     CombinatoricsInput,
     CombinatoricsResult,
