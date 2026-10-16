@@ -84,7 +84,7 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
         web_search_classifier_enabled=False,
     )
     with (
-        patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=_Session()),
+        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=_Session()),
         patch("app.repositories.messages.create", AsyncMock(side_effect=create_message)),
         patch(
             "app.modules.chat.prompt_builder._load_context_blocks",

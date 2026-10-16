@@ -560,6 +560,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-20 — Split `prepare_chat_turn` (303 lines)
 
+- **Status:** done. `prepare_chat_turn` keeps only the step order (110 lines, 23 of them its unchanged keyword signature; was 301). `turn_prep/persist.py::persist_user_turn` saves the row, its attachment links and the indexable read in one transaction that it commits or rolls back: a failed write now rolls back there instead of at session close, with the same SQL on Postgres. It reads what the caller left out into `UserTurn`. `turn_prep/vision.py::inject_turn_images` handles this turn's photos, or else re-reads the previous turn's. `prepare._build_beside_persist` keeps the overlap and its failure and cancellation order. The capture is byte-identical over 1,758 runs. It covers 523 battery and sweep turns with history on both paths, a quarter of them also under yielding IO, plus attachment, failure and cancellation cases under eager and yielding IO. `prepare.py` went from 354 to 220 lines.
 - **Problem:** `chat/turn_prep/prepare.py:53` mixes several jobs:
   - attachment processing
   - user-message persistence with a nested session, attachment linking and rollback (:57-130)
