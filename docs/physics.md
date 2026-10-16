@@ -275,7 +275,8 @@ The binder reads these laws, beside the extractors' own:
 
 - **Answers** have three significant figures, trailing zeros trimmed. Scientific notation is
   used outside [10⁻³, 10⁵), and rounding comes first: 99999.7 is 1 × 10⁵. One formatter does
-  this, `display.py`; a solver never picks its own format.
+  this, `display.py`; a solver never picks its own format. A 5 rounds up, as a class rounds:
+  490.5 N is 491 N (`services/school_rounding.py`, the rule every subject shares).
 - **Givens** are echoed with the figures the user typed, up to six. A given is never rounded
   to answer precision.
 - **Units** are upright, with their symbols: m/s², kg·m², J/(kg·K), Ω, °. In LaTeX the unit

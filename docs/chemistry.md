@@ -215,7 +215,7 @@ records how each given was typed, and the solve formats every number from that r
   model to copy each verified number exactly, neither adding nor dropping a zero. A percent
   composition from a formula alone has the table's four figures: N in NH4NO3 is `35.00%`.
 - **A 5 rounds up**, as a class rounds: `62.5 mL` to two figures is `63 mL`, never the `62` of
-  round-half-even.
+  round-half-even. Every subject shares this rule (`services/school_rounding.py`).
 - **Typed values are echoed as typed**: `E° = 1.10 V` stays `1.10 V`, `Kc = 0.02370` keeps its zero.
 - **A pH, pOH or pK** is a logarithm, so it has as many decimals as its data have
   figures: `[H+] = 2.5 × 10^-4` gives `pH = 3.60`. A concentration from a typed pH has as
