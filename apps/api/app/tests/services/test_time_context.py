@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from app.services import time_context
 from app.services.time_context import (
     correct_weekday_dates,
     describe_due_at,
@@ -271,6 +272,13 @@ def test_is_location_question():
     assert not is_location_question("weather in Paris")
     assert not is_location_question("Where is the meeting")
     assert not is_location_question("where am I going tomorrow")
+
+
+def test_location_ask_folded_entries_can_match():
+    # A message is folded (letters only, doubles collapsed) before the lookup, so an
+    # entry written unfolded ("whatsmycurrentlocation") could never match (ES-42).
+    for entry in time_context._LOCATION_ASK_FOLDED:
+        assert time_context._fold_location_ask(entry) == entry, entry
 
 
 def test_format_location_answer_with_city():

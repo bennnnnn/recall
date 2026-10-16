@@ -141,10 +141,11 @@ const PROXIMITY_PHRASES = [
 
 /**
  * Mirrors backend `is_location_question` (apps/api/app/services/time_context.py)
- * — needs a fresh device fix. Matched, like the server, on `collapseWs` text.
+ * — needs a fresh device fix. Matched, like the server, on `collapseWs` text with
+ * curly apostrophes straightened.
  */
 const LOCATION_QUESTION =
-  /^(?:where am i(?: (?:at|right now|right nwo|now|currently))?\??|what(?:'s| is) my (?:current )?location\??|where(?:'s| is) my (?:current )?location\??|where(?:'re| are) we(?: (?:right now|now|currently))?\??|my (?:current )?location\??|location\??)[.!?]*$/i;
+  /^(?:where am i(?: (?:at|right now|right nwo|now|currently))?\??|what(?:'s| is) my (?:current |currnet )?location(?: (?:right now|now))?\??|where(?:'s| is) my (?:current |currnet )?location(?: (?:right now|now))?\??|where(?:'re| are) we(?: (?:right now|now|currently))?\??|my (?:current |currnet )?location\??|location\??)[.!?]*$/i;
 
 /** Zero-width marks iOS can leave in a message; the server's `collapse_ws` drops them. */
 const FORMAT_CHARS = /[\u200b\u200c\u200d\ufeff\u2060]/g;
@@ -154,7 +155,13 @@ function collapseWs(text: string): string {
   return text.replace(FORMAT_CHARS, "").trim().split(/\s+/).join(" ");
 }
 
+/** The server's `straighten_apostrophes`: iOS smart punctuation types \u2019 and \u2018. */
+function straightenApostrophes(text: string): string {
+  return text.replace(/[\u2018\u2019]/g, "'");
+}
+
 const LOCATION_ASK_MAX_LEN = 80;
+/** Written folded (letters only, no doubled letter: "current" is "curent"), or it never matches. */
 const LOCATION_ASK_FOLDED = new Set([
   "whereami",
   "whereamiat",
@@ -164,8 +171,8 @@ const LOCATION_ASK_FOLDED = new Set([
   "whereamicurently",
   "whatsmylocation",
   "whatismylocation",
-  "whatsmycurrentlocation",
-  "whatismycurrentlocation",
+  "whatsmycurentlocation",
+  "whatismycurentlocation",
   "wherismylocation",
   "wheresmylocation",
   "whereismylocation",
@@ -174,7 +181,7 @@ const LOCATION_ASK_FOLDED = new Set([
   "wherearewerightnow",
   "wherearewecurently",
   "mylocation",
-  "mycurrentlocation",
+  "mycurentlocation",
   "location",
 ]);
 
@@ -204,7 +211,7 @@ function subjectWithoutProximity(cleaned: string): string {
 }
 
 export function isLocationQuestion(text: string): boolean {
-  const cleaned = collapseWs(text);
+  const cleaned = straightenApostrophes(collapseWs(text));
   if (!cleaned) return false;
   if (LOCATION_QUESTION.test(cleaned)) return true;
   return LOCATION_ASK_FOLDED.has(foldLocationAsk(cleaned));
