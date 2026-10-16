@@ -12,6 +12,7 @@ from app.core.access_tokens import create_access_token
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatNotFoundError, QuotaExceededError
 from app.main import create_app
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.services.quota import QUOTA_EXCEEDED_MESSAGE_FREE
 
 
@@ -167,7 +168,7 @@ async def test_ws_invalid_frame_during_stream_keeps_producer_owned(invalid_frame
 
     try:
         await asyncio.wait_for(
-            _stream_over_ws(Socket(), stream_tokens(), asyncio.Event(), {}), timeout=1
+            _stream_over_ws(Socket(), stream_tokens(), asyncio.Event(), TurnOutcome()), timeout=1
         )
     finally:
         resume.set()
@@ -360,10 +361,10 @@ def test_ws_done_includes_resolved_model():
     user = _fake_user()
     chat_id = uuid4()
 
-    async def fake_stream(*args, result=None, **kwargs):
-        if result is not None:
-            result["message_id"] = str(uuid4())
-            result["resolved_model"] = "smart-chat"
+    async def fake_stream(*args, outcome=None, **kwargs):
+        if outcome is not None:
+            outcome.message_id = str(uuid4())
+            outcome.resolved_model = "smart-chat"
         yield "Hello"
 
     app = _app(user)
@@ -635,7 +636,7 @@ async def test_stream_over_ws_disconnect_still_finalizes():
         await asyncio.sleep(0.02)
         finalized.set()
 
-    result: dict = {"_finalize_db_task": asyncio.create_task(slow_finalize())}
+    outcome = TurnOutcome(finalize_db_task=asyncio.create_task(slow_finalize()))
 
     async def short_stream():
         yield "Hi"
@@ -651,7 +652,7 @@ async def test_stream_over_ws_disconnect_still_finalizes():
             raise WebSocketDisconnect()
 
     await asyncio.wait_for(
-        _stream_over_ws(FakeWs(), short_stream(), asyncio.Event(), result),
+        _stream_over_ws(FakeWs(), short_stream(), asyncio.Event(), outcome),
         timeout=2,
     )
     assert finalized.is_set()
@@ -670,7 +671,7 @@ async def test_stream_over_ws_disconnect_does_not_cancel_generation():
     async def mark_finalize() -> None:
         finalized.set()
 
-    result: dict = {"_finalize_db_task": asyncio.create_task(mark_finalize())}
+    outcome = TurnOutcome(finalize_db_task=asyncio.create_task(mark_finalize()))
 
     async def stream():
         for part in ("one", "two", "three"):
@@ -694,7 +695,7 @@ async def test_stream_over_ws_disconnect_does_not_cancel_generation():
             return {"type": "ping"}
 
     await asyncio.wait_for(
-        _stream_over_ws(FakeWs(), stream(), asyncio.Event(), result),
+        _stream_over_ws(FakeWs(), stream(), asyncio.Event(), outcome),
         timeout=2,
     )
     assert produced == ["one", "two", "three"]
@@ -853,12 +854,12 @@ def test_ws_done_waits_for_finalize_commit():
     release_finalize = asyncio.Event()
     captured: dict = {}
 
-    async def fake_stream(*args, result=None, **kwargs):
+    async def fake_stream(*args, outcome=None, **kwargs):
         captured["loop"] = asyncio.get_running_loop()
         yield "Hello"
-        if result is not None:
-            result["message_id"] = message_id
-            result["resolved_model"] = "free-chat"
+        if outcome is not None:
+            outcome.message_id = message_id
+            outcome.resolved_model = "free-chat"
 
             async def slow_finalize():
                 # Blocks until the test releases it — `done` must wait.
@@ -867,7 +868,7 @@ def test_ws_done_waits_for_finalize_commit():
                 except TimeoutError:
                     pass
 
-            result["_finalize_db_task"] = asyncio.create_task(slow_finalize())
+            outcome.finalize_db_task = asyncio.create_task(slow_finalize())
 
     app = _app(user)
 
@@ -907,16 +908,16 @@ def test_ws_done_sends_error_when_finalize_fails():
     chat_id = uuid4()
     message_id = str(uuid4())
 
-    async def fake_stream(*args, result=None, **kwargs):
+    async def fake_stream(*args, outcome=None, **kwargs):
         yield "Hello"
-        if result is not None:
-            result["message_id"] = message_id
-            result["resolved_model"] = "free-chat"
+        if outcome is not None:
+            outcome.message_id = message_id
+            outcome.resolved_model = "free-chat"
 
             async def failing_finalize():
                 raise RuntimeError("Neon is down")
 
-            result["_finalize_db_task"] = asyncio.create_task(failing_finalize())
+            outcome.finalize_db_task = asyncio.create_task(failing_finalize())
 
     app = _app(user)
 
@@ -949,16 +950,16 @@ def test_ws_done_sends_persisting_when_finalize_times_out():
     message_id = str(uuid4())
     gate = asyncio.Event()
 
-    async def fake_stream(*args, result=None, **kwargs):
+    async def fake_stream(*args, outcome=None, **kwargs):
         yield "Hello"
-        if result is not None:
-            result["message_id"] = message_id
-            result["resolved_model"] = "free-chat"
+        if outcome is not None:
+            outcome.message_id = message_id
+            outcome.resolved_model = "free-chat"
 
             async def slow_finalize():
                 await gate.wait()
 
-            result["_finalize_db_task"] = asyncio.create_task(slow_finalize())
+            outcome.finalize_db_task = asyncio.create_task(slow_finalize())
 
     app = _app(user)
 

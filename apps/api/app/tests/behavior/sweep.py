@@ -40,6 +40,7 @@ from app.models.orm import User
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.turn_deps import default_deps
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
@@ -334,7 +335,7 @@ async def _run_entry(entry: Entry) -> Outcome:
             ctx,
             assistant_text=entry.reply,
             usage={},
-            result={},
+            outcome=TurnOutcome(),
             was_cancelled=False,
             assistant_parts=[entry.reply],
             should_cancel=None,

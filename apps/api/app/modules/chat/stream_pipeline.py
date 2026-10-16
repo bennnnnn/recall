@@ -5,7 +5,6 @@ The text comes from ``stream_paths`` (instant reply, tool loop, model stream);
 """
 
 import asyncio
-import json
 import logging
 from collections.abc import AsyncIterator, Callable
 from typing import Any
@@ -31,6 +30,7 @@ from app.modules.chat.stream_paths import (
     run_tool_loop_path,
 )
 from app.modules.chat.turn_deps import ChatTurnDeps
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.chat.turn_resources import TurnResources
 from app.modules.images.answer_photo import AnswerPhoto
@@ -68,21 +68,17 @@ async def register_and_enqueue_finalize(
     *,
     assistant_text: str,
     usage: dict[str, int],
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
 ) -> None:
     if ctx.assistant_message_id is None:
         ctx.assistant_message_id = uuid7()
-    if result is not None:
-        result["resolved_model"] = ctx.model
-        result["message_id"] = str(ctx.assistant_message_id)
-        if ctx.recalled_count:
-            result["recalled"] = str(ctx.recalled_count)
-        if ctx.memory_hints:
-            result["memory_hints"] = json.dumps(ctx.memory_hints)
-        if ctx.context_summarized:
-            result["context_summarized"] = str(ctx.context_summarized)
-        schedule_related_prompts(
-            result,
+    if outcome is not None:
+        outcome.resolved_model = ctx.model
+        outcome.message_id = str(ctx.assistant_message_id)
+        outcome.recalled = ctx.recalled_count
+        outcome.memory_hints = list(ctx.memory_hints)
+        outcome.context_summarized = ctx.context_summarized
+        outcome.related_task = schedule_related_prompts(
             redis,
             settings,
             message_id=str(ctx.assistant_message_id),
@@ -90,10 +86,11 @@ async def register_and_enqueue_finalize(
             answer=assistant_text,
             prior=_prior_window(ctx.prompt_messages),
             allow_general=not ctx.lightweight_turn and ctx.instant_reply is None,
+            completion=outcome.completion,
         )
     await mark_pending_finalize(redis, ctx.chat_id)
     finalize_db_task = create_background_task(
-        finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),
+        finalize_stream_turn_db(redis, ctx, assistant_text, usage, outcome),
         name="finalize_stream_turn_db",
     )
     register_pending_finalize(ctx.chat_id, finalize_db_task)
@@ -113,9 +110,9 @@ async def register_and_enqueue_finalize(
     jobs_task.add_done_callback(
         lambda task: log_background_task_failure(task, "Background finalization failed")
     )
-    if result is not None:
-        result["_finalize_task"] = jobs_task
-        result["_finalize_db_task"] = finalize_db_task
+    if outcome is not None:
+        outcome.finalize_task = jobs_task
+        outcome.finalize_db_task = finalize_db_task
 
 
 async def finalize_terminal_image_turn(
@@ -123,7 +120,7 @@ async def finalize_terminal_image_turn(
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
 ) -> None:
     try:
         ctx.assistant_message_id = UUID(ctx.terminal_image_message_id)
@@ -146,8 +143,8 @@ async def finalize_terminal_image_turn(
     task.add_done_callback(
         lambda done: log_background_task_failure(done, "Terminal-image finalize failed")
     )
-    if result is not None:
-        result["_finalize_task"] = task
+    if outcome is not None:
+        outcome.finalize_task = task
 
 
 async def stream_and_finalize(
@@ -157,7 +154,7 @@ async def stream_and_finalize(
     ctx: StreamContext,
     *,
     should_cancel: Callable[[], bool] | None,
-    result: dict[str, Any] | None = None,
+    outcome: TurnOutcome | None = None,
     on_status: StreamStatusFn | None = None,
     on_reasoning: StreamReasoningFn | None = None,
     resources: TurnResources | None = None,
@@ -188,16 +185,16 @@ async def stream_and_finalize(
                     if ctx.timing is not None:
                         ctx.timing.mark_phase("tool_loop_done")
                 if ctx.terminal_image_content and ctx.terminal_image_message_id:
-                    if result is not None:
-                        result["message_id"] = ctx.terminal_image_message_id
-                        result["final_content"] = ctx.terminal_image_content
-                        result["resolved_model"] = ctx.terminal_image_model or "image-gen-model"
+                    if outcome is not None:
+                        outcome.message_id = ctx.terminal_image_message_id
+                        outcome.final_content = ctx.terminal_image_content
+                        outcome.resolved_model = ctx.terminal_image_model or "image-gen-model"
                     if resources is not None:
                         await resources.refund()
                     else:
                         await deps.quota.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
                     await await_user_message_persist(ctx)
-                    await finalize_terminal_image_turn(deps, redis, settings, ctx, result)
+                    await finalize_terminal_image_turn(deps, redis, settings, ctx, outcome)
                     return
                 if ctx.instant_reply:
                     async for token in run_instant_reply_path(
@@ -216,7 +213,7 @@ async def stream_and_finalize(
                         ctx,
                         usage=usage,
                         should_cancel=should_cancel,
-                        result=result,
+                        outcome=outcome,
                         on_reasoning=on_reasoning,
                         accum=accum,
                     ):
@@ -246,8 +243,8 @@ async def stream_and_finalize(
                 "That model isn't responding right now. Try again — or pick a different model.",
                 failed_alias=ctx.model,
             )
-        if result is not None and accum.completion != "complete":
-            result["completion"] = accum.completion
+        if outcome is not None and accum.completion != "complete":
+            outcome.completion = accum.completion
 
         async def persist_reply() -> None:
             nonlocal assistant_text
@@ -258,7 +255,7 @@ async def stream_and_finalize(
                 ctx,
                 assistant_text=assistant_text,
                 usage=usage,
-                result=result,
+                outcome=outcome,
                 was_cancelled=accum.was_cancelled,
                 assistant_parts=accum.parts,
                 should_cancel=should_cancel,
@@ -270,7 +267,7 @@ async def stream_and_finalize(
                 ctx,
                 assistant_text=assistant_text,
                 usage=usage,
-                result=result,
+                outcome=outcome,
             )
 
         # Closing the provider socket after Stop cancels this task again.

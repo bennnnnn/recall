@@ -8,7 +8,6 @@ outside the chat module (``turn_deps``); the transports pass ``default_deps()``.
 
 import logging
 from collections.abc import AsyncIterator, Callable
-from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -23,6 +22,7 @@ from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_intercepts import intercept_new_turn, intercept_regenerate
 from app.modules.chat.turn_load import NewTurn, load_new_turn, load_regenerate_turn
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import (
     StreamContext,
     TurnRequest,
@@ -55,7 +55,7 @@ async def _stream_turn(
     res: TurnResources,
     *,
     should_cancel: Callable[[], bool] | None,
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
     status: StreamStatusFn | None,
     on_reasoning: StreamReasoningFn | None,
 ) -> AsyncIterator[str]:
@@ -68,7 +68,7 @@ async def _stream_turn(
             settings,
             ctx,
             should_cancel=should_cancel,
-            result=result,
+            outcome=outcome,
             on_status=status,
             on_reasoning=on_reasoning,
             resources=res,
@@ -118,7 +118,7 @@ async def stream_chat_response(
     model_alias: str | None = None,
     attachment_ids: list[UUID] | None = None,
     should_cancel: Callable[[], bool] | None = None,
-    result: dict[str, Any] | None = None,
+    outcome: TurnOutcome | None = None,
     client_timezone: str | None = None,
     client_location: str | None = None,
     client_latitude: float | None = None,
@@ -159,7 +159,7 @@ async def stream_chat_response(
             user=turn.user,
             chat_id=chat_id,
             content=content,
-            result=result,
+            outcome=outcome,
             recent_messages=turn.recent,
             prior_count=turn.prior_count,
         ):
@@ -208,7 +208,7 @@ async def stream_chat_response(
                 ctx,
                 res,
                 should_cancel=should_cancel,
-                result=result,
+                outcome=outcome,
                 status=status,
                 on_reasoning=on_reasoning,
             ):
@@ -232,7 +232,7 @@ async def stream_regenerate_response(
     chat_id: UUID,
     model_alias: str | None = None,
     should_cancel: Callable[[], bool] | None = None,
-    result: dict[str, Any] | None = None,
+    outcome: TurnOutcome | None = None,
     client_timezone: str | None = None,
     client_location: str | None = None,
     client_latitude: float | None = None,
@@ -254,7 +254,7 @@ async def stream_regenerate_response(
             chat_id=chat_id,
             content=turn.content,
             backup=turn.backup,
-            result=result,
+            outcome=outcome,
         ):
             return
         # Persisted image markers identify the current input on regeneration;
@@ -326,7 +326,7 @@ async def stream_regenerate_response(
                 ctx,
                 res,
                 should_cancel=should_cancel,
-                result=result,
+                outcome=outcome,
                 status=status,
                 on_reasoning=on_reasoning,
             ):

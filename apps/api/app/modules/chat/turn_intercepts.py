@@ -2,7 +2,7 @@
 
 The photo lookup ("show me an ear", free and Pro) is checked before image
 generation (Pro): see ``images.lookup_intent`` for why the two never compete for
-the same words. Either one stores the reply itself and fills ``result``.
+the same words. Either one stores the reply itself and fills the turn's outcome.
 """
 
 from datetime import UTC, datetime
@@ -14,6 +14,7 @@ from app.exceptions import ChatServiceError, QuotaExceededError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
 from app.modules.chat.turn_deps import ChatTurnDeps
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.images.gen_intent import (
     could_be_image_revision,
@@ -54,11 +55,11 @@ async def _replace_old_assistant(
             await deps.messages.delete_message(session, old)
 
 
-def _record(result: dict[str, Any] | None, message: Message, default_model: str) -> None:
-    if result is not None:
-        result["message_id"] = str(message.id)
-        result["final_content"] = message.content
-        result["resolved_model"] = message.model or default_model
+def _record(outcome: TurnOutcome | None, message: Message, default_model: str) -> None:
+    if outcome is not None:
+        outcome.message_id = str(message.id)
+        outcome.final_content = message.content
+        outcome.resolved_model = message.model or default_model
 
 
 async def _image_gen_prompt(
@@ -110,7 +111,7 @@ async def try_image_gen_for_turn(
     user: User,
     chat_id: UUID,
     content: str,
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
     create_user_message: bool,
     replace_assistant_id: UUID | None = None,
     skip_revision_lookup: bool = False,
@@ -150,7 +151,7 @@ async def try_image_gen_for_turn(
     await _replace_old_assistant(
         deps, settings, chat_id=chat_id, replace_assistant_id=replace_assistant_id
     )
-    _record(result, asst_msg, _IMAGE_GEN_MODEL)
+    _record(outcome, asst_msg, _IMAGE_GEN_MODEL)
     return True
 
 
@@ -195,7 +196,7 @@ async def try_image_lookup_for_turn(
     user: User,
     chat_id: UUID,
     content: str,
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
     create_user_message: bool,
     replace_assistant_id: UUID | None = None,
     recent_messages: list[Any] | None = None,
@@ -241,7 +242,7 @@ async def try_image_lookup_for_turn(
     await _replace_old_assistant(
         deps, settings, chat_id=chat_id, replace_assistant_id=replace_assistant_id
     )
-    _record(result, asst_msg, _IMAGE_SEARCH_MODEL)
+    _record(outcome, asst_msg, _IMAGE_SEARCH_MODEL)
     return True
 
 
@@ -252,7 +253,7 @@ async def intercept_new_turn(
     user: User,
     chat_id: UUID,
     content: str,
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
     recent_messages: list[Any],
     prior_count: int,
 ) -> bool:
@@ -263,7 +264,7 @@ async def intercept_new_turn(
         user=user,
         chat_id=chat_id,
         content=content,
-        result=result,
+        outcome=outcome,
         create_user_message=True,
         recent_messages=recent_messages,
     ):
@@ -274,7 +275,7 @@ async def intercept_new_turn(
         user=user,
         chat_id=chat_id,
         content=content,
-        result=result,
+        outcome=outcome,
         create_user_message=True,
         skip_revision_lookup=prior_count == 0,
         recent_messages=recent_messages,
@@ -304,7 +305,7 @@ async def intercept_regenerate(
     chat_id: UUID,
     content: str,
     backup: RegenerateBackup | None,
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
 ) -> bool:
     """Regenerating a photo or a picture makes another; True when one replaced the reply."""
     replace_id = backup.message_id if backup is not None else None
@@ -315,7 +316,7 @@ async def intercept_regenerate(
             user=user,
             chat_id=chat_id,
             content=content,
-            result=result,
+            outcome=outcome,
             create_user_message=False,
             replace_assistant_id=replace_id,
         ):
@@ -326,7 +327,7 @@ async def intercept_regenerate(
         user=user,
         chat_id=chat_id,
         content=_image_regenerate_content(deps, content, backup),
-        result=result,
+        outcome=outcome,
         create_user_message=False,
         replace_assistant_id=replace_id,
     )

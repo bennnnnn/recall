@@ -21,6 +21,7 @@ from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.turn_deps import ChatTurnDeps
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.web_search import detection as web_search_detection
 from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
@@ -208,7 +209,7 @@ async def run_llm_token_stream(
     *,
     usage: dict[str, int],
     should_cancel: Callable[[], bool] | None,
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
     on_reasoning: StreamReasoningFn | None,
     accum: StreamAccum,
 ) -> AsyncIterator[str]:
@@ -280,7 +281,5 @@ async def run_llm_token_stream(
     resolved = stream_meta.get("model_alias")
     if resolved:
         ctx.model = resolved
-    if result is not None:
-        result["requested_model"] = requested_model
-        if resolved and resolved != requested_model:
-            result["fallback_used"] = "1"
+    if outcome is not None and resolved and resolved != requested_model:
+        outcome.fallback_used = True

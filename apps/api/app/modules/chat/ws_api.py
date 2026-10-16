@@ -29,12 +29,12 @@ from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry, turn_deps
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
+    DoneEvent,
+    StreamEndEvent,
     await_finalize_commit,
-    build_done_payload,
     build_reasoning_event,
     build_start_event,
     build_status_event,
-    build_stream_end_payload,
     build_token_event,
     clear_task_cancellation,
     error_payload_for_exception,
@@ -43,6 +43,7 @@ from app.modules.chat.stream_events import (
     pop_finalize_tasks,
     take_related_prompts_event,
 )
+from app.modules.chat.turn_outcome import TurnOutcome
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
@@ -136,7 +137,7 @@ async def _stream_over_ws(
     websocket: WebSocket,
     stream: AsyncIterator[str],
     cancel_event: asyncio.Event,
-    result: dict[str, Any],
+    outcome: TurnOutcome,
     chat_id: UUID | None = None,
     frame_budget: _FrameBudget | None = None,
 ) -> None:
@@ -179,13 +180,13 @@ async def _stream_over_ws(
         if cancel_event.is_set() and sent_tokens == 0:
             # Still let the finalize task run so any reserved quota is
             # refunded, but don't send events the client doesn't expect.
-            finalize_db_task = pop_finalize_tasks(result)
+            finalize_db_task = pop_finalize_tasks(outcome)
             if finalize_db_task is not None:
                 with suppress(Exception):
                     await await_finalize_commit(finalize_db_task)
             return
 
-        if not await _safe_send_json(websocket, build_stream_end_payload(result)):
+        if not await _safe_send_json(websocket, StreamEndEvent.from_outcome(outcome).model_dump()):
             return
 
         # Await the DB commit before sending `done` so the message_id we hand
@@ -196,7 +197,7 @@ async def _stream_over_ws(
         # On TIMEOUT we send `done` without `message_id` (persisting: true) so
         # the client keeps the local bubble and refetches instead of trusting
         # a row that may never persist if the shielded task later fails.
-        finalize_db_task = pop_finalize_tasks(result)
+        finalize_db_task = pop_finalize_tasks(outcome)
         commit_status = await await_finalize_commit(finalize_db_task)
         if commit_status == "failed":
             await _safe_send_json(
@@ -205,14 +206,12 @@ async def _stream_over_ws(
             )
             return
         if commit_status == "timeout":
-            done_payload = build_done_payload(result)
-            done_payload.pop("message_id", None)
-            done_payload["persisting"] = True
-            await _safe_send_json(websocket, done_payload)
+            done = DoneEvent.from_outcome(outcome, persisting=True)
+            await _safe_send_json(websocket, done.model_dump())
             return
 
-        await _safe_send_json(websocket, build_done_payload(result))
-        _schedule_related_prompts(websocket, result)
+        await _safe_send_json(websocket, DoneEvent.from_outcome(outcome).model_dump())
+        _schedule_related_prompts(websocket, outcome)
 
     producer = asyncio.create_task(run_stream())
     if chat_id is not None:
@@ -282,27 +281,27 @@ async def _stream_over_ws(
     finally:
         # Same as SSE M10: client close must not orphan the DB commit that
         # persists the (partial) assistant row and enqueues the title job.
-        await persist_finalize_if_pending(result)
+        await persist_finalize_if_pending(outcome)
 
 
 async def _run_chat_stream(
     websocket: WebSocket,
     *,
     cancel_event: asyncio.Event,
-    stream_factory: Callable[[dict[str, str]], AsyncIterator[str]],
+    stream_factory: Callable[[TurnOutcome], AsyncIterator[str]],
     chat_id: UUID | None = None,
     frame_budget: _FrameBudget | None = None,
 ) -> None:
     cancel_event.clear()
     if not await _safe_send_json(websocket, build_start_event()):
         return
-    result: dict[str, str] = {}
+    outcome = TurnOutcome()
     try:
         await _stream_over_ws(
             websocket,
-            stream_factory(result),
+            stream_factory(outcome),
             cancel_event,
-            result,
+            outcome,
             chat_id,
             frame_budget,
         )
@@ -360,7 +359,7 @@ async def _handle_regenerate(
         await websocket.send_json({"type": "error", "message": "Invalid regenerate request"})
         return
 
-    def _regen_stream(result: dict[str, str]) -> AsyncIterator[str]:
+    def _regen_stream(outcome: TurnOutcome) -> AsyncIterator[str]:
         return stream_entry.stream_regenerate_response(
             turn_deps.default_deps(),
             redis,
@@ -369,7 +368,7 @@ async def _handle_regenerate(
             chat_id=chat_id,
             model_alias=request.model,
             should_cancel=cancel_event.is_set,
-            result=result,
+            outcome=outcome,
             on_status=emit_status,
             on_reasoning=emit_reasoning,
             **_client_geo_kwargs(request, client_timezone=client_timezone),
@@ -412,7 +411,7 @@ async def _handle_message(
         await websocket.send_json({"type": "error", "message": "Message cannot be empty."})
         return
 
-    def _message_stream(result: dict[str, str]) -> AsyncIterator[str]:
+    def _message_stream(outcome: TurnOutcome) -> AsyncIterator[str]:
         return stream_entry.stream_chat_response(
             turn_deps.default_deps(),
             redis,
@@ -423,7 +422,7 @@ async def _handle_message(
             model_alias=request.model,
             attachment_ids=request.attachment_ids,
             should_cancel=cancel_event.is_set,
-            result=result,
+            outcome=outcome,
             on_status=emit_status,
             on_reasoning=emit_reasoning,
             **_client_geo_kwargs(request, client_timezone=client_timezone),
@@ -604,9 +603,9 @@ async def chat_websocket(
         logger.info("WebSocket disconnected chat_id=%s", chat_id)
 
 
-def _schedule_related_prompts(websocket: WebSocket, result: dict[str, Any]) -> None:
+def _schedule_related_prompts(websocket: WebSocket, outcome: TurnOutcome) -> None:
     """Send follow-up questions after ``done`` without holding the next message."""
-    task = result.pop("_related_task", None)
+    task = outcome.related_task
     if task is None:
         return
 

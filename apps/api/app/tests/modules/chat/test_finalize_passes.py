@@ -20,6 +20,7 @@ from app.modules.chat.finalize_passes import (
     run_finalize_passes,
 )
 from app.modules.chat.finalize_subjects import check_math_fences, recover_math_fences
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -45,7 +46,7 @@ def _state(raw: str) -> FinalizeState:
         raw=raw,
         text=raw,
         usage={},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[raw],
         should_cancel=None,

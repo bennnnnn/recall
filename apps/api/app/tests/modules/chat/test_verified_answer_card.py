@@ -19,6 +19,7 @@ import pytest
 from app.core.config import Settings
 from app.modules import web_search as web_search_service
 from app.modules.chat.finalize_passes import enrich_final_content
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.math import fence as math_fence_service
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER
@@ -104,7 +105,7 @@ async def _finalize(
         _ctx(prompt, verified=verified, instant=instant, unverified_subject=unverified_subject),
         assistant_text=reply,
         usage={},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[reply],
         should_cancel=None,

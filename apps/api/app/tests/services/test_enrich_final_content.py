@@ -18,6 +18,7 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
 from app.modules.chat.finalize_passes import enrich_final_content
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.todos import repository as todos_repo
 from app.modules.web_search.formatting import format_sources_fence
 from app.repositories import chats as chats_repo
@@ -102,7 +103,7 @@ async def _finalize_failed_subject_pass(deps: Any, verified: object, reply: str)
         ctx,
         assistant_text=reply,
         usage={"input": 4, "output": 8},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[reply],
         should_cancel=None,
@@ -189,7 +190,7 @@ async def test_reminder_finalization_uses_effective_client_timezone(
         ctx,
         assistant_text="I'll help with that.",
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=["I'll help with that."],
         should_cancel=None,
@@ -215,7 +216,7 @@ async def test_search_sources_final_content_matches_persisted_text(
         )
     ]
     prose = "Here is the latest on the topic."
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
         MagicMock(),
@@ -223,7 +224,7 @@ async def test_search_sources_final_content_matches_persisted_text(
         _ctx(search_sources=hits),
         assistant_text=prose,
         usage={"input": 10, "output": 20},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[prose],
         should_cancel=None,
@@ -231,16 +232,16 @@ async def test_search_sources_final_content_matches_persisted_text(
 
     expected_fence = format_sources_fence(hits)
     assert persisted == f"{prose}{expected_fence}".strip()
-    assert result["final_content"] == persisted
-    assert "```sources" in result["final_content"]
-    assert "https://example.com/a" in result["search_sources"]
+    assert outcome.final_content == persisted
+    assert "```sources" in outcome.final_content
+    assert "https://example.com/a" in [source["url"] for source in outcome.search_sources]
 
 
 @pytest.mark.asyncio
 async def test_unchanged_turn_omits_final_content(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
         MagicMock(),
@@ -248,14 +249,14 @@ async def test_unchanged_turn_omits_final_content(monkeypatch: pytest.MonkeyPatc
         _ctx(),
         assistant_text="Plain answer.",
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=["Plain answer."],
         should_cancel=None,
     )
 
     assert persisted == "Plain answer."
-    assert "final_content" not in result
+    assert outcome.final_content is None
 
 
 @pytest.mark.asyncio
@@ -264,7 +265,7 @@ async def test_cancelled_turn_closes_unclosed_fence(
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     open_fence = "```mermaid\ngraph TD\n  A-->B"
     persisted = await enrich_final_content(
         _deps(),
@@ -273,7 +274,7 @@ async def test_cancelled_turn_closes_unclosed_fence(
         _ctx(),
         assistant_text=open_fence,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=True,
         assistant_parts=[open_fence],
         should_cancel=None,
@@ -281,7 +282,7 @@ async def test_cancelled_turn_closes_unclosed_fence(
 
     assert persisted.rstrip().endswith("```")
     assert "Generation stopped" not in persisted
-    assert result["final_content"] == persisted
+    assert outcome.final_content == persisted
 
 
 @pytest.mark.asyncio
@@ -290,7 +291,7 @@ async def test_truncated_turn_closes_unclosed_fence(
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     open_fence = "```python\nprint(1"
     persisted = await enrich_final_content(
         _deps(),
@@ -299,7 +300,7 @@ async def test_truncated_turn_closes_unclosed_fence(
         _ctx(),
         assistant_text=open_fence,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[open_fence],
         should_cancel=None,
@@ -316,7 +317,7 @@ async def test_normal_completion_also_closes_provider_unclosed_fence(
     """A provider can emit done normally while forgetting the final backticks."""
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     open_fence = "```message\nHappy birthday! Hope you have a wonderful day."
     persisted = await enrich_final_content(
         _deps(),
@@ -325,14 +326,14 @@ async def test_normal_completion_also_closes_provider_unclosed_fence(
         _ctx(),
         assistant_text=open_fence,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[open_fence],
         should_cancel=None,
     )
 
     assert persisted.rstrip().endswith("```")
-    assert result["final_content"] == persisted
+    assert outcome.final_content == persisted
 
 
 @pytest.mark.asyncio
@@ -341,7 +342,7 @@ async def test_mermaid_parenthetical_labels_quoted_on_persist(
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     raw = "```mermaid\nflowchart TD\n  D --> E[Grind Beans (Medium Grind)]\n```"
     persisted = await enrich_final_content(
         _deps(),
@@ -350,7 +351,7 @@ async def test_mermaid_parenthetical_labels_quoted_on_persist(
         _ctx(),
         assistant_text=raw,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[raw],
         should_cancel=None,
@@ -381,7 +382,7 @@ async def test_verified_math_markers_are_stripped_from_final_content(
             "So it lands after about 2 seconds."
         ),
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=["ignored"],
         should_cancel=None,
@@ -410,7 +411,7 @@ async def test_unverified_math_note_appended_to_final_content(
         ctx,
         assistant_text="The mass is 12 kg.",
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=["The mass is 12 kg."],
         should_cancel=None,
@@ -436,7 +437,7 @@ async def test_unverified_chemistry_uses_the_chemistry_note(
         ctx,
         assistant_text="The pH is about 6.",
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=["The pH is about 6."],
         should_cancel=None,
@@ -472,7 +473,7 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
         ctx,
         assistant_text=ctx.instant_reply,
         usage={"input": 0, "output": 8},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[ctx.instant_reply],
         should_cancel=None,
@@ -508,7 +509,7 @@ async def test_paired_direct_reply_keeps_both_answer_fences(
         ctx,
         assistant_text=reply,
         usage={"input": 0, "output": 0},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[reply],
         should_cancel=None,
@@ -546,7 +547,7 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
         ctx,
         assistant_text=invented,
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[invented],
         should_cancel=None,
@@ -575,7 +576,7 @@ async def test_answer_photo_replaces_its_fence_in_final_content(
     ctx.answer_photo = answer_photo.AnswerPhoto(Settings(), MagicMock())
     ctx.answer_photo.feed(PHOTO_REPLY)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
         MagicMock(),
@@ -583,7 +584,7 @@ async def test_answer_photo_replaces_its_fence_in_final_content(
         ctx,
         assistant_text=PHOTO_REPLY,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[PHOTO_REPLY],
         should_cancel=None,
@@ -591,7 +592,7 @@ async def test_answer_photo_replaces_its_fence_in_final_content(
 
     assert persisted.startswith(f"[Image: /attachments/{photo_id}/file]\n\nEthiopia lies")
     assert "```photo" not in persisted
-    assert result["final_content"] == persisted
+    assert outcome.final_content == persisted
     assert ctx.answer_photo_ids == [photo_id]
 
 
@@ -609,7 +610,7 @@ async def test_stopped_reply_drops_its_photo(monkeypatch: pytest.MonkeyPatch) ->
         ctx,
         assistant_text=PHOTO_REPLY,
         usage={"input": 4, "output": 8},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=True,
         assistant_parts=[PHOTO_REPLY],
         should_cancel=None,
@@ -646,7 +647,7 @@ async def test_unverified_working_names_its_first_slip(
         ctx,
         assistant_text=reply,
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[reply],
         should_cancel=None,
@@ -661,7 +662,7 @@ _DENTIST_ASK = "add dentist tomorrow at 3pm to my reminders"
 
 async def _reminder_turn(
     db_session: Any, fake_redis: Any, reply: str, *, proposals: bool, was_cancelled: bool = False
-) -> tuple[str, dict[str, Any], list[Any], Any]:
+) -> tuple[str, TurnOutcome, list[Any], Any]:
     """Finalize ``reply`` to ``_DENTIST_ASK`` with the real reminder pass on Postgres."""
     user = await users_repo.create(
         db_session,
@@ -683,7 +684,7 @@ async def _reminder_turn(
     ctx.user_message_content = _DENTIST_ASK
     ctx.prompt_messages = [{"role": "user", "content": _DENTIST_ASK}]
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     persisted = await enrich_final_content(
         deps,
         fake_redis,
@@ -691,13 +692,13 @@ async def _reminder_turn(
         ctx,
         assistant_text=reply,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=was_cancelled,
         assistant_parts=[reply],
         should_cancel=None,
     )
     rows = await todos_repo.list_for_user(db_session, user.id, limit=10)
-    return persisted, result, rows, user
+    return persisted, outcome, rows, user
 
 
 @pytest.mark.asyncio
@@ -723,14 +724,14 @@ async def test_a_failed_text_pass_keeps_the_reminder_change(
     fence = json.dumps({"title": "Dentist", "due_at": due.isoformat()})
     reply = f"I'll set a reminder for that.\n\n```reminder\n{fence}\n```"
 
-    persisted, result, rows, user = await _reminder_turn(
+    persisted, outcome, rows, user = await _reminder_turn(
         db_session, fake_redis, reply, proposals=proposals
     )
 
     assert persisted.startswith("I'll set a reminder for that.")
     assert "```reminder\n" not in persisted
-    assert result["final_content"] == persisted
-    assert result["todos_sync"] == "1"
+    assert outcome.final_content == persisted
+    assert outcome.todos_changed
     if proposals:
         card = _CARD.search(persisted)
         assert card is not None, persisted
@@ -753,7 +754,7 @@ async def test_a_reply_cut_inside_its_reminder_fence_still_offers_the_card(
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     reply = 'Sure, I\'ll set a reminder.\n\n```reminder\n{"title": "Den'
 
-    persisted, _result, rows, _user = await _reminder_turn(
+    persisted, _outcome, rows, _user = await _reminder_turn(
         db_session, fake_redis, reply, proposals=True, was_cancelled=was_cancelled
     )
 
@@ -774,7 +775,7 @@ async def test_a_failed_reminder_pass_keeps_the_finished_text(
     deps = _deps()
     deps.todos.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     persisted = await enrich_final_content(
         deps,
         MagicMock(),
@@ -782,15 +783,15 @@ async def test_a_failed_reminder_pass_keeps_the_finished_text(
         _ctx(),
         assistant_text=_MERMAID_REPLY,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[_MERMAID_REPLY],
         should_cancel=None,
     )
 
     assert 'E["Grind Beans (Medium Grind)"]' in persisted
-    assert result["final_content"] == persisted
-    assert "todos_sync" not in result
+    assert outcome.final_content == persisted
+    assert not outcome.todos_changed
 
 
 @pytest.mark.asyncio
@@ -809,7 +810,7 @@ async def test_a_failed_text_pass_keeps_the_attached_answer_photo(
     ctx.answer_photo = answer_photo.AnswerPhoto(Settings(), MagicMock())
     ctx.answer_photo.feed(PHOTO_REPLY)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
         MagicMock(),
@@ -817,7 +818,7 @@ async def test_a_failed_text_pass_keeps_the_attached_answer_photo(
         ctx,
         assistant_text=PHOTO_REPLY,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[PHOTO_REPLY],
         should_cancel=None,
@@ -825,7 +826,7 @@ async def test_a_failed_text_pass_keeps_the_attached_answer_photo(
 
     assert persisted.startswith(f"[Image: /attachments/{photo_id}/file]\n\nEthiopia lies")
     assert "```photo" not in persisted
-    assert result["final_content"] == persisted
+    assert outcome.final_content == persisted
     assert ctx.answer_photo_ids == [photo_id]
 
 
@@ -845,7 +846,7 @@ async def test_a_failed_text_pass_keeps_the_source_chips(
     ]
     prose = "Here is the latest on the topic."
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
         MagicMock(),
@@ -853,15 +854,15 @@ async def test_a_failed_text_pass_keeps_the_source_chips(
         _ctx(search_sources=hits),
         assistant_text=prose,
         usage={"input": 10, "output": 20},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[prose],
         should_cancel=None,
     )
 
     assert persisted == f"{prose}{format_sources_fence(hits)}".strip()
-    assert result["final_content"] == persisted
-    assert "https://example.com/a" in result["search_sources"]
+    assert outcome.final_content == persisted
+    assert "https://example.com/a" in [source["url"] for source in outcome.search_sources]
 
 
 @pytest.mark.asyncio
@@ -872,7 +873,7 @@ async def test_a_failed_text_pass_before_any_side_effect_persists_the_raw_reply(
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     _fail_mermaid_pass(monkeypatch)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
         MagicMock(),
@@ -880,11 +881,11 @@ async def test_a_failed_text_pass_before_any_side_effect_persists_the_raw_reply(
         _ctx(),
         assistant_text=_MERMAID_REPLY,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[_MERMAID_REPLY],
         should_cancel=None,
     )
 
     assert persisted == _MERMAID_REPLY
-    assert "final_content" not in result
+    assert outcome.final_content is None
