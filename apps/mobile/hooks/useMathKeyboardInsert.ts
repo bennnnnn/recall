@@ -6,7 +6,7 @@ import {
   type TextInputSelectionChangeEventData,
 } from "react-native";
 
-import { clipboardIsImageOnly } from "@/lib/math/clipboard";
+import { clipboardIsImageOnly } from "@/lib/clipboard";
 import {
   autoAdvanceNextEmptySlot,
   caretStepLeft,

@@ -47,6 +47,29 @@ const UI_LEAF = {
   message: "ui/ never imports product code. Pass data and callbacks in as props.",
 };
 
+/**
+ * lib/math, lib/physics and lib/chemistry are the phone's domain and
+ * render-model code: plain data in, plain data out, testable in Node. Screens
+ * draw what they return; device adapters live beside their callers.
+ */
+const DOMAIN_LIB_NO_REACT_NATIVE = [
+  {
+    name: "react-native",
+    message: "Domain libraries stay free of React Native. Put the UI or device part beside its caller.",
+  },
+];
+
+const DOMAIN_LIB_LEAF = [
+  {
+    group: ["@/features/*", "@/components/*", "@/app/*", "@/hooks/*", "@/contexts/*"],
+    message: "Domain libraries never import product code. Return data; the caller renders it.",
+  },
+  {
+    group: ["expo-*"],
+    message: "Domain libraries hold no device code. Put the Expo adapter beside its caller (like lib/clipboard.ts).",
+  },
+];
+
 module.exports = defineConfig([
   expoConfig,
   {
@@ -59,6 +82,23 @@ module.exports = defineConfig([
       "no-restricted-imports": [
         "error",
         { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CONTROLS_OWNED_BY_UI_KIT] },
+      ],
+      // `@/` resolves through eslint-config-expo's typescript resolver.
+      // Type-only imports are ignored: they vanish at runtime.
+      "import/no-cycle": "error",
+      "@typescript-eslint/no-explicit-any": "error",
+    },
+  },
+  {
+    files: ["lib/{math,physics,chemistry}/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [...REPLACED_BY_UI_KIT, ...DOMAIN_LIB_NO_REACT_NATIVE],
+          patterns: DOMAIN_LIB_LEAF,
+        },
       ],
     },
   },
