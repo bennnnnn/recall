@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from fractions import Fraction
 from typing import Literal
 
@@ -19,6 +19,7 @@ from app.modules.math.schemas.teaching import (
     RoundingSpec,
     TenFrameSpec,
 )
+from app.services.school_rounding import format_places
 
 _WHOLE_PLACES = (
     "ones",
@@ -351,17 +352,7 @@ def rounding_spec(value: str, place: str) -> RoundingSpec | None:
     places = _ROUND_PLACES.get(place)
     if places is None or _split_number(value) is None:
         return None
-    number = Decimal(value)
-    if places >= 0:
-        quantum = Decimal(1).scaleb(-places)
-        rounded = number.quantize(quantum, rounding=ROUND_HALF_UP)
-        rendered = f"{rounded:.{places}f}"
-    else:
-        step = Decimal(10) ** -places
-        rounded = (number / step).quantize(Decimal(1), rounding=ROUND_HALF_UP) * step
-        rendered = format(rounded, "f")
-        if "." in rendered:
-            rendered = rendered.rstrip("0").rstrip(".")
+    rendered = format_places(value, places)
     place_digit, follower = _rounding_digits(value, places)
     direction: Literal["up", "down"] = "up" if follower >= 5 else "down"
     speech = (
