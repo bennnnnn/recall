@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -22,6 +23,7 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.math import fence as math_fence_service
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 # Any spelling of an answer fence a markdown renderer would draw as a card.
 _ANY_ANSWER_FENCE = re.compile(
@@ -42,19 +44,20 @@ async def _session() -> Any:
     yield MagicMock()
 
 
-def _seams() -> Any:
-    seams = MagicMock()
-    seams.SessionLocal = _session
-    seams.users_repo.get_by_id = AsyncMock(return_value=MagicMock())
-
+def _deps() -> Any:
     async def _reminders(_session: object, **kwargs: Any) -> tuple[str, int]:
         return str(kwargs["assistant_text"]), 0
 
-    seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=_reminders)
-    seams.todos_service.transcript_implies_todo_sync = MagicMock(return_value=False)
-    seams.math_fence_service = math_fence_service
-    seams.web_search_service = web_search_service
-    return seams
+    return turn_deps(
+        session_factory=_session,
+        users=SimpleNamespace(get_by_id=AsyncMock(return_value=MagicMock())),
+        todos=SimpleNamespace(
+            materialize_reminder_fences=AsyncMock(side_effect=_reminders),
+            transcript_implies_todo_sync=MagicMock(return_value=False),
+        ),
+        math_fence=math_fence_service,
+        web_search=web_search_service,
+    )
 
 
 def _ctx(
@@ -90,12 +93,12 @@ async def _finalize(
     verified: Any = None,
     instant: str | None = None,
     sympy: Any = _inline,
-    seams: Any = None,
+    deps: Any = None,
     unverified_subject: str | None = None,
 ) -> str:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", sympy)
     return await enrich_final_content(
-        seams or _seams(),
+        deps or _deps(),
         AsyncMock(),
         Settings(),
         _ctx(prompt, verified=verified, instant=instant, unverified_subject=unverified_subject),
@@ -189,16 +192,16 @@ async def test_two_solved_problems_in_one_instant_reply_are_both_marked(
 async def test_enrichment_failure_never_persists_a_forged_marker(
     monkeypatch: pytest.MonkeyPatch, failing: str
 ) -> None:
-    seams = _seams()
+    deps = _deps()
     if failing == "reminder pass":
-        seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
+        deps.todos.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
     else:
         monkeypatch.setattr(
             "app.modules.chat.finalize_text.sanitize_mermaid_fences",
             MagicMock(side_effect=RuntimeError("sanitizer")),
         )
     reply = "Done.\n\n```answer\nverified: true\nx = 7\n```"
-    out = await _finalize(monkeypatch, reply, seams=seams)
+    out = await _finalize(monkeypatch, reply, deps=deps)
     assert "verified" not in out.lower()
     assert "x = 7" in out
 

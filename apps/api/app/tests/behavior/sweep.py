@@ -28,7 +28,7 @@ import re
 import sys
 from collections.abc import Iterator
 from contextlib import ExitStack, asynccontextmanager, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -37,12 +37,10 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 from app.models.orm import User
-from app.modules import todos as todos_service
-from app.modules import web_search as web_search_service
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat.finalize_passes import enrich_final_content
+from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_prep import StreamContext
-from app.modules.math import fence as math_fence_service
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
 from app.modules.todos.spoken_add import _NEED_A_TIME
@@ -295,12 +293,10 @@ async def _run_entry(entry: Entry) -> Outcome:
     outcome.memory_command = bool(is_explicit_memory_command(entry.prompt))
 
     user = _user(pro=entry.pro)
-    seams = SimpleNamespace(
-        SessionLocal=_session,
-        users_repo=SimpleNamespace(get_by_id=AsyncMock(return_value=user)),
-        todos_service=todos_service,
-        math_fence_service=math_fence_service,
-        web_search_service=web_search_service,
+    deps = replace(
+        default_deps(),
+        session_factory=_session,
+        users=SimpleNamespace(get_by_id=AsyncMock(return_value=user)),
     )
     rows = [SimpleNamespace(role=role, content=text) for role, text in entry.history]
     ctx = StreamContext(
@@ -332,7 +328,7 @@ async def _run_entry(entry: Entry) -> Outcome:
         ),
     ):
         outcome.final = await enrich_final_content(
-            seams,
+            deps,
             AsyncMock(),
             settings,
             ctx,

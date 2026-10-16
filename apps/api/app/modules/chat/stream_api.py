@@ -22,7 +22,7 @@ from app.exceptions import ChatServiceError, QuotaExceededError, RedisUnavailabl
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
-from app.modules import chat as chat_service
+from app.modules.chat import stream_entry
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.prompt_builder import StreamReasoningFn
 from app.modules.chat.stream_events import (
@@ -41,6 +41,7 @@ from app.modules.chat.stream_events import (
     take_related_prompts_event,
 )
 from app.modules.chat.stream_status import StreamStatusFn
+from app.modules.chat.turn_deps import default_deps
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,7 @@ async def _stream_tokens_sse(
         closing the connection — without this, a closed tab left the LLM
         call running to completion with tokens streamed to nobody, still
         burning quota and provider cost. `cancel_event` is also passed as
-        `should_cancel` into the actual chat_service stream call, so setting
+        `should_cancel` into the actual stream_entry call, so setting
         it here stops generation at the source, not just this relay.
 
         Cancel the producer task immediately — checking should_cancel only
@@ -263,7 +264,8 @@ async def stream_message_sse(
             settings=settings,
             request=request,
             stream_factory=lambda result, on_status, on_reasoning, should_cancel: (
-                chat_service.stream_chat_response(
+                stream_entry.stream_chat_response(
+                    default_deps(),
                     redis,
                     settings,
                     user_id=user.id,
@@ -298,7 +300,8 @@ async def stream_regenerate_sse(
             settings=settings,
             request=request,
             stream_factory=lambda result, on_status, on_reasoning, should_cancel: (
-                chat_service.stream_regenerate_response(
+                stream_entry.stream_regenerate_response(
+                    default_deps(),
                     redis,
                     settings,
                     user_id=user.id,

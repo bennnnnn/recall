@@ -18,6 +18,7 @@ from app.core.config import Settings
 from app.modules.math.tool_check import tool_call_matches_user_text
 from app.services import tool_loop
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 from .tool_loop_support import settings
 
@@ -183,8 +184,7 @@ async def _tool_loop_path(ctx_verified: Any, tool_verified: Any) -> Any:
     ctx.verified_subject = ctx_verified
     ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
     ctx.web_search_classified = None
-    seams = MagicMock()
-    seams.quota_service.global_spend_exceeded = AsyncMock(return_value=False)
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
         patch.object(tool_loop, "turn_needs_tool_loop", return_value=True),
         patch.object(
@@ -194,7 +194,7 @@ async def _tool_loop_path(ctx_verified: Any, tool_verified: Any) -> Any:
         ),
     ):
         await run_tool_loop_path(
-            seams, AsyncMock(), Settings(), ctx, usage={}, on_status=None, should_cancel=None
+            deps, AsyncMock(), Settings(), ctx, usage={}, on_status=None, should_cancel=None
         )
     return ctx.verified_subject
 

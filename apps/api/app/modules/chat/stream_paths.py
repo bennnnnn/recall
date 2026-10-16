@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.tool_gate import should_classify_tool_web_search
+from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.web_search import detection as web_search_detection
 from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
@@ -81,7 +82,7 @@ async def run_instant_reply_path(
 
 
 async def run_tool_loop_path(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
@@ -97,7 +98,7 @@ async def run_tool_loop_path(
     has_verified = ctx.verified_subject is not None
     has_sources = bool(sources)
     web_search_flag: bool | None = None
-    if await seams.quota_service.global_spend_exceeded(redis, settings):
+    if await deps.quota.global_spend_exceeded(redis, settings):
         logger.warning(
             "skipping MCP tool loop: global spend cap user_id=%s chat_id=%s",
             ctx.user_id,
@@ -200,7 +201,7 @@ def _with_tool_verified(server: Any, tool: Any) -> Any:
 
 
 async def run_llm_token_stream(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
@@ -219,7 +220,7 @@ async def run_llm_token_stream(
         # Reserve top-up and the tool loop have finished. The interval from
         # here includes gateway routing/retries, not only upstream inference.
         ctx.timing.mark_phase("gateway_request_start")
-    llm_stream = seams.litellm_gateway.stream_chat_completion(
+    llm_stream = deps.llm.stream_chat_completion(
         settings=settings,
         model_alias=ctx.model,
         messages=ctx.prompt_messages,

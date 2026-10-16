@@ -35,6 +35,8 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.models.schemas.physics",
     "app.models.schemas.schedule",
     "app.modules.chat.prompt_constants.physics",
+    # The chat stream's seam module: stages take ``turn_deps.ChatTurnDeps`` (ES-23).
+    "app.modules.chat.stream",
     "app.modules.chemistry.legacy_alias",
     "app.modules.home.legacy_alias",
     "app.modules.math.legacy_alias",

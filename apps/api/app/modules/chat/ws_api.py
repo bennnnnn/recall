@@ -26,7 +26,7 @@ from app.exceptions import (
 from app.gateways.google_auth import GoogleAuthError
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest
-from app.modules import chat as chat_service
+from app.modules.chat import stream_entry, turn_deps
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     await_finalize_commit,
@@ -357,13 +357,12 @@ async def _handle_regenerate(
     try:
         request = ChatMessageRequest.model_validate(payload)
     except ValidationError:
-        await websocket.send_json(
-            {"type": "error", "message": "Invalid regenerate request"},
-        )
+        await websocket.send_json({"type": "error", "message": "Invalid regenerate request"})
         return
 
     def _regen_stream(result: dict[str, str]) -> AsyncIterator[str]:
-        return chat_service.stream_regenerate_response(
+        return stream_entry.stream_regenerate_response(
+            turn_deps.default_deps(),
             redis,
             settings,
             user_id=user_id,
@@ -414,7 +413,8 @@ async def _handle_message(
         return
 
     def _message_stream(result: dict[str, str]) -> AsyncIterator[str]:
-        return chat_service.stream_chat_response(
+        return stream_entry.stream_chat_response(
+            turn_deps.default_deps(),
             redis,
             settings,
             user_id=user_id,
