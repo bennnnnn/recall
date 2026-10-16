@@ -1,13 +1,14 @@
 """Golden prompts: ``build_prompt_messages`` returns these messages, byte for byte.
 
-Each case in ``golden/prompt_messages.json`` holds the inputs a turn handed the
-builder and the messages it returned. ``battery:`` and ``sweep:`` cases were
-recorded on the real turn path (``behavior/harness.py``); ``branch:`` cases reach
-each system-prompt section and style-hint rule. A case stores only what differs
-from ``defaults``. Message text is stored as indices into one paragraph table
-(joined with a blank line), so a hint repeated in every case is stored once.
+``golden/prompt_messages.json`` holds one battery case per category, recorded on the
+real turn path (``behavior/harness.py``), and ``branch:`` turns. Together they reach
+every line and branch of ``build_prompt_messages``, ``_style_format_hints`` and their
+helpers. A case stores only what differs from ``defaults``. A message is a list of
+tokens joined with nothing between: ``@NAME`` is that prompt constant's text (from
+``_COPY_MODULES``), a number is a piece of ``texts``. Rewording a named constant leaves
+the fixture as it is; a change to which text a turn gets, or its order, fails here.
 
-After an intended prompt change, regenerate the expected messages and review the diff:
+An intended prompt change means regenerating with this command and reviewing the diff:
 
     uv run python -m app.tests.modules.chat.test_prompt_golden
 """
@@ -16,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import difflib
+import importlib
 import json
 from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
@@ -31,6 +33,7 @@ from app.core.config import Settings
 from app.models.orm import Chat, User
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_context import _PromptContextBlocks
+from app.tests.behavior.cases import CASES, CATEGORIES
 from app.tests.behavior.sweep import frozen_clock
 
 GOLDEN = Path(__file__).with_name("golden") / "prompt_messages.json"
@@ -39,7 +42,19 @@ USER_ID = UUID(int=0x05E5)
 # Gap rows (older than the recent window) are numbered after the window's rows.
 _OLDER_FIRST_ID = 10_000
 _T0 = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
-_SEPARATOR = "\n\n"
+# Where the named prompt copy comes from; shorter strings stay in ``texts``.
+_COPY_MODULES = (
+    "app.modules.chat.prompt_constants",
+    "app.modules.web_search",
+    "app.modules.math.reply_policy",
+    "app.modules.math.followup",
+    "app.modules.physics.reply_policy",
+    "app.modules.physics.followup",
+    "app.modules.chemistry.reply_policy",
+    "app.modules.chemistry.followup",
+    "app.services.response_tone",
+)
+_MIN_COPY_CHARS = 60
 
 Case = dict[str, Any]
 
@@ -129,38 +144,82 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
     return messages, out
 
 
+def prompt_copy() -> dict[str, str]:
+    """Name -> text of each long string constant (``NAME[key]`` in a dict of them)."""
+    copy: dict[str, str] = {}
+    for module_name in _COPY_MODULES:
+        module = importlib.import_module(module_name)
+        for name in sorted(dir(module)):
+            value = getattr(module, name)
+            if name.startswith("_") or not name.isupper():
+                continue
+            if isinstance(value, str):
+                items = {name: value}
+            elif isinstance(value, dict):
+                items = {f"{name}[{k}]": v for k, v in value.items() if isinstance(v, str)}
+            else:
+                continue
+            for key, text in sorted(items.items()):
+                if len(text) >= _MIN_COPY_CHARS:
+                    copy.setdefault(key, text)
+    return copy
+
+
 def load_golden() -> tuple[Case, list[str], list[Case]]:
     data = json.loads(GOLDEN.read_text(encoding="utf-8"))
-    return data["defaults"], data["paragraphs"], data["cases"]
+    return data["defaults"], data["texts"], data["cases"]
 
 
-def expected_of(table: list[str], case: Case) -> list[dict[str, str]]:
+def expected_of(texts: list[str], case: Case) -> list[dict[str, str]]:
+    copy = prompt_copy()
+
+    def text_of(token: str) -> str:
+        return copy[token[1:]] if token.startswith("@") else texts[int(token)]
+
     return [
-        {"role": role, "content": _SEPARATOR.join(table[int(i)] for i in indices.split())}
-        for role, indices in case["expected"]["messages"]
+        {"role": role, "content": "".join(text_of(token) for token in tokens.split(" "))}
+        for role, tokens in case["expected"]["messages"]
     ]
 
 
 async def write_golden(defaults: Case, cases: list[Case]) -> None:
     """Render every case with the current code and store that as its expected output."""
-    table: list[str] = []
+    named = sorted(prompt_copy().items(), key=lambda item: (-len(item[1]), item[0]))
+    texts: list[str] = []
     index_of: dict[str, int] = {}
 
+    def piece(text: str) -> str:
+        if text not in index_of:
+            index_of[text] = len(texts)
+            texts.append(text)
+        return str(index_of[text])
+
     def encode(text: str) -> str:
-        indices = []
-        for paragraph in text.split(_SEPARATOR):
-            if paragraph not in index_of:
-                index_of[paragraph] = len(table)
-                table.append(paragraph)
-            indices.append(str(index_of[paragraph]))
-        return " ".join(indices)
+        # Longest constants first, so a hint built from others is one token.
+        spans: list[tuple[int, int, str]] = []
+        for name, value in named:
+            start = text.find(value)
+            while start != -1:
+                end = start + len(value)
+                if all(end <= a or start >= b for a, b, _ in spans):
+                    spans.append((start, end, name))
+                start = text.find(value, start + 1)
+        tokens, at = [], 0
+        for start, end, name in sorted(spans):
+            if start > at:
+                tokens.append(piece(text[at:start]))
+            tokens.append(f"@{name}")
+            at = end
+        if at < len(text) or not tokens:
+            tokens.append(piece(text[at:]))
+        return " ".join(tokens)
 
     stored = []
     for case in cases:
         messages, out = await render(resolve(case, defaults))
         expected = {"messages": [[m["role"], encode(m["content"])] for m in messages], "out": out}
         stored.append({**{k: v for k, v in case.items() if k != "expected"}, "expected": expected})
-    data = {"defaults": defaults, "paragraphs": table, "cases": stored}
+    data = {"defaults": defaults, "texts": texts, "cases": stored}
     GOLDEN.parent.mkdir(exist_ok=True)
     GOLDEN.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
@@ -189,9 +248,10 @@ async def test_prompt_matches_golden(case: Case) -> None:
     assert out == case["expected"]["out"]
 
 
-def test_golden_cases_cover_every_source() -> None:
-    sources = {case["id"].split(":", 1)[0] for case in _CASES}
-    assert sources == {"battery", "sweep", "branch"}
+def test_golden_has_one_battery_case_per_category() -> None:
+    category = {f"battery:{case.id}": case.category for case in CASES}
+    battery = [category[case["id"]] for case in _CASES if case["id"] in category]
+    assert sorted(battery) == sorted(CATEGORIES)
     assert len({case["id"] for case in _CASES}) == len(_CASES)
 
 
