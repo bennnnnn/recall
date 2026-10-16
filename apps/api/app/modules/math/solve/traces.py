@@ -156,7 +156,7 @@ def _quadratic_inequality_steps(
     """``x^2 - 4x - 5 < 0``: the roots, then the sign of the parabola between them."""
     from sympy import factor
 
-    from app.modules.math.solve.algebra import inequality_solution_latex
+    from app.modules.math.solve.inequalities import inequality_solution_latex
 
     expr = expand(lhs - rhs)
     leading = Poly(expr, var).LC()
