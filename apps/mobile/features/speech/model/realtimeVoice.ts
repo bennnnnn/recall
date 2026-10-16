@@ -28,13 +28,66 @@ export type RealtimeVoiceEvent =
   | { type: "search_sources"; sources: SearchSource[] }
   | { type: "error"; message: string };
 
+/*
+ * react-native-webrtc loads optionally at runtime (dev builds only), so these
+ * describe just the members this file touches instead of importing its types.
+ */
+type WebRtcTrack = {
+  id?: string;
+  kind?: string;
+  enabled: boolean;
+  muted?: boolean;
+  readyState?: string;
+  stop: () => void;
+  /** react-native-webrtc's remote playback volume; not on every build. */
+  _setVolume?: (volume: number) => void;
+};
+
+type WebRtcStream = {
+  getTracks: () => WebRtcTrack[];
+  getAudioTracks: () => WebRtcTrack[];
+};
+
+type WebRtcSessionDescription = { sdp?: string };
+
+type WebRtcDataChannel = {
+  readyState?: string;
+  send: (data: string) => void;
+  close: () => void;
+  onopen?: () => void;
+  onclose?: () => void;
+  onerror?: () => void;
+  onmessage?: (message: { data?: unknown }) => void;
+};
+
+type WebRtcTrackEvent = { track?: WebRtcTrack; streams?: WebRtcStream[] };
+
+type WebRtcPeerConnection = {
+  connectionState?: string;
+  iceConnectionState?: string;
+  iceGatheringState?: string;
+  localDescription?: WebRtcSessionDescription | null;
+  ontrack?: (event: WebRtcTrackEvent) => void;
+  onconnectionstatechange?: () => void;
+  oniceconnectionstatechange?: () => void;
+  addEventListener?: (type: string, listener: () => void) => void;
+  removeEventListener?: (type: string, listener: () => void) => void;
+  addTrack: (track: WebRtcTrack, stream: WebRtcStream) => void;
+  createDataChannel: (label: string) => WebRtcDataChannel;
+  createOffer: () => Promise<WebRtcSessionDescription>;
+  setLocalDescription: (description: WebRtcSessionDescription) => Promise<void>;
+  setRemoteDescription: (description: WebRtcSessionDescription) => Promise<void>;
+  getReceivers?: () => { track?: WebRtcTrack | null }[];
+  close: () => void;
+};
+
 type NativeWebRtc = {
   __WEBRTC_STUB__?: boolean;
   mediaDevices: {
-    getUserMedia: (constraints: object) => Promise<any>;
+    getUserMedia: (constraints: object) => Promise<WebRtcStream>;
   };
-  RTCPeerConnection: new (config?: object) => any;
-  RTCSessionDescription: new (init: { type: string; sdp: string }) => any;
+  RTCPeerConnection: new (config?: object) => WebRtcPeerConnection;
+  RTCSessionDescription: new (init: { type: string; sdp: string }) => WebRtcSessionDescription;
 };
 
 export type RealtimeVoiceSession = {
@@ -186,7 +239,7 @@ function sessionTurnSnapshot(event: Record<string, unknown>): Record<string, unk
   };
 }
 
-async function waitForIceGathering(pc: any): Promise<void> {
+async function waitForIceGathering(pc: WebRtcPeerConnection): Promise<void> {
   if (pc.iceGatheringState === "complete") return;
   await new Promise<void>((resolve) => {
     let settled = false;
@@ -210,7 +263,7 @@ async function waitForIceGathering(pc: any): Promise<void> {
   });
 }
 
-function enableRemoteAudioTrack(track: any): void {
+function enableRemoteAudioTrack(track: WebRtcTrack | null | undefined): void {
   if (!track || track.kind !== "audio") return;
   try {
     track.enabled = true;
@@ -247,8 +300,8 @@ export async function createRealtimeVoiceSession(options: {
   }
   debug("microphone-ready", {
     tracks: localAudioTracks.length,
-    enabled: localAudioTracks.map((track: any) => track.enabled),
-    readyState: localAudioTracks.map((track: any) => track.readyState),
+    enabled: localAudioTracks.map((track) => track.enabled),
+    readyState: localAudioTracks.map((track) => track.readyState),
   });
 
   // Mint the short-lived credential while local ICE gathering proceeds. The
@@ -265,7 +318,7 @@ export async function createRealtimeVoiceSession(options: {
   }
 
   const dataChannel = pc.createDataChannel("oai-events");
-  const remoteAudioTracks = new Set<any>();
+  const remoteAudioTracks = new Set<WebRtcTrack>();
   let assistantTranscript = "";
   let lastAssistantText = "";
   let closed = false;
@@ -389,7 +442,7 @@ export async function createRealtimeVoiceSession(options: {
     if (!closed) options.onEvent({ type: "error", message });
   };
 
-  pc.ontrack = (event: { track?: any; streams?: any[] }) => {
+  pc.ontrack = (event: WebRtcTrackEvent) => {
     if (event.track?.kind === "audio") {
       remoteAudioTracks.add(event.track);
       enableRemoteAudioTrack(event.track);
