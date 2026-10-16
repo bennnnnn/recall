@@ -2422,7 +2422,7 @@ def test_speech_transcribe_cancelled_refunds():
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch("app.modules.speech.api.speech_service.transcribe_audio", boom),
         patch(
-            "app.modules.speech.api.quota_service.refund_speech_transcription",
+            "app.modules.speech.api.counters.refund",
             AsyncMock(),
         ) as refund,
     ):
@@ -2598,7 +2598,7 @@ def test_speech_tts_cancelled_refunds():
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch("app.modules.speech.api.speech_service.synthesize_speech", boom),
         patch(
-            "app.modules.speech.api.quota_service.refund_speech_tts",
+            "app.modules.speech.api.counters.refund",
             AsyncMock(),
         ) as refund,
     ):
@@ -2865,7 +2865,7 @@ def test_speech_tts_stream_empty_refunds():
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch("app.modules.speech.api.speech_service.iter_tts_pcm", _empty),
         patch(
-            "app.modules.speech.api.quota_service.refund_speech_tts",
+            "app.modules.speech.api.counters.refund",
             AsyncMock(),
         ) as refund,
     ):

@@ -192,9 +192,9 @@ async def _process_attachment_inputs(
                         and attachment_content_service.is_image_content_type(row.content_type)
                         and has_current_upload_reservation(row)
                     ):
-                        from app.services import quota as quota_service
+                        from app.services.quota import counters
 
-                        await quota_service.refund_image_upload(redis, user_id)
+                        await counters.refund("image_upload", redis, user_id)
                     raise AttachmentValidationError(error)
                 if data:
                     bytes_by_key[row.storage_key] = data

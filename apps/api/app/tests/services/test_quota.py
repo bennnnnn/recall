@@ -1,10 +1,16 @@
 from datetime import date
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 import pytest
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.core.config import Settings
+from app.exceptions import RedisUnavailableError
+from app.modules.billing.entitlements import setting_name
 from app.services import quota as quota_service
+from app.services.quota import counters
+from app.services.quota.tokens import _usage_key
 
 
 @pytest.fixture
@@ -53,9 +59,9 @@ def test_per_plan_daily_caps(plan, tokens, stt, tts, images):
     user.plan = plan
     settings = Settings()
     assert quota_service.daily_limit_for_user(user, settings) == tokens
-    assert quota_service.speech_transcription_limit_for_user(user, settings) == stt
-    assert quota_service.speech_tts_limit_for_user(user, settings) == tts
-    assert quota_service.image_generation_limit_for_user(user, settings) == images
+    assert counters.limit("speech_transcription", user, settings) == stt
+    assert counters.limit("speech_tts", user, settings) == tts
+    assert counters.limit("image_generation", user, settings) == images
 
 
 @pytest.mark.parametrize(
@@ -91,7 +97,7 @@ async def test_record_usage_caps_overshoot_at_daily_limit(fake_redis):
     """A turn whose actual > reserved delta must not push the daily counter
     past the limit — otherwise subsequent reserve_usage checks under-report
     remaining quota and the user keeps getting turns past the cap."""
-    await fake_redis.set(quota_service._usage_key("u1", quota_service.utc_today()), 99_500)
+    await fake_redis.set(_usage_key("u1", quota_service.utc_today()), 99_500)
     total = await quota_service.record_usage(fake_redis, "u1", 2000, daily_limit=100_000)
     assert total == 100_000  # clipped, not 101_500
     assert await quota_service.get_daily_usage(fake_redis, "u1") == 100_000
@@ -99,7 +105,7 @@ async def test_record_usage_caps_overshoot_at_daily_limit(fake_redis):
 
 @pytest.mark.asyncio
 async def test_adjust_usage_caps_overshoot(fake_redis):
-    await fake_redis.set(quota_service._usage_key("u1", quota_service.utc_today()), 99_000)
+    await fake_redis.set(_usage_key("u1", quota_service.utc_today()), 99_000)
     # reserved 1000, actual 5000 → delta +4000 would push to 103_000; clip.
     total = await quota_service.adjust_usage(
         fake_redis, "u1", reserved=1000, actual=5000, daily_limit=100_000
@@ -111,7 +117,7 @@ async def test_adjust_usage_caps_overshoot(fake_redis):
 async def test_record_usage_without_limit_does_not_cap(fake_redis):
     """Backward compat: callers that don't pass daily_limit get the raw total
     (no clipping) — existing callers (e.g. admin tooling) aren't affected."""
-    await fake_redis.set(quota_service._usage_key("u1", quota_service.utc_today()), 99_500)
+    await fake_redis.set(_usage_key("u1", quota_service.utc_today()), 99_500)
     total = await quota_service.record_usage(fake_redis, "u1", 2000)
     assert total == 101_500
 
@@ -148,7 +154,7 @@ async def test_refund_usage(fake_redis):
 @pytest.mark.asyncio
 async def test_refund_usage_floor_preserves_ttl(fake_redis):
     await quota_service.record_usage(fake_redis, "u1", 50)
-    key = quota_service._usage_key("u1", quota_service.utc_today())
+    key = _usage_key("u1", quota_service.utc_today())
     ttl_before = await fake_redis.ttl(key)
     assert ttl_before > 0
     await quota_service.refund_usage(fake_redis, "u1", 100)  # floors at 0
@@ -274,144 +280,135 @@ async def test_seed_usage_if_missing_noop_when_db_total_zero(fake_redis):
     assert await fake_redis.get(f"usage:u1:{day}") is None
 
 
+# ── Per-feature daily counters ───────────────────────────────────────────────
+
+# Counter -> its Redis key prefix and refund rule, named independently of the table.
+_COUNTER_KEYS = [
+    ("image_upload", "imgup"),
+    ("speech_transcription", "speech"),
+    ("speech_tts", "tts"),
+    ("tavily_search", "tavily"),
+    ("image_generation", "imggen"),
+    ("image_search", "imgsearch"),
+]
+_REFUNDABLE = [pair for pair in _COUNTER_KEYS if pair[0] != "tavily_search"]
+
+
+def _capped(counter, cap, plan="pro"):
+    return Settings(**{setting_name(counters.COUNTERS[counter].allowance, plan): cap})
+
+
+def _today_key(prefix, user_id):
+    return f"{prefix}:{user_id}:{quota_service.utc_today().isoformat()}"
+
+
+@pytest.mark.parametrize("counter, prefix", _COUNTER_KEYS)
 @pytest.mark.asyncio
-async def test_reserve_image_upload_enforces_limit(fake_redis, settings):
-    from uuid import uuid4
+async def test_counter_reserve_stops_at_the_plan_cap(fake_redis, counter, prefix):
+    user = _pro_user()
+    user.id = uuid4()
+    settings = _capped(counter, 2)
+    assert await counters.reserve(counter, fake_redis, user, settings) is True
+    assert await counters.reserve(counter, fake_redis, user, settings) is True
+    assert await counters.reserve(counter, fake_redis, user, settings) is False
+    key = _today_key(prefix, user.id)
+    assert await fake_redis.get(key) == "2"
+    assert await fake_redis.ttl(key) == 48 * 60 * 60
 
-    user_id = uuid4()
-    limit = 5
-    for _ in range(limit):
-        assert await quota_service.reserve_image_upload(fake_redis, user_id, limit=limit) is True
-    assert await quota_service.reserve_image_upload(fake_redis, user_id, limit=limit) is False
-    assert await quota_service.get_image_upload_count(fake_redis, user_id) == limit
 
-
+@pytest.mark.parametrize("counter", ["speech_transcription", "speech_tts", "image_generation"])
 @pytest.mark.asyncio
-async def test_refund_image_upload_floors_at_zero(fake_redis, settings):
-    from uuid import uuid4
-
-    user_id = uuid4()
-    limit = 5
-    assert await quota_service.reserve_image_upload(fake_redis, user_id, limit=limit) is True
-    assert await quota_service.get_image_upload_count(fake_redis, user_id) == 1
-    await quota_service.refund_image_upload(fake_redis, user_id)
-    assert await quota_service.get_image_upload_count(fake_redis, user_id) == 0
-    await quota_service.refund_image_upload(fake_redis, user_id)
-    assert await quota_service.get_image_upload_count(fake_redis, user_id) == 0
+async def test_counter_reserve_refuses_a_plan_without_it(counter):
+    user = _free_user()
+    user.id = uuid4()
+    redis = AsyncMock()
+    assert await counters.reserve(counter, redis, user, _capped(counter, 0, "free")) is False
+    assert redis.mock_calls == []
 
 
-def test_image_upload_limit_for_user(settings):
-    assert quota_service.image_upload_limit_for_user(_free_user(), settings) == 5
-    assert quota_service.image_upload_limit_for_user(_pro_user(), settings) == 30
-
-
+@pytest.mark.parametrize("counter, prefix", _REFUNDABLE)
 @pytest.mark.asyncio
-async def test_reserve_speech_transcription_enforces_limit(fake_redis, settings):
-    from uuid import uuid4
-
-    user_id = uuid4()
-    limit = quota_service.speech_transcription_limit_for_user(_free_user(), settings)
-    for _ in range(limit):
-        assert (
-            await quota_service.reserve_speech_transcription(fake_redis, user_id, limit=limit)
-            is True
-        )
-    assert (
-        await quota_service.reserve_speech_transcription(fake_redis, user_id, limit=limit) is False
-    )
+async def test_counter_refund_gives_the_slot_back(fake_redis, counter, prefix):
+    user = _pro_user()
+    user.id = uuid4()
+    settings = _capped(counter, 1)
+    assert await counters.reserve(counter, fake_redis, user, settings) is True
+    await counters.refund(counter, fake_redis, user.id)
+    assert await fake_redis.get(_today_key(prefix, user.id)) == "0"
+    assert await counters.reserve(counter, fake_redis, user, settings) is True
 
 
+@pytest.mark.parametrize(
+    "counter, prefix, left",
+    [
+        # Uploads only decrement a counter above zero, so a stray refund leaves no key.
+        ("image_upload", "imgup", None),
+        ("speech_transcription", "speech", "0"),
+        ("speech_tts", "tts", "0"),
+        ("image_generation", "imggen", "0"),
+        ("image_search", "imgsearch", "0"),
+    ],
+)
 @pytest.mark.asyncio
-async def test_refund_speech_transcription(fake_redis, settings):
-    from uuid import uuid4
-
+async def test_counter_refund_without_a_reserve_never_goes_negative(
+    fake_redis, counter, prefix, left
+):
     user_id = uuid4()
-    limit = quota_service.speech_transcription_limit_for_user(_plus_user(), settings)
-    assert await quota_service.reserve_speech_transcription(fake_redis, user_id, limit=limit)
-    await quota_service.refund_speech_transcription(fake_redis, user_id)
-    assert await quota_service.reserve_speech_transcription(fake_redis, user_id, limit=limit)
+    await counters.refund(counter, fake_redis, user_id)
+    await counters.refund(counter, fake_redis, user_id)
+    assert await fake_redis.get(_today_key(prefix, user_id)) == left
 
 
+@pytest.mark.parametrize("counter, prefix", _REFUNDABLE)
 @pytest.mark.asyncio
-async def test_reserve_speech_tts_enforces_limit(fake_redis, settings):
-    from uuid import uuid4
-
+async def test_counter_refund_floor_keeps_the_ttl(fake_redis, counter, prefix):
     user_id = uuid4()
-    limit = quota_service.speech_tts_limit_for_user(_plus_user(), settings)
-    assert limit > 0
-    for _ in range(limit):
-        assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit) is True
-    assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit) is False
-
-
-@pytest.mark.asyncio
-async def test_refund_speech_tts(fake_redis, settings):
-    from uuid import uuid4
-
-    user_id = uuid4()
-    limit = quota_service.speech_tts_limit_for_user(_plus_user(), settings)
-    assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit)
-    await quota_service.refund_speech_tts(fake_redis, user_id)
-    assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit)
-
-
-@pytest.mark.asyncio
-async def test_reserve_tavily_search_enforces_limit(fake_redis, settings):
-    from uuid import uuid4
-
-    user_id = uuid4()
-    limit = 3
-    for _ in range(limit):
-        assert await quota_service.reserve_tavily_search(fake_redis, user_id, limit=limit) is True
-    assert await quota_service.reserve_tavily_search(fake_redis, user_id, limit=limit) is False
-
-
-def test_image_generation_limit_for_user(settings):
-    settings = Settings(daily_image_generations=0, daily_image_generations_pro=10)
-    assert quota_service.image_generation_limit_for_user(_free_user(), settings) == 0
-    assert quota_service.image_generation_limit_for_user(_pro_user(), settings) == 10
+    key = _today_key(prefix, user_id)
+    await fake_redis.set(key, 0, ex=600)
+    await counters.refund(counter, fake_redis, user_id)
+    assert await fake_redis.get(key) == "0"
+    assert 0 < await fake_redis.ttl(key) <= 600
 
 
 @pytest.mark.asyncio
-async def test_reserve_image_generation_blocks_free_plan(fake_redis, settings):
-    from uuid import uuid4
-
-    settings = Settings(daily_image_generations=0, daily_image_generations_pro=10)
-    user_id = uuid4()
-    assert (
-        await quota_service.reserve_image_generation(
-            fake_redis,
-            user_id,
-            limit=quota_service.image_generation_limit_for_user(_free_user(), settings),
-        )
-        is False
-    )
+async def test_tavily_searches_are_neither_refunded_nor_announced(fake_redis):
+    """Past the cap a turn falls back to DuckDuckGo; a reserved search stays spent."""
+    with pytest.raises(ValueError, match="not refunded"):
+        await counters.refund("tavily_search", fake_redis, uuid4())
+    with pytest.raises(ValueError, match="without a message"):
+        counters.limit_message("tavily_search", _free_user())
 
 
+@pytest.mark.parametrize(
+    "counter, free_upgrades",
+    [
+        ("image_upload", True),
+        ("speech_transcription", False),
+        ("speech_tts", False),
+        ("image_generation", True),
+        ("image_search", True),
+    ],
+)
+def test_counter_limit_message_offers_upgrade_only_on_free(counter, free_upgrades):
+    free = counters.limit_message(counter, _free_user())
+    assert ("Upgrade" in free) is free_upgrades
+    for user in (_plus_user(), _pro_user()):
+        paid = counters.limit_message(counter, user)
+        assert "Upgrade" not in paid
+        if not free_upgrades:
+            assert paid == free
+
+
+@pytest.mark.parametrize("counter, prefix", _COUNTER_KEYS)
 @pytest.mark.asyncio
-async def test_reserve_image_generation_enforces_pro_limit(fake_redis):
-    from uuid import uuid4
-
-    settings = Settings(daily_image_generations_pro=2)
-    user_id = uuid4()
-    limit = quota_service.image_generation_limit_for_user(_pro_user(), settings)
-    for _ in range(limit):
-        assert (
-            await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit) is True
-        )
-    assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit) is False
-
-
-@pytest.mark.asyncio
-async def test_refund_image_generation(fake_redis):
-    from uuid import uuid4
-
-    settings = Settings(daily_image_generations_pro=5)
-    user_id = uuid4()
-    limit = quota_service.image_generation_limit_for_user(_pro_user(), settings)
-    assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit)
-    await quota_service.refund_image_generation(fake_redis, user_id)
-    assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit)
+async def test_counter_reserve_fails_closed_when_redis_is_down(counter, prefix):
+    redis = AsyncMock()
+    redis.incrby.side_effect = RedisConnectionError("down")
+    user = _pro_user()
+    user.id = uuid4()
+    with pytest.raises(RedisUnavailableError):
+        await counters.reserve(counter, redis, user, _capped(counter, 5))
+    redis.incrby.assert_awaited_once_with(_today_key(prefix, user.id), 1)
 
 
 # ── Live talk minutes ────────────────────────────────────────────────────────

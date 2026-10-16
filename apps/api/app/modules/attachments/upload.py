@@ -20,7 +20,7 @@ from app.modules.attachments.content_types import (
     normalize_content_type,
 )
 from app.modules.attachments.quota import has_current_upload_reservation
-from app.services import quota as quota_service
+from app.services.quota import counters
 
 
 class AttachmentUploadError(Exception):
@@ -69,10 +69,9 @@ async def create_presigned_upload(
     redis = get_redis_client()
     image_reserved = False
     if normalized in IMAGE_CONTENT_TYPES:
-        image_limit = quota_service.image_upload_limit_for_user(user, settings)
-        if not await quota_service.reserve_image_upload(redis, user.id, limit=image_limit):
+        if not await counters.reserve("image_upload", redis, user, settings):
             raise AttachmentUploadError(
-                quota_service.image_limit_exceeded_message(user),
+                counters.limit_message("image_upload", user),
                 status_code=429,
             )
         image_reserved = True
@@ -97,7 +96,7 @@ async def create_presigned_upload(
         await session.commit()
     except Exception:
         if image_reserved:
-            await quota_service.refund_image_upload(redis, user.id)
+            await counters.refund("image_upload", redis, user.id)
         raise
 
     return AttachmentPresignOut(
@@ -138,4 +137,4 @@ async def cancel_pending_upload(
     failed = await delete_storage_keys(settings, removed)
     await enqueue_failed_storage_deletes(failed)
     if is_image_content_type(row.content_type) and has_current_upload_reservation(row):
-        await quota_service.refund_image_upload(get_redis_client(), user.id)
+        await counters.refund("image_upload", get_redis_client(), user.id)

@@ -31,6 +31,7 @@ from app.modules.speech.schemas import (
     SpeechTtsOut,
 )
 from app.services import quota as quota_service
+from app.services.quota import counters
 
 router = APIRouter(prefix="/speech", tags=["speech"])
 logger = logging.getLogger(__name__)
@@ -77,11 +78,10 @@ async def _reserve_tts_or_raise(user: User, settings: Settings) -> None:
                 detail=quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
             )
 
-    daily_limit = quota_service.speech_tts_limit_for_user(user, settings)
-    if not await quota_service.reserve_speech_tts(redis, user.id, limit=daily_limit):
+    if not await counters.reserve("speech_tts", redis, user, settings):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=quota_service.speech_tts_limit_exceeded_message(user),
+            detail=counters.limit_message("speech_tts", user),
         )
 
 
@@ -283,7 +283,6 @@ async def synthesize_speech(
             detail=quota_service.VOICE_SPEND_CAP_MESSAGE,
         )
     rate_limit = settings.speech_rate_limit_per_minute
-    daily_limit = quota_service.speech_tts_limit_for_user(user, settings)
     part = _normalize_tts_part(body.part)
     reserved_quota = False
     followup_key = _tts_followup_key(user.id)
@@ -308,10 +307,10 @@ async def synthesize_speech(
                 detail=quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
             )
     if billed:
-        if not await quota_service.reserve_speech_tts(redis, user.id, limit=daily_limit):
+        if not await counters.reserve("speech_tts", redis, user, settings):
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=quota_service.speech_tts_limit_exceeded_message(user),
+                detail=counters.limit_message("speech_tts", user),
             )
         reserved_quota = True
 
@@ -348,15 +347,15 @@ async def synthesize_speech(
         )
     except HTTPException as exc:
         if reserved_quota and exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
-            await quota_service.refund_speech_tts(redis, user.id)
+            await counters.refund("speech_tts", redis, user.id)
         raise
     except asyncio.CancelledError:
         if reserved_quota:
-            await quota_service.refund_speech_tts(redis, user.id)
+            await counters.refund("speech_tts", redis, user.id)
         raise
     except Exception:
         if reserved_quota:
-            await quota_service.refund_speech_tts(redis, user.id)
+            await counters.refund("speech_tts", redis, user.id)
         raise
 
 
@@ -389,7 +388,7 @@ async def stream_speech(
                 yield chunk
         finally:
             if not got:
-                await quota_service.refund_speech_tts(redis, user.id)
+                await counters.refund("speech_tts", redis, user.id)
             else:
                 await quota_service.record_voice_spend(redis, quota_service.TTS_SPEND_USD)
 
@@ -476,11 +475,10 @@ async def transcribe_speech(
                 detail=quota_service.SPEECH_RATE_LIMIT_MESSAGE,
             )
 
-    daily_limit = quota_service.speech_transcription_limit_for_user(user, settings)
-    if not await quota_service.reserve_speech_transcription(redis, user.id, limit=daily_limit):
+    if not await counters.reserve("speech_transcription", redis, user, settings):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=quota_service.speech_limit_exceeded_message(user),
+            detail=counters.limit_message("speech_transcription", user),
         )
 
     try:
@@ -489,13 +487,13 @@ async def transcribe_speech(
         return result
     except HTTPException as exc:
         if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
-            await quota_service.refund_speech_transcription(redis, user.id)
+            await counters.refund("speech_transcription", redis, user.id)
         raise
     except asyncio.CancelledError:
-        await quota_service.refund_speech_transcription(redis, user.id)
+        await counters.refund("speech_transcription", redis, user.id)
         raise
     except Exception:
-        await quota_service.refund_speech_transcription(redis, user.id)
+        await counters.refund("speech_transcription", redis, user.id)
         raise
 
 

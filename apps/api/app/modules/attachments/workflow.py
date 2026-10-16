@@ -30,7 +30,7 @@ from app.modules.attachments.markers import strip_attachment_from_content
 from app.modules.attachments.quota import has_current_upload_reservation
 from app.modules.attachments.upload import AttachmentUploadError, cancel_pending_upload
 from app.repositories import messages as messages_repo
-from app.services import quota as quota_service
+from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ async def _refund_image(
     row: Attachment,
 ) -> None:
     if is_image_content_type(row.content_type) and has_current_upload_reservation(row):
-        await quota_service.refund_image_upload(get_redis_client(), user.id)
+        await counters.refund("image_upload", get_redis_client(), user.id)
 
 
 async def _verified_row(

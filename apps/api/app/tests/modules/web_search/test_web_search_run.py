@@ -207,7 +207,8 @@ async def test_run_search_reserves_tavily_once_per_turn(fake_redis):
 
     reserve_calls = 0
 
-    async def counting_reserve(_redis, _user_id, *, limit):
+    async def counting_reserve(counter, _redis, _user, _settings):
+        assert counter == "tavily_search"
         nonlocal reserve_calls
         reserve_calls += 1
         return True
@@ -218,7 +219,7 @@ async def test_run_search_reserves_tavily_once_per_turn(fake_redis):
     with (
         patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+            "app.modules.web_search.search_cache.counters.reserve",
             counting_reserve,
         ),
         patch("app.modules.web_search.search_cache.web_search_gateway.search_web", fake_search),
@@ -249,7 +250,8 @@ async def test_run_cached_search_shares_the_turn_tavily_budget(fake_redis):
 
     reserve_calls = 0
 
-    async def counting_reserve(_redis, _user_id, *, limit):
+    async def counting_reserve(counter, _redis, _user, _settings):
+        assert counter == "tavily_search"
         nonlocal reserve_calls
         reserve_calls += 1
         return True
@@ -260,7 +262,7 @@ async def test_run_cached_search_shares_the_turn_tavily_budget(fake_redis):
     with (
         patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+            "app.modules.web_search.search_cache.counters.reserve",
             counting_reserve,
         ),
         patch("app.modules.web_search.search_cache.web_search_gateway.search_web", fake_search),
@@ -292,7 +294,8 @@ async def test_run_search_skips_tavily_reservation_when_unconfigured(fake_redis)
 
     reserve_calls = 0
 
-    async def counting_reserve(_redis, _user_id, *, limit):
+    async def counting_reserve(counter, _redis, _user, _settings):
+        assert counter == "tavily_search"
         nonlocal reserve_calls
         reserve_calls += 1
         return True
@@ -303,7 +306,7 @@ async def test_run_search_skips_tavily_reservation_when_unconfigured(fake_redis)
     with (
         patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+            "app.modules.web_search.search_cache.counters.reserve",
             counting_reserve,
         ),
         patch("app.modules.web_search.search_cache.web_search_gateway.search_web", fake_search),
@@ -323,7 +326,7 @@ async def test_skip_tavily_when_user_missing(fake_redis):
     budget = TurnTavilyBudget(settings=settings, user=None)
     reserve = AsyncMock(side_effect=AssertionError("must not reserve without a user"))
     with patch(
-        "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+        "app.modules.web_search.search_cache.counters.reserve",
         reserve,
     ):
         assert await budget.skip_tavily(fake_redis) is True
@@ -345,7 +348,7 @@ async def test_skip_tavily_on_redis_reserve_error(fake_redis):
     user.plan = "free"
     budget = TurnTavilyBudget(settings=settings, user=user)
     with patch(
-        "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+        "app.modules.web_search.search_cache.counters.reserve",
         AsyncMock(side_effect=RedisUnavailableError()),
     ):
         assert await budget.skip_tavily(fake_redis) is True

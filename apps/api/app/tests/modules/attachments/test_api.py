@@ -164,7 +164,7 @@ def test_presign_upload_refunds_image_quota_when_presign_fails():
         patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.upload.quota_service.refund_image_upload",
+            "app.modules.attachments.upload.counters.refund",
             refund_mock,
         ),
     ):
@@ -176,7 +176,7 @@ def test_presign_upload_refunds_image_quota_when_presign_fails():
         )
 
     assert r.status_code == 500
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
 
 
 def test_presign_upload_refunds_image_quota_when_create_pending_fails():
@@ -206,7 +206,7 @@ def test_presign_upload_refunds_image_quota_when_create_pending_fails():
         ),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.upload.quota_service.refund_image_upload",
+            "app.modules.attachments.upload.counters.refund",
             refund_mock,
         ),
     ):
@@ -218,7 +218,7 @@ def test_presign_upload_refunds_image_quota_when_create_pending_fails():
         )
 
     assert r.status_code == 500
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
 
 
 def test_presign_upload_does_not_refund_for_non_image():
@@ -246,7 +246,7 @@ def test_presign_upload_does_not_refund_for_non_image():
         ),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.upload.quota_service.refund_image_upload",
+            "app.modules.attachments.upload.counters.refund",
             refund_mock,
         ),
     ):
@@ -304,7 +304,7 @@ def test_cancel_pending_upload_refunds_image_quota():
         patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.upload.quota_service.refund_image_upload",
+            "app.modules.attachments.upload.counters.refund",
             refund_mock,
         ),
     ):
@@ -315,7 +315,7 @@ def test_cancel_pending_upload_refunds_image_quota():
         )
 
     assert r.status_code == 204
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
 
 
 def test_confirm_storage_outage_returns_retryable_503_without_purging():
@@ -371,7 +371,7 @@ def test_confirm_upload_rejects_spoofed_r2_bytes():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             refund_mock,
         ),
         patch(
@@ -388,7 +388,7 @@ def test_confirm_upload_rejects_spoofed_r2_bytes():
     assert r.status_code == 400
     gateway.delete_bytes.assert_awaited_once_with("user/key")
     delete_rows.assert_awaited_once()
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
 
 
 def test_confirm_upload_accepts_valid_r2_bytes():
@@ -502,7 +502,7 @@ def test_upload_rejects_bytes_not_matching_claimed_content_type():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             AsyncMock(),
         ) as refund_mock,
         patch(
@@ -587,7 +587,7 @@ def test_upload_rejects_body_larger_than_declared_size_without_writing():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             AsyncMock(),
         ),
         patch(
@@ -636,7 +636,7 @@ def test_serve_file_rejects_spoofed_r2_bytes():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             refund_mock,
         ),
         patch(
@@ -653,7 +653,7 @@ def test_serve_file_rejects_spoofed_r2_bytes():
 
     assert r.status_code == 400
     gateway.delete_bytes.assert_awaited_once_with("user/key")
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
 
 
 def test_serve_file_local_backend_sets_nosniff_header(tmp_path):
@@ -804,7 +804,7 @@ def test_upload_rejects_size_mismatch_with_declared_size():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             AsyncMock(),
         ) as refund_mock,
         patch(
@@ -856,7 +856,7 @@ def test_download_url_rejects_spoofed_r2_bytes():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             refund_mock,
         ),
         patch(
@@ -872,7 +872,7 @@ def test_download_url_rejects_spoofed_r2_bytes():
 
     assert r.status_code == 400
     gateway.delete_bytes.assert_awaited_once_with("user/key")
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
 
 
 def test_download_url_local_backend():
@@ -998,7 +998,7 @@ def test_upload_r2_backend_returns_501_before_refund():
         ),
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             refund_mock,
         ),
     ):
@@ -1121,7 +1121,7 @@ def test_cancel_still_allowed_when_attachments_disabled():
         patch("app.modules.attachments.upload.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.upload.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.attachments.upload.quota_service.refund_image_upload",
+            "app.modules.attachments.upload.counters.refund",
             AsyncMock(),
         ),
     ):
@@ -1414,7 +1414,7 @@ def test_put_upload_empty_body_purges_row_and_refunds_quota():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             AsyncMock(),
         ) as refund_mock,
         patch(

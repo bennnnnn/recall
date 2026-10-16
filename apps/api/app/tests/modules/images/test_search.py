@@ -121,14 +121,14 @@ async def test_no_hits_refunds_quota_and_raises_502():
         patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
         patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.images.search.quota_service.reserve_image_search",
+            "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=True),
         ),
         patch(
             "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=[]),
         ),
-        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()) as refund,
+        patch("app.modules.images.search.counters.refund", AsyncMock()) as refund,
     ):
         with pytest.raises(ImageSearchError) as exc:
             await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
@@ -153,7 +153,7 @@ async def test_all_candidates_fail_fetch_refunds_and_raises_502():
         patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
         patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.images.search.quota_service.reserve_image_search",
+            "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=True),
         ),
         patch(
@@ -165,7 +165,7 @@ async def test_all_candidates_fail_fetch_refunds_and_raises_502():
             "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=bad_response),
         ),
-        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()) as refund,
+        patch("app.modules.images.search.counters.refund", AsyncMock()) as refund,
     ):
         with pytest.raises(ImageSearchError) as exc:
             await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
@@ -204,7 +204,7 @@ async def test_successful_lookup_persists_attachment_and_message():
         patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
         patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.images.search.quota_service.reserve_image_search",
+            "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=True),
         ),
         patch(
@@ -225,7 +225,7 @@ async def test_successful_lookup_persists_attachment_and_message():
         patch(
             "app.modules.images.search.messages_repo.create", AsyncMock(side_effect=_fake_create)
         ),
-        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()) as refund,
+        patch("app.modules.images.search.counters.refund", AsyncMock()) as refund,
     ):
         user_msg, asst_msg = await search_and_attach_for_chat(
             settings, user=user, chat_id=uuid4(), query="an ear"
@@ -258,7 +258,7 @@ async def test_link_failure_rolls_back_bytes_and_refunds():
         patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
         patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.images.search.quota_service.reserve_image_search",
+            "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=True),
         ),
         patch(
@@ -279,7 +279,7 @@ async def test_link_failure_rolls_back_bytes_and_refunds():
             "app.modules.images.search.attachments_repo.link_to_message",
             AsyncMock(return_value=0),
         ),
-        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()) as refund,
+        patch("app.modules.images.search.counters.refund", AsyncMock()) as refund,
     ):
         with pytest.raises(ImageSearchError) as exc:
             await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
@@ -304,7 +304,7 @@ async def test_spend_cap_skips_reserve_and_provider():
             "app.modules.images.search.quota_service.global_spend_exceeded",
             AsyncMock(return_value=True),
         ),
-        patch("app.modules.images.search.quota_service.reserve_image_search", reserve),
+        patch("app.modules.images.search.counters.reserve", reserve),
         patch("app.modules.images.search.image_search_gateway.search_images", search_mock),
     ):
         with pytest.raises(ImageSearchError) as exc:
@@ -345,7 +345,7 @@ async def test_lookup_reply_is_image_markers_only():
         patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
         patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.images.search.quota_service.reserve_image_search",
+            "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=True),
         ),
         patch(
@@ -366,7 +366,7 @@ async def test_lookup_reply_is_image_markers_only():
         patch(
             "app.modules.images.search.messages_repo.create", AsyncMock(side_effect=_fake_create)
         ),
-        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()),
+        patch("app.modules.images.search.counters.refund", AsyncMock()),
         patch("app.modules.images.search.quota_service.record_global_spend", AsyncMock()),
     ):
         _user_msg, asst_msg = await search_and_attach_for_chat(

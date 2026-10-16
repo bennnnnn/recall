@@ -17,14 +17,24 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import select
 
+from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import User
+from app.modules.billing.entitlements import setting_name
 from app.services import quota
+from app.services.quota import counters
 
 from .conftest import World, delete_accounts
 
 # Every per-user daily counter, named independently of the code under test.
 DAILY_PREFIXES = ("usage", "imgup", "speech", "tts", "tavily", "imggen", "imgsearch")
+
+
+def _pro_caps(cap: int) -> Settings:
+    caps: dict[str, Any] = {
+        setting_name(spec.allowance, "pro"): cap for spec in counters.COUNTERS.values()
+    }
+    return Settings(**caps)
 
 
 async def _google_sub(user_id: UUID) -> str:
@@ -47,16 +57,17 @@ async def _sign_in_google(world: World, *, sub: str, email: str) -> UUID:
 async def _use_quota(redis: Any, user_id: UUID) -> None:
     """What a busy day leaves: tokens, uploads, voice, searches, images, live talk."""
     assert await quota.reserve_usage(redis, str(user_id), 1234, daily_limit=10**9)
+    user, caps = User(id=user_id, plan="pro"), _pro_caps(10)
     for _ in range(2):
-        assert await quota.reserve_image_upload(redis, user_id, limit=10)
+        assert await counters.reserve("image_upload", redis, user, caps)
     for _ in range(3):
-        assert await quota.reserve_speech_transcription(redis, user_id, limit=10)
-    assert await quota.reserve_speech_tts(redis, user_id, limit=10)
+        assert await counters.reserve("speech_transcription", redis, user, caps)
+    assert await counters.reserve("speech_tts", redis, user, caps)
     for _ in range(4):
-        assert await quota.reserve_tavily_search(redis, user_id, limit=10)
-    assert await quota.reserve_image_generation(redis, user_id, limit=10)
+        assert await counters.reserve("tavily_search", redis, user, caps)
+    assert await counters.reserve("image_generation", redis, user, caps)
     for _ in range(2):
-        assert await quota.reserve_image_search(redis, user_id, limit=10)
+        assert await counters.reserve("image_search", redis, user, caps)
     granted = await quota.reserve_live_talk_seconds(
         redis,
         user_id,
@@ -81,7 +92,7 @@ _USED = {
 async def _daily_counts(redis: Any, user_id: UUID, day: Any = None) -> dict[str, int]:
     day = day or quota.utc_today()
     return {
-        prefix: int(await redis.get(quota._daily_key(prefix, user_id, day)) or 0)
+        prefix: int(await redis.get(counters.daily_key(prefix, user_id, day)) or 0)
         for prefix in DAILY_PREFIXES
     }
 
@@ -122,7 +133,8 @@ async def test_quota_carryover_same_google_sub_keeps_todays_counts(world: World)
         assert await _daily_counts(redis, new_id) == _USED
         assert await quota.live_talk_used_seconds(redis, new_id) == 300
         # The carried counts are enforced: one image generation was today's cap.
-        assert not await quota.reserve_image_generation(redis, new_id, limit=1)
+        new_user = User(id=new_id, plan="pro")
+        assert not await counters.reserve("image_generation", redis, new_user, _pro_caps(1))
         # The raise-only DB heal (the new account has no usage rows) keeps them.
         await quota.heal_usage_drift(redis, str(new_id), 10)
         assert await quota.get_daily_usage(redis, str(new_id)) == 1234
@@ -184,8 +196,8 @@ async def test_quota_carryover_next_day_starts_fresh(world: World) -> None:
 
     tomorrow = quota.utc_today() + timedelta(days=1)
     with (
-        patch("app.services.quota.utc_today", return_value=tomorrow),
-        patch("app.services.quota.utc_month", return_value=month),
+        patch("app.services.quota.carryover.utc_today", return_value=tomorrow),
+        patch("app.services.quota.carryover.utc_month", return_value=month),
     ):
         new_id = await _sign_in_google(world, sub=sub, email=f"again-{uuid4()}@example.com")
     try:
@@ -205,10 +217,10 @@ async def test_quota_carryover_next_month_starts_live_talk_fresh(world: World) -
 
     with (
         patch(
-            "app.services.quota.utc_today",
+            "app.services.quota.carryover.utc_today",
             return_value=quota.utc_today() + timedelta(days=40),
         ),
-        patch("app.services.quota.utc_month", return_value="2999-01"),
+        patch("app.services.quota.carryover.utc_month", return_value="2999-01"),
     ):
         new_id = await _sign_in_google(world, sub=sub, email=f"again-{uuid4()}@example.com")
     try:
@@ -252,10 +264,17 @@ async def test_quota_carryover_failure_never_fails_delete(world: World) -> None:
 
 
 def test_quota_carryover_names_every_daily_counter() -> None:
-    """A daily cap added to quota.py must be carried too."""
+    """A daily cap added to the quota package must be carried too."""
+    import importlib
     import inspect
+    import pkgutil
     import re
 
-    used = set(re.findall(r'_daily_key\(\s*"([a-z:]+)"', inspect.getsource(quota)))
+    sources = "".join(
+        inspect.getsource(importlib.import_module(f"app.services.quota.{module.name}"))
+        for module in pkgutil.iter_modules(quota.__path__)
+    )
+    used = set(re.findall(r'daily_key\(\s*"([a-z:]+)"', sources))
+    used |= {spec.prefix for spec in counters.COUNTERS.values()}
     assert used - {"usage:heal"} <= set(quota.DAILY_COUNTER_PREFIXES)
     assert set(quota.DAILY_COUNTER_PREFIXES) == set(DAILY_PREFIXES)
