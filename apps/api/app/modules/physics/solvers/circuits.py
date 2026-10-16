@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 
+from app.modules.physics.constants import EPSILON_0
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.circuit_scenes import circuit_scene
 from app.modules.physics.solvers.common import (
-    _EPSILON_0,
     _RESISTOR_KEY_RE,
     PhysicsResult,
     QuantityResult,
@@ -35,15 +35,15 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
 def _parallel_plate_capacitance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     if p["area"] <= 0 or p["d"] <= 0:
         raise SolveServiceError("parallel-plate capacitance needs positive area and spacing")
-    value = _EPSILON_0 * p["area"] / p["d"]
+    value = EPSILON_0 * p["area"] / p["d"]
     return PhysicsResult(
         answer=(
             rf"C = \frac{{\epsilon_0 A}}{{d}} = "
-            rf"\frac{{{_EPSILON_0:.5g} \cdot {p['area']:g}}}{{{p['d']:g}}} "
+            rf"\frac{{{EPSILON_0:.5g} \cdot {p['area']:g}}}{{{p['d']:g}}} "
             rf"\approx {value:.4g} \text{{ F}}"
         ),
         formulas=(r"C = \frac{\epsilon_0 A}{d}",),
-        substitutions=(rf"C = \frac{{{_EPSILON_0:.5g} \cdot {p['area']:g}}}{{{p['d']:g}}}",),
+        substitutions=(rf"C = \frac{{{EPSILON_0:.5g} \cdot {p['area']:g}}}{{{p['d']:g}}}",),
         quantities=(QuantityResult("", value, "F"),),
     )
 

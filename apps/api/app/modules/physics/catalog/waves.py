@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+from app.services.units import CELSIUS_OFFSET_K
 
 _POWER = var("power", "P", "watt")
 
@@ -291,15 +292,14 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
-    # The speed of sound in air rises with temperature: v = 331.3√(T/273.15 K).
     formula(
         "speed_of_sound_air",
         "waves",
         "Speed of sound in air",
         "v",
-        base_latex=r"v = 331.3\sqrt{\frac{T}{273.15\,\mathrm{K}}}",
+        base_latex=rf"v = 331.3\sqrt{{\frac{{T}}{{{CELSIUS_OFFSET_K}\,\mathrm{{K}}}}}}",
         assumptions=("dry air, an ideal gas",),
-        expression="331.3*sqrt(temp/273.15)",
+        expression=f"331.3*sqrt(temp/{CELSIUS_OFFSET_K})",
         variables=(var("temp", "T", "kelvin"),),
         binding=Binding(
             asks=("speed of sound", "speed", "how fast"),

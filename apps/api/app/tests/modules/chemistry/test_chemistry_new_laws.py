@@ -105,7 +105,7 @@ def test_a_particle_count_divides_by_avogadros_number_as_one_quantity() -> None:
     intent = extract_chemistry_intent("How many grams do 3.01 × 10^23 molecules of H2O weigh?")
     assert intent is not None
     assert solve_chemistry(intent).substitution == (
-        "m = [3.01 × 10^23 / (6.022 × 10^23 mol⁻¹)](18.015 g/mol)",
+        "m = [3.01 × 10^23 / (6.0221 × 10^23 mol⁻¹)](18.015 g/mol)",
     )
 
 
@@ -324,10 +324,10 @@ def test_gibbs_and_vant_hoff_enthalpy_show_the_joule_to_kilojoule_step() -> None
     )
     assert gibbs is not None and enthalpy is not None
     assert solve_chemistry(gibbs).substitution == (
-        "ΔG° = −(8.314 J/(mol·K))(298.15) ln(10) / 1000",
+        "ΔG° = −(8.3145 J/(mol·K))(298.15) ln(10) / 1000",
     )
     assert solve_chemistry(enthalpy).substitution == (
-        "ΔH° = [−(8.314 J/(mol·K)) ln(0.50/0.10) / (1/350 − 1/300)] / 1000",
+        "ΔH° = [−(8.3145 J/(mol·K)) ln(0.50/0.10) / (1/350 − 1/300)] / 1000",
     )
     assert solve_chemistry(gibbs).answer == "ΔG° = -5.7 kJ/mol"
     assert solve_chemistry(enthalpy).answer == "ΔH° = 28 kJ/mol"

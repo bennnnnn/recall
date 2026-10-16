@@ -26,7 +26,7 @@ from app.modules.chemistry.solvers.constants import (
     GAS_R_J,
     PLANCK,
 )
-from app.modules.chemistry.solvers.types import ChemistryResult
+from app.modules.chemistry.solvers.types import ChemistryResult, format_constant
 from app.services.law_binding.expression import Notation, evaluate
 from app.services.solving import SolveServiceError
 
@@ -42,6 +42,15 @@ CHEMISTRY_NOTATION = Notation(
     },
     number=str,
 )
+# The unit a substitution row prints after a constant it names: "{R_J}" is "8.3145 J/(mol·K)".
+_CONSTANT_UNITS = {
+    "R_atm": "L·atm/(mol·K)",
+    "R_J": "J/(mol·K)",
+    "F": "C/mol",
+    "N_A": "mol⁻¹",
+    "k_B": "J/K",
+    "h": "J·s",
+}
 
 
 # Inputs the element table gives when the question does not state them.
@@ -68,6 +77,13 @@ class _Given(str):
         given = super().__new__(cls, _with_unit(value, unit))
         given.value = value
         return given
+
+
+# Each constant as a substitution row names it, the value the arithmetic uses to five figures.
+_CONSTANTS_SHOWN = {
+    name: _Given(format_constant(value), _CONSTANT_UNITS[name])
+    for name, (value, _symbol) in CHEMISTRY_NOTATION.constants.items()
+}
 
 
 def _shown(name: str, value: float) -> str:
@@ -197,7 +213,7 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
             typed[name] = _Given(converted[1], units[name])
             row = f"{row}{converted[0]} = "
         given.append(f"{row}{typed[name]}")
-    rows = [row.format(**names, **typed) for row in law.substitution]
+    rows = [row.format(**names, **_CONSTANTS_SHOWN, **typed) for row in law.substitution]
     if in_asked is not None:
         rows.append(f"{law.result.format(**names)} = {shown} = {in_asked}")
         shown = in_asked

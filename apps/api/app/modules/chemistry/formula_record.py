@@ -24,7 +24,8 @@ class FormulaLaw:
     # substitution row may name the intent's "{formula}" and "{target}".
     given: tuple[tuple[str, str, str], ...]
     # Substitution rows: "{name}" is a given's value as typed with its unit ("0.500 L"), and
-    # "{name.value}" the bare number, for a row written in numbers alone.
+    # "{name.value}" the bare number, for a row written in numbers alone. A constant the
+    # expression names is written the same way: "{R_J}" is "8.3145 J/(mol·K)".
     substitution: tuple[str, ...]
     # Givens that may be negative (an enthalpy); every other one must be positive.
     signed: frozenset[str] = frozenset()

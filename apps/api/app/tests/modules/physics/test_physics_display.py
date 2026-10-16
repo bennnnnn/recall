@@ -134,3 +134,32 @@ def test_every_unit_the_scanner_reads_in_words_has_a_symbol() -> None:
 )
 def test_a_typeset_number_raised_to_a_power_keeps_its_brackets(row: str, typeset: str) -> None:
     assert typeset_numbers(row) == typeset
+
+
+@pytest.mark.parametrize(
+    ("name", "symbol", "value"),
+    [
+        ("mu_0", r"\mu_0", r"1.25664 \times 10^{-6}"),
+        ("epsilon_0", r"\varepsilon_0", r"8.85419 \times 10^{-12}"),
+        ("k_e", "k_e", r"8.98755 \times 10^{9}"),
+        ("G_grav", "G", r"6.6743 \times 10^{-11}"),
+        ("h_planck", "h", r"6.62607 \times 10^{-34}"),
+        ("c_light", "c", r"2.99792 \times 10^{8}"),
+        ("e_charge", "e", r"1.60218 \times 10^{-19}"),
+        ("m_e", "m_e", r"9.10938 \times 10^{-31}"),
+        ("R_gas", "R", "8.31446"),
+        ("k_B", "k_B", r"1.38065 \times 10^{-23}"),
+        ("hbar", r"\hbar", r"1.05457 \times 10^{-34}"),
+        ("R_inf", r"R_\infty", r"1.09737 \times 10^{7}"),
+        ("a_0", "a_0", r"5.29177 \times 10^{-11}"),
+        ("sigma", r"\sigma", r"5.67037 \times 10^{-8}"),
+    ],
+)
+def test_a_constant_shows_its_symbol_in_a_formula_and_six_figures_in_a_substitution(
+    name: str, symbol: str, value: str
+) -> None:
+    from app.modules.physics.expression import PHYSICS_NOTATION, to_latex
+
+    assert len(PHYSICS_NOTATION.constants) == 14
+    assert to_latex(name, {}) == symbol
+    assert to_latex(name, {}, {}) == value

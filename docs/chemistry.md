@@ -229,9 +229,12 @@ records how each given was typed, and the solve formats every number from that r
 - **Molar masses** stay at full precision inside the arithmetic. A working row shows them
   to the table's three decimals (`18.015`), and only a molar-mass answer rounds to two
   (`98.07 g/mol`). Rounding first moved answers: 4 g of H₂ gave 35.68 g of water, not 35.74.
-- A physical constant is a CODATA value from the shared Pint registry (`services/units.constant`,
-  pinned by a test) and is shown to 5 figures (`R = 0.08206`). Intermediate rows show
-  the answer's figures while the arithmetic keeps full precision.
+- A physical constant is a CODATA value from the shared Pint registry, read once in
+  `solvers/constants.py` (`services/units.constant`, pinned by a test), and is shown to 5
+  figures (`R = 0.082057 L·atm/(mol·K)`). A formula law's substitution row names the constant
+  its arithmetic uses (`{R_J}`, `{F}`, `{N_A}`) instead of typing it, so the figure shown is
+  the one computed. A Celsius reading becomes kelvin by `services/units.CELSIUS_OFFSET_K`.
+  Intermediate rows show the answer's figures while the arithmetic keeps full precision.
 
 ## Teaching scenes
 
