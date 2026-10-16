@@ -1,7 +1,8 @@
 import { speechApi } from "@/features/speech/api";
 import type { SearchSource } from "@/lib/api/types";
 
-type RealtimeFunctionCall = { type: "function_call"; name: string; call_id: string; arguments: string };
+export type RealtimeFunctionCall = { type: "function_call"; name: string; call_id: string; arguments: string };
+export type RealtimeToolResult = { content: string; sources?: SearchSource[] };
 
 export function realtimeFunctionCalls(response: unknown): RealtimeFunctionCall[] {
   if (!response || typeof response !== "object") return [];
@@ -14,7 +15,7 @@ export function realtimeFunctionCalls(response: unknown): RealtimeFunctionCall[]
 /** No dynamic tool registry: the voice model can only read memory or search. */
 export async function runRealtimeFunctionCall(call: RealtimeFunctionCall, context: {
   token: string; chatId: string; callId: string; turnId: string;
-}): Promise<{ content: string; sources?: SearchSource[] }> {
+}): Promise<RealtimeToolResult> {
   if (call.name !== "memory_lookup" && call.name !== "web_search") {
     return { content: "This action is not available in voice. Do not claim it was done." };
   }

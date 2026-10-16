@@ -154,6 +154,27 @@ function liveTalkNormalizeTranscript(text: string): string {
     .trim();
 }
 
+/** The text of a Realtime transcript event: a whole `transcript`, else a `delta`. */
+export function liveTalkTranscriptText(event: Record<string, unknown>): string {
+  const transcript = event.transcript;
+  if (typeof transcript === "string") return transcript.trim();
+  const delta = event.delta;
+  if (typeof delta === "string") return delta;
+  return "";
+}
+
+const SILENCE_HALLUCINATIONS = new Set([
+  "thank you for watching",
+  "thanks for watching",
+  "please subscribe",
+  "subscribe",
+]);
+
+/** Whisper-style captions the transcriber invents from silence. */
+export function isLiveTalkSilenceHallucination(text: string): boolean {
+  return SILENCE_HALLUCINATIONS.has(liveTalkNormalizeTranscript(text));
+}
+
 /** Speaker bleed often transcribes as a short slice of the last assistant line. */
 export function isLikelyAssistantEcho(userText: string, lastAssistantText: string): boolean {
   const user = liveTalkNormalizeTranscript(userText);

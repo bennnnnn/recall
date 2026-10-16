@@ -1,94 +1,24 @@
-import { requireOptionalNativeModule } from "expo-modules-core";
-import { NativeModules, Platform, TurboModuleRegistry } from "react-native";
+import { Platform } from "react-native";
 
 import { speechApi } from "@/features/speech/api";
+import { createRealtimeMicGate } from "@/features/speech/model/realtimeMicGate";
 import {
-  LIVE_TALK_CONNECT_WARMUP_MS,
-  LIVE_TALK_PLAYBACK_TAIL_MS,
-  LIVE_TALK_SESSION_READY_FALLBACK_MS,
-  isLikelyAssistantEcho,
-  liveTalkDataChannelText,
-  liveTalkLocalMicEnabled,
-  liveTalkShouldCreateResponse,
-} from "@/features/speech/model/liveTalkLogic";
-import { yieldMicToWebRtc } from "@/lib/speech/voiceAudio";
-import { realtimeFunctionCalls, runRealtimeFunctionCall } from "@/features/speech/model/realtimeTools";
-import { exchangeRealtimeSdp } from "@/features/speech/model/realtimeSdp";
-import type { SearchSource } from "@/lib/api/types";
+  createRealtimePeer,
+  debugRealtime,
+  loadWebRtc,
+  openRealtimeMicrophone,
+} from "@/features/speech/model/realtimePeer";
+import { runRealtimeFunctionCall } from "@/features/speech/model/realtimeTools";
+import {
+  initialRealtimeTurnState,
+  reduceRealtimeTurn,
+  type RealtimeTurnCommand,
+  type RealtimeTurnEvent,
+  type RealtimeVoiceEvent,
+} from "@/features/speech/model/realtimeTurnState";
+import { isPhysicalDevice } from "@/lib/expoRuntime";
 
-export type RealtimeVoiceEvent =
-  | { type: "connected" }
-  | { type: "speech_started"; turnId?: string }
-  | { type: "speech_stopped" }
-  | { type: "response_started" }
-  | { type: "user_transcript"; text: string }
-  | { type: "assistant_transcript"; text: string; final: boolean }
-  | { type: "response_done" }
-  | { type: "response_interrupted" }
-  | { type: "search_sources"; sources: SearchSource[] }
-  | { type: "error"; message: string };
-
-/*
- * react-native-webrtc loads optionally at runtime (dev builds only), so these
- * describe just the members this file touches instead of importing its types.
- */
-type WebRtcTrack = {
-  id?: string;
-  kind?: string;
-  enabled: boolean;
-  muted?: boolean;
-  readyState?: string;
-  stop: () => void;
-  /** react-native-webrtc's remote playback volume; not on every build. */
-  _setVolume?: (volume: number) => void;
-};
-
-type WebRtcStream = {
-  getTracks: () => WebRtcTrack[];
-  getAudioTracks: () => WebRtcTrack[];
-};
-
-type WebRtcSessionDescription = { sdp?: string };
-
-type WebRtcDataChannel = {
-  readyState?: string;
-  send: (data: string) => void;
-  close: () => void;
-  onopen?: () => void;
-  onclose?: () => void;
-  onerror?: () => void;
-  onmessage?: (message: { data?: unknown }) => void;
-};
-
-type WebRtcTrackEvent = { track?: WebRtcTrack; streams?: WebRtcStream[] };
-
-type WebRtcPeerConnection = {
-  connectionState?: string;
-  iceConnectionState?: string;
-  iceGatheringState?: string;
-  localDescription?: WebRtcSessionDescription | null;
-  ontrack?: (event: WebRtcTrackEvent) => void;
-  onconnectionstatechange?: () => void;
-  oniceconnectionstatechange?: () => void;
-  addEventListener?: (type: string, listener: () => void) => void;
-  removeEventListener?: (type: string, listener: () => void) => void;
-  addTrack: (track: WebRtcTrack, stream: WebRtcStream) => void;
-  createDataChannel: (label: string) => WebRtcDataChannel;
-  createOffer: () => Promise<WebRtcSessionDescription>;
-  setLocalDescription: (description: WebRtcSessionDescription) => Promise<void>;
-  setRemoteDescription: (description: WebRtcSessionDescription) => Promise<void>;
-  getReceivers?: () => { track?: WebRtcTrack | null }[];
-  close: () => void;
-};
-
-type NativeWebRtc = {
-  __WEBRTC_STUB__?: boolean;
-  mediaDevices: {
-    getUserMedia: (constraints: object) => Promise<WebRtcStream>;
-  };
-  RTCPeerConnection: new (config?: object) => WebRtcPeerConnection;
-  RTCSessionDescription: new (init: { type: string; sdp: string }) => WebRtcSessionDescription;
-};
+export type { RealtimeVoiceEvent };
 
 export type RealtimeVoiceSession = {
   callId: string | null;
@@ -99,70 +29,12 @@ export type RealtimeVoiceSession = {
   close: () => void;
 };
 
-const ICE_GATHER_TIMEOUT_MS = 2_500;
-const CONNECTION_TIMEOUT_MS = 10_000;
-const PLAYBACK_UNMUTE_FALLBACK_MS = 12_000;
-const DEBUG_PREFIX = "[LiveTalk/WebRTC]";
-const SILENCE_HALLUCINATIONS = new Set([
-  "thank you for watching",
-  "thanks for watching",
-  "please subscribe",
-  "subscribe",
-]);
-
-function debug(stage: string, detail?: unknown): void {
-  if (!__DEV__) return;
-  if (detail === undefined) {
-    console.info(`${DEBUG_PREFIX} ${stage}`);
-  } else {
-    console.info(`${DEBUG_PREFIX} ${stage}`, detail);
-  }
-}
-
-function isWebRtcLinked(): boolean {
-  try {
-    if (TurboModuleRegistry.get("WebRTCModule") != null) return true;
-  } catch {
-    /* Expo Go / incomplete RN mock */
-  }
-  return Boolean((NativeModules as Record<string, unknown> | undefined)?.WebRTCModule);
-}
-
-function loadWebRtc(): NativeWebRtc | null {
-  // Expo Go fatals on require("react-native-webrtc") even inside try/catch.
-  // Probe the native registry first — same pattern as getPreviewWebView.
-  if (!isWebRtcLinked()) return null;
-  try {
-    // Native module: Live Talk requires a rebuilt dev client, not Expo Go.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const webrtc = require("react-native-webrtc") as NativeWebRtc;
-    if (webrtc.__WEBRTC_STUB__) return null;
-    return webrtc;
-  } catch {
-    return null;
-  }
-}
+const TOOL_LIMIT_RESULT = {
+  content: "Voice lookup limit reached. Answer from available context and disclose missing facts.",
+};
 
 export function isRealtimeVoiceAvailable(): boolean {
   return loadWebRtc() !== null;
-}
-
-/**
- * Never import expo-device: its JS calls requireNativeModule('ExpoDevice')
- * and Metro reports that as a fatal even inside try/catch. Probe the native
- * registry instead; null means this binary was built before expo-device.
- */
-function isIosSimulator(): boolean {
-  if (Platform.OS !== "ios") return false;
-  try {
-    const device = requireOptionalNativeModule<{ isDevice?: boolean }>("ExpoDevice");
-    if (device && typeof device.isDevice === "boolean") {
-      return device.isDevice === false;
-    }
-  } catch {
-    // Missing ExpoDevice must not take down Live Talk.
-  }
-  return true;
 }
 
 /**
@@ -177,104 +49,25 @@ export function webRtcMicConstraints(): {
   noiseSuppression: boolean;
   autoGainControl: boolean;
 } {
-  if (isIosSimulator()) {
+  if (Platform.OS === "ios" && isPhysicalDevice() !== true) {
     return { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
   }
   return { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 }
 
-function transcriptFromEvent(event: Record<string, unknown>): string {
-  const transcript = event.transcript;
-  if (typeof transcript === "string") return transcript.trim();
-  const delta = event.delta;
-  if (typeof delta === "string") return delta;
-  return "";
-}
-
-function normalizeTranscript(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[.!?,;:'"()[\]{}]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function isKnownSilenceHallucination(text: string): boolean {
-  return SILENCE_HALLUCINATIONS.has(normalizeTranscript(text));
-}
-
-function sendRealtimePayload(
-  channel: { readyState?: string; send?: (data: string) => void },
-  payload: Record<string, unknown>,
-) {
-  if (channel.readyState !== "open" || typeof channel.send !== "function") return;
-  try {
-    channel.send(JSON.stringify(payload));
-  } catch {
-    /* best-effort */
-  }
-}
-
-function sessionTurnSnapshot(event: Record<string, unknown>): Record<string, unknown> {
-  const session = event.session;
-  if (!session || typeof session !== "object") return { hasSession: false };
-  const root = session as Record<string, unknown>;
-  const audio = root.audio;
-  let turn: Record<string, unknown> | null = null;
-  if (audio && typeof audio === "object") {
-    const input = (audio as Record<string, unknown>).input;
-    if (input && typeof input === "object") {
-      const nested = (input as Record<string, unknown>).turn_detection;
-      if (nested && typeof nested === "object") turn = nested as Record<string, unknown>;
-    }
-  }
-  if (!turn && root.turn_detection && typeof root.turn_detection === "object") {
-    turn = root.turn_detection as Record<string, unknown>;
-  }
-  return {
-    hasSession: true,
-    vad: typeof turn?.type === "string" ? turn.type : null,
-    create_response: turn?.create_response ?? null,
-    interrupt_response: turn?.interrupt_response ?? null,
-  };
-}
-
-async function waitForIceGathering(pc: WebRtcPeerConnection): Promise<void> {
-  if (pc.iceGatheringState === "complete") return;
-  await new Promise<void>((resolve) => {
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try {
-        pc.removeEventListener?.("icegatheringstatechange", onStateChange);
-      } catch {
-        /* best-effort */
-      }
-      resolve();
-    };
-    const onStateChange = () => {
-      debug("ice-gathering", pc.iceGatheringState);
-      if (pc.iceGatheringState === "complete") finish();
-    };
-    const timer = setTimeout(finish, ICE_GATHER_TIMEOUT_MS);
-    pc.addEventListener?.("icegatheringstatechange", onStateChange);
-  });
-}
-
-function enableRemoteAudioTrack(track: WebRtcTrack | null | undefined): void {
-  if (!track || track.kind !== "audio") return;
-  try {
-    track.enabled = true;
-  } catch {
-    /* remote audio is still auto-rendered by react-native-webrtc */
-  }
-  try {
-    if (typeof track._setVolume === "function") track._setVolume(1);
-  } catch {
-    /* best-effort */
-  }
+/** Each lookup answers the model; a full set from the current turn asks it to go on. */
+function runToolCalls(
+  { epoch, turnId, calls }: Extract<RealtimeTurnCommand, { type: "run_tools" }>,
+  context: { token: string; chatId?: string | null; callId: string | null },
+  dispatch: (event: RealtimeTurnEvent) => void,
+): void {
+  const { token, chatId, callId } = context;
+  void Promise.all(calls.map(async ({ call, withinLimit }) => {
+    const result = withinLimit && callId && chatId
+      ? await runRealtimeFunctionCall(call, { token, chatId, callId, turnId })
+      : TOOL_LIMIT_RESULT;
+    dispatch({ type: "tool_output", epoch, callId: call.call_id, result });
+  })).then(() => dispatch({ type: "tools_settled", epoch }));
 }
 
 export async function createRealtimeVoiceSession(options: {
@@ -286,484 +79,71 @@ export async function createRealtimeVoiceSession(options: {
   if (!webrtc) {
     throw new Error("webrtc_unavailable");
   }
-
-  await yieldMicToWebRtc();
-  debug("requesting-microphone", { platform: Platform.OS });
-  const localStream = await webrtc.mediaDevices.getUserMedia({
-    audio: webRtcMicConstraints(),
-    video: false,
-  });
-  const localAudioTracks = localStream.getAudioTracks();
-  if (localAudioTracks.length === 0) {
-    for (const track of localStream.getTracks()) track.stop();
-    throw new Error("webrtc_unavailable");
-  }
-  debug("microphone-ready", {
-    tracks: localAudioTracks.length,
-    enabled: localAudioTracks.map((track) => track.enabled),
-    readyState: localAudioTracks.map((track) => track.readyState),
-  });
+  const mic = webRtcMicConstraints();
+  const { stream, audioTracks } = await openRealtimeMicrophone(webrtc, mic);
 
   // Mint the short-lived credential while local ICE gathering proceeds. The
   // permanent OpenAI API key stays on Recall's server; only this ek_ token is
   // ever exposed to the app.
   const credentialPromise = speechApi.createRealtimeSession(options.token, {
     chatId: options.chatId,
-    bargeIn: webRtcMicConstraints().echoCancellation,
+    bargeIn: mic.echoCancellation,
   });
 
-  const pc = new webrtc.RTCPeerConnection({});
-  for (const track of localStream.getTracks()) {
-    pc.addTrack(track, localStream);
-  }
-
-  const dataChannel = pc.createDataChannel("oai-events");
-  const remoteAudioTracks = new Set<WebRtcTrack>();
-  let assistantTranscript = "";
-  let lastAssistantText = "";
-  let closed = false;
   let callId: string | null = null;
   let maxDurationSeconds: number | null = null;
-  let connectionSettled = false;
-  let resolveConnected: (() => void) | null = null;
-  let rejectConnected: ((error: Error) => void) | null = null;
-  let userMuted = false;
-  let assistantSpeaking = false;
-  let suppressCurrentInputTurn = false;
-  let sessionReadyForTurns = false;
-  let acceptedUserUtterance = false;
-  let sawOutputAudioStopped = false;
-  const bargeIn = webRtcMicConstraints().echoCancellation;
-  let activeInputId = "";
-  let activeResponseId: string | null = null;
-  let turnEpoch = 0;
-  let responseFinished = false;
-  let userSpeaking = false;
-  let toolCallsThisTurn = 0;
-  const completedToolCalls = new Set<string>();
-  let micResumeTimer: ReturnType<typeof setTimeout> | null = null;
-  let sessionReadyTimer: ReturnType<typeof setTimeout> | null = null;
+  let turn = initialRealtimeTurnState(mic.echoCancellation);
 
-  const clearMicResumeTimer = () => {
-    if (micResumeTimer == null) return;
-    clearTimeout(micResumeTimer);
-    micResumeTimer = null;
-  };
-
-  const unmuteAfterPlayback = (delayMs: number) => {
-    clearMicResumeTimer();
-    micResumeTimer = setTimeout(() => {
-      micResumeTimer = null;
-      assistantSpeaking = false;
-      syncLocalMicState();
-    }, delayMs);
-  };
-
-  const dropEchoInput = (reason: string, cancelResponse: boolean) => {
-    sendRealtimePayload(dataChannel, { type: "input_audio_buffer.clear" });
-    if (cancelResponse) {
-      sendRealtimePayload(dataChannel, { type: "response.cancel" });
+  const perform = (command: RealtimeTurnCommand) => {
+    switch (command.type) {
+      case "send":
+        return peer.send(command.payload);
+      case "emit":
+        return options.onEvent(command.event);
+      case "set_mic":
+        return gate.setMic(command.enabled);
+      case "start_timer":
+        return gate.start(command.timer, command.ms, command.then);
+      case "clear_timer":
+        return gate.clear(command.timer);
+      case "run_tools":
+        return runToolCalls(command, { token: options.token, chatId: options.chatId, callId }, dispatch);
+      case "log":
+        return debugRealtime(command.stage, command.detail);
     }
-    debug("dropped-echo-input", { reason, cancelResponse });
+  };
+  const dispatch = (event: RealtimeTurnEvent) => {
+    const step = reduceRealtimeTurn(turn, event);
+    turn = step.state;
+    for (const command of step.commands) perform(command);
   };
 
-  const requestAssistantTurn = (reason: string) => {
-    if (
-      !liveTalkShouldCreateResponse({
-        sessionReadyForTurns,
-        assistantSpeaking,
-        userMuted,
-        acceptedUserUtterance,
-      })
-    ) {
-      return;
-    }
-    acceptedUserUtterance = false;
-    assistantSpeaking = true;
-    syncLocalMicState();
-    sendRealtimePayload(dataChannel, { type: "response.create" });
-    debug("response-create", reason);
-  };
-
-  const markSessionReadyForTurns = (reason: string) => {
-    if (sessionReadyForTurns) return;
-    sessionReadyForTurns = true;
-    if (sessionReadyTimer != null) {
-      clearTimeout(sessionReadyTimer);
-      sessionReadyTimer = null;
-    }
-    debug("session-ready-for-turns", reason);
-  };
-
-  const syncLocalMicState = () => {
-    const enabled = liveTalkLocalMicEnabled(userMuted, assistantSpeaking, bargeIn);
-    for (const track of localAudioTracks) {
-      try {
-        track.enabled = enabled;
-      } catch {
-        /* best-effort */
-      }
-    }
-    debug("microphone-gate", { enabled, userMuted, assistantSpeaking });
-  };
-
-  const connectedPromise = new Promise<void>((resolve, reject) => {
-    resolveConnected = resolve;
-    rejectConnected = reject;
+  const gate = createRealtimeMicGate(audioTracks, dispatch);
+  const peer = createRealtimePeer(webrtc, stream, {
+    onOpen: () => dispatch({ type: "channel_open" }),
+    onMessage: (event) => dispatch({ type: "server_event", event, receivedAt: Date.now() }),
+    onPeerFailed: (message) => dispatch({ type: "peer_failed", message }),
+    onChannelFailed: (message) => dispatch({ type: "channel_failed", message }),
   });
-
-  const settleConnected = () => {
-    if (connectionSettled) return;
-    connectionSettled = true;
-    debug("data-channel-open", {
-      ice: String(pc.iceConnectionState),
-      peer: String(pc.connectionState),
-    });
-    resolveConnected?.();
-    // Session turn_detection is minted server-side. Do not session.update
-    // audio.input here — a nested replace can kill server VAD.
-    if (sessionReadyTimer != null) clearTimeout(sessionReadyTimer);
-    sessionReadyTimer = setTimeout(() => {
-      sessionReadyTimer = null;
-      markSessionReadyForTurns("fallback");
-    }, LIVE_TALK_SESSION_READY_FALLBACK_MS);
-    options.onEvent({ type: "connected" });
-  };
-
-  const failConnection = (message: string) => {
-    if (connectionSettled) return;
-    connectionSettled = true;
-    debug("connection-failed", message);
-    rejectConnected?.(new Error(message));
-  };
-
-  const emitError = (message: string) => {
-    debug("realtime-error", message);
-    if (!closed) options.onEvent({ type: "error", message });
-  };
-
-  pc.ontrack = (event: WebRtcTrackEvent) => {
-    if (event.track?.kind === "audio") {
-      remoteAudioTracks.add(event.track);
-      enableRemoteAudioTrack(event.track);
-      debug("remote-audio-track", {
-        id: event.track.id,
-        enabled: event.track.enabled,
-        muted: event.track.muted,
-        readyState: event.track.readyState,
-      });
-    }
-    for (const stream of event.streams ?? []) {
-      for (const track of stream.getAudioTracks?.() ?? []) {
-        remoteAudioTracks.add(track);
-        enableRemoteAudioTrack(track);
-      }
-    }
-  };
-
-  pc.onconnectionstatechange = () => {
-    debug("peer-state", pc.connectionState);
-    if (pc.connectionState === "failed" || pc.connectionState === "closed") {
-      failConnection("Realtime voice connection failed");
-      if (!closed) emitError("Realtime voice connection failed");
-    }
-  };
-  pc.oniceconnectionstatechange = () => {
-    debug("ice-state", pc.iceConnectionState);
-    if (pc.iceConnectionState === "failed") {
-      failConnection("Realtime voice ICE connection failed");
-      if (!closed) emitError("Realtime voice ICE connection failed");
-    }
-  };
-
-  dataChannel.onopen = settleConnected;
-  dataChannel.onclose = () => debug("data-channel-close");
-  dataChannel.onerror = () => {
-    failConnection("Realtime voice data channel failed");
-    emitError("Realtime voice data channel failed");
-  };
-  dataChannel.onmessage = (message: { data?: unknown }) => {
-    if (closed) return;
-    const raw = liveTalkDataChannelText(message.data);
-    if (raw == null) return;
-    let event: Record<string, unknown>;
-    try {
-      event = JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      return;
-    }
-    const type = typeof event.type === "string" ? event.type : "";
-    // Cancellation/transcript events for the interrupted response must not
-    // complete or overwrite the next user's turn.
-    const response = event.response as { id?: string; status?: string } | undefined;
-    const responseId = typeof event.response_id === "string" ? event.response_id : response?.id;
-    if (type !== "response.created" && responseId && responseId !== activeResponseId) return;
-    debug("event", type);
-    if (type === "session.created") {
-      debug("session-created", sessionTurnSnapshot(event));
-      if (sessionReadyTimer != null) clearTimeout(sessionReadyTimer);
-      sessionReadyTimer = setTimeout(() => {
-        sessionReadyTimer = null;
-        markSessionReadyForTurns("session.created+warmup");
-      }, LIVE_TALK_CONNECT_WARMUP_MS);
-    }
-    if (type === "input_audio_buffer.speech_started") {
-      suppressCurrentInputTurn = (!bargeIn && assistantSpeaking) || userMuted || !sessionReadyForTurns;
-      if (suppressCurrentInputTurn) {
-        acceptedUserUtterance = false;
-        dropEchoInput("speech-before-user-turn", false);
-        return;
-      }
-      if (bargeIn && assistantSpeaking) {
-        // Server WebRTC VAD cancels and truncates unplayed audio automatically.
-        options.onEvent({ type: "response_interrupted" });
-        assistantSpeaking = false;
-        assistantTranscript = "";
-        activeResponseId = null;
-        clearMicResumeTimer();
-      }
-      activeInputId = typeof event.item_id === "string" ? event.item_id : String(Date.now());
-      userSpeaking = true;
-      turnEpoch += 1;
-      toolCallsThisTurn = 0;
-      acceptedUserUtterance = true;
-      options.onEvent({ type: "speech_started", turnId: activeInputId });
-      return;
-    }
-    if (type === "input_audio_buffer.speech_stopped") {
-      userSpeaking = false;
-      if (suppressCurrentInputTurn) {
-        suppressCurrentInputTurn = false;
-        acceptedUserUtterance = false;
-        return;
-      }
-      options.onEvent({ type: "speech_stopped" });
-      requestAssistantTurn("speech_stopped");
-      return;
-    }
-    if (type === "response.created") {
-      if (bargeIn && userSpeaking) {
-        // A response.create can cross the next speech_started in flight.
-        // Cancel that old response without clearing the user's new audio.
-        sendRealtimePayload(dataChannel, { type: "response.cancel", response_id: response?.id });
-        return;
-      }
-      if (suppressCurrentInputTurn) {
-        dropEchoInput("response-before-user-turn", true);
-        return;
-      }
-      activeResponseId = response?.id ?? null;
-      responseFinished = false;
-      assistantTranscript = "";
-      clearMicResumeTimer();
-      assistantSpeaking = true;
-      acceptedUserUtterance = false;
-      sawOutputAudioStopped = false;
-      syncLocalMicState();
-      if (!bargeIn) sendRealtimePayload(dataChannel, { type: "input_audio_buffer.clear" });
-      options.onEvent({ type: "response_started" });
-      return;
-    }
-    if (type === "conversation.item.input_audio_transcription.completed") {
-      if (typeof event.item_id === "string" && event.item_id !== activeInputId) return;
-      const text = transcriptFromEvent(event);
-      const echoSource = lastAssistantText || assistantTranscript;
-      if (suppressCurrentInputTurn || (!bargeIn && text && isLikelyAssistantEcho(text, echoSource))) {
-        dropEchoInput("echo-transcript", false);
-        suppressCurrentInputTurn = false;
-        debug("ignored-assistant-echo-transcript", text);
-        return;
-      }
-      if (text && isKnownSilenceHallucination(text)) {
-        debug("ignored-silence-hallucination", text);
-        return;
-      }
-      if (text) options.onEvent({ type: "user_transcript", text });
-      return;
-    }
-    if (
-      type === "response.output_audio_transcript.delta" ||
-      type === "response.audio_transcript.delta"
-    ) {
-      const delta = transcriptFromEvent(event);
-      if (!delta) return;
-      assistantTranscript += delta;
-      options.onEvent({
-        type: "assistant_transcript",
-        text: assistantTranscript.trimStart(),
-        final: false,
-      });
-      return;
-    }
-    if (
-      type === "response.output_audio_transcript.done" ||
-      type === "response.audio_transcript.done"
-    ) {
-      const finalText = transcriptFromEvent(event) || assistantTranscript;
-      assistantTranscript = finalText;
-      if (finalText.trim()) {
-        lastAssistantText = finalText.trim();
-        options.onEvent({ type: "assistant_transcript", text: lastAssistantText, final: true });
-      }
-      return;
-    }
-    if (type === "output_audio_buffer.stopped" || type === "output_audio_buffer.audio_stopped") {
-      sawOutputAudioStopped = true;
-      if (bargeIn) {
-        assistantSpeaking = false;
-        clearMicResumeTimer();
-        if (responseFinished) options.onEvent({ type: "response_done" });
-        return;
-      }
-      unmuteAfterPlayback(LIVE_TALK_PLAYBACK_TAIL_MS);
-      return;
-    }
-    if (type === "response.done") {
-      const calls = realtimeFunctionCalls(event.response);
-      if (calls.length > 0) {
-        const epoch = turnEpoch;
-        const toolTurnId = activeInputId;
-        const fresh = calls.filter((call) => !completedToolCalls.has(call.call_id));
-        for (const call of fresh) completedToolCalls.add(call.call_id);
-        if (!fresh.length) return;
-        void Promise.all(fresh.slice(0, 8).map(async (call) => {
-          toolCallsThisTurn += 1;
-          const result = toolCallsThisTurn <= 2 && callId && options.chatId
-            ? await runRealtimeFunctionCall(call, { token: options.token, chatId: options.chatId, callId, turnId: toolTurnId })
-            : { content: "Voice lookup limit reached. Answer from available context and disclose missing facts." };
-          if (closed) return;
-          sendRealtimePayload(dataChannel, { type: "conversation.item.create", item: {
-            type: "function_call_output", call_id: call.call_id,
-            output: JSON.stringify(epoch === turnEpoch ? result : { content: "Lookup cancelled by a new user turn." }),
-          } });
-          if (epoch !== turnEpoch) return;
-          if ("sources" in result && result.sources?.length) options.onEvent({ type: "search_sources", sources: result.sources });
-        })).then(() => {
-          if (!closed && epoch === turnEpoch) sendRealtimePayload(dataChannel, { type: "response.create" });
-        });
-        return;
-      }
-      suppressCurrentInputTurn = false;
-      responseFinished = true;
-      if (!bargeIn) sendRealtimePayload(dataChannel, { type: "input_audio_buffer.clear" });
-      if (bargeIn && assistantSpeaking && !sawOutputAudioStopped) {
-        // Persist only once playback ends; a user can still interrupt buffered audio.
-        clearMicResumeTimer();
-        micResumeTimer = setTimeout(() => {
-          micResumeTimer = null;
-          assistantSpeaking = false;
-          if (!closed) options.onEvent({ type: "response_done" });
-        }, PLAYBACK_UNMUTE_FALLBACK_MS);
-        return;
-      }
-      // Generation finished; RTP/playout can continue. Do not unmute here.
-      if (assistantSpeaking && !sawOutputAudioStopped) {
-        unmuteAfterPlayback(PLAYBACK_UNMUTE_FALLBACK_MS);
-      }
-      options.onEvent({ type: "response_done" });
-      return;
-    }
-    if (type === "error") {
-      clearMicResumeTimer();
-      assistantSpeaking = false;
-      suppressCurrentInputTurn = false;
-      acceptedUserUtterance = false;
-      syncLocalMicState();
-      const rawError = event.error;
-      const messageText =
-        rawError && typeof rawError === "object" && "message" in rawError
-          ? String((rawError as { message?: unknown }).message || "Realtime voice failed")
-          : "Realtime voice failed";
-      emitError(messageText);
-    }
-  };
-
-  const tearDownAudio = () => {
-    clearMicResumeTimer();
-    if (sessionReadyTimer != null) {
-      clearTimeout(sessionReadyTimer);
-      sessionReadyTimer = null;
-    }
-    for (const track of remoteAudioTracks) {
-      try {
-        track.enabled = false;
-      } catch {
-        /* best-effort */
-      }
-    }
-    remoteAudioTracks.clear();
-    for (const track of localStream.getTracks()) track.stop();
-    pc.close();
+  const tearDown = () => {
+    gate.clearAll();
+    peer.close();
   };
 
   try {
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    // iOS Simulator SIGABRTs in AURemoteIO when setRemoteDescription is
-    // applied after ICE gathering (candidates in the offer). Trickle from
-    // the answer is enough; ICE still reaches connected without them.
-    if (Platform.OS !== "ios") {
-      await waitForIceGathering(pc);
-    }
-    const offerSdp = String(offer.sdp || "");
-    const localSdp = String(pc.localDescription?.sdp || "");
-    const sdp = offerSdp || localSdp;
-    if (!sdp) throw new Error("Could not create realtime audio offer");
-    debug("sending-sdp", {
-      transport: "direct-ephemeral",
-      hasAudio: sdp.includes("m=audio"),
-      hasData: sdp.includes("m=application"),
-      hasCandidate: sdp.includes("a=candidate"),
-      gathering: pc.iceGatheringState,
-    });
-
+    const offerSdp = await peer.createOffer();
     const credential = await credentialPromise;
     callId = credential.call_id;
     maxDurationSeconds = credential.max_duration_seconds ?? null;
-    debug("client-secret-ready", {
+    debugRealtime("client-secret-ready", {
       model: credential.model,
       expiresAt: credential.expires_at,
     });
-
-    const answerSdp = await exchangeRealtimeSdp(credential.client_secret, sdp);
-    debug("received-sdp-answer", {
-      transport: "direct-ephemeral",
-      hasAudio: answerSdp.includes("m=audio"),
-      hasData: answerSdp.includes("m=application"),
-    });
-    await pc.setRemoteDescription(
-      new webrtc.RTCSessionDescription({ type: "answer", sdp: answerSdp }),
-    );
-
-    for (const receiver of pc.getReceivers?.() ?? []) {
-      if (receiver.track?.kind === "audio") {
-        remoteAudioTracks.add(receiver.track);
-        enableRemoteAudioTrack(receiver.track);
-      }
-    }
-
-    let connectDeadline: ReturnType<typeof setTimeout> | undefined;
-    try {
-      await Promise.race([
-        connectedPromise,
-        new Promise<never>((_, reject) => {
-          connectDeadline = setTimeout(
-            () => reject(new Error("Realtime voice connection timed out")),
-            CONNECTION_TIMEOUT_MS,
-          );
-        }),
-      ]);
-    } finally {
-      clearTimeout(connectDeadline);
-    }
+    await peer.connect(credential.client_secret, offerSdp);
   } catch (error) {
-    closed = true;
-    tearDownAudio();
-    try {
-      dataChannel.close();
-    } catch {
-      /* best-effort */
-    }
+    dispatch({ type: "close" });
+    tearDown();
+    peer.closeChannel();
     // The server reserved minutes at mint; a call that never connected gives
     // them back (it is charged only the seconds since the mint).
     if (callId) void speechApi.endRealtimeSession(options.token, callId).catch(() => {});
@@ -773,30 +153,14 @@ export async function createRealtimeVoiceSession(options: {
   return {
     callId,
     maxDurationSeconds,
-    setMuted: (muted: boolean) => {
-      userMuted = muted;
-      syncLocalMicState();
-    },
-    cancelResponse: () => {
-      turnEpoch += 1;
-      sendRealtimePayload(dataChannel, { type: "response.cancel" });
-      if (bargeIn) sendRealtimePayload(dataChannel, { type: "output_audio_buffer.clear" });
-      if (assistantSpeaking) options.onEvent({ type: "response_interrupted" });
-      activeResponseId = null;
-      assistantSpeaking = false;
-      clearMicResumeTimer();
-      syncLocalMicState();
-    },
+    setMuted: (muted: boolean) => dispatch({ type: "set_muted", muted }),
+    cancelResponse: () => dispatch({ type: "cancel_response" }),
     close: () => {
-      if (closed) return;
-      closed = true;
-      debug("closing-session");
-      try {
-        dataChannel.close();
-      } catch {
-        /* best-effort */
-      }
-      tearDownAudio();
+      if (turn.closed) return;
+      dispatch({ type: "close" });
+      debugRealtime("closing-session");
+      peer.closeChannel();
+      tearDown();
     },
   };
 }

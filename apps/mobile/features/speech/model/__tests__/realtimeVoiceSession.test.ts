@@ -10,6 +10,7 @@ jest.mock("react-native", () => ({
 jest.mock("expo-modules-core", () => ({
   requireOptionalNativeModule: () => ({ isDevice: true }),
 }));
+jest.mock("expo-constants", () => ({}));
 jest.mock("@/lib/speech/voiceAudio", () => ({ yieldMicToWebRtc: jest.fn(async () => undefined) }));
 jest.mock("@/features/speech/api", () => ({ speechApi: { createRealtimeSession: jest.fn(), realtimeTool: jest.fn() } }));
 jest.mock("react-native-webrtc", () => ({
