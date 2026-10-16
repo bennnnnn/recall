@@ -29,6 +29,29 @@ describe("parseSseChunk", () => {
     ]);
     expect(rest).toBe('data: {"type":"tok');
   });
+
+  it("reads a done event in today's shape and in the typed one alike", () => {
+    // Today's server bytes (pinned by the API's test_stream_event_parity.py).
+    const today =
+      '{"type":"done","message_id":"m1","todos_sync":"1","search_sources":"[{\\"title\\": \\"Moon\\", \\"url\\": \\"https://example.com\\", \\"snippet\\": \\"Orbit.\\"}]","resolved_model":"smart-chat"}';
+    const sources = [{ title: "Moon", url: "https://example.com", snippet: "Orbit." }];
+    const typed = JSON.stringify({
+      type: "done",
+      message_id: "m1",
+      todos_changed: true,
+      search_sources: sources,
+      resolved_model: "smart-chat",
+    });
+    const { events } = parseSseChunk(`data: ${today}\n\ndata: ${typed}\n\n`);
+    const done = {
+      type: "done",
+      message_id: "m1",
+      todos_changed: true,
+      search_sources: sources,
+      resolved_model: "smart-chat",
+    };
+    expect(events).toEqual([done, done]);
+  });
 });
 
 describe("isSseAbortError", () => {

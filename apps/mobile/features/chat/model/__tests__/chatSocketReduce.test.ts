@@ -267,3 +267,47 @@ describe("chatSocketReduce", () => {
     expect(shouldIgnoreStoppedStreamEvent("error", false)).toBe(false);
   });
 });
+
+describe("done event shapes (today's strings, ES-45's typed fields)", () => {
+  const sources = [{ title: "AP News", url: "https://apnews.com/a", snippet: "Story text." }];
+  const parseDone = (fields: Record<string, unknown>) =>
+    parseChatWsPayload(JSON.stringify({ type: "done", message_id: "m1", ...fields }));
+
+  it("reads search_sources as JSON text or as an array", () => {
+    expect(parseDone({ search_sources: JSON.stringify(sources) })?.search_sources).toEqual(sources);
+    expect(parseDone({ search_sources: sources })?.search_sources).toEqual(sources);
+  });
+
+  it.each([undefined, "", "[]", [], "not json", { title: "x" }])(
+    "leaves search_sources out for %j",
+    (search_sources) => {
+      expect(parseDone({ search_sources })).not.toHaveProperty("search_sources");
+    },
+  );
+
+  it.each<[Record<string, unknown>, boolean]>([
+    [{ todos_sync: "1" }, true],
+    [{ todos_changed: true }, true],
+    [{}, false],
+    [{ todos_sync: "0" }, false],
+    [{ todos_changed: false }, false],
+  ])("reads %j as todos_changed %s", (fields, changed) => {
+    const payload = parseDone(fields);
+    expect(payload?.todos_changed === true).toBe(changed);
+    expect(payload).not.toHaveProperty("todos_sync");
+  });
+
+  it("hands either shape's sources to the done merge", () => {
+    for (const search_sources of [JSON.stringify(sources), sources]) {
+      const payload = parseDone({ search_sources });
+      expect(buildDoneMergeInput(payload!, { content: "Answer" }).search_sources).toEqual(sources);
+    }
+    expect(buildDoneMergeInput(parseDone({})!, { content: "Answer" }).search_sources).toBeUndefined();
+  });
+
+  it("drops a frame that is not an object", () => {
+    expect(parseChatWsPayload("5")).toBeNull();
+    expect(parseChatWsPayload("[]")).toBeNull();
+    expect(parseChatWsPayload("null")).toBeNull();
+  });
+});

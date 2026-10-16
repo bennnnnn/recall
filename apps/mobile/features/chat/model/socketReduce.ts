@@ -1,5 +1,5 @@
 import type { Message, SearchSource } from "@/lib/api";
-import { parseSearchSources, parseSearchSourcesJson, stripSearchSourcesFromContent } from "@/lib/searchSources";
+import { parseSearchSources, searchSourcesFromField, stripSearchSourcesFromContent } from "@/lib/searchSources";
 
 export type ChatWsPayload = {
   type: string;
@@ -12,8 +12,9 @@ export type ChatWsPayload = {
   detail?: string;
   reasoning?: string;
   final_content?: string;
-  todos_sync?: string;
-  search_sources?: string;
+  /** The turn changed the to-do list. */
+  todos_changed?: boolean;
+  search_sources?: SearchSource[];
   resolved_model?: string;
   completion?: string;
   /** Follow-up questions on a `related_prompts` event. The message field stays `related_prompts`. */
@@ -36,20 +37,29 @@ export function shouldIgnoreStoppedStreamEvent(
   return !streaming && STOPPED_STREAM_DELTA_TYPES.has(type);
 }
 
+/**
+ * `done` carries `search_sources` as JSON text and `todos_sync: "1"` today; ES-45 sends an
+ * array and `todos_changed: true`. Either reads the same past this point.
+ */
+function normalizeChatWsPayload(wire: Record<string, unknown>): ChatWsPayload {
+  const { search_sources: sources, todos_sync: todosSync, todos_changed: todosChanged, ...rest } =
+    wire;
+  const payload = rest as ChatWsPayload;
+  const searchSources = searchSourcesFromField(sources);
+  if (searchSources.length > 0) payload.search_sources = searchSources;
+  if (todosChanged === true || todosSync === "1") payload.todos_changed = true;
+  return payload;
+}
+
 export function parseChatWsPayload(raw: string): ChatWsPayload | null {
+  let wire: unknown;
   try {
-    return JSON.parse(raw) as ChatWsPayload;
+    wire = JSON.parse(raw);
   } catch {
     return null;
   }
-}
-
-function parsePayloadSearchSources(
-  raw: string | undefined,
-): SearchSource[] | undefined {
-  if (!raw) return undefined;
-  const parsed = parseSearchSourcesJson(raw);
-  return parsed.length > 0 ? parsed : undefined;
+  if (!wire || typeof wire !== "object" || Array.isArray(wire)) return null;
+  return normalizeChatWsPayload(wire as Record<string, unknown>);
 }
 
 function relatedPromptsFrom(value: unknown): string[] | undefined {
@@ -214,7 +224,7 @@ export function buildDoneMergeInput(
     messageId: payload.message_id,
     draftContent: draft?.content ?? "",
     finalContent,
-    search_sources: parsePayloadSearchSources(payload.search_sources),
+    search_sources: payload.search_sources,
     draftSearchSources: draft?.search_sources,
     model: payload.resolved_model ?? null,
     stoppedStreamedId,
