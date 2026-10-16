@@ -9,7 +9,14 @@ from app.modules.math.tools.school._parse import _SIDE_ASKED
 
 _N = r"(-?\d+(?:\.\d+)?)"
 _DEG = r"\s*(?:°|degrees?|deg)?"
-_DEGREES = r"\s*(?:°|degrees?|deg)\b"
+# An angle in degrees. Not "\b": "°" is no word character, so "35°" at the end never met
+# one, while "28°F" did. The next word is the angle's noun or the request's own ("and
+# explain why", "step by step", "please"), never a noun the degrees describe: "a good
+# complement to 35° weather" is no angle question.
+_REQUEST_WORD = (
+    r"(?:angles?|and|then|please|now|thanks?|thank|quickly|briefly|step|show|explain|just)\b"
+)
+_DEGREES = rf"\s*(?:°|degrees?|deg)(?![A-Za-z0-9])(?!\s+(?!{_REQUEST_WORD})[A-Za-z])"
 _IS = r"\s*(?:of\s+|is\s+|=\s*|:\s*)?"
 _UNIT = r"(?:\s*(mm|cm|km|m|in|ft))?"
 _POINT = rf"\(\s*{_N}\s*,\s*{_N}\s*\)"

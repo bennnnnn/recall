@@ -508,6 +508,31 @@ async def test_battery_three_geometry(text: str, answer: str) -> None:
     assert canonical == answer
 
 
+# "°" is not a word character, so an angle that ended in "°" never met the word boundary
+# after it: the supplement of 35° had no reading, and the complement of 28° was read as a
+# probability and declined. A probability complement keeps its own reading.
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("find the supplement of 35°", r"145^\circ"),
+        ("What is the complement of 28°?", r"62^\circ"),
+        ("the complementary angle to 28 °", r"62^\circ"),
+        ("find the complement of 28° angle", r"62^\circ"),
+        ("find the supplement of 35° please", r"145^\circ"),
+        ("Find the supplement of 35 degrees and explain why", r"145^\circ"),
+        ("Find the complement of 28 degrees step by step", r"62^\circ"),
+        ("supplement of 35.5°.", r"144.5^\circ"),
+        ("find the complement of 28 degrees", r"62^\circ"),
+        ("complement of 0.3", "0.7"),
+        ("find the complement of event A if P(A) = 0.3", "0.7"),
+    ],
+)
+async def test_an_angle_with_a_degree_sign_is_read(text: str, answer: str) -> None:
+    canonical, _ = await _reply(text)
+    assert canonical == answer
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("text", "answer"),
@@ -571,6 +596,16 @@ async def test_battery_three_working(text: str, row: str) -> None:
     [
         "complement of 0.3",
         "the radius of the earth is 6371 km",
+        "complement of event A",
+        "P(A') if P(A) = 0.3",
+        # A temperature, not an angle: the degree sign once met a boundary before the letter.
+        "complement of 28°F",
+        "the supplement of 35°C",
+        # A noun after the angle: no angle question ("28 degrees weather" was 62°).
+        "What drink is a good complement to 35° weather?",
+        "What snack is a good complement to 28 degrees weather at the beach?",
+        "A crisp white wine is the perfect complement to 30° days",
+        "What's a light lunch that's a good supplement for 35° summer days?",
     ],
 )
 def test_geometry_measures_leave_other_questions_alone(text: str) -> None:

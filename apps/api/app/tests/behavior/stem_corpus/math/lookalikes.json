@@ -56,5 +56,10 @@
   {"id": "L55", "area": "lookalike", "prompt": "what should I cook tonight?", "expect": "not_math"},
   {"id": "L56", "area": "lookalike", "prompt": "Can you explain nonlinear storytelling, like in Memento or Pulp Fiction?", "expect": "not_math"},
   {"id": "L57", "area": "lookalike", "prompt": "Our onboarding is too linear. How do I let new hires skip the first 2 weeks of training?", "expect": "not_math"},
-  {"id": "L58", "area": "lookalike", "prompt": "I'm near the end of chapter 3 of my thesis and totally out of steam. Any tips?", "expect": "not_math"}
+  {"id": "L58", "area": "lookalike", "prompt": "I'm near the end of chapter 3 of my thesis and totally out of steam. Any tips?", "expect": "not_math"},
+  {"id": "L59", "area": "lookalike", "prompt": "It's 28° outside and sunny. Is that warm enough to swim in the lake?", "expect": "not_math"},
+  {"id": "L60", "area": "lookalike", "prompt": "Is 85°F weather too hot for a 5 mile run?", "expect": "not_math"},
+  {"id": "L61", "area": "lookalike", "prompt": "The hotel says breakfast is free and complementary. Does that usually include coffee?", "expect": "not_math"},
+  {"id": "L62", "area": "lookalike", "prompt": "Is a supplement of 1000 IU of vitamin D a day enough in winter?", "expect": "not_math"},
+  {"id": "L63", "area": "lookalike", "prompt": "What's a light lunch that's a good supplement for 35° summer days?", "expect": "not_math"}
 ]
