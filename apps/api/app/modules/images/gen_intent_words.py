@@ -44,6 +44,7 @@ NOUN_MESSAGE_FILE_WORDS = frozenset({"script", "code", "compression", "format", 
 
 SUBJECTLESS_FILLER = frozenset({"a", "an", "the", "of", "just", "please"})
 
+# lookup_intent.py builds on this list: a word here also stops a photo lookup.
 NON_IMAGE_WORDS = frozenset(
     {
         "todo",
@@ -165,8 +166,7 @@ NON_IMAGE_WORDS = frozenset(
         "worksheets",
         "assignment",
         "assignments",
-        # How-to / listicle heads — same as image_lookup_intent. Do not add
-        # "way" (milky way) or "guide" (tour-guide photos).
+        # How-to / listicle heads. Do not add "way" (milky way) or "guide" (tour-guide photos).
         "stops",
         "ways",
         "tips",

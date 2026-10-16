@@ -38,7 +38,7 @@ export const NOUN_MESSAGE_FILE_WORDS = new Set(["script", "code", "compression",
 
 export const SUBJECTLESS_FILLER = new Set(["a", "an", "the", "of", "just", "please"]);
 
-/** Subjects that mean "make a thing in the app/code", not a picture. */
+/** Subjects that mean "make a thing in the app/code", not a picture. imageLookupIntent builds on it. */
 export const NON_IMAGE_WORDS = new Set([
   "todo",
   "todos",
@@ -159,8 +159,7 @@ export const NON_IMAGE_WORDS = new Set([
   "worksheets",
   "assignment",
   "assignments",
-  // How-to / listicle heads — same as imageLookupIntent. Do not add
-  // "way" (milky way) or "guide" (tour-guide photos).
+  // How-to / listicle heads. Do not add "way" (milky way) or "guide" (tour-guide photos).
   "stops",
   "ways",
   "tips",
