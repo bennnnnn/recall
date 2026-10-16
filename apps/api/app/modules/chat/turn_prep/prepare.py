@@ -22,6 +22,7 @@ from app.modules.chat.turn_prep.context import (
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
+from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
@@ -222,13 +223,11 @@ async def prepare_chat_turn(
         )
 
         async def _prompt() -> TurnPromptBundle:
-            return await build_stream_prompt_context(
-                user_id,
-                chat_id,
-                content,
-                overlap_model,
-                settings,
-                redis,
+            request = TurnRequest(
+                user_id=user_id,
+                chat_id=chat_id,
+                content=content,
+                model=overlap_model,
                 client_timezone=client_timezone,
                 client_location=client_location,
                 client_latitude=client_latitude,
@@ -245,6 +244,7 @@ async def prepare_chat_turn(
                 recent_messages=prompt_recent,
                 current_user_message_id=pending_id,
             )
+            return await build_stream_prompt_context(request, settings, redis)
 
         persist_task = asyncio.create_task(_persist_user_message())
         try:
@@ -262,13 +262,11 @@ async def prepare_chat_turn(
         indexable_attachment_ids = await _persist_user_message()
         if user is None or model is None:
             raise ChatNotFoundError("User not found.")
-        bundle = await build_stream_prompt_context(
-            user_id,
-            chat_id,
-            content,
-            model,
-            settings,
-            redis,
+        request = TurnRequest(
+            user_id=user_id,
+            chat_id=chat_id,
+            content=content,
+            model=model,
             client_timezone=client_timezone,
             client_location=client_location,
             client_latitude=client_latitude,
@@ -284,6 +282,7 @@ async def prepare_chat_turn(
             probe_attachment_rag=bool(attachment_ids) or (prior_count or 0) > 0,
             current_user_message_id=pending_id,
         )
+        bundle = await build_stream_prompt_context(request, settings, redis)
 
     prompt_messages = bundle.prompt_messages
     from app.modules.attachments import content as attachment_content_service

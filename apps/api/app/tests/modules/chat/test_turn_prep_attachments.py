@@ -8,6 +8,7 @@ import pytest
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway
+from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.math.schemas import MathImageExtract
 
 
@@ -151,8 +152,8 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
 
     captured: dict[str, object] = {}
 
-    async def _fake_build_stream_prompt_context(*_args: object, **kwargs: object):
-        captured["image_math_extract"] = kwargs.get("image_math_extract")
+    async def _fake_build_stream_prompt_context(request: TurnRequest, *_args: object):
+        captured["image_math_extract"] = request.image_math_extract
         return SimpleNamespace(
             prompt_messages=[],
             meta={},

@@ -535,6 +535,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-19 — Split `build_stream_prompt_context` (421 lines)
 
+- **Status:** done. `build_stream_prompt_context(TurnRequest, settings, redis)` keeps only the phase order and its latency marks (78 lines, was 421). `_load_turn_identity` reads only what the caller left out, in one branch; `turn_prep/instant.py` (recurring pay, the Phase A time/location/profile/settings replies, "location not set"), `followups.py::resolve_subject_followup`, `augment.py::gather_and_inject`, and `request.py` (`TurnRequest`, `TurnIdentity`, client geo). `settings` and `redis` stay arguments, not request fields. Byte-identical capture over 4,113 turns (battery, sweep and STEM corpora, and turns for each job). `context.py` 731 → 354 lines, out of the size baseline.
 - **Problem:** `chat/turn_prep/context.py:311` mixes six jobs:
   1. loading user, chat and mode, in two branches that repeat the same geo, timezone and
      rich-context code (:350-385)

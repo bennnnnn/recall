@@ -31,7 +31,9 @@ def offline_session_patches():
         patch("app.modules.chat.prompt_builder.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.turn_prep.augment.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.context.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.prepare.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.post_turn.SessionLocal", FakeSessionCM),
     )
