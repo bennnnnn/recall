@@ -231,6 +231,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-07 — Parity fixtures for the remaining phone twins (geo intent, plot expressions)
 
+- **Status:** done. Seven geo divergences fixed on the phone; seven plot forms recorded as `phone_gap` (ES-43).
 - **Problem:**
   - `lib/localPlacesQuery.ts` mirrors `modules/web_search/patterns.py` (`_DISTANCE_INTENT`
     :427, `_MOTION_HOMEWORK` :444, `_HOW_MANY_ASKED` / `_TRIP_PLACE` :487) and `is_location_question`
@@ -1011,6 +1012,52 @@ not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
 
 - **Risk:** low.
 - **Size:** S.
+
+---
+
+### ES-41 — The server misreads `ceil(x)` as a product
+
+- **Problem:** `_parse_expression("ceil(x)")` (the parse `sample_function` plots) reads `ceil` as
+  the product E·c·i·l, so "plot y = ceil(x)" cannot be drawn. The phone's `graphExpr.ts` reads it
+  correctly. Found by ES-07.
+- **Change:** map `ceil`/`floor` to SymPy's `ceiling`/`floor` in the expression reader's local
+  names, next to the existing function names.
+- **Tests:** add `ceil(x)` and `floor(x)` to `docs/fixtures/graph_expr_cases.json`; both contract
+  tests then pin it.
+- **Risk:** low. **Size:** S.
+
+### ES-42 — "What’s my current location?" with a curly apostrophe is not a location ask
+
+- **Problem:** the iPhone keyboard types a curly apostrophe by default. Neither the server nor
+  the phone reads "What’s my current location?" as a location question. The typo-spelling list
+  in `services/time_context.py` collapses doubled letters, so its two "current" entries can
+  never match. Found by ES-07.
+- **Change:** normalize U+2019 to `'` before the location rule (the time rule already does, in
+  `_normalize_now_ask`), and fix the collapsed "current" entries.
+- **Tests:** add the curly form to `docs/fixtures/geo_intent_cases.json` (where-am-I group).
+- **Risk:** low. **Size:** S.
+
+### ES-43 — The phone cannot resample seven plot forms the server writes
+
+- **Problem:** `sin x`, `cos 2x`, `sqrt x`, `log x`, `√x`, `|x|` and `xe^x` are read by the server
+  and refused by `lib/math/graphExpr.ts`, so the phone draws the server's samples but cannot
+  resample them on zoom. They are marked `phone_gap` in `docs/fixtures/graph_expr_cases.json`.
+- **Change:** either have the server write the bracketed canonical form into the graph fence
+  (`sin(x)`, `sqrt(x)`, `abs(x)`, `x*e^x`), which the phone already reads, or port the three
+  rewrites. The first is smaller and keeps one parser authoritative.
+- **Tests:** delete each `phone_gap` line as its form starts to agree.
+- **Risk:** low. **Size:** S.
+
+### ES-44 — Photo lookup: a dual-use word beside an unblocked one still searches
+
+- **Problem:** after ES-02, a dual-use word (branch, hook, test, ...) blocks a lookup only when it
+  is the whole subject. "show me the git branch" and "show me a custom hook" still run a photo
+  search, as they did before ES-02.
+- **Change:** block a dual-use word that sits next to a code word (git, react, custom, unit, ...)
+  in the subject, with that small word set beside `_DUAL_USE_WORDS` on both sides.
+- **Tests:** contract rows in `docs/fixtures/image_intent_cases.json`, plus sweep look-alikes
+  with coding history.
+- **Risk:** low. **Size:** S.
 
 ---
 
