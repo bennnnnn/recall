@@ -614,6 +614,34 @@ def test_geometry_measures_leave_other_questions_alone(text: str) -> None:
     assert extract_geometry_measure_intent(text) is None
 
 
+# A letter beside x and y leaves no numeric centre or radius. "= z" compared z with 0,
+# which raised a TypeError no solver catches, and the turn was logged as a failure.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Centre and radius of the circle y^2 + x^2 = z.",
+        "centre and radius of x^2 + y^2 = r^2",
+        "center and radius of x^2 + y^2 + z = 4",
+        "find the centre and radius of x^2 + y^2 + 2kx = 4 - k^2",
+        "centre and radius of the circle x^2 + y^2 = I",
+    ],
+)
+def test_a_circle_without_a_numeric_radius_declines_quietly(
+    text: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    from app.modules.math.tools.block import _build_verified_block
+    from app.modules.math.tools.extract import extract_math_intent
+
+    intent = extract_math_intent(text)
+    assert intent is not None
+    assert intent.school_op == "geometry_measure:circle_centre_radius"
+    with caplog.at_level(logging.WARNING):
+        assert _build_verified_block(intent, Settings(math_tools_enabled=True)) is None
+    assert [record.getMessage() for record in caplog.records] == []
+
+
 # The triangle laws, computed once (ES-10). The two-sides-and-an-angle cosine rule knew exact
 # cosines only from a hand table of 60°, 120° and 90°; SymPy knows 30°, 45° and 150° too.
 

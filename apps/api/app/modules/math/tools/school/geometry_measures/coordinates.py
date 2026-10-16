@@ -42,6 +42,10 @@ def _circle_centre_radius(intent: MathIntent) -> _Solved | None:
         poly = Poly(expand(lhs - rhs), x, y)
     except Exception:
         return None
+    # Only x and y may be letters: "= z" or "+ 2kx" has no numeric centre or radius,
+    # and comparing a letter with 0 below has no truth value.
+    if not all(term.is_number and term.is_extended_real for term in poly.coeffs()):
+        return None
     coefficient = poly.coeff_monomial(x**2)
     if (
         coefficient == 0
