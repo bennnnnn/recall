@@ -420,6 +420,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-14 — Direct replies stop re-reading the user's words
 
+- **Status:** done. Extraction records `GeometryRequest(kind, quantity, target)` (plus the given area, whether the sides were named, and a solid's measures) and the literal `plot_point`; `_build_verified_block` copies both to `VerifiedMathBlock` (server-side only, never serialized to the phone). The working is a `_WORKINGS[(shape, quantity)]` table over `direct_geometry_working/` (`quadrilaterals`, `triangles`, `circles`, `solids`), and the point guard reads `plot_point` bound to its request. Golden fixtures and a 32k-prompt capture are byte-identical; the math STEM sweep is unchanged.
 - **Problem:** `math/tools/direct_geometry_working.py:93` `format_direct_geometry_working` is the
   second-longest API function at 346 lines. It re-parses the question
   (`parse_solid`, `parse_named_rectangle_request`, imported at :13-17) to rediscover which shape
