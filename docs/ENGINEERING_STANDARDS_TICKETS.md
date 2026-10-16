@@ -804,6 +804,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-30 — Make `math/tools/school/geometry_measures.py` (1222) a package
 
+- **Status:** done. `school/geometry_measures/` is `rules.py` (the `_RULES` table and the intent readers), `circles.py`, `polygons.py` (shapes and angle facts), `triangle_trig.py` (the extreme angle, the sine rule, right-triangle ratios and the ladder, with the laws from `solve/triangle.py`), `coordinates.py` (its two silent excepts moved unchanged, for ES-39) and `working.py` (the `_Solved` layout and its number spellings), with `_SOLVERS` and `geometry_measure_block` in `__init__.py`; all 64 definitions kept their AST. A golden block per operation, a capture of 50,780 prompts and 47,174 synthetic intents (byte-identical before and after; three mutants each changed it) and the math STEM sweep (unchanged) pin the move.
 - **Problem:** the file holds:
   - the `_RULES` extraction table (105-262) and intent builders (285-400)
   - circle and sphere solvers (402-597)
