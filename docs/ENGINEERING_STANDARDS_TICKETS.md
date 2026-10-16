@@ -1042,6 +1042,9 @@ not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
 
 ### ES-43 — The phone cannot resample seven plot forms the server writes
 
+- **Status:** done. The server writes its reading into the graph fence in the phone's grammar
+  (`solve/graph_expr_text.py`); the seven raw forms stay `phone_gap` and arrive as `sin(x)`,
+  `cos(2x)`, `sqrt(x)`, `log(x)`, `abs(x)` and `x*e^x`.
 - **Problem:** `sin x`, `cos 2x`, `sqrt x`, `log x`, `√x`, `|x|` and `xe^x` are read by the server
   and refused by `lib/math/graphExpr.ts`, so the phone draws the server's samples but cannot
   resample them on zoom. They are marked `phone_gap` in `docs/fixtures/graph_expr_cases.json`.

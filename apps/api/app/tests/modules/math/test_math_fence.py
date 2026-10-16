@@ -95,7 +95,7 @@ def test_replaces_truncated_unclosed_graph_fence_with_canonical() -> None:
     out_json = out[i + 8 : j]
     out_spec = json.loads(out_json)
     assert out_spec["type"] == "function"
-    assert out_spec["expr"] == "x**2"
+    assert out_spec["expr"] == "x^2"
     assert len(out_spec["points"]) == len(full_points)
     assert "Could not render" not in out
 

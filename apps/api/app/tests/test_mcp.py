@@ -506,7 +506,8 @@ async def test_sympy_adapter_graph_includes_canonical_fence():
     assert result.data is not None
     fence = result.data["canonical_fence"]
     assert fence["type"] == "function"
-    assert fence["expr"] == "x**2"
+    # SymPy's reading, in the grammar the phone resamples (graph_expr_text).
+    assert fence["expr"] == "x^2"
     assert len(fence["points"]) >= 2
     assert "```graph\n" not in result.content
 
@@ -600,8 +601,8 @@ async def test_sympy_adapter_graph_pair_via_expr2():
     )
     assert result.data is not None
     fence = result.data["canonical_fence"]
-    assert fence["expr"] == "x**2"
-    assert fence["expr2"] == "2*x"
+    assert fence["expr"] == "x^2"
+    assert fence["expr2"] == "2x"
     assert fence["points2"] is not None
     assert len(fence["points2"]) >= 2
     assert fence["label2"]

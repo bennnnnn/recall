@@ -21,6 +21,7 @@ from app.modules.math.solve.extract_eq import (
     try_extract_compound_inequality_from_text,
     try_extract_inequality_from_text,
 )
+from app.modules.math.solve.graph_expr_text import graph_expr_text
 from app.modules.math.solve.parse import _parse_expression
 from app.services.solving import MathServiceError
 
@@ -217,9 +218,7 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     sym = Symbol(data.variable)
     parsed = _parse_expression(data.expr, [data.variable])
     original = _parse_expression(data.expr, [data.variable], evaluate=False)
-    from sympy.core.relational import Relational
-
-    if isinstance(parsed, Relational):
+    if parsed.is_Relational:
         raise MathServiceError("Inequality expressions are number lines, not y=f(x) plots")
 
     from sympy.utilities.lambdify import lambdify
@@ -246,7 +245,8 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     # heuristic stays the fallback.
     pole_xs = _confirmed_pole_xs(points, _symbolic_pole_xs(parsed, sym, x_min, x_max))
     return GraphSampleResult(
-        expr=data.expr,
+        # The phone re-reads this to resample on zoom, so it is SymPy's reading, not the raw text.
+        expr=graph_expr_text(parsed, data.variable) or data.expr,
         variable=data.variable,
         x_min=x_min,
         x_max=x_max,
