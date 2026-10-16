@@ -14,11 +14,10 @@ from app.modules.chemistry.species import counts_in_mass_action
 from app.modules.chemistry.species_facts import (
     ELEMENT_NAMES,
 )
+from app.services.number_text import TEXT_NUMBER
 
-# A number starts where its digit run starts. Without the lookbehind, a search retries
-# from every digit of a long run and backtracks the rest of it each time (575 ms for
-# 3,800 digits); a match that starts mid-run is only ever a suffix of the real one.
-_N = r"-?(?<![\d.])(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?"
+# The extractors' short name for the shared running-text number.
+_N = TEXT_NUMBER
 
 
 TIME_UNIT_PATTERN = r"(?:seconds?|minutes?|hours?|days?|years?|sec|min|hr|yr|h|d|s)"

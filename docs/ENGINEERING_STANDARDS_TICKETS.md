@@ -272,6 +272,11 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-09 — One number-literal grammar for every subject
 
+- **Status:** done. `services/number_text.py` names the grammar every subject reads
+  (`SIGNED_DECIMAL`, `SIGNED_DECIMAL_SCI`, `FRACTION_OR_DECIMAL`, running-text `TEXT_NUMBER`,
+  `bounded_decimal`), owns the two helpers and `fold_scientific`; maths folds with
+  `style="product"`, so "1.8·10⁻⁵ divided by 3" is answered. Only `match/discrete.py` keeps its
+  own data number, which reads "5., 6., 7.".
 - **Problem:** 16 private number regexes with different rules:
   - Optional exponent in some, length caps in others, `(?<!\d)` only in physics.
   - Files: `math/tools/direct_calculus.py:13`, `direct_units.py:10`, `direct_newton.py:14`,
