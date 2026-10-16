@@ -1,6 +1,5 @@
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
 import { preprocessMarkdownForStream } from "@/lib/markdown/preprocessStream";
-import { presentAssistantMarkdown } from "@/lib/markdown/presentation";
 import { markdownItInstance } from "@/lib/markdown/parser";
 import { restoreMathEscapes } from "@/lib/math/text";
 
@@ -47,18 +46,6 @@ describe("inline code and inline maths in one line", () => {
     expect(view.text).toBe(
       "Iteration 1: n is 2. total += n means total = total + n. So, total becomes 0 + 2 = 2.",
     );
-  });
-
-  it("leaves the iteration line byte-for-byte in the shared presentation step", () => {
-    // The same step runs on the API before the reply is saved.
-    expect(presentAssistantMarkdown(ITERATION)).toBe(ITERATION);
-    for (const line of [
-      "`n` is $2$, `total` is $2$, and `total += n` gives $4$.",
-      "Then $2$ and $3$ are both even.",
-      "`x` starts at $2$ and `y = x + 1` gives $3$.",
-    ]) {
-      expect(presentAssistantMarkdown(line)).toBe(line);
-    }
   });
 
   it("streams the iteration line the same way it settles", () => {

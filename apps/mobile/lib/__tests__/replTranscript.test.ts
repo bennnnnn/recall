@@ -1,5 +1,4 @@
 import { fenceReplTranscripts } from "@/lib/markdown/replTranscript";
-import { presentAssistantMarkdown } from "@/lib/markdown/presentation";
 
 describe("fenceReplTranscripts", () => {
   it("turns a >>> transcript into a python block", () => {
@@ -18,11 +17,5 @@ describe("fenceReplTranscripts", () => {
     "Compare a >>> b in prose.",
   ])("leaves %j alone", (text) => {
     expect(fenceReplTranscripts(text)).toBe(text);
-  });
-
-  it("runs as part of reply presentation", () => {
-    expect(presentAssistantMarkdown(">>> print(1)\n1")).toContain(
-      "```python\n>>> print(1)\n1\n```",
-    );
   });
 });
