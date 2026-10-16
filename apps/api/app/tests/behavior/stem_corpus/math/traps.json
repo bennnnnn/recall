@@ -97,5 +97,7 @@
   {"id": "v4", "area": "trap", "prompt": "solve for k: kx + x^2 + 9 = 0", "expect": "answer", "check": ["expr", "-x-9/x"]},
   {"id": "v5", "area": "trap", "prompt": "solve 2x + 3y + 5 = 0 for x", "expect": "answer", "check": ["expr", "(-3*y-5)/2"]},
   {"id": "v6", "area": "trap", "prompt": "numerically solve the nonlinear equation cos(x) = x with guess 0.5", "expect": "answer", "check": ["num", "0.739085"], "note": "\"near\" inside \"nonlinear\" was read as the guess label"},
-  {"id": "v7", "area": "trap", "prompt": "use newton's method to solve the linear equation 2x - 3 = 0 with guess 4", "expect": "answer", "check": ["num", "3/2"], "note": "\"near\" inside \"linear\" took the guess 2 and cut the equation off"}
+  {"id": "v7", "area": "trap", "prompt": "use newton's method to solve the linear equation 2x - 3 = 0 with guess 4", "expect": "answer", "check": ["num", "3/2"], "note": "\"near\" inside \"linear\" took the guess 2 and cut the equation off"},
+  {"id": "v8", "area": "trap", "prompt": "find the supplement of 35°", "expect": "answer", "check": ["num", "145"], "note": "the degree sign never met the word boundary after it"},
+  {"id": "v9", "area": "trap", "prompt": "What is the complement of 28°?", "expect": "answer", "check": ["num", "62"], "note": "read as a probability complement and declined before"}
 ]

@@ -429,5 +429,61 @@
   "reply": "After the third howl the forest goes quiet, which is worse. Have the hero find fresh tracks circling the camp, then a stranger steps out of the trees who seems to know why the pack is following them.",
   "expect": "answer",
   "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "ml-056",
+  "area": "math lookalike",
+  "prompt": "It's 28° outside today. Do I need a jacket for a 20 minute walk?",
+  "reply": "If that's 28 °C, skip the jacket: a T-shirt, water and sunglasses are enough. If it's 28 °F, it's below freezing, so wear a warm coat, a hat and gloves.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-057",
+  "area": "math lookalike",
+  "prompt": "It's 28° outside and sunny. Is that warm enough to swim in the lake?",
+  "reply": "The air is warm, but lakes heat up slowly, so the water can still be cold early in summer. Try a toe first, and don't swim alone.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-058",
+  "area": "math lookalike",
+  "prompt": "Is 85°F weather too hot for a 5 mile run?",
+  "reply": "It's doable but hard. Go early in the morning, slow your pace, drink before and during the run, and stop if you feel dizzy.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-059",
+  "area": "math lookalike",
+  "prompt": "The hotel says breakfast is free and complementary. Does that usually include coffee?",
+  "reply": "Usually, yes: a free (\"complimentary\") breakfast nearly always includes coffee and tea. Specialty drinks like lattes sometimes cost extra, so ask at the desk.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-060",
+  "area": "math lookalike",
+  "prompt": "Which colours are complementary to teal for a 2 bedroom flat?",
+  "reply": "Teal pairs well with coral, terracotta and mustard as accents, with warm whites or soft greys on the walls so the rooms stay bright.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-061",
+  "area": "math lookalike",
+  "prompt": "Is a supplement of 1000 IU of vitamin D a day enough in winter?",
+  "reply": "1000 IU a day is a common winter dose for adults, but needs vary. A blood test is the surest guide, so check with your doctor before taking more.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-062",
+  "area": "math lookalike",
+  "prompt": "What's a light lunch that's a good supplement for 35° summer days?",
+  "reply": "Go cold and fresh: a watermelon and feta salad, gazpacho, or a chickpea and cucumber wrap, with plenty of water or iced tea.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-063",
+  "area": "math lookalike",
+  "prompt": "Is iron a good supplement to 20 minutes of sun a day in winter?",
+  "reply": "Sunlight helps your body make vitamin D, not iron, so they do different jobs. Take iron only if a blood test shows you're low; ask about vitamin D for winter instead.",
+  "expect": "answer"
  }
 ]
