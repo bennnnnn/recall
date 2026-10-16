@@ -69,10 +69,15 @@ const LOOKUP_ONLY_NON_IMAGE_WORDS = [
   "sine", "cosine", "parabola", "parabolas", "hyperbola", "asymptote",
   "exponential", "logarithmic",
 ];
-// Code or writing nouns that also name a thing to see; they block only as the whole subject.
+// Code or writing nouns that also name a thing to see; they block alone or beside a code word.
 const DUAL_USE_WORDS = new Set([
   "bug", "bugs", "branch", "hook", "test", "story", "stage", "phase", "phases",
   "opening", "screen", "button",
+]);
+// A code word beside a dual-use word keeps it code: "git branch", "custom hook", "unit test".
+const CODE_CONTEXT_WORDS = new Set([
+  "git", "react", "custom", "unit", "integration", "e2e", "failing", "merge", "feature",
+  "submit", "signup", "ui",
 ]);
 const NON_IMAGE_WORDS = new Set(
   [...GEN_NON_IMAGE_WORDS, ...LOOKUP_ONLY_NON_IMAGE_WORDS].filter((word) => !DUAL_USE_WORDS.has(word)),
@@ -129,6 +134,11 @@ function cleanSubject(raw: string): string | null {
   if (folded.some((w) => NON_IMAGE_WORDS.has(w) || EXPLANATION_CUES.has(w))) return null;
   // "show me the bug (again)" is about code; "show me a bed bug" wants a photo.
   if (DUAL_USE_WORDS.has(folded[0]) && folded.slice(1).every((w) => NOT_A_NOUN.has(w))) return null;
+  // "show me the git branch" is about code; "show me the main stage" wants a photo.
+  const pairs = folded.slice(1).map((w, i) => [folded[i], w]);
+  const isCodePair = (pair: string[]) =>
+    pair.some((w) => DUAL_USE_WORDS.has(w)) && pair.some((w) => CODE_CONTEXT_WORDS.has(w));
+  if (pairs.some(isCodePair)) return null;
   return subject;
 }
 

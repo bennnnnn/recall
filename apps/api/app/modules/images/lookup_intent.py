@@ -21,6 +21,7 @@ Matching is linear token scans — no ``\\s+`` / ``.+`` regex on user chat text
 from __future__ import annotations
 
 import re
+from itertools import pairwise
 
 from app.modules.images.gen_intent_words import NON_IMAGE_WORDS
 
@@ -233,7 +234,7 @@ _LOOKUP_ONLY_NON_IMAGE_WORDS = frozenset(
         "logarithmic",
     },
 )
-# Code or writing nouns that also name a thing to see; they block only as the whole subject.
+# Code or writing nouns that also name a thing to see; they block alone or beside a code word.
 _DUAL_USE_WORDS = frozenset(
     {
         "bug",
@@ -248,6 +249,23 @@ _DUAL_USE_WORDS = frozenset(
         "opening",
         "screen",
         "button",
+    }
+)
+# A code word beside a dual-use word keeps it code: "git branch", "custom hook", "unit test".
+_CODE_CONTEXT_WORDS = frozenset(
+    {
+        "git",
+        "react",
+        "custom",
+        "unit",
+        "integration",
+        "e2e",
+        "failing",
+        "merge",
+        "feature",
+        "submit",
+        "signup",
+        "ui",
     }
 )
 _NON_IMAGE_WORDS = (NON_IMAGE_WORDS | _LOOKUP_ONLY_NON_IMAGE_WORDS) - _DUAL_USE_WORDS
@@ -337,6 +355,10 @@ def _clean_subject(raw: str) -> str | None:
         return None
     # "show me the bug (again)" is about code; "show me a bed bug" wants a photo.
     if folded[0] in _DUAL_USE_WORDS and all(w in _NOT_A_NOUN for w in folded[1:]):
+        return None
+    # "show me the git branch" is about code; "show me the main stage" wants a photo.
+    pairs = [{a, b} for a, b in pairwise(folded)]
+    if any(pair & _DUAL_USE_WORDS and pair & _CODE_CONTEXT_WORDS for pair in pairs):
         return None
     return subject
 

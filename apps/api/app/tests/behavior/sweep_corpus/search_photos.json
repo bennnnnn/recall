@@ -1052,5 +1052,155 @@
   ],
   "reply": "```python\nimport pytest\n\nfrom palindrome import is_palindrome\n\n\n@pytest.mark.parametrize(\n    \"text, expected\",\n    [\n        (\"racecar\", True),\n        (\"A man, a plan, a canal: Panama\", True),\n        (\"hello\", False),\n        (\"\", True),\n    ],\n)\ndef test_is_palindrome(text, expected):\n    assert is_palindrome(text) is expected\n```\n\nRun them with `pytest -q`.",
   "expect": "answer"
+ },
+ {
+  "id": "sp-111",
+  "area": "photo",
+  "prompt": "show me the git branch",
+  "history": [
+   [
+    "user",
+    "I made a few commits but I'm not sure which branch I'm on."
+   ],
+   [
+    "assistant",
+    "Git can tell you. The current branch is the one marked with `*` in `git branch`. Want the command?"
+   ]
+  ],
+  "reply": "Run:\n\n```bash\ngit branch --show-current\n```\n\nIt prints just the name of the branch you're on. Plain `git branch` lists every local branch and marks the current one with `*`.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-112",
+  "area": "photo",
+  "prompt": "show me a custom hook",
+  "history": [
+   [
+    "user",
+    "Every one of my React components repeats the same fetch + loading + error state. Is there a cleaner way?"
+   ],
+   [
+    "assistant",
+    "Yes: move that logic into a custom hook, and each component calls one function instead of repeating three pieces of state."
+   ]
+  ],
+  "reply": "```tsx\nimport { useEffect, useState } from \"react\";\n\nexport function useFetch<T>(url: string) {\n  const [data, setData] = useState<T | null>(null);\n  const [loading, setLoading] = useState(true);\n  const [error, setError] = useState<Error | null>(null);\n\n  useEffect(() => {\n    fetch(url)\n      .then((res) => res.json())\n      .then(setData)\n      .catch(setError)\n      .finally(() => setLoading(false));\n  }, [url]);\n\n  return { data, loading, error };\n}\n```\n\nThen in a component: `const { data, loading } = useFetch<User[]>(\"/api/users\");`",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-113",
+  "area": "photo",
+  "prompt": "show me the unit test",
+  "history": [
+   [
+    "user",
+    "Write a TypeScript function that converts Celsius to Fahrenheit, with a unit test."
+   ],
+   [
+    "assistant",
+    "```ts\nexport function toFahrenheit(celsius: number): number {\n  return (celsius * 9) / 5 + 32;\n}\n```\n\nI'll add the Jest test next."
+   ]
+  ],
+  "reply": "```ts\nimport { toFahrenheit } from \"./temperature\";\n\ndescribe(\"toFahrenheit\", () => {\n  it.each([\n    [0, 32],\n    [100, 212],\n    [-40, -40],\n  ])(\"%d°C is %d°F\", (celsius, fahrenheit) => {\n    expect(toFahrenheit(celsius)).toBe(fahrenheit);\n  });\n});\n```\n\nRun it with `npx jest temperature`.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-114",
+  "area": "photo",
+  "prompt": "show me the failing test",
+  "history": [
+   [
+    "user",
+    "CI is red on my PR: 1 failed, 41 passed.\n\n```\nFAILED tests/test_cart.py::test_total_with_discount - assert 90.0 == 81.0\n```"
+   ],
+   [
+    "assistant",
+    "Only one test fails, and it's the discount total. It expects the 10% discount applied twice, but the cart applies it once."
+   ]
+  ],
+  "reply": "This is the one that fails:\n\n```python\ndef test_total_with_discount():\n    cart = Cart(items=[Item(price=100)], discounts=[0.1, 0.1])\n    assert cart.total() == 81.0\n```\n\nIt stacks two 10% discounts (100 → 90 → 81), but `Cart.total()` only applies the first one, so it returns 90.0.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-115",
+  "area": "photo",
+  "prompt": "show me the submit button",
+  "history": [
+   [
+    "user",
+    "Build me a simple React Native login form with email and password fields."
+   ],
+   [
+    "assistant",
+    "```tsx\n<TextInput value={email} onChangeText={setEmail} placeholder=\"Email\" />\n<TextInput value={password} onChangeText={setPassword} placeholder=\"Password\" secureTextEntry />\n```\n\nWant me to add the submit button?"
+   ]
+  ],
+  "reply": "```tsx\n<Pressable\n  onPress={() => onSubmit(email, password)}\n  disabled={!email || !password}\n  accessibilityRole=\"button\"\n  style={styles.submit}\n>\n  <Text style={styles.submitText}>Log in</Text>\n</Pressable>\n```\n\nIt stays disabled until both fields have text.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-116",
+  "area": "photo",
+  "prompt": "show me the react hook",
+  "history": [
+   [
+    "user",
+    "In React, how do I run some code after the component renders?"
+   ],
+   [
+    "assistant",
+    "That's what the `useEffect` hook is for. It runs after render, and again whenever one of its dependencies changes."
+   ]
+  ],
+  "reply": "```tsx\nuseEffect(() => {\n  document.title = `${count} clicks`;\n}, [count]);\n```\n\nThe array at the end lists the values it depends on: here it runs after the first render and again whenever `count` changes.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-117",
+  "area": "photo",
+  "prompt": "show me the feature branch",
+  "history": [
+   [
+    "user",
+    "I want to work on the login screen without touching main. How should I set that up in git?"
+   ],
+   [
+    "assistant",
+    "Make a feature branch off an up-to-date main, commit there, and open a pull request when it's ready."
+   ]
+  ],
+  "reply": "```bash\ngit switch main\ngit pull\ngit switch -c feature/login-screen\n```\n\nCommit on `feature/login-screen` as usual, then `git push -u origin feature/login-screen` and open the pull request.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-118",
+  "area": "photo",
+  "prompt": "what does a custom hook look like",
+  "history": [
+   [
+    "user",
+    "My teacher keeps saying \"just write a custom hook\" for our React project."
+   ],
+   [
+    "assistant",
+    "A custom hook is an ordinary function whose name starts with `use` and that calls other hooks, so components can share the logic."
+   ]
+  ],
+  "reply": "```tsx\nfunction useToggle(initial = false) {\n  const [on, setOn] = useState(initial);\n  const toggle = useCallback(() => setOn((value) => !value), []);\n  return [on, toggle] as const;\n}\n```\n\nA component then writes `const [open, toggleOpen] = useToggle();`.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-119",
+  "area": "photo",
+  "prompt": "what does an olive branch look like",
+  "reply": "An **olive branch** is a slim, woody twig with narrow, lance-shaped leaves: dark grey-green on top and silvery underneath. In season it carries small oval olives, green ripening to purple-black.\n\nIt's an old symbol of peace, which is why it appears on the UN flag.",
+  "expect": "photo"
+ },
+ {
+  "id": "sp-120",
+  "area": "photo",
+  "prompt": "show me the main stage at Coachella",
+  "reply": "Here's the **Coachella Stage**, the festival's main stage at the Empire Polo Club in Indio, California: a huge open-air stage facing the polo field, framed by big video screens, with the San Jacinto mountains behind the crowd.",
+  "expect": "photo"
  }
 ]
