@@ -53,5 +53,8 @@
   {"id": "L52", "area": "lookalike", "prompt": "my recipe makes 12 cookies, how many should I bake for the party?", "expect": "not_math"},
   {"id": "L53", "area": "lookalike", "prompt": "A recipe needs 3 cups of flour for 12 cookies, is that a lot?", "expect": "not_math"},
   {"id": "L54", "area": "lookalike", "prompt": "I booked 2 rooms for 3 nights. How many towels come with that?", "expect": "not_math"},
-  {"id": "L55", "area": "lookalike", "prompt": "what should I cook tonight?", "expect": "not_math"}
+  {"id": "L55", "area": "lookalike", "prompt": "what should I cook tonight?", "expect": "not_math"},
+  {"id": "L56", "area": "lookalike", "prompt": "Can you explain nonlinear storytelling, like in Memento or Pulp Fiction?", "expect": "not_math"},
+  {"id": "L57", "area": "lookalike", "prompt": "Our onboarding is too linear. How do I let new hires skip the first 2 weeks of training?", "expect": "not_math"},
+  {"id": "L58", "area": "lookalike", "prompt": "I'm near the end of chapter 3 of my thesis and totally out of steam. Any tips?", "expect": "not_math"}
 ]
