@@ -1,4 +1,5 @@
 import { parseFenceLang } from "@/lib/codeHighlight";
+import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { applyOutsideFences, mapClosedFences } from "@/lib/mdFenceScan";
 
 const DETAILS_FENCE_LANGS = new Set(["details", "collapse", "summary"]);
@@ -11,11 +12,38 @@ const DETAILS_BARE_RE = /<details\b[^>]*>([\s\S]*?)<\/details>/gi;
  * `**Why this works: **`. CommonMark treats that closer as literal text, so
  * the user sees the raw `**`. Trim only delimiter-adjacent horizontal space,
  * and never touch code fences.
+ *
+ * Delimiters pair in order on a line, outside inline code: the closer of one
+ * span and the opener of the next (`**60** and at **40**`) are not a pair, so
+ * the space before an opener stays (it used to read `at**40**`).
  */
 export function trimBoldDelimiterWhitespace(content: string): string {
-  return applyOutsideFences(content, (prose) =>
-    prose.replace(/\*\*([^*\n]*?\S)[ \t]+\*\*/g, "**$1**"),
-  );
+  return applyOutsideFences(content, (prose) => prose.split("\n").map(trimBoldLine).join("\n"));
+}
+
+function trimBoldLine(line: string): string {
+  if (!line.includes("**")) return line;
+  let out = "";
+  let copied = 0;
+  let openAt = -1;
+  let index = 0;
+  while (index < line.length) {
+    const codeEnd = line[index] === "`" ? readInlineCodeSpan(line, index) : null;
+    if (codeEnd != null || !line.startsWith("**", index)) {
+      index = codeEnd ?? index + 1;
+      continue;
+    }
+    if (openAt >= 0) {
+      const inner = line.slice(openAt + 2, index);
+      if (!inner.includes("*") && /\S[ \t]+$/.test(inner)) {
+        out += line.slice(copied, openAt + 2) + inner.trimEnd();
+        copied = index;
+      }
+    }
+    openAt = openAt >= 0 ? -1 : index;
+    index += 2;
+  }
+  return out + line.slice(copied);
 }
 
 /** Keep a bold-only teaching label, or a label and its code, on its own

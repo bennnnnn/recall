@@ -374,6 +374,23 @@ $)
     );
   });
 
+  it("pairs bold delimiters in order, so the space before the next opener stays", () => {
+    // The closer of one span and the opener of the next used to read as one
+    // padded span: "at **60** and at **40**" became "and at**40**", and after
+    // punctuation ("20 + 7 = **27**") nothing put the space back.
+    expect(trimBoldDelimiterWhitespace("at **60 km/h** and at **40 km/h**.")).toBe(
+      "at **60 km/h** and at **40 km/h**.",
+    );
+    expect(trimBoldDelimiterWhitespace("**Combine:** 20 + 7 = **27**, **Check: **")).toBe(
+      "**Combine:** 20 + 7 = **27**, **Check:**",
+    );
+    expect(trimBoldDelimiterWhitespace("`a ** b` and **c: **")).toBe("`a ** b` and **c:**");
+    expect(preprocessMarkdown("**Combine:** 20 + 7 = **27**")).toBe("**Combine:** 20 + 7 = **27**");
+    expect(preprocessMarkdown("| **Total** | **40** | **100%** |")).toContain(
+      "| **Total** | **40** | **100%** |",
+    );
+  });
+
   it("keeps a bold-only math step label above its formula", () => {
     const source = "**Substitute and simplify**\n$\\frac{a}{b}=c$";
     expect(separateStandaloneBoldLines(source)).toBe(
