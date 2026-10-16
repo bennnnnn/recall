@@ -737,6 +737,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-27 — Split `lib/physics/simulation.ts` (2717 lines; `layoutSimulationScene` 564)
 
+- **Status:** done. `lib/physics/simulation/` replaces the file: `spec`, `parse` (`readScene` 61 lines, was 120), `describe`, `viewport`, `paths`, `arrows`, `labels`, `labelSearch` (body-label sides and the nudge search), `parts` (strings, pulley, angle arcs), `incline`, and `layout.ts`, whose `layoutSimulationScene` (54 lines) runs its stages over one `SceneFrames` from `layoutFrames`, `layoutShapes`, `layoutLabels` and `layoutNudgedLabels`; `index.ts` keeps the 86 exports, and every worklet keeps its directive, body and captured names. A capture of every export over 23,751 fences (the tests' scenes, 180 the API writes, and mutations of one per kind) is byte-identical under ts-jest and under the worklets Babel transform, and `simulationLayoutSnapshot.test.ts` pins one scene of each kind.
 - **Problem:** one file holds eight jobs:
   - fence types and parsing (15-570; `readScene` 120 lines)
   - viewport (598-716)

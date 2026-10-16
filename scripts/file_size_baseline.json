@@ -340,10 +340,6 @@
     "apps/mobile/lib/physics/optics.ts": {
       "lines": 649,
       "why": "Exception: One diagram's parsing and pure geometry; tested by `optics.test.ts`"
-    },
-    "apps/mobile/lib/physics/simulation.ts": {
-      "lines": 2717,
-      "why": "Over 500 before the standards; split in ES-27"
     }
   }
 }
