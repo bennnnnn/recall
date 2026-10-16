@@ -631,6 +631,34 @@ async def test_triangle_laws_answer(text: str, answer: str) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # No answer before: the readers matched a lowercase "find" only.
+        (
+            "In triangle ABC, a = 5 cm, b = 8 cm and angle C = 30°. Find c.",
+            r"\sqrt{89 - 40 \sqrt{3}} \approx 4.44",
+        ),
+        (
+            "In triangle ABC, a = 7, b = 9 and C = 60°. Calculate the length of c.",
+            r"\sqrt{67} \approx 8.185",
+        ),
+        ("In triangle ABC, a = 7, b = 9 and C = 60°. Determine c.", r"\sqrt{67} \approx 8.185"),
+        ("In triangle ABC, A = 40°, B = 60° and a = 10. Find b.", r"\approx 13.47"),
+        (
+            "In triangle ABC, A = 40°, B = 60° and a = 10. Calculate the length of side b.",
+            r"\approx 13.47",
+        ),
+        # B is the angle given, not the side b: still no answer.
+        ("In triangle ABC, a = 10, A = 40° and B = 60°. Find B.", None),
+    ],
+)
+async def test_triangle_laws_read_a_capitalised_verb(text: str, answer: str | None) -> None:
+    canonical, _ = await _reply(text)
+    assert canonical == answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     ("text", "row"),
     [
         ("in triangle ABC, a = 7, b = 9, C = 60 degrees, find c", "$c^2 = 49 + 81 - 63 = 67$"),

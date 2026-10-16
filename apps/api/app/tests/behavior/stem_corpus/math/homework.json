@@ -143,6 +143,7 @@
   {"id": "ge12", "area": "geometry", "prompt": "in triangle ABC, a = 3, b = 5 and C = 150°, find c", "expect": "answer", "check": ["num", "sqrt(34 + 15*sqrt(3))"], "note": "cos 150° is negative: the term adds"},
   {"id": "ge13", "area": "geometry", "prompt": "in triangle ABC, A = 45°, B = 30° and a = 8, find b", "expect": "answer", "check": ["num", "4*sqrt(2)"], "note": "sine rule"},
   {"id": "ge14", "area": "geometry", "prompt": "a triangle has sides 3, 5 and 7. what is its largest angle?", "expect": "answer", "check": ["num", "120"], "note": "cos C = -1/2"},
+  {"id": "ge15", "area": "geometry", "prompt": "In triangle ABC, a = 5 cm, b = 8 cm and angle C = 30°. Find c.", "expect": "answer", "check": ["num", "sqrt(89 - 40*sqrt(3))"], "note": "a capitalised Find once read nothing"},
   {"id": "cg1", "area": "coordinate", "prompt": "slope between (2,3) and (6,11)", "expect": "answer", "check": ["num", "2"]},
   {"id": "cg2", "area": "coordinate", "prompt": "distance between (1,2) and (4,6)", "expect": "answer", "check": ["num", "5"]},
   {"id": "cg3", "area": "coordinate", "prompt": "midpoint of (-2, 5) and (4, -1)", "expect": "answer", "check": ["nums", ["1", "2"]]},

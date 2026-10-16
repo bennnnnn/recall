@@ -26,6 +26,7 @@ from fractions import Fraction
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve import triangle as triangle_laws
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.school._parse import _SIDE_ASKED
 from app.services.workout import Workout, math_line, render_workout
 
 _N = r"(-?\d+(?:\.\d+)?)"
@@ -264,7 +265,6 @@ _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
 # Two angles and a side, a side asked: "A = 40 degrees, B = 60 degrees, a = 10, find b".
 _ANGLE_GIVEN = re.compile(rf"\b([A-C])\s*=\s*{_N}{_DEG}")
 _SIDE_GIVEN = re.compile(rf"\b([a-c])\s*=\s*{_N}")
-_SIDE_ASKED = re.compile(r"\b(?:find|calculate|what\s+is|work\s+out)\s+(?:side\s+)?([a-c])\b")
 
 # Right-triangle trigonometry.
 _RIGHT = re.compile(r"\bright(?:[- ]angled?)?\s+triangle\b", re.I)
