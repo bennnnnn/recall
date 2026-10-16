@@ -22,6 +22,7 @@ from sympy import (
 
 from app.modules.math.school import _format_school_number, _progression
 from app.modules.math.solve import MathServiceError, _parse_expression, format_verified_latex
+from app.services.school_rounding import round_figures, round_places
 
 
 def sale_price(base: float, rate: float) -> str:
@@ -51,13 +52,14 @@ def inverse_proportion(a: float, b: float, c: float) -> str:
 def round_decimal_places(value: float, places: int) -> str:
     if not math.isfinite(value) or places < 0 or places > 12:
         raise MathServiceError("rounding needs a finite value and 0-12 places")
-    return _format_school_number(round(value, places))
+    return _format_school_number(float(round_places(value, places)))
 
 
 def round_significant_figures(value: float, figs: int) -> str:
     if not math.isfinite(value) or value == 0 or figs < 1 or figs > 12:
         raise MathServiceError("significant figures need a nonzero finite value")
-    return _format_school_number(float(f"{value:.{figs}g}"))
+    mantissa, exponent = round_figures(value, figs)
+    return _format_school_number(float(mantissa.scaleb(exponent)))
 
 
 def infinite_geometric_sum(terms: list[float]) -> str:

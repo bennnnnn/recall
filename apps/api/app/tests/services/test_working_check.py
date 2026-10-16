@@ -71,6 +71,13 @@ def test_working_note_names_the_first_slip_in_its_own_units() -> None:
     )
 
 
+def test_working_note_rounds_a_tie_up_as_a_class_does() -> None:
+    # 0.5 * 0.25 is 0.125: to the two places shown, 0.13, not the 0.12 of ties-to-even.
+    assert working_note("$0.5 \\times 0.25 = 0.15$") == (
+        "Check this step: $0.5 \\times 0.25 = 0.13$, not $0.15$. The lines after it depend on it."
+    )
+
+
 def test_working_note_is_none_when_the_working_adds_up() -> None:
     assert working_note("**Answer**\n$3 \\times 5 = 15$") is None
 

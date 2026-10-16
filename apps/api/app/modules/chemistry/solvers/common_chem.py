@@ -13,8 +13,8 @@ from app.modules.chemistry.solvers.types import (
     format_constant,
     format_molar_mass,
     format_number,
-    round_half_up,
 )
+from app.services.school_rounding import round_places
 from app.services.solving import SolveServiceError
 
 # Below this an ion concentration is comparable to the 1e-7 M that water supplies itself.
@@ -69,7 +69,7 @@ def _fixed(value: float, places: int) -> str:
     """A value to fixed decimal places, rounded half up, never a negative zero (−0.00)."""
     if not math.isfinite(value):
         return str(value)
-    text = f"{round_half_up(value, places):.{places}f}"
+    text = f"{round_places(value, places):.{places}f}"
     return text.removeprefix("-") if float(text) == 0 else text
 
 
