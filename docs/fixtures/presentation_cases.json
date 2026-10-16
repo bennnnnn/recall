@@ -212,6 +212,43 @@
       "expected": "    at**40**"
     },
     {
+      "id": "amharic-glued-bold",
+      "area": "boundaries",
+      "input": "ዋጋው**40 ብር**ነው።",
+      "expected": "ዋጋው **40 ብር** ነው።",
+      "note": "Ethiopic has no letter case; it still separates words with spaces."
+    },
+    {
+      "id": "arabic-glued-bold",
+      "area": "boundaries",
+      "input": "السعر**40 ريال**فقط",
+      "expected": "السعر **40 ريال** فقط"
+    },
+    {
+      "id": "superscript-before-bold",
+      "area": "boundaries",
+      "input": "The area is 25 m²**exactly**.",
+      "expected": "The area is 25 m² **exactly**."
+    },
+    {
+      "id": "cyrillic-glued-emphasis",
+      "area": "boundaries",
+      "input": "слово*привет*слово",
+      "expected": "слово *привет* слово"
+    },
+    {
+      "id": "amharic-glued-emphasis",
+      "area": "boundaries",
+      "input": "ማስታወሻ:*ይህ*ጠቃሚ ነው",
+      "expected": "ማስታወሻ:*ይህ* ጠቃሚ ነው"
+    },
+    {
+      "id": "bare-number-with-point",
+      "area": "boundaries",
+      "input": "Step one gives $1.$ Step two gives $2$.",
+      "expected": "Step one gives $1.$ Step two gives $2$."
+    },
+    {
       "id": "code-spaced",
       "area": "inline_code",
       "input": "Use `yield` when appropriate.",
@@ -524,6 +561,26 @@
       "expected": "# $v = d/t = 5$"
     },
     {
+      "id": "cyrillic-sentence-equals",
+      "area": "calculation",
+      "input": "Площадь = a × b = 4 × 5 = 20",
+      "expected": "Площадь = a × b = 4 × 5 = 20",
+      "note": "A Russian word is a sentence, not a symbol: the line stays prose."
+    },
+    {
+      "id": "unicode-pi-chain",
+      "area": "calculation",
+      "input": "$π × 5^2 = 25π \\approx 78.5$",
+      "expected": "$π × 5^2 = 25π$  \n$π × 5^2 \\approx 78.5$",
+      "note": "π is a symbol, as \\pi is."
+    },
+    {
+      "id": "unicode-pi-numeric-chain",
+      "area": "calculation",
+      "input": "$2π = 6.28 = 6.3$",
+      "expected": "$2π = 6.28$  \n$2π = 6.3$"
+    },
+    {
       "id": "paren-chain-across-lines",
       "area": "maths",
       "input": "  \\(\n  v = d/t = 50/10 = 5\n  \\)",
@@ -762,6 +819,13 @@
       "area": "repl",
       "input": "    >>> print(1)",
       "expected": "    >>> print(1)"
+    },
+    {
+      "id": "transcript-then-fence",
+      "area": "repl",
+      "input": ">>> print(1)\n1\n```python\nx = 1\n```",
+      "expected": "```python\n>>> print(1)\n1\n```\n```python\nx = 1\n```",
+      "note": "The transcript ends where the fence starts."
     },
     {
       "id": "cyclist-reply",

@@ -34,6 +34,8 @@ def _is_cjk(char: str) -> bool:
         or 0xAC00 <= code <= 0xD7AF
         or 0x0E00 <= code <= 0x0E7F
         or 0xF900 <= code <= 0xFAFF
+        # The supplementary ideographic planes (CJK extensions B and later).
+        or 0x20000 <= code <= 0x3FFFF
     )
 
 
