@@ -5,8 +5,8 @@
  * Fenced code, indented code, blockquotes, URLs, and math bodies stay intact.
  */
 
-import { codeSpanOpensWithin } from "@/lib/markdown/inlineCode";
-import { leaveProseLine } from "@/lib/markdown/markdownRegions";
+import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
+import { leaveProseLine, PRICE_TIER } from "@/lib/markdown/markdownRegions";
 import { ALNUM, charAt, LETTER, lastChar } from "@/lib/markdown/unicodeChars";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 
@@ -79,10 +79,11 @@ function readCode(text: string, index: number): number | null {
   return close + length;
 }
 
-function escapedDollar(text: string, index: number): boolean {
-  let slashes = 0;
-  for (let i = index - 1; i >= 0 && text[i] === "\\"; i -= 1) slashes += 1;
-  return slashes % 2 === 1;
+const PRICE_TIER_AT = new RegExp(PRICE_TIER.source, "y");
+
+function readPriceTier(text: string, index: number): number | null {
+  PRICE_TIER_AT.lastIndex = index;
+  return PRICE_TIER_AT.test(text) ? PRICE_TIER_AT.lastIndex : null;
 }
 
 /** `$2$` (or `$2.$`): one number. Not "$5 and $10" (two prices) or "$5$10". */
@@ -97,7 +98,7 @@ function bareNumber(body: string, next: string | undefined): boolean {
  * span with the next dollar on the line and padded `$2 $`.
  */
 function readMath(text: string, index: number): number | null {
-  if (escapedDollar(text, index)) return null;
+  if (escapedAt(text, index)) return null;
   if (text.startsWith("$$", index)) {
     const close = text.indexOf("$$", index + 2);
     if (close < 0 || close === index + 2 || text.slice(index + 2, close).includes("\n")) return null;
@@ -109,7 +110,7 @@ function readMath(text: string, index: number): number | null {
   while (from < text.length) {
     const close = text.indexOf("$", from);
     if (close < 0 || text.slice(index + 1, close).includes("\n")) return null;
-    if (escapedDollar(text, close)) {
+    if (escapedAt(text, close)) {
       from = close + 1;
       continue;
     }
@@ -181,10 +182,11 @@ function repairLine(line: string): string {
       index = end;
       continue;
     }
-    const urlEnd = readUrl(line, index);
-    if (urlEnd != null) {
-      out.push(line.slice(index, urlEnd));
-      index = urlEnd;
+    // A URL or a ($$) price tier is copied as written.
+    const verbatimEnd = readUrl(line, index) ?? readPriceTier(line, index);
+    if (verbatimEnd != null) {
+      out.push(line.slice(index, verbatimEnd));
+      index = verbatimEnd;
       continue;
     }
     const readers = [readCode, readMath, readLink, readBold, readEmphasis];
