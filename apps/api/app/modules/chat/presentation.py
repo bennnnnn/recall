@@ -1,9 +1,10 @@
 """Assistant Markdown presentation: REPL transcripts, boundaries, then calculation rows.
 
-The finalize pass and the direct replies run it before a reply is saved, so a
-persisted assistant row is already presented. The phone's twin is
-``apps/mobile/lib/markdown/presentation.ts``; docs/fixtures/presentation_cases.json
-holds both to the same output.
+The finalize pass, the direct replies and live talk run it before a reply is saved, so a
+persisted assistant row is already presented. The phone shows rows saved from its
+``SERVER_PRESENTATION_CUTOVER`` as saved and presents only the text still streaming and
+older rows. Its twin is ``apps/mobile/lib/markdown/presentation.ts``;
+docs/fixtures/presentation_cases.json holds both to the same output.
 """
 
 from __future__ import annotations

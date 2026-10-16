@@ -388,6 +388,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     searchSources,
     markdownStreamMode,
     markdownResetKey,
+    markdownPresented,
   } = assistant;
 
   const imageGenFailure = message.image_gen_failure;
@@ -400,11 +401,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   );
   // Generated image with no prose — copy/speak/PDF/regenerate are noise.
   const imageOnlyActions =
-    showImages &&
-    !hasMarkdown &&
-    !showLiveClock &&
-    !showSettingsProposals &&
-    !showPlaces;
+    showImages && !hasMarkdown && !showLiveClock && !showSettingsProposals && !showPlaces;
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>
@@ -483,6 +480,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                   <MarkdownContent
                     content={markdownContent}
                     streaming={markdownStreamMode}
+                    presented={markdownPresented}
                     mathFormat={formatAssistantMathExpr}
                   />
                 </MarkdownErrorBoundary>

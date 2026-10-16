@@ -204,6 +204,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-06 — Reply presentation: one contract, a shared corpus, the phone only on the streaming tail
 
+- **Status:** done. `docs/fixtures/presentation_cases.json` (153 cases) runs on both sides; ten phone divergences fixed (the server was right in all ten), plus two shared bugs (display formulas saved broken, price tiers) and the phone's bold trim. Saved rows from `SERVER_PRESENTATION_CUTOVER` (2026-11-16, a month after the last contract change) skip the phone's prose repairs and keep only the row layout of the maths blocks the phone itself builds; live-talk rows are now presented before saving.
 - **Problem:** the phone re-runs the server's presentation pipeline on every message:
   - `lib/markdown/presentation.ts:13`
   - `calculationLayout.ts` (582)

@@ -4,6 +4,9 @@
  * REPL transcripts become code, then boundaries, then one reasoning state per
  * calculation row. docs/fixtures/presentation_cases.json holds both sides to
  * the same output.
+ *
+ * The phone presents only what the server has not: the text still streaming,
+ * and rows saved before SERVER_PRESENTATION_CUTOVER.
  */
 
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
@@ -11,6 +14,30 @@ import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { fenceReplTranscripts } from "@/lib/markdown/replTranscript";
 import { normalizeImplicitMath } from "@/lib/math/normalizeImplicit";
+import { isServerMessageId } from "@/lib/serverMessageId";
+
+/**
+ * Assistant rows saved from this instant on were presented by the API with
+ * the contract the corpus holds, so the phone shows them as saved.
+ *
+ * The finalize path first presented a saved reply in #1525 (07f46a28,
+ * 2026-09-28). The contract changed on both sides after that: currency
+ * dollars (d3df9cc0, 2026-10-04), REPL transcripts (9d125106, 2026-10-14),
+ * inline code beside maths (9d95f5bd / 3e4aa89b, 2026-10-15), and ES-06
+ * (2026-10-16: display formulas, price tiers, letters in every script,
+ * live-talk rows). API deploys are manual and not in git, so the cut-over is
+ * a month after the last change. Older rows are presented here, as before. A
+ * rule change that must reach rows the server saved moves this date.
+ */
+export const SERVER_PRESENTATION_CUTOVER = Date.parse("2026-11-16T00:00:00Z");
+
+/** True for a saved row (a server id, not `streaming` or `streamed-…`) that
+ * the server presented before saving it. */
+export function isServerPresentedRow(row: { id: string; created_at: string }): boolean {
+  if (!isServerMessageId(row.id)) return false;
+  const created = Date.parse(row.created_at);
+  return Number.isFinite(created) && created >= SERVER_PRESENTATION_CUTOVER;
+}
 
 export function presentAssistantMarkdown(text: string): string {
   if (!text) return text;
@@ -99,23 +126,29 @@ function openMathStart(prose: string): number | null {
  * `\(...\)` / `\[...\]` / `$$` spans. Wrapping a line that is already inside
  * those delimiters inserts a second `$` and clips the formula. An opener
  * that has not closed yet stays raw so a later token can finish it. */
-function presentStreamProse(prose: string): string {
+function presentStreamProse(prose: string, presented: boolean): string {
   if (!prose) return prose;
   const openAt = openMathStart(prose);
   const head = openAt == null ? prose : prose.slice(0, openAt);
   const open = openAt == null ? "" : prose.slice(openAt);
-  const wrapped = head ? presentAssistantMarkdown(normalizeImplicitMath(head)) : "";
+  const present = presented ? layoutCalculations : presentAssistantMarkdown;
+  const wrapped = head ? present(normalizeImplicitMath(head)) : "";
   return wrapped + open;
 }
 
-/** Repair a streaming tail without scanning an open fence body. */
-export function presentStreamTail(tail: string): string {
+/**
+ * Repair a streaming tail without scanning an open fence body. `presented`
+ * text is the server's saved reply, still in stream layout while its row
+ * settles: as in the settled preprocess, its prose stays as saved and only the
+ * maths rows the wrap builds are laid out, so settling does not move it.
+ */
+export function presentStreamTail(tail: string, presented = false): string {
   if (!tail) return tail;
   const fenceAt = tail.indexOf("```");
   const tildeAt = tail.indexOf("~~~");
   const fence =
     fenceAt === -1 ? tildeAt : tildeAt === -1 ? fenceAt : Math.min(fenceAt, tildeAt);
-  if (fence === -1) return presentStreamProse(tail);
+  if (fence === -1) return presentStreamProse(tail, presented);
   if (fence === 0) return tail;
-  return presentStreamProse(tail.slice(0, fence)) + tail.slice(fence);
+  return presentStreamProse(tail.slice(0, fence), presented) + tail.slice(fence);
 }

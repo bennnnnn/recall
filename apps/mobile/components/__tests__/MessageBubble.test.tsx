@@ -7,6 +7,7 @@ import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciat
 import type { Message } from "@/lib/api";
 
 let mockShowLiveClock = false;
+let mockMarkdownPresented = false;
 
 jest.mock("expo-clipboard", () => ({
   setStringAsync: jest.fn(async () => undefined),
@@ -36,8 +37,8 @@ jest.mock("@/components/MarkdownContent", () => {
   const { Text: MockText } =
     jest.requireActual("react-native") as typeof import("react-native");
   return {
-    MarkdownContent: ({ content }: { content: string }) => (
-      <MockText>{content}</MockText>
+    MarkdownContent: ({ content, presented }: { content: string; presented?: boolean }) => (
+      <MockText testID={presented ? "markdown-presented" : "markdown"}>{content}</MockText>
     ),
   };
 });
@@ -111,6 +112,7 @@ jest.mock("@/hooks/useAssistantMessageContent", () => ({
     searchSources: [],
     markdownStreamMode: false,
     markdownResetKey: "test",
+    markdownPresented: mockMarkdownPresented,
   }),
 }));
 jest.mock("@/lib/haptics", () => ({
@@ -280,5 +282,22 @@ describe("MessageBubble copy feedback timers", () => {
     expect(view.getByTestId("lazy-message-clock")).toHaveTextContent(
       "America/New_York",
     );
+  });
+});
+
+describe("MessageBubble markdown presentation", () => {
+  afterEach(() => {
+    mockMarkdownPresented = false;
+  });
+
+  it("hands a reply the server presented to the renderer as presented", async () => {
+    mockMarkdownPresented = true;
+    const view = await render(<MessageBubble message={assistantMessage} />);
+    expect(view.getByTestId("markdown-presented")).toBeTruthy();
+  });
+
+  it("leaves other replies for the phone to present", async () => {
+    const view = await render(<MessageBubble message={assistantMessage} />);
+    expect(view.getByTestId("markdown")).toBeTruthy();
   });
 });
