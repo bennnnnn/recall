@@ -6,7 +6,7 @@ import logging
 import re
 from typing import Any
 
-from sympy import Abs, E, Eq, I, Mul, Pow, Symbol, log, parse_expr, pi
+from sympy import Abs, E, Eq, I, Mul, Pow, Symbol, ceiling, log, parse_expr, pi
 from sympy.parsing.sympy_parser import (
     convert_xor,
     implicit_multiplication_application,
@@ -40,9 +40,8 @@ _TRANSFORMATIONS = (
 def _school_log(arg: Any, base: Any = 10, evaluate: bool = True) -> Any:
     """``log(x)`` is base 10, as on a school calculator; ``ln(x)`` is natural.
 
-    ``log(x, b)`` keeps its written base. Unevaluated, SymPy's two-argument
-    ``log`` prints without its base, so the quotient is built by hand.
-    """
+    ``log(x, b)`` keeps its written base. Unevaluated, SymPy's two-argument ``log``
+    prints without its base, so the quotient is built by hand."""
     if evaluate:
         return log(arg, base)
     return Mul(
@@ -59,6 +58,7 @@ _LOCALS: dict[str, Any] = {
     "Abs": Abs,
     "log": _school_log,
     "lg": _school_log,
+    "ceil": ceiling,  # SymPy's name; unmapped, ``ceil`` was split into c*e*i*l
 }
 
 _EXACT_LATEX_DECIMAL_THRESHOLD = 40

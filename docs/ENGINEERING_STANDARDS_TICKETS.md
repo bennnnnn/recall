@@ -1018,6 +1018,8 @@ not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
 
 ### ES-41 — The server misreads `ceil(x)` as a product
 
+- **Status:** done. `ceil` reads as SymPy's `ceiling` (`floor` and `sign` already read as
+  written; `round` stays refused); `ceil(x)` and `floor(x)` rows pin it.
 - **Problem:** `_parse_expression("ceil(x)")` (the parse `sample_function` plots) reads `ceil` as
   the product E·c·i·l, so "plot y = ceil(x)" cannot be drawn. The phone's `graphExpr.ts` reads it
   correctly. Found by ES-07.

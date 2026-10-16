@@ -35,6 +35,8 @@
     {"expr": "3x^-2", "x": [-2, 0, 0.5, 3], "y": [0.75, null, 12.0, 0.3333333333333333]},
     {"expr": "4x^2-5x-12", "x": [0, 0.625, 2], "y": [-12.0, -13.5625, -6.0]},
     {"expr": "2^x - 3", "x": [-1, 0, 3], "y": [-2.5, -2.0, 5.0]},
+    {"expr": "ceil(x)", "x": [-1.5, -1, 0, 0.3, 2.7], "y": [-1.0, -1.0, 0.0, 1.0, 3.0]},
+    {"expr": "floor(x)", "x": [-1.5, -1, 0, 0.3, 2.7], "y": [-2.0, -1.0, 0.0, 0.0, 2.0]},
     {"expr": "sin x", "x": [0, 1, 2], "y": [0.0, 0.8414709848078965, 0.9092974268256817], "phone_gap": "The server reads a function name without brackets (SymPy implicit application: sin x is sin(x), cos 2x is cos(2x)). The phone parser needs the bracket, so it refuses and draws the server's own samples, which it cannot resample on zoom."},
     {"expr": "cos 2x", "x": [0, 0.5, 1], "y": [1.0, 0.5403023058681398, -0.4161468365471424], "phone_gap": "The server reads a function name without brackets (SymPy implicit application: sin x is sin(x), cos 2x is cos(2x)). The phone parser needs the bracket, so it refuses and draws the server's own samples, which it cannot resample on zoom."},
     {"expr": "sqrt x", "x": [0, 2, 9], "y": [0.0, 1.4142135623730951, 3.0], "phone_gap": "The server reads a function name without brackets (SymPy implicit application: sin x is sin(x), cos 2x is cos(2x)). The phone parser needs the bracket, so it refuses and draws the server's own samples, which it cannot resample on zoom."},
