@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from string import ascii_letters
 
-from app.modules.math.match.scan import looks_like_math_expr
+from app.modules.math.match.letter_runs import looks_like_math_expr
 from app.modules.math.tools.request_text import _MAX_MATH_INPUT, _strip_expr_leadins
 from app.services.text_normalize import collapse_ws
 

@@ -7,13 +7,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
-from app.modules.math.match.scan import (
-    _CALC_OP,
-    CALC_OP_SPELLINGS,
-    _parse_unsigned_number,
-    ddx_cue_at,
-    looks_like_math_expr,
-)
+from app.modules.math.match.dimensions import _parse_unsigned_number
+from app.modules.math.match.letter_runs import looks_like_math_expr
+from app.modules.math.match.scan import _CALC_OP, CALC_OP_SPELLINGS, ddx_cue_at
 
 
 def _skip_optional_paren_var(text: str, start: int) -> int:

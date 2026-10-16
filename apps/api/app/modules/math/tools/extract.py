@@ -420,7 +420,7 @@ def _is_plottable_expr(expr: str) -> bool:
     lower = compact.lower()
     if lower in {"it", "this", "that"}:
         return False
-    from app.modules.math.match.scan import has_unknown_english_run
+    from app.modules.math.match.letter_runs import has_unknown_english_run
 
     if has_unknown_english_run(compact):
         return False

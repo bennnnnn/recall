@@ -5,15 +5,14 @@ from __future__ import annotations
 import math
 import re
 
-from app.modules.math.match.scan import (
-    _BARE_COORD,
+from app.modules.math.match.letter_runs import (
     VIZ_COMMANDS,
     _alpha_run_end,
     has_viz_command,
     looks_like_math_expr,
     split_glued_viz_runs,
-    strip_inline_math_delims,
 )
+from app.modules.math.match.scan import _BARE_COORD, strip_inline_math_delims
 from app.services.number_text import DECIMAL_LITERAL
 
 _GRAPH_PLOT_PREFIXES = ("graph ", "plot ")
