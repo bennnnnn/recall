@@ -24,10 +24,6 @@ PRIVATE_IP_ERR = "Blocked request to internal/private address"
 _REDIRECT_STATUS_CODES = (301, 302, 303, 307, 308)
 
 
-# Carrier-grade NAT (RFC 6598) — not marked private by ipaddress.is_private.
-_CGNAT = ipaddress.ip_network("100.64.0.0/10")
-
-
 def is_blocked_ip(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     if (
         addr.is_private
@@ -44,8 +40,8 @@ def is_blocked_ip(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
         if not addr.is_global:
             return True
     except Exception:
-        if isinstance(addr, ipaddress.IPv4Address) and addr in _CGNAT:
-            return True
+        # Fail closed: an address we cannot classify is never fetched.
+        return True
     return False
 
 

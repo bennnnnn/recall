@@ -95,3 +95,49 @@ async def test_process_entries_acks_an_entry_trimmed_before_reclaim(fake_redis: 
     assert calls == []
     pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
     assert pending["pending"] == 0
+
+
+# ── queue metrics: an unreadable queue never reads as a healthy one ─────────
+
+
+async def test_queue_metrics_count_a_real_pending_backlog(fake_redis: Any) -> None:
+    """redis-py parses the XPENDING summary into a dict; reading it as a list
+    raised, was swallowed, and reported 0 pending forever."""
+    await jobs._ensure_group(fake_redis)
+    for i in range(jobs._PENDING_ALERT_THRESHOLD):
+        await jobs.enqueue(fake_redis, "topic", {"chat_id": str(i)})
+    await fake_redis.xreadgroup(
+        jobs.JOBS_GROUP, "w", {jobs.JOBS_STREAM: ">"}, count=jobs._PENDING_ALERT_THRESHOLD
+    )
+    with patch("sentry_sdk.add_breadcrumb"), patch("sentry_sdk.capture_message") as capture:
+        metrics = await jobs.report_queue_metrics(fake_redis)
+    assert metrics == {
+        "dlq_depth": 0,
+        "pending_entries": jobs._PENDING_ALERT_THRESHOLD,
+        "metrics_error": None,
+    }
+    capture.assert_called_once()
+    assert "pending entries" in capture.call_args.args[0]
+
+
+@pytest.mark.parametrize("failing", ["xlen", "xpending"])
+async def test_queue_metrics_redis_error_alerts_instead_of_reporting_zero(
+    fake_redis: Any, failing: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    await jobs._ensure_group(fake_redis)
+    with (
+        patch.object(fake_redis, failing, side_effect=ConnectionError("redis down")),
+        patch("sentry_sdk.add_breadcrumb"),
+        patch("sentry_sdk.capture_message") as capture,
+        caplog.at_level("WARNING", logger=jobs.logger.name),
+    ):
+        metrics = await jobs.report_queue_metrics(fake_redis)
+    assert metrics["pending_entries"] is None
+    assert metrics["dlq_depth"] == (0 if failing == "xpending" else None)
+    assert metrics["metrics_error"] == "ConnectionError"
+    capture.assert_called_once()
+    assert "unreadable" in capture.call_args.args[0]
+    assert capture.call_args.kwargs.get("level") == "warning"
+    assert any(r.levelname == "WARNING" for r in caplog.records)
+    # The alert names the failure class, never the Redis message or address.
+    assert "redis down" not in capture.call_args.args[0]

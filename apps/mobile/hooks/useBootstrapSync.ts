@@ -1,5 +1,6 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { configurePurchases, isPurchasesConfigured, registerPlanChangeListener } from "@/lib/purchases";
@@ -20,6 +21,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
   const locationEnabled = user?.location_enabled;
   const pushEnabled = user?.push_notifications_enabled ?? false;
   const reminderLeadMinutes = user?.reminder_lead_minutes;
+  const feedback = useActionFeedbackOptional();
   useEffect(() => {
     if (!token || !userId) return;
     const generation = getSessionGeneration();
@@ -79,13 +81,14 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
         },
         // Hourly token refreshes re-attach; one sync per sign-in is enough.
         generation,
+        feedback,
       );
     }).catch(() => {});
     return () => {
       cancelled = true;
       cleanup?.();
     };
-  }, [token, userId, pushEnabled, setUser]);
+  }, [token, userId, pushEnabled, setUser, feedback]);
 
   useEffect(() => {
     if (reminderLeadMinutes == null) return;

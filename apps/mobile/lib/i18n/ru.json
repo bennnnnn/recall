@@ -378,6 +378,7 @@
   "memory.empty_body": "Общайтесь с Recall, и он автоматически запомнит ваши предпочтения, темы обучения и факты о вас.",
   "memory.empty_title": "Пока нет воспоминаний",
   "memory.title": "Память",
+  "notifications.push_unavailable": "Push-уведомления сейчас не работают на этом устройстве.",
   "notifications.reminders_channel": "Напоминания",
   "notifications.todo_reminder_body": "{{content}} — к {{time}}",
   "notifications.todo_reminder_title": "Задачи",

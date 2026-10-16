@@ -378,6 +378,7 @@
   "memory.empty_body": "Chatea con Recall y aprenderá automáticamente lo que te importa.",
   "memory.empty_title": "Sin recuerdos aún",
   "memory.title": "Memoria",
+  "notifications.push_unavailable": "Las notificaciones push no funcionan en este dispositivo ahora mismo.",
   "notifications.reminders_channel": "Recordatorios",
   "notifications.todo_reminder_body": "{{content}} — vence a las {{time}}",
   "notifications.todo_reminder_title": "Tareas",

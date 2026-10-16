@@ -2,10 +2,12 @@ import React from "react";
 import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
+import { ActionFeedbackContext, type ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { api, type User } from "@/lib/api";
 import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { registerPlanChangeListener } from "@/lib/purchases";
+import { attachPushForegroundSync } from "@/lib/pushNotifications";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/lib/api", () => ({ api: { updateMe: jest.fn(), syncSubscription: jest.fn() } }));
@@ -87,4 +89,17 @@ it("keeps one RevenueCat setup across an access-token refresh", async () => {
   await act(async () => {});
   expect(configurePurchases).toHaveBeenCalledTimes(1);
   expect(registerPlanChangeListener).toHaveBeenCalledTimes(1);
+});
+
+it("hands the push sync the app's toasts, so a push token failure is not silent", async () => {
+  const feedback: ActionFeedbackApi = {
+    show: jest.fn(), success: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn(), dismiss: jest.fn(),
+  };
+  await render(
+    <ActionFeedbackContext.Provider value={feedback}>
+      <Probe user={{ ...userA, push_notifications_enabled: true }} token="a" />
+    </ActionFeedbackContext.Provider>,
+  );
+  await act(async () => {});
+  expect(attachPushForegroundSync).toHaveBeenCalledWith("a", true, expect.any(Function), 0, feedback);
 });

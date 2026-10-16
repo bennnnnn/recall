@@ -378,6 +378,7 @@
   "memory.empty_body": "Chatte mit Recall und es lernt automatisch deine Vorlieben, Lernthemen und Fakten über dich.",
   "memory.empty_title": "Noch keine Erinnerungen",
   "memory.title": "Erinnerung",
+  "notifications.push_unavailable": "Push-Benachrichtigungen funktionieren auf diesem Gerät gerade nicht.",
   "notifications.reminders_channel": "Erinnerungen",
   "notifications.todo_reminder_body": "{{content}} — fällig um {{time}}",
   "notifications.todo_reminder_title": "Aufgaben",

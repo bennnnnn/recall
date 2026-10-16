@@ -107,8 +107,12 @@ async def execute_tool(
 
 
 async def search_sources_for_turn(redis: Redis, user_id: UUID, call_id: str, turn_id: str) -> list:
+    """Source chips for the turn's voice web search; the turn is saved without them on failure."""
     try:
         cached = await redis.get(_key(user_id, call_id, turn_id, "web_search"))
         return json.loads(cached).get("sources", []) if cached else []
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "Live Talk sources unreadable; saving the turn without them: %s", type(exc).__name__
+        )
         return []

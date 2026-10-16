@@ -254,3 +254,42 @@ async def test_get_home_screen_cached_rebuilds_after_invalidate(fake_redis):
     assert first == screen
     assert second == screen
     assert build_mock.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_home_screen_cached_unreadable_generation_skips_the_cache(fake_redis, caplog):
+    """A failed generation read used to mean generation "0", the key a home screen from
+    before the user's last change may still sit under, so a Redis blip served it stale."""
+    user = _user()
+    settings = Settings(home_cache_ttl=60)
+    stale = home_service.HomeScreenOut(
+        greeting="Stale", subtitle=None, urgent_todos=[], starters=[]
+    )
+    fresh = stale.model_copy(update={"greeting": "Fresh"})
+    generation_key = home_service._home_generation_key(user.id)
+    read = fake_redis.get
+
+    async def get_failing_generation(key):
+        if key == generation_key:
+            raise ConnectionError("redis down")
+        return await read(key)
+
+    with (
+        patch("app.modules.home.get_redis_client", return_value=fake_redis),
+        patch.object(home_service, "build_home_screen", AsyncMock(side_effect=[stale, fresh])),
+    ):
+        await home_service.get_home_screen_cached(AsyncMock(), user, settings)
+        await home_service.invalidate_home_cache(user.id)  # the user changed a reminder
+        with (
+            patch.object(fake_redis, "get", side_effect=get_failing_generation),
+            caplog.at_level("WARNING", logger="app.modules.home"),
+        ):
+            screen = await home_service.get_home_screen_cached(AsyncMock(), user, settings)
+
+    assert screen.greeting == "Fresh"
+    warnings = [r for r in caplog.records if r.name == "app.modules.home"]
+    assert [r.levelname for r in warnings] == ["WARNING"]
+    assert "ConnectionError" in warnings[0].getMessage()
+    # Nothing is written under a generation it could not read.
+    (zero_key,) = await fake_redis.keys(f"home:{user.id}:0:*")
+    assert home_service.HomeScreenOut.model_validate_json(await read(zero_key)) == stale

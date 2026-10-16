@@ -378,6 +378,7 @@
   "memory.empty_body": "Chat with Recall and it will automatically learn your preferences, study topics, and facts about you.",
   "memory.empty_title": "No memories yet",
   "memory.title": "Memory",
+  "notifications.push_unavailable": "Push notifications aren't working on this device right now.",
   "notifications.reminders_channel": "Reminders",
   "notifications.todo_reminder_body": "{{content}} — due at {{time}}",
   "notifications.todo_reminder_title": "To-do",

@@ -490,6 +490,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-18 — Stop hiding failures that look like success
 
+- **Status:** done. Unreadable queue counts are `None` with `metrics_error` and a Sentry warning (pending was always 0: redis-py returns a dict); the SSRF guard blocks an address it cannot classify; live talk and home log at warning, and home skips the cache instead of reading generation "0"; the phone toasts a non-routine push token failure once per app run.
 - **Problem:**
   - `core/jobs.py:769,775` `collect_queue_metrics` turns a Redis error into `dlq_depth = 0` and
     `pending_entries = 0`. `report_queue_metrics` then never raises its DLQ alert, exactly when

@@ -16,7 +16,7 @@ import time
 import traceback
 from collections.abc import Awaitable, Callable, Collection
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -758,55 +758,54 @@ async def stop_worker() -> None:
 # ── DLQ inspection / replay ──────────────────────────────────────────────────
 
 
-async def collect_queue_metrics(redis: Redis) -> dict[str, int]:
+class QueueMetrics(TypedDict):
+    """A count Redis could not read is None, and ``metrics_error`` names why."""
+
+    dlq_depth: int | None
+    pending_entries: int | None
+    metrics_error: str | None
+
+
+async def collect_queue_metrics(redis: Redis) -> QueueMetrics:
     """Return DLQ depth + jobs-stream pending count for observability.
 
-    Both are best-effort: a Redis error yields 0 rather than raising, so the
-    worker loop never breaks on a metrics collection blip.
+    Never raises into the worker loop, but an unreadable count is None, not 0:
+    a failing Redis must not read as an empty, healthy queue.
     """
+    metrics = QueueMetrics(dlq_depth=None, pending_entries=None, metrics_error=None)
     try:
-        dlq_depth = int(await redis.xlen(JOBS_DLQ_STREAM))
-    except Exception:
-        dlq_depth = 0
-    try:
-        pending = await redis.xpending(JOBS_STREAM, JOBS_GROUP)
-        # xpending summary returns [count, min_id, max_id, [[consumer, count], ...]]
-        pending_count = int(cast(list[Any], pending)[0]) if pending else 0
-    except Exception:
-        pending_count = 0
-    return {"dlq_depth": dlq_depth, "pending_entries": pending_count}
+        metrics["dlq_depth"] = int(await redis.xlen(JOBS_DLQ_STREAM))
+        # redis-py parses the XPENDING summary into {"pending": n, "min", "max", "consumers"}.
+        summary = cast(dict[str, Any], await redis.xpending(JOBS_STREAM, JOBS_GROUP))
+        metrics["pending_entries"] = int(summary["pending"])
+    except Exception as exc:
+        metrics["metrics_error"] = type(exc).__name__
+        logger.warning("jobs queue metrics unreadable: %s", metrics["metrics_error"])
+    return metrics
 
 
-async def report_queue_metrics(redis: Redis) -> dict[str, int]:
-    """Collect queue metrics and report them to Sentry (when initialized).
-
-    A breadcrumb is added every call (cheap, visible in event context), and a
-    warning-level message is captured when DLQ depth or pending entries cross
-    their threshold — so prod gets an actionable alert instead of silent
-    queue growth. Falls back to a no-op when sentry-sdk is absent.
+async def report_queue_metrics(redis: Redis) -> QueueMetrics:
+    """Report queue metrics to Sentry when it is installed: a breadcrumb every call, and a
+    warning when a count crosses its threshold or could not be read at all.
     """
     metrics = await collect_queue_metrics(redis)
+    dlq, pending, error = metrics["dlq_depth"], metrics["pending_entries"], metrics["metrics_error"]
+    alerts = [f"Jobs queue metrics unreadable ({error})"] if error else []
+    if dlq is not None and dlq >= _DLQ_ALERT_THRESHOLD:
+        alerts.append(f"Jobs DLQ depth {dlq} >= {_DLQ_ALERT_THRESHOLD}")
+    if pending is not None and pending >= _PENDING_ALERT_THRESHOLD:
+        alerts.append(f"Jobs pending entries {pending} >= {_PENDING_ALERT_THRESHOLD}")
     try:
         import sentry_sdk
 
         sentry_sdk.add_breadcrumb(
             category="jobs.queue",
-            message=(
-                f"queue metrics: dlq={metrics['dlq_depth']} pending={metrics['pending_entries']}"
-            ),
+            message=f"queue metrics: dlq={dlq} pending={pending}",
             level="info",
             data=metrics,
         )
-        if metrics["dlq_depth"] >= _DLQ_ALERT_THRESHOLD:
-            sentry_sdk.capture_message(
-                f"Jobs DLQ depth {metrics['dlq_depth']} >= {_DLQ_ALERT_THRESHOLD}",
-                level="warning",
-            )
-        if metrics["pending_entries"] >= _PENDING_ALERT_THRESHOLD:
-            sentry_sdk.capture_message(
-                f"Jobs pending entries {metrics['pending_entries']} >= {_PENDING_ALERT_THRESHOLD}",
-                level="warning",
-            )
+        for alert in alerts:
+            sentry_sdk.capture_message(alert, level="warning")
     except Exception:
         logger.debug("queue metrics report failed", exc_info=True)
     return metrics
