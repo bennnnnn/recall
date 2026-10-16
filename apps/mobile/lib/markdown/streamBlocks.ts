@@ -60,6 +60,138 @@ export function emptyStreamBlocksState(): StreamBlocksState {
   return { chunks: [], settledText: "" };
 }
 
+/** Where the scan stands: inside a fence or `$$` math, and what the last lines allow. */
+type ScanState = {
+  fenceOpen: boolean;
+  mathOpen: boolean;
+  prevLineSafe: boolean;
+  inBlankRun: boolean;
+  /**
+   * BUG FIX: a closed rich block (fenced code, ```math, or $$ display math)
+   * sitting in the pending segment used to wait for MIN_SETTLED_CHUNK_CHARS
+   * like plain prose before it got cut into its own once-mounted chunk. A
+   * short step-by-step math reply (each step's fence is well under 320
+   * chars) could hold several ALREADY-CLOSED math blocks in that pending
+   * segment for many streaming flushes in a row — and since the pending
+   * segment re-parses from scratch on every flush (react-native-markdown-
+   * display re-keys its whole output per parse, per this file's own header
+   * comment), every KaTeX WebView inside it unmounted and remounted on every
+   * flush: a real, repeated blank-then-repaint flicker, not settled prose's
+   * merely-wasted re-parse cost. A rich block forces an eager cut at the
+   * next safe boundary regardless of size, so it only ever renders once.
+   */
+  hasRichBlockSinceChunkStart: boolean;
+};
+
+/**
+ * Track one line that a fence, `$$` math or a blank run accounts for, and
+ * say so; a plain prose line (false) is where a cut may land.
+ */
+function trackBlockLine(state: ScanState, line: string): boolean {
+  if (FENCE_LINE_RE.test(line)) {
+    state.fenceOpen = !state.fenceOpen;
+    state.prevLineSafe = !state.fenceOpen;
+    state.inBlankRun = false;
+    state.hasRichBlockSinceChunkStart = true;
+    return true;
+  }
+  if (state.fenceOpen) {
+    state.inBlankRun = false;
+    return true;
+  }
+
+  const dollarCount = countDoubleDollar(line);
+  if (dollarCount % 2 === 1) {
+    state.mathOpen = !state.mathOpen;
+    state.prevLineSafe = !state.mathOpen;
+    state.inBlankRun = false;
+    state.hasRichBlockSinceChunkStart = true;
+    return true;
+  }
+  if (state.mathOpen) {
+    state.inBlankRun = false;
+    return true;
+  }
+  if (dollarCount > 0) {
+    // Even, nonzero count while not already inside an open block: one or
+    // more complete, self-contained "$$...$$" spans on a single line (no
+    // mathOpen state change) — an odd-count line above already covers the
+    // multi-line open/close case; this covers the single-line one. Defer
+    // to the next safe boundary like the fence/odd-count branches above
+    // (instead of falling through to the cut-check below) so the cut
+    // lands after this line, not at its start — the cut-check uses the
+    // current line's start, so evaluating it on this same line would
+    // slice the chunk right before the $$ content it's meant to include.
+    state.prevLineSafe = true;
+    state.inBlankRun = false;
+    state.hasRichBlockSinceChunkStart = true;
+    return true;
+  }
+
+  if (isBlankLine(line)) {
+    state.inBlankRun = true;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * The cut points in `prepared` between `from` and `safeLen`, reading whole
+ * lines only. A cut lands at the start of a prose line that follows a blank
+ * run, when the line before the blank run may end a chunk and neither side
+ * glues to the other, once the pending chunk is long enough or holds a
+ * closed rich block. `from` is a chunk boundary, so every fence and `$$`
+ * block starts closed.
+ */
+function scanClosedBlocks(prepared: string, from: number, safeLen: number): number[] {
+  const cuts: number[] = [];
+  const state: ScanState = {
+    fenceOpen: false,
+    mathOpen: false,
+    prevLineSafe: false,
+    inBlankRun: false,
+    hasRichBlockSinceChunkStart: false,
+  };
+  let chunkStart = from;
+  let i = from;
+  while (i < safeLen) {
+    const nl = prepared.indexOf("\n", i);
+    if (nl === -1 || nl >= safeLen) break;
+    const line = prepared.slice(i, nl);
+    if (!trackBlockLine(state, line)) {
+      const gluey = isGlueyLine(line);
+      if (
+        state.inBlankRun &&
+        state.prevLineSafe &&
+        !gluey &&
+        (i - chunkStart >= MIN_SETTLED_CHUNK_CHARS || state.hasRichBlockSinceChunkStart)
+      ) {
+        cuts.push(i);
+        chunkStart = i;
+        state.hasRichBlockSinceChunkStart = false;
+      }
+      state.inBlankRun = false;
+      state.prevLineSafe = !gluey;
+    }
+    i = nl + 1;
+  }
+  return cuts;
+}
+
+/** Append the chunks between consecutive cuts to the settled state. */
+function cutChunks(base: StreamBlocksState, prepared: string, cuts: number[]): StreamBlocksState {
+  const chunks = base.chunks.slice();
+  let settledText = base.settledText;
+  let chunkStart = settledText.length;
+  for (const cut of cuts) {
+    const chunk = prepared.slice(chunkStart, cut);
+    chunks.push(chunk);
+    settledText += chunk;
+    chunkStart = cut;
+  }
+  return { chunks, settledText };
+}
+
 /**
  * Advance the settled-chunk state for grown `prepared` content.
  *
@@ -81,107 +213,6 @@ export function advanceStreamBlocks(
   const boundedSafeLen = Math.min(Math.max(safeLen, 0), prepared.length);
   if (boundedSafeLen <= base.settledText.length) return base;
 
-  const chunks = base.chunks.slice();
-  let settledText = base.settledText;
-  let chunkStart = settledText.length;
-  // Cut points always land where fences/math are closed, so scanning from a
-  // chunk boundary starts in the closed state.
-  let fenceOpen = false;
-  let mathOpen = false;
-  let prevLineSafe = false;
-  let inBlankRun = false;
-  let didCut = false;
-  // BUG FIX: a closed rich block (fenced code, ```math, or $$ display math)
-  // sitting in the pending segment used to wait for MIN_SETTLED_CHUNK_CHARS
-  // like plain prose before it got cut into its own once-mounted chunk. A
-  // short step-by-step math reply (each step's fence is well under 320
-  // chars) could hold several ALREADY-CLOSED math blocks in that pending
-  // segment for many streaming flushes in a row — and since the pending
-  // segment re-parses from scratch on every flush (react-native-markdown-
-  // display re-keys its whole output per parse, per this file's own header
-  // comment), every KaTeX WebView inside it unmounted and remounted on every
-  // flush: a real, repeated blank-then-repaint flicker, not settled prose's
-  // merely-wasted re-parse cost. A rich block forces an eager cut at the
-  // next safe boundary regardless of size, so it only ever renders once.
-  let hasRichBlockSinceChunkStart = false;
-
-  let i = chunkStart;
-  while (i < boundedSafeLen) {
-    const nl = prepared.indexOf("\n", i);
-    if (nl === -1 || nl >= boundedSafeLen) break;
-    const line = prepared.slice(i, nl);
-    const lineEnd = nl + 1;
-
-    if (FENCE_LINE_RE.test(line)) {
-      fenceOpen = !fenceOpen;
-      prevLineSafe = !fenceOpen;
-      inBlankRun = false;
-      hasRichBlockSinceChunkStart = true;
-      i = lineEnd;
-      continue;
-    }
-    if (fenceOpen) {
-      inBlankRun = false;
-      i = lineEnd;
-      continue;
-    }
-
-    const dollarCount = countDoubleDollar(line);
-    if (dollarCount % 2 === 1) {
-      mathOpen = !mathOpen;
-      prevLineSafe = !mathOpen;
-      inBlankRun = false;
-      hasRichBlockSinceChunkStart = true;
-      i = lineEnd;
-      continue;
-    }
-    if (mathOpen) {
-      inBlankRun = false;
-      i = lineEnd;
-      continue;
-    }
-    if (dollarCount > 0) {
-      // Even, nonzero count while not already inside an open block: one or
-      // more complete, self-contained "$$...$$" spans on a single line (no
-      // mathOpen state change) — an odd-count line above already covers the
-      // multi-line open/close case; this covers the single-line one. Defer
-      // to the next safe boundary like the fence/odd-count branches above
-      // (instead of falling through to the cut-check below) so the cut
-      // lands after this line, not at its start — the cut-check uses `i`
-      // as the current line's start, so evaluating it on this same line
-      // would slice the chunk right before the $$ content it's meant to
-      // include.
-      prevLineSafe = true;
-      inBlankRun = false;
-      hasRichBlockSinceChunkStart = true;
-      i = lineEnd;
-      continue;
-    }
-
-    if (isBlankLine(line)) {
-      inBlankRun = true;
-      i = lineEnd;
-      continue;
-    }
-
-    const gluey = isGlueyLine(line);
-    if (
-      inBlankRun &&
-      prevLineSafe &&
-      !gluey &&
-      (i - chunkStart >= MIN_SETTLED_CHUNK_CHARS || hasRichBlockSinceChunkStart)
-    ) {
-      const chunk = prepared.slice(chunkStart, i);
-      chunks.push(chunk);
-      settledText += chunk;
-      chunkStart = i;
-      didCut = true;
-      hasRichBlockSinceChunkStart = false;
-    }
-    inBlankRun = false;
-    prevLineSafe = !gluey;
-    i = lineEnd;
-  }
-
-  return didCut ? { chunks, settledText } : base;
+  const cuts = scanClosedBlocks(prepared, base.settledText.length, boundedSafeLen);
+  return cuts.length > 0 ? cutChunks(base, prepared, cuts) : base;
 }
