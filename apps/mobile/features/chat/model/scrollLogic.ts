@@ -1,6 +1,6 @@
-export const SCROLL_HIDE_AT_BOTTOM = 64;
-export const SCROLL_SHOW_MIN_AWAY = 280;
-export const SCROLL_SHOW_VIEWPORT_RATIO = 0.28;
+const SCROLL_HIDE_AT_BOTTOM = 64;
+const SCROLL_SHOW_MIN_AWAY = 280;
+const SCROLL_SHOW_VIEWPORT_RATIO = 0.28;
 
 export function getScrollThresholds(options: {
   viewportHeight: number;

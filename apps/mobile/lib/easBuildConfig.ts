@@ -20,7 +20,7 @@ export function updatesUrl(projectId: string | undefined): string | null {
 }
 
 /** Preview/production API origin: parseable https:// and not a loopback host. */
-export function assertReleaseApiUrl(apiUrl: string | undefined, envName: string): void {
+function assertReleaseApiUrl(apiUrl: string | undefined, envName: string): void {
   const trimmed = apiUrl?.trim();
   if (!trimmed) {
     throw new Error(`${envName} must be set to a public https:// URL`);

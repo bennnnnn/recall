@@ -2,12 +2,12 @@ import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGen
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 
-export const CHAT_HEADER_BAR_HEIGHT = 52;
+const CHAT_HEADER_BAR_HEIGHT = 52;
 const CHAT_HEADER_TITLE_LINE_HEIGHT_RATIO = 1.3;
 const CHAT_HEADER_TITLE_VERTICAL_AIR = 8;
 /** Matches the in-bubble action row (34px icons + 4px margin). */
 export const CHAT_ACTION_ROW_HEIGHT = 44;
-export const CHAT_KEYBOARD_LIFT_EXTRA = 0;
+const CHAT_KEYBOARD_LIFT_EXTRA = 0;
 export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
 /**
  * One-line composer row. Shorter than the 44 pt touch minimum; the buttons
@@ -23,7 +23,7 @@ export const COMPOSER_INPUT_MAX_HEIGHT =
 /** Cap on the field at large text sizes: fewer than six lines when six would pass it. */
 const COMPOSER_INPUT_MAX_FRAME = 240;
 
-export type ComposerInputMetrics = {
+type ComposerInputMetrics = {
   /** One text line. */
   line: number;
   /** One-line frame: the + / send height, or the line when that is taller. */
@@ -181,17 +181,17 @@ export function composerGapFadeHeight(bottomPad: number): number {
   return bottomPad * 2 + COMPOSER_GAP_FADE_OVERLAP;
 }
 
-export const CHAT_EMPTY_MIN_HEIGHT = 160;
+const CHAT_EMPTY_MIN_HEIGHT = 160;
 
-export type ModelOption = { id: string; label: string; hint?: string };
+type ModelOption = { id: string; label: string; hint?: string };
 
-export type ModelCostFields = {
+type ModelCostFields = {
   input_price_per_m: number | null;
   output_price_per_m: number | null;
   quota_multiplier?: number;
 };
 
-export type TranslateFn = (
+type TranslateFn = (
   key: string,
   params?: Record<string, string | number>,
 ) => string;
@@ -284,7 +284,7 @@ export function isComposerMenuOverlayOpen(attachSheetOpen: boolean): boolean {
   return attachSheetOpen;
 }
 
-export type ComposerNativeInputTraits = {
+type ComposerNativeInputTraits = {
   autoCorrect: boolean;
   spellCheck: boolean;
   autoCapitalize: "none" | "sentences";
@@ -328,7 +328,7 @@ export function shouldReserveComposerActionGap(lastMessageId?: string): boolean 
   return lastMessageId === "streaming" || lastMessageId === IMAGE_GEN_PENDING_ASSISTANT_ID;
 }
 
-export type ChatLayoutMetrics = {
+type ChatLayoutMetrics = {
   headerMinimumHeight: number;
   headerInset: number;
   composerLift: number;

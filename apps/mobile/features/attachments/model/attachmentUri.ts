@@ -1,7 +1,4 @@
 import { getApiUrl } from "@/lib/config";
-import { attachmentIdFromRef } from "@/lib/attachmentRef";
-
-export { attachmentIdFromRef };
 
 /** Only the configured API origin and base path may receive Recall credentials. */
 export function recallAttachmentPath(uri: string): string | null {

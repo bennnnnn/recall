@@ -9,7 +9,7 @@ import { Skia, type SkPath } from "@shopify/react-native-skia";
 
 type Point = { px: number; py: number };
 
-export type ArrowHead = "filled" | "open" | "ticks";
+type ArrowHead = "filled" | "open" | "ticks";
 
 /** A polyline through screen points. */
 export function pointsPath(points: readonly Point[]): SkPath {

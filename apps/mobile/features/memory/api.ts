@@ -2,9 +2,9 @@ import { request } from "@/lib/api/client";
 import type { Memory } from "@/lib/api/types";
 import type { MemoryDocuments, MemoryInstructResult } from "@/features/memory/types";
 
-export const MAX_MEMORY_FACT_TEXT_LENGTH = 4018;
+const MAX_MEMORY_FACT_TEXT_LENGTH = 4018;
 
-export type MemoryPatch = {
+type MemoryPatch = {
   text?: string;
   status?: "active" | "muted" | "superseded";
 };

@@ -67,7 +67,7 @@ async function resolveExpoPushToken(): Promise<string | null> {
   }
 }
 
-export type PushRegisterResult = "registered" | "skipped" | "disabled_permission";
+type PushRegisterResult = "registered" | "skipped" | "disabled_permission";
 
 /** Register Expo push token with the backend for remote notifications.
  *

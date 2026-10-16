@@ -34,9 +34,9 @@ export const LIVE_TALK_CONNECT_WARMUP_MS = 1_500;
 /** If session.created never arrives, start accepting user turns after this. */
 export const LIVE_TALK_SESSION_READY_FALLBACK_MS = 2_500;
 
-export type LiveTalkOrbAction = "begin" | "finishListen" | "cancelThink" | "none";
+type LiveTalkOrbAction = "begin" | "finishListen" | "cancelThink" | "none";
 
-export type LiveTalkOrbMode = "listen" | "speak" | "think" | "idle";
+type LiveTalkOrbMode = "listen" | "speak" | "think" | "idle";
 
 /** Visual language for the orb — no on-screen Listening/Speaking copy. */
 export function liveTalkOrbMode(phase: LiveTalkPhase): LiveTalkOrbMode {
@@ -146,7 +146,7 @@ export function liveTalkShouldCreateResponse(input: {
   );
 }
 
-export function liveTalkNormalizeTranscript(text: string): string {
+function liveTalkNormalizeTranscript(text: string): string {
   return text
     .toLowerCase()
     .replace(/[.!?,;:'"()[\]{}]/g, "")

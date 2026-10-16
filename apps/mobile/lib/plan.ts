@@ -35,8 +35,6 @@ export type PlanCatalog = {
   plans: PlanInfo[];
 };
 
-export const PAID_PLANS: readonly PaidPlanId[] = ["plus", "pro"];
-
 type PlanHolder = { plan?: string | null; features?: readonly string[] | null } | null | undefined;
 
 export function planOf(holder: PlanHolder): PlanId {

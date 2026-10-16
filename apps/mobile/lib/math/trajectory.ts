@@ -17,21 +17,21 @@ import {
 
 export type ScreenPoint = { px: number; py: number };
 
-export type TrajectoryBounds = {
+type TrajectoryBounds = {
   xMin: number;
   xMax: number;
   yMin: number;
   yMax: number;
 };
 
-export type TrajectoryAxisLabel = {
+type TrajectoryAxisLabel = {
   value: number;
   text: string;
   px: number;
   py: number;
 };
 
-export type TrajectoryAxisLayout = {
+type TrajectoryAxisLayout = {
   origin: ScreenPoint;
   xAxisY: number;
   yAxisX: number;

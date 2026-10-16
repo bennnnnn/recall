@@ -49,7 +49,6 @@ import {
   type SceneLayout,
   type SimulationArrow,
   type SimulationSpec,
-  type SimulationTransform,
   type ScreenPoint,
   type SolidLayout,
   type SupportLayout,
@@ -74,8 +73,6 @@ import {
   linePath,
   pointsPath,
 } from "@/components/rich/skia/paths";
-
-export { SIMULATION_HEIGHT, SIMULATION_MIN_HEIGHT, SIMULATION_PAD };
 
 const LABEL_FONT_SIZE = 11;
 /** The math faces set a size larger, so a τ stands as tall as SpaceMono's x-height beside it. */
@@ -1477,5 +1474,3 @@ function makeStyles(theme: Theme) {
     },
   });
 }
-
-export type { SimulationSpec, SimulationTransform };

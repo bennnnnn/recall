@@ -40,7 +40,7 @@ type QuotaNudge = {
   dismiss: () => void;
 };
 
-export type UseChatScreenBodyPropsParams = {
+type UseChatScreenBodyPropsParams = {
   styles: ChatScreenStyles;
   theme: Theme;
   drawerOpen: boolean;

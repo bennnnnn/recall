@@ -55,7 +55,7 @@ function loadSpeech(): SpeechModule | null {
   }
 }
 
-export type SpeakResult = { ok: true } | { ok: false; reason: "unavailable" | "error" };
+type SpeakResult = { ok: true } | { ok: false; reason: "unavailable" | "error" };
 
 function isCurrentSpeak(generation: number): boolean {
   return generation === speakGeneration;
@@ -295,38 +295,6 @@ function applySpeechRate(player: PlaybackHandle): void {
   }
 }
 
-async function playRemoteAudio(url: string): Promise<SpeakResult> {
-  const Audio = loadExpoAudio();
-  if (!Audio) return { ok: false, reason: "unavailable" };
-  try {
-    stopSpeaking();
-    stopReadingInBackground();
-    const player = Audio.createAudioPlayer(url);
-    const release = () => {
-      try {
-        player.pause();
-      } catch {
-        /* ignore */
-      }
-      try {
-        player.remove();
-      } catch {
-        /* ignore */
-      }
-    };
-    cloudPlayerCleanup = release;
-    player.play();
-    await waitUntilPlaybackEnds(player);
-    if (cloudPlayerCleanup === release) {
-      cloudPlayerCleanup = null;
-      release();
-    }
-    return { ok: true };
-  } catch {
-    return { ok: false, reason: "error" };
-  }
-}
-
 async function beginDeviceSpeech(
   text: string,
   language: string,
@@ -519,20 +487,6 @@ export async function speakPlainText(
   } finally {
     if (ttsAbort === ac) ttsAbort = null;
   }
-}
-
-/** Device/cloud TTS for a single word (optional stored pronunciation clip). */
-export async function speakWord(
-  word: string,
-  options?: { language?: string; pronunciationUrl?: string | null; token?: string | null },
-): Promise<SpeakResult> {
-  const language = options?.language ?? "en-US";
-  const pronunciationUrl = options?.pronunciationUrl?.trim();
-  if (pronunciationUrl) {
-    const played = await playRemoteAudio(pronunciationUrl);
-    if (played.ok) return played;
-  }
-  return speakPlainText(word, language, { token: options?.token });
 }
 
 export function stopSpeaking(): void {

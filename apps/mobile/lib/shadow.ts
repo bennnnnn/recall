@@ -11,7 +11,7 @@ import type { ViewStyle } from "react-native";
 import type { Theme } from "@/lib/theme";
 
 /** Neutral shadow ink. Callers outside this file use the helpers or this constant. */
-export const SHADOW_COLOR = "#000";
+const SHADOW_COLOR = "#000";
 
 /** Soft raised surface — quota nudge, light cards. */
 export function shadowRaised(theme: Theme): ViewStyle {

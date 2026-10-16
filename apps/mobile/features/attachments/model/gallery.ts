@@ -8,7 +8,7 @@ export const COLUMN_THUMB_SIZE = 64;
 
 export type GalleryFilter = "all" | "generated" | "uploaded" | "files";
 
-export type GalleryListParams = {
+type GalleryListParams = {
   category?: "images" | "files";
   source?: "upload" | "generated";
 };

@@ -114,7 +114,7 @@ export function extractPlacesFromMarkdownList(content: string): PlaceItem[] {
   return places;
 }
 
-export function parseAllPlacesFences(content: string): PlaceItem[] {
+function parseAllPlacesFences(content: string): PlaceItem[] {
   return collectClosedFenceBodies(content, "places").flatMap((body) =>
     parsePlacesJson(body.trim()),
   );

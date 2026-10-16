@@ -2,13 +2,13 @@ import { fetchExportText, request } from "@/lib/api/client";
 import type { AuthSession, User } from "@/lib/api/types";
 import type { PaidPlanId, PlanCatalog } from "@/lib/plan";
 
-export type SettingsProposalApplied = {
+type SettingsProposalApplied = {
   field: string;
   value: string;
   label: string;
 };
 
-export type SettingsConfirmResult = {
+type SettingsConfirmResult = {
   user: User;
   appearance: string | null;
   applied: SettingsProposalApplied[];

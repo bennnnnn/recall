@@ -5,7 +5,7 @@
  * keys), add a loader in `index.ts` `LOCALE_LOADERS`, and add one entry here.
  * Missing keys fall back to English automatically.
  */
-export type LanguageMeta = {
+type LanguageMeta = {
   code: string;
   /** Endonym — shown in its own language. */
   label: string;
@@ -26,11 +26,6 @@ export const LANGUAGES: LanguageMeta[] = [
   { code: "tr", label: "Türkçe", speechLocale: "tr-TR" },
   { code: "am", label: "አማርኛ", speechLocale: "am-ET" },
 ];
-
-export function languageLabel(code?: string | null): string {
-  const normalized = (code ?? "en").trim().toLowerCase();
-  return LANGUAGES.find((item) => item.code === normalized)?.label ?? LANGUAGES[0].label;
-}
 
 export function speechLocale(code?: string | null): string {
   const normalized = (code ?? "en").trim().toLowerCase();

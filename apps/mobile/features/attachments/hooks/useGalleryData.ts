@@ -18,8 +18,6 @@ import {
   type GalleryFilter,
 } from "@/features/attachments/model/gallery";
 
-export type { GalleryFilter };
-
 function pageFromCache(snapshot: GalleryPage | undefined): {
   items: AttachmentListItem[];
   hasMore: boolean;

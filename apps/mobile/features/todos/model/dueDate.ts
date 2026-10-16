@@ -5,7 +5,7 @@ import {
   formatShortWeekdayDate,
 } from "@/lib/datetime/format";
 
-export type DueTone = "overdue" | "today" | "soon" | "later";
+type DueTone = "overdue" | "today" | "soon" | "later";
 
 export function describeDueAt(iso: string | null | undefined): {
   label: string;
@@ -67,12 +67,5 @@ export function toDueAtIso(date: Date): string {
 export function withCalendarDate(current: Date, picked: Date): Date {
   const next = new Date(current);
   next.setFullYear(picked.getFullYear(), picked.getMonth(), picked.getDate());
-  return next;
-}
-
-/** Keep the calendar day and take the clock time. */
-export function withClockTime(current: Date, picked: Date): Date {
-  const next = new Date(current);
-  next.setHours(picked.getHours(), picked.getMinutes(), 0, 0);
   return next;
 }

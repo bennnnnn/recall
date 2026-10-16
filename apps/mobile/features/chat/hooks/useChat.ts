@@ -24,8 +24,6 @@ import {
 import type { ChatWsFallbackSignal, ChatWsTransport } from "@/features/chat/model/wsTransport";
 import type { ComposerSendDraft } from "@/features/chat/model/sendLogic";
 
-export type { StreamingDraft };
-
 type UseChatOptions = {
   /** Called with the new title when the server sends one after first reply */
   onFirstReply?: () => void;

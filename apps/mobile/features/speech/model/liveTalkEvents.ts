@@ -11,7 +11,7 @@ export type LiveTalkSpeakEvent =
       assistant_message: Message | null;
     };
 
-export function liveTalkLocalIds(turnId: string): { user: string; assistant: string } {
+function liveTalkLocalIds(turnId: string): { user: string; assistant: string } {
   return {
     user: `local-live-user-${turnId}`,
     assistant: `local-live-assistant-${turnId}`,

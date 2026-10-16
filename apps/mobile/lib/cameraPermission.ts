@@ -1,5 +1,5 @@
 /** Permission shape shared by expo-camera and expo-image-picker. */
-export type CameraPermissionSnapshot = {
+type CameraPermissionSnapshot = {
   granted: boolean;
   canAskAgain?: boolean;
 };

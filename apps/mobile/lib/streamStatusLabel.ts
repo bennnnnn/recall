@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 
 const MAX_VARIANTS = 6;
-export const STREAM_STATUS_ROTATE_MS = 3200;
+const STREAM_STATUS_ROTATE_MS = 3200;
 const STATUS_DETAIL_MAX_CHARS = 44;
 
 /** Fake agent-progress chips. ChatGPT only labels long tools (search, files,

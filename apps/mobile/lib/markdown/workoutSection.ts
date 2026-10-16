@@ -4,7 +4,7 @@
  * each a bold heading on its own line followed by one state per line, with
  * the move as a short note after " — " (`$2x = 8$ — subtract 3`).
  */
-export const WORKOUT_HEADINGS: ReadonlySet<string> = new Set([
+const WORKOUT_HEADINGS: ReadonlySet<string> = new Set([
   "Given",
   "Find",
   "Formula",

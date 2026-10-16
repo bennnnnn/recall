@@ -37,7 +37,7 @@ let nativePickerActive = false;
 let nativePickerGeneration = 0;
 
 /** Hung native pickers must not leave picking dead for the rest of the session. */
-export const NATIVE_PICKER_WATCHDOG_MS = 60_000;
+const NATIVE_PICKER_WATCHDOG_MS = 60_000;
 
 export class NativePickerBusyError extends Error {
   constructor() {
@@ -184,7 +184,7 @@ async function assetToPending(
   };
 }
 
-export function defaultAttachmentPrompt(pending: PendingAttachment): string {
+function defaultAttachmentPrompt(pending: PendingAttachment): string {
   return pending.kind === "image" ? "" : "Summarize this file.";
 }
 

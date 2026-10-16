@@ -1,7 +1,7 @@
 import type { ModelInfo } from "@/lib/api";
 
 /** Default product alias when a chat row has no stored model. */
-export const FREE_CHAT_MODEL_ID = "free-chat";
+const FREE_CHAT_MODEL_ID = "free-chat";
 
 /** Mirrors backend ``model_catalog.selectable_models()`` when /models cannot be reached. */
 export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [

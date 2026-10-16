@@ -16,7 +16,6 @@ export {
   autoAdvanceFracDen,
   autoAdvanceNextEmptySlot,
   caretInGroup,
-  findEditSlots,
   findFracSlots,
   findLognSlots,
   findNrootSlots,
@@ -37,4 +36,4 @@ export {
   type PadCell,
   type SymbolPage,
 } from "@/lib/math/keyboardPages";
-export { caretStepLeft, caretStepRight, caretStops } from "@/lib/math/caretStops";
+export { caretStepLeft, caretStepRight } from "@/lib/math/caretStops";

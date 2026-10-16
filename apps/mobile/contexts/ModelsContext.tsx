@@ -16,11 +16,11 @@ import { MODEL_CATALOG_FALLBACK } from "@/lib/modelCatalogFallback";
 import { shouldRefreshModels } from "@/lib/modelRefresh";
 import { hasPlanFeature } from "@/lib/plan";
 
-export const AUTO_MODEL_ID = "auto";
+const AUTO_MODEL_ID = "auto";
 
 const MODEL_REFRESH_TTL_MS = 5 * 60 * 1000;
 
-export function defaultModelPreferences(
+function defaultModelPreferences(
   models: ModelInfo[],
   isPaid: boolean,
 ): string[] {

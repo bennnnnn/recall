@@ -11,11 +11,11 @@
  *   read as a header and dropped.
  */
 
-export type AnswerNotation = "math" | "chemistry";
+type AnswerNotation = "math" | "chemistry";
 
 export const CHEMISTRY_ANSWER_NOTATION = "notation: chemistry";
-export const ANSWER_LABEL_LINE = "label: answer";
-export const VERIFIED_ANSWER_MARKER = "verified: true";
+const ANSWER_LABEL_LINE = "label: answer";
+const VERIFIED_ANSWER_MARKER = "verified: true";
 
 function headerLine(line: string): string | null {
   // The marker must be exactly the server's line: no case, spacing, or invisible

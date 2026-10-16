@@ -13,7 +13,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 
 /** Same limit as the server (MEMORY_INSTRUCTION_MAX_LENGTH). */
-export const MEMORY_INSTRUCTION_MAX_LENGTH = 500;
+const MEMORY_INSTRUCTION_MAX_LENGTH = 500;
 
 type Props = {
   /** An example instruction, e.g. "Keep lists under five things". */

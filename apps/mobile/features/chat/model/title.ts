@@ -1,6 +1,6 @@
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 
-export type ChatTitleDisplayOptions = {
+type ChatTitleDisplayOptions = {
   /** True while waiting for auto-generated title after first exchange. */
   generating?: boolean;
 };
@@ -23,7 +23,7 @@ function stripTrailingPunct(value: string): string {
 }
 
 /** Strip wrapping quotes + trailing sentence punctuation until stable. */
-export function unwrapChatTitle(raw: string): string {
+function unwrapChatTitle(raw: string): string {
   let title = raw.trim();
   for (;;) {
     const prev = title;

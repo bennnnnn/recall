@@ -31,7 +31,7 @@ type Props = {
   bottomOffset?: number;
 };
 
-export type ActionFeedbackTone = "success" | "info" | "warning" | "error";
+type ActionFeedbackTone = "success" | "info" | "warning" | "error";
 export type ActionBannerAppearance = "default" | "media";
 
 export function ActionBanner({

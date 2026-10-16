@@ -66,11 +66,11 @@ export type SimulationVector = {
   body?: number;
 };
 
-export type SimulationVectorRole = "force" | "result" | "measure" | "motion";
+type SimulationVectorRole = "force" | "result" | "measure" | "motion";
 
 const VECTOR_ROLES: readonly SimulationVectorRole[] = ["force", "result", "measure", "motion"];
 
-export type SimulationBodyShape = "circle" | "box";
+type SimulationBodyShape = "circle" | "box";
 
 export type SimulationBody = {
   label?: string;
@@ -611,7 +611,7 @@ export function simulationIsAnimated(spec: SimulationSpec): boolean {
   );
 }
 
-export type SimulationTransform = {
+type SimulationTransform = {
   scale: number;
   offsetX: number;
   offsetY: number;
@@ -737,7 +737,7 @@ export function isClosedPath(points: readonly ScreenPoint[]): boolean {
 }
 
 /** Whether a sampled path comes back to its first sample (to within 1% of its size). */
-export function endsWhereItStarts(points: readonly ScreenPoint[]): boolean {
+function endsWhereItStarts(points: readonly ScreenPoint[]): boolean {
   const last = points.length - 1;
   if (last < 3) return false;
   const first = points[0];
@@ -837,7 +837,7 @@ export const ARROW_MAX_LENGTH = 48;
 export const ARROW_MIN_LENGTH = 16;
 /** Shortest a moving body's velocity arrow is drawn. */
 export const VELOCITY_MIN_LENGTH = 12;
-export const ARROW_HEAD = 7;
+const ARROW_HEAD = 7;
 /** Room kept between an arrow's tip and the canvas edge, so its head stays in. */
 export const ARROW_EDGE_INSET = 6;
 
@@ -859,7 +859,7 @@ export function velocityArrowLength(speed: number, maxSpeed: number): number {
 }
 
 /** A vector the scene states at its true world length. */
-export function drawsAtWorldScale(spec: SimulationSpec, vector: SimulationVector): boolean {
+function drawsAtWorldScale(spec: SimulationSpec, vector: SimulationVector): boolean {
   return spec.type === "vector_sum" || vector.role === "measure";
 }
 
@@ -925,7 +925,7 @@ export function arrowHeadSize(length: number): number {
  * Gap between a label and the thing it names. Declared above every worklet
  * that reads it: a worklet captures its constants where it is defined.
  */
-export const LABEL_GAP = 6;
+const LABEL_GAP = 6;
 
 /**
  * How far from a body's centre its edge is along the unit direction
@@ -1054,7 +1054,7 @@ export function clearanceAlong(
 
 /**
  * Top-left of a label box just past an arrow's tip, centred on its line: the
- * same placement `vectorLabelBox` gives a stated arrow, as a worklet so a
+ * same placement `vectorLabelOrigin` gives a stated arrow, as a worklet so a
  * derived arrow's label can follow its tip every frame.
  */
 export function tipLabelOrigin(
@@ -1079,7 +1079,7 @@ export function tipLabelOrigin(
  * Where something already sits past the tip, the head is the next place a
  * reader looks for the arrow's name.
  */
-export function besideHeadOrigin(
+function besideHeadOrigin(
   tipX: number,
   tipY: number,
   ux: number,
@@ -1259,8 +1259,8 @@ export type LabelBox = { x: number; y: number; width: number; height: number };
 /** Skia text is drawn from its baseline, about this far down a line. */
 const LABEL_ASCENT = 0.8;
 
-/** The baseline Skia draws a label at, for a box from `vectorLabelBox`. */
-export function labelBaseline(box: LabelBox): number {
+/** The baseline Skia draws a label at, for a label's box. */
+function labelBaseline(box: LabelBox): number {
   return box.y + box.height * LABEL_ASCENT;
 }
 
@@ -1408,45 +1408,22 @@ export function bodyLabelOffset(
   }
 }
 
-/**
- * The first side, in the body's order of preference, where its label crosses
- * no arrow and fits on the canvas. The primary body prefers above and a
- * secondary body below, so a pair of bodies never shares a label line.
- */
-export function chooseBodyLabelSide(
-  centre: ScreenPoint,
-  radius: number,
-  labelWidth: number,
-  fontSize: number,
-  role: SimulationBody["role"],
-  obstacles: readonly Segment[],
-  width: number,
-  height: number,
-): BodyLabelSide {
-  return chooseBodyLabelSideAcrossFrames(
-    [centre],
-    radius,
-    labelWidth,
-    fontSize,
-    role,
-    [obstacles],
-    width,
-    height,
-  );
-}
-
 /** Room kept between a body's label and any line, in px (on top of the 1 px margin). */
 const BODY_LABEL_CLEARANCE = 2;
 
 /**
- * `chooseBodyLabelSide` for a body that moves: the label rides along at one
- * offset, so a side is only clear if it is clear at every sampled position
+ * The first side, in the body's order of preference, where its label crosses
+ * no arrow and fits on the canvas. The primary body prefers above and a
+ * secondary body below, so a pair of bodies never shares a label line.
+ *
+ * For a body that moves, the label rides along at one offset, so a side is
+ * only clear if it is clear at every sampled position
  * (`centres[k]`, against `obstacles[k]`) — a pendulum bob's label beside it
  * would sit on its own track as it swings through the bottom. The corners are
  * the last resort; when nothing is clear all the way through, the side clear
  * for the most frames wins.
  */
-export function chooseBodyLabelSideAcrossFrames(
+function chooseBodyLabelSideAcrossFrames(
   centres: readonly ScreenPoint[],
   radius: number,
   labelWidth: number,
@@ -1518,33 +1495,12 @@ export function chooseBodyLabelSideAcrossFrames(
 }
 
 /**
- * A stated vector's label box. `tip` puts it just past the arrowhead, centred
- * on the line of the arrow; `mid` puts it beside the middle of the shaft, on
- * `side` (+1 or −1) of it — which is how a component and a dimension line are
- * labelled, so a component never shares the result's tip.
+ * Top-left of a stated vector's label box. `mid` false puts it just past the
+ * arrowhead, centred on the line of the arrow; `mid` true puts it beside the
+ * middle of the shaft, on `side` (+1 or −1) of it — which is how a component
+ * and a dimension line are labelled, so a component never shares the result's
+ * tip. A worklet, so a label riding on a body can follow its arrow.
  */
-export function vectorLabelBox(
-  from: ScreenPoint,
-  tip: ScreenPoint,
-  labelWidth: number,
-  fontSize: number,
-  mode: "tip" | "mid",
-  side: 1 | -1 = 1,
-): LabelBox {
-  const origin = vectorLabelOrigin(
-    from.px,
-    from.py,
-    tip.px,
-    tip.py,
-    labelWidth,
-    fontSize,
-    mode === "mid",
-    side,
-  );
-  return { x: origin.x, y: origin.y, width: labelWidth, height: fontSize };
-}
-
-/** `vectorLabelBox`'s top-left, as a worklet so a label riding on a body can follow its arrow. */
 export function vectorLabelOrigin(
   fromX: number,
   fromY: number,
@@ -1644,7 +1600,7 @@ export function riddenVectorGeometry(
 }
 
 /** How a stated vector is drawn. */
-export type VectorStroke = "force" | "motion" | "measure";
+type VectorStroke = "force" | "motion" | "measure";
 
 export function vectorStroke(role: SimulationVectorRole): VectorStroke {
   return role === "motion" ? "motion" : role === "measure" ? "measure" : "force";
@@ -1765,7 +1721,7 @@ export type SceneLayout = {
 };
 
 /** The smallest a body is drawn, so a 2 cm ball is still a dot. */
-export const MIN_BODY_RADIUS = 4;
+const MIN_BODY_RADIUS = 4;
 
 function unit(dx: number, dy: number): { ux: number; uy: number } {
   const length = Math.hypot(dx, dy) || 1;
@@ -1813,7 +1769,7 @@ export function tetherEnd(
 }
 
 /** Half the length of a string's support bar, and how far its hatching reaches. */
-export const SUPPORT_HALF = 12;
+const SUPPORT_HALF = 12;
 const SUPPORT_HATCH = 5;
 const SUPPORT_HATCHES = 5;
 
@@ -1892,7 +1848,7 @@ export const ANGLE_MAX_RADIUS = 56;
 const ANGLE_STEP_DEG = 4;
 
 /** The signed sweep from `startDeg` to `endDeg`, never more than a full turn. */
-export function angleSweep(startDeg: number, endDeg: number): number {
+function angleSweep(startDeg: number, endDeg: number): number {
   const sweep = endDeg - startDeg;
   return Math.max(-360, Math.min(360, sweep));
 }

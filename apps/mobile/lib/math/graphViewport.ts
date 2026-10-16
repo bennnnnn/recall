@@ -6,7 +6,7 @@ export type GraphView = {
 };
 
 /** Default school window: x ≈ −6…6 so labels include −3…3 at unit steps. */
-export const DEFAULT_GRAPH_X_HALF = 6;
+const DEFAULT_GRAPH_X_HALF = 6;
 const MIN_SPAN = 0.002;
 const MAX_SPAN = 1e4;
 

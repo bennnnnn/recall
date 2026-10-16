@@ -41,7 +41,7 @@ import {
 
 export const IMAGE_GEN_PENDING_ASSISTANT_ID = "image-gen-pending";
 export const IMAGE_GEN_FAILED_ASSISTANT_ID = "image-gen-failed";
-export const IMAGE_GEN_USER_PREFIX = "Generate image: ";
+const IMAGE_GEN_USER_PREFIX = "Generate image: ";
 const IMAGE_SEARCH_MODEL_ALIAS = "image-search-model";
 
 const EDGE_PUNCT = /^[.,!?;:"'()[\]]+|[.,!?;:"'()[\]]+$/g;
@@ -277,7 +277,7 @@ export function extractImageGenPrompt(text: string): string | null {
 }
 
 /** True for a bare image ask with no subject: "Image", "a pic", "create an image". */
-export function isImageNounOnlyMessage(text: string): boolean {
+function isImageNounOnlyMessage(text: string): boolean {
   if (isImageGenGenerateNow(text)) return false;
   let toks = stripPolite(tokens(stripTrailing(text.trim(), /[.!?]+$/)));
   if (toks.length && (VERBS_IMAGE.has(lower(toks[0])) || VERBS_DRAW.has(lower(toks[0])))) {
@@ -290,7 +290,7 @@ export function isImageNounOnlyMessage(text: string): boolean {
 }
 
 /** True when this line is "do it" / "that works" / "u pick" after a scene. */
-export function isImageGenGenerateNow(text: string): boolean {
+function isImageGenGenerateNow(text: string): boolean {
   const collapsed = stripTrailing(tokens(text.trim().toLowerCase()).join(" "), /[.!?]+$/).trim();
   if (!collapsed || collapsed.length > 40) return false;
   if (GENERATE_NOW_EXACT.has(collapsed)) return true;

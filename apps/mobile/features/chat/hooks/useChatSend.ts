@@ -68,7 +68,7 @@ import {
 type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
 type ChatScroll = ReturnType<typeof useChatScroll>;
-export type ChatSendPhase =
+type ChatSendPhase =
   | "idle"
   | "locating"
   | "preparing"

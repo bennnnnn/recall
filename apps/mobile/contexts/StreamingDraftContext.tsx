@@ -10,8 +10,6 @@ import {
   STREAM_UI_INTERVAL_MS,
 } from "@/lib/streamUiTiming";
 
-export type { StreamingDraft };
-
 /** Optional tree marker; draft state lives in the module store. */
 export function StreamingDraftProvider({ children }: { children: React.ReactNode }) {
   return children;

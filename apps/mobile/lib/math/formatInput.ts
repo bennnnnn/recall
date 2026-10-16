@@ -17,7 +17,7 @@ import {
   isMathLike,
 } from "@/lib/math/normalizeImplicit";
 
-export type MathFormatOptions = {
+type MathFormatOptions = {
   /** `x2` → `x^2` (OCR's dropped caret). Default true. */
   power?: boolean;
   /** `x=3` → `x = 3`, `a-b` → `a - b` (binary only). Default true. */

@@ -33,7 +33,7 @@ const CACHED_USER_PATH = `${cacheDirectory ?? ""}cached-user.json`;
  * anyone who sees the app on the device. Everything else is re-fetched
  * from the API on launch.
  */
-export type CachedUser = Pick<User, "id" | "name" | "avatar_url" | "plan">;
+type CachedUser = Pick<User, "id" | "name" | "avatar_url" | "plan">;
 
 /** Decode only to select cached display fields, never to authenticate or grant
  * access. A cache from a previous account can survive a failed file deletion. */

@@ -95,7 +95,6 @@ module.exports = {
   includeDevClientPlugin,
   releaseProfile,
   updatesUrl,
-  assertReleaseApiUrl,
   requirePublicApiUrlForReleaseBuild,
   requireReleaseBuildSecrets,
   simulatorWithoutAppleSignIn,

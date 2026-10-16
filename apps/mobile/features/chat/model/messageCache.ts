@@ -10,7 +10,7 @@ import {
 import type { Message } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 
-export type CachedChatPage = {
+type CachedChatPage = {
   messages: Message[];
   has_more: boolean;
   cached_at: string;

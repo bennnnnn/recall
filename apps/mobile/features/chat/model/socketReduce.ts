@@ -48,7 +48,7 @@ export function appendToken(buffer: string, token: string | undefined): string {
   return buffer + (token ?? "");
 }
 
-export function parsePayloadSearchSources(
+function parsePayloadSearchSources(
   raw: string | undefined,
 ): SearchSource[] | undefined {
   if (!raw) return undefined;
@@ -56,7 +56,7 @@ export function parsePayloadSearchSources(
   return parsed.length > 0 ? parsed : undefined;
 }
 
-export function relatedPromptsFrom(value: unknown): string[] | undefined {
+function relatedPromptsFrom(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const prompts = value.filter(
     (item): item is string => typeof item === "string" && item.trim().length > 0,
@@ -69,7 +69,7 @@ export function relatedPromptsFromEvent(payload: ChatWsPayload): string[] | unde
   return relatedPromptsFrom(payload.prompts);
 }
 
-export type DoneMergeInput = {
+type DoneMergeInput = {
   finalId: string;
   messageId?: string;
   draftContent: string;

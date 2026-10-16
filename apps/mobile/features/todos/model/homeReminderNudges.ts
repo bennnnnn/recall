@@ -11,7 +11,7 @@ import {
 } from "@/lib/filePrefs";
 import type { HomeUrgentTodo } from "@/lib/api";
 
-export type HomeNudgeState = {
+type HomeNudgeState = {
   dismissed: Set<string>;
 };
 

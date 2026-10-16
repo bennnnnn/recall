@@ -16,7 +16,7 @@ export function triangleSidesVertices(
 
 /** Apex sits at a quarter of the base so a base+height triangle is scalene,
  * not an implied isosceles with equal-leg ticks. */
-export const BASE_HEIGHT_APEX_T = 0.25;
+const BASE_HEIGHT_APEX_T = 0.25;
 
 export function baseHeightTriangleVertices(
   base: number,
@@ -177,7 +177,7 @@ export function scaleToFit(
 }
 
 /** Horizontal span of a parallelogram: base plus the shear of the slanted side. */
-export function parallelogramSpan(
+function parallelogramSpan(
   base: number,
   height: number,
   side: number,
@@ -186,7 +186,7 @@ export function parallelogramSpan(
   return base + shear;
 }
 
-export type ParallelogramLayout = {
+type ParallelogramLayout = {
   b: number;
   h: number;
   s: number;

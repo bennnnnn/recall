@@ -1,7 +1,7 @@
 import { request } from "@/lib/api/client";
 import type { Message } from "@/lib/api/types";
 
-export type ImageGenerateResult = {
+type ImageGenerateResult = {
   user_message: Message;
   assistant_message: Message;
 };

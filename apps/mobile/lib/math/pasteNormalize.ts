@@ -10,7 +10,7 @@ import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
 
 export const PASTE_GROWTH_MIN = 6;
 /** Ordinary typing / autocorrect stays under this; a real paste is larger. */
-export const PASTE_CLIPBOARD_PROBE_MIN = 40;
+const PASTE_CLIPBOARD_PROBE_MIN = 40;
 
 const VULGAR_FRACTIONS: Record<string, string> = {
   "½": "\\frac{1}{2}",

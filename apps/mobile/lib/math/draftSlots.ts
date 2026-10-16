@@ -401,7 +401,7 @@ function addTokenStops(text: string, from: number, to: number, stops: Set<number
 }
 
 /** Places you can park the caret by tapping or pressing ← →. */
-export function mathCaretStops(text: string): number[] {
+function mathCaretStops(text: string): number[] {
   const stops = new Set<number>();
   stops.add(caretBeforeExpression(text));
   stops.add(caretAfterExpression(text));

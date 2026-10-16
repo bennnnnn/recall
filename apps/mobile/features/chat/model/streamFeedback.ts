@@ -1,6 +1,6 @@
 import { notifyWarning, selection, tap } from "@/lib/haptics";
 
-export type StreamCue = "activity" | "complete" | "stopped" | "error";
+type StreamCue = "activity" | "complete" | "stopped" | "error";
 
 /** One cue per turn. Never per token. A finished reply is a light tap. */
 export function playStreamCue(cue: StreamCue): void {

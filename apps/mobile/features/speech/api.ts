@@ -4,7 +4,7 @@ import { readRecordingBase64, speechUploadFromUri } from "@/lib/speech/voiceAudi
 import type { LiveTalkStatus } from "@/features/speech/model/liveTalkLogic";
 import type { Message, SearchSource } from "@/lib/api/types";
 
-export type RealtimeSessionCredential = {
+type RealtimeSessionCredential = {
   client_secret: string;
   expires_at: number;
   call_id: string;

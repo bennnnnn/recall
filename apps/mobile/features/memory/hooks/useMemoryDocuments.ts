@@ -12,7 +12,7 @@ import {
 import { invalidateMemoriesCache } from "@/features/memory/model/memoryListCache";
 import type { MemoryDocument, MemoryDocuments } from "@/features/memory/types";
 
-export type InstructOutcome = { ok: true; reply: string } | { ok: false };
+type InstructOutcome = { ok: true; reply: string } | { ok: false };
 
 function withoutFact(documents: MemoryDocument[], factId: string): MemoryDocument[] {
   return documents

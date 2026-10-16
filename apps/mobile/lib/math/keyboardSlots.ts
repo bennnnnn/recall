@@ -89,7 +89,7 @@ export function readSetBrace(text: string, from: number): LatexGroup | null {
 }
 
 /** Left-to-right editable `{…}` / `(…)` / `[…]` / `\{…\}` / `|…|` groups, including nested. */
-export function findEditSlots(text: string): LatexGroup[] {
+function findEditSlots(text: string): LatexGroup[] {
   const out: LatexGroup[] = [];
   for (let i = 0; i < text.length; i += 1) {
     const setBrace = readSetBrace(text, i);

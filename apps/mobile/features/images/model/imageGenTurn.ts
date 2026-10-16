@@ -4,7 +4,7 @@ import {
   IMAGE_GEN_PENDING_ASSISTANT_ID,
 } from "@/features/images/model/imageGenIntent";
 
-export type ImageGenFailure = "canceled" | "failed";
+type ImageGenFailure = "canceled" | "failed";
 
 /** Show what the user typed — never rewrite to "Generate image: …". */
 export function imageGenUserBubble(userMessage: string, prompt: string): string {
