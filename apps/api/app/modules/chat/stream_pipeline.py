@@ -13,10 +13,15 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.background_tasks import create_background_task
 from app.core.config import Settings
+from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.modules.chat.finalize_passes import enrich_final_content
+from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
+from app.modules.chat.post_turn import enqueue_post_turn_jobs, finalize_stream_turn_db
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
+from app.modules.chat.quality import detect_quality_issues
 from app.modules.chat.related_prompts import schedule_related_prompts
 from app.modules.chat.stream_events import await_ignoring_cancel, clear_task_cancellation
 from app.modules.chat.stream_paths import (
@@ -25,7 +30,9 @@ from app.modules.chat.stream_paths import (
     run_llm_token_stream,
     run_tool_loop_path,
 )
+from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
+from app.modules.chat.turn_resources import TurnResources
 from app.modules.images.answer_photo import AnswerPhoto
 
 logger = logging.getLogger(__name__)
@@ -55,7 +62,6 @@ def _prior_window(prompt_messages: Any) -> list[Any]:
 
 
 async def register_and_enqueue_finalize(
-    seams: Any,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
@@ -65,7 +71,7 @@ async def register_and_enqueue_finalize(
     result: dict[str, Any] | None,
 ) -> None:
     if ctx.assistant_message_id is None:
-        ctx.assistant_message_id = seams.uuid7()
+        ctx.assistant_message_id = uuid7()
     if result is not None:
         result["resolved_model"] = ctx.model
         result["message_id"] = str(ctx.assistant_message_id)
@@ -85,12 +91,12 @@ async def register_and_enqueue_finalize(
             prior=_prior_window(ctx.prompt_messages),
             allow_general=not ctx.lightweight_turn and ctx.instant_reply is None,
         )
-    await seams.mark_pending_finalize(redis, ctx.chat_id)
-    finalize_db_task = seams.create_background_task(
-        seams.finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),
+    await mark_pending_finalize(redis, ctx.chat_id)
+    finalize_db_task = create_background_task(
+        finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),
         name="finalize_stream_turn_db",
     )
-    seams.register_pending_finalize(ctx.chat_id, finalize_db_task)
+    register_pending_finalize(ctx.chat_id, finalize_db_task)
     finalize_db_task.add_done_callback(
         lambda task: log_background_task_failure(task, "Background DB finalization failed")
     )
@@ -98,12 +104,12 @@ async def register_and_enqueue_finalize(
     async def run_jobs_after_db() -> None:
         try:
             await finalize_db_task
-            seams.detect_quality_issues(ctx, assistant_text)
-            await seams.enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
+            detect_quality_issues(ctx, assistant_text)
+            await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
         except Exception:
             logger.exception("Background job enqueue failed")
 
-    jobs_task = seams.create_background_task(run_jobs_after_db(), name="post_turn_jobs")
+    jobs_task = create_background_task(run_jobs_after_db(), name="post_turn_jobs")
     jobs_task.add_done_callback(
         lambda task: log_background_task_failure(task, "Background finalization failed")
     )
@@ -113,7 +119,7 @@ async def register_and_enqueue_finalize(
 
 
 async def finalize_terminal_image_turn(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
@@ -130,13 +136,13 @@ async def finalize_terminal_image_turn(
 
     async def slim_finalize() -> None:
         try:
-            async with seams.SessionLocal() as session:
-                await seams.chats_repo.touch_by_id(session, ctx.chat_id, commit=True)
-            await seams.enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
+            async with deps.session_factory() as session:
+                await deps.chats.touch_by_id(session, ctx.chat_id, commit=True)
+            await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
         except Exception:
             logger.exception("Slim finalize for terminal image failed")
 
-    task = seams.create_background_task(slim_finalize(), name="finalize_terminal_image")
+    task = create_background_task(slim_finalize(), name="finalize_terminal_image")
     task.add_done_callback(
         lambda done: log_background_task_failure(done, "Terminal-image finalize failed")
     )
@@ -145,7 +151,7 @@ async def finalize_terminal_image_turn(
 
 
 async def stream_and_finalize(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
@@ -154,7 +160,7 @@ async def stream_and_finalize(
     result: dict[str, Any] | None = None,
     on_status: StreamStatusFn | None = None,
     on_reasoning: StreamReasoningFn | None = None,
-    resources: Any | None = None,
+    resources: TurnResources | None = None,
 ) -> AsyncIterator[str]:
     usage: dict[str, int] = {}
     accum = StreamAccum()
@@ -170,7 +176,7 @@ async def stream_and_finalize(
                     ctx.timing.mark_phase("tool_loop_start")
                 try:
                     await run_tool_loop_path(
-                        seams,
+                        deps,
                         redis,
                         settings,
                         ctx,
@@ -189,13 +195,9 @@ async def stream_and_finalize(
                     if resources is not None:
                         await resources.refund()
                     else:
-                        await seams.quota_service.refund_usage(
-                            redis,
-                            str(ctx.user_id),
-                            ctx.reserved_tokens,
-                        )
+                        await deps.quota.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
                     await await_user_message_persist(ctx)
-                    await finalize_terminal_image_turn(seams, redis, settings, ctx, result)
+                    await finalize_terminal_image_turn(deps, redis, settings, ctx, result)
                     return
                 if ctx.instant_reply:
                     async for token in run_instant_reply_path(
@@ -208,7 +210,7 @@ async def stream_and_finalize(
                     if settings.image_search_enabled and ctx.user is not None:
                         ctx.answer_photo = AnswerPhoto(settings, ctx.user)
                     async for token in run_llm_token_stream(
-                        seams,
+                        deps,
                         redis,
                         settings,
                         ctx,
@@ -250,7 +252,7 @@ async def stream_and_finalize(
         async def persist_reply() -> None:
             nonlocal assistant_text
             assistant_text = await enrich_final_content(
-                seams,
+                deps,
                 redis,
                 settings,
                 ctx,
@@ -263,7 +265,6 @@ async def stream_and_finalize(
             )
             await await_user_message_persist(ctx)
             await register_and_enqueue_finalize(
-                seams,
                 redis,
                 settings,
                 ctx,

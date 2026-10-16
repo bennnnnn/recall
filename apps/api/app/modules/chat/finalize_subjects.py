@@ -10,7 +10,7 @@ and the reply gets the notes and the working check an unverified answer needs.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeGuard
 
 from app.core import sympy_executor
 from app.modules.chemistry import fence as chemistry_fence
@@ -28,6 +28,7 @@ from app.services.answer_fence import (
     strip_verification_claims,
 )
 from app.services.solving import (
+    VerifiedMathBlock,
     VerifiedPhysicsBlock,
     VerifiedSolveBlock,
     strip_verified_solve_markers,
@@ -112,8 +113,8 @@ def recover_physics_fences(state: FinalizeState) -> str:
     return physics_fence.replace_unclosed_physics_fences_safe(state.text, _physics_block(state))
 
 
-def _math_owns(verified: VerifiedSolveBlock | None) -> bool:
-    """Maths checks every reply chemistry or physics did not verify."""
+def _math_owns(verified: VerifiedSolveBlock | None) -> TypeGuard[VerifiedMathBlock | None]:
+    """Maths checks every reply chemistry or physics did not verify; the block is maths'."""
     return not _chemistry_verified(verified) and not isinstance(verified, VerifiedPhysicsBlock)
 
 
@@ -121,7 +122,7 @@ async def check_math_fences(state: FinalizeState) -> str:
     verified = state.ctx.verified_subject
     if not _math_owns(verified):
         return state.text
-    math_fence = state.seams.math_fence_service
+    math_fence = state.deps.math_fence
     if state.server_text:
         # Two solved problems have no single verified subject. Their answer
         # fences are the results. The unverified rewrite unwraps every
@@ -151,7 +152,7 @@ def recover_math_fences(state: FinalizeState) -> str:
     """
     verified = state.ctx.verified_subject
     canonical = verified.canonical_fence if verified is not None else None
-    text = state.seams.math_fence_service.replace_unclosed_graph_fence_safe(state.text, canonical)
+    text = state.deps.math_fence.replace_unclosed_graph_fence_safe(state.text, canonical)
     if state.server_text:
         return text
     return demote_answer_fences(text)

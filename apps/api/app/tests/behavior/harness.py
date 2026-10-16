@@ -25,6 +25,8 @@ from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
 from app.modules.chat import prompt_constants as pc
 from app.modules.chat.prompt_context import _PromptContextBlocks
+from app.modules.chat.stream_paths import run_tool_loop_path
+from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
     stream_context_from_bundle,
@@ -298,10 +300,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
             prior_count=len(rows),
         )
         prefetch_searched = bool(searched) or bool(bundle.search_sources)
-        from app.modules.chat.stream import _run_tool_loop_path
-
-        await _run_tool_loop_path(
-            AsyncMock(), settings, ctx, usage={}, on_status=None, should_cancel=None
+        await run_tool_loop_path(
+            default_deps(), AsyncMock(), settings, ctx, usage={}, on_status=None, should_cancel=None
         )
 
     loop_call = tool_rounds.await_args

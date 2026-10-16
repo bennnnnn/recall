@@ -14,6 +14,7 @@ from typing import Any
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
 from app.services.md_fence_scan import next_fence_marker_line
 
@@ -42,7 +43,7 @@ def drop_cut_reminder_fence(text: str) -> str:
 
 
 async def apply_reminder_pass(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
@@ -54,10 +55,10 @@ async def apply_reminder_pass(
     A failure keeps the text it was given: every pass before this one succeeded.
     """
     try:
-        text, created = await _materialize(seams, redis, settings, ctx, text)
+        text, created = await _materialize(deps, redis, settings, ctx, text)
         if result is not None and not ctx.skip_memory_jobs:
             transcript = f"User: {ctx.user_message_content}\nAssistant: {text}"
-            if created > 0 or seams.todos_service.transcript_implies_todo_sync(transcript):
+            if created > 0 or deps.todos.transcript_implies_todo_sync(transcript):
                 result["todos_sync"] = "1"
     except Exception:
         logger.exception("Reminder pass failed; keeping the finished reply")
@@ -65,16 +66,16 @@ async def apply_reminder_pass(
 
 
 async def _materialize(
-    seams: Any, redis: Redis, settings: Settings, ctx: StreamContext, text: str
+    deps: ChatTurnDeps, redis: Redis, settings: Settings, ctx: StreamContext, text: str
 ) -> tuple[str, int]:
     user = ctx.user
     if user is None:
-        async with seams.SessionLocal() as session:
-            user = await seams.users_repo.get_by_id(session, ctx.user_id)
+        async with deps.session_factory() as session:
+            user = await deps.users.get_by_id(session, ctx.user_id)
     if user is None:
         return text, 0
-    async with seams.SessionLocal() as session:
-        materialized: tuple[str, int] = await seams.todos_service.materialize_reminder_fences(
+    async with deps.session_factory() as session:
+        materialized: tuple[str, int] = await deps.todos.materialize_reminder_fences(
             session,
             user_id=ctx.user_id,
             chat_id=ctx.chat_id,

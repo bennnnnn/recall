@@ -55,6 +55,7 @@ from app.modules.chat.finalize_text import (
     sanitize_fences,
     strip_recipient_placeholders,
 )
+from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ logger = logging.getLogger(__name__)
 class FinalizeState:
     """One reply on its way through the passes."""
 
-    seams: Any
+    deps: ChatTurnDeps
     settings: Settings
     ctx: StreamContext
     raw: str
@@ -187,7 +188,7 @@ async def run_finalize_passes(state: FinalizeState) -> bool:
 
 
 async def enrich_final_content(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
@@ -201,7 +202,7 @@ async def enrich_final_content(
 ) -> str:
     """The reply as it persists: the finalize passes, then the reminder pass."""
     state = FinalizeState(
-        seams=seams,
+        deps=deps,
         settings=settings,
         ctx=ctx,
         raw=assistant_text,
@@ -214,7 +215,7 @@ async def enrich_final_content(
     )
     enriched = await run_finalize_passes(state)
     # Last, on the finished text: no later pass can fail and lose its card.
-    text = await apply_reminder_pass(seams, redis, settings, ctx, state.text, result)
+    text = await apply_reminder_pass(deps, redis, settings, ctx, state.text, result)
 
     # One write: done.final_content must equal the string we persist. Skip on
     # an unchanged normal turn so done payloads stay small. After a failure the

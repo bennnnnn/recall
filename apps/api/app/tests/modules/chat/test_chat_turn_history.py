@@ -9,8 +9,8 @@ import pytest
 
 from app.core.config import Settings
 from app.exceptions import ChatBusyError
-from app.modules.chat import finalize_registry, stream
-from app.tests.modules.chat.chat_test_support import FakeSessionCM
+from app.modules.chat import finalize_registry, stream_entry
+from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 
 @pytest.mark.asyncio
@@ -36,29 +36,34 @@ async def test_next_turn_history_includes_pending_assistant_after_finalize():
         yield "France"
 
     prepare = AsyncMock(return_value=MagicMock())
+    deps = turn_deps(
+        session_factory=FakeSessionCM,
+        locks={
+            "acquire_lock": AsyncMock(return_value="lock"),
+            "refresh_lock": AsyncMock(return_value=True),
+            "release_lock": AsyncMock(),
+        },
+        chats={"get_by_id": AsyncMock(return_value=chat)},
+        messages={"list_recent": read_recent},
+        quota={"daily_limit_for_user": MagicMock(return_value=100_000)},
+        plan={"resolve_user_model_override": MagicMock(return_value="free-chat")},
+    )
     with (
-        patch("app.modules.chat.stream.acquire_lock", AsyncMock(return_value="lock")),
-        patch("app.modules.chat.stream.refresh_lock", AsyncMock(return_value=True)),
-        patch("app.modules.chat.stream.release_lock", AsyncMock()),
-        patch("app.modules.chat.stream.wait_for_pending_finalize", finish_previous_turn),
-        patch("app.modules.chat.stream.SessionLocal", FakeSessionCM),
-        patch("app.modules.chat.stream.chats_repo.get_by_id", AsyncMock(return_value=chat)),
-        patch("app.modules.chat.stream.messages_repo.list_recent", read_recent),
-        patch("app.modules.chat.stream._try_image_gen_for_turn", AsyncMock(return_value=False)),
-        patch("app.modules.chat.stream.reserve_turn_quota", AsyncMock(return_value=100)),
-        patch("app.modules.chat.stream._top_up_reserve_for_prompt", AsyncMock()),
-        patch("app.modules.chat.stream.quota_service.daily_limit_for_user", return_value=100_000),
+        patch("app.modules.chat.turn_load.wait_for_pending_finalize", finish_previous_turn),
         patch(
-            "app.modules.chat.stream.plan_service.resolve_user_model_override",
-            return_value="free-chat",
+            "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
+            AsyncMock(return_value=False),
         ),
-        patch("app.modules.chat.stream.prepare_chat_turn", prepare),
-        patch("app.modules.chat.stream.await_user_message_persist", AsyncMock()),
-        patch("app.modules.chat.stream.stream_and_finalize", fake_stream),
+        patch("app.modules.chat.turn_resources.reserve_turn_quota", AsyncMock(return_value=100)),
+        patch("app.modules.chat.stream_entry.top_up_reserve_for_prompt", AsyncMock()),
+        patch("app.modules.chat.stream_entry.prepare_chat_turn", prepare),
+        patch("app.modules.chat.stream_entry.await_user_message_persist", AsyncMock()),
+        patch("app.modules.chat.stream_entry.stream_and_finalize", fake_stream),
     ):
         tokens = [
             token
-            async for token in stream.stream_chat_response(
+            async for token in stream_entry.stream_chat_response(
+                deps,
                 AsyncMock(),
                 Settings(_env_file=None),
                 user_id=user.id,
@@ -90,24 +95,23 @@ async def test_next_turn_rejects_busy_before_reading_uncommitted_history(
     premature_read = AsyncMock(side_effect=AssertionError("read history while finalize is pending"))
     reserve = AsyncMock()
     release = AsyncMock()
+    deps = turn_deps(
+        session_factory=FakeSessionCM,
+        locks={"acquire_lock": AsyncMock(return_value="lock"), "release_lock": release},
+        users={"get_by_id": AsyncMock(return_value=user)},
+        chats={"get_by_id": AsyncMock(return_value=MagicMock())},
+        messages={"list_recent": premature_read, "get_last": premature_read},
+    )
     try:
         with (
             patch("app.modules.chat.finalize_registry._FINALIZE_WAIT_TIMEOUT_SECONDS", 0.01),
             patch("app.modules.chat.finalize_registry._FINALIZE_POLL_INTERVAL_SECONDS", 0.001),
-            patch("app.modules.chat.stream.acquire_lock", AsyncMock(return_value="lock")),
-            patch("app.modules.chat.stream.release_lock", release),
-            patch("app.modules.chat.stream.SessionLocal", FakeSessionCM),
-            patch("app.modules.chat.stream.users_repo.get_by_id", AsyncMock(return_value=user)),
-            patch(
-                "app.modules.chat.stream.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
-            ),
-            patch("app.modules.chat.stream.messages_repo.list_recent", premature_read),
-            patch("app.modules.chat.stream.messages_repo.get_last", premature_read),
-            patch("app.modules.chat.stream.reserve_turn_quota", reserve),
+            patch("app.modules.chat.turn_resources.reserve_turn_quota", reserve),
         ):
             kwargs = {"user_id": user.id, "chat_id": chat_id}
             if action == "send":
-                token_stream = stream.stream_chat_response(
+                token_stream = stream_entry.stream_chat_response(
+                    deps,
                     fake_redis,
                     Settings(_env_file=None),
                     content="next",
@@ -116,7 +120,8 @@ async def test_next_turn_rejects_busy_before_reading_uncommitted_history(
                     **kwargs,
                 )
             else:
-                token_stream = stream.stream_regenerate_response(
+                token_stream = stream_entry.stream_regenerate_response(
+                    deps,
                     fake_redis,
                     Settings(_env_file=None),
                     **kwargs,

@@ -18,6 +18,7 @@ from app.modules.chat.turn_prep.context import (
 from app.modules.chat.turn_prep.mode import _TurnMode
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.web_search.detection import should_web_search
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 QUESTION = "Who leads Acme Corporation?"
 _NO_WEB: tuple[object, ...] = (None, None, [], None, False, None, None)
@@ -231,8 +232,7 @@ def _context(**overrides):
 @pytest.mark.parametrize("verdict", [True, False])
 async def test_final_gate_reuses_both_prefetched_verdicts(verdict):
     ctx = _context(web_search_classified=verdict)
-    seams = MagicMock()
-    seams.quota_service.global_spend_exceeded = AsyncMock(return_value=False)
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
         patch("app.modules.web_search.detection.should_web_search", AsyncMock()) as classify,
         patch(
@@ -241,7 +241,7 @@ async def test_final_gate_reuses_both_prefetched_verdicts(verdict):
         ) as run,
     ):
         await run_tool_loop_path(
-            seams, AsyncMock(), _settings(), ctx, usage={}, on_status=None, should_cancel=None
+            deps, AsyncMock(), _settings(), ctx, usage={}, on_status=None, should_cancel=None
         )
     classify.assert_not_awaited()
     assert run.await_count == int(verdict)
@@ -261,11 +261,10 @@ async def test_final_gate_reuses_both_prefetched_verdicts(verdict):
 )
 async def test_final_gate_does_not_classify_ineligible_turns(overrides):
     ctx = _context(**overrides)
-    seams = MagicMock()
-    seams.quota_service.global_spend_exceeded = AsyncMock(return_value=False)
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with patch("app.modules.web_search.detection.should_web_search", AsyncMock()) as classify:
         await run_tool_loop_path(
-            seams, AsyncMock(), _settings(), ctx, usage={}, on_status=None, should_cancel=None
+            deps, AsyncMock(), _settings(), ctx, usage={}, on_status=None, should_cancel=None
         )
     classify.assert_not_awaited()
 

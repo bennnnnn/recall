@@ -1,6 +1,7 @@
 """Timing stays complete on failure and separates gateway wait from prep."""
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -11,6 +12,7 @@ from app.modules.chat.stream_paths import StreamAccum, run_llm_token_stream
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 
 def _context(timing):
@@ -63,14 +65,13 @@ async def test_gateway_interval_starts_after_prep_and_ends_at_first_visible_toke
         clock["ms"] = 150.0
         yield " reply"
 
-    seams = MagicMock()
-    seams.litellm_gateway.stream_chat_completion = visible_stream
+    deps = turn_deps(llm=SimpleNamespace(stream_chat_completion=visible_stream))
     clock["ms"] = 100.0  # Quota top-up and tool work happened after prompt_ready.
     with patch("app.services.model_health.record_sample", AsyncMock()):
         tokens = [
             token
             async for token in run_llm_token_stream(
-                seams,
+                deps,
                 AsyncMock(),
                 Settings(_env_file=None),
                 ctx,

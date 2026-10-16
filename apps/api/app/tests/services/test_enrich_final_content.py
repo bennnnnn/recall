@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -23,6 +24,7 @@ from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.services.answer_fence import mark_server_answer_fences
 from app.services.solving import VerifiedPhysicsBlock
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 _CARD = re.compile(r"```reminder_proposal\n(.*?)\n```", re.DOTALL)
 _MERMAID_REPLY = "```mermaid\nflowchart TD\n  D --> E[Grind Beans (Medium Grind)]\n```"
@@ -50,20 +52,23 @@ async def _fake_session() -> Any:
     yield MagicMock()
 
 
-def _seams() -> MagicMock:
-    seams = MagicMock()
-    seams.SessionLocal = _fake_session
-    seams.users_repo.get_by_id = AsyncMock(return_value=MagicMock())
-
+def _deps() -> Any:
     async def _passthrough_reminders(_session: object, **kwargs: Any) -> tuple[str, int]:
         return str(kwargs["assistant_text"]), 0
 
-    seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=_passthrough_reminders)
-    seams.todos_service.transcript_implies_todo_sync = MagicMock(return_value=False)
-    seams.math_fence_service.validate_math_fences_worker = _passthrough_math
-    seams.math_fence_service.replace_unclosed_graph_fence_safe = lambda content, _canonical: content
-    seams.web_search_service = web_search_service
-    return seams
+    todos = MagicMock()
+    todos.materialize_reminder_fences = AsyncMock(side_effect=_passthrough_reminders)
+    todos.transcript_implies_todo_sync = MagicMock(return_value=False)
+    math_fence = MagicMock()
+    math_fence.validate_math_fences_worker = _passthrough_math
+    math_fence.replace_unclosed_graph_fence_safe = lambda content, _canonical: content
+    return turn_deps(
+        session_factory=_fake_session,
+        users=MagicMock(get_by_id=AsyncMock(return_value=MagicMock())),
+        todos=todos,
+        math_fence=math_fence,
+        web_search=web_search_service,
+    )
 
 
 def _ctx(
@@ -87,11 +92,11 @@ def _ctx(
     return ctx
 
 
-async def _finalize_failed_subject_pass(seams: MagicMock, verified: object, reply: str) -> str:
+async def _finalize_failed_subject_pass(deps: Any, verified: object, reply: str) -> str:
     ctx = _ctx()
     ctx.verified_subject = verified
     return await enrich_final_content(
-        seams,
+        deps,
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
@@ -113,9 +118,9 @@ async def test_exception_fallback_dispatches_to_chemistry_owner(
     from app.modules.chemistry.extract import extract_chemistry_intent
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
+    deps = _deps()
     math_safe = MagicMock(return_value="math-safe")
-    seams.math_fence_service.replace_unclosed_graph_fence_safe = math_safe
+    deps.math_fence.replace_unclosed_graph_fence_safe = math_safe
     intent = extract_chemistry_intent("Find pH when [H+] = 0.001")
     assert intent is not None
     verified = build_verified_chemistry(intent)
@@ -132,7 +137,7 @@ async def test_exception_fallback_dispatches_to_chemistry_owner(
 
     monkeypatch.setattr(chemistry_fence, "validate_chemistry_fences", fail_the_pass)
 
-    result = await _finalize_failed_subject_pass(seams, verified, "```answer\n4\n```")
+    result = await _finalize_failed_subject_pass(deps, verified, "```answer\n4\n```")
 
     assert len(calls) == 2
     assert "notation: chemistry\npH = 3" in result
@@ -145,9 +150,9 @@ async def test_exception_fallback_dispatches_to_physics_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
+    deps = _deps()
     math_safe = MagicMock(return_value="math-safe")
-    seams.math_fence_service.replace_unclosed_graph_fence_safe = math_safe
+    deps.math_fence.replace_unclosed_graph_fence_safe = math_safe
     verified = VerifiedPhysicsBlock(text="verified", canonical_answer="10 N")
     monkeypatch.setattr(
         "app.modules.physics.fence.validate_physics_fences",
@@ -159,7 +164,7 @@ async def test_exception_fallback_dispatches_to_physics_owner(
         safe,
     )
 
-    result = await _finalize_failed_subject_pass(seams, verified, "raw")
+    result = await _finalize_failed_subject_pass(deps, verified, "raw")
 
     assert result == "physics-safe"
     safe.assert_called_once_with("raw", verified)
@@ -171,14 +176,14 @@ async def test_reminder_finalization_uses_effective_client_timezone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
+    deps = _deps()
     ctx = _ctx()
     ctx.user.timezone = "UTC"
     ctx.user_timezone = "America/Los_Angeles"
     ctx.user_message_content = "Remind me tomorrow at 3 PM to submit my application."
 
     await enrich_final_content(
-        seams,
+        deps,
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
@@ -190,7 +195,7 @@ async def test_reminder_finalization_uses_effective_client_timezone(
         should_cancel=None,
     )
 
-    kwargs = seams.todos_service.materialize_reminder_fences.await_args.kwargs
+    kwargs = deps.todos.materialize_reminder_fences.await_args.kwargs
     assert kwargs["user_timezone"] == "America/Los_Angeles"
 
 
@@ -212,7 +217,7 @@ async def test_search_sources_final_content_matches_persisted_text(
     prose = "Here is the latest on the topic."
     result: dict[str, Any] = {}
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(search_sources=hits),
@@ -237,7 +242,7 @@ async def test_unchanged_turn_omits_final_content(monkeypatch: pytest.MonkeyPatc
 
     result: dict[str, Any] = {}
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
@@ -262,7 +267,7 @@ async def test_cancelled_turn_closes_unclosed_fence(
     result: dict[str, Any] = {}
     open_fence = "```mermaid\ngraph TD\n  A-->B"
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
@@ -288,7 +293,7 @@ async def test_truncated_turn_closes_unclosed_fence(
     result: dict[str, Any] = {}
     open_fence = "```python\nprint(1"
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
@@ -314,7 +319,7 @@ async def test_normal_completion_also_closes_provider_unclosed_fence(
     result: dict[str, Any] = {}
     open_fence = "```message\nHappy birthday! Hope you have a wonderful day."
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
@@ -339,7 +344,7 @@ async def test_mermaid_parenthetical_labels_quoted_on_persist(
     result: dict[str, Any] = {}
     raw = "```mermaid\nflowchart TD\n  D --> E[Grind Beans (Medium Grind)]\n```"
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
@@ -367,7 +372,7 @@ async def test_verified_math_markers_are_stripped_from_final_content(
     """
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
@@ -394,14 +399,12 @@ async def test_unverified_math_note_appended_to_final_content(
     from app.modules.math import fence as math_fence_mod
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
-    seams.math_fence_service.append_unverified_math_note = (
-        math_fence_mod.append_unverified_math_note
-    )
+    deps = _deps()
+    deps.math_fence.append_unverified_math_note = math_fence_mod.append_unverified_math_note
     ctx = _ctx()
     ctx.solver_unverified = True
     persisted = await enrich_final_content(
-        seams,
+        deps,
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
@@ -427,7 +430,7 @@ async def test_unverified_chemistry_uses_the_chemistry_note(
     ctx.solver_unverified = True
     ctx.unverified_subject = "chemistry"
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=True),
         ctx,
@@ -463,7 +466,7 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
     ctx.user_message_content = "1+1=x"
     ctx.solver_unverified = False
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
@@ -485,9 +488,9 @@ async def test_paired_direct_reply_keeps_both_answer_fences(
     from app.modules.math.fence import needs_math_fence_validate, validate_math_fences
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
-    seams.math_fence_service.needs_math_fence_validate = needs_math_fence_validate
-    seams.math_fence_service.validate_math_fences_worker = validate_math_fences
+    deps = _deps()
+    deps.math_fence.needs_math_fence_validate = needs_math_fence_validate
+    deps.math_fence.validate_math_fences_worker = validate_math_fences
     reply = (
         "**Answer**\n\n```answer\nnotation: chemistry\nV₂ = 100 mL\n```\n\n"
         "**Answer**\n\n```answer\nx = 3 \\text{ or } x = 4\n```\n"
@@ -499,7 +502,7 @@ async def test_paired_direct_reply_keeps_both_answer_fences(
         "Dilute 25 mL of 1 M NaOH to 0.25 M, and also solve x^2 - 7x + 12 = 0."
     )
     persisted = await enrich_final_content(
-        seams,
+        deps,
         MagicMock(),
         Settings(chemistry_enabled=True),
         ctx,
@@ -523,8 +526,8 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
     from app.modules.chemistry.extract import extract_chemistry_intent
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
-    seams.math_fence_service.validate_math_fences_worker = MagicMock(
+    deps = _deps()
+    deps.math_fence.validate_math_fences_worker = MagicMock(
         side_effect=AssertionError("math fences must not rewrite chemistry")
     )
     question = "Find pH when [H+] = 0.001"
@@ -537,7 +540,7 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
     ctx.user_message_content = question
     invented = "The pH is 4.\n\n```answer\n4\n```\n\n```smiles\nCCO\n```"
     persisted = await enrich_final_content(
-        seams,
+        deps,
         MagicMock(),
         Settings(chemistry_enabled=True),
         ctx,
@@ -574,7 +577,7 @@ async def test_answer_photo_replaces_its_fence_in_final_content(
 
     result: dict[str, Any] = {}
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
@@ -600,7 +603,7 @@ async def test_stopped_reply_drops_its_photo(monkeypatch: pytest.MonkeyPatch) ->
     ctx.answer_photo_ids = []
 
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
@@ -637,7 +640,7 @@ async def test_unverified_working_names_its_first_slip(
     ctx = _ctx()
     ctx.solver_unverified = unverified
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
@@ -673,9 +676,7 @@ async def _reminder_turn(
     async def _session() -> Any:
         yield db_session
 
-    seams = _seams()
-    seams.SessionLocal = _session
-    seams.todos_service = todos_service
+    deps = replace(_deps(), session_factory=_session, todos=todos_service)
     ctx = _ctx()
     ctx.user_id = user.id
     ctx.chat_id = chat.id
@@ -684,7 +685,7 @@ async def _reminder_turn(
 
     result: dict[str, Any] = {}
     persisted = await enrich_final_content(
-        seams,
+        deps,
         fake_redis,
         Settings(chemistry_enabled=False, reminder_proposals_enabled=proposals),
         ctx,
@@ -770,12 +771,12 @@ async def test_a_failed_reminder_pass_keeps_the_finished_text(
 ) -> None:
     """Every text pass already succeeded, so their work persists, not the raw reply."""
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
-    seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
+    deps = _deps()
+    deps.todos.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
 
     result: dict[str, Any] = {}
     persisted = await enrich_final_content(
-        seams,
+        deps,
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
@@ -810,7 +811,7 @@ async def test_a_failed_text_pass_keeps_the_attached_answer_photo(
 
     result: dict[str, Any] = {}
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
@@ -846,7 +847,7 @@ async def test_a_failed_text_pass_keeps_the_source_chips(
 
     result: dict[str, Any] = {}
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(search_sources=hits),
@@ -873,7 +874,7 @@ async def test_a_failed_text_pass_before_any_side_effect_persists_the_raw_reply(
 
     result: dict[str, Any] = {}
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),

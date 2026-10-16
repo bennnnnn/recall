@@ -54,7 +54,7 @@ def add_search_sources(state: FinalizeState) -> str:
     text = state.text
     if not ctx.search_sources:
         return text
-    web_search = state.seams.web_search_service
+    web_search = state.deps.web_search
     text = web_search.strip_sources_from_text(text)
     if state.result is not None:
         state.result["search_sources"] = json.dumps(web_search.sources_payload(ctx.search_sources))

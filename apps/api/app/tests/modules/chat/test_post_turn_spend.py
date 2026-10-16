@@ -6,6 +6,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
 from app.modules.chat.turn_prep.context import StreamContext
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 
 def _ctx(*, prior_count: int, run_title: bool = True) -> StreamContext:
@@ -202,7 +203,7 @@ async def test_day_planning_snapshot_skips_learning_extract():
 
 @pytest.mark.asyncio
 async def test_tool_loop_path_skips_when_spend_capped():
-    from app.modules.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream_paths import run_tool_loop_path
 
     ctx = MagicMock()
     ctx.instant_reply = None
@@ -214,11 +215,10 @@ async def test_tool_loop_path_skips_when_spend_capped():
     ctx.user_id = uuid4()
     ctx.chat_id = uuid4()
     ctx.prompt_messages = []
-    with (
-        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=True)),
-        patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run,
-    ):
-        await _run_tool_loop_path(
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=True)})
+    with patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run:
+        await run_tool_loop_path(
+            deps,
             AsyncMock(),
             Settings(mcp_tool_loop_enabled=True),
             ctx,
@@ -237,7 +237,7 @@ async def test_tool_loop_path_skips_when_heuristic_math_already_verified():
     The loop's sympy/graph adapter is redundant in that case — skip it so math
     turns stay on the fast 1-call path. Ordinary non-tool turns skip the loop
     too (see turn_needs_tool_loop)."""
-    from app.modules.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream_paths import run_tool_loop_path
 
     ctx = MagicMock()
     ctx.instant_reply = None
@@ -246,11 +246,10 @@ async def test_tool_loop_path_skips_when_heuristic_math_already_verified():
     ctx.user_id = uuid4()
     ctx.chat_id = uuid4()
     ctx.prompt_messages = []
-    with (
-        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
-        patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run,
-    ):
-        await _run_tool_loop_path(
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
+    with patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run:
+        await run_tool_loop_path(
+            deps,
             AsyncMock(),
             Settings(mcp_tool_loop_enabled=True),
             ctx,
@@ -263,7 +262,7 @@ async def test_tool_loop_path_skips_when_heuristic_math_already_verified():
 
 @pytest.mark.asyncio
 async def test_tool_loop_path_skips_ordinary_explain_turn():
-    from app.modules.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream_paths import run_tool_loop_path
 
     ctx = MagicMock()
     ctx.instant_reply = None
@@ -275,11 +274,10 @@ async def test_tool_loop_path_skips_ordinary_explain_turn():
     ctx.user_id = uuid4()
     ctx.chat_id = uuid4()
     ctx.prompt_messages = []
-    with (
-        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
-        patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run,
-    ):
-        await _run_tool_loop_path(
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
+    with patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run:
+        await run_tool_loop_path(
+            deps,
             AsyncMock(),
             Settings(mcp_tool_loop_enabled=True),
             ctx,
@@ -292,7 +290,7 @@ async def test_tool_loop_path_skips_ordinary_explain_turn():
 
 @pytest.mark.asyncio
 async def test_tool_loop_path_does_not_dump_leftover_as_instant_reply():
-    from app.modules.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream_paths import run_tool_loop_path
 
     ctx = MagicMock()
     ctx.instant_reply = None
@@ -309,14 +307,15 @@ async def test_tool_loop_path_does_not_dump_leftover_as_instant_reply():
         {"role": "assistant", "tool_calls": [{"id": "c1"}]},
         {"role": "tool", "tool_call_id": "c1", "content": "hits"},
     ]
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
-        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
         patch(
             "app.services.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(tool_messages, None, None, [])),
         ) as run,
     ):
-        await _run_tool_loop_path(
+        await run_tool_loop_path(
+            deps,
             AsyncMock(),
             Settings(mcp_tool_loop_enabled=True),
             ctx,

@@ -265,10 +265,10 @@ def test_weighted_reserve_tokens_applies_quota_multiplier() -> None:
     from unittest.mock import patch
 
     from app.core.config import Settings
-    from app.modules.chat.stream import weighted_reserve_tokens
+    from app.modules.chat.turn_resources import weighted_reserve_tokens
 
     settings = Settings()
-    with patch("app.modules.chat.stream.estimate_tokens", return_value=100):
+    with patch("app.modules.chat.turn_resources.estimate_tokens", return_value=100):
         free = weighted_reserve_tokens(
             content="hello",
             model="free-chat",
@@ -289,14 +289,14 @@ def test_prompt_weighted_reserve_tokens_uses_full_prompt() -> None:
     from unittest.mock import patch
 
     from app.core.config import Settings
-    from app.modules.chat.stream import prompt_weighted_reserve_tokens
+    from app.modules.chat.turn_resources import prompt_weighted_reserve_tokens
 
     settings = Settings()
     messages = [
         {"role": "system", "content": "sys"},
         {"role": "user", "content": "hello"},
     ]
-    with patch("app.modules.chat.stream.estimate_tokens", return_value=40):
+    with patch("app.modules.chat.turn_resources.estimate_tokens", return_value=40):
         assert (
             prompt_weighted_reserve_tokens(
                 messages,

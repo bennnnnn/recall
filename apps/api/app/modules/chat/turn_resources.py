@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import math
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -12,9 +13,13 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.exceptions import ChatBusyError, ChatServiceError, QuotaExceededError
 from app.models.orm import User
+from app.modules.chat.post_turn import seed_usage_from_db
 from app.modules.chat.prompt_builder import StreamStatusFn
+from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.services import model_catalog
+from app.services.context_window import estimate_tokens
 from app.services.quota import quota_exceeded_message
 
 CHATPREP_LOCK_TTL_SECONDS = 120
@@ -25,6 +30,7 @@ CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS = 30.0
 class TurnResources:
     """Prepare-lock and quota ownership for one chat turn."""
 
+    deps: ChatTurnDeps
     redis: Redis
     user_id: UUID
     chat_id: UUID
@@ -32,32 +38,43 @@ class TurnResources:
     lock_token: str
     reserved_tokens: int = 0
     _refunded: bool = False
-    seams: Any = None
 
-    async def reserve(self, **kwargs: Any) -> int:
-        if self.seams is None:
-            from app.modules.chat import stream
-
-            self.seams = stream
-        self.reserved_tokens = await self.seams.reserve_turn_quota(self.redis, **kwargs)
+    async def reserve(
+        self,
+        *,
+        user: User,
+        content: str,
+        model: str,
+        settings: Settings,
+        daily_limit: int | None = None,
+        max_output: int | None = None,
+        vision_extra: int = 0,
+        seed: bool = True,
+    ) -> int:
+        self.reserved_tokens = await reserve_turn_quota(
+            self.deps,
+            self.redis,
+            user=user,
+            content=content,
+            model=model,
+            settings=settings,
+            daily_limit=daily_limit,
+            max_output=max_output,
+            vision_extra=vision_extra,
+            seed=seed,
+        )
         return self.reserved_tokens
 
     async def refund(self) -> None:
         if self._refunded or self.reserved_tokens <= 0:
             return
-        if self.seams is None:
-            from app.modules.chat import stream
-
-            self.seams = stream
         self._refunded = True
-        await self.seams.quota_service.refund_usage(
-            self.redis, str(self.user_id), self.reserved_tokens
-        )
+        await self.deps.quota.refund_usage(self.redis, str(self.user_id), self.reserved_tokens)
 
 
-async def acquire_chatprep_lock(seams: Any, redis: Redis, chat_id: UUID) -> tuple[str, str]:
+async def acquire_chatprep_lock(deps: ChatTurnDeps, redis: Redis, chat_id: UUID) -> tuple[str, str]:
     lock_key = f"chatprep:{chat_id}"
-    token = await seams.acquire_lock(redis, lock_key, seams._CHATPREP_LOCK_TTL_SECONDS)
+    token = await deps.locks.acquire_lock(redis, lock_key, CHATPREP_LOCK_TTL_SECONDS)
     if token is None:
         raise ChatBusyError()
     return lock_key, token
@@ -65,7 +82,7 @@ async def acquire_chatprep_lock(seams: Any, redis: Redis, chat_id: UUID) -> tupl
 
 @asynccontextmanager
 async def turn_resources(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     *,
     user_id: UUID,
@@ -76,9 +93,9 @@ async def turn_resources(
         yield borrowed
         return
 
-    lock_key, lock_token = await acquire_chatprep_lock(seams, redis, chat_id)
+    lock_key, lock_token = await acquire_chatprep_lock(deps, redis, chat_id)
     resources = TurnResources(
-        seams=seams,
+        deps=deps,
         redis=redis,
         user_id=user_id,
         chat_id=chat_id,
@@ -86,7 +103,7 @@ async def turn_resources(
         lock_token=lock_token,
     )
     refresh_task = asyncio.create_task(
-        chatprep_refresh_loop(seams, redis, lock_key, lock_token),
+        chatprep_refresh_loop(resources),
         name="chatprep-refresh",
     )
     try:
@@ -98,45 +115,37 @@ async def turn_resources(
         refresh_task.cancel()
         with contextlib.suppress(asyncio.CancelledError, ChatServiceError, Exception):
             await refresh_task
-        await seams.release_lock(redis, lock_key, lock_token)
+        await deps.locks.release_lock(redis, lock_key, lock_token)
 
 
-async def chatprep_refresh_loop(seams: Any, redis: Redis, lock_key: str, lock_token: str) -> None:
+async def _refresh_chatprep_lock(res: TurnResources) -> bool:
+    return await res.deps.locks.refresh_lock(
+        res.redis,
+        res.lock_key,
+        res.lock_token,
+        CHATPREP_LOCK_TTL_SECONDS,
+    )
+
+
+async def chatprep_refresh_loop(res: TurnResources) -> None:
     try:
         while True:
-            await asyncio.sleep(seams._CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS)
-            ok = await seams.refresh_lock(
-                redis,
-                lock_key,
-                lock_token,
-                seams._CHATPREP_LOCK_TTL_SECONDS,
-            )
-            if not ok:
+            await asyncio.sleep(CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS)
+            if not await _refresh_chatprep_lock(res):
                 raise ChatServiceError("Chat prepare lock lost during turn")
     except asyncio.CancelledError:
         return
 
 
 async def yield_with_chatprep_refresh(
-    seams: Any,
-    redis: Redis,
-    lock_key: str,
-    lock_token: str,
+    res: TurnResources,
     tokens: AsyncIterator[str],
 ) -> AsyncIterator[str]:
     last_refresh = 0.0
-    import time
-
     async for token in tokens:
         now = time.monotonic()
-        if now - last_refresh >= seams._CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS:
-            ok = await seams.refresh_lock(
-                redis,
-                lock_key,
-                lock_token,
-                seams._CHATPREP_LOCK_TTL_SECONDS,
-            )
-            if not ok:
+        if now - last_refresh >= CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS:
+            if not await _refresh_chatprep_lock(res):
                 raise ChatServiceError("Chat prepare lock lost during stream")
             last_refresh = now
         yield token
@@ -159,7 +168,6 @@ def wrap_stream_status(
 
 
 def weighted_reserve_tokens(
-    seams: Any,
     *,
     content: str,
     model: str,
@@ -167,15 +175,14 @@ def weighted_reserve_tokens(
     max_output: int | None = None,
     vision_extra: int = 0,
 ) -> int:
-    base = seams.estimate_tokens(content) + (
+    base = estimate_tokens(content) + (
         max_output if max_output is not None else settings.max_output_tokens
     )
     base += vision_extra
-    return math.ceil(base * seams.model_catalog.quota_multiplier(model))
+    return math.ceil(base * model_catalog.quota_multiplier(model))
 
 
 def prompt_weighted_reserve_tokens(
-    seams: Any,
     prompt_messages: list[dict[str, Any]],
     *,
     model: str,
@@ -183,16 +190,15 @@ def prompt_weighted_reserve_tokens(
     max_output: int | None = None,
 ) -> int:
     prompt_tokens = sum(
-        seams.estimate_tokens(content)
+        estimate_tokens(content)
         for message in prompt_messages
         if isinstance((content := message.get("content")), str)
     )
     base = prompt_tokens + (max_output if max_output is not None else settings.max_output_tokens)
-    return math.ceil(base * seams.model_catalog.quota_multiplier(model))
+    return math.ceil(base * model_catalog.quota_multiplier(model))
 
 
 async def top_up_reserve_for_prompt(
-    seams: Any,
     res: TurnResources,
     *,
     settings: Settings,
@@ -210,7 +216,7 @@ async def top_up_reserve_for_prompt(
     messages = ctx.prompt_messages
     if not isinstance(messages, list):
         return
-    needed = seams.prompt_weighted_reserve_tokens(
+    needed = prompt_weighted_reserve_tokens(
         messages,
         model=ctx.model,
         settings=settings,
@@ -219,7 +225,7 @@ async def top_up_reserve_for_prompt(
     extra = needed - res.reserved_tokens
     if extra <= 0:
         return
-    ok = await seams.quota_service.reserve_usage(
+    ok = await res.deps.quota.reserve_usage(
         res.redis,
         str(res.user_id),
         extra,
@@ -232,7 +238,7 @@ async def top_up_reserve_for_prompt(
 
 
 async def reserve_turn_quota(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     *,
     user: User,
@@ -259,11 +265,11 @@ async def reserve_turn_quota(
     """
     _ = (content, model, max_output, vision_extra)
     if seed:
-        async with seams.SessionLocal() as session:
-            await seams.seed_usage_from_db(redis, session, user.id)
+        async with deps.session_factory() as session:
+            await seed_usage_from_db(redis, session, user.id)
     if daily_limit is None:
-        daily_limit = seams.quota_service.daily_limit_for_user(user, settings)
-    used = await seams.quota_service.get_daily_usage(redis, str(user.id))
+        daily_limit = deps.quota.daily_limit_for_user(user, settings)
+    used = await deps.quota.get_daily_usage(redis, str(user.id))
     if used >= daily_limit:
         raise QuotaExceededError(quota_exceeded_message(user))
     return 0
