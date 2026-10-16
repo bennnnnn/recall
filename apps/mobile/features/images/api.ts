@@ -7,7 +7,7 @@ type ImageGenerateResult = {
 };
 
 /** The subject that owns a composer turn; `null` leaves it to image generation. */
-export type ImageIntentResult = {
+type ImageIntentResult = {
   subject: "math" | "physics" | "chemistry" | null;
 };
 
