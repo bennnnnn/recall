@@ -21,6 +21,8 @@ from sympy import (
     sqrt,
 )
 
+from app.modules.math.solve.declines import declines, sympy_decline
+
 
 @dataclass(frozen=True)
 class KeyStep:
@@ -61,10 +63,10 @@ def written_side(text: str, variables: list[str]) -> tuple[Any, str] | None:
     """
     from app.modules.math.solve.parse import _parse_expression
 
-    try:
+    with sympy_decline() as declined:
         expr = _parse_expression(text, variables, real=True, evaluate=False)
         tex = str(latex(expr, order="none"))
-    except Exception:
+    if declined:
         return None
     return expr, _UNIT_FACTOR.sub("", tex)
 
@@ -127,10 +129,10 @@ def equation_key_steps(
     rational_steps = rational_equation_key_steps(lhs, rhs, var)
     if rational_steps is not None:
         return rational_steps
-    try:
+    with sympy_decline() as declined:
         poly = Poly(simplify(lhs - rhs), var)
         degree = poly.degree()
-    except Exception:
+    if declined:
         return []
     if degree == 1:
         return _linear_key_steps(lhs, rhs, var, poly)
@@ -158,17 +160,14 @@ def _higher_degree_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep]:
 
 def equation_check_latex(lhs: Any, rhs: Any, variable: str) -> str | None:
     """Short substitution check when every root is rational."""
-    try:
+    with sympy_decline() as declined:
         var = Symbol(variable)
         solutions = solve(Eq(lhs, rhs), var)
-    except Exception:
+    if declined or not solutions:
         return None
-    if not solutions:
-        return None
-    try:
-        if not all(getattr(sol, "is_number", False) and bool(sol.is_rational) for sol in solutions):
-            return None
-    except Exception:
+    with sympy_decline() as declined:
+        rational = all(getattr(s, "is_number", False) and bool(s.is_rational) for s in solutions)
+    if declined or not rational:
         return None
     if len(solutions) == 2 and _expr_equal(solutions[0] + solutions[1], 0):
         pos = simplify(Abs(solutions[0]))
@@ -181,11 +180,9 @@ def equation_check_latex(lhs: Any, rhs: Any, variable: str) -> str | None:
     return r" \text{ and } ".join(parts)
 
 
+@declines(False)
 def _expr_equal(left: Any, right: Any) -> bool:
-    try:
-        return bool(simplify(left - right) == 0)
-    except Exception:
-        return False
+    return bool(simplify(left - right) == 0)
 
 
 def _canonical_root_formula(var: Any, solutions: list[Any]) -> str:
@@ -199,11 +196,9 @@ def _eq_tex(left: Any, right: Any) -> str:
     return f"{latex(left)} = {latex(right)}"
 
 
+@declines(False)
 def _is_negative_number(val: Any) -> bool:
-    try:
-        return bool(getattr(val, "is_number", False) and val.is_number and val < 0)
-    except Exception:
-        return False
+    return bool(getattr(val, "is_number", False) and val.is_number and val < 0)
 
 
 def _is_solved(lhs: Any, rhs: Any, var: Any) -> bool:
@@ -264,10 +259,10 @@ def _cancelled_side_tex(side: Any, divisor: Any) -> str:
         return str(latex(side))
     if _expr_equal(side, divisor):
         return f"\\frac{{\\cancel{{{d_tex}}}}}{{\\cancel{{{d_tex}}}}}"
-    try:
+    with sympy_decline() as declined:
         # ``0.4x / 0.4`` is ``1.0 x`` until its float factor is read exactly.
         rest = nsimplify(simplify(side / divisor))
-    except Exception:
+    if declined:
         return f"\\frac{{{latex(side)}}}{{{d_tex}}}"
     if _expr_equal(rest, 1) and _expr_equal(rest * divisor, side):
         return f"\\frac{{\\cancel{{{d_tex}}}}}{{\\cancel{{{d_tex}}}}}"
@@ -525,10 +520,9 @@ def _linear_factors(factored: Any, var: Any) -> list[Any]:
 
 def _factor_order(piece: Any) -> tuple[bool, float]:
     """A bare ``x`` leads (``x(x + 2)(x - 2)``); the rest go in root order."""
-    try:
+    root = 0.0
+    with sympy_decline():
         root = float(solve(piece)[0])
-    except Exception:
-        root = 0.0
     return (not piece.is_Symbol, root)
 
 

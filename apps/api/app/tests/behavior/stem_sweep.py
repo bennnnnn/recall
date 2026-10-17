@@ -31,6 +31,9 @@ or ``coverage`` (a question declined or not recognised, a picture missing). The 
 the first kind; the second is held by floors that only go up.
 
     uv run python -m app.tests.behavior.stem_sweep physics --show
+
+The sweep models production, so a maths decline stays silent; ``RECALL_STRICT_DECLINES=1``
+in front raises the programming errors a decline would hide (``math/solve/declines.py``).
 """
 
 from __future__ import annotations

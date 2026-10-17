@@ -8,6 +8,9 @@ where a rule hijacked, replaced or mangled it is listed.
 
     uv run python -m app.tests.behavior.sweep [--only id,id] [--area writing] [--show]
 
+The sweep models production, so a maths decline stays silent; ``RECALL_STRICT_DECLINES=1``
+in front raises the programming errors a decline would hide (``math/solve/declines.py``).
+
 ``expect`` per entry: "answer" (an ordinary reply that must reach the user),
 "instant" (the server answers without the model: the date, the time),
 "photo", "search", "image_gen", "save" (a reminder is saved), "ask_time",

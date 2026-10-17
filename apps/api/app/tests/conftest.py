@@ -10,12 +10,25 @@ import pytest
 # (fail-closed). Tests that construct Settings() without an env file need this.
 os.environ.setdefault("ENVIRONMENT", "development")
 
+# A maths decline that would hide a programming error (an AttributeError, NameError or our
+# own TypeError; see app/modules/math/solve/declines.py) raises under pytest. A value already in
+# the environment wins: RECALL_STRICT_DECLINES=0 runs the suite with production's declines.
+_STRICT_DECLINES_ASKED = "RECALL_STRICT_DECLINES" in os.environ
+os.environ.setdefault("RECALL_STRICT_DECLINES", "1")
+
 
 @pytest.fixture
 async def fake_redis():
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     yield client
     await client.aclose()
+
+
+@pytest.fixture
+def production_declines(monkeypatch):
+    """Maths declines as production has them (silent), unless the run set RECALL_STRICT_DECLINES."""
+    if not _STRICT_DECLINES_ASKED:
+        monkeypatch.setenv("RECALL_STRICT_DECLINES", "0")
 
 
 @pytest.fixture

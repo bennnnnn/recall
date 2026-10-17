@@ -14,6 +14,7 @@ from typing import Any
 from sympy import Eq, Poly, S, Symbol, expand, ilcm, latex, simplify, solve, solveset
 from sympy.core.relational import Ge, Gt, Le, Lt
 
+from app.modules.math.solve.declines import declines, sympy_decline
 from app.modules.math.solve.key_steps import KeyStep, equation_key_steps, label_tex
 
 _RELATIONS = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}
@@ -52,14 +53,12 @@ def _move_all_label(term: Any) -> str:
     return f"Subtract {label_tex(term)} from all three parts"
 
 
+@declines(None)
 def _solution_set(relations: list[Any], var: Any) -> Any | None:
-    try:
-        result = S.Reals
-        for relation in relations:
-            result = result.intersect(solveset(relation, var, domain=S.Reals))
-        return result
-    except Exception:
-        return None
+    result = S.Reals
+    for relation in relations:
+        result = result.intersect(solveset(relation, var, domain=S.Reals))
+    return result
 
 
 def _inequality_tex(left: Any, op: str, right: Any) -> str:
@@ -75,9 +74,9 @@ def inequality_key_steps(lhs: Any, rhs: Any, variable: str, comparator: str) -> 
     if comparator not in _RELATIONS:
         return []
     var = _symbol((lhs, rhs), variable)
-    try:
+    with sympy_decline() as declined:
         degree = Poly(expand(lhs - rhs), var).degree()
-    except Exception:
+    if declined:
         return []
     target = _solution_set([_RELATIONS[comparator](lhs, rhs)], var)
     if target is None:
@@ -209,10 +208,9 @@ def compound_inequality_key_steps(
     var = _symbol((low, middle, high), variable)
     if var in getattr(low, "free_symbols", set()) or var in getattr(high, "free_symbols", set()):
         return []
-    try:
-        if Poly(expand(middle), var).degree() != 1:
-            return []
-    except Exception:
+    with sympy_decline() as declined:
+        linear = Poly(expand(middle), var).degree() == 1
+    if declined or not linear:
         return []
 
     def relations(lo: Any, op1: str, mid: Any, op2: str, hi: Any) -> list[Any]:
@@ -304,9 +302,9 @@ def _linear_rows(pairs: list[tuple[Any, Any]], x: Any, y: Any) -> list[tuple[Any
     """``a x + b y = c`` coefficients per equation; None if not linear with numbers."""
     rows: list[tuple[Any, Any, Any]] = []
     for lhs, rhs in pairs:
-        try:
+        with sympy_decline() as declined:
             poly = Poly(expand(lhs - rhs), x, y)
-        except Exception:
+        if declined:
             return None
         if poly.total_degree() != 1:
             return None
@@ -356,9 +354,9 @@ def system_key_steps(pairs: list[tuple[Any, Any]], variables: list[str]) -> list
     (a1, b1, _), (a2, b2, _) = rows
     if simplify(a1 * b2 - a2 * b1) == 0:
         return []
-    try:
+    with sympy_decline() as declined:
         solutions = solve([Eq(lhs, rhs) for lhs, rhs in pairs], [x, y], dict=True)
-    except Exception:
+    if declined:
         return []
     if len(solutions) != 1 or x not in solutions[0] or y not in solutions[0]:
         return []
@@ -369,11 +367,9 @@ def system_key_steps(pairs: list[tuple[Any, Any]], variables: list[str]) -> list
     return steps or []
 
 
+@declines(False)
 def _holds(lhs: Any, rhs: Any, solution: dict[Any, Any]) -> bool:
-    try:
-        return bool(simplify(lhs.subs(solution) - rhs.subs(solution)) == 0)
-    except Exception:
-        return False
+    return bool(simplify(lhs.subs(solution) - rhs.subs(solution)) == 0)
 
 
 def _substitution_steps(
@@ -575,10 +571,9 @@ def _parse_sides(sides: list[str], variables: list[str]) -> list[Any] | None:
     from app.modules.math.solve.parse import _expr_needs_real_domain, _parse_expression
 
     real = _expr_needs_real_domain(*sides)
-    try:
+    with sympy_decline():
         return [_parse_expression(side, variables, real=real) for side in sides]
-    except Exception:
-        return None
+    return None
 
 
 def inequality_trace(
@@ -626,9 +621,9 @@ def system_trace(
         return [], None, None
     everything = tuple(side for pair in pairs for side in pair)
     symbols = [_symbol(everything, name) for name in variables]
-    try:
+    with sympy_decline() as declined:
         solution = solve([Eq(lhs, rhs) for lhs, rhs in pairs], symbols, dict=True)[0]
-    except Exception:
+    if declined:
         return [], None, None
     given = r", \quad ".join(_equation_tex(lhs, rhs) for lhs, rhs in pairs)
     return steps, given, system_check_latex(pairs, variables, solution)
