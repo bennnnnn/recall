@@ -392,18 +392,32 @@ def absolute_value_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | No
 
     lines = compact_root_answer_lines(str(var), solutions)
     final = lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
+    # Each branch ends at its own root; the combined roots only close the whole trace.
     first = _worked(inside, rhs, var, "Solve both linear equations", final, which="first")
     second = (
         _worked(inside, -rhs, var, "Solve both linear equations", final, which="second")
         if rhs != 0
         else []
     )
+    for branch, target in ((first, rhs), (second, -rhs)):
+        with sympy_decline() as declined:
+            roots = solve(Eq(inside, target), var)
+        if branch and len(branch) > 1 and not declined and roots:
+            branch[-1] = KeyStep(label="Simplify", formula=_canonical_root_formula(var, roots))
     if len(first) == 1 or (rhs != 0 and len(second) == 1):
         return [
             KeyStep(label="Split the absolute-value equation", formula=split),
             KeyStep(label="Solve both linear equations", formula=final),
         ]
-    return [KeyStep(label="Split the absolute-value equation", formula=split), *first, *second]
+    # Both roots close the trace as their own step, so it ends at the answer
+    # card without reading as one branch's result.
+    closing = [KeyStep(label="Both solutions", formula=final)] if second else []
+    return [
+        KeyStep(label="Split the absolute-value equation", formula=split),
+        *first,
+        *second,
+        *closing,
+    ]
 
 
 def _worked(

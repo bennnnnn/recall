@@ -166,3 +166,29 @@ async def test_a_reached_equation_is_solved_move_by_move(query: str, label: str)
 def test_step_rule_covers_calculus_systems_and_domains(label: str, formula: str, rule: str) -> None:
     named = step_rule(label, formula)
     assert named is not None and named.startswith(rule)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "solve 2x + 3 = 11; no check",
+        "solve 2x+3=11 without checking",
+        "skip the verification, 3x=6",
+    ],
+)
+async def test_a_negated_check_request_adds_no_check(query: str) -> None:
+    reply = await _lesson(query)
+    assert "Check**" not in reply
+    assert "```answer" in reply
+
+
+@pytest.mark.asyncio
+async def test_each_absolute_value_branch_ends_at_its_own_root() -> None:
+    reply = await _lesson("show steps |2x-1|=5")
+    first = reply.split("(first equation)", 1)[1].split("(second equation)", 1)[0]
+    second = reply.split("(second equation)")[-1].split("Both solutions", 1)[0]
+    assert "x = 3" in first and "x = -2" not in first
+    assert "x = -2" in second and "x = 3" not in second
+    # The combined roots are their own closing step, matching the answer card.
+    assert "Both solutions**" in reply

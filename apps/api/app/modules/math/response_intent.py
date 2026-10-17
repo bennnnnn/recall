@@ -373,6 +373,8 @@ _PRESENTATION_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
         r"\b(?:and\s+)?(?:double[- ]check|check|verify|confirm|prove)\s+(?:it|that|this|"
         r"(?:your|the)\s+(?:answer|solution|result))\b",
         r"\b(?:and\s+)?show\s+(?:me\s+)?(?:that\s+)?it\s+works\b",
+        r"\b(?:no|without|skip(?:ping)?|don'?t|do\s+not)\s+(?:the\s+|a\s+|any\s+)?"
+        r"(?:check|checking|checks|verify|verifying|verification|proof)\b",
         r"^\s*(?:please\s+)?(?:check|verify)\s+(?=\S)",
         r"\b(?:and\s+)?(?:double[- ]check|check|verify)[ .!?]*$",
     )

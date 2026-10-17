@@ -43,6 +43,14 @@ _ANSWER_CHECK = re.compile(
 )
 
 
+# "no check", "without checking", "skip the verification", "don't prove it".
+_NO_ANSWER_CHECK = re.compile(
+    r"\b(?:no|without|skip(?:ping)?|don'?t|do\s+not|never)\s+(?:the\s+|a\s+|any\s+)?"
+    r"(?:check|checking|checks|verify|verifying|verification|proof|prove|proving)\b",
+    re.IGNORECASE,
+)
+
+
 def wants_answer_check(text: str) -> bool:
     """True when the user asks to check, verify or prove the answer.
 
@@ -50,6 +58,8 @@ def wants_answer_check(text: str) -> bool:
     the student's own answer ("is my answer right?") is check-my-work instead.
     """
     if classify_math_response_intent(text).mode == MathResponseMode.CHECK:
+        return False
+    if _NO_ANSWER_CHECK.search(text) is not None:
         return False
     return _ANSWER_CHECK.search(text) is not None
 
