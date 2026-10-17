@@ -9,6 +9,7 @@ from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.match.literal_plot import literal_plot_point
 from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.extractors.algebra import (
     ALGEBRA_EXTRACTORS,
@@ -439,11 +440,9 @@ def _function_of_x(expr: str) -> bool:
 
     if not _is_plottable_expr(expr):
         return False
-    try:
+    with sympy_decline() as declined:
         parsed = _parse_expression(expr.replace("^", "**"), ["x"])
-    except Exception:
-        return False
-    return {str(symbol) for symbol in parsed.free_symbols} <= {"x"}
+    return not declined and {str(symbol) for symbol in parsed.free_symbols} <= {"x"}
 
 
 def _named_functions(text: str) -> list[str]:

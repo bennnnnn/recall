@@ -9,6 +9,7 @@ from typing import Any
 from app.core.config import Settings
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
 from app.modules.math.tools.extractors.readings import read
@@ -51,9 +52,9 @@ def _quantity_expression(text: str) -> Any | None:
     compact = text.strip()
     if not compact or _QUANTITY_CHARS.sub("", compact):
         return None
-    try:
+    with sympy_decline() as declined:
         value = _parse_expression(compact.replace("π", "pi"), [])
-    except Exception:
+    if declined:
         return None
     if value is None or value.free_symbols or not value.is_finite or not value.is_real:
         return None

@@ -7,6 +7,7 @@ from typing import Any
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathExprResult, MathIntent
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.integral_steps import integral_trace
 from app.modules.math.solve.key_steps import KeyStep
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
@@ -96,11 +97,10 @@ def _is_log_over_x_integral(expr: str, variable: str) -> bool:
     from sympy import Symbol, log, simplify
 
     sym = Symbol(variable, real=True)
-    try:
+    with sympy_decline():
         parsed = math_solve._parse_expression(expr, [variable], real=True)
         return bool(simplify(parsed - 1 / (sym * log(sym))) == 0)
-    except Exception:
-        return False
+    return False
 
 
 def _log_over_x_reply(var: str, answer: str) -> str:
@@ -145,10 +145,9 @@ def _bound_tex(bound: object) -> str:
     """``pi`` as ``\\pi``; an unreadable bound stays as written."""
     from sympy import latex
 
-    try:
+    with sympy_decline():
         return str(latex(math_solve._parse_expression(str(bound), [], real=True)))
-    except Exception:
-        return str(bound)
+    return str(bound)
 
 
 def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str) -> Workout | None:
@@ -158,7 +157,7 @@ def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str)
     symbol = next(
         (s for s in parsed.free_symbols if str(s) == intent.variable), Symbol(intent.variable)
     )
-    try:
+    with sympy_decline() as declined:
         low = math_solve._parse_expression(str(intent.integral_lower), [], real=True)
         high = math_solve._parse_expression(str(intent.integral_upper), [], real=True)
         if any(bound.has(oo, -oo, zoo) for bound in (low, high)):
@@ -173,7 +172,7 @@ def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str)
         value = simplify(integrate(parsed, (symbol, low, high)))
         if not (at_high.is_finite and at_low.is_finite) or simplify(at_high - at_low - value) != 0:
             return None
-    except Exception:
+    if declined:
         return None
     var = latex(symbol)
     low_tex = (
@@ -208,10 +207,10 @@ def _unbounded_at_an_endpoint(parsed: Any, intent: MathIntent) -> bool:
         (s for s in parsed.free_symbols if str(s) == intent.variable), Symbol(intent.variable)
     )
     for bound in (intent.integral_lower, intent.integral_upper):
-        try:
+        with sympy_decline() as declined:
             point = math_solve._parse_expression(str(bound), [], real=True)
             value = parsed.subs(symbol, point)
-        except Exception:  # noqa: S112 - an unreadable bound is not evidence either way
+        if declined:  # an unreadable bound is not evidence either way
             continue
         if value in (zoo, nan) or getattr(value, "is_finite", True) is False:
             return True

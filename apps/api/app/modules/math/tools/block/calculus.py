@@ -9,6 +9,7 @@ from typing import Any
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathExprResult, MathIntent
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.derivative_steps import derivative_trace
 from app.modules.math.solve.key_steps import KeyStep, written_side
 from app.modules.math.tools.block.calculus_applications import (
@@ -216,12 +217,10 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
         for denominator in denominator_bases:
             if sym not in getattr(denominator, "free_symbols", set()):
                 continue
-            try:
+            with sympy_decline():  # one unsolved symbolic factor is non-fatal
                 for value in solve(Eq(denominator, 0), sym):
                     if value not in excluded_values:
                         excluded_values.append(value)
-            except Exception:  # noqa: S112 - one unsolved symbolic factor is non-fatal
-                continue
         for value in sorted(excluded_values, key=str):
             if getattr(value, "is_Symbol", False):
                 first, second = sorted((str(sym), str(value)))

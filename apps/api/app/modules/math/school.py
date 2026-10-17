@@ -34,7 +34,7 @@ from sympy import (
 )
 
 from app.modules.math.schemas import MathExprResult
-from app.modules.math.solve import MathServiceError, _parse_expression
+from app.modules.math.solve import MathServiceError, _parse_expression, declines
 from app.services.units import get_unit_registry
 
 logger = logging.getLogger(__name__)
@@ -607,7 +607,7 @@ def _first_order_separable_ode_steps(
     """
     y_of_x = dependent(independent)
     derivative = Derivative(y_of_x, independent)
-    try:
+    with declines.sympy_decline() as declined:
         isolated = solve(equation, derivative)
         if len(isolated) != 1:
             return []
@@ -617,7 +617,7 @@ def _first_order_separable_ode_steps(
         antiderivative = integrate(rate, independent)
         if antiderivative.has(Integral):
             return []
-    except Exception:
+    if declined:
         return []
 
     var_tex = latex(independent)

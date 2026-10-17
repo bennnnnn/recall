@@ -11,6 +11,7 @@ from dataclasses import replace
 from typing import Any
 
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.triangle import cos_degrees, cosine_rule_side
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.school._parse import _SIDE_ASKED
@@ -68,9 +69,9 @@ def _polynomial(text: str) -> Any | None:
     if expr is None or "=" in expr:
         return None
     x = Symbol("x")
-    try:
+    with sympy_decline() as declined:
         poly = Poly(math_solve._parse_expression(expr, ["x"]), x)
-    except Exception:
+    if declined:
         return None
     if poly.free_symbols - {x} or not poly.domain.is_Numerical:
         return None
@@ -131,10 +132,10 @@ def _polynomial_remainder(intent: MathIntent, lines: list[str]) -> VerifiedMathB
 
     x = Symbol("x")
     top_text, _, bottom_text = (intent.expr or "").partition("|")
-    try:
+    with sympy_decline() as declined:
         top, bottom = sympify(top_text), sympify(bottom_text)
         quotient, remainder = div(top, bottom, x)
-    except Exception:
+    if declined:
         return None
     if expand(quotient * bottom + remainder - top) != 0:
         return None
@@ -177,10 +178,10 @@ def _complete_square(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock 
     from app.modules.math import solve as math_solve
 
     x = Symbol("x")
-    try:
+    with sympy_decline() as declined:
         parsed = math_solve._parse_expression(intent.expr or "", ["x"])
         poly = Poly(parsed, x)
-    except Exception:
+    if declined:
         return None
     if poly.degree() != 2 or poly.free_symbols - {x}:
         return None
