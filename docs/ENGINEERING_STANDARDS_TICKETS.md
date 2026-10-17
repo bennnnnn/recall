@@ -1060,10 +1060,31 @@ not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
   direct-call rows of those two private helpers, and `inequality_trace("True", …)` returns no
   trace instead of raising. Left for the parse owner: `_parse_expression` returns the object a
   bare SymPy name names.
-- **Remaining:** 103 `except Exception` in `modules/math` (119 before part 1; 9 of them log):
-  `school.py` 9, `solve/key_steps_special.py` 7, `solve/calculus.py` 7, `function_analysis.py`
-  6, `tool_check.py` 5, `solve/integral_steps.py` 5, `solve/graph.py` 5,
-  `tools/block/integrals.py` 4, and 34 files with 1 to 3.
+- **Part 2 (solve/) done:** all 31 plain declines left in `solve/` go through the helper (7
+  decorated functions, 24 blocks, same scope and default; `key_steps_special.py` 7,
+  `integral_steps.py` 5, `work_lines.py` 3, 2 each in `graph.py`, `derivative_steps.py`,
+  `equation_conditions.py`, `root_latex.py`, `word_problem.py` and `work_slips.py`, 1 each in
+  `equations.py`, `expressions.py`, `extract_eq.py` and `inequalities.py`). The 19 left in
+  `solve/` all wrap the failure in a `MathServiceError` `from exc` (`calculus.py` 7, `graph.py`'s
+  3 samplers, 2 each in `inequalities.py` and `numeric.py`, 1 each in `equations.py`,
+  `systems.py`, `trig_equations.py`, `discrete.py` and `parse.py`) and stay: they are not
+  silent, and the helper would drop the cause and let a `TimeoutError` through; none is around a
+  SymPy pool call. Strict mode raised nothing in the math suite, the math STEM sweep or the
+  behavior sweep, and nothing on the prompts and synthetic intents of the part 1 capture; a
+  direct grid over every migrated function found two bugs, each fixed with a regression test:
+  `_parse_expression` handed back the object a bare SymPy name names (`Q`, `CC`, `N`, `S`,
+  `limit`, `ln`, `√` as `sqrt`) and a bool for `x == 1`, which every caller then subtracted or
+  read (`O`, the class `Order`, even raised a TypeError in `reject_unwritten_symbols`); it now
+  refuses anything but a SymPy object or a tuple as unparsed. And `_factor_order` indexed
+  `solve(P - I V, P)`, a dict for a real P. Left as SymPy failing on the input, outside any
+  `solve/` handler (each reaches `_build_verified_block`'s logged `except`): Cardano roots whose
+  imaginary part SymPy cannot sign (`2x^3 + 6x^2 - 5x = 1` raises in `_solution_value_latex`),
+  Newton's method on `|x| - 1` (its derivative cannot be lambdified for a complex `x`) and
+  `2^1000000` (past Python's 4,300-digit `str`).
+- **Remaining:** 72 `except Exception` in `modules/math` (119 before part 1, 103 before part 2;
+  9 of them log; the 19 in `solve/` all wrap): `school.py` 9, `solve/calculus.py` 7,
+  `function_analysis.py` 6, `tool_check.py` 5, `tools/block/integrals.py` 4, and 27 files with 1
+  to 3.
 - **Problem:** 80 handlers in `modules/math` catch `Exception` and return `None`, `[]` or `False`
   with no log. The worst files are `solve/traces.py` (8), `solve/key_steps.py` (8),
   `block/discrete.py` (7), `solve/key_steps_special.py` (7) and `solve/algebra.py` (7). A decline
