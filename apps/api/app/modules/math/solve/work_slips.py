@@ -30,6 +30,7 @@ from sympy import (
     solveset,
 )
 
+from app.modules.math.solve.declines import declines, sympy_decline
 from app.modules.math.solve.work_lines import (
     FLIPPED,
     INEQUALITIES,
@@ -88,11 +89,9 @@ def diagnose(prev: Line, cur: Line, var: Any, number: int) -> tuple[Mistake, Lin
     return _unexplained(prev, cur, var, number), None
 
 
+@declines(False)
 def _same(left: Any, right: Any) -> bool:
-    try:
-        return bool(simplify(left - right) == 0)
-    except Exception:
-        return False
+    return bool(simplify(left - right) == 0)
 
 
 def _nice(value: Any) -> bool:
@@ -105,9 +104,9 @@ def _nice(value: Any) -> bool:
 def _ratio(numerator: Any, denominator: Any, var: Any) -> Any | None:
     if denominator == 0:
         return None
-    try:
+    with sympy_decline() as declined:
         ratio = simplify(numerator / denominator)
-    except Exception:
+    if declined:
         return None
     if var in ratio.free_symbols or not _nice(ratio):
         return None

@@ -15,6 +15,7 @@ from sympy import Eq, Rational, S, Symbol, latex, oo, simplify, solve, solveset
 
 from app.core.config import get_settings
 from app.modules.math.schemas import EquationInput, MathSolveResult
+from app.modules.math.solve.declines import declines
 from app.modules.math.solve.equation_conditions import (
     _original_domain_conditions,
     _parameter_solution_conditions,
@@ -225,10 +226,8 @@ def _real_roots_when_any(solutions: list[dict[Any, Any]], sym: Any) -> list[dict
     return [solution for solution in solutions if _known_realness(solution.get(sym)) is not False]
 
 
+@declines(None)
 def _known_realness(value: Any) -> bool | None:
     if value is None:
         return None
-    try:
-        return value.is_real
-    except Exception:
-        return None
+    return value.is_real

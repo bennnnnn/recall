@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 import numpy as np
-from sympy import Symbol, denom, limit, solve
+from sympy import FiniteSet, Symbol, Union, denom, limit, solve
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES, function_name_alternation
 from app.modules.math.schemas import (
@@ -16,6 +16,7 @@ from app.modules.math.schemas import (
     GraphSampleResult,
     NumberLineInterval,
 )
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.discrete import guess_variables
 from app.modules.math.solve.extract_eq import (
     try_extract_compound_inequality_from_text,
@@ -70,12 +71,11 @@ def _symbolic_pole_xs(parsed: Any, sym: Symbol, x_min: float, x_max: float) -> l
     in ``_split_into_segments``. Never raises: any SymPy failure means "no
     symbolic poles", not a failed graph.
     """
-    try:
-        from sympy import FiniteSet, Union
+    with sympy_decline() as declined:
         from sympy.calculus.singularities import singularities
 
         found = singularities(parsed, sym)
-    except Exception:
+    if declined:
         return []
     sets = list(found.args) if isinstance(found, Union) else [found]
     xs: list[float] = []
@@ -143,9 +143,9 @@ def _removable_holes(
     unevaluated solely to recover its domain; the plotted y-coordinate still
     comes from the verified two-sided limit of the simplified expression.
     """
-    try:
+    with sympy_decline() as declined:
         roots = solve(denom(original), sym)
-    except Exception:
+    if declined:
         return []
     holes: list[list[float]] = []
     for root in roots[:8]:

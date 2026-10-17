@@ -9,6 +9,7 @@ from typing import Any
 from sympy import Eq, latex, simplify, solve, together
 
 from app.modules.math.schemas import EquationInput
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.parse import MathServiceError, _parse_expression
 from app.modules.math.solve.root_latex import _expr_equal
 
@@ -32,10 +33,9 @@ def _original_domain_conditions(data: EquationInput, sym: Any) -> tuple[list[Any
         )
         if parsed_sym is None:
             continue
-        try:
+        roots: list[Any] = []
+        with sympy_decline():
             roots = solve(Eq(denominator, 0), parsed_sym)
-        except Exception:
-            roots = []
         for value in roots:
             if any(_expr_equal(value, seen) for seen in excluded):
                 continue
@@ -63,7 +63,7 @@ def _parameter_solution_conditions(
             condition = rf"{latex(denominator)} \ne 0"
             if condition not in conditions:
                 conditions.append(condition)
-    try:
+    with sympy_decline():
         polynomial = (lhs - rhs).as_poly(sym)
         if polynomial is None or polynomial.degree() != 1:
             return conditions, cases
@@ -90,6 +90,4 @@ def _parameter_solution_conditions(
             )
         elif not collapsed.free_symbols:
             cases.append(rf"{latex(parameter)} = {latex(zero_value)}:\; \text{{no solution}}")
-    except Exception:
-        return conditions, cases
     return conditions, cases
