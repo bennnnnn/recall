@@ -527,6 +527,27 @@ $x^0=1$`}
     expect(queryByText(/\$a|\$x/)).toBeNull();
   });
 
+  it("keeps the badge when a rule note is followed by several equation lines", async () => {
+    // The hard breaks split the paragraph into textgroups; the step still reads as one.
+    const { getAllByTestId } = await render(
+      <MarkdownContent
+        content={[
+          "**1. Evaluate the power** — Exponent: $a^n$ is $a$ multiplied by itself $n$ times  ",
+          "$5^{2} = 5 \\cdot 5$  ",
+          "$= 25$  ",
+          "$3 x^{2} + 25 = 25$",
+          "",
+          "**2. Subtract 25 from both sides** — Subtraction property of equality  ",
+          "$3 x^{2} + 25 - 25 = 25 - 25$  ",
+          "$3 x^{2} = 0$",
+        ].join("\n")}
+      />,
+    );
+    expect(getAllByTestId("lesson-step")).toHaveLength(2);
+    expect(getAllByTestId("lesson-step-reason")).toHaveLength(2);
+    expect(getAllByTestId("lesson-step-formula")).toHaveLength(2);
+  });
+
   it("preserves a link after a numbered bold paragraph", async () => {
     const { getByRole, queryByTestId } = await render(
       <MarkdownContent

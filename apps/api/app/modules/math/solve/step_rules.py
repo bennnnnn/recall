@@ -16,6 +16,9 @@ from typing import Any
 
 from sympy import Pow, latex, preorder_traversal
 
+# 5^2 is shown as 5 · 5; 2^10 is shown only as its value.
+_SHOW_REPEATED = 4
+
 # First match wins; a label that names no rule ("Simplify", "Solve") gets none.
 _RULES: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     (re.compile(pattern, re.IGNORECASE), rule)
@@ -57,6 +60,7 @@ _RULES: tuple[tuple[re.Pattern[str], str], ...] = tuple(
             r"Absolute value: $|u| = k \Rightarrow u = k$ or $u = -k$",
         ),
         (r"^Check\b", "Substitute back into the original equation"),
+        (r"^Multiply the numbers", "Multiply before adding (order of operations)"),
     )
 )
 
@@ -78,18 +82,55 @@ def step_rule(label: str, formula: str = "") -> str | None:
     return None
 
 
-def evaluate_powers_label(*written_sides: Any) -> str | None:
-    """``Evaluate $5^{2} = 25$`` for each number raised to a power the student typed."""
+def evaluate_powers(*written_sides: Any) -> tuple[str, str] | None:
+    """The step for numbers raised to a power the student typed: (label, working).
+
+    The label stays plain text: the phone draws a step badge only when the bold
+    heading has no maths in it. One power shows its repeated multiplication,
+    ``5^{2} = 5 \\cdot 5 = 25``, which the lesson splits one ``=`` per line.
+    """
     shown: list[str] = []
-    seen: set[str] = set()
     for side in written_sides:
         for node in preorder_traversal(side):
             if not isinstance(node, Pow) or not (node.base.is_Number and node.exp.is_Number):
                 continue
-            tex = rf"{latex(node)} = {latex(node.doit())}"
-            if tex not in seen:
-                seen.add(tex)
-                shown.append(f"${tex}$")
+            value = latex(node.doit())
+            repeated = (
+                r" \cdot ".join([latex(node.base)] * int(node.exp))
+                if node.exp.is_Integer and 1 < int(node.exp) <= _SHOW_REPEATED and node.base >= 0
+                else None
+            )
+            tex = (
+                f"{latex(node)} = {value}"
+                if repeated is None
+                else f"{latex(node)} = {repeated} = {value}"
+            )
+            if tex not in shown:
+                shown.append(tex)
     if not shown:
         return None
-    return "Evaluate " + ", ".join(shown)
+    if len(shown) == 1:
+        return "Evaluate the power", shown[0]
+    # Several statements on one line; split_equality_chain leaves a ``\quad`` line whole.
+    return "Evaluate the powers", r",\quad ".join(
+        part.split(" = ")[0] + " = " + part.split(" = ")[-1] for part in shown
+    )
+
+
+def with_powers_evaluated(written_tex: str, side: Any) -> str:
+    """The typed side with each number's power swapped for its value: ``2(x + 9)``.
+
+    The swap is on the typed LaTeX. Rebuilding the expression lets SymPy
+    distribute and reorder (``18 + 2x``), which hides the next step.
+    """
+    out = written_tex
+    powers = {
+        node
+        for node in preorder_traversal(side)
+        if isinstance(node, Pow) and node.base.is_Number and node.exp.is_Number
+    }
+    for node in sorted(powers, key=lambda power: -len(latex(power))):
+        pattern = r"(?<![\d.])" + re.escape(str(latex(node)))
+        value = str(latex(node.doit()))
+        out = re.sub(pattern, value.replace("\\", r"\\"), out)
+    return out

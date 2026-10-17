@@ -22,7 +22,11 @@ const LESSON_STEP_RE = /^(\d+)\.\s+(\S[\s\S]*)$/;
 export function lessonStepParts(
   node: AstNode,
 ): { n: string; label: string; reason: string | null; formulas: string[] } | null {
-  const kids = unwrapSingle(node).children ?? [];
+  // A hard break splits the paragraph into textgroups: [heading — rule, $a$]
+  // [break] [$b$]. Read them as one run, or a rule note hides the badge.
+  const kids = (unwrapSingle(node).children ?? []).flatMap((kid) =>
+    kid.type === "textgroup" ? (kid.children ?? []) : [kid],
+  );
   const strong = openingStrong(kids[0]);
   if (!strong) return null;
   const match = LESSON_STEP_RE.exec(astText(strong).trim());
