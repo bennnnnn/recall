@@ -8,7 +8,8 @@ then a closing rate. A one-step d = vt question stays fast.
 
 The test needs all three: a pursuit, meeting, current or joint-work cue; two
 numbers; and a rate (km/h, per hour) or a job filled or finished. "Let's meet at
-3pm, I have 2 meetings" has no rate, so it stays an errand.
+3pm, I have 2 meetings" has no rate, so it stays an errand. Working "alone" is
+one worker, not a joint-work problem: "I work alone 2 hours at $30 per hour".
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ _CUE = re.compile(
     r"\b(?:catch(?:es|ing)?\s+up|catch(?:es)?\s+(?:the|her|him|them|it)|overtak(?:e|es|ing)"
     r"|meets?\b|meeting\s+point|head\s+start|towards?\s+each\s+other"
     r"|opposite\s+directions?|same\s+direction|upstream|downstream"
-    r"|(?:against|with)\s+the\s+current|working\s+together|together|alone)\b",
+    r"|(?:against|with)\s+the\s+current|working\s+together|together)\b",
     re.IGNORECASE,
 )
 _RATE = re.compile(
@@ -30,9 +31,14 @@ _RATE = re.compile(
     r"(?:hours?|hrs?|h|minutes?|mins?)\b",
     re.IGNORECASE,
 )
+_JOB_VERB = (
+    r"(?:fill(?:s|ed)?|empt(?:y|ies|ied)|drain(?:s|ed)?|finish(?:es|ed)?|complete(?:s|d)?"
+    r"|paint(?:s|ed)?|build(?:s)?|built)"
+)
+_JOB_OBJECT = r"(?:tank|pool|job|work|task|wall|house|field|room|fence)"
+# "fills the tank" and the passive "a tank is filled by one pipe in 3 hours".
 _JOB = re.compile(
-    r"\b(?:fill(?:s|ed)?|empt(?:y|ies)|drain(?:s|ed)?|finish(?:es)?|complete(?:s)?)\b"
-    r"[^.?!]{0,40}\b(?:tank|pool|job|work|task|wall|house|field)\b",
+    rf"\b{_JOB_VERB}\b[^.?!]{{0,40}}\b{_JOB_OBJECT}\b|\b{_JOB_OBJECT}\b[^.?!]{{0,40}}\b{_JOB_VERB}\b",
     re.IGNORECASE,
 )
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")

@@ -19,6 +19,8 @@ HARD = [
     "Find the speed of the current.",
     "Two painters working together finish the wall in 4 hours; one alone takes 6. "
     "How long does the other take?",
+    # Passive wording: the job is filled, not "fills the tank".
+    "A tank is filled by one pipe in 3 hours and by another in 5 hours. How long working together?",
 ]
 EASY = [
     "John drove 20 km in 2 hours. What is his speed?",
@@ -28,6 +30,8 @@ EASY = [
     "What time does the 4pm train from Boston get to New York?",
     "We worked together for 3 years at 2 companies",
     "Can we meet at 3 or 4?",
+    # One worker is a one-step wage sum, not joint work.
+    "I work alone for 2 hours at $30 per hour; how much do I earn?",
 ]
 
 
@@ -60,3 +64,12 @@ def test_a_verified_meeting_problem_stays_on_the_fast_lane() -> None:
         "When do they meet?"
     )
     assert not message_needs_thinking(text, settings=Settings())
+
+
+@pytest.mark.parametrize("text", HARD)
+def test_every_rate_problem_turns_thinking_on_even_when_maths_reads_it(text: str) -> None:
+    # needs_symbolic also reads "together ... hours"; the maths lane does not think,
+    # so a rate problem is checked first.
+    settings = Settings()
+    assert route_chat_model(text, settings=settings) == model_catalog.auto_smart_alias()
+    assert message_needs_thinking(text, settings=settings)
