@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.expr_rewrite import _normalize_latex_expr, math_expr_or_none
 from app.modules.math.tools.function_def import peel_function_definition
 from app.modules.math.tools.request_text import _strip_trailing_filler
@@ -125,11 +126,11 @@ def _meeting_points(first: str, second: str) -> tuple[str, str] | None:
     from app.modules.math import solve as math_solve
 
     x = Symbol("x", real=True)
-    try:
+    with sympy_decline() as declined:
         f = math_solve._parse_expression(first, ["x"], real=True)
         g = math_solve._parse_expression(second, ["x"], real=True)
         roots = solveset(Eq(f, g), x, domain=S.Reals)
-    except Exception:
+    if declined:
         return None
     if not isinstance(roots, FiniteSet):
         return None

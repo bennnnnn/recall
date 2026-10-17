@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.services.workout import Workout, math_line, note_from_label, render_workout, text_line
 
@@ -167,11 +168,11 @@ def _average_value_working(intent: MathIntent, answer: str) -> str | None:
     from app.modules.math import solve as math_solve
 
     variable = intent.variable or "x"
-    try:
+    with sympy_decline() as declined:
         expr = math_solve._parse_expression(intent.expr or "", [variable])
         low = math_solve._parse_expression(str(intent.integral_lower), [])
         high = math_solve._parse_expression(str(intent.integral_upper), [])
-    except Exception:
+    if declined:
         return None
     x = Symbol(variable)
     if isinstance(expr, tuple) or expr.free_symbols - {x} or high == low:
@@ -219,9 +220,9 @@ def _direct_integration_working(intent: MathIntent) -> tuple[str, str] | None:
     if match is None:
         return None
     variable = intent.variable or "x"
-    try:
+    with sympy_decline() as declined:
         rate = math_solve._parse_expression(match["rhs"], [variable])
-    except Exception:
+    if declined:
         return None
     x = Symbol(variable)
     if isinstance(rate, tuple) or rate.free_symbols - {x}:
@@ -386,7 +387,7 @@ def apply_calculus_extension(
         answer = math_formulas.implicit_derivative(intent.lhs, intent.rhs)
         lines.append(f"dy/dx = {answer}")
         block = _finish_with_answer(lines, answer)
-        try:
+        with sympy_decline():
             from sympy import Derivative, Function, Symbol, diff, latex
 
             independent = Symbol(intent.variable or "x", real=True)
@@ -433,6 +434,5 @@ def apply_calculus_extension(
                 f"\\frac{{dy}}{{dx}} = {answer}",
             )
             return replace(block, direct_reply=direct)
-        except Exception:
-            return block
+        return block
     return None

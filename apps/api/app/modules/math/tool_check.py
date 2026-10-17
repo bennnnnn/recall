@@ -107,14 +107,14 @@ def _math_runs(text: str) -> list[str]:
 
 def _parse(text: str) -> Any | None:
     from app.modules.math import solve as math_solve
+    from app.modules.math.solve.declines import sympy_decline
 
     candidate = text.strip().strip(".,;:")
     if not candidate or len(candidate) > 200:
         return None
-    try:
+    with sympy_decline():
         return math_solve._parse_expression(candidate)
-    except Exception:
-        return None
+    return None
 
 
 def _split_relation(run: str) -> list[tuple[str, str, str]]:
@@ -161,12 +161,13 @@ class _UserMath:
 
     @staticmethod
     def _extracted_pairs(text: str) -> list[tuple[str, str]]:
-        try:
+        from app.modules.math.solve.declines import sympy_decline
+
+        with sympy_decline():
             from app.modules.math.solve.extract_eq import try_extract_equations_from_text
 
             return try_extract_equations_from_text(text)[:_MAX_CANDIDATES]
-        except Exception:
-            return []
+        return []
 
     def _add_expression(self, text: str) -> None:
         parsed = _parse(text)
@@ -181,21 +182,24 @@ class _UserMath:
 def _zero(expr: Any) -> bool:
     from sympy import simplify
 
-    try:
+    from app.modules.math.solve.declines import sympy_decline
+
+    with sympy_decline():
         return bool(simplify(expr) == 0)
-    except Exception:
-        return False
+    return False
 
 
 def _ratio(a: Any, b: Any) -> Any | None:
     """``a / b`` when it is a nonzero constant, else None."""
     from sympy import simplify
 
-    try:
+    from app.modules.math.solve.declines import sympy_decline
+
+    with sympy_decline() as declined:
         if _zero(b):
             return None
         ratio = simplify(a / b)
-    except Exception:
+    if declined:
         return None
     if ratio.free_symbols or not ratio.is_number or _zero(ratio):
         return None

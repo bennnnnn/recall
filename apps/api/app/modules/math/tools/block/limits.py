@@ -8,6 +8,7 @@ from typing import Any
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.block.canonical import _finish_with_answer
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import Workout, math_line, render_workout
@@ -42,7 +43,7 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
     """Substitute; or factor and cancel a 0/0; or one step of L'Hôpital's rule."""
     from sympy import Symbol, cancel, diff, factor, latex, limit, nan, simplify, zoo
 
-    try:
+    with sympy_decline() as declined:
         expr = math_solve._parse_expression(intent.expr or "", [intent.variable])
         written = str(intent.limit_point).strip().lower().replace("∞", "oo")
         # "infinity" is how the request names it; the parser would read a symbol.
@@ -59,7 +60,7 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
         if point.is_infinite:
             return _limit_at_infinity_working(expr, symbol, point, value, answer)
         direct = expr.subs(symbol, point)
-    except Exception:
+    if declined:
         return None
     var, at = latex(symbol), latex(point)
     lim = rf"\lim_{{{var} \to {at}}}"
@@ -126,10 +127,10 @@ def _limit_at_infinity_working(
             return render_workout(Workout(find=find, steps=(row,)), answer)
         return None
     numerator, denominator = expr.as_numer_denom()
-    try:
+    with sympy_decline() as declined:
         top_degree = Poly(numerator, symbol).degree()
         bottom_degree = Poly(denominator, symbol).degree()
-    except Exception:
+    if declined:
         return None
     if bottom_degree < 1 or top_degree > bottom_degree:
         return None

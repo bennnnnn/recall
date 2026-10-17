@@ -14,6 +14,7 @@ from app.modules.math.schemas import (
     NewtonMethodInput,
     SystemOfEquationsInput,
 )
+from app.modules.math.solve.declines import declines, sympy_decline
 from app.modules.math.solve.key_steps import (
     KeyStep,
     equation_check_latex,
@@ -58,22 +59,20 @@ def _number_line_interval_latex(spec: object) -> str | None:
     return r" \cup ".join(pieces)
 
 
+@declines(False)
 def _rational_interval_is_clearer(intent: MathIntent) -> bool:
     """Use intervals for sign-chart problems with both zeros and poles."""
-    try:
-        parsed = math_solve._parse_expression(
-            intent.lhs or "", [intent.variable], real=True
-        ) - math_solve._parse_expression(intent.rhs or "", [intent.variable], real=True)
-        variable = next(
-            (symbol for symbol in parsed.free_symbols if str(symbol) == intent.variable),
-            None,
-        )
-        if variable is None:
-            return False
-        numerator, denominator = parsed.as_numer_denom()
-        return variable in denominator.free_symbols and variable in numerator.free_symbols
-    except Exception:
+    parsed = math_solve._parse_expression(
+        intent.lhs or "", [intent.variable], real=True
+    ) - math_solve._parse_expression(intent.rhs or "", [intent.variable], real=True)
+    variable = next(
+        (symbol for symbol in parsed.free_symbols if str(symbol) == intent.variable),
+        None,
+    )
+    if variable is None:
         return False
+    numerator, denominator = parsed.as_numer_denom()
+    return variable in denominator.free_symbols and variable in numerator.free_symbols
 
 
 _COMPLEX_ROOT_CUE = re.compile(
@@ -202,7 +201,7 @@ def _verified_block_equation(
     )
     if intent.school_op != "exact_and_decimal":
         return block
-    try:
+    with sympy_decline() as declined:
         from sympy import Eq, Symbol, latex, solve
 
         variable = next(
@@ -216,7 +215,7 @@ def _verified_block_equation(
         )
         values = solve(Eq(lhs, rhs), variable)
         approximations = [str(latex(value.evalf(6))) for value in values]
-    except Exception:
+    if declined:
         return block
     if not approximations:
         return block

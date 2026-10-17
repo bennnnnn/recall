@@ -6,6 +6,7 @@ import re
 
 from app.modules.math.match.letter_runs import MATH_MULTI_LETTER
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.request_text import _strip_trailing_filler
 
@@ -189,17 +190,17 @@ def _solve_for_y_as_function_of_x(expr: str) -> str | None:
     # to isolate; the graph-expr peeler should have already dropped them.
     if _has_non_math_word(lhs_str) or _has_non_math_word(rhs_str):
         return None
-    try:
+    with sympy_decline() as declined:
         lhs = _parse_expression(lhs_str, ["x", "y"], real=True)
         rhs = _parse_expression(rhs_str, ["x", "y"], real=True)
-    except Exception:
+    if declined:
         return None
     if isinstance(lhs, Relational) or isinstance(rhs, Relational):
         return None
     y = Symbol("y", real=True)
-    try:
+    with sympy_decline() as declined:
         sols = solve(Eq(lhs, rhs), y, dict=True)
-    except Exception:
+    if declined:
         return None
     if not sols or len(sols) != 1:
         return None
@@ -237,10 +238,10 @@ def _equation_as_function_of_x(expr: str) -> str | None:
     from app.core.sympy_notation import school_text
     from app.modules.math.solve.parse import _parse_expression
 
-    try:
+    with sympy_decline() as declined:
         lhs = _parse_expression(lhs_str, ["x"], real=True)
         rhs = _parse_expression(rhs_str, ["x"], real=True)
-    except Exception:
+    if declined:
         return None
     if isinstance(lhs, Relational) or isinstance(rhs, Relational):
         return None

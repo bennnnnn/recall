@@ -122,7 +122,7 @@
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/tools/extract.py": {
-      "lines": 514,
+      "lines": 513,
       "why": "Over 500 before the standards; the graph follow-up readers can move out"
     },
     "apps/api/app/modules/math/tools/extractors/geometry.py": {

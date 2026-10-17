@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.school.geometry_measures.working import _n, _Solved
 from app.services.workout import math_line
 
@@ -36,11 +37,11 @@ def _circle_centre_radius(intent: MathIntent) -> _Solved | None:
     x, y = Symbol("x"), Symbol("y")
     equation = intent.expr or ""
     left, _, right = equation.partition("=")
-    try:
+    with sympy_decline() as declined:
         lhs = math_solve._parse_expression(left, ["x", "y"])
         rhs = math_solve._parse_expression(right, ["x", "y"])
         poly = Poly(expand(lhs - rhs), x, y)
-    except Exception:
+    if declined:
         return None
     # Only x and y may be letters: "= z" or "+ 2kx" has no numeric centre or radius,
     # and comparing a letter with 0 below has no truth value.
@@ -113,10 +114,10 @@ def _perpendicular_gradient(intent: MathIntent, words: list[str]) -> _Solved | N
     from app.modules.math import solve as math_solve
 
     x = Symbol("x")
-    try:
+    with sympy_decline() as declined:
         line = math_solve._parse_expression((intent.expr or "").strip(), ["x"])
         poly = Poly(line, x)
-    except Exception:
+    if declined:
         return None
     if poly.degree() != 1:
         return None
