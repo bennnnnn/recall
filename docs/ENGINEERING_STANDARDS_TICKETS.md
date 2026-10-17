@@ -1034,6 +1034,36 @@ not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
 
 ### ES-39 — Math declines say why: one helper for 80 silent `except Exception`
 
+- **Status:** part 1 done (helper, strict test mode, traces.py, key_steps.py). `solve/declines.py`
+  has `@declines(default)` for a function whose whole body is the attempt (immutable defaults
+  only) and `with sympy_decline() as declined:` for part of one (the caller returns its own fresh
+  default). Outside strict mode every `Exception` but `TimeoutError` declines, as the bare
+  `except` did; each decline is logged at debug (function, exception type, 120 characters of
+  message) and counted in an in-process `Counter` keyed by (function, exception type),
+  `decline_counts()` (per process: a SymPy worker keeps its own; nothing exports it yet).
+  `RECALL_STRICT_DECLINES=1`, which `app/tests/conftest.py` sets unless the run already set it,
+  re-raises an `AttributeError`, `NameError`, `KeyError`, `ImportError`, `AssertionError` or
+  `TypeError` raised in our code; the same types raised in SymPy, mpmath or `lambdify` code (the
+  nearest frame outside the standard library, or a class SymPy defines) still decline. The
+  behavior tests and sweeps keep production's declines unless the variable is set
+  (`app/tests/behavior/conftest.py`; `RECALL_STRICT_DECLINES=1 uv run python -m
+  app.tests.behavior.stem_sweep math`). All 16 handlers of `traces.py` and `key_steps.py` moved (4
+  decorated functions, 12 blocks). Strict mode over the capture's direct grid of both files found
+  two bugs, each fixed with a regression test:
+  `_factor_order` solved `x - a` for every symbol and called `float` on SymPy's dict, so a
+  parametric quadratic's factors were ordered by a swallowed `TypeError`; `_parse_sides` handed a
+  bare SymPy name's object (`limit`, `CC`, `ln`, `True`, `x == 1` as `False`) to the traces, which
+  subtracted it. Nothing surfaced in the math suite (4,893 tests), the math STEM sweep or the
+  behavior sweep run strict. A capture of 53,857 prompts, 47,174 synthetic intents, the ES-34c
+  algebra grid and a direct grid over both files (113,590 rows; two mutants change it) is
+  byte-identical before and after the migration with strict mode off; the fixes change only 71
+  direct-call rows of those two private helpers, and `inequality_trace("True", …)` returns no
+  trace instead of raising. Left for the parse owner: `_parse_expression` returns the object a
+  bare SymPy name names.
+- **Remaining:** 103 `except Exception` in `modules/math` (119 before part 1; 9 of them log):
+  `school.py` 9, `solve/key_steps_special.py` 7, `solve/calculus.py` 7, `function_analysis.py`
+  6, `tool_check.py` 5, `solve/integral_steps.py` 5, `solve/graph.py` 5,
+  `tools/block/integrals.py` 4, and 34 files with 1 to 3.
 - **Problem:** 80 handlers in `modules/math` catch `Exception` and return `None`, `[]` or `False`
   with no log. The worst files are `solve/traces.py` (8), `solve/key_steps.py` (8),
   `block/discrete.py` (7), `solve/key_steps_special.py` (7) and `solve/algebra.py` (7). A decline

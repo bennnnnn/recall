@@ -496,3 +496,35 @@ def test_divide_cancels_the_variable_coeff_not_the_constant() -> None:
     assert r"\cancel{2}" in divide.formula
     assert r"\frac{8}{2}" in divide.formula
     assert r"\cancel{8}" not in divide.formula
+
+
+@pytest.mark.parametrize(
+    ("degree", "factored", "final"),
+    [
+        (2, r"\left(- a + x\right) \left(x - 1\right) = 0", r"x = 1 \text{ or } x = a"),
+        (
+            3,
+            r"x \left(- a + x\right) \left(x - 1\right) = 0",
+            r"x = 0 \text{ or } x = 1 \text{ or } x = a",
+        ),
+    ],
+)
+def test_parametric_factor_sorts_without_a_dict_root(monkeypatch, degree, factored, final) -> None:
+    """``x - a`` has no number to order by, so it sorts as 0 (ES-39).
+
+    Solving it for every symbol gave SymPy's dict, and ``float`` raised a TypeError that the
+    silent ``except`` took for a decline; strict declines raised it.
+    """
+    from sympy import Symbol
+
+    from app.modules.math.solve.key_steps import _factor_order, equation_key_steps
+
+    monkeypatch.setenv("RECALL_STRICT_DECLINES", "1")
+    x, a = Symbol("x"), Symbol("a")
+    lhs = (x**2 - (a + 1) * x + a) * (x if degree == 3 else 1)
+    steps = equation_key_steps(lhs.expand(), 0, "x")
+    assert steps[0].formula == factored
+    assert steps[-1].formula == final
+    assert _factor_order(x - a, x) == (True, 0.0)
+    assert _factor_order(x - 3, x) == (True, 3.0)
+    assert _factor_order(x, x) == (False, 0.0)
