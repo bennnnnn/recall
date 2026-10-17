@@ -522,8 +522,8 @@ def _factor_order(piece: Any, var: Any) -> tuple[bool, float]:
     """A bare ``x`` leads (``x(x + 2)(x - 2)``); the rest go in root order, ``x - a`` as 0."""
     root = 0.0
     with sympy_decline():
-        roots = solve(piece, var)  # for every symbol, SymPy answers ``x - a`` with a dict
-        if roots and roots[0].is_number:
+        roots = solve(piece, var)  # a dict, not a list, for ``P - I V`` with a real P
+        if isinstance(roots, list) and roots and roots[0].is_number:
             root = float(roots[0])
     return (not piece.is_Symbol, root)
 
