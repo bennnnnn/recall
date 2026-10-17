@@ -15,10 +15,15 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from sympy import Eq, FiniteSet, Integral, Interval, S, Symbol, integrate, pi, simplify, solveset
+from sympy import Eq, FiniteSet, Integral, Interval, S, Symbol, pi, simplify, solveset
 from sympy.calculus.util import continuous_domain
 
-from app.modules.math.solve import MathServiceError, _parse_expression, format_verified_latex
+from app.modules.math.solve import (
+    MathServiceError,
+    _parse_expression,
+    definite_integral,
+    format_verified_latex,
+)
 
 # A region split at more crossings than this is not a homework question, and
 # each split multiplies the symbolic work.
@@ -125,7 +130,7 @@ def _integrate_absolute(expr, variable: Symbol, low, high):
             raise MathServiceError("could not determine the sign between crossings") from exc
         if not math.isfinite(sign):
             raise MathServiceError("the integrand is not finite on that interval")
-        piece = integrate(expr, (variable, left, right))
+        piece = definite_integral(expr, variable, left, right)
         if piece.has(Integral):
             raise MathServiceError("no closed form for this area was found")
         total += -piece if sign < 0 else piece
@@ -155,7 +160,7 @@ def arc_length(expr: str, low: str, high: str, variable: str = "x") -> str:
     _require_continuous(parsed, sym, start, stop)
     integrand = (1 + parsed.diff(sym) ** 2) ** S.Half
     return format_verified_latex(
-        _closed_form(integrate(integrand, (sym, start, stop)), "arc length")
+        _closed_form(definite_integral(integrand, sym, start, stop), "arc length")
     )
 
 
@@ -175,7 +180,7 @@ def volume_of_revolution(
     _require_continuous(parsed, sym, start, stop)
 
     if axis == "x":
-        value = pi * integrate(parsed**2, (sym, start, stop))
+        value = pi * definite_integral(parsed**2, sym, start, stop)
         return format_verified_latex(_closed_form(value, "volume"))
 
     if axis != "y":

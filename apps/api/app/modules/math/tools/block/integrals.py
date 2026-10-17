@@ -169,7 +169,7 @@ def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str)
             return None
         at_high = simplify(antiderivative.subs(symbol, high))
         at_low = simplify(antiderivative.subs(symbol, low))
-        value = simplify(integrate(parsed, (symbol, low, high)))
+        value = simplify(math_solve.definite_integral(parsed, symbol, low, high))
         if not (at_high.is_finite and at_low.is_finite) or simplify(at_high - at_low - value) != 0:
             return None
     if declined:

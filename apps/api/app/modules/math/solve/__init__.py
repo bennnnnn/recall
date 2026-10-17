@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.modules.math.solve.calculus import (
     compute_limit,
+    definite_integral,
     differentiate_at_point,
     differentiate_expression,
     evaluate_series_sum,
@@ -96,6 +97,7 @@ __all__ = [
     "compute_number_theory",
     "compute_statistics",
     "defined_variable",
+    "definite_integral",
     "differentiate_at_point",
     "differentiate_expression",
     "evaluate_series_sum",
