@@ -506,18 +506,18 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 5. Models & routing
 - ✅ **Multiple tiers** — **Flash** (`free-chat`) and **Pro** (`smart-chat`), plus named
-  models in the picker (Llama, GPT 5.5, GLM, …). No OpenRouter-auto “Max” chip.
+  models in the picker (GPT-6 Luna and Sol, GLM, Kimi, Qwen, …). No OpenRouter-auto “Max” chip.
 - ✅ **Manual switching** — model selection lives in Settings → Models (settings-only by
   design; the composer picker was removed to keep the composer single-purpose). Respected
   per chat turn.
 - ✅ **Chat settings from natural language** — small allowlist, confirm-then-write
-  (the same card a reminder change gets): model (Flash / Pro / Auto, nicknames like “GPT” → GPT 5.5),
+  (the same card a reminder change gets): model (Flash / Pro / Auto, nicknames like “GPT” → GPT-6 Sol),
   tone (funny / professional / casual / soft), app language, and appearance
   (light / dark / system — applied on-device). Respects `enabled_models` + plan.
   No open settings tool.
 - ✅ **Auto routing** — an **Auto** option (Settings → Models) picks Flash vs Pro per message via a
   fast heuristic (length, code fences, reasoning keywords). Explicit chat tutoring and substantive
-  learning roadmaps use the low-latency Gemini Flash lane with strict step/day and tagged-example
+  learning roadmaps use the low-latency fast lane (GPT-6 Luna) with strict step/day and tagged-example
   contracts; hard reasoning remains on Pro. Short follow-ups of a hard turn inherit that turn’s tier;
   a new topic drops back to Flash. No extra LLM call.
 - ✅ **Multi-provider** — a **model catalog** (`services/model_catalog.py`) defines provider, model,

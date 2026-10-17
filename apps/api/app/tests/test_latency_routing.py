@@ -78,9 +78,27 @@ def test_ordinary_question_turns_thinking_off_for_models_that_allow_it() -> None
         latency_sensitive=True,
         thinking=False,
     )
-    mercury = litellm_gateway._litellm_kwargs(
+    luna = litellm_gateway._litellm_kwargs(
         settings,
-        litellm_gateway.resolve_route("mercury-2"),
+        litellm_gateway.resolve_route("gpt-6-luna"),
+        latency_sensitive=True,
+        thinking=False,
+    )
+    haiku = litellm_gateway._litellm_kwargs(
+        settings,
+        litellm_gateway.resolve_route("free-chat"),
+        latency_sensitive=True,
+        thinking=False,
+    )
+    deepseek = litellm_gateway._litellm_kwargs(
+        settings,
+        litellm_gateway.resolve_route("smart-chat"),
+        latency_sensitive=True,
+        thinking=False,
+    )
+    glm_flash = litellm_gateway._litellm_kwargs(
+        settings,
+        litellm_gateway.resolve_route("glm-5.3-flash"),
         latency_sensitive=True,
         thinking=False,
     )
@@ -98,13 +116,17 @@ def test_ordinary_question_turns_thinking_off_for_models_that_allow_it() -> None
     )
 
     assert qwen["extra_body"]["reasoning"] == {"effort": "minimal"}
-    assert mercury["extra_body"]["reasoning"] == {"effort": "none"}
+    assert luna["extra_body"]["reasoning"] == {"effort": "none"}
+    assert haiku["extra_body"]["reasoning"] == {"enabled": False}
+    assert deepseek["extra_body"]["reasoning"] == {"enabled": False}
+    # Reasoning is mandatory on GLM 5.3 Flash: the lowest effort, never a disable.
+    assert glm_flash["extra_body"]["reasoning"] == {"effort": "low"}
     assert glm["extra_body"]["reasoning"] == {"enabled": False}
     assert kimi["extra_body"]["reasoning"] == {"enabled": False}
     assert qwen["extra_body"]["provider"] == {"sort": "latency"}
 
 
-def test_hard_job_and_mandatory_model_leave_thinking_at_the_provider_default() -> None:
+def test_hard_job_keeps_the_provider_default_unless_the_model_needs_asking() -> None:
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
 
     proving = litellm_gateway._litellm_kwargs(
@@ -113,19 +135,20 @@ def test_hard_job_and_mandatory_model_leave_thinking_at_the_provider_default() -
         latency_sensitive=True,
         thinking=True,
     )
-    r1 = litellm_gateway._litellm_kwargs(
+    # DeepSeek V4.1 Flash is a hybrid that does not think unless asked.
+    hard = litellm_gateway._litellm_kwargs(
         settings,
         litellm_gateway.resolve_route("smart-chat"),
         latency_sensitive=True,
-        thinking=False,
+        thinking=True,
     )
-    everyday = litellm_gateway._litellm_kwargs(
+    unpriced = litellm_gateway._litellm_kwargs(
         settings,
-        litellm_gateway.resolve_route("free-chat"),
+        litellm_gateway.resolve_route("llama-70b"),
         latency_sensitive=True,
         thinking=False,
     )
 
     assert "reasoning" not in proving["extra_body"]
-    assert "reasoning" not in r1["extra_body"]
-    assert "reasoning" not in everyday["extra_body"]
+    assert hard["extra_body"]["reasoning"] == {"enabled": True}
+    assert "reasoning" not in unpriced["extra_body"]

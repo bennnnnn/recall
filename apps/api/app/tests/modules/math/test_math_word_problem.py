@@ -450,7 +450,7 @@ async def test_intent_uses_resilient_bounded_structured_call(
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
     intent = await word_problem_intent(AGES, _settings())
     assert intent is not None and intent.kind == "word_problem"
-    assert seen["model_alias"] == "gemini-flash"
+    assert seen["model_alias"] == "gpt-6-luna"
     assert seen["schema"] is WordProblemSetup
     assert seen["allow_fallback"] is False
 
@@ -470,7 +470,7 @@ async def test_intent_retries_semantic_decline_on_independent_provider(
     intent = await word_problem_intent(AGES, _settings())
 
     assert intent is not None and intent.kind == "word_problem"
-    assert aliases == ["gemini-flash", "fallback-memory-model"]
+    assert aliases == ["gpt-6-luna", "fallback-memory-model"]
 
 
 @pytest.mark.asyncio

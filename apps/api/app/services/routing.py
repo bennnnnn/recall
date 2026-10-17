@@ -325,10 +325,10 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
         return smart
     # Tutoring is structured by a strict prompt contract and is latency-sensitive:
     # a learner should not wait on a silent reasoning model before every small
-    # step. Gemini Flash followed the lesson state/output contract in live QA at
-    # a fraction of the TTFT, so keep this classifier shared with the prompt
-    # layer and deliberately use the fast lane. Hard coding/math still reaches
-    # the smart checks below when it is not an explicit tutor/roadmap request.
+    # step. The fast lane (then Gemini Flash) followed the lesson contract in
+    # live QA at a fraction of the TTFT, so keep this classifier shared with the
+    # prompt layer and use the fast lane. Hard coding/math still reaches the
+    # smart checks below when it is not an explicit tutor/roadmap request.
     from app.modules.chat.prompt_constants.teaching import (
         is_learning_plan_request,
         is_teaching_request,
