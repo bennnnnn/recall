@@ -21,7 +21,12 @@ from sympy import (
 )
 
 from app.modules.math.school import _format_school_number, _progression
-from app.modules.math.solve import MathServiceError, _parse_expression, format_verified_latex
+from app.modules.math.solve import (
+    MathServiceError,
+    _parse_expression,
+    definite_integral,
+    format_verified_latex,
+)
 from app.modules.math.solve.calculus import _parse_infinity_aware_point
 from app.services.school_rounding import round_figures, round_places
 
@@ -254,7 +259,7 @@ def sas_triangle_area(side_a: float, side_b: float, angle_deg: float) -> str:
 
 
 def average_value(expr: str, variable: str, lower: str, upper: str) -> str:
-    from sympy import AccumBounds, Integral, Limit, integrate, nan, oo, zoo
+    from sympy import AccumBounds, Integral, Limit, nan, oo, zoo
 
     parsed = _parse_expression(expr, [variable])
     # "infinity" is oo, not the letters i, n, f, t and y; and an average needs
@@ -266,7 +271,7 @@ def average_value(expr: str, variable: str, lower: str, upper: str) -> str:
     width = simplify(hi - lo)
     if width == 0:
         raise MathServiceError("average value needs a nonempty interval")
-    total = integrate(parsed, (Symbol(variable), lo, hi))
+    total = definite_integral(parsed, Symbol(variable), lo, hi)
     # 1/x^2 on [-1, 1] diverges; x^x is left unevaluated.
     unsettled = total.has(AccumBounds, Integral, Limit, nan, zoo, oo, -oo)
     if unsettled or total.is_extended_real is False:
