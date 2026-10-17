@@ -116,3 +116,19 @@ def test_a_what_if_sum_is_maths_and_a_what_if_question_is_not(text: str, is_math
     from app.modules.math.tools.prompt import needs_symbolic_math
 
     assert needs_symbolic_math(text) is is_math
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Show 8 + 7 using carrying",
+        "9 - 4 using borrowing",
+        "12 ÷ 3 using long division",
+        "show 8+7 with column addition",
+    ],
+)
+async def test_a_named_written_method_keeps_its_column_trace(query: str) -> None:
+    reply = await _reply(query)
+    assert _picture(reply) is None
+    assert '"type":"arithmetic"' in reply
