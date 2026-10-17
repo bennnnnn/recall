@@ -7,21 +7,18 @@ from typing import Any
 
 from sympy import Abs, Symbol, conjugate, im, latex, log, simplify
 
+from app.modules.math.solve.declines import declines
 from app.modules.math.solve.display import format_verified_latex
 
 
+@declines(False)
 def _expr_equal(left: Any, right: Any) -> bool:
-    try:
-        return bool(simplify(left - right) == 0)
-    except Exception:
-        return False
+    return bool(simplify(left - right) == 0)
 
 
+@declines(False)
 def _is_real_value(val: Any) -> bool:
-    try:
-        return bool(simplify(im(val)) == 0)
-    except Exception:
-        return False
+    return bool(simplify(im(val)) == 0)
 
 
 def _solution_value_latex(val: Any) -> str:

@@ -16,6 +16,7 @@ from typing import Any
 from sympy import Add, Eq, Float, Rational, Symbol, latex, simplify, solve
 
 from app.modules.math.schemas.word_problem import WordProblemSetup
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.key_steps import KeyStep, equation_check_latex, equation_key_steps
 from app.modules.math.solve.traces import system_check_latex, system_key_steps
 from app.modules.math.solve.work_lines import student_tex
@@ -42,9 +43,9 @@ def _exact(expr: Any) -> Any:
 def _parse(text: str, names: list[str], *, evaluate: bool = True) -> Any | None:
     from app.modules.math.solve.parse import _parse_expression
 
-    try:
+    with sympy_decline() as declined:
         parsed = _parse_expression(text, names, evaluate=evaluate)
-    except Exception:
+    if declined:
         return None
     # xreplace rebuilds (and so evaluates) the tree; an as-written parse keeps
     # its decimals until each term is rebuilt on its own.
@@ -102,9 +103,9 @@ def solve_word_problem(setup: WordProblemSetup) -> WordSolution | None:
         if not used or not used <= set(symbols):
             return None
         pairs.append((left, right))
-    try:
+    with sympy_decline() as declined:
         found = solve([Eq(left, right) for left, right in pairs], symbols, dict=True)
-    except Exception:
+    if declined:
         return None
     fitting: list[dict[Any, Any]] = []
     for solution in found:

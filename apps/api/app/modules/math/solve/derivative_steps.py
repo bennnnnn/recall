@@ -14,6 +14,7 @@ from typing import Any
 
 from sympy import Add, Mul, Symbol, cos, diff, exp, latex, log, simplify, sin, tan
 
+from app.modules.math.solve.declines import declines, sympy_decline
 from app.modules.math.solve.display import derivative_latex
 from app.modules.math.solve.key_steps import KeyStep
 
@@ -74,11 +75,9 @@ def _is_const(expr: Any, var: Any) -> bool:
     return var not in getattr(expr, "free_symbols", set())
 
 
+@declines(False)
 def _matches(value: Any, expected: Any) -> bool:
-    try:
-        return bool(simplify(value - expected) == 0)
-    except Exception:
-        return False
+    return bool(simplify(value - expected) == 0)
 
 
 def _equals_chain(lhs: str, shown: str, value: str) -> str:
@@ -275,9 +274,9 @@ def derivative_trace(expr: str, variable: str) -> tuple[list[KeyStep], str | Non
     """Parse, then trace: (steps, ``\\frac{d}{dx}(...)`` to show as the problem)."""
     from app.modules.math.solve.parse import _parse_expression
 
-    try:
+    with sympy_decline() as declined:
         parsed = _parse_expression(expr, [variable])
-    except Exception:
+    if declined:
         return [], None
     steps = derivative_key_steps(parsed, variable)
     if not steps:

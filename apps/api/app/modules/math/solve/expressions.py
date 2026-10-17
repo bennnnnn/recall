@@ -6,6 +6,7 @@ from __future__ import annotations
 from sympy import expand, factor, latex, simplify
 
 from app.modules.math.schemas import MathExprResult
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.display import format_verified_latex
 from app.modules.math.solve.parse import _parse_expression
 
@@ -47,7 +48,7 @@ def factored_key_step(lhs: str, rhs: str, variable: str = "x") -> str | None:
     """
     from sympy import Poly, Symbol, degree, factor, latex, simplify
 
-    try:
+    with sympy_decline():
         symbol = Symbol(variable)
         expr = simplify(_parse_expression(lhs, [variable]) - _parse_expression(rhs, [variable]))
         if degree(Poly(expr, symbol)) < 2:
@@ -59,5 +60,4 @@ def factored_key_step(lhs: str, rhs: str, variable: str = "x") -> str | None:
         if not (factored.is_Mul or factored.is_Pow):
             return None
         return str(latex(factored))
-    except Exception:
-        return None
+    return None

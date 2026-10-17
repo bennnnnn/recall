@@ -7,6 +7,7 @@ from itertools import pairwise
 
 from app.modules.math.match.letter_runs import MATH_MULTI_LETTER, peel_edge_english
 from app.modules.math.schemas import EquationInput
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.discrete import guess_variables
 from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
 
@@ -360,10 +361,9 @@ def try_extract_equation_from_text(text: str) -> EquationInput | None:
         return None
     lhs, rhs = pairs[0]
     variables = guess_variables(f"{lhs} {rhs}")
-    try:
+    with sympy_decline():
         return EquationInput(lhs=lhs, rhs=rhs, variables=variables or ["x"])
-    except Exception:
-        return None
+    return None
 
 
 # Inequality operators → canonical form. Longer forms first so ``<=`` wins

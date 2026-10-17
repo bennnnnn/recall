@@ -8,6 +8,7 @@ from typing import Any
 from sympy import Symbol, latex, simplify
 
 from app.modules.math.schemas import MathSolveResult
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.parse import (
     MathServiceError,
     _expr_needs_real_domain,
@@ -79,9 +80,9 @@ def inequality_solution_latex(solution: Any, sym: Any) -> str:
     """
     from sympy import FiniteSet, Interval, S, Union, oo
 
-    try:
+    with sympy_decline() as declined:
         found = solution.as_set() if hasattr(solution, "as_set") else solution
-    except Exception:
+    if declined:
         return str(latex(solution))
     name = latex(sym)
     if found == S.Reals:

@@ -23,6 +23,7 @@ from sympy import (
     solve,
 )
 
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.key_steps import (
     KeyStep,
     _canonical_root_formula,
@@ -51,7 +52,7 @@ def radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
     radicand = radical.base
     if var not in getattr(radicand, "free_symbols", set()):
         return None
-    try:
+    with sympy_decline() as declined:
         squared = Eq(radicand, expand(other**2))
         candidates = solve(squared, var)
         valid = [
@@ -59,7 +60,7 @@ def radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
             for value in candidates
             if _expr_equal(radical.subs(var, value), other.subs(var, value))
         ]
-    except Exception:
+    if declined:
         return []
     if not candidates or not valid:
         return []
@@ -94,7 +95,7 @@ def _two_radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeySte
         return None
     first, second = radicals
     first_base, second_base = first.base, second.base
-    try:
+    with sympy_decline() as declined:
         isolated = simplify((target**2 + second_base - first_base) / (2 * target))
         candidates = solve(Eq(second_base, isolated**2), var)
         valid = [
@@ -102,7 +103,7 @@ def _two_radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeySte
             for value in candidates
             if _expr_equal(radical_side.subs(var, value), target.subs(var, value))
         ]
-    except Exception:
+    if declined:
         return []
     if not candidates or not valid:
         return []
@@ -185,7 +186,7 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
         arguments.append(numerator.args[0])
     if base is None or not arguments:
         return None
-    try:
+    with sympy_decline() as declined:
         combined = prod(arguments)
         target = simplify(base**rhs)
         candidates = solve(Eq(combined, target), var)
@@ -194,7 +195,7 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
             for value in candidates
             if all(bool(simplify(argument.subs(var, value)) > 0) for argument in arguments)
         ]
-    except Exception:
+    if declined:
         return []
     if not candidates or not valid:
         return []
@@ -238,10 +239,10 @@ def exponential_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
         return None
     if not rhs.is_positive:
         return []
-    try:
+    with sympy_decline() as declined:
         candidates = solve(Eq(lhs, rhs), var)
         real = [value for value in candidates if value.is_real]
-    except Exception:
+    if declined:
         return []
     if len(real) != 1:
         return []
@@ -283,7 +284,7 @@ def rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] |
     right_has_variable_denominator = var in getattr(right_den, "free_symbols", set())
     if not left_has_variable_denominator and not right_has_variable_denominator:
         return None
-    try:
+    with sympy_decline() as declined:
         from sympy import Mul
 
         denominator = simplify(left_den * right_den)
@@ -320,7 +321,7 @@ def rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] |
                 for solution in candidates
                 if all(not _expr_equal(solution, value) for value in excluded)
             ]
-    except Exception:
+    if declined:
         return []
     condition = r"\text{denominator} \ne 0"
     if high_denominator:
@@ -364,20 +365,19 @@ def absolute_value_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | No
         return None
     if var in getattr(rhs, "free_symbols", set()) or not getattr(rhs, "is_number", False):
         return []
-    try:
+    with sympy_decline() as declined:
         if rhs < 0 or Poly(lhs.args[0], var).degree() != 1:
             return []
         solutions = solve(Eq(lhs, rhs), var)
-    except Exception:
+    if declined:
         return []
     if not solutions:
         return []
     inside = lhs.args[0]
     # |u|=c splits into u=±c only when u is real. |x+I|=5 is a modulus, not that split.
-    try:
-        if simplify(im(inside)) != 0:
-            return []
-    except Exception:
+    with sympy_decline() as declined:
+        real = simplify(im(inside)) == 0
+    if declined or not real:
         return []
     split = _eq_tex(inside, rhs)
     if rhs != 0:
