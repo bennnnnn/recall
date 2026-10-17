@@ -349,17 +349,17 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
     physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
     if physics_alias is not None:
         return physics_alias
-    # Math / structured turns (equations, graphs, geometry, calculus, stats,
-    # …) route to the math-tuned strong model up front. A weak fast model used
-    # to produce worked steps that disagreed with the verified answer, while
-    # the generic R1 route repeatedly emitted only hidden reasoning and then
-    # fell back. needs_symbolic is the same gate the math pipeline uses, so
-    # routing and augmentation agree on what "a math turn" is.
+    # Math / structured turns (equations, graphs, geometry, calculus, stats, …)
+    # route to the math-tuned strong model: a weak fast model wrote steps that
+    # disagreed with the verified answer, and R1 emitted only hidden reasoning.
+    # needs_symbolic is the math pipeline's gate, so routing agrees with it.
     from app.modules.math.match import needs_symbolic
 
     if needs_symbolic(content) and not _verified_math_stays_fast(content):
         return model_catalog.auto_math_alias()
-    return fast
+    from app.services.rate_problems import is_multi_step_rate_problem  # catch-up, meet, together
+
+    return smart if is_multi_step_rate_problem(content) else fast
 
 
 def route_chat_model(
