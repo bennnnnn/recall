@@ -62,9 +62,13 @@ def _number_line_interval_latex(spec: object) -> str | None:
 @declines(False)
 def _rational_interval_is_clearer(intent: MathIntent) -> bool:
     """Use intervals for sign-chart problems with both zeros and poles."""
-    parsed = math_solve._parse_expression(
-        intent.lhs or "", [intent.variable], real=True
-    ) - math_solve._parse_expression(intent.rhs or "", [intent.variable], real=True)
+    from sympy import Expr
+
+    lhs = math_solve._parse_expression(intent.lhs or "", [intent.variable], real=True)
+    rhs = math_solve._parse_expression(intent.rhs or "", [intent.variable], real=True)
+    if not (isinstance(lhs, Expr) and isinstance(rhs, Expr)):
+        return False
+    parsed = lhs - rhs
     variable = next(
         (symbol for symbol in parsed.free_symbols if str(symbol) == intent.variable),
         None,

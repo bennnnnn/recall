@@ -94,12 +94,12 @@ def _improper_integral_block(out: MathExprResult, lines: list[str]) -> VerifiedM
 
 
 def _is_log_over_x_integral(expr: str, variable: str) -> bool:
-    from sympy import Symbol, log, simplify
+    from sympy import Expr, Symbol, log, simplify
 
     sym = Symbol(variable, real=True)
     with sympy_decline():
         parsed = math_solve._parse_expression(expr, [variable], real=True)
-        return bool(simplify(parsed - 1 / (sym * log(sym))) == 0)
+        return isinstance(parsed, Expr) and bool(simplify(parsed - 1 / (sym * log(sym))) == 0)
     return False
 
 
@@ -152,7 +152,7 @@ def _bound_tex(bound: object) -> str:
 
 def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str) -> Workout | None:
     """``∫_0^3 x² dx = [x³/3]_0^3 = 9 - 0``: the antiderivative, then F(b) - F(a)."""
-    from sympy import Integral, Symbol, integrate, latex, oo, simplify, zoo
+    from sympy import Expr, Integral, Symbol, integrate, latex, oo, simplify, zoo
 
     symbol = next(
         (s for s in parsed.free_symbols if str(s) == intent.variable), Symbol(intent.variable)
@@ -160,7 +160,7 @@ def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str)
     with sympy_decline() as declined:
         low = math_solve._parse_expression(str(intent.integral_lower), [], real=True)
         high = math_solve._parse_expression(str(intent.integral_upper), [], real=True)
-        if any(bound.has(oo, -oo, zoo) for bound in (low, high)):
+        if any(not isinstance(bound, Expr) or bound.has(oo, -oo, zoo) for bound in (low, high)):
             return None
         from app.modules.math.solve.calculus import _absolute_logs
 

@@ -106,6 +106,9 @@ def _math_runs(text: str) -> list[str]:
 
 
 def _parse(text: str) -> Any | None:
+    """``text`` as an expression; a point ``(1, 2)``, ``True`` or a bare SymPy name is none."""
+    from sympy import Expr
+
     from app.modules.math import solve as math_solve
     from app.modules.math.solve.declines import sympy_decline
 
@@ -113,7 +116,8 @@ def _parse(text: str) -> Any | None:
     if not candidate or len(candidate) > 200:
         return None
     with sympy_decline():
-        return math_solve._parse_expression(candidate)
+        parsed = math_solve._parse_expression(candidate)
+        return parsed if isinstance(parsed, Expr) else None
     return None
 
 

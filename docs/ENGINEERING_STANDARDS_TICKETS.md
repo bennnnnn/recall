@@ -1081,10 +1081,32 @@ not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
   imaginary part SymPy cannot sign (`2x^3 + 6x^2 - 5x = 1` raises in `_solution_value_latex`),
   Newton's method on `|x| - 1` (its derivative cannot be lambdified for a complex `x`) and
   `2^1000000` (past Python's 4,300-digit `str`).
-- **Remaining:** 72 `except Exception` in `modules/math` (119 before part 1, 103 before part 2;
-  9 of them log; the 19 in `solve/` all wrap): `school.py` 9, `solve/calculus.py` 7,
-  `function_analysis.py` 6, `tool_check.py` 5, `tools/block/integrals.py` 4, and 27 files with 1
-  to 3.
+- **Part 3 (math root and tools/) done:** the 29 plain declines outside `solve/` go through the
+  helper (28 blocks, `@declines(False)` on `_rational_interval_is_clearer`): `tool_check.py` 4,
+  `school.py` 1, `tools/block/` 9 (`integrals.py` 4, `algebra.py` 2, `limits.py` 2, `calculus.py`
+  1), `tools/school/` 9 (`algebra_facts.py` 3, `calculus.py` 3, `coordinates.py` 2, `units.py` 1),
+  `tools/extractors/` 4, `extract.py` and `direct_calculus.py`. The 24 left outside `solve/` are
+  not plain declines: 9 log (the identity checks, the tool-call match, both SymPy pool calls, the
+  block builder's catch-all, the image, LLM and word-problem model calls), 11 wrap the failure
+  into a `MathServiceError` (`function_analysis.py` 6, `school.py` 3, `calculus_applications.py`,
+  `formulas.py`), 3 keep Pint's last error and try the next unit spelling (Pint's
+  `UndefinedUnitError` is an `AttributeError`, which strict mode would take for ours), and the
+  sympy tool turns its error into the reply. Strict mode over a direct grid of the migrated
+  functions found one cause at seven callers: `_parse_expression` returned a point `(1, 2)`,
+  `True`, `x == 1` as False or a bare SymPy name, and the caller subtracted it or read its
+  `free_symbols`. `tool_check._parse` now keeps only expressions (a coordinate pair written
+  before the expression made the whole match fail: "plot (1, 2) and simplify 2x" withheld the
+  check), and `_limit_working`, `_fundamental_theorem_working`, `_is_log_over_x_integral`,
+  `_rational_interval_is_clearer`, the implicit-derivative working and `_circle_centre_radius`
+  decline a non-expression on purpose (`test_math_tools_declines.py`). The math suite (4,950
+  tests) and the math STEM sweep run strict raised nothing. The fact-family
+  blocks that raise on values no extractor produces (a 0-sided polygon, a zero standard
+  deviation, an extreme angle without three sides, a non-integer factor count) fall to
+  `_build_verified_block`'s catch-all and return no block.
+- **Remaining:** 43 `except Exception` in `modules/math` (119 before part 1), none a plain
+  decline: the 19 in `solve/` wrap the failure in a `MathServiceError` `from exc`, and the 24
+  outside it log, wrap, try the next unit spelling or turn the error into the tool's reply.
+  ES-39 is done.
 - **Problem:** 80 handlers in `modules/math` catch `Exception` and return `None`, `[]` or `False`
   with no log. The worst files are `solve/traces.py` (8), `solve/key_steps.py` (8),
   `block/discrete.py` (7), `solve/key_steps_special.py` (7) and `solve/algebra.py` (7). A decline
