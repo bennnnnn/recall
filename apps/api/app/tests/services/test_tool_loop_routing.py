@@ -113,8 +113,8 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
 
 
 def test_tool_loop_completion_alias_uses_dedicated_tool_model():
-    assert rounds._tool_loop_completion_alias("smart-chat") == "gemini-flash"
-    assert rounds._tool_loop_completion_alias("free-chat") == "gemini-flash"
+    assert rounds._tool_loop_completion_alias("smart-chat") == "gpt-6-luna"
+    assert rounds._tool_loop_completion_alias("free-chat") == "gpt-6-luna"
 
 
 @pytest.mark.asyncio
@@ -134,7 +134,7 @@ async def test_tool_loop_uses_dedicated_alias_for_smart_chat(web_search_register
             messages=messages,
             usage={},
         )
-    assert complete.await_args.kwargs["model_alias"] == "gemini-flash"
+    assert complete.await_args.kwargs["model_alias"] == "gpt-6-luna"
 
 
 def test_recovers_provider_text_function_call_only_for_offered_tool() -> None:

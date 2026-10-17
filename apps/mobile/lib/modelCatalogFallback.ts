@@ -7,7 +7,7 @@ import type { ModelInfo } from "@/lib/api";
 export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
   {
     id: "free-chat",
-    label: "DeepSeek Chat",
+    label: "Claude Haiku 5.5",
     tier: "fast",
     plan_access: "free",
     description: "Fast everyday chat — cheap and capable.",

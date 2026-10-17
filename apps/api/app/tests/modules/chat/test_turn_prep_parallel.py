@@ -208,7 +208,7 @@ async def test_recurring_pay_reply_skips_prompt_model_health_and_web_search(fake
                 user_id=user.id,
                 chat_id=chat.id,
                 content=content,
-                model="gemini-flash",
+                model="gpt-6-luna",
                 client_timezone="America/Los_Angeles",
                 client_location=None,
                 client_latitude=None,

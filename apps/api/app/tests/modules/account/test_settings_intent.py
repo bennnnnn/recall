@@ -14,7 +14,7 @@ from app.modules.account.settings_intent import SettingsChange, extract_settings
         ("dark mode", "appearance", "dark"),
         ("use pro", "default_model", "smart-chat"),
         ("switch to flash", "default_model", "free-chat"),
-        ("switch the model to GPT", "default_model", "gpt-5.5"),
+        ("switch the model to GPT", "default_model", "gpt-6-sol"),
         ("use auto", "default_model", "auto"),
         ("be more professional", "response_tone", "professional"),
         ("be funnier", "response_tone", "funny"),

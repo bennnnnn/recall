@@ -135,7 +135,7 @@ async def test_finalize_persists_estimated_cost_usd():
         )
 
     add_tokens.assert_awaited_once()
-    assert add_tokens.await_args.kwargs["est_cost_usd"] == pytest.approx(0.14 + 0.28)
+    assert add_tokens.await_args.kwargs["est_cost_usd"] == pytest.approx(0.10 + 0.50)
 
 
 @pytest.mark.asyncio

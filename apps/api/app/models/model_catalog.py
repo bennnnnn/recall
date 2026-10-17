@@ -46,6 +46,13 @@ class ChatModel:
     # provider default (the model rejects a disable). "none" / "minimal" /
     # "low" are reasoning.effort. "off" is reasoning.enabled false.
     thinking_off: str | None = None
+    # How to turn thinking on for a hard question. None leaves the provider
+    # default. "on" is reasoning.enabled true, for a model whose default is
+    # not to think.
+    thinking_on: str | None = None
+    # Hold the start of a reply until a stray closing think tag could have
+    # arrived: GLM 5.3 has ended untagged reasoning with one.
+    stray_think_guard: bool = False
 
 
 def _or(
@@ -62,6 +69,8 @@ def _or(
     selectable: bool = True,
     quota_multiplier: float = 1.0,
     thinking_off: str | None = None,
+    thinking_on: str | None = None,
+    stray_think_guard: bool = False,
 ) -> ChatModel:
     """OpenRouter-backed catalog entry (``openrouter_slug`` = OpenRouter model id)."""
     return ChatModel(
@@ -79,38 +88,36 @@ def _or(
         selectable=selectable,
         quota_multiplier=quota_multiplier,
         thinking_off=thinking_off,
+        thinking_on=thinking_on,
+        stray_think_guard=stray_think_guard,
     )
 
 
 CATALOG: tuple[ChatModel, ...] = (
     _or(
         id="free-chat",
-        label="DeepSeek Chat",
-        model="deepseek/deepseek-chat",
-        provider="deepseek",
-        input_price_per_m=0.14,
-        output_price_per_m=0.28,
+        label="Claude Haiku 5.5",
+        model="anthropic/claude-haiku-5.5",
+        provider="anthropic",
+        input_price_per_m=0.10,
+        output_price_per_m=0.50,
         description="Fast everyday chat — cheap and capable.",
         tier="fast",
         plan_access="free",
+        thinking_off="off",
     ),
     _or(
         id="smart-chat",
-        label="DeepSeek R1",
-        model="deepseek/deepseek-r1",
+        label="DeepSeek V4.1 Flash",
+        model="deepseek/deepseek-v4.1-flash",
         provider="deepseek",
-        input_price_per_m=0.70,
-        output_price_per_m=2.50,
+        input_price_per_m=0.30,
+        output_price_per_m=1.20,
         description="Stronger reasoning for hard questions and code.",
         tier="smart",
         quota_multiplier=3.5,
-    ),
-    _or(
-        id="minimax-m2",
-        label="Minimax M2",
-        model="minimax/minimax-m2",
-        description="Minimax flagship model.",
-        tier="standard",
+        thinking_off="off",
+        thinking_on="on",
     ),
     _or(
         id="minimax-m3",
@@ -122,12 +129,17 @@ CATALOG: tuple[ChatModel, ...] = (
         tier="standard",
     ),
     _or(
-        id="glm-4-flash",
-        label="GLM-4 Flash",
-        model="z-ai/glm-4.7-flash",
-        description="Zhipu GLM — fast multilingual model.",
+        id="glm-5.3-flash",
+        label="GLM 5.3 Flash",
+        model="z-ai/glm-5.3-flash",
+        input_price_per_m=0.15,
+        output_price_per_m=0.50,
+        description="Z.ai GLM — low-cost reasoning for harder and maths questions.",
         tier="standard",
         plan_access="free",
+        # Reasoning is mandatory here: OpenRouter answers a disable with a 400.
+        thinking_off="low",
+        stray_think_guard=True,
     ),
     _or(
         id="glm-5.2",
@@ -150,25 +162,19 @@ CATALOG: tuple[ChatModel, ...] = (
         tier="smart",
         quota_multiplier=3.5,
         thinking_off="low",
+        stray_think_guard=True,
     ),
     _or(
-        id="gpt-5.5",
-        label="GPT 5.5",
-        model="openai/gpt-5.5",
+        id="gpt-6-sol",
+        label="GPT-6 Sol",
+        model="openai/gpt-6-sol",
         provider="openai",
-        input_price_per_m=5.00,
-        output_price_per_m=30.00,
-        description="OpenAI frontier — top reasoning, coding, and multimodal (1M context).",
+        input_price_per_m=2.00,
+        output_price_per_m=10.00,
+        description="OpenAI frontier — top reasoning, coding, and multimodal.",
         tier="smart",
         quota_multiplier=3.5,
         thinking_off="none",
-    ),
-    _or(
-        id="qwen-plus",
-        label="Qwen Plus",
-        model="qwen/qwen-plus",
-        description="Alibaba Qwen — strong general assistant.",
-        tier="standard",
     ),
     _or(
         id="qwen-3.8-max",
@@ -193,22 +199,15 @@ CATALOG: tuple[ChatModel, ...] = (
         thinking_off="off",
     ),
     _or(
-        id="gemini-flash",
-        label="Gemini 2.5 Flash",
-        model="google/gemini-2.5-flash",
-        description="Google Gemini — fast multimodal model.",
+        id="gpt-6-luna",
+        label="GPT-6 Luna",
+        model="openai/gpt-6-luna",
+        provider="openai",
+        input_price_per_m=0.10,
+        output_price_per_m=0.50,
+        description="OpenAI's fast everyday model — quick, low-cost answers.",
         tier="fast",
         plan_access="free",
-    ),
-    _or(
-        id="mercury-2",
-        label="Mercury 2",
-        model="inception/mercury-2",
-        provider="inception",
-        input_price_per_m=0.25,
-        output_price_per_m=0.75,
-        description="Ultra-fast diffusion LLM — lowest latency for everyday chat.",
-        tier="fast",
         thinking_off="none",
     ),
     _or(
@@ -222,16 +221,18 @@ CATALOG: tuple[ChatModel, ...] = (
     _or(
         id="title-model",
         label="Title",
-        model="deepseek/deepseek-chat",
-        provider="deepseek",
+        model="openai/gpt-6-luna",
+        provider="openai",
         selectable=False,
+        thinking_off="none",
     ),
     _or(
         id="memory-model",
         label="Memory",
-        model="deepseek/deepseek-chat",
-        provider="deepseek",
+        model="openai/gpt-6-luna",
+        provider="openai",
         selectable=False,
+        thinking_off="none",
     ),
     # Fallback for background LLM jobs (memory extraction, titles,
     # summaries). If the primary memory-model provider is down or slow, retry
@@ -240,9 +241,10 @@ CATALOG: tuple[ChatModel, ...] = (
     _or(
         id="fallback-memory-model",
         label="Memory (fallback)",
-        model="qwen/qwen-plus",
-        provider="qwen",
+        model="anthropic/claude-haiku-5.5",
+        provider="anthropic",
         selectable=False,
+        thinking_off="off",
     ),
     _or(
         id="embedding-model",
@@ -251,12 +253,22 @@ CATALOG: tuple[ChatModel, ...] = (
         provider="openai",
         selectable=False,
     ),
+    # Minimal thinking is this model's default, so a photo turn sends nothing.
     _or(
         id="vision-chat",
         label="Vision",
-        model="google/gemini-2.5-flash",
+        model="google/gemini-3.5-flash-lite",
         provider="google",
         selectable=False,
+    ),
+    # Second photo reader for when vision-chat's provider fails: another
+    # company, and its reasoning cannot be disabled.
+    _or(
+        id="fallback-vision-model",
+        label="Vision (fallback)",
+        model="z-ai/glm-5.3-flash",
+        selectable=False,
+        thinking_off="low",
     ),
     _or(
         id="image-gen-model",
@@ -304,9 +316,10 @@ CATALOG: tuple[ChatModel, ...] = (
 
 _BY_ID: dict[str, ChatModel] = {m.id: m for m in CATALOG}
 _DEFAULT = _BY_ID["free-chat"]
-# Gemini Flash answers a short turn in well under a second. DeepSeek Chat
-# (free-chat) stays selectable, but Auto's everyday lane uses the faster one.
-_AUTO_FAST = "gemini-flash"
+# GPT-6 Luna answers a short turn in well under a second with thinking off,
+# and ties Claude Haiku 5.5 (free-chat) as the cheapest chat model. Auto's
+# everyday lane carries most turns.
+_AUTO_FAST = "gpt-6-luna"
 _AUTO_SMART = "smart-chat"
 # Live phone QA repeatedly saw DeepSeek R1 stream hidden reasoning and then
 # return no visible answer. GLM 5.2 produced the verified worked-math contract
@@ -396,7 +409,7 @@ def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
 
 
 # BUG FIX: a flat 999.0 for every model missing catalog pricing made
-# unpriced fast/standard-tier entries (e.g. glm-4-flash, qwen-plus — likely
+# unpriced fast/standard-tier entries (e.g. llama-70b — likely
 # cheap, just not backfilled yet) sort as if they were the single most
 # expensive option in the pool, behind even priced smart-tier models. Fall
 # back to a per-tier estimate instead so an unpriced model lands among

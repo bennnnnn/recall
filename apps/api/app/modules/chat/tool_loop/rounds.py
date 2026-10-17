@@ -253,7 +253,7 @@ def _hand_off(
 def _tool_loop_completion_alias(model_alias: str) -> str:
     """Use one fast, function-capable selector independent of chat choice."""
     del model_alias
-    return "gemini-flash"
+    return "gpt-6-luna"
 
 
 def _tool_selection_unavailable_message() -> dict[str, Any]:

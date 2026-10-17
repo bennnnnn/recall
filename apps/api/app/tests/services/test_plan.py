@@ -252,7 +252,7 @@ def test_chat_fallback_models_empty_when_only_one_model():
 def test_free_user_hard_question_uses_strongest_in_pool():
     """Auto on a hard ask used to keep free-chat because the free pool has
     no smart-tier model and the miss fell through to cheapest. Use the
-    strongest remaining alias (glm-4-flash, standard) instead."""
+    strongest remaining alias (glm-5.3-flash, standard) instead."""
     user = FakeUser()
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     resolved = plan_service.resolve_user_model(user, "prove p = np", settings)

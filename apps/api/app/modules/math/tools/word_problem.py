@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 # The user-facing fast route has materially lower latency and follows informal
 # school wording more reliably than the background title model. Its output is
 # still only a candidate: number grounding and SymPy remain the trust boundary.
-_TRANSLATOR_MODEL_ALIAS = "gemini-flash"
+_TRANSLATOR_MODEL_ALIAS = "gpt-6-luna"
 
 _MIN_CHARS = 25
 _MAX_CHARS = 600

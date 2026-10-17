@@ -11,27 +11,28 @@ def test_selectable_models_count():
     assert len(models) >= 7
     ids = {m.id for m in models}
     assert "free-chat" in ids
-    assert "minimax-m2" in ids
-    assert "mercury-2" in ids
+    assert "gpt-6-luna" in ids
+    assert "glm-5.3-flash" in ids
     assert "glm-5.2" in ids
-    mercury = model_catalog.get("mercury-2")
-    assert mercury.tier == "fast"
-    assert mercury.model == "openrouter/inception/mercury-2"
+    luna = model_catalog.get("gpt-6-luna")
+    assert luna.tier == "fast"
+    assert luna.model == "openrouter/openai/gpt-6-luna"
     glm = model_catalog.get("glm-5.2")
     assert glm.tier == "smart"
     assert glm.model == "openrouter/z-ai/glm-5.2"
     assert model_catalog.is_reasoning_alias("glm-5.2") is True
     assert glm.thinking_off == "off"
     assert model_catalog.get("qwen-3.8-max").thinking_off == "minimal"
-    assert model_catalog.get("smart-chat").thinking_off is None
-    assert mercury.thinking_off == "none"
-    gpt = model_catalog.get("gpt-5.5")
+    assert model_catalog.get("smart-chat").thinking_off == "off"
+    assert model_catalog.get("smart-chat").thinking_on == "on"
+    assert luna.thinking_off == "none"
+    gpt = model_catalog.get("gpt-6-sol")
     assert gpt.tier == "smart"
-    assert gpt.model == "openrouter/openai/gpt-5.5"
-    assert gpt.input_price_per_m == 5.00
-    assert gpt.output_price_per_m == 30.00
-    assert model_catalog.is_reasoning_alias("gpt-5.5") is True
-    assert "gpt-5.5" in {m.id for m in model_catalog.selectable_models()}
+    assert gpt.model == "openrouter/openai/gpt-6-sol"
+    assert gpt.input_price_per_m == 2.00
+    assert gpt.output_price_per_m == 10.00
+    assert model_catalog.is_reasoning_alias("gpt-6-sol") is True
+    assert "gpt-6-sol" in {m.id for m in model_catalog.selectable_models()}
     assert "max-chat" not in ids
 
 
@@ -69,29 +70,29 @@ def test_known_model_aliases_match_catalog():
 
 
 def test_estimate_cost_usd_for_known_model():
-    # free-chat: $0.14 / 1M in, $0.28 / 1M out
+    # free-chat: $0.10 / 1M in, $0.50 / 1M out
     cost = model_catalog.estimate_cost_usd(
         "free-chat",
         input_tokens=1_000_000,
         output_tokens=1_000_000,
     )
-    assert cost == pytest.approx(0.14 + 0.28)
+    assert cost == pytest.approx(0.10 + 0.50)
 
-    # smart-chat: $0.70 / 1M in, $2.50 / 1M out — 1k/2k tokens
+    # smart-chat: $0.30 / 1M in, $1.20 / 1M out — 1k/2k tokens
     cost_small = model_catalog.estimate_cost_usd(
         "smart-chat",
         input_tokens=1_000,
         output_tokens=2_000,
     )
-    assert cost_small == pytest.approx((1000 / 1_000_000) * 0.70 + (2000 / 1_000_000) * 2.50)
+    assert cost_small == pytest.approx((1000 / 1_000_000) * 0.30 + (2000 / 1_000_000) * 1.20)
 
 
 def test_estimate_cost_usd_unknown_or_unpriced():
     assert (
         model_catalog.estimate_cost_usd("no-such-model", input_tokens=10, output_tokens=10) is None
     )
-    # minimax-m2 has no catalog prices today
-    assert model_catalog.estimate_cost_usd("minimax-m2", input_tokens=10, output_tokens=10) is None
+    # llama-70b has no catalog prices today
+    assert model_catalog.estimate_cost_usd("llama-70b", input_tokens=10, output_tokens=10) is None
 
 
 def test_get_unknown_alias_raises():
@@ -178,7 +179,7 @@ def test_chat_create_accepts_auto():
 
 def test_is_available_with_openrouter_key():
     settings = Settings(openrouter_api_key="sk-or-test", mock_llm_enabled=False)
-    minimax = model_catalog.get("minimax-m2")
+    minimax = model_catalog.get("minimax-m3")
     assert model_catalog.is_available(minimax, settings) is True
     free = model_catalog.get("free-chat")
     assert model_catalog.is_available(free, settings) is True
@@ -189,7 +190,7 @@ def test_is_available_without_keys():
         openrouter_api_key="",
         mock_llm_enabled=False,
     )
-    minimax = model_catalog.get("minimax-m2")
+    minimax = model_catalog.get("minimax-m3")
     assert model_catalog.is_available(minimax, settings) is False
 
 
