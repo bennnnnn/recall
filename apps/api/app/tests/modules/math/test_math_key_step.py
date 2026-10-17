@@ -528,3 +528,19 @@ def test_parametric_factor_sorts_without_a_dict_root(monkeypatch, degree, factor
     assert _factor_order(x - a, x) == (True, 0.0)
     assert _factor_order(x - 3, x) == (True, 3.0)
     assert _factor_order(x, x) == (False, 0.0)
+
+
+def test_factor_order_reads_no_root_from_a_dict(monkeypatch) -> None:
+    """``solve(P - I V, P)`` with a real P is ``{P: 0}``, not a list (ES-39).
+
+    Indexing it raised a KeyError that the decline took for SymPy failing; strict declines
+    raised it. The factor sorts as 0, as the decline did.
+    """
+    from sympy import I, Symbol
+
+    from app.modules.math.solve.key_steps import _factor_order, equation_key_steps
+
+    monkeypatch.setenv("RECALL_STRICT_DECLINES", "1")
+    p, v = Symbol("P", real=True), Symbol("V", real=True)
+    assert _factor_order(p - I * v, p) == (True, 0.0)
+    assert equation_key_steps(p, I * v, "P") == []
