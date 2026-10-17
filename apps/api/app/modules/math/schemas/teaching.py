@@ -26,6 +26,7 @@ TEACHING_TYPES = frozenset(
         "scatter",
         "probability_tree",
         "transformation",
+        "counting",
     }
 )
 
@@ -305,6 +306,36 @@ class TransformationSpec(BaseModel):
         return self
 
 
+class CountingSpec(BaseModel):
+    """Objects to count for a small whole-number fact: 3 apples, take away 3.
+
+    ``first`` and ``second`` are the operands as asked. For multiply they are
+    rows and objects per row; for divide, the total and the number of groups.
+    """
+
+    type: Literal["counting"] = "counting"
+    operation: Literal["add", "subtract", "multiply", "divide"]
+    first: int = Field(ge=0, le=30)
+    second: int = Field(ge=0, le=10)
+    result: int = Field(ge=0, le=30)
+    object: str = Field(min_length=1, max_length=4)
+    answer: str
+    speech: str
+
+    @model_validator(mode="after")
+    def picture_matches_the_fact(self) -> CountingSpec:
+        first, second, result = self.first, self.second, self.result
+        valid = {
+            "add": first <= 10 and first + second == result,
+            "subtract": first <= 10 and second <= first and first - second == result,
+            "multiply": 1 <= first <= 10 and second >= 1 and first * second == result <= 30,
+            "divide": second >= 1 and first == second * result,
+        }[self.operation]
+        if not valid:
+            raise ValueError("the counting picture must show the fact it answers")
+        return self
+
+
 TeachingSpec = (
     PlaceValueSpec
     | NumberBondSpec
@@ -324,4 +355,5 @@ TeachingSpec = (
     | ScatterSpec
     | ProbabilityTreeSpec
     | TransformationSpec
+    | CountingSpec
 )

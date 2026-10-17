@@ -185,10 +185,19 @@ def format_direct_written_arithmetic(spec: ArithmeticWorkSpec, user_text: str) -
         else written_fact_line(spec)
     )
     answer = f"```answer\n{shown}\n```\n"
+    if response.mode == MathResponseMode.ANSWER_ONLY:
+        return answer
+    # Small whole numbers are shown as objects to count, asked plainly or "how".
+    from app.modules.math.tools.direct_counting import counting_picture
+
+    picture = counting_picture(spec)
+    if picture is not None:
+        body = json.dumps(picture.model_dump(), separators=(",", ":"), ensure_ascii=False)
+        return f"```arithmetic\n{body}\n```\n\n{picture.speech}\n\n{answer}"
     # Operation chooses the mathematical procedure; response intent alone
     # chooses whether that procedure is visible.  Division is not implicitly
     # a request for a tutorial.
-    if response.mode == MathResponseMode.ANSWER_ONLY or not response.wants_explanation:
+    if not response.wants_explanation:
         return answer
     body = json.dumps(spec.model_dump(), separators=(",", ":"))
     return f"```arithmetic\n{body}\n```\n\n{answer}"

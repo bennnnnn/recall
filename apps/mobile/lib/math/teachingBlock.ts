@@ -26,6 +26,7 @@ const TYPES = new Set([
   "scatter",
   "probability_tree",
   "transformation",
+  "counting",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {

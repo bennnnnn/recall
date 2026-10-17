@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { CountingPicture } from "@/components/rich/CountingPicture";
 import type { TeachingSpec } from "@/lib/math/teachingBlock";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -53,6 +54,8 @@ function Picture({ spec, styles }: { spec: TeachingSpec; styles: ReturnType<type
       return <Box spec={spec} styles={styles} />;
     case "histogram":
       return <Histogram spec={spec} styles={styles} />;
+    case "counting":
+      return <CountingPicture spec={spec} />;
     default:
       return <Labeled spec={spec} styles={styles} />;
   }

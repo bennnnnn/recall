@@ -34,10 +34,9 @@ from pydantic import ValidationError
 
 from app.modules.math.fence_answer import reply_asks_instead_of_answering
 from app.modules.math.fence_graph import densify_sparse_graph
-from app.modules.math.schemas import (
-    GraphBlockSpec,
-)
+from app.modules.math.schemas import GraphBlockSpec
 from app.modules.math.text_plot import strip_text_plots
+from app.modules.math.tools.direct_counting import verified_counting_fence
 from app.services.answer_check import correction_line, stated_verdict
 from app.services.answer_fence import (
     demote_answer_body,
@@ -521,9 +520,8 @@ def validate_math_fences(
         # graph, geometry card, or model-authored diagram trail the result.
         for lang in ("arithmetic", "graph", "geometry", "simulation", *_CHART_ALIAS_LANGS):
             content = strip_closed_fences(content, lang)
-    # Models sometimes emit a tool call as text (!function_call:{...}) instead
-    # of the structured tool_calls API — strip it so unverified graph JSON
-    # never ships. Canonical diagrams are appended after rewrite.
+    # A tool call written as text (!function_call:{...}) is stripped so unverified
+    # graph JSON never ships. Canonical diagrams are appended after rewrite.
     content = convert_function_call_text(content)
     for lang in _ANSWER_FENCE_LANGS:
         content = map_closed_fences(
@@ -539,17 +537,15 @@ def validate_math_fences(
         content,
         "arithmetic",
         lambda body: (
-            _replace_fence(
-                body,
-                "arithmetic",
-                canonical_fence,
-                canonical_fences,
+            verified_counting_fence(body, verified)
+            or (
+                _replace_fence(body, "arithmetic", canonical_fence, canonical_fences)
+                if verified is not None
+                and verified.response_intent is not None
+                and verified.response_intent.reveal_answer
+                and verified.response_intent.wants_explanation
+                else ""
             )
-            if verified is not None
-            and verified.response_intent is not None
-            and verified.response_intent.reveal_answer
-            and verified.response_intent.wants_explanation
-            else ""
         ),
         max_count=_MAX_ARITHMETIC_FENCES,
         leftover=lambda _body: _WORKING_FAIL_NOTE,
