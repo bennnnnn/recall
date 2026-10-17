@@ -250,8 +250,8 @@ def test_explain_adds_the_reason_for_the_flip():
     reply = _reply("explain how to solve -3x+2>=8", "balanced")
     assert reply is not None
     assert (
-        "**2. Divide both sides by -3** — dividing by a negative number reverses the inequality"
-        in reply
+        "**2. Divide both sides by -3** — Division property of inequality · "
+        "dividing by a negative number reverses the inequality" in reply
     )
     assert r"$x \le -2$" in reply
 

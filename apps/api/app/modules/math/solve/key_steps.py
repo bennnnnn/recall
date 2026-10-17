@@ -36,6 +36,7 @@ class KeyStep:
 
 
 _PLAIN_LABEL_TEX = re.compile(r"^[\w .,-]*$")
+_ROOT_LABEL = "Take the square root of both sides"
 
 
 def label_tex(value: Any) -> str:
@@ -481,15 +482,14 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
             formula = lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
             steps.append(KeyStep(label="Simplify", formula=formula))
         return steps
-    # Show the root operation, then make any reduction its own final step.
-    # That keeps the last displayed equation identical to the answer chip
-    # without hiding the root that produced it.
+    # The root operation, then any reduction as its own final step, so the last
+    # line matches the answer chip without hiding the root that produced it.
     if radicand == 0:
-        steps.append(KeyStep(label="Square root", formula=rf"{latex(var)} = \sqrt{{0}}"))
+        steps.append(KeyStep(label=_ROOT_LABEL, formula=rf"{latex(var)} = \pm \sqrt{{0}}"))
         steps.append(KeyStep(label="Simplify", formula=rf"{latex(var)} = 0"))
         return steps
     written = rf"\sqrt{{{latex(radicand)}}}"
-    steps.append(KeyStep(label="Square root", formula=rf"{latex(var)} = \pm {written}"))
+    steps.append(KeyStep(label=_ROOT_LABEL, formula=rf"{latex(var)} = \pm {written}"))
     reduced = latex(simplify(sqrt(radicand)))
     if reduced != written:
         steps.append(KeyStep(label="Simplify", formula=rf"{latex(var)} = \pm {reduced}"))

@@ -12,6 +12,7 @@ from app.modules.math.response_intent import (
     strip_math_response_wrappers,
 )
 from app.modules.math.solve.key_steps import KeyStep
+from app.modules.math.solve.step_rules import step_rule
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import (
     Workout,
@@ -378,8 +379,14 @@ def _render_numbered(blocks: list[_NumberedStep]) -> str:
     parts: list[str] = []
     for number, block in enumerate(blocks, start=1):
         heading = f"**{number}. {block.label}**"
-        if block.reason:
-            heading += f" — {block.reason}"
+        # The rule that allows the move, then any why-question reason after it.
+        note = " · ".join(
+            part
+            for part in (step_rule(block.label, " ".join(block.formulas)), block.reason)
+            if part
+        )
+        if note:
+            heading += f" — {note}"
         lines = [heading, *(f"${formula}$" for formula in block.formulas)]
         parts.append("  \n".join(lines))
     return "\n\n".join(parts)
