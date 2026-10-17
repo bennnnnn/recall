@@ -1070,3 +1070,45 @@ def test_parse_expression_rejects_attribute_and_subscript_gadgets(payload: str) 
 def test_parse_expression_still_accepts_ordinary_math(expr: str, variables: list[str]) -> None:
     """The RCE fix must not collateral-damage normal expressions."""
     math_solve._parse_expression(expr, variables)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Q", "CC", "QQ", "S", "N", "O", "Integral", "Sum", "limit", "ln", "sin", "True", "x == 1"],
+)
+def test_parse_expression_refuses_a_bare_sympy_name(monkeypatch, text: str) -> None:
+    """A name SymPy defines parses to its object, ``x == 1`` to a bool (ES-39).
+
+    The object reached the callers: ``O`` (the class ``Order``) raised a TypeError in
+    ``reject_unwritten_symbols``, ``Q = m c T`` a SympifyError in ``solve_equation`` and
+    ``x == 1`` an AttributeError in ``_require_unknown``; strict declines raised the ones a
+    trace's handler took for declines. Each is now an unparsed expression.
+    """
+    from sympy import Symbol
+
+    from app.modules.math.schemas import EquationInput
+    from app.modules.math.solve.derivative_steps import derivative_trace
+    from app.modules.math.solve.equations import solve_equation
+    from app.modules.math.solve.expressions import factored_key_step
+    from app.modules.math.solve.integral_steps import integral_trace
+    from app.modules.math.solve.work_lines import parse_line
+
+    monkeypatch.setenv("RECALL_STRICT_DECLINES", "1")
+    with pytest.raises(MathServiceError):
+        math_solve._parse_expression(text, ["x"])
+    with pytest.raises(MathServiceError):
+        solve_equation(EquationInput(lhs=text, rhs="2 x", variables=["x"]))
+    assert integral_trace(text, "x") == ([], None, None)
+    assert derivative_trace(text, "x") == ([], None)
+    assert factored_key_step(text, "x^2") is None
+    assert parse_line(f"{text} = 2", Symbol("x")) is None
+
+
+def test_parse_expression_keeps_a_tuple_and_a_relation() -> None:
+    from sympy import Symbol
+    from sympy.core.relational import StrictLessThan
+
+    x = Symbol("x")
+    assert math_solve._parse_expression("2, 3") == (2, 3)
+    assert isinstance(math_solve._parse_expression("x < 1", ["x"]), StrictLessThan)
+    assert math_solve._parse_expression("Q x", ["Q", "x"]) == Symbol("Q") * x

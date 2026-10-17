@@ -8,7 +8,7 @@ import logging
 import re
 from typing import Any
 
-from sympy import Abs, E, Eq, I, Mul, Pow, Symbol, ceiling, log, parse_expr, pi
+from sympy import Abs, Basic, E, Eq, I, Mul, Pow, Symbol, ceiling, log, parse_expr, pi
 from sympy.parsing.sympy_parser import (
     convert_xor,
     implicit_multiplication_application,
@@ -184,6 +184,10 @@ def _parse_expression(
         )
     except Exception as exc:
         raise MathServiceError(f"Could not parse expression: {expr}") from exc
+    if not isinstance(parsed, Basic | tuple):
+        # A bare SymPy name parses to what it names (``Q``, ``CC``, ``limit``, the class ``O``)
+        # and ``x == 1`` to a bool: neither is an expression. ``2, 3`` stays a tuple.
+        raise MathServiceError(f"Could not parse expression: {expr}")
     reject_unwritten_symbols(expr, parsed)
     return parsed
 
