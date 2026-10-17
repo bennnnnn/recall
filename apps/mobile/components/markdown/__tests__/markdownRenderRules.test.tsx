@@ -387,11 +387,16 @@ describe("markdown render rules", () => {
       <MarkdownContent content={content} />,
     );
     // The headings stay at the margin; the work sits behind a thin rule.
+    // The Answer's tinted box needs no rule, and the answer is centred in it.
     const bodies = getAllByTestId("workout-body");
     expect(bodies).toHaveLength(3);
-    for (const body of bodies) {
+    for (const body of bodies.slice(0, 2)) {
       expect(StyleSheet.flatten(body.props.style)).toMatchObject({ borderLeftWidth: 2 });
     }
+    expect(StyleSheet.flatten(bodies[2].props.style).borderLeftWidth).toBeUndefined();
+    expect(StyleSheet.flatten(getByTestId("workout-answer").props.style)).toMatchObject({
+      alignItems: "center",
+    });
     // Both given values share one wrapping row.
     const given = getByTestId("workout-given");
     expect(StyleSheet.flatten(given.props.style)).toMatchObject({
@@ -546,6 +551,19 @@ $x^0=1$`}
     expect(getAllByTestId("lesson-step")).toHaveLength(2);
     expect(getAllByTestId("lesson-step-reason")).toHaveLength(2);
     expect(getAllByTestId("lesson-step-formula")).toHaveLength(2);
+  });
+
+  it("keeps the badge when the step label ends with maths", async () => {
+    // Bold that ends in maths is unwrapped for prose, but not for a numbered step.
+    const { getByTestId, queryByText } = await render(
+      <MarkdownContent
+        content={String.raw`**1. Power rule on $x^{3}$** — Power rule: $\frac{d}{dx} x^n = n x^{n-1}$
+$\frac{d}{dx} x^{3} = 3 x^{2}$`}
+      />,
+    );
+    expect(getByTestId("lesson-step")).toBeOnTheScreen();
+    expect(getByTestId("lesson-step-reason")).toBeOnTheScreen();
+    expect(queryByText(/\$/)).toBeNull();
   });
 
   it("preserves a link after a numbered bold paragraph", async () => {

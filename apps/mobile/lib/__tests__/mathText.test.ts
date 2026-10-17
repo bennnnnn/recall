@@ -109,6 +109,25 @@ describe("parseSimpleLatex", () => {
     }
   });
 
+  it.each([
+    ["3 x^{2} + 25 = 25", "3x^{2} + 25 = 25"],
+    [String.raw`2 \left(x + 9\right) = 24`, String.raw`2\left(x + 9\right) = 24`],
+    [String.raw`4 \sqrt{2}`, String.raw`4\sqrt{2}`],
+    ["2.5 t + 1", "2.5t + 1"],
+  ])("closes the gap between a coefficient and its term: %s", (expr, expected) => {
+    expect(fixImplicitExponents(expr)).toBe(expected);
+  });
+
+  it.each([
+    ["x + 3 = 5"],
+    [String.raw`x = 2 \text{ or } x = 3`],
+    [String.raw`\text{For } x = 2:`],
+    [String.raw`2 \cdot 3 = 6`],
+    [String.raw`14 = 14 \quad \text{(true)}`],
+  ])("leaves operators, relations and text spacing alone: %s", (expr) => {
+    expect(fixImplicitExponents(expr)).toBe(expr);
+  });
+
   it("BUG FIX regression: braced 2/3 exponent is one sup (not 3 then 2 then /3)", () => {
     const segs = parseSimpleLatex("3^{2/3}");
     expect(segs.some((s) => s.type === "sup" && s.value === "2/3")).toBe(true);

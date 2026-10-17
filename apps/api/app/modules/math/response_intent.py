@@ -369,6 +369,12 @@ _PRESENTATION_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
         r"\b(?:do\s+not|don't|dont)\s+(?:use\s+)?(?:the\s+)?(?:quadratic\s+formula|factor(?:ing)?|factorisation|substitution|elimination)(?:\s+(?:it|this))?\b",
         r"\b(?:using|use|with|by)\s+(?:the\s+)?(?:quadratic\s+formula|factoring|factorisation|substitution|elimination)\b",
         r"\b(?:keep)\s+(?:the\s+)?(?:variable|x)\s+lowercase(?:\s+in\s+the\s+final\s+answer)?\b",
+        # Asking for the answer to be checked is presentation: the solve still runs.
+        r"\b(?:and\s+)?(?:double[- ]check|check|verify|confirm|prove)\s+(?:it|that|this|"
+        r"(?:your|the)\s+(?:answer|solution|result))\b",
+        r"\b(?:and\s+)?show\s+(?:me\s+)?(?:that\s+)?it\s+works\b",
+        r"^\s*(?:please\s+)?(?:check|verify)\s+(?=\S)",
+        r"\b(?:and\s+)?(?:double[- ]check|check|verify)[ .!?]*$",
     )
 )
 

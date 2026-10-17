@@ -12,9 +12,12 @@ with no step. ``evaluate_powers_label`` names that move so it is shown.
 from __future__ import annotations
 
 import re
+from functools import partial
 from typing import Any
 
 from sympy import Pow, latex, preorder_traversal
+
+from app.modules.math.solve.declines import sympy_decline
 
 # 5^2 is shown as 5 · 5; 2^10 is shown only as its value.
 _SHOW_REPEATED = 4
@@ -60,11 +63,36 @@ _RULES: tuple[tuple[re.Pattern[str], str], ...] = tuple(
             r"Absolute value: $|u| = k \Rightarrow u = k$ or $u = -k$",
         ),
         (r"^Check\b", "Substitute back into the original equation"),
+        # Calculus
+        (r"^Product rule", r"Product rule: $(uv)' = u'v + uv'$"),
+        (r"^Quotient rule", r"Quotient rule: $\left(\frac{u}{v}\right)' = \frac{u'v - uv'}{v^2}$"),
+        (r"^Chain rule", r"Chain rule: $\frac{d}{dx} f(g(x)) = f'(g(x)) \, g'(x)$"),
+        (
+            r"^Apply integration by parts",
+            r"Integration by parts: $\int u \, dv = uv - \int v \, du$",
+        ),
+        (r"^Choose\b", "Integration by parts: pick the $u$ that gets simpler when differentiated"),
+        (
+            r"^(?:Let\b|Rewrite the integral in\b|Integrate in\b)",
+            r"Substitution: $u = g(x)$, so $du = g'(x) \, dx$",
+        ),
+        (r"^Put back\b", "Substitution: write the answer in the original variable"),
+        # Systems of equations
+        (r"^Solve equation \(\d+\) for\b", "Isolate one variable"),
+        (
+            r"^Substitute into equation\b",
+            "Substitution method: replace the variable with its equal",
+        ),
+        (r"^Substitute\b.*\bback\b", "Substitute the value you found"),
+        # Domains and roots
+        (r"^Domain restrictions?\b", "Domain: exclude values that make an expression undefined"),
+        (r"^Use the real odd-root", r"Odd roots of real numbers are real: $\sqrt[3]{-8} = -2$"),
         (r"^Multiply the numbers", "Multiply before adding (order of operations)"),
     )
 )
 
 
+_POWER_RULE = re.compile(r"^Power rule\b", re.IGNORECASE)
 _INEQUALITY = re.compile(r"<|>|\\le\b|\\ge\b|\\leq\b|\\geq\b|\\lt\b|\\gt\b")
 
 
@@ -74,6 +102,10 @@ def step_rule(label: str, formula: str = "") -> str | None:
     The same move on an inequality is a property of inequality, not equality.
     """
     text = label.strip()
+    if _POWER_RULE.search(text):
+        if "\\int" in formula:
+            return r"Power rule: $\int x^n \, dx = \frac{x^{n+1}}{n+1} + C$"
+        return r"Power rule: $\frac{d}{dx} x^n = n x^{n-1}$"
     for pattern, rule in _RULES:
         if pattern.search(text):
             if _INEQUALITY.search(formula):
@@ -92,7 +124,7 @@ def evaluate_powers(*written_sides: Any) -> tuple[str, str] | None:
     shown: list[str] = []
     for side in written_sides:
         for node in preorder_traversal(side):
-            if not isinstance(node, Pow) or not (node.base.is_Number and node.exp.is_Number):
+            if not _typed_power(node):
                 continue
             value = latex(node.doit())
             repeated = (
@@ -124,13 +156,85 @@ def with_powers_evaluated(written_tex: str, side: Any) -> str:
     distribute and reorder (``18 + 2x``), which hides the next step.
     """
     out = written_tex
-    powers = {
-        node
-        for node in preorder_traversal(side)
-        if isinstance(node, Pow) and node.base.is_Number and node.exp.is_Number
-    }
+    powers = {node for node in preorder_traversal(side) if _typed_power(node)}
     for node in sorted(powers, key=lambda power: -len(latex(power))):
         pattern = r"(?<![\d.])" + re.escape(str(latex(node)))
         value = str(latex(node.doit()))
         out = re.sub(pattern, value.replace("\\", r"\\"), out)
     return out
+
+
+_MAX_CHECKED_ROOTS = 4
+
+
+def substitution_check(
+    written_left_tex: str,
+    written_right_tex: str,
+    lhs: Any,
+    rhs: Any,
+    variable: str,
+) -> str | None:
+    """Each answer put back into the equation as typed, worked to a true line.
+
+    ``2(x + 3) = 14`` with ``x = 4`` checks as ``2(4 + 3) = 14``, then
+    ``14 = 14``. Several answers each get a "For x = …" line. Lines are joined
+    with newlines; the lesson draws one per row. None when a root is not exact.
+    The swap is on the typed LaTeX: rebuilding the expression would reorder it
+    and evaluate the 5² the student wrote.
+    """
+    from sympy import Eq, Symbol, simplify, solve
+
+    var = next(
+        (s for s in getattr(lhs - rhs, "free_symbols", set()) if str(s) == variable),
+        Symbol(variable),
+    )
+    with sympy_decline() as declined:
+        roots = solve(Eq(lhs, rhs), var)
+    if declined or not roots or len(roots) > _MAX_CHECKED_ROOTS:
+        return None
+    letter = re.compile(rf"(?<![A-Za-z\\]){re.escape(variable)}(?![A-Za-z])")
+    lines: list[str] = []
+    for root in roots:
+        if not getattr(root, "is_number", False):
+            return None
+        with sympy_decline() as declined:
+            left_value = simplify(lhs.subs(var, root))
+            right_value = simplify(rhs.subs(var, root))
+            exact = simplify(left_value - right_value) == 0
+        if declined or not exact:
+            return None
+        if len(roots) > 1:
+            lines.append(rf"\text{{For }} {latex(var)} = {latex(root)}:")
+        swap = partial(_substituted, root=root)
+        left = letter.sub(swap, written_left_tex)
+        right = letter.sub(swap, written_right_tex)
+        lines.append(f"{left} = {right}")
+        lines.append(rf"{latex(left_value)} = {latex(right_value)} \quad \text{{(true)}}")
+    return "\n".join(lines)
+
+
+def _substituted(hit: re.Match[str], root: Any) -> str:
+    """``x`` → ``4`` inside ``(x + 3)``; ``(4)`` after a coefficient or before a power.
+
+    A negative number, fraction or root is always bracketed.
+    """
+    tex = str(latex(root))
+    before = hit.string[: hit.start()].rstrip()
+    after = hit.string[hit.end() :].lstrip()
+    plain = bool(getattr(root, "is_Integer", False)) and root >= 0
+    if plain and not (
+        before[-1:].isdigit() or before.endswith(("}", ")")) or after.startswith("^")
+    ):
+        return tex
+    return rf"\left({tex}\right)"
+
+
+def _typed_power(node: Any) -> bool:
+    """``5^2`` or ``4^{1/2}``; ``1/2`` (which SymPy holds as ``2^{-1}``) is a fraction."""
+    return bool(
+        isinstance(node, Pow)
+        and node.base.is_Number
+        and node.exp.is_Number
+        and node.exp.is_positive
+        and node.exp != 1
+    )

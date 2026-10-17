@@ -140,7 +140,8 @@ export function renderLessonStep(
   t: Theme,
 ): React.ReactElement {
   return (
-    <View key={key} testID="lesson-step" style={styles.paragraphRun}>
+    // A little extra space above each step so its lines read as one block.
+    <View key={key} testID="lesson-step" style={[styles.paragraphRun, { marginTop: Space.xs }]}>
       <View
         style={{
           flexDirection: "row",
@@ -179,20 +180,22 @@ export function renderLessonStep(
           {lessonLabelNodes(
             step.label,
             `${key}-label`,
-            [styles.body, styles.text, { color: t.assistantText }],
+            [styles.body, styles.text, Weight.semibold, { color: t.assistantText }],
             t.assistantText,
           )}
         </View>
       </View>
       {step.reason || step.formulas.length ? (
-        <View testID="lesson-step-formula" style={{ paddingLeft: Space.xl, gap: Space.xs }}>
+        <View testID="lesson-step-formula" style={{ paddingLeft: Space.xl, gap: Space.xxs }}>
           {step.reason ? (
             <View
               testID="lesson-step-reason"
+              // The rule under the step: smaller and dimmer than the working.
               style={{
                 flexDirection: "row",
                 flexWrap: "wrap",
                 alignItems: "center",
+                marginBottom: Space.xxs,
               }}
             >
               {splitInlineMath(step.reason).map((part, i) =>
@@ -201,12 +204,14 @@ export function renderLessonStep(
                     scrollOverflow
                     key={`${key}-reason-m-${i}`}
                     latex={part.value}
-                    textColor={t.textSecondary}
+                    textColor={t.textTertiary}
+                    fontSize={Type.secondary.fontSize}
                   />
                 ) : (
                   <Text
                     key={`${key}-reason-t-${i}`}
-                    style={[styles.body, styles.text, { color: t.textSecondary }]}
+                    style={[styles.text, Type.secondary, { color: t.textTertiary }]}
+                    maxFontSizeMultiplier={DYNAMIC_TYPE_MAX}
                     selectable
                   >
                     {part.value}

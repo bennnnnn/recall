@@ -33,7 +33,7 @@ def test_step_rule_names_the_property_a_move_uses(label: str, rule: str) -> None
     assert named is not None and named.startswith(rule)
 
 
-@pytest.mark.parametrize("label", ["Simplify", "Solve", "Domain restrictions"])
+@pytest.mark.parametrize("label", ["Simplify", "Solve", "Calculate"])
 def test_step_rule_leaves_plain_arithmetic_unnamed(label: str) -> None:
     assert step_rule(label) is None
 
@@ -95,3 +95,74 @@ async def test_no_number_work_is_skipped_before_the_inverse_moves(
     assert reply is not None
     for number, label in enumerate(labels, start=1):
         assert f"**{number}. {label}" in reply
+
+
+async def _lesson(query: str) -> str:
+    _, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
+    reply = maybe_direct_math_reply(verified, query)
+    assert reply is not None
+    return reply
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "solve 3x^2+5^2=25 and check",
+        "solve 2(x+3)=14, prove your answer",
+        "verify 3x+1=7",
+        "x^2-5x+6=0 and verify",
+    ],
+)
+async def test_a_check_step_is_added_only_when_asked(query: str) -> None:
+    assert "**Check**" not in await _lesson(
+        query.split(" and ")[0].split(",")[0].replace("verify ", "")
+    )
+    assert "Check** — Substitute back into the original equation" in await _lesson(query)
+
+
+@pytest.mark.asyncio
+async def test_the_check_substitutes_into_the_equation_as_typed() -> None:
+    reply = await _lesson("solve 2(x+3)=14 and check")
+    assert r"$2 \left(4 + 3\right) = 14$" in reply
+    assert r"$14 = 14 \quad \text{(true)}$" in reply
+    both = await _lesson("x^2-5x+6=0 and verify")
+    assert r"$\text{For } x = 2:$" in both and r"$\text{For } x = 3:$" in both
+    assert r"$\left(2\right)^{2} - 5 \left(2\right) + 6 = 0$" in both
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("query", "label"),
+    [
+        ("show steps log(x)+log(2)=1", "Divide both sides by 2"),
+        ("show steps sqrt(x+3)=4", "Subtract 3 from both sides"),
+        ("show steps |2x-1|=5", "Add 1 to both sides (second equation)"),
+        ("show steps 1/x+1/2=1", "Subtract 2 from both sides"),
+    ],
+)
+async def test_a_reached_equation_is_solved_move_by_move(query: str, label: str) -> None:
+    reply = await _lesson(query)
+    assert label in reply
+    assert "Solve the resulting equation" not in reply
+    assert "Solve both linear equations" not in reply
+    assert "**2. Calculate**" not in reply
+
+
+@pytest.mark.parametrize(
+    ("label", "formula", "rule"),
+    [
+        ("Product rule with $u$ and $v$", "", "Product rule"),
+        ("Quotient rule with $u$ and $v$", "", "Quotient rule"),
+        ("Chain rule with inside $x^2$", "", "Chain rule"),
+        ("Power rule on $x^5$", r"\frac{d}{dx} x^5", r"Power rule: $\frac{d}{dx}"),
+        ("Power rule on $x^2$", r"\int x^2 \, dx", r"Power rule: $\int"),
+        ("Apply integration by parts", "", "Integration by parts"),
+        ("Solve equation (1) for x", "", "Isolate one variable"),
+        ("Substitute into equation (2)", "", "Substitution method"),
+        ("Domain restrictions", "", "Domain"),
+    ],
+)
+def test_step_rule_covers_calculus_systems_and_domains(label: str, formula: str, rule: str) -> None:
+    named = step_rule(label, formula)
+    assert named is not None and named.startswith(rule)

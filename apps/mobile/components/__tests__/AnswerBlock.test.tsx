@@ -34,7 +34,7 @@ describe("AnswerBlock", () => {
   });
 
   it("draws the worked layout's Answer section: heading, rule, value in the accent box", async () => {
-    const { getByTestId, getByText } = await render(
+    const { getByTestId, getByText, queryByTestId } = await render(
       <AnswerBlock content={"label: answer\nverified: true\nx = 0"} />,
     );
     expect(getByText("Answer")).toBeOnTheScreen();
@@ -42,14 +42,13 @@ describe("AnswerBlock", () => {
       ...Weight.semibold,
       color: lightTheme.assistantText,
     });
-    expect(StyleSheet.flatten(getByTestId("answer-rule").props.style)).toMatchObject({
-      borderLeftWidth: 2,
-      borderLeftColor: lightTheme.separator,
-    });
+    // No side rule: the tinted box alone frames the answer, centred in it.
+    expect(queryByTestId("answer-rule")).toBeNull();
     const box = getByTestId("answer-box");
     expect(StyleSheet.flatten(box.props.style)).toMatchObject({
       backgroundColor: lightTheme.accentLight,
       flexDirection: "row",
+      justifyContent: "center",
     });
     // The check sits in the box, after the value.
     expect(within(box).getByTestId("answer-success-check")).toBeOnTheScreen();

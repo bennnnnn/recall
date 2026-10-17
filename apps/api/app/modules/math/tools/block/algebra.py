@@ -25,7 +25,11 @@ from app.modules.math.solve.key_steps import (
     written_side,
 )
 from app.modules.math.solve.parse import parse_equation as parse_eq
-from app.modules.math.solve.step_rules import evaluate_powers, with_powers_evaluated
+from app.modules.math.solve.step_rules import (
+    evaluate_powers,
+    substitution_check,
+    with_powers_evaluated,
+)
 from app.modules.math.solve.traces import (
     compound_inequality_trace,
     inequality_trace,
@@ -136,6 +140,18 @@ def _written_given(
     return written, [KeyStep(label=label, formula=evaluated), *key_steps]
 
 
+def _typed_check(intent: MathIntent, lhs: Any, rhs: Any) -> str | None:
+    """The check substitutes into the equation as typed, else the solver's sides."""
+    variable = intent.variable or "x"
+    left = written_side(intent.lhs or "", [variable])
+    right = written_side(intent.rhs or "", [variable])
+    if left is not None and right is not None:
+        typed = substitution_check(left[1], right[1], lhs, rhs, variable)
+        if typed is not None:
+            return typed
+    return equation_check_latex(lhs, rhs, variable)
+
+
 def _verified_block_equation(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -208,7 +224,7 @@ def _verified_block_equation(
         key_step=math_solve.factored_key_step(eq.lhs, eq.rhs, intent.variable or "x"),
         key_steps=key_steps,
         given_latex=given_latex,
-        check_latex=equation_check_latex(lhs, rhs, intent.variable or "x"),
+        check_latex=_typed_check(intent, lhs, rhs),
         alternate_method_note=alt,
     )
     block = replace(

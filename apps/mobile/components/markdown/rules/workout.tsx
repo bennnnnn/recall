@@ -153,13 +153,18 @@ export function renderWorkoutSection(
       </Text>
       <View
         testID="workout-body"
-        style={{
-          marginLeft: Space.xxs,
-          paddingLeft: Space.sm,
-          borderLeftWidth: 2,
-          borderLeftColor: t.separator,
-          gap: Space.xs,
-        }}
+        // Given / Find / Steps sit behind a rule; the Answer's tinted box needs none.
+        style={
+          answer
+            ? { gap: Space.xs }
+            : {
+                marginLeft: Space.xxs,
+                paddingLeft: Space.sm,
+                borderLeftWidth: 2,
+                borderLeftColor: t.separator,
+                gap: Space.xs,
+              }
+        }
       >
         {answer ? (
           <>
@@ -167,6 +172,7 @@ export function renderWorkoutSection(
             <View
               testID="workout-answer"
               style={{
+                alignItems: "center",
                 backgroundColor: t.accentLight,
                 borderRadius: Radius.md,
                 paddingVertical: Space.sm,

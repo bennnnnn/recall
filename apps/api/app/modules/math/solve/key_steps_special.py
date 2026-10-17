@@ -69,9 +69,12 @@ def radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
     return [
         KeyStep(label="Domain restrictions", formula=domain),
         KeyStep(label="Square both sides", formula=_eq_tex(radicand, expand(other**2))),
-        KeyStep(
-            label="Solve the squared equation",
-            formula=_canonical_root_formula(var, candidates),
+        *_worked(
+            radicand,
+            expand(other**2),
+            var,
+            "Solve the squared equation",
+            _canonical_root_formula(var, candidates),
         ),
         KeyStep(
             label="Check and reject extraneous roots",
@@ -218,7 +221,7 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
             label="Convert to exponential form",
             formula=rf"{latex(combined)} = {latex(target)}",
         ),
-        KeyStep(label="Solve the resulting equation", formula=candidate_formula),
+        *_worked(combined, target, var, "Solve the resulting equation", candidate_formula),
         KeyStep(label="Reject values outside the domain", formula=answer),
     ]
 
@@ -338,10 +341,13 @@ def rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] |
         ),
     ]
     if candidates:
-        steps.append(
-            KeyStep(
-                label="Solve the resulting equation",
-                formula=_canonical_root_formula(var, candidates),
+        steps.extend(
+            _worked(
+                cleared_lhs,
+                cleared_rhs,
+                var,
+                "Solve the resulting equation",
+                _canonical_root_formula(var, candidates),
             )
         )
     if solutions:
@@ -386,7 +392,47 @@ def absolute_value_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | No
 
     lines = compact_root_answer_lines(str(var), solutions)
     final = lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
-    return [
-        KeyStep(label="Split the absolute-value equation", formula=split),
-        KeyStep(label="Solve both linear equations", formula=final),
-    ]
+    first = _worked(inside, rhs, var, "Solve both linear equations", final, which="first")
+    second = (
+        _worked(inside, -rhs, var, "Solve both linear equations", final, which="second")
+        if rhs != 0
+        else []
+    )
+    if len(first) == 1 or (rhs != 0 and len(second) == 1):
+        return [
+            KeyStep(label="Split the absolute-value equation", formula=split),
+            KeyStep(label="Solve both linear equations", formula=final),
+        ]
+    return [KeyStep(label="Split the absolute-value equation", formula=split), *first, *second]
+
+
+def _worked(
+    lhs: Any,
+    rhs: Any,
+    var: Any,
+    label: str,
+    formula: str,
+    *,
+    which: str | None = None,
+) -> list[KeyStep]:
+    """Every inverse move on the equation a special trace reaches, ending at its roots.
+
+    ``log(2x) = 1`` becomes ``2x = 10``; that is "Divide both sides by 2", not a
+    jump to ``x = 5``. With no supported trace it stays one ``label`` step.
+    """
+    from dataclasses import replace
+
+    from app.modules.math.solve.key_steps import equation_key_steps
+
+    steps = equation_key_steps(lhs, rhs, str(var))
+    if not steps:
+        return [KeyStep(label=label, formula=formula)]
+    if which is not None:
+        steps = [
+            step
+            if step.label == "Simplify"
+            else replace(step, label=f"{step.label} ({which} equation)")
+            for step in steps
+        ]
+    # The roots close the move, so the rejection step that follows starts from them.
+    return [*steps, KeyStep(label="Simplify", formula=formula)]

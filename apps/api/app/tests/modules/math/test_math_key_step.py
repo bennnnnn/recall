@@ -170,7 +170,10 @@ def test_detailed_pure_power_takes_the_square_root() -> None:
     assert "lvert" not in reply
     assert "```answer" in reply
     assert r"\pm 2" in reply
-    assert "**3. Check**" in reply
+    # A check is added only when the user asks for one, not for the detailed style.
+    assert "Check**" not in reply
+    asked = maybe_direct_math_reply(_block(text), f"{text} and check", response_style="detailed")
+    assert asked is not None and "**3. Check**" in asked
 
 
 def test_rational_equation_clears_the_denominator_and_finishes_at_the_chip() -> None:

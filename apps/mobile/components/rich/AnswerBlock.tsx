@@ -84,10 +84,8 @@ export function AnswerBlock({ content, settled = true }: Props) {
       <Text testID="answer-label" style={s.label}>
         {t("rich.answer_label")}
       </Text>
-      <View testID="answer-rule" style={s.rule}>
-        <View testID="answer-box" style={s.box}>
-          {value}
-        </View>
+      <View testID="answer-box" style={s.box}>
+        {value}
       </View>
     </View>
   );
@@ -226,17 +224,13 @@ const makeStyles = (t: Theme) =>
       ...Weight.semibold,
       color: t.assistantText,
     },
-    rule: {
-      marginLeft: Space.xxs,
-      paddingLeft: Space.sm,
-      borderLeftWidth: 2,
-      borderLeftColor: t.separator,
-    },
     // The same tinted box as a written-out answer (workout-answer), so it
     // follows the accent colour.
+    // The answer sits centred in the box; the box itself needs no side rule.
     box: {
       flexDirection: "row",
       alignItems: "center",
+      justifyContent: "center",
       backgroundColor: t.accentLight,
       borderRadius: Radius.md,
       paddingVertical: Space.sm,
@@ -248,6 +242,7 @@ const makeStyles = (t: Theme) =>
       flex: 1,
       minWidth: 0,
       gap: Space.xs,
+      alignItems: "center",
     },
     successCheck: {
       marginLeft: Space.xs,
@@ -267,6 +262,7 @@ const makeStyles = (t: Theme) =>
       minWidth: "100%",
       flexGrow: 1,
       alignItems: "center",
+      justifyContent: "center",
     },
     answer: {
       // Source Sans Medium: a bare 500 weight drew the system font.
