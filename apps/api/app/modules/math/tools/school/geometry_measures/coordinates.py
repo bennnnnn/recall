@@ -30,7 +30,7 @@ def _circle_equation(numbers: list[float], words: list[str]) -> _Solved | None:
 
 
 def _circle_centre_radius(intent: MathIntent) -> _Solved | None:
-    from sympy import Poly, Symbol, expand, latex, sqrt
+    from sympy import Expr, Poly, Symbol, expand, latex, sqrt
 
     from app.modules.math import solve as math_solve
 
@@ -40,6 +40,8 @@ def _circle_centre_radius(intent: MathIntent) -> _Solved | None:
     with sympy_decline() as declined:
         lhs = math_solve._parse_expression(left, ["x", "y"])
         rhs = math_solve._parse_expression(right, ["x", "y"])
+        if not (isinstance(lhs, Expr) and isinstance(rhs, Expr)):
+            return None  # ``y = (1, 2)`` is a point, not a side of a circle's equation
         poly = Poly(expand(lhs - rhs), x, y)
     if declined:
         return None

@@ -388,17 +388,18 @@ def apply_calculus_extension(
         lines.append(f"dy/dx = {answer}")
         block = _finish_with_answer(lines, answer)
         with sympy_decline():
-            from sympy import Derivative, Function, Symbol, diff, latex
+            from sympy import Derivative, Expr, Function, Symbol, diff, latex
 
             independent = Symbol(intent.variable or "x", real=True)
             dependent = Symbol("y", real=True)
             dependent_fn = Function("y")(independent)
-            left = math_solve._parse_expression(
-                intent.lhs, [str(independent), "y"], real=True
-            ).xreplace({dependent: dependent_fn})
-            right = math_solve._parse_expression(
-                intent.rhs, [str(independent), "y"], real=True
-            ).xreplace({dependent: dependent_fn})
+            sides = [
+                math_solve._parse_expression(side, [str(independent), "y"], real=True)
+                for side in (intent.lhs, intent.rhs)
+            ]
+            if not all(isinstance(side, Expr) for side in sides):
+                return block  # ``x == 1`` parses to False: no side to differentiate
+            left, right = (side.xreplace({dependent: dependent_fn}) for side in sides)
             marker = Symbol("DERIVATIVE_MARKER")
             left_d = diff(left, independent).xreplace(
                 {Derivative(dependent_fn, independent): marker, dependent_fn: dependent}

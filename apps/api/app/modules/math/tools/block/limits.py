@@ -41,7 +41,7 @@ def _verified_block_limit(
 
 def _limit_working(intent: MathIntent, answer: str) -> str | None:
     """Substitute; or factor and cancel a 0/0; or one step of L'Hôpital's rule."""
-    from sympy import Symbol, cancel, diff, factor, latex, limit, nan, simplify, zoo
+    from sympy import Expr, Symbol, cancel, diff, factor, latex, limit, nan, simplify, zoo
 
     with sympy_decline() as declined:
         expr = math_solve._parse_expression(intent.expr or "", [intent.variable])
@@ -51,6 +51,8 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
             written, written
         )
         point = math_solve._parse_expression(written, [])
+        if not (isinstance(expr, Expr) and isinstance(point, Expr)):
+            return None  # ``(1, 2)``, ``True`` or a bare SymPy name has no limit to work
         symbol = next(
             (s for s in expr.free_symbols if str(s) == intent.variable), Symbol(intent.variable)
         )
