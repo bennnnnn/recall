@@ -515,14 +515,16 @@ def _linear_factors(factored: Any, var: Any) -> list[Any]:
         if poly is not None and poly.degree() == 1:
             linear.append(piece)
     # The order the factored line prints them, so the next line reads the same way.
-    return sorted(linear, key=_factor_order)
+    return sorted(linear, key=lambda piece: _factor_order(piece, var))
 
 
-def _factor_order(piece: Any) -> tuple[bool, float]:
-    """A bare ``x`` leads (``x(x + 2)(x - 2)``); the rest go in root order."""
+def _factor_order(piece: Any, var: Any) -> tuple[bool, float]:
+    """A bare ``x`` leads (``x(x + 2)(x - 2)``); the rest go in root order, ``x - a`` as 0."""
     root = 0.0
     with sympy_decline():
-        root = float(solve(piece)[0])
+        roots = solve(piece, var)  # for every symbol, SymPy answers ``x - a`` with a dict
+        if roots and roots[0].is_number:
+            root = float(roots[0])
     return (not piece.is_Symbol, root)
 
 
@@ -535,7 +537,7 @@ def _ordered_factored_tex(factored: Any, var: Any) -> str:
     ]
 
     shown: list[str] = []
-    for arg in sorted(factors, key=lambda item: _factor_order(item.as_base_exp()[0])):
+    for arg in sorted(factors, key=lambda item: _factor_order(item.as_base_exp()[0], var)):
         base, power = arg.as_base_exp()
         body = latex(base) if base.is_Symbol else rf"\left({latex(base)}\right)"
         shown.append(body if power == 1 else f"{body}^{{{latex(power)}}}")

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sympy import Eq, Poly, S, Symbol, expand, ilcm, latex, simplify, solve, solveset
+from sympy import Eq, Expr, Poly, S, Symbol, expand, ilcm, latex, simplify, solve, solveset
 from sympy.core.relational import Ge, Gt, Le, Lt
 
 from app.modules.math.solve.declines import declines, sympy_decline
@@ -568,12 +568,15 @@ def system_check_latex(
 
 
 def _parse_sides(sides: list[str], variables: list[str]) -> list[Any] | None:
+    """Each side as an expression; a bare SymPy name parses to its object (``limit``, ``CC``)."""
     from app.modules.math.solve.parse import _expr_needs_real_domain, _parse_expression
 
     real = _expr_needs_real_domain(*sides)
-    with sympy_decline():
-        return [_parse_expression(side, variables, real=real) for side in sides]
-    return None
+    with sympy_decline() as declined:
+        parsed = [_parse_expression(side, variables, real=real) for side in sides]
+    if declined or not all(isinstance(side, Expr) for side in parsed):
+        return None
+    return parsed
 
 
 def inequality_trace(
