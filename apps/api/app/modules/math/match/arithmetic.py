@@ -27,6 +27,10 @@ _ARITH_CUES: tuple[str, ...] = (
     "the result of",
     "the sum of",
     "the value of",
+    # A follow-up suggestion: "What if it were 3 - 2?" asks for that sum.
+    "what if it were",
+    "what if it was",
+    "what if it is",
     "what is",
     "what's",
     "whats",

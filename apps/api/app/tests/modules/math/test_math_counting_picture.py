@@ -37,6 +37,10 @@ def _picture(reply: str) -> dict[str, object] | None:
         ("3*4", "multiply", 3, 4, 12, "3 rows of 4"),
         ("12 ÷ 3", "divide", 12, 3, 4, "shared into 3 equal groups is 4 in each group."),
         ("explain 9-4", "subtract", 9, 4, 5, "5 strawberries are left."),
+        # The app's own suggestion wording, with the real minus sign it prints.
+        ("What if it were 3 \u2212 2?", "subtract", 3, 2, 1, "1 apple is left."),
+        ("what if it was 12 \u00f7 3?", "divide", 12, 3, 4, "4 in each group."),
+        ("3 \u2212 2", "subtract", 3, 2, 1, "1 apple is left."),
     ],
 )
 async def test_a_small_fact_is_drawn_as_objects_with_one_sentence(
@@ -98,3 +102,17 @@ async def test_the_fence_rewriter_keeps_the_verified_picture_only(query: str) ->
     assert shown.count("```answer") == 1
     tampered = reply.replace('"result":', '"result":1', 1)
     assert '"type":"counting"' not in validate_math_fences(tampered, verified=scoped)
+
+
+@pytest.mark.parametrize(
+    ("text", "is_math"),
+    [
+        ("What if it were 3 \u2212 2?", True),
+        ("what if it were bigger?", False),
+        ("What if it rains tomorrow at 3?", False),
+    ],
+)
+def test_a_what_if_sum_is_maths_and_a_what_if_question_is_not(text: str, is_math: bool) -> None:
+    from app.modules.math.tools.prompt import needs_symbolic_math
+
+    assert needs_symbolic_math(text) is is_math

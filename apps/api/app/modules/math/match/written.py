@@ -31,6 +31,8 @@ _WRITTEN_OPERATOR_ALIASES = (
     ("minus", "-"),
     ("\u00d7", "*"),
     ("\u00f7", "/"),
+    # U+2212, the minus sign the app itself prints in suggestions.
+    ("\u2212", "-"),
     ("*", "*"),
     ("/", "/"),
     ("+", "+"),
