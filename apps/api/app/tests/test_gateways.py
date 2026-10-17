@@ -294,7 +294,7 @@ async def test_complete_structured_retries_fallback_on_provider_outage():
     assert result is not None
     assert len(result.actions) == 1
     # First call used the primary model, second used the fallback.
-    assert calls[0].endswith("gpt-6-luna")
+    assert calls[0].endswith("qwen3.7-flash")
     assert calls[1].endswith("claude-haiku-5.5")
 
 
@@ -341,7 +341,7 @@ async def test_complete_structured_can_retry_invalid_output_for_verified_paths()
         )
     assert result is not None
     assert len(result.actions) == 1
-    assert calls[0].endswith("gpt-6-luna")
+    assert calls[0].endswith("qwen3.7-flash")
     assert calls[1].endswith("claude-haiku-5.5")
 
 
@@ -1070,7 +1070,7 @@ async def test_acompletion_with_fallback_times_out_hung_provider():
     # Both primary and fallback timed out → None.
     assert result is None
     assert len(calls) == 2
-    assert calls[0].endswith("gpt-6-luna")
+    assert calls[0].endswith("qwen3.7-flash")
     assert calls[1].endswith("claude-haiku-5.5")
 
 
@@ -1100,7 +1100,7 @@ async def test_complete_structured_times_out_hung_provider():
     assert result is None
     # Primary timed out, then fallback also timed out.
     assert len(calls) == 2
-    assert calls[0].endswith("gpt-6-luna")
+    assert calls[0].endswith("qwen3.7-flash")
     assert calls[1].endswith("claude-haiku-5.5")
 
 

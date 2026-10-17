@@ -272,4 +272,7 @@ def test_chat_fallback_models_prefer_nearby_tier_not_cheapest():
     fallbacks = plan_service.chat_fallback_models(user, settings, "smart-chat")
     assert fallbacks
     assert "smart-chat" not in fallbacks
-    assert all(model_catalog.get(mid).tier in {"smart", "max"} for mid in fallbacks)
+    # The other smart model first, then the nearest tier — never straight to the cheapest.
+    assert model_catalog.get(fallbacks[0]).tier in {"smart", "max"}
+    ranks = [model_catalog.tier_rank(model_catalog.get(mid)) for mid in fallbacks]
+    assert ranks == sorted(ranks, reverse=True)
