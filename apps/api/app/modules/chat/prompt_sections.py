@@ -45,6 +45,7 @@ from app.modules.chat.prompt_constants import (
     outline_awaits_pick,
     programming_lesson_contract,
 )
+from app.modules.chat.prompt_constants.lesson_flow import lesson_after_gap
 from app.modules.chat.prompt_format import PromptRule, _style_format_hints, code_question_layout
 from app.modules.chat.prompt_profile import (
     custom_instructions_block,
@@ -128,6 +129,7 @@ def _style_hints(turn: PromptTurn) -> list[str]:
     query = turn.query
     lesson = active_lesson_step(turn.exchange)
     outline_pick = not lesson and outline_awaits_pick(turn.exchange)
+    after_gap = bool(lesson) and lesson_after_gap(turn.exchange)
     # Greetings and pasted fragments are compact. "ok" / "next" after a lesson
     # asks for the next lesson, not a casual reply.
     compact = not (lesson or outline_pick) and bool(
@@ -143,6 +145,7 @@ def _style_hints(turn: PromptTurn) -> list[str]:
         image_search_enabled=turn.settings.image_search_enabled,
         lesson=lesson,
         outline_pick=outline_pick,
+        lesson_after_gap=after_gap,
         prior_messages=[
             (message.role, message.content)
             for message in turn.exchange

@@ -361,7 +361,11 @@ _LESSON_OPENING = (
 # topics in order and one question; "teach me Python dictionaries" gets the
 # lesson. The model judges the size, in any subject and language.
 _SUBJECT_OUTLINE = (
-    "First judge the size of what they asked for.\n"
+    'First check memory: if it says they are already learning this subject ("Learning '
+    'Python: reached Lesson 3, Dictionaries ... Covered: ...") reply with only two lines '
+    "and no list: where they got to, then one question offering the next topic after the "
+    'last one covered or a fresh start ("Last time we got to dictionaries. Pick up with '
+    'functions, or start over?"). Otherwise judge the size of what they asked for.\n'
     "- A whole subject (Python, English, cooking, calculus, guitar, chemistry): do not teach "
     "yet. Reply with one sentence on what it opens up for them, then a numbered list of 5-8 "
     "topics in the order to learn them, each a **bold name** and a few words on what it "

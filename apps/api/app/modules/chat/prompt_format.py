@@ -208,6 +208,7 @@ def _style_turn(
     image_search_enabled: bool,
     lesson: int | None,
     outline_pick: bool = False,
+    lesson_after_gap: bool = False,
     prior_messages: list[tuple[str, str]] | None,
 ) -> StyleTurn:
     query = query_text or ""
@@ -245,7 +246,9 @@ def _style_turn(
         learning_plan=learning_plan,
         teaching=teaching,
         walkthrough=walkthrough,
-        lesson_hint=lesson_turn_hint(lesson, outline_pick=outline_pick) if not shaped else None,
+        lesson_hint=None
+        if shaped
+        else lesson_turn_hint(lesson, outline_pick=outline_pick, after_gap=lesson_after_gap),
         viz_intent=_viz_intent(query_text),
         subject=effective_presentation_subject(query_text, prior_messages),
     )
@@ -465,18 +468,15 @@ def _style_format_hints(
     image_search_enabled: bool = False,
     lesson: int | None = None,
     outline_pick: bool = False,
+    lesson_after_gap: bool = False,
     prior_messages: list[tuple[str, str]] | None = None,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
 
-    ``lesson`` is the number of the lesson the previous reply taught: this turn
-    answers its practice question or asks for more, so the lesson goes on.
-    ``outline_pick``: the previous reply outlined a subject, so this turn picks
-    where Lesson 1 starts.
-
-    ``compact`` is for greetings and pasted fragments only — not for
-    "no personal data". Ordinary questions get FORMAT_CONTRACT; math/viz
-    packs are intent-gated so general knowledge does not pay ~3k tokens.
+    ``lesson`` / ``outline_pick`` / ``lesson_after_gap``: where a lesson stands
+    (``prompt_constants/lesson_flow.py``). ``compact`` is for greetings and pasted
+    fragments only, not "no personal data". Ordinary questions get FORMAT_CONTRACT;
+    math/viz packs are intent-gated so general knowledge does not pay ~3k tokens.
     Writing deliverables replace compact / short / FORMAT_CONTRACT so a
     paragraph ask is not also told to use bullets or a compare table.
     """
@@ -487,6 +487,7 @@ def _style_format_hints(
         query_text,
         lesson=lesson,
         outline_pick=outline_pick,
+        lesson_after_gap=lesson_after_gap,
         prior_messages=prior_messages,
         style=style,
         is_day_plan=is_day_plan,
