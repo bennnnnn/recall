@@ -59,6 +59,8 @@ class User(Base):
     memory_include_sensitive: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
+    # Web search and photo lookups (Settings → Data controls). Off: no search leaves the server.
+    web_search_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     # When memory last read the user's recent chats in one pass (history scan).
     memory_history_scanned_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

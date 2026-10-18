@@ -7,7 +7,7 @@ import {
 } from "@/features/account/components/settingsUi";
 import licenses from "@/lib/licenses.generated.json";
 
-/** Settings → Help & about → Open-source licenses (built by `pnpm oss-licenses`). */
+/** Settings → About → Open-source licenses (built by `pnpm oss-licenses`). */
 export default function LicensesScreen() {
   const { t } = useTranslation();
   return (

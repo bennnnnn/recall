@@ -9,7 +9,6 @@ const mockPush = jest.fn();
 const mockReplace = jest.fn();
 const mockSetPreference = jest.fn();
 const mockSetAccent = jest.fn();
-const mockSetHaptics = jest.fn();
 const mockUpdateUser = jest.fn();
 const mockSignOut = jest.fn();
 let mockIsPro = true;
@@ -60,7 +59,6 @@ jest.mock("@/hooks/useModels", () => ({
 jest.mock("@/contexts/AppearanceContext", () => ({
   useAppearance: () => ({ preference: "system", setPreference: mockSetPreference }),
   useAccent: () => ({ accent: "indigo", setAccent: mockSetAccent }),
-  useHaptics: () => ({ enabled: true, setEnabled: mockSetHaptics }),
 }));
 jest.mock("@/features/account/hooks/useLiveTalkMinutes", () => ({
   useLiveTalkMinutes: () => null,
@@ -114,7 +112,7 @@ describe("settings home", () => {
     expect(getByText("dev@recall.local")).toBeTruthy();
     expect(getByText("settings.signed_in_with")).toBeTruthy();
     expect(getByText("settings.manage_subscription")).toBeTruthy();
-    expect(getByText("settings.usage_left_paid")).toBeTruthy();
+    expect(getByText("settings.usage_group")).toBeTruthy();
     expect(queryByText("settings.restore_purchases")).toBeNull();
     expect(queryByText("settings.sign_in_method")).toBeNull();
     expect(queryByText("settings.age_label")).toBeNull();
@@ -133,7 +131,10 @@ describe("settings home", () => {
     ["settings.model", "/settings/models"],
     ["settings.voice", "/settings/voice"],
     ["settings.notifications", "/settings/notifications"],
-    ["settings.help_about", "/settings/about"],
+    ["settings.usage_group", "/settings/usage"],
+    ["settings.data_controls", "/settings/data-controls"],
+    ["settings.help", "/settings/help"],
+    ["settings.about", "/settings/about"],
   ])("%s opens %s", async (title, href) => {
     const { getByText } = await render(<SettingsScreen />);
     await fireEvent.press(getByText(title));
@@ -160,10 +161,9 @@ describe("settings home", () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("turns haptics off on this device", async () => {
-    const { getByRole } = await render(<SettingsScreen />);
-    await fireEvent.press(getByRole("switch", { name: "settings.haptics" }));
-    expect(mockSetHaptics).toHaveBeenCalledWith(false);
+  it("keeps haptics under Personalization, not on the home page", async () => {
+    const { queryByRole } = await render(<SettingsScreen />);
+    expect(queryByRole("switch", { name: "settings.haptics" })).toBeNull();
   });
 
   it("asks before signing out", async () => {
@@ -216,6 +216,6 @@ describe("settings home", () => {
     const { getByText, queryByText } = await render(<SettingsScreen />);
     expect(getByText("plans.free")).toBeTruthy();
     expect(queryByText("settings.manage_subscription")).toBeNull();
-    expect(getByText("settings.usage_left")).toBeTruthy();
+    expect(getByText("settings.usage_group")).toBeTruthy();
   });
 });

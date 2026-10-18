@@ -9,11 +9,8 @@ import {
   SettingsValueRow,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLiveTalkMinutes } from "@/features/account/hooks/useLiveTalkMinutes";
-import { useUsage } from "@/features/account/hooks/useUsage";
 import { type User } from "@/lib/api";
-import { hasPlanFeature, planNameKey, planOf, upgradeTargets } from "@/lib/plan";
-import { formatUsageSummary } from "@/lib/quota";
+import { planNameKey, planOf, upgradeTargets } from "@/lib/plan";
 
 function manageSubscriptionUrl(): string {
   return Platform.OS === "ios"
@@ -31,19 +28,17 @@ function signInLabel(
 }
 
 /**
- * Email (with how you sign in), plan, live talk minutes and today's usage.
+ * Email (with how you sign in), plan, and the Usage page.
  * Free opens the plans sheet (which also restores a purchase); a paid plan
  * manages its subscription in the store, and Plus also gets a way up to Pro.
  */
-export function AccountSettingsSection({ isPaid }: { isPaid: boolean }) {
+export function AccountSettingsSection() {
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { usage } = useUsage();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const plan = planOf(user);
   const planName = t(planNameKey(plan));
   const nextPlan = plan === "free" ? null : upgradeTargets(plan)[0] ?? null;
-  const liveTalk = useLiveTalkMinutes(hasPlanFeature(user, "live_talk"));
 
   return (
     <>
@@ -82,20 +77,10 @@ export function AccountSettingsSection({ isPaid }: { isPaid: boolean }) {
             accent
           />
         ) : null}
-        {liveTalk ? (
-          <SettingsValueRow
-            icon="activity"
-            title={t("settings.live_talk_minutes")}
-            value={t("settings.live_talk_minutes_left", {
-              count: liveTalk.remaining,
-              limit: liveTalk.limit,
-            })}
-          />
-        ) : null}
-        <SettingsValueRow
+        <SettingsLinkRow
           icon="bar-chart"
           title={t("settings.usage_group")}
-          value={usage ? formatUsageSummary(usage, isPaid, t) : undefined}
+          href="/settings/usage"
         />
       </SettingsGroup>
 

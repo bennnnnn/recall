@@ -13,18 +13,13 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { StateView } from "@/ui/feedback/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useMemoryToggle } from "@/features/memory/hooks/useMemoryToggle";
-import { invalidateMemoryDocuments } from "@/features/memory/model/memoryDocumentsCache";
-import { api } from "@/lib/api";
 import {
   fetchMemories,
   getCachedMemories,
   prefetchMemories,
-  setMemoriesCache,
   subscribeMemoriesCache,
 } from "@/features/memory/model/memoryListCache";
-import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function MemorySettingsScreen() {
   const view = useAccountViewOwner();
@@ -37,7 +32,6 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
   const router = useRouter();
   const [memCount, setMemCount] = useState(0);
   const [loadError, setLoadError] = useState(false);
-  const [busy, setBusy] = useState(false);
   const requestRef = useRef(0);
   const feedback = useActionFeedbackOptional();
   const { saving, toggle } = useMemoryToggle(isCurrentView, useCallback(() => {
@@ -67,38 +61,9 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
   }, [loadMemories]);
 
   const toggleSensitive = useCallback((enabled: boolean) => {
-    if (!isCurrentView() || busy || saving) return;
+    if (!isCurrentView() || saving) return;
     void updateUser({ memory_include_sensitive: enabled }).catch(onError);
-  }, [isCurrentView, busy, saving, updateUser, onError]);
-
-  const confirmClearAll = useCallback(() => {
-    if (!token || !isCurrentView() || busy) return;
-    void confirmDialog({
-      title: t("settings.memory_clear_all_confirm_title"),
-      message: t("settings.memory_clear_all_confirm_body"),
-      cancelLabel: t("common.cancel"),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-    }).then((ok) => {
-      if (!ok) return;
-      void (async () => {
-        if (!isCurrentView()) return;
-        setBusy(true);
-        try {
-          await api.clearMemories(token);
-          invalidateMemoryDocuments();
-          if (!isCurrentView()) return;
-          notifyDestructive();
-          setMemoriesCache([]);
-          setMemCount(0);
-        } catch {
-          if (isCurrentView()) onError();
-        } finally {
-          if (isCurrentView()) setBusy(false);
-        }
-      })();
-    });
-  }, [token, isCurrentView, busy, t, onError]);
+  }, [isCurrentView, saving, updateUser, onError]);
 
   return (
     <SettingsPage>
@@ -108,7 +73,7 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
           title={t("settings.memory")}
           subtitle={t("settings.memory_desc")}
           value={user?.memory_enabled ?? true}
-          disabled={saving || busy}
+          disabled={saving}
           busy={saving}
           onValueChange={toggle}
         />
@@ -117,7 +82,7 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
           title={t("settings.memory_include_sensitive")}
           subtitle={t("settings.memory_include_sensitive_desc")}
           value={user?.memory_include_sensitive ?? false}
-          disabled={saving || busy}
+          disabled={saving}
           onValueChange={toggleSensitive}
         />
         <SettingsLinkRow
@@ -134,14 +99,6 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
             if (token) prefetchMemories(token);
             router.push("/memory");
           }}
-        />
-      </SettingsGroup>
-      <SettingsGroup>
-        <SettingsLinkRow
-          icon="trash"
-          title={t("settings.memory_clear_all")}
-          danger
-          onPress={confirmClearAll}
         />
       </SettingsGroup>
       {loadError ? <StateView

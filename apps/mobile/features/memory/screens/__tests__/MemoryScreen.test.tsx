@@ -1,4 +1,4 @@
-import { fireEvent, render, within } from "@testing-library/react-native";
+import { act, fireEvent, render, within } from "@testing-library/react-native";
 
 import MemoryScreen from "@/features/memory/screens/MemoryScreen";
 import type { MemoryDocument } from "@/features/memory/types";
@@ -14,6 +14,25 @@ let mockLoading = false;
 let mockError = false;
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
+const mockClearAll = jest.fn(async () => true);
+jest.mock("@/features/memory/hooks/useClearAllMemories", () => ({
+  useClearAllMemories: () => ({ clearAll: mockClearAll, busy: false }),
+}));
+jest.mock("@/features/memory/components/MemoryHeaderMenu", () => {
+  const { Pressable, Text } = jest.requireActual("react-native") as typeof import("react-native");
+  return {
+    MemoryHeaderMenu: ({
+      items,
+    }: {
+      items: { key: string; label: string; onPress: () => void; testID?: string }[];
+    }) =>
+      items.map((item) => (
+        <Pressable key={item.key} testID={item.testID ?? `menu-${item.key}`} onPress={item.onPress}>
+          <Text>{item.label}</Text>
+        </Pressable>
+      )),
+  };
+});
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: mockToken }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
 jest.mock("@/lib/reportRecoverableError", () => ({
@@ -73,6 +92,17 @@ beforeEach(() => {
 });
 
 describe("MemoryScreen", () => {
+  it("clears all memories from the menu at the top right, then reloads", async () => {
+    const ui = await render(<MemoryScreen />);
+    mockLoad.mockClear();
+    await act(async () => {
+      fireEvent.press(ui.getByTestId("menu-clear-all"));
+    });
+    expect(mockClearAll).toHaveBeenCalled();
+    expect(ui.getByText("settings.memory_clear_all")).toBeTruthy();
+    expect(mockLoad).toHaveBeenCalled();
+  });
+
   it("lists You, Topics and Areas pages and loads on open", async () => {
     const ui = await render(<MemoryScreen />);
 

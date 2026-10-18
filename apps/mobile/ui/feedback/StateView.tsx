@@ -40,6 +40,10 @@ export function StateView({
         <ActivityIndicator size={compact ? "small" : "large"} color={theme.primary} />
         {title ? <Text style={s.title}>{title}</Text> : null}
         {message ? <Text style={s.message}>{message}</Text> : null}
+        {/* A long job can offer one way out ("Cancel"). */}
+        {onRetry && retryLabel ? (
+          <Button title={retryLabel} variant="secondary" onPress={onRetry} style={s.retryBtn} />
+        ) : null}
       </View>
     );
   }

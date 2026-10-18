@@ -16,3 +16,10 @@ FACT_GROUNDING_HINT = (
     "documented and what is disputed, even-handedly; never say a well-known public figure "
     "is not in your memory."
 )
+
+# The user turned web search off (Settings → Data controls): there is nothing to offer.
+WEB_SEARCH_OFF_HINT = (
+    "This user turned web search off in Settings, so you cannot look anything up. For a "
+    "fact that may have changed, say you may be out of date and that turning web search "
+    "on in Settings, Data controls lets you check. Never offer to search."
+)

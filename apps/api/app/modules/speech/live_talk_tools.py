@@ -16,6 +16,7 @@ from app.core.db import SessionLocal
 from app.gateways.mcp.base import ToolContext
 from app.models.orm import User
 from app.modules import memory as memory_service
+from app.modules.account import profile as profile_service
 from app.modules.chat import is_lightweight_chat_turn
 from app.modules.web_search import TurnTavilyBudget, WebSearchAdapter
 from app.services.prompt_safety import wrap_untrusted
@@ -41,6 +42,7 @@ async def execute_tool(
 ) -> dict[str, Any]:
     if name not in {"memory_lookup", "web_search"}:
         return {"content": "This action is not available in voice."}
+    settings = profile_service.settings_for_user(settings, user)
     if name == "memory_lookup" and not user.memory_enabled:
         return {"content": "Memory is disabled. Do not use saved personal details."}
     # One reservation per tool per utterance, including retries and concurrent

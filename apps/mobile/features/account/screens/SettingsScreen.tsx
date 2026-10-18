@@ -11,10 +11,9 @@ import {
   SettingsLinkRow,
   SettingsMenuRow,
   SettingsPage,
-  SettingsSwitchRow,
   useSettingsAction,
 } from "@/features/account/components/settingsUi";
-import { useAccent, useAppearance, useHaptics } from "@/contexts/AppearanceContext";
+import { useAccent, useAppearance } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
 import { prefetchMemories } from "@/features/memory/model/memoryListCache";
@@ -29,12 +28,11 @@ import { useTheme } from "@/lib/theme";
 export default function SettingsScreen() {
   const { token, user, signOut, updateUser } = useAuth();
   const { t } = useTranslation();
-  const { isPaid, autoEnabled, modelEnabledSet } = useModels();
+  const { autoEnabled, modelEnabledSet } = useModels();
   const theme = useTheme();
   const router = useRouter();
   const { preference, setPreference } = useAppearance();
   const { accent, setAccent } = useAccent();
-  const haptics = useHaptics();
   const action = useSettingsAction();
 
   const [osPushGranted, setOsPushGranted] = useState<boolean | null>(null);
@@ -89,7 +87,7 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <AccountSettingsSection isPaid={isPaid} />
+      <AccountSettingsSection />
 
       <SettingsGroup label={t("settings.experience")}>
         <SettingsMenuRow
@@ -118,12 +116,6 @@ export default function SettingsScreen() {
           selectedKey={language.code}
           busy={action.busy === "language"}
           onSelect={(code) => void action.run("language", () => updateUser({ locale: code }))}
-        />
-        <SettingsSwitchRow
-          icon="vibrate"
-          title={t("settings.haptics")}
-          value={haptics.enabled}
-          onValueChange={(next) => void haptics.setEnabled(next)}
         />
       </SettingsGroup>
 
@@ -175,6 +167,7 @@ export default function SettingsScreen() {
           icon="shield"
           title={t("settings.data_controls")}
           accessibilityHint={t("settings.data_controls_summary")}
+          value={user?.web_search_enabled === false ? t("settings.web_search_off") : undefined}
           href="/settings/data-controls"
         />
         <SettingsLinkRow
@@ -188,8 +181,14 @@ export default function SettingsScreen() {
       <SettingsGroup>
         <SettingsLinkRow
           icon="help"
-          title={t("settings.help_about")}
-          accessibilityHint={t("settings.help_about_summary")}
+          title={t("settings.help")}
+          accessibilityHint={t("settings.help_summary")}
+          href="/settings/help"
+        />
+        <SettingsLinkRow
+          icon="info"
+          title={t("settings.about")}
+          accessibilityHint={t("settings.about_summary")}
           href="/settings/about"
         />
       </SettingsGroup>

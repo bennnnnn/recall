@@ -34,7 +34,7 @@ export const accountApi = {
   /** Every plan with what it includes and its numbers (prices come from the store). */
   listPlans: (token: string) => request<PlanCatalog>("/billing/plans", token),
   exportData: (token: string) => request<unknown>("/auth/me/export", token),
-  exportDataText: (token: string) => fetchExportText(token),
+  exportDataText: (token: string, signal?: AbortSignal) => fetchExportText(token, true, signal),
   deleteAccount: (token: string) =>
     request<void>("/auth/me", token, { method: "DELETE" }, true, 120_000),
   listSessions: (token: string) =>

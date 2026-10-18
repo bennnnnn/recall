@@ -237,7 +237,6 @@ These need a **dev build on hardware**. Simulator FPS and memory are not evidenc
 ## 17. UI kit (menus, dialogs, pickers, share)
 
 Rebuild the dev client once first: the native date/time picker module was removed.
-**Settings → Help & about → UI kit** (dev builds) shows every piece in one place.
 
 | # | Test | iOS | Android | Notes |
 |---|------|-----|---------|-------|

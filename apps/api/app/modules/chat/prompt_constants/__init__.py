@@ -52,7 +52,10 @@ from app.modules.chat.prompt_constants.format import (
     is_structured_comparison_question,
     is_task_howto,
 )
-from app.modules.chat.prompt_constants.grounding import FACT_GROUNDING_HINT
+from app.modules.chat.prompt_constants.grounding import (
+    FACT_GROUNDING_HINT,
+    WEB_SEARCH_OFF_HINT,
+)
 from app.modules.chat.prompt_constants.math import MATH_FENCE_SAFETY_HINT
 from app.modules.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,
@@ -200,6 +203,7 @@ __all__ = [
     "VERIFIED_SOLVE_SAFETY_HINT",
     "VISUALIZATION_HINTS",
     "WALKTHROUGH_HINT",
+    "WEB_SEARCH_OFF_HINT",
     "WHERE_IS_PHOTO_HINT",
     "WRITING_LINE_HINT",
     "active_lesson_step",

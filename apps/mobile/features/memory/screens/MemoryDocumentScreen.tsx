@@ -30,11 +30,12 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { Button } from "@/ui/controls/Button";
 import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
 import { StateView } from "@/ui/feedback/StateView";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 import { Menu } from "@/ui/overlay/Menu";
+import { MemoryHeaderMenu } from "@/features/memory/components/MemoryHeaderMenu";
+import { useClearAllMemories } from "@/features/memory/hooks/useClearAllMemories";
 
 type FactMenu = { fact: Memory; point: { x: number; y: number } };
 
@@ -54,6 +55,7 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const memory = useMemoryDocuments(token);
   const { load, instruct, deleteDocument, deleteFact, editFact } = memory;
+  const { clearAll } = useClearAllMemories(isCurrentView);
   const document = memory.documents.find((doc) => doc.key === key);
   const [menu, setMenu] = useState<FactMenu | null>(null);
   const [editing, setEditing] = useState<{ fact: Memory; text: string } | null>(null);
@@ -169,6 +171,26 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   return (
     <View style={s.root}>
+      <MemoryHeaderMenu
+        items={[
+          {
+            key: "delete-page",
+            label: t("memory.delete_page"),
+            icon: "trash",
+            destructive: true,
+            onPress: removeDocument,
+            testID: "memory-document-delete",
+          },
+          {
+            key: "clear-all",
+            label: t("settings.memory_clear_all"),
+            icon: "trash",
+            destructive: true,
+            onPress: () =>
+              void clearAll().then((done) => done && isCurrentView() && router.back()),
+          },
+        ]}
+      />
       <ScrollView
         style={s.scroll}
         contentContainerStyle={s.content}
@@ -177,13 +199,6 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       >
         <View style={s.titleRow}>
           <Text style={s.title} accessibilityRole="header">{title}</Text>
-          <Button
-            title={t("common.delete")}
-            variant="outline"
-            size="sm"
-            onPress={removeDocument}
-            testID="memory-document-delete"
-          />
         </View>
         {updated ? (
           <View style={s.block}>

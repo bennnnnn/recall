@@ -7,7 +7,6 @@ import ProfileSettingsScreen from "@/features/account/screens/ProfileSettingsScr
 const mockUpdateUser = jest.fn();
 const mockPickProfilePhoto = jest.fn();
 const mockUploadPhoto = jest.fn();
-const mockLocationLabel = jest.fn();
 let mockUser: Record<string, unknown>;
 
 jest.mock("react-i18next", () => ({
@@ -34,10 +33,6 @@ jest.mock("@/features/attachments/model/attachments", () => ({
   NativePickerBusyError: class extends Error {},
   NativePickerTimeoutError: class extends Error {},
 }));
-jest.mock("@/lib/deviceLocation", () => ({
-  getDeviceLocationLabel: (...args: unknown[]) => mockLocationLabel(...args),
-}));
-jest.mock("@/lib/expoRuntime", () => ({ canUseDeviceLocation: () => true }));
 jest.mock("@/ui/overlay/Sheet", () => {
   const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
   return {
@@ -64,14 +59,14 @@ beforeEach(() => {
   jest.spyOn(Alert, "alert").mockImplementation(() => {});
 });
 
-it("shows the name, the facts about you and location on one page", async () => {
-  const { getByText } = await render(<ProfileSettingsScreen />);
+it("shows the name and the facts about you; location lives under Privacy", async () => {
+  const { getByText, queryByText } = await render(<ProfileSettingsScreen />);
   expect(getByText("bini")).toBeTruthy();
   expect(getByText("settings.about_you")).toBeTruthy();
   expect(getByText("54")).toBeTruthy();
   expect(getByText("Ethiopia")).toBeTruthy();
   expect(getByText("settings.not_set")).toBeTruthy();
-  expect(getByText("settings.use_current_location")).toBeTruthy();
+  expect(queryByText("settings.use_current_location")).toBeNull();
 });
 
 it("opens the profile editor from the avatar and saves the name", async () => {
@@ -135,16 +130,4 @@ it("refuses an age outside 13 to 120 without saving", async () => {
   await fireEvent.press(view.getByLabelText("settings.save"));
   expect(Alert.alert).toHaveBeenCalledWith("common.error", "settings.age_invalid");
   expect(mockUpdateUser).not.toHaveBeenCalled();
-});
-
-it("turns location on with the device's place", async () => {
-  mockLocationLabel.mockResolvedValue("Addis Ababa, Ethiopia");
-  const view = await render(<ProfileSettingsScreen />);
-  await fireEvent.press(view.getByRole("switch", { name: "settings.use_current_location" }));
-  await waitFor(() =>
-    expect(mockUpdateUser).toHaveBeenCalledWith({
-      location_enabled: true,
-      location: "Addis Ababa, Ethiopia",
-    }),
-  );
 });

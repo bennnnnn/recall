@@ -10,6 +10,7 @@ import {
   SettingsSwitchRow,
   useSettingsAction,
 } from "@/features/account/components/settingsUi";
+import { useHaptics } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DEFAULT_RESPONSE_TONE,
@@ -23,6 +24,7 @@ export default function PreferencesSettingsScreen() {
   const { user, updateUser } = useAuth();
   const { t } = useTranslation();
   const action = useSettingsAction();
+  const haptics = useHaptics();
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructionsText, setInstructionsText] = useState("");
 
@@ -63,7 +65,6 @@ export default function PreferencesSettingsScreen() {
           />
           <SettingsSwitchRow
             title={t("settings.follow_up_suggestions")}
-            subtitle={t("settings.follow_up_suggestions_summary")}
             value={user?.follow_up_suggestions_enabled !== false}
             disabled={saving}
             busy={action.busy === "follow_ups"}
@@ -73,6 +74,16 @@ export default function PreferencesSettingsScreen() {
               )
             }
           />
+        </SettingsGroup>
+        <SettingsGroup>
+          <SettingsSwitchRow
+            icon="vibrate"
+            title={t("settings.haptics")}
+            value={haptics.enabled}
+            onValueChange={(next) => void haptics.setEnabled(next)}
+          />
+        </SettingsGroup>
+        <SettingsGroup>
           <SettingsLinkRow
             title={t("settings.custom_instructions")}
             value={

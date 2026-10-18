@@ -6,9 +6,6 @@ button, menu, picker or row. Features import each piece by its path
 product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 `@/app`), which lint enforces.
 
-Development builds show every piece in light and dark at
-**Settings → Help & about → UI kit** (`app/dev-ui.tsx`).
-
 ## Which piece for which job
 
 | Job | Use | Instead of |

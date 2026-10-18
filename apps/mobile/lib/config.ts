@@ -9,7 +9,7 @@ export const config = {
     process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ??
     "your-ios-client-id.apps.googleusercontent.com",
   devAuthEnabled: process.env.EXPO_PUBLIC_DEV_AUTH_ENABLED === "true",
-  /** Settings → Help & about → Contact support; the row is hidden without one. */
+  /** Settings → Help → Contact support; the row is hidden without one. */
   supportEmail: process.env.EXPO_PUBLIC_SUPPORT_EMAIL?.trim() || null,
   appName: "Recall",
   isDev: __DEV__,

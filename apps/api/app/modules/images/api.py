@@ -4,6 +4,7 @@ from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.models.orm import User
 from app.models.schemas.chats import MessageOut
+from app.modules.account import profile as profile_service
 from app.modules.images import generation as image_generation_service
 from app.modules.images import intent as image_intent_service
 from app.modules.images.schemas import (
@@ -57,7 +58,7 @@ async def image_intent(
     the chat's recent turns. A chat that is not the user's is not found.
     """
     verdict = await image_intent_service.composer_intent_for_chat(
-        settings,
+        profile_service.settings_for_user(settings, user),
         user_id=user.id,
         text=body.text,
         chat_id=body.chat_id,
