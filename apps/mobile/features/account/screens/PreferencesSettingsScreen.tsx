@@ -10,6 +10,7 @@ import {
   SettingsSwitchRow,
   useSettingsAction,
 } from "@/features/account/components/settingsUi";
+import { useHaptics } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DEFAULT_RESPONSE_TONE,
@@ -23,6 +24,7 @@ export default function PreferencesSettingsScreen() {
   const { user, updateUser } = useAuth();
   const { t } = useTranslation();
   const action = useSettingsAction();
+  const haptics = useHaptics();
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructionsText, setInstructionsText] = useState("");
 
@@ -81,6 +83,14 @@ export default function PreferencesSettingsScreen() {
                 : t("settings.custom_instructions_none")
             }
             onPress={openInstructions}
+          />
+        </SettingsGroup>
+        <SettingsGroup>
+          <SettingsSwitchRow
+            icon="vibrate"
+            title={t("settings.haptics")}
+            value={haptics.enabled}
+            onValueChange={(next) => void haptics.setEnabled(next)}
           />
         </SettingsGroup>
       </SettingsPage>

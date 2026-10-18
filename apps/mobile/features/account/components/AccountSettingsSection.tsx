@@ -44,6 +44,10 @@ export function AccountSettingsSection({ isPaid }: { isPaid: boolean }) {
   const planName = t(planNameKey(plan));
   const nextPlan = plan === "free" ? null : upgradeTargets(plan)[0] ?? null;
   const liveTalk = useLiveTalkMinutes(hasPlanFeature(user, "live_talk"));
+  // Live talk's monthly minutes sit under today's usage, not in a row of their own.
+  const liveTalkLine = liveTalk
+    ? t("settings.usage_live_talk", { count: liveTalk.remaining, limit: liveTalk.limit })
+    : undefined;
 
   return (
     <>
@@ -82,28 +86,20 @@ export function AccountSettingsSection({ isPaid }: { isPaid: boolean }) {
             accent
           />
         ) : null}
-        {liveTalk ? (
-          <SettingsValueRow
-            icon="activity"
-            title={t("settings.live_talk_minutes")}
-            value={t("settings.live_talk_minutes_left", {
-              count: liveTalk.remaining,
-              limit: liveTalk.limit,
-            })}
-          />
-        ) : null}
         {/* Never a blank row: today's share, "…" while it loads, or a retry. */}
         {usage || !usageError ? (
           <SettingsValueRow
             icon="bar-chart"
             title={t("settings.usage_group")}
             value={usage ? formatUsageSummary(usage, isPaid, t) : usageLoading ? "…" : undefined}
+            subtitle={liveTalkLine}
           />
         ) : (
           <SettingsLinkRow
             icon="bar-chart"
             title={t("settings.usage_group")}
             value={t("settings.usage_unavailable")}
+            subtitle={liveTalkLine}
             onPress={() => void refreshUsage({ force: true })}
           />
         )}

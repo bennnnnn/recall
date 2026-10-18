@@ -11,10 +11,9 @@ import {
   SettingsLinkRow,
   SettingsMenuRow,
   SettingsPage,
-  SettingsSwitchRow,
   useSettingsAction,
 } from "@/features/account/components/settingsUi";
-import { useAccent, useAppearance, useHaptics } from "@/contexts/AppearanceContext";
+import { useAccent, useAppearance } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
 import { prefetchMemories } from "@/features/memory/model/memoryListCache";
@@ -34,7 +33,6 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { preference, setPreference } = useAppearance();
   const { accent, setAccent } = useAccent();
-  const haptics = useHaptics();
   const action = useSettingsAction();
 
   const [osPushGranted, setOsPushGranted] = useState<boolean | null>(null);
@@ -118,12 +116,6 @@ export default function SettingsScreen() {
           selectedKey={language.code}
           busy={action.busy === "language"}
           onSelect={(code) => void action.run("language", () => updateUser({ locale: code }))}
-        />
-        <SettingsSwitchRow
-          icon="vibrate"
-          title={t("settings.haptics")}
-          value={haptics.enabled}
-          onValueChange={(next) => void haptics.setEnabled(next)}
         />
       </SettingsGroup>
 

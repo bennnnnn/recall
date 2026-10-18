@@ -9,7 +9,6 @@ const mockPush = jest.fn();
 const mockReplace = jest.fn();
 const mockSetPreference = jest.fn();
 const mockSetAccent = jest.fn();
-const mockSetHaptics = jest.fn();
 const mockUpdateUser = jest.fn();
 const mockSignOut = jest.fn();
 let mockIsPro = true;
@@ -60,7 +59,6 @@ jest.mock("@/hooks/useModels", () => ({
 jest.mock("@/contexts/AppearanceContext", () => ({
   useAppearance: () => ({ preference: "system", setPreference: mockSetPreference }),
   useAccent: () => ({ accent: "indigo", setAccent: mockSetAccent }),
-  useHaptics: () => ({ enabled: true, setEnabled: mockSetHaptics }),
 }));
 jest.mock("@/features/account/hooks/useLiveTalkMinutes", () => ({
   useLiveTalkMinutes: () => null,
@@ -162,10 +160,9 @@ describe("settings home", () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("turns haptics off on this device", async () => {
-    const { getByRole } = await render(<SettingsScreen />);
-    await fireEvent.press(getByRole("switch", { name: "settings.haptics" }));
-    expect(mockSetHaptics).toHaveBeenCalledWith(false);
+  it("keeps haptics under Personalization, not on the home page", async () => {
+    const { queryByRole } = await render(<SettingsScreen />);
+    expect(queryByRole("switch", { name: "settings.haptics" })).toBeNull();
   });
 
   it("asks before signing out", async () => {
