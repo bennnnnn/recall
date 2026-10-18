@@ -139,7 +139,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Push / email out | `modules/notifications/`, `background/*scheduler*` | notification settings |
 | Billing | `modules/billing/` (`entitlements.py` plan policy, `revenuecat.py` webhook, `subscription.py` REST sync; HTTP `/webhooks/revenuecat`, `/billing/plans`), `gateways/revenuecat_gateway.py` | RevenueCat (`lib/purchases.ts`), `lib/plan.ts`, `components/UpgradeSheet.tsx` |
 | Product analytics | `routers/analytics.py`, `services/product_analytics.py` | `lib/api/analytics.ts` (metadata-only events; never prompts) |
-| Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `features/account/screens/AboutScreen.tsx`, `DataControlsScreen.tsx` |
+| Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `features/account/screens/HelpScreen.tsx`, `AboutScreen.tsx`, `DataControlsScreen.tsx` |
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
@@ -190,7 +190,7 @@ Steps 6–8 are the only ones on the user's critical path. Everything in step 9 
 
 ## Mobile map
 
-Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Settings (profile, preferences, memory, models, voice, notifications, data-controls, security, about, licenses; every page builds from `features/account/components/settingsUi.tsx`). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
+Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Settings (profile, preferences, memory, models, voice, notifications, data-controls (web search, location), security, help, about, licenses; every page builds from `features/account/components/settingsUi.tsx`). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
 
 - Network: `lib/api.ts` barrel → `lib/api/{client,discover,connectivity,analytics,push,scan,types}.ts` plus feature slices (`features/chat/api.ts`, `features/auth/api.ts`, `features/account/api.ts`, `features/memory/api.ts`, `features/todos/api.ts`, `features/home/api.ts`, `features/search/api.ts`, `features/attachments/api.ts`, `features/images/api.ts`, `features/speech/api.ts`)
 - Tokens: `expo-secure-store` only
@@ -198,7 +198,7 @@ Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Tod
 - Domain libs: `lib/<domain>/` — `math/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.
 - Messages: FlashList; markdown + `components/rich/*` + `components/markdown/*`
 - Fences: `lib/fenceRegistry.ts` is the lang/id table; `RichFence` renders
-- UI kit: `ui/` — controls (Button, Chip, SegmentedControl, TextField, HeaderButton), `list/` ListRow, `overlay/` (Menu, SelectMenu, `confirmDialog`/`alertDialog`, Sheet), `pickers/` (clock time, calendar date), `share/` ShareSheet, `icons/` (Lucide line icons + BrandMark). Catalog: `ui/README.md`; dev gallery at Settings → Help & about → UI kit. Lint bans raw `Alert`/`Modal`/`Switch`, `@expo/vector-icons` and the native datetimepicker outside it.
+- UI kit: `ui/` — controls (Button, Chip, SegmentedControl, TextField, HeaderButton), `list/` ListRow, `overlay/` (Menu, SelectMenu, `confirmDialog`/`alertDialog`, Sheet), `pickers/` (clock time, calendar date), `share/` ShareSheet, `icons/` (Lucide line icons + BrandMark). Catalog: `ui/README.md`. Lint bans raw `Alert`/`Modal`/`Switch`, `@expo/vector-icons` and the native datetimepicker outside it.
 - i18n: `lib/i18n` (9 locales, key parity enforced by test)
 
 ## Build / Run Commands

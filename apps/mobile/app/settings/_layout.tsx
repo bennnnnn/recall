@@ -42,10 +42,6 @@ export default function SettingsLayout() {
         options={subScreen(t("settings.profile"), header)}
       />
       <Stack.Screen
-        name="privacy"
-        options={subScreen(t("settings.privacy"), header)}
-      />
-      <Stack.Screen
         name="models"
         options={subScreen(t("settings.model"), header)}
       />
@@ -79,7 +75,11 @@ export default function SettingsLayout() {
       />
       <Stack.Screen
         name="about"
-        options={subScreen(t("settings.help_about"), header)}
+        options={subScreen(t("settings.about"), header)}
+      />
+      <Stack.Screen
+        name="help"
+        options={subScreen(t("settings.help"), header)}
       />
       <Stack.Screen
         name="licenses"

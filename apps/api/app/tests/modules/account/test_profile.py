@@ -124,7 +124,7 @@ def test_normalize_client_coordinates():
     assert normalize_client_coordinates(91.0, 0.0) is None
 
 
-# Web search can be turned off (Settings → Privacy): one narrowed copy of the
+# Web search can be turned off (Settings → Data controls): one narrowed copy of the
 # server's switches covers every search path for that user's turns.
 def test_web_search_setting_is_on_by_default_and_can_be_turned_off():
     from app.models.orm import User

@@ -1,11 +1,10 @@
 import { Alert } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
-import PrivacySettingsScreen from "@/features/account/screens/PrivacySettingsScreen";
+import DataControlsScreen from "@/features/account/screens/DataControlsScreen";
 
 const mockUpdateUser = jest.fn();
 const mockLocationLabel = jest.fn();
-const mockOpenUrl = jest.fn();
 let mockUser: Record<string, unknown>;
 
 jest.mock("react-i18next", () => ({
@@ -17,22 +16,25 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("expo-router", () => ({
   Redirect: () => null,
   router: { push: jest.fn() },
+  useRouter: () => ({ replace: jest.fn() }),
+  useNavigation: () => ({ setOptions: jest.fn() }),
 }));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "tok", user: mockUser, updateUser: mockUpdateUser }),
 }));
-jest.mock("@/contexts/actionFeedbackCore", () => ({
-  useActionFeedbackOptional: () => null,
+jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
+jest.mock("@/features/account/hooks/useDataControls", () => ({
+  useDataControls: () => ({ progress: "idle", exportData: jest.fn(), deleteAccount: jest.fn() }),
 }));
+jest.mock("@/lib/api", () => ({ api: { archiveAllChats: jest.fn(), deleteAllChats: jest.fn() } }));
+jest.mock("@/lib/cache/chatListCache", () => ({ invalidateChatListCache: jest.fn() }));
 jest.mock("@/lib/deviceLocation", () => ({
   getDeviceLocationLabel: (...args: unknown[]) => mockLocationLabel(...args),
 }));
 jest.mock("@/lib/expoRuntime", () => ({ canUseDeviceLocation: () => true }));
-jest.mock("@/lib/legalUrls", () => ({
-  getLegalPrivacyUrl: () => "https://recall.test/privacy",
-}));
-jest.mock("@/lib/linkSchemePolicy", () => ({
-  openAllowedUrl: (...args: unknown[]) => mockOpenUrl(...args),
+jest.mock("@/ui/controls/StackBackButton", () => ({
+  StackBackButton: () => null,
+  plainHeaderItems: () => [],
 }));
 
 beforeEach(() => {
@@ -42,41 +44,30 @@ beforeEach(() => {
   jest.spyOn(Alert, "alert").mockImplementation(() => {});
 });
 
-it("shows web search on by default, location, and how data is used", async () => {
-  const view = await render(<PrivacySettingsScreen />);
+it("opens with web search (on by default), location and how data is used", async () => {
+  const view = await render(<DataControlsScreen />);
   const search = view.getByRole("switch", { name: "settings.web_search" });
   expect(search.props.accessibilityState.checked).toBe(true);
-  expect(view.getByText("settings.web_search_summary")).toBeTruthy();
   expect(view.getByText("settings.location_summary")).toBeTruthy();
   expect(view.getByText("settings.data_use_body")).toBeTruthy();
+  // The policy itself lives once, under About.
+  expect(view.queryByText("privacy.title")).toBeNull();
 });
 
 it("turns web search off for the account", async () => {
-  const view = await render(<PrivacySettingsScreen />);
-  await fireEvent.press(
-    view.getByRole("switch", { name: "settings.web_search" }),
-  );
-  await waitFor(() =>
-    expect(mockUpdateUser).toHaveBeenCalledWith({ web_search_enabled: false }),
-  );
+  const view = await render(<DataControlsScreen />);
+  await fireEvent.press(view.getByRole("switch", { name: "settings.web_search" }));
+  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ web_search_enabled: false }));
 });
 
 it("turns location on with the device's place", async () => {
   mockLocationLabel.mockResolvedValue("Addis Ababa, Ethiopia");
-  const view = await render(<PrivacySettingsScreen />);
-  await fireEvent.press(
-    view.getByRole("switch", { name: "settings.use_current_location" }),
-  );
+  const view = await render(<DataControlsScreen />);
+  await fireEvent.press(view.getByRole("switch", { name: "settings.use_current_location" }));
   await waitFor(() =>
     expect(mockUpdateUser).toHaveBeenCalledWith({
       location_enabled: true,
       location: "Addis Ababa, Ethiopia",
     }),
   );
-});
-
-it("opens the privacy policy", async () => {
-  const view = await render(<PrivacySettingsScreen />);
-  await fireEvent.press(view.getByText("privacy.title"));
-  expect(mockOpenUrl).toHaveBeenCalledWith("https://recall.test/privacy");
 });

@@ -134,7 +134,9 @@ describe("settings home", () => {
     ["settings.model", "/settings/models"],
     ["settings.voice", "/settings/voice"],
     ["settings.notifications", "/settings/notifications"],
-    ["settings.help_about", "/settings/about"],
+    ["settings.data_controls", "/settings/data-controls"],
+    ["settings.help", "/settings/help"],
+    ["settings.about", "/settings/about"],
   ])("%s opens %s", async (title, href) => {
     const { getByText } = await render(<SettingsScreen />);
     await fireEvent.press(getByText(title));

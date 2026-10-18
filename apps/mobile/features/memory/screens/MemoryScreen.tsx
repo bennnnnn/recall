@@ -6,6 +6,8 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { MemoryComposer } from "@/features/memory/components/MemoryComposer";
+import { MemoryHeaderMenu } from "@/features/memory/components/MemoryHeaderMenu";
+import { useClearAllMemories } from "@/features/memory/hooks/useClearAllMemories";
 import { useMemoryDocuments } from "@/features/memory/hooks/useMemoryDocuments";
 import {
   documentSummary,
@@ -43,6 +45,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const feedback = useActionFeedbackOptional();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { documents, scanning, loading, error, load, instruct } = useMemoryDocuments(token);
+  const { clearAll } = useClearAllMemories(isCurrentView);
   const [refreshing, setRefreshing] = useState(false);
   const refreshingRef = useRef(false);
 
@@ -103,6 +106,17 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   return (
     <View style={s.root}>
+      <MemoryHeaderMenu
+        items={[
+          {
+            key: "clear-all",
+            label: t("settings.memory_clear_all"),
+            icon: "trash",
+            destructive: true,
+            onPress: () => void clearAll().then((done) => done && isCurrentView() && void load()),
+          },
+        ]}
+      />
       <ScrollView
         style={s.scroll}
         contentContainerStyle={s.content}

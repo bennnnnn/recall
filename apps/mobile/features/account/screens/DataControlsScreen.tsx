@@ -8,19 +8,23 @@ import {
   SettingsGroup,
   SettingsLinkRow,
   SettingsPage,
+  SettingsSwitchRow,
+  SettingsValueRow,
   useSettingsAction,
 } from "@/features/account/components/settingsUi";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
+import { getDeviceLocationLabel } from "@/lib/deviceLocation";
+import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { useDataControls } from "@/features/account/hooks/useDataControls";
 import { api } from "@/lib/api";
 import { invalidateChatListCache } from "@/lib/cache/chatListCache";
 import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { confirmDialog } from "@/ui/overlay/dialogs";
+import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function DataControlsScreen() {
-  const { token } = useAuth();
+  const { token, user, updateUser } = useAuth();
   const { progress, exportData, deleteAccount } = useDataControls();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -68,6 +72,26 @@ export default function DataControlsScreen() {
       }
     });
   };
+
+  // What leaves the phone besides the chat: web searches and the device location.
+  const toggleLocation = (enabled: boolean) =>
+    void action.run("location", async () => {
+      if (!enabled) {
+        await updateUser({ location_enabled: false, location: null });
+        return;
+      }
+      if (!canUseDeviceLocation()) {
+        void alertDialog({ title: t("common.error"), message: t("settings.location_expo_go") });
+        return;
+      }
+      const label = await getDeviceLocationLabel();
+      if (!label) {
+        void alertDialog({ title: t("settings.location_denied") });
+        return;
+      }
+      await updateUser({ location_enabled: true, location: label });
+    });
+  const locationOn = user?.location_enabled === true;
 
   const archiveAll = () =>
     void action.run(
@@ -130,6 +154,31 @@ export default function DataControlsScreen() {
 
   return (
     <SettingsPage>
+      <SettingsGroup>
+        <SettingsSwitchRow
+          icon="search"
+          title={t("settings.web_search")}
+          subtitle={t("settings.web_search_summary")}
+          value={user?.web_search_enabled !== false}
+          disabled={action.busy !== null}
+          busy={action.busy === "web_search"}
+          onValueChange={(next) =>
+            void action.run("web_search", () => updateUser({ web_search_enabled: next }))
+          }
+        />
+        <SettingsSwitchRow
+          icon="map-pin"
+          title={t("settings.use_current_location")}
+          subtitle={locationOn ? (user?.location ?? undefined) : t("settings.location_summary")}
+          value={locationOn}
+          disabled={action.busy !== null}
+          busy={action.busy === "location"}
+          onValueChange={toggleLocation}
+        />
+      </SettingsGroup>
+      <SettingsGroup label={t("settings.data_use_title")}>
+        <SettingsValueRow title={t("settings.data_use_body")} />
+      </SettingsGroup>
       <SettingsGroup label={t("settings.chats_group")}>
         <SettingsLinkRow
           title={t("settings.archived_chats")}

@@ -171,16 +171,10 @@ export default function SettingsScreen() {
 
       <SettingsGroup label={t("settings.data_and_privacy")}>
         <SettingsLinkRow
-          icon="eye-off"
-          title={t("settings.privacy")}
-          accessibilityHint={t("settings.privacy_summary")}
-          value={user?.web_search_enabled === false ? t("settings.web_search_off") : undefined}
-          href="/settings/privacy"
-        />
-        <SettingsLinkRow
           icon="shield"
           title={t("settings.data_controls")}
           accessibilityHint={t("settings.data_controls_summary")}
+          value={user?.web_search_enabled === false ? t("settings.web_search_off") : undefined}
           href="/settings/data-controls"
         />
         <SettingsLinkRow
@@ -194,8 +188,14 @@ export default function SettingsScreen() {
       <SettingsGroup>
         <SettingsLinkRow
           icon="help"
-          title={t("settings.help_about")}
-          accessibilityHint={t("settings.help_about_summary")}
+          title={t("settings.help")}
+          accessibilityHint={t("settings.help_summary")}
+          href="/settings/help"
+        />
+        <SettingsLinkRow
+          icon="info"
+          title={t("settings.about")}
+          accessibilityHint={t("settings.about_summary")}
           href="/settings/about"
         />
       </SettingsGroup>

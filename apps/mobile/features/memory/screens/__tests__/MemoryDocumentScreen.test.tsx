@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 
 import MemoryDocumentScreen from "@/features/memory/screens/MemoryDocumentScreen";
 import type { MemoryDocument } from "@/features/memory/types";
@@ -17,6 +17,25 @@ let mockLoading = false;
 let mockError = false;
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
+const mockClearAll = jest.fn(async () => true);
+jest.mock("@/features/memory/hooks/useClearAllMemories", () => ({
+  useClearAllMemories: () => ({ clearAll: mockClearAll, busy: false }),
+}));
+jest.mock("@/features/memory/components/MemoryHeaderMenu", () => {
+  const { Pressable, Text } = jest.requireActual("react-native") as typeof import("react-native");
+  return {
+    MemoryHeaderMenu: ({
+      items,
+    }: {
+      items: { key: string; label: string; onPress: () => void; testID?: string }[];
+    }) =>
+      items.map((item) => (
+        <Pressable key={item.key} testID={item.testID ?? `menu-${item.key}`} onPress={item.onPress}>
+          <Text>{item.label}</Text>
+        </Pressable>
+      )),
+  };
+});
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token-a" }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
 jest.mock("@/lib/reportRecoverableError", () => ({
@@ -130,6 +149,15 @@ beforeEach(() => {
 });
 
 describe("MemoryDocumentScreen", () => {
+  it("offers delete this page and clear all memories in the top-right menu", async () => {
+    const ui = await render(<MemoryDocumentScreen />);
+    expect(ui.getByText("memory.delete_page")).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(ui.getByTestId("menu-clear-all"));
+    });
+    expect(mockClearAll).toHaveBeenCalled();
+  });
+
   it("shows the page: title, last updated, summary and details", async () => {
     const ui = await render(<MemoryDocumentScreen />);
     expect(ui.getByText("Recall")).toBeTruthy();
