@@ -98,6 +98,7 @@ from app.modules.chat.prompt_constants.teaching import (
     lesson_step,
     programming_lesson_contract,
 )
+from app.modules.chat.prompt_constants.unclear import UNCLEAR_MESSAGE_HINT
 from app.modules.chat.prompt_constants.visuals import (
     ANSWER_PHOTO_HINT,
     CHEMISTRY_FENCE_HINT,
@@ -190,6 +191,7 @@ __all__ = [
     "TEACHING_SHORT_NOTE",
     "TONE_FORMAT_GUARD",
     "TRANSLATION_FORMAT_HINT",
+    "UNCLEAR_MESSAGE_HINT",
     "UNIVERSAL_FORMAT_BASELINE",
     "VERIFIED_SOLVE_SAFETY_HINT",
     "VISUALIZATION_HINTS",

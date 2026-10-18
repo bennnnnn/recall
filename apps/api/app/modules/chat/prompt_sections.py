@@ -27,6 +27,7 @@ from app.modules.chat.prompt_constants import (
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
+    UNCLEAR_MESSAGE_HINT,
     active_lesson_step,
     is_bare_writing_line,
     is_capabilities_question,
@@ -40,10 +41,6 @@ from app.modules.chat.prompt_constants import (
     is_teaching_request,
     learning_plan_daily_contract,
     programming_lesson_contract,
-)
-from app.modules.chat.prompt_constants.unclear import (
-    UNCLEAR_SHORT_TURN_HINT,
-    is_unclear_short_turn,
 )
 from app.modules.chat.prompt_format import PromptRule, _style_format_hints, code_question_layout
 from app.modules.chat.prompt_profile import (
@@ -216,6 +213,9 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
             TONE_FORMAT_GUARD,
         ],
     ),
+    # "Bo" or "gd" may be a typo, another language or a half-typed message: the
+    # model, which sees the conversation, decides; no word list or length gate.
+    PromptSection(_always, lambda _t: [UNCLEAR_MESSAGE_HINT]),
     PromptSection(_always, lambda t: _present(custom_instructions_block(t.user))),
     PromptSection(_always, lambda t: _present(locale_service.locale_system_hint(t.user.locale))),
     # M8: inject the rolling summary even on the slim path. A slim long thread
@@ -241,16 +241,6 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     ),
     PromptSection(lambda t: t.followup == "chemistry", lambda _t: [CHEMISTRY_FOLLOWUP_HINT]),
     PromptSection(lambda t: t.followup == "physics", lambda _t: [PHYSICS_FOLLOWUP_HINT]),
-    # "Bo" is not "hi": the reply notices the word instead of greeting past it.
-    PromptSection(
-        lambda t: (
-            not t.lightweight
-            and t.followup is None
-            and active_lesson_step(t.exchange) is None
-            and is_unclear_short_turn(t.query, t.exchange)
-        ),
-        lambda _t: [UNCLEAR_SHORT_TURN_HINT],
-    ),
     # Keep the acknowledgement contract closest to the user turn. Memory and
     # integration context is appended after the style pack and can otherwise
     # tempt the model into an unsolicited plan even though no task was asked.
