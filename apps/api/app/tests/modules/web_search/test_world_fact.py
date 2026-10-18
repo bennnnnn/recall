@@ -100,6 +100,9 @@ async def test_classifier_rubric_leans_to_searching_named_facts() -> None:
         ),
         patch.object(classify_module.quota_service, "record_global_spend", AsyncMock()),
         patch.object(classify_module, "get_redis_client", MagicMock()),
+        # CI has no model key: without this the stand-in model answers and the
+        # rubric is never sent.
+        patch.object(classify_module.mock_llm, "should_mock_llm", return_value=False),
     ):
         await classify_module.classify_web_search_need(
             Settings(), "what's the population of Ethiopia"
