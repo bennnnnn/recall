@@ -1219,7 +1219,28 @@ async def test_materialize_reminder_fences_rejects_date_only_due():
             user_timezone="UTC",
         )
     assert created == 0
-    assert "Could not save that to-do" in updated
+    # Nothing saved and no error text: the reply asks when.
+    assert updated == "When should I remind you?"
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_asks_when_for_a_repeat_with_no_start():
+    # "always remind me to drink water" showed "the format was invalid".
+    session = AsyncMock()
+    text = '```reminder\n{"title":"Drink water","recurrence_rule":"daily"}\n```\n'
+    with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="UTC",
+            user_text="always remind me to drink water",
+        )
+    assert created == 0
+    assert updated == "When should I remind you?"
+    assert "invalid" not in updated
     create_mock.assert_not_awaited()
 
 

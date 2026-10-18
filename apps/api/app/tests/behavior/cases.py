@@ -902,7 +902,7 @@ CASES: tuple[Case, ...] = (
         "code-run",
         "code",
         "run this python code: print(1+1)",
-        Expect(search="no", no_hints=("answer_photo",)),
+        Expect(search="no", hints=("code_run",), no_hints=("answer_photo",)),
         "Says Recall can't run Python, and that it would print 2.",
     ),
     Case(

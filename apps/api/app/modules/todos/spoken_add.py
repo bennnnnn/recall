@@ -83,16 +83,16 @@ _CHANGE_LEADS = (
 )
 # "Remind me how to convert Celsius" asks to be taught, not reminded.
 _REMIND_ME_OF_A_FACT = r"(?!\s+(?:how|what|why|who|whom|whose|which|where|whether|if)\b)"
+_LEAD = r"(?:(?:always|also|just|and|so|now|then)\s+)?"
 _ADD_REQUEST_RE = re.compile(
-    r"^\s*(?:(?:please|pls|plz)\s+)?(?:can (?:you|u)\s+)?(?:add|buy|get|pick up|remind me"
-    + _REMIND_ME_OF_A_FACT
-    + r"(?:\s+to)?)\b",
+    rf"^\s*{_LEAD}(?:(?:please|pls|plz)\s+)?(?:can (?:you|u)\s+)?"
+    rf"(?:add|buy|get|pick up|remind me{_REMIND_ME_OF_A_FACT}(?:\s+to)?)\b",
     re.IGNORECASE,
 )
 # The message opens by asking for a reminder: "remind me to …", "can you set a
 # reminder to …", "add a reminder for …". "You forgot to remind me …" does not.
 _REMINDER_REQUEST_RE = re.compile(
-    r"^(?:(?:please|pls|plz)\s+)?(?:(?:can|could|will|would)\s+(?:you|u)\s+)?(?:please\s+)?"
+    rf"^{_LEAD}(?:(?:please|pls|plz)\s+)?(?:(?:can|could|will|would)\s+(?:you|u)\s+)?(?:please\s+)?"
     r"(?:remind\s+me" + _REMIND_ME_OF_A_FACT + r"|(?:set|create|add|make)\s+(?:me\s+)?"
     r"(?:a\s+)?(?:reminder|to-?do|task)\b|reminder\b)",
     re.IGNORECASE,

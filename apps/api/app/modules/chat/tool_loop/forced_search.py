@@ -72,7 +72,11 @@ async def _force_web_search_if_needed(
         # "do a search" / "when did she die?" search for what the chat was
         # about, not for the words of the request.
         queries = await search_queries_for_turn(
-            settings, user_text, messages, user_timezone=ctx.user_timezone
+            settings,
+            user_text,
+            messages,
+            user_timezone=ctx.user_timezone,
+            user_location=ctx.user_location,
         )
         if on_status is not None:
             await on_status("searching", clip_status_detail(queries[0] if queries else user_text))

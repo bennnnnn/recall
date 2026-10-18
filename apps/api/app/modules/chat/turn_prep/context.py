@@ -65,6 +65,9 @@ class StreamContext:
     # the current client timezone). Finalization must use the same zone that
     # prompt construction used for relative dates and reminder clocks.
     user_timezone: str | None = None
+    # The device location when this turn needs one ("coffee near me"); a
+    # search for it names the place.
+    search_location: str | None = None
     user: User | None = None
     # Pre-assigned id for the assistant row so `done` can be sent to the client
     # before the background DB insert commits.
@@ -130,6 +133,11 @@ class TurnPromptBundle:
     web_search_classified: bool | None = None
 
 
+def _search_location(geo: ClientGeoContext | None) -> str | None:
+    """The place a search for this turn names: only a turn that needs one."""
+    return geo.user_location if geo is not None and geo.geo_query else None
+
+
 def stream_context_from_bundle(
     bundle: TurnPromptBundle,
     *,
@@ -163,6 +171,7 @@ def stream_context_from_bundle(
         reserved_tokens=reserved_tokens,
         max_output_tokens=bundle.max_out,
         user_timezone=getattr(bundle, "local_tz", None),
+        search_location=_search_location(getattr(bundle, "geo", None)),
         user=user,
         recalled_count=int(bundle.meta.get("recalled") or 0),
         memory_hints=list(bundle.meta.get("memory_hints") or []),

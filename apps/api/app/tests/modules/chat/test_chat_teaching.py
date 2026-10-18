@@ -495,3 +495,12 @@ def test_understanding_one_idea_is_a_walkthrough_not_a_lesson(text: str) -> None
 @pytest.mark.parametrize("text", ["I don't get it", "help me understand this"])
 def test_confusion_without_a_subject_is_not_a_walkthrough(text: str) -> None:
     assert WALKTHROUGH_HINT not in _hints(text)
+
+
+@pytest.mark.parametrize("hint", [TEACHING_HINT, WALKTHROUGH_HINT])
+def test_practice_heading_fits_the_subject_and_the_quiz_fence_stands_alone(hint):
+    # "Teach me american history" ended on "Your turn — predict the output" and a
+    # ```quiz line with its JSON glued on.
+    assert "`### N. Your turn — predict the output`" not in hint
+    assert "history: `— check your understanding`" in hint
+    assert "```quiz alone on its line and the JSON on the next" in hint
