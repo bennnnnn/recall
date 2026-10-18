@@ -16,14 +16,8 @@ import {
   RESPONSE_TONE_ORDER,
 } from "@/lib/responseTone";
 
-const STYLES = ["short", "balanced", "detailed"] as const;
-type ResponseStyle = (typeof STYLES)[number];
-
-function normalizeStyle(raw: string | undefined): ResponseStyle {
-  return STYLES.find((style) => style === raw) ?? "balanced";
-}
-
-/** Settings → Personalization: how replies sound. */
+/** Settings → Personalization: how replies sound. Length follows each message
+ * ("briefly", "in detail"); there is no account-wide length setting. */
 export default function PreferencesSettingsScreen() {
   const { user, updateUser } = useAuth();
   const { t } = useTranslation();
@@ -31,7 +25,6 @@ export default function PreferencesSettingsScreen() {
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructionsText, setInstructionsText] = useState("");
 
-  const selectedStyle = normalizeStyle(user?.response_style);
   const selectedTone = normalizeResponseTone(user?.response_tone ?? DEFAULT_RESPONSE_TONE);
   const saving = action.busy !== null;
 
@@ -56,17 +49,6 @@ export default function PreferencesSettingsScreen() {
     <>
       <SettingsPage>
         <SettingsGroup label={t("settings.chat")}>
-          <SettingsMenuRow
-            title={t("settings.style")}
-            value={t(`settings.style_${selectedStyle}`)}
-            options={STYLES.map((key) => ({ key, label: t(`settings.style_${key}`) }))}
-            selectedKey={selectedStyle}
-            disabled={saving}
-            busy={action.busy === "style"}
-            onSelect={(style) =>
-              void action.run("style", () => updateUser({ response_style: style }))
-            }
-          />
           <SettingsMenuRow
             title={t("settings.tone")}
             value={t(`settings.tone_${selectedTone}`)}

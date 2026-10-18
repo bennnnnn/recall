@@ -676,8 +676,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Experience** — Appearance (System / Light / Dark), Accent color, Language and
   Haptics, all on the Settings page itself. Appearance, accent and haptics are saved on
   the device; Haptics off silences every `lib/haptics` call.
-- ✅ **Personalization** — response length, tone labels, custom instructions. Stored tone
-  ids stay `soft` / `casual` / `professional` / `funny`.
+- ✅ **Personalization** — tone labels and custom instructions. Stored tone ids stay
+  `soft` / `casual` / `professional` / `funny`. There is no response-length setting:
+  each message sets its own ("briefly", "in detail"), and how hard a turn thinks is
+  automatic (`services/thinking_effort.py`). A stored `users.response_style` is ignored.
 - ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
   talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,
   pitch kept) and Use on-device voice (offline device speech instead of cloud read-aloud).
