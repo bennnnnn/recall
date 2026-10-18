@@ -152,6 +152,16 @@ export function composerInputFrameHeight(
   };
 }
 
+/** Frame for a line count read from the rendered text, not estimated from glyphs. */
+export function composerInputFrameForLines(
+  lines: number,
+  fontScale = 1,
+): { height: number; overflows: boolean } {
+  const { line, min, max } = composerInputMetrics(fontScale);
+  const desired = min + (Math.max(1, lines) - 1) * line;
+  return { height: Math.min(max, desired), overflows: desired > max };
+}
+
 /**
  * Height of the text itself. The frame includes centering slack so one line
  * lines up with the buttons; that slack must stay on the wrapper. Padding

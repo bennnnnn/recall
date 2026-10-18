@@ -30,6 +30,10 @@ import {
   MATH_DRAFT_PREVIEW_HEIGHT,
 } from "@/features/chat/components/MathDraftPreview";
 import { ComposerSendControls } from "@/features/chat/components/ComposerSendControls";
+import {
+  ComposerTextMeasure,
+  type ComposerTextSize,
+} from "@/features/chat/components/ComposerTextMeasure";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
 import { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
@@ -45,6 +49,7 @@ import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,
   COMPOSER_CONTROL_SIZE,
   COMPOSER_GAP_FADE_OVERLAP,
+  composerInputFrameForLines,
   composerInputFrameHeight,
   composerInputMetrics,
   composerInputTextBoxHeight,
@@ -52,6 +57,7 @@ import {
   composerNativeInputTraits,
   composerShowsMic,
   composerShowsSend,
+  composerSoftWrapLineCount,
 } from "@/features/chat/model/composerLogic";
 import { liveTalkShowsSideChrome } from "@/features/speech/model/liveTalkLogic";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
@@ -166,8 +172,10 @@ export const ChatComposer = memo(function ChatComposer({
   const [inputHeight, setInputHeight] = useState<number>(COMPOSER_CONTROL_SIZE);
   const [inputContentWidth, setInputContentWidth] = useState(0);
   const [composerExpanded, setComposerExpanded] = useState(false);
-  // Once the draft wraps, text takes the full width over a row of buttons until it is cleared.
-  const [stacked, setStacked] = useState(false);
+  // Field width beside the buttons. Wrapping is judged at this width, so the
+  // wider stacked field cannot flip the layout back.
+  const [inlineWidth, setInlineWidth] = useState(0);
+  const [textSize, setTextSize] = useState<ComposerTextSize>({ naturalWidth: 0, height: 0 });
   const inputRef = useRef<TextInput>(null);
   const measuredContent = useRef<{ revision: number; height: number } | null>(null);
   const math = useMathKeyboardInsert({
@@ -208,7 +216,6 @@ export const ChatComposer = memo(function ChatComposer({
   useEffect(() => {
     setScanHint(false);
     setComposerExpanded(false);
-    setStacked(false);
   }, [draft?.revision]);
 
   useEffect(() => {
@@ -223,7 +230,6 @@ export const ChatComposer = memo(function ChatComposer({
       measuredContent.current = null;
       setInputHeight(COMPOSER_CONTROL_SIZE);
       setComposerExpanded(false);
-      setStacked(false);
       return;
     }
     const measured = retainedComposerContentHeight(
@@ -233,7 +239,6 @@ export const ChatComposer = memo(function ChatComposer({
     );
     const frame = composerInputFrameHeight(input, measured, inputContentWidth, fontScale);
     setInputHeight(frame.height);
-    if (frame.height > composerInputMetrics(fontScale).min) setStacked(true);
   }, [draft?.revision, fontScale, input, inputContentWidth]);
 
   // Only hard returns move the thread. A soft wrap grows the field in place;
@@ -241,6 +246,14 @@ export const ChatComposer = memo(function ChatComposer({
   // Measured from the 44 pt field COMPOSER_HEIGHT assumes, so a taller line
   // at a large text size moves the thread too.
   const returnFrame = composerInputFrameHeight(input, 0, 0, fontScale);
+  // Text wraps beside the buttons: it takes the full width over a row of them.
+  // Judged on the rendered text; the glyph estimate is only for the first frame.
+  const stacked = Boolean(input) && (
+    input.includes("\n") ||
+    (textSize.naturalWidth > 0
+      ? inlineWidth > 0 && textSize.naturalWidth > inlineWidth
+      : composerSoftWrapLineCount(input, inlineWidth, fontScale) > 1)
+  );
   // Stacking adds the button row once, so the last reply stays clear of the pill.
   const inputFrameExtra = composerExpanded
     ? 0
@@ -309,12 +322,15 @@ export const ChatComposer = memo(function ChatComposer({
     ? retainedComposerContentHeight(measuredContent.current, draftRevision, input)
     : 0;
   const field = composerInputMetrics(fontScale);
-  const frameNow = composerInputFrameHeight(
-    input,
-    Math.max(measuredNow, inputHeight),
-    inputContentWidth,
-    fontScale,
-  );
+  const frameNow =
+    textSize.height > 0
+      ? composerInputFrameForLines(Math.round(textSize.height / field.line), fontScale)
+      : composerInputFrameHeight(
+          input,
+          Math.max(measuredNow, inputHeight),
+          inputContentWidth,
+          fontScale,
+        );
   // Same render as the keystroke. Waiting for the effect leaves one frame
   // clipped at the end of the line.
   const fieldHeight = input ? frameNow.height : field.min;
@@ -538,6 +554,11 @@ export const ChatComposer = memo(function ChatComposer({
                       }}
                     />
                   ) : null}
+                  <ComposerTextMeasure
+                    text={input}
+                    width={inputContentWidth}
+                    onMeasure={setTextSize}
+                  />
                   <TextInput
                     ref={inputRef}
                     testID="chat-composer-input"
@@ -569,6 +590,7 @@ export const ChatComposer = memo(function ChatComposer({
                       const next = Math.round(event.nativeEvent.layout.width);
                       if (next <= 0) return;
                       setInputContentWidth((current) => (current === next ? current : next));
+                      if (!stackedLayout) setInlineWidth(next);
                     }}
                     onContentSizeChange={(event) => {
                       const measured = Math.ceil(event.nativeEvent.contentSize.height);
@@ -587,7 +609,6 @@ export const ChatComposer = memo(function ChatComposer({
                           current === frame.height ? current : frame.height,
                         );
                       }
-                      if (frame.height > field.min) setStacked(true);
                     }}
                     scrollEnabled={fieldOverflows && !composerExpanded}
                     onSelectionChange={math.onSelectionChange}
