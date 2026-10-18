@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -24,14 +23,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
-import { LiveTalkButton } from "@/features/speech/components/LiveTalkButton";
 import { LiveTalkComposerControls } from "@/features/speech/components/LiveTalkComposerControls";
 import { VoiceComposerWaveform } from "@/features/speech/components/VoiceComposerWaveform";
-import { VoiceMicButton } from "@/features/speech/components/VoiceMicButton";
 import {
   MathDraftPreview,
   MATH_DRAFT_PREVIEW_HEIGHT,
 } from "@/features/chat/components/MathDraftPreview";
+import { ComposerSendControls } from "@/features/chat/components/ComposerSendControls";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
 import { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
@@ -168,6 +166,8 @@ export const ChatComposer = memo(function ChatComposer({
   const [inputHeight, setInputHeight] = useState<number>(COMPOSER_CONTROL_SIZE);
   const [inputContentWidth, setInputContentWidth] = useState(0);
   const [composerExpanded, setComposerExpanded] = useState(false);
+  // Once the draft wraps, text takes the full width over a row of buttons until it is cleared.
+  const [stacked, setStacked] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const measuredContent = useRef<{ revision: number; height: number } | null>(null);
   const math = useMathKeyboardInsert({
@@ -208,6 +208,7 @@ export const ChatComposer = memo(function ChatComposer({
   useEffect(() => {
     setScanHint(false);
     setComposerExpanded(false);
+    setStacked(false);
   }, [draft?.revision]);
 
   useEffect(() => {
@@ -222,6 +223,7 @@ export const ChatComposer = memo(function ChatComposer({
       measuredContent.current = null;
       setInputHeight(COMPOSER_CONTROL_SIZE);
       setComposerExpanded(false);
+      setStacked(false);
       return;
     }
     const measured = retainedComposerContentHeight(
@@ -231,6 +233,7 @@ export const ChatComposer = memo(function ChatComposer({
     );
     const frame = composerInputFrameHeight(input, measured, inputContentWidth, fontScale);
     setInputHeight(frame.height);
+    if (frame.height > composerInputMetrics(fontScale).min) setStacked(true);
   }, [draft?.revision, fontScale, input, inputContentWidth]);
 
   // Only hard returns move the thread. A soft wrap grows the field in place;
@@ -238,9 +241,11 @@ export const ChatComposer = memo(function ChatComposer({
   // Measured from the 44 pt field COMPOSER_HEIGHT assumes, so a taller line
   // at a large text size moves the thread too.
   const returnFrame = composerInputFrameHeight(input, 0, 0, fontScale);
+  // Stacking adds the button row once, so the last reply stays clear of the pill.
   const inputFrameExtra = composerExpanded
     ? 0
-    : Math.max(0, returnFrame.height - COMPOSER_CONTROL_SIZE);
+    : Math.max(0, returnFrame.height - COMPOSER_CONTROL_SIZE) +
+      (stacked ? COMPOSER_CONTROL_SIZE : 0);
   useEffect(() => {
     onInputFrameExtraChange?.(visible ? inputFrameExtra : 0);
   }, [inputFrameExtra, onInputFrameExtraChange, visible]);
@@ -327,6 +332,77 @@ export const ChatComposer = memo(function ChatComposer({
     ? [blockStyle, animatedContainerStyle, expandedBlockStyle]
     : [blockStyle, expandedBlockStyle];
   const showExpandControl = fieldOverflows || composerExpanded;
+  const stackedLayout = (stacked || composerExpanded) && !voiceActive;
+  const attachButton = (
+    <Pressable
+      testID="composer-attachment-button"
+      style={[s.attachBtn, !voiceActive && attachmentDisabled && s.controlDisabled]}
+      onPress={() => {
+        if (voiceActive) {
+          onCancelVoice?.();
+          return;
+        }
+        liveTalkChrome?.onYield();
+        onPickAttachment();
+      }}
+      disabled={!voiceActive && attachmentDisabled}
+      hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+      accessibilityRole="button"
+      accessibilityLabel={t(voiceActive ? "chat.voice_cancel_a11y" : "chat.attach_a11y")}
+      accessibilityState={{
+        disabled: !voiceActive && attachmentDisabled,
+        busy: !voiceActive && attachPicking,
+      }}
+    >
+      {voiceActive ? (
+        <Icon
+          name="close"
+          size={IconSize.md}
+          color={theme.text}
+          testID="composer-voice-cancel-icon"
+        />
+      ) : (
+        <Icon
+          name="plus"
+          size={IconSize.md}
+          color={theme.text}
+          testID="composer-attachment-add-icon"
+        />
+      )}
+    </Pressable>
+  );
+  const trailingControls = (
+    <View style={s.trailingControls}>
+      {showMathButton ? (
+        <Pressable
+          onPress={onToggleMathBar}
+          style={({ pressed }) => [s.attachBtn, pressed && s.controlDisabled]}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.math_keyboard_show")}
+          testID="math-keyboard-toggle"
+          hitSlop={4}
+        >
+          <Icon name="calculator" size={IconSize.sm} color={theme.text} />
+        </Pressable>
+      ) : null}
+      <ComposerSendControls
+        s={s}
+        streaming={streaming}
+        onStop={onStop}
+        onSend={() => sendAndCloseMath()}
+        showSend={showSend}
+        sendBusy={sendBusy}
+        isOffline={isOffline}
+        attachBusy={attachBusy || attachPicking}
+        showMic={showMic}
+        voiceRecording={voiceRecording}
+        voiceTranscribing={voiceTranscribing}
+        onVoicePress={onVoicePress}
+        onLiveTalkPress={onLiveTalkPress}
+        liveTalkOpen={Boolean(liveTalkChrome)}
+      />
+    </View>
+  );
 
   return (
     <Animated.View
@@ -420,46 +496,11 @@ export const ChatComposer = memo(function ChatComposer({
               testID="composer-input-row"
               style={[
                 s.inputRowMain,
-                singleLineComposer && s.inputRowMainSingleLine,
+                singleLineComposer && !stackedLayout && s.inputRowMainSingleLine,
                 composerExpanded && s.inputRowMainExpanded,
               ]}
             >
-              <Pressable
-                testID="composer-attachment-button"
-                style={[s.attachBtn, !voiceActive && attachmentDisabled && s.controlDisabled]}
-                onPress={() => {
-                  if (voiceActive) {
-                    onCancelVoice?.();
-                    return;
-                  }
-                  liveTalkChrome?.onYield();
-                  onPickAttachment();
-                }}
-                disabled={!voiceActive && attachmentDisabled}
-                hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-                accessibilityRole="button"
-                accessibilityLabel={t(voiceActive ? "chat.voice_cancel_a11y" : "chat.attach_a11y")}
-                accessibilityState={{
-                  disabled: !voiceActive && attachmentDisabled,
-                  busy: !voiceActive && attachPicking,
-                }}
-              >
-                {voiceActive ? (
-                  <Icon
-                    name="close"
-                    size={IconSize.md}
-                    color={theme.text}
-                    testID="composer-voice-cancel-icon"
-                  />
-                ) : (
-                  <Icon
-                    name="plus"
-                    size={IconSize.md}
-                    color={theme.text}
-                    testID="composer-attachment-add-icon"
-                  />
-                )}
-              </Pressable>
+              {stackedLayout ? null : attachButton}
               {voiceRecording || voiceTranscribing ? (
                 <VoiceComposerWaveform
                   recording={voiceRecording}
@@ -546,6 +587,7 @@ export const ChatComposer = memo(function ChatComposer({
                           current === frame.height ? current : frame.height,
                         );
                       }
+                      if (frame.height > field.min) setStacked(true);
                     }}
                     scrollEnabled={fieldOverflows && !composerExpanded}
                     onSelectionChange={math.onSelectionChange}
@@ -572,84 +614,14 @@ export const ChatComposer = memo(function ChatComposer({
                   ) : null}
                 </Pressable>
               )}
-              {showMathButton ? (
-                <Pressable
-                  onPress={onToggleMathBar}
-                  style={({ pressed }) => [s.attachBtn, pressed && s.controlDisabled]}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("chat.math_keyboard_show")}
-                  testID="math-keyboard-toggle"
-                  hitSlop={4}
-                >
-                  <Icon name="calculator" size={IconSize.sm} color={theme.text} />
-                </Pressable>
-              ) : null}
-              <View style={s.sendBtnSlot}>
-                {streaming ? (
-                  <Pressable
-                    style={s.sendBtn}
-                    onPress={onStop}
-                    hitSlop={6}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("chat.stop_a11y")}
-                  >
-                    <Icon name="stop" size={IconSize.xxs} color={theme.onPrimary} />
-                  </Pressable>
-                ) : (
-                  <>
-                    {showMic && onVoicePress ? (
-                      <VoiceMicButton
-                        recording={voiceRecording}
-                        transcribing={voiceTranscribing}
-                        disabled={attachBusy || attachPicking || sendBusy || isOffline}
-                        onPress={onVoicePress}
-                      />
-                    ) : null}
-                    {onLiveTalkPress &&
-                    !liveTalkChrome &&
-                    !voiceRecording &&
-                    !voiceTranscribing &&
-                    !showSend &&
-                    !sendBusy ? (
-                      <LiveTalkButton
-                        disabled={attachBusy || attachPicking || isOffline}
-                        onPress={onLiveTalkPress}
-                      />
-                    ) : null}
-                    {showSend || sendBusy ? (
-                      <Pressable
-                        style={[
-                          s.sendBtn,
-                          (isOffline || sendBusy) && s.sendBtnDisabled,
-                        ]}
-                        onPress={() => sendAndCloseMath()}
-                        disabled={isOffline || sendBusy}
-                        hitSlop={6}
-                        accessibilityRole="button"
-                        accessibilityLabel={
-                          sendBusy ? t("chat.sending") : t("chat.send_a11y")
-                        }
-                        accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
-                        accessibilityState={{
-                          disabled: isOffline || sendBusy,
-                          busy: sendBusy,
-                        }}
-                      >
-                        {sendBusy ? (
-                          <ActivityIndicator size="small" color={theme.textTertiary} />
-                        ) : (
-                          <Icon
-                            name="arrow-up"
-                            size={IconSize.sm}
-                            color={isOffline ? theme.textTertiary : theme.onPrimary}
-                          />
-                        )}
-                      </Pressable>
-                    ) : null}
-                  </>
-                )}
-              </View>
+              {stackedLayout ? null : trailingControls}
             </View>
+            {stackedLayout ? (
+              <View style={s.stackedControlsRow} testID="composer-stacked-controls">
+                {attachButton}
+                {trailingControls}
+              </View>
+            ) : null}
             {sendStatus ? (
               <Text
                 style={s.sendStatus}
