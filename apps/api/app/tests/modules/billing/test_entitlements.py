@@ -72,7 +72,8 @@ def test_live_talk_is_only_on_the_top_plan():
     ],
 )
 def test_default_numbers_per_plan(plan_id, numbers):
-    settings = Settings()
+    # The built-in defaults, not a developer's .env overrides.
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
     for name, value in numbers.items():
         assert entitlements.allowance(plan_id, name, settings) == value
 
