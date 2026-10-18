@@ -13,6 +13,7 @@ from typing import Any
 from app.core.config import Settings
 from app.modules.web_search.command import search_command
 from app.modules.web_search.geo_intent import is_geo_query
+from app.modules.web_search.officeholder import office_with_subject, office_without_place
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _SHORT_FOLLOWUP_WORDS,
@@ -25,6 +26,7 @@ from app.modules.web_search.query_builders import (
     build_search_queries,
     is_current_news_request,
 )
+from app.modules.web_search.recency import anchor_recency_to_year
 from app.modules.web_search.subject import collect_prior_user_messages
 from app.services.conversation_reference import resolve_reference, turns_from_prompt
 
@@ -61,6 +63,9 @@ def points_back(text: str, prior_user_messages: list[str] | None) -> bool:
     cleaned = collapse_ws(text)
     if asks_for_prior_subject(cleaned) or _CLARIFICATION.search(cleaned):
         return True
+    # "What is the president?" after a chat about Ethiopia: of the chat's subject.
+    if office_without_place(cleaned):
+        return True
     words = [_fold(w) for w in cleaned.split()]
     return len(words) <= _SHORT_FOLLOWUP_WORDS and any(w in _REFERENCE_WORDS for w in words)
 
@@ -82,6 +87,8 @@ async def search_queries_for_turn(
         subject = command.subject
         if is_current_news_request(subject):
             subject = anchor_news_query_to_today(subject, user_timezone)
+        else:
+            subject = anchor_recency_to_year(subject, cleaned, user_timezone)
         return [subject]
     priors = collect_prior_user_messages(messages, user_text)
     if points_back(cleaned, priors):
@@ -93,6 +100,8 @@ async def search_queries_for_turn(
         )
         if resolved:
             return [resolved]
+        if office_without_place(cleaned):
+            return [office_with_subject(cleaned, priors[-1])]
         queries = build_search_queries(
             cleaned,
             user_timezone=user_timezone,
@@ -103,4 +112,6 @@ async def search_queries_for_turn(
     # "Coffee near me" searched those words and found New York cafés.
     if user_location and is_geo_query(cleaned):
         return [anchor_to_location(cleaned, user_location)]
-    return [cleaned]
+    if is_current_news_request(cleaned):
+        return [cleaned]
+    return [anchor_recency_to_year(cleaned, cleaned, user_timezone)]

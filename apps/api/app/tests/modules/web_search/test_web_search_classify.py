@@ -55,10 +55,19 @@ async def test_live_cue_still_reaches_the_search_classifier():
     settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
     with patch(
         "app.modules.web_search.detection.classify_web_search",
-        AsyncMock(return_value=WebSearchClassification(needs_search=True, query="openai ceo")),
+        AsyncMock(return_value=WebSearchClassification(needs_search=True, query="openai pricing")),
     ) as classify:
-        assert await should_web_search("who is the ceo of openai", settings) is True
+        assert await should_web_search("what is openai pricing like", settings) is True
     classify.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_who_holds_an_office_is_an_instant_yes():
+    # Officeholders change after training: no classifier round trip decides it.
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    with patch("app.modules.web_search.detection.classify_web_search", AsyncMock()) as classify:
+        assert await should_web_search("who is the ceo of openai", settings) is True
+    classify.assert_not_awaited()
 
 
 @pytest.mark.asyncio

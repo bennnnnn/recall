@@ -16,6 +16,7 @@ from app.modules.web_search.query_builders import (
     is_current_news_request,
     is_news_today_request,
 )
+from app.modules.web_search.recency import anchor_recency_to_year
 from app.modules.web_search.search_cache import run_cached_search
 from app.services.prompt_safety import wrap_untrusted
 
@@ -81,6 +82,8 @@ class WebSearchAdapter:
         news_today = is_news_today_request(user_query)
         if current_news:
             query = anchor_news_query_to_today(query, ctx.user_timezone)
+        else:
+            query = anchor_recency_to_year(query, user_query, ctx.user_timezone)
         if ctx.user_location and is_geo_query(user_query):
             query = anchor_to_location(query, ctx.user_location)
         # One search per turn: a repeat call gets the first call's result.

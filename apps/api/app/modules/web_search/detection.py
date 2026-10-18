@@ -18,6 +18,7 @@ from app.modules.chat import (
 )
 from app.modules.web_search.command import search_command
 from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answer
+from app.modules.web_search.officeholder import asks_who_holds_office
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _EXPLICIT_SEARCH,
@@ -192,6 +193,9 @@ def web_search_fast_yes(
         return True
     # Conditions and products change after training; no model call can know them.
     if is_weather_request(cleaned) or _NEW_PRODUCT.search(cleaned):
+        return True
+    # So do officeholders: "who is the president of Ethiopia" was answered from memory.
+    if asks_who_holds_office(cleaned):
         return True
     if _SPORTS_LOOKUP.search(cleaned):
         return True
