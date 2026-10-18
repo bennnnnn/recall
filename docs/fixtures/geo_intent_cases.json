@@ -1,5 +1,5 @@
 {
-  "about": "Geo intent shared by apps/api/app/modules/web_search/{patterns,geo_intent}.py (with is_location_question in app/services/time_context.py) and apps/mobile/lib/localPlacesQuery.ts, which the phone runs before sending to decide whether to read GPS. Both test suites ask every reader about every case: `reads` lists the readers that say yes, and every other reader must say no. Change a rule on both sides and update these cases in the same change. The composite is_geo_query is not held here: the server adds a local-weather ask, the phone a where-am-I ask.",
+  "about": "Geo intent shared by apps/api/app/modules/web_search/{patterns,distance_patterns,geo_intent}.py (with is_location_question in app/services/time_context.py) and apps/mobile/lib/localPlacesQuery.ts, which the phone runs before sending to decide whether to read GPS. Both test suites ask every reader about every case: `reads` lists the readers that say yes, and every other reader must say no. Change a rule on both sides and update these cases in the same change. The composite is_geo_query is not held here: the server adds a local-weather ask, the phone a where-am-I ask.",
   "readers": {
     "proximity": "is_proximity_query / isProximityQuery",
     "distance": "is_distance_query / isDistanceQuery",
@@ -12,7 +12,8 @@
     "trip_how_many": "_HOW_MANY_ASKED / _TRIP_PLACE / _TRIP_NAMED_PLACE: how many minutes, miles or km is a trip only beside where it goes or starts, or away; otherwise it is a duration or a length.",
     "location_question": "is_location_question (app/services/time_context.py): the whole message asks where the user is, typos and curly apostrophes included; a sentence that only starts that way does not.",
     "proximity": "_NEARBY_INTENT / _IMPLICIT_LOCAL / best_near_phrase / non_geographic_nearest: near me, nearest, where should we eat. Nearest prime, closest friend or a number line is not a place; the best-in and nearest-word scans look 120 characters ahead, across lines.",
-    "ambiguous_places": "_AMBIGUOUS_NEARBY_SUBJECT / _QUALIFIED_NEARBY: a nearby home or property ask without sale, rent or an address is clarified before searching."
+    "ambiguous_places": "_AMBIGUOUS_NEARBY_SUBJECT / _QUALIFIED_NEARBY: a nearby home or property ask without sale, rent or an address is clarified before searching.",
+    "trip_the_question_measures": "_HOW_FAR_IT_MOVED / _ALONG_A_PLACE / _TIMETABLE / _UNIT_CONVERSION: how far something moved, a walk across or around a named place, a trip between two stated times, or a stated amount converted is not a trip from the user; how far is it to, arrive by and is it to still are."
   },
   "cases": {
     "distance_intent": [
@@ -165,6 +166,25 @@
       {"text": "apartments for rent near me", "reads": ["proximity"]},
       {"text": "Places near me", "reads": ["proximity"]},
       {"text": "nearest gas station", "reads": ["proximity"]}
+    ],
+    "trip_the_question_measures": [
+      {"text": "how far did it go in that time", "reads": []},
+      {"text": "how far will the ball travel", "reads": []},
+      {"text": "How long does it take to walk across the Brooklyn Bridge?", "reads": []},
+      {"text": "how long does it take to walk around Central Park", "reads": []},
+      {"text": "how long is the walk across the Golden Gate Bridge", "reads": []},
+      {"text": "a bus leaves at 7:15am and arrives at 9:40am how long is the trip", "reads": []},
+      {"text": "my flight leaves at 11pm and lands at 6:30am, how long is the flight", "reads": []},
+      {"text": "how many km is a half marathon", "reads": []},
+      {"text": "how many minutes are in 2.5 hours", "reads": []},
+      {"text": "how many minutes in a day", "reads": []},
+      {"text": "how far is it to the airport", "reads": ["distance"]},
+      {"text": "how long does it take to walk to the station", "reads": ["distance"]},
+      {"text": "how long does it take to walk over to my friend's place", "reads": ["distance"]},
+      {"text": "I leave at 5pm and need to arrive by 7pm, how long is the drive?", "reads": ["distance"]},
+      {"text": "how long is the trip", "reads": ["distance"]},
+      {"text": "how many miles is it to Hawassa", "reads": ["distance"]},
+      {"text": "how many minutes is the drive to work", "reads": ["distance"]}
     ]
   }
 }

@@ -74,7 +74,7 @@
       "why": "Over 500 before the standards; the only image-intent reader since ES-05, split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/fence.py": {
-      "lines": 646,
+      "lines": 642,
       "why": "Over 500 before the standards; tracked in ES-22"
     },
     "apps/api/app/modules/math/match/calculus.py": {
@@ -186,7 +186,7 @@
       "why": "Over 500 before the standards; tracked in ES-12"
     },
     "apps/api/app/modules/web_search/patterns.py": {
-      "lines": 608,
+      "lines": 519,
       "why": "Exception: Regex pattern table plus thin predicates; the phone twin is under ES-07"
     },
     "apps/api/app/services/answer_check.py": {

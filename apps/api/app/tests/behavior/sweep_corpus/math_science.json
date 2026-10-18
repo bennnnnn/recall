@@ -365,8 +365,7 @@
   "area": "math",
   "prompt": "I work 9am to 5:30pm every day with a 45 min lunch. how many hours do I actually work in a 5-day week?",
   "reply": "- 9am → 5:30pm = 8.5 hours\n- Minus lunch: $8.5 - 0.75 = 7.75$ hours per day\n- Over 5 days: $7.75 \\times 5 = 38.75$ hours\n\nThat's **38 hours 45 minutes** a week.",
-  "expect": "answer",
-  "gap": "'lunch' makes it a food question and the work-hours sum is not read as maths, so it gets the personal-recommendation hint."
+  "expect": "answer"
  },
  {
   "id": "ms-035",
@@ -1056,6 +1055,41 @@
   "area": "chemistry",
   "prompt": "complete the reaction: HCl + NaOH →",
   "reply": "$$\\text{HCl} + \\text{NaOH} \\rightarrow \\text{NaCl} + \\text{H}_2\\text{O}$$\n\nA neutralization: acid + base → salt + water. Net ionic: $\\text{H}^+ + \\text{OH}^- \\rightarrow \\text{H}_2\\text{O}$.",
+  "expect": "answer"
+ },
+ {
+  "id": "ms-101",
+  "area": "math",
+  "prompt": "a pizza is cut into 8 slices and I eat 3, what fraction is left?",
+  "reply": "$8 - 3 = 5$ slices are left, so **$\\tfrac{5}{8}$** of the pizza remains.",
+  "expect": "answer"
+ },
+ {
+  "id": "ms-102",
+  "area": "math",
+  "prompt": "I eat lunch at 12:30 and dinner at 7pm, how many hours between them?",
+  "reply": "From 12:30 PM to 7:00 PM is **6½ hours** (6 hours 30 minutes).",
+  "expect": "answer"
+ },
+ {
+  "id": "ms-103",
+  "area": "math",
+  "prompt": "I drink 3 coffees a day at 95 mg each, how much caffeine is that in a week?",
+  "reply": "- Per day: $3 \\times 95 = 285$ mg\n- Per week: $285 \\times 7 = 1995$ mg\n\nThat's about **2,000 mg** of caffeine a week.",
+  "expect": "answer"
+ },
+ {
+  "id": "ms-104",
+  "area": "food",
+  "prompt": "dinner for 6 at 8pm, how many dishes do I need?",
+  "reply": "For 6 people, plan **one main, two sides and a salad**, plus bread or injera. If it's a sharing table, make one extra side so nobody runs short.",
+  "expect": "answer"
+ },
+ {
+  "id": "ms-105",
+  "area": "food",
+  "prompt": "I have 2 hours before dinner guests arrive, what can I cook?",
+  "reply": "Two hours is plenty for **misir wat** (about 45 minutes), **gomen** (30 minutes) and a simple tomato salad. Start the lentils first, then the greens while they simmer.",
   "expect": "answer"
  }
 ]

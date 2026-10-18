@@ -126,3 +126,12 @@ def test_physics_followup_asks_for_working_replay_the_problem(line: str) -> None
 )
 def test_physics_followup_declines_what_it_cannot_reverify(prior: str, line: str) -> None:
     assert physics_followup_problem(line, _recent(prior)) is None
+
+
+_CAR_FROM_ZERO = "a car goes from 0 to 20 m/s in 5 seconds. whats the acceleration"
+
+
+def test_how_far_in_that_time_asks_the_same_car() -> None:
+    rewritten = physics_followup_problem("how far did it go in that time", _recent(_CAR_FROM_ZERO))
+    assert rewritten is not None
+    assert _answer(rewritten) == "50 m"

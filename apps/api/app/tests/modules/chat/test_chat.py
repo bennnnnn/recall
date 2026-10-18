@@ -1553,6 +1553,40 @@ async def test_classify_turn_mode_hi_is_lightweight():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "advice"),
+    [
+        # A sum that names a meal works from its own numbers, not the user's tastes.
+        (
+            "I work 9am to 5:30pm every day with a 45 min lunch. "
+            "how many hours do I actually work in a 5-day week?",
+            False,
+        ),
+        ("a pizza is cut into 8 slices and I eat 3, what fraction is left?", False),
+        ("I eat lunch at 12:30 and dinner at 7pm, how many hours between them?", False),
+        ("I drink 3 coffees a day at 95 mg each, how much caffeine is that in a week?", False),
+        ("ok so lunch is 45 min and I work 8 hours, how many hours would that be in 5 days", False),
+        # Food advice, even with numbers in it, still uses what the user likes.
+        ("what should I eat for lunch", True),
+        ("how many liters of water should I drink a day", True),
+        ("my weight is 80 kg, how much protein should I eat a day?", True),
+        ("dinner for 6 at 8pm, how many dishes do I need?", True),
+        ("how many hours before bed should I stop eating?", True),
+        ("I have 2 hours before dinner, what can I cook?", True),
+    ],
+)
+async def test_classify_turn_mode_a_sum_about_a_meal_is_not_food_advice(text: str, advice: bool):
+    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+
+    mode = await _classify_turn_mode(AsyncMock(), chat, text)
+
+    assert mode.advice_memory is advice
+
+
+@pytest.mark.asyncio
 async def test_classify_turn_mode_draft_follow_up_gets_the_drafts_context():
     """ "Email" after a text-message draft ran slim and signed the email "[Your Name]"."""
     from types import SimpleNamespace

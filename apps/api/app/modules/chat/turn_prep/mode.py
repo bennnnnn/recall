@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -58,6 +59,46 @@ def _should_augment_web_and_tools(
     ):
         return False
     return rich_context or needs_math or needs_search or needs_chem
+
+
+# "I work 9am to 5:30pm with a 45 min lunch. How many hours do I work in a
+# 5-day week?" works a number out of the ones it states, and lunch is one of
+# them. "How many liters of water should I drink a day?" asks for advice.
+_SUM_ASK = re.compile(
+    r"\bhow\s+many\s+(?:hours|minutes|mins|seconds|days|weeks|months|years)\b"
+    r"|\bhow\s+(?:many|much)\b[^.?!]{0,60}\b(?:left|remain(?:s|ing)?|in\s+total|total"
+    r"|altogether|(?:a|per|each)\s+(?:week|month|year))\b"
+    r"|\bwhat\s+(?:fraction|percent(?:age)?)\b",
+    re.IGNORECASE,
+)
+_ADVICE_WORD = re.compile(
+    r"\b(?:should|recommend\w*|suggest\w*|need|enough|healthy|safe)\b"
+    r"|\b(?:is|are)\s+(?:it|that|this|they)\s+(?:ok(?:ay)?|fine|good|bad)\b",
+    re.IGNORECASE,
+)
+_STATED_NUMBER = re.compile(r"\d+(?:[.:]\d+)?")
+
+
+def _works_out_a_sum(content: str) -> bool:
+    """A number asked of at least two the line states, with no advice asked."""
+    if _SUM_ASK.search(content) is None or _ADVICE_WORD.search(content) is not None:
+        return False
+    return len(_STATED_NUMBER.findall(content)) >= 2
+
+
+def _asks_about_food(content: str) -> bool:
+    """Food is the topic, not the props of a problem to solve.
+
+    "A recipe needs 3 cups of flour for 12 cookies. How many cups for 30?" is a
+    proportion, and heating 500 g of milk is physics: a subject solver claims
+    both. "9am to 5:30pm with a 45 min lunch, how many hours a week?" is a sum
+    over the numbers it states. None asks for a pick the user's tastes shape.
+    """
+    if not is_food_or_diet_query(content):
+        return False
+    if detect_subject(content) is not None:
+        return False
+    return not _works_out_a_sum(content)
 
 
 @dataclass
@@ -125,16 +166,6 @@ async def _continues_a_draft(session: AsyncSession, chat_id: UUID, content: str)
     if prior and prior[-1][0] == "user" and collapse_ws(prior[-1][1]) == collapse_ws(content):
         prior = prior[:-1]
     return draft_followup(content, prior) is not None
-
-
-def _asks_about_food(content: str) -> bool:
-    """Food is the topic, not the props of a problem to solve.
-
-    "A recipe needs 3 cups of flour for 12 cookies. How many cups for 30?" is a
-    proportion, and heating 500 g of milk is physics: neither asks for a pick
-    the user's tastes should shape.
-    """
-    return is_food_or_diet_query(content) and detect_subject(content) is None
 
 
 async def _classify_turn_mode(

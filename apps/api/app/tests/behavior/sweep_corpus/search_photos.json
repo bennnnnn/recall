@@ -568,8 +568,7 @@
   "area": "places",
   "prompt": "How long does it take to walk across the Brooklyn Bridge?",
   "reply": "About **25–40 minutes** at a relaxed pace. The walkway is roughly **1.8 km (1.1 miles)**, and most people stop for photos.\n\n- Start in **Brooklyn (DUMBO)** so you face the Manhattan skyline the whole way.\n- Go early in the morning or near sunset to avoid the midday crowds.",
-  "expect": "answer",
-  "gap": "'How long does it take to walk' reads as a trip from the user although it names the bridge, so it gets the turn-on-location reply."
+  "expect": "answer"
  },
  {
   "id": "sp-065",
@@ -1202,5 +1201,42 @@
   "prompt": "show me the main stage at Coachella",
   "reply": "Here's the **Coachella Stage**, the festival's main stage at the Empire Polo Club in Indio, California: a huge open-air stage facing the polo field, framed by big video screens, with the San Jacinto mountains behind the crowd.",
   "expect": "photo"
+ },
+ {
+  "id": "sp-121",
+  "area": "places",
+  "prompt": "How long does it take to walk around Central Park?",
+  "reply": "The full loop along the park's edge is about **10 km (6.1 miles)**, so **2 to 2½ hours** at an easy pace. The inner Drive loop is a little shorter, about 6 miles, if you'd rather stay inside the park.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-122",
+  "area": "places",
+  "prompt": "how long is the walk across the Golden Gate Bridge?",
+  "reply": "The bridge is about **2.7 km (1.7 miles)** long, so one way takes **30–45 minutes** with photo stops. Bring a jacket: it's windy and often foggy up there.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-123",
+  "area": "places",
+  "prompt": "how long does it take to walk to the stadium from here?",
+  "reply": "Addis Ababa Stadium is about **2.4 km** from you, so roughly **30 minutes** on foot via Churchill Avenue.",
+  "expect": "search",
+  "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "sp-124",
+  "area": "places",
+  "prompt": "how long does it take to drive to the airport?",
+  "reply": "I need your location to tell you that.",
+  "expect": "instant"
+ },
+ {
+  "id": "sp-125",
+  "area": "places",
+  "prompt": "I leave at 5pm and need to arrive by 7pm, how long is the drive to the airport?",
+  "reply": "From you the drive to **Bole International Airport** is about **20 minutes** without traffic, but after 5 PM it often takes **35–45 minutes**. Leaving at 5 you'll make 7 PM comfortably.",
+  "expect": "search",
+  "location": "Addis Ababa, Ethiopia"
  }
 ]
