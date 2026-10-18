@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -175,6 +176,15 @@ def test_correct_weekday_dates_reads_through_bold():
 def test_format_now_awareness_asks_for_the_full_date_with_a_weekday():
     text = format_now_awareness("Africa/Nairobi", "en")
     assert "When you name the weekday of a date, write the full date with it" in text
+
+
+def test_format_now_awareness_lists_the_coming_week():
+    # "What is Tuesday" on Sunday, October 18 got "Wednesday, October 21".
+    with patch.object(time_context, "datetime") as clock:
+        clock.now.return_value = datetime(2026, 10, 18, 14, 0, tzinfo=ZoneInfo("America/New_York"))
+        text = format_now_awareness("America/New_York", "en")
+    assert "The next seven days: Monday October 19, Tuesday October 20," in text
+    assert text.endswith("Sunday October 25.")
 
 
 def test_format_now_awareness_includes_year_month_and_time():

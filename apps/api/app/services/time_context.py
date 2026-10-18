@@ -518,8 +518,15 @@ def format_now_awareness(timezone: str | None, locale: str | None = None) -> str
         # A weekday by its full date is checked before the reply is saved:
         # "Christmas falls on a Monday" was wrong (2026's is a Friday).
         "When you name the weekday of a date, write the full date with it "
-        '("Friday, December 25, 2026").'
+        '("Friday, December 25, 2026"). '
+        # "What is Tuesday" on a Sunday got Wednesday the 21st: read the week, don't count.
+        f"The next seven days: {_coming_week(now)}."
     )
+
+
+def _coming_week(now: datetime) -> str:
+    days = (now + timedelta(days=offset) for offset in range(1, 8))
+    return ", ".join(f"{day.strftime('%A')} {day.strftime('%B')} {day.day}" for day in days)
 
 
 def format_time_answer(timezone: str | None, locale: str | None = None) -> str:
