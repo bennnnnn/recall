@@ -644,8 +644,6 @@
   "settings.data_and_privacy": "ውሂብ እና ግላዊነት",
   "settings.data_controls": "Data controls",
   "settings.data_controls_summary": "Archive, export, or delete",
-  "settings.data_use_body": "ውይይቶችዎ እና ትዝታዎችዎ በማንኛውም መሣሪያ እንዲከተሉዎት በRecall አገልጋዮች ላይ ይቀመጣሉ። ለመመለስ መልዕክቶችዎ ወደ AI ሞዴል አቅራቢ፣ የድር ፍለጋዎች ደግሞ ወደ ፍለጋ አገልግሎት ይሄዳሉ። ከታች ሁሉንም ወደ ውጭ መላክ ወይም መሰረዝ ይችላሉ።",
-  "settings.data_use_title": "ውሂብዎ እንዴት እንደሚጠቀም",
   "settings.delete": "መለያ ሰርዝ",
   "settings.delete_all_chats": "ሁሉንም ውይይቶች ሰርዝ",
   "settings.delete_all_chats_body": "ሁሉንም ውይይቶች ለዘላለም ይሰርዛል። በቤተ-መጻሕፍት ያሉ ፋይሎች ይቀራሉ።",

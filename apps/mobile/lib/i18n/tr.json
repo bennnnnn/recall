@@ -644,8 +644,6 @@
   "settings.data_and_privacy": "Veri ve gizlilik",
   "settings.data_controls": "Veri kontrolleri",
   "settings.data_controls_summary": "Arşivle, dışa aktar veya sil",
-  "settings.data_use_body": "Sohbetlerin ve anıların her cihazda seninle olsun diye Recall sunucularında saklanır. Yanıt için mesajların bir yapay zeka modeli sağlayıcısına, web aramaların bir arama hizmetine gider. Aşağıdan her şeyi dışa aktarabilir veya silebilirsin.",
-  "settings.data_use_title": "Verilerin nasıl kullanılır",
   "settings.delete": "Hesabı sil",
   "settings.delete_all_chats": "Tüm sohbetleri sil",
   "settings.delete_all_chats_body": "Tüm sohbetleri kalıcı olarak siler. Kitaplıktaki dosyalar kalır.",

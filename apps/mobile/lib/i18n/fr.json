@@ -644,8 +644,6 @@
   "settings.data_and_privacy": "Données et confidentialité",
   "settings.data_controls": "Contrôle des données",
   "settings.data_controls_summary": "Archiver, exporter ou supprimer",
-  "settings.data_use_body": "Tes conversations et souvenirs sont stockés sur les serveurs de Recall pour te suivre sur tous tes appareils. Pour répondre, tes messages vont à un fournisseur de modèles d'IA et les recherches web à un service de recherche. Tu peux tout exporter ou supprimer ci-dessous.",
-  "settings.data_use_title": "Comment tes données sont utilisées",
   "settings.delete": "Supprimer le compte",
   "settings.delete_all_chats": "Supprimer tous les chats",
   "settings.delete_all_chats_body": "Supprime définitivement tous les chats. Les fichiers de la Bibliothèque sont conservés.",

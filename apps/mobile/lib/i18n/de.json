@@ -644,8 +644,6 @@
   "settings.data_and_privacy": "Daten & Datenschutz",
   "settings.data_controls": "Datenkontrolle",
   "settings.data_controls_summary": "Archivieren, exportieren oder löschen",
-  "settings.data_use_body": "Deine Chats und Erinnerungen werden auf den Servern von Recall gespeichert, damit du sie auf jedem Gerät hast. Für Antworten gehen deine Nachrichten an einen KI-Modellanbieter und Websuchen an einen Suchdienst. Unten kannst du alles exportieren oder löschen.",
-  "settings.data_use_title": "Wie deine Daten genutzt werden",
   "settings.delete": "Konto löschen",
   "settings.delete_all_chats": "Alle Chats löschen",
   "settings.delete_all_chats_body": "Alle Chats unwiderruflich löschen. Dateien in der Bibliothek bleiben erhalten.",

@@ -644,8 +644,6 @@
   "settings.data_and_privacy": "Data & privacy",
   "settings.data_controls": "Data controls",
   "settings.data_controls_summary": "Archive, export, or delete",
-  "settings.data_use_body": "Your chats and memories are stored on Recall's servers so they follow you to any device. To answer, your messages go to an AI model provider, and web searches to a search service. You can export or delete everything below.",
-  "settings.data_use_title": "How your data is used",
   "settings.delete": "Delete account",
   "settings.delete_all_chats": "Delete all chats",
   "settings.delete_all_chats_body": "Permanently delete every chat. Files in Library are kept.",

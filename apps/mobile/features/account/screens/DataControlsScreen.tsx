@@ -9,7 +9,6 @@ import {
   SettingsLinkRow,
   SettingsPage,
   SettingsSwitchRow,
-  SettingsValueRow,
   useSettingsAction,
 } from "@/features/account/components/settingsUi";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -175,9 +174,6 @@ export default function DataControlsScreen() {
           busy={action.busy === "location"}
           onValueChange={toggleLocation}
         />
-      </SettingsGroup>
-      <SettingsGroup label={t("settings.data_use_title")}>
-        <SettingsValueRow title={t("settings.data_use_body")} />
       </SettingsGroup>
       <SettingsGroup label={t("settings.chats_group")}>
         <SettingsLinkRow

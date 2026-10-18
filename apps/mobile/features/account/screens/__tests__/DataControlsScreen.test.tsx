@@ -44,12 +44,11 @@ beforeEach(() => {
   jest.spyOn(Alert, "alert").mockImplementation(() => {});
 });
 
-it("opens with web search (on by default), location and how data is used", async () => {
+it("opens with web search (on by default) and location", async () => {
   const view = await render(<DataControlsScreen />);
   const search = view.getByRole("switch", { name: "settings.web_search" });
   expect(search.props.accessibilityState.checked).toBe(true);
   expect(view.getByText("settings.location_summary")).toBeTruthy();
-  expect(view.getByText("settings.data_use_body")).toBeTruthy();
   // The policy itself lives once, under About.
   expect(view.queryByText("privacy.title")).toBeNull();
 });
