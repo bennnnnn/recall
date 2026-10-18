@@ -73,6 +73,10 @@ from app.modules.chat.prompt_constants import (
     writing_format_hint,
     writing_request_kind,
 )
+from app.modules.chat.prompt_constants.answer_subject import (
+    asked_about_subject,
+    subject_photo_hint,
+)
 from app.modules.chat.prompt_constants.visuals import (
     ANSWER_PHOTO_HINT,
     IMAGE_GEN_HONESTY_HINT,
@@ -347,6 +351,9 @@ def _offers_answer_photo(turn: StyleTurn) -> bool:
 def _answer_photo(turn: StyleTurn) -> list[str]:
     if turn.query and where_is_place(turn.query):
         return [ANSWER_PHOTO_HINT, WHERE_IS_PHOTO_HINT]
+    subject = asked_about_subject(turn.query)
+    if subject:
+        return [ANSWER_PHOTO_HINT, subject_photo_hint(subject)]
     return [ANSWER_PHOTO_HINT]
 
 

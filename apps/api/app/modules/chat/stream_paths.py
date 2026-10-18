@@ -165,6 +165,7 @@ async def run_tool_loop_path(
         web_search=web_search_flag,
         user_timezone=ctx.user_timezone,
         user_text=content,
+        user_location=ctx.search_location,
     )
     if tool_verified is not None:
         ctx.verified_subject = _with_tool_verified(ctx.verified_subject, tool_verified)

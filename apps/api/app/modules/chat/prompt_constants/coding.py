@@ -14,7 +14,7 @@ from typing import Literal
 
 from app.services.text_normalize import collapse_ws
 
-CodeAsk = Literal["explain", "debug"]
+CodeAsk = Literal["explain", "debug", "run"]
 
 # Pasted code is short; a long paste is scanned only from its start.
 _MAX_SCAN = 6000
@@ -94,6 +94,14 @@ _DEBUG_ASK = re.compile(
     r"|\bnot\s+working\b",
     re.IGNORECASE,
 )
+# "Run this python code: print(1+1)", "execute it", "can you compile and run this".
+_RUN_ASK = re.compile(
+    r"\b(?:run|execute|exec|compile\s+and\s+run)\s+(?:this|that|it|the|my|following|these|"
+    r"some|(?:a|this|the|my)\s+\w+\s+(?:code|script|program|snippet))\b"
+    r"|\brun\s+(?:\w+\s+)?(?:code|script|program|snippet)\b"
+    r"|\b(?:compile\s+and\s+)?(?:run|execute)\s*:",
+    re.IGNORECASE,
+)
 _TRACEBACK = re.compile(
     r"Traceback \(most recent call last\)|^ {0,8}[A-Z]\w{0,40}(?:Error|Exception)\b",
     re.MULTILINE,
@@ -149,6 +157,8 @@ def code_question_kind(text: str) -> CodeAsk | None:
     prose = collapse_ws(_FENCED.sub(" ", sample))
     if _DEBUG_ASK.search(prose) or _TRACEBACK.search(sample):
         return "debug"
+    if _RUN_ASK.search(prose):
+        return "run"
     if _EXPLAIN_ASK.search(prose):
         return "explain"
     return None
@@ -198,6 +208,18 @@ CODE_DEBUG_HINT = (
     + _CODE_INK
 )
 
+# "Run this python code: print(1+1)" got a bare "2", as if Recall ran it. Recall
+# never executes code (CLAUDE.md golden rule 5); it says so, then reads the code.
+CODE_RUN_HINT = (
+    "The user asked you to run code. You cannot run or execute code, and nothing ran. Start "
+    "with one short sentence that says so plainly (\"I can't run code, but here's what it "
+    'would print:"), then what the code would output in a ```text block, worked out by '
+    "reading it. If the output depends on input, files, the network, time or randomness, say "
+    'what it depends on instead of inventing a result. Never word it as if it ran ("Output:" '
+    'alone, "I ran it", "Result:"). Add a line-by-line explanation only if they asked '
+    "for one.\n" + _CODE_INK
+)
+
 # Repeated next to the user's message: small models drift back to `$2$`.
 CODE_INK_REMINDER = (
     "Programming answer: code names, values and expressions go in `inline code` and the code "
@@ -212,4 +234,6 @@ def code_question_hint(text: str) -> str | None:
         return CODE_DEBUG_HINT
     if kind == "explain":
         return CODE_EXPLAIN_HINT
+    if kind == "run":
+        return CODE_RUN_HINT
     return None

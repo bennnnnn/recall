@@ -65,6 +65,11 @@ class Turn:
         return self.model == "image-search-model"
 
     @property
+    def answer_photo(self) -> bool:
+        """A photo above an ordinary answer: the reply opens with its image marker."""
+        return self.reply.lstrip().startswith("[Image: /attachments/") and not self.photo
+
+    @property
     def generated(self) -> bool:
         return self.model == "image-gen-model"
 
@@ -78,6 +83,8 @@ class Turn:
             parts.append(f"searched ({len(self.sources)} sources)")
         if self.photo:
             parts.append("photo")
+        elif self.answer_photo:
+            parts.append("photo above the answer")
         elif self.generated:
             parts.append("generated image")
         phases = [p for p in dict.fromkeys(self.phases) if p not in {"thinking", "writing"}]
@@ -227,9 +234,10 @@ def check(case: Case, turn: Turn) -> list[str]:
     wants_photo = bool(expect.photo) or bool(expect.photo_not)
     if wants_photo and not turn.photo:
         misses.append("no photo")
-    if expect.photo == "" and turn.photo and not expect.answer_photo:
+    if expect.photo == "" and (turn.photo or turn.answer_photo) and not expect.answer_photo:
         misses.append("photo shown")
-    if expect.answer_photo and not turn.photo:
+    # An answer photo streams with the model's reply, so the reply's model is the chat model.
+    if expect.answer_photo and not (turn.photo or turn.answer_photo):
         misses.append("no photo above the answer")
     if expect.image_gen is True and not turn.generated:
         misses.append("no generated image")

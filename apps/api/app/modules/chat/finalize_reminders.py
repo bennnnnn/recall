@@ -21,6 +21,7 @@ from app.services.md_fence_scan import next_fence_marker_line
 logger = logging.getLogger(__name__)
 
 _REMINDER_FENCE_LANG = "reminder"
+_ASK_WHEN = "When should I remind you?"
 
 
 def drop_cut_reminder_fence(text: str) -> str:
@@ -55,7 +56,12 @@ async def apply_reminder_pass(
     A failure keeps the text it was given: every pass before this one succeeded.
     """
     try:
+        given = text
         text, created = await _materialize(deps, redis, settings, ctx, text)
+        # A reply that was only a reminder fence, with nothing saved, must still
+        # say something: an empty one kept the streamed fence on the phone.
+        if given.strip() and not text.strip():
+            text = _ASK_WHEN
         if outcome is not None and not ctx.skip_memory_jobs:
             transcript = f"User: {ctx.user_message_content}\nAssistant: {text}"
             if created > 0 or deps.todos.transcript_implies_todo_sync(transcript):

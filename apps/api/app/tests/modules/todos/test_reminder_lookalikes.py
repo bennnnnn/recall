@@ -740,3 +740,19 @@ def test_short_done_and_bulk_marks(text, parsed):
     else:
         assert change is not None
         assert (change.action, change.title_hint, change.use_latest) == parsed
+
+
+@pytest.mark.parametrize(
+    "user_text",
+    ["always remind me to drink water", "also remind me to call mom", "just remind me to stretch"],
+)
+def test_a_lead_word_still_asks_for_a_reminder(user_text: str) -> None:
+    # "Always remind me to drink water" got "I've set up a daily reminder" with
+    # nothing saved: the leading word hid the request.
+    claim = "I've set up a daily reminder for you. Would you like me to adjust the time?"
+    assert reply_when_nothing_saved(claim, user_text) == "When should I remind you?"
+
+
+def test_a_statement_with_always_is_not_a_request() -> None:
+    reply = "Staying hydrated is easier with a bottle on your desk."
+    assert reply_when_nothing_saved(reply, "I always forget to drink water") == reply

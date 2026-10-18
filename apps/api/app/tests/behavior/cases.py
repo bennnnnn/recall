@@ -525,28 +525,29 @@ CASES: tuple[Case, ...] = (
         "auto-photo-animal",
         "photos and maps",
         "what is a capybara",
-        Expect(hints=("answer_photo",), photo=NO_PHOTO, answer_photo=True),
+        Expect(hints=("answer_photo", "subject_photo"), photo=NO_PHOTO, answer_photo=True),
         "A real capybara photo above a short answer: the largest rodent, South American.",
     ),
     Case(
         "auto-photo-landmark",
         "photos and maps",
         "tell me about Lalibela",
-        Expect(hints=("answer_photo",), photo=NO_PHOTO, answer_photo=True),
+        Expect(hints=("answer_photo", "subject_photo"), photo=NO_PHOTO, answer_photo=True),
         "A photo of the rock-hewn churches above the answer.",
     ),
     Case(
         "auto-photo-person",
         "photos and maps",
         "who is Haile Gebrselassie",
-        Expect(hints=("answer_photo",), photo=NO_PHOTO, answer_photo=True),
+        Expect(hints=("answer_photo", "subject_photo"), photo=NO_PHOTO, answer_photo=True),
         "A photo of him above: the Ethiopian distance runner and his records.",
     ),
     Case(
         "auto-photo-none",
         "photos and maps",
         "what is recursion",
-        Expect(photo=NO_PHOTO, answer_photo=False),
+        # A programming concept: no photo is offered at all.
+        Expect(no_hints=("answer_photo", "subject_photo"), photo=NO_PHOTO, answer_photo=False),
         "A plain explanation with a tiny example; no photo.",
     ),
     Case(
@@ -890,7 +891,7 @@ CASES: tuple[Case, ...] = (
         "code-run",
         "code",
         "run this python code: print(1+1)",
-        Expect(search="no", no_hints=("answer_photo",)),
+        Expect(search="no", hints=("code_run",), no_hints=("answer_photo",)),
         "Says Recall can't run Python, and that it would print 2.",
     ),
     Case(

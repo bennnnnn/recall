@@ -54,7 +54,9 @@ from app.services.draft_fences import has_draft
 
 logger = logging.getLogger(__name__)
 
-_INVALID_FENCE = "*Could not save that to-do — the format was invalid.*"
+# "Always remind me to drink water" got a repeating fence with no start time,
+# and the user read "the format was invalid". Nothing was saved: ask when.
+_ASK_WHEN = "When should I remind you?"
 # Each fence in the reply: (start, end, body).
 _Spans = list[tuple[int, int, str]]
 
@@ -250,8 +252,15 @@ async def _match_spoken_add(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
         stated = replace(stated, day="today")
     # "Remind me to plate the dinner at 7pm" is the next 7pm, the same way.
     stated = day_for_a_bare_clock(stated, turn.user_text, user_timezone=turn.user_timezone)
-    # The model's own reminder fence, when it wrote one, keeps its cleaner title.
-    if spans or stated.day is None or stated.hour is None:
+    # The model's own reminder fence, when it wrote one, keeps its cleaner title,
+    # unless its time already passed: "at 7pm" said at 9pm is tomorrow's 7pm, and
+    # the model's "today 19:00" saved nothing and emptied the reply.
+    if spans:
+        title = _past_fence_title(spans, turn.user_timezone)
+        if title is None:
+            return None
+        stated = replace(stated, title=title)
+    if stated.day is None or stated.hour is None:
         return None
     due = due_for_add(stated, user_timezone=turn.user_timezone)
     if due is not None and stated.repeat and due_is_past(due, user_timezone=turn.user_timezone):
@@ -261,6 +270,16 @@ async def _match_spoken_add(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
     if due is None or due_is_past(due, user_timezone=turn.user_timezone):
         return passed_time_reply(), 0
     return await _save_spoken_add(turn, title=stated.title, due=due, repeat=stated.repeat)
+
+
+def _past_fence_title(spans: _Spans, user_timezone: str | None) -> str | None:
+    """The title of the turn's one add fence when its time already passed."""
+    if len(spans) != 1:
+        return None
+    draft = parse_fence(spans[0][2])
+    if draft is None or draft.action != "add" or draft.due_at is None:
+        return None
+    return draft.title if due_is_past(draft.due_at, user_timezone=user_timezone) else None
 
 
 async def _save_user_remind(turn: _Turn) -> tuple[str, int]:
@@ -301,11 +320,13 @@ async def _apply_fences(turn: _Turn, spans: _Spans) -> tuple[str, int]:
     in_place: list[str] = []
     result_lines: list[str] = []
     created_any = False
+    invalid_any = False
     for _start, _end, body in spans:
         result = _FenceResult()
         if state.applied < MAX_TODO_ACTIONS_PER_TURN:
             result = await _apply_fence(turn, state, body)
-        in_place.append(_INVALID_FENCE if result.invalid else "")
+        in_place.append("")
+        invalid_any = invalid_any or result.invalid
         if result.line is not None:
             result_lines.append(result.line)
         if result.ok:
@@ -316,6 +337,8 @@ async def _apply_fences(turn: _Turn, spans: _Spans) -> tuple[str, int]:
         await home_service.invalidate_home_cache(turn.user_id)
     if state.applied == 0:
         updated = reply_when_nothing_saved(updated, turn.user_text, about_reminders=True)
+        if invalid_any and not updated.strip():
+            updated = _ASK_WHEN
     return updated, state.applied
 
 
@@ -332,7 +355,8 @@ async def _apply_fence(turn: _Turn, state: ReminderWrites, body: str) -> _FenceR
         and draft.due_at is not None
         and due_is_past(draft.due_at, user_timezone=turn.user_timezone)
     ):
-        return _FenceResult()
+        # Saying nothing left an empty reply: the user hears the time passed.
+        return _FenceResult(line=passed_time_reply())
     if draft.action == "add":
         line, ok = await create_one(state, draft)
         return _FenceResult(line=line, ok=ok, created=ok)
@@ -341,7 +365,7 @@ async def _apply_fence(turn: _Turn, state: ReminderWrites, body: str) -> _FenceR
 
 
 async def _apply_invalid_fence(turn: _Turn, state: ReminderWrites) -> _FenceResult:
-    """An invalid fence saves the user's explicit "remind me … at 6pm", or says it could not."""
+    """An invalid fence saves the user's explicit "remind me … at 6pm", or asks when."""
     fallback = explicit_user_remind(turn.user_text, turn.user_timezone)
     if fallback is None:
         return _FenceResult(invalid=True)

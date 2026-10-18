@@ -254,6 +254,11 @@ async def intercept_new_turn(
         recent_messages=recent_messages,
     ):
         return True
+    # A photo was asked for and none came back: the model answers in words. A
+    # drawing would pass for a photo, and "show me a picture of Albert
+    # Einstein" drew a real person.
+    if settings.image_search_enabled and extract_image_lookup_query(content):
+        return False
     return await try_image_gen_for_turn(
         deps,
         settings,

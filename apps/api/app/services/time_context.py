@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.core.timezone import DEFAULT_TIMEZONE, resolve_timezone
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
+from app.services.time_weekdays import correct_weekday_dates as correct_weekday_dates
 
 __all__ = ["DEFAULT_TIMEZONE", "resolve_timezone"]
 
@@ -371,13 +372,6 @@ _IN_DAYS = re.compile(
     r"^in (?P<count>\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten) days?$",
     re.IGNORECASE,
 )
-_WEEKDAY_DATE = re.compile(
-    r"\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+"
-    r"(January|February|March|April|May|June|July|August|September|"
-    r"October|November|December)\s+"
-    r"(\d{1,2}),?\s+(\d{4})\b",
-    re.IGNORECASE,
-)
 _PAST_DIRECTIONS = frozenset({"ago", "before"})
 
 
@@ -414,26 +408,6 @@ def format_relative_day_answer(offset: int, timezone: str | None) -> str:
     if offset < 0:
         return f"{span} {unit} ago was {written}."
     return f"{span} {unit} after today is {written}."
-
-
-def correct_weekday_dates(text: str) -> str:
-    """Replace a weekday that does not belong to the date written next to it."""
-
-    def replace(match: re.Match[str]) -> str:
-        weekday = match.group(1)
-        month = match.group(2)
-        day_raw = match.group(3)
-        year_raw = match.group(4)
-        try:
-            when = datetime.strptime(f"{month} {int(day_raw)} {int(year_raw)}", "%B %d %Y")
-        except ValueError:
-            return match.group(0)
-        actual = when.strftime("%A")
-        if actual.lower() == weekday.lower():
-            return match.group(0)
-        return match.group(0).replace(weekday, actual, 1)
-
-    return _WEEKDAY_DATE.sub(replace, text)
 
 
 def is_local_now_question(text: str) -> bool:
@@ -540,8 +514,19 @@ def format_now_awareness(timezone: str | None, locale: str | None = None) -> str
         f"Current local time: {now.strftime('%A')}, {month} {now.day}, {now.year}, "
         f"{clock} {tzname}. Year {now.year}. Month {month}. "
         "You know this time, year, and month. "
-        "Never say you lack a clock, the current time, the year, or the month."
+        "Never say you lack a clock, the current time, the year, or the month. "
+        # A weekday by its full date is checked before the reply is saved:
+        # "Christmas falls on a Monday" was wrong (2026's is a Friday).
+        "When you name the weekday of a date, write the full date with it "
+        '("Friday, December 25, 2026"). '
+        # "What is Tuesday" on a Sunday got Wednesday the 21st: read the week, don't count.
+        f"The next seven days: {_coming_week(now)}."
     )
+
+
+def _coming_week(now: datetime) -> str:
+    days = (now + timedelta(days=offset) for offset in range(1, 8))
+    return ", ".join(f"{day.strftime('%A')} {day.strftime('%B')} {day.day}" for day in days)
 
 
 def format_time_answer(timezone: str | None, locale: str | None = None) -> str:

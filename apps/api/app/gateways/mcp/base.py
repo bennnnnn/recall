@@ -47,6 +47,9 @@ class ToolContext:
     tavily_budget: TavilyBudget
     # A tool that runs once per turn keeps its first result here, by tool name.
     first_results: dict[str, ToolResult] = field(default_factory=dict)
+    # The device location for a turn that needs one ("coffee near me", "weather
+    # here"); None otherwise. A search for that turn must name it.
+    user_location: str | None = None
 
 
 class ToolAdapter(Protocol):

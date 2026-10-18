@@ -352,3 +352,45 @@ async def test_a_card_the_model_wrote_itself_is_dropped(db_session, fake_redis):
     text = await _turn(db_session, fake_redis, user, chat, "thanks!", f"You're welcome.\n\n{fake}")
     assert "made-up" not in text
     assert text.startswith("You're welcome.")
+
+
+# 21:13 in Nairobi: today's 7pm has passed.
+_EVENING = datetime(2026, 10, 18, 18, 13, tzinfo=UTC)
+_PAST_FENCE = '```reminder\n{"title":"Plate the dinner","due_at":"2026-10-18T19:00:00+03:00"}\n```'
+
+
+async def _nairobi_turn(session: Any, redis: Any, user_text: str, reply: str) -> str:
+    user, chat = await _user_and_chat(session)
+    with patch("app.modules.todos.spoken_add._now", lambda tz: _EVENING.astimezone(tz)):
+        text, written = await materialize_reminder_fences(
+            session,
+            user_id=user.id,
+            chat_id=chat.id,
+            assistant_text=reply,
+            user_timezone="Africa/Nairobi",
+            user_text=user_text,
+            redis=redis,
+            confirm=True,
+        )
+    assert written == 0
+    return text
+
+
+@pytest.mark.asyncio
+async def test_a_bare_clock_already_past_is_offered_for_tomorrow(db_session, fake_redis):
+    """ "Remind me to plate the dinner at 7pm" at 9pm: the model's fence said today
+    at 7pm, nothing was saved, and the reply kept the raw fence."""
+    text = await _nairobi_turn(
+        db_session, fake_redis, "remind me to plate the dinner at 7pm", _PAST_FENCE
+    )
+    assert "```reminder\n" not in text
+    item = _card(text)["items"][0]
+    assert item["title"] == "Plate the dinner"
+    assert item["due_at"] == "2026-10-19T16:00:00Z"
+
+
+@pytest.mark.asyncio
+async def test_a_past_fence_with_no_clock_still_says_something(db_session, fake_redis):
+    text = await _nairobi_turn(db_session, fake_redis, "remind me to plate the dinner", _PAST_FENCE)
+    assert "```reminder" not in text
+    assert text.strip()

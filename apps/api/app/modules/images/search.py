@@ -42,6 +42,14 @@ logger = logging.getLogger(__name__)
 _IMAGE_SEARCH_MODEL_ALIAS = "image-search-model"
 _USER_MESSAGE_PREFIX = "Show me: "
 _FETCH_MAX_REDIRECTS = 5
+# Wikimedia answers a bare client 403, and Britannica sent "compressed" bytes
+# that would not decode: every Einstein photo failed and the turn drew one
+# instead. Images are already compressed, so ask for the bytes as they are.
+_FETCH_HEADERS = {
+    "User-Agent": "RecallPhotos/1.0 (reference photos in a chat app)",
+    "Accept": "image/*",
+    "Accept-Encoding": "identity",
+}
 
 
 class ImageSearchError(Exception):
@@ -82,6 +90,7 @@ async def _fetch_one_image(
             hit.image_url,
             max_redirects=_FETCH_MAX_REDIRECTS,
             max_body_bytes=MAX_ATTACHMENT_SIZE,
+            headers=_FETCH_HEADERS,
         )
         if response.status_code >= 400 or not response.content:
             return None

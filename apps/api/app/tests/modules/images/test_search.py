@@ -417,3 +417,17 @@ async def test_lookup_reply_is_image_markers_only():
     assert "Source:" not in asst_msg.content
     assert "Ignore previous" not in asst_msg.content
     assert "evil.test" not in asst_msg.content
+
+
+@pytest.mark.asyncio
+async def test_photo_fetch_names_itself_and_asks_for_plain_bytes():
+    """Wikimedia answers a bare client 403 and Britannica sent bytes that would not
+    decode, so every Einstein photo failed and the turn drew him instead."""
+    from app.modules.images import search as search_module
+
+    fetch = AsyncMock(return_value=_fake_response())
+    with patch("app.modules.images.search.safe_fetch.fetch_safely", fetch):
+        await search_module._fetch_one_image(AsyncMock(), _HIT)
+    headers = fetch.await_args.kwargs["headers"]
+    assert headers["User-Agent"].startswith("RecallPhotos/")
+    assert headers["Accept-Encoding"] == "identity"

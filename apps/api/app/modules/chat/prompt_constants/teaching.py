@@ -341,14 +341,14 @@ _LESSON_SHAPE = (
     "`2: 0`.\nDictionary: `{2: 0}`\n```\n"
     "- Cost in math: time $O(n^2)$, extra space $O(1)$. A key idea may be one display formula "
     "in a ```math fence. Compare approaches in a markdown table.\n"
-    "- The last section is `### N. Your turn — predict the output` (translated, or the kind of "
-    'question it is) with one practice question as a ```quiz fence holding JSON {"label": '
-    '"Exercise 1", "question": "What will this Python code print?", "code": "<the code the '
-    'question needs, lines joined with \\n>", "options": ["...", "...", "...", "..."], '
-    '"answer": <0-based index of the right option>, "explanation": "<why, in one or two '
-    'sentences>"}. The app draws the label, the question and the code inside one card, so '
-    'never repeat the code in a block above it. Prefer "predict the output" or "what should '
-    'it return"; make the wrong options real mistakes. Options and the explanation may use '
+    "- The last section is `### N. Your turn`, plus what it asks when it helps (code: `— predict "
+    "the output`; history: `— check your understanding`). One practice question as a ```quiz "
+    'fence, ```quiz alone on its line and the JSON on the next: {"label": "Exercise 1", '
+    '"question": "What will this Python code print?", "code": "<the code it needs, lines joined '
+    'with \\n; empty without code>", "options": ["...", "...", "...", "..."], "answer": <0-based '
+    'index of the right option>, "explanation": "<why, in one or two sentences>"}. The app draws '
+    "the label, question and code in one card; never repeat the code above it. For code prefer "
+    '"predict the output" or "what should it return"; make the wrong options real mistakes. Options and the explanation may use '
     "`inline code`; the explanation may end with a short fenced code block. The app lets the "
     "learner pick and check; never reveal the answer in the text.\n"
     "- End with one sentence previewing the next lesson: \"Once you get this, we'll move to A, "
