@@ -53,3 +53,29 @@ describe("preprocessMarkdown answer heading", () => {
     expect(out).toContain("```answer\nverified: true\nx = 0\n```");
   });
 });
+
+describe("attachAnswerHeadingToFence: one Answer label", () => {
+  const card = "```answer\nx = -\\frac{5}{2}\n```";
+
+  it("drops a heading and its restated value above a card", () => {
+    const md = ["**Answer**", "$x = -\\frac{5}{2}$ (or −2.5)", "", card].join("\n");
+    expect(attachAnswerHeadingToFence(md)).toBe(card);
+  });
+
+  it("drops two headings stacked above a card", () => {
+    const md = ["**Answer**", "", "**Answer:**", "", card].join("\n");
+    expect(attachAnswerHeadingToFence(md)).toBe(card);
+  });
+
+  it("keeps a written-out Answer section with no card below", () => {
+    const md = ["**Answer**", "$R = \\frac{346.4}{9.81}$", "$R \\approx 35.3\\ \\text{m}$"].join("\n");
+    expect(attachAnswerHeadingToFence(md)).toBe(md);
+  });
+
+  it("keeps prose between a heading and the card", () => {
+    const md = ["**Answer**", "Only the positive root makes sense for a length.", "", card].join(
+      "\n",
+    );
+    expect(attachAnswerHeadingToFence(md)).toBe(md);
+  });
+});

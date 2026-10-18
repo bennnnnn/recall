@@ -246,8 +246,10 @@ def restated_math_problem(
         return None
     line = " ".join(query.split()).rstrip("?.! ")
     match = _RESTATE_LEAD.match(line)
-    if match is None:
-        return None
+    if match is None or "=" not in line[match.end() :]:
+        from app.modules.math.followup_what_if import changed_part_problem
+
+        return changed_part_problem(line, recent, blocked)
     problem = line[match.end() :].strip()
     if "=" not in problem or not needs_symbolic_math(problem):
         return None

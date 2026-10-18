@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from app.modules.math.followup_what_if import is_part_change
 from app.modules.math.tools.direct_fences import MAX_DIRECT_ANSWER_CHARS, solver_fences
 from app.modules.math.tools.direct_graph import (
     can_direct_graph,
@@ -243,9 +244,8 @@ def can_direct_verified_math_reply(
         verified, lesson_math_text(user_text), require_solve=False
     ):
         return True
-    # Prime factorization has two operation words, which the generic prose
-    # counter rejects. Require a whole-request match instead of whitelisting
-    # them globally; even "factorize 60 and 2+2" must retain the model path.
+    # Prime factorization has two operation words the prose counter rejects: match the
+    # whole request ("factorize 60 and 2+2" keeps the model). A rebuilt "what if" passes.
     from app.modules.math.match.coordinate_vector import (
         has_coordinate_vector_request,
         is_closed_coordinate_vector_request,
@@ -257,8 +257,7 @@ def can_direct_verified_math_reply(
     from app.modules.math.tools.school.probability import binomial_trials_direct_request
 
     trials_request = binomial_trials_direct_request(user_text)
-    # A lesson request wraps the calculus in teaching words ("show steps:",
-    # "step by step"); the whole-request grammar reads the math under them.
+    # A lesson wraps calculus in teaching words ("show steps:"); the grammar reads under them.
     calculus_text = lesson_math_text(user_text) if lesson else user_text
     closed_request = _closed_school_request(user_text, calculus_text)
     # A closed grammar has read the whole request, so the other subjects'
@@ -308,7 +307,8 @@ def can_direct_verified_math_reply(
         or solid_request
         or calculus_request
     ) and leftover_non_math_request(strip_teaching_signals(user_text)):
-        return False
+        if not (verified_request_text and is_part_change(user_text)):
+            return False
     answer = (verified.canonical_answer or "").strip()
     if calculus_request and any(
         token in answer
