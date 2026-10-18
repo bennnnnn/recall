@@ -13,6 +13,7 @@ from app.modules import todos as todos_service
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.chat.finalize_registry import clear_pending_finalize
+from app.modules.chat.prompt_constants.lesson_flow import lesson_step
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup, StreamContext
 from app.modules.memory import is_explicit_memory_command, memory_extract_user_text
@@ -339,6 +340,24 @@ async def enqueue_post_turn_jobs(
                     "assistant_message_id": turn_key,
                 },
                 f"memory:{turn_key}",
+            ),
+        )
+    # A lesson reply updates the chat's one "Learning X" memory line (no LLM).
+    if (
+        not ctx.skip_memory_jobs
+        and ctx.user is not None
+        and ctx.user.memory_enabled
+        and lesson_step(assistant_text) is not None
+    ):
+        job_specs.append(
+            (
+                "lesson_progress",
+                {
+                    "user_id": str(ctx.user_id),
+                    "chat_id": str(ctx.chat_id),
+                    "assistant_message_id": turn_key,
+                },
+                f"lesson_progress:{turn_key}",
             ),
         )
     # The background repair writes without a card, so it stays off while

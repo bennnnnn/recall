@@ -2,11 +2,11 @@
 
 import re
 
+from app.modules.chat.prompt_constants.lesson_flow import lesson_step
 from app.modules.chat.prompt_constants.locale_cues import (
     has_any_personal_locale_cue,
     has_locale_cue,
 )
-from app.modules.chat.prompt_constants.teaching import lesson_step
 from app.modules.chat.prompt_constants.writing_kind import is_email_or_message_request
 from app.services import time_context as time_context_service
 from app.services.text_normalize import collapse_ws

@@ -29,10 +29,11 @@ from app.core.redis import get_redis_client
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.attachments import jobs as attachment_indexing
 from app.modules.attachments import lifecycle as attachment_lifecycle
-from app.modules.chat import compaction
+from app.modules.chat import compaction, lesson_progress
 from app.modules.memory import consolidation_workflow as memory_consolidation
 from app.modules.memory import extraction_workflow as memory_extraction
 from app.modules.memory import history_scan as memory_history_scan
+from app.modules.memory import learning_progress as memory_learning
 from app.modules.notifications import transactional_email as transactional_email_service
 from app.modules.suggestions import service as suggestion_generation
 from app.modules.todos import jobs as todo_jobs
@@ -139,6 +140,36 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
             "Memory extraction dropped after lock retries "
             f"user_id={payload.get('user_id')} chat_id={payload.get('chat_id')}"
         ),
+    )
+
+
+async def _handle_lesson_progress(settings: Settings, payload: dict[str, Any]) -> None:
+    """Keep the chat's "Learning X: reached Lesson N" memory line current. No LLM."""
+    user_id, chat_id = UUID(payload["user_id"]), UUID(payload["chat_id"])
+    async with SessionLocal() as session:
+        progress = await lesson_progress.load_lesson_progress(
+            session, user_id=user_id, chat_id=chat_id
+        )
+    if progress is None:
+        return
+    outcome = await memory_learning.record_learning_progress(
+        settings,
+        user_id=user_id,
+        chat_id=chat_id,
+        text=progress.text,
+        started_at=progress.started_at,
+    )
+    if outcome != "skipped_lock":
+        return
+    await _reenqueue_after_memory_lock(
+        job_type="lesson_progress",
+        retry_payload={
+            "user_id": payload["user_id"],
+            "chat_id": payload["chat_id"],
+            "lock_retries": payload.get("lock_retries") or 0,
+        },
+        dedupe_stem=f"lesson_progress:{payload.get('assistant_message_id') or payload['chat_id']}",
+        warning=f"Lesson progress dropped after lock retries chat_id={payload.get('chat_id')}",
     )
 
 
@@ -264,6 +295,7 @@ def register_all() -> None:
     register("topic", _handle_topic)
     register("memory", _handle_memory)
     register("memory_consolidate", _handle_memory_consolidate)
+    register("lesson_progress", _handle_lesson_progress)
     register(memory_history_scan.HISTORY_SCAN_JOB, _handle_memory_history_scan)
     register("todos", _handle_todos)
     register("compress", _handle_compress)

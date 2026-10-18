@@ -112,8 +112,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   dictation so they cannot send into the wrong conversation.
 - ✅ **Teach-me lessons (ChatGPT's lesson shape)** — “teach me X”, “help me learn X”,
   “I want to learn X” (and the teach verbs in the other app languages) and “help me
-  understand two sum” / “walk me through quicksort” each get a complete lesson in one
-  reply: a one-line hook tied to the user's goal or level from memory (one fitting emoji),
+  understand two sum” / “walk me through quicksort”. One idea (“teach me Python
+  dictionaries”) gets exactly that lesson; a whole subject (“teach me Python”, “cooking”,
+  “English”) first gets 5-8 topics in learning order and one question about where to
+  start, and the answer (“3”, “start”, “I'm a beginner”) starts Lesson 1 there. A lesson is
+  a complete reply: a one-line hook tied to the user's goal or level from memory (one fitting emoji),
   `### Lesson 1: <topic>`, 3-5 numbered sections (`### 1. Understand the problem`, …) with
   real-world examples, code explained line by line with its output, an `array` card for
   values over their indexes, a trace as `steps` cards, cost in math ($O(n)$) and a
@@ -121,10 +124,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   answer**, see why; checked on the phone, nothing is sent) and one line previewing the
   next lesson. A `quiz` or `array` fence whose JSON is broken still reads: the question,
   lettered options and a **Show answer** tap, or the list's values as text
-  (`lib/lesson/lessonFences.ts` loose readers); a fence counts as finished once its braces close. No course outline. The next turn grades a typed answer (“Correct! 🎉” or a
+  (`lib/lesson/lessonFences.ts` loose readers); a fence counts as finished once its braces close. The next turn grades a typed answer (“Correct! 🎉” or a
   short fix), then teaches Lesson N+1 from the preview; confusion re-explains the same
   lesson a new way, random input is not graded, and “everything at once” / a cheat sheet
-  wins. Prompt: `modules/chat/prompt_constants/teaching.py`. Procedures (“teach me how to
+  wins. A day or more after the last lesson, the next one opens with a two-line recap and a
+  warm-up quiz. Each lesson keeps one ordinary memory line per chat (“Learning Python:
+  reached Lesson 3, Dictionaries … Covered: …”, `lesson_progress` job, no LLM; a hand edit
+  to memory after the lessons began keeps it out), so “teach me Python” in a new chat
+  offers to pick up where they stopped. Prompt: `modules/chat/prompt_constants/teaching.py`
+  and `lesson_flow.py`. Procedures (“teach me how to
   install Docker” / “walk me through changing a tire”) keep the how-to steps.
 - ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
   not a greeting. A short answer (“no”, “got it”) to a question or lesson step
@@ -898,7 +906,7 @@ only `GOOGLE_CLIENT_ID`.
 
 ## 17. Language learning (removed)
 
-The dedicated language-learning product (vocabulary classes, lesson maps, SM-2 practice, `/projects`, and the Learning drawer) has been removed. Chat still teaches math, physics, chemistry, and programming, including “teach me…” lessons and multi-day study roadmaps. Those stay in ordinary chat. There is no Learning screen, API, table, or background job.
+The dedicated language-learning product (vocabulary classes, lesson maps, SM-2 practice, `/projects`, and the Learning drawer) has been removed. Chat still teaches math, physics, chemistry, and programming, including “teach me…” lessons and multi-day study roadmaps. Those stay in ordinary chat. There is no Learning screen, API or table; a lesson chat keeps only one ordinary memory line (`lesson_progress`).
 
 ## Deferred to upcoming version(s)
 A consolidated list of what's intentionally **not** (or only partially) in this version.

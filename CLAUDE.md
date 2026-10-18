@@ -180,11 +180,11 @@ New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` w
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
 7. Post-stream fence finalization: math (`math/fence.py`), physics (`modules/physics/fence.py`), chemistry (`modules/chemistry/fence.py`)
 8. Persist assistant + usage in a finalize task
-9. `enqueue_post_turn_jobs` — topic, memory, todos (only with reminder cards off: it writes without a tap), compress, attachment_index, message_index (best-effort; must not raise into the stream)
+9. `enqueue_post_turn_jobs` — topic, memory, lesson_progress (after a lesson reply: the chat's one "Learning X: reached Lesson N" memory line, no LLM), todos (only with reminder cards off: it writes without a tap), compress, attachment_index, message_index (best-effort; must not raise into the stream)
 
 Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job.
 
-**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `todos`, `compress`, `suggestions`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
+**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `lesson_progress`, `todos`, `compress`, `suggestions`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
 
 **Worker** (`worker_main.py`): consumes that stream and runs schedulers (push, email reminders, attachment orphan reaper).
 

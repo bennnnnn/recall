@@ -14,7 +14,6 @@ projects, and milestones rather than entering the one-step-at-a-time tutor.
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from app.services.text_normalize import collapse_ws
 
@@ -111,17 +110,6 @@ _LEARNING_VERBS = frozenset(
         "write",
     }
 )
-
-# "### Lesson 2: Dictionaries": a heading with the word Lesson in an app
-# language and the lesson's number. "Day 1", "Part 2" and "Step 3" are plans,
-# parts and how-tos, not lessons.
-_LESSON_WORDS = r"lesson|lecci[oó]n|le[cç]on|lektion|lezione|li[cç][aã]o|aula|урок|ders|ትምህርት"
-_LESSON_TITLE = re.compile(
-    r"^\s*(?:#{1,4}\s+|\*\*)\s*(?:" + _LESSON_WORDS + r")\s+(\d{1,2})\s*[:.\-—–]",
-    re.MULTILINE | re.IGNORECASE,
-)
-_QUIZ_FENCE = re.compile(r"^\s*```quiz\b", re.MULTILINE | re.IGNORECASE)
-_QUESTION_MARKS = ("?", "？", "፧")
 
 # A bounded roadmap/course request is different from an interactive teach-me
 # session. Keep the pieces separate so common word orders remain readable and
@@ -277,7 +265,8 @@ def programming_lesson_contract(text: str) -> str:
     if tag is None:
         return ""
     return (
-        "HARD PROGRAMMING-LESSON ACCEPTANCE CHECK: Before answering, verify the response contains "
+        "HARD PROGRAMMING-LESSON ACCEPTANCE CHECK (a lesson only; an outline of a whole "
+        "language has no code): Before answering, verify the response contains "
         f"the literal opening fence ```{tag}, runnable code on following lines, and a closing ```. "
         "This is mandatory even when the lesson starts with a concept. An inline snippet, pseudo-code, or "
         "untagged fence fails the requested output. Keep the example short, then end with the "
@@ -352,7 +341,9 @@ _LESSON_SHAPE = (
     "`inline code`; the explanation may end with a short fenced code block. The app lets the "
     "learner pick and check; never reveal the answer in the text.\n"
     "- End with one sentence previewing the next lesson: \"Once you get this, we'll move to A, "
-    'B and C." No course outline, no table of contents, no "ready to continue?" question.\n'
+    'B and C." When they asked for one idea, the preview goes deeper into that same idea '
+    "(for dictionaries: looping over one, nesting). No course outline, no table of "
+    'contents, no "ready to continue?" question.\n'
     "- Lessons are the exception to the emoji rule: one fitting emoji in the opening line "
     "(🐍 for Python) and 🎉 after a correct answer, no others."
 )
@@ -363,14 +354,35 @@ _LESSON_OPENING = (
     "- Open with one or two sentences before the title: what they will learn, why it matters, "
     'and how it fits their goal or level when the profile or memory says ("Since you already '
     "know some Python basics, we'll build on them instead of starting with what a variable "
-    'is.").\n'
+    'is."). Without that, never claim what they already know.\n'
+)
+
+# A whole subject is a map before it is a lesson: "teach me Python" gets the
+# topics in order and one question; "teach me Python dictionaries" gets the
+# lesson. The model judges the size, in any subject and language.
+_SUBJECT_OUTLINE = (
+    'First check memory: if it says they are already learning this subject ("Learning '
+    'Python: reached Lesson 3, Dictionaries ... Covered: ...") reply with only two lines '
+    "and no list: where they got to, then one question offering the next topic after the "
+    'last one covered or a fresh start ("Last time we got to dictionaries. Pick up with '
+    'functions, or start over?"). Otherwise judge the size of what they asked for.\n'
+    "- A whole subject (Python, English, cooking, calculus, guitar, chemistry): do not teach "
+    "yet. Reply with one sentence on what it opens up for them, then a numbered list of 5-8 "
+    "topics in the order to learn them, each a **bold name** and a few words on what it "
+    "lets them do, then one short question: where they are and where to start (for "
+    'example "New to it, or do you know some already? Pick a number, or tell me what you '
+    'want to make with it."). Tailor the list to a level or goal they or the profile or '
+    "memory already gave. No lesson title, no code, no quiz, no headings; under 150 words.\n"
+    "- One idea, skill, rule or dish (Python dictionaries, the present perfect, derivatives, "
+    "knife skills, an omelette): teach exactly that and nothing past it.\n"
 )
 
 TEACHING_HINT = (
-    "The user wants to learn a subject. Teach Lesson 1 now, complete, in this shape:\n"
+    "The user wants to learn something. "
+    + _SUBJECT_OUTLINE
+    + "For one idea, teach Lesson 1 now, complete, in this shape:\n"
     + _LESSON_OPENING
-    + "- Start where they are: skip what they already know and pick one meaningful first "
-    "topic (for Python basics, lists and loops), taught fully with an example tied to their "
+    + "- Start where they are: skip what they already know, and tie the example to their "
     "goal.\n" + _LESSON_SHAPE
 )
 
@@ -614,59 +626,3 @@ def _asks_for_a_procedure(cleaned: str) -> bool:
     ):
         return False
     return action not in _LEARNING_VERBS
-
-
-def lesson_step(text: str | None) -> int | None:
-    """The number of the lesson an assistant reply taught, or None.
-
-    A lesson ends on practice: a ```quiz card or a question after its title. A
-    reply that only mentions "Lesson 2" in passing is not one.
-    """
-    if not text:
-        return None
-    found: int | None = None
-    end = 0
-    for match in _LESSON_TITLE.finditer(text):
-        found, end = int(match.group(1)), match.end()
-    if found is None or found < 1:
-        return None
-    rest = text[end:]
-    if _QUIZ_FENCE.search(rest) or any(mark in rest for mark in _QUESTION_MARKS):
-        return found
-    return None
-
-
-def active_lesson_step(messages: list[Any] | None) -> int | None:
-    """The lesson the most recent assistant reply taught, in an oldest-first window."""
-    for message in reversed(messages or []):
-        if getattr(message, "role", None) != "assistant":
-            continue
-        content = getattr(message, "content", None)
-        return lesson_step(content if isinstance(content, str) else None)
-    return None
-
-
-def lesson_continue_hint(number: int) -> str:
-    """The turn after a lesson: grade the practice if answered, then the next lesson."""
-    nxt = number + 1
-    return (
-        f"A lesson is in progress. The learner has ALREADY SEEN Lesson {number}, which ended "
-        "with a practice ```quiz (they can check it in the app) and a preview of the next "
-        f"lesson. Do not repeat Lesson {number}. Read the latest message first:\n"
-        '- An answer to the practice question: if right, start with "Correct! 🎉" and say why '
-        'in one sentence; if wrong or partial, start with "Not quite", fix that one '
-        "misunderstanding in 1-3 sentences with a fresh tiny example, and do not ask them to "
-        f"try again. Then teach Lesson {nxt}.\n"
-        f"- 'next', 'ok', 'got it', 'continue' or similar: teach Lesson {nxt}.\n"
-        "- Confusion ('I don't get it', 'why?', 'another example'): stay on the same idea, "
-        f"explain it a different way with a new analogy and example under the same "
-        f"`### Lesson {number}: ...` title, and end with a fresh ```quiz.\n"
-        "- A question about the lesson: answer it first, then continue.\n"
-        "- Accidental or unclear input: do not grade it; give the practice answer in one "
-        f"sentence and teach Lesson {nxt}.\n"
-        "- A request to skip, stop, change topic, get everything at once, a summary or a "
-        "cheat sheet: do that instead of the next lesson.\n"
-        f"Lesson {nxt} covers what the preview promised, without a greeting or an outline, "
-        "in the same shape (the app's ```quiz, ```array and ```steps cards included):\n"
-        + _LESSON_SHAPE
-    )
