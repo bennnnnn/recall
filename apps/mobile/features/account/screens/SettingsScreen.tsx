@@ -28,7 +28,7 @@ import { useTheme } from "@/lib/theme";
 export default function SettingsScreen() {
   const { token, user, signOut, updateUser } = useAuth();
   const { t } = useTranslation();
-  const { isPaid, autoEnabled, modelEnabledSet } = useModels();
+  const { autoEnabled, modelEnabledSet } = useModels();
   const theme = useTheme();
   const router = useRouter();
   const { preference, setPreference } = useAppearance();
@@ -87,7 +87,7 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <AccountSettingsSection isPaid={isPaid} />
+      <AccountSettingsSection />
 
       <SettingsGroup label={t("settings.experience")}>
         <SettingsMenuRow

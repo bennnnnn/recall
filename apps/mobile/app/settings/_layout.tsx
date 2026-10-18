@@ -42,6 +42,10 @@ export default function SettingsLayout() {
         options={subScreen(t("settings.profile"), header)}
       />
       <Stack.Screen
+        name="usage"
+        options={subScreen(t("settings.usage_group"), header)}
+      />
+      <Stack.Screen
         name="models"
         options={subScreen(t("settings.model"), header)}
       />

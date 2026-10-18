@@ -65,7 +65,6 @@ export default function PreferencesSettingsScreen() {
           />
           <SettingsSwitchRow
             title={t("settings.follow_up_suggestions")}
-            subtitle={t("settings.follow_up_suggestions_summary")}
             value={user?.follow_up_suggestions_enabled !== false}
             disabled={saving}
             busy={action.busy === "follow_ups"}
@@ -75,6 +74,16 @@ export default function PreferencesSettingsScreen() {
               )
             }
           />
+        </SettingsGroup>
+        <SettingsGroup>
+          <SettingsSwitchRow
+            icon="vibrate"
+            title={t("settings.haptics")}
+            value={haptics.enabled}
+            onValueChange={(next) => void haptics.setEnabled(next)}
+          />
+        </SettingsGroup>
+        <SettingsGroup>
           <SettingsLinkRow
             title={t("settings.custom_instructions")}
             value={
@@ -83,14 +92,6 @@ export default function PreferencesSettingsScreen() {
                 : t("settings.custom_instructions_none")
             }
             onPress={openInstructions}
-          />
-        </SettingsGroup>
-        <SettingsGroup>
-          <SettingsSwitchRow
-            icon="vibrate"
-            title={t("settings.haptics")}
-            value={haptics.enabled}
-            onValueChange={(next) => void haptics.setEnabled(next)}
           />
         </SettingsGroup>
       </SettingsPage>
