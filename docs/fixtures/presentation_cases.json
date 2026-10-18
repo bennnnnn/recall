@@ -936,6 +936,30 @@
       "area": "calculation",
       "input": "$h = 6 - 3 = 3$  \n$k = 3^2 = 9$ — y at x = 3",
       "expected": "$h = 6 - 3$  \n$h = 3$  \n$k = 3^2$ — y at x = 3  \n$k = 9$"
+    },
+    {
+      "id": "smiles-line-is-notation-not-a-chain",
+      "area": "notation",
+      "input": "Here is the structure of caffeine:\n\nCN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+      "expected": "Here is the structure of caffeine:\n\n`CN1C=NC2=C1C(=O)N(C(=O)N2C)C`"
+    },
+    {
+      "id": "smiles-in-a-sentence-is-notation",
+      "area": "notation",
+      "input": "Benzaldehyde is O=Cc1ccccc1, and aspirin is CC(=O)OC1=CC=CC=C1C(=O)O.",
+      "expected": "Benzaldehyde is `O=Cc1ccccc1`, and aspirin is `CC(=O)OC1=CC=CC=C1C(=O)O`."
+    },
+    {
+      "id": "equations-links-and-code-are-not-notation",
+      "area": "notation",
+      "input": "F=ma, f(x)=2x+1, print(total), https://x.com/a#b and `CC(=O)O` stay.",
+      "expected": "F=ma, f(x)=2x+1, print(total), https://x.com/a#b and `CC(=O)O` stay."
+    },
+    {
+      "id": "a-chain-still-splits",
+      "area": "calculation",
+      "input": "a = b = c",
+      "expected": "$a = b$  \n$a = c$"
     }
   ]
 }

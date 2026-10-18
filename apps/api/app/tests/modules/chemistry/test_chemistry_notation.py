@@ -7,7 +7,7 @@ import re
 import pytest
 
 from app.modules.chemistry.block import build_verified_chemistry
-from app.modules.chemistry.catalog import CATALOG, law_name
+from app.modules.chemistry.catalog import CATALOG, PUBCHEM_OPS, law_name
 from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.fence import validate_chemistry_fences
@@ -164,7 +164,7 @@ def test_a_direct_reply_is_typeset_free_of_math_delimiters_and_stable_under_fina
 
 def test_every_operation_has_a_case_in_the_invariant_matrix() -> None:
     covered = {operation for _question, operation, _answer in ALL_CASES}
-    assert covered == set(CHEMISTRY_SOLVERS) - {"iupac_name"}
+    assert covered == set(CHEMISTRY_SOLVERS) - PUBCHEM_OPS
 
 
 def test_a_direct_reply_reads_as_typeset_chemistry() -> None:

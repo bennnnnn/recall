@@ -13,6 +13,7 @@ import re
 
 from app.modules.chat.calculation_layout import layout_calculations
 from app.modules.chat.inline_boundaries import repair_inline_token_boundaries
+from app.modules.chat.notation_spans import code_notation
 from app.modules.chat.repl_transcript import fence_repl_transcripts
 
 _WHY_QUESTION = re.compile(r"\b(?:why|explain)\b", re.IGNORECASE)
@@ -44,7 +45,9 @@ def drop_orphan_leading_answer(reply: str, user_text: str) -> str:
 
 
 def present_assistant_markdown(text: str) -> str:
-    """Fence REPL transcripts, repair closed inline tokens, then split calculations."""
+    """Fence REPL transcripts, keep notation as code, repair closed inline tokens, then
+    split calculations."""
     if not text:
         return text
-    return layout_calculations(repair_inline_token_boundaries(fence_repl_transcripts(text)))
+    prose = code_notation(fence_repl_transcripts(text))
+    return layout_calculations(repair_inline_token_boundaries(prose))

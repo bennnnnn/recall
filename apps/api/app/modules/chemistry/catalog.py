@@ -25,6 +25,8 @@ class FormulaSpec:
     method: bool = False
 
 
+# Operations PubChem answers (a name's structure, a structure's name); no local solver.
+PUBCHEM_OPS = frozenset({"iupac_name", "structure"})
 # Operations answered by a procedure (balancing, a table lookup, a structure match).
 METHODS = frozenset(
     {
@@ -35,6 +37,7 @@ METHODS = frozenset(
         "stereochemistry",
         "isomers",
         "iupac_name",
+        "structure",
         "named_reaction",
         "ir_ranges",
         "ir_peak",
@@ -118,21 +121,11 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     ("h_from_ph", "acid_base", "Inverse pH relation", "[H+] = 10^(-pH)"),
     ("poh_from_oh", "acid_base", "Definition of pOH", "pOH = −log10[OH-]"),
     ("buffer_ph", "acid_base", "Henderson–Hasselbalch equation", "pH = pKa + log10([A-]/[HA])"),
-    (
-        "base_buffer_ph",
-        "acid_base",
-        "Base-buffer pH",
-        "pH = pKw − pKb − log10([BH+]/[B])",
-    ),
+    ("base_buffer_ph", "acid_base", "Base-buffer pH", "pH = pKw − pKb − log10([BH+]/[B])"),
     ("strong_acid_poh", "acid_base", "Strong-acid pOH", "pOH = pKw + log10(C)"),
     ("strong_base_poh", "acid_base", "Strong-base pOH", "pOH = −log10(nC)"),
     ("weak_acid_ka", "acid_base", "Weak-acid constant", "Ka = x^2 / (C − x)"),
-    (
-        "conjugate_salt_ph",
-        "acid_base",
-        "Hydrolysis of a conjugate salt",
-        "Kb = Kw / Ka",
-    ),
+    ("conjugate_salt_ph", "acid_base", "Hydrolysis of a conjugate salt", "Kb = Kw / Ka"),
     ("gibbs", "thermochemistry", "Gibbs equation", "ΔG = ΔH − TΔS"),
     (
         "equilibrium_constant",
@@ -446,6 +439,7 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     ("plate_number", "analytical", "Theoretical plates", "N = 16 (tR / w)^2"),
     ("plate_height", "analytical", "Plate height", "H = L / N"),
     ("iupac_name", "organic", "IUPAC name", "PubChem's IUPACName for the structure's SMILES"),
+    ("structure", "organic", "Structure", "PubChem's canonical SMILES for the named compound"),
     (
         "named_reaction",
         "organic",

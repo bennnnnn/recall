@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from app.modules.chemistry.schemas import ChemistryIntent
@@ -101,3 +101,37 @@ def verified_iupac(smiles: str, iupac_name: str) -> VerifiedChemistry:
         result=result,
         canonical_answer=result.answer.strip(),
     )
+
+
+def verified_structure(
+    name: str, smiles: str, formula: str, molar_mass: float
+) -> VerifiedChemistry:
+    """A named compound's structure from PubChem's SMILES; the server draws it, not the model.
+
+    "Show me the structure of caffeine" got the SMILES as context and the model
+    wrote it as garbled maths, or wrote one of its own. The structure fence is
+    now the solver's, like an answer card: the model only describes it.
+    """
+    intent = ChemistryIntent(kind="organic", chemistry_op="structure", formula=smiles)
+    result = replace(
+        verified(
+            f"Structure of {name}",
+            (name,),
+            "structure",
+            "PubChem canonical SMILES",
+            "the record PubChem returns for this name",
+            (),
+            "",
+            "",
+            verbatim=True,
+        ),
+        structure_smiles=smiles,
+    )
+    text = (
+        f"[Verified structure of {name} (PubChem)]\n"
+        f"Molecular formula: {formula}. Molar mass: {molar_mass:.2f} g/mol.\n"
+        "Recall draws the structure under your reply from PubChem's SMILES. Do not write "
+        "SMILES, a smiles fence, maths or ASCII art for it. Say in one to three sentences what "
+        "the compound is and what the drawing shows (its rings and functional groups)."
+    )
+    return VerifiedChemistry(text=text, intent=intent, result=result, canonical_answer="")
