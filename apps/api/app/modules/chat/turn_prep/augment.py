@@ -59,7 +59,8 @@ class Augmentation:
             self.verified_subject,
             request.content,
             has_image_attachment=request.has_image_attachment,
-            response_style=getattr(user, "response_style", None) or "balanced",
+            # Length follows the message, not a stored setting.
+            response_style="balanced",
             verified_request_text=followup.math,
         )
 

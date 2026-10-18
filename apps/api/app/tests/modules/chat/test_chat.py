@@ -670,7 +670,7 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
 
 
 @pytest.mark.asyncio
-async def test_build_prompt_includes_memory_and_style():
+async def test_build_prompt_includes_memory_and_ignores_a_stored_style():
     user = MagicMock()
     user.name = "Biniyam Mecuriaw"
     user.email = "bmecuriaw@gmail.com"
@@ -710,8 +710,9 @@ async def test_build_prompt_includes_memory_and_style():
     # Account email is gated to email/tool intents — omitted on a plain "Hi".
     assert "bmecuriaw@gmail.com" not in messages[0]["content"]
     assert "first-party context" in messages[0]["content"]
-    assert "short" in messages[0]["content"].lower()
-    assert "1-3 sentences" in messages[0]["content"].lower()
+    # A stored response_style from an older app is ignored: length follows the message.
+    assert "response length: short" not in messages[0]["content"].lower()
+    assert "response length: balanced" in messages[0]["content"].lower()
     assert "**HTML UI**" not in messages[0]["content"]
     assert "Python" in messages[0]["content"]
     assert "clarifying questions" in messages[0]["content"].lower()

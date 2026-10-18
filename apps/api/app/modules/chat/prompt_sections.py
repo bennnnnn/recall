@@ -91,8 +91,10 @@ class PromptTurn:
 
     @property
     def style(self) -> str:
-        style = self.user.response_style
-        return style if style in STYLE_HINTS else "balanced"
+        # No account-wide length any more: each message says how long it wants
+        # ("briefly", "in detail"), and BREVITY_REQUEST_HINT follows it. A
+        # stored response_style from an older app is ignored.
+        return "balanced"
 
 
 PromptSection = PromptRule[PromptTurn]
