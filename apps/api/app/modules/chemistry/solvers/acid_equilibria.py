@@ -7,14 +7,8 @@ import math
 
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import (
-    inp,
-    num,
-    p_value,
-    verified,
-    weak_dissociation,
-)
-from app.modules.chemistry.solvers.constants import KW, PKW
+from app.modules.chemistry.solvers.constants import KW, PKW, weak_dissociation
+from app.modules.chemistry.solvers.display import inp, num, p_value, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError

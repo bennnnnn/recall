@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.services.workout import Workout, math_line, note_from_label, render_workout, text_line
 
@@ -28,7 +29,7 @@ def _ode_equation(cleaned: str) -> str | None:
     derivative and the ``=`` must be math: ``Find dy/dx if y = x^2`` is a
     derivative ask, not an ODE, and the word ``if`` is what says so.
     """
-    from app.modules.math.tools.helpers import _strip_trailing_filler
+    from app.modules.math.tools.request_text import _strip_trailing_filler
 
     match = _ODE_START_RE.search(cleaned)
     if match is None:
@@ -90,7 +91,7 @@ def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
                 if sidx != -1:
                     rest = rest[:sidx]
             expr = rest.strip()
-        from app.modules.math.tools.helpers import math_expr_or_none
+        from app.modules.math.tools.expr_rewrite import math_expr_or_none
 
         # Leftover words ("up to") would become variables in the series.
         if math_expr_or_none(expr) is None:
@@ -167,11 +168,11 @@ def _average_value_working(intent: MathIntent, answer: str) -> str | None:
     from app.modules.math import solve as math_solve
 
     variable = intent.variable or "x"
-    try:
+    with sympy_decline() as declined:
         expr = math_solve._parse_expression(intent.expr or "", [variable])
         low = math_solve._parse_expression(str(intent.integral_lower), [])
         high = math_solve._parse_expression(str(intent.integral_upper), [])
-    except Exception:
+    if declined:
         return None
     x = Symbol(variable)
     if isinstance(expr, tuple) or expr.free_symbols - {x} or high == low:
@@ -219,9 +220,9 @@ def _direct_integration_working(intent: MathIntent) -> tuple[str, str] | None:
     if match is None:
         return None
     variable = intent.variable or "x"
-    try:
+    with sympy_decline() as declined:
         rate = math_solve._parse_expression(match["rhs"], [variable])
-    except Exception:
+    if declined:
         return None
     x = Symbol(variable)
     if isinstance(rate, tuple) or rate.free_symbols - {x}:
@@ -386,18 +387,19 @@ def apply_calculus_extension(
         answer = math_formulas.implicit_derivative(intent.lhs, intent.rhs)
         lines.append(f"dy/dx = {answer}")
         block = _finish_with_answer(lines, answer)
-        try:
-            from sympy import Derivative, Function, Symbol, diff, latex
+        with sympy_decline():
+            from sympy import Derivative, Expr, Function, Symbol, diff, latex
 
             independent = Symbol(intent.variable or "x", real=True)
             dependent = Symbol("y", real=True)
             dependent_fn = Function("y")(independent)
-            left = math_solve._parse_expression(
-                intent.lhs, [str(independent), "y"], real=True
-            ).xreplace({dependent: dependent_fn})
-            right = math_solve._parse_expression(
-                intent.rhs, [str(independent), "y"], real=True
-            ).xreplace({dependent: dependent_fn})
+            sides = [
+                math_solve._parse_expression(side, [str(independent), "y"], real=True)
+                for side in (intent.lhs, intent.rhs)
+            ]
+            if not all(isinstance(side, Expr) for side in sides):
+                return block  # ``x == 1`` parses to False: no side to differentiate
+            left, right = (side.xreplace({dependent: dependent_fn}) for side in sides)
             marker = Symbol("DERIVATIVE_MARKER")
             left_d = diff(left, independent).xreplace(
                 {Derivative(dependent_fn, independent): marker, dependent_fn: dependent}
@@ -433,6 +435,5 @@ def apply_calculus_extension(
                 f"\\frac{{dy}}{{dx}} = {answer}",
             )
             return replace(block, direct_reply=direct)
-        except Exception:
-            return block
+        return block
     return None

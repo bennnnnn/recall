@@ -77,3 +77,27 @@ async def test_login_session_store_outage_returns_retryable_503(provider, body, 
             )
     assert caught.value.status_code == 503
     assert caught.value.headers == {"Retry-After": "5"}
+
+
+@pytest.mark.asyncio
+async def test_apple_login_hands_the_raw_nonce_to_token_verification():
+    """The nonce from the app is what binds Apple's token to this sign-in."""
+    request = MagicMock()
+    request.client.host = "127.0.0.1"
+    with (
+        patch("app.modules.account.api._enforce_login_rate_limit", AsyncMock()),
+        patch(
+            "app.modules.account.service.verify_apple_id_token",
+            AsyncMock(side_effect=GoogleAuthError("Invalid Apple ID token")),
+        ) as verify,
+        pytest.raises(HTTPException) as caught,
+    ):
+        await auth_router.apple_login(
+            AppleAuthRequest(id_token="id-token", nonce="raw-nonce"),
+            request,
+            session=AsyncMock(),
+            settings=Settings(jwt_secret="x" * 32),
+            redis=AsyncMock(),
+        )
+    assert caught.value.status_code == 401
+    assert verify.await_args.kwargs["nonce"] == "raw-nonce"

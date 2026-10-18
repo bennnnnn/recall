@@ -22,6 +22,8 @@ import { DrawerShell } from "@/components/DrawerShell";
 import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
 import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
+import type { UpgradeSource } from "@/components/UpgradeSheet";
+import { hasPlanFeature } from "@/lib/plan";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useHome } from "@/features/home/context/HomeContext";
 import { shouldRefreshHomeOnChatFocus } from "@/lib/cache/contextRefresh";
@@ -62,7 +64,7 @@ function ChatScreen() {
 
   const [chatId, setChatId] = useState<string | null>(null);
   const draft = useDraftChat({ token, chatId });
-  const { isPro, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
+  const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { refresh: refreshHome, hasFetched: hasFetchedHome } = useHome();
   useFocusEffect(
     useCallback(() => {
@@ -80,7 +82,7 @@ function ChatScreen() {
     }, [refreshHome, routeChatId, chatId, hasFetchedHome]),
   );
   const { chatError, handleChatError, handleStreamBusy, dismissChatError, handleRejectedSendChange } =
-    useChatErrorHandlers(isPro);
+    useChatErrorHandlers(isPaid);
   const activeChatId = draft.activeChatId;
 
   const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
@@ -222,7 +224,7 @@ function ChatScreen() {
   const { selectedModel } = composer;
   const { isOffline } = useNetwork();
 
-  const openUpgradeRef = useRef<(() => void) | null>(null);
+  const openUpgradeRef = useRef<((source?: UpgradeSource) => void) | null>(null);
 
   const notifyOfflineBlocked = useCallback(() => {
     showActionBannerRef.current(t("chat.offline_body"), "cloud-off");
@@ -238,7 +240,7 @@ function ChatScreen() {
     router,
     selectedModel,
     streaming: llmBusy,
-    isPro,
+    isPaid,
     isOffline,
     onOpenUpgrade: () => openUpgradeRef.current?.(),
     onOfflineBlocked: notifyOfflineBlocked,
@@ -262,7 +264,7 @@ function ChatScreen() {
     streamActive,
     dismissChatError,
     token,
-    isPro,
+    isPaid,
   });
 
   const send = useChatSend({
@@ -347,6 +349,8 @@ function ChatScreen() {
       if (voiceCaptureThreadRef.current !== composerThreadRef.current) return;
       setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
     },
+    // The server refused: the plan has no voice input (the app's copy was stale).
+    onPlanRequired: () => openUpgradeRef.current?.("voice"),
     t,
   });
 
@@ -354,12 +358,18 @@ function ChatScreen() {
     cancelVoiceInput();
   }, [routeChatId, cancelVoiceInput]);
 
+  const canDictate = hasPlanFeature(user, "speech_transcription");
   const handleToggleVoiceInput = useCallback(() => {
     if (!voiceRecording && !voiceTranscribing) {
+      // Don't record what the plan cannot send; show the plans instead.
+      if (!canDictate) {
+        openUpgradeRef.current?.("voice");
+        return;
+      }
       voiceCaptureThreadRef.current = composerThreadRef.current;
     }
     void toggleVoiceInput();
-  }, [toggleVoiceInput, voiceRecording, voiceTranscribing]);
+  }, [canDictate, toggleVoiceInput, voiceRecording, voiceTranscribing]);
 
   const liveTalk = useLiveTalk({
     token,
@@ -371,7 +381,7 @@ function ChatScreen() {
     router,
     selectedModel,
     isOffline,
-    onUpgrade: () => openUpgradeRef.current?.(),
+    onUpgrade: () => openUpgradeRef.current?.("live_talk"),
     onScrollToLatest: scroll.scrollToLatest,
     newMessageCountRef: scroll.newMessageCountRef,
     onFirstReply: (id?: string | null) => {
@@ -545,7 +555,7 @@ function ChatScreen() {
     },
     quotaNudge,
     chatError,
-    isPro,
+    isPaid,
     retryChatError,
     dismissChatError,
     composerAnimatedStyle,

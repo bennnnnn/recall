@@ -31,10 +31,28 @@ def _app_with_user(user):
 
 @pytest.fixture(autouse=True)
 def _empty_product_events_for_exports():
-    with patch(
-        "app.modules.account.export.product_events_repo.list_for_user",
-        AsyncMock(return_value=[]),
-    ) as list_events:
+    with (
+        patch(
+            "app.modules.account.export.product_events_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ) as list_events,
+        patch(
+            "app.modules.account.export.memory_service.list_areas",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.modules.account.export.suggestions_service.list_for_export",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.modules.account.export.usage_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.modules.account.export.push_tokens_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+    ):
         yield list_events
 
 
@@ -105,10 +123,6 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
         patch(
             "app.modules.attachments.lifecycle.attachments_repo.delete_rows",
             AsyncMock(return_value=2),
-        ),
-        patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            AsyncMock(),
         ),
         patch(
             "app.modules.attachments.lifecycle.get_storage_gateway",
@@ -379,7 +393,7 @@ async def test_build_export_pages_memories():
         type="profile", text="c", confidence=None, created_at=datetime(2024, 1, 3)
     )
 
-    async def list_memories(_session, _user_id, *, offset, limit):
+    async def list_memories(_session, _user_id, *, offset, limit, include_superseded=False):
         page = [mem_one, mem_two, mem_three]
         return page[offset : offset + limit]
 
@@ -424,7 +438,7 @@ async def test_build_export_caps_memories():
         MagicMock(type="profile", text="c", confidence=None, created_at=datetime(2024, 1, 3)),
     ]
 
-    async def list_memories(_session, _user_id, *, offset, limit):
+    async def list_memories(_session, _user_id, *, offset, limit, include_superseded=False):
         return mems[offset : offset + limit]
 
     with (

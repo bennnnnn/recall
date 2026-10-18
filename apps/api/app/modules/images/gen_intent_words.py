@@ -1,8 +1,7 @@
-"""Word lists for composer image intent (mirrors mobile imageGenIntentWords.ts).
+"""Word lists for image-generation intent.
 
 Kept apart from the matchers in ``gen_intent.py`` so a vocabulary change is a
-data change. Edit the TypeScript twin and ``docs/fixtures/image_intent_cases.json``
-in the same change.
+data change; add its cases to ``docs/fixtures/image_intent_cases.json``.
 """
 
 from __future__ import annotations
@@ -44,6 +43,7 @@ NOUN_MESSAGE_FILE_WORDS = frozenset({"script", "code", "compression", "format", 
 
 SUBJECTLESS_FILLER = frozenset({"a", "an", "the", "of", "just", "please"})
 
+# lookup_intent.py builds on this list: a word here also stops a photo lookup.
 NON_IMAGE_WORDS = frozenset(
     {
         "todo",
@@ -165,8 +165,7 @@ NON_IMAGE_WORDS = frozenset(
         "worksheets",
         "assignment",
         "assignments",
-        # How-to / listicle heads — same as image_lookup_intent. Do not add
-        # "way" (milky way) or "guide" (tour-guide photos).
+        # How-to / listicle heads. Do not add "way" (milky way) or "guide" (tour-guide photos).
         "stops",
         "ways",
         "tips",
@@ -198,6 +197,11 @@ NON_IMAGE_WORDS = frozenset(
         "programs",
         "spreadsheet",
         "spreadsheets",
+        # Web code: "make a simple calculator in html" wants a page, not a picture.
+        "html",
+        "css",
+        "javascript",
+        "typescript",
         "recipe",
         "recipes",
         "poem",

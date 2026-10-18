@@ -126,19 +126,6 @@ async def test_get_by_ids_issues_a_single_batched_query(fake_session):
 
 
 @pytest.mark.asyncio
-async def test_link_message_sets_message_id(fake_session):
-    from app.modules.attachments.repository import link_message
-
-    row = MagicMock()
-    message_id = uuid4()
-
-    linked = await link_message(fake_session, row, message_id)
-
-    assert linked.message_id == message_id
-    fake_session.commit.assert_awaited_once()
-
-
-@pytest.mark.asyncio
 async def test_list_for_gallery_images_returns_rows_and_has_more(fake_session):
     from app.modules.attachments.repository import list_for_gallery
 
@@ -290,27 +277,11 @@ async def test_list_for_gallery_fetches_one_extra_row_for_has_more(fake_session)
 
 
 @pytest.mark.asyncio
-async def test_chat_ids_for_message_ids_skips_empty(fake_session):
-    from app.modules.attachments.repository import chat_ids_for_message_ids
+async def test_chat_meta_for_message_ids_skips_empty(fake_session):
+    from app.modules.attachments.repository import chat_meta_for_message_ids
 
-    assert await chat_ids_for_message_ids(fake_session, []) == {}
+    assert await chat_meta_for_message_ids(fake_session, []) == {}
     fake_session.execute.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_chat_ids_for_message_ids_maps_rows(fake_session):
-    from app.modules.attachments.repository import chat_ids_for_message_ids
-
-    message_id = uuid4()
-    chat_id = uuid4()
-    fake_session.execute.return_value = MagicMock(
-        all=MagicMock(return_value=[(message_id, chat_id, "Trip")])
-    )
-
-    result = await chat_ids_for_message_ids(fake_session, [message_id])
-
-    assert result == {message_id: chat_id}
-    fake_session.execute.assert_awaited_once()
 
 
 @pytest.mark.asyncio

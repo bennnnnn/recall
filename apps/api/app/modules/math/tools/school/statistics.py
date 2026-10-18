@@ -7,18 +7,18 @@ import re
 
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock
-from app.modules.math.tools.school._parse import _LABELED_NUMBER
+from app.services.number_text import SIGNED_DECIMAL
 from app.services.workout import Workout, math_line, render_workout, text_line
 
-_Z_VALUE = re.compile(rf"\bx\s*=\s*({_LABELED_NUMBER})\b", re.IGNORECASE)
-_Z_SCORED = re.compile(rf"\bscored\s+({_LABELED_NUMBER})\b", re.IGNORECASE)
+_Z_VALUE = re.compile(rf"\bx\s*=\s*({SIGNED_DECIMAL})\b", re.IGNORECASE)
+_Z_SCORED = re.compile(rf"\bscored\s+({SIGNED_DECIMAL})\b", re.IGNORECASE)
 _Z_MEAN = re.compile(
-    rf"\bmean(?:\s+score)?(?:\s+is|\s*=)?\s+({_LABELED_NUMBER})\b",
+    rf"\bmean(?:\s+score)?(?:\s+is|\s*=)?\s+({SIGNED_DECIMAL})\b",
     re.IGNORECASE,
 )
 _Z_STDEV = re.compile(
     rf"\b(?:standard\s+deviation|std(?:\s+dev)?|stdev)"
-    rf"(?:\s+is|\s*=)?\s+({_LABELED_NUMBER})\b",
+    rf"(?:\s+is|\s*=)?\s+({SIGNED_DECIMAL})\b",
     re.IGNORECASE,
 )
 

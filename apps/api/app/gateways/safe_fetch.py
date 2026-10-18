@@ -24,10 +24,6 @@ PRIVATE_IP_ERR = "Blocked request to internal/private address"
 _REDIRECT_STATUS_CODES = (301, 302, 303, 307, 308)
 
 
-# Carrier-grade NAT (RFC 6598) — not marked private by ipaddress.is_private.
-_CGNAT = ipaddress.ip_network("100.64.0.0/10")
-
-
 def is_blocked_ip(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     if (
         addr.is_private
@@ -44,8 +40,8 @@ def is_blocked_ip(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
         if not addr.is_global:
             return True
     except Exception:
-        if isinstance(addr, ipaddress.IPv4Address) and addr in _CGNAT:
-            return True
+        # Fail closed: an address we cannot classify is never fetched.
+        return True
     return False
 
 
@@ -111,11 +107,6 @@ async def resolve_external_host(url: str) -> tuple[str, str]:
     if not public_ips:
         raise ValueError(f"Cannot resolve hostname: {hostname}")
     return hostname, public_ips[0]
-
-
-async def validate_external_url(url: str) -> None:
-    """Resolve URL hostname and validate all resulting IPs are external."""
-    await resolve_external_host(url)
 
 
 async def read_stream_capped(response: httpx.Response, max_body_bytes: int) -> bytes:

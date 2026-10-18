@@ -45,7 +45,7 @@ export function markChatHasAssistant(chatId: string): void {
   knownAssistantChats.add(chatId);
 }
 
-export function chatHasKnownAssistant(chatId: string): boolean {
+function chatHasKnownAssistant(chatId: string): boolean {
   return knownAssistantChats.has(chatId);
 }
 

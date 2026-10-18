@@ -14,6 +14,8 @@ import {
   liveTalkLocalMicEnabled,
   liveTalkShouldCreateResponse,
   isLikelyAssistantEcho,
+  LIVE_TALK_MAX_SESSION_MS,
+  liveTalkSessionLimitMs,
   type LiveTalkStatus,
 } from "@/features/speech/model/liveTalkLogic";
 
@@ -43,6 +45,32 @@ describe("liveTalkGate", () => {
 
   it("allows a remaining Pro turn", () => {
     expect(liveTalkGate(proReady, false)).toBe("ok");
+  });
+
+  it("says the month's minutes are used when less than a session is left", () => {
+    const status: LiveTalkStatus = {
+      enabled: true,
+      entitled: true,
+      remaining: 0,
+      limit: 60,
+      remaining_seconds: 30,
+      limit_seconds: 3600,
+      min_session_seconds: 60,
+    };
+    expect(liveTalkGate(status, false)).toBe("limit");
+    expect(liveTalkGate({ ...status, remaining: 1, remaining_seconds: 90 }, false)).toBe("ok");
+  });
+});
+
+describe("liveTalkSessionLimitMs", () => {
+  it("hangs up when the server's reservation runs out", () => {
+    expect(liveTalkSessionLimitMs(120)).toBe(120_000);
+  });
+
+  it("never runs past the longest session, and falls back to it", () => {
+    expect(liveTalkSessionLimitMs(99_999)).toBe(LIVE_TALK_MAX_SESSION_MS);
+    expect(liveTalkSessionLimitMs(undefined)).toBe(LIVE_TALK_MAX_SESSION_MS);
+    expect(liveTalkSessionLimitMs(0)).toBe(LIVE_TALK_MAX_SESSION_MS);
   });
 });
 

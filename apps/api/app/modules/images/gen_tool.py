@@ -7,43 +7,14 @@ pass (never trust the model to invent attachment URLs).
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from contextlib import contextmanager
-from contextvars import ContextVar
 from typing import Any
 from uuid import UUID
 
-from redis.asyncio import Redis
-
 from app.core.config import Settings
-from app.gateways.mcp.base import ToolResult
-from app.models.orm import User
+from app.gateways.mcp.base import ToolContext, ToolResult
 from app.models.schemas.tools import GenerateImageToolInput
-from app.modules.billing import is_pro
+from app.modules.billing import can_use
 from app.modules.images import generation as image_generation_service
-
-_image_user: ContextVar[User | None] = ContextVar("mcp_image_gen_user", default=None)
-_image_redis: ContextVar[Redis | None] = ContextVar("mcp_image_gen_redis", default=None)
-_image_chat_id: ContextVar[UUID | None] = ContextVar("mcp_image_gen_chat_id", default=None)
-
-
-@contextmanager
-def bind_image_gen_context(
-    *,
-    user: User | None = None,
-    redis: Redis | None = None,
-    chat_id: UUID | None = None,
-) -> Iterator[None]:
-    """Bind the calling turn's identity for Pro/quota + chat persistence."""
-    token_user = _image_user.set(user)
-    token_redis = _image_redis.set(redis)
-    token_chat = _image_chat_id.set(chat_id)
-    try:
-        yield
-    finally:
-        _image_user.reset(token_user)
-        _image_redis.reset(token_redis)
-        _image_chat_id.reset(token_chat)
 
 
 class ImageGenAdapter:
@@ -73,13 +44,13 @@ class ImageGenAdapter:
             },
         }
 
-    async def invoke(self, args: dict[str, Any]) -> ToolResult:
+    async def invoke(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         prompt = str(args.get("prompt") or "").strip()
         if not prompt:
             return ToolResult(name=self.name, content="Missing prompt.")
 
-        user = _image_user.get()
-        chat_id = _image_chat_id.get()
+        user = ctx.user
+        chat_id = ctx.chat_id
         if user is None or chat_id is None:
             return ToolResult(
                 name=self.name,
@@ -87,10 +58,10 @@ class ImageGenAdapter:
             )
         if not self.settings.image_generation_enabled:
             return ToolResult(name=self.name, content="Image generation is disabled.")
-        if not is_pro(user):
+        if not can_use(user, "image_generation", self.settings):
             return ToolResult(
                 name=self.name,
-                content="Image generation requires Pro.",
+                content="Image generation is not part of this user's plan.",
             )
 
         aspect = args.get("aspect_ratio")

@@ -84,7 +84,7 @@ export function svgPaintsGlyphs(svg: string): boolean {
  * and then stretches the drawing to the pixel width and height we pass, so a
  * short formula becomes a bar. `meet` keeps the viewBox aspect.
  */
-export function svgForDisplay(svg: string): string {
+function svgForDisplay(svg: string): string {
   const tagEnd = svg.indexOf(">");
   if (tagEnd < 0) return svg;
   let open = svg.slice(0, tagEnd).replace(/\s(?:width|height)="[^"]*"/g, "");

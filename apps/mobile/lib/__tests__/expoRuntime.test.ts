@@ -1,6 +1,8 @@
 import Constants, { ExecutionEnvironment } from "expo-constants";
 
-import { canUseDeviceLocation, canUseVoiceInput, isExpoGo } from "@/lib/expoRuntime";
+import { requireOptionalNativeModule } from "expo-modules-core";
+
+import { canUseDeviceLocation, canUseVoiceInput, isExpoGo, isPhysicalDevice } from "@/lib/expoRuntime";
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -15,6 +17,8 @@ jest.mock("expo-constants", () => ({
     StoreClient: "storeClient",
   },
 }));
+
+jest.mock("expo-modules-core", () => ({ requireOptionalNativeModule: jest.fn() }));
 
 describe("expoRuntime", () => {
   it("exports location guard helpers", () => {
@@ -46,5 +50,14 @@ describe("expoRuntime", () => {
       ExecutionEnvironment.Standalone;
     (Constants as { appOwnership: string | null }).appOwnership = null;
     expect(isExpoGo()).toBe(false);
+  });
+
+  it.each([
+    ["a phone", { isDevice: true }, true],
+    ["a simulator", { isDevice: false }, false],
+    ["a binary built before expo-device", null, null],
+  ])("tells %s apart", (_kind, device, expected) => {
+    jest.mocked(requireOptionalNativeModule).mockReturnValue(device);
+    expect(isPhysicalDevice()).toBe(expected);
   });
 });

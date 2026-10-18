@@ -95,7 +95,7 @@ def test_replaces_truncated_unclosed_graph_fence_with_canonical() -> None:
     out_json = out[i + 8 : j]
     out_spec = json.loads(out_json)
     assert out_spec["type"] == "function"
-    assert out_spec["expr"] == "x**2"
+    assert out_spec["expr"] == "x^2"
     assert len(out_spec["points"]) == len(full_points)
     assert "Could not render" not in out
 
@@ -630,10 +630,11 @@ def test_appends_canonical_answer_when_model_omits_fence() -> None:
     assert "```answer\nverified: true\nx = 2\n```" in out
 
 
-def test_does_not_append_answer_when_prose_already_has_math_result() -> None:
+def test_appends_answer_even_when_prose_already_has_math_result() -> None:
     verified = _verified({"type": "answer", "content": "x = 2"})
     out = validate_math_fences("The solution is $x = 2$.", verified=verified)
-    assert "```answer" not in out
+    assert out.count("```answer") == 1
+    assert "**Answer**\n\n```answer\nverified: true\nx = 2\n```" in out
 
 
 def test_appends_canonical_geometry_when_model_omits_fence() -> None:
@@ -787,8 +788,8 @@ def test_appends_answer_and_graph_for_physics() -> None:
         canonical_answer="2.02 s",
     )
     out = validate_math_fences("The ball lands at $t = 2.02$ s.", verified=verified)
-    assert "```answer" not in out
-    assert "```graph" in out
+    assert "```answer\nverified: true\n2.02 s\n```" in out
+    assert out.index("```answer") < out.index("```graph")
     assert json.loads(out.split("```graph")[1].split("```")[0].strip())["type"] == "trajectory"
 
 
@@ -796,12 +797,6 @@ def test_appends_answer_when_prose_omits_verified_value() -> None:
     verified = _verified({"type": "answer", "content": "x = 12"})
     out = validate_math_fences("Worked steps follow.", verified=verified)
     assert "```answer\nverified: true\nx = 12\n```" in out
-
-
-def test_skips_answer_pill_when_prose_already_states_result() -> None:
-    verified = _verified({"type": "answer", "content": "2.02 s"})
-    out = validate_math_fences("The ball lands at $t = 2.02$ s.", verified=verified)
-    assert "```answer" not in out
 
 
 def test_a_different_x_equals_in_prose_keeps_the_pill_and_is_flagged() -> None:
@@ -817,7 +812,10 @@ def test_a_different_x_equals_in_prose_keeps_the_pill_and_is_flagged() -> None:
         verified=verified,
     )
     assert "x = 2" in out
-    assert "The verified answer is $x = 0$.\n\n```answer\nverified: true\nx = 0\n```" in out
+    assert (
+        "The verified answer is $x = 0$.\n\n**Answer**\n\n```answer\nverified: true\nx = 0\n```"
+        in out
+    )
 
 
 def test_intermediate_2x_equals_does_not_count_as_conflicting_x() -> None:
@@ -850,24 +848,10 @@ def test_short_integer_in_exponent_does_not_suppress_answer_pill() -> None:
     assert "```answer\nverified: true\n2\n```" in out
 
 
-def test_one_line_arithmetic_does_not_append_duplicate_answer() -> None:
+def test_one_line_arithmetic_gets_one_card() -> None:
     verified = _verified({"type": "answer", "content": "3"})
     out = validate_math_fences("$3 + 0 = 3$", verified=verified)
-    assert "```answer" not in out
-
-
-def test_symbolic_equivalence_skips_duplicate_answer_chip() -> None:
-    """Prose $0.5$ next to a canonical \\frac{1}{2}: string matching misses the
-    equivalence, SymPy proves it — no duplicate chip."""
-    verified = _verified({"type": "answer", "content": "x = \\frac{1}{2}"})
-    out = validate_math_fences("Dividing both sides gives $x = 0.5$.", verified=verified)
-    assert "```answer" not in out
-
-
-def test_symbolic_equivalence_handles_latex_prose_against_decimal_canonical() -> None:
-    verified = _verified({"type": "answer", "content": "0.25"})
-    out = validate_math_fences("The probability is $\\frac{1}{4}$.", verified=verified)
-    assert "```answer" not in out
+    assert out.count("```answer") == 1
 
 
 def test_symbolic_mismatch_still_appends_canonical_chip() -> None:
@@ -875,44 +859,6 @@ def test_symbolic_mismatch_still_appends_canonical_chip() -> None:
     verified = _verified({"type": "answer", "content": "x = \\frac{7}{2}"})
     out = validate_math_fences("The steps give $x = 4$.", verified=verified)
     assert "```answer\nverified: true\nx = \\frac{7}{2}\n```" in out
-
-
-def test_symbolic_check_skipped_when_string_path_already_matched(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """String hit → zero SymPy work (the audit only runs on a string miss)."""
-    from app.modules.math import solve as math_solve
-
-    def _boom(expr: str, *args: object, **kwargs: object) -> None:
-        raise AssertionError("symbolic audit must not run on a string-path hit")
-
-    monkeypatch.setattr(math_solve, "_parse_expression", _boom)
-    verified = _verified({"type": "answer", "content": "2.02 s"})
-    out = validate_math_fences("The ball lands at $t = 2.02$ s.", verified=verified)
-    assert "```answer" not in out
-
-
-def test_symbolic_audit_parses_at_most_two_prose_spans(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from app.modules.math import solve as math_solve
-
-    real_parse = math_solve._parse_expression
-    calls: list[str] = []
-
-    def counting(expr: str, *args: object, **kwargs: object):  # type: ignore[no-untyped-def]
-        calls.append(expr)
-        return real_parse(expr, *args, **kwargs)  # type: ignore[arg-type]
-
-    monkeypatch.setattr(math_solve, "_parse_expression", counting)
-    verified = _verified({"type": "answer", "content": "x = 5"})
-    # No "<letter>=N" shape (that path is the conflict guard, which runs first);
-    # each span is a parseable result statement never equivalent to 5.
-    content = " ".join(f"$y + 1 = {i}$" for i in range(10, 18))
-    out = validate_math_fences(content, verified=verified)
-    # 1 canonical parse + at most 2 prose-span parses, however many spans exist.
-    assert len(calls) <= 3
-    assert "```answer\nverified: true\nx = 5\n```" in out
 
 
 def test_symbolic_audit_failure_falls_back_to_append() -> None:
@@ -1017,9 +963,7 @@ def test_answered_then_asked_keeps_its_chart() -> None:
     )
 
     assert "```graph" in out
-    # Suppressed because the prose states it, which is the pre-existing rule —
-    # not because of anything P12 added.
-    assert "```answer" not in out
+    assert "```answer" in out
 
 
 def test_a_reply_that_states_no_answer_and_asks_nothing_still_gets_both() -> None:

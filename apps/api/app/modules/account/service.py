@@ -3,7 +3,6 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import jobs
 from app.core.config import Settings
 from app.core.validation import normalize_display_name
 from app.gateways.apple_auth import verify_apple_id_token
@@ -18,7 +17,9 @@ from app.gateways.google_auth import (
 )
 from app.models.orm import User
 from app.models.schemas import AuthResponse, UserOut
+from app.modules.account import quota_carryover
 from app.modules.account import tokens as tokens_service
+from app.modules.notifications import enqueue_welcome_email
 from app.repositories import users as users_repo
 
 
@@ -78,6 +79,9 @@ async def login_with_google(
             name=name,
             avatar_url=avatar_url,
         )
+        await quota_carryover.restore_for_new_account(
+            redis, settings, user.id, provider="google", sub=google_sub
+        )
     else:
         # Decide against the current locked row: a profile save may have
         # finished after the identity lookup above. This flow locks no photos.
@@ -97,7 +101,7 @@ async def login_with_google(
 
     if is_new_user and settings.email_enabled:
         # Best-effort: never let a welcome email block signup.
-        await jobs.enqueue_welcome_email(redis, user.id)
+        await enqueue_welcome_email(redis, user.id)
 
     access_token, refresh_token = await tokens_service.issue_token_pair(
         redis,
@@ -120,12 +124,13 @@ async def login_with_apple(
     redis: Redis,
     *,
     name: str | None = None,
+    nonce: str | None = None,
     device_label: str | None = None,
     platform: str | None = None,
 ) -> AuthResponse:
     # L1: validate the client-supplied display name (trim, collapse, length)
     name = normalize_display_name(name)
-    payload = await verify_apple_id_token(id_token, settings)
+    payload = await verify_apple_id_token(id_token, settings, nonce=nonce)
     apple_sub = payload["sub"]
     email = payload.get("email")
     # Apple sends `email_verified` as the string "true"/"false" (not a bool),
@@ -160,6 +165,9 @@ async def login_with_apple(
             name=name,
             avatar_url=None,
         )
+        await quota_carryover.restore_for_new_account(
+            redis, settings, user.id, provider="apple", sub=apple_sub
+        )
     else:
         if name:
             await users_repo.refresh_for_update(session, user)
@@ -172,7 +180,7 @@ async def login_with_apple(
             user = await users_repo.update(session, user, commit=True, **updates)
 
     if is_new_user and settings.email_enabled:
-        await jobs.enqueue_welcome_email(redis, user.id)
+        await enqueue_welcome_email(redis, user.id)
 
     access_token, refresh_token = await tokens_service.issue_token_pair(
         redis,
@@ -212,6 +220,9 @@ async def login_dev(
             name=name,
             avatar_url=None,
         )
+        await quota_carryover.restore_for_new_account(
+            redis, settings, user.id, provider="google", sub=google_sub
+        )
     elif name and user.name != name:
         # Keep dev re-login in step with Google/Apple, which refresh the name
         # each time — so renaming the dev identity takes effect for an existing
@@ -219,7 +230,7 @@ async def login_dev(
         user = await users_repo.update(session, user, name=name)
 
     if is_new_user and settings.email_enabled:
-        await jobs.enqueue_welcome_email(redis, user.id)
+        await enqueue_welcome_email(redis, user.id)
 
     access_token, refresh_token = await tokens_service.issue_token_pair(
         redis,

@@ -25,28 +25,6 @@ const ACCENT_MARK: Record<MathAccentKind, string> = {
   dot: "̇",
 };
 
-const ACCENT_SPAN = new Set([
-  "\\overrightarrow",
-  "\\overleftarrow",
-  "\\widehat",
-  "\\widetilde",
-]);
-
-const ACCENT_OPENERS: { cmd: string; kind: MathAccentKind }[] = [
-  { cmd: "\\overrightarrow", kind: "vec" },
-  { cmd: "\\overleftarrow", kind: "vecLeft" },
-  { cmd: "\\overline", kind: "overline" },
-  { cmd: "\\underline", kind: "underline" },
-  { cmd: "\\widehat", kind: "hat" },
-  { cmd: "\\widetilde", kind: "tilde" },
-  { cmd: "\\ddot", kind: "ddot" },
-  { cmd: "\\hat", kind: "hat" },
-  { cmd: "\\vec", kind: "vec" },
-  { cmd: "\\bar", kind: "bar" },
-  { cmd: "\\dot", kind: "dot" },
-  { cmd: "\\tilde", kind: "tilde" },
-];
-
 /** Combining mark applied per-character so copy spells the whole accented
  * run. The screen draws one measured rule; these marks are not painted. */
 function markEachChar(text: string, mark: string): string {
@@ -67,12 +45,12 @@ function plainScriptPieces(segments: MathSegment[]): string | null {
   return plain;
 }
 
-function parseFrac(
-  input: string,
-  start: number,
-  depth: number,
-): { seg: MathSegment; next: number } | null {
-  if (!input.startsWith("\\frac", start)) return null;
+/** A structural command at its backslash: `name` is the table key it matched. */
+type LatexCommand = { input: string; start: number; depth: number; name: string };
+type ParsedSegment = { seg: MathSegment; next: number } | null;
+type LatexHandler = (cmd: LatexCommand) => ParsedSegment;
+
+function parseFrac({ input, start, depth }: LatexCommand): ParsedSegment {
   let i = start + 5;
   while (input[i] === " ") i += 1;
   const numGroup = readGroup(input, i);
@@ -99,12 +77,7 @@ function parseFrac(
  * so a radicand containing its own braces (\sqrt{\frac{M}{2}}) parses
  * correctly instead of a flat `[^}]+` regex stopping at the FIRST `}`.
  */
-function parseSqrt(
-  input: string,
-  start: number,
-  depth: number,
-): { seg: MathSegment; next: number } | null {
-  if (!input.startsWith("\\sqrt", start)) return null;
+function parseSqrt({ input, start, depth }: LatexCommand): ParsedSegment {
   let i = start + 5;
   let degree: string | undefined;
   let index: MathSegment[] | undefined;
@@ -143,15 +116,8 @@ function parseSqrt(
 /**
  * \\cancel{3} / \\bcancel / \\xcancel — strike a cancelled factor in a divide step.
  */
-function parseCancel(
-  input: string,
-  start: number,
-  depth: number,
-): { seg: MathSegment; next: number } | null {
-  const names = ["\\xcancel", "\\bcancel", "\\cancel"] as const;
-  const name = names.find((n) => input.startsWith(n, start));
-  if (!name) return null;
-  let i = start + name.length;
+function parseCancel({ input, start, depth, name }: LatexCommand): ParsedSegment {
+  let i = start + 1 + name.length;
   while (input[i] === " ") i += 1;
   const group = readGroup(input, i);
   if (group) {
@@ -165,34 +131,47 @@ function parseCancel(
   return { seg: { type: "cancel", body: atom.body }, next: atom.next };
 }
 
-function parseAccent(
-  input: string,
-  start: number,
-  depth: number,
-): { seg: MathSegment; next: number } | null {
-  const rest = input.slice(start);
-  const opener = ACCENT_OPENERS.find((item) => {
-    if (!rest.startsWith(item.cmd)) return false;
-    const next = rest[item.cmd.length] ?? "";
-    return !/[A-Za-z]/.test(next);
-  });
-  if (!opener) return null;
-  let i = start + opener.cmd.length;
-  while (input[i] === " ") i += 1;
-  const group = readGroup(input, i);
-  const body = group
-    ? { segments: parseSimpleLatex(group.value, depth + 1), next: group.next }
-    : readUnbracedAccentAtom(input, i, depth);
-  if (!body) return null;
-  return {
-    seg: {
-      type: "accent",
-      kind: opener.kind,
-      span: ACCENT_SPAN.has(opener.cmd),
-      body: body.segments,
-    },
-    next: body.next,
+/** `\hat{x}`, `\hat x`, `\overline{AB}`: the accent's body, braced or one atom. */
+function accent(kind: MathAccentKind, span = false): LatexHandler {
+  return ({ input, start, depth, name }) => {
+    let i = start + 1 + name.length;
+    while (input[i] === " ") i += 1;
+    const group = readGroup(input, i);
+    const body = group
+      ? { segments: parseSimpleLatex(group.value, depth + 1), next: group.next }
+      : readUnbracedAccentAtom(input, i, depth);
+    if (!body) return null;
+    return { seg: { type: "accent", kind, span, body: body.segments }, next: body.next };
   };
+}
+
+/**
+ * The structural commands. A root, a fraction and a cancel are read by their
+ * prefix (`\sqrtx` is the root of x); an accent only as its whole word.
+ */
+const LATEX_HANDLERS: Record<string, LatexHandler> = {
+  frac: parseFrac,
+  sqrt: parseSqrt,
+  xcancel: parseCancel,
+  bcancel: parseCancel,
+  cancel: parseCancel,
+  overrightarrow: accent("vec", true),
+  overleftarrow: accent("vecLeft", true),
+  overline: accent("overline"),
+  underline: accent("underline"),
+  widehat: accent("hat", true),
+  widetilde: accent("tilde", true),
+  ddot: accent("ddot"),
+  hat: accent("hat"),
+  vec: accent("vec"),
+  bar: accent("bar"),
+  dot: accent("dot"),
+  tilde: accent("tilde"),
+};
+const PREFIX_COMMANDS = ["frac", "sqrt", "xcancel", "bcancel", "cancel"];
+
+function commandName(word: string): string | undefined {
+  return Object.hasOwn(LATEX_HANDLERS, word) ? word : PREFIX_COMMANDS.find((name) => word.startsWith(name));
 }
 
 /** What `^\circ` parses to: a raised ring, which in a superscript is a degree sign. */
@@ -355,197 +334,165 @@ function readBareScript(input: string, i: number): { value: string; next: number
   return { value: raw, next: i + 1 };
 }
 
+/** The parse of one LaTeX string: where it has read to, and what it has built. */
+type LatexState = { input: string; depth: number; i: number; out: MathSegment[] };
+
+function restoreNativeLiterals(value: string): string {
+  return value
+    .split(NATIVE_LITERAL_APOSTROPHE_MARKER).join("'")
+    .split(NATIVE_LITERAL_LEFT_BRACE_MARKER).join("{")
+    .split(NATIVE_LITERAL_RIGHT_BRACE_MARKER).join("}");
+}
+
+function pushText(state: LatexState, raw: string): void {
+  const value = restoreNativeLiterals(raw)
+    .split(NATIVE_UPRIGHT_START_MARKER).join("")
+    .split(NATIVE_UPRIGHT_END_MARKER).join("");
+  if (!value) return;
+  const last = state.out[state.out.length - 1];
+  if (last?.type === "text") last.value += value;
+  else state.out.push({ type: "text", value });
+}
+
+/** A nested parse's text joins the current run; its structures stay segments. */
+function pushParsed(state: LatexState, segments: MathSegment[]): void {
+  for (const seg of segments) {
+    if (seg.type === "text") pushText(state, seg.value);
+    else state.out.push(seg);
+  }
+}
+
+function pushScript(state: LatexState, kind: "sup" | "sub", inner: MathSegment[]): void {
+  const plain = plainScriptPieces(inner);
+  state.out.push(plain == null ? { type: kind, value: "", body: inner } : { type: kind, value: plain });
+}
+
+/** `\frac`, `\sqrt`, `\cancel` and the accents, from `LATEX_HANDLERS`. */
+function readCommand(state: LatexState): boolean {
+  const word = /^[a-zA-Z]+/.exec(state.input.slice(state.i + 1))?.[0];
+  const name = word ? commandName(word) : undefined;
+  if (!name) return false;
+  const parsed = LATEX_HANDLERS[name]({ input: state.input, start: state.i, depth: state.depth, name });
+  if (!parsed) return false;
+  state.out.push(parsed.seg);
+  state.i = parsed.next;
+  return true;
+}
+
+/** Unescaped braces are TeX grouping syntax, not visible glyphs. SymPy
+ * emits them around atoms inside scalable delimiters (for example
+ * `\\left|{x}\\right|`). Parse their contents recursively so every such
+ * expression renders as normal math, while escaped `\\{` / `\\}` still
+ * take the literal-character path for sets. */
+function readBraceGroup(state: LatexState): boolean {
+  const group = readGroup(state.input, state.i);
+  if (!group) return false;
+  pushParsed(state, parseSimpleLatex(group.value, state.depth + 1));
+  state.i = group.next;
+  return true;
+}
+
+function readUprightRun(state: LatexState): boolean {
+  const end = state.input.indexOf(NATIVE_UPRIGHT_END_MARKER, state.i + 1);
+  if (end < 0) return false;
+  state.out.push({ type: "upright", value: restoreNativeLiterals(state.input.slice(state.i + 1, end)) });
+  state.i = end + 1;
+  return true;
+}
+
+/** TeX ignores spaces between `^`/`_` and the atom. One character here used
+ * to be a private-use brace or the backslash of `\mathbf` / `\textit`. */
+function readScript(state: LatexState, kind: "sup" | "sub"): void {
+  const { input, depth } = state;
+  state.i += 1;
+  while (input[state.i] === " ") state.i += 1;
+  const marked = readMarkedUpright(input, state.i);
+  if (marked) {
+    state.out.push({ type: kind, value: "", body: [{ type: "upright", value: marked.value }] });
+    state.i = marked.next;
+    return;
+  }
+  const group = input[state.i] === "{" ? readGroup(input, state.i) : null;
+  if (group) {
+    pushScript(state, kind, parseSimpleLatex(group.value, depth + 1));
+    state.i = group.next;
+    return;
+  }
+  const leading = readLeadingAtom(input, state.i, depth);
+  if (leading) {
+    pushScript(state, kind, leading.body);
+    state.i = leading.next;
+    return;
+  }
+  const bare = readBareScript(input, state.i);
+  if (bare.value) state.out.push({ type: kind, value: bare.value });
+  state.i = bare.next > state.i ? bare.next : state.i + 1;
+}
+
+/** Any other `\name`, `\|` or escaped character. */
+function readEscape(state: LatexState): boolean {
+  const { input } = state;
+  const rest = input.slice(state.i + 1);
+  const cmd = rest.match(/^[a-zA-Z]+/)?.[0];
+  if (cmd) {
+    // Preserve the operation as readable function notation. Dropping a
+    // braced command name made \sin{x} and \log{x} silently become x.
+    state.i += cmd.length + 1;
+    let argStart = state.i;
+    while (input[argStart] === " ") argStart += 1;
+    const group = input[argStart] === "{" ? readGroup(input, argStart) : null;
+    if (!group) {
+      pushText(state, cmd);
+      return true;
+    }
+    if (!TEXT_STYLE_COMMANDS.has(cmd)) pushText(state, `${cmd}(`);
+    pushParsed(state, parseSimpleLatex(group.value, state.depth + 1));
+    if (!TEXT_STYLE_COMMANDS.has(cmd)) pushText(state, ")");
+    state.i = group.next;
+    return true;
+  }
+  // `\|` is a norm bar. U+2016 is not in KaTeX_Main; the renderer draws
+  // two `|` glyphs. A single escaped bar stays one `|`.
+  if (rest[0] === "|") {
+    pushText(state, "‖");
+    state.i += 2;
+    return true;
+  }
+  // `\{` `\%` `\_` — emit the escaped character, not a stray backslash.
+  if (!rest[0]) return false;
+  pushText(state, rest[0]);
+  state.i += 2;
+  return true;
+}
+
+/** One piece at `state.i`; a reader that declines leaves it to the next. */
+function readNext(state: LatexState): void {
+  const ch = state.input[state.i];
+  if (ch === "\\" && readCommand(state)) return;
+  if (ch === NATIVE_LITERAL_LEFT_BRACE_MARKER || ch === NATIVE_LITERAL_RIGHT_BRACE_MARKER) {
+    pushText(state, ch === NATIVE_LITERAL_LEFT_BRACE_MARKER ? "{" : "}");
+    state.i += 1;
+    return;
+  }
+  if (ch === "{" && readBraceGroup(state)) return;
+  if (ch === "}") {
+    state.i += 1;
+    return;
+  }
+  if (ch === NATIVE_UPRIGHT_START_MARKER && readUprightRun(state)) return;
+  if (ch === "^" || ch === "_") return readScript(state, ch === "^" ? "sup" : "sub");
+  if (ch === "\\" && readEscape(state)) return;
+  pushText(state, ch);
+  state.i += 1;
+}
+
 export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
   if (depth > MAX_MATH_NEST_DEPTH) {
     return [{ type: "text", value: latex }];
   }
-  const input = preprocessLatex(latex);
-  const out: MathSegment[] = [];
-  let i = 0;
-
-  const restoreNativeLiterals = (value: string) => value
-    .split(NATIVE_LITERAL_APOSTROPHE_MARKER).join("'")
-    .split(NATIVE_LITERAL_LEFT_BRACE_MARKER).join("{")
-    .split(NATIVE_LITERAL_RIGHT_BRACE_MARKER).join("}");
-
-  const pushText = (value: string) => {
-    value = restoreNativeLiterals(value)
-      .split(NATIVE_UPRIGHT_START_MARKER).join("")
-      .split(NATIVE_UPRIGHT_END_MARKER).join("");
-    if (!value) return;
-    const last = out[out.length - 1];
-    if (last?.type === "text") last.value += value;
-    else out.push({ type: "text", value });
-  };
-
-  const pushScript = (kind: "sup" | "sub", inner: MathSegment[]) => {
-    const plain = plainScriptPieces(inner);
-    out.push(plain == null
-      ? { type: kind, value: "", body: inner }
-      : { type: kind, value: plain });
-  };
-
-  // TeX ignores spaces between `^`/`_` and the atom. One character here used
-  // to be a private-use brace or the backslash of `\mathbf` / `\textit`.
-  const takeScript = (kind: "sup" | "sub") => {
-    i += 1;
-    while (input[i] === " ") i += 1;
-    const marked = readMarkedUpright(input, i);
-    if (marked) {
-      out.push({
-        type: kind,
-        value: "",
-        body: [{ type: "upright", value: marked.value }],
-      });
-      i = marked.next;
-      return;
-    }
-    if (input[i] === "{") {
-      const group = readGroup(input, i);
-      if (group) {
-        pushScript(kind, parseSimpleLatex(group.value, depth + 1));
-        i = group.next;
-        return;
-      }
-    }
-    const leading = readLeadingAtom(input, i, depth);
-    if (leading) {
-      pushScript(kind, leading.body);
-      i = leading.next;
-      return;
-    }
-    const bare = readBareScript(input, i);
-    if (bare.value) out.push({ type: kind, value: bare.value });
-    i = bare.next > i ? bare.next : i + 1;
-  };
-
-  while (i < input.length) {
-    const frac = parseFrac(input, i, depth);
-    if (frac) {
-      out.push(frac.seg);
-      i = frac.next;
-      continue;
-    }
-
-    const sqrt = parseSqrt(input, i, depth);
-    if (sqrt) {
-      out.push(sqrt.seg);
-      i = sqrt.next;
-      continue;
-    }
-
-    const cancel = parseCancel(input, i, depth);
-    if (cancel) {
-      out.push(cancel.seg);
-      i = cancel.next;
-      continue;
-    }
-
-    const accent = parseAccent(input, i, depth);
-    if (accent) {
-      out.push(accent.seg);
-      i = accent.next;
-      continue;
-    }
-
-    const ch = input[i];
-
-    if (ch === NATIVE_LITERAL_LEFT_BRACE_MARKER) {
-      pushText("{");
-      i += 1;
-      continue;
-    }
-    if (ch === NATIVE_LITERAL_RIGHT_BRACE_MARKER) {
-      pushText("}");
-      i += 1;
-      continue;
-    }
-
-    // Unescaped braces are TeX grouping syntax, not visible glyphs. SymPy
-    // emits them around atoms inside scalable delimiters (for example
-    // `\\left|{x}\\right|`). Parse their contents recursively so every such
-    // expression renders as normal math, while escaped `\\{` / `\\}` still
-    // take the literal-character path below for sets.
-    if (ch === "{") {
-      const group = readGroup(input, i);
-      if (group) {
-        for (const seg of parseSimpleLatex(group.value, depth + 1)) {
-          if (seg.type === "text") pushText(seg.value);
-          else out.push(seg);
-        }
-        i = group.next;
-        continue;
-      }
-    }
-    if (ch === "}") {
-      i += 1;
-      continue;
-    }
-
-    if (ch === NATIVE_UPRIGHT_START_MARKER) {
-      const end = input.indexOf(NATIVE_UPRIGHT_END_MARKER, i + 1);
-      if (end >= 0) {
-        out.push({
-          type: "upright",
-          value: restoreNativeLiterals(input.slice(i + 1, end)),
-        });
-        i = end + 1;
-        continue;
-      }
-    }
-
-    if (ch === "^" || ch === "_") {
-      takeScript(ch === "^" ? "sup" : "sub");
-      continue;
-    }
-
-    if (ch === "\\") {
-      const rest = input.slice(i + 1);
-      const cmd = rest.match(/^[a-zA-Z]+/)?.[0];
-      if (cmd) {
-        // Preserve the operation as readable function notation. Dropping a
-        // braced command name made \sin{x} and \log{x} silently become x.
-        i += cmd.length + 1;
-        let argStart = i;
-        while (input[argStart] === " ") argStart += 1;
-        if (input[argStart] === "{") {
-          const group = readGroup(input, argStart);
-          if (group) {
-            if (!TEXT_STYLE_COMMANDS.has(cmd)) pushText(`${cmd}(`);
-            for (const seg of parseSimpleLatex(group.value, depth + 1)) {
-              if (seg.type === "text") pushText(seg.value);
-              else out.push(seg);
-            }
-            if (!TEXT_STYLE_COMMANDS.has(cmd)) pushText(")");
-            i = group.next;
-          } else {
-            pushText(cmd);
-          }
-        } else {
-          pushText(cmd);
-        }
-        continue;
-      }
-      // `\|` is a norm bar. U+2016 is not in KaTeX_Main; the renderer draws
-      // two `|` glyphs. A single escaped bar stays one `|`.
-      if (rest[0] === "|") {
-        pushText("‖");
-        i += 2;
-        continue;
-      }
-      // `\{` `\%` `\_` — emit the escaped character, not a stray backslash.
-      if (rest[0]) {
-        pushText(rest[0]);
-        i += 2;
-        continue;
-      }
-    }
-
-    pushText(ch);
-    i += 1;
-  }
-
-  return out.length ? out : [{ type: "text", value: input }];
+  const state: LatexState = { input: preprocessLatex(latex), depth, i: 0, out: [] };
+  while (state.i < state.input.length) readNext(state);
+  return state.out.length ? state.out : [{ type: "text", value: state.input }];
 }
 
 export function segmentsToPlain(segments: MathSegment[]): string {

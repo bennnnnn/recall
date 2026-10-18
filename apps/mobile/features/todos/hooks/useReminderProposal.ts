@@ -9,7 +9,7 @@ import {
 } from "@/features/todos/model/reminderProposal";
 import { api } from "@/lib/api";
 
-export type ReminderProposalError = "expired" | "changed" | "failed";
+type ReminderProposalError = "expired" | "changed" | "failed";
 
 /** Saves a chat reminder card on tap, then refreshes To-do and its notifications. */
 export function useReminderProposal(proposal: ReminderProposal) {

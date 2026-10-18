@@ -3,7 +3,7 @@
 Distinct from ``ImageGenAdapter``: this returns a *real* photo (Tavily image
 search, mirrored into Recall's storage), never AI-generated art. Persists
 the attachment + assistant ``[Image: …]`` marker and signals a terminal turn
-via ``ToolResult.data`` — same terminal-image contract ``tool_loop.py``
+via ``ToolResult.data`` — same terminal-image contract the chat tool loop
 already understands, so the stream skips the visible LLM pass and the
 mobile client renders it with zero new code (never trust the model to
 invent attachment URLs).
@@ -11,42 +11,12 @@ invent attachment URLs).
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from contextlib import contextmanager
-from contextvars import ContextVar
 from typing import Any
-from uuid import UUID
-
-from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.gateways.mcp.base import ToolResult
-from app.models.orm import User
+from app.gateways.mcp.base import ToolContext, ToolResult
 from app.models.schemas.tools import ImageSearchToolInput
 from app.modules.images import search as image_search_service
-
-_search_user: ContextVar[User | None] = ContextVar("mcp_image_search_user", default=None)
-_search_redis: ContextVar[Redis | None] = ContextVar("mcp_image_search_redis", default=None)
-_search_chat_id: ContextVar[UUID | None] = ContextVar("mcp_image_search_chat_id", default=None)
-
-
-@contextmanager
-def bind_image_search_context(
-    *,
-    user: User | None = None,
-    redis: Redis | None = None,
-    chat_id: UUID | None = None,
-) -> Iterator[None]:
-    """Bind the calling turn's identity for quota + chat persistence."""
-    token_user = _search_user.set(user)
-    token_redis = _search_redis.set(redis)
-    token_chat = _search_chat_id.set(chat_id)
-    try:
-        yield
-    finally:
-        _search_user.reset(token_user)
-        _search_redis.reset(token_redis)
-        _search_chat_id.reset(token_chat)
 
 
 class ImageSearchAdapter:
@@ -78,13 +48,13 @@ class ImageSearchAdapter:
             },
         }
 
-    async def invoke(self, args: dict[str, Any]) -> ToolResult:
+    async def invoke(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         query = str(args.get("query") or "").strip()
         if not query:
             return ToolResult(name=self.name, content="Missing query.")
 
-        user = _search_user.get()
-        chat_id = _search_chat_id.get()
+        user = ctx.user
+        chat_id = ctx.chat_id
         if user is None or chat_id is None:
             return ToolResult(
                 name=self.name,

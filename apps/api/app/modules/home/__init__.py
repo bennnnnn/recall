@@ -23,10 +23,6 @@ from app.services import reminder_timing
 
 logger = logging.getLogger(__name__)
 
-# Patchable names used by build_home_screen (and underscore aliases for tests).
-_resolve_home_tz = resolve_home_tz
-_urgent_subtitle = urgent_subtitle
-
 
 async def build_home_screen(
     session: AsyncSession,
@@ -85,11 +81,17 @@ def _home_cache_key(user_id: UUID, tz: ZoneInfo, day_seed_value: int, generation
     return f"home:{user_id}:{generation}:{tz.key}:{day_seed_value}"
 
 
-async def _home_generation(redis: Redis, user_id: UUID) -> str:
+async def _home_generation(redis: Redis, user_id: UUID) -> str | None:
+    """The user's home cache generation, or None when Redis cannot say.
+
+    A missing key is generation "0" (core/cache_generation). An unreadable one is
+    not: "0" may still hold a home screen from before the user's last change.
+    """
     try:
         raw = await redis.get(_home_generation_key(user_id))
-    except Exception:
-        return "0"
+    except Exception as exc:
+        logger.warning("Home cache generation unreadable; serving uncached: %s", type(exc).__name__)
+        return None
     if raw is None:
         return "0"
     return raw.decode() if isinstance(raw, bytes) else str(raw)
@@ -115,6 +117,8 @@ async def get_home_screen_cached(
     seed = day_seed(user, home_tz)
     redis = get_redis_client()
     generation = await _home_generation(redis, user.id)
+    if generation is None:
+        return await build_home_screen(session, user, settings, client_timezone=client_timezone)
     cache_key = _home_cache_key(user.id, home_tz, seed, generation)
     try:
         cached = await redis.get(cache_key)

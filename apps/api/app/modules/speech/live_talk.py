@@ -15,7 +15,10 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import Message, User
 from app.modules import todos as todos_service
-from app.modules.chat import needs_generated_title
+from app.modules.billing import can_use
+from app.modules.chat import needs_generated_title, present_assistant_markdown
+from app.modules.memory import memory_extract_user_text
+from app.modules.speech.schemas import SpeechLiveStatusOut
 from app.modules.speech.service import LIVE_TALK_ALIAS
 from app.modules.todos.service import list_owned_todos
 from app.repositories import chats as chats_repo
@@ -27,8 +30,9 @@ logger = logging.getLogger(__name__)
 
 _LIVE_TALK_RECENT = 12
 _MEMORY_TRANSCRIPT_MAX_CHARS = 4000
-# Cap billed OpenAI Realtime minutes. Persist also rejects after this TTL.
-_REALTIME_SESSION_TTL_SECONDS = 15 * 60
+# A session may save turns for its reserved length plus this tail (the last
+# turn is saved as the phone hangs up). After /live/end only the tail is left.
+REALTIME_PERSIST_GRACE_SECONDS = 60
 # Match text-chat advice inject (`_ADVICE_MEMORY_MAX_CHARS` in prompt_builder).
 _LIVE_TALK_MEMORY_MAX_CHARS = 1000
 _REALTIME_HISTORY_MAX = 10
@@ -62,14 +66,48 @@ def _realtime_session_key(user_id: UUID, session_id: str) -> str:
     return f"live_talk_rt:{user_id}:{session_id}"
 
 
-async def issue_realtime_session(redis: Redis, user_id: UUID, chat_id: UUID | None = None) -> str:
+async def issue_realtime_session(
+    redis: Redis,
+    user_id: UUID,
+    chat_id: UUID | None = None,
+    *,
+    reserved_seconds: int,
+) -> str:
+    """Open a session that may save turns for its reserved minutes, then expires."""
     session_id = str(uuid4())
     await redis.set(
         _realtime_session_key(user_id, session_id),
         str(chat_id) if chat_id else "1",
-        ex=_REALTIME_SESSION_TTL_SECONDS,
+        ex=max(1, reserved_seconds) + REALTIME_PERSIST_GRACE_SECONDS,
     )
     return session_id
+
+
+async def close_realtime_session(redis: Redis, user_id: UUID, session_id: str) -> None:
+    """After the phone hangs up, keep only the tail for its last turn to save."""
+    await redis.expire(
+        _realtime_session_key(user_id, (session_id or "").strip()),
+        REALTIME_PERSIST_GRACE_SECONDS,
+    )
+
+
+async def live_talk_status(redis: Redis, user: User, settings: Settings) -> SpeechLiveStatusOut:
+    from app.services import quota as quota_service
+
+    enabled = settings.speech_live_talk_enabled
+    limit_seconds = quota_service.live_talk_allowance_seconds(user, settings)
+    used = await quota_service.live_talk_used_seconds(redis, user.id)
+    remaining_seconds = max(0, limit_seconds - used)
+    return SpeechLiveStatusOut(
+        enabled=enabled,
+        entitled=enabled and can_use(user, "live_talk", settings),
+        remaining=remaining_seconds // 60,
+        limit=limit_seconds // 60,
+        remaining_seconds=remaining_seconds,
+        limit_seconds=limit_seconds,
+        min_session_seconds=max(1, settings.live_talk_min_session_seconds),
+        resets_at=quota_service.next_month_start(),
+    )
 
 
 async def realtime_session_bound_chat_id(
@@ -279,7 +317,8 @@ async def persist_live_talk_turn(
     saved the user line so cancel-during-STS does not drop what they said.
     """
     user_content = (user_text or "").strip()
-    assistant_content = (assistant_text or "").strip()
+    # Saved presented, like every other assistant row: the phone shows it as saved.
+    assistant_content = present_assistant_markdown((assistant_text or "").strip())
     if not user_content and not assistant_content:
         return None, None
 
@@ -383,20 +422,34 @@ async def _enqueue_live_talk_jobs(
                 f"topic:{chat_id}",
             )
         )
-    if user.memory_enabled and user_text:
+    # Same rule as a typed turn: memory learns from the user's own words. The
+    # spoken reply may repeat a web result (the voice web_search tool), and an
+    # assistant line must never become a durable fact about the user.
+    memory_user_text = memory_extract_user_text(user_text)
+    if user.memory_enabled and memory_user_text:
         specs.append(
             (
                 "memory",
                 {
                     "user_id": str(user.id),
                     "chat_id": str(chat_id),
-                    "transcript": cap_text_head_tail(transcript, _MEMORY_TRANSCRIPT_MAX_CHARS),
+                    "transcript": cap_text_head_tail(
+                        f"User: {memory_user_text}", _MEMORY_TRANSCRIPT_MAX_CHARS
+                    ),
                     "assistant_message_id": turn_key,
                 },
                 f"memory:{turn_key}",
             )
         )
-    if reminder_applied <= 0 and todos_service.should_recover_todo_writes(user_text, transcript):
+    # The background repair reads the spoken reply too and writes without a
+    # card, so it stays off while reminder changes wait for the user's tap
+    # (as in chat's post_turn). A reminder the user said with a clock is
+    # still applied from their own words in persist_live_talk_turn.
+    if (
+        not settings.reminder_proposals_enabled
+        and reminder_applied <= 0
+        and todos_service.should_recover_todo_writes(user_text, transcript)
+    ):
         specs.append(
             (
                 "todos",

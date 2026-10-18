@@ -1,6 +1,6 @@
-export type TypingPulseKind = "calm" | "active" | "busy";
+type TypingPulseKind = "calm" | "active" | "busy";
 
-export type PulseProfile = {
+type PulseProfile = {
   minScale: number;
   maxScale: number;
   minOpacity: number;

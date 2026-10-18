@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Literal
 
 from app.modules.physics.extractors.angles import _stated_angle
@@ -88,6 +89,22 @@ def _unstated_work_angle(text: str) -> bool:
     return has_words and _stated_angle(text) is None
 
 
+_EnergyOp = Literal["kinetic_energy", "potential_energy", "work", "power"]
+
+
+@dataclass(frozen=True, slots=True)
+class _EnergyGivens:
+    """Each value an energy law reads, as (value, unit written), or None when not given."""
+
+    mass: tuple[float, str] | None
+    velocity: tuple[float, str] | None
+    height: tuple[float, str] | None
+    force: tuple[float, str] | None
+    distance: tuple[float, str] | None
+    work: tuple[float, str] | None
+    elapsed: tuple[float, str] | None
+
+
 def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
     from app.modules.physics.extractors.energy_conservation import (
         extract_closed_energy,
@@ -107,192 +124,181 @@ def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
         return closed
     if is_closed_energy_request(lower):
         return None
-
-    # A machine's useful energy output divided by its energy input. Thermal
-    # engines retain their own W/Q_in operation in the earlier thermal
-    # extractor; this branch owns explicitly mechanical/machine wording.
     if "efficiency" in lower:
-        if not any(word in lower for word in ("machine", "mechanical", "device", "motor")):
-            return None
-        energies = _ordered_values(cleaned, r"kilojoules?|joules?|kJ|J")
-        if len(energies) != 2:
-            return None
-        output_match = re.search(
-            rf"(?:output|outputs|useful(?:\s+energy)?)\D{{0,24}}?({_NUMBER})\s*"
-            r"(kilojoules?|joules?|kJ|J)",
+        return _mechanical_efficiency(cleaned, lower)
+
+    givens = _read_energy_givens(cleaned)
+    op = _choose_energy_op(cleaned, lower, givens)
+    if op is None:
+        return None
+    params, units = _energy_params(op, givens, cleaned)
+    return PhysicsIntent(
+        kind="energy",
+        physics_op=op,
+        physics_params=params,
+        physics_units=units,
+        operation="solve",
+    )
+
+
+def _labelled_energy(
+    forward: re.Match[str] | None, reverse: re.Match[str] | None
+) -> tuple[float, str] | None:
+    match = forward or reverse
+    return None if match is None else (float(match.group(1)), match.group(2))
+
+
+def _mechanical_efficiency(cleaned: str, lower: str) -> PhysicsIntent | None:
+    """A machine's useful energy output divided by its energy input.
+
+    Thermal engines retain their own W/Q_in operation in the earlier thermal
+    extractor; this branch owns explicitly mechanical/machine wording.
+    """
+    if not any(word in lower for word in ("machine", "mechanical", "device", "motor")):
+        return None
+    energies = _ordered_values(cleaned, r"kilojoules?|joules?|kJ|J")
+    if len(energies) != 2:
+        return None
+    output_match = re.search(
+        rf"(?:output|outputs|useful(?:\s+energy)?)\D{{0,24}}?({_NUMBER})\s*"
+        r"(kilojoules?|joules?|kJ|J)",
+        cleaned,
+        re.IGNORECASE,
+    )
+    input_match = re.search(
+        rf"(?:input|supplied|receives?|takes?\s+in)\D{{0,24}}?({_NUMBER})\s*"
+        r"(kilojoules?|joules?|kJ|J)",
+        cleaned,
+        re.IGNORECASE,
+    )
+    output_reverse = re.search(
+        rf"({_NUMBER})\s*(kilojoules?|joules?|kJ|J)\s*(?:output|useful)",
+        cleaned,
+        re.IGNORECASE,
+    )
+    input_reverse = re.search(
+        rf"({_NUMBER})\s*(kilojoules?|joules?|kJ|J)\s*(?:input|supplied)",
+        cleaned,
+        re.IGNORECASE,
+    )
+    output = _labelled_energy(output_match, output_reverse)
+    supplied = _labelled_energy(input_match, input_reverse)
+    if output is None or supplied is None:
+        # Numeric order alone is not a safe way to infer input vs output.
+        return None
+    return PhysicsIntent(
+        kind="energy",
+        physics_op="mechanical_efficiency",
+        physics_params={"E_out": output[0], "E_in": supplied[0]},
+        physics_units={"E_out": output[1] or "J", "E_in": supplied[1] or "J"},
+        operation="solve",
+    )
+
+
+def _read_energy_givens(cleaned: str) -> _EnergyGivens:
+    """Each value by its own unit, nearest the words that name it."""
+    return _EnergyGivens(
+        # Mass (m) — use unit-specific search so force isn't picked up as mass.
+        mass=_find_value_with_specific_unit(
+            cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "object", "body")
+        ),
+        # Velocity (v) — for KE = 1/2 m v^2
+        velocity=_find_value_with_specific_unit(
             cleaned,
-            re.IGNORECASE,
-        )
-        input_match = re.search(
-            rf"(?:input|supplied|receives?|takes?\s+in)\D{{0,24}}?({_NUMBER})\s*"
-            r"(kilojoules?|joules?|kJ|J)",
-            cleaned,
-            re.IGNORECASE,
-        )
-        output_reverse = re.search(
-            rf"({_NUMBER})\s*(kilojoules?|joules?|kJ|J)\s*(?:output|useful)",
-            cleaned,
-            re.IGNORECASE,
-        )
-        input_reverse = re.search(
-            rf"({_NUMBER})\s*(kilojoules?|joules?|kJ|J)\s*(?:input|supplied)",
-            cleaned,
-            re.IGNORECASE,
-        )
-
-        def _labelled_energy(
-            forward: re.Match[str] | None, reverse: re.Match[str] | None
-        ) -> tuple[float, str] | None:
-            match = forward or reverse
-            return None if match is None else (float(match.group(1)), match.group(2))
-
-        output = _labelled_energy(output_match, output_reverse)
-        supplied = _labelled_energy(input_match, input_reverse)
-        if output is None or supplied is None:
-            # Numeric order alone is not a safe way to infer input vs output.
-            return None
-        return PhysicsIntent(
-            kind="energy",
-            physics_op="mechanical_efficiency",
-            physics_params={"E_out": output[0], "E_in": supplied[0]},
-            physics_units={"E_out": output[1] or "J", "E_in": supplied[1] or "J"},
-            operation="solve",
-        )
-
-    # Mass (m) — use unit-specific search so force isn't picked up as mass.
-    mass: float | None = None
-    mass_unit = "kg"
-    mu = _find_value_with_specific_unit(
-        cleaned,
-        r"kg|g|mg|lb|lbs|oz",
-        ("mass", "object", "body"),
+            r"m/s|km/h|mph|cm/s|mm/s",
+            ("velocity", "speed", "moving", "traveling", "travelling"),
+        ),
+        # Height (h) — for PE = m g h. Use length-specific search.
+        height=_find_value_with_specific_unit(
+            cleaned, r"km|cm|mm|m|ft|yd|in|mi", ("height", "high", "above")
+        ),
+        # Force (F) — for W = F d
+        force=_find_value_with_specific_unit(cleaned, r"\bN\b", ("force",)),
+        # Distance (d) — for W = F d. Use length-specific search.
+        distance=_find_value_with_specific_unit(
+            cleaned, r"km|cm|mm|m|ft|yd|in|mi", ("distance", "over", "through")
+        ),
+        # Energy done (W, in joules) and elapsed time — for P = W / t.
+        work=_find_value_with_specific_unit(
+            cleaned, r"kilojoules?|joules?|kJ|J", ("work", "energy")
+        ),
+        elapsed=_find_value_with_specific_unit(
+            cleaned, r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
+        ),
     )
-    if mu is not None:
-        mass, mass_unit = mu
 
-    # Velocity (v) — for KE = 1/2 m v^2
-    velocity: float | None = None
-    vel_unit = "m/s"
-    vu = _find_value_with_specific_unit(
-        cleaned,
-        r"m/s|km/h|mph|cm/s|mm/s",
-        ("velocity", "speed", "moving", "traveling", "travelling"),
-    )
-    if vu is not None:
-        velocity, vel_unit = vu
 
-    # Height (h) — for PE = m g h. Use length-specific search.
-    height: float | None = None
-    height_unit = "m"
-    hu = _find_value_with_specific_unit(
-        cleaned,
-        r"km|cm|mm|m|ft|yd|in|mi",
-        ("height", "high", "above"),
-    )
-    if hu is not None:
-        height, height_unit = hu
+def _choose_energy_op(cleaned: str, lower: str, givens: _EnergyGivens) -> _EnergyOp | None:
+    """The law the question names, or the one its givens solve; None when they cannot.
 
-    # Force (F) — for W = F d
-    force: float | None = None
-    force_unit = "N"
-    fu = _find_value_with_specific_unit(cleaned, r"\bN\b", ("force",))
-    if fu is not None:
-        force, force_unit = fu
-
-    # Distance (d) — for W = F d. Use length-specific search.
-    distance: float | None = None
-    dist_unit = "m"
-    du = _find_value_with_specific_unit(
-        cleaned,
-        r"km|cm|mm|m|ft|yd|in|mi",
-        ("distance", "over", "through"),
-    )
-    if du is not None:
-        distance, dist_unit = du
-
-    # Energy done (W, in joules) and elapsed time — for P = W / t.
-    work_done: float | None = None
-    work_unit = "J"
-    wu = _find_value_with_specific_unit(cleaned, r"kilojoules?|joules?|kJ|J", ("work", "energy"))
-    if wu is not None:
-        work_done, work_unit = wu
-
-    elapsed: float | None = None
-    elapsed_unit = "s"
-    tu = _find_value_with_specific_unit(
-        cleaned,
-        r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h",
-    )
-    if tu is not None:
-        elapsed, elapsed_unit = tu
-
-    # Decide the operation. Power is checked before work because a question
-    # naming both ("what power does 100 J of work in 5 s need") is asking for
-    # the power; "work done by a 10 N force" names only work and is unaffected.
-    op: Literal["kinetic_energy", "potential_energy", "work", "power"]
+    Power is checked before work because a question naming both ("what power does
+    100 J of work in 5 s need") is asking for the power; "work done by a 10 N force"
+    names only work and is unaffected.
+    """
+    mass, velocity, height = givens.mass, givens.velocity, givens.height
+    force, distance = givens.force, givens.distance
     if "kinetic energy" in lower or _KE_ABBREV_RE.search(lower):
-        op = "kinetic_energy"
-        if mass is None or velocity is None:
-            return None
-    elif "potential energy" in lower or _PE_ABBREV_RE.search(lower):
-        op = "potential_energy"
-        if mass is None or height is None:
-            return None
-    elif "power" in lower:
-        op = "power"
+        return None if mass is None or velocity is None else "kinetic_energy"
+    if "potential energy" in lower or _PE_ABBREV_RE.search(lower):
+        return None if mass is None or height is None else "potential_energy"
+    if "power" in lower:
         if _unstated_work_angle(cleaned):
             return None
         # Either school form: P = F v, or P = W / t.
-        if (force is None or velocity is None) and (work_done is None or elapsed is None):
+        if (force is None or velocity is None) and (givens.work is None or givens.elapsed is None):
             return None
         # An angle belongs to F v cos θ, not to work divided by time.
         if _stated_angle(cleaned) is not None and (force is None or velocity is None):
             return None
-    elif "work" in lower:
+        return "power"
+    if "work" in lower:
         if _unstated_work_angle(cleaned):
             return None
-        op = "work"
-        if force is None or distance is None:
+        return None if force is None or distance is None else "work"
+    # "energy of" / "conservation of energy" — pick whichever we can solve.
+    if mass is not None and velocity is not None:
+        return "kinetic_energy"
+    if mass is not None and height is not None:
+        return "potential_energy"
+    if force is not None and distance is not None:
+        if _unstated_work_angle(cleaned):
             return None
-    else:
-        # "energy of" / "conservation of energy" — pick whichever we can solve.
-        if mass is not None and velocity is not None:
-            op = "kinetic_energy"
-        elif mass is not None and height is not None:
-            op = "potential_energy"
-        elif force is not None and distance is not None:
-            if _unstated_work_angle(cleaned):
-                return None
-            op = "work"
-        else:
-            return None
+        return "work"
+    return None
 
+
+def _energy_params(
+    op: _EnergyOp, givens: _EnergyGivens, cleaned: str
+) -> tuple[dict[str, float], dict[str, str]]:
+    """The chosen law's givens and their units, in the order the working lists them."""
+    mass, velocity, height = givens.mass, givens.velocity, givens.height
+    force, distance = givens.force, givens.distance
     params: dict[str, float] = {}
     units: dict[str, str] = {}
     if op in ("kinetic_energy", "potential_energy") and mass is not None:
-        params["m"] = mass
-        units["m"] = mass_unit or "kg"
+        params["m"] = mass[0]
+        units["m"] = mass[1] or "kg"
     if op in ("kinetic_energy", "power") and velocity is not None:
-        params["v"] = velocity
-        units["v"] = vel_unit or "m/s"
+        params["v"] = velocity[0]
+        units["v"] = velocity[1] or "m/s"
     if op == "potential_energy" and height is not None:
-        params["h"] = height
-        units["h"] = height_unit or "m"
+        params["h"] = height[0]
+        units["h"] = height[1] or "m"
     if op == "power" and (force is None or velocity is None):
         # P = W / t. Drop any partial F/v so solve_energy picks this form.
         params.pop("v", None)
         units.pop("v", None)
-        if work_done is not None and elapsed is not None:
-            params["W"] = work_done
-            units["W"] = work_unit or "J"
-            params["t"] = elapsed
-            units["t"] = elapsed_unit or "s"
+        if givens.work is not None and givens.elapsed is not None:
+            params["W"] = givens.work[0]
+            units["W"] = givens.work[1] or "J"
+            params["t"] = givens.elapsed[0]
+            units["t"] = givens.elapsed[1] or "s"
     elif op in ("work", "power") and force is not None:
-        params["F"] = force
-        units["F"] = force_unit or "N"
+        params["F"] = force[0]
+        units["F"] = force[1] or "N"
     if op == "work" and distance is not None:
-        params["d"] = distance
-        units["d"] = dist_unit or "m"
+        params["d"] = distance[0]
+        units["d"] = distance[1] or "m"
     if op in ("work", "power"):
         angle = _stated_angle(cleaned)
         if angle is not None and "F" in params:
@@ -301,11 +307,4 @@ def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
     if op == "potential_energy":
         params["g"] = _detect_gravity(cleaned)
         units["g"] = "m/s^2"
-
-    return PhysicsIntent(
-        kind="energy",
-        physics_op=op,
-        physics_params=params,
-        physics_units=units,
-        operation="solve",
-    )
+    return params, units

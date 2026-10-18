@@ -13,7 +13,9 @@ from app.modules.math.solve.traces import (
     _elimination_steps,
     _linear_rows,
     compound_inequality_key_steps,
+    compound_inequality_trace,
     inequality_key_steps,
+    inequality_trace,
     system_key_steps,
     system_trace,
 )
@@ -248,8 +250,8 @@ def test_explain_adds_the_reason_for_the_flip():
     reply = _reply("explain how to solve -3x+2>=8", "balanced")
     assert reply is not None
     assert (
-        "**2. Divide both sides by -3** — dividing by a negative number reverses the inequality"
-        in reply
+        "**2. Divide both sides by -3** — Division property of inequality · "
+        "dividing by a negative number reverses the inequality" in reply
     )
     assert r"$x \le -2$" in reply
 
@@ -446,3 +448,23 @@ def test_teaching_words_around_calculus_still_get_the_lesson(text: str, rule: st
 
 def test_calculus_with_an_unrelated_ask_keeps_the_model() -> None:
     assert _reply("differentiate x^2 sin(x) and tell me a joke", "balanced") is None
+
+
+@pytest.mark.parametrize(
+    ("trace", "empty"),
+    [
+        (lambda: system_trace([("limit", "50"), ("offset", "10")], ["x", "y"]), ([], None, None)),
+        (lambda: system_trace([("fraction", "0.25"), ("x", "2")], ["x", "y"]), ([], None, None)),
+        (lambda: inequality_trace("ln", "5", "x", "<"), ([], None)),
+        (lambda: inequality_trace("Eq(x, 1)", "0", "x", "<"), ([], None)),
+        (lambda: compound_inequality_trace("0", "<", "CC", "<", "5", "x"), ([], None)),
+    ],
+)
+def test_a_side_that_parses_to_no_expression_has_no_trace(monkeypatch, trace, empty) -> None:
+    """A bare SymPy name parses to the function, domain or relation itself (ES-39).
+
+    The trace then subtracted it and the silent ``except`` took the TypeError for a decline;
+    strict declines raised it. Such a side is now unparsed.
+    """
+    monkeypatch.setenv("RECALL_STRICT_DECLINES", "1")
+    assert trace() == empty

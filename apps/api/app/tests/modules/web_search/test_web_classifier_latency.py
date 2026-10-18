@@ -9,14 +9,16 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
-from app.modules.chat.stream_pipeline import run_tool_loop_path
+from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.turn_prep.context import (
     StreamContext,
     build_stream_prompt_context,
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import _TurnMode
+from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.web_search.detection import should_web_search
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 QUESTION = "Who leads Acme Corporation?"
 _NO_WEB: tuple[object, ...] = (None, None, [], None, False, None, None)
@@ -33,12 +35,12 @@ def prompt_io():
     chat = MagicMock(id=uuid4(), summary=None)
     with ExitStack() as stack:
         for target, value in [
-            ("build_prompt_messages", [{"role": "user", "content": QUESTION}]),
-            ("fetch_web_and_tools", _NO_WEB),
-            ("_load_prior_user_messages", []),
+            ("context.build_prompt_messages", [{"role": "user", "content": QUESTION}]),
+            ("augment.fetch_web_and_tools", _NO_WEB),
+            ("augment._load_prior_user_messages", []),
         ]:
             stack.enter_context(
-                patch(f"app.modules.chat.turn_prep.context.{target}", AsyncMock(return_value=value))
+                patch(f"app.modules.chat.turn_prep.{target}", AsyncMock(return_value=value))
             )
         stack.enter_context(
             patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
@@ -50,26 +52,28 @@ def prompt_io():
         )
         stack.enter_context(
             patch(
-                "app.modules.chat.turn_prep.context.inject_web_and_tools",
+                "app.modules.chat.turn_prep.augment.inject_web_and_tools",
                 AsyncMock(side_effect=lambda messages, *_a, **_kw: messages),
             )
         )
 
         async def build(content=QUESTION, *, settings=None, rich=True, lightweight=False):
             return await build_stream_prompt_context(
-                user.id,
-                chat.id,
-                content,
-                "free-chat",
+                TurnRequest(
+                    user_id=user.id,
+                    chat_id=chat.id,
+                    content=content,
+                    model="free-chat",
+                    client_timezone=None,
+                    client_location=None,
+                    client_latitude=None,
+                    client_longitude=None,
+                    user=user,
+                    chat=chat,
+                    turn_mode=_TurnMode(lightweight, rich, False, False, False),
+                ),
                 settings or _settings(),
                 AsyncMock(),
-                client_timezone=None,
-                client_location=None,
-                client_latitude=None,
-                client_longitude=None,
-                user=user,
-                chat=chat,
-                turn_mode=_TurnMode(lightweight, rich, False, False, False),
             )
 
         yield build, user, chat
@@ -92,7 +96,7 @@ async def test_prefetch_overlaps_phase_b_and_preserves_negative_verdict(prompt_i
         return False
 
     with (
-        patch("app.modules.chat.turn_prep.context.fetch_web_and_tools", web),
+        patch("app.modules.chat.turn_prep.augment.fetch_web_and_tools", web),
         patch(
             "app.modules.web_search.detection.should_web_search", AsyncMock(side_effect=classify)
         ) as classify_mock,
@@ -166,7 +170,7 @@ async def test_cancelling_prep_cancels_both_phase_b_fetches(prompt_io):
 
     with (
         patch(
-            "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+            "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
             lambda *_a, **_kw: pending("web"),
         ),
         patch(
@@ -202,7 +206,7 @@ async def test_failed_phase_b_fetch_cancels_classifier_before_returning(prompt_i
             classifier_cancelled.set()
 
     with (
-        patch("app.modules.chat.turn_prep.context.fetch_web_and_tools", fail),
+        patch("app.modules.chat.turn_prep.augment.fetch_web_and_tools", fail),
         patch("app.modules.web_search.detection.should_web_search", classify),
     ):
         with pytest.raises(RuntimeError, match="web search unavailable"):
@@ -228,17 +232,16 @@ def _context(**overrides):
 @pytest.mark.parametrize("verdict", [True, False])
 async def test_final_gate_reuses_both_prefetched_verdicts(verdict):
     ctx = _context(web_search_classified=verdict)
-    seams = MagicMock()
-    seams.quota_service.global_spend_exceeded = AsyncMock(return_value=False)
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
         patch("app.modules.web_search.detection.should_web_search", AsyncMock()) as classify,
         patch(
-            "app.services.tool_loop.run_tool_rounds",
+            "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
         ) as run,
     ):
         await run_tool_loop_path(
-            seams, AsyncMock(), _settings(), ctx, usage={}, on_status=None, should_cancel=None
+            deps, AsyncMock(), _settings(), ctx, usage={}, on_status=None, should_cancel=None
         )
     classify.assert_not_awaited()
     assert run.await_count == int(verdict)
@@ -258,11 +261,10 @@ async def test_final_gate_reuses_both_prefetched_verdicts(verdict):
 )
 async def test_final_gate_does_not_classify_ineligible_turns(overrides):
     ctx = _context(**overrides)
-    seams = MagicMock()
-    seams.quota_service.global_spend_exceeded = AsyncMock(return_value=False)
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with patch("app.modules.web_search.detection.should_web_search", AsyncMock()) as classify:
         await run_tool_loop_path(
-            seams, AsyncMock(), _settings(), ctx, usage={}, on_status=None, should_cancel=None
+            deps, AsyncMock(), _settings(), ctx, usage={}, on_status=None, should_cancel=None
         )
     classify.assert_not_awaited()
 

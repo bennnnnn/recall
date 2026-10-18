@@ -3,35 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import delete, select
-from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Attachment, AttachmentChunk, Chat, Message
 
 EMBEDDING_DIM = 1536
-
-
-async def delete_for_attachment_ids(
-    session: AsyncSession,
-    attachment_ids: list[UUID],
-    *,
-    commit: bool = True,
-) -> int:
-    if not attachment_ids:
-        return 0
-    result = cast(
-        CursorResult[Any],
-        await session.execute(
-            delete(AttachmentChunk).where(AttachmentChunk.attachment_id.in_(attachment_ids))
-        ),
-    )
-    if commit:
-        await session.commit()
-    return int(result.rowcount or 0)
 
 
 async def has_chunks_for_chat(

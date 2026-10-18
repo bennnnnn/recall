@@ -104,21 +104,6 @@ async def list_user_contents_since(
     return rows
 
 
-async def list_all(
-    session: AsyncSession,
-    chat_id: UUID,
-    *,
-    limit: int = 200,
-) -> list[Message]:
-    result = await session.execute(
-        select(Message)
-        .where(Message.chat_id == chat_id)
-        .order_by(Message.created_at.asc())
-        .limit(limit)
-    )
-    return list(result.scalars().all())
-
-
 async def list_page(
     session: AsyncSession,
     chat_id: UUID,
@@ -287,6 +272,23 @@ async def list_recent_for_user(
         .where(Message.user_id == user_id, Message.role.in_(("user", "assistant")))
         .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+async def list_assistant_ids_since(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    since: datetime,
+) -> list[UUID]:
+    """Ids of the user's replies created at or after ``since`` (account delete)."""
+    result = await session.execute(
+        select(Message.id).where(
+            Message.user_id == user_id,
+            Message.role == "assistant",
+            Message.created_at >= since,
+        )
     )
     return list(result.scalars().all())
 

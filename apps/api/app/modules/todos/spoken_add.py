@@ -8,7 +8,7 @@ not earlier today.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from datetime import tzinfo as TzInfo
 from typing import cast
@@ -16,8 +16,15 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.todos.reminder_fence_parse import explicitly_declines_reminder_creation
 from app.modules.todos.schemas import RecurrenceRule
-from app.modules.todos.spoken_when import find_repeat, find_when, without_spans
+from app.modules.todos.spoken_when import (
+    due_on_day,
+    find_repeat,
+    find_when,
+    parse_clock_only,
+    without_spans,
+)
 from app.services.draft_fences import has_draft
 
 _NEED_A_TIME = "When should I remind you?"
@@ -79,6 +86,14 @@ _ADD_REQUEST_RE = re.compile(
     r"^\s*(?:(?:please|pls|plz)\s+)?(?:can (?:you|u)\s+)?(?:add|buy|get|pick up|remind me"
     + _REMIND_ME_OF_A_FACT
     + r"(?:\s+to)?)\b",
+    re.IGNORECASE,
+)
+# The message opens by asking for a reminder: "remind me to …", "can you set a
+# reminder to …", "add a reminder for …". "You forgot to remind me …" does not.
+_REMINDER_REQUEST_RE = re.compile(
+    r"^(?:(?:please|pls|plz)\s+)?(?:(?:can|could|will|would)\s+(?:you|u)\s+)?(?:please\s+)?"
+    r"(?:remind\s+me" + _REMIND_ME_OF_A_FACT + r"|(?:set|create|add|make)\s+(?:me\s+)?"
+    r"(?:a\s+)?(?:reminder|to-?do|task)\b|reminder\b)",
     re.IGNORECASE,
 )
 # Words of three letters or more ("gym", "run") that name something in a reply.
@@ -303,7 +318,11 @@ def reply_when_nothing_saved(
     dated one. "Can you add 3 + 4?" answered with "3 + 4 = 7", or an answer
     with a "Created: 1991" line, is not one.
     """
-    if not (about_reminders or mentions_reminders(text) or _user_declined(user_text)):
+    if not (
+        about_reminders
+        or mentions_reminders(text)
+        or explicitly_declines_reminder_creation(user_text)
+    ):
         return text
     words = _without_code(text)
     asked = _asked_to_change_or_add(user_text)
@@ -324,7 +343,7 @@ def reply_when_nothing_saved(
         if asks_when and not colon and not prose:
             return cleaned
         return _NEED_A_TIME
-    if _user_declined(user_text) and _DECLINE_SAVE_RE.search(cleaned):
+    if explicitly_declines_reminder_creation(user_text) and _DECLINE_SAVE_RE.search(cleaned):
         if not _DECLINE_NEGATION_RE.search(cleaned):
             return "I didn't set a reminder."
     if colon or prose:
@@ -417,12 +436,6 @@ def _without_claim_lines(lines: list[str]) -> list[str]:
     return kept
 
 
-def _user_declined(user_text: str | None) -> bool:
-    from app.modules.todos.reminder_fences import explicitly_declines_reminder_creation
-
-    return explicitly_declines_reminder_creation(user_text)
-
-
 def _asked_to_change_or_add(user_text: str | None) -> bool:
     if not user_text or adds_content(user_text):
         return False
@@ -433,23 +446,6 @@ def _asked_to_change_or_add(user_text: str | None) -> bool:
     from app.modules.todos.spoken_change import parse_spoken_reminder_change
 
     return parse_spoken_reminder_change(user_text) is not None
-
-
-def parse_clock_only(user_text: str | None) -> tuple[int, int] | None:
-    """A reply that is only a clock, such as '6' or '6pm'. Other words are not one."""
-    raw = (user_text or "").strip()
-    while raw and raw[-1] in ".!?":
-        raw = raw[:-1].rstrip()
-    if raw.lower().startswith("at "):
-        raw = raw[3:].strip()
-    if not raw:
-        return None
-    from app.modules.todos.reminder_fences import _parse_clock
-
-    parsed = _parse_clock(raw, 0)
-    if parsed is not None and _clock_uses_the_whole_message(raw):
-        return parsed
-    return _bare_hour(raw)
 
 
 def parse_spoken_add(user_text: str | None) -> SpokenAdd | None:
@@ -555,15 +551,36 @@ def due_for_add(
     clock_minute = add.minute if minute is None else minute
     if add.day is None or clock_hour is None or clock_minute is None:
         return None
-    from app.modules.todos.reminder_fences import _due_date_for_day
     from app.services import time_context as time_context_service
 
     tz = time_context_service.resolve_timezone(user_timezone)
     when = now.astimezone(tz) if now is not None else _now(tz)
-    day = _due_date_for_day(add.day, when)
-    if day is None:
-        return None
-    return datetime(day.year, day.month, day.day, clock_hour, clock_minute, tzinfo=tz)
+    return due_on_day(add.day, clock_hour, clock_minute, when)
+
+
+def day_for_a_bare_clock(
+    add: SpokenAdd,
+    user_text: str | None,
+    *,
+    user_timezone: str | None,
+    now: datetime | None = None,
+) -> SpokenAdd:
+    """ "Remind me to plate the dinner at 7pm" is the next 7pm: today, or tomorrow once past.
+
+    Only for a message that opens by asking for a reminder and names a clock
+    but no day or repeat. "At 9" with no part of the day is not a clock, and
+    any other add comes back unchanged.
+    """
+    if add.day is not None or add.repeat is not None or add.hour is None:
+        return add
+    text = _FILLER_RE.sub("", _fix_typos((user_text or "").strip()).lower())
+    if not _REMINDER_REQUEST_RE.match(text):
+        return add
+    today = replace(add, day="today")
+    due = due_for_add(today, user_timezone=user_timezone, now=now)
+    if due is not None and due_is_past(due, user_timezone=user_timezone, now=now):
+        return replace(add, day="tomorrow")
+    return today
 
 
 def due_is_past(
@@ -650,66 +667,3 @@ def _title_before(body: str, day_at: int) -> str:
     ):
         del words[-2:]
     return " ".join(words).strip()
-
-
-def _word_at(haystack: str, word: str) -> int:
-    start = 0
-    while True:
-        found = haystack.find(word, start)
-        if found < 0:
-            return -1
-        before = found == 0 or not haystack[found - 1].isalpha()
-        after_at = found + len(word)
-        after = after_at >= len(haystack) or not haystack[after_at].isalpha()
-        if before and after:
-            return found
-        start = found + 1
-
-
-def _clock_uses_the_whole_message(text: str) -> bool:
-    """True when nothing but a clock remains. '6pm tomorrow' is not clock-only."""
-    from app.modules.todos.reminder_fences import _parse_clock
-
-    parsed_at = 0
-    # _parse_clock does not report where it stopped. A clock-only message has
-    # no weekday or other word after the meridiem.
-    if _parse_clock(text, 0) is None:
-        return False
-    lowered = text.lower()
-    for mark in ("am", "pm", "a.m", "p.m"):
-        at = lowered.find(mark)
-        if at >= 0:
-            parsed_at = at + len(mark)
-            break
-    rest = lowered[parsed_at:].strip(" .")
-    return rest == ""
-
-
-def _bare_hour(text: str) -> tuple[int, int] | None:
-    """'6' and '6:30' mean that hour in the evening. '18' stays 18:00."""
-    compact = text.replace(" ", "")
-    if not compact or not compact[0].isdigit():
-        return None
-    hour = 0
-    index = 0
-    digits = 0
-    while index < len(compact) and compact[index].isdigit() and digits < 2:
-        hour = hour * 10 + (ord(compact[index]) - 48)
-        index += 1
-        digits += 1
-    minute = 0
-    if index < len(compact) and compact[index] == ":":
-        index += 1
-        if index + 1 >= len(compact) or not (
-            compact[index].isdigit() and compact[index + 1].isdigit()
-        ):
-            return None
-        minute = (ord(compact[index]) - 48) * 10 + (ord(compact[index + 1]) - 48)
-        index += 2
-    if index != len(compact) or minute > 59 or hour > 23:
-        return None
-    if hour < 12:
-        hour += 12
-    if hour == 24:
-        return None
-    return hour, minute

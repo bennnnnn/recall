@@ -1,4 +1,5 @@
 import { resetComposerDraftsForAccount } from "@/features/chat/model/composerDraftReset";
+import { clearCachedModels } from "@/lib/cachedModels";
 import { signOutGoogle } from "@/lib/google-auth";
 
 /** Device/account side effects finish before another account signs in. Backend
@@ -14,6 +15,7 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/attachments/model/galleryListCache").then(({ invalidateGalleryCache }) => invalidateGalleryCache()),
     import("@/lib/cache/chatListCache").then(({ invalidateChatListCache }) => invalidateChatListCache()),
     import("@/lib/cache/usageCache").then(({ invalidateUsageCache }) => invalidateUsageCache()),
+    clearCachedModels(),
     import("@/lib/purchases").then(({ signOutRevenueCat }) => signOutRevenueCat()),
     signOutGoogle(),
     ...(userId ? [

@@ -104,7 +104,7 @@ export function confirmDialog(options: ConfirmOptions): Promise<boolean> {
   });
 }
 
-export type AlertOptions = {
+type AlertOptions = {
   title: string;
   message?: string;
   /** Extra buttons (e.g. Open Settings). An OK button is added when omitted. */

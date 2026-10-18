@@ -1,4 +1,6 @@
-"""Closed Newton requests can show the actual recorded iteration, without solving again."""
+"""Newton requests: the guess and lead-in extraction reads, and closed requests that show
+the recorded iteration without solving again.
+"""
 
 from __future__ import annotations
 
@@ -8,10 +10,11 @@ from typing import Any
 
 from app.modules.math import solve as math_solve
 from app.modules.math.tools.direct_calculus import _compact, _expression
+from app.services.number_text import DECIMAL_LITERAL, bounded_decimal
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import Workout, math_line, render_workout, text_line
 
-_NUMBER = r"[+-]?(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
+_NUMBER = bounded_decimal(12)
 _START = re.compile(
     rf"(.+) (?:starting at|with initial guess(?: of)?) "
     rf"(?:([A-Za-z])(?:_?0)?\s*=\s*)?({_NUMBER})",
@@ -31,6 +34,79 @@ _PREFIXES = (
 
 def has_newton_request(text: str) -> bool:
     return re.search(r"\bnewton\b", text, re.IGNORECASE) is not None
+
+
+_DEFAULT_NEWTON_GUESS = 1.0
+
+
+def _whole_label(label: str) -> re.Pattern[str]:
+    # A word edge is a word boundary: "near" is not inside "nonlinear" or "linear".
+    start = r"\b" if label[0].isalnum() else ""
+    end = r"\b" if label[-1].isalnum() else ""
+    return re.compile(f"{start}{re.escape(label)}{end}")
+
+
+# Tried in this order: the longer spelling of a cue before its shorter one.
+_GUESS_LABELS = tuple(
+    _whole_label(label)
+    for label in (
+        "starting at x0 =",
+        "starting at x=",
+        "starting at",
+        "starting near",
+        "initial guess of",
+        "initial guess",
+        "near x=",
+        "near",
+        "guess",
+        "x0 =",
+    )
+)
+
+
+def _parse_newton_guess(cleaned: str) -> tuple[float, str]:
+    """Return ``(guess, text_for_eq)`` after stripping a trailing guess clause."""
+    guess = _DEFAULT_NEWTON_GUESS
+    text_for_eq = cleaned
+    lower = cleaned.lower()
+    for label in _GUESS_LABELS:
+        found = label.search(lower)
+        if found is None:
+            continue
+        idx = found.start()
+        m = DECIMAL_LITERAL.search(cleaned, found.end())
+        if m:
+            guess = float(m.group(0))
+            # Guess clauses are almost always trailing — drop from the cue onward.
+            text_for_eq = cleaned[:idx].rstrip()
+            if text_for_eq.lower().endswith(" with"):
+                text_for_eq = text_for_eq[: -len(" with")].rstrip()
+            break
+    return guess, text_for_eq
+
+
+def _strip_newton_leadin(text_for_eq: str) -> str:
+    """Strip newton lead-in without poly regex — phrase prefixes only."""
+    for prefix in (
+        "please use newton's method to find the root of ",
+        "please use newton's method for ",
+        "please use newton's method on ",
+        "use newton's method to find the root of ",
+        "use newton's method for ",
+        "use newton's method on ",
+        "newton's method for ",
+        "newton's method on ",
+        "newton's method to find the root of ",
+        "please numerically solve ",
+        "please numerically approximate ",
+        "numerically solve ",
+        "numerically approximate ",
+        "please find the root of ",
+        "find the root of ",
+    ):
+        if text_for_eq.lower().startswith(prefix):
+            return text_for_eq[len(prefix) :].strip()
+    return text_for_eq
 
 
 def _request_parameters(text: str) -> tuple[str, str, float] | None:
@@ -134,7 +210,7 @@ def format_newton_reply(verified: VerifiedMathBlock) -> str:
         ),
         steps=tuple(iterates),
     )
-    # The root is an approximation, written as the Answer line rather than an
-    # answer chip, so the fence pass has nothing to rewrite.
+    # The root is an approximation, written as the Answer line; the fence pass
+    # puts the verified root in the card in its place.
     root = math_line(rf"{variable} \approx {verified.canonical_answer}")
     return f"{render_workout(workout)}  \n{root}\n"

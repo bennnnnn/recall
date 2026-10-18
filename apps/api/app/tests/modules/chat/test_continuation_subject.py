@@ -13,19 +13,17 @@ from app.modules.chat.continuation_subject import (
     is_new_problem_request,
     is_pure_continuation,
 )
-from app.modules.chat.prompt_builder import _style_format_hints
 from app.modules.chat.prompt_constants import (
     BIOLOGY_PRESENTATION_HINT,
-    CHEMISTRY_PRESENTATION_HINT,
-    MATH_INTENT_HINT,
     NEW_PROBLEM_HINT,
-    PHYSICS_INTENT_HINT,
-    PHYSICS_REPLY_POLICY,
     STATISTICS_PRESENTATION_HINT,
 )
+from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.chemistry.reply_policy import CHEMISTRY_PRESENTATION_HINT
 from app.modules.math.followup import is_math_followup
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY
 from app.modules.physics.extract import needs_physics
+from app.modules.physics.reply_policy import PHYSICS_INTENT_HINT, PHYSICS_REPLY_POLICY
 from app.services.routing import route_chat_model
 from app.services.subject_solving import detect_subject
 
@@ -211,7 +209,7 @@ def test_another_inherits_the_strong_model_after_a_hard_turn() -> None:
         "Write me an email"
     )
     assert route_chat_model("explain photosynthesis", prior_user="debug this algorithm") == (
-        "gemini-flash"
+        "qwen-3.7-flash"
     )
 
 

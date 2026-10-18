@@ -7,11 +7,7 @@ from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.organic import organic_facts
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.smiles import most_common_isotope
-from app.modules.chemistry.solvers.common_chem import (
-    inp,
-    num,
-    verified,
-)
+from app.modules.chemistry.solvers.display import inp, num, verified
 from app.modules.chemistry.solvers.relation import solve_paired
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.stoichiometry import monoisotopic_mass

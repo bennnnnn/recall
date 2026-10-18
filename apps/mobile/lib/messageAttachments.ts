@@ -36,13 +36,13 @@ export type ParsedMessageImage = {
   path: string;
 };
 
-export type ParsedMessageFile = {
+type ParsedMessageFile = {
   attachmentId: string | null;
   path: string;
   contentType: string | null;
 };
 
-export type ParsedUserMessageContent = {
+type ParsedUserMessageContent = {
   caption: string;
   images: ParsedMessageImage[];
   files: ParsedMessageFile[];

@@ -35,6 +35,7 @@ from app.modules.attachments.service import (
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
+from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
 
@@ -214,10 +215,10 @@ async def search_and_attach_for_chat(
             quota_service.IMAGE_SEARCH_SPEND_CAP_MESSAGE,
             status_code=429,
         )
-    daily_limit = quota_service.image_search_limit_for_user(user, settings)
-    if not await quota_service.reserve_image_search(redis, user.id, limit=daily_limit):
+    day = await counters.reserve("image_search", redis, user, settings)
+    if not day:
         raise ImageSearchError(
-            quota_service.image_search_limit_exceeded_message(user),
+            counters.limit_message("image_search", user),
             status_code=429,
         )
 
@@ -277,11 +278,11 @@ async def search_and_attach_for_chat(
             await session.commit()
     except ImageSearchError:
         await _rollback_written_bytes(gateway, written_keys)
-        await quota_service.refund_image_search(redis, user.id)
+        await counters.refund("image_search", redis, user.id, day=day)
         raise
     except BaseException:
         await _rollback_written_bytes(gateway, written_keys)
-        await quota_service.refund_image_search(redis, user.id)
+        await counters.refund("image_search", redis, user.id, day=day)
         raise
 
     try:
@@ -308,8 +309,8 @@ async def photos_for_answer(settings: Settings, *, user: User, query: str) -> li
     redis = get_redis_client()
     if await quota_service.global_spend_exceeded(redis, settings):
         return []
-    daily_limit = quota_service.image_search_limit_for_user(user, settings)
-    if not await quota_service.reserve_image_search(redis, user.id, limit=daily_limit):
+    day = await counters.reserve("image_search", redis, user, settings)
+    if not day:
         return []
 
     written_keys: list[str] = []
@@ -323,16 +324,16 @@ async def photos_for_answer(settings: Settings, *, user: User, query: str) -> li
             await session.commit()
     except ImageSearchError:
         await _rollback_written_bytes(gateway, written_keys)
-        await quota_service.refund_image_search(redis, user.id)
+        await counters.refund("image_search", redis, user.id, day=day)
         return []
     except Exception:
         logger.exception("Answer photo lookup failed")
         await _rollback_written_bytes(gateway, written_keys)
-        await quota_service.refund_image_search(redis, user.id)
+        await counters.refund("image_search", redis, user.id, day=day)
         return []
     except BaseException:
         await _rollback_written_bytes(gateway, written_keys)
-        await quota_service.refund_image_search(redis, user.id)
+        await counters.refund("image_search", redis, user.id, day=day)
         raise
 
     try:

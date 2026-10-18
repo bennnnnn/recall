@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import re
 from contextlib import asynccontextmanager
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -11,11 +15,29 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
+from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
-from app.modules.chat.stream_pipeline import _replace_failed_subject_fences, enrich_final_content
+from app.modules.chat.finalize_passes import enrich_final_content
+from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.todos import repository as todos_repo
 from app.modules.web_search.formatting import format_sources_fence
+from app.repositories import chats as chats_repo
+from app.repositories import users as users_repo
 from app.services.answer_fence import mark_server_answer_fences
 from app.services.solving import VerifiedPhysicsBlock
+from app.tests.modules.chat.chat_test_support import turn_deps
+
+_CARD = re.compile(r"```reminder_proposal\n(.*?)\n```", re.DOTALL)
+_MERMAID_REPLY = "```mermaid\nflowchart TD\n  D --> E[Grind Beans (Medium Grind)]\n```"
+
+
+def _fail_mermaid_pass(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pure text pass late in finalize raises (any of them could)."""
+
+    def _boom(_text: str) -> str:
+        raise RuntimeError("mermaid sanitizer failed")
+
+    monkeypatch.setattr("app.modules.chat.finalize_text.sanitize_mermaid_fences", _boom)
 
 
 def _passthrough_math(content: str, verified: object = None, correct: bool = True) -> str:
@@ -31,20 +53,23 @@ async def _fake_session() -> Any:
     yield MagicMock()
 
 
-def _seams() -> MagicMock:
-    seams = MagicMock()
-    seams.SessionLocal = _fake_session
-    seams.users_repo.get_by_id = AsyncMock(return_value=MagicMock())
-
+def _deps() -> Any:
     async def _passthrough_reminders(_session: object, **kwargs: Any) -> tuple[str, int]:
         return str(kwargs["assistant_text"]), 0
 
-    seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=_passthrough_reminders)
-    seams.todos_service.transcript_implies_todo_sync = MagicMock(return_value=False)
-    seams.math_fence_service.validate_math_fences_worker = _passthrough_math
-    seams.math_fence_service.replace_unclosed_graph_fence_safe = lambda content, _canonical: content
-    seams.web_search_service = web_search_service
-    return seams
+    todos = MagicMock()
+    todos.materialize_reminder_fences = AsyncMock(side_effect=_passthrough_reminders)
+    todos.transcript_implies_todo_sync = MagicMock(return_value=False)
+    math_fence = MagicMock()
+    math_fence.validate_math_fences_worker = _passthrough_math
+    math_fence.replace_unclosed_graph_fence_safe = lambda content, _canonical: content
+    return turn_deps(
+        session_factory=_fake_session,
+        users=MagicMock(get_by_id=AsyncMock(return_value=MagicMock())),
+        todos=todos,
+        math_fence=math_fence,
+        web_search=web_search_service,
+    )
 
 
 def _ctx(
@@ -68,39 +93,79 @@ def _ctx(
     return ctx
 
 
-def test_exception_fallback_dispatches_to_chemistry_owner() -> None:
+async def _finalize_failed_subject_pass(deps: Any, verified: object, reply: str) -> str:
+    ctx = _ctx()
+    ctx.verified_subject = verified
+    return await enrich_final_content(
+        deps,
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text=reply,
+        usage={"input": 4, "output": 8},
+        outcome=TurnOutcome(),
+        was_cancelled=False,
+        assistant_parts=[reply],
+        should_cancel=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_exception_fallback_dispatches_to_chemistry_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.chemistry import fence as chemistry_fence
     from app.modules.chemistry.block import build_verified_chemistry
     from app.modules.chemistry.extract import extract_chemistry_intent
 
-    seams = _seams()
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    deps = _deps()
     math_safe = MagicMock(return_value="math-safe")
-    seams.math_fence_service.replace_unclosed_graph_fence_safe = math_safe
+    deps.math_fence.replace_unclosed_graph_fence_safe = math_safe
     intent = extract_chemistry_intent("Find pH when [H+] = 0.001")
     assert intent is not None
     verified = build_verified_chemistry(intent)
     assert verified is not None
+    validate = chemistry_fence.validate_chemistry_fences
+    calls: list[str] = []
 
-    result = _replace_failed_subject_fences(seams, "```answer\n4\n```", verified)
+    def fail_the_pass(content: str, *args: Any, **kwargs: Any) -> str:
+        """The chemistry pass fails; its recovery's own check runs for real."""
+        calls.append(content)
+        if len(calls) == 1:
+            raise RuntimeError("chemistry fence pass failed")
+        return validate(content, *args, **kwargs)
 
+    monkeypatch.setattr(chemistry_fence, "validate_chemistry_fences", fail_the_pass)
+
+    result = await _finalize_failed_subject_pass(deps, verified, "```answer\n4\n```")
+
+    assert len(calls) == 2
     assert "notation: chemistry\npH = 3" in result
     assert "```answer\n4\n```" not in result
     math_safe.assert_not_called()
 
 
-def test_exception_fallback_dispatches_to_physics_owner(
+@pytest.mark.asyncio
+async def test_exception_fallback_dispatches_to_physics_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    seams = _seams()
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    deps = _deps()
     math_safe = MagicMock(return_value="math-safe")
-    seams.math_fence_service.replace_unclosed_graph_fence_safe = math_safe
+    deps.math_fence.replace_unclosed_graph_fence_safe = math_safe
     verified = VerifiedPhysicsBlock(text="verified", canonical_answer="10 N")
+    monkeypatch.setattr(
+        "app.modules.physics.fence.validate_physics_fences",
+        MagicMock(side_effect=RuntimeError("physics fence pass failed")),
+    )
     safe = MagicMock(return_value="physics-safe")
     monkeypatch.setattr(
         "app.modules.physics.fence.replace_unclosed_physics_fences_safe",
         safe,
     )
 
-    result = _replace_failed_subject_fences(seams, "raw", verified)
+    result = await _finalize_failed_subject_pass(deps, verified, "raw")
 
     assert result == "physics-safe"
     safe.assert_called_once_with("raw", verified)
@@ -112,26 +177,26 @@ async def test_reminder_finalization_uses_effective_client_timezone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
+    deps = _deps()
     ctx = _ctx()
     ctx.user.timezone = "UTC"
     ctx.user_timezone = "America/Los_Angeles"
     ctx.user_message_content = "Remind me tomorrow at 3 PM to submit my application."
 
     await enrich_final_content(
-        seams,
+        deps,
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text="I'll help with that.",
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=["I'll help with that."],
         should_cancel=None,
     )
 
-    kwargs = seams.todos_service.materialize_reminder_fences.await_args.kwargs
+    kwargs = deps.todos.materialize_reminder_fences.await_args.kwargs
     assert kwargs["user_timezone"] == "America/Los_Angeles"
 
 
@@ -151,15 +216,15 @@ async def test_search_sources_final_content_matches_persisted_text(
         )
     ]
     prose = "Here is the latest on the topic."
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(search_sources=hits),
         assistant_text=prose,
         usage={"input": 10, "output": 20},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[prose],
         should_cancel=None,
@@ -167,31 +232,31 @@ async def test_search_sources_final_content_matches_persisted_text(
 
     expected_fence = format_sources_fence(hits)
     assert persisted == f"{prose}{expected_fence}".strip()
-    assert result["final_content"] == persisted
-    assert "```sources" in result["final_content"]
-    assert "https://example.com/a" in result["search_sources"]
+    assert outcome.final_content == persisted
+    assert "```sources" in outcome.final_content
+    assert "https://example.com/a" in [source["url"] for source in outcome.search_sources]
 
 
 @pytest.mark.asyncio
 async def test_unchanged_turn_omits_final_content(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text="Plain answer.",
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=["Plain answer."],
         should_cancel=None,
     )
 
     assert persisted == "Plain answer."
-    assert "final_content" not in result
+    assert outcome.final_content is None
 
 
 @pytest.mark.asyncio
@@ -200,16 +265,16 @@ async def test_cancelled_turn_closes_unclosed_fence(
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     open_fence = "```mermaid\ngraph TD\n  A-->B"
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text=open_fence,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=True,
         assistant_parts=[open_fence],
         should_cancel=None,
@@ -217,7 +282,7 @@ async def test_cancelled_turn_closes_unclosed_fence(
 
     assert persisted.rstrip().endswith("```")
     assert "Generation stopped" not in persisted
-    assert result["final_content"] == persisted
+    assert outcome.final_content == persisted
 
 
 @pytest.mark.asyncio
@@ -226,20 +291,19 @@ async def test_truncated_turn_closes_unclosed_fence(
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     open_fence = "```python\nprint(1"
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text=open_fence,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[open_fence],
         should_cancel=None,
-        completion="interrupted",
     )
 
     assert persisted.rstrip().endswith("```")
@@ -253,24 +317,23 @@ async def test_normal_completion_also_closes_provider_unclosed_fence(
     """A provider can emit done normally while forgetting the final backticks."""
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     open_fence = "```message\nHappy birthday! Hope you have a wonderful day."
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text=open_fence,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[open_fence],
         should_cancel=None,
-        completion="complete",
     )
 
     assert persisted.rstrip().endswith("```")
-    assert result["final_content"] == persisted
+    assert outcome.final_content == persisted
 
 
 @pytest.mark.asyncio
@@ -279,16 +342,16 @@ async def test_mermaid_parenthetical_labels_quoted_on_persist(
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     raw = "```mermaid\nflowchart TD\n  D --> E[Grind Beans (Medium Grind)]\n```"
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text=raw,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[raw],
         should_cancel=None,
@@ -310,7 +373,7 @@ async def test_verified_math_markers_are_stripped_from_final_content(
     """
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
@@ -319,7 +382,7 @@ async def test_verified_math_markers_are_stripped_from_final_content(
             "So it lands after about 2 seconds."
         ),
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=["ignored"],
         should_cancel=None,
@@ -337,20 +400,18 @@ async def test_unverified_math_note_appended_to_final_content(
     from app.modules.math import fence as math_fence_mod
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
-    seams.math_fence_service.append_unverified_math_note = (
-        math_fence_mod.append_unverified_math_note
-    )
+    deps = _deps()
+    deps.math_fence.append_unverified_math_note = math_fence_mod.append_unverified_math_note
     ctx = _ctx()
     ctx.solver_unverified = True
     persisted = await enrich_final_content(
-        seams,
+        deps,
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text="The mass is 12 kg.",
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=["The mass is 12 kg."],
         should_cancel=None,
@@ -370,13 +431,13 @@ async def test_unverified_chemistry_uses_the_chemistry_note(
     ctx.solver_unverified = True
     ctx.unverified_subject = "chemistry"
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=True),
         ctx,
         assistant_text="The pH is about 6.",
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=["The pH is about 6."],
         should_cancel=None,
@@ -406,13 +467,13 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
     ctx.user_message_content = "1+1=x"
     ctx.solver_unverified = False
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=ctx.instant_reply,
         usage={"input": 0, "output": 8},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[ctx.instant_reply],
         should_cancel=None,
@@ -428,9 +489,9 @@ async def test_paired_direct_reply_keeps_both_answer_fences(
     from app.modules.math.fence import needs_math_fence_validate, validate_math_fences
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
-    seams.math_fence_service.needs_math_fence_validate = needs_math_fence_validate
-    seams.math_fence_service.validate_math_fences_worker = validate_math_fences
+    deps = _deps()
+    deps.math_fence.needs_math_fence_validate = needs_math_fence_validate
+    deps.math_fence.validate_math_fences_worker = validate_math_fences
     reply = (
         "**Answer**\n\n```answer\nnotation: chemistry\nV₂ = 100 mL\n```\n\n"
         "**Answer**\n\n```answer\nx = 3 \\text{ or } x = 4\n```\n"
@@ -442,13 +503,13 @@ async def test_paired_direct_reply_keeps_both_answer_fences(
         "Dilute 25 mL of 1 M NaOH to 0.25 M, and also solve x^2 - 7x + 12 = 0."
     )
     persisted = await enrich_final_content(
-        seams,
+        deps,
         MagicMock(),
         Settings(chemistry_enabled=True),
         ctx,
         assistant_text=reply,
         usage={"input": 0, "output": 0},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[reply],
         should_cancel=None,
@@ -466,8 +527,8 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
     from app.modules.chemistry.extract import extract_chemistry_intent
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
-    seams.math_fence_service.validate_math_fences_worker = MagicMock(
+    deps = _deps()
+    deps.math_fence.validate_math_fences_worker = MagicMock(
         side_effect=AssertionError("math fences must not rewrite chemistry")
     )
     question = "Find pH when [H+] = 0.001"
@@ -480,13 +541,13 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
     ctx.user_message_content = question
     invented = "The pH is 4.\n\n```answer\n4\n```\n\n```smiles\nCCO\n```"
     persisted = await enrich_final_content(
-        seams,
+        deps,
         MagicMock(),
         Settings(chemistry_enabled=True),
         ctx,
         assistant_text=invented,
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[invented],
         should_cancel=None,
@@ -515,15 +576,15 @@ async def test_answer_photo_replaces_its_fence_in_final_content(
     ctx.answer_photo = answer_photo.AnswerPhoto(Settings(), MagicMock())
     ctx.answer_photo.feed(PHOTO_REPLY)
 
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=PHOTO_REPLY,
         usage={"input": 4, "output": 8},
-        result=result,
+        outcome=outcome,
         was_cancelled=False,
         assistant_parts=[PHOTO_REPLY],
         should_cancel=None,
@@ -531,7 +592,7 @@ async def test_answer_photo_replaces_its_fence_in_final_content(
 
     assert persisted.startswith(f"[Image: /attachments/{photo_id}/file]\n\nEthiopia lies")
     assert "```photo" not in persisted
-    assert result["final_content"] == persisted
+    assert outcome.final_content == persisted
     assert ctx.answer_photo_ids == [photo_id]
 
 
@@ -543,13 +604,13 @@ async def test_stopped_reply_drops_its_photo(monkeypatch: pytest.MonkeyPatch) ->
     ctx.answer_photo_ids = []
 
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=PHOTO_REPLY,
         usage={"input": 4, "output": 8},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=True,
         assistant_parts=[PHOTO_REPLY],
         should_cancel=None,
@@ -580,15 +641,251 @@ async def test_unverified_working_names_its_first_slip(
     ctx = _ctx()
     ctx.solver_unverified = unverified
     persisted = await enrich_final_content(
-        _seams(),
+        _deps(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=reply,
         usage={"input": 1, "output": 2},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[reply],
         should_cancel=None,
     )
     assert ("Check this step:" in persisted) is noted
+
+
+# --- ES-03: a failed text pass never throws away a side effect that already happened ---------
+
+_DENTIST_ASK = "add dentist tomorrow at 3pm to my reminders"
+
+
+async def _reminder_turn(
+    db_session: Any, fake_redis: Any, reply: str, *, proposals: bool, was_cancelled: bool = False
+) -> tuple[str, TurnOutcome, list[Any], Any]:
+    """Finalize ``reply`` to ``_DENTIST_ASK`` with the real reminder pass on Postgres."""
+    user = await users_repo.create(
+        db_session,
+        email=f"{uuid4()}@example.com",
+        name="Test User",
+        avatar_url=None,
+        google_sub=str(uuid4()),
+    )
+    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
+
+    @asynccontextmanager
+    async def _session() -> Any:
+        yield db_session
+
+    deps = replace(_deps(), session_factory=_session, todos=todos_service)
+    ctx = _ctx()
+    ctx.user_id = user.id
+    ctx.chat_id = chat.id
+    ctx.user_message_content = _DENTIST_ASK
+    ctx.prompt_messages = [{"role": "user", "content": _DENTIST_ASK}]
+
+    outcome = TurnOutcome()
+    persisted = await enrich_final_content(
+        deps,
+        fake_redis,
+        Settings(chemistry_enabled=False, reminder_proposals_enabled=proposals),
+        ctx,
+        assistant_text=reply,
+        usage={"input": 4, "output": 8},
+        outcome=outcome,
+        was_cancelled=was_cancelled,
+        assistant_parts=[reply],
+        should_cancel=None,
+    )
+    rows = await todos_repo.list_for_user(db_session, user.id, limit=10)
+    return persisted, outcome, rows, user
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("proposals", [True, False], ids=["card offered", "row written"])
+@pytest.mark.parametrize("text_pass_fails", [False, True], ids=["passes ok", "text pass fails"])
+async def test_a_failed_text_pass_keeps_the_reminder_change(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Any,
+    fake_redis: Any,
+    proposals: bool,
+    text_pass_fails: bool,
+) -> None:
+    """A text pass that failed after the reminder pass persisted the raw reply.
+
+    The card was lost while its proposal sat in Redis, or the row was written
+    while the reply showed only the hidden fence, and ``todos_sync`` never told
+    the phone to refresh its list.
+    """
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    if text_pass_fails:
+        _fail_mermaid_pass(monkeypatch)
+    due = (datetime.now(UTC) + timedelta(days=1)).replace(hour=15, minute=0, second=0)
+    fence = json.dumps({"title": "Dentist", "due_at": due.isoformat()})
+    reply = f"I'll set a reminder for that.\n\n```reminder\n{fence}\n```"
+
+    persisted, outcome, rows, user = await _reminder_turn(
+        db_session, fake_redis, reply, proposals=proposals
+    )
+
+    assert persisted.startswith("I'll set a reminder for that.")
+    assert "```reminder\n" not in persisted
+    assert outcome.final_content == persisted
+    assert outcome.todos_changed
+    if proposals:
+        card = _CARD.search(persisted)
+        assert card is not None, persisted
+        assert json.loads(card.group(1))["items"][0]["title"] == "Dentist"
+        assert await fake_redis.keys(f"todos:proposal:{user.id}:*")
+        assert rows == []
+    else:
+        assert "Dentist" in persisted
+        assert "```reminder_proposal" not in persisted
+        assert [row.content for row in rows] == ["Dentist"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("was_cancelled", [True, False], ids=["stopped", "stream dropped"])
+async def test_a_reply_cut_inside_its_reminder_fence_still_offers_the_card(
+    monkeypatch: pytest.MonkeyPatch, db_session: Any, fake_redis: Any, was_cancelled: bool
+) -> None:
+    """An open fence is never applied, even though finalize closes open fences
+    before the reminder pass: the user's own words still make the card."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    reply = 'Sure, I\'ll set a reminder.\n\n```reminder\n{"title": "Den'
+
+    persisted, _outcome, rows, _user = await _reminder_turn(
+        db_session, fake_redis, reply, proposals=True, was_cancelled=was_cancelled
+    )
+
+    card = _CARD.search(persisted)
+    assert card is not None, persisted
+    assert json.loads(card.group(1))["items"][0]["title"].lower() == "dentist"
+    assert "Could not save" not in persisted
+    assert "```reminder\n" not in persisted
+    assert rows == []
+
+
+@pytest.mark.asyncio
+async def test_a_failed_reminder_pass_keeps_the_finished_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every text pass already succeeded, so their work persists, not the raw reply."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    deps = _deps()
+    deps.todos.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
+
+    outcome = TurnOutcome()
+    persisted = await enrich_final_content(
+        deps,
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(),
+        assistant_text=_MERMAID_REPLY,
+        usage={"input": 4, "output": 8},
+        outcome=outcome,
+        was_cancelled=False,
+        assistant_parts=[_MERMAID_REPLY],
+        should_cancel=None,
+    )
+
+    assert 'E["Grind Beans (Medium Grind)"]' in persisted
+    assert outcome.final_content == persisted
+    assert not outcome.todos_changed
+
+
+@pytest.mark.asyncio
+async def test_a_failed_text_pass_keeps_the_attached_answer_photo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.images import answer_photo
+
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    _fail_mermaid_pass(monkeypatch)
+    photo_id = uuid4()
+    monkeypatch.setattr(
+        answer_photo.image_search, "photos_for_answer", AsyncMock(return_value=[photo_id])
+    )
+    ctx = _ctx()
+    ctx.answer_photo = answer_photo.AnswerPhoto(Settings(), MagicMock())
+    ctx.answer_photo.feed(PHOTO_REPLY)
+
+    outcome = TurnOutcome()
+    persisted = await enrich_final_content(
+        _deps(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text=PHOTO_REPLY,
+        usage={"input": 4, "output": 8},
+        outcome=outcome,
+        was_cancelled=False,
+        assistant_parts=[PHOTO_REPLY],
+        should_cancel=None,
+    )
+
+    assert persisted.startswith(f"[Image: /attachments/{photo_id}/file]\n\nEthiopia lies")
+    assert "```photo" not in persisted
+    assert outcome.final_content == persisted
+    assert ctx.answer_photo_ids == [photo_id]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_text_pass_keeps_the_source_chips(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``done`` already carries the sources, so the saved reply keeps their fence."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    _fail_mermaid_pass(monkeypatch)
+    hits = [
+        WebSearchHit(
+            title="Example Source",
+            url="https://example.com/a",
+            snippet="A snippet about the topic.",
+        )
+    ]
+    prose = "Here is the latest on the topic."
+
+    outcome = TurnOutcome()
+    persisted = await enrich_final_content(
+        _deps(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(search_sources=hits),
+        assistant_text=prose,
+        usage={"input": 10, "output": 20},
+        outcome=outcome,
+        was_cancelled=False,
+        assistant_parts=[prose],
+        should_cancel=None,
+    )
+
+    assert persisted == f"{prose}{format_sources_fence(hits)}".strip()
+    assert outcome.final_content == persisted
+    assert "https://example.com/a" in [source["url"] for source in outcome.search_sources]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_text_pass_before_any_side_effect_persists_the_raw_reply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With nothing committed, the text passes are all or nothing."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    _fail_mermaid_pass(monkeypatch)
+
+    outcome = TurnOutcome()
+    persisted = await enrich_final_content(
+        _deps(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(),
+        assistant_text=_MERMAID_REPLY,
+        usage={"input": 4, "output": 8},
+        outcome=outcome,
+        was_cancelled=False,
+        assistant_parts=[_MERMAID_REPLY],
+        should_cancel=None,
+    )
+
+    assert persisted == _MERMAID_REPLY
+    assert outcome.final_content is None

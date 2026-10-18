@@ -1,9 +1,8 @@
 import {
-  buildModelOptions,
   CHAT_ACTION_ROW_HEIGHT,
+  COMPOSER_CONTROL_SIZE,
   COMPOSER_INPUT_LINE_HEIGHT,
   COMPOSER_INPUT_MAX_HEIGHT,
-  COMPOSER_INPUT_MIN_HEIGHT,
   composerGapFadeHeight,
   composerInputFrameHeight,
   composerInputMetrics,
@@ -14,25 +13,22 @@ import {
   composerShowsMic,
   composerShowsSend,
   computeChatLayoutMetrics,
-  formatModelCostHint,
   isComposerMenuOverlayOpen,
-  isModelSelectableInComposer,
-  resolveSelectedModelLabel,
   shouldReserveComposerActionGap,
 } from "@/features/chat/model/composerLogic";
-import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenIntent";
+import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenMessages";
 
 describe("composerInputFrameHeight", () => {
   it("grows one line per Return and caps at the field max", () => {
     expect(composerInputFrameHeight("", 80)).toEqual({
-      height: COMPOSER_INPUT_MIN_HEIGHT,
+      height: COMPOSER_CONTROL_SIZE,
       overflows: false,
     });
     expect(composerInputFrameHeight("\n\n", 0).height).toBeGreaterThan(
-      COMPOSER_INPUT_MIN_HEIGHT,
+      COMPOSER_CONTROL_SIZE,
     );
     expect(composerInputFrameHeight("K\nk", 20).height).toBeGreaterThan(
-      COMPOSER_INPUT_MIN_HEIGHT,
+      COMPOSER_CONTROL_SIZE,
     );
     expect(composerInputFrameHeight("line\n".repeat(12), 400)).toEqual({
       height: COMPOSER_INPUT_MAX_HEIGHT,
@@ -46,22 +42,22 @@ describe("composerInputFrameHeight", () => {
     expect(composerSoftWrapLineCount("ab\ncd", 200)).toBe(2);
     expect(composerSoftWrapLineCount("hello", 0)).toBe(1);
     const wrapped = composerInputFrameHeight("a".repeat(40), 0, 200);
-    expect(wrapped.height).toBe(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT);
+    expect(wrapped.height).toBe(COMPOSER_CONTROL_SIZE + COMPOSER_INPUT_LINE_HEIGHT);
     expect(wrapped.overflows).toBe(false);
-    expect(composerInputFrameHeight("a".repeat(40), 0).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    expect(composerInputFrameHeight("a".repeat(40), 0).height).toBe(COMPOSER_CONTROL_SIZE);
     // A native content size larger than the text must not keep growing the field.
-    expect(composerInputFrameHeight("hello", 400, 220).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    expect(composerInputFrameHeight("hello", 400, 220).height).toBe(COMPOSER_CONTROL_SIZE);
     expect(composerInputFrameHeight("a".repeat(40), 400, 200).height).toBe(
-      COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT,
+      COMPOSER_CONTROL_SIZE + COMPOSER_INPUT_LINE_HEIGHT,
     );
   });
 
   it("keeps centering slack out of the text box so the caret stays on the last line", () => {
-    expect(composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT)).toBe(
+    expect(composerInputTextBoxHeight(COMPOSER_CONTROL_SIZE)).toBe(
       COMPOSER_INPUT_LINE_HEIGHT,
     );
     expect(
-      composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT),
+      composerInputTextBoxHeight(COMPOSER_CONTROL_SIZE + COMPOSER_INPUT_LINE_HEIGHT),
     ).toBe(COMPOSER_INPUT_LINE_HEIGHT * 2);
     expect(composerInputTextBoxHeight(COMPOSER_INPUT_MAX_HEIGHT)).toBe(
       COMPOSER_INPUT_LINE_HEIGHT * 6,
@@ -73,9 +69,9 @@ describe("composerInputFrameHeight", () => {
     // The default size keeps the fixed field.
     expect(composerInputMetrics(1)).toEqual({
       line: COMPOSER_INPUT_LINE_HEIGHT,
-      min: COMPOSER_INPUT_MIN_HEIGHT,
+      min: COMPOSER_CONTROL_SIZE,
       max: COMPOSER_INPUT_MAX_HEIGHT,
-      slack: COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT,
+      slack: COMPOSER_CONTROL_SIZE - COMPOSER_INPUT_LINE_HEIGHT,
     });
     // 1.5x: the line fills the row, so there is no centering slack.
     expect(composerInputMetrics(1.5)).toEqual({ line: 36, min: 36, max: 216, slack: 0 });
@@ -122,114 +118,6 @@ describe("composerInputFrameHeight", () => {
 });
 
 describe("chatComposerLogic", () => {
-  const catalog = [
-    {
-      id: "free-chat",
-      label: "Free",
-      available: true,
-      plan_access: "free" as const,
-      input_price_per_m: 0.14,
-      output_price_per_m: 0.28,
-      quota_multiplier: 1,
-    },
-    {
-      id: "smart-chat",
-      label: "Smart",
-      available: false,
-      plan_access: "pro" as const,
-      input_price_per_m: 0.7,
-      output_price_per_m: 2.5,
-      quota_multiplier: 3.5,
-    },
-  ];
-
-  const t = (key: string, params?: Record<string, string | number>) => {
-    if (key === "settings.model_price_per_m" && params) {
-      return `~$${params.input} in · ~$${params.output} out / 1M tokens`;
-    }
-    if (key === "settings.model_quota_multiplier" && params) {
-      return `${params.multiplier}× daily quota`;
-    }
-    return key;
-  };
-
-  it("buildModelOptions includes auto first when enabled", () => {
-    const opts = buildModelOptions({
-      autoEnabled: true,
-      autoModelId: "auto",
-      autoLabel: "Auto",
-      modelEnabledSet: new Set(["free-chat", "smart-chat"]),
-      models: catalog,
-      isPro: true,
-      t,
-    });
-    expect(opts.map((o) => o.id)).toEqual(["auto", "free-chat"]);
-    expect(opts[0].label).toBe("Auto");
-    expect(opts[1].hint).toBeUndefined();
-  });
-
-  it("buildModelOptions tolerates missing catalog", () => {
-    const opts = buildModelOptions({
-      autoEnabled: true,
-      autoModelId: "auto",
-      autoLabel: "Auto",
-      modelEnabledSet: new Set(["free-chat"]),
-      models: undefined as unknown as typeof catalog,
-      isPro: true,
-    });
-    expect(opts.map((o) => o.id)).toEqual(["auto"]);
-  });
-
-  it("buildModelOptions omits unavailable and pro-locked models", () => {
-    const opts = buildModelOptions({
-      autoEnabled: false,
-      autoModelId: "auto",
-      autoLabel: "Auto",
-      modelEnabledSet: new Set(["free-chat", "smart-chat"]),
-      models: [
-        ...catalog,
-        {
-          id: "pro-only",
-          label: "Pro",
-          available: true,
-          plan_access: "pro" as const,
-        },
-      ],
-      isPro: false,
-    });
-    expect(opts.map((o) => o.id)).toEqual(["free-chat"]);
-  });
-
-  it("isModelSelectableInComposer respects availability and plan", () => {
-    expect(
-      isModelSelectableInComposer(
-        { available: false, plan_access: "free" },
-        true,
-      ),
-    ).toBe(false);
-    expect(
-      isModelSelectableInComposer(
-        { available: true, plan_access: "pro" },
-        false,
-      ),
-    ).toBe(false);
-    expect(
-      isModelSelectableInComposer(
-        { available: true, plan_access: "pro" },
-        true,
-      ),
-    ).toBe(true);
-  });
-
-  it("resolveSelectedModelLabel prefers auto label", () => {
-    expect(
-      resolveSelectedModelLabel("auto", "auto", "Auto", () => "Free"),
-    ).toBe("Auto");
-    expect(
-      resolveSelectedModelLabel("free-chat", "auto", "Auto", () => "Free"),
-    ).toBe("Free");
-  });
-
   it("isComposerMenuOverlayOpen reflects attach sheet", () => {
     expect(isComposerMenuOverlayOpen(false)).toBe(false);
     expect(isComposerMenuOverlayOpen(true)).toBe(true);
@@ -407,24 +295,5 @@ describe("chatComposerLogic", () => {
     expect(shouldReserveComposerActionGap(IMAGE_GEN_PENDING_ASSISTANT_ID)).toBe(true);
     expect(shouldReserveComposerActionGap("msg-1")).toBe(false);
     expect(shouldReserveComposerActionGap(undefined)).toBe(false);
-  });
-
-  it("formatModelCostHint shows quota multiplier only, not token prices", () => {
-    expect(
-      formatModelCostHint(
-        {
-          input_price_per_m: 0.7,
-          output_price_per_m: 2.5,
-          quota_multiplier: 3.5,
-        },
-        t,
-      ),
-    ).toBe("3.5× daily quota");
-    expect(
-      formatModelCostHint(
-        { input_price_per_m: 0.14, output_price_per_m: 0.28, quota_multiplier: 1 },
-        t,
-      ),
-    ).toBeUndefined();
   });
 });

@@ -1,3 +1,10 @@
+"""Prepare a new chat turn: attachments, the user's row, the prompt, then its images.
+
+When the caller has already read the user, chat, turn mode, message count and
+history, the user's row is saved beside the prompt build and the stream awaits it
+later (``await_user_message_persist``). Otherwise the save goes first and reads them.
+"""
+
 import asyncio
 import logging
 from types import SimpleNamespace
@@ -7,11 +14,9 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.core.db import SessionLocal
 from app.core.ids import uuid7
-from app.exceptions import ChatBusyError, ChatNotFoundError
+from app.exceptions import ChatNotFoundError
 from app.models.orm import Chat, User
-from app.modules.billing import plan as plan_service
 from app.modules.chat.prompt_constants import active_lesson_step
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_prep.attachments import _process_attachments
@@ -21,33 +26,15 @@ from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
     stream_context_from_bundle,
 )
-from app.modules.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
+from app.modules.chat.turn_prep.mode import _TurnMode
+from app.modules.chat.turn_prep.persist import UserTurn, persist_user_turn, turn_model
+from app.modules.chat.turn_prep.request import TurnRequest
+from app.modules.chat.turn_prep.vision import inject_turn_images
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
-from app.repositories import users as users_repo
-from app.services.context_window import estimate_tokens
 from app.services.prompt_safety import messages_have_attachment_marker
 from app.services.routing import last_user_turn, message_needs_thinking
 
 logger = logging.getLogger(__name__)
-
-
-def _should_use_vision_chat(
-    *,
-    settings: Settings,
-    has_image_attachment: bool,
-    recent_messages: list[Any] | None,
-) -> bool:
-    if not settings.attachments_enabled:
-        return False
-    if has_image_attachment:
-        return True
-    if not recent_messages:
-        return False
-    from app.modules.attachments.markers import history_has_image_marker
-
-    return history_has_image_marker(recent_messages)
 
 
 async def prepare_chat_turn(
@@ -84,272 +71,150 @@ async def prepare_chat_turn(
     )
     if attachments.resolved_attachment_ids is not None:
         attachment_ids = attachments.resolved_attachment_ids
-    user = attachments.user
-    user_content = attachments.user_content
     content = attachments.content
-    has_image_attachment = attachments.has_image_attachment
-    image_attachments = attachments.image_attachments
-    image_math_extract = attachments.image_math_extract
-    gateway = attachments.gateway
-    attachment_bytes_by_key = attachments.bytes_by_key
-    lesson_active = active_lesson_step(recent_messages) is not None
-
-    overlap = (
-        user is not None
-        and chat is not None
-        and turn_mode is not None
-        and prior_count is not None
-        and recent_messages is not None
+    turn = UserTurn(
+        user_id=user_id,
+        chat_id=chat_id,
+        message_id=uuid7(),
+        content=content,
+        stored_content=attachments.user_content,
+        attachment_ids=attachment_ids,
+        has_image_attachment=attachments.has_image_attachment,
+        model_alias=model_alias,
+        recent_messages=recent_messages,
+        lesson_active=active_lesson_step(recent_messages) is not None,
+        user=attachments.user,
+        chat=chat,
+        model=resolved_model,
+        prior_count=prior_count,
+        turn_mode=turn_mode,
     )
-    pending_id = uuid7()
-    model = resolved_model
-    indexable_attachment_ids: list[str] = []
-    persist_task: asyncio.Task[list[str]] | None = None
-
-    async def _persist_user_message() -> list[str]:
-        nonlocal user, chat, model, prior_count, turn_mode
-        indexable: list[str] = []
-        if timing is not None:
-            timing.mark_phase("persist_start")
-        async with SessionLocal() as session:
-            if user is None:
-                user = await users_repo.get_by_id(session, user_id)
-                if user is None:
-                    raise ChatNotFoundError("User not found.")
-            if chat is None:
-                chat = await chats_repo.get_by_id(session, chat_id, user_id)
-                if chat is None:
-                    raise ChatNotFoundError("Chat not found.")
-            if model is None:
-                prior_user, prior_model = last_user_turn(recent_messages)
-                model = plan_service.resolve_user_model_override(
-                    user,
-                    model_alias,
-                    content,
-                    settings,
-                    prior_user=prior_user,
-                    prior_model=prior_model,
-                    lesson_active=lesson_active,
-                )
-            if _should_use_vision_chat(
-                settings=settings,
-                has_image_attachment=has_image_attachment,
-                recent_messages=recent_messages,
-            ):
-                model = "vision-chat"
-            if prior_count is None:
-                prior_count = await messages_repo.count_for_chat(session, chat_id)
-            if turn_mode is None:
-                turn_mode = await _classify_turn_mode(session, chat, content)
-            user_message = await messages_repo.create(
-                session,
-                chat_id=chat_id,
-                user_id=user.id,
-                role="user",
-                content=user_content,
-                model=model,
-                input_tokens=estimate_tokens(user_content),
-                commit=False,
-                message_id=pending_id,
-            )
-            if attachment_ids and settings.attachments_enabled:
-                from app.modules.attachments import rag as attachment_rag_service
-                from app.modules.attachments import service as attachments_service
-
-                linked = await attachments_service.link_to_message(
-                    session,
-                    user_id=user.id,
-                    attachment_ids=attachment_ids,
-                    message_id=user_message.id,
-                    commit=False,
-                )
-                if linked != len(set(attachment_ids)):
-                    await session.rollback()
-                    raise ChatBusyError(
-                        "An attached file changed while sending. Please retry shortly."
-                    )
-                if settings.attachment_rag_enabled:
-                    indexable_rows = await attachments_service.get_by_ids(
-                        session, attachment_ids, user.id
-                    )
-                    indexable = [
-                        str(row.id)
-                        for row in indexable_rows
-                        if attachment_rag_service.is_indexable_attachment(row)
-                    ]
-            await session.commit()
-        if timing is not None:
-            timing.mark_phase("persist_done")
-        return indexable
-
+    indexable: list[str] = []
+    history: list[Any] | None = None
     if (
-        overlap
-        and user is not None
+        turn.user is not None
         and chat is not None
         and turn_mode is not None
         and prior_count is not None
         and recent_messages is not None
     ):
-        if model is not None:
-            overlap_model = model
-        else:
-            prior_user, prior_model = last_user_turn(recent_messages)
-            overlap_model = plan_service.resolve_user_model_override(
-                user,
-                model_alias,
-                content,
-                settings,
-                prior_user=prior_user,
-                prior_model=prior_model,
-                lesson_active=lesson_active,
-            )
-        if _should_use_vision_chat(
-            settings=settings,
-            has_image_attachment=has_image_attachment,
-            recent_messages=recent_messages,
-        ):
-            overlap_model = "vision-chat"
-        model = overlap_model
-        prompt_recent = [
-            *recent_messages,
-            SimpleNamespace(id=pending_id, role="user", content=user_content),
-        ]
-        window = settings.recent_message_window
-        probe = (
-            bool(attachment_ids)
-            or messages_have_attachment_marker(prompt_recent)
-            or prior_count >= window
-        )
-
-        async def _prompt() -> TurnPromptBundle:
-            return await build_stream_prompt_context(
-                user_id,
-                chat_id,
-                content,
-                overlap_model,
-                settings,
-                redis,
-                client_timezone=client_timezone,
-                client_location=client_location,
-                client_latitude=client_latitude,
-                client_longitude=client_longitude,
-                has_image_attachment=has_image_attachment,
-                image_math_extract=image_math_extract,
-                on_status=on_status,
-                user=user,
-                chat=chat,
-                timing=timing,
-                force_rich_context=attachments.has_document_attachment,
-                turn_mode=turn_mode,
-                probe_attachment_rag=probe,
-                recent_messages=prompt_recent,
-                current_user_message_id=pending_id,
-            )
-
-        persist_task = asyncio.create_task(_persist_user_message())
-        try:
-            bundle = await _prompt()
-        except BaseException:
-            try:
-                await persist_task
-            except Exception:
-                logger.exception(
-                    "User message persist failed after prompt error chat_id=%s",
-                    chat_id,
-                )
-            raise
+        # The save would read nothing: settle the model, then build the prompt beside
+        # the save, with the pending row closing the history.
+        turn.model = turn_model(turn, turn.user, settings)
+        pending = SimpleNamespace(id=turn.message_id, role="user", content=turn.stored_content)
+        history = [*recent_messages, pending]
     else:
-        indexable_attachment_ids = await _persist_user_message()
-        if user is None or model is None:
-            raise ChatNotFoundError("User not found.")
-        bundle = await build_stream_prompt_context(
-            user_id,
-            chat_id,
-            content,
-            model,
-            settings,
-            redis,
-            client_timezone=client_timezone,
-            client_location=client_location,
-            client_latitude=client_latitude,
-            client_longitude=client_longitude,
-            has_image_attachment=has_image_attachment,
-            image_math_extract=image_math_extract,
-            on_status=on_status,
-            user=user,
-            chat=chat,
-            timing=timing,
-            force_rich_context=attachments.has_document_attachment,
-            turn_mode=turn_mode,
-            probe_attachment_rag=bool(attachment_ids) or (prior_count or 0) > 0,
-            current_user_message_id=pending_id,
-        )
-
-    prompt_messages = bundle.prompt_messages
-    from app.modules.attachments import content as attachment_content_service
-    from app.modules.attachments import markers as attachment_markers
-
-    if has_image_attachment and image_attachments and gateway is not None:
-        await attachment_content_service.inject_vision_content(
-            prompt_messages,
-            gateway,
-            image_attachments,
-            caption=content,
-            bytes_by_key=attachment_bytes_by_key,
-        )
-    elif not has_image_attachment and settings.attachments_enabled and user is not None:
-        prior_ids = attachment_markers.prior_image_attachment_ids(prompt_messages)
-        if prior_ids:
-            from app.gateways.storage_gateway import get_storage_gateway
-            from app.modules.attachments import service as attachments_service
-
-            rehydrate_gateway = gateway or get_storage_gateway(settings)
-            async with SessionLocal() as session:
-                rows = await attachments_service.get_by_ids(session, prior_ids, user.id)
-            by_id = {row.id: row for row in rows}
-            images: list[tuple[str, str]] = []
-            for uid in prior_ids:
-                row = by_id.get(uid)
-                if row is None or not attachment_content_service.is_image_content_type(
-                    row.content_type
-                ):
-                    continue
-                images.append((row.content_type, row.storage_key))
-            injected = False
-            if images:
-                injected = await attachment_content_service.inject_vision_content(
-                    prompt_messages,
-                    rehydrate_gateway,
-                    images,
-                    caption=content,
-                )
-                if injected:
-                    model = "vision-chat"
-            if not injected or len(images) < len(prior_ids):
-                attachment_markers.append_image_unavailable_note(prompt_messages)
-
-    # Vision may have mutated prompt_messages in place on the bundle.
-    if user is None or chat is None or model is None or prior_count is None:
-        raise ChatNotFoundError("Turn context incomplete.")
-    prior_user, prior_model = last_user_turn(recent_messages)
-    thinking = message_needs_thinking(
-        content,
-        prior_user=prior_user,
-        prior_model=prior_model,
-        lesson_active=lesson_active,
-        settings=settings,
-    )
-    return stream_context_from_bundle(
-        bundle,
+        indexable = await persist_user_turn(turn, settings, timing)
+    if turn.user is None or turn.model is None:
+        raise ChatNotFoundError("User not found.")
+    request = TurnRequest(
         user_id=user_id,
         chat_id=chat_id,
+        content=content,
+        model=turn.model,
+        client_timezone=client_timezone,
+        client_location=client_location,
+        client_latitude=client_latitude,
+        client_longitude=client_longitude,
+        has_image_attachment=attachments.has_image_attachment,
+        image_math_extract=attachments.image_math_extract,
+        on_status=on_status,
+        user=turn.user,
+        chat=turn.chat,
+        timing=timing,
+        force_rich_context=attachments.has_document_attachment,
+        turn_mode=turn.turn_mode,
+        probe_attachment_rag=_probe_attachment_rag(turn, history, settings),
+        recent_messages=history,
+        current_user_message_id=turn.message_id,
+    )
+    persist: asyncio.Task[list[str]] | None = None
+    if history is None:
+        bundle = await build_stream_prompt_context(request, settings, redis)
+    else:
+        bundle, persist = await _build_beside_persist(request, turn, settings, redis)
+    if await inject_turn_images(
+        bundle.prompt_messages, attachments, caption=content, settings=settings, user=turn.user
+    ):
+        turn.model = "vision-chat"
+    return _stream_context(
+        bundle,
+        turn,
+        settings,
+        reserved_tokens=reserved_tokens,
+        timing=timing,
+        indexable=indexable,
+        persist=persist,
+    )
+
+
+def _probe_attachment_rag(turn: UserTurn, history: list[Any] | None, settings: Settings) -> bool:
+    """Whether the prompt build looks for attachment excerpts.
+
+    Always with files on this turn. Beside the save, the build sees the caller's
+    window, so it looks when that window shows a file marker or older messages fall
+    outside it; after the save, any earlier message is reason to look.
+    """
+    if turn.attachment_ids:
+        return True
+    prior_count = turn.prior_count or 0
+    if history is None:
+        return prior_count > 0
+    return messages_have_attachment_marker(history) or prior_count >= settings.recent_message_window
+
+
+async def _build_beside_persist(
+    request: TurnRequest, turn: UserTurn, settings: Settings, redis: Redis
+) -> tuple[TurnPromptBundle, asyncio.Task[list[str]]]:
+    """Build the prompt while the user's row saves; the stream awaits the save later.
+
+    A failed or cancelled build still waits for the save, so what the user sent is kept.
+    """
+    persist = asyncio.create_task(persist_user_turn(turn, settings, request.timing))
+    try:
+        bundle = await build_stream_prompt_context(request, settings, redis)
+    except BaseException:
+        try:
+            await persist
+        except Exception:
+            logger.exception(
+                "User message persist failed after prompt error chat_id=%s", turn.chat_id
+            )
+        raise
+    return bundle, persist
+
+
+def _stream_context(
+    bundle: TurnPromptBundle,
+    turn: UserTurn,
+    settings: Settings,
+    *,
+    reserved_tokens: int,
+    timing: TurnTimingTracker | None,
+    indexable: list[str],
+    persist: asyncio.Task[list[str]] | None,
+) -> StreamContext:
+    user, model, prior_count = turn.user, turn.model, turn.prior_count
+    if user is None or turn.chat is None or model is None or prior_count is None:
+        raise ChatNotFoundError("Turn context incomplete.")
+    prior_user, prior_model = last_user_turn(turn.recent_messages)
+    return stream_context_from_bundle(
+        bundle,
+        user_id=turn.user_id,
+        chat_id=turn.chat_id,
         model=model,
-        user_message_content=content,
+        user_message_content=turn.content,
         reserved_tokens=reserved_tokens,
         user=user,
         prior_count=prior_count,
         timing=timing,
-        indexable_attachment_ids=indexable_attachment_ids,
-        user_message_persist=persist_task,
-        thinking=thinking,
+        indexable_attachment_ids=indexable,
+        user_message_persist=persist,
+        thinking=message_needs_thinking(
+            turn.content,
+            prior_user=prior_user,
+            prior_model=prior_model,
+            lesson_active=turn.lesson_active,
+            settings=settings,
+        ),
     )

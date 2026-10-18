@@ -6,7 +6,8 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
-from app.modules.physics.bodies import ELEMENTARY_CHARGE, named_particle_charge
+from app.modules.physics.bodies import named_particle_charge
+from app.modules.physics.constants import ELEMENTARY_CHARGE
 from app.modules.physics.direct import maybe_direct_physics_reply
 from app.modules.physics.solvers.common import _to_si
 

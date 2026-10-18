@@ -1,96 +1,57 @@
+/**
+ * docs/fixtures/presentation_cases.json is shared with the API test
+ * (app/tests/modules/chat/test_presentation.py): the server presents a reply
+ * before it is saved, the phone presents the text still streaming and rows
+ * saved before the server did. Both must give every input the same output.
+ */
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import { preprocessMarkdownForStream } from "@/lib/markdown/preprocessStream";
-import { presentAssistantMarkdown, presentStreamTail } from "@/lib/markdown/presentation";
-import { splitMathExpression } from "@/lib/markdown/calculationLayout";
+import {
+  isServerPresentedRow,
+  presentAssistantMarkdown,
+  presentStreamTail,
+  SERVER_PRESENTATION_CUTOVER,
+} from "@/lib/markdown/presentation";
 
-const TRAIN = "A train travels at**60 km/h** and returns at**40 km/h**.";
-const CYCLIST = "A cyclist rides **12 km** at**20 km/h**, then**8 km** at**10 km/h**.";
-const ANSWER = "The answer is **48 km/h** — not **50 km/h**.";
+import fixture from "../../../../docs/fixtures/presentation_cases.json";
+
+type PresentationCase = {
+  id: string;
+  area: string;
+  input: string;
+  expected: string;
+  note?: string;
+};
+
+const CASES: PresentationCase[] = fixture.cases;
+const PRESENTED = { presented: true };
+const byId = (id: string): PresentationCase => {
+  const found = CASES.find((c) => c.id === id);
+  if (!found) throw new Error(`no presentation case ${id}`);
+  return found;
+};
 
 describe("presentation corpus", () => {
-  it("separates glued bold values", () => {
-    const train = presentAssistantMarkdown(TRAIN);
-    const cyclist = presentAssistantMarkdown(CYCLIST);
-    expect(train).toContain("at **60 km/h**");
-    expect(train).toContain("at **40 km/h**");
-    expect(train).not.toContain("at**");
-    expect(cyclist).toContain("at **20 km/h**");
-    expect(cyclist).toContain("then **8 km**");
-    expect(cyclist).toContain("at **10 km/h**");
-    expect(cyclist).not.toContain("then**");
-    expect(cyclist).not.toContain("at**");
+  it.each(CASES.map((c) => [c.id, c] as const))("%s presents as the server does", (_id, c) => {
+    expect(presentAssistantMarkdown(c.input)).toBe(c.expected);
   });
 
-  it("keeps punctuation, code, links, and inline math boundaries", () => {
-    expect(presentAssistantMarkdown(ANSWER)).toBe(ANSWER);
-    expect(presentAssistantMarkdown("(**important**)")).toBe("(**important**)");
-    expect(presentAssistantMarkdown("Use `yield` when appropriate.")).toBe(
-      "Use `yield` when appropriate.",
-    );
-    expect(presentAssistantMarkdown("Use`yield`when appropriate.")).toBe(
-      "Use `yield` when appropriate.",
-    );
-    expect(presentAssistantMarkdown("See [the documentation](https://example.com/docs).")).toBe(
-      "See [the documentation](https://example.com/docs).",
-    );
-    expect(presentAssistantMarkdown("See[the documentation](https://example.com/docs)now")).toBe(
-      "See [the documentation](https://example.com/docs) now",
-    );
-    expect(presentAssistantMarkdown("speed is $v=5$ km/h")).toBe("speed is $v=5$ km/h");
-    expect(presentAssistantMarkdown("speed is$v=5$km/h")).toBe("speed is $v=5$ km/h");
+  it.each(CASES.map((c) => [c.id, c] as const))("%s presents to itself once presented", (_id, c) => {
+    expect(presentAssistantMarkdown(c.expected)).toBe(c.expected);
   });
+});
 
-  it("leaves unclosed tokens, urls, code, quotes, and CJK alone", () => {
-    expect(presentAssistantMarkdown("at**40")).toBe("at**40");
-    expect(presentAssistantMarkdown("speed is $v = 5")).toBe("speed is $v = 5");
-    expect(presentAssistantMarkdown("see https://example.com/a**b** now")).toBe(
-      "see https://example.com/a**b** now",
-    );
-    expect(presentAssistantMarkdown("```python\nprint('at**40**')\n```")).toBe(
-      "```python\nprint('at**40**')\n```",
-    );
-    expect(presentAssistantMarkdown("> at**40 km/h**")).toBe("> at**40 km/h**");
-    expect(presentAssistantMarkdown("速度**40**米")).toBe("速度**40**米");
-    expect(presentAssistantMarkdown("2*3*4")).toBe("2*3*4");
-    expect(presentAssistantMarkdown("It costs $5 and $10.")).toBe("It costs $5 and $10.");
-  });
-
-  it("splits reasoning chains and keeps atomic formulas", () => {
-    expect(presentAssistantMarkdown("$v = d/t = 50/10 = 5$")).toBe(
-      "$v = d/t$  \n$v = 50/10$  \n$v = 5$",
-    );
-    expect(presentAssistantMarkdown("$t_1=d/60,\\quad t_2=d/40$")).toBe(
-      "$t_1=d/60$  \n$t_2=d/40$",
-    );
-    expect(
-      splitMathExpression("t_{\\text{total}} = d/60 + d/40 = (2d+3d)/120 = 5d/120"),
-    ).toEqual([
-      "t_{\\text{total}} = d/60 + d/40",
-      "t_{\\text{total}} = (2d+3d)/120",
-      "t_{\\text{total}} = 5d/120",
-    ]);
-    expect(presentAssistantMarkdown("$12 + 8 = 20\\text{ km}$")).toBe("$12 + 8 = 20\\text{ km}$");
-    expect(presentAssistantMarkdown("$x = 2 or x = -2$")).toBe("$x = 2 or x = -2$");
-    expect(presentAssistantMarkdown("$2x - 1 = 0 \\rightarrow x = 1/2$")).toBe(
-      "$2x - 1 = 0 \\rightarrow x = 1/2$",
-    );
-    const quadratic = "$x = \\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}$";
-    expect(presentAssistantMarkdown(quadratic)).toBe(quadratic);
-    expect(presentAssistantMarkdown("$4! = 4 \\times 3 \\times 2 \\times 1 = 24$")).toBe(
-      "$4! = 4 \\times 3 \\times 2 \\times 1 = 24$",
-    );
-    expect(splitMathExpression("f(x, y) = 1")).toBeNull();
-    expect(presentAssistantMarkdown("n = m/M = 10/18")).toBe("$n = m/M$  \n$n = 10/18$");
-    expect(presentAssistantMarkdown("Atoms of each element in water = 2")).toBe(
-      "Atoms of each element in water = 2",
-    );
-  });
-
-  it("matches streaming and final output for closed prose and calculation rows", () => {
-    const parenChain = "  \\(\n  v = d/t = 50/10 = 5\n  \\)";
-    for (const source of [TRAIN, CYCLIST, ANSWER, "$v = d/t = 50/10 = 5$\n", parenChain]) {
-      const streamed = preprocessMarkdownForStream(source, null).prepared;
-      expect(streamed).toBe(preprocessMarkdown(source));
+describe("streaming presentation", () => {
+  it("streams closed prose and calculation rows the way they settle", () => {
+    const sources = [
+      byId("bold-glued-train").input,
+      byId("bold-glued-cyclist").input,
+      byId("bold-punctuation-stays-tight").input,
+      `${byId("equals-chain").input}\n`,
+      byId("paren-chain-across-lines").input,
+    ];
+    for (const source of sources) {
+      expect(preprocessMarkdownForStream(source, null).prepared).toBe(preprocessMarkdown(source));
     }
     const partial = preprocessMarkdownForStream("at**40", null).prepared;
     expect(partial).toBe("at**40");
@@ -111,31 +72,56 @@ describe("presentation corpus", () => {
     expect(openDollar).not.toContain("$$");
     expect(presentStreamTail(String.raw`see \(\frac{1}`)).toBe(String.raw`see \(\frac{1}`);
   });
+});
 
-  it("keeps units, signs, statistics, and adjacent tokens readable", () => {
-    expect(presentAssistantMarkdown("**speed**$v=5$")).toBe("**speed** $v=5$");
-    expect(presentAssistantMarkdown("about**12%**of the sample")).toBe("about **12%** of the sample");
-    expect(presentAssistantMarkdown("dropped to$-5$ overnight")).toBe("dropped to $-5$ overnight");
-    const scientific = "$N = 6.02 \\times 10^{23}$";
-    expect(presentAssistantMarkdown(scientific)).toBe(scientific);
-    const statistic = "$s = \\sqrt{\\frac{\\sum (x-\\bar x)^2}{n-1}}$";
-    expect(presentAssistantMarkdown(statistic)).toBe(statistic);
-    expect(presentAssistantMarkdown("$1\\text{ km} = 1000\\text{ m} = 100000\\text{ cm}$")).toBe(
-      "$1\\text{ km} = 1000\\text{ m}$  \n$1\\text{ km} = 100000\\text{ cm}$",
-    );
-    expect(presentAssistantMarkdown("$n = \\frac{m}{M} = \\frac{10}{18}$")).toBe(
-      "$n = \\frac{m}{M}$  \n$n = \\frac{10}{18}$",
-    );
-    const table = "| $v = d/t = 5$ | **48 km/h** |";
-    expect(presentAssistantMarkdown(table)).toBe(table);
-    expect(presentAssistantMarkdown("- rides **12 km** at**20 km/h**")).toBe(
-      "- rides **12 km** at **20 km/h**",
+/**
+ * A saved row the server presented skips the phone's prose repairs. Every
+ * corpus output must render, settled and in stream layout, exactly as it did
+ * with the phone presenting it again: the change is invisible on server text.
+ */
+describe("a saved row the server presented", () => {
+  it.each(CASES.map((c) => [c.id, c] as const))("%s renders as before", (_id, c) => {
+    expect(preprocessMarkdown(c.expected, undefined, PRESENTED)).toBe(preprocessMarkdown(c.expected));
+    expect(preprocessMarkdownForStream(c.expected, null, undefined, PRESENTED).prepared).toBe(
+      preprocessMarkdownForStream(c.expected, null).prepared,
     );
   });
 
-  it("is idempotent", () => {
-    const source = `${CYCLIST}\n\n$v = d/t = 50/10 = 5$`;
-    const once = presentAssistantMarkdown(source);
-    expect(presentAssistantMarkdown(once)).toBe(once);
+  it("keeps the saved prose as the server saved it", () => {
+    expect(preprocessMarkdown("Turn at**40 km/h**.", undefined, PRESENTED)).toBe("Turn at**40 km/h**.");
+    expect(preprocessMarkdown("Turn at**40 km/h**.")).toBe("Turn at **40 km/h**.");
+    expect(presentStreamTail("at**40 km/h**", true)).toBe("at**40 km/h**");
+  });
+
+  it("still lays out the maths blocks the phone builds from it", () => {
+    const rows = "$v = d/t$  \n$v = 50/10$  \n$v = 5$";
+    for (const id of ["display-block-plain-chain", "bracket-line-plain-chain", "tilde-fence-left-alone"]) {
+      const saved = byId(id).expected;
+      expect(saved).not.toContain(rows);
+      expect(preprocessMarkdown(saved, undefined, PRESENTED)).toBe(preprocessMarkdown(saved));
+    }
+    expect(preprocessMarkdown(byId("display-block-plain-chain").expected, undefined, PRESENTED)).toContain(
+      rows,
+    );
+    expect(presentStreamTail(String.raw`half is \frac{1}{2}`, true)).toContain(String.raw`$\frac{1}{2}$`);
+  });
+});
+
+describe("isServerPresentedRow", () => {
+  const id = "0192f5c4-6f1e-7c3a-9a55-0c2f3e4d5a6b";
+  it("starts at the cut-over", () => {
+    expect(new Date(SERVER_PRESENTATION_CUTOVER).toISOString()).toBe("2026-11-16T00:00:00.000Z");
+  });
+
+  it.each([
+    [id, "2026-11-16T00:00:00Z", true],
+    [id, "2027-02-01T09:30:00.123456Z", true],
+    [id, "2026-11-15T23:59:59.999999+00:00", false],
+    [id, "2026-10-01T12:00:00Z", false],
+    ["streaming", "2027-01-01T00:00:00Z", false],
+    ["streamed-1798761600000", "2027-01-01T00:00:00Z", false],
+    [id, "not a date", false],
+  ])("%s saved at %s: %s", (rowId, createdAt, expected) => {
+    expect(isServerPresentedRow({ id: rowId, created_at: createdAt })).toBe(expected);
   });
 });

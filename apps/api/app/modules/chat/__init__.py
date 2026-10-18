@@ -1,9 +1,9 @@
 """Chat — history over HTTP and the streamed turn (WebSocket and SSE).
 
 ``api`` / ``service`` serve ``/chats``. ``ws_api`` (preferred, supports stop)
-and ``stream_api`` (SSE fallback) carry a turn; ``stream`` is the facade both
-call, and ``turn_prep`` → ``stream_pipeline`` → ``post_turn`` are the stages
-behind it (CLAUDE.md, "The chat loop").
+and ``stream_api`` (SSE fallback) carry a turn: both call ``stream_entry`` with
+``turn_deps.default_deps()``, and ``turn_prep`` → ``stream_pipeline`` →
+``post_turn`` are the stages behind it (CLAUDE.md, "The chat loop").
 
 The package stays lazy. Other modules import a few small helpers from here —
 turn cues, reply presentation, stream status — and that must not load the
@@ -30,14 +30,13 @@ _EXPORTS = {
     "needs_generated_title": ("titles", "needs_generated_title"),
     "present_assistant_markdown": ("presentation", "present_assistant_markdown"),
     "prior_looks_like_offer": ("prompt_constants.routing", "prior_looks_like_offer"),
-    "stream_chat_response": ("stream", "stream_chat_response"),
-    "stream_regenerate_response": ("stream", "stream_regenerate_response"),
+    "stream_chat_response": ("stream_entry", "stream_chat_response"),
+    "stream_regenerate_response": ("stream_entry", "stream_regenerate_response"),
 }
 _MODULE_EXPORTS = (
     "compaction",
     "history_rag",
     "service",
-    "stream",
     "stream_entry",
     "stream_pipeline",
     "titles",

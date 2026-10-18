@@ -23,6 +23,7 @@ from sympy import (
     solve,
 )
 
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.key_steps import (
     KeyStep,
     _canonical_root_formula,
@@ -51,7 +52,7 @@ def radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
     radicand = radical.base
     if var not in getattr(radicand, "free_symbols", set()):
         return None
-    try:
+    with sympy_decline() as declined:
         squared = Eq(radicand, expand(other**2))
         candidates = solve(squared, var)
         valid = [
@@ -59,7 +60,7 @@ def radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
             for value in candidates
             if _expr_equal(radical.subs(var, value), other.subs(var, value))
         ]
-    except Exception:
+    if declined:
         return []
     if not candidates or not valid:
         return []
@@ -68,9 +69,12 @@ def radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
     return [
         KeyStep(label="Domain restrictions", formula=domain),
         KeyStep(label="Square both sides", formula=_eq_tex(radicand, expand(other**2))),
-        KeyStep(
-            label="Solve the squared equation",
-            formula=_canonical_root_formula(var, candidates),
+        *_worked(
+            radicand,
+            expand(other**2),
+            var,
+            "Solve the squared equation",
+            _canonical_root_formula(var, candidates),
         ),
         KeyStep(
             label="Check and reject extraneous roots",
@@ -94,7 +98,7 @@ def _two_radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeySte
         return None
     first, second = radicals
     first_base, second_base = first.base, second.base
-    try:
+    with sympy_decline() as declined:
         isolated = simplify((target**2 + second_base - first_base) / (2 * target))
         candidates = solve(Eq(second_base, isolated**2), var)
         valid = [
@@ -102,7 +106,7 @@ def _two_radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeySte
             for value in candidates
             if _expr_equal(radical_side.subs(var, value), target.subs(var, value))
         ]
-    except Exception:
+    if declined:
         return []
     if not candidates or not valid:
         return []
@@ -138,7 +142,7 @@ def fractional_power_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
     exponent = power.exp
     if not (getattr(exponent, "is_Rational", False) and exponent.q != 1 and exponent.q % 2 == 1):
         return None
-    from app.modules.math.solve.algebra import _real_fractional_power_solutions
+    from app.modules.math.solve.equations import _real_fractional_power_solutions
 
     solutions = _real_fractional_power_solutions(power, target, var)
     if not solutions:
@@ -185,7 +189,7 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
         arguments.append(numerator.args[0])
     if base is None or not arguments:
         return None
-    try:
+    with sympy_decline() as declined:
         combined = prod(arguments)
         target = simplify(base**rhs)
         candidates = solve(Eq(combined, target), var)
@@ -194,7 +198,7 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
             for value in candidates
             if all(bool(simplify(argument.subs(var, value)) > 0) for argument in arguments)
         ]
-    except Exception:
+    if declined:
         return []
     if not candidates or not valid:
         return []
@@ -217,7 +221,7 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
             label="Convert to exponential form",
             formula=rf"{latex(combined)} = {latex(target)}",
         ),
-        KeyStep(label="Solve the resulting equation", formula=candidate_formula),
+        *_worked(combined, target, var, "Solve the resulting equation", candidate_formula),
         KeyStep(label="Reject values outside the domain", formula=answer),
     ]
 
@@ -238,10 +242,10 @@ def exponential_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
         return None
     if not rhs.is_positive:
         return []
-    try:
+    with sympy_decline() as declined:
         candidates = solve(Eq(lhs, rhs), var)
         real = [value for value in candidates if value.is_real]
-    except Exception:
+    if declined:
         return []
     if len(real) != 1:
         return []
@@ -283,7 +287,7 @@ def rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] |
     right_has_variable_denominator = var in getattr(right_den, "free_symbols", set())
     if not left_has_variable_denominator and not right_has_variable_denominator:
         return None
-    try:
+    with sympy_decline() as declined:
         from sympy import Mul
 
         denominator = simplify(left_den * right_den)
@@ -320,7 +324,7 @@ def rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] |
                 for solution in candidates
                 if all(not _expr_equal(solution, value) for value in excluded)
             ]
-    except Exception:
+    if declined:
         return []
     condition = r"\text{denominator} \ne 0"
     if high_denominator:
@@ -337,10 +341,13 @@ def rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] |
         ),
     ]
     if candidates:
-        steps.append(
-            KeyStep(
-                label="Solve the resulting equation",
-                formula=_canonical_root_formula(var, candidates),
+        steps.extend(
+            _worked(
+                cleared_lhs,
+                cleared_rhs,
+                var,
+                "Solve the resulting equation",
+                _canonical_root_formula(var, candidates),
             )
         )
     if solutions:
@@ -364,29 +371,82 @@ def absolute_value_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | No
         return None
     if var in getattr(rhs, "free_symbols", set()) or not getattr(rhs, "is_number", False):
         return []
-    try:
+    with sympy_decline() as declined:
         if rhs < 0 or Poly(lhs.args[0], var).degree() != 1:
             return []
         solutions = solve(Eq(lhs, rhs), var)
-    except Exception:
+    if declined:
         return []
     if not solutions:
         return []
     inside = lhs.args[0]
     # |u|=c splits into u=±c only when u is real. |x+I|=5 is a modulus, not that split.
-    try:
-        if simplify(im(inside)) != 0:
-            return []
-    except Exception:
+    with sympy_decline() as declined:
+        real = simplify(im(inside)) == 0
+    if declined or not real:
         return []
     split = _eq_tex(inside, rhs)
     if rhs != 0:
         split += rf" \quad\text{{or}}\quad {_eq_tex(inside, -rhs)}"
-    from app.modules.math.solve.algebra import compact_root_answer_lines
+    from app.modules.math.solve.root_latex import compact_root_answer_lines
 
     lines = compact_root_answer_lines(str(var), solutions)
     final = lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
+    # Each branch ends at its own root; the combined roots only close the whole trace.
+    first = _worked(inside, rhs, var, "Solve both linear equations", final, which="first")
+    second = (
+        _worked(inside, -rhs, var, "Solve both linear equations", final, which="second")
+        if rhs != 0
+        else []
+    )
+    for branch, target in ((first, rhs), (second, -rhs)):
+        with sympy_decline() as declined:
+            roots = solve(Eq(inside, target), var)
+        if branch and len(branch) > 1 and not declined and roots:
+            branch[-1] = KeyStep(label="Simplify", formula=_canonical_root_formula(var, roots))
+    if len(first) == 1 or (rhs != 0 and len(second) == 1):
+        return [
+            KeyStep(label="Split the absolute-value equation", formula=split),
+            KeyStep(label="Solve both linear equations", formula=final),
+        ]
+    # Both roots close the trace as their own step, so it ends at the answer
+    # card without reading as one branch's result.
+    closing = [KeyStep(label="Both solutions", formula=final)] if second else []
     return [
         KeyStep(label="Split the absolute-value equation", formula=split),
-        KeyStep(label="Solve both linear equations", formula=final),
+        *first,
+        *second,
+        *closing,
     ]
+
+
+def _worked(
+    lhs: Any,
+    rhs: Any,
+    var: Any,
+    label: str,
+    formula: str,
+    *,
+    which: str | None = None,
+) -> list[KeyStep]:
+    """Every inverse move on the equation a special trace reaches, ending at its roots.
+
+    ``log(2x) = 1`` becomes ``2x = 10``; that is "Divide both sides by 2", not a
+    jump to ``x = 5``. With no supported trace it stays one ``label`` step.
+    """
+    from dataclasses import replace
+
+    from app.modules.math.solve.key_steps import equation_key_steps
+
+    steps = equation_key_steps(lhs, rhs, str(var))
+    if not steps:
+        return [KeyStep(label=label, formula=formula)]
+    if which is not None:
+        steps = [
+            step
+            if step.label == "Simplify"
+            else replace(step, label=f"{step.label} ({which} equation)")
+            for step in steps
+        ]
+    # The roots close the move, so the rejection step that follows starts from them.
+    return [*steps, KeyStep(label="Simplify", formula=formula)]

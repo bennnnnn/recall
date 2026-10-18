@@ -21,6 +21,11 @@ jest.mock("@/lib/auth", () => ({
   requireTokenSession: () => undefined,
 }));
 jest.mock("@/features/memory/model/memoryListCache", () => ({ invalidateMemoriesCache: jest.fn() }));
+const mockWarn = jest.fn();
+jest.mock("@/lib/reportRecoverableError", () => ({
+  reportRecoverableWarning: (_feedback: unknown, message: string) => mockWarn(message),
+}));
+jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 function fact(id: string) {
   return {
@@ -147,5 +152,31 @@ describe("useMemoryDocuments deletes", () => {
       ["interests", ["b"]],
       ["notes", ["c"]],
     ]);
+  });
+});
+
+describe("useMemoryDocuments reads", () => {
+  it("keeps the pages and warns once when polls keep failing on the server", async () => {
+    const failure = Object.assign(new Error("Request failed: 500"), { status: 500 });
+    (api.listMemoryDocuments as jest.Mock).mockRejectedValue(failure);
+    const { result } = await renderHook(() => useMemoryDocuments("token"));
+
+    await act(async () => { await result.current.load(); });
+    await act(async () => { await result.current.load(); });
+
+    expect(result.current.error).toBe(false);
+    expect(shown()).toEqual([["interests", ["a", "b"]], ["notes", ["c"]]]);
+    expect(mockWarn.mock.calls).toEqual([["common.error"]]);
+  });
+
+  it("shows the error state, not an empty page list, when the first read fails", async () => {
+    invalidateMemoryDocuments();
+    (api.listMemoryDocuments as jest.Mock).mockRejectedValueOnce(new TypeError("Network request failed"));
+    const { result } = await renderHook(() => useMemoryDocuments("token"));
+
+    await act(async () => { await result.current.load(); });
+
+    expect(result.current.error).toBe(true);
+    expect(mockWarn).not.toHaveBeenCalled();
   });
 });

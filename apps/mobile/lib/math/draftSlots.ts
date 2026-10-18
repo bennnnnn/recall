@@ -203,10 +203,6 @@ export function findDraftNodes(text: string): DraftNode[] {
   return nodes;
 }
 
-export function hasTappableDraftSlot(nodes: DraftNode[]): boolean {
-  return nodes.some((n) => n.kind !== "text");
-}
-
 /** Caret just after an opening `$` so the next insert/delete is at the front. */
 export function caretBeforeExpression(text: string): number {
   return text.startsWith("$") ? 1 : 0;
@@ -401,7 +397,7 @@ function addTokenStops(text: string, from: number, to: number, stops: Set<number
 }
 
 /** Places you can park the caret by tapping or pressing ← →. */
-export function mathCaretStops(text: string): number[] {
+function mathCaretStops(text: string): number[] {
   const stops = new Set<number>();
   stops.add(caretBeforeExpression(text));
   stops.add(caretAfterExpression(text));

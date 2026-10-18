@@ -395,15 +395,135 @@ def test_a_clock_needs_am_pm_or_a_part_of_the_day():
 def test_next_weekday_and_dates():
     from datetime import date, datetime
 
-    from app.modules.todos.reminder_fences import _due_date_for_day
+    from app.modules.todos.spoken_when import date_for_day
 
     wednesday = datetime(2026, 10, 14, 10, 0)
-    assert _due_date_for_day("wednesday", wednesday) == date(2026, 10, 14)
-    assert _due_date_for_day("next wednesday", wednesday) == date(2026, 10, 21)
-    assert _due_date_for_day("next friday", wednesday) == date(2026, 10, 16)
-    assert _due_date_for_day("10-20", wednesday) == date(2026, 10, 20)
-    assert _due_date_for_day("01-05", wednesday) == date(2027, 1, 5)
-    assert _due_date_for_day("02-30", wednesday) is None
+    assert date_for_day("today", wednesday) == date(2026, 10, 14)
+    assert date_for_day("tomorrow", wednesday) == date(2026, 10, 15)
+    assert date_for_day("wednesday", wednesday) == date(2026, 10, 14)
+    assert date_for_day("next wednesday", wednesday) == date(2026, 10, 21)
+    assert date_for_day("next friday", wednesday) == date(2026, 10, 16)
+    assert date_for_day("monday", wednesday) == date(2026, 10, 19)
+    assert date_for_day("10-20", wednesday) == date(2026, 10, 20)
+    assert date_for_day("10-14", wednesday) == date(2026, 10, 14)
+    assert date_for_day("01-05", wednesday) == date(2027, 1, 5)
+    assert date_for_day("02-30", wednesday) is None
+    assert date_for_day("tonight", wednesday) is None
+    assert date_for_day("fri", wednesday) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "clock"),
+    [
+        ("6", (18, 0)),
+        # A bare hour reads the same with minutes: the evening, like "6".
+        ("6:30", (18, 30)),
+        ("at 6:30.", (18, 30)),
+        ("11", (23, 0)),
+        ("12", (12, 0)),
+        ("12:45", (12, 45)),
+        ("18", (18, 0)),
+        ("23:59", (23, 59)),
+        ("6pm", (18, 0)),
+        ("6 PM", (18, 0)),
+        ("at 7:30 a.m.", (7, 30)),
+        ("12am", (0, 0)),
+        ("12pm!", (12, 0)),
+        # Not a clock. "0" is not noon: midnight is said as midnight or 12am.
+        ("0", None),
+        ("0:30", None),
+        ("00", None),
+        ("24", None),
+        ("6:75", None),
+        ("6:3", None),
+        ("1 8", None),
+        ("13pm", None),
+        ("0am", None),
+        ("6pm tomorrow", None),
+        ("6pm Sam", None),
+        ("call mom", None),
+        ("", None),
+    ],
+)
+def test_a_reply_that_is_only_a_clock(text, clock):
+    from app.modules.todos.spoken_when import parse_clock_only
+
+    assert parse_clock_only(text) == clock
+
+
+@pytest.mark.parametrize(
+    ("text", "clock"),
+    [
+        ("make it 7", (19, 0)),
+        ("make it 7 instead", (19, 0)),
+        # The same bare-hour rule as a reply to "when?": minutes are kept.
+        ("make it 6:30", (18, 30)),
+        ("change gym to 7:30", (19, 30)),
+        ("make it 18:45", (18, 45)),
+        ("make it 12", (12, 0)),
+        ("make it 18", (18, 0)),
+        ("make it 8:00 AM", (8, 0)),
+        ("make it 8pm", (20, 0)),
+        ("move gym to 7pm", (19, 0)),
+        ("make gym 9:15 pm daily", (21, 15)),
+    ],
+)
+def test_a_change_reads_its_clock(text, clock):
+    from app.modules.todos.spoken_change import parse_spoken_reminder_change
+
+    change = parse_spoken_reminder_change(text)
+    assert change is not None and change.keep_date
+    assert (change.hour, change.minute) == clock
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "make it 0",
+        "make it 24",
+        "make it 123",
+        "make it 6:3",
+        "make it 7.5",
+        "make it $7",
+        "make it 6 amazing",
+    ],
+)
+def test_a_change_without_a_clock_keeps_the_time(text):
+    from app.modules.todos.spoken_change import parse_spoken_reminder_change
+
+    change = parse_spoken_reminder_change(text)
+    assert change is None or not change.keep_date
+
+
+@pytest.mark.parametrize(
+    ("text", "due", "repeat"),
+    [
+        ("move gym to next friday at 7:30 pm weekly", (16, 19, 30), "weekly"),
+        ("move gym to saturday at 7am", (17, 7, 0), None),
+        ("move gym to friday at 7", (16, 19, 0), None),
+        ("move gym to friday at 6:30", (16, 18, 30), None),
+        ("change call mom to tomorrow at 8:15 am", (15, 8, 15), None),
+    ],
+)
+def test_a_move_to_a_day_reads_its_clock(text, due, repeat):
+    from datetime import UTC, datetime
+
+    from app.modules.todos.spoken_change import parse_spoken_reminder_change
+
+    wednesday = datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
+    change = parse_spoken_reminder_change(text, user_timezone="UTC", now=wednesday)
+    assert change is not None and change.action == "set_due"
+    day, hour, minute = due
+    assert change.due_at == datetime(2026, 10, day, hour, minute, tzinfo=UTC)
+    assert change.repeat == repeat
+
+
+def test_a_move_to_a_day_without_a_clock_asks_when():
+    from app.modules.todos.spoken_change import parse_spoken_reminder_change
+
+    for text in ("move gym to friday at 0", "change call mom to friday"):
+        change = parse_spoken_reminder_change(text)
+        assert change is not None and change.needs_time, text
 
 
 @pytest.mark.parametrize(
@@ -494,6 +614,87 @@ async def test_a_nightly_reminder_with_no_day_is_saved():
     )
     assert applied == 1
     assert create.await_args.kwargs["recurrence_rule"] == "daily"
+
+
+@pytest.mark.parametrize(
+    ("text", "day"),
+    [
+        # 09:00 in Nairobi: 7pm is still ahead, 6:30am has passed.
+        ("remind me to plate the dinner at 7pm", "today"),
+        ("remind me to call mom at 7pm", "today"),
+        ("remind me at 6:30am to take my pills", "tomorrow"),
+        ("set a reminder to start the oven at 6pm", "today"),
+        ("can you remind me at 8pm to take out the trash", "today"),
+        ("ok remind me to water the plants at noon", "today"),
+    ],
+)
+def test_a_bare_clock_is_the_next_one(text, day):
+    from datetime import UTC, datetime
+
+    from app.modules.todos.spoken_add import day_for_a_bare_clock
+
+    parsed = parse_spoken_add(text)
+    assert parsed is not None and parsed.day is None
+    now = datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
+    dated = day_for_a_bare_clock(parsed, text, user_timezone="Africa/Nairobi", now=now)
+    assert (dated.title, dated.day, dated.hour) == (parsed.title, day, parsed.hour)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Not a request for a reminder.
+        "you forgot to remind me to take my pills at 8pm",
+        "did you remind me to plate the dinner at 7pm?",
+        "why didn't you remind me to call mom at 5pm",
+        # No clock, or no part of the day for a bare "at 7".
+        "remind me to plate the dinner",
+        "remind me to plate the dinner at 7",
+        # A day or a repeat is already said.
+        "remind me to plate the dinner tomorrow at 7pm",
+        "remind me to take my meds at 9pm every night",
+    ],
+)
+def test_a_bare_clock_needs_a_reminder_request_and_nothing_else(text):
+    from app.modules.todos.spoken_add import day_for_a_bare_clock
+
+    parsed = parse_spoken_add(text)
+    if parsed is None:
+        return
+    assert day_for_a_bare_clock(parsed, text, user_timezone="Africa/Nairobi") == parsed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reply",
+    ["Set: Plate the dinner — today, Oct 14, 7:00 PM.", "Sure, I'll remind you at 7 PM."],
+)
+async def test_a_reminder_with_a_clock_and_no_day_is_saved(reply):
+    """Neither "plate" nor "dinner" is read as anything; the missing day was the gap."""
+    text, applied, create, _ = await _finalize("remind me to plate the dinner at 7pm", reply)
+    assert applied == 1
+    assert create.await_args.kwargs["content"] == "plate the dinner"
+    assert not text.startswith("I didn't")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("user_text", "reply"),
+    [
+        (
+            "you forgot to remind me to take my pills at 8pm",
+            "Sorry about that! Want me to set it again for tonight?",
+        ),
+        (
+            "the recipe says to plate the dinner at 7pm sharp",
+            "Plating right at 7 keeps everything hot.",
+        ),
+    ],
+)
+async def test_a_clock_in_conversation_saves_nothing(user_text, reply):
+    text, applied, create, _ = await _finalize(user_text, reply)
+    assert (text, applied) == (reply, 0)
+    create.assert_not_awaited()
 
 
 @pytest.mark.asyncio

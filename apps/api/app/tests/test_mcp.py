@@ -12,6 +12,7 @@ from app.gateways.mcp.registry import get
 from app.modules.math.tool import SympyAdapter
 from app.modules.web_search import WebSearchAdapter
 from app.services.mcp import setup_mcp_adapters
+from app.tests.tool_context import tool_context
 
 
 def test_sympy_adapter_shim_is_the_math_tool():
@@ -25,34 +26,36 @@ def test_sympy_adapter_shim_is_the_math_tool():
 @pytest.mark.asyncio
 async def test_web_search_adapter_missing_query():
     adapter = WebSearchAdapter(Settings())
-    result = await adapter.invoke({})
+    ctx = tool_context()
+    result = await adapter.invoke({}, ctx)
     assert "Missing query" in result.content
+    # A call that never searched does not use up the turn's one search.
+    assert ctx.first_results == {}
 
 
 @pytest.mark.asyncio
-async def test_web_search_adapter_uses_cached_search_with_quota_context(fake_redis):
+async def test_web_search_adapter_uses_cached_search_with_the_turn_context(fake_redis):
     """Model-initiated web_search must go through search_cache (Tavily quota)."""
     from app.gateways.web_search_gateway import WebSearchHit
-    from app.modules.web_search import bind_search_quota_context
 
     user = MagicMock()
     user.id = uuid4()
     adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
     hit = WebSearchHit(title="T", url="https://example.com", snippet="s")
+    ctx = tool_context(user=user, redis=fake_redis)
 
-    with (
-        patch(
-            "app.modules.web_search.tool.run_cached_search",
-            AsyncMock(return_value=([hit], ["q"])),
-        ) as cached,
-        bind_search_quota_context(user=user, redis=fake_redis),
-    ):
-        result = await adapter.invoke({"query": "latest news"})
+    with patch(
+        "app.modules.web_search.tool.run_cached_search",
+        AsyncMock(return_value=([hit], ["q"])),
+    ) as cached:
+        result = await adapter.invoke({"query": "latest news"}, ctx)
 
     cached.assert_awaited_once()
     assert cached.await_args.args[1] == ["latest news"]
     assert cached.await_args.kwargs["user"] is user
     assert cached.await_args.kwargs["redis"] is fake_redis
+    # The turn's one Tavily budget, by reference.
+    assert cached.await_args.kwargs["budget"] is ctx.tavily_budget
     assert "BEGIN UNTRUSTED CONTENT — web search" in result.content
     assert "- T: https://example.com" in result.content
     assert result.data is not None
@@ -64,23 +67,20 @@ async def test_web_search_adapter_uses_cached_search_with_quota_context(fake_red
 @pytest.mark.asyncio
 async def test_web_search_adapter_date_anchors_current_news(fake_redis):
     from app.gateways.web_search_gateway import WebSearchHit
-    from app.modules.web_search import bind_search_quota_context
     from app.modules.web_search.query_builders import _today_label
 
     adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
     today = _today_label("America/Los_Angeles")
     hit = WebSearchHit(title="T", url="https://example.com", snippet=f"Reported {today}.")
     cached = AsyncMock(return_value=([hit], ["q"]))
+    ctx = tool_context(
+        redis=fake_redis,
+        user_query="What's happening in the U.S. today?",
+        user_timezone="America/Los_Angeles",
+    )
 
-    with (
-        patch("app.modules.web_search.tool.run_cached_search", cached),
-        bind_search_quota_context(
-            redis=fake_redis,
-            query="What's happening in the U.S. today?",
-            user_timezone="America/Los_Angeles",
-        ),
-    ):
-        result = await adapter.invoke({"query": "major U.S. news today"})
+    with patch("app.modules.web_search.tool.run_cached_search", cached):
+        result = await adapter.invoke({"query": "major U.S. news today"}, ctx)
 
     searched = cached.await_args.args[1][0]
     assert searched.startswith("major U.S. news today ")
@@ -92,7 +92,6 @@ async def test_web_search_adapter_date_anchors_current_news(fake_redis):
 @pytest.mark.asyncio
 async def test_web_search_adapter_rejects_old_results_for_ai_developments_today(fake_redis):
     from app.gateways.web_search_gateway import WebSearchHit
-    from app.modules.web_search import bind_search_quota_context
 
     adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
     stale = WebSearchHit(
@@ -101,16 +100,14 @@ async def test_web_search_adapter_rejects_old_results_for_ai_developments_today(
         snippet="Published April 18, 2024.",
     )
     cached = AsyncMock(return_value=([stale], ["q"]))
+    ctx = tool_context(
+        redis=fake_redis,
+        user_query="What are the three most important AI developments today?",
+        user_timezone="America/Los_Angeles",
+    )
 
-    with (
-        patch("app.modules.web_search.tool.run_cached_search", cached),
-        bind_search_quota_context(
-            redis=fake_redis,
-            query="What are the three most important AI developments today?",
-            user_timezone="America/Los_Angeles",
-        ),
-    ):
-        result = await adapter.invoke({"query": "AI developments today"})
+    with patch("app.modules.web_search.tool.run_cached_search", cached):
+        result = await adapter.invoke({"query": "AI developments today"}, ctx)
 
     searched = cached.await_args.args[1][0]
     assert re.search(r"\b\d{4}-\d{2}-\d{2}\b", searched)
@@ -121,7 +118,6 @@ async def test_web_search_adapter_rejects_old_results_for_ai_developments_today(
 @pytest.mark.asyncio
 async def test_web_search_adapter_does_not_expand_one_today_source_into_three_items(fake_redis):
     from app.gateways.web_search_gateway import WebSearchHit
-    from app.modules.web_search import bind_search_quota_context
     from app.modules.web_search.query_builders import _today_label
 
     adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
@@ -132,16 +128,14 @@ async def test_web_search_adapter_does_not_expand_one_today_source_into_three_it
         snippet=f"Updated {today}.",
     )
     cached = AsyncMock(return_value=([one_hit], ["q"]))
+    ctx = tool_context(
+        redis=fake_redis,
+        user_query="What are the three most important AI developments today?",
+        user_timezone="America/Los_Angeles",
+    )
 
-    with (
-        patch("app.modules.web_search.tool.run_cached_search", cached),
-        bind_search_quota_context(
-            redis=fake_redis,
-            query="What are the three most important AI developments today?",
-            user_timezone="America/Los_Angeles",
-        ),
-    ):
-        result = await adapter.invoke({"query": "AI developments today"})
+    with patch("app.modules.web_search.tool.run_cached_search", cached):
+        result = await adapter.invoke({"query": "AI developments today"}, ctx)
 
     assert "Only 1 independently dated same-day result(s) were found" in result.content
     assert "split one source into multiple developments" in result.content
@@ -159,7 +153,7 @@ async def test_web_search_adapter_does_not_call_gateway_directly():
         ),
         patch("app.gateways.web_search_gateway.search_web", AsyncMock()) as direct,
     ):
-        result = await adapter.invoke({"query": "anything"})
+        result = await adapter.invoke({"query": "anything"}, tool_context())
     direct.assert_not_awaited()
     assert result.content == "No results."
 
@@ -167,24 +161,38 @@ async def test_web_search_adapter_does_not_call_gateway_directly():
 @pytest.mark.asyncio
 async def test_web_search_adapter_second_invoke_reuses_first_result(fake_redis):
     from app.gateways.web_search_gateway import WebSearchHit
-    from app.modules.web_search import bind_search_quota_context
 
     user = MagicMock()
     user.id = uuid4()
     adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
     hit = WebSearchHit(title="T", url="https://example.com", snippet="s")
     cached = AsyncMock(return_value=([hit], ["q"]))
+    ctx = tool_context(user=user, redis=fake_redis)
 
-    with (
-        patch("app.modules.web_search.tool.run_cached_search", cached),
-        bind_search_quota_context(user=user, redis=fake_redis),
-    ):
-        first = await adapter.invoke({"query": "latest news"})
-        second = await adapter.invoke({"query": "something else"})
+    with patch("app.modules.web_search.tool.run_cached_search", cached):
+        first = await adapter.invoke({"query": "latest news"}, ctx)
+        second = await adapter.invoke({"query": "something else"}, ctx)
 
     cached.assert_awaited_once()
     assert second.content == first.content
     assert second.data == first.data
+
+
+@pytest.mark.asyncio
+async def test_web_search_adapter_searches_once_per_turn_not_per_process(fake_redis):
+    """The once-per-turn result lives on the turn's context, so the next turn searches."""
+    from app.gateways.web_search_gateway import WebSearchHit
+
+    adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
+    cached = AsyncMock(
+        return_value=([WebSearchHit(title="T", url="https://e.com", snippet="")], [])
+    )
+
+    with patch("app.modules.web_search.tool.run_cached_search", cached):
+        await adapter.invoke({"query": "latest news"}, tool_context(redis=fake_redis))
+        await adapter.invoke({"query": "latest news"}, tool_context(redis=fake_redis))
+
+    assert cached.await_count == 2
 
 
 def test_mcp_registry_setup():
@@ -247,7 +255,8 @@ async def test_sympy_adapter_rejects_rce_payload_via_solve():
             "lhs": "x.__class__.__bases__[0].__subclasses__()[400]('id')",
             "rhs": "0",
             "variables": ["x"],
-        }
+        },
+        tool_context(),
     )
     assert "Math error" in result.content
 
@@ -275,7 +284,9 @@ async def test_sympy_adapter_dispatches_simplify_diff_integrate(action, expr, va
     verified SymPy value — same invariant _action_solve enforces for
     equation solves."""
     adapter = SympyAdapter(Settings())
-    result = await adapter.invoke({"action": action, "expr": expr, "variable": variable})
+    result = await adapter.invoke(
+        {"action": action, "expr": expr, "variable": variable}, tool_context()
+    )
     assert "Result:" in result.content
     assert "```answer\n" not in result.content
     assert result.data is not None
@@ -289,7 +300,8 @@ async def test_sympy_adapter_expr_op_definite_integrate_attaches_answer():
     indefinite one (parity with the heuristic _verified_block_calculus)."""
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke(
-        {"action": "integrate", "expr": "x**2", "variable": "x", "lower": "0", "upper": "1"}
+        {"action": "integrate", "expr": "x**2", "variable": "x", "lower": "0", "upper": "1"},
+        tool_context(),
     )
     assert "Result:" in result.content
     assert "```answer\n" not in result.content
@@ -308,7 +320,9 @@ async def test_sympy_adapter_expr_op_unclosed_integral_emits_honesty_note():
     adapter = SympyAdapter(Settings())
     # x**x has no elementary antiderivative — SymPy leaves it as an unevaluated
     # Integral(...) rather than raising, so `solved` is False.
-    result = await adapter.invoke({"action": "integrate", "expr": "x**x", "variable": "x"})
+    result = await adapter.invoke(
+        {"action": "integrate", "expr": "x**x", "variable": "x"}, tool_context()
+    )
     assert "could not find a closed-form result" in result.content
     assert "Do NOT claim this as a verified answer" in result.content
     assert "```answer" not in result.content
@@ -324,7 +338,7 @@ async def test_sympy_adapter_dispatches_parity_actions():
     adapter = SympyAdapter(Settings())
 
     limit_res = await adapter.invoke(
-        {"action": "limit", "expr": "sin(x)/x", "variable": "x", "point": "0"}
+        {"action": "limit", "expr": "sin(x)/x", "variable": "x", "point": "0"}, tool_context()
     )
     assert "Result:" in limit_res.content
     assert "```answer\n" not in limit_res.content
@@ -334,7 +348,8 @@ async def test_sympy_adapter_dispatches_parity_actions():
     assert limit_res.data["canonical_fence"]["content"].strip() == "1"
 
     series_res = await adapter.invoke(
-        {"action": "series", "expr": "x", "variable": "x", "start": "1", "end": "10"}
+        {"action": "series", "expr": "x", "variable": "x", "start": "1", "end": "10"},
+        tool_context(),
     )
     assert "Result:" in series_res.content
     assert "```answer\n" not in series_res.content
@@ -344,7 +359,7 @@ async def test_sympy_adapter_dispatches_parity_actions():
     assert series_res.data["canonical_fence"]["content"].strip() == "55"
 
     newton_res = await adapter.invoke(
-        {"action": "newton", "expr": "x**2 - 2", "variable": "x", "guess": 1.0}
+        {"action": "newton", "expr": "x**2 - 2", "variable": "x", "guess": 1.0}, tool_context()
     )
     assert "converged=True" in newton_res.content
     assert "```answer\n" not in newton_res.content
@@ -358,7 +373,8 @@ async def test_sympy_adapter_dispatches_parity_actions():
             "action": "system",
             "equations": [["x + y", "3"], ["x - y", "1"]],
             "variables": ["x", "y"],
-        }
+        },
+        tool_context(),
     )
     # x = 2, y = 1.
     assert "2" in system_res.content
@@ -368,14 +384,16 @@ async def test_sympy_adapter_dispatches_parity_actions():
 @pytest.mark.asyncio
 async def test_sympy_adapter_dsolve_and_second_diff():
     adapter = SympyAdapter(Settings())
-    ode = await adapter.invoke({"action": "dsolve", "expr": "dy/dx = y", "variable": "x"})
+    ode = await adapter.invoke(
+        {"action": "dsolve", "expr": "dy/dx = y", "variable": "x"}, tool_context()
+    )
     assert ode.data is not None
     assert ode.data["canonical_fence"]["type"] == "answer"
     low = ode.data["canonical_fence"]["content"].lower()
     assert "e" in low or "exp" in low or "c" in low
 
     d2 = await adapter.invoke(
-        {"action": "diff", "expr": "x**4 - 3*x**2", "variable": "x", "order": 2}
+        {"action": "diff", "expr": "x**4 - 3*x**2", "variable": "x", "order": 2}, tool_context()
     )
     assert d2.data is not None
     content = d2.data["canonical_fence"]["content"]
@@ -402,7 +420,9 @@ async def test_sympy_adapter_simplify_times_out_instead_of_blocking(
 
     with patch("app.modules.math.tool.math_solve.simplify_expression", side_effect=_hang):
         result = await asyncio.wait_for(
-            adapter.invoke({"action": "simplify", "expr": "x + x", "variable": "x"}),
+            adapter.invoke(
+                {"action": "simplify", "expr": "x + x", "variable": "x"}, tool_context()
+            ),
             timeout=5,
         )
     assert "timed out" in result.content
@@ -420,7 +440,9 @@ async def test_sympy_adapter_broken_pool_degrades_like_timeout(
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", boom)
     adapter = SympyAdapter(Settings(math_solve_timeout_seconds=5))
-    result = await adapter.invoke({"action": "simplify", "expr": "x + x", "variable": "x"})
+    result = await adapter.invoke(
+        {"action": "simplify", "expr": "x + x", "variable": "x"}, tool_context()
+    )
     assert "timed out" in result.content
 
 
@@ -446,7 +468,9 @@ async def test_sympy_adapter_solve_times_out_instead_of_blocking(
 
     with patch("app.modules.math.tool.math_solve.solve_equation", side_effect=_hang):
         result = await asyncio.wait_for(
-            adapter.invoke({"action": "solve", "lhs": "x", "rhs": "0", "variables": ["x"]}),
+            adapter.invoke(
+                {"action": "solve", "lhs": "x", "rhs": "0", "variables": ["x"]}, tool_context()
+            ),
             timeout=5,
         )
     assert "timed out" in result.content
@@ -455,7 +479,9 @@ async def test_sympy_adapter_solve_times_out_instead_of_blocking(
 @pytest.mark.asyncio
 async def test_sympy_adapter_rectangle_includes_canonical_fence():
     adapter = SympyAdapter(Settings())
-    result = await adapter.invoke({"action": "rectangle", "width": 8, "height": 5, "unit": "cm"})
+    result = await adapter.invoke(
+        {"action": "rectangle", "width": 8, "height": 5, "unit": "cm"}, tool_context()
+    )
     assert result.data is not None
     fence = result.data["canonical_fence"]
     assert fence["type"] == "rectangle"
@@ -468,7 +494,8 @@ async def test_sympy_adapter_rectangle_includes_canonical_fence():
 async def test_sympy_adapter_integrate_definite():
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke(
-        {"action": "integrate", "expr": "x**2", "variable": "x", "lower": "0", "upper": "1"}
+        {"action": "integrate", "expr": "x**2", "variable": "x", "lower": "0", "upper": "1"},
+        tool_context(),
     )
     assert "Result:" in result.content
     assert "```answer\n" not in result.content
@@ -480,7 +507,7 @@ async def test_sympy_adapter_integrate_definite():
 @pytest.mark.asyncio
 async def test_sympy_adapter_square_includes_canonical_fence():
     adapter = SympyAdapter(Settings())
-    result = await adapter.invoke({"action": "square", "side": 5, "unit": "cm"})
+    result = await adapter.invoke({"action": "square", "side": 5, "unit": "cm"}, tool_context())
     assert result.data is not None
     fence = result.data["canonical_fence"]
     assert fence["type"] == "square"
@@ -491,7 +518,7 @@ async def test_sympy_adapter_square_includes_canonical_fence():
 @pytest.mark.asyncio
 async def test_sympy_adapter_circle_includes_canonical_fence():
     adapter = SympyAdapter(Settings())
-    result = await adapter.invoke({"action": "circle", "radius": 3, "unit": "cm"})
+    result = await adapter.invoke({"action": "circle", "radius": 3, "unit": "cm"}, tool_context())
     assert result.data is not None
     fence = result.data["canonical_fence"]
     assert fence["type"] == "circle"
@@ -502,11 +529,14 @@ async def test_sympy_adapter_circle_includes_canonical_fence():
 @pytest.mark.asyncio
 async def test_sympy_adapter_graph_includes_canonical_fence():
     adapter = SympyAdapter(Settings())
-    result = await adapter.invoke({"action": "graph", "expr": "x**2", "x_min": -2, "x_max": 2})
+    result = await adapter.invoke(
+        {"action": "graph", "expr": "x**2", "x_min": -2, "x_max": 2}, tool_context()
+    )
     assert result.data is not None
     fence = result.data["canonical_fence"]
     assert fence["type"] == "function"
-    assert fence["expr"] == "x**2"
+    # SymPy's reading, in the grammar the phone resamples (graph_expr_text).
+    assert fence["expr"] == "x^2"
     assert len(fence["points"]) >= 2
     assert "```graph\n" not in result.content
 
@@ -514,7 +544,7 @@ async def test_sympy_adapter_graph_includes_canonical_fence():
 @pytest.mark.asyncio
 async def test_sympy_graph_without_an_expression_does_not_sample_a_parabola():
     adapter = SympyAdapter(Settings())
-    result = await adapter.invoke({"action": "graph"})
+    result = await adapter.invoke({"action": "graph"}, tool_context())
     assert result.data is None
     assert "x**2" not in result.content
     assert "expression" in result.content.lower()
@@ -524,7 +554,7 @@ async def test_sympy_graph_without_an_expression_does_not_sample_a_parabola():
 async def test_sympy_adapter_solve_includes_canonical_fence():
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke(
-        {"action": "solve", "lhs": "x**2 - 1", "rhs": "0", "variables": ["x"]}
+        {"action": "solve", "lhs": "x**2 - 1", "rhs": "0", "variables": ["x"]}, tool_context()
     )
     assert result.data is not None
     fence = result.data["canonical_fence"]
@@ -542,7 +572,8 @@ async def test_sympy_adapter_system_includes_canonical_fence():
             "action": "system",
             "equations": [["x + y", "3"], ["x - y", "1"]],
             "variables": ["x", "y"],
-        }
+        },
+        tool_context(),
     )
     assert result.data is not None
     fence = result.data["canonical_fence"]
@@ -561,7 +592,8 @@ async def test_sympy_adapter_inequality_includes_canonical_fence():
             "rhs": "0",
             "comparator": ">",
             "variables": ["x"],
-        }
+        },
+        tool_context(),
     )
     assert result.data is not None
     # BUG FIX: the MCP inequality path used to attach only an ```answer
@@ -580,7 +612,7 @@ async def test_sympy_adapter_inequality_includes_canonical_fence():
 async def test_sympy_adapter_inequality_rejects_bad_comparator():
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke(
-        {"action": "inequality", "lhs": "x", "rhs": "0", "comparator": "!="}
+        {"action": "inequality", "lhs": "x", "rhs": "0", "comparator": "!="}, tool_context()
     )
     assert "comparator" in result.content.lower()
     assert result.data is None
@@ -596,12 +628,13 @@ async def test_sympy_adapter_graph_pair_via_expr2():
             "expr2": "2*x",
             "x_min": -2,
             "x_max": 2,
-        }
+        },
+        tool_context(),
     )
     assert result.data is not None
     fence = result.data["canonical_fence"]
-    assert fence["expr"] == "x**2"
-    assert fence["expr2"] == "2*x"
+    assert fence["expr"] == "x^2"
+    assert fence["expr2"] == "2x"
     assert fence["points2"] is not None
     assert len(fence["points2"]) >= 2
     assert fence["label2"]
@@ -611,7 +644,7 @@ async def test_sympy_adapter_graph_pair_via_expr2():
 @pytest.mark.asyncio
 async def test_sympy_adapter_graph_ellipse_relation():
     adapter = SympyAdapter(Settings())
-    result = await adapter.invoke({"action": "graph", "expr": "x**2 + y**2 = 1"})
+    result = await adapter.invoke({"action": "graph", "expr": "x**2 + y**2 = 1"}, tool_context())
     assert result.data is not None
     fence = result.data["canonical_fence"]
     assert fence["points"][0] == fence["points"][-1]
@@ -622,7 +655,7 @@ async def test_sympy_adapter_graph_ellipse_relation():
 @pytest.mark.asyncio
 async def test_sympy_adapter_graph_number_line_runs_off_loop():
     adapter = SympyAdapter(Settings())
-    result = await adapter.invoke({"action": "graph", "expr": "x > 3"})
+    result = await adapter.invoke({"action": "graph", "expr": "x > 3"}, tool_context())
     assert result.data is not None
     fence = result.data["canonical_fence"]
     assert fence["type"] == "number_line"

@@ -1,0 +1,299 @@
+"""What a chat turn uses outside the chat module, handed to it explicitly.
+
+``stream_entry`` and the stages behind it (``turn_resources``, ``turn_load``,
+``turn_intercepts``, ``stream_pipeline``, ``stream_paths``, the finalize passes)
+take a ``ChatTurnDeps``. The transports pass ``default_deps()``; a test passes one
+with fakes for the database, quota, locks, the model or a service. Each field is a
+protocol the real module satisfies, so mypy checks the wiring in ``default_deps``.
+"""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine, Iterable, Sequence
+from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass
+from datetime import date
+from typing import TYPE_CHECKING, Any, Protocol
+from uuid import UUID
+
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import redis_lock
+from app.core.config import Settings
+from app.core.db import SessionLocal
+from app.gateways import litellm_gateway
+from app.models.orm import Chat, Message, User
+from app.modules import todos, web_search
+from app.modules.attachments import lifecycle as attachment_lifecycle
+from app.modules.billing import plan
+from app.modules.images import generation as image_generation
+from app.modules.images import search as image_search
+from app.modules.math import fence as math_fence
+from app.repositories import chats, messages, users
+from app.services import conversation_reference, quota
+
+if TYPE_CHECKING:
+    from app.gateways.web_search_gateway import WebSearchHit
+    from app.modules.billing.entitlements import Feature
+    from app.services.conversation_reference import ReferenceKind, Turn
+    from app.services.solving import VerifiedMathBlock
+
+SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
+
+
+class UsersRepo(Protocol):
+    async def get_by_id(self, session: AsyncSession, user_id: UUID) -> User | None: ...
+
+
+class ChatsRepo(Protocol):
+    def peek_recent_chat(self, chat_id: UUID, user_id: UUID) -> Chat | None: ...
+
+    async def get_by_id(
+        self, session: AsyncSession, chat_id: UUID, user_id: UUID
+    ) -> Chat | None: ...
+
+    async def touch_by_id(
+        self, session: AsyncSession, chat_id: UUID, *, commit: bool = ...
+    ) -> None: ...
+
+
+class MessagesRepo(Protocol):
+    async def list_recent(
+        self, session: AsyncSession, chat_id: UUID, *, limit: int
+    ) -> list[Message]: ...
+
+    async def count_for_chat(self, session: AsyncSession, chat_id: UUID) -> int: ...
+
+    async def get_by_id(
+        self, session: AsyncSession, message_id: UUID, chat_id: UUID
+    ) -> Message | None: ...
+
+    async def get_last(self, session: AsyncSession, chat_id: UUID) -> Message | None: ...
+
+    async def get_last_user(self, session: AsyncSession, chat_id: UUID) -> Message | None: ...
+
+    async def delete_message(self, session: AsyncSession, message: Message) -> None: ...
+
+
+class Quota(Protocol):
+    """The daily chat budget in Redis, and the global spend cap."""
+
+    def daily_limit_for_user(self, user: User, settings: Settings) -> int: ...
+
+    async def has_daily_usage_key(
+        self, redis: Redis, user_id: str, *, day: date | None = ...
+    ) -> bool: ...
+
+    async def get_daily_usage(self, redis: Redis, user_id: str) -> int: ...
+
+    async def reserve_usage(
+        self, redis: Redis, user_id: str, requested: int, *, daily_limit: int
+    ) -> bool: ...
+
+    async def refund_usage(self, redis: Redis, user_id: str, amount: int) -> None: ...
+
+    async def global_spend_exceeded(self, redis: Redis, settings: Settings) -> bool: ...
+
+
+class Plan(Protocol):
+    def can_use(self, subject: User, feature: Feature, settings: Settings) -> bool: ...
+
+    def resolve_user_model_override(
+        self,
+        user: User,
+        model_alias: str | None,
+        content: str,
+        settings: Settings,
+        *,
+        prior_user: str | None = ...,
+        prior_model: str | None = ...,
+        lesson_active: bool = ...,
+    ) -> str: ...
+
+    def resolve_regenerate_model(
+        self,
+        user: User,
+        model_alias: str | None,
+        content: str,
+        prior_assistant_model: str | None,
+        settings: Settings,
+    ) -> str: ...
+
+
+class TurnLocks(Protocol):
+    async def acquire_lock(self, redis: Redis, key: str, ttl_seconds: int) -> str | None: ...
+
+    async def refresh_lock(self, redis: Redis, key: str, token: str, ttl_seconds: int) -> bool: ...
+
+    async def release_lock(self, redis: Redis, key: str, token: str) -> None: ...
+
+
+class ChatModel(Protocol):
+    """The streamed model reply (LiteLLM)."""
+
+    def stream_chat_completion(
+        self,
+        *,
+        settings: Settings,
+        model_alias: str,
+        messages: list[dict[str, Any]],
+        max_tokens: int,
+        usage: dict[str, int] | None = ...,
+        fallback_aliases: list[str] | None = ...,
+        stream_meta: dict[str, str] | None = ...,
+        on_reasoning: Callable[[str], Awaitable[None]] | None = ...,
+        thinking: bool | None = ...,
+    ) -> AsyncIterator[str]: ...
+
+
+class ImageGeneration(Protocol):
+    async def generate_for_chat(
+        self,
+        settings: Settings,
+        *,
+        user: User,
+        chat_id: UUID,
+        prompt: str,
+        user_message_content: str | None = ...,
+        create_user_message: bool = ...,
+        reference_attachment_ids: list[UUID] | None = ...,
+    ) -> tuple[Message, Message]: ...
+
+    def image_reference_ids(self, content: str) -> list[UUID]: ...
+
+
+class ImageSearch(Protocol):
+    async def search_and_attach_for_chat(
+        self,
+        settings: Settings,
+        *,
+        user: User,
+        chat_id: UUID,
+        query: str,
+        user_message_content: str | None = ...,
+        create_user_message: bool = ...,
+    ) -> tuple[Message, Message]: ...
+
+
+class AttachmentCleanup(Protocol):
+    async def purge_attachments_for_messages(
+        self, session: AsyncSession, settings: Settings, message_ids: list[UUID]
+    ) -> int: ...
+
+
+class ConversationReferences(Protocol):
+    """Who "her" or "it" is, read from the chat by a model."""
+
+    def turns_from_rows(self, rows: Iterable[Any]) -> list[Turn]: ...
+
+    async def resolve_reference(
+        self,
+        settings: Settings,
+        *,
+        kind: ReferenceKind,
+        request: str,
+        turns: Sequence[Turn],
+    ) -> str | None: ...
+
+
+class Todos(Protocol):
+    """The reply's reminder changes (a card to tap, or To-do rows)."""
+
+    async def materialize_reminder_fences(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: UUID,
+        chat_id: UUID,
+        assistant_text: str,
+        user_timezone: str | None,
+        user_text: str | None = ...,
+        prior_assistant: str | None = ...,
+        prior_user: str | None = ...,
+        redis: Redis | None = ...,
+        confirm: bool = ...,
+    ) -> tuple[str, int]: ...
+
+    def transcript_implies_todo_sync(self, transcript: str) -> bool: ...
+
+
+@dataclass(frozen=True)
+class _PackageTodos:
+    """``app.modules.todos`` exports these lazily, which a protocol check cannot see."""
+
+    materialize_reminder_fences: Callable[..., Coroutine[Any, Any, tuple[str, int]]]
+    transcript_implies_todo_sync: Callable[[str], bool]
+
+
+class WebSearchFences(Protocol):
+    """Source chips and the places card under a searched reply."""
+
+    def strip_sources_from_text(self, text: str) -> str: ...
+
+    def sources_payload(self, hits: list[WebSearchHit]) -> list[web_search.SearchSource]: ...
+
+    def format_sources_fence(self, hits: list[WebSearchHit]) -> str: ...
+
+    def strip_duplicate_venue_list(self, text: str) -> str: ...
+
+    def format_places_fence(self, hits: list[WebSearchHit]) -> str: ...
+
+
+class MathFences(Protocol):
+    """The maths fence rewrite; tests swap it for a pass-through."""
+
+    def needs_math_fence_validate(
+        self, content: str, verified: VerifiedMathBlock | None
+    ) -> bool: ...
+
+    def validate_math_fences_worker(
+        self, content: str, verified: VerifiedMathBlock | None = ..., correct: bool = ...
+    ) -> str: ...
+
+    def replace_unclosed_graph_fence_safe(
+        self, content: str, canonical_fence: dict[str, object] | None
+    ) -> str: ...
+
+
+@dataclass(frozen=True)
+class ChatTurnDeps:
+    session_factory: SessionFactory
+    users: UsersRepo
+    chats: ChatsRepo
+    messages: MessagesRepo
+    quota: Quota
+    plan: Plan
+    locks: TurnLocks
+    llm: ChatModel
+    image_generation: ImageGeneration
+    image_search: ImageSearch
+    attachments: AttachmentCleanup
+    references: ConversationReferences
+    todos: Todos
+    web_search: WebSearchFences
+    math_fence: MathFences
+
+
+def default_deps() -> ChatTurnDeps:
+    """The real modules. Built per turn, so a module patched in a test is the one used."""
+    return ChatTurnDeps(
+        session_factory=SessionLocal,
+        users=users,
+        chats=chats,
+        messages=messages,
+        quota=quota,
+        plan=plan,
+        locks=redis_lock,
+        llm=litellm_gateway,
+        image_generation=image_generation,
+        image_search=image_search,
+        attachments=attachment_lifecycle,
+        references=conversation_reference,
+        todos=_PackageTodos(
+            materialize_reminder_fences=todos.materialize_reminder_fences,
+            transcript_implies_todo_sync=todos.transcript_implies_todo_sync,
+        ),
+        web_search=web_search,
+        math_fence=math_fence,
+    )

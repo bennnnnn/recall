@@ -11,14 +11,14 @@ export const INDEX_POLL_MAX_MS = 360_000;
  * so its first answer is final. Well past INDEX_POLL_MAX_MS so a phone clock
  * that runs a few minutes ahead never fails a fresh upload.
  */
-export const INDEX_SETTLED_AGE_MS = 15 * 60_000;
+const INDEX_SETTLED_AGE_MS = 15 * 60_000;
 
 function settledByAge(createdAt: string | undefined): boolean {
   const created = createdAt ? Date.parse(createdAt) : Number.NaN;
   return Number.isFinite(created) && Date.now() - created >= INDEX_SETTLED_AGE_MS;
 }
 
-export type AttachmentIndexStatus = {
+type AttachmentIndexStatus = {
   indexed: boolean;
   failed: boolean;
 };

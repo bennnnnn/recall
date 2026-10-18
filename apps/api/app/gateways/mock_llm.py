@@ -112,15 +112,6 @@ async def mock_memory_facts(user_message: str, existing_facts: list[dict[str, st
     )
 
 
-async def mock_memory_sections(user_message: str, existing_sections: dict[str, str]):
-    existing_facts = [
-        {"type": memory_type, "text": text}
-        for memory_type, text in existing_sections.items()
-        if text.strip()
-    ]
-    return await mock_memory_facts(user_message, existing_facts)
-
-
 async def mock_merge_memory_section(section_type: str, prior_text: str):
     from app.models.schemas import MemorySectionItem, MemoryType
 

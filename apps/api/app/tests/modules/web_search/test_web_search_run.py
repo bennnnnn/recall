@@ -171,7 +171,7 @@ async def test_run_search_parallelizes_queries():
 
     settings = Settings(web_search_max_results=10, mock_llm_enabled=True)
 
-    async def mock_search(_settings, query, *, max_results, budget=None, redis=None):
+    async def mock_search(_settings, query, *, max_results, budget=None, user=None, redis=None):
         await asyncio.sleep(0.04 if query == "slow" else 0.01)
         return [
             WebSearchHit(
@@ -207,7 +207,8 @@ async def test_run_search_reserves_tavily_once_per_turn(fake_redis):
 
     reserve_calls = 0
 
-    async def counting_reserve(_redis, _user_id, *, limit):
+    async def counting_reserve(counter, _redis, _user, _settings):
+        assert counter == "tavily_search"
         nonlocal reserve_calls
         reserve_calls += 1
         return True
@@ -218,7 +219,7 @@ async def test_run_search_reserves_tavily_once_per_turn(fake_redis):
     with (
         patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+            "app.modules.web_search.search_cache.counters.reserve",
             counting_reserve,
         ),
         patch("app.modules.web_search.search_cache.web_search_gateway.search_web", fake_search),
@@ -235,12 +236,12 @@ async def test_run_search_reserves_tavily_once_per_turn(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_run_cached_search_shares_bound_tavily_budget(fake_redis):
-    """Two MCP-style run_cached_search calls in one turn spend one Tavily slot."""
+async def test_run_cached_search_shares_the_turn_tavily_budget(fake_redis):
+    """Two MCP-style run_cached_search calls given one turn budget spend one Tavily slot."""
     from unittest.mock import MagicMock
     from uuid import uuid4
 
-    from app.modules.web_search.search_cache import bind_tavily_turn_budget, run_cached_search
+    from app.modules.web_search.search_cache import TurnTavilyBudget, run_cached_search
 
     settings = Settings(web_search_max_results=10, mock_llm_enabled=True, tavily_api_key="test-key")
     user = MagicMock()
@@ -249,7 +250,8 @@ async def test_run_cached_search_shares_bound_tavily_budget(fake_redis):
 
     reserve_calls = 0
 
-    async def counting_reserve(_redis, _user_id, *, limit):
+    async def counting_reserve(counter, _redis, _user, _settings):
+        assert counter == "tavily_search"
         nonlocal reserve_calls
         reserve_calls += 1
         return True
@@ -260,16 +262,20 @@ async def test_run_cached_search_shares_bound_tavily_budget(fake_redis):
     with (
         patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+            "app.modules.web_search.search_cache.counters.reserve",
             counting_reserve,
         ),
         patch("app.modules.web_search.search_cache.web_search_gateway.search_web", fake_search),
-        bind_tavily_turn_budget(settings=settings, user=user),
     ):
-        await run_cached_search(settings, ["q1"], user=user, redis=fake_redis)
-        await run_cached_search(settings, ["q2"], user=user, redis=fake_redis)
+        budget = TurnTavilyBudget(settings=settings, user=user)
+        await run_cached_search(settings, ["q1"], user=user, redis=fake_redis, budget=budget)
+        await run_cached_search(settings, ["q2"], user=user, redis=fake_redis, budget=budget)
+        assert reserve_calls == 1
+        # Without a turn budget each call reserves for itself.
+        await run_cached_search(settings, ["q3"], user=user, redis=fake_redis)
+        await run_cached_search(settings, ["q4"], user=user, redis=fake_redis)
 
-    assert reserve_calls == 1
+    assert reserve_calls == 3
 
 
 @pytest.mark.asyncio
@@ -288,7 +294,8 @@ async def test_run_search_skips_tavily_reservation_when_unconfigured(fake_redis)
 
     reserve_calls = 0
 
-    async def counting_reserve(_redis, _user_id, *, limit):
+    async def counting_reserve(counter, _redis, _user, _settings):
+        assert counter == "tavily_search"
         nonlocal reserve_calls
         reserve_calls += 1
         return True
@@ -299,7 +306,7 @@ async def test_run_search_skips_tavily_reservation_when_unconfigured(fake_redis)
     with (
         patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+            "app.modules.web_search.search_cache.counters.reserve",
             counting_reserve,
         ),
         patch("app.modules.web_search.search_cache.web_search_gateway.search_web", fake_search),
@@ -313,18 +320,41 @@ async def test_run_search_skips_tavily_reservation_when_unconfigured(fake_redis)
 @pytest.mark.asyncio
 async def test_skip_tavily_when_user_missing(fake_redis):
     """No user on the budget must not run uncapped Tavily."""
-    from app.modules.web_search.search_cache import _TurnTavilyBudget
+    from app.modules.web_search.search_cache import TurnTavilyBudget
 
     settings = Settings(tavily_api_key="test-key")
-    budget = _TurnTavilyBudget(settings=settings, user=None)
+    budget = TurnTavilyBudget(settings=settings, user=None)
     reserve = AsyncMock(side_effect=AssertionError("must not reserve without a user"))
     with patch(
-        "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+        "app.modules.web_search.search_cache.counters.reserve",
         reserve,
     ):
         assert await budget.skip_tavily(fake_redis) is True
         assert await budget.skip_tavily(fake_redis) is True
     reserve.assert_not_called()
+
+
+@pytest.mark.parametrize("used_today, skip", [(0, False), (1, True)])
+@pytest.mark.asyncio
+async def test_skip_tavily_follows_the_daily_cap(fake_redis, quota_clock, used_today, skip):
+    """Tavily runs while a slot is left today (reserve returns its day), then DuckDuckGo."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.modules.billing.entitlements import setting_name
+    from app.modules.web_search.search_cache import TurnTavilyBudget
+
+    settings = Settings(
+        tavily_api_key="test-key", **{setting_name("daily_web_searches", "free"): 1}
+    )
+    user = MagicMock(id=uuid4(), plan="free")
+    key = f"tavily:{user.id}:2026-10-16"
+    if used_today:
+        await fake_redis.set(key, used_today, ex=60)
+    budget = TurnTavilyBudget(settings=settings, user=user)
+    assert await budget.skip_tavily(fake_redis) is skip
+    # A reserved search stays spent; one past the cap is given back at once.
+    assert await fake_redis.get(key) == "1"
 
 
 @pytest.mark.asyncio
@@ -333,15 +363,15 @@ async def test_skip_tavily_on_redis_reserve_error(fake_redis):
     from uuid import uuid4
 
     from app.exceptions import RedisUnavailableError
-    from app.modules.web_search.search_cache import _TurnTavilyBudget
+    from app.modules.web_search.search_cache import TurnTavilyBudget
 
     settings = Settings(tavily_api_key="test-key")
     user = MagicMock()
     user.id = uuid4()
     user.plan = "free"
-    budget = _TurnTavilyBudget(settings=settings, user=user)
+    budget = TurnTavilyBudget(settings=settings, user=user)
     with patch(
-        "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+        "app.modules.web_search.search_cache.counters.reserve",
         AsyncMock(side_effect=RedisUnavailableError()),
     ):
         assert await budget.skip_tavily(fake_redis) is True
@@ -353,7 +383,7 @@ async def test_search_cache_is_per_user(fake_redis):
     from unittest.mock import MagicMock
     from uuid import uuid4
 
-    from app.modules.web_search.search_cache import _search_with_cache, _TurnTavilyBudget
+    from app.modules.web_search.search_cache import TurnTavilyBudget, _search_with_cache
 
     settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True, tavily_api_key="")
     u1 = MagicMock()
@@ -372,14 +402,16 @@ async def test_search_cache_is_per_user(fake_redis):
             settings,
             "same query",
             max_results=3,
-            budget=_TurnTavilyBudget(settings=settings, user=u1),
+            budget=TurnTavilyBudget(settings=settings, user=u1),
+            user=u1,
             redis=fake_redis,
         )
         await _search_with_cache(
             settings,
             "same query",
             max_results=3,
-            budget=_TurnTavilyBudget(settings=settings, user=u2),
+            budget=TurnTavilyBudget(settings=settings, user=u2),
+            user=u2,
             redis=fake_redis,
         )
     assert search_mock.call_count == 2
@@ -391,7 +423,7 @@ async def test_run_search_dedupes_across_queries_and_respects_limit():
 
     settings = Settings(web_search_max_results=2, mock_llm_enabled=True)
 
-    async def mock_search(_settings, query, *, max_results, budget=None, redis=None):
+    async def mock_search(_settings, query, *, max_results, budget=None, user=None, redis=None):
         if query == "q1":
             return [
                 WebSearchHit(title="A", url="https://dup", snippet="1"),

@@ -1,4 +1,4 @@
-export type SettingsProposalField =
+type SettingsProposalField =
   | "appearance"
   | "default_model"
   | "response_tone"

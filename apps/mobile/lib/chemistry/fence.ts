@@ -1,7 +1,7 @@
 /** Parse ```smiles / ```chemistry fence bodies into a SMILES string + optional caption. */
 import { applyOutsideFences, mapClosedFences } from "@/lib/mdFenceScan";
 
-export const MAX_SMILES_LENGTH = 500;
+const MAX_SMILES_LENGTH = 500;
 
 /** Conservative SMILES charset (organic subset + common extensions). */
 const SMILES_LINE =
@@ -56,7 +56,7 @@ const SPACED_ASCII_BOND_RE = /\s[=#-]|[=#-]\s/;
 const MATH_REJECT_RE =
   /\\(?:frac|sqrt|sum|int|prod|lim|begin|text|mathrm|left|right)|[\^_]|[=]=|[a-z]\s*=|=\s*[a-z]|\d\s*[+\-*/]\s*\d/;
 
-export type ChemistryFence = {
+type ChemistryFence = {
   smiles: string;
   caption: string | null;
 };

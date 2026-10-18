@@ -14,7 +14,7 @@ import {
 // app-wide. Comfortably longer than any real chart/mermaid/math load.
 const SAFETY_RELEASE_MS = 6000;
 
-export type DeferredWebViewMount = {
+type DeferredWebViewMount = {
   /** Render the WebView once true; render the existing fallback/placeholder until then. */
   canMount: boolean;
   /**

@@ -8,7 +8,7 @@ from typing import Literal, cast
 
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE, MATH_REPLY_POLICY
 from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.response_intent import (
     MathResponseIntent,
@@ -25,7 +25,7 @@ from app.modules.math.tools.extract import (
     resolve_graph_followup,
     trig_domain_would_be_dropped,
 )
-from app.modules.math.tools.helpers import has_assignment_evaluation_request
+from app.modules.math.tools.function_def import has_assignment_evaluation_request
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
 from app.services.prompt_inject import inject_before_last_user
 from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END
@@ -398,8 +398,7 @@ def _unverified_math_note(kind: str) -> str:
         "verified, or could not be verified. "
         "Write the result in `$...$`. Do NOT emit ```answer, ```geometry, or ```graph. "
         "Do not invent geometry/graph dimensions or point lists. "
-        "NEVER substitute a markdown table of sampled points, an ASCII or text-art sketch, "
-        "or a Mermaid/flowchart diagram for a function plot.\n\n"
+        f"{GRAPH_NO_SUBSTITUTE_CLAUSE}\n\n"
         f"{MATH_REPLY_POLICY} {SELF_CHECK_PROMPT_RULE}"
     )
 

@@ -1,17 +1,26 @@
-"""Find the day and the clock in a spoken reminder, wherever they sit.
+"""The one reader of a day and a clock in the user's words.
 
 "remind me tomorrow at 6pm to call mom", "remind me tmrw 8am buy injera",
 "reminder: renew my passport, oct 20 at 10am", "set a reminder saturday 11am -
-meet abel". A clock without am/pm counts only beside a part of the day
-("tonight at 9", "9 in the morning"); otherwise the app asks when.
+meet abel". In a new reminder, a clock without am/pm counts only beside a part
+of the day ("tonight at 9", "9 in the morning"); otherwise the app asks when.
+
+A bare hour is the evening when it is the whole reply to "when?" or ends a
+change ("make it 7"): "6" and "6:30" are 6 PM and 6:30 PM, and "18" stays
+18:00. "0" is no clock; midnight is said as midnight or 12am. An am/pm clock
+has hours 1 to 12 everywhere.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
+from typing import NamedTuple
 
 _WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+# The words a day is said as on its own, as ``date_for_day`` reads them.
+DAY_NAMES = frozenset(("today", "tomorrow", *_WEEKDAYS))
 _MONTHS = {
     "jan": 1,
     "feb": 2,
@@ -67,10 +76,11 @@ _DATE_RE = re.compile(
     r"|(?P<d2>\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?P<mon2>" + _MONTH + r"))\b",
     re.IGNORECASE,
 )
-_MERIDIEM_RE = re.compile(
-    r"(?:\b(?:at|by)\s+|@\s*)?\b(?P<h>\d{1,2})(?::(?P<m>[0-5]\d))?\s*(?P<ap>[ap])\.?m\b\.?",
-    re.IGNORECASE,
-)
+# "6pm", "7:30 a.m.": the am/pm clock, read at a place or found anywhere.
+_AMPM = r"(?P<h>\d{1,2})(?::(?P<m>[0-5]\d))?\s*(?P<ap>[ap])\.?m\b\.?"
+_AMPM_RE = re.compile(_AMPM, re.IGNORECASE)
+_MERIDIEM_RE = re.compile(r"(?:\b(?:at|by)\s+|@\s*)?\b" + _AMPM, re.IGNORECASE)
+_BARE_CLOCK_RE = re.compile(r"(?P<h>\d{1,2})(?::(?P<m>[0-5]\d))?")
 _NAMED_RE = re.compile(r"(?:\b(?:at|by)\s+)?\b(?P<n>noon|midday|midnight)\b", re.IGNORECASE)
 _PART_RE = re.compile(
     r"\b(?P<h>\d{1,2})(?::(?P<m>[0-5]\d))?\s+in\s+the\s+(?P<part>morning|afternoon|evening)\b",
@@ -103,14 +113,14 @@ def find_when(text: str) -> SpokenWhen:
 
 
 def _find_day(text: str, found: SpokenWhen) -> None:
-    date = _DATE_RE.search(text)
+    dated = _DATE_RE.search(text)
     day = _DAY_RE.search(text)
-    if date is not None and (day is None or date.start() < day.start()):
-        month = _MONTHS[(date.group("mon") or date.group("mon2"))[:3].lower()]
-        number = int(date.group("d1") or date.group("d2"))
+    if dated is not None and (day is None or dated.start() < day.start()):
+        month = _MONTHS[(dated.group("mon") or dated.group("mon2"))[:3].lower()]
+        number = int(dated.group("d1") or dated.group("d2"))
         if 1 <= number <= 31:
             found.day = f"{month:02d}-{number:02d}"
-            found.spans.append(date.span())
+            found.spans.append(dated.span())
             return
     if day is None:
         day = _SHORT_DAY_RE.search(text)
@@ -134,10 +144,9 @@ def _find_day(text: str, found: SpokenWhen) -> None:
 def _find_clock(text: str, found: SpokenWhen) -> None:
     match = _MERIDIEM_RE.search(text)
     if match is not None:
-        hour = int(match.group("h"))
-        if 1 <= hour <= 12:
-            pm = match.group("ap").lower() == "p"
-            _set_clock(found, hour % 12 + (12 if pm else 0), match, text)
+        hour = _ampm_hour(match)
+        if hour is not None:
+            _set_clock(found, hour, match, text)
             return
     match = _NAMED_RE.search(text)
     if match is not None:
@@ -167,6 +176,127 @@ def _set_clock(found: SpokenWhen, hour: int, match: re.Match[str], text: str) ->
     found.hour = hour
     found.minute = int(minute) if minute else 0
     found.spans.append(match.span())
+
+
+def _ampm_hour(match: re.Match[str]) -> int | None:
+    """The 24-hour hour of an am/pm clock; hours outside 1 to 12 are no clock."""
+    hour = int(match.group("h"))
+    if not 1 <= hour <= 12:
+        return None
+    return hour % 12 + (12 if match.group("ap").lower() == "p" else 0)
+
+
+class Clock(NamedTuple):
+    """A clock read from the user's words: the 24-hour time, and where it was said."""
+
+    hour: int
+    minute: int
+    start: int
+    end: int
+
+
+def read_clock(text: str, start: int = 0) -> Clock | None:
+    """An am/pm clock at ``start``, after any spaces: "6pm", "7:30 a.m.", "12am"."""
+    at = start
+    while at < len(text) and text[at].isspace():
+        at += 1
+    match = _AMPM_RE.match(text, at)
+    if match is None:
+        return None
+    hour = _ampm_hour(match)
+    if hour is None:
+        return None
+    return Clock(hour, int(match.group("m") or 0), at, match.end())
+
+
+def bare_hour_as_pm(text: str) -> tuple[int, int] | None:
+    """A clock with no am/pm, all of ``text``: "6" and "6:30" are the evening.
+
+    Hours 1 to 11 are after noon, the way a reminder is meant; 12 to 23 are as
+    said. "0", "24" and "6:3" are no clock.
+    """
+    match = _BARE_CLOCK_RE.fullmatch(text.strip())
+    if match is None:
+        return None
+    hour = int(match.group("h"))
+    if not 1 <= hour <= 23:
+        return None
+    return (hour + 12 if hour < 12 else hour), int(match.group("m") or 0)
+
+
+def parse_clock_only(user_text: str | None) -> tuple[int, int] | None:
+    """A reply that is only a clock: "6", "6:30", "6pm", "at 7:30 a.m.". Other words are not."""
+    raw = (user_text or "").strip()
+    while raw and raw[-1] in ".!?":
+        raw = raw[:-1].rstrip()
+    if raw.lower().startswith("at "):
+        raw = raw[3:].strip()
+    clock = read_clock(raw)
+    if clock is not None and not raw[clock.end :].strip(" ."):
+        return clock.hour, clock.minute
+    return bare_hour_as_pm(raw)
+
+
+def find_clock(text: str) -> Clock | None:
+    """The first am/pm clock in a change, else a bare hour that ends it.
+
+    "make it 8:00 AM", "move gym to 7pm on friday", and "make it 7", which is 7 PM.
+    An am/pm clock starts a word: "18:30pm" is not 8:30 PM.
+    """
+    for at, char in enumerate(text):
+        if char.isdigit() and (at == 0 or not _in_a_word(text[at - 1])):
+            clock = read_clock(text, at)
+            if clock is not None:
+                return clock
+    body = text.rstrip(" .")
+    start = len(body)
+    while start > 0 and not body[start - 1].isspace():
+        start -= 1
+    bare = bare_hour_as_pm(body[start:])
+    return None if bare is None else Clock(bare[0], bare[1], start, len(body))
+
+
+def _in_a_word(char: str) -> bool:
+    return char.isalnum() or char == "_"
+
+
+def date_for_day(day_name: str, now: datetime) -> date | None:
+    """today, tomorrow, a weekday, "next <weekday>", or "MM-DD" (this year, else next)."""
+    if day_name == "today":
+        return now.date()
+    if day_name == "tomorrow":
+        return now.date() + timedelta(days=1)
+    if len(day_name) == 5 and day_name[2] == "-" and day_name.replace("-", "").isdigit():
+        return _next_date(int(day_name[:2]), int(day_name[3:]), now.date())
+    following = day_name.startswith("next ")
+    try:
+        weekday = _WEEKDAYS.index(day_name.removeprefix("next "))
+    except ValueError:
+        return None
+    delta = (weekday - now.weekday()) % 7
+    # "Next Wednesday" said on a Wednesday is a week away, not today.
+    if following and delta == 0:
+        delta = 7
+    return now.date() + timedelta(days=delta)
+
+
+def _next_date(month: int, day: int, today: date) -> date | None:
+    for year in (today.year, today.year + 1):
+        try:
+            candidate = date(year, month, day)
+        except ValueError:
+            return None
+        if candidate >= today:
+            return candidate
+    return None
+
+
+def due_on_day(day_name: str, hour: int, minute: int, now: datetime) -> datetime | None:
+    """That clock on the named day, in the zone of ``now``, the user's local time."""
+    day = date_for_day(day_name, now)
+    if day is None:
+        return None
+    return datetime(day.year, day.month, day.day, hour, minute, tzinfo=now.tzinfo)
 
 
 def find_repeat(text: str) -> tuple[str, tuple[int, int]] | None:

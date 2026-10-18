@@ -85,7 +85,7 @@ def is_graph_turn(user_text: str, verified: Any) -> bool:
     ]
     if any(isinstance(spec, dict) and spec.get("type") in _GRAPH_FENCE_TYPES for spec in fences):
         return True
-    from app.modules.math.match.scan import has_viz_command
+    from app.modules.math.match.letter_runs import has_viz_command
     from app.modules.math.tools.extract import is_graph_followup
     from app.modules.math.tools.prompt import needs_symbolic_math
 

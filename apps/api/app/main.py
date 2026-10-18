@@ -108,6 +108,7 @@ def create_app() -> FastAPI:
     app.include_router(admin.router)
     app.include_router(analytics.router)
     app.include_router(webhooks.router)
+    app.include_router(webhooks.plans_router)
     app.include_router(users.router)
     app.include_router(home.router)
     app.include_router(link_preview.router)

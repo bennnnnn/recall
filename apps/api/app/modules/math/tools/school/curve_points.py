@@ -14,6 +14,7 @@ from typing import Any
 
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.services.number_text import FRACTION_OR_DECIMAL as _NUMBER
 from app.services.workout import Workout, math_line, render_workout
 
 CURVE_POINT_OPS = frozenset(
@@ -28,7 +29,6 @@ CURVE_POINT_OPS = frozenset(
     }
 )
 
-_NUMBER = r"[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:\s*/\s*\d+)?"
 _CURVE = r"(?:the\s+(?:curve|graph|function)\s+)?(?:(?:y|[a-z]\s*\(\s*x\s*\))\s*=\s*)?"
 _TANGENT = re.compile(
     rf"\b(?P<kind>tangent|normal)(?:\s+line)?\s+(?:to|of|for)\s+{_CURVE}(?P<expr>.+?)\s+"
@@ -71,11 +71,12 @@ _EXTREME = re.compile(
 )
 _DEFINED = re.compile(
     r"(?<![A-Za-z])(?P<name>[a-zA-Z])(?:\s*\(\s*(?P<var>[a-z])\s*\))?\s*=\s*"
-    r"(?P<expr>[^,;=]+?)(?=\s*(?:,|;|\.\s|\bfind\b|\bwhat\b|\bwhen\b|$))",
+    r"(?P<expr>[^,;=\s](?:[^,;=]*?[^,;=\s])??|\s(?=\S|\Z))"
+    r"(?=\s*(?:,|;|\.\s|\bfind\b|\bwhat\b|\bwhen\b|$))",
 )
 _SUM_PRODUCT = re.compile(
     r"\btwo\s+(?:positive\s+|real\s+)?numbers\s+(?:add|sum|add\s+up)\s+to\s+(?P<sum>\d+(?:\.\d+)?)"
-    r".*?\b(?:maximum|largest|greatest|biggest)\s+(?:possible\s+)?product\b",
+    r"[^\d\n].*?\b(?:maximum|largest|greatest|biggest)\s+(?:possible\s+)?product\b",
     re.IGNORECASE,
 )
 _LEAD = re.compile(
@@ -86,7 +87,7 @@ _LEAD = re.compile(
 
 
 def _expression(raw: str) -> str | None:
-    from app.modules.math.tools.helpers import math_expr_or_none
+    from app.modules.math.tools.expr_rewrite import math_expr_or_none
 
     text = raw.strip().rstrip(".?!").strip()
     return math_expr_or_none(text) if text else None
@@ -447,7 +448,7 @@ def _inflection_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock
 def _monotonic_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
     from sympy import S, diff, latex, simplify, solveset
 
-    from app.modules.math.solve.algebra import inequality_solution_latex
+    from app.modules.math.solve.inequalities import inequality_solution_latex
 
     parsed = _parse(intent.expr or "", intent.variable)
     if parsed is None:

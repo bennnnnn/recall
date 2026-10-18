@@ -126,6 +126,14 @@ def test_read_verified_value_keeps_the_label_case() -> None:
     assert value is not None and value.label == "M(H2O)"
 
 
+def test_an_approximate_verified_answer_is_read_as_its_value() -> None:
+    """Newton's card says x ≈ 1.41421: a wrong value still gets the correction line."""
+    value = read_verified_value("x \\approx 1.41421")
+    assert value is not None and value.label == "x"
+    assert stated_verdict("The root is $x = 1.5$.", "x \\approx 1.41421") == "conflict"
+    assert asks_without_answering("$x = 1.41421$.\nWant the steps?", "x \\approx 1.41421") is False
+
+
 def test_correction_lines() -> None:
     assert correction_line("x = 6") == "The verified answer is $x = 6$."
     assert correction_line("notation: chemistry\npH = 2.00") == "The verified answer is pH = 2.00."

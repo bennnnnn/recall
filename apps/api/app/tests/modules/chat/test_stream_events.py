@@ -5,6 +5,7 @@ import asyncio
 import pytest
 
 from app.modules.chat import stream_events
+from app.modules.chat.turn_outcome import TurnOutcome
 
 
 @pytest.mark.asyncio
@@ -62,12 +63,16 @@ async def test_persist_finalize_if_pending_awaits_task():
         nonlocal ran
         ran = True
 
-    result = {"_finalize_db_task": asyncio.create_task(finalize()), "_finalize_task": object()}
-    await stream_events.persist_finalize_if_pending(result)
+    outcome = TurnOutcome(
+        finalize_db_task=asyncio.create_task(finalize()),
+        finalize_task=asyncio.create_task(asyncio.sleep(0)),
+    )
+    await stream_events.persist_finalize_if_pending(outcome)
     assert ran is True
-    assert "_finalize_db_task" not in result
+    assert outcome.finalize_db_task is None
+    assert outcome.finalize_task is None
 
 
 @pytest.mark.asyncio
 async def test_persist_finalize_if_pending_is_noop_without_task():
-    await stream_events.persist_finalize_if_pending({})
+    await stream_events.persist_finalize_if_pending(TurnOutcome())

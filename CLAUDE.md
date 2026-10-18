@@ -1,13 +1,13 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Architecture migration: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Math: [docs/math.md](./docs/math.md) (tutoring roadmap: [docs/MATH_TUTORING_TICKETS.md](./docs/MATH_TUTORING_TICKETS.md)). Physics: [docs/physics.md](./docs/physics.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (complete: `PhysicsIntent` is a peer of `MathIntent`). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Architecture migration: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Math: [docs/math.md](./docs/math.md) (tutoring roadmap: [docs/MATH_TUTORING_TICKETS.md](./docs/MATH_TUTORING_TICKETS.md)). Physics: [docs/physics.md](./docs/physics.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (complete: `PhysicsIntent` is a peer of `MathIntent`). Engineering standards (layers, subject isolation, size limits, CI gates): [docs/ENGINEERING_STANDARDS.md](./docs/ENGINEERING_STANDARDS.md). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
 | Tree | Lines | Notes |
 |------|-------|-------|
-| `apps/api/app` | ~44k Python | ~83k with tests |
-| `apps/mobile` | ~50k TS/TSX | ~62k with tests; vendor inlined separately |
+| `apps/api/app` | ~168k Python | ~290k with tests |
+| `apps/mobile` | ~100k TS/TSX | ~157k with tests; vendor inlined separately |
 
 Do not review or extend the app from the historical MVP screen list. Use **Domain catalog** and **Seams**.
 
@@ -16,7 +16,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 1. **Never put provider API keys in the mobile app.** Keys live only in the backend `.env`. The app only ever talks to our API.
 2. **Use product model aliases, never provider names**, in app/business code: `free-chat`, `smart-chat`, `title-model`, `memory-model`. Alias → provider mapping lives in `services/model_catalog.py` (LiteLLM calls go through `gateways/litellm_gateway.py`).
 3. **Never send full chat history to the model.** Build context from injected memory + the recent window (default hard cap 20 messages; token budget also trims) only.
-4. **Topic generation, memory extraction, and other post-turn work are best-effort background jobs.** They must never raise into the chat request path or block streaming. Enqueue from `modules/chat/post_turn.py` via `core/jobs.py`.
+4. **Topic generation, memory extraction, and other post-turn work are best-effort background jobs.** They must never raise into the chat request path or block streaming. Enqueue from `modules/chat/post_turn.py` via `core/jobs/`.
 5. **No arbitrary code execution — one sandboxed exception.** Code in messages is rendered/highlighted only, with a single exception: **HTML/CSS/JS may be previewed in a sandboxed WebView** (and charts/diagrams rendered from model output). Never execute Python, shell, or any other language, and never run code anywhere except inside the isolated preview WebView (no app token is ever exposed to it). The preview WebView requires a dev build — it does not work in Expo Go.
 6. **All LLM structured outputs are validated with Pydantic** before they touch the DB.
 7. **Symbolic math runs server-side only (SymPy).** Math lives in `modules/math/`. Physics is a peer subject in `modules/physics/`, not a corner of math. The mobile app renders verified results and structured `geometry` / `graph` / `simulation` fences — it never solves equations on-device, and a `simulation` scene is a *sampled path* it walks, never motion it re-derives. Pipeline map: [docs/math.md](./docs/math.md).
@@ -27,7 +27,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 **Domain concepts:**
 
-- **user** — Google or Apple sign-in; editable profile + preferences; `plan` (`free` | `pro`) is driven by RevenueCat.
+- **user** — Google or Apple sign-in; editable profile + preferences; `plan` (`free` | `plus` | `pro`) is driven by RevenueCat. What a plan includes and its numbers are decided in one place, `modules/billing/entitlements.py` (`can_use`, `allowance`); every number is a `core/config.py` setting.
 - **chat** — a conversation; has an auto-generated title.
 - **message** — one turn (`user` | `assistant` | `system`).
 - **memory** — one retrievable fact per row (`status` `active` | `superseded` | `muted`), cap 150 active. `topic` files each fact into a Claude-style page (`modules/memory/topics.py`: You = profile, preferences; Topics = interests, tech-stack, schedule, recent-work, goals, side-projects, notes; Areas = `area:<slug>` with a title row in `memory_areas`); `type` (`profile` | `preference` | `project` | `fact` | `focus`) follows the topic and sets prompt priority. Sensitive topics are not auto-stored unless the user said “remember” or opted in. Extraction is post-turn; a one-time `memory_history_scan` reads recent chats, only adds missing facts, and skips lines older than the user's last hand edit (`users.memory_edited_at`).
@@ -41,9 +41,9 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 **Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry SVG, native Skia math graphs (SVG fallback), physics scenes, free-body diagrams, circuit schematics, ray diagrams and waves (`simulation`, schema v2: [docs/physics.md](./docs/physics.md#pictures)), chemistry (SMILES), lesson cards (`quiz` with Check answer, `array` index boxes, `steps` trace). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
 
-**Owned tool loop, on by default:** module-owned adapters (`web_search`, `sympy`, `generate_image`, `search_image`) register through `gateways/mcp/` and run via `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
+**Owned tool loop, on by default:** module-owned adapters (`web_search`, `sympy`, `generate_image`, `search_image`) register through `gateways/mcp/` and run via `modules/chat/tool_loop/`. `mcp_tool_loop_enabled` defaults to `true`. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
 
-**Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; full duplex / interruptible voice; arbitrary user MCP servers. Attachment RAG, chat-history RAG, and live talk (Pro + daily cap) are shipped. `apps/web` is slice 1 only (login + chat SSE); remaining web surfaces are deferred.
+**Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; full duplex / interruptible voice; arbitrary user MCP servers. Attachment RAG, chat-history RAG, and live talk (Pro, monthly minutes) are shipped. `apps/web` is slice 1 only (login + chat SSE); remaining web surfaces are deferred.
 
 ## Architecture
 
@@ -120,24 +120,24 @@ What exists in code today. Product caveats: FEATURES.md.
 |--------|-----|--------|
 | Auth / account | `modules/account/` (HTTP `/auth`: sign-in, sessions, profile, settings proposals, export, delete); per-request token check in `core/access_tokens.py` | `features/auth/` (login, onboarding), `features/account/` (settings screens); `app/login.tsx`, `onboarding.tsx`, `app/settings/*` routes only |
 | Chat history | `modules/chat/` (HTTP `/chats`) | drawer history; `features/chat/api.ts` |
-| Chat stream | `modules/chat/` (`ws_api.py` WebSocket, `stream_api.py` SSE; `stream.py`, `turn_prep/`, `stream_pipeline.py`, `post_turn.py`) | `features/chat/` (`screens/ChatScreen.tsx`, `hooks/useChat*.ts`, `components/`, `model/` stream, socket and cache); `app/index.tsx` route only |
+| Chat stream | `modules/chat/` (`ws_api.py` WebSocket, `stream_api.py` SSE; `stream_entry.py`, `turn_deps.py`, `turn_prep/`, `stream_pipeline.py`, `stream_paths.py`, `finalize_passes.py`, `post_turn.py`) | `features/chat/` (`screens/ChatScreen.tsx`, `hooks/useChat*.ts`, `components/`, `model/` stream, socket and cache); `app/index.tsx` route only |
 | Memory | `modules/memory/` (HTTP `/memories`, `/memories/documents`, `/memories/instruct`) | `features/memory/`; `app/memory/` routes only (list + `[key]` page) |
-| Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
+| Models / quota | `routers/models.py`, `model_catalog.py`, `quota/`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
 | Follow-up questions | `modules/chat/related_prompts.py` (after `done`; `modules/suggestions/` + `/suggestions` are legacy, no longer fed) | `features/suggestions/` (`RelatedPromptLines`) |
 | Todos / reminders | `modules/todos/` (HTTP `/todos`; chat changes wait for a tap: `write_log.py` + `proposals.py`, `POST /todos/proposals/{id}/confirm`) | `features/todos/` (`ReminderProposalCard`); `app/todos.tsx` route only |
 | Home | `modules/home/` (HTTP `/home`) | `features/home/`; greeting + one overdue reminder |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
-| Image gen (Pro) | `modules/images/` (HTTP `/images/generate`) | `features/images/`; composer send only |
-| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`, `answer_photo`: a photo above an answer about something worth seeing) | `features/images/`; checked before image-gen intent in `useChatSend` |
+| Image gen (every plan, daily cap) | `modules/images/` (HTTP `/images/generate`; `/images/intent` answers what a composer send is, read by `intent.py`, the chat turn's own reader) | `features/images/`; composer send only, when `/images/intent` answers a picture (`imageIntentPrefilter.ts` only decides whether to ask) |
+| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`, `answer_photo`: a photo above an answer about something worth seeing) | `features/images/`; a lookup is a chat send, read before image-gen intent by `images/intent.py` |
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `modules/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `modules/math/` (`match/`, `tools/`, `solve/`, `fence.py`; HTTP `/math/scan/read`; the SymPy process pool is `core/sympy_executor.py`). Lessons, check my work (`work_check`), word problems (`word_problem`) | `MathText` / `MathView` / `geometry` / `graph`; scanner review `components/mathScanner/` |
 | Physics | `modules/physics/` (`catalog/`, `extractors/`, `solvers/`, `extract.py`, `solver.py`, `block.py`, `direct.py`; HTTP `/physics/scan/read`); its law-catalog engine is shared in `services/law_binding/` | same fences; `simulation` scenes (`components/rich/SimulationBlock.tsx`) and diagrams (`components/rich/diagrams/`: circuit, rays, wave); scanner read-back |
 | Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/` (`catalog.py` is the one operation list; `extractors/` and `solvers/` by topic, run in `registry.py` order; `binding.py` + `laws.py` on the shared `services/law_binding/`; HTTP `/chemistry/scan/read`), `modules/chemistry/schemas/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Push / email out | `modules/notifications/`, `background/*scheduler*` | notification settings |
-| Billing | `modules/billing/`, `gateways/revenuecat_gateway.py` | RevenueCat |
+| Billing | `modules/billing/` (`entitlements.py` plan policy, `revenuecat.py` webhook, `subscription.py` REST sync; HTTP `/webhooks/revenuecat`, `/billing/plans`), `gateways/revenuecat_gateway.py` | RevenueCat (`lib/purchases.ts`), `lib/plan.ts`, `components/UpgradeSheet.tsx` |
 | Product analytics | `routers/analytics.py`, `services/product_analytics.py` | `lib/api/analytics.ts` (metadata-only events; never prompts) |
 | Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `features/account/screens/AboutScreen.tsx`, `DataControlsScreen.tsx` |
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
@@ -155,8 +155,8 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 |---------|------|----------------|---------------|
 | HTTP/WS endpoint | module `api.py` or legacy `routers/` + `main.py` | Thin API → module/service | Drop registration + tests |
 | External API | `gateways/` | One gateway module; mock in tests | Delete gateway; keep service behind a flag if needed |
-| MCP / model tools | module `tool.py` or legacy `services/mcp/`; `gateways/mcp/` registry | `register(Adapter)` implementing `ToolAdapter` | Unregister; `mcp_tool_loop_enabled` defaults **on** |
-| Background job | module `jobs.py` or legacy `background/handlers.py`; `core/jobs.py` queue | Register handler; enqueue off the stream path | Unregister + stop enqueue |
+| MCP / model tools | module `tool.py` or legacy `services/mcp/`; `gateways/mcp/` registry | `register(Adapter)` implementing `ToolAdapter`; `invoke(args, ctx: ToolContext)` gets the turn as an argument | Unregister; `mcp_tool_loop_enabled` defaults **on** |
+| Background job | module `jobs.py` or legacy `background/handlers.py`; `core/jobs/` queue | Register handler; enqueue off the stream path | Unregister + stop enqueue |
 | Feature flag | `core/config.py` `*_enabled` | One Settings field; gate service entry | Default false; then delete path |
 | Model | `services/model_catalog.py` | Catalog entry + OpenRouter slug | Remove alias; don’t leave provider names in app code |
 | Mobile network | feature `api.ts` or legacy `lib/api/<domain>.ts`, composed in `lib/api.ts` | Add typed API slice using the shared client | Delete API slice; no raw `fetch` in screens |
@@ -170,11 +170,11 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 
 ## The chat loop
 
-New chat-loop code → `modules/chat/`. Quota + per-chat prepare lock are owned by `async with turn_resources(...)` in `stream.py` (do not re-introduce hand-managed `owns_lock` / `pre_reserved` flags).
+New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` with `turn_deps.default_deps()`: a frozen `ChatTurnDeps` holds what a turn uses outside chat (repositories, quota, plan, locks, LiteLLM, image services, todos, web search, the maths fence), and tests pass one with fakes instead of patching. Quota + per-chat prepare lock are owned by `async with turn_resources(...)` (`turn_resources.py`; do not re-introduce hand-managed `owns_lock` / `pre_reserved` flags); `turn_load.py` reads the turn and `turn_intercepts.py` holds the photo and image intercepts.
 
 1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
 2. Check + reserve daily quota (Redis)
-3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation
+3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation. `modules/images/intent.py` reads both; the phone's composer asks it too (`POST /images/intent`)
 4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, web search, SymPy pre-solve, physics and chemistry context
 5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
@@ -346,6 +346,8 @@ JWT_SECRET=...
 **Ports:** API 8000, Expo 8081. Health check: `GET /health` → `{"status":"ok"}`.
 
 ## Code Conventions
+
+Shape rules (single responsibility, one source of truth, no cycles, file and function size, STEM correctness) are in [docs/ENGINEERING_STANDARDS.md](./docs/ENGINEERING_STANDARDS.md); CI enforces what it can.
 
 **Python:** async/await for all IO; full type hints; Pydantic v2; config via pydantic-settings; ruff for format/lint.
 

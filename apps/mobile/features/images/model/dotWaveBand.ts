@@ -9,9 +9,9 @@
  */
 
 /** Direction of travel, clockwise from the x-axis: down and to the right. */
-export const WAVE_BAND_ANGLE_DEG = 53;
+const WAVE_BAND_ANGLE_DEG = 53;
 
-export type WaveBand = {
+type WaveBand = {
   /** Strip box in card coordinates, before the rotate and slide. */
   readonly left: number;
   readonly top: number;
@@ -44,7 +44,7 @@ export function waveBandLayout(cardWidth: number, cardHeight: number): WaveBand 
   };
 }
 
-export type BandStop = { readonly offset: number; readonly opacity: number };
+type BandStop = { readonly offset: number; readonly opacity: number };
 
 /**
  * Gradient stops along the strip (offset 0–1): one soft band per period,

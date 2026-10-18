@@ -8,7 +8,7 @@ const LEGACY_REFRESH_KEY = "recall_refresh_token";
 
 type TokenPair = { accessToken: string; refreshToken: string | null };
 
-export class AuthStorageError extends Error {
+class AuthStorageError extends Error {
   constructor() {
     super("Recall could not access secure sign-in storage on this device. Please restart the app and try again.");
     this.name = "AuthStorageError";

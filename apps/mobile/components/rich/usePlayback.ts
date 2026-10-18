@@ -37,7 +37,7 @@ type Options = {
   resetKey: string;
 };
 
-export type Playback = {
+type Playback = {
   progress: SharedValue<number>;
   isPlaying: boolean;
   play: () => void;

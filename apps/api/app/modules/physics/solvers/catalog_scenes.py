@@ -14,6 +14,7 @@ import math
 from collections.abc import Callable
 
 from app.modules.physics.bodies import body_name
+from app.modules.physics.constants import SPEED_OF_LIGHT
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.schemas import (
     CircuitNode,
@@ -36,8 +37,6 @@ from app.modules.physics.solvers.oscillations import (
     _spring_scene,
 )
 from app.modules.physics.solvers.wave_scenes import travelling_scene
-
-_C_LIGHT = 299_792_458.0
 
 Scenes = list[SimulationBlockSpec]
 
@@ -345,7 +344,7 @@ def _wave_from_travel(p: dict[str, float], value: float) -> Scenes:
 
 
 def _em_wavelength(p: dict[str, float], value: float) -> Scenes:
-    return [travelling_scene(_C_LIGHT, p["freq"], value)]
+    return [travelling_scene(SPEED_OF_LIGHT, p["freq"], value)]
 
 
 _SCENES: dict[str, Callable[[dict[str, float], float], Scenes]] = {

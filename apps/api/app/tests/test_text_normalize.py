@@ -1,6 +1,6 @@
 """Tests for shared text normalization helpers."""
 
-from app.services.text_normalize import cap_text_head_tail, collapse_ws
+from app.services.text_normalize import cap_text_head_tail, collapse_ws, straighten_apostrophes
 
 
 def test_collapse_ws():
@@ -10,6 +10,11 @@ def test_collapse_ws():
 def test_collapse_ws_strips_zero_width():
     assert collapse_ws("hi\u200b") == "hi"
     assert collapse_ws("\ufeffok") == "ok"
+
+
+def test_straighten_apostrophes_folds_both_curly_quotes():
+    assert straighten_apostrophes("What\u2019s it \u2018like\u2019") == "What's it 'like'"
+    assert straighten_apostrophes('say "hi" \u201cok\u201d') == 'say "hi" \u201cok\u201d'
 
 
 def test_cap_text_head_tail_short_passthrough():

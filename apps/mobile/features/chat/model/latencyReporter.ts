@@ -3,8 +3,17 @@ import { Platform } from "react-native";
 
 import { analyticsApi } from "@/lib/api/analytics";
 import { getToken } from "@/lib/auth";
-import type { ChatTransport, ChatTtftBucket } from "@/features/chat/model/latency";
 import { getInstallationId } from "@/lib/installationId";
+
+export type ChatTtftBucket =
+  | "lt500"
+  | "500_999"
+  | "1000_1999"
+  | "2000_3999"
+  | "4000_5999"
+  | "6000_plus";
+
+export type ChatTransport = "ws" | "sse";
 
 type Sample = {
   latencyBucket: ChatTtftBucket;

@@ -1,4 +1,4 @@
-"""Shared result types, physical constants, and SI-unit conversion."""
+"""Shared result types and SI-unit conversion."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, field
 
 from app.modules.math.schemas import GraphBlockSpec
-from app.modules.physics.bodies import ELECTRON_MASS, ELEMENTARY_CHARGE, SCHOOL_GRAVITY
+from app.modules.physics.bodies import SCHOOL_GRAVITY
 from app.modules.physics.schemas import (
     PhysicsIntent,
     SimulationBlockSpec,
@@ -161,32 +161,6 @@ _OFFSET_DIFFERENCES = {
     "degF": "delta_degF",
     "fahrenheit": "delta_degF",
 }
-
-
-def _registry_constant(name: str) -> float:
-    """One CODATA magnitude from the shared unit registry, in SI base units."""
-    from app.services.units import constant
-
-    return constant(name)
-
-
-# Loaded once. A test pins each magnitude so a Pint upgrade cannot move an answer.
-# Charge and the electron mass are the bodies.py values, not a second Pint copy.
-_ELEMENTARY_CHARGE = ELEMENTARY_CHARGE
-_ELECTRON_MASS = ELECTRON_MASS
-_GAS_CONSTANT = _registry_constant("molar_gas_constant")
-_BIG_G = _registry_constant("gravitational_constant")
-_PLANCK_H = _registry_constant("planck_constant")
-_SPEED_OF_LIGHT = _registry_constant("speed_of_light")
-_EPSILON_0 = _registry_constant("vacuum_permittivity")
-_MU_0 = _registry_constant("vacuum_permeability")
-_HBAR = _registry_constant("hbar")
-_STEFAN_BOLTZMANN = _registry_constant("stefan_boltzmann_constant")
-_WIEN_B = _registry_constant("wien_wavelength_displacement_law_constant")
-_BOLTZMANN = _registry_constant("boltzmann_constant")
-_RYDBERG = _registry_constant("rydberg_constant")
-_BOHR_RADIUS = _registry_constant("bohr_radius")
-_COULOMB_K = 1.0 / (4.0 * math.pi * _EPSILON_0)
 
 
 def gravity_of(params: dict[str, float]) -> float:

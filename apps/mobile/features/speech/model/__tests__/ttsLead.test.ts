@@ -1,10 +1,8 @@
 import {
-  shouldPrefetchTtsChunk,
   splitTtsChunks,
   splitTtsLead,
   TTS_LEAD_MAX_CHARS,
   TTS_LEAD_MIN_CHARS,
-  TTS_PREFETCH_CHUNK_LIMIT,
 } from "@/features/speech/model/ttsLead";
 
 describe("splitTtsLead", () => {
@@ -53,13 +51,5 @@ describe("splitTtsChunks", () => {
     expect(chunks.length).toBeGreaterThan(2);
     expect(chunks.join(" ")).toBe(text.split(/\s+/).join(" "));
     expect(chunks.every((chunk) => chunk.length <= TTS_LEAD_MAX_CHARS)).toBe(true);
-  });
-});
-
-describe("shouldPrefetchTtsChunk", () => {
-  it("does not warm clips before the user taps speak", () => {
-    expect(TTS_PREFETCH_CHUNK_LIMIT).toBe(0);
-    expect(shouldPrefetchTtsChunk(0)).toBe(false);
-    expect(shouldPrefetchTtsChunk(1)).toBe(false);
   });
 });

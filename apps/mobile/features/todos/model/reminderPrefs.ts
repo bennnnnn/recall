@@ -17,7 +17,6 @@ import {
 export {
   DEFAULT_REMINDER_LEAD_MINUTES,
   REMINDER_LEAD_OPTIONS,
-  type ReminderLeadMinutes,
 };
 
 const LEGACY_KEY = "reminder_lead_minutes";

@@ -5,20 +5,20 @@ import type { ComposerSendDraft } from "@/features/chat/model/sendLogic";
 import { useQuotaNudge } from "@/hooks/useQuotaNudge";
 import { resolveChatError, type ResolvedChatError } from "@/features/chat/model/errorMessage";
 
-export function useChatErrorHandlers(isPro: boolean) {
+export function useChatErrorHandlers(isPaid: boolean) {
   const { t } = useTranslation();
   const [chatError, setChatError] = useState<ResolvedChatError | null>(null);
 
   const handleChatError = useCallback(
     (message: string, code?: string) => {
-      setChatError(resolveChatError({ message, code, isPro, t }));
+      setChatError(resolveChatError({ message, code, isPaid, t }));
     },
-    [isPro, t],
+    [isPaid, t],
   );
 
   const handleStreamBusy = useCallback(() => {
-    setChatError(resolveChatError({ message: "", code: "busy", isPro, t }));
-  }, [isPro, t]);
+    setChatError(resolveChatError({ message: "", code: "busy", isPaid, t }));
+  }, [isPaid, t]);
 
   const dismissChatError = useCallback(() => setChatError(null), []);
   const handleRejectedSendChange = useCallback((reason: "send_rejected" | "attachment_rejected" | null) => {
@@ -72,7 +72,7 @@ type StreamLifecycleParams = {
   streamActive: boolean;
   dismissChatError: () => void;
   token: string | null;
-  isPro: boolean;
+  isPaid: boolean;
 };
 
 /** Clear inline errors while streaming and refresh quota after each turn. */
@@ -80,7 +80,7 @@ export function useChatStreamLifecycle({
   streamActive,
   dismissChatError,
   token,
-  isPro,
+  isPaid,
 }: StreamLifecycleParams) {
   const [quotaRefreshKey, setQuotaRefreshKey] = useState(0);
   const prevStreamActiveRef = useRef(false);
@@ -96,6 +96,6 @@ export function useChatStreamLifecycle({
     prevStreamActiveRef.current = streamActive;
   }, [streamActive]);
 
-  const quotaNudge = useQuotaNudge({ token, isPro, refreshKey: quotaRefreshKey });
+  const quotaNudge = useQuotaNudge({ token, isPaid, refreshKey: quotaRefreshKey });
   return quotaNudge;
 }

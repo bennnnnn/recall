@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 import numpy as np
-from sympy import Symbol, denom, limit, solve
+from sympy import FiniteSet, Symbol, Union, denom, limit, solve
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES, function_name_alternation
 from app.modules.math.schemas import (
@@ -16,11 +16,13 @@ from app.modules.math.schemas import (
     GraphSampleResult,
     NumberLineInterval,
 )
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.discrete import guess_variables
 from app.modules.math.solve.extract_eq import (
     try_extract_compound_inequality_from_text,
     try_extract_inequality_from_text,
 )
+from app.modules.math.solve.graph_expr_text import graph_expr_text
 from app.modules.math.solve.parse import _parse_expression
 from app.services.solving import MathServiceError
 
@@ -69,12 +71,11 @@ def _symbolic_pole_xs(parsed: Any, sym: Symbol, x_min: float, x_max: float) -> l
     in ``_split_into_segments``. Never raises: any SymPy failure means "no
     symbolic poles", not a failed graph.
     """
-    try:
-        from sympy import FiniteSet, Union
+    with sympy_decline() as declined:
         from sympy.calculus.singularities import singularities
 
         found = singularities(parsed, sym)
-    except Exception:
+    if declined:
         return []
     sets = list(found.args) if isinstance(found, Union) else [found]
     xs: list[float] = []
@@ -142,9 +143,9 @@ def _removable_holes(
     unevaluated solely to recover its domain; the plotted y-coordinate still
     comes from the verified two-sided limit of the simplified expression.
     """
-    try:
+    with sympy_decline() as declined:
         roots = solve(denom(original), sym)
-    except Exception:
+    if declined:
         return []
     holes: list[list[float]] = []
     for root in roots[:8]:
@@ -217,9 +218,7 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     sym = Symbol(data.variable)
     parsed = _parse_expression(data.expr, [data.variable])
     original = _parse_expression(data.expr, [data.variable], evaluate=False)
-    from sympy.core.relational import Relational
-
-    if isinstance(parsed, Relational):
+    if parsed.is_Relational:
         raise MathServiceError("Inequality expressions are number lines, not y=f(x) plots")
 
     from sympy.utilities.lambdify import lambdify
@@ -246,7 +245,8 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     # heuristic stays the fallback.
     pole_xs = _confirmed_pole_xs(points, _symbolic_pole_xs(parsed, sym, x_min, x_max))
     return GraphSampleResult(
-        expr=data.expr,
+        # The phone re-reads this to resample on zoom, so it is SymPy's reading, not the raw text.
+        expr=graph_expr_text(parsed, data.variable) or data.expr,
         variable=data.variable,
         x_min=x_min,
         x_max=x_max,

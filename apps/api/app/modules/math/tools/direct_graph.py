@@ -6,8 +6,7 @@ verified sampler drew; any extra clause keeps the language path.
 
 from __future__ import annotations
 
-import math
-
+from app.modules.math.match.literal_plot import literal_number, literal_pair, plot_command_object
 from app.modules.math.tools.direct_fences import MAX_DIRECT_ANSWER_CHARS, solver_fences
 from app.services.solving import VerifiedMathBlock
 
@@ -125,29 +124,6 @@ def _strip_graph_interaction_tail(request: str) -> str:
     return clean
 
 
-def _plot_number(value: object) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, str | int | float):
-        return None
-    if isinstance(value, str) and len(value) > 64:
-        return None
-    try:
-        number = float(value)
-    except (TypeError, ValueError, OverflowError):
-        return None
-    return number if math.isfinite(number) else None
-
-
-def _literal_plot_point(text: str) -> tuple[float, float] | None:
-    value = text.strip()
-    if value.startswith("(") and value.endswith(")"):
-        value = value[1:-1]
-    parts = value.split(",")
-    if len(parts) != 2:
-        return None
-    x, y = (_plot_number(part.strip()) for part in parts)
-    return (x, y) if x is not None and y is not None else None
-
-
 def can_direct_point_or_vertical(verified: VerifiedMathBlock, user_text: str) -> bool:
     """Match a complete literal plot request, never a coordinate substring."""
     if len(user_text) > 1000:
@@ -158,59 +134,56 @@ def can_direct_point_or_vertical(verified: VerifiedMathBlock, user_text: str) ->
     graph = fences[0]
     if graph.get("expr2") or graph.get("points2") or graph.get("variable", "x") != "x":
         return False
-    request = " ".join(user_text.split()).replace("\u2212", "-")
-    if request.lower().startswith("please "):
-        request = request[7:].lstrip()
-    for prefix in ("plot ", "graph ", "mark ", "show ", "draw ", "sketch "):
-        if request.lower().startswith(prefix):
-            request = request[len(prefix) :].strip().rstrip(".?")
-            break
-    else:
-        return False
-    if request.lower().startswith("the "):
-        request = request[4:]
     if graph.get("type") == "vertical":
-        if verified.canonical_answer:
-            return False
-        for prefix in ("vertical line ", "line "):
-            if request.lower().startswith(prefix):
-                request = request[len(prefix) :]
-                break
-        lhs, separator, rhs = request.partition("=")
-        x = _plot_number(graph.get("x"))
-        expr_lhs, expr_separator, expr_rhs = str(graph.get("expr") or "").partition("=")
-        low, high = _plot_number(graph.get("y_min")), _plot_number(graph.get("y_max"))
-        return bool(
-            separator
-            and lhs.strip().lower() == "x"
-            and x is not None
-            and _plot_number(rhs.strip()) == x
-            and expr_separator
-            and expr_lhs.strip().lower() == "x"
-            and _plot_number(expr_rhs.strip()) == x
-            and low is not None
-            and high is not None
-            and low < high
-        )
-    if graph.get("type") != "function" or not request.lower().startswith("point "):
+        return _literal_vertical(verified, graph, user_text)
+    return graph.get("type") == "function" and _literal_point(verified, graph, user_text)
+
+
+def _literal_point(verified: VerifiedMathBlock, graph: dict[str, object], user_text: str) -> bool:
+    """The point extraction read from this very request, drawn and answered as is."""
+    point, origin = verified.plot_point, verified.direct_request_text
+    if point is None or origin is None or " ".join(origin.split()) != " ".join(user_text.split()):
         return False
     points = graph.get("points")
     if not isinstance(points, list) or len(points) != 1:
         return False
-    point = points[0]
-    if not isinstance(point, list) or len(point) != 2:
+    drawn = points[0]
+    if not isinstance(drawn, list) or len(drawn) != 2:
         return False
-    x, y = (_plot_number(value) for value in point)
-    if x is None or y is None:
-        return False
-    expected = (x, y)
     # All three canonical representations must describe the requested point.
-    # Extra prose, a second coordinate, expressions, or unpaired brackets do
-    # not parse as one numeric comma pair and retain the model path.
     return (
-        _literal_plot_point(request[6:]) == expected
-        and _literal_plot_point(str(graph.get("expr") or "")) == expected
-        and _literal_plot_point(verified.canonical_answer or "") == expected
+        (literal_number(drawn[0]), literal_number(drawn[1])) == point
+        and literal_pair(str(graph.get("expr") or "")) == point
+        and literal_pair(verified.canonical_answer or "") == point
+    )
+
+
+def _literal_vertical(
+    verified: VerifiedMathBlock, graph: dict[str, object], user_text: str
+) -> bool:
+    """``plot x=4``: the request's x is the line's, and nothing else was asked."""
+    request = plot_command_object(user_text)
+    if request is None or verified.canonical_answer:
+        return False
+    for prefix in ("vertical line ", "line "):
+        if request.lower().startswith(prefix):
+            request = request[len(prefix) :]
+            break
+    lhs, separator, rhs = request.partition("=")
+    x = literal_number(graph.get("x"))
+    expr_lhs, expr_separator, expr_rhs = str(graph.get("expr") or "").partition("=")
+    low, high = literal_number(graph.get("y_min")), literal_number(graph.get("y_max"))
+    return bool(
+        separator
+        and lhs.strip().lower() == "x"
+        and x is not None
+        and literal_number(rhs.strip()) == x
+        and expr_separator
+        and expr_lhs.strip().lower() == "x"
+        and literal_number(expr_rhs.strip()) == x
+        and low is not None
+        and high is not None
+        and low < high
     )
 
 
@@ -326,7 +299,7 @@ def can_direct_number_line(
     already stripped ("show steps for 2x+3<7" leaves the bare inequality).
     """
     from app.modules.math.match import prepare
-    from app.modules.math.solve.parse import _rewrite_bare_abs_bars
+    from app.modules.math.solve.latex_normalize import _rewrite_bare_abs_bars
 
     answer = (verified.canonical_answer or "").strip()
     fences = solver_fences(verified)

@@ -238,23 +238,6 @@ def _multiplication(
     )
 
 
-def build_written_arithmetic(
-    left_token: str,
-    right_token: str,
-    school_op: str,
-    expression: str,
-    *,
-    division_answer_mode: str | None = None,
-) -> ArithmeticWorkSpec | None:
-    """Build a bounded exact trace, or decline unsupported signed/non-finite work."""
-    return build_written_arithmetic_operands(
-        [left_token, right_token],
-        school_op,
-        expression,
-        division_answer_mode=division_answer_mode,
-    )
-
-
 def build_written_arithmetic_operands(
     tokens: list[str],
     school_op: str,

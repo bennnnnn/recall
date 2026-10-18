@@ -9,10 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import AttachmentValidationError, ChatBusyError, ChatNotFoundError
-from app.gateways.storage_gateway import StorageUnavailableError
+from app.gateways.storage_gateway import StorageGateway, StorageUnavailableError
 from app.models.orm import Attachment, User
 from app.modules.attachments.quota import has_current_upload_reservation
 from app.modules.chat.stream_status import StreamStatusFn
+from app.modules.chat.turn_prep.camera_math import camera_math_extract
 from app.modules.math.schemas import MathImageExtract
 from app.repositories import users as users_repo
 
@@ -91,29 +92,85 @@ async def _process_attachment_inputs(
     on_status: StreamStatusFn | None,
 ) -> _AttachmentProcessResult:
     """Verify/format attachments and optionally vision-extract a camera math equation."""
-    user_content = content
-    gateway = None
-    has_image_attachment = False
-    image_attachments: list[tuple[str, str]] = []
-    image_math_extract: MathImageExtract | None = None
-    attachment_rows: list[Attachment] = []
-    resolved_ids: list[UUID] = []
-
     if attachment_ids and not settings.attachments_enabled:
         raise AttachmentValidationError("Attachments are temporarily unavailable.")
     if not (attachment_ids and settings.attachments_enabled):
-        return _AttachmentProcessResult(
-            user=user,
-            user_content=user_content,
-            content=content,
-            has_image_attachment=False,
-            has_document_attachment=False,
-            image_attachments=[],
-            image_math_extract=None,
-            gateway=None,
-            bytes_by_key={},
-        )
+        return _without_attachments(user, content)
 
+    user, attachment_rows, resolved_ids = await _load_turn_attachments(
+        user_id=user_id, user=user, attachment_ids=attachment_ids, settings=settings
+    )
+    if not attachment_rows:
+        return _without_attachments(user, content, resolved_ids=[])
+
+    from app.gateways.storage_gateway import get_storage_gateway
+
+    if on_status is not None:
+        await on_status("reading_files")
+
+    gateway = get_storage_gateway(settings)
+    bytes_by_key = await _verify_turn_attachments(
+        gateway, attachment_rows, redis=redis, user_id=user_id
+    )
+    attachment_lines, image_attachments = await _format_turn_attachments(
+        gateway, attachment_rows, settings=settings, bytes_by_key=bytes_by_key
+    )
+    user_content = _with_attachment_markers(content, attachment_lines)
+    image_math_extract, content = await camera_math_extract(
+        content,
+        image_attachments=image_attachments,
+        bytes_by_key=bytes_by_key,
+        gateway=gateway,
+        settings=settings,
+        on_status=on_status,
+    )
+
+    return _AttachmentProcessResult(
+        user=user,
+        user_content=user_content,
+        content=content,
+        has_image_attachment=bool(image_attachments),
+        # A document attachment is any non-image row — images are not
+        # indexable (is_indexable_attachment excludes them) and use vision
+        # injection instead of RAG, so only documents force rich context.
+        has_document_attachment=len(attachment_rows) != len(image_attachments),
+        image_attachments=image_attachments,
+        image_math_extract=image_math_extract,
+        gateway=gateway,
+        bytes_by_key=bytes_by_key,
+        resolved_attachment_ids=resolved_ids,
+    )
+
+
+def _without_attachments(
+    user: User | None, content: str, *, resolved_ids: list[UUID] | None = None
+) -> _AttachmentProcessResult:
+    """A turn with nothing attached to read: the text passes through as it was sent."""
+    return _AttachmentProcessResult(
+        user=user,
+        user_content=content,
+        content=content,
+        has_image_attachment=False,
+        has_document_attachment=False,
+        image_attachments=[],
+        image_math_extract=None,
+        gateway=None,
+        bytes_by_key={},
+        resolved_attachment_ids=resolved_ids,
+    )
+
+
+async def _load_turn_attachments(
+    *,
+    user_id: UUID,
+    user: User | None,
+    attachment_ids: list[UUID],
+    settings: Settings,
+) -> tuple[User, list[Attachment], list[UUID]]:
+    """The user and their requested rows in request order, a linked Library row copied.
+
+    A missing user, or a requested id that is missing or someone else's, refuses the turn.
+    """
     attachment_ids = list(dict.fromkeys(attachment_ids))
     async with SessionLocal() as session:
         if user is None:
@@ -140,28 +197,23 @@ async def _process_attachment_inputs(
 
             attachment_rows = await ensure_unlinked_copies(session, settings, attachment_rows)
         resolved_ids = [row.id for row in attachment_rows]
+    return user, attachment_rows, resolved_ids
 
-    if not attachment_rows:
-        return _AttachmentProcessResult(
-            user=user,
-            user_content=user_content,
-            content=content,
-            has_image_attachment=False,
-            has_document_attachment=False,
-            image_attachments=[],
-            image_math_extract=None,
-            gateway=None,
-            bytes_by_key={},
-            resolved_attachment_ids=[],
-        )
 
-    from app.gateways.storage_gateway import get_storage_gateway
+async def _verify_turn_attachments(
+    gateway: StorageGateway,
+    attachment_rows: list[Attachment],
+    *,
+    redis: Redis,
+    user_id: UUID,
+) -> dict[str, bytes]:
+    """Check each unverified upload's bytes once; a bad one is purged and refuses the turn.
+
+    Returns the bytes read, by storage key, so formatting and vision do not download again.
+    """
     from app.modules.attachments import content as attachment_content_service
+    from app.modules.attachments import service as attachments_service
 
-    if on_status is not None:
-        await on_status("reading_files")
-
-    gateway = get_storage_gateway(settings)
     # One download per storage_key this turn — reuse for format / OCR / vision.
     bytes_by_key: dict[str, bytes] = {}
     if attachment_rows:
@@ -192,14 +244,28 @@ async def _process_attachment_inputs(
                         and attachment_content_service.is_image_content_type(row.content_type)
                         and has_current_upload_reservation(row)
                     ):
-                        from app.services import quota as quota_service
+                        from app.services.quota import counters
 
-                        await quota_service.refund_image_upload(redis, user_id)
+                        await counters.refund("image_upload", redis, user_id)
                     raise AttachmentValidationError(error)
                 if data:
                     bytes_by_key[row.storage_key] = data
                     async with SessionLocal() as verify_session:
                         await attachments_service.mark_verified(verify_session, row.id)
+    return bytes_by_key
+
+
+async def _format_turn_attachments(
+    gateway: StorageGateway,
+    attachment_rows: list[Attachment],
+    *,
+    settings: Settings,
+    bytes_by_key: dict[str, bytes],
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Every row's lines (a marker, and a document's excerpt), and the images in row order."""
+    from app.modules.attachments import content as attachment_content_service
+
+    image_attachments: list[tuple[str, str]] = []
     attachment_lines: list[str] = []
     formatted = await asyncio.gather(
         *(
@@ -217,9 +283,13 @@ async def _process_attachment_inputs(
     )
     for row, (lines, is_image) in zip(attachment_rows, formatted, strict=True):
         if is_image:
-            has_image_attachment = True
             image_attachments.append((row.content_type, row.storage_key))
         attachment_lines.extend(lines)
+    return attachment_lines, image_attachments
+
+
+def _with_attachment_markers(user_content: str, attachment_lines: list[str]) -> str:
+    """The stored user bubble: the caption, then the attachment lines (alone if it is blank)."""
     # Persist plain attachment markers for the chat UI. Do NOT wrap
     # with wrap_untrusted here — that preamble is prompt-injection
     # framing for the model and must never appear as a user bubble.
@@ -231,83 +301,4 @@ async def _process_attachment_inputs(
             user_content = f"{user_content}\n\n{plain}"
         else:
             user_content = plain
-
-    # Camera math solver: vision-extract equation so SymPy can verify.
-    from app.modules.math import image_extract as math_image_extract_service
-    from app.modules.math import match as math_match
-    from app.services.subject_scan import confirmed_scan_reading, scanner_camera_subject
-
-    # BUG FIX: this used to require the sent text to be BYTE-FOR-BYTE
-    # identical to the preset camera caption — the composer pre-fills that
-    # caption into an editable text box, so any user edit (add a word, fix
-    # a typo, autocorrect touching punctuation) silently dropped the OCR
-    # step with no error shown; the photo still sent, just unverified.
-    # An edited caption from someone who chose "Solve math with camera"
-    # overwhelmingly still reads as a math ask ("solve this", "find x", a
-    # stray leftover word) — reuse the same has_math_keyword signal
-    # needs_symbolic_math already trusts for the image-attachment case, so
-    # OCR fires whenever the caption still looks like a math request, not
-    # only on an exact match. A caption with no math keyword at all (or the
-    # default blank caption every plain image attachment sends) is left
-    # alone — this must not fire a vision call on every unrelated photo.
-    caption = content.strip()
-    scan_subject = scanner_camera_subject(content)
-    looks_like_math_caption = (
-        scan_subject not in {"physics", "biology", "chemistry"}
-        and bool(caption)
-        and math_match.has_math_keyword(caption.lower())
-    )
-    # A physics or chemistry photo carries its confirmed reading too, but that
-    # reading is the subject's request text, not an equation for math OCR.
-    confirmed_reading = confirmed_scan_reading(content) if scan_subject in (None, "math") else None
-    if (
-        has_image_attachment
-        and image_attachments
-        and (confirmed_reading or scan_subject == "math" or looks_like_math_caption)
-    ):
-        if on_status is not None:
-            await on_status("calculating")
-        if confirmed_reading:
-            # The student already verified OCR in the scanner. Re-running
-            # vision here can silently solve a different equation.
-            from app.modules.math.ocr import extract_from_confirmed_reading
-
-            extracted = extract_from_confirmed_reading(confirmed_reading)
-            if extracted is not None:
-                image_math_extract = extracted
-        else:
-            mime, storage_key = image_attachments[0]
-            image_bytes = bytes_by_key.get(storage_key)
-            if image_bytes is None:
-                image_bytes = await attachment_content_service.read_attachment_bytes(
-                    gateway, storage_key
-                )
-                if image_bytes:
-                    bytes_by_key[storage_key] = image_bytes
-            if image_bytes:
-                extracted = await math_image_extract_service.extract_equation_from_image(
-                    settings, content_type=mime, data=image_bytes
-                )
-                if extracted is not None:
-                    image_math_extract = extracted
-                    suffix = math_image_extract_service.camera_math_user_suffix(extracted)
-                    # Prompt/stream path sees Solve: for equations; stored bubble
-                    # keeps the image marker + original caption only.
-                    if suffix:
-                        content = f"{content}\n\n{suffix}"
-
-    return _AttachmentProcessResult(
-        user=user,
-        user_content=user_content,
-        content=content,
-        has_image_attachment=has_image_attachment,
-        # A document attachment is any non-image row — images are not
-        # indexable (is_indexable_attachment excludes them) and use vision
-        # injection instead of RAG, so only documents force rich context.
-        has_document_attachment=len(attachment_rows) != len(image_attachments),
-        image_attachments=image_attachments,
-        image_math_extract=image_math_extract,
-        gateway=gateway,
-        bytes_by_key=bytes_by_key,
-        resolved_attachment_ids=resolved_ids,
-    )
+    return user_content

@@ -1,9 +1,12 @@
 /**
  * One logical reasoning state per math row.
- * Mirrors apps/api/app/services/chat/calculation_layout.py.
+ * The API's twin is apps/api/app/modules/chat/calculation_layout.py;
+ * docs/fixtures/presentation_cases.json holds both to the same output.
  */
 
-import { codeSpanOpensWithin } from "@/lib/markdown/inlineCode";
+import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
+import { displayMathLines, leaveProseLine, rewriteFenced } from "@/lib/markdown/markdownRegions";
+import { charAt, LETTER } from "@/lib/markdown/unicodeChars";
 import { readFenceMarker } from "@/lib/mdFenceScan";
 
 const MATH_LANGS = new Set(["math", "latex", "tex", "equation"]);
@@ -140,14 +143,11 @@ function segmentBlocksChain(segment: string): boolean {
       index = end;
       continue;
     }
-    if (/[A-Za-z]/.test(segment[index])) {
-      const start = index;
-      index += 1;
-      while (index < segment.length && /[A-Za-z]/.test(segment[index])) index += 1;
-      if (CHAIN_STOP_WORDS.has(segment.slice(start, index).toLowerCase())) return true;
-      continue;
-    }
-    index += 1;
+    // A word (in any script) is read whole; only "or" and "and" stop a chain.
+    const start = index;
+    while (LETTER.test(charAt(segment, index))) index += charAt(segment, index).length;
+    if (CHAIN_STOP_WORDS.has(segment.slice(start, index).toLowerCase())) return true;
+    if (index === start) index += charAt(segment, index).length;
   }
   return false;
 }
@@ -161,14 +161,15 @@ function isSimpleNumeric(segment: string): boolean {
         // A unit or label is a different quantity, not a factorial expansion.
         return false;
       }
-      if (NUMERIC_COMMANDS.has(name) || !/[A-Za-z]/.test(name)) {
+      if (NUMERIC_COMMANDS.has(name) || !LETTER.test(name)) {
         index = end;
         continue;
       }
       return false;
     }
-    if (/[A-Za-z]/.test(segment[index])) return false;
-    index += 1;
+    const char = charAt(segment, index);
+    if (LETTER.test(char)) return false;
+    index += char.length;
   }
   return true;
 }
@@ -243,7 +244,7 @@ function soleMath(stripped: string): { delim: string; inner: string; punct: stri
 function hasLongWord(text: string): boolean {
   let run = 0;
   for (const char of text) {
-    if (/[A-Za-z]/.test(char)) {
+    if (LETTER.test(char)) {
       run += 1;
       if (run >= 4) return true;
     } else {
@@ -369,7 +370,8 @@ function layoutBody(body: string): string {
     if (!rows) return body;
     return withIndent(body, joinRows(rows, sole.delim, sole.punct));
   }
-  if (!body.includes("$") && !body.includes("`")) {
+  // A closed \[...\] on one line is one display formula, drawn as a maths block.
+  if (!body.includes("$") && !body.includes("`") && !body.includes("\\[")) {
     const plain = plainChain(body);
     if (plain != null) return withIndent(body, plain);
   }
@@ -393,11 +395,6 @@ function listPrefix(line: string): { prefix: string; body: string } {
   return { prefix: "", body: line };
 }
 
-function leaveProseLine(line: string): boolean {
-  if (line.startsWith("    ") || line.startsWith("\t")) return true;
-  return line.trimStart().startsWith(">");
-}
-
 function layoutLine(line: string): string {
   if (leaveProseLine(line)) return line;
   const stripped = line.trimStart();
@@ -411,12 +408,6 @@ function layoutLine(line: string): string {
     .split("\n")
     .map((row, index) => (index === 0 ? prefix + row : pad + row))
     .join("\n");
-}
-
-function escapedAt(text: string, index: number): boolean {
-  let slashes = 0;
-  for (let cursor = index - 1; cursor >= 0 && text[cursor] === "\\"; cursor -= 1) slashes += 1;
-  return slashes % 2 === 1;
 }
 
 function interiorLineBlocksFold(line: string): boolean {
@@ -503,7 +494,9 @@ function foldClosedParenMath(text: string): string {
 }
 
 function layoutProse(prose: string): string {
-  return foldClosedParenMath(prose).split("\n").map(layoutLine).join("\n");
+  const lines = foldClosedParenMath(prose).split("\n");
+  const kept = displayMathLines(lines);
+  return lines.map((line, index) => (kept[index] ? line : layoutLine(line))).join("\n");
 }
 
 function unwrapMathLine(line: string): string {
@@ -533,50 +526,7 @@ function rewriteMathFence(opener: string, body: string): string | null {
   return joinRows(rows, "$");
 }
 
-function rewriteFenced(text: string): string {
-  if (!text) return layoutProse(text);
-  const lines = text.split("\n");
-  const out: string[] = [];
-  let prose: string[] = [];
-  let open: { char: "`" | "~"; len: number } | null = null;
-  let opener = "";
-  let body: string[] = [];
-  const flush = () => {
-    if (prose.length === 0) return;
-    out.push(layoutProse(prose.join("\n")));
-    prose = [];
-  };
-  for (const line of lines) {
-    const marker = readFenceMarker(line);
-    if (open) {
-      if (marker && marker.char === open.char && marker.len >= open.len && marker.info === "") {
-        const replacement = rewriteMathFence(opener, body.join("\n"));
-        if (replacement == null) {
-          out.push(opener, ...body, line);
-        } else {
-          out.push(replacement);
-        }
-        open = null;
-        body = [];
-      } else {
-        body.push(line);
-      }
-      continue;
-    }
-    if (marker && !marker.info.includes("|")) {
-      flush();
-      open = { char: marker.char, len: marker.len };
-      opener = line;
-      continue;
-    }
-    prose.push(line);
-  }
-  flush();
-  if (open) out.push(opener, ...body);
-  return out.join("\n");
-}
-
 export function layoutCalculations(text: string): string {
   if (!text) return text;
-  return rewriteFenced(text);
+  return rewriteFenced(text, layoutProse, rewriteMathFence);
 }

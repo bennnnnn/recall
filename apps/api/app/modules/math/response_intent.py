@@ -369,6 +369,14 @@ _PRESENTATION_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
         r"\b(?:do\s+not|don't|dont)\s+(?:use\s+)?(?:the\s+)?(?:quadratic\s+formula|factor(?:ing)?|factorisation|substitution|elimination)(?:\s+(?:it|this))?\b",
         r"\b(?:using|use|with|by)\s+(?:the\s+)?(?:quadratic\s+formula|factoring|factorisation|substitution|elimination)\b",
         r"\b(?:keep)\s+(?:the\s+)?(?:variable|x)\s+lowercase(?:\s+in\s+the\s+final\s+answer)?\b",
+        # Asking for the answer to be checked is presentation: the solve still runs.
+        r"\b(?:and\s+)?(?:double[- ]check|check|verify|confirm|prove)\s+(?:it|that|this|"
+        r"(?:your|the)\s+(?:answer|solution|result))\b",
+        r"\b(?:and\s+)?show\s+(?:me\s+)?(?:that\s+)?it\s+works\b",
+        r"\b(?:no|without|skip(?:ping)?|don'?t|do\s+not)\s+(?:the\s+|a\s+|any\s+)?"
+        r"(?:check|checking|checks|verify|verifying|verification|proof)\b",
+        r"^\s*(?:please\s+)?(?:check|verify)\s+(?=\S)",
+        r"\b(?:and\s+)?(?:double[- ]check|check|verify)[ .!?]*$",
     )
 )
 
@@ -384,7 +392,7 @@ def strip_math_response_wrappers(text: str) -> str:
     # ("answer; no graph and no steps" -> "; and ."). Remove that tail as
     # presentation debris, not as part of the mathematical expression.
     result = re.sub(
-        r"(?:\s*[ :;,.?]+\s*)?\b(?:and|then)\s*[ :;,.?]*$",
+        r"\b(?:and|then)[ :;,.?]*$",
         "",
         result,
         flags=re.IGNORECASE,

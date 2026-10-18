@@ -1412,6 +1412,66 @@ async def test_clock_reply_saves_tomorrow_not_a_past_today():
     assert create_mock.await_args.kwargs["recurrence_rule"] is None
 
 
+async def _clock_reply(user_text: str, assistant_text: str) -> tuple[str, int, AsyncMock]:
+    """The user answers "when?" for "Add read for tommorrow" late on Saturday in New York."""
+    previous = MagicMock()
+    previous.role = "user"
+    previous.content = "Add read for tommorrow"
+    current = MagicMock()
+    current.role = "user"
+    current.content = user_text
+    when = datetime(2026, 10, 10, 22, 8, tzinfo=ZoneInfo("America/New_York"))
+    with (
+        patch(
+            "app.repositories.messages.list_recent",
+            AsyncMock(return_value=[previous, current]),
+        ),
+        patch("app.modules.todos.spoken_add._now", return_value=when),
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, created = await todos_service.materialize_reminder_fences(
+            AsyncMock(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=assistant_text,
+            user_timezone="America/New_York",
+            user_text=user_text,
+        )
+    return updated, created, create_mock
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("user_text", "due", "line"),
+    [
+        ("6:30", datetime(2026, 10, 11, 22, 30, tzinfo=UTC), "6:30 PM"),
+        ("at 7:15.", datetime(2026, 10, 11, 23, 15, tzinfo=UTC), "7:15 PM"),
+        ("12", datetime(2026, 10, 11, 16, 0, tzinfo=UTC), "12:00 PM"),
+        ("18", datetime(2026, 10, 11, 22, 0, tzinfo=UTC), "6:00 PM"),
+        ("7am", datetime(2026, 10, 11, 11, 0, tzinfo=UTC), "7:00 AM"),
+    ],
+)
+async def test_clock_reply_reads_the_hour_and_minutes(user_text, due, line):
+    updated, created, create_mock = await _clock_reply(user_text, "Set: Read — tomorrow.")
+    assert created == 1
+    assert updated == f"Set: read — Sunday, Oct 11, {line}."
+    assert create_mock.await_args.kwargs["due_at"] == due
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("user_text", ["0", "0:30", "00", "24", "1 8", "6pm tomorrow maybe"])
+async def test_a_reply_that_is_no_clock_saves_nothing(user_text):
+    """ "0" is not noon. Midnight is said as midnight or 12am."""
+    updated, created, create_mock = await _clock_reply(
+        user_text, "Set: Read — Sunday, Oct 11, 12:00 PM."
+    )
+    assert created == 0
+    create_mock.assert_not_awaited()
+    assert "12:00 PM" not in updated
+
+
 @pytest.mark.asyncio
 async def test_clock_reply_keeps_the_repeat_from_the_earlier_add():
     from zoneinfo import ZoneInfo
@@ -1771,6 +1831,10 @@ async def test_make_it_weekly_replaces_the_repeat_only():
     [
         ("Make it 8:00 AM", 8, 0, "8:00 AM"),
         ("Make it 8:00 PM", 20, 0, "8:00 PM"),
+        # No am/pm: the evening, as "make it 7" is 7 PM and a reply "6:30" is 6:30 PM.
+        ("Make it 6:30", 18, 30, "6:30 PM"),
+        ("Make it 7", 19, 0, "7:00 PM"),
+        ("Make it 18:45", 18, 45, "6:45 PM"),
     ],
 )
 async def test_make_it_changes_am_and_pm_on_the_same_day(
@@ -2180,7 +2244,7 @@ async def test_materialize_reminder_fences_clears_date_using_existing_topic():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
         patch(
-            "app.modules.todos.reminder_fences.apply_todo_actions",
+            "app.modules.todos.reminder_writes.apply_todo_actions",
             AsyncMock(return_value=1),
         ) as apply,
     ):
@@ -2199,7 +2263,7 @@ async def test_materialize_reminder_fences_clears_date_using_existing_topic():
 
 
 def test_format_schedule_result_set_line():
-    from app.modules.todos.reminder_fences import format_schedule_result
+    from app.modules.todos.reminder_writes import format_schedule_result
 
     due = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
     line = format_schedule_result(

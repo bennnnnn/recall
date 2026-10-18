@@ -4,11 +4,13 @@ import { readRecordingBase64, speechUploadFromUri } from "@/lib/speech/voiceAudi
 import type { LiveTalkStatus } from "@/features/speech/model/liveTalkLogic";
 import type { Message, SearchSource } from "@/lib/api/types";
 
-export type RealtimeSessionCredential = {
+type RealtimeSessionCredential = {
   client_secret: string;
   expires_at: number;
   call_id: string;
   model: string;
+  /** Seconds reserved from this month's live talk minutes; hang up here. */
+  max_duration_seconds?: number;
 };
 
 export const speechApi = {
@@ -42,6 +44,12 @@ export const speechApi = {
         turn_id: body.turnId,
         return_messages: true,
       }),
+    }),
+  /** Hung up: the server charges the time used and gives the rest back. */
+  endRealtimeSession: (token: string, callId: string) =>
+    request<LiveTalkStatus>("/speech/live/end", token, {
+      method: "POST",
+      body: JSON.stringify({ call_id: callId }),
     }),
   realtimeTool: (token: string, body: {
     chat_id: string; call_id: string; turn_id: string;

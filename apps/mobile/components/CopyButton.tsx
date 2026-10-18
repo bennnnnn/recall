@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, ViewStyle } from "react-native";
+import { StyleSheet } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 
@@ -10,9 +10,6 @@ import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   text: string;
-  /** Disable haptic feedback if a parent already fired one. */
-  haptic?: boolean;
-  style?: ViewStyle;
   /** Override the a11y label (defaults to "Copy" / "Copied"). */
   accessibilityLabel?: string;
 };
@@ -22,8 +19,6 @@ const ICON_SIZE = IconSize.sm;
 
 export function CopyButton({
   text,
-  haptic = true,
-  style,
   accessibilityLabel,
 }: Props) {
   const { t } = useTranslation();
@@ -43,7 +38,7 @@ export function CopyButton({
     if (!text.trim()) return;
     await Clipboard.setStringAsync(text);
     setCopied(true);
-    if (haptic) notifySuccess();
+    notifySuccess();
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setCopied(false), COPIED_RESET_MS);
   };
@@ -59,7 +54,7 @@ export function CopyButton({
       color={ink}
       onPress={() => void onCopy()}
       accessibilityLabel={accessibilityLabel ?? label}
-      style={[s.btn, style]}
+      style={s.btn}
     />
   );
 }

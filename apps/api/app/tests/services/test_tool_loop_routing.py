@@ -7,7 +7,9 @@ import pytest
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp.base import ToolResult
 from app.gateways.web_search_gateway import WebSearchHit
-from app.services import tool_loop
+from app.modules.chat import tool_loop
+from app.modules.chat.tool_loop import rounds, text_calls
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 from .tool_loop_support import settings
 
@@ -92,9 +94,9 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
     messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(return_value={"content": "Tokyo is the capital.", "tool_calls": []})
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
         patch(
-            "app.modules.web_search.search_cache.run_cached_search",
+            "app.modules.chat.tool_loop.forced_search.run_cached_search",
             AsyncMock(return_value=([], [])),
         ),
     ):
@@ -111,8 +113,8 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
 
 
 def test_tool_loop_completion_alias_uses_dedicated_tool_model():
-    assert tool_loop._tool_loop_completion_alias("smart-chat") == "gemini-flash"
-    assert tool_loop._tool_loop_completion_alias("free-chat") == "gemini-flash"
+    assert rounds._tool_loop_completion_alias("smart-chat") == "gpt-6-luna"
+    assert rounds._tool_loop_completion_alias("free-chat") == "gpt-6-luna"
 
 
 @pytest.mark.asyncio
@@ -120,9 +122,9 @@ async def test_tool_loop_uses_dedicated_alias_for_smart_chat(web_search_register
     messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(return_value={"content": "ok", "tool_calls": []})
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
         patch(
-            "app.modules.web_search.search_cache.run_cached_search",
+            "app.modules.chat.tool_loop.forced_search.run_cached_search",
             AsyncMock(return_value=([], [])),
         ),
     ):
@@ -132,7 +134,7 @@ async def test_tool_loop_uses_dedicated_alias_for_smart_chat(web_search_register
             messages=messages,
             usage={},
         )
-    assert complete.await_args.kwargs["model_alias"] == "gemini-flash"
+    assert complete.await_args.kwargs["model_alias"] == "gpt-6-luna"
 
 
 def test_recovers_provider_text_function_call_only_for_offered_tool() -> None:
@@ -142,7 +144,7 @@ def test_recovers_provider_text_function_call_only_for_offered_tool() -> None:
             "function": {"name": "web_search", "parameters": {}},
         }
     ]
-    calls = tool_loop._tool_calls_from_text(
+    calls = text_calls._tool_calls_from_text(
         "Let me correct that.\n"
         '!function_call:{"call":"web_search","arguments":{"query":"latest news"}}',
         tools,
@@ -158,7 +160,7 @@ def test_recovers_provider_text_function_call_only_for_offered_tool() -> None:
         }
     ]
     assert (
-        tool_loop._tool_calls_from_text(
+        text_calls._tool_calls_from_text(
             '!function_call:{"call":"calendar","arguments":{}}',
             tools,
         )
@@ -173,9 +175,9 @@ async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
         side_effect=ModelUnavailableError("down", failed_alias="free-chat"),
     )
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
         patch(
-            "app.modules.web_search.search_cache.run_cached_search",
+            "app.modules.chat.tool_loop.forced_search.run_cached_search",
             AsyncMock(return_value=([], [])),
         ),
     ):
@@ -185,7 +187,7 @@ async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
             messages=messages,
             usage={},
         )
-    assert out == [*messages, tool_loop._tool_selection_unavailable_message()]
+    assert out == [*messages, rounds._tool_selection_unavailable_message()]
     assert verified is None
     assert terminal is None
 
@@ -197,8 +199,8 @@ async def test_tool_loop_forces_search_when_model_skips_web_search(web_search_re
     complete = AsyncMock(return_value={"content": "I already know.", "tool_calls": []})
     forced = AsyncMock(return_value=([hit], ["What's the latest news on SpaceX?"]))
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.modules.web_search.search_cache.run_cached_search", forced),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
     ):
         out, verified, terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
@@ -231,8 +233,8 @@ async def test_tool_loop_forces_search_when_classifier_required_and_heuristic_no
     complete = AsyncMock(return_value={"content": "I already know.", "tool_calls": []})
     forced = AsyncMock(return_value=([hit], [query]))
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.modules.web_search.search_cache.run_cached_search", forced),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
     ):
         out, verified, terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
@@ -265,8 +267,8 @@ async def test_tool_loop_skips_force_search_when_not_required_and_heuristic_no(
     complete = AsyncMock(return_value={"content": "ok", "tool_calls": []})
     forced = AsyncMock(return_value=([], [query]))
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.modules.web_search.search_cache.run_cached_search", forced),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
     ):
         out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
@@ -285,8 +287,8 @@ async def test_tool_loop_injects_empty_search_when_force_finds_nothing(web_searc
     complete = AsyncMock(return_value={"content": "I already know.", "tool_calls": []})
     forced = AsyncMock(return_value=([], ["What's the latest news on SpaceX?"]))
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.modules.web_search.search_cache.run_cached_search", forced),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
     ):
         out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
@@ -324,9 +326,9 @@ async def test_tool_loop_injects_empty_when_tool_returns_no_hits(web_search_regi
     )
     forced = AsyncMock(return_value=([], ["What's the latest news on SpaceX?"]))
     with (
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
-        patch("app.modules.web_search.search_cache.run_cached_search", forced),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
     ):
         out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
@@ -346,7 +348,7 @@ async def test_tool_loop_injects_empty_when_tool_returns_no_hits(web_search_regi
 async def test_tool_loop_path_copies_tool_hits_onto_context():
     from uuid import uuid4
 
-    from app.modules.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream_paths import run_tool_loop_path
 
     hit = WebSearchHit(title="T", url="https://example.com", snippet="s")
     ctx = MagicMock()
@@ -360,14 +362,15 @@ async def test_tool_loop_path_copies_tool_hits_onto_context():
     ctx.chat_id = uuid4()
     ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
     ctx.model = "free-chat"
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
-        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
         patch(
-            "app.services.tool_loop.run_tool_rounds",
+            "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(ctx.prompt_messages, None, None, [hit])),
         ),
     ):
-        await _run_tool_loop_path(
+        await run_tool_loop_path(
+            deps,
             AsyncMock(),
             settings(mcp_tool_loop_enabled=True),
             ctx,
@@ -382,7 +385,7 @@ async def test_tool_loop_path_copies_tool_hits_onto_context():
 async def test_tool_loop_keeps_a_chemistry_verified_block():
     from uuid import uuid4
 
-    from app.modules.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream_paths import run_tool_loop_path
     from app.modules.chemistry.block import build_verified_chemistry
     from app.modules.chemistry.extract import extract_chemistry_intent
     from app.services.solving import VerifiedMathBlock
@@ -409,15 +412,16 @@ async def test_tool_loop_keeps_a_chemistry_verified_block():
     ctx.model = "free-chat"
     ctx.web_search_classified = None
     ctx.user_timezone = None
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
-        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
-        patch("app.services.tool_loop.turn_needs_tool_loop", return_value=True),
+        patch("app.modules.chat.tool_loop.turn_needs_tool_loop", return_value=True),
         patch(
-            "app.services.tool_loop.run_tool_rounds",
+            "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(ctx.prompt_messages, tool_math, None, [])),
         ),
     ):
-        await _run_tool_loop_path(
+        await run_tool_loop_path(
+            deps,
             AsyncMock(),
             settings(mcp_tool_loop_enabled=True),
             ctx,
@@ -432,7 +436,7 @@ async def test_tool_loop_keeps_a_chemistry_verified_block():
 async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
     from uuid import uuid4
 
-    from app.modules.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream_paths import run_tool_loop_path
 
     ctx = MagicMock()
     ctx.instant_reply = None
@@ -445,10 +449,10 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
     ctx.chat_id = uuid4()
     ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
     ctx.model = "free-chat"
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
-        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
         patch(
-            "app.services.tool_loop.run_tool_rounds",
+            "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
         ) as run,
         patch(
@@ -456,7 +460,8 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
             AsyncMock(return_value=True),
         ) as classify,
     ):
-        await _run_tool_loop_path(
+        await run_tool_loop_path(
+            deps,
             AsyncMock(),
             settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
             ctx,
@@ -473,7 +478,7 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
 async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
     from uuid import uuid4
 
-    from app.modules.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream_paths import run_tool_loop_path
 
     ctx = MagicMock()
     ctx.instant_reply = None
@@ -486,10 +491,10 @@ async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
     ctx.chat_id = uuid4()
     ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
     ctx.model = "free-chat"
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
-        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
         patch(
-            "app.services.tool_loop.run_tool_rounds",
+            "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
         ),
         patch(
@@ -497,7 +502,8 @@ async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
             AsyncMock(side_effect=AssertionError("heuristic already yes")),
         ) as classify,
     ):
-        await _run_tool_loop_path(
+        await run_tool_loop_path(
+            deps,
             AsyncMock(),
             settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
             ctx,
@@ -512,7 +518,7 @@ async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
 async def test_tool_loop_path_skips_classifier_when_spend_capped():
     from uuid import uuid4
 
-    from app.modules.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream_paths import run_tool_loop_path
 
     ctx = MagicMock()
     ctx.instant_reply = None
@@ -525,18 +531,19 @@ async def test_tool_loop_path_skips_classifier_when_spend_capped():
     ctx.chat_id = uuid4()
     ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
     ctx.model = "free-chat"
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=True)})
     with (
-        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=True)),
         patch(
             "app.modules.web_search.detection.should_web_search",
             AsyncMock(side_effect=AssertionError("spend cap must skip classifier")),
         ) as classify,
         patch(
-            "app.services.tool_loop.run_tool_rounds",
+            "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(side_effect=AssertionError("spend cap must skip tool loop")),
         ) as run,
     ):
-        await _run_tool_loop_path(
+        await run_tool_loop_path(
+            deps,
             AsyncMock(),
             settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
             ctx,

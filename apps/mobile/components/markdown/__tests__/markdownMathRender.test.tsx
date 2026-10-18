@@ -307,7 +307,7 @@ describe("MarkdownContent math rendering", () => {
     );
     expect(getByText("2")).toBeOnTheScreen();
     expect(getByText("Simplify")).toBeOnTheScreen();
-    expect(getByText("3 x = 3")).toBeOnTheScreen();
+    expect(getByText("3x = 3")).toBeOnTheScreen();
     expect(queryByText(/Simplify 3/)).toBeNull();
   });
 

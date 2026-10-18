@@ -104,6 +104,10 @@ def init_sentry(settings: Settings) -> None:
             FastApiIntegration(transaction_style="endpoint"),
         ],
         send_default_pii=False,
+        # Frame locals hold prompts, transcripts, memory text and tokens
+        # (refresh_token, access_token, id_token). The SDK's scrubber masks
+        # only exact names like "token", so stack variables stay off.
+        include_local_variables=False,
         before_send=before_send,
         ignore_errors=list(_IGNORED_EXC_TYPES),
     )

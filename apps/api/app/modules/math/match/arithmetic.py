@@ -27,6 +27,10 @@ _ARITH_CUES: tuple[str, ...] = (
     "the result of",
     "the sum of",
     "the value of",
+    # A follow-up suggestion: "What if it were 3 - 2?" asks for that sum.
+    "what if it were",
+    "what if it was",
+    "what if it is",
     "what is",
     "what's",
     "whats",
@@ -72,12 +76,12 @@ _NUMERIC_CONSTANT = re.compile(r"(?<![A-Za-z])(?:pi|e|I)(?![A-Za-z0-9])|π")
 # The factorial input cap the combinatorics solver keeps.
 _LARGEST_FACTORIAL = 170
 # ``2 1/2`` is two and a half, never ``2 * 1/2``.
-_MIXED_NUMBER = re.compile(r"(?<![\d.])(\d+)\s+(\d+)\s*/\s*(\d+)(?![\d.])")
+_MIXED_NUMBER = re.compile(r"(?:\b(?<!\.)|\B(?<!\d))(\d+)\s+(\d+)\s*/\s*(\d+)(?![\d.])")
 # Two numbers with only a space between them (``1 000``) are not one expression.
 _SPACED_NUMBERS = re.compile(r"\d\s+[\d.]")
 # ``456 x 23``: a letter x spaced between two numbers is "times". ``2x + 3``
 # keeps its unknown, and a glued ``8x5`` stays a dimension (like ``8 by 5``).
-_TIMES_LETTER = re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\s+[xX]\s+(?=\d)")
+_TIMES_LETTER = re.compile(r"\b(?<!\.)(\d+(?:\.\d+)?)\s+[xX]\s+(?=\d)")
 # Spoken operators between numbers, read by the same whole-message grammar.
 _SPOKEN_OPERATORS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bmultiplied\s+by\b"), "*"),
@@ -293,7 +297,7 @@ def bare_arithmetic_expr(text: str) -> str | None:
     if not stripped or not any(ch.isdigit() for ch in stripped):
         return None
     stripped = spoken_arithmetic(stripped)
-    from app.modules.math.solve.parse import _normalize_latex_to_sympy
+    from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
 
     normalized = _normalize_latex_to_sympy(_MIXED_NUMBER.sub(r"(\1+\2/\3)", stripped))
     normalized = _SPACED_CALL.sub(r"\1(", normalized)

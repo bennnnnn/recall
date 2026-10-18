@@ -41,7 +41,9 @@ async def inject_regenerated_image_content(
         injected = await attachment_content.inject_vision_content(
             prompt_messages, get_storage_gateway(settings), images, caption=caption
         )
-    loaded = next((msg for msg in reversed(prompt_messages) if msg.get("role") == "user"), {})
+    loaded: dict[str, Any] = next(
+        (msg for msg in reversed(prompt_messages) if msg.get("role") == "user"), {}
+    )
     content = loaded.get("content")
     image_count = (
         sum(isinstance(part, dict) and part.get("type") == "image_url" for part in content)

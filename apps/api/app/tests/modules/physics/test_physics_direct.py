@@ -10,12 +10,12 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat.stream_pipeline import stream_and_finalize
+from app.modules.chat.tool_loop import turn_needs_tool_loop
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.physics.fence import replace_unclosed_physics_fences_safe
 from app.modules.physics.prompt import build_physics_augmentation as build_math_augmentation
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER, mark_server_answer_fences
 from app.services.solving import VerifiedPhysicsBlock
-from app.services.tool_loop import turn_needs_tool_loop
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,

@@ -1,4 +1,4 @@
-import { messagesLookLikeMath, textLooksLikeMath } from "@/lib/math/composerIntent";
+import { textLooksLikeMath } from "@/lib/math/composerIntent";
 
 describe("textLooksLikeMath", () => {
   it("detects latex, glyphs, and homework verbs", () => {
@@ -27,12 +27,5 @@ describe("textLooksLikeMath", () => {
     // But "solve" with a math signal should still trigger.
     expect(textLooksLikeMath("solve 2x + 3 = 7")).toBe(true);
     expect(textLooksLikeMath("factor x^2 - 1")).toBe(true);
-  });
-});
-
-describe("messagesLookLikeMath", () => {
-  it("looks at recent messages only", () => {
-    expect(messagesLookLikeMath(["hi", "√9 = 3"])).toBe(true);
-    expect(messagesLookLikeMath(["hello", "how are you"])).toBe(false);
   });
 });

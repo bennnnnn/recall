@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Callable
 
 import pytest
 
@@ -12,6 +13,12 @@ from app.modules.math.solve import MathServiceError
 from app.modules.physics import block as physics_block
 from app.modules.physics import solver as physics_solver
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.average_speed import solve_average_speed
+from app.modules.physics.solvers.common import PhysicsResult
+from app.modules.physics.solvers.rates import _solve_distance_speed_time
+from app.modules.physics.solvers.relative_motion import solve_relative_motion
+from app.modules.physics.solvers.stopping import _solve_stopping_distance
+from app.modules.physics.solvers.two_stage import solve_two_stage
 
 # ---------------------------------------------------------------------------
 # Kinematics
@@ -185,6 +192,145 @@ def test_kinematics_acceleration_is_constant() -> None:
     # a = -g = -9.81 m/s^2, no graph for constant acceleration
     assert "m/s" in result.answer_value
     assert len(result.graph_specs) == 0
+
+
+_VERTICAL_UNITS = {"h0": "m", "v0": "m/s", "g": "m/s^2", "t": "s"}
+
+
+def _vertical(op: str, **params: float) -> PhysicsIntent:
+    return PhysicsIntent(
+        kind="kinematics",
+        physics_op=op,
+        physics_params=params,
+        physics_units={name: _VERTICAL_UNITS[name] for name in params},
+    )
+
+
+def test_kinematics_time_to_peak_answers_the_top_and_draws_the_whole_trip() -> None:
+    result = physics_solver.solve_kinematics(_vertical("time_to_peak", v0=19.62, g=9.81))
+
+    assert result.answer_value == "2 s"
+    assert result.formulas == (r"t_{\text{top}} = \frac{v_0}{g}",)
+    assert result.graph_specs == []
+    (scene,) = result.simulation_specs
+    assert scene.title_key == "free_fall" and scene.ground
+
+
+@pytest.mark.parametrize(
+    ("op", "symbol", "value"),
+    [("speed", r"v_{impact} = \sqrt", 19.81), ("velocity", r"v = -\sqrt", -19.81)],
+)
+def test_kinematics_speed_without_a_time_is_the_impact(op: str, symbol: str, value: float) -> None:
+    result = physics_solver.solve_kinematics(_vertical(op, h0=20.0, v0=0.0, g=9.81))
+
+    assert result.formulas[0].startswith(symbol)
+    assert result.quantities[0].value == pytest.approx(value, abs=0.01)
+    (graph,) = result.graph_specs
+    assert graph.x_max == pytest.approx(math.sqrt(2 * 20.0 / 9.81))
+    assert graph.points[-1][1] == pytest.approx(value, abs=0.01)
+    (scene,) = result.simulation_specs
+    assert scene.ground
+
+
+def test_kinematics_speed_graph_plots_the_magnitude() -> None:
+    result = physics_solver.solve_kinematics(_vertical("speed", h0=20.0, v0=5.0, g=9.81, t=2.0))
+
+    (graph,) = result.graph_specs
+    assert graph.expr == "v(t) = |5 - 9.81*t|"
+    assert graph.title == "Speed vs. Time" and graph.y_label == "Speed (m/s)"
+    assert graph.trajectory_type == "velocity_vs_time"
+    assert len(graph.points) == 100
+    assert all(speed >= 0 for _, speed in graph.points)
+    assert graph.points[-1] == [2.0, 14.62]
+
+
+def test_kinematics_velocity_at_release_has_no_picture() -> None:
+    result = physics_solver.solve_kinematics(_vertical("velocity", h0=20.0, v0=5.0, g=9.81, t=0.0))
+
+    assert result.answer_value == "5 m/s"
+    assert result.graph_specs == [] and result.simulation_specs == []
+
+
+def test_kinematics_rise_without_a_ledge_is_drawn_without_ground() -> None:
+    result = physics_solver.solve_kinematics(_vertical("position", v0=12.0, g=9.81, t=1.0))
+
+    assert result.formulas == (r"h = v_0 t - \frac{1}{2} g t^2",)
+    (scene,) = result.simulation_specs
+    assert not scene.ground
+
+
+@pytest.mark.parametrize(
+    ("op", "params", "reason"),
+    [
+        ("time_to_ground", {"v0": 0.0, "g": 9.81}, "no stated height for a fall"),
+        ("position", {"v0": 0.0, "g": 9.81, "t": 1.0}, "no stated height for a fall"),
+        ("speed", {"v0": 3.0, "g": 9.81}, "no stated height to land from"),
+        ("acceleration", {"h0": 10.0, "g": 0.0}, "gravity must be positive"),
+        ("position", {"h0": 10.0, "v0": 0.0, "g": 9.81}, "position requires a time t"),
+        ("time_to_peak", {"h0": 5.0, "v0": -1.0, "g": 9.81}, "only an upward launch"),
+        ("vertical_max_height", {"h0": 10.0, "v0": 0.0, "g": 9.81}, "requires v0 > 0"),
+        ("time_to_ground", {"h0": 0.0, "v0": 0.0, "g": 9.81}, "no positive real time"),
+    ],
+)
+def test_kinematics_vertical_declines(op: str, params: dict[str, float], reason: str) -> None:
+    with pytest.raises(MathServiceError, match=reason):
+        physics_solver.solve_kinematics(_vertical(op, **params))
+
+
+def test_kinematics_unknown_vertical_op_is_refused() -> None:
+    intent = PhysicsIntent.model_construct(
+        kind="kinematics", physics_op="bogus", physics_params={"h0": 5.0}, physics_units={}
+    )
+    with pytest.raises(MathServiceError, match="unsupported kinematics op: bogus"):
+        physics_solver.solve_kinematics(intent)
+
+
+@pytest.mark.parametrize(
+    ("op", "params", "units", "solver"),
+    [
+        (
+            "rate_speed",
+            {"d": 100.0, "t": 20.0},
+            {"d": "m", "t": "s"},
+            _solve_distance_speed_time,
+        ),
+        (
+            "average_speed_equal_distances",
+            {"v1": 30.0, "v2": 60.0},
+            {"v1": "km/h", "v2": "km/h"},
+            solve_average_speed,
+        ),
+        (
+            "stopping_distance",
+            {"v": 20.0, "t_react": 1.0, "decel": 5.0},
+            {"v": "m/s", "t_react": "s", "decel": "m/s^2"},
+            _solve_stopping_distance,
+        ),
+        (
+            "two_stage_distance",
+            {"a1": 2.0, "t1": 5.0, "t_cruise": 10.0},
+            {"a1": "m/s^2", "t1": "s", "t_cruise": "s"},
+            solve_two_stage,
+        ),
+        (
+            "catch_up_time",
+            {"d": 100.0, "v_chaser": 10.0, "v_target": 6.0},
+            {"d": "m", "v_chaser": "m/s", "v_target": "m/s"},
+            solve_relative_motion,
+        ),
+    ],
+)
+def test_kinematics_routes_other_motion_to_its_solver(
+    op: str,
+    params: dict[str, float],
+    units: dict[str, str],
+    solver: Callable[[PhysicsIntent], PhysicsResult],
+) -> None:
+    intent = PhysicsIntent(
+        kind="kinematics", physics_op=op, physics_params=params, physics_units=units
+    )
+
+    assert physics_solver.solve_kinematics(intent) == solver(intent)
 
 
 # ---------------------------------------------------------------------------

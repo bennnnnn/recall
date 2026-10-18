@@ -29,7 +29,7 @@ def _vision_response(text: str) -> MagicMock:
 
 
 def test_render_pdf_pages_returns_jpeg():
-    pages = ocr.render_pdf_pages(_blank_pdf_bytes(), max_pages=2, scale=1.5)
+    pages, _total = ocr.render_pdf_pages_and_count(_blank_pdf_bytes(), max_pages=2, scale=1.5)
     assert len(pages) == 1
     mime, data = pages[0]
     assert mime == "image/jpeg"
@@ -43,7 +43,7 @@ def test_render_pdf_pages_and_count_includes_document_length():
 
 
 def test_render_pdf_pages_invalid_bytes_returns_empty():
-    assert ocr.render_pdf_pages(b"not-a-pdf", max_pages=2, scale=1.5) == []
+    assert ocr.render_pdf_pages_and_count(b"not-a-pdf", max_pages=2, scale=1.5)[0] == []
 
 
 def test_page_text_from_response_skips_empty_marker():

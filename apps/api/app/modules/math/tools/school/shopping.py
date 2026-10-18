@@ -32,7 +32,7 @@ _ITEM_FORMS = (
         rf"(?:an?|one)\s+{_ITEM_NAME}\s+(?:for|at)\s+{_PRICE.format('price')}", re.IGNORECASE
     ),
 )
-_ITEM_SPLIT = re.compile(r"\s*,\s*(?:and\s+)?|\s+and\s+", re.IGNORECASE)
+_ITEM_SPLIT = re.compile(r"\s?,\s*(?:and\s+)?|\sand\s+", re.IGNORECASE)
 _CHANGE = re.compile(
     rf"{_PERSON}\s+(?:bought|buy|buys|purchased)\s+(?P<items>.+?)\s*[.;]\s*"
     rf"{_PERSON}\s+(?:paid|pay|pays|gave|gives|handed|hand)\s+(?:the\s+cashier\s+)?"

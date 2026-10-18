@@ -10,7 +10,8 @@ Mirrors apps/mobile/lib/markdown/inlineCode.ts.
 from __future__ import annotations
 
 
-def _escaped_at(text: str, at: int) -> bool:
+def escaped_at(text: str, at: int) -> bool:
+    """True when an odd run of backslashes escapes ``text[at]``."""
     slashes = 0
     index = at - 1
     while index >= 0 and text[index] == "\\":
@@ -36,7 +37,7 @@ def read_inline_code_span(text: str, start: int) -> int | None:
     """End (exclusive) of the complete code span whose backtick run starts at ``start``."""
     if start >= len(text) or text[start] != "`":
         return None
-    if (start > 0 and text[start - 1] == "`") or _escaped_at(text, start):
+    if (start > 0 and text[start - 1] == "`") or escaped_at(text, start):
         return None
     opener_end = start + 1
     while opener_end < len(text) and text[opener_end] == "`":

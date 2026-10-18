@@ -9,7 +9,7 @@ export type ClockParts = {
   tzLabel: string;
 };
 
-export function prefers12hClock(locale: string | undefined): boolean {
+function prefers12hClock(locale: string | undefined): boolean {
   return (locale ?? "en").split("-")[0].toLowerCase() === "en";
 }
 

@@ -21,7 +21,7 @@ import {
 } from "@/lib/physics/circuit";
 
 /** Thin strokes, and the heavier ones (plates) drawn separately. */
-export type SymbolPaths = { stroke: SkPath; heavy?: SkPath };
+type SymbolPaths = { stroke: SkPath; heavy?: SkPath };
 
 const METER_RADIUS = 9;
 const ZIGZAG_PEAKS = 6;

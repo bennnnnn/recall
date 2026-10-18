@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.attachments.rag import chunk_text
 from app.modules.chat.history_rag import (
     embed_query_for_prompt,
     index_message,
@@ -398,6 +399,52 @@ async def test_index_message_uses_short_lived_session():
     assert open_count == 1
     assert max_live == 1
     replace_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_index_message_stores_failed_piece_as_null_under_shared_concurrency():
+    """Pieces embed at most ``embedding_concurrency`` at a time; a piece whose embed failed is
+    still stored, in its place, with a null vector (search skips it)."""
+    settings = Settings(
+        chat_history_rag_enabled=True,
+        chat_history_rag_chunk_chars=30,
+        chat_history_rag_chunk_overlap=0,
+        embedding_concurrency=2,
+    )
+    message = MagicMock()
+    message.id = uuid4()
+    message.chat_id = uuid4()
+    message.role = "user"
+    message.content = "My lease ends in March 2027 and the landlord wants sixty days notice first."
+    text = prepare_message_text(message.role, message.content) or ""
+    pieces = chunk_text(text, chunk_chars=30, overlap=0)
+    assert len(pieces) >= 3
+    in_flight = 0
+    peak = 0
+
+    async def _embed(_settings, text):
+        nonlocal in_flight, peak
+        in_flight += 1
+        peak = max(peak, in_flight)
+        await asyncio.sleep(0.005)
+        in_flight -= 1
+        return None if text == pieces[1] else [float(len(text))]
+
+    with (
+        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.chat.history_rag.embedding_gateway.embed_text", _embed),
+        patch(
+            "app.modules.chat.history_rag.chunks_repo.replace_chunks", AsyncMock()
+        ) as replace_mock,
+    ):
+        count = await index_message(settings, user_id=uuid4(), message=message)
+
+    assert count == len(pieces)
+    assert peak == 2
+    assert replace_mock.call_args.kwargs["chunks"] == [
+        (index, piece, None if index == 1 else [float(len(piece))])
+        for index, piece in enumerate(pieces)
+    ]
 
 
 @pytest.mark.asyncio

@@ -11,7 +11,7 @@ type Props = {
 };
 
 /** ChatGPT voice-mode glyph: four rounded vertical bars. */
-export function LiveTalkWaveformIcon({ size = 18, color }: { size?: number; color: string }) {
+function LiveTalkWaveformIcon({ size = 18, color }: { size?: number; color: string }) {
   const w = 2.2;
   const gap = 1.7;
   const bars = [8, 16, 12, 6];

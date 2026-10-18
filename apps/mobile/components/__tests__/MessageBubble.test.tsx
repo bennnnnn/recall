@@ -7,6 +7,7 @@ import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciat
 import type { Message } from "@/lib/api";
 
 let mockShowLiveClock = false;
+let mockMarkdownPresented = false;
 
 jest.mock("expo-clipboard", () => ({
   setStringAsync: jest.fn(async () => undefined),
@@ -36,8 +37,8 @@ jest.mock("@/components/MarkdownContent", () => {
   const { Text: MockText } =
     jest.requireActual("react-native") as typeof import("react-native");
   return {
-    MarkdownContent: ({ content }: { content: string }) => (
-      <MockText>{content}</MockText>
+    MarkdownContent: ({ content, presented }: { content: string; presented?: boolean }) => (
+      <MockText testID={presented ? "markdown-presented" : "markdown"}>{content}</MockText>
     ),
   };
 });
@@ -79,8 +80,9 @@ jest.mock("@/components/RecallTypingIndicator", () => ({
 jest.mock("@/features/drafts/context/emailDraftPersist", () => ({
   AssistantMessageScope: ({ children }: { children: React.ReactNode }) => children,
 }));
+let mockAuthUser: { plan: string; features: string[]; locale: string } | null = null;
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ user: null }),
+  useAuth: () => ({ user: mockAuthUser }),
   useAuthToken: () => "token",
 }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({
@@ -110,6 +112,7 @@ jest.mock("@/hooks/useAssistantMessageContent", () => ({
     searchSources: [],
     markdownStreamMode: false,
     markdownResetKey: "test",
+    markdownPresented: mockMarkdownPresented,
   }),
 }));
 jest.mock("@/lib/haptics", () => ({
@@ -209,6 +212,30 @@ describe("MessageBubble copy feedback timers", () => {
     const readingForever = () =>
       jest.mocked(speakPlainText).mockImplementationOnce(() => new Promise(() => {}));
 
+    afterEach(() => {
+      mockAuthUser = null;
+    });
+
+    it("reads with the phone's own voice when the plan has no read-aloud", async () => {
+      mockAuthUser = { plan: "free", features: ["image_generation"], locale: "en" };
+      const view = await render(<MessageBubble message={assistantMessage} />);
+      await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
+      const options = jest.mocked(speakPlainText).mock.calls.at(-1)?.[2];
+      expect(options).toEqual({ token: null, preferCloud: false });
+    });
+
+    it("uses the natural voice on a plan that includes read-aloud", async () => {
+      mockAuthUser = {
+        plan: "plus",
+        features: ["all_models", "image_generation", "speech_transcription", "speech_tts"],
+        locale: "en",
+      };
+      const view = await render(<MessageBubble message={assistantMessage} />);
+      await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
+      const options = jest.mocked(speakPlainText).mock.calls.at(-1)?.[2];
+      expect(options).toEqual({ token: "token", preferCloud: true });
+    });
+
     it("stops reading when the reply leaves the screen", async () => {
       readingForever();
       const view = await render(<MessageBubble message={assistantMessage} />);
@@ -255,5 +282,22 @@ describe("MessageBubble copy feedback timers", () => {
     expect(view.getByTestId("lazy-message-clock")).toHaveTextContent(
       "America/New_York",
     );
+  });
+});
+
+describe("MessageBubble markdown presentation", () => {
+  afterEach(() => {
+    mockMarkdownPresented = false;
+  });
+
+  it("hands a reply the server presented to the renderer as presented", async () => {
+    mockMarkdownPresented = true;
+    const view = await render(<MessageBubble message={assistantMessage} />);
+    expect(view.getByTestId("markdown-presented")).toBeTruthy();
+  });
+
+  it("leaves other replies for the phone to present", async () => {
+    const view = await render(<MessageBubble message={assistantMessage} />);
+    expect(view.getByTestId("markdown")).toBeTruthy();
   });
 });

@@ -17,7 +17,7 @@ jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "tok", user: { locale: "en" } }),
 }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
-jest.mock("@/hooks/useModels", () => ({ useModels: () => ({ isPro: false }) }));
+jest.mock("@/hooks/useModels", () => ({ useModels: () => ({ isPaid: false }) }));
 jest.mock("@/lib/config", () => ({
   get config() {
     return mockConfig;

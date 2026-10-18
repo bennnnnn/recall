@@ -251,7 +251,7 @@ async def test_exact_cubic_returns_verified_graph_without_model(
     assert reply is not None
     graph = json.loads(reply.removeprefix("```graph\n").removesuffix("\n```\n"))
     assert graph == verified.canonical_fence
-    assert graph["expr"] == "x**3"
+    assert graph["expr"] == "x^3"  # SymPy's reading, in the grammar the phone resamples
     assert len(graph["points"]) == 96
     assert (graph["x_min"], graph["x_max"]) == (x_min, x_max)
     final = validate_math_fences_worker(reply, verified)

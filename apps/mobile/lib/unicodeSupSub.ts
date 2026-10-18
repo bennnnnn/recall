@@ -134,12 +134,6 @@ export function toSuperscript(value: string): string | null {
   return toVerticalForm(value, SUPERSCRIPT);
 }
 
-/** Return the Unicode subscript for `value`, or null if any character lacks
- * a Unicode subscript. */
-export function toSubscript(value: string): string | null {
-  return toVerticalForm(value, SUBSCRIPT);
-}
-
 /** Reverse maps: Unicode super/subscript glyph → ASCII base char. */
 const FROM_SUPERSCRIPT: Record<string, string> = Object.fromEntries(
   Object.entries(SUPERSCRIPT).map(([ascii, uni]) => [uni, ascii]),

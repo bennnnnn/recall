@@ -37,7 +37,7 @@ export const SCANNER_TOP_CONTROL_PX = 44;
 export const SCANNER_SHUTTER_PX = 76;
 export const SCANNER_SUBJECT_SWITCHER_PX = 42;
 
-export const ZERO_INSET: ScanChromeInset = { top: 0, right: 0, bottom: 0, left: 0 };
+const ZERO_INSET: ScanChromeInset = { top: 0, right: 0, bottom: 0, left: 0 };
 
 export function scanChromeInset(
   windowWidth: number,

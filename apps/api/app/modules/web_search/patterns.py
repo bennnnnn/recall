@@ -423,8 +423,6 @@ _PROXIMITY_PHRASES = (
     r"\bbest\b",
 )
 
-_QUIZ_ANSWER = re.compile(r"^[A-D]\.?$", re.IGNORECASE)
-
 # Distance / travel from the user's location — venue-agnostic.
 # Keep in sync with apps/mobile/lib/localPlacesQuery.ts DISTANCE_INTENT.
 # ``does it take`` must require a commute verb (get/drive/walk/reach/arrive).
@@ -432,7 +430,6 @@ _QUIZ_ANSWER = re.compile(r"^[A-D]\.?$", re.IGNORECASE)
 _DISTANCE_INTENT = re.compile(
     r"\b("
     r"how\s+far"
-    r"|how\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)"
     r"|(?:walking|driving|drive|travel|commute)\s+(?:distance|time)"
     r"|distance\s+(?:to|from)"
     r"|how\s+long\s+(?:to\s+get|does\s+it\s+take\s+to\s+(?:get|drive|walk|reach|arrive)"
@@ -481,6 +478,33 @@ _FROM_USER = re.compile(
 )
 
 _FIXED_DISTANCE_FROM = re.compile(r"\bdistance\s+from\b", re.IGNORECASE)
+
+# "How many minutes to the airport?" asks about a trip; "how many minutes in a
+# good nap", "how many minutes to boil an egg" or "how many miles is a 5k run?"
+# asks about a duration or a length. Minutes, miles and km are a trip only
+# beside where it goes or starts ("to the airport", "from here", "to Bole") or
+# "away".
+# Keep in sync with apps/mobile/lib/localPlacesQuery.ts HOW_MANY_ASKED / TRIP_PLACE.
+_HOW_MANY_ASKED = re.compile(
+    r"\bhow\s+many\s+(?:minutes|mins|miles|kilometers|kilometres|km)\b", re.IGNORECASE
+)
+_TRIP_PLACE = re.compile(
+    r"\b(?:away"
+    r"|get(?:ting)?\s+(?:there|here|home)"
+    r"|(?:to|from)\s+(?:here|there|home|work|school|campus|town|downtown)"
+    # "to the station", "from my house"; not "to the end" or "to my next class".
+    r"|(?:to|from)\s+(?:the|my|our|your)\s+"
+    r"(?!(?:end|start|beginning|hour|time|next|last|first)\b)[a-z]+)\b",
+    re.IGNORECASE,
+)
+_TRIP_NAMED_PLACE = re.compile(r"\b(?i:to|from)\s+[A-Z](?![\s'\u2019])")
+
+
+def trip_how_many_phrase(text: str) -> bool:
+    """True for "how many minutes / miles / km" about a trip: to or from a place, or away."""
+    if _HOW_MANY_ASKED.search(text) is None:
+        return False
+    return bool(_TRIP_PLACE.search(text) or _TRIP_NAMED_PLACE.search(text))
 
 
 def distance_between_phrase(text: str) -> bool:

@@ -7,8 +7,8 @@ from app.modules.math.fence import validate_math_fences
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
+from app.modules.math.tools.direct_newton import _parse_newton_guess
 from app.modules.math.tools.extract import extract_math_intent
-from app.modules.math.tools.helpers import _parse_newton_guess
 
 
 @pytest.mark.parametrize(
@@ -32,4 +32,6 @@ def test_signed_leading_decimal_is_one_complete_newton_guess(literal: str, expec
     reply = maybe_direct_math_reply(block, query)
     assert reply is not None
     assert f"_{{0}} = {expected:g}$" in reply
-    assert validate_math_fences(reply, verified=block) == reply
+    landed = validate_math_fences(reply, verified=block)
+    card = f"**Answer**\n\n```answer\nverified: true\nx \\approx {block.canonical_answer}\n```"
+    assert landed.rstrip().endswith(card)

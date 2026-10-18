@@ -13,6 +13,7 @@ from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.calculus_outcome import undefined_integral_note
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent
+from app.tests.tool_context import tool_context
 
 _SETTINGS = Settings(math_tools_enabled=True)
 
@@ -121,7 +122,7 @@ async def test_tool_loop_uses_the_same_integral_outcome_contract(expr, answer, p
     adapter = SympyAdapter(_SETTINGS)
     with patch.object(adapter, "_run_off_loop", side_effect=compute_locally):
         result = await adapter.invoke(
-            {"action": "integrate", "expr": expr, "lower": "-1", "upper": "1"}
+            {"action": "integrate", "expr": expr, "lower": "-1", "upper": "1"}, tool_context()
         )
     assert phrase in result.content
     if answer is None or "infty" in (answer or ""):
@@ -145,7 +146,7 @@ async def test_tool_complex_infinity_does_not_produce_a_canonical_answer():
         AsyncMock(return_value=MathExprResult(result="zoo", latex=r"\tilde{\infty}")),
     ):
         result = await adapter.invoke(
-            {"action": "integrate", "expr": "x", "lower": "0", "upper": "1"}
+            {"action": "integrate", "expr": "x", "lower": "0", "upper": "1"}, tool_context()
         )
     assert result.data is None
     assert "did not establish a defined value" in result.content
@@ -169,7 +170,7 @@ async def test_tool_indefinite_integral_rejects_embedded_complex_infinity(expr):
 
     adapter = SympyAdapter(_SETTINGS)
     with patch.object(adapter, "_run_off_loop", side_effect=compute_locally):
-        result = await adapter.invoke({"action": "integrate", "expr": expr})
+        result = await adapter.invoke({"action": "integrate", "expr": expr}, tool_context())
     assert result.data is None
     assert "did not establish a defined value" in result.content
     assert "+ C" not in result.content
@@ -200,7 +201,7 @@ async def test_tool_accumulation_bounds_are_not_an_integral_value(expr):
     adapter = SympyAdapter(_SETTINGS)
     with patch.object(adapter, "_run_off_loop", side_effect=compute_locally):
         result = await adapter.invoke(
-            {"action": "integrate", "expr": expr, "lower": "0", "upper": "infinity"}
+            {"action": "integrate", "expr": expr, "lower": "0", "upper": "infinity"}, tool_context()
         )
     assert result.data is None
     assert "did not establish a defined value" in result.content

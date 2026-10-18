@@ -4,7 +4,7 @@ import i18n from "@/lib/i18n";
 import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
 import { conversationMarkdownBody } from "@/features/chat/model/transcript";
 
-export async function exportMessageAsPdf(title: string, markdown: string): Promise<void> {
+async function exportMessageAsPdf(title: string, markdown: string): Promise<void> {
   const html = markdownToStructuredPrintHtml(title, markdown);
   await printHtmlToSharedPdf(html, title);
 }

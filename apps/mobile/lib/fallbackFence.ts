@@ -16,9 +16,9 @@ import { parsePlacesJson } from "@/lib/placesList";
 
 const VISUAL_SNIPPET_MAX = 80;
 
-export type FallbackNamedItem = { title: string; url?: string };
+type FallbackNamedItem = { title: string; url?: string };
 
-export type FallbackFence =
+type FallbackFence =
   | { kind: "callout"; calloutKind: CalloutKind; body: string }
   | { kind: "geometry"; body: string }
   | { kind: "graph"; body: string }

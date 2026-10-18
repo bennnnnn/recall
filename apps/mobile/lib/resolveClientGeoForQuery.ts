@@ -5,7 +5,7 @@ import { requestDeviceGeo } from "@/lib/deviceLocation";
 import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
 import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
 
-export type ClientGeoResolveResult =
+type ClientGeoResolveResult =
   | { ok: true; clientGeo: ClientGeo | null }
   | { ok: false };
 

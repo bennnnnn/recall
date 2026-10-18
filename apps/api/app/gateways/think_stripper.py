@@ -11,6 +11,12 @@ THINK_CLOSE = "\x3c/think\x3e"
 # Hold an unclosed think block this long while streaming. R1 CoT on even a
 # short ask is often >4k chars; giving up early leaked the rest into the bubble.
 THINK_MAX_OPEN_BUFFER = 65_536
+# How much of a reply's start to hold for a model that has ended untagged
+# reasoning with a lone closing tag ("Simple question.</think>2 + 2 = 4"): text
+# before such a tag, inside this window, is that reasoning and is dropped.
+STRAY_THINK_LEAD_HOLD = 400
+# Held back at the end of the buffer so a tag split across chunks cannot leak.
+_TAG_TAIL = len(THINK_CLOSE) - 1
 
 
 class ThinkStripper:
@@ -18,11 +24,23 @@ class ThinkStripper:
 
     Handles open/close tags split across chunks. Emits text outside think blocks
     unchanged; discards text inside. An unclosed think block is dropped on flush.
+    A closing tag with no opening one is never shown; before any visible text
+    has gone out, the text ahead of it is reasoning and is dropped too.
+    ``lead_hold`` holds that many characters of the reply's start so a lone
+    closing tag can still arrive in time.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, lead_hold: int = 0) -> None:
         self._buf = ""
         self._in_think = False
+        self._lead_hold = lead_hold
+        self._released = False
+
+    def _emit(self, out: list[str], text: str) -> None:
+        if text:
+            out.append(text)
+            if text.strip():
+                self._released = True
 
     def feed(self, chunk: str) -> str:
         self._buf += chunk
@@ -38,18 +56,25 @@ class ThinkStripper:
                     break
                 self._buf = self._buf[idx + len(THINK_CLOSE) :]
                 self._in_think = False
-            else:
-                idx = self._buf.find(THINK_OPEN)
-                if idx == -1:
-                    # Hold back enough trailing chars that a split open tag can't leak.
-                    safe = len(self._buf) - (len(THINK_OPEN) - 1)
-                    if safe > 0:
-                        out.append(self._buf[:safe])
-                        self._buf = self._buf[safe:]
+                continue
+            open_idx = self._buf.find(THINK_OPEN)
+            close_idx = self._buf.find(THINK_CLOSE)
+            if close_idx != -1 and (open_idx == -1 or close_idx < open_idx):
+                if self._released:
+                    self._emit(out, self._buf[:close_idx])
+                self._buf = self._buf[close_idx + len(THINK_CLOSE) :]
+                continue
+            if open_idx == -1:
+                if not self._released and len(self._buf) < self._lead_hold:
                     break
-                out.append(self._buf[:idx])
-                self._buf = self._buf[idx + len(THINK_OPEN) :]
-                self._in_think = True
+                safe = len(self._buf) - _TAG_TAIL
+                if safe > 0:
+                    self._emit(out, self._buf[:safe])
+                    self._buf = self._buf[safe:]
+                break
+            self._emit(out, self._buf[:open_idx])
+            self._buf = self._buf[open_idx + len(THINK_OPEN) :]
+            self._in_think = True
         return "".join(out)
 
     def flush(self) -> str:

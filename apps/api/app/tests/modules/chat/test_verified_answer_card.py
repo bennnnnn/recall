@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -17,11 +18,13 @@ import pytest
 
 from app.core.config import Settings
 from app.modules import web_search as web_search_service
-from app.modules.chat.stream_pipeline import enrich_final_content
+from app.modules.chat.finalize_passes import enrich_final_content
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.math import fence as math_fence_service
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 # Any spelling of an answer fence a markdown renderer would draw as a card.
 _ANY_ANSWER_FENCE = re.compile(
@@ -42,19 +45,20 @@ async def _session() -> Any:
     yield MagicMock()
 
 
-def _seams() -> Any:
-    seams = MagicMock()
-    seams.SessionLocal = _session
-    seams.users_repo.get_by_id = AsyncMock(return_value=MagicMock())
-
+def _deps() -> Any:
     async def _reminders(_session: object, **kwargs: Any) -> tuple[str, int]:
         return str(kwargs["assistant_text"]), 0
 
-    seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=_reminders)
-    seams.todos_service.transcript_implies_todo_sync = MagicMock(return_value=False)
-    seams.math_fence_service = math_fence_service
-    seams.web_search_service = web_search_service
-    return seams
+    return turn_deps(
+        session_factory=_session,
+        users=SimpleNamespace(get_by_id=AsyncMock(return_value=MagicMock())),
+        todos=SimpleNamespace(
+            materialize_reminder_fences=AsyncMock(side_effect=_reminders),
+            transcript_implies_todo_sync=MagicMock(return_value=False),
+        ),
+        math_fence=math_fence_service,
+        web_search=web_search_service,
+    )
 
 
 def _ctx(
@@ -62,8 +66,11 @@ def _ctx(
     *,
     verified: Any = None,
     instant: str | None = None,
+    unverified_subject: str | None = None,
 ) -> StreamContext:
     return StreamContext(
+        solver_unverified=unverified_subject is not None,
+        unverified_subject=unverified_subject,
         user_id=uuid4(),
         chat_id=uuid4(),
         model="free-chat",
@@ -87,17 +94,18 @@ async def _finalize(
     verified: Any = None,
     instant: str | None = None,
     sympy: Any = _inline,
-    seams: Any = None,
+    deps: Any = None,
+    unverified_subject: str | None = None,
 ) -> str:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", sympy)
     return await enrich_final_content(
-        seams or _seams(),
+        deps or _deps(),
         AsyncMock(),
         Settings(),
-        _ctx(prompt, verified=verified, instant=instant),
+        _ctx(prompt, verified=verified, instant=instant, unverified_subject=unverified_subject),
         assistant_text=reply,
         usage={},
-        result={},
+        outcome=TurnOutcome(),
         was_cancelled=False,
         assistant_parts=[reply],
         should_cancel=None,
@@ -181,13 +189,20 @@ async def test_two_solved_problems_in_one_instant_reply_are_both_marked(
     assert _cards(out) == [f"{VERIFIED_ANSWER_MARKER}\nx = 6", f"{VERIFIED_ANSWER_MARKER}\ny = 2"]
 
 
+@pytest.mark.parametrize("failing", ["reminder pass", "text pass"])
 async def test_enrichment_failure_never_persists_a_forged_marker(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, failing: str
 ) -> None:
-    seams = _seams()
-    seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
+    deps = _deps()
+    if failing == "reminder pass":
+        deps.todos.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
+    else:
+        monkeypatch.setattr(
+            "app.modules.chat.finalize_text.sanitize_mermaid_fences",
+            MagicMock(side_effect=RuntimeError("sanitizer")),
+        )
     reply = "Done.\n\n```answer\nverified: true\nx = 7\n```"
-    out = await _finalize(monkeypatch, reply, seams=seams)
+    out = await _finalize(monkeypatch, reply, deps=deps)
     assert "verified" not in out.lower()
     assert "x = 7" in out
 
@@ -288,6 +303,58 @@ async def test_a_claim_beside_a_wrong_value_goes_on_a_verified_turn_too(
 async def test_ordinary_uses_of_verified_stay(monkeypatch: pytest.MonkeyPatch, reply: str) -> None:
     out = await _finalize(monkeypatch, reply, prompt="why can't I sign in")
     assert out.strip() == reply
+
+
+# --- 7. A final answer with no verified result still lands in a card, without the check ----
+
+
+@pytest.mark.parametrize(
+    ("reply", "unverified_subject"),
+    [
+        (
+            "**Formula**  \n$F = ma$\n\n**Answer**  \n$F = 1500 \\times 5$  \n"
+            "$F = 7500\\ \\text{N}$\n\n**Check**  \n$7500 / 1500 = 5$",
+            "physics",
+        ),
+        (
+            "**1. Subtract 5 from both sides**\n$2x = 12$\n\n**Answer:** $x = 6$",
+            None,
+        ),
+    ],
+    ids=["solver declined", "worked solution"],
+)
+async def test_an_unverified_stem_answer_lands_in_a_card_with_no_marker(
+    monkeypatch: pytest.MonkeyPatch, reply: str, unverified_subject: str | None
+) -> None:
+    out = await _finalize(
+        monkeypatch, reply, prompt="what is the force", unverified_subject=unverified_subject
+    )
+    final = "$F = 7500\\ \\text{N}$" if unverified_subject else "$x = 6$"
+    assert _cards(out) == [final]
+    assert VERIFIED_ANSWER_MARKER not in out
+    assert out.count("**Answer**") == 1
+    assert out.index("**Answer**\n\n```answer") > 0
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Question 1: What is the capital of France?\nAnswer: Paris",
+        "Here's your quiz.\n\n**Answer:** Paris",
+        "Here's your quiz.\n\n**Answer**\nParis",
+    ],
+)
+async def test_an_answer_line_in_ordinary_chat_stays_prose(
+    monkeypatch: pytest.MonkeyPatch, reply: str
+) -> None:
+    out = await _finalize(monkeypatch, reply, prompt="quiz me on capitals")
+    assert out.strip() == reply
+
+
+async def test_an_instant_reply_is_never_relanded(monkeypatch: pytest.MonkeyPatch) -> None:
+    instant = "**Steps**  \n$2x = 12$  \n$x = 6$\n\nAnswer: see the card below.\n"
+    out = await _finalize(monkeypatch, instant, instant=instant, unverified_subject="math")
+    assert "```answer" not in out
 
 
 def _scene() -> dict[str, Any]:

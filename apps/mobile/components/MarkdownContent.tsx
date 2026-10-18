@@ -37,6 +37,8 @@ type Props = {
   mathFormat?: (expr: string) => string;
   /** A sent bubble: no space under the last block, so the padding is even. */
   compact?: boolean;
+  /** The server presented `content` before saving it (isServerPresentedRow). */
+  presented?: boolean;
 };
 
 type MarkdownChunkProps = {
@@ -112,7 +114,13 @@ function leadingHeadingMargin(text: string, styles: Record<string, unknown>): nu
   return typeof style?.marginTop === "number" ? style.marginTop : 0;
 }
 
-export function MarkdownContent({ content, streaming = false, mathFormat, compact = false }: Props) {
+export function MarkdownContent({
+  content,
+  streaming = false,
+  mathFormat,
+  compact = false,
+  presented = false,
+}: Props) {
   const t = useTheme();
   const { rules, mdStyles: replyStyles } = useMemo(
     () => makeRenderRules(t, streaming),
@@ -148,15 +156,16 @@ export function MarkdownContent({ content, streaming = false, mathFormat, compac
           renderContent,
           streamPreprocessRef.current,
           mathFormat,
+          { presented },
         );
         streamPreprocessRef.current = cache;
         return streamed;
       }
-      return preprocessMarkdown(renderContent, mathFormat);
+      return preprocessMarkdown(renderContent, mathFormat, { presented });
     } catch {
       return renderContent;
     }
-  }, [renderContent, streaming, mathFormat]);
+  }, [renderContent, streaming, mathFormat, presented]);
 
   const leadingTop = leadingHeadingMargin(prepared, mdStyles);
   const leadingOffset = leadingTop > 0 ? { marginTop: -leadingTop } : null;

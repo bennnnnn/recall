@@ -24,11 +24,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from fractions import Fraction
 from typing import Literal
 
 from app.services.answer_fence import CHEMISTRY_NOTATION_LINE, answer_header_and_value
+from app.services.school_rounding import round_places
 
 Verdict = Literal["same", "rounded", "conflict", "absent", "unknown"]
 
@@ -190,7 +191,7 @@ def read_verified_value(answer_body: str) -> VerifiedValue | None:
     _headers, value = answer_header_and_value(answer_body)
     if not value or "\n" in value:
         return None
-    text = _clean(value)
+    text = _clean(value).replace("\u2248", "=")  # x ≈ 1.41421 is Newton's x = 1.41421
     parts = [part for part in re.split(r"\s+or\s+|\s+and\s+|;|,\s*(?=[A-Za-z]\s*=)", text) if part]
     label: str | None = None
     numbers: list[_Number] = []
@@ -477,11 +478,6 @@ def _result_statement(body: str, verified: VerifiedValue) -> list[_Number]:
 # --- Comparing -----------------------------------------------------------------------------
 
 
-def _round(value: Fraction, places: int) -> Decimal:
-    exact = Decimal(value.numerator) / Decimal(value.denominator)
-    return exact.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
-
-
 Closeness = Literal["same", "rounded", "different", "incomparable"]
 _GRADES: tuple[Closeness, ...] = ("same", "rounded", "different", "incomparable")
 _PREFIXES = {"k": 3, "M": 6, "G": 9, "c": -2, "m": -3, "u": -6, "n": -9, "p": -12}
@@ -511,7 +507,7 @@ def _in_one_unit(stated: _Number, verified: _Number) -> tuple[_Number, _Number] 
 
 
 def _agree(a: Fraction, b: Fraction, places: int) -> bool:
-    return _round(a, places) == _round(b, places)
+    return round_places(a, places) == round_places(b, places)
 
 
 def _closeness(stated: _Number, verified: _Number) -> Closeness:

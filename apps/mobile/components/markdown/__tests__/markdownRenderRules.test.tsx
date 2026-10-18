@@ -387,11 +387,16 @@ describe("markdown render rules", () => {
       <MarkdownContent content={content} />,
     );
     // The headings stay at the margin; the work sits behind a thin rule.
+    // The Answer's tinted box needs no rule, and the answer is centred in it.
     const bodies = getAllByTestId("workout-body");
     expect(bodies).toHaveLength(3);
-    for (const body of bodies) {
+    for (const body of bodies.slice(0, 2)) {
       expect(StyleSheet.flatten(body.props.style)).toMatchObject({ borderLeftWidth: 2 });
     }
+    expect(StyleSheet.flatten(bodies[2].props.style).borderLeftWidth).toBeUndefined();
+    expect(StyleSheet.flatten(getByTestId("workout-answer").props.style)).toMatchObject({
+      alignItems: "center",
+    });
     // Both given values share one wrapping row.
     const given = getByTestId("workout-given");
     expect(StyleSheet.flatten(given.props.style)).toMatchObject({
@@ -405,6 +410,35 @@ describe("markdown render rules", () => {
     expect(getByText(/second law/)).toBeOnTheScreen();
     // A written-out answer sits in its own box.
     expect(within(getByTestId("workout-answer")).getAllByTestId("workout-line")).toHaveLength(1);
+  });
+
+  it("puts only the last line of a written-out answer in the box; the lines above are working", async () => {
+    const content = [
+      "**Answer**  ",
+      String.raw`$R = \frac{20^2 \sin 60^\circ}{9.81}$  `,
+      String.raw`$R = \frac{346.4}{9.81}$  `,
+      String.raw`$R \approx 35.3\ \text{m}$`,
+    ].join("\n");
+    const { getByTestId } = await render(<MarkdownContent content={content} />);
+    const body = getByTestId("workout-body");
+    expect(within(body).getAllByTestId("workout-line")).toHaveLength(3);
+    const box = getByTestId("workout-answer");
+    expect(StyleSheet.flatten(box.props.style)).toMatchObject({
+      backgroundColor: lightTheme.accentLight,
+    });
+    const boxed = within(box).getAllByTestId("workout-line");
+    expect(boxed).toHaveLength(1);
+    expect(boxed[0]).toHaveTextContent(/R ≈ 35\.3/);
+    expect(box).not.toHaveTextContent(/346\.4/);
+    expect(within(body).getByLabelText(/346\.4/)).toBeOnTheScreen();
+  });
+
+  it("keeps a sentence after the answer below the box", async () => {
+    const content = "**Answer**  \n$x = 3$  \nOnly the positive root counts.";
+    const { getByTestId } = await render(<MarkdownContent content={content} />);
+    const box = getByTestId("workout-answer");
+    expect(box).toHaveTextContent(/x = 3/);
+    expect(box).not.toHaveTextContent(/positive root/);
   });
 
   it.each([
@@ -496,6 +530,40 @@ $x^0=1$`}
     );
     expect(getByTestId("lesson-step-reason")).toBeOnTheScreen();
     expect(queryByText(/\$a|\$x/)).toBeNull();
+  });
+
+  it("keeps the badge when a rule note is followed by several equation lines", async () => {
+    // The hard breaks split the paragraph into textgroups; the step still reads as one.
+    const { getAllByTestId } = await render(
+      <MarkdownContent
+        content={[
+          "**1. Evaluate the power** — Exponent: $a^n$ is $a$ multiplied by itself $n$ times  ",
+          "$5^{2} = 5 \\cdot 5$  ",
+          "$= 25$  ",
+          "$3 x^{2} + 25 = 25$",
+          "",
+          "**2. Subtract 25 from both sides** — Subtraction property of equality  ",
+          "$3 x^{2} + 25 - 25 = 25 - 25$  ",
+          "$3 x^{2} = 0$",
+        ].join("\n")}
+      />,
+    );
+    expect(getAllByTestId("lesson-step")).toHaveLength(2);
+    expect(getAllByTestId("lesson-step-reason")).toHaveLength(2);
+    expect(getAllByTestId("lesson-step-formula")).toHaveLength(2);
+  });
+
+  it("keeps the badge when the step label ends with maths", async () => {
+    // Bold that ends in maths is unwrapped for prose, but not for a numbered step.
+    const { getByTestId, queryByText } = await render(
+      <MarkdownContent
+        content={String.raw`**1. Power rule on $x^{3}$** — Power rule: $\frac{d}{dx} x^n = n x^{n-1}$
+$\frac{d}{dx} x^{3} = 3 x^{2}$`}
+      />,
+    );
+    expect(getByTestId("lesson-step")).toBeOnTheScreen();
+    expect(getByTestId("lesson-step-reason")).toBeOnTheScreen();
+    expect(queryByText(/\$/)).toBeNull();
   });
 
   it("preserves a link after a numbered bold paragraph", async () => {

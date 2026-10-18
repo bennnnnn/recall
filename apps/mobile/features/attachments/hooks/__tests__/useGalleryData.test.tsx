@@ -8,7 +8,11 @@ import type { GalleryFilter } from "@/features/attachments/model/gallery";
 
 import { api } from "@/lib/api";
 import { invalidateGalleryCache, setGalleryPage } from "@/features/attachments/model/galleryListCache";
-jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
+jest.mock("@/lib/auth", () => ({
+  getSessionGeneration: () => 0,
+  requireTokenSession: jest.fn(),
+  SessionChangedError: class SessionChangedError extends Error {},
+}));
 
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "tok" }),

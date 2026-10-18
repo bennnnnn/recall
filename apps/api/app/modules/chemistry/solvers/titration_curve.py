@@ -8,8 +8,8 @@ from dataclasses import replace
 
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.scene import TitrationAnchor, TitrationScene
-from app.modules.chemistry.solvers.common_chem import num, p_value, weak_dissociation
-from app.modules.chemistry.solvers.constants import KW, PKW
+from app.modules.chemistry.solvers.constants import KW, PKW, weak_dissociation
+from app.modules.chemistry.solvers.display import num, p_value
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 

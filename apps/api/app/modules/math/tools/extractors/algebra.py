@@ -6,11 +6,13 @@ import re
 
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.helpers import (
-    _parse_newton_guess,
-    _strip_newton_leadin,
-    substituted_eval_expr,
+from app.modules.math.tools.extractors.stated import (
+    already_solved,
+    lists_alternatives,
+    names_a_constant,
+    one_of_several_answers,
 )
+from app.modules.math.tools.function_def import substituted_eval_expr
 
 _SOLVE_FOR_VAR_RE = re.compile(
     r"\bsolve\s+for\s+(?:the\s+value\s+of\s+)?([a-zA-Z])(?![a-zA-Z])",
@@ -247,6 +249,9 @@ def _extract_numerical_method_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not ("newton" in lower or "numerically" in lower or "root of" in lower):
         return None
+    # Deferred: direct_newton loads direct_calculus, which loads extract, which loads this.
+    from app.modules.math.tools.direct_newton import _parse_newton_guess, _strip_newton_leadin
+
     guess, text_for_eq = _parse_newton_guess(cleaned)
     text_for_eq = _strip_newton_leadin(text_for_eq)
     newton_pairs = math_solve.try_extract_equations_from_text(text_for_eq)
@@ -293,10 +298,10 @@ def _primary_equation_pair(eq_pairs: list[tuple[str, str]]) -> tuple[str, str]:
     """Pick the problem statement from a worked solution (steps + roots).
 
     A paste like ``2x^2-7x+3=0`` then ``2x-1=0`` / ``x-3=0`` is one quadratic,
-    not three simultaneous equations. Prefer the longest ``= 0`` polynomial.
+    not three simultaneous equations. Prefer the longest ``= 0`` polynomial, else the first.
     """
     zeros = [(lhs, rhs) for lhs, rhs in eq_pairs if rhs.strip() in {"0", "0.0"}]
-    pool = zeros or eq_pairs
+    pool = zeros or eq_pairs[:1]
     return max(pool, key=lambda pair: (pair[0].count("^"), len(pair[0])))
 
 
@@ -314,37 +319,13 @@ def oversized_system(text: str) -> bool:
     return len(math_solve.guess_variables(all_text)) >= 2
 
 
-_LONE_LETTER = re.compile(r"\s*[A-Za-z]\s*")
-_PLAIN_NUMBER = re.compile(
-    r"\s*[-+\u2212]?\s*(?:\d+(?:\.\d+)?|\.\d+)(?:\s*/\s*(?:\d+(?:\.\d+)?|\.\d+))?\s*"
-)
-# ``Ka``, ``pH``, ``Ksp``: a named constant is one quantity, not ``K`` times ``a``.
-_NAMED_CONSTANT = re.compile(r"\s*(?:[A-Z][a-z]{1,2}|p[A-Z][a-z]?|p[A-Z]{1,2})\s*")
-
-
-def already_solved(lhs: str, rhs: str) -> bool:
-    """``x = 6`` (or ``6 = x``) states a value; solving it certifies the claim.
-
-    A student's own answer typed back must be checked against the problem it
-    answers, never "verified" by solving it again.
-    """
-    return bool(
-        (_LONE_LETTER.fullmatch(lhs) and _PLAIN_NUMBER.fullmatch(rhs))
-        or (_LONE_LETTER.fullmatch(rhs) and _PLAIN_NUMBER.fullmatch(lhs))
-    )
-
-
-def _names_a_constant(lhs: str, rhs: str) -> bool:
-    return bool(_NAMED_CONSTANT.fullmatch(lhs) or _NAMED_CONSTANT.fullmatch(rhs))
-
-
 def _extract_system_intent(cleaned: str) -> MathIntent | None:
     eq_pairs = math_solve.try_extract_equations_from_text(cleaned)
     if len(eq_pairs) < 2:
         return None
     # ``x = 3, y = 1`` lists values. Nothing is left to solve, and solving
     # it would certify whatever the values are.
-    if all(already_solved(lhs, rhs) for lhs, rhs in eq_pairs):
+    if all(already_solved(lhs, rhs) for lhs, rhs in eq_pairs) or lists_alternatives(cleaned):
         return None
     # BUG FIX (most severe correctness bug found in the audit): this
     # used to fall through to the single-equation branch below, which
@@ -352,7 +333,8 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
     # "verified, do NOT recompute" confidence as a fully correct
     # response — silently discarding every other equation in the system.
     all_text = " ".join(f"{lhs} {rhs}" for lhs, rhs in eq_pairs)
-    variables = math_solve.guess_variables(all_text)
+    defined = [name for lhs, _ in eq_pairs if (name := math_solve.defined_variable(lhs))]
+    variables = [*dict.fromkeys(defined), *math_solve.guess_variables(all_text)]
     # One variable + several =0 lines is factoring / "set each factor to 0",
     # not a simultaneous system. Treating 2x-1=0 AND x-3=0 as a system
     # attaches ```answer no solution while the quadratic is solved.
@@ -408,18 +390,22 @@ def _extract_equation_intent(cleaned: str) -> MathIntent | None:
     if substituted_eval_expr(probe) is not None:
         return None
     lhs, rhs = eq_pairs[0] if len(eq_pairs) == 1 else _primary_equation_pair(eq_pairs)
-    from app.modules.math.tools.helpers import math_expr_or_none
+    from app.modules.math.tools.expr_rewrite import math_expr_or_none
 
     if math_expr_or_none(lhs) is None or math_expr_or_none(rhs) is None:
         return None
-    if already_solved(lhs, rhs) or _names_a_constant(lhs, rhs):
+    if (
+        already_solved(lhs, rhs)
+        or names_a_constant(lhs, rhs)
+        or one_of_several_answers(lhs, eq_pairs)
+    ):
         return None
     if _leftover_prose_blocks_solve(probe, lhs, rhs):
         return None
     if _derivative_term_dropped(probe, lhs, rhs):
         return None
     variables = math_solve.guess_variables(lhs + rhs)
-    requested = _requested_variable(probe, lhs + rhs)
+    requested = _requested_variable(probe, lhs + rhs) or math_solve.defined_variable(lhs, rhs)
     # In a single school equation, x is the conventional unknown and other
     # letters are parameters unless the learner explicitly names a target.
     # Alphabetical selection made ``solve ax=5`` solve for a instead of x.
@@ -443,6 +429,8 @@ def _extract_inequality_intent(cleaned: str) -> MathIntent | None:
     if compound is not None:
         low, low_op, mid, high_op, high = compound
         variables = math_solve.guess_variables(f"{low} {mid} {high}")
+        if len(variables) > 1:  # "0 < y < 2x" bounds one unknown by another
+            return None
         requested = _requested_variable(probe, f"{low} {mid} {high}")
         variable = requested or (variables[0] if variables else "x")
         return MathIntent(

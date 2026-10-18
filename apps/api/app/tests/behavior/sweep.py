@@ -8,6 +8,9 @@ where a rule hijacked, replaced or mangled it is listed.
 
     uv run python -m app.tests.behavior.sweep [--only id,id] [--area writing] [--show]
 
+The sweep models production, so a maths decline stays silent; ``RECALL_STRICT_DECLINES=1``
+in front raises the programming errors a decline would hide (``math/solve/declines.py``).
+
 ``expect`` per entry: "answer" (an ordinary reply that must reach the user),
 "instant" (the server answers without the model: the date, the time),
 "photo", "search", "image_gen", "save" (a reminder is saved), "ask_time",
@@ -28,7 +31,7 @@ import re
 import sys
 from collections.abc import Iterator
 from contextlib import ExitStack, asynccontextmanager, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -37,12 +40,11 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 from app.models.orm import User
-from app.modules import todos as todos_service
-from app.modules import web_search as web_search_service
 from app.modules.account.settings_intent import extract_settings_changes
-from app.modules.chat.stream_pipeline import enrich_final_content
+from app.modules.chat.finalize_passes import enrich_final_content
+from app.modules.chat.turn_deps import default_deps
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
-from app.modules.math import fence as math_fence_service
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
 from app.modules.todos.spoken_add import _NEED_A_TIME
@@ -77,6 +79,7 @@ EXPECTS = {
 }
 # Areas whose turns never need the live web.
 NO_SEARCH_AREAS = {"math", "physics", "chemistry", "writing", "code", "chitchat"}
+STEM_AREAS = {"math", "physics", "chemistry"}
 # Everyday messages that use a maths word ("differentiate between weather and
 # climate", "simplify it" about an essay), or that sound like a follow-up to the
 # physics or chemistry problem before them ("in french please", "what about the
@@ -234,6 +237,11 @@ async def _inline(fn: Any, *args: Any, **_kwargs: Any) -> Any:
 # corpus is still ahead. On the real clock those turns failed whenever the
 # suite ran after 16:00 UTC.
 SWEEP_NOW = datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
+# The real class, under a name the frozen clock leaves alone. Imported as
+# app.tests.behavior.sweep (under pytest), this module's own ``datetime`` is
+# frozen too: a check against that name skipped every module imported after
+# this one, and the isinstance hook below recursed.
+_REAL_DATETIME = datetime
 
 
 class _AnyDateTime(type):
@@ -244,7 +252,7 @@ class _AnyDateTime(type):
     """
 
     def __instancecheck__(cls, instance: object) -> bool:
-        return isinstance(instance, datetime)
+        return isinstance(instance, _REAL_DATETIME)
 
 
 class _SweepDateTime(datetime, metaclass=_AnyDateTime):
@@ -258,7 +266,7 @@ def frozen_clock() -> Iterator[None]:
     """Every app module that reads the time with ``datetime.now`` reads SWEEP_NOW."""
     with ExitStack() as stack:
         for name, module in list(sys.modules.items()):
-            if name.startswith("app.") and getattr(module, "datetime", None) is datetime:
+            if name.startswith("app.") and getattr(module, "datetime", None) is _REAL_DATETIME:
                 stack.enter_context(patch.object(module, "datetime", _SweepDateTime))
         yield
 
@@ -289,12 +297,10 @@ async def _run_entry(entry: Entry) -> Outcome:
     outcome.memory_command = bool(is_explicit_memory_command(entry.prompt))
 
     user = _user(pro=entry.pro)
-    seams = SimpleNamespace(
-        SessionLocal=_session,
-        users_repo=SimpleNamespace(get_by_id=AsyncMock(return_value=user)),
-        todos_service=todos_service,
-        math_fence_service=math_fence_service,
-        web_search_service=web_search_service,
+    deps = replace(
+        default_deps(),
+        session_factory=_session,
+        users=SimpleNamespace(get_by_id=AsyncMock(return_value=user)),
     )
     rows = [SimpleNamespace(role=role, content=text) for role, text in entry.history]
     ctx = StreamContext(
@@ -326,13 +332,13 @@ async def _run_entry(entry: Entry) -> Outcome:
         ),
     ):
         outcome.final = await enrich_final_content(
-            seams,
+            deps,
             AsyncMock(),
             settings,
             ctx,
             assistant_text=entry.reply,
             usage={},
-            result={},
+            outcome=TurnOutcome(),
             was_cancelled=False,
             assistant_parts=[entry.reply],
             should_cancel=None,
@@ -380,6 +386,12 @@ def judge(outcome: Outcome) -> list[str]:
             problems.append("image generation took the turn")
         if route.instant == "text" and route.instant_text:
             problems.append(f"instant reply: {route.instant_text[:80]!r}")
+        # "How many minutes in a good nap" answered "Turn on Location".
+        if route.instant == "location":
+            problems.append("answered with the turn-on-location reply")
+        # "3 cups of flour for 12 cookies…" is a problem to solve, not a pick to personalise.
+        if entry.area in STEM_AREAS and "advice" in route.hints:
+            problems.append("given the personal-recommendation hint")
         if outcome.settings_changes:
             problems.append(f"read as a settings change: {outcome.settings_changes}")
         if outcome.memory_command:

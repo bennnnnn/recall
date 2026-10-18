@@ -30,7 +30,7 @@ async function fetchWithTimeout(
     return await fetch(url, { ...init, signal: controller.signal, credentials: "include" });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Could not reach the Recall API. Is it running?");
+      throw new Error("Could not reach the Recall API. Is it running?", { cause: error });
     }
     throw error;
   } finally {

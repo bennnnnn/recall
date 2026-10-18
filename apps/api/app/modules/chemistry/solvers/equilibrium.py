@@ -6,15 +6,8 @@ from __future__ import annotations
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import (
-    const,
-    given_row,
-    inp,
-    num,
-    used,
-    verified,
-)
 from app.modules.chemistry.solvers.constants import GAS_R
+from app.modules.chemistry.solvers.display import const, given_row, inp, num, used, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
 from app.services.solving import SolveServiceError

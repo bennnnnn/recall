@@ -8,6 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import UsageDaily
 
 
+async def list_for_user(session: AsyncSession, user_id: UUID, *, limit: int) -> list[UsageDaily]:
+    """Daily token totals, oldest first (data export)."""
+    result = await session.execute(
+        select(UsageDaily)
+        .where(UsageDaily.user_id == user_id)
+        .order_by(UsageDaily.date.asc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
 async def get_for_date(session: AsyncSession, user_id: UUID, day: date) -> UsageDaily | None:
     return await session.get(UsageDaily, {"user_id": user_id, "date": day})
 

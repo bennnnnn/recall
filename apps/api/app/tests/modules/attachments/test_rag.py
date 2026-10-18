@@ -430,6 +430,74 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
 
 
 @pytest.mark.asyncio
+async def test_index_attachment_embeds_under_shared_concurrency_in_chunk_order():
+    """Chunks embed at most ``embedding_concurrency`` at a time and are stored in chunk order,
+    with the failed chunk dropped (not stored as a dead null row)."""
+    import asyncio
+
+    settings = Settings(
+        attachment_rag_enabled=True,
+        attachment_rag_chunk_chars=40,
+        attachment_rag_chunk_overlap=0,
+        embedding_concurrency=3,
+    )
+    row = MagicMock()
+    row.id = uuid4()
+    row.user_id = uuid4()
+    row.storage_key = "user/doc"
+    row.content_type = "text/plain"
+    text = " ".join(
+        f"Section {index} of the lease covers notice and deposits." for index in range(4)
+    )
+    pieces = chunk_text(text, chunk_chars=40, overlap=0)
+    assert len(pieces) > 3
+    in_flight = 0
+    peak = 0
+
+    async def _embed(_settings, piece):
+        nonlocal in_flight, peak
+        in_flight += 1
+        peak = max(peak, in_flight)
+        await asyncio.sleep(0.005)
+        in_flight -= 1
+        return None if piece == pieces[2] else [float(len(piece))]
+
+    with (
+        patch("app.modules.attachments.rag.SessionLocal", _session_cm()),
+        patch(
+            "app.modules.attachments.rag.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.modules.attachments.rag.attachment_content_service.read_attachment_bytes",
+            AsyncMock(return_value=text.encode()),
+        ),
+        patch(
+            "app.modules.attachments.rag.attachment_content_service.extract_text_details_async",
+            AsyncMock(return_value=ExtractedText(text=text)),
+        ),
+        patch("app.modules.attachments.rag.embedding_gateway.embed_text", _embed),
+        patch(
+            "app.modules.attachments.rag.chunks_repo.replace_chunks",
+            AsyncMock(return_value=True),
+        ) as replace_mock,
+        patch(
+            "app.modules.attachments.rag.attachments_repo.set_index_coverage",
+            AsyncMock(),
+        ),
+    ):
+        count = await index_attachment(
+            settings, user_id=row.user_id, attachment_id=row.id, chat_id=uuid4()
+        )
+
+    assert peak == 3
+    assert count == len(pieces) - 1
+    assert replace_mock.call_args.kwargs["chunks"] == [
+        (index, piece, [float(len(piece))]) for index, piece in enumerate(pieces) if index != 2
+    ]
+
+
+@pytest.mark.asyncio
 async def test_index_attachment_uses_higher_extraction_cap_for_indexing():
     """Indexing uses MAX_INDEX_EXTRACT_CHARS (200k), not the inline excerpt cap."""
     settings = Settings(attachment_rag_enabled=True, mock_llm_enabled=True)

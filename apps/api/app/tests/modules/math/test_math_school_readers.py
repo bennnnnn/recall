@@ -9,16 +9,17 @@ from app.modules.math.function_analysis import inverse_function
 from app.modules.math.match.discrete import word_arrangement_signal
 from app.modules.math.solve import MathServiceError
 from app.modules.math.tools.extract import extract_math_intent
-from app.modules.math.tools.extractors.formulas import extract_vector_formulas
 from app.modules.math.tools.extractors.fractions import extract_fraction_intent
 from app.modules.math.tools.prompt import build_math_augmentation, needs_symbolic_math
 from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
+from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
 from app.modules.math.tools.school.number_facts import extract_number_fact_intent
 from app.modules.math.tools.school.probability import (
     _extract_probability_intent,
     extract_at_least_one_intent,
 )
 from app.modules.math.tools.school.units import extract_how_many_in_intent
+from app.modules.math.tools.school.vectors import extract_vector_formulas
 
 
 @pytest.mark.parametrize(
@@ -185,6 +186,49 @@ def test_extract_algebra_fact_intent_reads_polynomial_remainders(text: str, expr
     ],
 )
 def test_extract_algebra_fact_intent_declines_other_remainders(text: str) -> None:
+    assert extract_algebra_fact_intent(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "expr"),
+    [
+        # A capitalised verb once read nothing: the side readers matched "find" only.
+        ("In triangle ABC, a = 5 cm, b = 8 cm and angle C = 30°. Find c.", "a,b,C,c"),
+        ("In triangle ABC, a = 7, b = 9 and C = 60°. Calculate the length of c.", "a,b,C,c"),
+        ("In triangle ABC, a = 7, b = 9 and C = 60°. What is c?", "a,b,C,c"),
+        ("In triangle ABC, b = 4, c = 6 and A = 135°. Determine side a.", "b,c,A,a"),
+    ],
+)
+def test_cosine_rule_reader_takes_the_verb_in_any_case(text: str, expr: str) -> None:
+    intent = extract_algebra_fact_intent(text)
+    assert intent is not None
+    assert (intent.school_op, intent.expr) == ("cosine_rule", expr)
+
+
+@pytest.mark.parametrize(
+    ("text", "names"),
+    [
+        ("In triangle ABC, A = 40°, B = 60° and a = 10. Find b.", "a|b"),
+        ("In triangle ABC, A = 40°, B = 60° and a = 10. Calculate the length of side b.", "a|b"),
+        ("In triangle ABC, A = 40°, B = 60° and a = 10. Work out b.", "a|b"),
+    ],
+)
+def test_sine_rule_reader_takes_the_verb_in_any_case(text: str, names: str) -> None:
+    intent = extract_geometry_measure_intent(text)
+    assert intent is not None
+    assert (intent.school_op, intent.trial_outcome) == ("geometry_measure:sine_rule", names)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # "C" names the angle and "c" the side opposite it, so the letter keeps its case.
+        "In triangle ABC, a = 10, A = 40° and B = 60°. Find B.",
+        "In triangle ABC, a = 10, A = 40° and B = 60°. FIND B",
+    ],
+)
+def test_side_readers_keep_the_letters_case(text: str) -> None:
+    assert extract_geometry_measure_intent(text) is None
     assert extract_algebra_fact_intent(text) is None
 
 

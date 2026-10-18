@@ -12,7 +12,7 @@ import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import { ChatQuotaNudge } from "@/features/chat/components/ChatQuotaNudge";
 import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import { ChatScrollFab } from "@/features/chat/components/ChatScrollFab";
-import { UpgradeSheet } from "@/components/UpgradeSheet";
+import { UpgradeSheet, type UpgradeSource } from "@/components/UpgradeSheet";
 import { StreamingDraftProvider } from "@/contexts/StreamingDraftContext";
 import { useTranslation } from "react-i18next";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
@@ -97,7 +97,7 @@ export interface ChatScreenChromeProps {
   onQuotaUpgrade: () => void;
   onQuotaDismiss: () => void;
   chatError: ResolvedChatError | null;
-  isPro: boolean;
+  isPaid: boolean;
   onUpgrade: () => void;
   onRetryChatError: () => void;
   onChangeModel: () => void;
@@ -122,6 +122,8 @@ export interface ChatScreenSheetsProps {
   ) => Promise<ScanReading | { error: string } | null>;
   onMathScanSolve: (reading: string, subject: ScannerSubject) => void;
   upgradeVisible: boolean;
+  /** Where the paywall was opened from (analytics only). */
+  upgradeSource?: UpgradeSource;
   onCloseUpgrade: () => void;
 }
 
@@ -262,8 +264,8 @@ const ChatOverlays = memo(function ChatOverlays({
       <ChatInlineError
         error={chrome.chatError}
         bottom={composerClearance + 8}
-        upgradeLabel={!chrome.isPro ? quotaUpgradeLabel : undefined}
-        onUpgrade={!chrome.isPro ? chrome.onUpgrade : undefined}
+        upgradeLabel={!chrome.isPaid ? quotaUpgradeLabel : undefined}
+        onUpgrade={!chrome.isPaid ? chrome.onUpgrade : undefined}
         onStop={onStop}
         onRetry={chrome.onRetryChatError}
         onChangeModel={chrome.onChangeModel}
@@ -291,7 +293,11 @@ const ChatOverlays = memo(function ChatOverlays({
         onSolveReading={sheets.onMathScanSolve}
       />
 
-      <UpgradeSheet visible={sheets.upgradeVisible} onClose={sheets.onCloseUpgrade} />
+      <UpgradeSheet
+        visible={sheets.upgradeVisible}
+        source={sheets.upgradeSource}
+        onClose={sheets.onCloseUpgrade}
+      />
     </>
   );
 });

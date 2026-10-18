@@ -8,7 +8,7 @@
  * in the full renderer. Lists/headings inside a fence body are intentionally
  * out of scope.
  */
-export type InlineToken =
+type InlineToken =
   | { type: "text"; value: string }
   | { type: "bold"; value: string }
   | { type: "italic"; value: string }

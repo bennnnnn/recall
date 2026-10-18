@@ -1,5 +1,6 @@
 /** Bounds, ticks, axis formatting and point mapping for ```graph blocks. */
 import { defaultInteractiveBounds, type GraphView } from "@/lib/math/graphViewport";
+import { niceStepW } from "@/lib/math/graphWorklets";
 import { toSuperscript } from "@/lib/unicodeSupSub";
 import {
   type NumberLineInterval,
@@ -165,15 +166,6 @@ export function expandBoundsForAxes(
 const TEXTBOOK_HALF_X = 6;
 /** Vertex |y| at or above this (e.g. 4x²−5x−12) gets a root-zoomed window. */
 export const SHIFTED_VERTEX_MIN = 4;
-
-function niceStep(raw: number): number {
-  if (!(raw > 0) || !Number.isFinite(raw)) return 1;
-  const exp = Math.floor(Math.log10(raw));
-  const mag = 10 ** exp;
-  const f = raw / mag;
-  const nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
-  return nf * mag;
-}
 
 /** Zero crossings of a sampled y=f(x) curve, interpolated between samples. */
 export function graphXIntercepts(points: [number, number][]): number[] {
@@ -394,17 +386,10 @@ export function equalScaleGraphBounds(
   return bounds;
 }
 
-/** Enough ticks that a ±6 window still labels every integer. */
-export function graphTickCount(min: number, max: number): number {
-  const span = max - min;
-  if (!(span > 0) || !Number.isFinite(span)) return 7;
-  return Math.min(13, Math.max(7, Math.ceil(span) + 1));
-}
-
 /** Even ticks inside a view window (e.g. −6, −4, …, 6). */
 export function graphAxisTicks(min: number, max: number, maxCount = 7, fractional = false): number[] {
   if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return [];
-  const step = niceStep((max - min) / Math.max(1, maxCount - 1));
+  const step = niceStepW((max - min) / Math.max(1, maxCount - 1));
   if (!Number.isFinite(step) || step <= 0) return [];
   const start = Math.ceil((min - 1e-12) / step) * step;
   const ticks: number[] = [];
@@ -516,23 +501,6 @@ export function mapGraphPoint(
     innerH -
     ((y - bounds.yMin) / (bounds.yMax - bounds.yMin || 1)) * innerH;
   return { px, py };
-}
-
-export function unmapGraphPoint(
-  px: number,
-  py: number,
-  bounds: ReturnType<typeof graphBounds>,
-  width: number,
-  height: number,
-  pad = 28,
-): { x: number; y: number } {
-  const innerW = width - pad * 2;
-  const innerH = height - pad * 2;
-  const x =
-    bounds.xMin + ((px - pad) / (innerW || 1)) * (bounds.xMax - bounds.xMin);
-  const y =
-    bounds.yMax - ((py - pad) / (innerH || 1)) * (bounds.yMax - bounds.yMin);
-  return { x, y };
 }
 
 export function graphPolylinePoints(

@@ -43,7 +43,7 @@ import { Icon } from "../icons/Icon";
 import { IconSize } from "../icons/sizes";
 import { Dialog } from "../overlay/Dialog";
 
-export const DATE_PICKER_WIDTH = 328;
+const DATE_PICKER_WIDTH = 328;
 const CELL = 40;
 const YEAR_ROW = 52;
 const SWIPE = 40;

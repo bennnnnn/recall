@@ -117,7 +117,7 @@ function useHarness(streaming: boolean, messages: Message[], drawerOpen = false)
       dismiss: quotaDismiss,
     },
     chatError: null,
-    isPro: false,
+    isPaid: false,
     retryChatError,
     dismissChatError,
     streaming,

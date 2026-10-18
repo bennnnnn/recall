@@ -246,22 +246,23 @@ def can_direct_triangle_angles(user_text: str, fences: list[dict[str, object]]) 
     angles = literal_triangle_angles_draw(user_text)
     if angles is None:
         return False
+    from app.modules.math.solve.triangle import cosine_rule_angle, triangle_valid
+
     sides = [_finite_number(spec.get(key)) for key in ("a", "b", "c")]
     if any(value is None or not 0 < value <= 1_000_000 for value in sides):
         return False
     a, b, c = (float(value) for value in sides if value is not None)
-    for opposite, adjacent_a, adjacent_b, angle in (
-        (a, b, c, angles[0]),
-        (b, a, c, angles[1]),
-        (c, a, b, angles[2]),
-    ):
-        cosine = (adjacent_a**2 + adjacent_b**2 - opposite**2) / (2 * adjacent_a * adjacent_b)
-        if not -1 < cosine < 1:
-            return False
-        # Canonical side lengths are rounded to four decimal places.
-        if abs(math.degrees(math.acos(cosine)) - angle) > 0.01:
-            return False
-    return True
+    if not triangle_valid(a, b, c):
+        return False
+    # Canonical side lengths are rounded to four decimal places.
+    return all(
+        abs(float(cosine_rule_angle(adjacent_a, adjacent_b, opposite)) - angle) <= 0.01
+        for opposite, adjacent_a, adjacent_b, angle in (
+            (a, b, c, angles[0]),
+            (b, a, c, angles[1]),
+            (c, a, b, angles[2]),
+        )
+    )
 
 
 def can_direct_square_or_triangle(

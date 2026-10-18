@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from pint import UnitRegistry
 
+# The kelvin reading of 0 °C: exact, by the definition of the Celsius scale.
+CELSIUS_OFFSET_K = 273.15
+
 _unit_registry: UnitRegistry | None = None
 
 

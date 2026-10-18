@@ -36,6 +36,9 @@ else
   echo "    WARN: pnpm not found - skipping mobile checks"
 fi
 
+echo "==> File sizes: production files over 500 lines need a recorded reason and may not grow"
+python3 "$ROOT/scripts/check_file_sizes.py" || fail=1
+
 echo "==> Web: typecheck + lint"
 if command -v pnpm >/dev/null 2>&1; then
   (cd "$ROOT/apps/web" && pnpm typecheck && pnpm lint) || fail=1

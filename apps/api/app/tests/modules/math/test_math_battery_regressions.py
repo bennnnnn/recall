@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.math.solve.algebra import solve_inequality
 from app.modules.math.solve.calculus import integrate_expression
+from app.modules.math.solve.inequalities import solve_inequality
 from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
 
 
@@ -508,6 +508,31 @@ async def test_battery_three_geometry(text: str, answer: str) -> None:
     assert canonical == answer
 
 
+# "°" is not a word character, so an angle that ended in "°" never met the word boundary
+# after it: the supplement of 35° had no reading, and the complement of 28° was read as a
+# probability and declined. A probability complement keeps its own reading.
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("find the supplement of 35°", r"145^\circ"),
+        ("What is the complement of 28°?", r"62^\circ"),
+        ("the complementary angle to 28 °", r"62^\circ"),
+        ("find the complement of 28° angle", r"62^\circ"),
+        ("find the supplement of 35° please", r"145^\circ"),
+        ("Find the supplement of 35 degrees and explain why", r"145^\circ"),
+        ("Find the complement of 28 degrees step by step", r"62^\circ"),
+        ("supplement of 35.5°.", r"144.5^\circ"),
+        ("find the complement of 28 degrees", r"62^\circ"),
+        ("complement of 0.3", "0.7"),
+        ("find the complement of event A if P(A) = 0.3", "0.7"),
+    ],
+)
+async def test_an_angle_with_a_degree_sign_is_read(text: str, answer: str) -> None:
+    canonical, _ = await _reply(text)
+    assert canonical == answer
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("text", "answer"),
@@ -547,7 +572,9 @@ async def test_battery_three_calculus(text: str, answer: str) -> None:
         # Maths numbers each move: the rule is the step, its working the line under it.
         (
             "integrate x^3",
-            "**1. Power rule on $x^{3}$**  \n$\\int x^{3}\\,dx = \\frac{x^{3 + 1}}{3 + 1}$",
+            "**1. Power rule on $x^{3}$** — Power rule: "
+            "$\\int x^n \\, dx = \\frac{x^{n+1}}{n+1} + C$  \n"
+            "$\\int x^{3}\\,dx = \\frac{x^{3 + 1}}{3 + 1}$",
         ),
         (
             "limit of (3x^2 + 1)/(x^2 - 2) as x approaches infinity",
@@ -571,9 +598,160 @@ async def test_battery_three_working(text: str, row: str) -> None:
     [
         "complement of 0.3",
         "the radius of the earth is 6371 km",
+        "complement of event A",
+        "P(A') if P(A) = 0.3",
+        # A temperature, not an angle: the degree sign once met a boundary before the letter.
+        "complement of 28°F",
+        "the supplement of 35°C",
+        # A noun after the angle: no angle question ("28 degrees weather" was 62°).
+        "What drink is a good complement to 35° weather?",
+        "What snack is a good complement to 28 degrees weather at the beach?",
+        "A crisp white wine is the perfect complement to 30° days",
+        "What's a light lunch that's a good supplement for 35° summer days?",
     ],
 )
 def test_geometry_measures_leave_other_questions_alone(text: str) -> None:
     from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
 
     assert extract_geometry_measure_intent(text) is None
+
+
+# A letter beside x and y leaves no numeric centre or radius. "= z" compared z with 0,
+# which raised a TypeError no solver catches, and the turn was logged as a failure.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Centre and radius of the circle y^2 + x^2 = z.",
+        "centre and radius of x^2 + y^2 = r^2",
+        "center and radius of x^2 + y^2 + z = 4",
+        "find the centre and radius of x^2 + y^2 + 2kx = 4 - k^2",
+        "centre and radius of the circle x^2 + y^2 = I",
+    ],
+)
+def test_a_circle_without_a_numeric_radius_declines_quietly(
+    text: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    from app.modules.math.tools.block import _build_verified_block
+    from app.modules.math.tools.extract import extract_math_intent
+
+    intent = extract_math_intent(text)
+    assert intent is not None
+    assert intent.school_op == "geometry_measure:circle_centre_radius"
+    with caplog.at_level(logging.WARNING):
+        assert _build_verified_block(intent, Settings(math_tools_enabled=True)) is None
+    assert [record.getMessage() for record in caplog.records] == []
+
+
+# The triangle laws, computed once (ES-10). The two-sides-and-an-angle cosine rule knew exact
+# cosines only from a hand table of 60°, 120° and 90°; SymPy knows 30°, 45° and 150° too.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Pinned before the move.
+        ("in triangle ABC, a = 6, b = 10, C = 72 degrees, find c", "9.946"),
+        ("in triangle ABC, a = 3, b = 4, C = 90 degrees, find c", "5"),
+        ("a triangle has sides 7, 8 and 9, find the smallest angle", r"\approx 48.2^\circ"),
+        ("area of a triangle with sides 5, 6 and 7", "14.6969"),
+        ("find the angles of a triangle with sides 5, 6 and 7", "44.4°, 57.1°, 78.5°"),
+        ("draw a triangle with angles 120, 40 and 20", "120°, 40°, 20°"),
+        # Decimals before: exact surds now.
+        (
+            "in triangle ABC, a = 5, b = 8, C = 30 degrees, find c",
+            r"\sqrt{89 - 40 \sqrt{3}} \approx 4.44",
+        ),
+        (
+            "in triangle ABC, a = 4, b = 6, C = 45 degrees, find c",
+            r"\sqrt{52 - 24 \sqrt{2}} \approx 4.25",
+        ),
+        (
+            "in triangle ABC, a = 3, b = 5, C = 150 degrees, find c",
+            r"\sqrt{34 + 15 \sqrt{3}} \approx 7.745",
+        ),
+        (
+            "in triangle ABC, b = 4, c = 6, A = 135 degrees, find a",
+            r"\sqrt{52 + 24 \sqrt{2}} \approx 9.27",
+        ),
+        # \sqrt{75} and \sqrt{8} before: the surd is simplified.
+        ("in triangle ABC, a = 5, b = 5, C = 120 degrees, find c", r"5 \sqrt{3} \approx 8.66"),
+        ("in triangle ABC, a = 2, b = 2, C = 90 degrees, find c", r"2 \sqrt{2} \approx 2.828"),
+        # "\approx" before an exact angle or side.
+        ("a triangle has sides 3, 5 and 7, find the largest angle", r"120^\circ"),
+        ("a triangle has sides 3, 4 and 5, find the largest angle", r"90^\circ"),
+        ("in triangle ABC, A = 30 degrees, B = 90 degrees, a = 5, find b", "10"),
+        (
+            "in triangle ABC, A = 45 degrees, B = 30 degrees, a = 8, find b",
+            r"4\sqrt{2} \approx 5.66",
+        ),
+    ],
+)
+async def test_triangle_laws_answer(text: str, answer: str) -> None:
+    canonical, _ = await _reply(text)
+    assert canonical == answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # No answer before: the readers matched a lowercase "find" only.
+        (
+            "In triangle ABC, a = 5 cm, b = 8 cm and angle C = 30°. Find c.",
+            r"\sqrt{89 - 40 \sqrt{3}} \approx 4.44",
+        ),
+        (
+            "In triangle ABC, a = 7, b = 9 and C = 60°. Calculate the length of c.",
+            r"\sqrt{67} \approx 8.185",
+        ),
+        ("In triangle ABC, a = 7, b = 9 and C = 60°. Determine c.", r"\sqrt{67} \approx 8.185"),
+        ("In triangle ABC, A = 40°, B = 60° and a = 10. Find b.", r"\approx 13.47"),
+        (
+            "In triangle ABC, A = 40°, B = 60° and a = 10. Calculate the length of side b.",
+            r"\approx 13.47",
+        ),
+        # B is the angle given, not the side b: still no answer.
+        ("In triangle ABC, a = 10, A = 40° and B = 60°. Find B.", None),
+    ],
+)
+async def test_triangle_laws_read_a_capitalised_verb(text: str, answer: str | None) -> None:
+    canonical, _ = await _reply(text)
+    assert canonical == answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "row"),
+    [
+        ("in triangle ABC, a = 7, b = 9, C = 60 degrees, find c", "$c^2 = 49 + 81 - 63 = 67$"),
+        # Was "9 + 16 - 1.46958e-15": cos 90° read from the float, not the table.
+        ("in triangle ABC, a = 3, b = 4, C = 90 degrees, find c", "$c^2 = 9 + 16 - 0 = 25$"),
+        (
+            "in triangle ABC, a = 5, b = 8, C = 30 degrees, find c",
+            r"$c^2 = 25 + 64 - 40 \sqrt{3} = 89 - 40 \sqrt{3}$",
+        ),
+        # Was "9 + 25 - -25.9808": an obtuse angle's negative cosine adds.
+        (
+            "in triangle ABC, a = 3, b = 5, C = 150 degrees, find c",
+            r"$c^2 = 9 + 25 + 15 \sqrt{3} = 34 + 15 \sqrt{3}$",
+        ),
+        ("in triangle ABC, a = 3, b = 5, C = 100 degrees, find c", "$c^2 = 9 + 25 + 5.20945"),
+        # Was -68/175: the float's nearest small fraction, written as if exact.
+        (
+            "a triangle has sides 2.31, 3.77 and 5.13, find the largest angle",
+            r"$C = \cos^{-1}\left(\frac{-67679}{174174}\right)$",
+        ),
+    ],
+)
+async def test_triangle_laws_working(text: str, row: str) -> None:
+    _, reply = await _reply(text)
+    assert reply is not None and row in reply
+
+
+@pytest.mark.asyncio
+async def test_triangle_laws_decline_impossible_sides() -> None:
+    canonical, _ = await _reply("a triangle has sides 1, 1 and 10, find the largest angle")
+    assert canonical is None

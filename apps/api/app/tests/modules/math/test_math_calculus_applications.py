@@ -117,6 +117,29 @@ def test_a_bound_is_matched_whole_or_not_at_all() -> None:
         assert _intent(text).integral_upper == upper
 
 
+@pytest.mark.parametrize(
+    "text,shown,typed",
+    [
+        ("area under sin(x) from 0 to 2*pi", r"2 \pi", "2*pi"),
+        ("area between y=cos(x) and y=0 from 0 to pi/2", r"\frac{\pi}{2}", "pi/2"),
+        ("arc length of y = 2x from 0 to pi", r"\pi", "pi"),
+        ("volume of y = sqrt(x) from 0 to pi revolved about the x-axis", r"\pi", "pi"),
+        ("volume of y = x from 0 to pi revolved about the y-axis", r"\pi", "pi"),
+    ],
+)
+def test_the_working_prints_its_bounds_in_tex(text: str, shown: str, typed: str) -> None:
+    """``0 \\le x \\le 2*pi`` and ``\\int_{0}^{2*pi}``: the bound as typed, not as maths."""
+    intent = _intent(text)
+    block = _build_verified_block(intent, _settings())
+    assert block is not None and block.direct_reply is not None
+    working = block.direct_reply
+    assert rf"0 \le x \le {shown}$" in working
+    assert rf"\int_{{0}}^{{{shown}}}" in working
+    # Every place a bound is printed: the interval, integral limits, [F]_a^b.
+    for written in (rf"\le {typed}$", f"^{{{typed}}}", f"[0, {typed}]"):
+        assert written not in working
+
+
 def test_the_area_answer_is_not_the_intersection_points() -> None:
     """The original defect, still pinned now that the question is answered."""
     answer = _verified_answer("area between y=x and y=x^2 from 0 to 1")

@@ -1,4 +1,4 @@
-"""Subscription plan gates and per-user model pools."""
+"""Per-user model pools. Plan policy itself lives in ``entitlements``."""
 
 from __future__ import annotations
 
@@ -6,16 +6,29 @@ from typing import TYPE_CHECKING
 
 from app.core.config import Settings
 from app.exceptions import UnknownModelOverrideError
+from app.modules.billing.entitlements import can_use, is_paid
 from app.services import model_catalog, routing
 
 if TYPE_CHECKING:
     from app.models.orm import User
 
+__all__ = [
+    "AUTO_ALIAS",
+    "allowed_model_ids",
+    "can_use",
+    "chat_fallback_models",
+    "default_pro_enabled",
+    "free_pool",
+    "is_auto_enabled",
+    "is_paid",
+    "model_pool",
+    "resolve_regenerate_model",
+    "resolve_user_model",
+    "resolve_user_model_override",
+    "validate_enabled_models_for_update",
+]
+
 AUTO_ALIAS = "auto"
-
-
-def is_pro(user: User) -> bool:
-    return user.plan == "pro"
 
 
 def free_pool(settings: Settings) -> list[str]:
@@ -41,7 +54,7 @@ def default_pro_enabled(settings: Settings) -> list[str]:
 
 
 def allowed_model_ids(user: User, settings: Settings) -> set[str]:
-    if is_pro(user):
+    if can_use(user, "all_models", settings):
         return {
             m.id
             for m in model_catalog.selectable_models()
@@ -64,7 +77,7 @@ def model_pool(user: User, settings: Settings) -> list[str]:
         pool = [model_id for model_id in stored if model_id != AUTO_ALIAS and model_id in allowed]
         if pool:
             return pool
-    if is_pro(user):
+    if can_use(user, "all_models", settings):
         enabled = [model_id for model_id in default_pro_enabled(settings) if model_id in allowed]
         return enabled or [model_catalog.auto_fast_alias()]
     return list(allowed) or [model_catalog.auto_fast_alias()]

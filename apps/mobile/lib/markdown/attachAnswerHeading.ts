@@ -1,24 +1,13 @@
-import { ANSWER_LABEL_LINE, isVerifiedAnswer } from "@/lib/answerNotation";
-
-const ANSWER_HEADINGS = new Set(["**Answer**", "**Answer:**"]);
+// **Answer**, **Answer:**, ## Answer, Answer: — the heading written above a card.
+const ANSWER_HEADING = /^(?:#{1,4}\s+)?(?:\*\*)?answer:?(?:\*\*)?:?$/i;
 
 function isAnswerHeading(line: string): boolean {
-  return ANSWER_HEADINGS.has(line.trim());
-}
-
-/** The fence opened at ``fenceAt`` is the server's card: its header has the marker. */
-function opensVerified(lines: string[], fenceAt: number): boolean {
-  const body: string[] = [];
-  for (let j = fenceAt + 1; j < lines.length && !(lines[j] ?? "").startsWith("```"); j += 1) {
-    body.push(lines[j] ?? "");
-  }
-  return isVerifiedAnswer(body.join("\n"));
+  return ANSWER_HEADING.test(line.trim());
 }
 
 /**
- * A lesson writes **Answer** as the paragraph above the answer fence, so the
- * word lands on its own line and the equation sits below it. Move that word
- * into the fence; the chip draws it on the equation's row.
+ * Every answer card draws its own "Answer" heading, checked or not. Drop the
+ * **Answer** paragraph written above one so the word shows once.
  */
 export function attachAnswerHeadingToFence(markdown: string): string {
   const lines = markdown.split("\n");
@@ -31,17 +20,11 @@ export function attachAnswerHeadingToFence(markdown: string): string {
     let fenceAt = i + 1;
     while (fenceAt < lines.length && (lines[fenceAt] ?? "").trim() === "") fenceAt += 1;
     const opener = lines[fenceAt];
-    // Only the server's checked card draws "Answer" beside it. An unmarked fence
-    // renders as ordinary math, which has no label, so the heading stays a heading.
-    if (opener === undefined || !opener.startsWith("```answer") || !opensVerified(lines, fenceAt)) {
+    if (opener === undefined || !opener.startsWith("```answer")) {
       out.push(lines[i] ?? "");
       continue;
     }
-    out.push(opener);
-    if ((lines[fenceAt + 1] ?? "").trim() !== ANSWER_LABEL_LINE) {
-      out.push(ANSWER_LABEL_LINE);
-    }
-    i = fenceAt;
+    i = fenceAt - 1;
   }
   return out.join("\n");
 }

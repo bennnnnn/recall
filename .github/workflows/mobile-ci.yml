@@ -4,11 +4,12 @@ on:
   push:
     paths:
       - "apps/mobile/**"
+      - "scripts/check_file_sizes.py"
+      - "scripts/file_size_baseline.json"
       - ".github/workflows/mobile-ci.yml"
+  # Every pull request, so the required checks always report. The jobs skip
+  # themselves when nothing they check changed (a skipped job counts as passed).
   pull_request:
-    paths:
-      - "apps/mobile/**"
-      - ".github/workflows/mobile-ci.yml"
 
 permissions:
   contents: read
@@ -18,7 +19,29 @@ defaults:
     working-directory: apps/mobile
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.diff.outputs.run }}
+    steps:
+      - id: diff
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          run=true
+          if [ -n "$PR" ] && files=$(gh pr diff "$PR" --repo "$GITHUB_REPOSITORY" --name-only); then
+            echo "$files" | grep -qE '^(apps/mobile/|scripts/(check_file_sizes\.py|file_size_baseline\.json)$|\.github/workflows/mobile-ci\.yml$)' || run=false
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
   check:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -41,6 +64,9 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      - name: File sizes
+        run: python3 ../../scripts/check_file_sizes.py mobile
 
       - name: Unit tests
         run: pnpm test

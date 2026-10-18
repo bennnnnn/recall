@@ -12,6 +12,7 @@ from app.gateways import litellm_gateway
 from app.models.schemas import SuggestionGenerationResult, SuggestionItem
 from app.modules import memory as memory_service
 from app.modules.suggestions import repository as suggestions_repo
+from app.modules.suggestions.models import Suggestion
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 
@@ -37,6 +38,11 @@ SUGGESTION_SYSTEM_PROMPT = (
 class _SuggestionSnapshot:
     user_context: str
     max_items: int
+
+
+async def list_for_export(session: AsyncSession, user_id: UUID, *, limit: int) -> list[Suggestion]:
+    """Every suggestion stored for the user, for their data export."""
+    return await suggestions_repo.list_for_user(session, user_id, limit=limit)
 
 
 async def _load_suggestion_snapshot(

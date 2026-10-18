@@ -1,0 +1,58 @@
+"""A verified SymPy result as LaTeX: exact when short, a derivative as a textbook writes it."""
+
+from __future__ import annotations
+
+from typing import Any
+
+_EXACT_LATEX_DECIMAL_THRESHOLD = 40
+
+
+def derivative_latex(expr: Any) -> str:
+    """A derivative as a textbook writes it.
+
+    A quotient keeps one fraction bar: the denominator factored, the numerator
+    expanded unless factoring shows a repeated factor:
+    ``\\frac{x^{2} - 2 x - 1}{\\left(x - 1\\right)^{2}}``, not SymPy's
+    ``\\frac{- x^{2} + 2 x \\left(x - 1\\right) - 1}{...}``. Anything else is
+    left to ``format_verified_latex``.
+    """
+    from sympy import cancel, expand, factor, fraction, latex, together
+
+    symbols: set[Any] = set(getattr(expr, "free_symbols", set()))
+    if len(symbols) != 1 or not expr.is_rational_function(*symbols):
+        return format_verified_latex(expr)
+    numerator, denominator = fraction(cancel(together(expr)))
+    if not denominator.free_symbols:
+        return format_verified_latex(expr)
+    factored = factor(numerator)
+    repeated = factored.is_Pow or (
+        factored.is_Mul and any(part.is_Pow and part.free_symbols for part in factored.args)
+    )
+    top = factored if repeated else expand(numerator)
+    bottom = factor(denominator)
+    if top.could_extract_minus_sign() and not top.is_Add:
+        return rf"- \frac{{{latex(-top)}}}{{{latex(bottom)}}}"
+    return rf"\frac{{{latex(top)}}}{{{latex(bottom)}}}"
+
+
+def format_verified_latex(expr: Any) -> str:
+    """Exact latex when short; decimal via evalf when the exact form is a wall."""
+    from sympy import latex, simplify
+
+    val = simplify(expr)
+    if getattr(val, "is_Float", False) and float(val).is_integer() and abs(float(val)) < 1e15:
+        # ``x = 2``, not ``x = 2.0``: a decimal input that solves to a whole number.
+        # A float this large is a rounded value (6.02e23 * 2), not an exact
+        # integer; its binary digits would print as 1203999999999999857393664.
+        from sympy import Integer
+
+        val = Integer(int(val))
+    tex = str(latex(val))
+    # A derivative or antiderivative stays exact: ``0.434294 x`` is not ``x / ln 10``.
+    if len(tex) <= _EXACT_LATEX_DECIMAL_THRESHOLD or getattr(val, "free_symbols", None):
+        return tex
+    approximate = str(latex(val.evalf(6)))
+    # ``evalf`` also converts harmless exact integer coefficients inside a
+    # symbolic expression (``3`` -> ``3.0``).  Only use the approximation when
+    # it actually makes a long exact result easier to read.
+    return approximate if len(approximate) < len(tex) else tex

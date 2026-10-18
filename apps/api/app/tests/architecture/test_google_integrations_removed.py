@@ -4,22 +4,23 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
+from typing import get_args
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import CheckConstraint
 
 from app.background import handlers
-from app.core import jobs
 from app.core.config import Settings
 from app.core.db import Base
+from app.core.jobs import queue
 from app.main import app
 from app.modules.chat.prompt_constants import (
     CAPABILITIES_FORMAT_HINT,
     DAY_PLANNING_ANSWER_HINT,
     PRIVACY_HINT,
 )
-from app.modules.chat.stream_status import STREAM_STATUS_PHASES
+from app.modules.chat.stream_status import StreamStatusPhase
 from app.modules.todos import TODO_HINT
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -84,7 +85,7 @@ def test_integration_http_routes_are_absent() -> None:
 
 def test_no_gmail_job_type_is_registered() -> None:
     handlers.register_all()
-    assert "gmail_sync" not in jobs._HANDLERS
+    assert "gmail_sync" not in queue._HANDLERS
 
 
 def test_settings_have_no_integration_flags() -> None:
@@ -101,8 +102,8 @@ def test_settings_have_no_integration_flags() -> None:
 
 
 def test_stream_has_no_calendar_or_inbox_status() -> None:
-    assert "loading_calendar" not in STREAM_STATUS_PHASES
-    assert "checking_inbox" not in STREAM_STATUS_PHASES
+    assert "loading_calendar" not in get_args(StreamStatusPhase)
+    assert "checking_inbox" not in get_args(StreamStatusPhase)
 
 
 def test_prompts_say_recall_has_no_calendar_or_inbox() -> None:

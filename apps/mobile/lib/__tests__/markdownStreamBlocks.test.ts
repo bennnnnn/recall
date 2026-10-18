@@ -158,4 +158,31 @@ describe("advanceStreamBlocks", () => {
       expect(fenceMarkers % 2).toBe(0);
     }
   });
+
+  it("cuts only before plain text that follows a blank after a line it may end on", () => {
+    const parts = [
+      `${PARA("One.")}\n\n`,
+      // A list glues to what is around it, so neither side of it is a cut.
+      "- a\n\n  more\n\n- b\n\n",
+      `${PARA("Two.")}\n\n`,
+      // A one-line $$…$$ is a rich block: the next safe boundary cuts.
+      "Inline $$a$$ here.\n\n",
+      "Short.\n\n",
+      "> q\n\n",
+      `${PARA("Three.")}\n\n`,
+      "| a |\n\n",
+      `${PARA("Four.")}\n\nend`,
+    ];
+    const prepared = parts.join("");
+    const state = advanceStreamBlocks(null, prepared, prepared.length);
+
+    expect(state.chunks).toEqual([parts.slice(0, 4).join("")]);
+    expect(state.settledText).toBe(state.chunks[0]);
+  });
+
+  it("settles nothing for a negative safe length", () => {
+    const prepared = `${PARA("First.")}\n\n${PARA("Second.")}\n\n`;
+    const prev = emptyStreamBlocksState();
+    expect(advanceStreamBlocks(prev, prepared, -5)).toBe(prev);
+  });
 });

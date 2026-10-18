@@ -402,3 +402,32 @@ def test_workers_exit_when_the_parent_dies_without_cleanup(sig: signal.Signals):
         if parent.poll() is None:
             parent.kill()
             parent.wait()
+
+
+_HELD_PIPE_SCRIPT = """
+import multiprocessing, os, time
+from types import SimpleNamespace
+from app.core import sympy_executor
+
+# The parent pipe stays open (this process holds its write end), but the
+# recorded parent pid is not ours: the backstop must still end the worker.
+read_end, write_end = os.pipe()
+multiprocessing.parent_process = lambda: SimpleNamespace(sentinel=read_end, pid=os.getppid() + 1)
+sympy_executor.mp.parent_process = multiprocessing.parent_process
+sympy_executor._exit_with_parent()
+time.sleep(30)
+raise SystemExit(3)
+"""
+
+
+def test_worker_exits_when_its_parent_pid_changes_even_if_the_pipe_stays_open():
+    """Backstop for the parent pipe: a re-parented worker exits within ~1 s."""
+    started = time.monotonic()
+    result = subprocess.run(  # noqa: S603 - fixed argv: this interpreter and a literal script
+        [sys.executable, "-c", _HELD_PIPE_SCRIPT],
+        cwd=Path(__file__).resolve().parents[3],
+        timeout=20,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert time.monotonic() - started < 15

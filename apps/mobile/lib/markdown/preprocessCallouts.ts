@@ -118,7 +118,7 @@ function looksLikeAuthor(name: string): boolean {
 }
 
 /** `"Quote body." - Author` → a `>` blockquote with attribution on its own line. */
-export function quotedAttributionToBlockquote(raw: string): string | null {
+function quotedAttributionToBlockquote(raw: string): string | null {
   const t = unwrapOuterEmphasis(collapseWs(raw));
   if (t.length < MIN_PROMOTED_QUOTE_CHARS + 4) return null;
   if (t.startsWith(">") || t.startsWith("#") || t.startsWith("|")) return null;

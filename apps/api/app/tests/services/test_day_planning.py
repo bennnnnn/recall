@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.modules.chat.prompt_builder import _style_format_hints
 from app.modules.chat.prompt_constants import DAY_PLANNING_ANSWER_HINT
+from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.todos.prompt_context import should_inject_todos_prompt
 from app.services.day_planning import (
     is_day_planning_question,

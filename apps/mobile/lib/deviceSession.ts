@@ -1,4 +1,4 @@
-export type DeviceSessionFields = {
+type DeviceSessionFields = {
   device_label?: string;
   platform?: string;
 };

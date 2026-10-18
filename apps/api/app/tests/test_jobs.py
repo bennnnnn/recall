@@ -11,6 +11,7 @@ import pytest
 from app.background import handlers as job_handlers
 from app.core import jobs
 from app.core.config import Settings
+from app.core.jobs import admin, dedupe, queue, worker
 
 
 class _FakeSessionCM:
@@ -28,14 +29,14 @@ def _patch_session():
 @pytest.fixture(autouse=True)
 def _restore_handlers():
     # Handlers registered here must not leak into later tests' registry.
-    with patch.dict(jobs._HANDLERS):
+    with patch.dict(queue._HANDLERS):
         yield
 
 
 def test_consumer_name_includes_hostname_and_pid():
     import os
 
-    name = jobs._consumer_name()
+    name = worker._consumer_name()
     assert name.startswith("worker-")
     assert str(os.getpid()) in name
     # Hostname segment keeps multi-container PID-1 workers distinct.
@@ -92,20 +93,20 @@ async def test_enqueue_failure_still_swallows_when_sentry_unavailable():
 
 
 def test_is_worker_alive_false_when_no_task():
-    jobs._worker_task = None
+    worker._worker_task = None
     assert jobs.is_worker_alive() is False
 
 
 def test_is_worker_alive_true_when_task_running_and_heartbeat_fresh():
     done_mock = MagicMock()
     done_mock.done.return_value = False
-    jobs._worker_task = done_mock
-    jobs._last_heartbeat = time.monotonic()
+    worker._worker_task = done_mock
+    worker._last_heartbeat = time.monotonic()
     try:
         assert jobs.is_worker_alive() is True
     finally:
-        jobs._worker_task = None
-        jobs._last_heartbeat = 0.0
+        worker._worker_task = None
+        worker._last_heartbeat = 0.0
 
 
 def test_is_worker_alive_true_when_task_running_and_heartbeat_never_set():
@@ -114,24 +115,24 @@ def test_is_worker_alive_true_when_task_running_and_heartbeat_never_set():
     task.done() check, so we must not flag staleness during it."""
     done_mock = MagicMock()
     done_mock.done.return_value = False
-    jobs._worker_task = done_mock
-    jobs._last_heartbeat = 0.0
+    worker._worker_task = done_mock
+    worker._last_heartbeat = 0.0
     try:
         assert jobs.is_worker_alive() is True
     finally:
-        jobs._worker_task = None
+        worker._worker_task = None
 
 
 def test_is_worker_alive_false_when_task_done():
     done_mock = MagicMock()
     done_mock.done.return_value = True
-    jobs._worker_task = done_mock
-    jobs._last_heartbeat = time.monotonic()
+    worker._worker_task = done_mock
+    worker._last_heartbeat = time.monotonic()
     try:
         assert jobs.is_worker_alive() is False
     finally:
-        jobs._worker_task = None
-        jobs._last_heartbeat = 0.0
+        worker._worker_task = None
+        worker._last_heartbeat = 0.0
 
 
 def test_is_worker_alive_false_when_heartbeat_stale_even_if_task_running():
@@ -139,25 +140,25 @@ def test_is_worker_alive_false_when_heartbeat_stale_even_if_task_running():
     never resolves) never becomes done() — the heartbeat is what catches it."""
     done_mock = MagicMock()
     done_mock.done.return_value = False
-    jobs._worker_task = done_mock
-    jobs._last_heartbeat = time.monotonic() - jobs._HEARTBEAT_STALE_THRESHOLD_S - 1
+    worker._worker_task = done_mock
+    worker._last_heartbeat = time.monotonic() - worker._HEARTBEAT_STALE_THRESHOLD_S - 1
     try:
         assert jobs.is_worker_alive() is False
     finally:
-        jobs._worker_task = None
-        jobs._last_heartbeat = 0.0
+        worker._worker_task = None
+        worker._last_heartbeat = 0.0
 
 
 def test_is_worker_alive_true_when_heartbeat_just_under_threshold():
     done_mock = MagicMock()
     done_mock.done.return_value = False
-    jobs._worker_task = done_mock
-    jobs._last_heartbeat = time.monotonic() - (jobs._HEARTBEAT_STALE_THRESHOLD_S - 1)
+    worker._worker_task = done_mock
+    worker._last_heartbeat = time.monotonic() - (worker._HEARTBEAT_STALE_THRESHOLD_S - 1)
     try:
         assert jobs.is_worker_alive() is True
     finally:
-        jobs._worker_task = None
-        jobs._last_heartbeat = 0.0
+        worker._worker_task = None
+        worker._last_heartbeat = 0.0
 
 
 # ── dispatch ─────────────────────────────────────────────────────────────────
@@ -171,14 +172,14 @@ async def test_dispatch_routes_to_handler():
         seen["payload"] = payload
 
     jobs.register("unit-test-job", handler)
-    await jobs._dispatch(Settings(), {"type": "unit-test-job", "payload": json.dumps({"x": 1})})
+    await queue._dispatch(Settings(), {"type": "unit-test-job", "payload": json.dumps({"x": 1})})
     assert seen["payload"] == {"x": 1}
 
 
 @pytest.mark.asyncio
 async def test_dispatch_unknown_type_raises_discard():
     with pytest.raises(jobs.JobDiscardError, match="unknown job type"):
-        await jobs._dispatch(Settings(), {"type": "does-not-exist", "payload": "{}"})
+        await queue._dispatch(Settings(), {"type": "does-not-exist", "payload": "{}"})
 
 
 @pytest.mark.asyncio
@@ -190,19 +191,19 @@ async def test_dispatch_bad_payload_raises_discard():
 
     jobs.register("bad-payload-job", handler)
     with pytest.raises(jobs.JobDiscardError, match="bad payload"):
-        await jobs._dispatch(Settings(), {"type": "bad-payload-job", "payload": "{not-json"})
+        await queue._dispatch(Settings(), {"type": "bad-payload-job", "payload": "{not-json"})
     assert calls["n"] == 0
 
 
 @pytest.mark.asyncio
 async def test_process_entries_moves_unknown_type_to_dlq(fake_redis):
-    await jobs._ensure_group(fake_redis)
+    await worker._ensure_group(fake_redis)
     entry_id = await fake_redis.xadd(
         jobs.JOBS_STREAM,
         {"type": "no-such-handler", "payload": "{}"},
     )
     entries = [(entry_id, {"type": "no-such-handler", "payload": "{}"})]
-    await jobs._process_entries(fake_redis, Settings(), entries)
+    await worker._process_entries(fake_redis, Settings(), entries)
     assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 1
 
 
@@ -367,10 +368,10 @@ async def test_process_entries_dispatches_and_acks():
 
     jobs.register("proc-job", handler)
     entries = [("1-0", {"type": "proc-job", "payload": json.dumps({"k": 1})})]
-    jobs._last_heartbeat = 0.0
-    await jobs._process_entries(redis, Settings(), entries)
+    worker._last_heartbeat = 0.0
+    await worker._process_entries(redis, Settings(), entries)
     assert seen == [{"k": 1}]
-    assert jobs._last_heartbeat > 0.0
+    assert worker._last_heartbeat > 0.0
     redis.xack.assert_awaited_once()
     redis.xadd.assert_not_called()
 
@@ -387,10 +388,10 @@ async def test_process_entries_failed_job_goes_to_dlq():
     jobs.register("fail-job", handler)
     entries = [("2-0", {"type": "fail-job", "payload": "{}"})]
     # Retry backoff would slow the test; collapse sleeps to instant.
-    with patch("app.core.jobs.asyncio.sleep", AsyncMock()):
-        await jobs._process_entries(redis, Settings(), entries)
+    with patch("app.core.jobs.worker.asyncio.sleep", AsyncMock()):
+        await worker._process_entries(redis, Settings(), entries)
     # Handler retried up to _MAX_ATTEMPTS, then went to the DLQ.
-    assert calls["n"] == jobs._MAX_ATTEMPTS
+    assert calls["n"] == worker._MAX_ATTEMPTS
     redis.xadd.assert_awaited_once()
     assert redis.xadd.call_args.args[0] == jobs.JOBS_DLQ_STREAM
     redis.xack.assert_awaited_once()
@@ -403,15 +404,15 @@ async def test_process_entries_retries_then_succeeds_without_dlq():
 
     async def handler(_settings, _payload):
         calls["n"] += 1
-        if calls["n"] < jobs._MAX_ATTEMPTS:
+        if calls["n"] < worker._MAX_ATTEMPTS:
             raise RuntimeError("transient")
         # succeeds on the final attempt
 
     jobs.register("retry-then-ok", handler)
     entries = [("3-0", {"type": "retry-then-ok", "payload": "{}"})]
-    with patch("app.core.jobs.asyncio.sleep", AsyncMock()):
-        await jobs._process_entries(redis, Settings(), entries)
-    assert calls["n"] == jobs._MAX_ATTEMPTS
+    with patch("app.core.jobs.worker.asyncio.sleep", AsyncMock()):
+        await worker._process_entries(redis, Settings(), entries)
+    assert calls["n"] == worker._MAX_ATTEMPTS
     # No DLQ write when the job eventually succeeds.
     redis.xadd.assert_not_called()
     redis.xack.assert_awaited_once()
@@ -433,7 +434,7 @@ async def test_process_entries_runs_batch_concurrently():
         (f"{i}-0", {"type": "parallel-job", "payload": json.dumps({"i": i})}) for i in range(5)
     ]
     task = asyncio.create_task(
-        jobs._process_entries(redis, Settings(jobs_worker_concurrency=8), entries)
+        worker._process_entries(redis, Settings(jobs_worker_concurrency=8), entries)
     )
     for _ in range(100):
         if len(started) == 5:
@@ -457,11 +458,11 @@ async def test_process_entries_parallel_drain_faster_than_serial():
     entries = [(f"{i}-0", {"type": "slow-job", "payload": "{}"}) for i in range(4)]
 
     t0 = time.perf_counter()
-    await jobs._process_entries(redis, Settings(jobs_worker_concurrency=4), entries)
+    await worker._process_entries(redis, Settings(jobs_worker_concurrency=4), entries)
     parallel_s = time.perf_counter() - t0
 
     t1 = time.perf_counter()
-    await jobs._process_entries(redis, Settings(jobs_worker_concurrency=1), entries)
+    await worker._process_entries(redis, Settings(jobs_worker_concurrency=1), entries)
     serial_s = time.perf_counter() - t1
 
     # Parallel should be closer to one sleep than four; leave headroom for CI.
@@ -520,19 +521,19 @@ async def test_worker_loop_processes_then_cancels():
 
     jobs.register("wl-job", handler)
 
-    with patch("app.core.jobs.get_jobs_redis_client", return_value=redis):
+    with patch("app.core.jobs.worker.get_jobs_redis_client", return_value=redis):
         with pytest.raises(asyncio.CancelledError):
-            await jobs._worker_loop(Settings())
+            await worker._worker_loop(Settings())
 
     assert seen == [{}]
 
 
 @pytest.mark.asyncio
 async def test_start_and_stop_worker():
-    with patch("app.core.jobs._worker_loop", AsyncMock()):
+    with patch("app.core.jobs.worker._worker_loop", AsyncMock()):
         await jobs.start_worker(Settings())
         await jobs.stop_worker()
-    assert jobs._worker_task is None
+    assert worker._worker_task is None
 
 
 @pytest.mark.asyncio
@@ -553,13 +554,13 @@ async def test_stopped_worker_removes_its_consumer_from_the_group(
     async def handler(settings, payload):
         processed.set()
 
-    monkeypatch.setitem(jobs._HANDLERS, "consumer-cleanup", handler)
+    monkeypatch.setitem(queue._HANDLERS, "consumer-cleanup", handler)
     await fake_redis.xgroup_create(jobs.JOBS_STREAM, jobs.JOBS_GROUP, id="0", mkstream=True)
     if owns_pending_entry:
         # Delivered to this process earlier and never acked (crash mid-job).
         await fake_redis.xadd(jobs.JOBS_STREAM, {"type": "consumer-cleanup", "payload": "{}"})
         await fake_redis.xreadgroup(
-            jobs.JOBS_GROUP, jobs._consumer_name(), {jobs.JOBS_STREAM: ">"}, count=1
+            jobs.JOBS_GROUP, worker._consumer_name(), {jobs.JOBS_STREAM: ">"}, count=1
         )
     await fake_redis.xadd(jobs.JOBS_STREAM, {"type": "consumer-cleanup", "payload": "{}"})
 
@@ -572,7 +573,7 @@ async def test_stopped_worker_removes_its_consumer_from_the_group(
 
     fake_redis.xreadgroup = polling_read
 
-    with patch("app.core.jobs.get_jobs_redis_client", return_value=fake_redis):
+    with patch("app.core.jobs.worker.get_jobs_redis_client", return_value=fake_redis):
         await jobs.start_worker(Settings(jobs_worker_concurrency=1))
         await asyncio.wait_for(processed.wait(), timeout=5)
         await asyncio.sleep(0.05)  # let the ack land
@@ -589,8 +590,9 @@ async def test_stopped_worker_removes_its_consumer_from_the_group(
 
 @pytest.mark.asyncio
 async def test_collect_queue_metrics_empty(fake_redis):
+    await worker._ensure_group(fake_redis)
     metrics = await jobs.collect_queue_metrics(fake_redis)
-    assert metrics == {"dlq_depth": 0, "pending_entries": 0}
+    assert metrics == {"dlq_depth": 0, "pending_entries": 0, "metrics_error": None}
 
 
 @pytest.mark.asyncio
@@ -603,12 +605,13 @@ async def test_collect_queue_metrics_counts_dlq_depth(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_collect_queue_metrics_tolerates_redis_errors():
+async def test_collect_queue_metrics_redis_error_is_unknown_not_zero():
+    """Never raises into the worker loop, but a count it could not read is None."""
     redis = AsyncMock()
     redis.xlen = AsyncMock(side_effect=RuntimeError("redis down"))
     redis.xpending = AsyncMock(side_effect=RuntimeError("redis down"))
     metrics = await jobs.collect_queue_metrics(redis)
-    assert metrics == {"dlq_depth": 0, "pending_entries": 0}
+    assert metrics == {"dlq_depth": None, "pending_entries": None, "metrics_error": "RuntimeError"}
 
 
 @pytest.mark.asyncio
@@ -618,12 +621,13 @@ async def test_report_queue_metrics_warns_when_dlq_exceeds_threshold():
     redis = AsyncMock()
     with (
         patch.object(
-            jobs,
+            admin,
             "collect_queue_metrics",
             AsyncMock(
                 return_value={
-                    "dlq_depth": jobs._DLQ_ALERT_THRESHOLD,
+                    "dlq_depth": admin._DLQ_ALERT_THRESHOLD,
                     "pending_entries": 0,
+                    "metrics_error": None,
                 }
             ),
         ),
@@ -643,12 +647,13 @@ async def test_report_queue_metrics_warns_when_pending_exceeds_threshold():
     redis = AsyncMock()
     with (
         patch.object(
-            jobs,
+            admin,
             "collect_queue_metrics",
             AsyncMock(
                 return_value={
                     "dlq_depth": 0,
-                    "pending_entries": jobs._PENDING_ALERT_THRESHOLD,
+                    "pending_entries": admin._PENDING_ALERT_THRESHOLD,
+                    "metrics_error": None,
                 }
             ),
         ),
@@ -666,12 +671,13 @@ async def test_report_queue_metrics_quiet_below_thresholds():
     redis = AsyncMock()
     with (
         patch.object(
-            jobs,
+            admin,
             "collect_queue_metrics",
             AsyncMock(
                 return_value={
-                    "dlq_depth": jobs._DLQ_ALERT_THRESHOLD - 1,
-                    "pending_entries": jobs._PENDING_ALERT_THRESHOLD - 1,
+                    "dlq_depth": admin._DLQ_ALERT_THRESHOLD - 1,
+                    "pending_entries": admin._PENDING_ALERT_THRESHOLD - 1,
+                    "metrics_error": None,
                 }
             ),
         ),
@@ -696,12 +702,13 @@ async def test_report_queue_metrics_noop_without_sentry():
     sys.modules["sentry_sdk"] = None
     try:
         with patch.object(
-            jobs,
+            admin,
             "collect_queue_metrics",
             AsyncMock(
                 return_value={
-                    "dlq_depth": jobs._DLQ_ALERT_THRESHOLD,
+                    "dlq_depth": admin._DLQ_ALERT_THRESHOLD,
                     "pending_entries": 0,
+                    "metrics_error": None,
                 }
             ),
         ):
@@ -711,7 +718,7 @@ async def test_report_queue_metrics_noop_without_sentry():
             sys.modules["sentry_sdk"] = original
         else:
             sys.modules.pop("sentry_sdk", None)
-    assert metrics["dlq_depth"] == jobs._DLQ_ALERT_THRESHOLD
+    assert metrics["dlq_depth"] == admin._DLQ_ALERT_THRESHOLD
 
 
 # ── periodic reclaim ────────────────────────────────────────────────────────
@@ -735,7 +742,7 @@ async def test_reclaim_pending_jobs_processes_claimed_entries():
 
     # _reclaim_pending_jobs takes redis as an argument; it never resolved a
     # client itself, so the old get_redis_client patch here was a no-op.
-    await jobs._reclaim_pending_jobs(redis, Settings(), "worker-test")
+    await worker._reclaim_pending_jobs(redis, Settings(), "worker-test")
 
     assert seen == [{}]
     redis.xautoclaim.assert_awaited_once()
@@ -748,7 +755,7 @@ async def test_reclaim_pending_jobs_swallows_xautoclaim_errors():
     redis.xautoclaim = AsyncMock(side_effect=Exception("redis down"))
 
     # Must not raise.
-    await jobs._reclaim_pending_jobs(redis, Settings(), "worker-test")
+    await worker._reclaim_pending_jobs(redis, Settings(), "worker-test")
 
     redis.xautoclaim.assert_awaited_once()
 
@@ -772,7 +779,7 @@ async def test_process_entries_skips_duplicate_dedupe_key(fake_redis):
         calls["n"] += 1
 
     jobs.register("dedupe-job", handler)
-    await jobs._ensure_group(fake_redis)
+    await worker._ensure_group(fake_redis)
     fields = {
         "type": "dedupe-job",
         "payload": "{}",
@@ -780,13 +787,13 @@ async def test_process_entries_skips_duplicate_dedupe_key(fake_redis):
     }
     entry_a = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
     entry_b = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
-    await jobs._process_entries(
+    await worker._process_entries(
         fake_redis,
         Settings(),
         [(entry_a, fields), (entry_b, dict(fields))],
     )
     assert calls["n"] == 1
-    assert await fake_redis.get(jobs.job_done_key("todosync:chat:msg1")) == jobs._DEDUPE_DONE
+    assert await fake_redis.get(jobs.job_done_key("todosync:chat:msg1")) == dedupe._DEDUPE_DONE
 
 
 @pytest.mark.asyncio
@@ -797,15 +804,15 @@ async def test_process_entries_releases_dedupe_after_permanent_failure(fake_redi
         raise RuntimeError("boom")
 
     jobs.register("dedupe-fail-job", handler)
-    await jobs._ensure_group(fake_redis)
+    await worker._ensure_group(fake_redis)
     fields = {
         "type": "dedupe-fail-job",
         "payload": "{}",
         "dedupe_key": "welcome:user-1",
     }
     entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
-    with patch("app.core.jobs.asyncio.sleep", AsyncMock()):
-        await jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    with patch("app.core.jobs.worker.asyncio.sleep", AsyncMock()):
+        await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
     assert await fake_redis.get(jobs.job_done_key("welcome:user-1")) is None
     assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 1
 
@@ -820,19 +827,19 @@ async def test_process_entries_claims_with_short_ttl_then_extends_on_success(fak
         calls["n"] += 1
 
     jobs.register("dedupe-ttl-job", handler)
-    await jobs._ensure_group(fake_redis)
+    await worker._ensure_group(fake_redis)
     fields = {
         "type": "dedupe-ttl-job",
         "payload": "{}",
         "dedupe_key": "ttl:test",
     }
     entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
-    await jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
     assert calls["n"] == 1
     ttl = await fake_redis.ttl(jobs.job_done_key("ttl:test"))
     # Success overwrites the running claim with the 24h done marker.
-    assert await fake_redis.get(jobs.job_done_key("ttl:test")) == jobs._DEDUPE_DONE
-    assert ttl > jobs._JOB_DONE_CLAIM_TTL_SECONDS
+    assert await fake_redis.get(jobs.job_done_key("ttl:test")) == dedupe._DEDUPE_DONE
+    assert ttl > dedupe._JOB_DONE_CLAIM_TTL_SECONDS
 
 
 def _pending_count(summary: object) -> int:
@@ -854,7 +861,7 @@ async def test_process_entries_inflight_claim_does_not_ack(fake_redis):
         calls["n"] += 1
 
     jobs.register("inflight-job", handler)
-    await jobs._ensure_group(fake_redis)
+    await worker._ensure_group(fake_redis)
     fields = {
         "type": "inflight-job",
         "payload": "{}",
@@ -864,10 +871,10 @@ async def test_process_entries_inflight_claim_does_not_ack(fake_redis):
     await fake_redis.xreadgroup(jobs.JOBS_GROUP, "tester", {jobs.JOBS_STREAM: ">"}, count=1)
     await fake_redis.set(
         jobs.job_done_key("attach:index:1"),
-        jobs._DEDUPE_RUNNING,
-        ex=jobs._JOB_DONE_CLAIM_TTL_SECONDS,
+        dedupe._DEDUPE_RUNNING,
+        ex=dedupe._JOB_DONE_CLAIM_TTL_SECONDS,
     )
-    await jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
     assert calls["n"] == 0
     pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
     assert _pending_count(pending) == 1
@@ -882,7 +889,7 @@ async def test_process_entries_done_claim_skips_and_acks(fake_redis):
         calls["n"] += 1
 
     jobs.register("done-job", handler)
-    await jobs._ensure_group(fake_redis)
+    await worker._ensure_group(fake_redis)
     fields = {
         "type": "done-job",
         "payload": "{}",
@@ -892,10 +899,10 @@ async def test_process_entries_done_claim_skips_and_acks(fake_redis):
     await fake_redis.xreadgroup(jobs.JOBS_GROUP, "tester", {jobs.JOBS_STREAM: ">"}, count=1)
     await fake_redis.set(
         jobs.job_done_key("attach:index:2"),
-        jobs._DEDUPE_DONE,
-        ex=jobs._JOB_DONE_TTL_SECONDS,
+        dedupe._DEDUPE_DONE,
+        ex=dedupe._JOB_DONE_TTL_SECONDS,
     )
-    await jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
     assert calls["n"] == 0
     pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
     assert _pending_count(pending) == 0
@@ -913,12 +920,14 @@ async def test_process_entries_cancelled_job_stays_pending(fake_redis):
         await asyncio.sleep(3600)
 
     jobs.register("shutdown-job", handler)
-    await jobs._ensure_group(fake_redis)
+    await worker._ensure_group(fake_redis)
     fields = {"type": "shutdown-job", "payload": "{}", "dedupe_key": "memory:1"}
     entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
     await fake_redis.xreadgroup(jobs.JOBS_GROUP, "tester", {jobs.JOBS_STREAM: ">"}, count=1)
 
-    task = asyncio.create_task(jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)]))
+    task = asyncio.create_task(
+        worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    )
     await started.wait()
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
@@ -927,3 +936,57 @@ async def test_process_entries_cancelled_job_stays_pending(fake_redis):
     pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
     assert _pending_count(pending) == 1
     assert await fake_redis.get(jobs.job_done_key("memory:1")) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "held, ttl, pending_after_reclaim",
+    [
+        # Another worker is running the job: the entry waits for that run.
+        (dedupe._DEDUPE_RUNNING, dedupe._JOB_DONE_CLAIM_TTL_SECONDS, 1),
+        # Another worker finished it: the duplicate is acked.
+        (dedupe._DEDUPE_DONE, dedupe._JOB_DONE_TTL_SECONDS, 0),
+    ],
+)
+async def test_cancel_after_losing_the_claim_keeps_the_other_runs_key(
+    fake_redis, held, ttl, pending_after_reclaim
+):
+    """A worker stopped while it reads why it lost the claim must not release
+    the claim: it never owned it. Deleting another run's key (or the done
+    marker) let the next reclaim win SET NX and run the job a second time."""
+    calls = []
+
+    async def handler(_settings, _payload):
+        calls.append(1)
+
+    jobs.register("lost-claim-job", handler)
+    await worker._ensure_group(fake_redis)
+    fields = {"type": "lost-claim-job", "payload": "{}", "dedupe_key": "memory:2"}
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await fake_redis.xreadgroup(jobs.JOBS_GROUP, "w2", {jobs.JOBS_STREAM: ">"}, count=1)
+    key = jobs.job_done_key("memory:2")
+    await fake_redis.set(key, held, ex=ttl)
+
+    reading = asyncio.Event()
+
+    async def stalled_get(_name):
+        # The state read after a lost SET NX is in flight when the deploy cancels.
+        reading.set()
+        await asyncio.Event().wait()
+
+    with patch.object(fake_redis, "get", stalled_get):
+        task = asyncio.create_task(
+            worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+        )
+        await reading.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    after_cancel = await fake_redis.get(key)
+    with patch.object(worker, "_CLAIM_IDLE_MS", 0):
+        await worker._reclaim_pending_jobs(fake_redis, Settings(), "w3")
+    assert after_cancel == held, f"claim key after the cancel: {after_cancel!r}"
+    assert calls == [], f"the reclaim ran the job {len(calls)} more time(s)"
+    pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
+    assert _pending_count(pending) == pending_after_reclaim

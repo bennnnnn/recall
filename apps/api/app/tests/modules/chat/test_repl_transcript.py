@@ -1,10 +1,12 @@
-"""A ``>>>`` transcript outside a fence is code, not three nested quotes."""
+"""A ``>>>`` transcript outside a fence is code, not three nested quotes.
+
+The whole presentation step on transcripts is in docs/fixtures/presentation_cases.json.
+"""
 
 from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.presentation import present_assistant_markdown
 from app.modules.chat.repl_transcript import fence_repl_transcripts
 
 
@@ -34,7 +36,3 @@ def test_continuation_lines_stay_in_the_block() -> None:
 )
 def test_leaves_fenced_code_quotes_and_prose_alone(text: str) -> None:
     assert fence_repl_transcripts(text) == text
-
-
-def test_presentation_fences_transcripts() -> None:
-    assert "```python\n>>> print(1)\n1\n```" in present_assistant_markdown(">>> print(1)\n1")

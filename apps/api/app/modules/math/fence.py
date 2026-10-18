@@ -14,11 +14,12 @@ verified. Discrete point markers and vertical lines stay untouched.
 
 After rewriting any fences the model still produced, we append canonical
 fences that are missing so the client always gets the solver-owned
-diagram. An `` ```answer `` pill is appended unless the prose already states
-the same full answer (so a one-line ``$3+0=3$`` is not duplicated as a result
-card). A *different* final value in the prose never hides the pill: it gets
-one correction line right above it. Every pill this module writes carries the
-server's ``verified: true`` marker; a model's own answer fence never does.
+diagram. The verified `` ```answer `` pill lands under the reply's **Answer**
+heading in place of the model's own final line (``land_answer_card``), or at
+the end when the reply has no Answer section. A *different* final value in the
+prose gets one correction line right above it. Every pill this module writes
+carries the server's ``verified: true`` marker; a model's own answer fence
+never does.
 """
 
 from __future__ import annotations
@@ -31,18 +32,17 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
-from app.modules.math.fence_answer import (
-    prose_already_states_answer,
-    prose_symbolically_states_answer,
-    reply_asks_instead_of_answering,
-)
+from app.modules.math.fence_answer import reply_asks_instead_of_answering
 from app.modules.math.fence_graph import densify_sparse_graph
-from app.modules.math.schemas import (
-    GraphBlockSpec,
-)
+from app.modules.math.schemas import GraphBlockSpec
 from app.modules.math.text_plot import strip_text_plots
-from app.services.answer_check import Verdict, correction_line, stated_verdict
-from app.services.answer_fence import demote_answer_body, verified_answer_fence
+from app.modules.math.tools.direct_counting import verified_counting_fence
+from app.services.answer_check import correction_line, stated_verdict
+from app.services.answer_fence import (
+    demote_answer_body,
+    land_answer_card,
+    verified_answer_fence,
+)
 from app.services.md_fence_scan import (
     find_lang_opener,
     has_closed_fence,
@@ -346,13 +346,8 @@ def _append_missing_canonical_fences(
         return content
     extras: list[str] = []
     correction: str | None = None
-    if answer_body:
-        verdict = stated_verdict(content, answer_body)
-        if verdict == "conflict" and correct:
-            correction = correction_line(answer_body)
-        has_card = any(has_closed_fence(content, lang) for lang in _ANSWER_FENCE_LANGS)
-        if not has_card and _prose_needs_answer_card(content, answer_body, verdict):
-            extras.append(verified_answer_fence(answer_body))
+    if answer_body and correct and stated_verdict(content, answer_body) == "conflict":
+        correction = correction_line(answer_body)
 
     specs = _collect_canonical_specs(verified)
     geo = next((spec for spec in specs if _spec_fence_kind(spec) == "geometry"), None)
@@ -381,14 +376,24 @@ def _append_missing_canonical_fences(
         and verified.response_intent.mode != "answer_only"
         and verified.response_intent.wants_explanation
     )
+    working: str | None = None
     if show_working and arithmetic is not None and not has_closed_fence(content, "arithmetic"):
-        extras.insert(
-            0,
-            _markdown_fence("arithmetic", json.dumps(arithmetic, separators=(",", ":"))),
-        )
+        working = _markdown_fence("arithmetic", json.dumps(arithmetic, separators=(",", ":")))
 
-    if correction is not None:
-        content, extras = _with_correction(content, extras, correction)
+    if answer_body and any(has_closed_fence(content, lang) for lang in _ANSWER_FENCE_LANGS):
+        # The model's own card, rewritten to the verified one in place.
+        if correction is not None:
+            content = _with_correction(content, correction)
+    elif answer_body:
+        # Written working, then any correction, right above the answer card.
+        above = "\n\n".join(part for part in (working, correction) if part) or None
+        content, working = land_answer_card(content, answer_body, above=above), None
+    if working is not None:
+        extras.insert(0, working)
+    return _with_extras(content, extras)
+
+
+def _with_extras(content: str, extras: list[str]) -> str:
     if not extras:
         return content
     stripped = content.rstrip()
@@ -397,33 +402,14 @@ def _append_missing_canonical_fences(
     return "\n\n".join(extras) + "\n"
 
 
-def _prose_needs_answer_card(content: str, answer_body: str, verdict: Verdict) -> bool:
-    """Withhold the pill only when the prose states the same full answer."""
-    if verdict == "same":
-        return False
-    if verdict in {"conflict", "rounded"}:
-        return True
-    # Not a plain value, or no final value found: the string and SymPy checks
-    # decide whether the expression is already written out.
-    return not (
-        prose_already_states_answer(content, answer_body)
-        or prose_symbolically_states_answer(content, answer_body)
-    )
-
-
-def _with_correction(content: str, extras: list[str], correction: str) -> tuple[str, list[str]]:
+def _with_correction(content: str, correction: str) -> str:
     """Put the correction line directly above the verified pill."""
-    pill = next(
-        (index for index, extra in enumerate(extras) if extra.startswith("```answer")), None
-    )
-    if pill is not None:
-        return content, [*extras[:pill], correction, *extras[pill:]]
     opener = find_lang_opener(content, "answer")
     if opener is None:
-        return content, extras
+        return content
     head = content[:opener].rstrip()
     joined = f"{head}\n\n{correction}\n\n" if head else f"{correction}\n\n"
-    return joined + content[opener:], extras
+    return joined + content[opener:]
 
 
 def _replace_answer_fence(raw: str, answer_body: str | None) -> str:
@@ -534,9 +520,8 @@ def validate_math_fences(
         # graph, geometry card, or model-authored diagram trail the result.
         for lang in ("arithmetic", "graph", "geometry", "simulation", *_CHART_ALIAS_LANGS):
             content = strip_closed_fences(content, lang)
-    # Models sometimes emit a tool call as text (!function_call:{...}) instead
-    # of the structured tool_calls API — strip it so unverified graph JSON
-    # never ships. Canonical diagrams are appended after rewrite.
+    # A tool call written as text (!function_call:{...}) is stripped so unverified
+    # graph JSON never ships. Canonical diagrams are appended after rewrite.
     content = convert_function_call_text(content)
     for lang in _ANSWER_FENCE_LANGS:
         content = map_closed_fences(
@@ -552,17 +537,15 @@ def validate_math_fences(
         content,
         "arithmetic",
         lambda body: (
-            _replace_fence(
-                body,
-                "arithmetic",
-                canonical_fence,
-                canonical_fences,
+            verified_counting_fence(body, verified)
+            or (
+                _replace_fence(body, "arithmetic", canonical_fence, canonical_fences)
+                if verified is not None
+                and verified.response_intent is not None
+                and verified.response_intent.reveal_answer
+                and verified.response_intent.wants_explanation
+                else ""
             )
-            if verified is not None
-            and verified.response_intent is not None
-            and verified.response_intent.reveal_answer
-            and verified.response_intent.wants_explanation
-            else ""
         ),
         max_count=_MAX_ARITHMETIC_FENCES,
         leftover=lambda _body: _WORKING_FAIL_NOTE,
@@ -633,7 +616,6 @@ def validate_math_fences_worker(
     return validate_math_fences(content, verified=verified, correct=correct)
 
 
-_UNVERIFIED_MATH_NOTE = "*I couldn't automatically verify this result.*"
 # The disclaimer, italic or plain, alone or at the end of the answer.
 _UNVERIFIED_PHRASE = re.compile(
     r"(?i)[ \t]*\*?[ \t]*"

@@ -430,7 +430,7 @@ class TestGluedVizCommands:
         assert mtm.has_math_keyword("pythagorean theorem")
 
     def test_has_viz_command_whole_run_not_substring(self):
-        from app.modules.math.match.scan import has_viz_command, peel_edge_english
+        from app.modules.math.match.letter_runs import has_viz_command, peel_edge_english
 
         assert has_viz_command("X=6graph")
         assert has_viz_command("graphx=4")

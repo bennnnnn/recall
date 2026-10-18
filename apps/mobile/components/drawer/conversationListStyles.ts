@@ -13,12 +13,6 @@ export const FADE_EXTRA = 40;
 export function makeConversationListStyles(theme: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg, overflow: "visible" },
-    center: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Space.xs,
-    },
     topFade: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 50 },
     bottomFade: {
       position: "absolute",

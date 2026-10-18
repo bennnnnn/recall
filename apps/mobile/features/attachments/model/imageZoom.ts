@@ -7,14 +7,13 @@
  * Every function is a worklet: gesture callbacks call them on the UI thread.
  */
 
-export const ZOOM_MIN = 1;
 export const ZOOM_MAX = 4;
 /** Where a double tap zooms to. */
 export const ZOOM_DOUBLE_TAP = 2.5;
 /** Pinching may dip this far under 1x before it springs back. */
-export const ZOOM_UNDERSHOOT = 0.85;
+const ZOOM_UNDERSHOOT = 0.85;
 /** Above this the photo counts as zoomed: paging and swipe-down-to-close stop. */
-export const ZOOM_ACTIVE = 1.01;
+const ZOOM_ACTIVE = 1.01;
 
 export function isZoomed(scale: number): boolean {
   "worklet";

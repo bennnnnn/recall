@@ -100,11 +100,11 @@ def test_chat_runtime_code_has_one_owner() -> None:
         "post_turn.py",
         "prompt_builder.py",
         "service.py",
-        "stream.py",
         "stream_api.py",
         "stream_entry.py",
         "stream_events.py",
         "stream_pipeline.py",
+        "turn_deps.py",
         "ws_api.py",
     }
     assert (module_root / "turn_prep" / "prepare.py").is_file()

@@ -11,12 +11,8 @@ from app.modules.chemistry.nuclear import (
     parse_nuclide,
 )
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import (
-    inp,
-    num,
-    verified,
-)
 from app.modules.chemistry.solvers.constants import MEV_PER_U, NEUTRON_U, PROTON_U
+from app.modules.chemistry.solvers.display import inp, num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 

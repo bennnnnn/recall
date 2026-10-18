@@ -1,6 +1,6 @@
-export const RESPONSE_TONES = ["funny", "professional", "casual", "soft"] as const;
+const RESPONSE_TONES = ["funny", "professional", "casual", "soft"] as const;
 
-export type ResponseTone = (typeof RESPONSE_TONES)[number];
+type ResponseTone = (typeof RESPONSE_TONES)[number];
 
 /** Display order in Settings: Natural, Friendly, Professional, Playful. */
 export const RESPONSE_TONE_ORDER: ResponseTone[] = ["soft", "casual", "professional", "funny"];

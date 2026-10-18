@@ -38,7 +38,7 @@ def test_validate_blocks_pro_model_on_free_plan(monkeypatch: pytest.MonkeyPatch)
     apply, already, blocked = validate_changes(
         user,  # type: ignore[arg-type]
         settings,
-        [SettingsChange("default_model", "gpt-5.5")],
+        [SettingsChange("default_model", "gpt-6-sol")],
     )
     assert apply == []
     assert already == []

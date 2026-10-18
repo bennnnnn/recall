@@ -1,16 +1,11 @@
 """A physics turn must not be labeled or wrapped as math."""
 
 from app.core.config import Settings
-from app.modules.chat.prompt_builder import _style_format_hints
-from app.modules.chat.prompt_constants import (
-    MATH_INTENT_HINT,
-    MATH_TUTORING_HINT,
-    PHYSICS_INTENT_HINT,
-    PHYSICS_REPLY_POLICY,
-)
-from app.modules.chat.prompt_format import _physics_turn
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.services.solving import strip_verified_math_markers
+from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY, MATH_TUTORING_HINT
+from app.modules.physics.reply_policy import PHYSICS_INTENT_HINT, PHYSICS_REPLY_POLICY
+from app.services.solving import strip_verified_solve_markers
+from app.services.subject_solving import detect_subject
 from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 _DROP = "A ball is dropped from a height of 20 m. Find the time to ground. Use g=10."
@@ -18,8 +13,8 @@ _ALGEBRA = "Solve 2x + 3 = 7"
 
 
 def test_physics_turn_is_not_labeled_as_math() -> None:
-    assert _physics_turn(_DROP)
-    assert not _physics_turn(_ALGEBRA)
+    assert detect_subject(_DROP) == "physics"
+    assert detect_subject(_ALGEBRA) != "physics"
 
 
 def test_physics_prompt_uses_physics_hints() -> None:
@@ -47,7 +42,7 @@ def test_verified_physics_block_is_not_wrapped_as_math() -> None:
     assert block is not None
     assert block.text.startswith("[BEGIN VERIFIED PHYSICS]")
     assert "[BEGIN VERIFIED MATH]" not in block.text
-    stripped = strip_verified_math_markers(block.text)
+    stripped = strip_verified_solve_markers(block.text)
     assert "2\\,\\mathrm{s}" in stripped
     assert "[BEGIN VERIFIED PHYSICS]" not in stripped
     assert "Verified formula:" in stripped

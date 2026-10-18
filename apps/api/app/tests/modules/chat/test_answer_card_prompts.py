@@ -15,8 +15,8 @@ Two pairs used to contradict:
 
 from __future__ import annotations
 
-from app.modules.chat.prompt_constants.math import MATH_SOLVER_HINT
 from app.modules.math.fence import append_unverified_math_note
+from app.modules.math.reply_policy import MATH_SOLVER_HINT
 from app.modules.math.tools.prompt import _unverified_math_note
 from app.modules.physics.prompt import _unverified_physics_note
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY

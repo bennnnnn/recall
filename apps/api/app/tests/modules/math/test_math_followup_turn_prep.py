@@ -15,6 +15,7 @@ from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.turn_prep.context import build_stream_prompt_context
 from app.modules.chat.turn_prep.mode import _TurnMode
 from app.modules.chat.turn_prep.prepare import prepare_chat_turn
+from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 
@@ -83,7 +84,7 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
         web_search_classifier_enabled=False,
     )
     with (
-        patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=_Session()),
+        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=_Session()),
         patch("app.repositories.messages.create", AsyncMock(side_effect=create_message)),
         patch(
             "app.modules.chat.prompt_builder._load_context_blocks",
@@ -185,7 +186,7 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
             AsyncMock(return_value=blocks),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
             AsyncMock(return_value=[_EQUATION]),
         ),
         patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
@@ -195,33 +196,35 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
         ),
     ):
         bundle = await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            "how",
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content="how",
+                model="free-chat",
+                client_timezone=None,
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=_TurnMode(
+                    lightweight=False,
+                    rich_context=False,
+                    minimal_personal=False,
+                    day_planning=False,
+                    day_reflection=False,
+                ),
+                recent_messages=history,
+                current_user_message_id=current.id,
+            ),
             settings,
             AsyncMock(),
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_TurnMode(
-                lightweight=False,
-                rich_context=False,
-                minimal_personal=False,
-                day_planning=False,
-                day_reflection=False,
-            ),
-            recent_messages=history,
-            current_user_message_id=current.id,
         )
 
     assert bundle.verified_subject is not None
     assert bundle.instant_reply is not None
     assert bundle.instant_reply.startswith("**Given**")
     assert "Subtract 3 from both sides" in bundle.instant_reply
-    assert "Square root" in bundle.instant_reply
+    assert "Take the square root of both sides" in bundle.instant_reply
     assert "—" in bundle.instant_reply.split("```answer")[0]
     assert _EQUATION_RESULT in bundle.instant_reply

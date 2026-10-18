@@ -1,8 +1,17 @@
-"""Copy fenced regions byte-for-byte while rewriting the prose between them."""
+"""Copy fenced regions byte-for-byte while rewriting the prose between them.
+
+The phone's twin is apps/mobile/lib/markdown/markdownRegions.ts.
+"""
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
+
+from app.modules.chat.inline_code import escaped_at, read_inline_code_span
+
+# Restaurant price tiers, ($) to ($$$$), are not maths.
+PRICE_TIER = re.compile(r"\(\s*\$+\s*\)")
 
 
 def _fence_marker(line: str) -> tuple[str, int, str] | None:
@@ -125,3 +134,43 @@ def leave_prose_line(line: str) -> bool:
     if line.startswith("    ") or line.startswith("\t"):
         return True
     return stripped.startswith(">")
+
+
+def display_math_lines(lines: list[str]) -> list[bool]:
+    """Which lines belong to a display formula left open across lines.
+
+    A ``$$`` or ``\\[`` that a line leaves open makes every line up to its closer
+    one formula, which the phone draws as one maths block: none of them is a
+    prose line to lay out. Inline code and price tiers hold no maths.
+    """
+    marks: list[bool] = []
+    closer: str | None = None
+    for line in lines:
+        after = _display_closer(PRICE_TIER.sub("", line), closer)
+        marks.append(closer is not None or after is not None)
+        closer = after
+    return marks
+
+
+def _display_closer(line: str, closer: str | None) -> str | None:
+    """The display closer (``$$`` or ``\\]``) still awaited after ``line``."""
+    index = 0
+    while index < len(line):
+        code_end = read_inline_code_span(line, index) if closer is None else None
+        if code_end is not None:
+            index = code_end
+        elif escaped_at(line, index):
+            index += 1
+        elif line.startswith("$$", index):
+            if closer in (None, "$$"):
+                closer = "$$" if closer is None else None
+            index += 2
+        elif line.startswith("\\[", index) and closer is None:
+            closer = "\\]"
+            index += 2
+        elif line.startswith("\\]", index) and closer == "\\]":
+            closer = None
+            index += 2
+        else:
+            index += 1
+    return closer

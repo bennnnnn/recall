@@ -54,7 +54,7 @@ export function looksLikeInteractiveHtml(html: string): boolean {
   return /<\s*script\b/i.test(html);
 }
 
-export async function writeHtmlPreviewFile(html: string): Promise<string | null> {
+async function writeHtmlPreviewFile(html: string): Promise<string | null> {
   const dir = cacheDirectory;
   if (!dir) return null;
 

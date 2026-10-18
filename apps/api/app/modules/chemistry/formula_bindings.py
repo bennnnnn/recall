@@ -17,20 +17,20 @@ from app.modules.chemistry.law_record import (
     _law,
 )
 from app.services.law_binding.spec import VariableSpec, var
+from app.services.units import CELSIUS_OFFSET_K
 
 
 def _concentration() -> VariableSpec:
     return var("concentration", "C", _MOLAR)
 
 
-# STP is 0 °C and 1 atm, the school convention; a pressure or temperature stated beside it
-# has no input left to take it, so the question declines.
+# STP is 0 °C and 1 atm; a question that also states a pressure or temperature declines.
 def _stp_pressure() -> VariableSpec:
     return var("pressure", "P", "atmosphere", implied=(("stp", 1.0),))
 
 
 def _stp_temperature() -> VariableSpec:
-    return var("temperature", "T", "kelvin", implied=(("stp", 273.15),))
+    return var("temperature", "T", "kelvin", implied=(("stp", CELSIUS_OFFSET_K),))
 
 
 def _molar_mass() -> VariableSpec:

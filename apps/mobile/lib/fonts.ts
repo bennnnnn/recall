@@ -18,8 +18,6 @@ export function mathFace(family: string): TextStyle {
   };
 }
 
-export { UI_FONT, uiFontFamily } from "@/lib/uiFont";
-
 /**
  * KaTeX's Computer Modern faces are purpose-built for mathematical notation.
  * Main carries digits/operators; Math Italic gives variables an unmistakable

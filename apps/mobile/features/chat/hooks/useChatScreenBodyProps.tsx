@@ -12,6 +12,7 @@ import { type AnimatedStyle } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
 import type { IconName } from "@/ui/icons/names";
+import type { UpgradeSource } from "@/components/UpgradeSheet";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -39,7 +40,7 @@ type QuotaNudge = {
   dismiss: () => void;
 };
 
-export type UseChatScreenBodyPropsParams = {
+type UseChatScreenBodyPropsParams = {
   styles: ChatScreenStyles;
   theme: Theme;
   drawerOpen: boolean;
@@ -114,7 +115,7 @@ export type UseChatScreenBodyPropsParams = {
   };
   quotaNudge: QuotaNudge;
   chatError: ResolvedChatError | null;
-  isPro: boolean;
+  isPaid: boolean;
   retryChatError: () => void;
   dismissChatError: () => void;
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
@@ -199,7 +200,7 @@ export function useChatScreenBodyProps({
   },
   quotaNudge,
   chatError,
-  isPro,
+  isPaid,
   retryChatError,
   dismissChatError,
   composerAnimatedStyle,
@@ -220,9 +221,16 @@ export function useChatScreenBodyProps({
   liveTalkSession = null,
   listFooter = null,
   hideHomeStarters = false,
-}: UseChatScreenBodyPropsParams): { bodyProps: ChatScreenBodyProps; openUpgradeSheet: () => void } {
+}: UseChatScreenBodyPropsParams): {
+  bodyProps: ChatScreenBodyProps;
+  openUpgradeSheet: (source?: UpgradeSource) => void;
+} {
   const [upgradeVisible, setUpgradeVisible] = useState(false);
-  const openUpgradeSheet = useCallback(() => setUpgradeVisible(true), []);
+  const [upgradeSource, setUpgradeSource] = useState<UpgradeSource>("other");
+  const openUpgradeSheet = useCallback((source: UpgradeSource = "other") => {
+    setUpgradeSource(source);
+    setUpgradeVisible(true);
+  }, []);
 
   const {
     headerMinimumHeight,
@@ -248,9 +256,9 @@ export function useChatScreenBodyProps({
   const quotaDismiss = quotaNudge.dismiss;
   const onQuotaUpgrade = useCallback(() => {
     quotaDismiss();
-    setUpgradeVisible(true);
-  }, [quotaDismiss]);
-  const onUpgrade = useCallback(() => setUpgradeVisible(true), []);
+    openUpgradeSheet("quota");
+  }, [quotaDismiss, openUpgradeSheet]);
+  const onUpgrade = useCallback(() => openUpgradeSheet("other"), [openUpgradeSheet]);
   const onChangeModel = useCallback(() => {
     dismissChatError();
     router.push("/settings/models");
@@ -444,7 +452,7 @@ export function useChatScreenBodyProps({
       onQuotaUpgrade,
       onQuotaDismiss: quotaDismiss,
       chatError,
-      isPro,
+      isPaid,
       onUpgrade,
       onRetryChatError: retryChatError,
       onChangeModel,
@@ -461,7 +469,7 @@ export function useChatScreenBodyProps({
       onQuotaUpgrade,
       quotaDismiss,
       chatError,
-      isPro,
+      isPaid,
       onUpgrade,
       retryChatError,
       onChangeModel,
@@ -480,6 +488,7 @@ export function useChatScreenBodyProps({
       onReadScan: readScan,
       onMathScanSolve: handleMathScanSolve,
       upgradeVisible,
+      upgradeSource,
       onCloseUpgrade,
     }),
     [
@@ -492,6 +501,7 @@ export function useChatScreenBodyProps({
       readScan,
       handleMathScanSolve,
       upgradeVisible,
+      upgradeSource,
       onCloseUpgrade,
     ],
   );

@@ -9,18 +9,8 @@
  * expo-document-picker/expo-image-picker/expo-file-system transitively. */
 export const MATH_CAMERA_PROMPT = "Solve the math problem in this image step by step.";
 
-export function isMathCameraPrompt(text: string): boolean {
-  const folded = text.trim().toLowerCase();
-  const prompt = MATH_CAMERA_PROMPT.toLowerCase();
-  return folded === prompt || folded.startsWith(`${prompt}\n`);
-}
-
-export function composerTextAfterMathScan(existing: string, scanPrompt: string = MATH_CAMERA_PROMPT): string {
-  return existing.trim() ? existing : scanPrompt;
-}
-
 /** The steps ask a confirmed scan is sent with; the API lessons read it. */
-export const MATH_SCAN_SOLVE_PREFIX = "Show steps:";
+const MATH_SCAN_SOLVE_PREFIX = "Show steps:";
 
 const RELATION = /[=<>\u2264\u2265]/;
 

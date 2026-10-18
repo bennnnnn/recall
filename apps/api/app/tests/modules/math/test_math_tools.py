@@ -603,6 +603,20 @@ async def test_augment_prompt_system_flags_inconsistent_equations() -> None:
         ("newton's method for x^2 - 2 = 0 with initial guess of 1", "x^2 - 2", "x", 1.0),
         ("numerically solve x = cos(x) starting near 1", "(x)-(cos(x))", "x", 1.0),
         ("find the root of x^3 - 2x - 5 = 0 near x=2", "x^3 - 2x - 5", "x", 2.0),
+        # "near" inside "nonlinear" and "linear" was read as the guess label, and the
+        # equation was cut off before it.
+        (
+            "numerically solve the nonlinear equation cos(x) = x with guess 0.5",
+            "(cos(x))-(x)",
+            "x",
+            0.5,
+        ),
+        (
+            "use newton's method to solve the linear equation 2x - 3 = 0 with guess 4",
+            "2x - 3",
+            "x",
+            4.0,
+        ),
     ],
 )
 def test_extract_numerical_method_intent(
@@ -615,6 +629,47 @@ def test_extract_numerical_method_intent(
     assert intent.expr == expected_expr
     assert intent.variable == expected_var
     assert intent.newton_guess == expected_guess
+
+
+@pytest.mark.parametrize(
+    "text, guess, equation",
+    [
+        (
+            "numerically solve the nonlinear equation cos(x) = x with guess 0.5",
+            0.5,
+            "numerically solve the nonlinear equation cos(x) = x",
+        ),
+        (
+            "use newton's method to solve the linear equation 2x - 3 = 0 with guess 4",
+            4.0,
+            "use newton's method to solve the linear equation 2x - 3 = 0",
+        ),
+        # A label inside a longer word is not the label.
+        (
+            "find the root of the linear map f(x) = 2x - 3",
+            1.0,
+            "find the root of the linear map f(x) = 2x - 3",
+        ),
+        ("restarting at 2, solve x^2 - 2 = 0", 1.0, "restarting at 2, solve x^2 - 2 = 0"),
+        # Still read where it is a word, in the same order.
+        ("use newton's method on x^2 - 2 = 0 near 1.5", 1.5, "use newton's method on x^2 - 2 = 0"),
+        ("find the root of x^3 - 2x - 5 = 0 near x=2", 2.0, "find the root of x^3 - 2x - 5 = 0"),
+        (
+            "newton's method for x^2 - 2 = 0 with initial guess of -1",
+            -1.0,
+            "newton's method for x^2 - 2 = 0",
+        ),
+        (
+            "use newton's method on x^3 - 2x - 5 = 0 starting at x0 = 2",
+            2.0,
+            "use newton's method on x^3 - 2x - 5 = 0",
+        ),
+    ],
+)
+def test_newton_guess_labels_are_whole_words(text: str, guess: float, equation: str) -> None:
+    from app.modules.math.tools.direct_newton import _parse_newton_guess
+
+    assert _parse_newton_guess(text) == (guess, equation)
 
 
 def test_extract_numerical_method_intent_defaults_guess_when_absent() -> None:
@@ -1199,7 +1254,7 @@ def test_garbled_graph_ask_does_not_become_equation() -> None:
 
 
 def test_unverified_graph_note_bans_table_and_mermaid_substitute() -> None:
-    from app.modules.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
+    from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
     from app.modules.math.tools.prompt import _unverified_math_note
 
     note = _unverified_math_note("graph")

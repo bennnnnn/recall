@@ -19,6 +19,7 @@ from app.modules.chemistry.schemas.scene import dump_scene
 from app.services.answer_check import correction_line, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
+    land_answer_card,
     normalize_owned_fences,
     verified_answer_fence,
 )
@@ -236,11 +237,6 @@ _BARE_ANSWER = re.compile(
     re.IGNORECASE,
 )
 _EXPLAINS = re.compile(r"\b(?:because|since|therefore|which|so)\b", re.IGNORECASE)
-_ANSWER_BODY = re.compile(
-    r"(?P<head>(?:^|\n)[ \t]*(?:\*\*)?Answer(?:\*\*)?[ \t]*:?[ \t]*\n?)"
-    r"(?P<body>[^\n]*)\s*\Z",
-    re.IGNORECASE,
-)
 
 
 def _bare_answer_line(line: str) -> bool:
@@ -254,17 +250,10 @@ def _bare_answer_line(line: str) -> bool:
 def _without_one_line_answer(prose: str) -> str:
     """Drop a photo line that is only a number. Keep a longer explanation and the fence."""
     text = prose.strip()
-    if not text:
-        return text
     lines = [line for line in text.splitlines() if line.strip()]
     if len(lines) == 1 and _bare_answer_line(lines[0]):
         return ""
-    match = _ANSWER_BODY.search(text)
-    if match is None or not match.group("body") or not match.group("body").strip():
-        return text
-    if not _bare_answer_line(match.group("body")):
-        return text
-    return text[: match.end("head")].rstrip()
+    return text
 
 
 def assemble_chemistry_reply(
@@ -277,8 +266,16 @@ def assemble_chemistry_reply(
     """Prose plus the solver's answer, scene, and structure. One blank line between.
 
     ``correction`` (a line saying the verified value) goes directly above the card.
+    A marked card lands under the reply's **Answer** heading in place of the
+    model's own final line.
     """
-    parts = [prose.strip(), correction or "", *_solver_fences(verified, marked=marked)]
+    fences = _solver_fences(verified, marked=marked)
+    answer = verified.result.answer.strip()
+    if marked and answer:
+        body = _answer_body(answer, verbatim=verified.result.verbatim)
+        prose = land_answer_card(prose.strip(), body, above=correction)
+        fences, correction = fences[1:], None  # the card is the first solver fence
+    parts = [prose.strip(), correction or "", *fences]
     body = "\n\n".join(part for part in parts if part).strip()
     return f"{body}\n" if body else ""
 

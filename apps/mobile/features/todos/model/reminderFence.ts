@@ -10,8 +10,3 @@ export function stripReminderFences(content: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .trimEnd();
 }
-
-export function hasReminderFence(content: string): boolean {
-  REMINDER_FENCE_RE.lastIndex = 0;
-  return REMINDER_FENCE_RE.test(content);
-}

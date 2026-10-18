@@ -97,24 +97,3 @@ export function clashClusters(todos: Todo[]): ClashCluster[] {
   clusters.sort((a, b) => a.at.localeCompare(b.at));
   return clusters;
 }
-
-/** Maps reminder id → the other reminder it overlaps with (dated items only). */
-export function buildReminderOverlapNotes(todos: Todo[]): Map<string, string> {
-  const open = todos.filter((todo) => !todo.checked && todo.due_at);
-  const notes = new Map<string, string>();
-
-  for (let i = 0; i < open.length; i++) {
-    for (let j = i + 1; j < open.length; j++) {
-      const a = open[i];
-      const b = open[j];
-      const aTime = new Date(a.due_at as string).getTime();
-      const bTime = new Date(b.due_at as string).getTime();
-      if (Number.isNaN(aTime) || Number.isNaN(bTime)) continue;
-      if (Math.abs(aTime - bTime) >= REMINDER_OVERLAP_MS) continue;
-      notes.set(a.id, b.content);
-      notes.set(b.id, a.content);
-    }
-  }
-
-  return notes;
-}

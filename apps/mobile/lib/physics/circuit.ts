@@ -25,7 +25,7 @@ export type CircuitPartKind =
 
 export type CircuitRole = "given" | "result";
 
-export type CircuitPartNode = {
+type CircuitPartNode = {
   kind: "part";
   part: CircuitPartKind;
   label?: string;
@@ -33,7 +33,7 @@ export type CircuitPartNode = {
   role: CircuitRole;
 };
 
-export type CircuitGroupNode = {
+type CircuitGroupNode = {
   kind: "series" | "parallel";
   children: CircuitNode[];
   label?: string;
@@ -62,7 +62,7 @@ const CIRCUIT_PARTS: readonly CircuitPartKind[] = [
   "switch",
 ];
 export const MAX_CIRCUIT_PARTS = 10;
-export const MAX_CIRCUIT_DEPTH = 3;
+const MAX_CIRCUIT_DEPTH = 3;
 const SERIES_LIMITS = [2, 6] as const;
 const PARALLEL_LIMITS = [2, 4] as const;
 const MAX_LABEL = 24;
@@ -237,7 +237,7 @@ export type CircuitLayout = {
   current: CurrentMark | null;
 };
 
-export type MeasureText = (text: string) => number;
+type MeasureText = (text: string) => number;
 
 type Measured = {
   node: CircuitNode;

@@ -9,7 +9,7 @@ import {
   SettingsValueRow,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
-import { useModels } from "@/hooks/useModels";
+import { planNameKey, planOf } from "@/lib/plan";
 import { config } from "@/lib/config";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
@@ -17,7 +17,6 @@ import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 /** Settings → Help & about: reach us, the legal pages, and the version. */
 export default function AboutScreen() {
   const { user } = useAuth();
-  const { isPro } = useModels();
   const { t } = useTranslation();
   const version = Constants.expoConfig?.version ?? "1.0.0";
 
@@ -27,7 +26,7 @@ export default function AboutScreen() {
       title,
       "",
       `${t("settings.about_version")}: ${version}`,
-      `${t("settings.plan_label")}: ${isPro ? t("settings.account_pro") : t("settings.account_free")}`,
+      `${t("settings.plan_label")}: ${t(planNameKey(planOf(user)))}`,
       `${t("settings.language")}: ${user?.locale ?? "en"}`,
     ].join("\n");
 

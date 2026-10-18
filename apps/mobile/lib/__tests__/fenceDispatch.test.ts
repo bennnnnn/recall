@@ -5,15 +5,15 @@ describe("classifyFence — explicit tags win", () => {
     ["python", "x = 2", "code"],
     ["javascript", "const x = 2", "code"],
     ["rust", "let x = 2;", "code"],
-    // Only the server's marked card is an answer card; any other answer-shaped
-    // block (an unmarked ```answer, a bare number in a soft fence) is plain math.
+    // Every ```answer fence is the one card (AnswerBlock draws the check only for
+    // the server's mark); a bare number in a soft fence is plain math.
     ["answer", "verified: true\nx = 2", "answer"],
     ["answer", "label: answer\nverified: true\nx = 2", "answer"],
     ["answer", "verified: true\nnotation: chemistry\npH = 2.00", "answer"],
-    ["answer", "x = 2", "math"],
-    ["result", "x = 2", "math"],
-    ["answer", "notation: chemistry\npH = 2.87", "prose"],
-    ["answer", "Verified: TRUE\nx = 7", "math"],
+    ["answer", "x = 2", "answer"],
+    ["result", "x = 2", "answer"],
+    ["answer", "notation: chemistry\npH = 2.87", "answer"],
+    ["answer", "Verified: TRUE\nx = 7", "answer"],
     ["math", "x^2 + 1", "math"],
     ["latex", String.raw`\frac{x^2}{2}`, "math"],
     ["geometry", '{"type":"square"}', "rich"],
@@ -37,9 +37,10 @@ describe("classifyFence — explicit tags win", () => {
     expect(classifyOpenFencePreview("python", "x = 2")).toBe("code");
     expect(classifyOpenFencePreview("javascript", "x = 2")).toBe("code");
     expect(classifyOpenFencePreview("math", String.raw`\frac{x^2}{2}`)).toBe("math");
-    // An answer-shaped open fence streams as math: never a card mid-stream.
+    // An answer-shaped soft fence streams as math; an ```answer streams as the
+    // card, whose check waits for the settled reply.
     expect(classifyOpenFencePreview("", "x = 2")).toBe("math");
-    expect(classifyOpenFencePreview("answer", "x = 7")).toBe("math");
+    expect(classifyOpenFencePreview("answer", "x = 7")).toBe("answer");
   });
 
   it("demotes leaked drafting instructions to normal prose", () => {

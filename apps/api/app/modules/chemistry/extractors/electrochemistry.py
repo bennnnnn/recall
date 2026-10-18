@@ -12,8 +12,9 @@ from app.modules.chemistry.extractors.parsing import (
     timed,
 )
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
+from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION, STANDARD_TEMPERATURE_K
 from app.modules.chemistry.species_facts import named_elements
+from app.services.units import CELSIUS_OFFSET_K
 
 
 def _extract_electrochem(text: str) -> ChemistryIntent | None:
@@ -25,7 +26,7 @@ def _extract_electrochem(text: str) -> ChemistryIntent | None:
         if temperature is False:
             return None  # a stated temperature without a usable unit is never replaced by 25 °C
         if temperature is None:
-            temperature = 298.15
+            temperature = STANDARD_TEMPERATURE_K
         if standard is not None and electrons is not None and quotient is not None:
             return ChemistryIntent(
                 kind="electrochemistry",
@@ -153,7 +154,9 @@ def _cell_at_concentrations(text: str) -> ChemistryIntent | None:
     temperature = temperature_kelvin(text)
     if temperature is None:
         celsius = re.search(rf"\bat\s+({_N})\s*°\s*C\b", text)
-        temperature = 298.15 if celsius is None else float(celsius.group(1)) + 273.15
+        temperature = STANDARD_TEMPERATURE_K
+        if celsius is not None:
+            temperature = float(celsius.group(1)) + CELSIUS_OFFSET_K
     if temperature is False:
         return None
     return ChemistryIntent(

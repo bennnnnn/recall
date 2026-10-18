@@ -16,7 +16,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.chat.prompt_builder import _style_format_hints, build_prompt_messages
+from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import (
     ANSWER_PHOTO_HINT,
     EXAMPLE_PERSONALIZE_HINT,
@@ -26,6 +26,7 @@ from app.modules.chat.prompt_constants import (
     is_standing_preference,
     is_teaching_request,
 )
+from app.modules.chat.prompt_format import _style_format_hints
 
 TEACHING_PREFERENCE = (
     "When teaching me, explain one concept at a time, use practical examples, and ask me to "

@@ -161,7 +161,7 @@ def test_detailed_pure_power_takes_the_square_root() -> None:
     lines = reply.splitlines()
     given_line = lines[lines.index("**Given**  ") + 1]
     assert given_line.startswith("$")
-    assert "Square root" in reply
+    assert "Take the square root of both sides" in reply
     assert r"\sqrt{4}" in reply
     assert r"x = \pm 2" in reply
     before, _, _ = reply.partition("```answer")
@@ -170,7 +170,10 @@ def test_detailed_pure_power_takes_the_square_root() -> None:
     assert "lvert" not in reply
     assert "```answer" in reply
     assert r"\pm 2" in reply
-    assert "**3. Check**" in reply
+    # A check is added only when the user asks for one, not for the detailed style.
+    assert "Check**" not in reply
+    asked = maybe_direct_math_reply(_block(text), f"{text} and check", response_style="detailed")
+    assert asked is not None and "**3. Check**" in asked
 
 
 def test_rational_equation_clears_the_denominator_and_finishes_at_the_chip() -> None:
@@ -314,7 +317,7 @@ def test_bare_how_uses_the_verified_trace_and_explains_each_transformation() -> 
     assert reply is not None
     assert "**Given**" in reply
     assert "Subtract 3 from both sides" in reply
-    assert "Square root" in reply
+    assert "Take the square root of both sides" in reply
     assert "—" in reply.split("```answer")[0]
     assert block.canonical_answer in reply
 
@@ -496,3 +499,51 @@ def test_divide_cancels_the_variable_coeff_not_the_constant() -> None:
     assert r"\cancel{2}" in divide.formula
     assert r"\frac{8}{2}" in divide.formula
     assert r"\cancel{8}" not in divide.formula
+
+
+@pytest.mark.parametrize(
+    ("degree", "factored", "final"),
+    [
+        (2, r"\left(- a + x\right) \left(x - 1\right) = 0", r"x = 1 \text{ or } x = a"),
+        (
+            3,
+            r"x \left(- a + x\right) \left(x - 1\right) = 0",
+            r"x = 0 \text{ or } x = 1 \text{ or } x = a",
+        ),
+    ],
+)
+def test_parametric_factor_sorts_without_a_dict_root(monkeypatch, degree, factored, final) -> None:
+    """``x - a`` has no number to order by, so it sorts as 0 (ES-39).
+
+    Solving it for every symbol gave SymPy's dict, and ``float`` raised a TypeError that the
+    silent ``except`` took for a decline; strict declines raised it.
+    """
+    from sympy import Symbol
+
+    from app.modules.math.solve.key_steps import _factor_order, equation_key_steps
+
+    monkeypatch.setenv("RECALL_STRICT_DECLINES", "1")
+    x, a = Symbol("x"), Symbol("a")
+    lhs = (x**2 - (a + 1) * x + a) * (x if degree == 3 else 1)
+    steps = equation_key_steps(lhs.expand(), 0, "x")
+    assert steps[0].formula == factored
+    assert steps[-1].formula == final
+    assert _factor_order(x - a, x) == (True, 0.0)
+    assert _factor_order(x - 3, x) == (True, 3.0)
+    assert _factor_order(x, x) == (False, 0.0)
+
+
+def test_factor_order_reads_no_root_from_a_dict(monkeypatch) -> None:
+    """``solve(P - I V, P)`` with a real P is ``{P: 0}``, not a list (ES-39).
+
+    Indexing it raised a KeyError that the decline took for SymPy failing; strict declines
+    raised it. The factor sorts as 0, as the decline did.
+    """
+    from sympy import I, Symbol
+
+    from app.modules.math.solve.key_steps import _factor_order, equation_key_steps
+
+    monkeypatch.setenv("RECALL_STRICT_DECLINES", "1")
+    p, v = Symbol("P", real=True), Symbol("V", real=True)
+    assert _factor_order(p - I * v, p) == (True, 0.0)
+    assert equation_key_steps(p, I * v, "P") == []

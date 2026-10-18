@@ -16,14 +16,13 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.chat.prompt_builder import _style_format_hints, build_prompt_messages
+from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import (
     CODE_DEBUG_HINT,
     CODE_EXPLAIN_HINT,
     CODE_INK_REMINDER,
     FORMAT_CONTRACT,
     MATH_FENCE_SAFETY_HINT,
-    MATH_INTENT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     TEACHING_HINT,
     WALKTHROUGH_HINT,
@@ -31,6 +30,8 @@ from app.modules.chat.prompt_constants import (
     has_code_syntax,
     is_programming_turn,
 )
+from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.math.reply_policy import MATH_INTENT_HINT
 from app.services.subject_solving import detect_subject
 
 TRACE_LOOP = (

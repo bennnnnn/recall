@@ -1,10 +1,12 @@
 """Attachment router tests."""
 
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import fakeredis.aioredis
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
@@ -16,6 +18,7 @@ from app.gateways.storage_gateway import (
 )
 from app.main import create_app
 from app.models.orm import User
+from app.services.quota import counters
 
 
 def _fake_user() -> User:
@@ -68,9 +71,7 @@ def test_presign_upload_success():
             api_upload=True,
         )
     )
-    fake_redis = AsyncMock()
-    fake_redis.incrby = AsyncMock(return_value=1)
-    fake_redis.expire = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
     with (
         patch("app.modules.attachments.upload.get_storage_gateway", return_value=gateway),
@@ -150,23 +151,22 @@ def test_presign_upload_returns_503_when_storage_unconfigured():
     fake_redis.incrby.assert_not_called()
 
 
-def test_presign_upload_refunds_image_quota_when_presign_fails():
+def test_presign_upload_refunds_image_quota_when_presign_fails(quota_clock):
+    """Storage failing after UTC midnight gives the slot back to the day it was taken."""
     user = _fake_user()
     app = _app_with_user(user)
+
+    async def storage_down_after_midnight(**_kwargs):
+        quota_clock.day = quota_clock.next_day
+        raise RuntimeError("storage down")
+
     gateway = MagicMock(spec=LocalStorageGateway)
-    gateway.presign_upload = AsyncMock(side_effect=RuntimeError("storage down"))
-    fake_redis = AsyncMock()
-    fake_redis.incrby = AsyncMock(return_value=1)
-    fake_redis.expire = AsyncMock()
-    refund_mock = AsyncMock()
+    gateway.presign_upload = AsyncMock(side_effect=storage_down_after_midnight)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
     with (
-        patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway),
+        patch("app.modules.attachments.upload.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
-        patch(
-            "app.modules.attachments.upload.quota_service.refund_image_upload",
-            refund_mock,
-        ),
     ):
         client = TestClient(app, raise_server_exceptions=False)
         r = client.post(
@@ -174,12 +174,13 @@ def test_presign_upload_refunds_image_quota_when_presign_fails():
             headers={"Authorization": "Bearer tok"},
             json={"content_type": "image/png", "size_bytes": 128},
         )
+        keys = [f"imgup:{user.id}:2026-10-{n}" for n in (16, 17)]
+        assert asyncio.run(fake_redis.mget(keys)) == ["0", None]
 
     assert r.status_code == 500
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
 
 
-def test_presign_upload_refunds_image_quota_when_create_pending_fails():
+def test_presign_upload_refunds_image_quota_when_create_pending_fails(quota_clock):
     user = _fake_user()
     app = _app_with_user(user)
     attachment_id = uuid4()
@@ -193,9 +194,7 @@ def test_presign_upload_refunds_image_quota_when_create_pending_fails():
             api_upload=True,
         )
     )
-    fake_redis = AsyncMock()
-    fake_redis.incrby = AsyncMock(return_value=1)
-    fake_redis.expire = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     refund_mock = AsyncMock()
 
     with (
@@ -206,7 +205,7 @@ def test_presign_upload_refunds_image_quota_when_create_pending_fails():
         ),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.upload.quota_service.refund_image_upload",
+            "app.modules.attachments.upload.counters.refund",
             refund_mock,
         ),
     ):
@@ -218,7 +217,7 @@ def test_presign_upload_refunds_image_quota_when_create_pending_fails():
         )
 
     assert r.status_code == 500
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id, day=quota_clock.day)
 
 
 def test_presign_upload_does_not_refund_for_non_image():
@@ -246,7 +245,7 @@ def test_presign_upload_does_not_refund_for_non_image():
         ),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.upload.quota_service.refund_image_upload",
+            "app.modules.attachments.upload.counters.refund",
             refund_mock,
         ),
     ):
@@ -304,7 +303,7 @@ def test_cancel_pending_upload_refunds_image_quota():
         patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.upload.quota_service.refund_image_upload",
+            "app.modules.attachments.upload.counters.refund",
             refund_mock,
         ),
     ):
@@ -315,7 +314,7 @@ def test_cancel_pending_upload_refunds_image_quota():
         )
 
     assert r.status_code == 204
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
 
 
 def test_confirm_storage_outage_returns_retryable_503_without_purging():
@@ -371,7 +370,7 @@ def test_confirm_upload_rejects_spoofed_r2_bytes():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             refund_mock,
         ),
         patch(
@@ -388,7 +387,7 @@ def test_confirm_upload_rejects_spoofed_r2_bytes():
     assert r.status_code == 400
     gateway.delete_bytes.assert_awaited_once_with("user/key")
     delete_rows.assert_awaited_once()
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
 
 
 def test_confirm_upload_accepts_valid_r2_bytes():
@@ -451,16 +450,13 @@ def test_confirm_upload_noop_for_local_backend():
     assert r.status_code == 204
 
 
-def test_presign_upload_rejects_image_over_daily_limit():
+def test_presign_upload_rejects_image_over_daily_limit(quota_clock):
     user = _fake_user()
     app = _app_with_user(user)
-    fake_redis = AsyncMock()
-
-    async def _incrby_over_limit(key, amount):
-        return 6
-
-    fake_redis.incrby = _incrby_over_limit
-    fake_redis.expire = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    key = f"imgup:{user.id}:2026-10-16"
+    cap = counters.limit("image_upload", user, Settings())
+    asyncio.run(fake_redis.set(key, cap, ex=60))
 
     with patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis):
         client = TestClient(app)
@@ -469,6 +465,7 @@ def test_presign_upload_rejects_image_over_daily_limit():
             headers={"Authorization": "Bearer tok"},
             json={"content_type": "image/png", "size_bytes": 128},
         )
+        assert asyncio.run(fake_redis.get(key)) == str(cap)
 
     assert r.status_code == 429
 
@@ -502,7 +499,7 @@ def test_upload_rejects_bytes_not_matching_claimed_content_type():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             AsyncMock(),
         ) as refund_mock,
         patch(
@@ -587,7 +584,7 @@ def test_upload_rejects_body_larger_than_declared_size_without_writing():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             AsyncMock(),
         ),
         patch(
@@ -636,7 +633,7 @@ def test_serve_file_rejects_spoofed_r2_bytes():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             refund_mock,
         ),
         patch(
@@ -653,7 +650,7 @@ def test_serve_file_rejects_spoofed_r2_bytes():
 
     assert r.status_code == 400
     gateway.delete_bytes.assert_awaited_once_with("user/key")
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
 
 
 def test_serve_file_local_backend_sets_nosniff_header(tmp_path):
@@ -705,7 +702,6 @@ def test_serve_file_missing_local_drops_row():
 
     gateway = MagicMock(spec=LocalStorageGateway)
     gateway.resolve_local_path = MagicMock(return_value=None)
-    delete_chunks = AsyncMock(return_value=0)
     delete_rows = AsyncMock(return_value=1)
 
     with (
@@ -714,10 +710,6 @@ def test_serve_file_missing_local_drops_row():
             AsyncMock(return_value=row),
         ),
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
-        patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            delete_chunks,
-        ),
         patch(
             "app.modules.attachments.workflow.attachments_repo.delete_rows",
             delete_rows,
@@ -732,7 +724,6 @@ def test_serve_file_missing_local_drops_row():
 
     assert r.status_code == 404
     assert r.json()["detail"] == "File missing"
-    delete_chunks.assert_not_awaited()
     delete_rows.assert_awaited_once()
 
 
@@ -810,7 +801,7 @@ def test_upload_rejects_size_mismatch_with_declared_size():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             AsyncMock(),
         ) as refund_mock,
         patch(
@@ -862,7 +853,7 @@ def test_download_url_rejects_spoofed_r2_bytes():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             refund_mock,
         ),
         patch(
@@ -878,7 +869,7 @@ def test_download_url_rejects_spoofed_r2_bytes():
 
     assert r.status_code == 400
     gateway.delete_bytes.assert_awaited_once_with("user/key")
-    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+    refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id)
 
 
 def test_download_url_local_backend():
@@ -1004,7 +995,7 @@ def test_upload_r2_backend_returns_501_before_refund():
         ),
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             refund_mock,
         ),
     ):
@@ -1127,7 +1118,7 @@ def test_cancel_still_allowed_when_attachments_disabled():
         patch("app.modules.attachments.upload.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.upload.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.attachments.upload.quota_service.refund_image_upload",
+            "app.modules.attachments.upload.counters.refund",
             AsyncMock(),
         ),
     ):
@@ -1346,7 +1337,6 @@ def test_list_attachments_omits_local_rows_whose_blob_is_gone():
     gateway.resolve_local_path.side_effect = lambda key: (
         None if key == "user/gone" else Path("/recall-present.png")
     )
-    delete_chunks = AsyncMock(return_value=0)
     delete_rows = AsyncMock(return_value=1)
 
     with (
@@ -1355,10 +1345,6 @@ def test_list_attachments_omits_local_rows_whose_blob_is_gone():
             AsyncMock(return_value=([gone, present], False)),
         ),
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
-        patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            delete_chunks,
-        ),
         patch(
             "app.modules.attachments.workflow.attachments_repo.delete_rows",
             delete_rows,
@@ -1425,7 +1411,7 @@ def test_put_upload_empty_body_purges_row_and_refunds_quota():
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.attachments.workflow.quota_service.refund_image_upload",
+            "app.modules.attachments.workflow.counters.refund",
             AsyncMock(),
         ) as refund_mock,
         patch(

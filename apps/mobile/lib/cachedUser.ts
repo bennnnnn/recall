@@ -1,23 +1,8 @@
-import {
-  cacheDirectory,
-  deleteAsync,
-  getInfoAsync,
-  readAsStringAsync,
-  writeAsStringAsync,
-} from "expo-file-system/legacy";
-
 import type { User } from "@/lib/api/types";
+import { cacheFile } from "@/lib/cache/cacheFile";
+import { planOf } from "@/lib/plan";
 
-// A previous user's started write must finish before signout clears it or a
-// new account replaces it. Readers also wait to avoid observing partial files.
-let pendingCacheWrite: Promise<void> = Promise.resolve();
-function updateCache(write: () => Promise<void>): Promise<void> {
-  const result = pendingCacheWrite.then(write).catch(() => {});
-  pendingCacheWrite = result;
-  return result;
-}
-
-const CACHED_USER_PATH = `${cacheDirectory ?? ""}cached-user.json`;
+const cachedUserFile = cacheFile("cached-user.json");
 
 /**
  * The subset of ``User`` persisted to the filesystem cache.
@@ -32,7 +17,7 @@ const CACHED_USER_PATH = `${cacheDirectory ?? ""}cached-user.json`;
  * anyone who sees the app on the device. Everything else is re-fetched
  * from the API on launch.
  */
-export type CachedUser = Pick<User, "id" | "name" | "avatar_url" | "plan">;
+type CachedUser = Pick<User, "id" | "name" | "avatar_url" | "plan">;
 
 /** Decode only to select cached display fields, never to authenticate or grant
  * access. A cache from a previous account can survive a failed file deletion. */
@@ -97,19 +82,16 @@ export function mergeCachedUser(cached: CachedUser): User {
  * Best-effort — the cache directory can be purged by the OS at any time, in
  * which case cold start just falls back to the normal loading state. */
 export async function readCachedUser(): Promise<CachedUser | null> {
-  if (!cacheDirectory) return null;
-  await pendingCacheWrite;
+  const raw = await cachedUserFile.read();
+  if (raw === null) return null;
   try {
-    const info = await getInfoAsync(CACHED_USER_PATH);
-    if (!info.exists) return null;
-    const raw = await readAsStringAsync(CACHED_USER_PATH);
     const parsed = JSON.parse(raw) as Partial<CachedUser>;
     if (!parsed || typeof parsed.id !== "string") return null;
     return {
       id: parsed.id,
       name: parsed.name ?? null,
       avatar_url: parsed.avatar_url ?? null,
-      plan: parsed.plan === "pro" ? "pro" : "free",
+      plan: planOf(parsed),
     };
   } catch {
     return null;
@@ -123,26 +105,16 @@ export async function readCachedUser(): Promise<CachedUser | null> {
  * are stripped — the cache directory can be read by a backup tool or another
  * app, so we keep it to fields already visible on the device. Everything
  * else is re-fetched from the API on launch. */
-export async function writeCachedUser(user: User): Promise<void> {
-  if (!cacheDirectory) return;
-  try {
-    const cached: CachedUser = {
-      id: user.id,
-      name: user.name,
-      avatar_url: user.avatar_url,
-      plan: user.plan,
-    };
-    await updateCache(() => writeAsStringAsync(CACHED_USER_PATH, JSON.stringify(cached)));
-  } catch {
-    /* best-effort */
-  }
+export function writeCachedUser(user: User): Promise<void> {
+  const cached: CachedUser = {
+    id: user.id,
+    name: user.name,
+    avatar_url: user.avatar_url,
+    plan: user.plan,
+  };
+  return cachedUserFile.write(JSON.stringify(cached));
 }
 
-export async function clearCachedUser(): Promise<void> {
-  if (!cacheDirectory) return;
-  try {
-    await updateCache(() => deleteAsync(CACHED_USER_PATH, { idempotent: true }));
-  } catch {
-    /* ignore */
-  }
+export function clearCachedUser(): Promise<void> {
+  return cachedUserFile.clear();
 }

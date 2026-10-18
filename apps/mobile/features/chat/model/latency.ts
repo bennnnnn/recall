@@ -1,12 +1,5 @@
-export type ChatTtftBucket =
-  | "lt500"
-  | "500_999"
-  | "1000_1999"
-  | "2000_3999"
-  | "4000_5999"
-  | "6000_plus";
-
-export type ChatTransport = "ws" | "sse";
+// Types only: the reporter module itself still loads lazily after the first token.
+import type { ChatTransport, ChatTtftBucket } from "@/features/chat/model/latencyReporter";
 
 type PendingChatTtft = {
   turnId: string;

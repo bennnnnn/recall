@@ -109,21 +109,6 @@ async def list_archived_for_user(
     return list(result.scalars().all())
 
 
-async def delete_empty_for_user(session: AsyncSession, user_id: UUID) -> int:
-    """Remove chats with zero messages (abandoned drafts). Uses a single bulk DELETE."""
-    empty_ids = select(Chat.id).where(
-        Chat.user_id == user_id,
-        ~exists().where(Message.chat_id == Chat.id),
-    )
-    result = cast(
-        CursorResult[Any],
-        await session.execute(delete(Chat).where(Chat.id.in_(empty_ids))),
-    )
-    await session.commit()
-    forget_user_chats(user_id)
-    return result.rowcount
-
-
 async def touch_by_id(session: AsyncSession, chat_id: UUID, *, commit: bool = True) -> None:
     """Update updated_at with a direct UPDATE — avoids a separate SELECT round-trip.
 
@@ -199,13 +184,6 @@ async def delete_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> b
     await session.commit()
     forget_chat(chat_id)
     return True
-
-
-async def touch(session: AsyncSession, chat: Chat) -> None:
-    from datetime import UTC, datetime
-
-    chat.updated_at = datetime.now(UTC)
-    await session.commit()
 
 
 async def set_title(session: AsyncSession, chat: Chat, title: str) -> Chat:

@@ -8,12 +8,6 @@ import { Type, Weight } from "@/lib/type";
 export function makeTodosStyles(C: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
-    center: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: C.bg,
-    },
     dayHeading: {
       ...Type.body,
       ...Weight.bold,
@@ -23,10 +17,6 @@ export function makeTodosStyles(C: Theme) {
     listEmpty: { flexGrow: 1 },
     // paddingBottom comes from addFabClearance, which knows the safe area.
     listContent: { paddingTop: Space.xs },
-    section: {
-      paddingTop: Space.xs,
-      paddingBottom: Space.xxs,
-    },
     sectionHeader: {
       paddingHorizontal: Space.md,
       paddingTop: Space.sm,
@@ -38,13 +28,6 @@ export function makeTodosStyles(C: Theme) {
     sectionHeading: {
       ...Type.label,
       color: C.textSecondary,
-    },
-    sectionEmpty: {
-      ...Type.label,
-      ...Weight.regular,
-      color: C.textTertiary,
-      paddingHorizontal: Space.md,
-      paddingBottom: Space.sm,
     },
     daySheet: {
       marginHorizontal: Space.md,
@@ -121,7 +104,6 @@ export function makeTodosStyles(C: Theme) {
       backgroundColor: C.dangerLight,
     },
     overlapNoteText: { flex: 1, ...Type.caption, ...Weight.regular, color: C.danger },
-    pickerOverlapNote: { marginHorizontal: Space.md, marginBottom: Space.xs },
     detailPage: { flex: 1, zIndex: 0, backgroundColor: C.surface },
     reviewTitle: {
       ...Type.display,
@@ -150,59 +132,12 @@ export function makeTodosStyles(C: Theme) {
     },
     formLabel: { ...Type.label, color: C.textSecondary },
     fieldGap: { marginTop: Space.md },
-    dateChip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xs,
-      backgroundColor: C.primaryLight,
-      borderRadius: Radius.sm,
-      paddingHorizontal: Space.sm,
-      paddingVertical: Space.sm,
-      alignSelf: "flex-start",
-    },
-    dateChipText: { ...Type.secondary, ...Weight.semibold, color: C.text },
     dateRow: {
       flexDirection: "row",
       alignItems: "center",
       gap: Space.xs,
     },
     fieldGrow: { flex: 1 },
-    choiceList: {
-      borderWidth: 1,
-      borderColor: C.border,
-      borderTopWidth: 0,
-      borderBottomLeftRadius: Radius.md,
-      borderBottomRightRadius: Radius.md,
-      overflow: "hidden",
-      backgroundColor: C.surface,
-    },
-    choiceItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: Space.xs,
-      minHeight: Space.minTouch,
-      paddingHorizontal: Space.md,
-    },
-    choiceItemActive: { backgroundColor: C.primaryLight },
-    choiceItemPressed: { opacity: 0.7 },
-    choiceLabel: { ...Type.secondary, color: C.text },
-    choiceLabelActive: { ...Type.secondary, ...Weight.semibold, color: C.primary },
-    choiceCreate: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xs,
-      minHeight: Space.minTouch,
-      paddingHorizontal: Space.md,
-    },
-    choiceInput: {
-      ...Type.body,
-      color: C.text,
-      minHeight: Space.minTouch,
-      paddingHorizontal: Space.md,
-      borderTopWidth: 1,
-      borderTopColor: C.border,
-    },
     todoRowSelected: { backgroundColor: C.primaryLight },
     filterEmpty: {
       ...Type.body,
@@ -246,10 +181,6 @@ export function makeTodosStyles(C: Theme) {
       borderWidth: 1,
       borderColor: C.border,
     },
-    repeatFieldOpen: {
-      borderBottomLeftRadius: 0,
-      borderBottomRightRadius: 0,
-    },
     repeatFieldText: {
       flex: 1,
       ...Type.navTitle,
@@ -261,10 +192,5 @@ export function makeTodosStyles(C: Theme) {
       borderTopRightRadius: Radius.sheet,
     },
     sheetBody: { padding: Space.md, paddingBottom: Space.xl, gap: Space.xs },
-    pickerSheet: {
-      backgroundColor: C.bg,
-      borderTopLeftRadius: Radius.xl,
-      borderTopRightRadius: Radius.xl,
-    },
   });
 }

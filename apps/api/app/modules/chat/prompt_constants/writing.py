@@ -128,6 +128,28 @@ def draft_followup_hint(fence: str, *, drafted: bool) -> str:
     )
 
 
+def writing_format_hint(query_text: str | None) -> str | None:
+    """Email / message / social / translation / prose shape. Edit stays compact."""
+    if not query_text:
+        return None
+    kind = writing_request_kind(query_text)
+    if kind in {"email", "message"}:
+        if is_underspecified_writing_request(query_text):
+            return EMAIL_ASK_PURPOSE_HINT
+        return EMAIL_DRAFT_HINT
+    if kind == "social":
+        if is_underspecified_writing_request(query_text):
+            return EMAIL_ASK_PURPOSE_HINT
+        return SOCIAL_DRAFT_HINT
+    if kind == "translation":
+        return TRANSLATION_FORMAT_HINT
+    if kind == "prose":
+        return personal_record_hint(query_text or "") or PROSE_WRITING_HINT
+    if kind == "rewrite":
+        return REWRITE_HINT
+    return None
+
+
 # The send-ready fences a reply drafts, as the mobile fence registry names them.
 _DRAFT_FENCE = DRAFT_FENCE
 _KIND_FENCE = {"email": "email", "message": "message", "social": "social"}

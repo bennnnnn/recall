@@ -4,7 +4,7 @@ export const OPTIMISTIC_TODO_ID_PREFIX = "local-todo-";
 
 let optimisticTodoSeq = 0;
 
-export function newOptimisticTodoId(): string {
+function newOptimisticTodoId(): string {
   optimisticTodoSeq += 1;
   return `${OPTIMISTIC_TODO_ID_PREFIX}${Date.now()}-${optimisticTodoSeq}`;
 }

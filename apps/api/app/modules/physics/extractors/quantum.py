@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import re
 
+from app.modules.physics.constants import ELECTRON_MASS
 from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
 from app.modules.physics.extractors.common import (
-    _ELECTRON_MASS,
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
     _VELOCITY_UNIT_PATTERN,
@@ -49,7 +49,7 @@ def _particle_in_box(cleaned: str) -> PhysicsIntent | None:
         physics_params={
             "L": length[0],
             "quantum_n": float(level.group(1)),
-            "m": mass[0] if mass is not None else _ELECTRON_MASS,
+            "m": mass[0] if mass is not None else ELECTRON_MASS,
         },
         physics_units={
             "L": length[1] or "m",
@@ -174,7 +174,7 @@ def _de_broglie(cleaned: str) -> PhysicsIntent | None:
         kind="modern",
         physics_op="de_broglie_wavelength",
         physics_params={
-            "m": mass[0] if mass is not None else _ELECTRON_MASS,
+            "m": mass[0] if mass is not None else ELECTRON_MASS,
             "v": speed[0],
         },
         physics_units={"m": mass[1] if mass is not None else "kg", "v": speed[1] or "m/s"},

@@ -15,6 +15,7 @@ from app.modules.web_search.formatting import (
     GEO_DISTANCE_HINT,
     LOCAL_PLACES_FORMAT_HINT,
     WEB_SEARCH_HINT,
+    SearchSource,
     format_places_fence,
     format_search_block,
     format_search_empty_block,
@@ -29,16 +30,15 @@ from app.modules.web_search.geo_intent import (
     is_ambiguous_local_places_query,
     is_distance_query,
     is_geo_query,
-    is_local_places_query,
     is_places_list_query,
     is_proximity_query,
     is_short_letter_answer,
     names_its_place,
 )
 from app.modules.web_search.query_builders import build_search_queries, build_search_query
-from app.modules.web_search.search_cache import run_cached_search
+from app.modules.web_search.search_cache import TurnTavilyBudget, run_cached_search
 from app.modules.web_search.subject import resolve_search_subject
-from app.modules.web_search.tool import WebSearchAdapter, bind_search_quota_context
+from app.modules.web_search.tool import WebSearchAdapter
 from app.modules.web_search.turn_query import search_queries_for_turn
 
 __all__ = [
@@ -48,9 +48,10 @@ __all__ = [
     "LOCAL_PLACES_FORMAT_HINT",
     "WEB_SEARCH_HINT",
     "SearchCommand",
+    "SearchSource",
+    "TurnTavilyBudget",
     "WebSearchAdapter",
     "augment_prompt_messages",
-    "bind_search_quota_context",
     "build_search_augmentation",
     "build_search_queries",
     "build_search_query",
@@ -62,7 +63,6 @@ __all__ = [
     "is_ambiguous_local_places_query",
     "is_distance_query",
     "is_geo_query",
-    "is_local_places_query",
     "is_places_list_query",
     "is_proximity_query",
     "is_short_letter_answer",

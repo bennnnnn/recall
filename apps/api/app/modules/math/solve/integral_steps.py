@@ -29,6 +29,7 @@ from sympy import (
     sin,
 )
 
+from app.modules.math.solve.declines import declines, sympy_decline
 from app.modules.math.solve.key_steps import KeyStep
 
 _MAX_TERMS = 6
@@ -71,11 +72,9 @@ def _is_const(expr: Any, var: Any) -> bool:
     return var not in getattr(expr, "free_symbols", set())
 
 
+@declines(False)
 def _antiderivative_of(candidate: Any, integrand: Any, var: Any) -> bool:
-    try:
-        return bool(simplify(diff(candidate, var) - integrand) == 0)
-    except Exception:
-        return False
+    return bool(simplify(diff(candidate, var) - integrand) == 0)
 
 
 def _antiderivative_on_positives(candidate: Any, integrand: Any, var: Any) -> bool:
@@ -236,10 +235,9 @@ def _parts_split(term: Any, var: Any) -> tuple[Any, Any] | None:
     logs = [f for f in factors if getattr(f, "func", None) is log and f.args == (var,)]
     if logs:
         dv = simplify(term / logs[0])
-        try:
-            if not _is_const(dv, var) and Poly(dv, var).degree() > 3:
-                return None
-        except Exception:
+        with sympy_decline() as declined:
+            too_high = not _is_const(dv, var) and Poly(dv, var).degree() > 3
+        if declined or too_high:
             return None
         return logs[0], dv
     transcendental = [
@@ -248,17 +246,16 @@ def _parts_split(term: Any, var: Any) -> tuple[Any, Any] | None:
     if len(transcendental) != 1:
         return None
     polynomial = simplify(term / transcendental[0])
-    try:
+    with sympy_decline() as declined:
         degree = Poly(polynomial, var).degree()
-    except Exception:
+    if declined:
         return None
     if degree < 1 or degree > 2:
         return None
     inner = transcendental[0].args[0]
-    try:
-        if Poly(inner, var).degree() != 1:
-            return None
-    except Exception:
+    with sympy_decline() as declined:
+        linear = Poly(inner, var).degree() == 1
+    if declined or not linear:
         return None
     return polynomial, transcendental[0]
 
@@ -394,9 +391,9 @@ def integral_trace(expr: str, variable: str) -> tuple[list[KeyStep], str | None,
     """Parse, then trace: (steps, problem LaTeX, checked answer ``F + C``)."""
     from app.modules.math.solve.parse import _parse_expression
 
-    try:
+    with sympy_decline() as declined:
         parsed = _parse_expression(expr, [variable])
-    except Exception:
+    if declined:
         return [], None, None
     steps, antiderivative = integral_key_steps(parsed, variable)
     if not steps or antiderivative is None:

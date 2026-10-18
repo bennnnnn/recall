@@ -18,7 +18,7 @@ import { IconSize } from "../icons/sizes";
 /** Header buttons are 44 round: the touch target and the plate are the same circle. */
 export const HEADER_BUTTON_SIZE = Space.minTouch;
 
-export type HeaderButtonVariant = "plate" | "plain" | "media";
+type HeaderButtonVariant = "plate" | "plain" | "media";
 
 type Props = {
   icon: IconName;

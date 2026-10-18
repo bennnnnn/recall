@@ -13,3 +13,12 @@ def web_search_registered():
     mcp_registry.register(WebSearchAdapter(settings()))
     yield
     mcp_registry.clear()
+
+
+@pytest.fixture
+def sympy_registered(web_search_registered):
+    """web_search and sympy, for tests whose model calls sympy (only offered tools run)."""
+    from app.modules.math.tool import SympyAdapter
+
+    mcp_registry.register(SympyAdapter(settings()))
+    yield

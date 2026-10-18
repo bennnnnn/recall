@@ -281,7 +281,7 @@ export function isStandaloneUrl(text: string): string | null {
   return match ? match[0] : null;
 }
 
-export type JsonRichFenceKind = "geometry" | "graph" | null;
+type JsonRichFenceKind = "geometry" | "graph" | null;
 
 /**
  * Detect whether a ```json (or untagged) fence body is actually a

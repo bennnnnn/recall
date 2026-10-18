@@ -1,3 +1,5 @@
+import type { ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
+
 jest.mock("@/lib/api", () => ({
   api: {
     registerPushToken: jest.fn().mockResolvedValue(undefined),
@@ -24,6 +26,13 @@ jest.mock("expo-notifications", () => ({
   setNotificationHandler: jest.fn(),
   AndroidImportance: { HIGH: 4, DEFAULT: 3 },
 }));
+
+jest.mock("@/lib/expoRuntime", () => ({
+  isExpoGo: jest.fn(() => false),
+  isPhysicalDevice: jest.fn(() => true),
+}));
+
+jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableWarning: jest.fn() }));
 
 const mockAppStateHandlers = new Set<(state: string) => void>();
 
@@ -270,5 +279,112 @@ describe("push re-sync on launch, token refresh and foreground", () => {
     await foreground();
     expect(unregisterMock).toHaveBeenCalledTimes(2);
     cleanup();
+  });
+});
+
+describe("push token failures are reported, routine states stay quiet", () => {
+  const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+  const feedback: ActionFeedbackApi = {
+    show: jest.fn(),
+    success: jest.fn(),
+    info: jest.fn(),
+    warning: jest.fn(),
+    error: jest.fn(),
+    dismiss: jest.fn(),
+  };
+  const UNAVAILABLE = "Push notifications aren't working on this device right now.";
+
+  /** A fresh module per test: the report is once per app run. */
+  function load() {
+    jest.resetModules();
+    mockAppStateHandlers.clear();
+    return {
+      push: jest.requireActual<typeof import("@/lib/pushNotifications")>("@/lib/pushNotifications"),
+      notifications: jest.requireMock<Record<string, jest.Mock>>("expo-notifications"),
+      runtime: jest.requireMock<Record<string, jest.Mock>>("@/lib/expoRuntime"),
+      report: jest.requireMock<Record<string, jest.Mock>>("@/lib/reportRecoverableError")
+        .reportRecoverableWarning,
+    };
+  }
+  const foreground = async () => {
+    for (const handler of [...mockAppStateHandlers]) handler("active");
+    await settle();
+  };
+  const tokenError = (code: string) =>
+    Object.assign(new Error("received: ExponentPushToken[secret-device-token]"), { code });
+
+  let warn: jest.SpyInstance;
+  beforeEach(() => {
+    warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  it("warns once per app run when push is off for no routine reason", async () => {
+    const { push, notifications, report } = load();
+    notifications.getExpoPushTokenAsync.mockRejectedValue(tokenError("ERR_NOTIFICATIONS_SERVER_ERROR"));
+    const cleanup = push.attachPushForegroundSync("tok", true, undefined, 1, feedback);
+    await settle();
+    // A failed sync retries on every return to the app; the warning does not.
+    await foreground();
+    await foreground();
+    cleanup();
+    expect(notifications.getExpoPushTokenAsync).toHaveBeenCalledTimes(3);
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith(feedback, UNAVAILABLE);
+    // The log names the error code, never Expo's message (it can carry the token).
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("ERR_NOTIFICATIONS_SERVER_ERROR"));
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("secret-device-token");
+  });
+
+  it("warns when the token for turning push off cannot be read either", async () => {
+    const { push, notifications, report } = load();
+    notifications.getExpoPushTokenAsync.mockRejectedValue(new Error("E_REGISTRATION_FAILED"));
+    push.attachPushForegroundSync("tok", false, undefined, 1, feedback)();
+    await settle();
+    expect(report).toHaveBeenCalledWith(feedback, UNAVAILABLE);
+  });
+
+  it.each([
+    ["offline (the next sync retries)", () => {}, tokenError("ERR_NOTIFICATIONS_NETWORK_ERROR")],
+    ["in Expo Go", (m: ReturnType<typeof load>) => m.runtime.isExpoGo.mockReturnValue(true), new Error("removed from Expo Go")],
+    ["on a simulator", (m: ReturnType<typeof load>) => m.runtime.isPhysicalDevice.mockReturnValue(false), new Error("no APNs")],
+    [
+      "with notifications denied",
+      (m: ReturnType<typeof load>) => m.notifications.getPermissionsAsync.mockResolvedValue({ status: "denied" }),
+      new Error("no token"),
+    ],
+  ])("stays quiet %s", async (_state, arrange, error) => {
+    const loaded = load();
+    arrange(loaded);
+    loaded.notifications.getExpoPushTokenAsync.mockRejectedValue(error);
+    // Unregister reads the token whatever the permission says.
+    loaded.push.attachPushForegroundSync("tok", false, undefined, 1, feedback)();
+    await settle();
+    expect(loaded.notifications.getExpoPushTokenAsync).toHaveBeenCalled();
+    expect(loaded.report).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet without an EAS project id, as before", async () => {
+    const loaded = load();
+    const constants = jest.requireMock<{ default: { expoConfig: unknown } }>("expo-constants");
+    const config = constants.default.expoConfig;
+    constants.default.expoConfig = {};
+    try {
+      loaded.push.attachPushForegroundSync("tok", true, undefined, 1, feedback)();
+      await settle();
+    } finally {
+      constants.default.expoConfig = config;
+    }
+    expect(loaded.notifications.getExpoPushTokenAsync).not.toHaveBeenCalled();
+    expect(loaded.report).not.toHaveBeenCalled();
+  });
+
+  it("leaves the Settings switch to report its own failure", async () => {
+    const { push, notifications, report } = load();
+    notifications.getExpoPushTokenAsync.mockRejectedValue(new Error("E_REGISTRATION_FAILED"));
+    await expect(push.registerRemotePushToken("tok", true)).rejects.toThrow("push_token_unavailable");
+    expect(report).not.toHaveBeenCalled();
   });
 });

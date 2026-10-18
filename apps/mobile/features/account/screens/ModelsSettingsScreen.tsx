@@ -10,6 +10,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
+import { planNameKey } from "@/lib/plan";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 function sameIdSet(a: Set<string>, b: Set<string>): boolean {
@@ -30,7 +31,7 @@ type DraftPrefs = {
 export default function ModelsSettingsScreen() {
   const { user, updateUser } = useAuth();
   const { t } = useTranslation();
-  const { models, isPro, autoEnabled, modelEnabledSet } = useModels();
+  const { models, isPaid, autoEnabled, modelEnabledSet } = useModels();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [draft, setDraft] = useState<DraftPrefs | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -73,7 +74,7 @@ export default function ModelsSettingsScreen() {
     if (!user) return;
     const option = models.find((m) => m.id === modelId);
     if (!option?.available) return;
-    if (!isPro && option.plan_access === "pro") {
+    if (!isPaid && option.plan_access === "pro") {
       if (enabled) setUpgradeVisible(true);
       return;
     }
@@ -100,7 +101,7 @@ export default function ModelsSettingsScreen() {
 
         <SettingsGroup label={t("settings.models_list")}>
           {models.map((option) => {
-            const proLocked = !isPro && option.plan_access === "pro";
+            const proLocked = !isPaid && option.plan_access === "pro";
             const enabled = effectiveModels.has(option.id) && !proLocked;
             const isLastModel = enabled && effectiveModels.size <= 1 && !effectiveAuto;
             const switchDisabled =
@@ -112,7 +113,7 @@ export default function ModelsSettingsScreen() {
                 title={option.label}
                 subtitle={
                   proLocked
-                    ? t("settings.account_pro")
+                    ? t(planNameKey("plus"))
                     : option.healthy === false
                       ? t("settings.model_degraded")
                       : undefined

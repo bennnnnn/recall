@@ -24,13 +24,3 @@ export function textLooksLikeMath(text: string): boolean {
   if (pastedDeltaLooksLikeMath(s) || isMathLike(s)) return true;
   return false;
 }
-
-const RECENT = 8;
-
-export function messagesLookLikeMath(contents: readonly string[]): boolean {
-  const start = Math.max(0, contents.length - RECENT);
-  for (let i = start; i < contents.length; i += 1) {
-    if (textLooksLikeMath(contents[i] ?? "")) return true;
-  }
-  return false;
-}

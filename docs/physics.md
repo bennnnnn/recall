@@ -13,7 +13,7 @@ Code: `apps/api/app/modules/physics/`. Math hands physics over at subject detect
 ```mermaid
 flowchart LR
   message[User message] --> gate[needs_physics]
-  gate --> read[read_scientific_numbers + normalise]
+  gate --> read[fold_scientific + normalise]
   read --> prepare[prepare_physics_request]
   prepare --> extract[Extractor chain]
   extract --> complete[complete_physics_intent: accountability + asked quantity]
@@ -58,7 +58,8 @@ flowchart LR
    into a catalog operation. Its engine is subject-neutral and shared
    (`services/law_binding`: the spec types, the givens scanner, the word windows, `fit`
    and the expression evaluator); physics brings its unit table (`givens.PHYSICS_UNITS`),
-   its settings (`binding_values`) and its constants (`expression.PHYSICS_NOTATION`):
+   its settings (`binding_values`) and its constants (`constants.py`, named for expressions in
+   `expression.PHYSICS_NOTATION`):
    - every stated value fills one input of its dimension. Two inputs of one dimension (u
      and v) are told apart by the word just before the value ("from", "to", "initial",
      "reaches") or just after it ("100 turns on the primary"). Inputs that play the same
@@ -275,9 +276,14 @@ The binder reads these laws, beside the extractors' own:
 
 - **Answers** have three significant figures, trailing zeros trimmed. Scientific notation is
   used outside [10⁻³, 10⁵), and rounding comes first: 99999.7 is 1 × 10⁵. One formatter does
-  this, `display.py`; a solver never picks its own format.
+  this, `display.py`; a solver never picks its own format. A 5 rounds up, as a class rounds:
+  490.5 N is 491 N (`services/school_rounding.py`, the rule every subject shares).
 - **Givens** are echoed with the figures the user typed, up to six. A given is never rounded
   to answer precision.
+- **Constants** (c, e, mₑ, h, G, ε₀, …) are CODATA values from Pint, read once in
+  `constants.py` and pinned by a test; no solver or extractor types one. A binder substitution
+  prints a constant to six figures (`expression.PHYSICS_NOTATION`). The one 273.15 is
+  `services/units.CELSIUS_OFFSET_K`, shared with chemistry.
 - **Units** are upright, with their symbols: m/s², kg·m², J/(kg·K), Ω, °. In LaTeX the unit
   is a `\mathrm{…}` run holding that plain spelling, because MathText draws a `\mathrm` group
   as written.

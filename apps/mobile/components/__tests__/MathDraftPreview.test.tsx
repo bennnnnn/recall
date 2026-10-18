@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react-native";
+import { fireEvent, render, within } from "@testing-library/react-native";
 
 import { MathDraftPreview, sentMessageShowsMathPreview } from "@/features/chat/components/MathDraftPreview";
 import { lightTheme } from "@/lib/theme";
@@ -66,5 +66,128 @@ describe("MathDraftPreview", () => {
     expect(getByTestId("math-slot-sup")).toHaveStyle({
       backgroundColor: lightTheme.primaryLight,
     });
+  });
+});
+
+describe("MathDraftPreview: one piece per draft node", () => {
+  const press = (locationX: number) => ({ nativeEvent: { locationX } });
+
+  it("draws plain text in the math face and a command run as math", async () => {
+    const plain = await render(<MathDraftPreview input="$x+1$" showCaret={false} />);
+    expect(plain.getByText("x+1")).toHaveStyle({ fontSize: 16 });
+    const command = await render(<MathDraftPreview input={String.raw`$\pi r$`} showCaret={false} />);
+    expect(command.queryByText(String.raw`\pi r`)).toBeNull();
+    expect(command.getByTestId("math-slot-text")).toBeOnTheScreen();
+  });
+
+  it("moves the caret to a text run's near or far end by where it is tapped", async () => {
+    const onMoveCaret = jest.fn();
+    const { getByTestId } = await render(
+      <MathDraftPreview input="$ab$" showCaret={false} onMoveCaret={onMoveCaret} />,
+    );
+    await fireEvent.press(getByTestId("math-slot-text"), press(2));
+    await fireEvent.press(getByTestId("math-slot-text"), press(30));
+    expect(onMoveCaret.mock.calls).toEqual([[1], [3]]);
+  });
+
+  it("shows a text run's caret at its start or its end", async () => {
+    const inside = await render(<MathDraftPreview input={String.raw`$x+\frac{1}{2}$`} caret={7} />);
+    expect(inside.queryByTestId("math-slot-text-caret")).toBeNull();
+    expect(inside.queryByTestId("math-slot-text-caret-start")).toBeNull();
+    const end = await render(<MathDraftPreview input={String.raw`$x+\frac{1}{2}$`} caret={3} />);
+    expect(end.getByTestId("math-slot-text-caret")).toBeOnTheScreen();
+    const after = await render(<MathDraftPreview input={String.raw`$\frac{1}{2}+x$`} caret={12} />);
+    expect(after.getByTestId("math-slot-text-caret-start")).toBeOnTheScreen();
+  });
+
+  it("stacks a fraction's numerator over its denominator", async () => {
+    const { getByTestId } = await render(
+      <MathDraftPreview input={String.raw`$\frac{a}{b}$`} showCaret={false} />,
+    );
+    const frac = getByTestId("math-frac");
+    const ids = frac.children.map((child) => (typeof child === "string" ? child : child.props.testID));
+    expect(ids).toEqual(["math-slot-num", "math-vinculum", "math-slot-den"]);
+  });
+
+  it("draws a square root without an index and an nth root with one", async () => {
+    const square = await render(<MathDraftPreview input={String.raw`$\sqrt{2}$`} showCaret={false} />);
+    expect(square.getByTestId("math-slot-sqrt")).toBeOnTheScreen();
+    expect(square.queryByTestId("math-slot-nroot-index")).toBeNull();
+    const cube = await render(<MathDraftPreview input={String.raw`$\sqrt[3]{8}$`} showCaret={false} />);
+    expect(cube.getByTestId("math-slot-nroot-index")).toBeOnTheScreen();
+    expect(cube.getByTestId("math-slot-sqrt")).toBeOnTheScreen();
+  });
+
+  it("raises a superscript and drops a subscript beside their base", async () => {
+    const { getByTestId } = await render(
+      <MathDraftPreview input={String.raw`$x^{2}y_{1}$`} showCaret={false} />,
+    );
+    expect(getByTestId("math-sup")).toBeOnTheScreen();
+    expect(getByTestId("math-slot-sup")).toBeOnTheScreen();
+    expect(getByTestId("math-sub")).toBeOnTheScreen();
+    expect(getByTestId("math-slot-sub")).toBeOnTheScreen();
+  });
+
+  it("puts a sum's limits over and under it", async () => {
+    const { getByTestId, queryByTestId } = await render(
+      <MathDraftPreview input={String.raw`$\sum_{i=1}^{n}$`} showCaret={false} />,
+    );
+    expect(getByTestId("math-slot-sup")).toBeOnTheScreen();
+    expect(getByTestId("math-slot-sub")).toBeOnTheScreen();
+    expect(queryByTestId("math-integral")).toBeNull();
+  });
+
+  it("draws a braced group, absolute value bars, a binomial and a vector arrow", async () => {
+    const brace = await render(<MathDraftPreview input="${x}$" showCaret={false} />);
+    expect(brace.getByTestId("math-brace")).toBeOnTheScreen();
+    expect(brace.getByTestId("math-slot-brace")).toBeOnTheScreen();
+    const abs = await render(<MathDraftPreview input="$|x|$" showCaret={false} />);
+    expect(abs.getByTestId("math-abs")).toBeOnTheScreen();
+    expect(abs.getAllByText("|")).toHaveLength(2);
+    const binom = await render(<MathDraftPreview input={String.raw`$\binom{5}{2}$`} showCaret={false} />);
+    expect(binom.getByTestId("math-binom")).toBeOnTheScreen();
+    expect(binom.getByText("C(")).toBeOnTheScreen();
+    expect(binom.getByText(",")).toBeOnTheScreen();
+    expect(binom.getByText(")")).toBeOnTheScreen();
+    expect(binom.getByTestId("math-slot-binom-n")).toBeOnTheScreen();
+    expect(binom.getByTestId("math-slot-binom-k")).toBeOnTheScreen();
+    const vec = await render(<MathDraftPreview input={String.raw`$\vec{v}$`} showCaret={false} />);
+    expect(vec.getByTestId("math-vec")).toBeOnTheScreen();
+    expect(vec.getByText("→")).toBeOnTheScreen();
+    expect(vec.getByTestId("math-slot-vec")).toBeOnTheScreen();
+  });
+
+  it("keeps a function's name with its parentheses and a set's braces", async () => {
+    const call = await render(<MathDraftPreview input={String.raw`$\sin(x)$`} showCaret={false} />);
+    expect(call.getByTestId("math-group")).toBeOnTheScreen();
+    expect(call.getByText("sin(")).toBeOnTheScreen();
+    expect(call.getByText(")")).toBeOnTheScreen();
+    const set = await render(<MathDraftPreview input={String.raw`$\{1,2\}$`} showCaret={false} />);
+    expect(set.getByTestId("math-group")).toBeOnTheScreen();
+    expect(set.getByText("{")).toBeOnTheScreen();
+    expect(set.getByText("}")).toBeOnTheScreen();
+  });
+
+  it("nests a structured slot's pieces inside it", async () => {
+    const { getByTestId } = await render(
+      <MathDraftPreview input={String.raw`$\sqrt{\frac{1}{x^{2}}}$`} showCaret={false} />,
+    );
+    const radicand = getByTestId("math-slot-sqrt");
+    expect(within(radicand).getByTestId("math-frac")).toBeOnTheScreen();
+    expect(within(radicand).getByTestId("math-sup")).toBeOnTheScreen();
+  });
+
+  it("moves the caret into a slot's front or back half, or into an empty slot", async () => {
+    const onMoveCaret = jest.fn();
+    const { getByTestId } = await render(
+      <MathDraftPreview input={String.raw`$\frac{12}{}$`} showCaret={false} onMoveCaret={onMoveCaret} />,
+    );
+    const num = getByTestId("math-slot-num");
+    await fireEvent.press(num, press(5));
+    await fireEvent(num, "layout", { nativeEvent: { layout: { width: 40, height: 20 } } });
+    await fireEvent.press(num, press(5));
+    await fireEvent.press(num, press(30));
+    await fireEvent.press(getByTestId("math-slot-den"), press(0));
+    expect(onMoveCaret.mock.calls).toEqual([[9], [7], [9], [11]]);
   });
 });

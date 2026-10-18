@@ -5,8 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  type StyleProp,
-  type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -19,7 +17,6 @@ type Props = {
   children: ReactNode;
   /** How to distribute hero vs actions when the column is taller than content. */
   justify?: "space-between" | "center";
-  contentContainerStyle?: StyleProp<ViewStyle>;
 };
 
 /**
@@ -29,7 +26,6 @@ type Props = {
 export function AuthScrollLayout({
   children,
   justify = "space-between",
-  contentContainerStyle,
 }: Props) {
   const insets = useSafeAreaInsets();
 
@@ -47,7 +43,6 @@ export function AuthScrollLayout({
             paddingTop: Math.max(insets.top, Space.md),
             paddingBottom: Math.max(insets.bottom, Space.md),
           },
-          contentContainerStyle,
         ]}
         testID="auth-scroll-layout"
       >

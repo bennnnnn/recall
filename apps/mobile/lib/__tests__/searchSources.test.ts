@@ -3,6 +3,7 @@ import {
   hostnameFromUrl,
   parseSearchSources,
   preferDistinctHostSources,
+  searchSourcesFromField,
   stripSearchSourcesFromContent,
 } from "@/lib/searchSources";
 
@@ -93,5 +94,17 @@ describe("searchSources", () => {
 
   it("builds favicon url from host", () => {
     expect(faviconUrl("https://www.bbc.com/news")).toContain("bbc.com");
+  });
+
+  it("reads a done event's sources as JSON text or as an array", () => {
+    const rows = [{ title: "AP News", url: "https://apnews.com/a", snippet: "Story text." }];
+    expect(searchSourcesFromField(JSON.stringify(rows))).toEqual(rows);
+    expect(searchSourcesFromField(rows)).toEqual(rows);
+    expect(searchSourcesFromField([{ url: "https://apnews.com/a" }])).toEqual([
+      { title: "https://apnews.com/a", url: "https://apnews.com/a" },
+    ]);
+    for (const absent of [undefined, null, "", "not json", { title: "x" }, 5]) {
+      expect(searchSourcesFromField(absent)).toEqual([]);
+    }
   });
 });

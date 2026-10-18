@@ -10,7 +10,8 @@ from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.extractors.parsing import seconds_per
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.scene import CellScene
-from app.modules.chemistry.solvers.common_chem import (
+from app.modules.chemistry.solvers.constants import FARADAY, GAS_R_J, STANDARD_REDUCTION
+from app.modules.chemistry.solvers.display import (
     const,
     given_row,
     inp,
@@ -21,7 +22,6 @@ from app.modules.chemistry.solvers.common_chem import (
     used,
     verified,
 )
-from app.modules.chemistry.solvers.constants import FARADAY, GAS_R_J, STANDARD_REDUCTION
 from app.modules.chemistry.solvers.params import require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError

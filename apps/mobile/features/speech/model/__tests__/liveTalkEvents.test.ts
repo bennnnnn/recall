@@ -1,5 +1,5 @@
 import type { Message } from "@/lib/api/types";
-import { applyLiveTalkChatEvent, dropLiveTalkLocalTurn } from "@/features/speech/model/liveTalkEvents";
+import { applyLiveTalkChatEvent } from "@/features/speech/model/liveTalkEvents";
 
 describe("liveTalkEvents", () => {
   it("reconciles an old turn without moving it below the next utterance", () => {
@@ -48,16 +48,5 @@ describe("liveTalkEvents", () => {
       assistant_message: assistant,
     });
     expect(messages.map((row) => row.id)).toEqual(["u1", "a1"]);
-  });
-
-  it("keeps a voice placeholder until cancel drops the local turn", () => {
-    let messages: Message[] = [];
-    messages = applyLiveTalkChatEvent(messages, "t1", {
-      type: "user",
-      text: "Voice message",
-    });
-    expect(messages).toHaveLength(1);
-    messages = dropLiveTalkLocalTurn(messages, "t1");
-    expect(messages).toHaveLength(0);
   });
 });

@@ -18,7 +18,7 @@ _BINARY = re.compile(
     rf"(?P<b>{_MIXED_OR_F})$",
     re.IGNORECASE,
 )
-_MIXED = re.compile(r"(\d+)\s+(\d+)\s*/\s*(\d+)")
+_MIXED = re.compile(r"^(\d+)\s+(\d+)\s*/\s*(\d+)")
 # "divide 3/4 by 2/9": the operation named first.
 _DIVIDE_BY = re.compile(
     rf"^divide\s+(?P<a>{_MIXED_OR_F})\s+by\s+(?P<b>{_MIXED_OR_F})$", re.IGNORECASE

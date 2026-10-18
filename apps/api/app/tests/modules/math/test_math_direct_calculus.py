@@ -202,14 +202,65 @@ def test_infinite_sums_retain_the_divergence_explanation(query):
 @pytest.mark.parametrize(
     "query",
     [
+        # SymPy's accumulation bounds, <-1, 1>, were the verified answer.
         "Find the limit of sin(1/x) as x approaches 0",
+        "limit of cos(1/x) as x->0",
         "Find the limit of cos(x) as x approaches infinity",
+        "limit of cos(n*pi) as n->infinity",
+        "limit of sin(1/x) as x approaches 0 from the right",
+        "limit of tan(1/x) as x->0",
+        # The limit is 1; SymPy bounds the two terms apart, <0, 2>.
+        "limit of sin(1/x)^2 + cos(1/x)^2 as x->0",
+        # The bounds inside a larger answer: |<-1, 1>|, oo*sign(<-1, 1>).
+        "limit of |sin(1/x)| as x->0",
+        "limit of x*sin(x) as x->infinity",
+        "limit of sin(1/x)/x as x approaches 0 from the right",
+        # Limit(...) unevaluated, then i and i*pi for a limit over the reals.
+        "limit of sin(x)^x as x->infinity",
+        "limit of sqrt(x) as x->-1",
+        "limit of ln(x) as x->-1",
+        # "The one-sided limits disagree", where there are no two sides (at
+        # infinity) or neither side has a limit.
+        "limit of (-2)^n as n->infinity",
+        "limit of sin(1/x)/x as x->0",
+        # An average value over an infinite interval: <0, 2> / oo = 0.
+        "average value of sin(x) from 0 to oo",
+        # "infinity" read as the product of the letters i, n, f, t, y.
+        "average value of sin(x) from 0 to infinity",
+        # The integral diverges; the working said it was -2 under an oo card.
+        "find the average value of 1/x^2 on [-1, 1]",
+        # The integral unevaluated, then one holding oo, i and a Limit (it is 0).
+        "average value of x^x on [0, 1]",
+        "average value of sin(1/x) on [-1, 1]",
     ],
 )
-def test_accumulation_bounds_are_not_a_closed_scalar_limit(query):
+def test_a_value_sympy_did_not_establish_is_not_verified(query):
+    intent = extract_math_intent(query)
+    assert intent is not None
+    assert _build_verified_block(intent, _SETTINGS) is None
+
+
+@pytest.mark.parametrize(
+    "query,answer,reply",
+    [
+        ("limit of 1/x as x->0", None, "one-sided limits disagree"),
+        ("limit of |x|/x as x->0", None, "one-sided limits disagree"),
+        ("limit of e^(1/x) as x->0", None, "one-sided limits disagree"),
+        ("limit of 1/x^2 as x->0", r"\infty", None),
+        ("limit of -1/x^2 as x->0", r"-\infty", None),
+        ("limit of x*sin(1/x) as x->0", "0", None),
+        ("limit of sin(x)/x as x->infinity", "0", None),
+        ("sum (-1)^n for n=1 to infinity", None, "diverges; it has no ordinary sum"),
+        ("integrate sin(x) from 0 to infinity", None, "does not converge"),
+        ("average value of x^2 from 0 to 3", "3", None),
+        ("average value of x on [a, b]", r"\frac{a}{2} + \frac{b}{2}", None),
+    ],
+)
+def test_a_limit_that_does_not_exist_keeps_its_verified_outcome(query, answer, reply):
     block = _verified(query)
-    assert block.canonical_answer is not None and r"\langle" in block.canonical_answer
-    assert maybe_direct_math_reply(block, query) is None
+    assert block.canonical_answer == answer
+    if reply is not None:
+        assert block.direct_reply is not None and reply in block.direct_reply
 
 
 @pytest.mark.parametrize(

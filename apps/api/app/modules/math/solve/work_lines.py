@@ -29,6 +29,8 @@ from sympy import (
 )
 from sympy.core.relational import Ge, Gt, Le, Lt
 
+from app.modules.math.solve.declines import declines, sympy_decline
+
 RELATIONS = {"=": Eq, "<": Lt, ">": Gt, "<=": Le, ">=": Ge}
 INEQUALITIES = frozenset({"<", ">", "<=", ">="})
 FLIPPED = {"<": ">", ">": "<", "<=": ">=", ">=": "<="}
@@ -103,10 +105,10 @@ def _parse_values(raw: str, var: Any) -> Line | None:
 def _parse_side(text: str, var: Any) -> tuple[Any, Any] | None:
     from app.modules.math.solve.parse import _parse_expression
 
-    try:
+    with sympy_decline() as declined:
         value = _parse_expression(text, [str(var)])
         written = _parse_expression(text, [str(var)], evaluate=False)
-    except Exception:
+    if declined:
         return None
     value = exact(value)
     # No xreplace on ``written``: rebuilding a node evaluates it, which would
@@ -124,17 +126,15 @@ def exact(expr: Any) -> Any:
     return expr.xreplace({f: Rational(str(f)) for f in floats})
 
 
+@declines(False)
 def _polynomial(expr: Any, var: Any) -> bool:
-    try:
-        return bool(expr.is_polynomial(var)) and Poly(expr, var).degree() <= _MAX_DEGREE
-    except Exception:
-        return False
+    return bool(expr.is_polynomial(var)) and Poly(expr, var).degree() <= _MAX_DEGREE
 
 
 def solution_set(lhs: Any, op: str, rhs: Any, var: Any) -> Any | None:
-    try:
+    with sympy_decline() as declined:
         result = solveset(RELATIONS[op](lhs, rhs), var, domain=S.Reals)
-    except Exception:
+    if declined:
         return None
     if not isinstance(result, FiniteSet | Interval | Union) and result not in (S.EmptySet, S.Reals):
         return None

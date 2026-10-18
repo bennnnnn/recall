@@ -7,7 +7,7 @@ import { darkTheme, lightTheme } from "@/lib/theme";
 let mockScheme: "light" | "dark" = "light";
 const mockPolyline = jest.fn((_props: Record<string, unknown>) => null);
 
-jest.mock("@/hooks/useResolvedColorScheme", () => ({
+jest.mock("@/lib/colorScheme", () => ({
   useResolvedColorScheme: () => mockScheme,
 }));
 jest.mock("react-native-safe-area-context", () => ({

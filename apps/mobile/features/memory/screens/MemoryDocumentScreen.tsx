@@ -141,6 +141,19 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   if (!token) return <Redirect href="/login" />;
   if (!document) {
     if (memory.loading) return <SkeletonList />;
+    // A failed read is not a deleted page: say so and offer the read again.
+    if (memory.error) {
+      return (
+        <View style={s.center}>
+          <StateView
+            variant="error"
+            title={t("common.error")}
+            onRetry={() => { if (isCurrentView()) void load(); }}
+            retryLabel={t("common.retry")}
+          />
+        </View>
+      );
+    }
     return (
       <View style={s.center}>
         <StateView

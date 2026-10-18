@@ -1,13 +1,15 @@
 """Tests for the model-callable search_image MCP adapter."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
 from app.core.config import Settings
+from app.gateways.mcp.base import ToolContext
 from app.modules.images.search import ImageSearchError
-from app.modules.images.search_tool import ImageSearchAdapter, bind_image_search_context
+from app.modules.images.search_tool import ImageSearchAdapter
+from app.tests.tool_context import tool_context
 
 
 def _settings(**kwargs: object) -> Settings:
@@ -17,28 +19,33 @@ def _settings(**kwargs: object) -> Settings:
     return s
 
 
+def _turn(*, user: object = None, chat_id: UUID | None = None) -> ToolContext:
+    """A turn with a user and a chat, the way the tool loop builds one."""
+    return tool_context(user=user or MagicMock(), redis=MagicMock(), chat_id=chat_id or uuid4())
+
+
 @pytest.mark.asyncio
-async def test_invoke_requires_bound_context():
+@pytest.mark.parametrize("has_user, has_chat", [(False, False), (False, True), (True, False)])
+async def test_invoke_without_user_or_chat_is_unavailable(has_user, has_chat):
     adapter = ImageSearchAdapter(_settings(image_search_enabled=True))
-    result = await adapter.invoke({"query": "an ear"})
+    ctx = tool_context(
+        user=MagicMock() if has_user else None, chat_id=uuid4() if has_chat else None
+    )
+    result = await adapter.invoke({"query": "an ear"}, ctx)
     assert "unavailable" in result.content.lower()
 
 
 @pytest.mark.asyncio
 async def test_invoke_missing_query():
     adapter = ImageSearchAdapter(_settings(image_search_enabled=True))
-    user = MagicMock()
-    with bind_image_search_context(user=user, redis=MagicMock(), chat_id=uuid4()):
-        result = await adapter.invoke({"query": "   "})
+    result = await adapter.invoke({"query": "   "}, _turn())
     assert "missing query" in result.content.lower()
 
 
 @pytest.mark.asyncio
 async def test_invoke_disabled():
     adapter = ImageSearchAdapter(_settings(image_search_enabled=False))
-    user = MagicMock()
-    with bind_image_search_context(user=user, redis=MagicMock(), chat_id=uuid4()):
-        result = await adapter.invoke({"query": "an ear"})
+    result = await adapter.invoke({"query": "an ear"}, _turn())
     assert "disabled" in result.content.lower()
 
 
@@ -52,17 +59,17 @@ async def test_invoke_persists_and_returns_terminal_marker():
     asst = MagicMock(id=asst_id, content=marker, model="image-search-model")
     search = AsyncMock(return_value=(MagicMock(), asst))
 
-    with (
-        bind_image_search_context(user=user, redis=MagicMock(), chat_id=chat_id),
-        patch(
-            "app.modules.images.search_tool.image_search_service.search_and_attach_for_chat",
-            search,
-        ),
+    with patch(
+        "app.modules.images.search_tool.image_search_service.search_and_attach_for_chat",
+        search,
     ):
-        result = await adapter.invoke({"query": "an ear"})
+        result = await adapter.invoke({"query": "an ear"}, _turn(user=user, chat_id=chat_id))
 
     search.assert_awaited_once()
     kwargs = search.await_args.kwargs
+    # The turn's user and chat come from the context.
+    assert kwargs["user"] is user
+    assert kwargs["chat_id"] == chat_id
     assert kwargs["create_user_message"] is False
     assert kwargs["query"] == "an ear"
     assert result.data is not None
@@ -74,29 +81,21 @@ async def test_invoke_persists_and_returns_terminal_marker():
 @pytest.mark.asyncio
 async def test_invoke_surfaces_search_error():
     adapter = ImageSearchAdapter(_settings(image_search_enabled=True))
-    user = MagicMock()
-    with (
-        bind_image_search_context(user=user, redis=MagicMock(), chat_id=uuid4()),
-        patch(
-            "app.modules.images.search_tool.image_search_service.search_and_attach_for_chat",
-            AsyncMock(side_effect=ImageSearchError("no photo found", status_code=502)),
-        ),
+    with patch(
+        "app.modules.images.search_tool.image_search_service.search_and_attach_for_chat",
+        AsyncMock(side_effect=ImageSearchError("no photo found", status_code=502)),
     ):
-        result = await adapter.invoke({"query": "an ear"})
+        result = await adapter.invoke({"query": "an ear"}, _turn())
     assert "failed" in result.content.lower()
 
 
 @pytest.mark.asyncio
 async def test_invoke_rejects_marker_without_image_prefix():
     adapter = ImageSearchAdapter(_settings(image_search_enabled=True))
-    user = MagicMock()
     asst = MagicMock(id=uuid4(), content="oops not a marker")
-    with (
-        bind_image_search_context(user=user, redis=MagicMock(), chat_id=uuid4()),
-        patch(
-            "app.modules.images.search_tool.image_search_service.search_and_attach_for_chat",
-            AsyncMock(return_value=(MagicMock(), asst)),
-        ),
+    with patch(
+        "app.modules.images.search_tool.image_search_service.search_and_attach_for_chat",
+        AsyncMock(return_value=(MagicMock(), asst)),
     ):
-        result = await adapter.invoke({"query": "an ear"})
+        result = await adapter.invoke({"query": "an ear"}, _turn())
     assert "did not produce" in result.content.lower()

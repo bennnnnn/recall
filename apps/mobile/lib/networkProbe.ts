@@ -73,8 +73,3 @@ export async function resolveConnectivity(): Promise<ConnectivityStatus> {
   ]);
   return classifyConnectivity(apiOk, publicOk);
 }
-
-/** True when send should be blocked (no uplink or API down). */
-export async function resolveIsOffline(): Promise<boolean> {
-  return (await resolveConnectivity()) !== "online";
-}

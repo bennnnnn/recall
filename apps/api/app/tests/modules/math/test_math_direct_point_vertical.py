@@ -16,6 +16,7 @@ from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.math.fence import validate_math_fences
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.math.tools.direct import maybe_direct_math_reply
+from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import build_math_augmentation
 from app.services.answer_fence import mark_server_answer_fences
 from app.services.solving import VerifiedMathBlock
@@ -77,7 +78,14 @@ async def test_literal_plot_preserves_canonical_data_and_reaches_first_token_wit
 def _point_block(**changes) -> VerifiedMathBlock:
     graph = GraphBlockSpec(expr="(2, 3)", points=[[2, 3]], x_min=-3, x_max=7).model_dump()
     graph.update(changes)
-    return VerifiedMathBlock(text="verified", canonical_fence=graph, canonical_answer="(2, 3)")
+    # Extraction read "Plot the point (2,3)" and nothing else; the block is bound to it.
+    return VerifiedMathBlock(
+        text="verified",
+        canonical_fence=graph,
+        canonical_answer="(2, 3)",
+        plot_point=(2.0, 3.0),
+        direct_request_text="Plot the point (2,3)",
+    )
 
 
 def _vertical_block(**changes) -> VerifiedMathBlock:
@@ -105,7 +113,20 @@ def _vertical_block(**changes) -> VerifiedMathBlock:
     ],
 )
 def test_point_guard_preserves_full_request_and_literal_coordinates(query):
+    # Read from this request, no literal point is carried; and the block built
+    # for "Plot the point (2,3)" is never reused for it.
+    intent = extract_math_intent(query)
+    assert intent is None or intent.plot_point in (None, (3.0, 2.0))
     assert maybe_direct_math_reply(_point_block(), query) is None
+
+
+def test_point_block_skips_model_only_for_the_request_it_read():
+    assert maybe_direct_math_reply(_point_block(), "Plot the point (2,3)") is not None
+    assert maybe_direct_math_reply(_point_block(), "  Plot the point   (2,3) ") is not None
+    unbound = replace(_point_block(), direct_request_text=None)
+    assert maybe_direct_math_reply(unbound, "Plot the point (2,3)") is None
+    unread = replace(_point_block(), plot_point=None)
+    assert maybe_direct_math_reply(unread, "Plot the point (2,3)") is None
 
 
 @pytest.mark.parametrize(

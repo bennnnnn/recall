@@ -38,7 +38,7 @@ _STATS_WORDS: tuple[tuple[str, StatsOp], ...] = (
     ("mean", "mean"),
 )
 
-_DATA_NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
+_DATA_NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"  # keeps "5." whole: "5., 6., 7."
 _DATA_VALUE = re.compile(rf"{_DATA_NUMBER}(?:\s*/\s*{_DATA_NUMBER})?")
 
 
@@ -152,7 +152,7 @@ def _digits_immediately_after(text: str, idx: int) -> tuple[int, int] | None:
 # "5!", or "5!" asked as a question ("what is 5!", "calculate 5!").
 _BARE_FACTORIAL_BANG = re.compile(
     r"^\s*(?:(?:what\s+is|what's|whats|calculate|compute|evaluate|find|work\s+out)\s+)?"
-    r"(\d+)\s*!\s*[.?!]*\s*$",
+    r"(\d+)\s*!\s*(?:[.?!]+\s*)?$",
     re.IGNORECASE,
 )
 
@@ -285,7 +285,7 @@ def counting_word_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] |
         return word
     if len(text) > 300 or not _COUNTING_QUESTION.search(text):
         return None
-    numbers = [int(match) for match in re.findall(r"(?<![\d.])\d+(?![\d.])", text)]
+    numbers = [int(run) for run in re.findall(r"[\d.]+", text) if run.isdecimal()]
     ordered = _ORDER_WORDS.search(text) is not None
     k_of_n = _K_OF_N.search(text)
     if k_of_n is not None and len(numbers) == 2:

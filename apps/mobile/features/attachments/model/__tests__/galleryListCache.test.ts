@@ -10,7 +10,11 @@ import {
   removeCachedGalleryItem,
   setGalleryPage,
 } from "@/features/attachments/model/galleryListCache";
-jest.mock("@/lib/auth", () => ({ getSessionGeneration: jest.fn(() => 0) }));
+jest.mock("@/lib/auth", () => ({
+  getSessionGeneration: jest.fn(() => 0),
+  requireTokenSession: jest.fn(),
+  SessionChangedError: class SessionChangedError extends Error {},
+}));
 beforeEach(() => { (getSessionGeneration as jest.Mock).mockReturnValue(0); });
 
 jest.mock("@/lib/api", () => ({
@@ -47,7 +51,7 @@ describe("galleryListCache", () => {
     expect(getCachedGalleryPage("all", "")).toEqual(sample);
 
     const result = await fetchGalleryPage("token", "all", "");
-    expect(result).toEqual(sample);
+    expect(result).toEqual({ data: sample, error: null });
     expect(listAttachments).not.toHaveBeenCalled();
   });
 
@@ -134,7 +138,7 @@ it("refetches a shifted offset when a loaded file is deleted before the next que
   // DELETE wins on the server. The old offset of 1 now starts at c, skipping b.
   listAttachments.mockResolvedValueOnce({ items: [row("b"), row("c")], has_more: false });
   finish({ items: [row("c")], has_more: false });
-  expect((await more)?.items.map((item) => item.id)).toEqual(["b", "c"]);
+  expect((await more).data?.items.map((item) => item.id)).toEqual(["b", "c"]);
   expect(listAttachments.mock.calls[1][1].offset).toBe(0);
   expect(getCachedGalleryPage("all", "")?.items.map((item) => item.id)).toEqual(["b", "c"]);
 });

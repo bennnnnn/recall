@@ -1,10 +1,10 @@
 /** Left-edge hit slop for swipe-to-open (pt). */
 export const DRAWER_EDGE_WIDTH = 28;
 /** Ignore jitter until the finger has clearly moved. */
-export const DRAWER_PAN_SLOP = 10;
+const DRAWER_PAN_SLOP = 10;
 /** Phone drawers stay ~82% wide; tablets cap so chat keeps a usable gutter. */
 export const DRAWER_MAX_WIDTH = 360;
-export const DRAWER_WIDTH_RATIO = 0.82;
+const DRAWER_WIDTH_RATIO = 0.82;
 
 export function cappedDrawerWidth(windowWidth: number): number {
   return Math.min(windowWidth * DRAWER_WIDTH_RATIO, DRAWER_MAX_WIDTH);

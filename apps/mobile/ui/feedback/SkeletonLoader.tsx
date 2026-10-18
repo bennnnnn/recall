@@ -73,7 +73,7 @@ export function SkeletonBlock({
 }
 
 /** Placeholder for a single list row: a leading circle plus two text lines. */
-export function SkeletonRow() {
+function SkeletonRow() {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
 

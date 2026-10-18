@@ -1,10 +1,12 @@
+"""One turn's reply: produce it, finalize it, then register its save and post-turn jobs.
+
+The text comes from ``stream_paths`` (instant reply, tool loop, model stream);
+``finalize_passes`` turns it into the reply that persists.
+"""
+
 import asyncio
-import json
 import logging
-import time
 from collections.abc import AsyncIterator, Callable
-from contextlib import suppress
-from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
@@ -12,626 +14,28 @@ from redis.asyncio import Redis
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
+from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
+from app.modules.chat.finalize_passes import enrich_final_content
+from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
+from app.modules.chat.post_turn import enqueue_post_turn_jobs, finalize_stream_turn_db
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
+from app.modules.chat.quality import detect_quality_issues
+from app.modules.chat.related_prompts import schedule_related_prompts
 from app.modules.chat.stream_events import await_ignoring_cancel, clear_task_cancellation
-from app.modules.chat.tool_gate import should_classify_tool_web_search
+from app.modules.chat.stream_paths import (
+    StreamAccum,
+    run_instant_reply_path,
+    run_llm_token_stream,
+    run_tool_loop_path,
+)
+from app.modules.chat.turn_deps import ChatTurnDeps
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
+from app.modules.chat.turn_resources import TurnResources
+from app.modules.images.answer_photo import AnswerPhoto
 
 logger = logging.getLogger(__name__)
-
-_STOP_CLOSE_TIMEOUT_SECONDS = 2.0
-
-
-async def _close_stopped_stream(close: Callable[[], Any]) -> None:
-    """Close a stopped provider stream without blocking the reply save."""
-    with suppress(Exception, asyncio.CancelledError):
-        await asyncio.wait_for(close(), _STOP_CLOSE_TIMEOUT_SECONDS)
-
-
-# Provider finish_reason values that mean the reply stopped short of a
-# complete answer. "stop" is a normal end; these are not.
-_INCOMPLETE_FINISH_REASONS = frozenset({"length", "max_tokens", "content_filter"})
-
-
-@dataclass
-class StreamAccum:
-    parts: list[str] = field(default_factory=list)
-    was_cancelled: bool = False
-    completion: str = "complete"
-
-    def mark_user_stop(self) -> None:
-        self.was_cancelled = True
-        if self.completion == "complete":
-            self.completion = "user_stop"
-
-    def mark_interrupted(self) -> None:
-        self.was_cancelled = True
-        if self.completion == "complete":
-            self.completion = "interrupted"
-
-    def mark_truncated(self) -> None:
-        if self.completion == "complete":
-            self.completion = "interrupted"
-
-
-async def run_instant_reply_path(
-    ctx: StreamContext,
-    *,
-    should_cancel: Callable[[], bool] | None,
-    accum: StreamAccum,
-) -> AsyncIterator[str]:
-    if not (should_cancel and should_cancel()):
-        if ctx.timing is not None:
-            ctx.timing.mark_first_token()
-        if ctx.instant_reply is None:
-            return
-        accum.parts.append(ctx.instant_reply)
-        yield ctx.instant_reply
-    else:
-        accum.mark_user_stop()
-
-
-async def run_tool_loop_path(
-    seams: Any,
-    redis: Redis,
-    settings: Settings,
-    ctx: StreamContext,
-    *,
-    usage: dict[str, int],
-    on_status: StreamStatusFn | None,
-    should_cancel: Callable[[], bool] | None,
-) -> None:
-    from app.services import tool_loop as tool_loop_service
-
-    content = ctx.user_message_content if isinstance(ctx.user_message_content, str) else ""
-    sources = ctx.search_sources if isinstance(ctx.search_sources, list) else []
-    lightweight = bool(ctx.lightweight_turn)
-    has_instant = ctx.instant_reply is not None
-    has_verified = ctx.verified_subject is not None
-    has_sources = bool(sources)
-    web_search_flag: bool | None = None
-    if await seams.quota_service.global_spend_exceeded(redis, settings):
-        logger.warning(
-            "skipping MCP tool loop: global spend cap user_id=%s chat_id=%s",
-            ctx.user_id,
-            ctx.chat_id,
-        )
-        return
-    # Sync heuristic first (math / news). Classifier only when
-    # that gate is weak so we do not add an LLM round to already-needed turns.
-    if not tool_loop_service.turn_needs_tool_loop(
-        content,
-        lightweight=lightweight,
-        has_instant_reply=has_instant,
-        has_verified_math=has_verified,
-        has_search_sources=has_sources,
-        settings=settings,
-        user=ctx.user,
-    ):
-        if should_classify_tool_web_search(
-            content,
-            settings,
-            lightweight=lightweight,
-            has_instant_reply=has_instant,
-            has_verified_math=has_verified,
-            has_search_sources=has_sources,
-            user=ctx.user,
-        ):
-            if isinstance(ctx.web_search_classified, bool):
-                web_search_flag = ctx.web_search_classified
-            else:
-                from app.modules.web_search.detection import should_web_search
-                from app.modules.web_search.subject import (
-                    collect_prior_user_messages,
-                    last_assistant_content,
-                )
-
-                prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
-                web_search_flag = await should_web_search(
-                    content,
-                    settings,
-                    prior_user_messages=collect_prior_user_messages(prompt, content) or None,
-                    prior_assistant=last_assistant_content(prompt),
-                )
-        if not tool_loop_service.turn_needs_tool_loop(
-            content,
-            lightweight=lightweight,
-            has_instant_reply=has_instant,
-            has_verified_math=has_verified,
-            has_search_sources=has_sources,
-            web_search=web_search_flag,
-            settings=settings,
-            user=ctx.user,
-        ):
-            return
-    (
-        ctx.prompt_messages,
-        tool_verified,
-        terminal_image,
-        tool_search_hits,
-    ) = await tool_loop_service.run_tool_rounds(
-        settings=settings,
-        model_alias=ctx.model,
-        messages=ctx.prompt_messages,
-        usage=usage,
-        on_status=on_status,
-        should_cancel=should_cancel,
-        user=ctx.user,
-        redis=redis,
-        chat_id=ctx.chat_id,
-        web_search=web_search_flag,
-        user_timezone=ctx.user_timezone,
-        user_text=content,
-    )
-    if tool_verified is not None:
-        ctx.verified_subject = _with_tool_verified(ctx.verified_subject, tool_verified)
-    if terminal_image is not None:
-        ctx.terminal_image_message_id = terminal_image.message_id
-        ctx.terminal_image_content = terminal_image.final_content
-        ctx.terminal_image_model = terminal_image.resolved_model
-    if tool_search_hits and not ctx.search_sources:
-        ctx.search_sources = tool_search_hits
-
-
-def _with_tool_verified(server: Any, tool: Any) -> Any:
-    """The turn's verified block after the tool loop.
-
-    A block the server built from the user's own text is never replaced by one
-    the model's tool call produced: the model may have mistyped the problem.
-    A maths block may gain a diagram the server did not draw; its answer stays.
-    """
-    from app.services.solving import VerifiedMathBlock
-
-    if server is None:
-        return tool
-    if not isinstance(server, VerifiedMathBlock) or not isinstance(tool, VerifiedMathBlock):
-        return server
-    kinds = {
-        fence.get("type") for fence in (server.canonical_fence, *server.canonical_fences) if fence
-    }
-    kinds.add("answer")
-    extra: list[dict[str, Any]] = []
-    for fence in (tool.canonical_fence, *tool.canonical_fences):
-        if fence and fence.get("type") not in kinds:
-            kinds.add(fence.get("type"))
-            extra.append(fence)
-    if not extra:
-        return server
-    from dataclasses import replace
-
-    return replace(server, canonical_fences=[*server.canonical_fences, *extra])
-
-
-async def run_llm_token_stream(
-    seams: Any,
-    redis: Redis,
-    settings: Settings,
-    ctx: StreamContext,
-    *,
-    usage: dict[str, int],
-    should_cancel: Callable[[], bool] | None,
-    result: dict[str, Any] | None,
-    on_reasoning: StreamReasoningFn | None,
-    accum: StreamAccum,
-) -> AsyncIterator[str]:
-    stream_meta: dict[str, str] = {}
-    requested_model = ctx.model
-    started = time.perf_counter()
-    stream_ok = False
-    if ctx.timing is not None:
-        # Reserve top-up and the tool loop have finished. The interval from
-        # here includes gateway routing/retries, not only upstream inference.
-        ctx.timing.mark_phase("gateway_request_start")
-    llm_stream = seams.litellm_gateway.stream_chat_completion(
-        settings=settings,
-        model_alias=ctx.model,
-        messages=ctx.prompt_messages,
-        max_tokens=ctx.max_output_tokens,
-        usage=usage,
-        fallback_aliases=ctx.fallback_models,
-        stream_meta=stream_meta,
-        on_reasoning=on_reasoning,
-        thinking=ctx.thinking,
-    )
-    try:
-        async for token in llm_stream:
-            if should_cancel and should_cancel():
-                accum.mark_user_stop()
-                break
-            if ctx.timing is not None and not accum.parts:
-                ctx.timing.mark_first_token()
-            accum.parts.append(token)
-            if ctx.answer_photo is not None and ctx.answer_photo.watching:
-                ctx.answer_photo.feed("".join(accum.parts))
-            yield token
-            # Stop can land while we are parked on this yield. The consumer
-            # resumes us so we halt before the next provider read and save.
-            if should_cancel and should_cancel():
-                accum.mark_user_stop()
-                break
-        stream_ok = bool(accum.parts) or accum.was_cancelled
-        finish = stream_meta.get("finish_reason")
-        if finish in _INCOMPLETE_FINISH_REASONS and not accum.was_cancelled:
-            accum.mark_truncated()
-    except asyncio.CancelledError:
-        clear_task_cancellation()
-        accum.mark_user_stop()
-        raise
-    finally:
-        close = getattr(llm_stream, "aclose", None)
-        if close is not None:
-            if accum.was_cancelled:
-                # Closing the provider socket can outlive the stop. Do not
-                # make the partial-reply save wait on it.
-                create_background_task(
-                    _close_stopped_stream(close),
-                    name="close_stopped_stream",
-                )
-            else:
-                await close()
-        if not accum.was_cancelled:
-            try:
-                from app.services import model_health as model_health_service
-
-                await model_health_service.record_sample(
-                    redis,
-                    stream_meta.get("model_alias") or requested_model,
-                    latency_ms=(time.perf_counter() - started) * 1000,
-                    success=stream_ok,
-                )
-            except Exception:
-                logger.debug("model health sample failed", exc_info=True)
-    resolved = stream_meta.get("model_alias")
-    if resolved:
-        ctx.model = resolved
-    if result is not None:
-        result["requested_model"] = requested_model
-        if resolved and resolved != requested_model:
-            result["fallback_used"] = "1"
-
-
-def _replace_failed_subject_fences(
-    seams: Any, content: str, verified: Any, *, server_text: bool = False
-) -> str:
-    """Keep exceptional fence recovery inside the subject that owns the data.
-
-    The maths rewrite did not run, so the model's own answer fences are
-    demoted here (no solver needed): a timed-out pool must not let a model's
-    ```answer through as a card. Wholly server text keeps its cards.
-    """
-    from app.services.solving import VerifiedPhysicsBlock
-
-    if isinstance(verified, VerifiedPhysicsBlock):
-        from app.modules.physics.fence import replace_unclosed_physics_fences_safe
-
-        return replace_unclosed_physics_fences_safe(content, verified)
-    if verified is not None and getattr(verified, "subject", None) == "chemistry":
-        from app.modules.chemistry.fence import replace_unclosed_chemistry_fences_safe
-
-        return replace_unclosed_chemistry_fences_safe(content, verified)
-    canonical = verified.canonical_fence if verified is not None else None
-    content = seams.math_fence_service.replace_unclosed_graph_fence_safe(content, canonical)
-    if server_text:
-        return content
-    from app.services.answer_fence import demote_answer_fences
-
-    return demote_answer_fences(content)
-
-
-def _prepare_model_reply(text: str, verified: Any) -> str:
-    """Model text before any server card is added to it.
-
-    The model cannot forge the server's ``verified: true`` line, every spelling
-    of its answer fences is put in the one form the subject passes demote, and
-    its own "✅ Verified with SymPy" claims go: on an unverified turn they fake
-    the check, and on a verified one the card says it (a claim beside a wrong
-    value would contradict it). A ```simulation scene is solver-sampled, so the
-    model's own never ships; a verified physics turn replaces it in its pass.
-    """
-    from app.services.answer_fence import (
-        normalize_owned_fences,
-        strip_forged_verified_markers,
-        strip_model_simulation_fences,
-        strip_verification_claims,
-    )
-    from app.services.solving import VerifiedPhysicsBlock
-
-    text = normalize_owned_fences(strip_forged_verified_markers(text))
-    text = strip_verification_claims(text)
-    if not isinstance(verified, VerifiedPhysicsBlock):
-        text = strip_model_simulation_fences(text)
-    return text
-
-
-def _fallback_text(raw: str, *, server_text: bool) -> str:
-    """What persists when enrichment fails: never a check the server did not write."""
-    from app.services.answer_fence import mark_server_answer_fences, strip_forged_verified_markers
-
-    try:
-        if server_text:
-            return mark_server_answer_fences(raw)
-        return strip_forged_verified_markers(raw)
-    except Exception:
-        logger.exception("answer-card fallback failed; dropping marker lines")
-        lines = raw.split("\n")
-        return "\n".join(line for line in lines if "verified" not in line.lower())
-
-
-def _prior_assistant_text(ctx: StreamContext) -> str:
-    """The reply before this turn ("" when none), for "mark it done"."""
-    return _prior_text(ctx, "assistant")
-
-
-def _prior_user_text(ctx: StreamContext) -> str:
-    """The user's message before this one: "whats next on my reminders" then "done"."""
-    return _prior_text(ctx, "user")
-
-
-def _prior_text(ctx: StreamContext, role: str) -> str:
-    for message in reversed(ctx.prompt_messages[:-1]):
-        if message.get("role") == role:
-            content = message.get("content")
-            return content if isinstance(content, str) else ""
-    return ""
-
-
-async def _attach_answer_photo(ctx: StreamContext, text: str, was_cancelled: bool) -> str:
-    """Swap the reply's ```photo fence for the photo found while it streamed."""
-    from app.modules.images.answer_photo import strip_photo_fences
-
-    photo = ctx.answer_photo
-    if photo is None or was_cancelled:
-        if photo is not None:
-            photo.cancel()
-        return strip_photo_fences(text)
-    text, ctx.answer_photo_ids = await photo.attach(text)
-    return text
-
-
-async def enrich_final_content(
-    seams: Any,
-    redis: Redis,
-    settings: Settings,
-    ctx: StreamContext,
-    *,
-    assistant_text: str,
-    usage: dict[str, int],
-    result: dict[str, Any] | None,
-    was_cancelled: bool,
-    assistant_parts: list[str],
-    should_cancel: Callable[[], bool] | None,
-    completion: str = "complete",
-) -> str:
-    raw_assistant_text = assistant_text
-    reminder_created = 0
-    # An instant reply is wholly server text: every card in it is the server's.
-    server_text = ctx.instant_reply is not None
-    try:
-        if not server_text:
-            assistant_text = _prepare_model_reply(assistant_text, ctx.verified_subject)
-        assistant_text = await _attach_answer_photo(ctx, assistant_text, was_cancelled)
-        user = ctx.user
-        if user is None:
-            async with seams.SessionLocal() as session:
-                user = await seams.users_repo.get_by_id(session, ctx.user_id)
-        if user is not None:
-            async with seams.SessionLocal() as session:
-                (
-                    assistant_text,
-                    reminder_created,
-                ) = await seams.todos_service.materialize_reminder_fences(
-                    session,
-                    user_id=ctx.user_id,
-                    chat_id=ctx.chat_id,
-                    assistant_text=assistant_text,
-                    user_timezone=ctx.user_timezone or getattr(user, "timezone", None),
-                    user_text=ctx.user_message_content,
-                    prior_assistant=_prior_assistant_text(ctx),
-                    prior_user=_prior_user_text(ctx),
-                    redis=redis,
-                    confirm=settings.reminder_proposals_enabled,
-                )
-
-        from app.core.sympy_executor import run_sympy
-        from app.services.solving import VerifiedPhysicsBlock
-
-        try:
-            verified = ctx.verified_subject
-            if verified is not None and verified.subject == "chemistry":
-                # Chemistry answer text is not algebra. Math fence rewrite would
-                # treat formulas and slash-units as expressions.
-                from app.modules.chemistry.fence import validate_chemistry_fences
-
-                # The server never corrects its own text: only model prose can
-                # state a value that differs from the verified one.
-                assistant_text = validate_chemistry_fences(
-                    assistant_text, verified=verified, correct=not server_text
-                )
-            elif isinstance(verified, VerifiedPhysicsBlock):
-                from app.modules.physics.fence import validate_physics_fences
-
-                assistant_text = validate_physics_fences(
-                    assistant_text,
-                    verified=verified,
-                    correct=not server_text,
-                )
-            # Direct verified replies already carry ```answer. Running that
-            # rewrite on the SymPy pool can queue behind an integral for no
-            # benefit — keep it in-process.
-            elif ctx.instant_reply is not None and verified is not None:
-                assistant_text = seams.math_fence_service.validate_math_fences_worker(
-                    assistant_text, verified, False
-                )
-            elif ctx.instant_reply is not None:
-                # Two solved problems have no single verified subject. Their
-                # answer fences are the results. The unverified rewrite unwraps
-                # every ```answer, which printed "notation: chemistry" and raw
-                # LaTeX under the reply.
-                pass
-            elif seams.math_fence_service.needs_math_fence_validate(assistant_text, verified):
-                assistant_text = await run_sympy(
-                    seams.math_fence_service.validate_math_fences_worker,
-                    assistant_text,
-                    verified,
-                    timeout=settings.math_solve_timeout_seconds,
-                )
-        except TimeoutError:
-            logger.warning("validate_math_fences timed out; keeping raw assistant text")
-            assistant_text = _replace_failed_subject_fences(
-                seams, assistant_text, ctx.verified_subject, server_text=server_text
-            )
-        except Exception:
-            logger.exception("validate_math_fences failed; keeping raw assistant text")
-            assistant_text = _replace_failed_subject_fences(
-                seams, assistant_text, ctx.verified_subject, server_text=server_text
-            )
-        if server_text:
-            from app.services.answer_fence import mark_server_answer_fences
-
-            assistant_text = mark_server_answer_fences(assistant_text)
-
-        # Every reply, checked or not. The check mark is the only signal.
-        from app.modules.math.fence import append_unverified_math_note
-
-        assistant_text = append_unverified_math_note(assistant_text)
-        if ctx.solver_unverified is True and ctx.unverified_subject == "chemistry":
-            from app.modules.chemistry.context import append_unverified_chemistry_note
-
-            assistant_text = append_unverified_chemistry_note(assistant_text)
-
-        # Working the model wrote with no verified result behind it: a slip in one
-        # multiplication carries into the answer, so name the first one.
-        if not server_text and ctx.verified_subject is None and not was_cancelled:
-            from app.services.working_check import is_worked_solution, working_note
-
-            if ctx.solver_unverified is True or is_worked_solution(assistant_text):
-                note = working_note(assistant_text)
-                if note:
-                    assistant_text = f"{assistant_text.rstrip()}\n\n{note}"
-
-        # A graph drawn in text characters on a graph turn: the prompt forbids
-        # it, and the phone shows it as broken rows of symbols.
-        from app.modules.math.text_plot import strip_text_plots_on_graph_turn
-
-        assistant_text = strip_text_plots_on_graph_turn(
-            assistant_text, ctx.user_message_content, ctx.verified_subject
-        )
-
-        # Prompt scaffolding must never survive into the reply. The model is
-        # told not to mention a system block, but instruction is not
-        # enforcement — this is the enforcement.
-        from app.services.solving import strip_verified_solve_markers
-
-        assistant_text = strip_verified_solve_markers(assistant_text)
-
-        if settings.chemistry_enabled and (
-            "```smiles" in assistant_text.lower() or "```chemistry" in assistant_text.lower()
-        ):
-            from app.modules.chemistry import fence as chemistry_fence_service
-
-            try:
-                assistant_text = await run_sympy(
-                    chemistry_fence_service.enrich_chemistry_fences_worker,
-                    assistant_text,
-                    timeout=settings.math_solve_timeout_seconds,
-                )
-            except TimeoutError:
-                logger.warning("enrich_chemistry_fences timed out; keeping raw assistant text")
-            except Exception:
-                logger.exception("enrich_chemistry_fences failed; keeping raw assistant text")
-        if ctx.search_sources:
-            assistant_text = seams.web_search_service.strip_sources_from_text(assistant_text)
-            if result is not None:
-                result["search_sources"] = json.dumps(
-                    seams.web_search_service.sources_payload(ctx.search_sources)
-                )
-            sources_fence = seams.web_search_service.format_sources_fence(ctx.search_sources)
-            if sources_fence and not (should_cancel and should_cancel()):
-                assistant_text = f"{assistant_text}{sources_fence}".strip()
-        if ctx.local_places and ctx.search_sources and "```places" not in assistant_text.lower():
-            assistant_text = seams.web_search_service.strip_duplicate_venue_list(assistant_text)
-            places_fence = seams.web_search_service.format_places_fence(ctx.search_sources)
-            if places_fence and not (should_cancel and should_cancel()):
-                assistant_parts[:] = [assistant_text] if assistant_text.strip() else []
-                assistant_parts.append(places_fence)
-                assistant_text = "".join(assistant_parts).strip()
-        if ctx.instant_reply and not usage:
-            usage["output"] = 0
-            usage["input"] = 0
-        if result is not None and not ctx.skip_memory_jobs:
-            transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
-            if reminder_created > 0 or seams.todos_service.transcript_implies_todo_sync(transcript):
-                result["todos_sync"] = "1"
-
-        # Prose artifact cleanup — runs last so it never interferes with
-        # fence parsing. Strips orphan colon lines and collapses 3+ blank
-        # lines.
-        from app.modules.chat.prose_normalizer import (
-            normalize_prose_artifacts,
-            prose_changed,
-            strip_unrequested_recipient_placeholders,
-        )
-        from app.services.md_fence_scan import close_unclosed_fences
-
-        # A provider can report a normal finish while still omitting a fence
-        # closer. Always repair odd fence parity so settled rendering never
-        # leaves raw backticks or an open streaming-style block behind.
-        assistant_text = close_unclosed_fences(assistant_text)
-        assistant_text = strip_unrequested_recipient_placeholders(
-            assistant_text, ctx.user_message_content
-        )
-
-        normalized = normalize_prose_artifacts(assistant_text)
-        if prose_changed(assistant_text, normalized):
-            assistant_text = normalized
-
-        from app.services.mermaid_sanitize import sanitize_mermaid_fences
-        from app.services.places_fence import sanitize_places_fences
-
-        assistant_text = sanitize_mermaid_fences(assistant_text)
-        assistant_text = sanitize_places_fences(assistant_text)
-        from app.modules.chat.presentation import (
-            drop_orphan_leading_answer,
-            present_assistant_markdown,
-        )
-
-        assistant_text = drop_orphan_leading_answer(
-            present_assistant_markdown(assistant_text),
-            ctx.user_message_content,
-        )
-        from app.services.time_context import (
-            correct_weekday_dates,
-            format_shown_clock_answer,
-            model_denies_clock,
-        )
-
-        if model_denies_clock(assistant_text):
-            locale = ctx.user.locale if ctx.user is not None else None
-            assistant_text = format_shown_clock_answer(ctx.user_timezone, locale)
-        assistant_text = correct_weekday_dates(assistant_text)
-    except Exception:
-        logger.exception("Post-stream enrichment failed; persisting raw assistant text")
-        assistant_text = _fallback_text(raw_assistant_text, server_text=server_text)
-        ctx.answer_photo_ids = []
-        # The client settles what it streamed unless done carries the text, so a
-        # stripped forged marker (or a marked instant card) must be sent back.
-        if (
-            result is not None
-            and assistant_text
-            and (was_cancelled or assistant_text != raw_assistant_text)
-        ):
-            result["final_content"] = assistant_text
-        return assistant_text
-
-    # One write: done.final_content must equal the string we persist. Skip on
-    # an unchanged normal turn so done payloads stay small.
-    if result is not None:
-        if was_cancelled and assistant_text:
-            result["final_content"] = assistant_text
-        elif assistant_text != raw_assistant_text:
-            result["final_content"] = assistant_text
-    return assistant_text
 
 
 def log_background_task_failure(task: asyncio.Task[Any], message: str) -> None:
@@ -658,30 +62,23 @@ def _prior_window(prompt_messages: Any) -> list[Any]:
 
 
 async def register_and_enqueue_finalize(
-    seams: Any,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
     *,
     assistant_text: str,
     usage: dict[str, int],
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
 ) -> None:
     if ctx.assistant_message_id is None:
-        ctx.assistant_message_id = seams.uuid7()
-    if result is not None:
-        result["resolved_model"] = ctx.model
-        result["message_id"] = str(ctx.assistant_message_id)
-        if ctx.recalled_count:
-            result["recalled"] = str(ctx.recalled_count)
-        if ctx.memory_hints:
-            result["memory_hints"] = json.dumps(ctx.memory_hints)
-        if ctx.context_summarized:
-            result["context_summarized"] = str(ctx.context_summarized)
-        from app.modules.chat.related_prompts import schedule_related_prompts
-
-        schedule_related_prompts(
-            result,
+        ctx.assistant_message_id = uuid7()
+    if outcome is not None:
+        outcome.resolved_model = ctx.model
+        outcome.message_id = str(ctx.assistant_message_id)
+        outcome.recalled = ctx.recalled_count
+        outcome.memory_hints = list(ctx.memory_hints)
+        outcome.context_summarized = ctx.context_summarized
+        outcome.related_task = schedule_related_prompts(
             redis,
             settings,
             message_id=str(ctx.assistant_message_id),
@@ -689,13 +86,14 @@ async def register_and_enqueue_finalize(
             answer=assistant_text,
             prior=_prior_window(ctx.prompt_messages),
             allow_general=not ctx.lightweight_turn and ctx.instant_reply is None,
+            completion=outcome.completion,
         )
-    await seams.mark_pending_finalize(redis, ctx.chat_id)
-    finalize_db_task = seams.create_background_task(
-        seams.finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),
+    await mark_pending_finalize(redis, ctx.chat_id)
+    finalize_db_task = create_background_task(
+        finalize_stream_turn_db(redis, ctx, assistant_text, usage, outcome),
         name="finalize_stream_turn_db",
     )
-    seams.register_pending_finalize(ctx.chat_id, finalize_db_task)
+    register_pending_finalize(ctx.chat_id, finalize_db_task)
     finalize_db_task.add_done_callback(
         lambda task: log_background_task_failure(task, "Background DB finalization failed")
     )
@@ -703,26 +101,26 @@ async def register_and_enqueue_finalize(
     async def run_jobs_after_db() -> None:
         try:
             await finalize_db_task
-            seams.detect_quality_issues(ctx, assistant_text)
-            await seams.enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
+            detect_quality_issues(ctx, assistant_text)
+            await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
         except Exception:
             logger.exception("Background job enqueue failed")
 
-    jobs_task = seams.create_background_task(run_jobs_after_db(), name="post_turn_jobs")
+    jobs_task = create_background_task(run_jobs_after_db(), name="post_turn_jobs")
     jobs_task.add_done_callback(
         lambda task: log_background_task_failure(task, "Background finalization failed")
     )
-    if result is not None:
-        result["_finalize_task"] = jobs_task
-        result["_finalize_db_task"] = finalize_db_task
+    if outcome is not None:
+        outcome.finalize_task = jobs_task
+        outcome.finalize_db_task = finalize_db_task
 
 
 async def finalize_terminal_image_turn(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
-    result: dict[str, Any] | None,
+    outcome: TurnOutcome | None,
 ) -> None:
     try:
         ctx.assistant_message_id = UUID(ctx.terminal_image_message_id)
@@ -735,31 +133,31 @@ async def finalize_terminal_image_turn(
 
     async def slim_finalize() -> None:
         try:
-            async with seams.SessionLocal() as session:
-                await seams.chats_repo.touch_by_id(session, ctx.chat_id, commit=True)
-            await seams.enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
+            async with deps.session_factory() as session:
+                await deps.chats.touch_by_id(session, ctx.chat_id, commit=True)
+            await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
         except Exception:
             logger.exception("Slim finalize for terminal image failed")
 
-    task = seams.create_background_task(slim_finalize(), name="finalize_terminal_image")
+    task = create_background_task(slim_finalize(), name="finalize_terminal_image")
     task.add_done_callback(
         lambda done: log_background_task_failure(done, "Terminal-image finalize failed")
     )
-    if result is not None:
-        result["_finalize_task"] = task
+    if outcome is not None:
+        outcome.finalize_task = task
 
 
 async def stream_and_finalize(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
     *,
     should_cancel: Callable[[], bool] | None,
-    result: dict[str, Any] | None = None,
+    outcome: TurnOutcome | None = None,
     on_status: StreamStatusFn | None = None,
     on_reasoning: StreamReasoningFn | None = None,
-    resources: Any | None = None,
+    resources: TurnResources | None = None,
 ) -> AsyncIterator[str]:
     usage: dict[str, int] = {}
     accum = StreamAccum()
@@ -775,7 +173,7 @@ async def stream_and_finalize(
                     ctx.timing.mark_phase("tool_loop_start")
                 try:
                     await run_tool_loop_path(
-                        seams,
+                        deps,
                         redis,
                         settings,
                         ctx,
@@ -787,20 +185,16 @@ async def stream_and_finalize(
                     if ctx.timing is not None:
                         ctx.timing.mark_phase("tool_loop_done")
                 if ctx.terminal_image_content and ctx.terminal_image_message_id:
-                    if result is not None:
-                        result["message_id"] = ctx.terminal_image_message_id
-                        result["final_content"] = ctx.terminal_image_content
-                        result["resolved_model"] = ctx.terminal_image_model or "image-gen-model"
+                    if outcome is not None:
+                        outcome.message_id = ctx.terminal_image_message_id
+                        outcome.final_content = ctx.terminal_image_content
+                        outcome.resolved_model = ctx.terminal_image_model or "image-gen-model"
                     if resources is not None:
                         await resources.refund()
                     else:
-                        await seams.quota_service.refund_usage(
-                            redis,
-                            str(ctx.user_id),
-                            ctx.reserved_tokens,
-                        )
+                        await deps.quota.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
                     await await_user_message_persist(ctx)
-                    await finalize_terminal_image_turn(seams, redis, settings, ctx, result)
+                    await finalize_terminal_image_turn(deps, redis, settings, ctx, outcome)
                     return
                 if ctx.instant_reply:
                     async for token in run_instant_reply_path(
@@ -811,17 +205,15 @@ async def stream_and_finalize(
                         yield token
                 else:
                     if settings.image_search_enabled and ctx.user is not None:
-                        from app.modules.images.answer_photo import AnswerPhoto
-
                         ctx.answer_photo = AnswerPhoto(settings, ctx.user)
                     async for token in run_llm_token_stream(
-                        seams,
+                        deps,
                         redis,
                         settings,
                         ctx,
                         usage=usage,
                         should_cancel=should_cancel,
-                        result=result,
+                        outcome=outcome,
                         on_reasoning=on_reasoning,
                         accum=accum,
                     ):
@@ -851,33 +243,31 @@ async def stream_and_finalize(
                 "That model isn't responding right now. Try again — or pick a different model.",
                 failed_alias=ctx.model,
             )
-        if result is not None and accum.completion != "complete":
-            result["completion"] = accum.completion
+        if outcome is not None and accum.completion != "complete":
+            outcome.completion = accum.completion
 
         async def persist_reply() -> None:
             nonlocal assistant_text
             assistant_text = await enrich_final_content(
-                seams,
+                deps,
                 redis,
                 settings,
                 ctx,
                 assistant_text=assistant_text,
                 usage=usage,
-                result=result,
+                outcome=outcome,
                 was_cancelled=accum.was_cancelled,
                 assistant_parts=accum.parts,
                 should_cancel=should_cancel,
-                completion=accum.completion,
             )
             await await_user_message_persist(ctx)
             await register_and_enqueue_finalize(
-                seams,
                 redis,
                 settings,
                 ctx,
                 assistant_text=assistant_text,
                 usage=usage,
-                result=result,
+                outcome=outcome,
             )
 
         # Closing the provider socket after Stop cancels this task again.

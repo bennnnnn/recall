@@ -8,7 +8,6 @@
  *   4. Soft langs (untagged / copy / text / plain) → content heuristics
  */
 
-import { splitAnswerNotation } from "@/lib/answerNotation";
 import { shouldUseHtmlPreview } from "@/lib/codeHighlight";
 import {
   isExplicitCodeLang,
@@ -36,7 +35,7 @@ import {
   isIanaTimezoneOnly,
 } from "@/lib/timeQuestion";
 
-export type FenceRenderKind =
+type FenceRenderKind =
   | "hide"
   | "html"
   | "rich"
@@ -47,13 +46,13 @@ export type FenceRenderKind =
   | "copy"
   | "prose";
 
-export type FenceDecision = {
+type FenceDecision = {
   kind: FenceRenderKind;
   id?: FenceId;
   lang: string;
 };
 
-export function isFakeImageGenFence(lang: string): boolean {
+function isFakeImageGenFence(lang: string): boolean {
   const l = lang.trim().toLowerCase();
   return l === "image" || l === "img" || l === "image-gen" || l === "imagen";
 }
@@ -84,14 +83,9 @@ export function classifyFence(lang: string, content: string): FenceDecision {
     if (isStructuredDraftLang(l) && !looksLikeExplicitDraftContent(content)) {
       return { kind: "prose", lang: l, id: spec.id };
     }
-    if (spec.id === "answer") {
-      // The card and its check are the server's: only a body that opens with
-      // `verified: true`. Anything else answer-shaped (a model's fence, an old
-      // unmarked card) is ordinary math, or text for a chemistry body.
-      const parsed = splitAnswerNotation(content);
-      if (parsed.verified) return { kind: "answer", lang: l, id: spec.id };
-      return { kind: parsed.notation === "chemistry" ? "prose" : "math", lang: l, id: spec.id };
-    }
+    // Every final answer is the one card; AnswerBlock draws the check only for
+    // the server's `verified: true` body.
+    if (spec.id === "answer") return { kind: "answer", lang: l, id: spec.id };
     if (spec.id === "math") return { kind: "math", lang: l, id: spec.id };
     if (spec.id === "clock") return { kind: "clock", lang: l, id: spec.id };
     return { kind: "rich", lang: l, id: spec.id };

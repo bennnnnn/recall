@@ -19,7 +19,9 @@ import ast
 import math
 import re
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import InvalidOperation
+
+from app.services.school_rounding import round_places
 
 _FENCE_BLOCK = re.compile(r"^[ \t>]*(`{3,}|~{3,})[^\n]*\n.*?^[ \t>]*\1[ \t]*$", re.DOTALL | re.M)
 _INLINE_CODE = re.compile(r"`[^`\n]*`")
@@ -283,7 +285,7 @@ def _shown_like(value: float, shown: str) -> str:
         else ""
     )
     try:
-        number = str(Decimal(repr(value)).quantize(Decimal(1).scaleb(-places)))
+        number = str(round_places(value, places))
     except InvalidOperation:
         number = f"{value:.{places}f}"
     if "," in shown:

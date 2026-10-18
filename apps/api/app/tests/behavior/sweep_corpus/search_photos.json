@@ -568,7 +568,8 @@
   "area": "places",
   "prompt": "How long does it take to walk across the Brooklyn Bridge?",
   "reply": "About **25–40 minutes** at a relaxed pace. The walkway is roughly **1.8 km (1.1 miles)**, and most people stop for photos.\n\n- Start in **Brooklyn (DUMBO)** so you face the Manhattan skyline the whole way.\n- Go early in the morning or near sunset to avoid the midday crowds.",
-  "expect": "answer"
+  "expect": "answer",
+  "gap": "'How long does it take to walk' reads as a trip from the user although it names the bridge, so it gets the turn-on-location reply."
  },
  {
   "id": "sp-065",
@@ -941,5 +942,265 @@
   ],
   "reply": "**Step 4:** Add the chicken pieces — rinsed and soaked in lemon water first — to the berbere sauce, and simmer covered for about **30 minutes**, turning them now and then so they soak up the color.\n\nNext is step 5: the peeled hard-boiled eggs go in for the last 10 minutes.",
   "expect": "answer"
+ },
+ {
+  "id": "sp-101",
+  "area": "photo",
+  "prompt": "show me the html page",
+  "history": [
+   [
+    "user",
+    "Build me a simple landing page for my coffee shop, Buna Corner."
+   ],
+   [
+    "assistant",
+    "Sure — a one-page site with a header, your hours and a short welcome. Want the full HTML?"
+   ]
+  ],
+  "reply": "Here's the full page — save it as `index.html` and open it in your browser:\n\n```html\n<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <title>Buna Corner</title>\n  <style>\n    body { font-family: system-ui, sans-serif; margin: 0; }\n    header { background: #4b2e1e; color: #fff; padding: 3rem 1.5rem; text-align: center; }\n    main { max-width: 40rem; margin: 2rem auto; padding: 0 1.5rem; }\n  </style>\n</head>\n<body>\n  <header>\n    <h1>Buna Corner</h1>\n    <p>Fresh-roasted Ethiopian coffee in Bole</p>\n  </header>\n  <main>\n    <h2>Hours</h2>\n    <p>Mon–Sat, 7:00 – 19:00</p>\n  </main>\n</body>\n</html>\n```\n\nWant me to add a menu section next?",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-102",
+  "area": "photo",
+  "prompt": "show me a regex",
+  "reply": "Here's a common one — it matches an email address:\n\n```regex\n^[\\w.+-]+@[\\w-]+\\.[\\w.]+$\n```\n\n- `[\\w.+-]+` — the name part: letters, digits, dots, plus and hyphen\n- `@` — the at sign\n- `[\\w-]+\\.[\\w.]+` — the domain, with at least one dot\n\nTell me what you want to match and I'll write one for that.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-103",
+  "area": "photo",
+  "prompt": "show me the sql query",
+  "history": [
+   [
+    "user",
+    "I have customers and orders tables. How do I see who spent the most this year?"
+   ],
+   [
+    "assistant",
+    "Join the two tables, filter to this year's orders, and sum the totals per customer. Want the query?"
+   ]
+  ],
+  "reply": "Here's the query — it returns each customer's total spend this year, highest first:\n\n```sql\nSELECT c.id, c.name, SUM(o.total) AS spent\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nWHERE o.created_at >= DATE '2026-01-01'\nGROUP BY c.id, c.name\nORDER BY spent DESC;\n```\n\nAdd `LIMIT 10` at the end if you only want the top ten.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-104",
+  "area": "photo",
+  "prompt": "show me a recipe",
+  "reply": "Here's a quick **shiro wot** for two:\n\n**Ingredients**\n- 1 red onion, finely chopped\n- 3 tbsp oil or niter kibbeh\n- 2 garlic cloves, minced\n- ½ cup shiro powder\n- 2 cups water, salt\n\n**Method**\n1. Cook the onion in the oil until soft, about 5 minutes.\n2. Add the garlic and cook 1 minute.\n3. Whisk the shiro powder into the water, pour it in and stir.\n4. Simmer on low for 10–15 minutes, stirring, until thick and glossy.\n\nServe hot with injera. Want something non-Ethiopian instead?",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-105",
+  "area": "photo",
+  "prompt": "show me a poem",
+  "reply": "**Morning in Entoto**\n\nThe mist lies low on eucalyptus hills,\nthe city wakes in coffee smoke and bells;\nsomewhere a kettle hums, a rooster calls,\nand light comes slowly down the stone-cut walls.\n\nWant one on a different theme?",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-106",
+  "area": "photo",
+  "prompt": "show me a button mushroom",
+  "reply": "Here's a **button mushroom** (*Agaricus bisporus*): small, round and white, with a smooth cap and a short stem.\n\nIt's the same species as cremini and portobello — just picked young.",
+  "expect": "photo"
+ },
+ {
+  "id": "sp-107",
+  "area": "photo",
+  "prompt": "What do bed bugs look like?",
+  "reply": "**Bed bugs** are small, flat, oval insects:\n\n- **Size:** about 5 mm — roughly an apple seed\n- **Color:** reddish-brown; rounder and redder after feeding\n- **Young (nymphs):** smaller and almost see-through\n\nLook for them along mattress seams and headboards, along with tiny dark spots and shed skins.",
+  "expect": "photo"
+ },
+ {
+  "id": "sp-108",
+  "area": "photo",
+  "prompt": "show me a fish hook",
+  "reply": "Here's a **fish hook**: a curved steel wire with a sharp point and a small barb that keeps the fish on, and an eye at the top where the line is tied.\n\nSmaller numbers (size 2) are bigger hooks; size 10 and up are tiny ones for small fish.",
+  "expect": "photo"
+ },
+ {
+  "id": "sp-109",
+  "area": "photo",
+  "prompt": "show me the bug",
+  "history": [
+   [
+    "user",
+    "Why is my average always a bit low?\n\n```python\ndef average(scores):\n    total = 0\n    for i in range(1, len(scores)):\n        total += scores[i]\n    return total / len(scores)\n```"
+   ],
+   [
+    "assistant",
+    "There's an off-by-one in the loop, so one score never gets added. Want me to point it out?"
+   ]
+  ],
+  "reply": "It's the start of the `range`:\n\n```python\nfor i in range(1, len(scores)):\n```\n\nStarting at `1` skips `scores[0]`, so the first score is never added but you still divide by the full count. Loop over the list directly:\n\n```python\ndef average(scores):\n    return sum(scores) / len(scores)\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-110",
+  "area": "photo",
+  "prompt": "show me the tests",
+  "history": [
+   [
+    "user",
+    "Write a Python function that checks whether a string is a palindrome, with tests."
+   ],
+   [
+    "assistant",
+    "```python\ndef is_palindrome(text: str) -> bool:\n    cleaned = \"\".join(c.lower() for c in text if c.isalnum())\n    return cleaned == cleaned[::-1]\n```\n\nI can add pytest tests for it next."
+   ]
+  ],
+  "reply": "```python\nimport pytest\n\nfrom palindrome import is_palindrome\n\n\n@pytest.mark.parametrize(\n    \"text, expected\",\n    [\n        (\"racecar\", True),\n        (\"A man, a plan, a canal: Panama\", True),\n        (\"hello\", False),\n        (\"\", True),\n    ],\n)\ndef test_is_palindrome(text, expected):\n    assert is_palindrome(text) is expected\n```\n\nRun them with `pytest -q`.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-111",
+  "area": "photo",
+  "prompt": "show me the git branch",
+  "history": [
+   [
+    "user",
+    "I made a few commits but I'm not sure which branch I'm on."
+   ],
+   [
+    "assistant",
+    "Git can tell you. The current branch is the one marked with `*` in `git branch`. Want the command?"
+   ]
+  ],
+  "reply": "Run:\n\n```bash\ngit branch --show-current\n```\n\nIt prints just the name of the branch you're on. Plain `git branch` lists every local branch and marks the current one with `*`.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-112",
+  "area": "photo",
+  "prompt": "show me a custom hook",
+  "history": [
+   [
+    "user",
+    "Every one of my React components repeats the same fetch + loading + error state. Is there a cleaner way?"
+   ],
+   [
+    "assistant",
+    "Yes: move that logic into a custom hook, and each component calls one function instead of repeating three pieces of state."
+   ]
+  ],
+  "reply": "```tsx\nimport { useEffect, useState } from \"react\";\n\nexport function useFetch<T>(url: string) {\n  const [data, setData] = useState<T | null>(null);\n  const [loading, setLoading] = useState(true);\n  const [error, setError] = useState<Error | null>(null);\n\n  useEffect(() => {\n    fetch(url)\n      .then((res) => res.json())\n      .then(setData)\n      .catch(setError)\n      .finally(() => setLoading(false));\n  }, [url]);\n\n  return { data, loading, error };\n}\n```\n\nThen in a component: `const { data, loading } = useFetch<User[]>(\"/api/users\");`",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-113",
+  "area": "photo",
+  "prompt": "show me the unit test",
+  "history": [
+   [
+    "user",
+    "Write a TypeScript function that converts Celsius to Fahrenheit, with a unit test."
+   ],
+   [
+    "assistant",
+    "```ts\nexport function toFahrenheit(celsius: number): number {\n  return (celsius * 9) / 5 + 32;\n}\n```\n\nI'll add the Jest test next."
+   ]
+  ],
+  "reply": "```ts\nimport { toFahrenheit } from \"./temperature\";\n\ndescribe(\"toFahrenheit\", () => {\n  it.each([\n    [0, 32],\n    [100, 212],\n    [-40, -40],\n  ])(\"%d°C is %d°F\", (celsius, fahrenheit) => {\n    expect(toFahrenheit(celsius)).toBe(fahrenheit);\n  });\n});\n```\n\nRun it with `npx jest temperature`.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-114",
+  "area": "photo",
+  "prompt": "show me the failing test",
+  "history": [
+   [
+    "user",
+    "CI is red on my PR: 1 failed, 41 passed.\n\n```\nFAILED tests/test_cart.py::test_total_with_discount - assert 90.0 == 81.0\n```"
+   ],
+   [
+    "assistant",
+    "Only one test fails, and it's the discount total. It expects the 10% discount applied twice, but the cart applies it once."
+   ]
+  ],
+  "reply": "This is the one that fails:\n\n```python\ndef test_total_with_discount():\n    cart = Cart(items=[Item(price=100)], discounts=[0.1, 0.1])\n    assert cart.total() == 81.0\n```\n\nIt stacks two 10% discounts (100 → 90 → 81), but `Cart.total()` only applies the first one, so it returns 90.0.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-115",
+  "area": "photo",
+  "prompt": "show me the submit button",
+  "history": [
+   [
+    "user",
+    "Build me a simple React Native login form with email and password fields."
+   ],
+   [
+    "assistant",
+    "```tsx\n<TextInput value={email} onChangeText={setEmail} placeholder=\"Email\" />\n<TextInput value={password} onChangeText={setPassword} placeholder=\"Password\" secureTextEntry />\n```\n\nWant me to add the submit button?"
+   ]
+  ],
+  "reply": "```tsx\n<Pressable\n  onPress={() => onSubmit(email, password)}\n  disabled={!email || !password}\n  accessibilityRole=\"button\"\n  style={styles.submit}\n>\n  <Text style={styles.submitText}>Log in</Text>\n</Pressable>\n```\n\nIt stays disabled until both fields have text.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-116",
+  "area": "photo",
+  "prompt": "show me the react hook",
+  "history": [
+   [
+    "user",
+    "In React, how do I run some code after the component renders?"
+   ],
+   [
+    "assistant",
+    "That's what the `useEffect` hook is for. It runs after render, and again whenever one of its dependencies changes."
+   ]
+  ],
+  "reply": "```tsx\nuseEffect(() => {\n  document.title = `${count} clicks`;\n}, [count]);\n```\n\nThe array at the end lists the values it depends on: here it runs after the first render and again whenever `count` changes.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-117",
+  "area": "photo",
+  "prompt": "show me the feature branch",
+  "history": [
+   [
+    "user",
+    "I want to work on the login screen without touching main. How should I set that up in git?"
+   ],
+   [
+    "assistant",
+    "Make a feature branch off an up-to-date main, commit there, and open a pull request when it's ready."
+   ]
+  ],
+  "reply": "```bash\ngit switch main\ngit pull\ngit switch -c feature/login-screen\n```\n\nCommit on `feature/login-screen` as usual, then `git push -u origin feature/login-screen` and open the pull request.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-118",
+  "area": "photo",
+  "prompt": "what does a custom hook look like",
+  "history": [
+   [
+    "user",
+    "My teacher keeps saying \"just write a custom hook\" for our React project."
+   ],
+   [
+    "assistant",
+    "A custom hook is an ordinary function whose name starts with `use` and that calls other hooks, so components can share the logic."
+   ]
+  ],
+  "reply": "```tsx\nfunction useToggle(initial = false) {\n  const [on, setOn] = useState(initial);\n  const toggle = useCallback(() => setOn((value) => !value), []);\n  return [on, toggle] as const;\n}\n```\n\nA component then writes `const [open, toggleOpen] = useToggle();`.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-119",
+  "area": "photo",
+  "prompt": "what does an olive branch look like",
+  "reply": "An **olive branch** is a slim, woody twig with narrow, lance-shaped leaves: dark grey-green on top and silvery underneath. In season it carries small oval olives, green ripening to purple-black.\n\nIt's an old symbol of peace, which is why it appears on the UN flag.",
+  "expect": "photo"
+ },
+ {
+  "id": "sp-120",
+  "area": "photo",
+  "prompt": "show me the main stage at Coachella",
+  "reply": "Here's the **Coachella Stage**, the festival's main stage at the Empire Polo Club in Indio, California: a huge open-air stage facing the polo field, framed by big video screens, with the San Jacinto mountains behind the crowd.",
+  "expect": "photo"
  }
 ]

@@ -9,6 +9,30 @@ export type ComposerSendDraft = {
   attachment: PendingAttachment | null;
 };
 
+export type SendMessageOptions = {
+  skipUserBubble?: boolean;
+  trackSendingMessageId?: string;
+  attachmentIds?: string[];
+  localImageUri?: string | null;
+  localFileUri?: string | null;
+  localFileName?: string | null;
+  localFileContentType?: string | null;
+  model?: string | null;
+  clientGeo?: ClientGeo | null;
+  /** Original composer data, retained only for definitely-unsaved recovery. */
+  composerDraft?: ComposerSendDraft;
+};
+
+export type PendingSend = {
+  content: string;
+  options: SendMessageOptions;
+  messageId: string | null;
+  retryingRejected: boolean;
+  dispatched: boolean;
+};
+
+export type RejectedSend = PendingSend & { reason: "send_rejected" | "attachment_rejected" };
+
 export function shouldBlockSend(options: {
   text: string;
   hasAttachment: boolean;

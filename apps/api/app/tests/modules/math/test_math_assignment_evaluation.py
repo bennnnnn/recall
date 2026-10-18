@@ -8,7 +8,7 @@ from app.core.config import Settings
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent
-from app.modules.math.tools.helpers import has_assignment_evaluation_request
+from app.modules.math.tools.function_def import has_assignment_evaluation_request
 from app.modules.math.tools.prompt import build_math_augmentation
 
 

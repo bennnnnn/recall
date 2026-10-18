@@ -23,12 +23,12 @@ export const FRAC_LINE_AT_16 = 18;
 export const SQRT_LINE_AT_16 = 20;
 export const BODY_LINE_AT_16 = 25;
 /** Total vinculum overhang (both sides) as a fraction of the side em. */
-export const FRAC_PAD_RATIO = 0.32;
+const FRAC_PAD_RATIO = 0.32;
 export const SCRIPT_RATIO = 0.7;
-export const SCRIPT_RAISE_RATIO = 0.36;
-export const SCRIPT_DROP_RATIO = 0.2;
-export const RADICAL_LEAD_RATIO = 0.78;
-export const RADICAL_OVERHANG_RATIO = 0.1;
+const SCRIPT_RAISE_RATIO = 0.36;
+const SCRIPT_DROP_RATIO = 0.2;
+const RADICAL_LEAD_RATIO = 0.78;
+const RADICAL_OVERHANG_RATIO = 0.1;
 
 export type MathLayout = {
   kind: "row" | "run" | "frac" | "sqrt" | "accent" | "script" | "cancel";
@@ -78,7 +78,7 @@ function isCombiningMark(ch: string): boolean {
 }
 
 /** Em advance for one glyph. Unknown characters still take positive space. */
-export function glyphAdvanceEm(ch: string): number {
+function glyphAdvanceEm(ch: string): number {
   if (isCombiningMark(ch)) return 0;
   if (ch === " " || ch === "\u00a0" || ch === "\u2009") return 0.33;
   if (ch >= "0" && ch <= "9") return 0.5;
@@ -139,7 +139,7 @@ function glyphPadEm(
   };
 }
 
-export type OperatorPiece = { text: string; leftEm: number; rightEm: number };
+type OperatorPiece = { text: string; leftEm: number; rightEm: number };
 
 /** Split a run so binary/relation operators can take math space without
  * changing the characters copy and tests read back. */
@@ -169,7 +169,7 @@ export function measureRunWidth(text: string, em: number, leadingAtom: boolean):
 }
 
 /** A formula wider than the chat column scrolls; it is not shrunk. */
-export const INLINE_SCROLL_GUTTER = 64;
+const INLINE_SCROLL_GUTTER = 64;
 
 export function inlineMathNeedsScroll(contentWidth: number, windowWidth: number): boolean {
   if (!Number.isFinite(contentWidth) || contentWidth <= 0) return false;
@@ -353,147 +353,165 @@ function measureSegments(
   };
 }
 
-function measureSegment(
-  seg: MathSegment,
-  em: number,
-  inFrac: boolean,
-  leadingAtom: boolean,
-): MathLayout {
-  if (seg.type === "frac") {
-    const sideEm = inFrac ? em : em * FRAC_SIZE_RATIO;
-    const num = measureSegments(seg.num, sideEm, "frac", true, false);
-    const den = measureSegments(seg.den, sideEm, "frac", true, false);
-    const numScripts = scriptExtent(seg.num);
-    const denScripts = scriptExtent(seg.den);
-    const content = Math.max(num.width, den.width, sideEm * 0.45);
-    const pad = sideEm * FRAC_PAD_RATIO;
-    const gap = Math.max(
-      px(3, em),
-      sideEm * 0.12,
-      sideEm * numScripts.drop,
-      sideEm * denScripts.raise,
-    );
-    const padTop = sideEm * numScripts.raise;
-    const padBottom = sideEm * denScripts.drop;
-    const bar = 1;
-    const margin = sideMargin(em);
-    return {
-      kind: "frac",
-      width: content + pad,
-      height: padTop + num.height + den.height + gap * 2 + bar + padBottom,
-      outer: margin * 2,
-      inkWidth: content,
-      contentWidth: content,
-      pad,
-      padTop,
-      padBottom,
-      children: [num, den],
-    };
-  }
-  if (seg.type === "sqrt") {
-    const body = measureSegments(seg.body, em, "sqrt", inFrac, false);
-    const scripts = scriptExtent(seg.body);
-    const indexFont = em * 0.55;
-    const indexLine = indexFont * 1.15;
-    const indexLayout = seg.index
-      ? measureSegments(seg.index, indexFont, "body", false, false)
-      : null;
-    const indexWidth = indexLayout
-      ? indexLayout.width
-      : seg.degree
-        ? measureTextWidth(seg.degree, indexFont)
-        : 0;
-    const lead = Math.max(em * RADICAL_LEAD_RATIO, indexWidth + em * 0.42);
-    const content = Math.max(body.inkWidth, em * 0.45);
-    const inset = body.children.length === 1 ? body.children[0].outer / 2 : 0;
-    const overhang = em * RADICAL_OVERHANG_RATIO;
-    const barStart = lead + inset - em * 0.04;
-    const barEnd = barStart + em * 0.04 + content + overhang;
-    const indexHead = indexLayout ? indexLayout.height : seg.degree ? indexLine : 0;
-    const hasIndex = Boolean(seg.degree || seg.index);
-    // The degree hangs in the hook, under the bar. A full index line above
-    // the vinculum is what put the 2 on top of √8.
-    const bodyTop = em * 0.16 + em * scripts.raise;
-    const scriptFoot = em * scripts.drop;
-    const height = Math.max(
-      px(SQRT_LINE_AT_16, em),
-      body.height + bodyTop + scriptFoot,
-      hasIndex ? indexHead + em * 0.04 : 0,
-    );
-    const left = hasIndex ? px(2, em) : px(6, em);
-    const right = px(2, em);
-    const slot = Math.max(body.width, barEnd - lead);
-    return {
-      kind: "sqrt",
-      width: Math.max(barEnd, lead + slot),
-      height,
-      outer: left + right,
-      inkWidth: content,
-      children: indexLayout ? [body, indexLayout] : [body],
-      lead,
-      barStart,
-      barEnd,
-      bodyWidth: content,
-      bodyHeight: body.height,
-      bodyTop,
-      padLeft: left,
-      padBottom: scriptFoot,
-      em,
-      index: hasIndex
-        ? {
-            left: em * 0.04,
-            top: 0,
-            width: indexWidth,
-            fontSize: indexFont,
-            lineHeight: indexLayout ? indexLayout.height : indexLine,
-          }
-        : undefined,
-    };
-  }
-  if (seg.type === "accent") {
-    const body = measureSegments(seg.body, em, inFrac ? "frac" : "body", inFrac, false);
-    const scripts = scriptExtent(seg.body);
-    const full = seg.kind === "overline" || seg.kind === "underline" || Boolean(seg.span);
-    const overhang = seg.kind === "overline" || seg.kind === "underline"
-      ? em * 0.04
-      : seg.span ? em * 0.02 : 0;
-    const ruleWidth = full
-      ? body.inkWidth + overhang * 2
-      : Math.min(Math.max(body.inkWidth, em * 0.45), em * 0.9);
-    const mark = em * 0.22;
-    const head = em * scripts.raise;
-    const foot = em * scripts.drop;
-    return {
-      kind: "accent",
-      width: Math.max(body.width, ruleWidth),
-      height: body.height + mark + head + foot,
-      outer: 0,
-      inkWidth: body.inkWidth,
-      ruleWidth,
-      accentKind: seg.kind,
-      padTop: head,
-      padBottom: foot,
-      spanAccent: Boolean(seg.span),
-      children: [body],
-    };
-  }
-  if (seg.type === "cancel") {
-    const body = measureSegments(seg.body, em, inFrac ? "frac" : "body", inFrac, false);
-    return {
-      kind: "cancel",
-      width: body.width,
-      height: body.height,
-      outer: 0,
-      inkWidth: body.inkWidth,
-      children: [body],
-    };
-  }
-  if (seg.type === "sup" || seg.type === "sub") {
-    return measureSupSub(seg, em);
-  }
+type Seg<K extends MathSegment["type"]> = Extract<MathSegment, { type: K }>;
+
+function measureFrac(seg: Seg<"frac">, em: number, inFrac: boolean): MathLayout {
+  const sideEm = inFrac ? em : em * FRAC_SIZE_RATIO;
+  const num = measureSegments(seg.num, sideEm, "frac", true, false);
+  const den = measureSegments(seg.den, sideEm, "frac", true, false);
+  const numScripts = scriptExtent(seg.num);
+  const denScripts = scriptExtent(seg.den);
+  const content = Math.max(num.width, den.width, sideEm * 0.45);
+  const pad = sideEm * FRAC_PAD_RATIO;
+  const gap = Math.max(
+    px(3, em),
+    sideEm * 0.12,
+    sideEm * numScripts.drop,
+    sideEm * denScripts.raise,
+  );
+  const padTop = sideEm * numScripts.raise;
+  const padBottom = sideEm * denScripts.drop;
+  const bar = 1;
+  const margin = sideMargin(em);
+  return {
+    kind: "frac",
+    width: content + pad,
+    height: padTop + num.height + den.height + gap * 2 + bar + padBottom,
+    outer: margin * 2,
+    inkWidth: content,
+    contentWidth: content,
+    pad,
+    padTop,
+    padBottom,
+    children: [num, den],
+  };
+}
+
+function measureSqrt(seg: Seg<"sqrt">, em: number, inFrac: boolean): MathLayout {
+  const body = measureSegments(seg.body, em, "sqrt", inFrac, false);
+  const scripts = scriptExtent(seg.body);
+  const indexFont = em * 0.55;
+  const indexLine = indexFont * 1.15;
+  const indexLayout = seg.index
+    ? measureSegments(seg.index, indexFont, "body", false, false)
+    : null;
+  const indexWidth = indexLayout
+    ? indexLayout.width
+    : seg.degree
+      ? measureTextWidth(seg.degree, indexFont)
+      : 0;
+  const lead = Math.max(em * RADICAL_LEAD_RATIO, indexWidth + em * 0.42);
+  const content = Math.max(body.inkWidth, em * 0.45);
+  const inset = body.children.length === 1 ? body.children[0].outer / 2 : 0;
+  const overhang = em * RADICAL_OVERHANG_RATIO;
+  const barStart = lead + inset - em * 0.04;
+  const barEnd = barStart + em * 0.04 + content + overhang;
+  const indexHead = indexLayout ? indexLayout.height : seg.degree ? indexLine : 0;
+  const hasIndex = Boolean(seg.degree || seg.index);
+  // The degree hangs in the hook, under the bar. A full index line above
+  // the vinculum is what put the 2 on top of √8.
+  const bodyTop = em * 0.16 + em * scripts.raise;
+  const scriptFoot = em * scripts.drop;
+  const height = Math.max(
+    px(SQRT_LINE_AT_16, em),
+    body.height + bodyTop + scriptFoot,
+    hasIndex ? indexHead + em * 0.04 : 0,
+  );
+  const left = hasIndex ? px(2, em) : px(6, em);
+  const right = px(2, em);
+  const slot = Math.max(body.width, barEnd - lead);
+  return {
+    kind: "sqrt",
+    width: Math.max(barEnd, lead + slot),
+    height,
+    outer: left + right,
+    inkWidth: content,
+    children: indexLayout ? [body, indexLayout] : [body],
+    lead,
+    barStart,
+    barEnd,
+    bodyWidth: content,
+    bodyHeight: body.height,
+    bodyTop,
+    padLeft: left,
+    padBottom: scriptFoot,
+    em,
+    index: hasIndex
+      ? {
+          left: em * 0.04,
+          top: 0,
+          width: indexWidth,
+          fontSize: indexFont,
+          lineHeight: indexLayout ? indexLayout.height : indexLine,
+        }
+      : undefined,
+  };
+}
+
+function measureAccent(seg: Seg<"accent">, em: number, inFrac: boolean): MathLayout {
+  const body = measureSegments(seg.body, em, inFrac ? "frac" : "body", inFrac, false);
+  const scripts = scriptExtent(seg.body);
+  const full = seg.kind === "overline" || seg.kind === "underline" || Boolean(seg.span);
+  const overhang = seg.kind === "overline" || seg.kind === "underline"
+    ? em * 0.04
+    : seg.span ? em * 0.02 : 0;
+  const ruleWidth = full
+    ? body.inkWidth + overhang * 2
+    : Math.min(Math.max(body.inkWidth, em * 0.45), em * 0.9);
+  const mark = em * 0.22;
+  const head = em * scripts.raise;
+  const foot = em * scripts.drop;
+  return {
+    kind: "accent",
+    width: Math.max(body.width, ruleWidth),
+    height: body.height + mark + head + foot,
+    outer: 0,
+    inkWidth: body.inkWidth,
+    ruleWidth,
+    accentKind: seg.kind,
+    padTop: head,
+    padBottom: foot,
+    spanAccent: Boolean(seg.span),
+    children: [body],
+  };
+}
+
+function measureCancel(seg: Seg<"cancel">, em: number, inFrac: boolean): MathLayout {
+  const body = measureSegments(seg.body, em, inFrac ? "frac" : "body", inFrac, false);
+  return {
+    kind: "cancel",
+    width: body.width,
+    height: body.height,
+    outer: 0,
+    inkWidth: body.inkWidth,
+    children: [body],
+  };
+}
+
+function measureRun(seg: Seg<"text" | "upright">, em: number, inFrac: boolean, leadingAtom: boolean): MathLayout {
   const width = measureRunWidth(seg.value, em, leadingAtom);
   const height = lineHeight(em, inFrac ? "frac" : "body");
   return { kind: "run", width, height, outer: 0, inkWidth: width, children: [] };
+}
+
+/** One measurer per segment kind. */
+function measureSegment(seg: MathSegment, em: number, inFrac: boolean, leadingAtom: boolean): MathLayout {
+  switch (seg.type) {
+    case "frac":
+      return measureFrac(seg, em, inFrac);
+    case "sqrt":
+      return measureSqrt(seg, em, inFrac);
+    case "accent":
+      return measureAccent(seg, em, inFrac);
+    case "cancel":
+      return measureCancel(seg, em, inFrac);
+    case "sup":
+    case "sub":
+      return measureSupSub(seg, em);
+    case "text":
+    case "upright":
+      return measureRun(seg, em, inFrac, leadingAtom);
+  }
 }
 
 /** Layout for one MathText formula at `em` CSS pixels (before device font scale). */
@@ -512,86 +530,4 @@ export function radicalStroke(node: MathLayout): { d: string; barLength: number 
   const hookY = Math.min(bottom - em * 0.12, node.height * 0.62);
   const d = `M 0 ${hookY} L ${hook * 0.45} ${hookY} L ${notch} ${bottom} L ${barStart} ${top} L ${barEnd} ${top}`;
   return { d, barLength: Math.max(0, barEnd - barStart) };
-}
-
-export function walkLayout(node: MathLayout, visit: (node: MathLayout) => void): void {
-  visit(node);
-  for (const child of node.children) walkLayout(child, visit);
-}
-
-export function findLayouts(node: MathLayout, kind: MathLayout["kind"]): MathLayout[] {
-  const found: MathLayout[] = [];
-  walkLayout(node, (item) => {
-    if (item.kind === kind) found.push(item);
-  });
-  return found;
-}
-
-/** Layout rules shared by tests and any future debug overlay. */
-export function layoutProblems(node: MathLayout, em: number): string[] {
-  const problems: string[] = [];
-  walkLayout(node, (item) => {
-    if (!Number.isFinite(item.width) || !Number.isFinite(item.height)) {
-      problems.push(`${item.kind} has a non-finite box`);
-    }
-    if (item.width < 0 || item.height < 0 || item.outer < 0) {
-      problems.push(`${item.kind} has a negative dimension`);
-    }
-    for (const child of item.children) {
-      if (child.width - item.width > 1 && item.kind !== "row") {
-        problems.push(`${child.kind} is wider than its ${item.kind} parent`);
-      }
-    }
-    if (item.kind === "sqrt" && item.bodyWidth != null && item.barStart != null && item.barEnd != null) {
-      const bar = item.barEnd - item.barStart;
-      const extra = bar - item.bodyWidth;
-      if (extra < -0.5 || extra > em * 0.28) {
-        problems.push(`radical bar ${bar.toFixed(2)} vs radicand ${item.bodyWidth.toFixed(2)}`);
-      }
-      const strokeEm = item.em && item.em > 0 ? item.em : em;
-      if (item.barStart < strokeEm * 0.25) {
-        problems.push("radical bar starts inside the hook");
-      }
-      if (item.index && item.barStart != null) {
-        const indexRight = item.index.left + item.index.width;
-        if (indexRight > item.barStart + 0.5) {
-          problems.push("root index overlaps the radicand");
-        }
-        const strokeEm = item.em && item.em > 0 ? item.em : em;
-        const indexBottom = item.index.top + item.index.lineHeight;
-        if (indexBottom < strokeEm * 0.05 - 0.5) {
-          problems.push("root index sits above the bar");
-        }
-      }
-    }
-    if (item.kind === "frac" && item.contentWidth != null && item.pad != null) {
-      if (item.width + 0.01 < item.contentWidth) {
-        problems.push("fraction bar shorter than its content");
-      }
-      if (item.pad > em * 0.5) problems.push("fraction pad is too wide");
-      const [num, den] = item.children;
-      const head = item.padTop ?? 0;
-      const foot = item.padBottom ?? 0;
-      if (num && den && item.height + 0.01 < head + num.height + den.height + foot) {
-        problems.push("denominator overlaps the fraction bar");
-      }
-    }
-    if (
-      item.kind === "accent"
-      && (item.accentKind === "overline" || item.accentKind === "underline" || item.spanAccent)
-    ) {
-      const rule = item.ruleWidth ?? 0;
-      const extra = Math.abs(rule - item.inkWidth);
-      if (extra > em * 0.2) {
-        problems.push(`overline rule ${rule.toFixed(2)} vs ink ${item.inkWidth.toFixed(2)}`);
-      }
-    }
-    if (item.kind === "script" && item.fontSize != null && item.inkWidth > 0) {
-      if (item.fontSize > em * 0.8) problems.push("script uses body size");
-      if ((item.raise ?? 0) <= 0 && (item.drop ?? 0) <= 0) {
-        problems.push("script sits on the baseline");
-      }
-    }
-  });
-  return problems;
 }

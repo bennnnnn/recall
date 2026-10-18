@@ -60,6 +60,27 @@ async def embed_text(settings: Settings, text: str) -> list[float] | None:
         return None
 
 
+async def embed_many(
+    settings: Settings,
+    texts: list[str],
+    *,
+    concurrency: int,
+) -> list[list[float] | None]:
+    """Embed ``texts`` with at most ``concurrency`` provider calls in flight.
+
+    Results are in input order. A text whose embed failed is None in its slot
+    (``embed_text`` already logged it); the caller decides whether to drop it.
+    An error ``embed_text`` does not catch propagates and fails the batch.
+    """
+    semaphore = asyncio.Semaphore(max(1, concurrency))
+
+    async def _one(text: str) -> list[float] | None:
+        async with semaphore:
+            return await embed_text(settings, text)
+
+    return list(await asyncio.gather(*(_one(text) for text in texts)))
+
+
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     if not a or not b or len(a) != len(b):
         return 0.0

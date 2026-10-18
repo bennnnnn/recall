@@ -147,7 +147,7 @@ async def llm_extract_math_intent(text: str, settings: Settings) -> MathIntent |
     try:
         parsed = await litellm_gateway.complete_structured(
             settings=settings,
-            model_alias="gemini-flash",
+            model_alias="gpt-6-luna",
             messages=[
                 {"role": "system", "content": _EXTRACT_PROMPT},
                 {"role": "user", "content": cleaned[:_MAX_INPUT_CHARS]},

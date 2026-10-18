@@ -1,7 +1,7 @@
 import type { Chat } from "@/lib/api";
 import { chatNeedsGeneratedTitle, provisionalAttachmentTitle } from "@/features/chat/model/title";
 
-export type FirstReplyTitlePlan = {
+type FirstReplyTitlePlan = {
   insert: Chat | null;
   fetch: boolean;
   poll: boolean;

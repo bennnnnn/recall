@@ -8,5 +8,8 @@
   {"id": "la-07", "area": "lookalike", "prompt": "the bond market had a rough week, should I worry about my portfolio?", "expect": "not_subject"},
   {"id": "la-08", "area": "lookalike", "prompt": "can you help me balance my budget: rent 1200, food 400, salary 2500", "expect": "not_subject"},
   {"id": "la-09", "area": "lookalike", "prompt": "the mole on my arm changed color, should I see a doctor?", "expect": "not_subject"},
-  {"id": "la-10", "area": "lookalike", "prompt": "how many moles do I need to dig up my garden lol, there are like 5 of them", "expect": "not_subject"}
+  {"id": "la-10", "area": "lookalike", "prompt": "how many moles do I need to dig up my garden lol, there are like 5 of them", "expect": "not_subject"},
+  {"id": "la-11", "area": "lookalike", "prompt": "the boiling point of my patience is low today", "expect": "not_subject"},
+  {"id": "la-12", "area": "lookalike", "prompt": "the freezing point of my enthusiasm hit a new low today", "expect": "not_subject"},
+  {"id": "la-13", "area": "lookalike", "prompt": "the melting point of my willpower is near zero today", "expect": "not_subject"}
 ]

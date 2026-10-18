@@ -43,6 +43,17 @@ async def list_active(session: AsyncSession, user_id: UUID) -> list[Suggestion]:
     return list(result.scalars().all())
 
 
+async def list_for_user(session: AsyncSession, user_id: UUID, *, limit: int) -> list[Suggestion]:
+    """Every stored suggestion, dismissed and expired included (data export)."""
+    result = await session.execute(
+        select(Suggestion)
+        .where(Suggestion.user_id == user_id)
+        .order_by(Suggestion.created_at.asc(), Suggestion.id.asc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
 async def dismiss(session: AsyncSession, suggestion_id: UUID, user_id: UUID) -> bool:
     item = await session.get(Suggestion, suggestion_id)
     if not item or item.user_id != user_id:

@@ -116,7 +116,7 @@ function fitSphere(geometry: MolGeometry, atomScale: number): { center: Point3; 
   return { center, radius: Math.max(radius, 0.4) };
 }
 
-export type LaidOutAtom = {
+type LaidOutAtom = {
   index: number;
   element: string;
   x: number;
@@ -125,7 +125,7 @@ export type LaidOutAtom = {
   radius: number;
 };
 
-export type LaidOutBond = {
+type LaidOutBond = {
   key: string;
   x1: number;
   y1: number;
@@ -134,9 +134,9 @@ export type LaidOutBond = {
 };
 
 /** One thing to paint; the list is sorted back to front. */
-export type DrawItem = { kind: "atom"; index: number } | { kind: "bond"; index: number };
+type DrawItem = { kind: "atom"; index: number } | { kind: "bond"; index: number };
 
-export type MoleculeLayout = {
+type MoleculeLayout = {
   atoms: LaidOutAtom[];
   /** Every line to draw; a double bond is two entries. Empty in the space-filling style. */
   bonds: LaidOutBond[];

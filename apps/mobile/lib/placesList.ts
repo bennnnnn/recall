@@ -12,109 +12,7 @@ export type PlaceItem = {
   price?: string;
 };
 
-const PRICE_IN_NOTE_RE = /\(\s*\$+\s*\)/;
-const NUMBERED_LINE_RE = /^\s*\d+\.\s+/;
-const SECTION_HEADING_RE = /^\s*#{1,6}\s+/;
-
-type ParsedVenueLine = {
-  name: string;
-  rawUrl?: string;
-  note?: string;
-  address?: string;
-  price?: string;
-};
-
-function parseVenueListLine(line: string): ParsedVenueLine | null {
-  let rest = line.replace(/^\s*\d+\.\s+/, "").trim();
-  if (!rest) return null;
-
-  let name = "";
-  let rawUrl = "";
-  let note = "";
-
-  const boldLink = rest.match(/^\*\*\[([^\]]+)\]\(([^)]+)\)\*\*(.*)$/);
-  const plainLink = rest.match(/^\[([^\]]+)\]\(([^)]+)\)(.*)$/);
-  const boldName = rest.match(/^\*\*([^*]+)\*\*(.*)$/);
-
-  if (boldLink) {
-    name = boldLink[1].trim();
-    rawUrl = boldLink[2].trim();
-    note = boldLink[3].replace(/^[—–-]\s*/, "").trim();
-  } else if (plainLink) {
-    name = plainLink[1].trim();
-    rawUrl = plainLink[2].trim();
-    note = plainLink[3].replace(/^[—–-]\s*/, "").trim();
-  } else if (boldName) {
-    name = boldName[1].trim();
-    note = boldName[2].replace(/^[—–-]\s*/, "").trim();
-  } else {
-    const parts = rest.split(/\s[—–-]\s/);
-    name = (parts[0] ?? "").trim();
-    note = parts.slice(1).join(" — ").trim();
-  }
-
-  if (!name) return null;
-
-  let price = "";
-  const priceMatch = note.match(PRICE_IN_NOTE_RE);
-  if (priceMatch) {
-    price = priceMatch[0].replace(/[()]/g, "").trim();
-    note = note.replace(PRICE_IN_NOTE_RE, "").replace(/\s+/g, " ").trim();
-  }
-
-  const parsed: ParsedVenueLine = { name };
-  if (rawUrl) parsed.rawUrl = rawUrl;
-  if (note) parsed.note = note;
-  if (price) parsed.price = price;
-  return parsed;
-}
-
-function rowToPlace(row: ParsedVenueLine): PlaceItem {
-  const place: PlaceItem = {
-    name: row.name,
-    url: resolvePlaceLinkUrl({
-      name: row.name,
-      url: row.rawUrl ?? "",
-      address: row.address ?? "",
-    }),
-  };
-  if (row.note) place.note = row.note;
-  if (row.address) place.address = row.address;
-  if (row.price) place.price = row.price;
-  return place;
-}
-
-/** Pull venue rows from numbered markdown lists (legacy model output). */
-export function extractPlacesFromMarkdownList(content: string): PlaceItem[] {
-  const lines = content.split("\n");
-  const places: PlaceItem[] = [];
-  let run: ParsedVenueLine[] = [];
-
-  const flush = () => {
-    if (run.length >= 2) {
-      places.push(...run.map(rowToPlace));
-    }
-    run = [];
-  };
-
-  for (const line of lines) {
-    if (NUMBERED_LINE_RE.test(line)) {
-      const parsed = parseVenueListLine(line);
-      if (parsed) {
-        run.push(parsed);
-        continue;
-      }
-    }
-    if (SECTION_HEADING_RE.test(line.trim())) {
-      continue;
-    }
-    flush();
-  }
-  flush();
-  return places;
-}
-
-export function parseAllPlacesFences(content: string): PlaceItem[] {
+function parseAllPlacesFences(content: string): PlaceItem[] {
   return collectClosedFenceBodies(content, "places").flatMap((body) =>
     parsePlacesJson(body.trim()),
   );
@@ -253,10 +151,6 @@ export function parsePlacesJson(raw: string): PlaceItem[] {
 
 export function parsePlacesFence(content: string): PlaceItem[] {
   return parseAllPlacesFences(content);
-}
-
-export function stripPlacesFence(content: string): string {
-  return stripClosedLangFence(content, "places").trimEnd();
 }
 
 /** Fix model output where markdown links use $url$ instead of (url).

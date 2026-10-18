@@ -1,4 +1,4 @@
-"""Equivalent TeX spelling does not create a second canonical-answer card."""
+"""The verified card lands once, however the prose spells the same answer."""
 
 import pytest
 
@@ -25,10 +25,11 @@ from app.modules.math.tools import VerifiedMathBlock
         (r"\(x=1\)", "x = 1"),
     ],
 )
-def test_complete_equivalent_math_answer_is_not_appended_again(prose: str, answer: str) -> None:
+def test_complete_equivalent_math_answer_gets_the_card_once(prose: str, answer: str) -> None:
     verified = VerifiedMathBlock(text="unused", canonical_answer=answer)
     result = validate_math_fences(prose, verified=verified)
-    assert "```answer" not in result
+    assert result.count("```answer") == 1
+    assert f"**Answer**\n\n```answer\nverified: true\n{answer}\n```" in result
 
 
 @pytest.mark.parametrize(

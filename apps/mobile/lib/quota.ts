@@ -30,20 +30,12 @@ export function isQuotaErrorMessage(message: string): boolean {
 
 export function formatUsageSummary(
   usage: Usage,
-  isPro: boolean,
+  isPaid: boolean,
   t: (key: string, opts?: Record<string, unknown>) => string,
 ): string {
   if (usage.remaining <= 0) {
-    return isPro ? t("settings.usage_exhausted_pro") : t("settings.usage_exhausted");
+    return isPaid ? t("settings.usage_exhausted_paid") : t("settings.usage_exhausted");
   }
   const pct = Math.round(usageRemainingPercent(usage));
-  return isPro ? t("settings.usage_left_pro", { pct }) : t("settings.usage_left", { pct });
-}
-
-export function quotaAlertTitle(isPro: boolean, t: (key: string) => string): string {
-  return isPro ? t("chat.quota_title_pro") : t("chat.quota_title");
-}
-
-export function formatTokenCount(n: number): string {
-  return Math.round(n).toLocaleString("en-US");
+  return isPaid ? t("settings.usage_left_paid", { pct }) : t("settings.usage_left", { pct });
 }

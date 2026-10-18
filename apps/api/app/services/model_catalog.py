@@ -9,7 +9,6 @@ from app.core.config import Settings
 from app.gateways import mock_llm
 from app.models.model_catalog import (
     CATALOG,
-    MODEL_MODES,
     ChatModel,
     auto_fast_alias,
     auto_math_alias,
@@ -30,7 +29,6 @@ from app.models.model_catalog import (
 
 __all__ = [
     "CATALOG",
-    "MODEL_MODES",
     "ChatModel",
     "auto_fast_alias",
     "auto_math_alias",

@@ -1,14 +1,34 @@
 import { Platform } from "react-native";
 
 import { isExpoGo } from "@/lib/expoRuntime";
+import type { PaidPlanId, PlanId } from "@/lib/plan";
 
-const ENTITLEMENT_ID = "pro";
+/**
+ * RevenueCat entitlement per paid plan. "pro" keeps the single-plan id, so
+ * existing subscribers stay on the top plan; the server maps the same ids.
+ */
+const PLAN_ENTITLEMENT_IDS: Record<PaidPlanId, string> = { plus: "plus", pro: "pro" };
+
+/**
+ * Package identifier per plan in the current RevenueCat offering. An offering
+ * from the single-plan era (only a monthly package) is offered as Pro.
+ */
+const PLAN_PACKAGE_IDS: Record<PaidPlanId, string> = {
+  plus: "plus_monthly",
+  pro: "pro_monthly",
+};
 
 /** Opaque handle — keeps react-native-purchases out of the static import graph. */
-export type ProPurchasePackage = {
+export type PlanPackage = {
+  plan: PaidPlanId;
+  /** Localized by the store ("$7.99", "7,99 €"); never hardcoded. */
   priceString: string;
+  productId: string;
   native: unknown;
 };
+
+type ActiveEntitlements = Record<string, { productIdentifier?: string } | undefined>;
+type CustomerInfoLike = { entitlements: { active: ActiveEntitlements } };
 
 type PurchasesModule = typeof import("react-native-purchases");
 
@@ -40,6 +60,14 @@ export function isPurchaseCancelled(error: unknown): boolean {
   );
 }
 
+/** Highest plan the store says is active (what the server will also find). */
+export function planFromCustomerInfo(info: CustomerInfoLike): PlanId {
+  const active = info.entitlements.active;
+  if (active[PLAN_ENTITLEMENT_IDS.pro] != null) return "pro";
+  if (active[PLAN_ENTITLEMENT_IDS.plus] != null) return "plus";
+  return "free";
+}
+
 async function loadPurchases(): Promise<PurchasesModule | null> {
   if (purchasesModule !== undefined) return purchasesModule;
   if (!isPurchasesConfigured()) {
@@ -55,45 +83,94 @@ async function loadPurchases(): Promise<PurchasesModule | null> {
   }
 }
 
+/** App user id RevenueCat is set up for in this process (configure runs once). */
+let configuredAppUserId: string | null = null;
+
 export async function configurePurchases(appUserId: string): Promise<void> {
   const mod = await loadPurchases();
   const apiKey = revenueCatApiKey();
   if (!mod || !apiKey) return;
-  mod.default.setLogLevel(__DEV__ ? mod.LOG_LEVEL.DEBUG : mod.LOG_LEVEL.WARN);
-  await mod.default.configure({ apiKey, appUserID: appUserId });
+  if (configuredAppUserId === appUserId) return;
+  if (configuredAppUserId == null) {
+    mod.default.setLogLevel(__DEV__ ? mod.LOG_LEVEL.DEBUG : mod.LOG_LEVEL.WARN);
+    await mod.default.configure({ apiKey, appUserID: appUserId });
+  } else {
+    // A second configure is unsupported; switching accounts is a logIn.
+    await mod.default.logIn(appUserId);
+  }
+  configuredAppUserId = appUserId;
 }
 
-export async function getMonthlyProPackage(): Promise<ProPurchasePackage | null> {
+/** The store's packages for each paid plan in the current offering. */
+export async function getPlanPackages(): Promise<Partial<Record<PaidPlanId, PlanPackage>>> {
   const mod = await loadPurchases();
-  if (!mod) return null;
+  if (!mod) return {};
   try {
     const offerings = await mod.default.getOfferings();
     const offering = offerings.current;
-    if (!offering) return null;
-    const pkg =
-      offering.monthly ??
-      offering.availablePackages.find((item) => item.packageType === "MONTHLY") ??
-      offering.availablePackages[0] ??
-      null;
-    if (!pkg) return null;
-    return { priceString: pkg.product.priceString, native: pkg };
+    if (!offering) return {};
+    const found: Partial<Record<PaidPlanId, PlanPackage>> = {};
+    for (const pkg of offering.availablePackages) {
+      for (const plan of ["plus", "pro"] as const) {
+        if (pkg.identifier === PLAN_PACKAGE_IDS[plan]) {
+          found[plan] = {
+            plan,
+            priceString: pkg.product.priceString,
+            productId: pkg.product.identifier,
+            native: pkg,
+          };
+        }
+      }
+    }
+    if (!found.plus && !found.pro && offering.monthly) {
+      found.pro = {
+        plan: "pro",
+        priceString: offering.monthly.product.priceString,
+        productId: offering.monthly.product.identifier,
+        native: offering.monthly,
+      };
+    }
+    return found;
   } catch {
-    return null;
+    return {};
   }
 }
 
-export async function purchaseProPackage(pkg: ProPurchasePackage): Promise<boolean> {
+/**
+ * Buy a plan; resolves with the plan the store now reports. On Android a move
+ * from Plus to Pro replaces the Plus subscription (prorated) instead of
+ * stacking a second one; on iOS both live in one subscription group, so the
+ * App Store does that itself.
+ */
+export async function purchasePlanPackage(pkg: PlanPackage): Promise<PlanId> {
   const mod = await loadPurchases();
-  if (!mod) return false;
-  const result = await mod.default.purchasePackage(pkg.native as never);
-  return result.customerInfo.entitlements.active[ENTITLEMENT_ID] != null;
+  if (!mod) return "free";
+  let productChange: { oldProductIdentifier: string; prorationMode: number } | null = null;
+  if (Platform.OS === "android" && pkg.plan === "pro") {
+    const info = (await mod.default.getCustomerInfo()) as unknown as CustomerInfoLike;
+    const plusProduct = info.entitlements.active[PLAN_ENTITLEMENT_IDS.plus]?.productIdentifier;
+    const oldProduct = plusProduct?.split(":")[0];
+    if (oldProduct && oldProduct !== pkg.productId.split(":")[0]) {
+      productChange = {
+        oldProductIdentifier: oldProduct,
+        prorationMode: mod.default.PRORATION_MODE.IMMEDIATE_WITH_TIME_PRORATION,
+      };
+    }
+  }
+  const result = await mod.default.purchasePackage(
+    pkg.native as never,
+    null,
+    productChange as never,
+  );
+  return planFromCustomerInfo(result.customerInfo as unknown as CustomerInfoLike);
 }
 
-export async function restorePurchases(): Promise<boolean> {
+/** Restore store purchases; resolves with the plan they grant. */
+export async function restorePurchases(): Promise<PlanId> {
   const mod = await loadPurchases();
-  if (!mod) return false;
+  if (!mod) return "free";
   const info = await mod.default.restorePurchases();
-  return info.entitlements.active[ENTITLEMENT_ID] != null;
+  return planFromCustomerInfo(info as unknown as CustomerInfoLike);
 }
 
 /**
@@ -108,34 +185,34 @@ export async function signOutRevenueCat(): Promise<void> {
   } catch {
     // best-effort — local token clear is what matters
   }
+  // logOut leaves an anonymous id; the next sign-in logs in by app user id.
+  if (configuredAppUserId != null) configuredAppUserId = "";
 }
 
 /**
- * Register a listener that fires when the Pro entitlement state changes.
- * RevenueCat calls customerInfoUpdateListener on purchase/restore/expiry and
- * on app foreground; we de-dupe to only invoke `onChange` when the active
- * state actually flips, so callers don't spam a backend sync on every
- * foreground. The listener also fires once on registration with the current
- * state — that's intentional (gives a launch-time sync).
+ * Register a listener that fires when the store plan changes (free / plus /
+ * pro). RevenueCat calls customerInfoUpdateListener on purchase/restore/expiry
+ * and on app foreground; we de-dupe to only invoke `onChange` when the plan
+ * actually changes, so callers don't spam a backend sync on every foreground.
+ * The listener also fires once on registration with the current state —
+ * that's intentional (gives a launch-time sync).
  *
  * Returns a cleanup that removes the listener, or null when Purchases isn't
  * available (Expo Go / web / no API key). */
 export async function registerPlanChangeListener(
-  onChange: (isPro: boolean) => void,
+  onChange: (plan: PlanId) => void,
 ): Promise<(() => void) | null> {
   const mod = await loadPurchases();
   if (!mod) return null;
-  let lastActive: boolean | null = null;
-  const listener = (info: {
-    entitlements: { active: Record<string, unknown> };
-  }) => {
-    const active = info.entitlements.active[ENTITLEMENT_ID] != null;
-    if (active === lastActive) return;
-    lastActive = active;
-    onChange(active);
+  let lastPlan: PlanId | null = null;
+  const listener = (info: CustomerInfoLike) => {
+    const plan = planFromCustomerInfo(info);
+    if (plan === lastPlan) return;
+    lastPlan = plan;
+    onChange(plan);
   };
-  mod.default.addCustomerInfoUpdateListener(listener);
+  mod.default.addCustomerInfoUpdateListener(listener as never);
   return () => {
-    mod.default.removeCustomerInfoUpdateListener(listener);
+    mod.default.removeCustomerInfoUpdateListener(listener as never);
   };
 }

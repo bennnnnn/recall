@@ -8,6 +8,7 @@ import pytest
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway
+from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.math.schemas import MathImageExtract
 
 
@@ -67,7 +68,7 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
 
     with (
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch(
             "app.modules.attachments.repository.get_by_ids",
@@ -86,7 +87,7 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
             AsyncMock(),
         ),
         patch(
-            "app.services.quota.refund_image_upload",
+            "app.services.quota.counters.refund",
             AsyncMock(),
         ) as refund_mock,
     ):
@@ -102,7 +103,7 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
                 attachment_ids=[attachment_id],
             )
 
-    refund_mock.assert_awaited_once_with(redis, user_id)
+    refund_mock.assert_awaited_once_with("image_upload", redis, user_id)
 
 
 @pytest.mark.asyncio
@@ -151,8 +152,8 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
 
     captured: dict[str, object] = {}
 
-    async def _fake_build_stream_prompt_context(*_args: object, **kwargs: object):
-        captured["image_math_extract"] = kwargs.get("image_math_extract")
+    async def _fake_build_stream_prompt_context(request: TurnRequest, *_args: object):
+        captured["image_math_extract"] = request.image_math_extract
         return SimpleNamespace(
             prompt_messages=[],
             meta={},
@@ -168,7 +169,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
 
     with (
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
         patch(
@@ -306,7 +307,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
 
     with (
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
         patch(
@@ -728,7 +729,7 @@ async def test_prepare_overlap_returns_before_persist_commit():
             return None
 
     with (
-        patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
         patch("app.repositories.messages.create", side_effect=slow_create),
         patch(
             "app.modules.chat.turn_prep.prepare.build_stream_prompt_context",

@@ -4,13 +4,13 @@
  * does not re-tokenize a growing open fence every throttle tick.
  */
 
-export type OpenStreamScan = {
+type OpenStreamScan = {
   fenceOpen: boolean;
   dollarOpen: boolean;
   bracketDepth: number;
 };
 
-export type OpenStreamRegion =
+type OpenStreamRegion =
   | { kind: "fence"; lang: string; body: string }
   | { kind: "math"; body: string }
   | { kind: "other"; text: string };

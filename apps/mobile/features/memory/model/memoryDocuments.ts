@@ -18,7 +18,7 @@ export const STANDARD_DOCUMENT_KEYS = [
 const STANDARD = new Set<string>(STANDARD_DOCUMENT_KEYS);
 export const DOCUMENT_GROUPS: readonly MemoryDocumentGroup[] = ["you", "topics", "areas"];
 
-export function isStandardDocument(key: string): boolean {
+function isStandardDocument(key: string): boolean {
   return STANDARD.has(key);
 }
 

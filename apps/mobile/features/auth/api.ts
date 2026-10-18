@@ -18,12 +18,18 @@ export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
 
 export async function loginWithApple(
   idToken: string,
-  name?: string | null,
+  name: string | null,
+  nonce: string,
 ): Promise<AuthResult> {
   const response = await fetchWithTimeout(apiUrl("/auth/apple"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken, name: name ?? null, ...deviceSessionFields() }),
+    body: JSON.stringify({
+      id_token: idToken,
+      name: name ?? null,
+      nonce,
+      ...deviceSessionFields(),
+    }),
   });
   if (!response.ok) {
     const detail = await response.text();

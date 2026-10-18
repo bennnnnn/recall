@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.modules.math.schemas import MathIntent
+from app.services.number_text import DECIMAL_LITERAL
 from app.services.text_match import word_index
 
 
@@ -494,11 +495,9 @@ def _extract_sector_intent(cleaned: str) -> MathIntent | None:
         if deg_at == -1:
             deg_at = lower.find(" degrees")
         if deg_at != -1:
-            last = None
-            for match in mtm._NUM.finditer(cleaned[:deg_at]):
-                last = match
-            if last is not None:
-                angle = float(last.group(0))
+            found = list(DECIMAL_LITERAL.finditer(cleaned[:deg_at]))
+            if found:
+                angle = float(found[-1].group(0))
     if radius is not None and angle is not None:
         return MathIntent(
             kind="sector",

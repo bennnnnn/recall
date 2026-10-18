@@ -11,7 +11,7 @@ export type AttachmentViewerImage = {
 };
 
 /** Pages within this many of the last photo ask the Library for its next page. */
-export const VIEWER_PREFETCH_PAGES = 2;
+const VIEWER_PREFETCH_PAGES = 2;
 
 /** Which photo this is, so the viewer follows it when the list around it changes. */
 export function viewerImageKey(image: AttachmentViewerImage | undefined): string | null {

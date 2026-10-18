@@ -56,7 +56,7 @@ export function dotFieldPalette(theme: Theme): DotFieldPalette {
  * grows. Coverage is a smoothstep over about a pixel, so dots stay round and
  * crisp at any density. Output is premultiplied, as Skia expects.
  */
-export const DOT_WAVE_SKSL = `
+const DOT_WAVE_SKSL = `
 uniform float2 uSize;
 uniform float2 uOrigin;
 uniform float2 uCount;

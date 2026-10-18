@@ -25,12 +25,10 @@ from app.modules.chat.prompt_constants.format import (
     CALCULATION_LAYOUT_CONTRACT,
     CALLOUT_FORMAT_HINT,
     CHART_FORMAT_HINT,
-    CHEMISTRY_PRESENTATION_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
     FORMAT_CONTRACT,
     HOWTO_FORMAT_HINT,
-    INTENT_FORMAT_HINT,
     MARKDOWN_BOUNDARY_CONTRACT,
     MERMAID_FORMAT_HINT,
     QUOTE_FORMAT_HINT,
@@ -53,15 +51,7 @@ from app.modules.chat.prompt_constants.format import (
     is_structured_comparison_question,
     is_task_howto,
 )
-from app.modules.chat.prompt_constants.math import (
-    GRAPH_NO_SUBSTITUTE_CLAUSE,
-    MATH_FENCE_SAFETY_HINT,
-    MATH_INTENT_HINT,
-    MATH_SHORT_RESPONSE_HINT,
-    MATH_SOLVER_HINT,
-    MATH_TUTORING_HINT,
-    SHORT_MATH_SAFETY_HINT,
-)
+from app.modules.chat.prompt_constants.math import MATH_FENCE_SAFETY_HINT
 from app.modules.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,
     BROAD_SELF_ANSWER_HINT,
@@ -136,17 +126,13 @@ from app.modules.chat.prompt_constants.writing import (
     draft_followup_hint,
     is_bare_writing_line,
     personal_record_hint,
+    writing_format_hint,
 )
 from app.modules.chat.prompt_constants.writing_kind import (
     is_email_or_message_request,
     is_underspecified_writing_request,
     is_writing_deliverable_request,
     writing_request_kind,
-)
-from app.modules.physics import (
-    PHYSICS_INTENT_HINT,
-    PHYSICS_REPLY_POLICY,
-    PHYSICS_SHORT_HINT,
 )
 
 __all__ = [
@@ -161,7 +147,6 @@ __all__ = [
     "CAREER_PERSONALIZE_HINT",
     "CHART_FORMAT_HINT",
     "CHEMISTRY_FENCE_HINT",
-    "CHEMISTRY_PRESENTATION_HINT",
     "CLARIFICATION_HINT",
     "CODE_DEBUG_HINT",
     "CODE_EXPLAIN_HINT",
@@ -175,28 +160,19 @@ __all__ = [
     "EMAIL_DRAFT_HINT",
     "EXAMPLE_PERSONALIZE_HINT",
     "FORMAT_CONTRACT",
-    "GRAPH_NO_SUBSTITUTE_CLAUSE",
     "HOWTO_FORMAT_HINT",
     "IMAGE_GEN_HONESTY_HINT",
     "IMAGE_GEN_UNAVAILABLE_HINT",
-    "INTENT_FORMAT_HINT",
     "LEARNING_PLAN_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
     "MARKDOWN_BOUNDARY_CONTRACT",
     "MATH_FENCE_SAFETY_HINT",
-    "MATH_INTENT_HINT",
-    "MATH_SHORT_RESPONSE_HINT",
-    "MATH_SOLVER_HINT",
-    "MATH_TUTORING_HINT",
     "MERMAID_FORMAT_HINT",
     "NEW_PROBLEM_HINT",
     "NON_DRAFT_TURN_HINT",
     "PERSONAL_DISCLOSURE_HINT",
     "PERSONAL_RECORD_HINT",
     "PHOTO_LOOKUP_HINT",
-    "PHYSICS_INTENT_HINT",
-    "PHYSICS_REPLY_POLICY",
-    "PHYSICS_SHORT_HINT",
     "PRIVACY_HINT",
     "PROFILE_FACT_HINT",
     "PROSE_WRITING_HINT",
@@ -204,7 +180,6 @@ __all__ = [
     "RESPONSE_FORMAT_HINT",
     "REWRITE_HINT",
     "SEQUENCE_FORMAT_HINT",
-    "SHORT_MATH_SAFETY_HINT",
     "SHORT_RESPONSE_FORMAT_HINT",
     "SOCIAL_DRAFT_HINT",
     "STANDING_PREFERENCE_HINT",
@@ -271,5 +246,6 @@ __all__ = [
     "programming_lesson_contract",
     "recalls_earlier_conversation",
     "where_is_place",
+    "writing_format_hint",
     "writing_request_kind",
 ]
