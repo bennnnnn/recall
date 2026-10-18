@@ -16,6 +16,7 @@ from app.modules.chat import (
     is_standing_preference,
     prior_looks_like_offer,
 )
+from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
 from app.modules.web_search.command import search_command
 from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answer
 from app.modules.web_search.officeholder import asks_who_holds_office
@@ -100,6 +101,9 @@ def web_search_skip(
     if search_command(cleaned) is not None:
         return False
     if is_word_problem(cleaned) and not is_weather_request(cleaned):
+        return True
+    # "Great job today", "write a poem about today": a time word, nothing to find.
+    if asks_nothing_to_look_up(cleaned):
         return True
     follow_up = bool(prior_user_messages) or prior_looks_like_offer(prior_assistant)
     if len(cleaned) < 4 and not (is_short_confirmation(cleaned) and follow_up):
