@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.todos.reminder_fence_parse import explicitly_declines_reminder_creation
 from app.modules.todos.schemas import RecurrenceRule
+from app.modules.todos.spoken_filler import FILLER_WORDS, without_lead_filler
 from app.modules.todos.spoken_when import (
     due_on_day,
     find_repeat,
@@ -157,7 +158,7 @@ _REMIND_ME_ANYWHERE_RE = re.compile(
     re.IGNORECASE,
 )
 _SENTENCE_END_RE = re.compile(r"[.!?]\s+|[.!?]$")
-_FILLER_RE = re.compile(r"^(?:(?:wait|ok|okay|actually|oh|no|nah|sorry|hmm)[,!.]?\s+)+")
+_FILLER_RE = re.compile(rf"^(?:{FILLER_WORDS}[,!.]?\s+)+")
 _ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day)\b", re.IGNORECASE)
 # A reply is about the user's reminders when it says so, or confirms a dated
 # one the way the app does ("Set: read — Monday, Oct 12, 8:00 AM.").
@@ -493,12 +494,11 @@ def _remind_me_body(text: str) -> str:
     if match is None:
         return ""
     before, after = text[: match.start()], text[match.end() :]
-    near = " ".join(
-        (_SENTENCE_END_RE.split(before)[-1], _SENTENCE_END_RE.split(after, maxsplit=1)[0])
-    ).strip()
+    lead = without_lead_filler(_SENTENCE_END_RE.split(before)[-1])
+    near = " ".join((lead, _SENTENCE_END_RE.split(after, maxsplit=1)[0])).strip()
     if _WORD_RE.search(near):
         return near
-    return " ".join((before, after)).strip(" .!?")
+    return " ".join((without_lead_filler(before), after)).strip(" .!?")
 
 
 async def pending_add(session: AsyncSession, chat_id: UUID, current: str) -> SpokenAdd | None:
