@@ -64,6 +64,8 @@ HINTS: dict[str, str] = {
     "local_places": web_search_service.LOCAL_PLACES_FORMAT_HINT,
     "answer_photo": pc.ANSWER_PHOTO_HINT,
     "where_is_photo": pc.WHERE_IS_PHOTO_HINT,
+    # The subject is the user's own words; its fixed part marks the hint.
+    "subject_photo": "If that is something people would want to see",
     "emoji_rule": EMOJI_RULE,
     "code_explain": pc.CODE_EXPLAIN_HINT,
     "code_debug": pc.CODE_DEBUG_HINT,
