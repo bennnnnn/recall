@@ -10,6 +10,7 @@ import {
   isLastListItem,
   listItemDisplayNumber,
   listItemHasNestedList,
+  listItemOpensWithTitle,
   listLargestNumber,
   numberColumnWidth,
   parentHasType,
@@ -49,7 +50,10 @@ export function listRules(t: Theme, mdMath: MdMathStyles) {
         if (task) {
           return (
             <View key={node.key} style={itemStyle}>
-              <View style={[mdMath.listBullet, bulletDiscStyle()]} accessible={false} />
+              <View
+                style={[mdMath.listBullet, bulletDiscStyle()]}
+                accessible={false}
+              />
               <View style={verifyCheckStyles.verifyRow}>
                 <View style={verifyCheckStyles.verifyContent}>{children}</View>
                 <VerifyCheckmark />
@@ -73,19 +77,33 @@ export function listRules(t: Theme, mdMath: MdMathStyles) {
       }
       if (shouldNumberListItem(parent)) {
         const markup =
-          immediateAncestorType(parent) === "ordered_list" ? (node.markup ?? ".") : ".";
+          immediateAncestorType(parent) === "ordered_list"
+            ? (node.markup ?? ".")
+            : ".";
         return (
           <View key={node.key} style={itemStyle}>
             <Text
               style={[
                 styles.ordered_list_icon as object,
-                { minWidth: numberColumnWidth(listLargestNumber(parent), PixelRatio.getFontScale()) },
+                {
+                  minWidth: numberColumnWidth(
+                    listLargestNumber(parent),
+                    PixelRatio.getFontScale(),
+                  ),
+                },
+                // "1. Read widely" is one heading: the number takes the title's weight.
+                listItemOpensWithTitle(node) && (styles.strong as object),
               ]}
             >
               {listItemDisplayNumber(parent, node.index)}
               {markup}
             </Text>
-            <View style={[styles._VIEW_SAFE_ordered_list_content as object, mdMath.listContent]}>
+            <View
+              style={[
+                styles._VIEW_SAFE_ordered_list_content as object,
+                mdMath.listContent,
+              ]}
+            >
               {children}
             </View>
           </View>
@@ -98,7 +116,11 @@ export function listRules(t: Theme, mdMath: MdMathStyles) {
               // No disc on a parent topic, but keep its column: the label lines
               // up with its siblings' text and the sub-bullets indent under it.
               <View
-                style={[mdMath.listBullet, bulletDiscStyle(), mdMath.listBulletSpacer]}
+                style={[
+                  mdMath.listBullet,
+                  bulletDiscStyle(),
+                  mdMath.listBulletSpacer,
+                ]}
                 accessible={false}
                 testID="md-list-bullet-spacer"
               />
@@ -109,7 +131,12 @@ export function listRules(t: Theme, mdMath: MdMathStyles) {
                 testID="md-list-bullet"
               />
             )}
-            <View style={[styles._VIEW_SAFE_bullet_list_content as object, mdMath.listContent]}>
+            <View
+              style={[
+                styles._VIEW_SAFE_bullet_list_content as object,
+                mdMath.listContent,
+              ]}
+            >
               {children}
             </View>
           </View>
@@ -121,7 +148,12 @@ export function listRules(t: Theme, mdMath: MdMathStyles) {
         </View>
       );
     },
-    bullet_list: (node: AstNode, children: ReactNode, parent: unknown, styles: StyleMap) => (
+    bullet_list: (
+      node: AstNode,
+      children: ReactNode,
+      parent: unknown,
+      styles: StyleMap,
+    ) => (
       <View
         key={node.key}
         style={[
@@ -132,7 +164,12 @@ export function listRules(t: Theme, mdMath: MdMathStyles) {
         {children}
       </View>
     ),
-    ordered_list: (node: AstNode, children: ReactNode, parent: unknown, styles: StyleMap) => (
+    ordered_list: (
+      node: AstNode,
+      children: ReactNode,
+      parent: unknown,
+      styles: StyleMap,
+    ) => (
       <View
         key={node.key}
         style={[

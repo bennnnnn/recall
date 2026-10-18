@@ -45,11 +45,31 @@ export function listItemHasNestedList(node: AstNode): boolean {
   return false;
 }
 
+/** A list item that opens with a bold title on its own line (`**Read widely**`, a break). */
+export function listItemOpensWithTitle(node: AstNode): boolean {
+  const leaves: AstNode[] = [];
+  const walk = (n: AstNode) => {
+    if (leaves.length >= 2) return;
+    const kids = n.children ?? [];
+    if (n.type === "strong" || n.type === "hardbreak" || kids.length === 0) {
+      if (n.type !== "text" || n.content) leaves.push(n);
+      return;
+    }
+    kids.forEach(walk);
+  };
+  walk(node);
+  return leaves[0]?.type === "strong" && leaves[1]?.type === "hardbreak";
+}
+
 /** The largest number an ordered list shows: its start plus its item count. */
 export function listLargestNumber(parent: unknown): number {
   if (!Array.isArray(parent) || parent.length === 0) return 1;
-  const list = parent[0] as { attributes?: { start?: number }; children?: unknown[] };
-  const start = typeof list.attributes?.start === "number" ? list.attributes.start : 1;
+  const list = parent[0] as {
+    attributes?: { start?: number };
+    children?: unknown[];
+  };
+  const start =
+    typeof list.attributes?.start === "number" ? list.attributes.start : 1;
   return start + Math.max(0, (list.children?.length ?? 1) - 1);
 }
 
@@ -66,7 +86,9 @@ const MIN_NUMBER_COLUMN = 22;
  */
 export function numberColumnWidth(largest: number, fontScale: number): number {
   const digits = String(Math.max(1, Math.floor(largest))).length;
-  const needed = Math.ceil((digits * DIGIT_WIDTH + PERIOD_WIDTH) * Math.max(1, fontScale)) + 2;
+  const needed =
+    Math.ceil((digits * DIGIT_WIDTH + PERIOD_WIDTH) * Math.max(1, fontScale)) +
+    2;
   return Math.max(MIN_NUMBER_COLUMN, needed);
 }
 
@@ -82,7 +104,10 @@ const BULLET_SCALE_MAX = 1.5;
  * centered on the first line, which grows with it. A fixed 8pt drop sat high
  * once the line box was taller than 22pt.
  */
-export function bulletDiscMetrics(fontScale: number): { size: number; top: number } {
+export function bulletDiscMetrics(fontScale: number): {
+  size: number;
+  top: number;
+} {
   const scale = Math.max(1, fontScale);
   const size = Math.round(BULLET_SIZE * Math.min(scale, BULLET_SCALE_MAX));
   const line = BODY_FONT_SIZE * scale * BODY_LINE_RATIO;
@@ -183,7 +208,9 @@ function nonBlankLines(text: string): string[] {
  */
 export function inPlainBlockquote(parent: unknown): boolean {
   if (!Array.isArray(parent)) return false;
-  const quote = parent.find((node) => (node as AstNode | undefined)?.type === "blockquote");
+  const quote = parent.find(
+    (node) => (node as AstNode | undefined)?.type === "blockquote",
+  );
   return quote ? blockquoteCitation(quote as AstNode) === null : false;
 }
 
@@ -202,7 +229,9 @@ export function openingStrong(node: AstNode | undefined): AstNode | null {
   if (!node) return null;
   if (node.type === "strong") return node;
   const kids = node.children ?? [];
-  return node.type === "textgroup" && kids.length === 1 ? openingStrong(kids[0]) : null;
+  return node.type === "textgroup" && kids.length === 1
+    ? openingStrong(kids[0])
+    : null;
 }
 
 /** Like `astText`, but soft/hard breaks and block siblings become newlines. */

@@ -459,11 +459,11 @@ FORMAT_CONTRACT = (
     '("the second one"). Letters are for alternatives/answer choices or when requested; '
     "roman numerals only when requested. Do not use numbers merely as indentation.\n"
     '  - Several ways, tips, ideas, reasons, benefits, or options ("ways to become rich", '
-    '"tips for better sleep", "how to save money"): at most one lead sentence, then a '
-    "numbered list of about 5-8 items. Each item opens with a **bold label of 2-5 words**, "
-    "then a dash and one or two short sentences; bold at most one key phrase inside it. No "
-    "sub-bullets unless an item truly has parts. End with at most one short takeaway line, "
-    "not a recap section. The reader should get the gist from the bold labels alone.\n"
+    '"how to save money"): at most one lead sentence, then a numbered list of about 5-8 items. '
+    "Each item opens with a **bold label of 2-5 words**, then a dash and one or two short "
+    "sentences; bold at most one key phrase. No sub-bullets unless an item has parts. Over 8 "
+    "items: group them under 2-4 short ### headings, numbering continuing across groups. End "
+    "with at most one short takeaway line, not a recap. The bold labels alone give the gist.\n"
     '  - For a single topic ("tell me about X"), a short paragraph or flat bullets '
     "is enough. Use 2-3 short headings only when they group real sections — not a "
     "parent bullet whose children are more bullets, and not a wall of text or a table.\n"

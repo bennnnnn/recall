@@ -13,6 +13,7 @@
 // instead of one wrapped sentence, with the continuation stranding on its
 // own line behind an orphaned punctuation mark.
 import { render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 
@@ -89,7 +90,8 @@ describe("markdown list item inline flow", () => {
   });
 
   it("keeps lead-in text, inline code, and trailing text on one inline run", async () => {
-    const md = "- Generators produce items lazily with `yield`, so they're memory-friendly.";
+    const md =
+      "- Generators produce items lazily with `yield`, so they're memory-friendly.";
     const { getByText } = await render(<MarkdownContent content={md} />);
 
     const before = getByText(/Generators produce items lazily with/);
@@ -115,7 +117,8 @@ describe("markdown list item inline flow", () => {
   });
 
   it("keeps a bold-led ordered list item's continuation on the same run", async () => {
-    const md = "1. **1941** — Germany invades the USSR; Japan attacks Pearl Harbor.";
+    const md =
+      "1. **1941** — Germany invades the USSR; Japan attacks Pearl Harbor.";
     const { getByText } = await render(<MarkdownContent content={md} />);
 
     const bold = getByText("1941");
@@ -125,8 +128,30 @@ describe("markdown list item inline flow", () => {
     expect(outermostTextAncestor(after as never)).toBe(boldOuter);
   });
 
+  it("bolds the number of an item whose title sits on its own line", async () => {
+    const md = [
+      "1. **Read widely** – Consume diverse books and articles outside your comfort zone.",
+      "2. **Prioritize sleep** – Aim for seven to nine hours every night.",
+    ].join("\n");
+    const { getByText } = await render(<MarkdownContent content={md} />);
+    expect(StyleSheet.flatten(getByText("1.").props.style).fontFamily).toBe(
+      "SourceSans3-Bold",
+    );
+    expect(getByText(/Consume diverse books/)).toBeTruthy();
+  });
+
+  it("keeps a plain numbered step's number regular", async () => {
+    const md =
+      "1. Preheat the oven to 200 degrees.\n2. Mix the flour and the butter.";
+    const { getByText } = await render(<MarkdownContent content={md} />);
+    expect(StyleSheet.flatten(getByText("1.").props.style).fontFamily).toBe(
+      "SourceSans3",
+    );
+  });
+
   it("still renders a plain list item (no embedded styling) as before", async () => {
-    const md = "- Root causes: Treaty of Versailles resentment and the Great Depression.";
+    const md =
+      "- Root causes: Treaty of Versailles resentment and the Great Depression.";
     const { getByText } = await render(<MarkdownContent content={md} />);
     expect(getByText(/Root causes: Treaty of Versailles/)).toBeOnTheScreen();
   });

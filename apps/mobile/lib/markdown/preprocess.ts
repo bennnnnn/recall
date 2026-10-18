@@ -4,6 +4,7 @@ import {
   dropRedundantMolecule3dFences,
 } from "@/lib/chemistry/moleculePair";
 import { attachAnswerHeadingToFence } from "@/lib/markdown/attachAnswerHeading";
+import { breakListItemTitles } from "@/lib/markdown/listItemTitles";
 import {
   convertCalloutBlocks,
   normalizeQuoteAttributionDashes,
@@ -52,7 +53,10 @@ import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { presentAssistantMarkdown } from "@/lib/markdown/presentation";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 
-export { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/inlineMath";
+export {
+  markdownHasNestedMathView,
+  splitInlineMath,
+} from "@/lib/markdown/inlineMath";
 export {
   breakAttachedMathFences,
   unwrapProseMathBackticks,
@@ -94,7 +98,9 @@ export function preprocessMarkdown(
   // markdown renders as inline CODE → raw literal `$...$`. Un-wrap backtick-
   // wrapped `$...$` so it renders as math inline with the prose (in sync with
   // the text, no late fence pop-in).
-  out = applyOutsideFences(out, (prose) => prose.replace(/`(\$[^`\n]+?\$)`/g, "$1"));
+  out = applyOutsideFences(out, (prose) =>
+    prose.replace(/`(\$[^`\n]+?\$)`/g, "$1"),
+  );
   // And the reverse: code the model wrapped in dollars stays code.
   out = unwrapDollarsAroundCode(out);
 
@@ -148,6 +154,10 @@ export function preprocessMarkdown(
   // above still build maths of their own from it (display maths and retagged
   // fences become ```math), so the calculation rows are laid out either way.
   return attachAnswerHeadingToFence(
-    options.presented ? layoutCalculations(out) : presentAssistantMarkdown(out),
+    breakListItemTitles(
+      options.presented
+        ? layoutCalculations(out)
+        : presentAssistantMarkdown(out),
+    ),
   );
 }

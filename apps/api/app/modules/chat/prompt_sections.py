@@ -27,6 +27,7 @@ from app.modules.chat.prompt_constants import (
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
+    UNCLEAR_MESSAGE_HINT,
     active_lesson_step,
     is_bare_writing_line,
     is_capabilities_question,
@@ -212,6 +213,9 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
             TONE_FORMAT_GUARD,
         ],
     ),
+    # "Bo" or "gd" may be a typo, another language or a half-typed message: the
+    # model, which sees the conversation, decides; no word list or length gate.
+    PromptSection(_always, lambda _t: [UNCLEAR_MESSAGE_HINT]),
     PromptSection(_always, lambda t: _present(custom_instructions_block(t.user))),
     PromptSection(_always, lambda t: _present(locale_service.locale_system_hint(t.user.locale))),
     # M8: inject the rolling summary even on the slim path. A slim long thread
