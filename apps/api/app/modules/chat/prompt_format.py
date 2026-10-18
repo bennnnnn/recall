@@ -68,7 +68,6 @@ from app.modules.chat.prompt_constants import (
     is_teaching_request,
     is_walkthrough_request,
     learning_plan_daily_contract,
-    lesson_continue_hint,
     programming_lesson_contract,
     writing_format_hint,
     writing_request_kind,
@@ -77,6 +76,7 @@ from app.modules.chat.prompt_constants.answer_subject import (
     asked_about_subject,
     subject_photo_hint,
 )
+from app.modules.chat.prompt_constants.lesson_flow import lesson_turn_hint
 from app.modules.chat.prompt_constants.visuals import (
     ANSWER_PHOTO_HINT,
     IMAGE_GEN_HONESTY_HINT,
@@ -207,6 +207,7 @@ def _style_turn(
     image_generation_enabled: bool,
     image_search_enabled: bool,
     lesson: int | None,
+    outline_pick: bool = False,
     prior_messages: list[tuple[str, str]] | None,
 ) -> StyleTurn:
     query = query_text or ""
@@ -244,7 +245,7 @@ def _style_turn(
         learning_plan=learning_plan,
         teaching=teaching,
         walkthrough=walkthrough,
-        lesson_hint=lesson_continue_hint(lesson) if lesson and not shaped else None,
+        lesson_hint=lesson_turn_hint(lesson, outline_pick=outline_pick) if not shaped else None,
         viz_intent=_viz_intent(query_text),
         subject=effective_presentation_subject(query_text, prior_messages),
     )
@@ -408,7 +409,9 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
 )
 
 
-def _exclusive_pack(query_text: str | None, lesson: int | None) -> list[str] | None:
+def _exclusive_pack(
+    query_text: str | None, lesson: int | None, *, outline_pick: bool = False
+) -> list[str] | None:
     """The whole hint list for a turn whose kind allows nothing else, or None."""
     if not query_text:
         return None
@@ -433,11 +436,12 @@ def _exclusive_pack(query_text: str | None, lesson: int | None) -> list[str] | N
             STANDING_PREFERENCE_HINT,
             MATH_FENCE_SAFETY_HINT,
         ]
-    if is_personal_disclosure_turn(query_text) and not lesson:
+    if is_personal_disclosure_turn(query_text) and not (lesson or outline_pick):
         # A first-person update is not an invitation to generate a guide. Keep
         # the contract small and decisive so the general rich-format pack
         # cannot turn "I work at Uber..." into an unsolicited career plan.
-        # Mid-lesson, "I'm confused" answers the practice question instead.
+        # Mid-lesson, "I'm confused" answers the practice question instead, and
+        # "I'm a beginner" after an outline picks where the lessons start.
         return [
             CLARIFICATION_HINT,
             PRIVACY_HINT,
@@ -460,12 +464,15 @@ def _style_format_hints(
     image_generation_enabled: bool = True,
     image_search_enabled: bool = False,
     lesson: int | None = None,
+    outline_pick: bool = False,
     prior_messages: list[tuple[str, str]] | None = None,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
 
     ``lesson`` is the number of the lesson the previous reply taught: this turn
     answers its practice question or asks for more, so the lesson goes on.
+    ``outline_pick``: the previous reply outlined a subject, so this turn picks
+    where Lesson 1 starts.
 
     ``compact`` is for greetings and pasted fragments only — not for
     "no personal data". Ordinary questions get FORMAT_CONTRACT; math/viz
@@ -473,12 +480,13 @@ def _style_format_hints(
     Writing deliverables replace compact / short / FORMAT_CONTRACT so a
     paragraph ask is not also told to use bullets or a compare table.
     """
-    pack = _exclusive_pack(query_text, lesson)
+    pack = _exclusive_pack(query_text, lesson, outline_pick=outline_pick)
     if pack is not None:
         return pack
     turn = _style_turn(
         query_text,
         lesson=lesson,
+        outline_pick=outline_pick,
         prior_messages=prior_messages,
         style=style,
         is_day_plan=is_day_plan,

@@ -12,6 +12,7 @@ from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
     HOWTO_FORMAT_HINT,
     LEARNING_PLAN_HINT,
+    OUTLINE_PICK_HINT,
     PERSONAL_DISCLOSURE_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     TEACHING_HINT,
@@ -24,6 +25,7 @@ from app.modules.chat.prompt_constants import (
     learning_plan_daily_contract,
     lesson_continue_hint,
     lesson_step,
+    outline_awaits_pick,
     programming_lesson_contract,
 )
 from app.modules.chat.prompt_format import _style_format_hints
@@ -208,7 +210,7 @@ def test_lesson_continue_hint_keeps_the_lesson_shape():
     assert "`### Lesson N: <topic>`" in hint
 
 
-def _hints(text, *, style="balanced", lesson=None, compact=False):
+def _hints(text, *, style="balanced", lesson=None, compact=False, outline_pick=False):
     return _style_format_hints(
         query_text=text,
         style=style,
@@ -216,6 +218,7 @@ def _hints(text, *, style="balanced", lesson=None, compact=False):
         minimal_personal_context=False,
         compact=compact,
         lesson=lesson,
+        outline_pick=outline_pick,
     )
 
 
@@ -504,3 +507,63 @@ def test_practice_heading_fits_the_subject_and_the_quiz_fence_stands_alone(hint)
     assert "`### N. Your turn — predict the output`" not in hint
     assert "history: `— check your understanding`" in hint
     assert "```quiz alone on its line and the JSON on the next" in hint
+
+
+OUTLINE = (
+    "Python lets you automate chores and analyse data.\n\n"
+    "1. **Variables and types** — store values\n2. **Lists and loops** — work through many\n"
+    "3. **Dictionaries** — look things up by name\n\n"
+    "New to it, or do you know some already? Pick a number."
+)
+
+
+def test_teaching_hint_outlines_a_whole_subject_and_teaches_one_idea():
+    assert "A whole subject" in TEACHING_HINT and "do not teach yet" in TEACHING_HINT
+    assert "One idea" in TEACHING_HINT and "nothing past it" in TEACHING_HINT
+    assert "an outline of a whole language has no code" in programming_lesson_contract(
+        "teach me python"
+    )
+
+
+def _turns(*pairs):
+    return [SimpleNamespace(role=role, content=content) for role, content in pairs]
+
+
+def test_outline_awaits_pick_after_a_teach_me_answered_with_an_outline():
+    assert outline_awaits_pick(_turns(("user", "teach me python"), ("assistant", OUTLINE)))
+
+
+@pytest.mark.parametrize(
+    "turns",
+    [
+        # A lesson, not an outline: the lesson goes on instead.
+        (("user", "teach me python dictionaries"), ("assistant", LESSON_ONE)),
+        # Not a teach-me.
+        (("user", "what can python do?"), ("assistant", OUTLINE)),
+        # The outline asked nothing.
+        (("user", "teach me python"), ("assistant", OUTLINE.replace("?", "."))),
+        # An outline further back: the conversation moved on.
+        (
+            ("user", "teach me python"),
+            ("assistant", OUTLINE),
+            ("user", "actually, what's the capital of Peru?"),
+            ("assistant", "Lima."),
+        ),
+        (),
+    ],
+)
+def test_outline_awaits_pick_declines(turns):
+    assert not outline_awaits_pick(_turns(*turns))
+
+
+@pytest.mark.parametrize("answer", ["3", "start", "I'm a beginner", "I want to analyse data"])
+def test_reply_to_an_outline_teaches_lesson_one(answer):
+    hints = _hints(answer, outline_pick=True)
+    assert OUTLINE_PICK_HINT in hints
+    assert PERSONAL_DISCLOSURE_HINT not in hints
+    assert "`### Lesson N: <topic>`" in OUTLINE_PICK_HINT
+
+
+def test_new_teach_request_after_an_outline_starts_over():
+    hints = _hints("teach me cooking", outline_pick=True)
+    assert TEACHING_HINT in hints and OUTLINE_PICK_HINT not in hints

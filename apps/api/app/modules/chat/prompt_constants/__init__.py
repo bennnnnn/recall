@@ -56,6 +56,13 @@ from app.modules.chat.prompt_constants.grounding import (
     FACT_GROUNDING_HINT,
     WEB_SEARCH_OFF_HINT,
 )
+from app.modules.chat.prompt_constants.lesson_flow import (
+    OUTLINE_PICK_HINT,
+    active_lesson_step,
+    lesson_continue_hint,
+    lesson_step,
+    outline_awaits_pick,
+)
 from app.modules.chat.prompt_constants.math import MATH_FENCE_SAFETY_HINT
 from app.modules.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,
@@ -93,14 +100,11 @@ from app.modules.chat.prompt_constants.teaching import (
     TEACHING_HINT,
     TEACHING_SHORT_NOTE,
     WALKTHROUGH_HINT,
-    active_lesson_step,
     is_learning_plan_request,
     is_standing_preference,
     is_teaching_request,
     is_walkthrough_request,
     learning_plan_daily_contract,
-    lesson_continue_hint,
-    lesson_step,
     programming_lesson_contract,
 )
 from app.modules.chat.prompt_constants.unclear import UNCLEAR_MESSAGE_HINT
@@ -178,6 +182,7 @@ __all__ = [
     "MERMAID_FORMAT_HINT",
     "NEW_PROBLEM_HINT",
     "NON_DRAFT_TURN_HINT",
+    "OUTLINE_PICK_HINT",
     "PERSONAL_DISCLOSURE_HINT",
     "PERSONAL_RECORD_HINT",
     "PHOTO_LOOKUP_HINT",
@@ -250,6 +255,7 @@ __all__ = [
     "lesson_step",
     "looks_like_pasted_code",
     "needs_rich_context",
+    "outline_awaits_pick",
     "personal_record_hint",
     "prior_looks_like_offer",
     "profile_question_to_answer",
