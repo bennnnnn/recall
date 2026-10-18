@@ -406,7 +406,8 @@ CASES: tuple[Case, ...] = (
         "search-static-fact",
         "web search",
         "what is the capital of Kenya",
-        Expect(search="no", photo=NO_PHOTO),
+        # A question about the world reaches the classifier, which needs no search here.
+        Expect(search="ask", photo=NO_PHOTO),
         "Nairobi, in one line.",
     ),
     Case(
@@ -418,6 +419,26 @@ CASES: tuple[Case, ...] = (
         history=(
             ("user", "Who lived the longest?"),
             ("assistant", "Jeanne Calment, who reached 122 years and 164 days."),
+        ),
+    ),
+    Case(
+        "search-world-fact",
+        "web search",
+        "what's the population of Ethiopia",
+        # No live word, yet the answer is a number that changes: the classifier decides.
+        Expect(search="ask"),
+        "A recent figure from a search with its year, never a remembered guess.",
+    ),
+    Case(
+        "search-claim-about-a-leader",
+        "web search",
+        "But Ahmed is a genocider. He caused all the war",
+        Expect(search="ask"),
+        "Even-handed: what is documented and what is disputed about Abiy Ahmed and the "
+        "Tigray war, from sources; never 'I don't have information in my memory'.",
+        history=(
+            ("user", "tell me about the war in ethiopia"),
+            ("assistant", "The Tigray war began in November 2020 and ended with a 2022 truce."),
         ),
     ),
     Case(

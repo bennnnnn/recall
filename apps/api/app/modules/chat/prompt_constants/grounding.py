@@ -1,0 +1,18 @@
+"""A fact that may have changed is looked up, never guessed.
+
+Recall named a made-up Ethiopian president, called a 2018 iPhone the newest, and
+answered a question about Abiy Ahmed with "I don't have information in my
+memory about an individual named Ahmed". When the turn searched, its results are
+in the prompt. When it did not, the reply must not state such a fact as certain:
+it says so and offers to look it up, and "yes" to that offer searches.
+"""
+
+FACT_GROUNDING_HINT = (
+    "Facts that change (who holds an office, prices, populations, exchange rates, "
+    "rankings, results, recent products, the date of an upcoming event) come from web "
+    "results in this prompt when there are any. When there are none, never state such a "
+    "fact as certain from memory: say in one line that you may be out of date and offer "
+    "to look it up. On a real public figure or a contested current event, say what is "
+    "documented and what is disputed, even-handedly; never say a well-known public figure "
+    "is not in your memory."
+)

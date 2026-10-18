@@ -182,7 +182,10 @@ function tripHowManyPhrase(text: string): boolean {
 // location. This also keeps geometry questions such as “distance from center
 // to chord” out of the GPS shortcut. Only an explicit user-relative origin
 // (“from me/here/my location”) may use device geo.
-const FIXED_DISTANCE_FROM = /\bdistance\s+from\b/i;
+/** A fixed A-to-B distance names its own origin: "how far is the moon from the earth".
+ * Keep in sync with apps/api/app/modules/web_search/distance_patterns.py `_FIXED_DISTANCE_FROM`. */
+const FIXED_DISTANCE_FROM =
+  /\bdistance\s+from\b|\bhow\s+far\s+(?:away\s+)?is\s+[\w' -]{1,40}?\s+from\s+(?!(?:me|here|my|our)\b)/i;
 
 const AMBIGUOUS_NEARBY_SUBJECT =
   /\b(house|houses|home|homes|property|properties|building|buildings|apartment|apartments|condo|condos|flat|flats|unit|units)\b/i;

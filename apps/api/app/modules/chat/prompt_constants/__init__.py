@@ -52,6 +52,7 @@ from app.modules.chat.prompt_constants.format import (
     is_structured_comparison_question,
     is_task_howto,
 )
+from app.modules.chat.prompt_constants.grounding import FACT_GROUNDING_HINT
 from app.modules.chat.prompt_constants.math import MATH_FENCE_SAFETY_HINT
 from app.modules.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,
@@ -162,6 +163,7 @@ __all__ = [
     "EMAIL_ASK_PURPOSE_HINT",
     "EMAIL_DRAFT_HINT",
     "EXAMPLE_PERSONALIZE_HINT",
+    "FACT_GROUNDING_HINT",
     "FORMAT_CONTRACT",
     "HOWTO_FORMAT_HINT",
     "IMAGE_GEN_HONESTY_HINT",

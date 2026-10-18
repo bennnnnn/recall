@@ -19,6 +19,7 @@ from app.modules.chat.prompt_constants import (
     CAREER_PERSONALIZE_HINT,
     CODE_INK_REMINDER,
     EXAMPLE_PERSONALIZE_HINT,
+    FACT_GROUNDING_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     MATH_FENCE_SAFETY_HINT,
     PERSONAL_DISCLOSURE_HINT,
@@ -219,6 +220,8 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     # "Bo" or "gd" may be a typo, another language or a half-typed message: the
     # model, which sees the conversation, decides; no word list or length gate.
     PromptSection(_always, lambda _t: [UNCLEAR_MESSAGE_HINT]),
+    # A fact that may have changed is looked up or offered, never guessed.
+    PromptSection(lambda t: not t.lightweight, lambda _t: [FACT_GROUNDING_HINT]),
     PromptSection(_always, lambda t: _present(custom_instructions_block(t.user))),
     PromptSection(_always, lambda t: _present(locale_service.locale_system_hint(t.user.locale))),
     # M8: inject the rolling summary even on the slim path. A slim long thread

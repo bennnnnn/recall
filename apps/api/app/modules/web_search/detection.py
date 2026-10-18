@@ -50,6 +50,7 @@ from app.modules.web_search.subject import (
     _prior_searchable_topic,
     resolve_search_subject,
 )
+from app.modules.web_search.world_fact import asks_about_the_world
 from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
@@ -326,7 +327,8 @@ async def should_web_search(
     prior_user_messages: list[str] | None = None,
     prior_assistant: str | None = None,
 ) -> bool:
-    """Async gate: regex first. The classifier runs only for a live cue or a short follow-up."""
+    """Async gate: regex first. The classifier runs for a live cue, a question
+    about the world, or a short follow-up."""
     if not settings.web_search_enabled:
         return False
     if web_search_skip(
@@ -337,7 +339,9 @@ async def should_web_search(
         return True
     cleaned = collapse_ws(text)
     live = _live_lookup_cue(cleaned) and not _tells_about_the_user(cleaned)
-    if not (live or _continues_searchable_topic(cleaned, prior_user_messages)):
+    # "What's the population of Ethiopia" has no live word, and its answer was a guess.
+    world = asks_about_the_world(cleaned) and not _tells_about_the_user(cleaned)
+    if not (live or world or _continues_searchable_topic(cleaned, prior_user_messages)):
         return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
     classification = await classify_web_search(
         text,
