@@ -238,14 +238,18 @@ def test_work_check_declines_out_of_scope(lines: list[str]) -> None:
 def test_reply_marks_lines_explains_and_fixes() -> None:
     reply = _reply("Check my work:\n2x + 3 = 11\n2x = 14\nx = 7")
     assert reply is not None
-    # The student's lines, graded, are the Given; the slip and the fix are the Steps.
+    # The student's lines, graded, are the Given; the slip, then the fix as numbered moves.
     assert reply.startswith("**Given**  \n$2x + 3 = 11$ — the problem  \n")
     assert "$2x = 14$ — \u2717  \n" in reply
     assert "$x = 7$ — follows, but carries the line 2 slip" in reply
     assert "Line 2: A term changes sign" in reply
     assert "$11 - 3 = 8$" in reply
     assert "Fixed from line 2:" in reply
-    assert "$2 x = 8$ — subtract $3$ from both sides" in reply
+    assert (
+        "**1. Subtract $3$ from both sides** — Subtraction property of equality  \n$2 x = 8$"
+        in reply
+    )
+    assert "**Steps**" not in reply
     assert reply.rstrip().endswith("```answer\nx = 4\n```")
 
 
@@ -280,7 +284,9 @@ def test_correct_work_reply_confirms_and_shows_the_answer() -> None:
     assert reply is not None
     assert reply.count("\u2713") == 2
     assert "Every step checks out." in reply
-    assert "$2 (4) + 3 = 11$ — check" in reply
+    # They asked for a check: it is a numbered move, not a "— check" note.
+    assert "**1. Check** — Put the answer back into the equation  \n$2 (4) + 3 = 11$" in reply
+    assert "**Steps**" not in reply
     assert "```answer\nx = 4\n```" in reply
 
 

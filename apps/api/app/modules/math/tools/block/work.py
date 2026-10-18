@@ -13,7 +13,7 @@ from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.work_check import WorkCheck, check_work
 from app.modules.math.tools.block.canonical import _answer_canonical
 from app.services.solving import VerifiedMathBlock
-from app.services.workout import Workout, math_line, render_workout, text_line
+from app.services.workout import Workout, math_line, render_workout
 
 
 def _verified_block_work_check(
@@ -57,60 +57,65 @@ def _graded_lines(check: WorkCheck) -> tuple[str, ...]:
     return tuple(math_line(tex, _verdict(check, index)) for index, tex in enumerate(check.lines))
 
 
-def _trace(check: WorkCheck) -> list[str]:
-    from app.modules.math.tools.lesson import trace_lines
+def _numbered(check: WorkCheck) -> str:
+    """The rest of the solve as numbered moves, the lesson layout."""
+    from app.modules.math.tools.lesson import numbered_steps
 
-    _formulas, lines = trace_lines(check.steps, given_latex="", answer=check.answer)
-    return lines
+    _formulas, numbered = numbered_steps(check.steps, given_latex="", answer=check.answer)
+    return numbered
 
 
 def _lower_first(text: str) -> str:
     return text[:1].lower() + text[1:] if text else text
 
 
+def _reply(given: tuple[str, ...], parts: list[str], answer: str | None) -> str:
+    """Given, then sentences and numbered moves (never a **Steps** list), then Answer."""
+    body = "\n\n".join(part for part in parts if part.strip())
+    if answer is None:
+        # A hint keeps the answer back, so the layout stops before Answer.
+        return (
+            render_workout(Workout(given=given), before_answer=body).removesuffix("\n\n**Answer**")
+            + "\n"
+        )
+    return render_workout(Workout(given=given), answer, before_answer=body)
+
+
 def format_work_check_reply(check: WorkCheck, *, hint_only: bool = False) -> str:
-    """The student's lines, graded, under Given; the slip and the fix under Steps."""
+    """The student's lines, graded, under Given; the verdict, then the fix as numbered moves."""
     given = _graded_lines(check)
     mistake = check.mistake
     if mistake is None:
         if check.finished:
-            steps = [text_line("Every step checks out.")]
+            parts = ["Every step checks out."]
             if check.check and not hint_only:
-                steps.append(math_line(check.check, "check"))
-            return render_workout(Workout(given=given, steps=tuple(steps)), check.answer)
+                rule = "Put the answer back into the equation"
+                parts.append(f"**1. Check** — {rule}  \n${check.check}$")
+            return _reply(given, parts, check.answer)
         if hint_only:
             nudge = "Everything so far is right."
             if check.steps:
                 nudge += f" Next move: {_lower_first(check.steps[0].label)}."
-            return _without_answer(Workout(given=given, steps=(text_line(nudge),)))
-        steps = [text_line("Everything so far is right. To finish:"), *_trace(check)]
-        return render_workout(Workout(given=given, steps=tuple(steps)), check.answer)
+            return _reply(given, [nudge], None)
+        finish = ["Everything so far is right. To finish:", _numbered(check)]
+        return _reply(given, finish, check.answer)
     if hint_only:
-        return _without_answer(Workout(given=given, steps=(text_line(f"Hint: {mistake.hint}"),)))
-    steps = []
+        return _reply(given, [f"Hint: {mistake.hint}"], None)
+    parts = []
     if check.right_answer:
-        steps.append(
-            text_line(
-                f"Your final answer is right, but line {mistake.line} does not follow "
-                f"from line {mistake.line - 1}."
-            )
+        parts.append(
+            f"Your final answer is right, but line {mistake.line} does not follow "
+            f"from line {mistake.line - 1}."
         )
-    steps.append(text_line(f"Line {mistake.line}: {mistake.explanation}"))
+    parts.append(f"Line {mistake.line}: {mistake.explanation}")
     if check.steps:
-        steps.append(
-            text_line(
-                f"Fixed from line {mistake.line}:"
-                if mistake.fixed_tex is not None
-                else f"Starting again from line {mistake.line - 1}:"
-            )
+        parts.append(
+            f"Fixed from line {mistake.line}:"
+            if mistake.fixed_tex is not None
+            else f"Starting again from line {mistake.line - 1}:"
         )
-        steps.extend(_trace(check))
-    return render_workout(Workout(given=given, steps=tuple(steps)), check.answer)
-
-
-def _without_answer(workout: Workout) -> str:
-    """A hint keeps the answer back, so the layout stops before Answer."""
-    return render_workout(workout).removesuffix("\n\n**Answer**") + "\n"
+        parts.append(_numbered(check))
+    return _reply(given, parts, check.answer)
 
 
 def _summary_lines(check: WorkCheck, *, hint_only: bool) -> list[str]:

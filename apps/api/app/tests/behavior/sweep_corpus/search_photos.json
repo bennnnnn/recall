@@ -1366,5 +1366,26 @@
   "prompt": "what is photosynthesis",
   "reply": "Photosynthesis is how plants turn light into chemical energy.",
   "expect": "answer"
+ },
+ {
+  "id": "sp-144",
+  "area": "chitchat",
+  "prompt": "what is the tallest mountain in the world",
+  "reply": "Mount Everest, at 8,849 metres.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-145",
+  "area": "chitchat",
+  "prompt": "how far is the moon from the earth",
+  "reply": "About 384,400 km on average.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-146",
+  "area": "search",
+  "prompt": "what's happening in the world today",
+  "reply": "Here are today's top stories from the results above.",
+  "expect": "search"
  }
 ]

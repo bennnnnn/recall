@@ -4,6 +4,7 @@
  * docs/fixtures/presentation_cases.json holds both to the same output.
  */
 
+import { finishInline, keepHardBreak } from "@/lib/markdown/calculationLayoutTail";
 import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
 import { displayMathLines, leaveProseLine, rewriteFenced } from "@/lib/markdown/markdownRegions";
 import { charAt, LETTER } from "@/lib/markdown/unicodeChars";
@@ -341,8 +342,7 @@ function layoutInline(body: string): string {
     index = cursor;
   }
   if (!changed) return body;
-  if (buf.trim()) parts.push(parts.length > 0 ? buf.trimStart() : buf);
-  return parts.join("\n");
+  return finishInline(parts, buf);
 }
 
 function withIndent(body: string, joined: string): string {
@@ -368,7 +368,7 @@ function layoutBody(body: string): string {
   if (sole) {
     const rows = splitMathExpression(sole.inner);
     if (!rows) return body;
-    return withIndent(body, joinRows(rows, sole.delim, sole.punct));
+    return withIndent(body, keepHardBreak(body, joinRows(rows, sole.delim, sole.punct)));
   }
   // A closed \[...\] on one line is one display formula, drawn as a maths block.
   if (!body.includes("$") && !body.includes("`") && !body.includes("\\[")) {

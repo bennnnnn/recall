@@ -140,7 +140,7 @@ _NEWS = re.compile(
     r"what(?:['\u2019]s| is) (?:happening|going on|new(?!\s+with\s+(?:you|u|ya|yourself)\b)|in the news)"
     r"|top (?:news|stories|headlines)"
     r"|news (?:today|this week|stories)"
-    r"|in the world(?: today)?"
+    r"|in the world today"
     r"|world news|current events"
     r"|what(?:['\u2019]s| is) cookin(?:['\u2019]|g)?(?: in the world)?"
     r")\b",

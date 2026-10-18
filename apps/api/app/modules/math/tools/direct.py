@@ -23,6 +23,7 @@ from app.modules.math.tools.lesson import (
     wants_answer_check,
     wants_detailed_math_explanation,
     wants_math_explanation,
+    with_requested_check,
 )
 from app.services.solving import VerifiedMathBlock
 
@@ -446,8 +447,7 @@ def maybe_direct_math_reply(
 
     response_intent = verified.response_intent or classify_math_response_intent(user_text)
     if verified.direct_reply is not None:
-        # Rendered by the builder from verified data (check my work). With a
-        # photo attached the model reads it, so the image is not ignored.
+        # Built from verified data (check my work); with a photo the model reads it.
         if has_image_attachment:
             return None
         if not response_intent.reveal_answer and verified.canonical_answer is not None:
@@ -482,7 +482,7 @@ def maybe_direct_math_reply(
                 return None
         if response_intent.mode == MathResponseMode.ANSWER_ONLY and verified.canonical_answer:
             return f"```answer\n{_chip_answer(verified, answer_only=True)}\n```\n"
-        return verified.direct_reply
+        return with_requested_check(verified.direct_reply, verified, user_text)
     if not can_direct_verified_math_reply(
         verified,
         user_text,

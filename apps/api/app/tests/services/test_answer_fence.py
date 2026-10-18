@@ -18,6 +18,20 @@ from app.services.answer_fence import (
 )
 
 
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "**Substitution**  \n$s = 3$\n\n**Answer**\n\n**Answer**\n",
+        "**Substitution**  \n$s = 3$\n\n**Answer**\n\n**Answer:** $s = 37.5$\n",
+    ],
+)
+def test_land_keeps_one_answer_heading_when_the_model_wrote_two(reply: str) -> None:
+    # Physics follow-ups ("how far does it go?") showed **Answer** twice above the card.
+    landed = land_answer_card(reply, "verified: true\n37.5")
+    assert landed.count("**Answer**") == 1
+    assert "**Answer**\n\n```answer\nverified: true\n37.5\n```" in landed
+
+
 def test_the_server_card_opens_with_the_marker_once() -> None:
     card = verified_answer_fence("x = 6")
     assert card == "```answer\nverified: true\nx = 6\n```"

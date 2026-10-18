@@ -10,6 +10,7 @@ from app.modules.math.tools.direct_geometry_working.layout import (
     figure_unit,
     given,
     number,
+    root_of_squares,
     section,
     unit_tex,
 )
@@ -95,7 +96,7 @@ def rectangle_diagonal(request: GeometryRequest, spec: Spec, result: str) -> str
         "Diagonal ($d$)",
         "Pythagorean theorem",
         [r"d^2 = l^2 + w^2", r"d = \sqrt{l^2 + w^2}"],
-        [rf"d = \sqrt{{{display(length)}^2 + {display(width)}^2}} = {result}"],
+        [root_of_squares("d", length, width, result)],
     )
 
 

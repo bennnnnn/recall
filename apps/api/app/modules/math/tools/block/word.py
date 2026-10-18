@@ -19,7 +19,7 @@ from app.modules.math.schemas.word_problem import WordProblemSetup
 from app.modules.math.solve.word_problem import WordSolution, solve_word_problem
 from app.modules.math.tools.block.canonical import _answer_canonical
 from app.services.solving import VerifiedMathBlock
-from app.services.workout import Workout, math_line, render_workout, text_line
+from app.services.workout import Workout, math_line, render_workout
 
 _PLAIN = re.compile(r"[^A-Za-z0-9 ,.'()%/-]")
 _UNIT = re.compile(r"[^A-Za-z ]")
@@ -49,6 +49,7 @@ def _verified_block_word_problem(
         canonical_fence=_answer_canonical(answer),
         canonical_answer=answer,
         direct_reply=format_word_problem_reply(setup, solution, answer),
+        check_latex=solution.check,
     )
 
 
@@ -85,7 +86,7 @@ def _answer_sentence(setup: WordProblemSetup, solution: WordSolution) -> str:
 
 def format_word_problem_reply(setup: WordProblemSetup, solution: WordSolution, answer: str) -> str:
     """Given: each equation with the words it comes from. Find: what each letter is."""
-    from app.modules.math.tools.lesson import trace_lines
+    from app.modules.math.tools.lesson import numbered_steps
 
     find = tuple(
         math_line(
@@ -98,14 +99,19 @@ def format_word_problem_reply(setup: WordProblemSetup, solution: WordSolution, a
         math_line(tex, f'"{_plain(item.source)}"' if _plain(item.source) else None)
         for tex, item in zip(solution.equations, setup.equations, strict=True)
     )
+    # The lesson layout: a bold numbered move with its rule, then its working. The
+    # check waits until it is asked for (``check_latex``, ``with_requested_check``).
+    formulas: list[str] = []
     if solution.steps:
-        _formulas, lines = trace_lines(
-            solution.steps, given_latex="", answer=answer, variable=setup.unknowns[0].symbol
+        # "g = 5", not "5 books": the last move ends on the solved letter.
+        solved = r",\; ".join(f"{name} = {latex(value)}" for name, value in solution.values)
+        formulas, numbered = numbered_steps(
+            solution.steps, given_latex="", answer=solved, variable=setup.unknowns[0].symbol
         )
     else:
         values = r",\; ".join(f"{name} = {latex(value)}" for name, value in solution.values)
-        lines = [math_line(values, "solve")]
-    if solution.check:
-        lines.append(math_line(solution.check, "check"))
-    lines.append(text_line(_answer_sentence(setup, solution)))
-    return render_workout(Workout(given=given, find=find, steps=tuple(lines)), answer)
+        numbered = f"**1. Solve the equations**  \n${values}$"
+    workout = Workout(given=given, find=find, formula=tuple(formulas))
+    return render_workout(
+        workout, answer, before_answer=f"{numbered}\n\n{_answer_sentence(setup, solution)}"
+    )

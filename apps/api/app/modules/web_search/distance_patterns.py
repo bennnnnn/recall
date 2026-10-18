@@ -108,7 +108,14 @@ _FROM_USER = re.compile(
     re.IGNORECASE,
 )
 
-_FIXED_DISTANCE_FROM = re.compile(r"\bdistance\s+from\b", re.IGNORECASE)
+# A fixed A-to-B distance names its own origin: "distance from the sun to Mars",
+# "how far is the moon from the earth". From "me", "here" or "my house" it is a trip.
+# Keep in sync with apps/mobile/lib/localPlacesQuery.ts FIXED_DISTANCE_FROM.
+_FIXED_DISTANCE_FROM = re.compile(
+    r"\bdistance\s+from\b"
+    r"|\bhow\s+far\s+(?:away\s+)?is\s+[\w' -]{1,40}?\s+from\s+(?!(?:me|here|my|our)\b)",
+    re.IGNORECASE,
+)
 
 # "How many minutes to the airport?" asks about a trip; "how many minutes in a
 # good nap", "how many minutes to boil an egg" or "how many miles is a 5k run?"

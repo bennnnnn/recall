@@ -3,8 +3,16 @@
 import pytest
 
 from app.modules.physics.extract import extract_physics_intent
-from app.modules.physics.followup import physics_followup_problem
+from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, physics_followup_problem
 from app.tests.modules.physics.test_physics_binding import _answer
+
+
+def test_followup_hint_never_compares_with_the_earlier_answer() -> None:
+    # "And after 10 s?" opened with "The previous result of 30 m/s corresponds to
+    # a time of 10 s, not 5 s".
+    assert "never compare it with or comment on the earlier answer" in PHYSICS_FOLLOWUP_HINT
+    assert "changed given under Given" in PHYSICS_FOLLOWUP_HINT
+
 
 _DROP = "A ball is dropped from 80 m. Find its speed just before it hits the ground."
 _FORCE = "A block of mass 5 kg accelerates at 2 m/s^2. Find the force."
