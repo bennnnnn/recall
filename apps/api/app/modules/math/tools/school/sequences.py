@@ -1,11 +1,11 @@
-"""Sequence extractor and verified blocks."""
+"""Sequence extractors and verified blocks."""
 
 from __future__ import annotations
 
-from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.services.number_text import DECIMAL_LITERAL
 from app.services.text_match import word_index
 
 _SEQUENCE_LIST_MAX = 20
@@ -119,13 +119,40 @@ def _extract_sequence_intent(cleaned: str) -> MathIntent | None:
     if not math_school.is_ap_or_gp(terms):
         return None
     expected = 1 if named is not None else 1 + len(terms)
-    if len(list(mtm._NUM.finditer(cleaned))) != expected:
+    if len(list(DECIMAL_LITERAL.finditer(cleaned))) != expected:
         return None
     return MathIntent(
         kind="arithmetic",
         school_op=op,
         stats_numbers=terms,
         combo_n=n,
+        operation="solve",
+    )
+
+
+def extract_infinite_geometric(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if "infinity" not in lower and "infinite" not in lower:
+        return None
+    if "sum" not in lower and "series" not in lower:
+        return None
+    from app.modules.math.formulas import is_convergent_geometric
+    from app.modules.math.match.discrete import numeric_data_values
+
+    idx = lower.rfind(" of ")
+    if idx == -1:
+        return None
+    terms = numeric_data_values(cleaned[idx + 4 :])
+    if terms is None or len(terms) < 3:
+        return None
+    if len(list(DECIMAL_LITERAL.finditer(cleaned))) != len(terms):
+        return None
+    if not is_convergent_geometric(terms):
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="infinite_gp",
+        stats_numbers=terms,
         operation="solve",
     )
 

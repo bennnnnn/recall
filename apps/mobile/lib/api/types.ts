@@ -1,3 +1,4 @@
+import type { PlanFeature, PlanId } from "@/lib/plan";
 import type { SearchSource } from "@/lib/searchSources";
 
 export type { SearchSource };
@@ -21,7 +22,9 @@ export type User = {
   name: string | null;
   avatar_url: string | null;
   default_model: string;
-  plan: "free" | "pro";
+  plan: PlanId;
+  /** What the plan includes (display only; the server checks every request). */
+  features?: PlanFeature[];
   enabled_models: string[] | null;
   response_style: string;
   response_tone: string;
@@ -175,6 +178,8 @@ export type Usage = {
   recent_message_window?: number;
 };
 
+/** One entry of GET /models. The server also sends prices and quota
+ * multipliers; the phone neither shows nor keeps them, so it leaves them out. */
 export type ModelInfo = {
   id: string;
   label: string;
@@ -182,9 +187,6 @@ export type ModelInfo = {
   tier: string;
   plan_access: "free" | "pro";
   available: boolean;
-  input_price_per_m: number | null;
-  output_price_per_m: number | null;
-  quota_multiplier: number;
   healthy?: boolean;
   latency_p50_ms?: number | null;
   health_samples?: number;

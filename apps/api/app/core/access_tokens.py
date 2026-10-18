@@ -23,6 +23,7 @@ from app.gateways.google_auth import GoogleAuthError
 logger = logging.getLogger(__name__)
 
 REVOKED_PREFIX = "revoked:jti:"
+REVOKED_SESSION_PREFIX = "revoked:sid:"
 REVOKED_SINCE_PREFIX = "revoked_since:"
 
 
@@ -33,6 +34,11 @@ def redis_str(value: str | bytes) -> str:
 
 def revoked_key(jti: str) -> str:
     return f"{REVOKED_PREFIX}{jti}"
+
+
+def revoked_session_key(session_id: str) -> str:
+    """One signed-in device (the ``sid`` claim), revoked from another device."""
+    return f"{REVOKED_SESSION_PREFIX}{session_id}"
 
 
 def revoked_since_key(user_id: UUID) -> str:
@@ -71,6 +77,10 @@ async def is_access_revoked(redis: Redis, jti: str) -> bool:
     return bool(await redis.get(revoked_key(jti)))
 
 
+async def is_session_revoked(redis: Redis, session_id: str) -> bool:
+    return bool(await redis.get(revoked_session_key(session_id)))
+
+
 async def _is_access_revoked_since(redis: Redis, user_id: UUID, issued_at: float | None) -> bool:
     if issued_at is None:
         return False
@@ -87,8 +97,11 @@ async def verify_access_token(redis: Redis, token: str, settings: Settings) -> U
     except (jwt.PyJWTError, ValueError, KeyError) as exc:
         raise GoogleAuthError("Invalid access token") from exc
     jti = payload.get("jti")
+    sid = payload.get("sid")
     try:
         if jti and await is_access_revoked(redis, str(jti)):
+            raise GoogleAuthError("Token revoked")
+        if isinstance(sid, str) and sid and await is_session_revoked(redis, sid):
             raise GoogleAuthError("Token revoked")
         user_id = UUID(payload["sub"])
         if await _is_access_revoked_since(redis, user_id, payload.get("iat")):

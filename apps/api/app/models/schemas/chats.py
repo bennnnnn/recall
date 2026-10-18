@@ -121,10 +121,6 @@ class ChatMessageRequest(_StreamClientContext):
     attachment_ids: list[UUID] = Field(default_factory=list, max_length=10)
 
 
-class TitleGenerationResult(BaseModel):
-    title: str = Field(min_length=3, max_length=80)
-
-
 class SearchResultItem(BaseModel):
     match_type: Literal["message", "title"] = "message"
     message_id: UUID | None = None

@@ -1,0 +1,82 @@
+"""The shared Given / Find / Formula / Substitution layout of a geometry working."""
+
+from __future__ import annotations
+
+import math
+import re
+from collections.abc import Callable, Mapping
+
+from app.modules.math.schemas import GeometryRequest
+from app.services.workout import Workout, math_line, render_workout
+from app.services.workout import formula_name as law_name
+
+# (what was asked, the verified figure's measures, the verified result) -> layout
+Working = Callable[[GeometryRequest, Mapping[str, object], str], str | None]
+
+
+def number(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    result = float(value)
+    return result if math.isfinite(result) else None
+
+
+def display(value: float) -> str:
+    """Keep significant decimals while never adding cosmetic trailing zeroes."""
+    return format(value, ".12g")
+
+
+def figure_unit(spec: Mapping[str, object]) -> str:
+    unit = spec.get("unit")
+    return unit if isinstance(unit, str) else "units"
+
+
+def unit_tex(unit: object) -> str:
+    text = unit if isinstance(unit, str) and unit else "units"
+    safe = text.replace("\\", "").replace("{", "").replace("}", "")
+    return rf"\mathrm{{{safe}}}"
+
+
+def given(label: str, symbol: str, value: float, unit: str) -> str:
+    return rf"{label}: ${symbol} = {display(value)}\,{unit_tex(unit)}$"
+
+
+_LABELLED = re.compile(r"^(?P<label>[^:$]+):\s*\$(?P<tex>[^$]+)\$$")
+_NAMED_FIND = re.compile(r"^(?P<name>[^($]+?)\s*\(\$(?P<tex>[^$]+)\$\)$")
+
+
+def _labelled_line(line: str) -> str:
+    """``Base: $b = 6$`` → ``$b = 6$ — base``: the value first, its name as the note."""
+    match = _LABELLED.match(line.strip())
+    if match is None:
+        return line
+    return math_line(match.group("tex"), match.group("label").strip().lower())
+
+
+def _find_line(find: str) -> str:
+    match = _NAMED_FIND.match(find.strip())
+    if match is None:
+        return find
+    return math_line(match.group("tex"), match.group("name").strip().lower())
+
+
+def section(
+    givens: list[str],
+    find: str,
+    formula_name: str,
+    formulas: list[str],
+    substitutions: list[str],
+) -> str:
+    """The shared workout layout; the caller's answer fence follows **Answer**."""
+    name = law_name(formula_name)
+    formula_lines = [
+        math_line(formula, name if index == 0 else None) for index, formula in enumerate(formulas)
+    ]
+    return render_workout(
+        Workout(
+            given=tuple(_labelled_line(line) for line in givens),
+            find=(_find_line(find),),
+            formula=tuple(formula_lines),
+            substitution=tuple(math_line(line) for line in substitutions),
+        )
+    )

@@ -7,12 +7,11 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
-from app.modules.chat.prompt_builder import _style_format_hints
-from app.modules.chat.prompt_constants import MATH_INTENT_HINT, MATH_TUTORING_HINT
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.chat.tool_loop import run_tool_rounds
+from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY, MATH_TUTORING_HINT
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import augment_prompt_messages, needs_symbolic_math
-from app.services.tool_loop import run_tool_rounds
 from app.services.workout import (
     MATH_WORKOUT_PROMPT_RULE,
     SELF_CHECK_PROMPT_RULE,
@@ -167,10 +166,11 @@ async def test_tool_math_guidance_follows_actual_results_before_visible_answer(
         else {},
     )
     with (
-        patch("app.services.tool_loop._tools_for_user", return_value=_TOOLS),
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.rounds._tools_for_user", return_value=_TOOLS),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
         patch(
-            "app.services.tool_loop.mcp_registry.invoke_validated", AsyncMock(return_value=result)
+            "app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated",
+            AsyncMock(return_value=result),
         ),
     ):
         prepared, verified, _, _ = await run_tool_rounds(
@@ -206,9 +206,9 @@ async def test_cancelled_unanswered_math_round_does_not_inject_guidance() -> Non
         }
     )
     with (
-        patch("app.services.tool_loop._tools_for_user", return_value=_TOOLS),
-        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.tool_loop.mcp_registry.invoke_validated", side_effect=invoke),
+        patch("app.modules.chat.tool_loop.rounds._tools_for_user", return_value=_TOOLS),
+        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", side_effect=invoke),
     ):
         prepared, _, _, _ = await run_tool_rounds(
             settings=Settings(mcp_tool_loop_enabled=True, web_search_enabled=False),
@@ -229,9 +229,10 @@ async def test_prior_math_tool_call_does_not_add_guidance_to_unrelated_current_t
         {"role": "user", "content": "Hello"},
     ]
     with (
-        patch("app.services.tool_loop._tools_for_user", return_value=_TOOLS),
+        patch("app.modules.chat.tool_loop.rounds._tools_for_user", return_value=_TOOLS),
         patch(
-            "app.services.tool_loop.litellm_gateway.complete_with_tools", AsyncMock(return_value={})
+            "app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools",
+            AsyncMock(return_value={}),
         ),
     ):
         prepared, _, _, _ = await run_tool_rounds(

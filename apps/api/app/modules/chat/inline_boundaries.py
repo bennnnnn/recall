@@ -2,13 +2,18 @@
 
 Models sometimes emit ``at**40 km/h**``. CommonMark then draws ``at40``.
 This repairs that boundary in assistant prose. It does not rewrite code
-fences, indented code, blockquotes, URLs, math bodies, or punctuation.
+fences, indented code, blockquotes, URLs, math bodies, or punctuation. The
+phone's twin is apps/mobile/lib/markdown/inlineBoundaries.ts.
 """
 
 from __future__ import annotations
 
-from app.modules.chat.inline_code import code_span_opens_within, is_bare_number
-from app.modules.chat.markdown_regions import leave_prose_line, map_prose_outside_fences
+from app.modules.chat.inline_code import code_span_opens_within, escaped_at, is_bare_number
+from app.modules.chat.markdown_regions import (
+    PRICE_TIER,
+    leave_prose_line,
+    map_prose_outside_fences,
+)
 
 _OPEN_PUNCT = set('([{"' + "\u201c\u2018\u00ab")
 _CLOSE_PUNCT = set('.,;:!?)]}"' + "\u201d\u2019\u00bb\u2026\u2014\u2013/%")
@@ -33,6 +38,8 @@ def _is_cjk(char: str) -> bool:
         or 0xAC00 <= code <= 0xD7AF
         or 0x0E00 <= code <= 0x0E7F
         or 0xF900 <= code <= 0xFAFF
+        # The supplementary ideographic planes (CJK extensions B and later).
+        or 0x20000 <= code <= 0x3FFFF
     )
 
 
@@ -80,6 +87,11 @@ def _read_url(text: str, index: int) -> int | None:
     return cursor
 
 
+def _read_price_tier(text: str, index: int) -> int | None:
+    tier = PRICE_TIER.match(text, index)
+    return tier.end() if tier is not None else None
+
+
 def _read_code(text: str, index: int) -> int | None:
     if text[index] != "`":
         return None
@@ -93,17 +105,8 @@ def _read_code(text: str, index: int) -> int | None:
     return close + length
 
 
-def _escaped_dollar(text: str, index: int) -> bool:
-    slashes = 0
-    cursor = index - 1
-    while cursor >= 0 and text[cursor] == "\\":
-        slashes += 1
-        cursor -= 1
-    return slashes % 2 == 1
-
-
 def _read_math(text: str, index: int) -> int | None:
-    if _escaped_dollar(text, index):
+    if escaped_at(text, index):
         return None
     if text.startswith("$$", index):
         close = text.find("$$", index + 2)
@@ -119,7 +122,7 @@ def _read_math(text: str, index: int) -> int | None:
         close = text.find("$", start)
         if close < 0 or "\n" in text[index + 1 : close]:
             return None
-        if _escaped_dollar(text, close):
+        if escaped_at(text, close):
             start = close + 1
             continue
         if close + 1 < len(text) and text[close + 1] == "$":
@@ -213,10 +216,11 @@ def _repair_line(line: str) -> str:
             out.append(line[index:end])
             index = end
             continue
-        url_end = _read_url(line, index)
-        if url_end is not None:
-            out.append(line[index:url_end])
-            index = url_end
+        # A URL or a ($$) price tier is copied as written.
+        verbatim_end = _read_url(line, index) or _read_price_tier(line, index)
+        if verbatim_end is not None:
+            out.append(line[index:verbatim_end])
+            index = verbatim_end
             continue
         for reader in (_read_code, _read_math, _read_link, _read_bold, _read_emphasis):
             span_end = reader(line, index)

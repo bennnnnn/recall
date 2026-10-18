@@ -14,6 +14,7 @@ const mockFeedback = { error: jest.fn(), success: jest.fn() };
 const mockRouter = { back: jest.fn(), push: jest.fn() };
 let mockDocuments: MemoryDocument[] = [];
 let mockLoading = false;
+let mockError = false;
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token-a" }) }));
@@ -84,6 +85,7 @@ jest.mock("@/features/memory/hooks/useMemoryDocuments", () => ({
   useMemoryDocuments: () => ({
     documents: mockDocuments,
     loading: mockLoading,
+    error: mockError,
     load: mockLoad,
     instruct: mockInstruct,
     deleteDocument: mockDeleteDocument,
@@ -110,6 +112,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockKey = "area:recall";
   mockLoading = false;
+  mockError = false;
   mockConfirm.mockResolvedValue(true);
   mockDocuments = [
     {
@@ -198,5 +201,16 @@ describe("MemoryDocumentScreen", () => {
     expect(mockLoad).toHaveBeenCalled();
     await fireEvent.press(ui.getByText("memory.document_gone"));
     expect(mockRouter.back).toHaveBeenCalled();
+  });
+
+  it("says the pages failed to load instead of calling the page gone, and retries", async () => {
+    mockKey = "area:unknown";
+    mockDocuments = [];
+    mockError = true;
+    const ui = await render(<MemoryDocumentScreen />);
+    expect(ui.queryByText("memory.document_gone")).toBeNull();
+    mockLoad.mockClear();
+    await fireEvent.press(ui.getByText("common.error"));
+    expect(mockLoad).toHaveBeenCalledTimes(1);
   });
 });

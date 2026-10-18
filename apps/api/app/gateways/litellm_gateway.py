@@ -30,7 +30,7 @@ from app.gateways.structured_completion import (
 from app.gateways.structured_completion import (
     complete_structured as complete_structured,
 )
-from app.gateways.think_stripper import ThinkStripper
+from app.gateways.think_stripper import STRAY_THINK_LEAD_HOLD, ThinkStripper
 from app.models import model_catalog
 from app.models.model_catalog import ChatModel
 
@@ -58,10 +58,6 @@ _CHAT_MODEL_UNAVAILABLE_MSG = (
 )
 
 
-def resolve_model(alias: str) -> str:
-    return model_catalog.get(alias).model
-
-
 async def _acompletion_with_fallback(
     settings: Settings,
     primary_alias: str,
@@ -82,7 +78,7 @@ async def _acompletion_with_fallback(
             continue
         try:
             route = resolve_route(alias)
-            kwargs = _litellm_kwargs(settings, route)
+            kwargs = _litellm_kwargs(settings, route, thinking=False)
             params: dict[str, Any] = dict(
                 model=route.model, messages=messages, max_tokens=max_tokens, **kwargs
             )
@@ -131,6 +127,15 @@ def _reasoning_disabled(mode: str | None) -> dict[str, Any] | None:
     return None
 
 
+def _reasoning_enabled(mode: str | None) -> dict[str, Any] | None:
+    """OpenRouter body that turns thinking on. Unknown modes send nothing."""
+    if mode == "on":
+        return {"enabled": True}
+    if mode in {"low", "medium", "high"}:
+        return {"effort": mode}
+    return None
+
+
 def _litellm_kwargs(
     settings: Settings,
     route: ChatModel,
@@ -163,14 +168,18 @@ def _litellm_kwargs(
         # on the critical path before the user-visible stream.
         if latency_sensitive:
             kwargs["extra_body"] = {"provider": {"sort": "latency"}}
-    # Ordinary questions must not wait on a thinking pass. Hard jobs leave
-    # this unset so the model keeps its own default. A model that rejects a
-    # disable (R1) has no thinking_off and is left alone.
+    # Ordinary questions must not wait on a thinking pass. A hard job keeps
+    # the model's own default unless the model needs asking (thinking_on: a
+    # hybrid whose default is not to think). A model whose reasoning cannot be
+    # disabled has no "off" thinking_off.
+    reasoning = None
     if thinking is False:
-        disabled = _reasoning_disabled(route.thinking_off)
-        if disabled is not None:
-            kwargs.setdefault("extra_body", {})
-            kwargs["extra_body"]["reasoning"] = disabled
+        reasoning = _reasoning_disabled(route.thinking_off)
+    elif thinking is True:
+        reasoning = _reasoning_enabled(route.thinking_on)
+    if reasoning is not None:
+        kwargs.setdefault("extra_body", {})
+        kwargs["extra_body"]["reasoning"] = reasoning
     return kwargs
 
 
@@ -332,7 +341,7 @@ async def _stream_chat_once(
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=thinking)
-    stripper = ThinkStripper()
+    stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD if route.stray_think_guard else 0)
     # Signature kept so WS/SSE callers stay unchanged; CoT is not forwarded.
     _ = on_reasoning
     response = None
@@ -504,53 +513,6 @@ async def complete_text(
         return None
 
 
-async def vision_completion(
-    *,
-    settings: Settings,
-    model_alias: str,
-    messages: list[dict[str, Any]],
-    max_tokens: int,
-    response_format: dict[str, str] | None = None,
-    timeout_seconds: float | None = None,
-) -> Any | None:
-    """Non-streaming vision completion (image input) against a vision route.
-
-    Returns the LiteLLM response object, or None on provider
-    outage/timeout. This is the gateway seam for image-input completions
-    (camera math OCR) so services don't call ``litellm.acompletion`` directly
-    (layering: external IO belongs in gateways).
-
-    Deliberately does NOT retry against ``memory_fallback_model_alias``:
-    that alias is a text background model with no image-input support, so a
-    retry would always fail. A vision-capable fallback can be wired in later
-    by configuring a second vision alias; until then a single attempt with
-    honest None-on-failure is the correct behavior (OCR is best-effort and
-    must never raise into the chat path).
-    """
-    if mock_llm.should_mock_llm(settings):
-        return None
-    route = resolve_route(model_alias)
-    kwargs = _litellm_kwargs(settings, route)  # ModelUnavailableError if no key
-    params: dict[str, Any] = dict(
-        model=route.model, messages=messages, max_tokens=max_tokens, **kwargs
-    )
-    if response_format is not None:
-        params["response_format"] = response_format
-    timeout = (
-        settings.background_llm_timeout_seconds if timeout_seconds is None else timeout_seconds
-    )
-    try:
-        async with asyncio.timeout(timeout):
-            return await acompletion(**params)
-    except TimeoutError:
-        logger.warning("Vision LLM %s timed out after %ss", model_alias, timeout)
-        return None
-    except ModelUnavailableError:
-        raise
-    except Exception:
-        logger.warning("Vision LLM %s failed", model_alias, exc_info=True)
-        return None
-
-
-# Imported last: tool_completion reads this module's provider seams at call time.
+# Imported last: these modules read this module's provider seams at call time.
 from app.gateways.tool_completion import complete_with_tools as complete_with_tools  # noqa: E402
+from app.gateways.vision_completion import vision_completion as vision_completion  # noqa: E402

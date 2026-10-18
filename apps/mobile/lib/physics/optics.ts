@@ -249,7 +249,7 @@ export const DIAGRAM_MIN_HEIGHT = 120;
 /** Tallest it gets (square and tall scenes). */
 export const DIAGRAM_MAX_HEIGHT = 240;
 
-export type WorldTransform = { scale: number; offsetX: number; offsetY: number };
+type WorldTransform = { scale: number; offsetX: number; offsetY: number };
 export type ScreenPoint = { px: number; py: number };
 
 /** The canvas height that fits the scene box at the full width, within the limits. */
@@ -287,7 +287,7 @@ export function toScreen(x: number, y: number, t: WorldTransform): ScreenPoint {
 export type Box = { x: number; y: number; width: number; height: number };
 export type Segment = { x1: number; y1: number; x2: number; y2: number };
 
-export function boxesOverlap(a: Box, b: Box, gap = 0): boolean {
+function boxesOverlap(a: Box, b: Box, gap = 0): boolean {
   return (
     a.x < b.x + b.width + gap &&
     b.x < a.x + a.width + gap &&
@@ -333,8 +333,8 @@ export function clipSegment(segment: Segment, rect: Box): Segment | null {
 // --- labels and measure lines (shared with the wave diagram) --------------------
 
 /** Room a 12 pt label takes above its baseline (caps) and below it (descenders). */
-export const LABEL_ASCENT = 9;
-export const LABEL_DESCENT = 3;
+const LABEL_ASCENT = 9;
+const LABEL_DESCENT = 3;
 const LABEL_INSET = 4;
 
 /** A label: `x` is its left edge, `y` its baseline. */

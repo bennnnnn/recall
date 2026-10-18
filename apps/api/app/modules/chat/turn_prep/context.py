@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
@@ -13,73 +12,30 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
-from app.models.orm import Chat, User
-from app.modules import memory as memory_service
-from app.modules import web_search as web_search_service
-from app.modules.account import profile as profile_service
-from app.modules.account import settings_proposal as settings_proposal_service
-from app.modules.account.settings_intent import extract_settings_changes
+from app.models.orm import User
 from app.modules.billing import plan as plan_service
-from app.modules.chat.continuation_subject import (
-    blocks_math_followup,
-    chemistry_working_followup_problem,
+from app.modules.chat.prompt_builder import build_prompt_messages
+from app.modules.chat.turn_prep.augment import Augmentation, gather_and_inject
+from app.modules.chat.turn_prep.followups import resolve_subject_followup
+from app.modules.chat.turn_prep.instant import (
+    location_not_set_reply,
+    recurring_pay_reply,
+    resolve_instant_reply,
 )
-from app.modules.chat.prompt_builder import (
-    build_prompt_messages,
-    fetch_web_and_tools,
-    inject_web_and_tools,
-)
-from app.modules.chat.prompt_constants.routing import profile_question_to_answer
-from app.modules.chat.stream_status import StreamStatusFn
-from app.modules.chat.tool_gate import should_classify_tool_web_search
-from app.modules.chat.turn_prep.mode import (
-    _classify_turn_mode,
-    _should_augment_web_and_tools,
-    _TurnMode,
+from app.modules.chat.turn_prep.mode import _classify_turn_mode
+from app.modules.chat.turn_prep.request import (
+    ClientGeoContext,
+    TurnIdentity,
+    TurnRequest,
+    resolve_client_geo,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.modules.chemistry.followup import chemistry_followup_problem as resolve_chemistry_followup
-from app.modules.math.followup import (
-    answer_claim_problem,
-    math_working_followup_problem,
-    offered_equation_problem,
-    pronoun_math_problem,
-    restated_math_problem,
-)
-from app.modules.math.schemas import MathImageExtract
-from app.modules.math.tools.extract import is_graph_followup
-from app.modules.memory.profile_reply import reply_for_profile_question
-from app.modules.physics.followup import physics_followup_problem
-from app.modules.web_search.subject import (
-    collect_prior_user_messages as _prompt_prior_user_messages,
-)
-from app.modules.web_search.subject import last_assistant_content
 from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
-from app.services import recurring_pay as recurring_pay_service
 from app.services import time_context as time_context_service
 from app.services.solving import VerifiedSolveBlock
-from app.services.subject_solving import detect_subject, maybe_direct_subject_reply
-from app.services.text_normalize import collapse_ws
 
 logger = logging.getLogger(__name__)
-
-
-async def _load_prior_user_messages(chat_id: UUID) -> list[str]:
-    async with SessionLocal() as session:
-        return await messages_repo.recent_user_contents(session, chat_id)
-
-
-def _last_recent_assistant_content(recent_messages: list[Any] | None) -> str | None:
-    if not recent_messages:
-        return None
-    for message in reversed(recent_messages):
-        role = getattr(message, "role", None)
-        content = getattr(message, "content", None)
-        if role == "assistant" and isinstance(content, str) and content.strip():
-            return content.strip()
-    return None
 
 
 if TYPE_CHECKING:
@@ -93,17 +49,6 @@ class RegenerateBackup:
     # When set, the prior assistant row stays in the DB until finalize
     # succeeds (omit from the prompt instead of delete-before-stream).
     message_id: UUID | None = None
-
-
-@dataclass
-class ClientGeoContext:
-    user_location: str | None
-    client_lat: float | None
-    client_lng: float | None
-    has_geo_fix: bool
-    geo_query: bool
-    ambiguous_nearby: bool
-    local_places: bool
 
 
 @dataclass
@@ -253,479 +198,157 @@ async def await_user_message_persist(ctx: StreamContext) -> None:
     ctx.indexable_attachment_ids = await task
 
 
-def resolve_client_geo(
-    user: User,
-    content: str,
-    *,
-    client_location: str | None,
-    client_latitude: float | None,
-    client_longitude: float | None,
-) -> ClientGeoContext:
-    # Settings Location toggle is the opt-in. Ignore one-shot client geo when off
-    # so a stale/malicious client cannot bypass the user's choice.
-    if not getattr(user, "location_enabled", False):
-        client_location = None
-        client_latitude = None
-        client_longitude = None
-    normalized_client_location = profile_service.normalize_client_location(client_location)
-    client_coordinates = profile_service.normalize_client_coordinates(
-        client_latitude, client_longitude
-    )
-    user_location = profile_service.effective_location_label(user, normalized_client_location)
-    geo_query = web_search_service.is_geo_query(content)
-    location_question = time_context_service.is_location_question(content)
-    # "Where am I?" and nearby asks must use the fresh device fix, not a stale
-    # profile city (or prior-chat place names).
-    if geo_query or location_question:
-        user_location = normalized_client_location
-    client_lat = client_coordinates[0] if client_coordinates else None
-    client_lng = client_coordinates[1] if client_coordinates else None
-    has_geo_fix = bool(user_location) or client_coordinates is not None
-    local_places = web_search_service.is_places_list_query(content)
-    ambiguous_nearby = web_search_service.is_ambiguous_local_places_query(content)
-    if ambiguous_nearby:
-        local_places = False
-    return ClientGeoContext(
-        user_location=user_location,
-        client_lat=client_lat,
-        client_lng=client_lng,
-        has_geo_fix=has_geo_fix,
-        geo_query=geo_query or location_question,
-        ambiguous_nearby=ambiguous_nearby,
-        local_places=local_places,
-    )
+async def _load_turn_identity(request: TurnRequest) -> TurnIdentity:
+    """The user, chat and turn mode, with the turn's geo and clock resolved in memory.
 
-
-def _earlier_user_texts(recent_messages: list[Any] | None, content: str) -> list[str]:
-    texts = [
-        message.content
-        for message in recent_messages or []
-        if getattr(message, "role", None) == "user"
-        and isinstance(getattr(message, "content", None), str)
-    ]
-    if texts and collapse_ws(texts[-1]) == collapse_ws(content):
-        texts = texts[:-1]
-    return texts
-
-
-async def build_stream_prompt_context(
-    user_id: UUID,
-    chat_id: UUID,
-    content: str,
-    model: str,
-    settings: Settings,
-    redis: Redis,
-    *,
-    client_timezone: str | None,
-    client_location: str | None,
-    client_latitude: float | None,
-    client_longitude: float | None,
-    has_image_attachment: bool = False,
-    image_math_extract: MathImageExtract | None = None,
-    on_status: StreamStatusFn | None = None,
-    user: User | None = None,
-    chat: Chat | None = None,
-    timing: TurnTimingTracker | None = None,
-    omit_message_ids: set[UUID] | None = None,
-    force_rich_context: bool = False,
-    turn_mode: _TurnMode | None = None,
-    probe_attachment_rag: bool = True,
-    recent_messages: list[Any] | None = None,
-    current_user_message_id: UUID | None = None,
-) -> TurnPromptBundle:
-    """Shared prompt assembly for new turns and regenerate."""
-    if timing is not None:
-        timing.mark_phase("prepare_start")
-    meta: dict[str, Any] = {}
-    prompt_messages: list[dict[str, str]]
-    instant_reply: str | None = None
-    geo: ClientGeoContext
-    local_tz: str
-    max_out: int
-    fallback_models: list[str]
-    mode: _TurnMode
-
-    # Phase 1: ownership + turn mode. Skip a Neon checkout when prepare
-    # already passed user, chat, and mode — geo/tz are in-memory.
-    if user is not None and chat is not None and turn_mode is not None:
-        mode = turn_mode
-        if force_rich_context and not mode.rich_context:
-            mode = replace(mode, rich_context=True)
-        user_locale = user.locale
-        chat_summary = chat.summary
-        geo = resolve_client_geo(
-            user,
-            content,
-            client_location=client_location,
-            client_latitude=client_latitude,
-            client_longitude=client_longitude,
-        )
-        local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
-    else:
+    Prepare and regenerate pass all three, so a turn skips a Neon checkout; one
+    left out is read in a single short session.
+    """
+    user, chat, mode = request.user, request.chat, request.turn_mode
+    if user is None or chat is None or mode is None:
         async with SessionLocal() as session:
             if user is None:
-                user = await users_repo.get_by_id(session, user_id)
+                user = await users_repo.get_by_id(session, request.user_id)
                 if user is None:
                     raise ChatNotFoundError("User not found.")
             if chat is None:
-                chat = await chats_repo.get_by_id(session, chat_id, user_id)
+                chat = await chats_repo.get_by_id(session, request.chat_id, request.user_id)
                 if chat is None:
                     raise ChatNotFoundError("Chat not found.")
+            if mode is None:
+                mode = await _classify_turn_mode(session, chat, request.content)
+    if request.force_rich_context and not mode.rich_context:
+        mode = replace(mode, rich_context=True)
+    geo = resolve_client_geo(
+        user,
+        request.content,
+        client_location=request.client_location,
+        client_latitude=request.client_latitude,
+        client_longitude=request.client_longitude,
+    )
+    local_tz = time_context_service.effective_timezone(user.timezone, request.client_timezone)
+    return TurnIdentity(user=user, chat=chat, mode=mode, geo=geo, local_tz=local_tz)
 
-            mode = turn_mode or await _classify_turn_mode(session, chat, content)
-            if force_rich_context and not mode.rich_context:
-                mode = replace(mode, rich_context=True)
 
-            user_locale = user.locale
-            chat_summary = chat.summary
-            geo = resolve_client_geo(
-                user,
-                content,
-                client_location=client_location,
-                client_latitude=client_latitude,
-                client_longitude=client_longitude,
-            )
-            local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
+async def _fallback_models(user: User, settings: Settings, redis: Redis, model: str) -> list[str]:
+    unhealthy: set[str] = set()
+    try:
+        from app.services import model_health as model_health_service
 
-    # A recurring-pay estimate is fully owned by local date arithmetic. Do not
-    # build memory/RAG context or probe model health for a reply that will never
-    # call a model; that work added roughly a second before the first token.
-    if not has_image_attachment:
-        pay_reply = recurring_pay_service.maybe_recurring_pay_reply(content, local_tz)
-        if pay_reply is not None:
-            if timing is not None:
-                timing.mark_phase("prompt_assembled")
-                timing.mark_phase("augment_done")
-                timing.mark_prompt_ready()
-            return TurnPromptBundle(
-                prompt_messages=[{"role": "user", "content": content}],
-                meta=meta,
-                instant_reply=pay_reply,
-                search_sources=[],
-                local_places=geo.local_places,
-                max_out=settings.max_output_tokens,
-                fallback_models=[],
-                lightweight=mode.lightweight,
-                rich_context=mode.rich_context,
-                geo=geo,
-                local_tz=local_tz,
-            )
+        pool = plan_service.model_pool(user, settings)
+        snaps = await model_health_service.enrich_models_health(redis, settings, pool)
+        unhealthy = {mid for mid, snap in snaps.items() if not snap.healthy}
+    except Exception:
+        logger.debug("model health read failed during fallback selection", exc_info=True)
+    return plan_service.chat_fallback_models(user, settings, model, unhealthy=unhealthy)
+
+
+def _bundle(
+    identity: TurnIdentity,
+    settings: Settings,
+    augmented: Augmentation,
+    *,
+    meta: dict[str, Any],
+    instant_reply: str | None,
+    fallback_models: list[str],
+) -> TurnPromptBundle:
+    return TurnPromptBundle(
+        prompt_messages=augmented.prompt_messages,
+        meta=meta,
+        instant_reply=instant_reply,
+        search_sources=augmented.search_sources,
+        local_places=identity.geo.local_places,
+        # One high ceiling for every turn — brevity is driven by the STYLE_HINTS
+        # prompt guidance, not a hard token cap. Capping by style truncated large
+        # deliverables (HTML pages, graph JSON) mid-fence.
+        max_out=settings.max_output_tokens,
+        fallback_models=fallback_models,
+        lightweight=identity.mode.lightweight,
+        rich_context=identity.mode.rich_context,
+        geo=identity.geo,
+        local_tz=identity.local_tz,
+        verified_subject=augmented.verified_subject,
+        solver_unverified=augmented.solver_unverified,
+        unverified_subject=augmented.unverified_subject,
+        web_search_classified=augmented.web_search_classified,
+    )
+
+
+async def build_stream_prompt_context(
+    request: TurnRequest, settings: Settings, redis: Redis
+) -> TurnPromptBundle:
+    """Shared prompt assembly for new turns and regenerate."""
+    timing = request.timing
+    if timing is not None:
+        timing.mark_phase("prepare_start")
+    identity = await _load_turn_identity(request)
+    pay_reply = recurring_pay_reply(request, identity.local_tz)
+    if pay_reply is not None:
+        if timing is not None:
+            timing.mark_phase("prompt_assembled")
+            timing.mark_phase("augment_done")
+            timing.mark_prompt_ready()
+        prompt = [{"role": "user", "content": request.content}]
+        return _bundle(
+            identity,
+            settings,
+            Augmentation(prompt),
+            meta={},
+            instant_reply=pay_reply,
+            fallback_models=[],
+        )
 
     # No outer session during prompt gather (RAG/memory embeds use short-lived
     # sessions inside build_prompt_messages). Do not emit preparing/remembering
     # theater — casual chat should look like TTS: tap, then tokens. Real work
     # (search, files, math) still emits its own activity chip.
-
-    async def _resolve_instant_reply_task() -> str | None:
-        # Time/location answers are CPU-only. Skip year/date/time
-        # instant-replies when a photo is attached — vision should see it.
-        if not has_image_attachment:
-            now_reply = time_context_service.maybe_local_now_reply(content, local_tz, user_locale)
-            if now_reply is not None:
-                return now_reply
-        if time_context_service.is_location_question(content):
-            return time_context_service.format_location_answer(geo.user_location, local_tz)
-        asked = profile_question_to_answer(content, _earlier_user_texts(recent_messages, content))
-        if asked:
-            async with SessionLocal() as session:
-                rows = await memory_service.list_for_user(
-                    session,
-                    user.id,
-                    include_muted=False,
-                    include_superseded=False,
-                )
-            return reply_for_profile_question(asked, [row.text for row in rows])
-        settings_changes = extract_settings_changes(
-            content,
-            prior_assistant=_last_recent_assistant_content(recent_messages),
-        )
-        if not settings_changes:
-            return None
-        return await settings_proposal_service.materialize_settings_reply(
-            redis, user, settings, settings_changes
-        )
-
-    async def _fallback_models() -> list[str]:
-        unhealthy: set[str] = set()
-        try:
-            from app.services import model_health as model_health_service
-
-            pool = plan_service.model_pool(user, settings)
-            snaps = await model_health_service.enrich_models_health(redis, settings, pool)
-            unhealthy = {mid for mid, snap in snaps.items() if not snap.healthy}
-        except Exception:
-            logger.debug("model health read failed during fallback selection", exc_info=True)
-        return plan_service.chat_fallback_models(user, settings, model, unhealthy=unhealthy)
-
+    user, chat, mode, geo = identity.user, identity.chat, identity.mode, identity.geo
+    meta: dict[str, Any] = {}
     # Phase A: prompt + instant-reply + fallback-health share no data.
     prompt_messages, instant_reply, fallback_models = await asyncio.gather(
         build_prompt_messages(
             user,
             chat.id,
             settings,
-            summary=chat_summary,
+            summary=chat.summary,
             chat=chat,
             out=meta,
-            query_text=content,
+            query_text=request.content,
             minimal_personal_context=mode.minimal_personal,
             lightweight=mode.lightweight,
             rich_context=mode.rich_context,
             advice_memory=mode.advice_memory,
-            client_timezone=client_timezone,
+            client_timezone=request.client_timezone,
             prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
             on_status=None,
-            omit_message_ids=omit_message_ids,
-            probe_attachment_rag=probe_attachment_rag,
-            recent_messages=recent_messages,
-            current_user_message_id=current_user_message_id,
+            omit_message_ids=request.omit_message_ids,
+            probe_attachment_rag=request.probe_attachment_rag,
+            recent_messages=request.recent_messages,
+            current_user_message_id=request.current_user_message_id,
         ),
-        _resolve_instant_reply_task(),
-        _fallback_models(),
+        resolve_instant_reply(request, identity, settings, redis),
+        _fallback_models(user, settings, redis, request.model),
     )
     if timing is not None:
         timing.mark_phase("prompt_assembled")
 
-    # A terse "how?" after a completed equation must go back through the
-    # verified solver, not ask the language model to invent a fresh method.
-    # build_prompt_messages has already loaded and adjacency-checked the recent
-    # exchange; drop the current user row before reading that pair.
-    followup_history: list[dict[str, str]] = prompt_messages
-    if (
-        prompt_messages
-        and prompt_messages[-1].get("role") == "user"
-        and prompt_messages[-1].get("content") == content
-    ):
-        followup_history = prompt_messages[:-1]
-    math_followup_problem = math_working_followup_problem(
-        content, followup_history, blocked=blocks_math_followup
+    followup = resolve_subject_followup(request.content, prompt_messages)
+    if instant_reply is None:
+        instant_reply = location_not_set_reply(request.content, geo, followup)
+    augmented = await gather_and_inject(
+        request, identity, settings, redis, prompt_messages, followup, instant_reply=instant_reply
     )
-    # "Do it" after the assistant wrote a new equation is not a request to
-    # re-solve the user's earlier line. Solve the offered equation instead.
-    if math_followup_problem is None:
-        math_followup_problem = offered_equation_problem(content, followup_history)
-    # "check my answer: x = 6" is checked against the open problem, and
-    # "simplify it" works on the user's last expression. Alone, each one used
-    # to be solved as typed: ``x = 6`` verified itself and "it" was ``i t``.
-    if math_followup_problem is None:
-        math_followup_problem = (
-            answer_claim_problem(content, followup_history, blocked=blocks_math_followup)
-            or pronoun_math_problem(content, followup_history, blocked=blocks_math_followup)
-            or restated_math_problem(content, followup_history, blocked=blocks_math_followup)
-        )
-    chemistry_followup_problem = None
-    physics_followup = None
-    if math_followup_problem is None:
-        chemistry_followup_problem = chemistry_working_followup_problem(content, followup_history)
-        if chemistry_followup_problem is None:
-            chemistry_followup_problem = resolve_chemistry_followup(content, followup_history)
-    if math_followup_problem is None and chemistry_followup_problem is None:
-        physics_followup = physics_followup_problem(content, followup_history)
-
-    # Geo "location not set" fallback (independent of the LLM). A question that
-    # names its own place ("best restaurant in DC") needs no location, and "how far
-    # does it go?" after a physics problem asks about the car, not the user.
-    subject_followup = (
-        math_followup_problem is not None
-        or chemistry_followup_problem is not None
-        or physics_followup is not None
-    )
-    if (
-        instant_reply is None
-        and geo.geo_query
-        and not geo.has_geo_fix
-        and not subject_followup
-        and not web_search_service.names_its_place(content)
-    ):
-        instant_reply = web_search_service.format_location_not_set_answer()
-
-    detected_subject = detect_subject(
-        content,
-        has_image_attachment=has_image_attachment,
-        image_math_extract=image_math_extract,
-        chemistry_enabled=settings.chemistry_enabled,
-    )
-    needs_math = settings.math_tools_enabled and (
-        detected_subject in {"math", "physics"}
-        or math_followup_problem is not None
-        or physics_followup is not None
-        or is_graph_followup(content)
-    )
-    needs_search = web_search_service.needs_web_search(
-        content,
-        prior_user_messages=_prompt_prior_user_messages(prompt_messages, content) or None,
-        prior_assistant=last_assistant_content(prompt_messages),
-    )
-    needs_chem = settings.chemistry_enabled and (
-        detected_subject == "chemistry" or chemistry_followup_problem is not None
-    )
-    augment = _should_augment_web_and_tools(
-        instant_reply=instant_reply,
-        lightweight=mode.lightweight,
-        minimal_personal=mode.minimal_personal,
-        day_planning=mode.day_planning,
-        ambiguous_nearby=geo.ambiguous_nearby,
-        rich_context=mode.rich_context,
-        needs_math=needs_math,
-        needs_search=needs_search,
-        needs_chem=needs_chem,
-    )
-
-    # One high ceiling for every turn — brevity is driven by the STYLE_HINTS
-    # prompt guidance, not a hard token cap. Capping by style truncated large
-    # deliverables (HTML pages, graph JSON) mid-fence.
-    max_out = settings.max_output_tokens
-
-    local_places = geo.local_places
-    search_sources: list[WebSearchHit] = []
-    verified_subject: VerifiedSolveBlock | None = None
-
-    # Phase B: gather independent fetches. Priors only when augmenting (web
-    # search subject).
-    web_coro: (
-        Awaitable[
-            tuple[
-                str | None,
-                str | None,
-                list[WebSearchHit],
-                VerifiedSolveBlock | None,
-                bool,
-                str | None,
-                str | None,
-            ]
-        ]
-        | None
-    ) = None
-    if augment:
-
-        async def _fetch_web_with_priors() -> tuple[
-            str | None,
-            str | None,
-            list[WebSearchHit],
-            VerifiedSolveBlock | None,
-            bool,
-            str | None,
-            str | None,
-        ]:
-            priors = await _load_prior_user_messages(chat.id)
-            return await fetch_web_and_tools(
-                content,
-                settings,
-                prompt_messages=prompt_messages,
-                user_timezone=local_tz,
-                user_location=geo.user_location,
-                latitude=geo.client_lat,
-                longitude=geo.client_lng,
-                prior_user_messages=priors,
-                has_image_attachment=has_image_attachment,
-                image_math_extract=image_math_extract,
-                math_followup_problem=math_followup_problem,
-                chemistry_followup_problem=chemistry_followup_problem,
-                physics_followup_problem=physics_followup,
-                on_status=on_status,
-                user=user,
-                redis=redis,
-            )
-
-        web_coro = _fetch_web_with_priors()
-
-    web_search_classified: bool | None = None
-    web_block: str | None = None
-    math_block: str | None = None
-    solver_unverified = False
-    unverified_subject: str | None = None
-    direct_text: str | None = None
-    fetch_jobs: list[Awaitable[Any]] = []
-    fetch_keys: list[str] = []
-    if web_coro is not None:
-        fetch_jobs.append(web_coro)
-        fetch_keys.append("web")
-    if (
-        fetch_jobs
-        and not needs_math
-        and not needs_chem
-        and settings.web_search_classifier_enabled
-        and should_classify_tool_web_search(
-            content,
-            settings,
-            lightweight=mode.lightweight,
-            has_instant_reply=instant_reply is not None,
-            has_verified_math=False,
-            has_search_sources=False,
-            user=user,
-        )
-    ):
-        from app.modules.web_search.detection import should_web_search
-
-        # Only overlap existing Phase B work. Math may still produce a direct
-        # reply, so defer its eligibility until the final gate sees that result.
-        # This remains on the critical path when it outlasts the other fetches.
-        fetch_jobs.append(
-            should_web_search(
-                content,
-                settings,
-                prior_user_messages=_prompt_prior_user_messages(prompt_messages, content) or None,
-                prior_assistant=last_assistant_content(prompt_messages),
-            )
-        )
-        fetch_keys.append("classify")
-    if fetch_jobs:
-        fetch_tasks = [asyncio.ensure_future(job) for job in fetch_jobs]
-        try:
-            fetched = await asyncio.gather(*fetch_tasks)
-        except BaseException:
-            # gather does not cancel siblings when one fetch raises. Own all
-            # Phase B work so paid classification cannot outlive failed prep.
-            for task in fetch_tasks:
-                task.cancel()
-            await asyncio.gather(*fetch_tasks, return_exceptions=True)
-            raise
-        by_key = dict(zip(fetch_keys, fetched, strict=True))
-        if "web" in by_key:
-            (
-                web_block,
-                math_block,
-                search_sources,
-                verified_subject,
-                solver_unverified,
-                unverified_subject,
-                direct_text,
-            ) = by_key["web"]
-        if "classify" in by_key:
-            web_search_classified = by_key["classify"]
-
-    # Phase C: inject in the stable order (web -> subject) so the final prompt
-    # is byte-identical to the prior serial pipeline.
-    if augment:
-        prompt_messages = await inject_web_and_tools(prompt_messages, web_block, math_block)
-
     if timing is not None:
         timing.mark_phase("augment_done")
         timing.mark_prompt_ready()
 
-    if instant_reply is None and direct_text:
-        instant_reply = direct_text
-    elif instant_reply is None and verified_subject is not None:
-        instant_reply = maybe_direct_subject_reply(
-            verified_subject,
-            content,
-            has_image_attachment=has_image_attachment,
-            response_style=getattr(user, "response_style", None) or "balanced",
-            verified_request_text=math_followup_problem,
-        )
-    return TurnPromptBundle(
-        prompt_messages=prompt_messages,
+    if instant_reply is None:
+        instant_reply = augmented.direct_reply(request, user, followup)
+    return _bundle(
+        identity,
+        settings,
+        augmented,
         meta=meta,
         instant_reply=instant_reply,
-        search_sources=search_sources,
-        local_places=local_places,
-        max_out=max_out,
         fallback_models=fallback_models,
-        lightweight=mode.lightweight,
-        rich_context=mode.rich_context,
-        geo=geo,
-        local_tz=local_tz,
-        verified_subject=verified_subject,
-        solver_unverified=solver_unverified,
-        unverified_subject=unverified_subject,
-        web_search_classified=web_search_classified,
     )

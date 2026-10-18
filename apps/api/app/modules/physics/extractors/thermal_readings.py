@@ -12,6 +12,7 @@ from app.modules.physics.extractors.common import (
     _positioned_values,
 )
 from app.modules.physics.schemas import PhysicsIntent
+from app.services.units import CELSIUS_OFFSET_K
 
 _KELVIN_PATTERN = r"K|kelvins?"
 
@@ -103,7 +104,9 @@ def _reservoir_temperatures(
     if len(readings) != 2:
         return None
     first, second = ((value, unit) for _, value, unit in readings)
-    in_kelvin = [value + (273.15 if unit == "degC" else 0.0) for value, unit in (first, second)]
+    in_kelvin = [
+        value + (CELSIUS_OFFSET_K if unit == "degC" else 0.0) for value, unit in (first, second)
+    ]
     return (first, second) if in_kelvin[0] > in_kelvin[1] else (second, first)
 
 

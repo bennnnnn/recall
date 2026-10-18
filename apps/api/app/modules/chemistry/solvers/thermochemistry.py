@@ -10,7 +10,8 @@ from fractions import Fraction
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import (
+from app.modules.chemistry.solvers.constants import GAS_R_J
+from app.modules.chemistry.solvers.display import (
     const,
     given_row,
     inp,
@@ -19,7 +20,6 @@ from app.modules.chemistry.solvers.common_chem import (
     used,
     verified,
 )
-from app.modules.chemistry.solvers.constants import GAS_R_J
 from app.modules.chemistry.solvers.params import require, require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species, split_equation, split_terms

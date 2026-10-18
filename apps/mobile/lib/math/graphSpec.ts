@@ -7,7 +7,7 @@ export type NumberLineInterval = {
   end_inclusive: boolean;
 };
 
-export type TrajectoryType = "position_vs_time" | "velocity_vs_time" | "parametric";
+type TrajectoryType = "position_vs_time" | "velocity_vs_time" | "parametric";
 
 export type SampledGraphSpec = {
   type: "function" | "vertical" | "number_line" | "trajectory";
@@ -63,8 +63,8 @@ export type InequalityGraphSpec = Omit<SampledGraphSpec, "type"> & {
 export type GraphSpec = SampledGraphSpec | InequalityGraphSpec;
 
 /** Match backend `GraphBlockSpec.points` max; chat samples default lower. */
-export const MAX_GRAPH_POINTS = 500;
-export const MAX_GRAPH_EXPR_LENGTH = 256;
+const MAX_GRAPH_POINTS = 500;
+const MAX_GRAPH_EXPR_LENGTH = 256;
 
 function normalizePoint(raw: unknown): [number, number] | null {
   if (!Array.isArray(raw) || raw.length < 2) return null;
@@ -75,7 +75,7 @@ function normalizePoint(raw: unknown): [number, number] | null {
 }
 
 /** Evenly subsample so oversized backend dumps still draw a smooth curve. */
-export function downsamplePoints(
+function downsamplePoints(
   points: [number, number][],
   maxPoints: number,
 ): [number, number][] {

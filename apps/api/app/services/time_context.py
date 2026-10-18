@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.core.timezone import DEFAULT_TIMEZONE, resolve_timezone
-from app.services.text_normalize import collapse_ws
+from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 __all__ = ["DEFAULT_TIMEZONE", "resolve_timezone"]
 
@@ -50,16 +50,17 @@ _EVENT_WHEN = re.compile(
 _LOCATION_QUESTION = re.compile(
     r"^(?:"
     r"where am i(?: (?:at|right now|right nwo|now|currently))?\??"
-    r"|what(?:'s| is) my (?:current )?location\??"
-    r"|where(?:'s| is) my (?:current )?location\??"
+    r"|what(?:'s| is) my (?:current |currnet )?location(?: (?:right now|now))?\??"
+    r"|where(?:'s| is) my (?:current |currnet )?location(?: (?:right now|now))?\??"
     r"|where(?:'re| are) we(?: (?:right now|now|currently))?\??"
-    r"|my (?:current )?location\??"
+    r"|my (?:current |currnet )?location\??"
     r"|location\??"
     r")[.!?]*$",
     re.IGNORECASE,
 )
 
-# Folded letter-runs of the phrases above so "Where am iI" still counts.
+# Folded letter-runs of the phrases above so "Where am iI" still counts. Written folded
+# (letters only, no doubled letter: "current" is "curent"), or an entry never matches.
 _LOCATION_ASK_MAX_LEN = 80
 _LOCATION_ASK_FOLDED = frozenset(
     {
@@ -71,8 +72,8 @@ _LOCATION_ASK_FOLDED = frozenset(
         "whereamicurently",
         "whatsmylocation",
         "whatismylocation",
-        "whatsmycurrentlocation",
-        "whatismycurrentlocation",
+        "whatsmycurentlocation",
+        "whatismycurentlocation",
         "wherismylocation",
         "wheresmylocation",
         "whereismylocation",
@@ -81,7 +82,7 @@ _LOCATION_ASK_FOLDED = frozenset(
         "wherearewerightnow",
         "wherearewecurently",
         "mylocation",
-        "mycurrentlocation",
+        "mycurentlocation",
         "location",
     }
 )
@@ -150,10 +151,9 @@ def is_scheduled_event_time_question(text: str) -> bool:
 
 def _normalize_now_ask(text: str) -> str:
     """Lowercased, punctuation-stripped ask. Linear — no regex."""
-    cleaned = collapse_ws(text)
+    cleaned = straighten_apostrophes(collapse_ws(text))
     if not cleaned:
         return ""
-    cleaned = cleaned.replace("\u2019", "'").replace("\u2018", "'")
     while cleaned and cleaned[-1] in ".!?":
         cleaned = cleaned[:-1].rstrip()
     normalized = cleaned.lower()
@@ -507,7 +507,7 @@ def is_time_question(text: str) -> bool:
 
 
 def is_location_question(text: str) -> bool:
-    cleaned = collapse_ws(text)
+    cleaned = straighten_apostrophes(collapse_ws(text))
     if not cleaned:
         return False
     if _LOCATION_QUESTION.match(cleaned):

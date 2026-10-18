@@ -1,6 +1,6 @@
 /** Keep draft text intact while rejecting unsafe placeholder recipient fields. */
 
-export type EmailDraftFields = {
+type EmailDraftFields = {
   to?: string;
   subject?: string;
   body: string;

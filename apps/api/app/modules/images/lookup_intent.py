@@ -1,6 +1,6 @@
-"""Detect composer reference-photo *lookup* intent (mirrors mobile imageLookupIntent.ts).
+"""Detect reference-photo *lookup* intent in a message: the word rules ``intent.py`` reads.
 
-Shared cases with the phone: ``docs/fixtures/image_intent_cases.json``.
+Cases: ``docs/fixtures/image_intent_cases.json``.
 
 Separate from ``image_gen_intent`` (creative generation). "Show me an ear" /
 "what does a golden retriever look like" want a real photo, not AI art —
@@ -21,6 +21,13 @@ Matching is linear token scans — no ``\\s+`` / ``.+`` regex on user chat text
 from __future__ import annotations
 
 import re
+from itertools import pairwise
+
+from app.modules.images.lookup_intent_words import (
+    CODE_CONTEXT_WORDS,
+    DUAL_USE_WORDS,
+    LOOKUP_NON_IMAGE_WORDS,
+)
 
 _ARTICLES = frozenset({"a", "an", "the"})
 _POSSESSIVES = frozenset({"my", "your", "our", "his", "her", "their", "its"})
@@ -81,243 +88,6 @@ _SEE_LEADS: tuple[tuple[str, ...], ...] = (
 # restaurant" and "give me a list" would turn into photo searches.
 _PHOTO_FETCH_VERBS = frozenset({"send", "find", "get", "give", "pull", "bring"})
 
-# "show me my todos", "show me the code", "show me how to solve this" — this
-# extremely common product phrase must NOT be hijacked into an image search.
-# Extends image_gen_intent's non-image denylist with app/chat content nouns
-# and explanation cues that "show me" / "what does X look like" commonly ask
-# for outside of visual object identification.
-_NON_IMAGE_WORDS = frozenset(
-    {
-        "todo",
-        "todos",
-        "task",
-        "tasks",
-        "list",
-        "lists",
-        "reminder",
-        "reminders",
-        "project",
-        "projects",
-        "account",
-        "accounts",
-        "script",
-        "scripts",
-        "code",
-        "function",
-        "functions",
-        "class",
-        "classes",
-        "file",
-        "files",
-        "folder",
-        "folders",
-        "chat",
-        "chats",
-        "note",
-        "notes",
-        "summary",
-        "summaries",
-        "plan",
-        "plans",
-        "schedule",
-        "schedules",
-        "event",
-        "events",
-        "meeting",
-        "meetings",
-        "quiz",
-        "quizzes",
-        "flashcard",
-        "flashcards",
-        "deck",
-        "decks",
-        "email",
-        "emails",
-        "message",
-        "messages",
-        "reply",
-        "replies",
-        "draft",
-        "drafts",
-        "report",
-        "reports",
-        "settings",
-        "profile",
-        "subscription",
-        "password",
-        "passwords",
-        "history",
-        "progress",
-        "streak",
-        "streaks",
-        "score",
-        "scores",
-        "result",
-        "results",
-        "example",
-        "examples",
-        "problem",
-        "problems",
-        "equation",
-        "equations",
-        "question",
-        "questions",
-        "exercise",
-        "exercises",
-        "homework",
-        "solution",
-        "solutions",
-        "answer",
-        "answers",
-        "proof",
-        "proofs",
-        "worksheet",
-        "worksheets",
-        "assignment",
-        "assignments",
-        "step",
-        "steps",
-        "math",
-        "maths",
-        "arithmetic",
-        "algebra",
-        "algebraic",
-        "calculus",
-        "addition",
-        "add",
-        "subtraction",
-        "subtract",
-        "multiplication",
-        "multiply",
-        "division",
-        "divide",
-        "sum",
-        "difference",
-        "product",
-        "quotient",
-        "remainder",
-        "divisor",
-        "dividend",
-        "fraction",
-        "fractions",
-        "numerator",
-        "denominator",
-        "polynomial",
-        "polynomials",
-        "inequality",
-        "inequalities",
-        "derivative",
-        "derivatives",
-        "integral",
-        "integrals",
-        # How-to / listicle heads — "show me the stops of becoming smart"
-        # (typo of steps) must not become a stock infographic.
-        "stops",
-        "ways",
-        "tips",
-        "tip",
-        "secrets",
-        "habits",
-        "tricks",
-        "stages",
-        "phases",
-        "graph",
-        "graphs",
-        "chart",
-        "charts",
-        "diagram",
-        "diagrams",
-        "flowchart",
-        "flowcharts",
-        "table",
-        "tables",
-        "formula",
-        "formulas",
-        "calculation",
-        "calculations",
-        "translation",
-        "definition",
-        "meaning",
-        "transcript",
-        "attachment",
-        "attachments",
-        "document",
-        "documents",
-        "pdf",
-        "explanation",
-        "breakdown",
-        "method",
-        "methods",
-        "working",
-        "workings",
-        "derivation",
-        # Chemistry / verified geometry — "show the structure of CO2" and
-        # "show a right triangle" must not become stock photos.
-        "structure",
-        "structures",
-        "molecule",
-        "molecules",
-        "molecular",
-        "compound",
-        "compounds",
-        "chemistry",
-        "chemical",
-        "smiles",
-        "atom",
-        "atoms",
-        "bond",
-        "bonds",
-        "triangle",
-        "triangles",
-        "square",
-        "squares",
-        "circle",
-        "circles",
-        "rectangle",
-        "rectangles",
-        "geometry",
-        "geometric",
-        # Plans and choices — "what does a typical day in Tokyo look like",
-        # "let me see the options", "can I see the route on a map".
-        "day",
-        "days",
-        "week",
-        "weekend",
-        "routine",
-        "budget",
-        "itinerary",
-        "option",
-        "options",
-        "choices",
-        "menu",
-        "menus",
-        "route",
-        "routes",
-        "directions",
-        "price",
-        "prices",
-        "cost",
-        "costs",
-        "timeline",
-        "agenda",
-        # "Show me some love", "show me some support": not a photo.
-        "love",
-        "support",
-        "respect",
-        "kindness",
-        "appreciation",
-        "mercy",
-        # Curves the app draws as a graph: "what does a sine wave look like".
-        "sine",
-        "cosine",
-        "parabola",
-        "parabolas",
-        "hyperbola",
-        "asymptote",
-        "exponential",
-        "logarithmic",
-    },
-)
 
 # "show me how to solve this" / "what does X mean" — explanation cues embedded
 # in the subject, not an object to photograph.
@@ -400,7 +170,14 @@ def _clean_subject(raw: str) -> str | None:
     # "Show me that again but simpler" asks to repeat an answer.
     if folded[0] in _DEICTICS and len(folded) > 1 and folded[1] in _NOT_A_NOUN:
         return None
-    if any(w in _NON_IMAGE_WORDS or w in _EXPLANATION_CUES for w in folded):
+    if any(w in LOOKUP_NON_IMAGE_WORDS or w in _EXPLANATION_CUES for w in folded):
+        return None
+    # "show me the bug (again)" is about code; "show me a bed bug" wants a photo.
+    if folded[0] in DUAL_USE_WORDS and all(w in _NOT_A_NOUN for w in folded[1:]):
+        return None
+    # "show me the git branch" is about code; "show me the main stage" wants a photo.
+    pairs = [{a, b} for a, b in pairwise(folded)]
+    if any(pair & DUAL_USE_WORDS and pair & CODE_CONTEXT_WORDS for pair in pairs):
         return None
     return subject
 

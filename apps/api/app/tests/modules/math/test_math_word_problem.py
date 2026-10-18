@@ -154,6 +154,11 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         "A shop spent $5 and has $10 left. How much did it start with?",
         "Maria spent $5 and has $10 left. How much did she have before?",
         "Maria spent $5 and has $10 left. How much did she have previously?",
+        # A stated rate scaled to a third amount: a proportion.
+        "A recipe needs 3 cups of flour for 12 cookies. How many cups for 30 cookies?",
+        "A recipe needs 3 cups of flour for 12 cookies. How many cups do I need if I want to "
+        "bake 30 cookies?",
+        "2 eggs make 8 pancakes. How many eggs are in 20 pancakes?",
     ],
 )
 def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
@@ -182,6 +187,9 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
         "Find 2 + 2",
         "A ball is thrown straight up at 20 m/s. How high does it go in total?",
         "What is the sum of 3 and 4? " * 40,
+        # A stated rate with no third amount to scale it to.
+        "I booked 2 rooms for 3 nights. How many towels come with that?",
+        "A recipe needs 3 cups of flour for 12 cookies, how many cups is that?",
     ],
 )
 def test_candidate_declines(text: str) -> None:
@@ -442,7 +450,7 @@ async def test_intent_uses_resilient_bounded_structured_call(
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
     intent = await word_problem_intent(AGES, _settings())
     assert intent is not None and intent.kind == "word_problem"
-    assert seen["model_alias"] == "gemini-flash"
+    assert seen["model_alias"] == "gpt-6-luna"
     assert seen["schema"] is WordProblemSetup
     assert seen["allow_fallback"] is False
 
@@ -462,7 +470,7 @@ async def test_intent_retries_semantic_decline_on_independent_provider(
     intent = await word_problem_intent(AGES, _settings())
 
     assert intent is not None and intent.kind == "word_problem"
-    assert aliases == ["gemini-flash", "fallback-memory-model"]
+    assert aliases == ["gpt-6-luna", "fallback-memory-model"]
 
 
 @pytest.mark.asyncio

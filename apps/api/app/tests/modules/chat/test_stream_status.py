@@ -1,8 +1,10 @@
 """Stream status helpers."""
 
+from typing import get_args
+
 from app.modules.chat.stream_status import (
     STATUS_DETAIL_MAX_CHARS,
-    STREAM_STATUS_PHASES,
+    StreamStatusPhase,
     clip_status_detail,
     status_phase_for_subject,
 )
@@ -10,7 +12,7 @@ from app.modules.chat.stream_status import (
 
 def test_phases_include_activity_specific_entries():
     for phase in ("remembering", "reading_files", "searching", "calculating", "chemistry"):
-        assert phase in STREAM_STATUS_PHASES
+        assert phase in get_args(StreamStatusPhase)
 
 
 def test_each_subject_has_its_own_status_phase() -> None:

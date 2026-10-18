@@ -6,13 +6,16 @@
 
 from __future__ import annotations
 
-import math
 import re
 from dataclasses import replace
 from typing import Any
 
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
+from app.modules.math.solve.triangle import cos_degrees, cosine_rule_side
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.school._parse import _SIDE_ASKED
+from app.services.number_text import DECIMAL
 from app.services.workout import Workout, math_line, render_workout
 
 ALGEBRA_FACT_OPS = frozenset({"complete_square", "cosine_rule", "polynomial_remainder"})
@@ -28,13 +31,9 @@ _REMAINDER = re.compile(
     r"(?P<dividend>.+?)\s+is\s+divided\s+by\s+(?P<divisor>.+)",
     re.IGNORECASE,
 )
-_NUMBER = r"(\d+(?:\.\d+)?)"
+_NUMBER = rf"({DECIMAL})"
 _SIDE = rf"\b([a-c])\s*=\s*{_NUMBER}"
 _ANGLE = rf"\b([A-C])\s*=\s*{_NUMBER}\s*(?:°|degrees?|deg)?"
-_FIND_SIDE = re.compile(
-    r"\b(?:find|calculate|what\s+is|work\s+out)\s+(?:the\s+(?:length\s+of\s+)?)?"
-    r"(?:side\s+)?([a-c])\b"
-)
 
 
 def extract_algebra_fact_intent(cleaned: str) -> MathIntent | None:
@@ -43,7 +42,7 @@ def extract_algebra_fact_intent(cleaned: str) -> MathIntent | None:
         return None
     square = _COMPLETE_SQUARE.fullmatch(body)
     if square is not None:
-        from app.modules.math.tools.helpers import math_expr_or_none
+        from app.modules.math.tools.expr_rewrite import math_expr_or_none
 
         raw = (square["expr"] or square["expr2"] or "").strip(" :")
         raw = re.sub(r"\s*=\s*0$", "", raw)
@@ -64,15 +63,15 @@ def _polynomial(text: str) -> Any | None:
     from sympy import Poly, Symbol
 
     from app.modules.math import solve as math_solve
-    from app.modules.math.tools.helpers import math_expr_or_none
+    from app.modules.math.tools.expr_rewrite import math_expr_or_none
 
     expr = math_expr_or_none(text.strip().strip("()") if text.count("(") == 1 else text.strip())
     if expr is None or "=" in expr:
         return None
     x = Symbol("x")
-    try:
+    with sympy_decline() as declined:
         poly = Poly(math_solve._parse_expression(expr, ["x"]), x)
-    except Exception:
+    if declined:
         return None
     if poly.free_symbols - {x} or not poly.domain.is_Numerical:
         return None
@@ -96,7 +95,7 @@ def _cosine_rule_intent(body: str) -> MathIntent | None:
     """Two sides, the angle between them, and the third side asked for."""
     sides = {match.group(1): float(match.group(2)) for match in re.finditer(_SIDE, body)}
     angles = {match.group(1): float(match.group(2)) for match in re.finditer(_ANGLE, body)}
-    find = _FIND_SIDE.search(body)
+    find = _SIDE_ASKED.search(body)
     if find is None or len(sides) != 2 or len(angles) != 1:
         return None
     target = find.group(1)
@@ -133,10 +132,10 @@ def _polynomial_remainder(intent: MathIntent, lines: list[str]) -> VerifiedMathB
 
     x = Symbol("x")
     top_text, _, bottom_text = (intent.expr or "").partition("|")
-    try:
+    with sympy_decline() as declined:
         top, bottom = sympify(top_text), sympify(bottom_text)
         quotient, remainder = div(top, bottom, x)
-    except Exception:
+    if declined:
         return None
     if expand(quotient * bottom + remainder - top) != 0:
         return None
@@ -179,10 +178,10 @@ def _complete_square(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock 
     from app.modules.math import solve as math_solve
 
     x = Symbol("x")
-    try:
+    with sympy_decline() as declined:
         parsed = math_solve._parse_expression(intent.expr or "", ["x"])
         poly = Poly(parsed, x)
-    except Exception:
+    if declined:
         return None
     if poly.degree() != 2 or poly.free_symbols - {x}:
         return None
@@ -219,30 +218,31 @@ def _complete_square(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock 
 
 
 def _cosine_rule(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    from sympy import latex
+
     a, b, angle = intent.tri_a, intent.tri_b, intent.sector_angle_deg
     names = (intent.expr or "").split(",")
     if a is None or b is None or angle is None or len(names) != 4:
         return None
     first, second, angle_name, target = names
-    cosine = math.cos(math.radians(angle))
-    nice = {60.0: 0.5, 120.0: -0.5, 90.0: 0.0}
-    exact_cos = nice.get(angle)
-    square = a * a + b * b - 2 * a * b * (exact_cos if exact_cos is not None else cosine)
-    if square <= 0:
-        return None
-    side = math.sqrt(square)
-    answer = _side_answer(square, side, exact=exact_cos is not None)
+    side = cosine_rule_side(a, b, angle)
+    # Whole sides at an exact angle keep the surd (30°: 89 - 40√3); any other side is a decimal.
+    exact = a.is_integer() and b.is_integer() and not side.is_Float
+    square = side**2
+    twice = (int(2 * a * b) if exact else 2 * a * b) * cos_degrees(angle)
     n = _number
+    term = latex(abs(twice), order="none") if exact else n(abs(twice))
+    total = latex(square, order="none") if exact else n(round(float(square), 4))
+    # cos C < 0 past 90°: subtracting 2ab cos C adds.
+    sign = "+" if twice.is_negative else "-"
     rows = [
         math_line(
             rf"{target}^2 = {n(a)}^2 + {n(b)}^2 - 2({n(a)})({n(b)})\cos {n(angle)}^\circ",
         ),
-        math_line(
-            rf"{target}^2 = {n(a * a)} + {n(b * b)} - {n(2 * a * b * (exact_cos or cosine))}"
-            rf" = {n(round(square, 4))}"
-        ),
+        math_line(rf"{target}^2 = {n(a * a)} + {n(b * b)} {sign} {term} = {total}"),
     ]
-    lines.append(f"{target}^2 = {square:.6g}; {target} = {side:.6g}")
+    lines.append(f"{target}^2 = {float(square):.6g}; {target} = {float(side):.6g}")
+    answer = _side_answer(side, exact=exact)
     block = _finish_with_answer(lines, answer)
     working = render_workout(
         Workout(
@@ -269,9 +269,13 @@ def _number(value: Any) -> str:
     return f"{float(value):g}"
 
 
-def _side_answer(square: float, side: float, *, exact: bool) -> str:
-    if abs(side - round(side)) < 1e-9:
-        return str(round(side))
-    if exact and abs(square - round(square)) < 1e-9:
-        return rf"\sqrt{{{round(square)}}} \approx {side:.4g}"
-    return f"{side:.4g}"
+def _side_answer(side: Any, *, exact: bool) -> str:
+    """``\\sqrt{67} \\approx 8.185``, a whole number, or the decimal."""
+    from sympy import latex
+
+    value = float(side)
+    if abs(value - round(value)) < 1e-9:
+        return str(round(value))
+    if exact:
+        return rf"{latex(side, order='none')} \approx {value:.4g}"
+    return f"{value:.4g}"

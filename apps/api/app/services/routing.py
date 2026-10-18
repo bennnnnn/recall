@@ -220,12 +220,6 @@ def last_user_turn(messages: list[Any] | None) -> tuple[str | None, str | None]:
     return None, None
 
 
-def last_user_content(messages: list[Any] | None) -> str | None:
-    """Last user line already in the recent window (oldest-first)."""
-    content, _ = last_user_turn(messages)
-    return content
-
-
 def _strip_followup_token(token: str) -> str:
     while token and token[0] in ".,!?;:'\"":
         token = token[1:]
@@ -331,10 +325,10 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
         return smart
     # Tutoring is structured by a strict prompt contract and is latency-sensitive:
     # a learner should not wait on a silent reasoning model before every small
-    # step. Gemini Flash followed the lesson state/output contract in live QA at
-    # a fraction of the TTFT, so keep this classifier shared with the prompt
-    # layer and deliberately use the fast lane. Hard coding/math still reaches
-    # the smart checks below when it is not an explicit tutor/roadmap request.
+    # step. The fast lane (then Gemini Flash) followed the lesson contract in
+    # live QA at a fraction of the TTFT, so keep this classifier shared with the
+    # prompt layer and use the fast lane. Hard coding/math still reaches the
+    # smart checks below when it is not an explicit tutor/roadmap request.
     from app.modules.chat.prompt_constants.teaching import (
         is_learning_plan_request,
         is_teaching_request,
@@ -355,14 +349,14 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
     physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
     if physics_alias is not None:
         return physics_alias
-    # Math / structured turns (equations, graphs, geometry, calculus, stats,
-    # …) route to the math-tuned strong model up front. A weak fast model used
-    # to produce worked steps that disagreed with the verified answer, while
-    # the generic R1 route repeatedly emitted only hidden reasoning and then
-    # fell back. needs_symbolic is the same gate the math pipeline uses, so
-    # routing and augmentation agree on what "a math turn" is.
+    # Math turns (equations, graphs, geometry, calculus, stats, …) go to the math-tuned
+    # strong model: a fast model's steps disagreed with the verified answer. needs_symbolic
+    # is the math pipeline's own gate, so routing agrees with it.
     from app.modules.math.match import needs_symbolic
+    from app.services.rate_problems import is_multi_step_rate_problem
 
+    if is_multi_step_rate_problem(content):  # catch-up, meet, together: the maths lane won't think
+        return smart
     if needs_symbolic(content) and not _verified_math_stays_fast(content):
         return model_catalog.auto_math_alias()
     return fast
@@ -498,26 +492,6 @@ def _verified_math_stays_fast(content: str) -> bool:
     # harder question must not keep the turn on the fast model.
     return (
         bare_arithmetic_expr(cleaned) is not None or written_arithmetic_request(cleaned) is not None
-    )
-
-
-def resolve_alias(
-    alias: str,
-    content: str,
-    *,
-    prior_user: str | None = None,
-    prior_model: str | None = None,
-    lesson_active: bool = False,
-) -> str:
-    """Resolve ``auto`` / ``fast`` / ``smart`` without a pool (legacy/tests)."""
-    all_ids = [m.id for m in model_catalog.selectable_models()]
-    return resolve_alias_in_pool(
-        alias,
-        content,
-        all_ids,
-        prior_user=prior_user,
-        prior_model=prior_model,
-        lesson_active=lesson_active,
     )
 
 

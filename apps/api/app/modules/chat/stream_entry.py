@@ -1,235 +1,114 @@
-import asyncio
+"""A chat turn from the transports' side: a new message, or a regenerated reply.
+
+Each turn holds its prepare lock and quota (``turn_resources``), reads what it needs
+(``turn_load``), may be answered by a photo or a picture (``turn_intercepts``),
+and otherwise streams through ``stream_pipeline``. ``deps`` is what it uses
+outside the chat module (``turn_deps``); the transports pass ``default_deps()``.
+"""
+
 import logging
 from collections.abc import AsyncIterator, Callable
-from datetime import UTC, datetime
-from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.exceptions import ChatNotFoundError, ChatServiceError, QuotaExceededError
+from app.exceptions import ChatNotFoundError
 from app.models.orm import Chat, User
-from app.modules.attachments.markers import (
-    image_attachment_ids_from_text,
-    strip_attachment_from_content,
-)
+from app.modules.attachments.markers import image_attachment_ids_from_text
+from app.modules.chat.post_turn import restore_regenerate_backup
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
-from app.modules.chat.prompt_constants import (
-    active_lesson_step,
-    is_lightweight_chat_turn,
-    is_short_reply,
+from app.modules.chat.stream_pipeline import stream_and_finalize
+from app.modules.chat.turn_deps import ChatTurnDeps
+from app.modules.chat.turn_intercepts import intercept_new_turn, intercept_regenerate
+from app.modules.chat.turn_load import NewTurn, load_new_turn, load_regenerate_turn
+from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.chat.turn_prep import (
+    StreamContext,
+    TurnRequest,
+    await_user_message_persist,
+    build_stream_prompt_context,
+    count_image_attachments,
+    prepare_chat_turn,
+    stream_context_from_bundle,
+    vision_reserve_tokens,
 )
-from app.modules.chat.turn_prep import RegenerateBackup
-from app.modules.chat.turn_prep.mode import _classify_turn_mode
 from app.modules.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
+from app.modules.chat.turn_resources import (
+    TurnResources,
+    top_up_reserve_for_prompt,
+    turn_resources,
+    wrap_stream_status,
+    yield_with_chatprep_refresh,
+)
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.modules.images.lookup_intent import dated_lookup_query
-from app.services.routing import last_user_turn, message_needs_thinking
+from app.services.routing import message_needs_thinking
 
 logger = logging.getLogger(__name__)
 
 
-async def _prior_count_for_window(
-    recent: list[Any],
-    window: int,
-    *,
-    count_for_chat: Any,
-    session: Any,
-    chat_id: UUID,
-) -> int:
-    """Exact count only when the recent window is full (older rows may exist)."""
-    if len(recent) < window:
-        return len(recent)
-    raw_count = await count_for_chat(session, chat_id)
-    return raw_count if isinstance(raw_count, int) else len(recent)
-
-
-async def try_image_gen_for_turn(
-    seams: Any,
+async def _stream_turn(
+    deps: ChatTurnDeps,
+    redis: Redis,
     settings: Settings,
+    ctx: StreamContext,
+    res: TurnResources,
     *,
-    user: User,
-    chat_id: UUID,
-    content: str,
-    result: dict[str, Any] | None,
-    create_user_message: bool,
-    replace_assistant_id: UUID | None = None,
-    skip_revision_lookup: bool = False,
-    recent_messages: list[Any] | None = None,
-) -> bool:
-    if not seams.plan_service.is_pro(user):
-        return False
-    image_prompt = seams.extract_image_gen_prompt(content)
-    reference_ids = None
-    if not image_prompt:
-        trimmed = content.strip()
-        followup = seams.could_be_image_thread_followup(content)
-        too_long = not trimmed or len(trimmed) > 120 or len(trimmed.split()) > 8
-        revisionish = (
-            not skip_revision_lookup and not too_long and seams.could_be_image_revision(content)
-        )
-        if not followup and not revisionish:
-            return False
-        if recent_messages is not None:
-            recent = recent_messages
-        else:
-            async with seams.SessionLocal() as session:
-                recent = await seams.messages_repo.list_recent(session, chat_id, limit=20)
-        priors = seams.prior_user_contents_for_image_gen(recent, content)
-        image_prompt = seams.extract_image_gen_prompt_from_thread(content, priors)
-        if not image_prompt and revisionish:
-            last_image_only, previous_subject = seams.image_gen_revision_context(recent)
-            image_prompt = seams.extract_image_revision_prompt(
-                content,
-                last_assistant_is_image_only=last_image_only,
-                previous_subject=previous_subject,
-            )
-            if image_prompt and create_user_message:
-                for row in reversed(recent):
-                    if row.role == "assistant":
-                        reference_ids = seams.image_generation_service.image_reference_ids(
-                            row.content
-                        )
-                        break
-    if not image_prompt:
-        return False
-    try:
-        _user_msg, asst_msg = await seams.image_generation_service.generate_for_chat(
+    should_cancel: Callable[[], bool] | None,
+    outcome: TurnOutcome | None,
+    status: StreamStatusFn | None,
+    on_reasoning: StreamReasoningFn | None,
+) -> AsyncIterator[str]:
+    """The prepared turn's reply, refreshing the prepare lock while it streams."""
+    async for token in yield_with_chatprep_refresh(
+        res,
+        stream_and_finalize(
+            deps,
+            redis,
             settings,
-            user=user,
-            chat_id=chat_id,
-            prompt=image_prompt,
-            user_message_content=(content.strip() if create_user_message else None),
-            create_user_message=create_user_message,
-            reference_attachment_ids=reference_ids,
-        )
-    except seams.image_generation_service.ImageGenerationError as exc:
-        if exc.status_code == 429:
-            raise QuotaExceededError(exc.detail) from exc
-        if exc.status_code in (403, 404):
-            return False
-        raise ChatServiceError(exc.detail) from exc
-
-    if replace_assistant_id is not None:
-        async with seams.SessionLocal() as session:
-            old = await seams.messages_repo.get_by_id(session, replace_assistant_id, chat_id)
-            if old is not None and old.role == "assistant":
-                await seams.attachment_lifecycle.purge_attachments_for_messages(
-                    session, settings, [old.id]
-                )
-                await seams.messages_repo.delete_message(session, old)
-    if result is not None:
-        result["message_id"] = str(asst_msg.id)
-        result["final_content"] = asst_msg.content
-        result["resolved_model"] = asst_msg.model or "image-gen-model"
-    return True
+            ctx,
+            should_cancel=should_cancel,
+            outcome=outcome,
+            on_status=status,
+            on_reasoning=on_reasoning,
+            resources=res,
+        ),
+    ):
+        yield token
 
 
-async def _photo_subject_from_chat(
-    seams: Any,
+async def _reserve_new_turn(
+    deps: ChatTurnDeps,
+    res: TurnResources,
     settings: Settings,
+    turn: NewTurn,
     *,
-    chat_id: UUID,
+    user_id: UUID,
     content: str,
-    recent_messages: list[Any] | None,
-    replace_assistant_id: UUID | None,
-) -> str | None:
-    """Who "her" / "it" is in "show me her image", read from the chat; None if unclear.
-
-    After a generated picture, "show it at night" edits that picture: the
-    image-generation intercept owns it, so this returns None.
-    """
-    if recent_messages is not None:
-        recent = recent_messages
-    else:
-        async with seams.SessionLocal() as session:
-            recent = await seams.messages_repo.list_recent(
-                session, chat_id, limit=settings.recent_message_window
-            )
-    if replace_assistant_id is not None:
-        recent = [row for row in recent if getattr(row, "id", None) != replace_assistant_id]
-    last_is_generated_image, _subject = seams.image_gen_revision_context(recent)
-    if last_is_generated_image:
-        return None
-    return await seams.resolve_reference(
-        settings,
-        kind="photo",
-        request=content,
-        turns=seams.turns_from_rows(recent),
+    attachment_ids: list[UUID] | None,
+) -> None:
+    """The soft quota check; a borrowed reservation is already made."""
+    if res.reserved_tokens > 0:
+        return
+    vision_extra = 0
+    if attachment_ids:
+        async with deps.session_factory() as session:
+            image_count = await count_image_attachments(session, user_id, attachment_ids)
+        vision_extra = vision_reserve_tokens(settings, image_count)
+    await res.reserve(
+        user=turn.user,
+        content=content,
+        model=turn.model,
+        settings=settings,
+        daily_limit=turn.daily_limit,
+        vision_extra=vision_extra,
+        max_output=settings.max_output_tokens,
+        seed=False,
     )
 
 
-async def try_image_lookup_for_turn(
-    seams: Any,
-    settings: Settings,
-    *,
-    user: User,
-    chat_id: UUID,
-    content: str,
-    result: dict[str, Any] | None,
-    create_user_message: bool,
-    replace_assistant_id: UUID | None = None,
-    recent_messages: list[Any] | None = None,
-) -> bool:
-    """Deterministic reference-photo lookup intercept ("show me an ear").
-
-    Free + Pro (unlike ``try_image_gen_for_turn``, which is Pro-only). Checked
-    before it in ``stream_chat_response`` — see ``image_lookup_intent``'s
-    module docstring for why the two never compete for the same input.
-    Failures that aren't quota-related fall through to a normal LLM answer
-    instead of erroring the turn (a missing photo is not worth breaking chat).
-    """
-    if not settings.image_search_enabled:
-        return False
-    query = seams.extract_image_lookup_query(content)
-    if not query:
-        return False
-    if seams.is_reference_subject(query):
-        query = await _photo_subject_from_chat(
-            seams,
-            settings,
-            chat_id=chat_id,
-            content=content,
-            recent_messages=recent_messages,
-            replace_assistant_id=replace_assistant_id,
-        )
-        if not query:
-            return False
-    query = dated_lookup_query(query, datetime.now(UTC).year)
-    try:
-        _user_msg, asst_msg = await seams.image_search_service.search_and_attach_for_chat(
-            settings,
-            user=user,
-            chat_id=chat_id,
-            query=query,
-            user_message_content=(content.strip() if create_user_message else None),
-            create_user_message=create_user_message,
-        )
-    except seams.image_search_service.ImageSearchError as exc:
-        if exc.status_code == 429:
-            raise QuotaExceededError(exc.detail) from exc
-        if exc.status_code in (404, 502, 503):
-            return False
-        raise ChatServiceError(exc.detail) from exc
-
-    if replace_assistant_id is not None:
-        async with seams.SessionLocal() as session:
-            old = await seams.messages_repo.get_by_id(session, replace_assistant_id, chat_id)
-            if old is not None and old.role == "assistant":
-                await seams.attachment_lifecycle.purge_attachments_for_messages(
-                    session, settings, [old.id]
-                )
-                await seams.messages_repo.delete_message(session, old)
-    if result is not None:
-        result["message_id"] = str(asst_msg.id)
-        result["final_content"] = asst_msg.content
-        result["resolved_model"] = asst_msg.model or "image-search-model"
-    return True
-
-
 async def stream_chat_response(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     *,
@@ -239,7 +118,7 @@ async def stream_chat_response(
     model_alias: str | None = None,
     attachment_ids: list[UUID] | None = None,
     should_cancel: Callable[[], bool] | None = None,
-    result: dict[str, Any] | None = None,
+    outcome: TurnOutcome | None = None,
     client_timezone: str | None = None,
     client_location: str | None = None,
     client_latitude: float | None = None,
@@ -249,176 +128,54 @@ async def stream_chat_response(
     user: User | None = None,
     chat: Chat | None = None,
     skip_usage_seed: bool = False,
-    resources: Any | None = None,
+    resources: TurnResources | None = None,
 ) -> AsyncIterator[str]:
     content = content.strip()
     if not content and not attachment_ids:
         raise ChatNotFoundError("Message cannot be empty.")
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
-    status = seams.wrap_stream_status(timing, on_status)
+    status = wrap_stream_status(timing, on_status)
 
-    async with seams.turn_resources(
-        redis,
-        user_id=user_id,
-        chat_id=chat_id,
-        borrowed=resources,
+    async with turn_resources(
+        deps, redis, user_id=user_id, chat_id=chat_id, borrowed=resources
     ) as res:
-
-        async def _load_user() -> User:
-            if user is not None:
-                timing.mark_phase("user_ready")
-                return user
-            async with seams.SessionLocal() as session:
-                loaded = await seams.users_repo.get_by_id(session, user_id)
-            if loaded is None:
-                raise ChatNotFoundError("User not found.")
-            timing.mark_phase("user_ready")
-            return loaded
-
-        async def _load_chat() -> Chat:
-            if chat is not None:
-                timing.mark_phase("chat_ready")
-                return chat
-            peek = getattr(seams.chats_repo, "peek_recent_chat", None)
-            remembered = peek(chat_id, user_id) if callable(peek) else None
-            if remembered is not None:
-                timing.mark_phase("chat_ready")
-                return remembered
-            async with seams.SessionLocal() as session:
-                loaded = await seams.chats_repo.get_by_id(session, chat_id, user_id)
-            if loaded is None:
-                raise ChatNotFoundError("Chat not found.")
-            timing.mark_phase("chat_ready")
-            return loaded
-
-        async def _needs_usage_seed() -> bool:
-            if skip_usage_seed:
-                timing.mark_phase("quota_probe_ready")
-                return False
-            try:
-                missing = not await seams.quota_service.has_daily_usage_key(redis, str(user_id))
-            except Exception:
-                missing = True
-            timing.mark_phase("quota_probe_ready")
-            return missing
-
-        async def _load_user_and_quota() -> tuple[User, int, Chat]:
-            # User ownership, chat ownership, and the Redis quota probe are
-            # independent. Live simulator timing showed the old user->chat
-            # serial DB reads dominating this lane, so overlap them. Each DB
-            # read gets its own AsyncSession; SQLAlchemy AsyncSession itself is
-            # intentionally not used concurrently.
-            loaded_user, loaded_chat, need_usage_seed = await asyncio.gather(
-                _load_user(),
-                _load_chat(),
-                _needs_usage_seed(),
-            )
-            if need_usage_seed:
-                async with seams.SessionLocal() as session:
-                    await seams.seed_usage_from_db(redis, session, user_id)
-            timing.mark_phase("quota_seed_ready")
-            limit = seams.quota_service.daily_limit_for_user(loaded_user, settings)
-            timing.mark_phase("account_quota_ready")
-            return loaded_user, limit, loaded_chat
-
-        async def _load_history_after_finalize() -> tuple[list[Any], int]:
-            # History must observe the previous assistant commit, but it does
-            # not depend on the current turn's user/chat lookup. Run both lanes
-            # concurrently so a remote DB round trip is paid once in wall time,
-            # not once for account/chat and again for recent messages.
-            await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
-            timing.mark_phase("previous_finalize_ready")
-            async with seams.SessionLocal() as session:
-                window = settings.recent_message_window
-                recent = await seams.messages_repo.list_recent(session, chat_id, limit=window)
-                prior_count = await _prior_count_for_window(
-                    recent,
-                    window,
-                    count_for_chat=seams.messages_repo.count_for_chat,
-                    session=session,
-                    chat_id=chat_id,
-                )
-            timing.mark_phase("history_ready")
-            return recent, prior_count
-
-        # Account/quota and history are independent once the previous turn is
-        # committed. A greeting does not need the recent window before the
-        # model starts — that extra Neon read was on the first-token path.
-        # A short reply ("no" to "Understood?") answers the last turn, so it
-        # always loads the window; without it the model greets instead.
-        obvious_greeting = is_lightweight_chat_turn(content) and not is_short_reply(content)
-        if obvious_greeting:
-            await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
-            timing.mark_phase("previous_finalize_ready")
-            user, daily_limit, chat = await _load_user_and_quota()
-            recent, prior_count = [], 0
-            timing.mark_phase("history_ready")
-        else:
-            (user, daily_limit, chat), (recent, prior_count) = await asyncio.gather(
-                _load_user_and_quota(),
-                _load_history_after_finalize(),
-            )
-        # Only short confirmation turns touch the DB here; ordinary lightweight
-        # greetings classify synchronously, so opening a fresh AsyncSession has
-        # no checkout/network cost on the common path.
-        async with seams.SessionLocal() as session:
-            turn_mode = await _classify_turn_mode(session, chat, content)
-        prior_user, prior_model = last_user_turn(recent)
-        model = seams.plan_service.resolve_user_model_override(
-            user,
-            model_alias,
-            content,
+        turn = await load_new_turn(
+            deps,
+            redis,
             settings,
-            prior_user=prior_user,
-            prior_model=prior_model,
-            lesson_active=active_lesson_step(recent) is not None,
+            timing,
+            user_id=user_id,
+            chat_id=chat_id,
+            content=content,
+            model_alias=model_alias,
+            user=user,
+            chat=chat,
+            skip_usage_seed=skip_usage_seed,
         )
-        timing.mark_phase("user_quota")
-
-        if not attachment_ids and await seams._try_image_lookup_for_turn(
+        if not attachment_ids and await intercept_new_turn(
+            deps,
             settings,
-            user=user,
+            user=turn.user,
             chat_id=chat_id,
             content=content,
-            result=result,
-            create_user_message=True,
-            recent_messages=recent,
-        ):
-            await res.refund()
-            return
-        if not attachment_ids and await seams._try_image_gen_for_turn(
-            settings,
-            user=user,
-            chat_id=chat_id,
-            content=content,
-            result=result,
-            create_user_message=True,
-            skip_revision_lookup=prior_count == 0,
-            recent_messages=recent,
+            outcome=outcome,
+            recent_messages=turn.recent,
+            prior_count=turn.prior_count,
         ):
             await res.refund()
             return
         timing.mark_phase("image_gen")
-        if res.reserved_tokens <= 0:
-            vision_extra = 0
-            if attachment_ids:
-                async with seams.SessionLocal() as session:
-                    image_count = await seams.count_image_attachments(
-                        session, user_id, attachment_ids
-                    )
-                vision_extra = seams.vision_reserve_tokens(settings, image_count)
-            await res.reserve(
-                user=user,
-                content=content,
-                model=model,
-                settings=settings,
-                daily_limit=daily_limit,
-                vision_extra=vision_extra,
-                max_output=settings.max_output_tokens,
-                seed=False,
-            )
-        ctx = await seams.prepare_chat_turn(
+        await _reserve_new_turn(
+            deps,
+            res,
+            settings,
+            turn,
+            user_id=user_id,
+            content=content,
+            attachment_ids=attachment_ids,
+        )
+        ctx = await prepare_chat_turn(
             user_id=user_id,
             chat_id=chat_id,
             content=content,
@@ -432,37 +189,33 @@ async def stream_chat_response(
             client_latitude=client_latitude,
             client_longitude=client_longitude,
             on_status=status,
-            user=user,
+            user=turn.user,
             timing=timing,
-            chat=chat,
-            turn_mode=turn_mode,
-            prior_count=prior_count,
-            recent_messages=recent,
-            resolved_model=model,
+            chat=turn.chat,
+            turn_mode=turn.turn_mode,
+            prior_count=turn.prior_count,
+            recent_messages=turn.recent,
+            resolved_model=turn.model,
         )
         try:
-            await seams._top_up_reserve_for_prompt(
-                res, settings=settings, ctx=ctx, daily_limit=daily_limit
+            await top_up_reserve_for_prompt(
+                res, settings=settings, ctx=ctx, daily_limit=turn.daily_limit
             )
-            async for token in seams._yield_with_chatprep_refresh(
+            async for token in _stream_turn(
+                deps,
                 redis,
-                res.lock_key,
-                res.lock_token,
-                seams.stream_and_finalize(
-                    redis,
-                    settings,
-                    ctx,
-                    should_cancel=should_cancel,
-                    result=result,
-                    on_status=status,
-                    on_reasoning=on_reasoning,
-                    resources=res,
-                ),
+                settings,
+                ctx,
+                res,
+                should_cancel=should_cancel,
+                outcome=outcome,
+                status=status,
+                on_reasoning=on_reasoning,
             ):
                 yield token
         finally:
             try:
-                await seams.await_user_message_persist(ctx)
+                await await_user_message_persist(ctx)
             except Exception:
                 logger.exception(
                     "User message persist failed chat_id=%s",
@@ -471,7 +224,7 @@ async def stream_chat_response(
 
 
 async def stream_regenerate_response(
-    seams: Any,
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     *,
@@ -479,7 +232,7 @@ async def stream_regenerate_response(
     chat_id: UUID,
     model_alias: str | None = None,
     should_cancel: Callable[[], bool] | None = None,
-    result: dict[str, Any] | None = None,
+    outcome: TurnOutcome | None = None,
     client_timezone: str | None = None,
     client_location: str | None = None,
     client_latitude: float | None = None,
@@ -489,112 +242,54 @@ async def stream_regenerate_response(
 ) -> AsyncIterator[str]:
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
-    status = seams.wrap_stream_status(timing, on_status)
-    async with seams.turn_resources(redis, user_id=user_id, chat_id=chat_id) as res:
-        # Last-message reads must see the committed assistant. Overlapping
-        # that load with wait_for_pending_finalize can regenerate from a
-        # stale last row. New turns gather wait with user/quota instead —
-        # prepare reads messages only after both finish.
-        await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
-        regenerate_backup: RegenerateBackup | None = None
-        omit_message_ids: set[UUID] | None = None
-        async with seams.SessionLocal() as session:
-            user = await seams.users_repo.get_by_id(session, user_id)
-            if user is None:
-                raise ChatNotFoundError("User not found.")
-            chat = await seams.chats_repo.get_by_id(session, chat_id, user_id)
-            if chat is None:
-                raise ChatNotFoundError("Chat not found.")
-            last = await seams.messages_repo.get_last(session, chat_id)
-            if last is None:
-                raise ChatNotFoundError("No messages to regenerate.")
-            last_user = await seams.messages_repo.get_last_user(session, chat_id)
-            if last_user is None:
-                raise ChatNotFoundError("No user message to regenerate from.")
-            model = seams.plan_service.resolve_regenerate_model(
-                user, model_alias, last_user.content, last.model, settings
-            )
-            user_message_content = last_user.content
-            prior_count = await seams.messages_repo.count_for_chat(session, chat_id)
-            if last.role == "assistant":
-                regenerate_backup = RegenerateBackup(
-                    content=last.content,
-                    model=last.model,
-                    message_id=last.id,
-                )
-                omit_message_ids = {last.id}
-            turn_mode = await _classify_turn_mode(session, chat, user_message_content)
-
-        image_regenerate_content = user_message_content
-        if regenerate_backup is not None and regenerate_backup.model == "image-search-model":
-            if await seams._try_image_lookup_for_turn(
-                settings,
-                user=user,
-                chat_id=chat_id,
-                content=user_message_content,
-                result=result,
-                create_user_message=False,
-                replace_assistant_id=regenerate_backup.message_id,
-            ):
-                return
-        if regenerate_backup is not None and regenerate_backup.model == "image-gen-model":
-            # Regenerate the recorded input, not the latest generated output.
-            # Edit wording need not contain "image" or satisfy short-revision
-            # heuristics. The persisted assistant model establishes intent.
-            for ref_id in seams.image_generation_service.image_reference_ids(user_message_content):
-                image_regenerate_content = strip_attachment_from_content(
-                    image_regenerate_content, ref_id
-                )
-            image_regenerate_content = f"Generate image: {image_regenerate_content}"
-        if await seams._try_image_gen_for_turn(
+    status = wrap_stream_status(timing, on_status)
+    async with turn_resources(deps, redis, user_id=user_id, chat_id=chat_id) as res:
+        turn = await load_regenerate_turn(
+            deps, redis, settings, user_id=user_id, chat_id=chat_id, model_alias=model_alias
+        )
+        if await intercept_regenerate(
+            deps,
             settings,
-            user=user,
+            user=turn.user,
             chat_id=chat_id,
-            content=image_regenerate_content,
-            result=result,
-            create_user_message=False,
-            replace_assistant_id=(
-                regenerate_backup.message_id if regenerate_backup is not None else None
-            ),
+            content=turn.content,
+            backup=turn.backup,
+            outcome=outcome,
         ):
             return
         # Persisted image markers identify the current input on regeneration;
         # unlike a new send, this path does not run prepare_chat_turn.
         current_image_ids = (
-            image_attachment_ids_from_text(user_message_content)
-            if settings.attachments_enabled
-            else []
+            image_attachment_ids_from_text(turn.content) if settings.attachments_enabled else []
         )
-        if current_image_ids:
-            model = "vision-chat"
+        model = "vision-chat" if current_image_ids else turn.model
         await res.reserve(
-            user=user,
-            content=user_message_content,
+            user=turn.user,
+            content=turn.content,
             model=model,
             settings=settings,
             max_output=settings.max_output_tokens,
-            vision_extra=seams.vision_reserve_tokens(settings, len(current_image_ids)),
+            vision_extra=vision_reserve_tokens(settings, len(current_image_ids)),
             seed=True,
         )
-        bundle = await seams.build_stream_prompt_context(
-            user_id,
-            chat_id,
-            user_message_content,
-            model,
-            settings,
-            redis,
+        request = TurnRequest(
+            user_id=user_id,
+            chat_id=chat_id,
+            content=turn.content,
+            model=model,
             client_timezone=client_timezone,
             client_location=client_location,
             client_latitude=client_latitude,
             client_longitude=client_longitude,
             on_status=status,
-            user=user,
-            chat=chat,
+            user=turn.user,
+            chat=turn.chat,
             timing=timing,
-            omit_message_ids=omit_message_ids,
-            turn_mode=turn_mode,
+            omit_message_ids=turn.omit_message_ids,
+            turn_mode=turn.turn_mode,
             has_image_attachment=bool(current_image_ids),
         )
+        bundle = await build_stream_prompt_context(request, settings, redis)
         if current_image_ids:
             await inject_regenerated_image_content(
                 bundle.prompt_messages,
@@ -602,46 +297,41 @@ async def stream_regenerate_response(
                 user_id=user_id,
                 attachment_ids=current_image_ids,
             )
-        thinking = message_needs_thinking(user_message_content, settings=settings)
-        ctx = seams.stream_context_from_bundle(
+        ctx = stream_context_from_bundle(
             bundle,
             user_id=user_id,
             chat_id=chat_id,
             model=model,
-            user_message_content=user_message_content,
+            user_message_content=turn.content,
             reserved_tokens=res.reserved_tokens,
-            user=user,
-            prior_count=prior_count,
+            user=turn.user,
+            prior_count=turn.prior_count,
             timing=timing,
             run_title=False,
             skip_memory_jobs=False,
-            regenerate_backup=regenerate_backup,
-            thinking=thinking,
+            regenerate_backup=turn.backup,
+            thinking=message_needs_thinking(turn.content, settings=settings),
         )
-        await seams._top_up_reserve_for_prompt(
+        await top_up_reserve_for_prompt(
             res,
             settings=settings,
             ctx=ctx,
-            daily_limit=seams.quota_service.daily_limit_for_user(user, settings),
+            daily_limit=deps.quota.daily_limit_for_user(turn.user, settings),
         )
         try:
-            async for token in seams._yield_with_chatprep_refresh(
+            async for token in _stream_turn(
+                deps,
                 redis,
-                res.lock_key,
-                res.lock_token,
-                seams.stream_and_finalize(
-                    redis,
-                    settings,
-                    ctx,
-                    should_cancel=should_cancel,
-                    result=result,
-                    on_status=status,
-                    on_reasoning=on_reasoning,
-                    resources=res,
-                ),
+                settings,
+                ctx,
+                res,
+                should_cancel=should_cancel,
+                outcome=outcome,
+                status=status,
+                on_reasoning=on_reasoning,
             ):
                 yield token
         except BaseException:
-            if regenerate_backup is not None:
-                await seams.restore_regenerate_backup(user_id, chat_id, regenerate_backup)
+            if turn.backup is not None:
+                await restore_regenerate_backup(user_id, chat_id, turn.backup)
             raise

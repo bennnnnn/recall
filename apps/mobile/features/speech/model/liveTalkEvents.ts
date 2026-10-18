@@ -11,7 +11,7 @@ export type LiveTalkSpeakEvent =
       assistant_message: Message | null;
     };
 
-export function liveTalkLocalIds(turnId: string): { user: string; assistant: string } {
+function liveTalkLocalIds(turnId: string): { user: string; assistant: string } {
   return {
     user: `local-live-user-${turnId}`,
     assistant: `local-live-assistant-${turnId}`,
@@ -41,11 +41,6 @@ function upsertLiveTalkMessage(
       created_at: new Date().toISOString(),
     },
   ];
-}
-
-export function dropLiveTalkLocalTurn(messages: Message[], turnId: string): Message[] {
-  const ids = liveTalkLocalIds(turnId);
-  return messages.filter((row) => row.id !== ids.user && row.id !== ids.assistant);
 }
 
 export function applyLiveTalkChatEvent(

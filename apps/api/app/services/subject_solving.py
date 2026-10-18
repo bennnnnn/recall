@@ -67,7 +67,7 @@ _CHEMISTRY_SYMBOL = re.compile(
     r"(?<![A-Za-z0-9])(?:pH|pOH|pKa|pKb|Ka|Kb|Kw|Ksp|Kc|Kp|Qc)(?![A-Za-z])"
 )
 _CHEMISTRY_AMOUNT = re.compile(
-    r"(?<![A-Za-z])(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?\s*"
+    r"(?<![A-Za-z])(?:\d(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?\s*"
     r"(?:M|mM|mol(?:es?)?|mmol|mol/L|g/mol|mol/kg)(?![A-Za-z])"
 )
 

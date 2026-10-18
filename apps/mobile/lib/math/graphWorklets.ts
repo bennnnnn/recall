@@ -1,10 +1,11 @@
 /**
- * Worklet-safe copies of the graph viewport/tick math from graphBlock.ts and
- * graphViewport.ts. Reanimated does not workletize imported functions, so the
- * Skia explorer keeps its own self-contained versions here — every function
- * carries the directive and the module imports nothing. They are still plain
- * pure functions and run fine on the JS thread (unit tests exercise them
- * directly); keep behavior in sync with the JS originals.
+ * Graph viewport and tick math that also runs on the UI thread. Reanimated does
+ * not workletize imported functions, so every function here carries the
+ * directive and the module imports nothing. They are plain pure functions too:
+ * the JS thread takes the view clamp, zoom, pan and unmap and the tick step and
+ * count from here. mapPointW, axisTicksW and formatTickW still have JS twins in
+ * graphBlock.ts; formatTickW snaps within 1e-9 of a whole number, so the tick
+ * pair is not the same function.
  */
 
 export type GraphViewW = {
@@ -128,7 +129,7 @@ export function unmapPointW(
   return { x, y };
 }
 
-function niceStepW(raw: number): number {
+export function niceStepW(raw: number): number {
   "worklet";
   if (!(raw > 0) || !Number.isFinite(raw)) return 1;
   const exp = Math.floor(Math.log10(raw));

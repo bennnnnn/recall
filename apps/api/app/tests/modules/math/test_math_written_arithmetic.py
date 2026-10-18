@@ -305,6 +305,16 @@ def test_fence_rewriter_uses_only_canonical_written_work() -> None:
     assert spec.answer == "834"
 
 
+def test_written_working_reads_before_the_answer_card() -> None:
+    question = "Show steps: 478 + 356"
+    _intent, block, _spec = _work(question)
+    block = replace(block, response_intent=classify_math_response_intent(question))
+    cleaned = validate_math_fences("Add the columns.\n\n**Answer**\n$834$", verified=block)
+    assert cleaned.count("**Answer**") == 1
+    assert cleaned.index("```arithmetic") < cleaned.index("**Answer**")
+    assert cleaned.index("**Answer**") < cleaned.index("```answer\nverified: true\n478 + 356 = 834")
+
+
 def test_unverified_written_work_is_stripped_without_showing_raw_json() -> None:
     content = '```arithmetic\n{"type":"arithmetic","answer":"999"}\n```'
     cleaned = validate_math_fences(content)

@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.modules.chat import titles as chat_titles
 from app.modules.memory import embedding_text_hash
 from app.modules.memory import llm as memory_llm
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 
 class _FakeSessionCM:
@@ -181,14 +182,14 @@ async def test_stream_chat_completion_mock():
 @pytest.mark.asyncio
 async def test_complete_structured_mock_returns_none():
     from app.gateways import litellm_gateway
-    from app.models.schemas import TitleGenerationResult
+    from app.models.schemas import MemorySectionItem
 
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     result = await litellm_gateway.complete_structured(
         settings=settings,
         model_alias="title-model",
         messages=[{"role": "user", "content": "hi"}],
-        schema=TitleGenerationResult,
+        schema=MemorySectionItem,
     )
     assert result is None
 
@@ -201,16 +202,14 @@ async def test_generate_title_mock():
 
 
 @pytest.mark.asyncio
-async def test_revise_memory_sections_mock():
+async def test_revise_memory_facts_mock():
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    result = await memory_llm.revise_memory_sections(
-        settings, "User likes Python", existing_sections={}
-    )
+    result = await memory_llm.revise_memory_facts(settings, "User likes Python", existing_facts=[])
     assert result is None or hasattr(result, "ops")
 
 
 @pytest.mark.asyncio
-async def test_revise_memory_sections_prompt_user_stated_only():
+async def test_revise_memory_facts_prompt_user_stated_only():
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="test-key")
     captured: dict[str, object] = {}
 
@@ -222,10 +221,10 @@ async def test_revise_memory_sections_prompt_user_stated_only():
         "app.modules.memory.llm.litellm_gateway.complete_structured",
         _capture,
     ):
-        await memory_llm.revise_memory_sections(
+        await memory_llm.revise_memory_facts(
             settings,
             "User: I work at Acme\nAssistant: Congrats on the new role!",
-            existing_sections={},
+            existing_facts=[],
         )
 
     system = captured["messages"][0]["content"]  # type: ignore[index]
@@ -865,22 +864,22 @@ async def test_stream_chat_response_quota_exceeded(used: int) -> None:
     # Soft quota reads actual usage; mocking reserve_usage no longer rejects
     # the turn. Fail immediately if the guard lets message persistence begin.
     prepare = AsyncMock(side_effect=AssertionError("Over-limit turn reached preparation"))
+    deps = turn_deps(
+        session_factory=lambda: _FakeSessionCM(),
+        chats={"get_by_id": AsyncMock(return_value=MagicMock(summary=None))},
+        messages={"list_recent": AsyncMock(return_value=[])},
+    )
     with (
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.modules.chat.stream.SessionLocal", lambda: _FakeSessionCM()),
-        patch("app.modules.chat.stream.wait_for_pending_finalize", AsyncMock()),
-        patch(
-            "app.modules.chat.stream.chats_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(summary=None)),
-        ),
-        patch("app.modules.chat.stream.messages_repo.list_recent", AsyncMock(return_value=[])),
+        patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
         patch("app.services.quota.has_daily_usage_key", AsyncMock(return_value=True)),
         patch("app.services.quota.get_daily_usage", usage),
         patch("app.services.quota.reserve_usage", AsyncMock()) as reserve,
-        patch("app.modules.chat.stream.prepare_chat_turn", prepare),
+        patch("app.modules.chat.stream_entry.prepare_chat_turn", prepare),
     ):
         with pytest.raises(QuotaExceededError):
             async for _t in chat_service.stream_chat_response(
+                deps,
                 redis,
                 settings,
                 user_id=user_id,

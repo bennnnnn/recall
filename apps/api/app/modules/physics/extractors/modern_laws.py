@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
+from app.modules.physics.constants import SPEED_OF_LIGHT
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
@@ -30,7 +31,7 @@ def _relativistic_speed(cleaned: str) -> tuple[float, str] | None:
         return speed
     fraction = re.search(rf"({_NUMBER})\s*c\b", cleaned, re.IGNORECASE)
     if fraction is not None:
-        return float(fraction.group(1)) * 299792458.0, "m/s"
+        return float(fraction.group(1)) * SPEED_OF_LIGHT, "m/s"
     return None
 
 

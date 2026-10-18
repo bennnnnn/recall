@@ -13,6 +13,14 @@ from app.modules.math.match.calculus import (
     parse_limit,
     parse_series,
 )
+from app.modules.math.match.dimensions import (
+    first_dim_pair,
+    first_dim_triple,
+    geometry_dim_context,
+    has_draw_shape,
+    number_after,
+    two_numbers_after,
+)
 from app.modules.math.match.discrete import (
     combinatorics_signal,
     crt_signal,
@@ -43,25 +51,9 @@ from app.modules.math.match.graph import (
     plot_point,
     vertical_line_x,
 )
-from app.modules.math.match.needs import (
-    needs_symbolic,
-    school_homework_cue,
-)
-from app.modules.math.match.scan import (
-    _NUM as _NUM,
-)
-from app.modules.math.match.scan import (
-    first_dim_pair,
-    first_dim_triple,
-    geometry_dim_context,
-    has_draw_shape,
-    has_equation,
-    has_math_keyword,
-    looks_like_math_expr,
-    number_after,
-    prepare,
-    two_numbers_after,
-)
+from app.modules.math.match.letter_runs import looks_like_math_expr
+from app.modules.math.match.needs import needs_symbolic
+from app.modules.math.match.scan import has_equation, has_math_keyword, prepare
 from app.modules.math.match.types import (
     CombinatoricsOp,
     MatrixOp,
@@ -110,7 +102,6 @@ __all__ = [
     "parse_solid",
     "plot_point",
     "prepare",
-    "school_homework_cue",
     "solid_homework_cue",
     "spoken_power_request",
     "stats_signal",

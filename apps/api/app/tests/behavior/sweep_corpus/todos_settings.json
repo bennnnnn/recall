@@ -1038,5 +1038,140 @@
   "history": [],
   "reply": "The capital of Canada is **Ottawa**, in the province of Ontario.",
   "expect": "answer"
+ },
+ {
+  "id": "td-111",
+  "area": "todo",
+  "prompt": "6:30",
+  "history": [
+   [
+    "user",
+    "remind me to pick up the dry cleaning on Saturday"
+   ],
+   [
+    "assistant",
+    "When should I remind you?"
+   ]
+  ],
+  "reply": "Got it — 6:30 PM on Saturday.",
+  "expect": "save"
+ },
+ {
+  "id": "td-112",
+  "area": "todo",
+  "prompt": "0",
+  "history": [
+   [
+    "user",
+    "remind me to pick up the dry cleaning on Saturday"
+   ],
+   [
+    "assistant",
+    "When should I remind you?"
+   ]
+  ],
+  "reply": "Sorry, what time on Saturday should I remind you?",
+  "expect": "ask_time"
+ },
+ {
+  "id": "td-113",
+  "area": "todo",
+  "prompt": "make it 6:30 instead",
+  "history": [
+   [
+    "user",
+    "remind me about the gym tomorrow at 6pm"
+   ],
+   [
+    "assistant",
+    "Set: gym — Thursday, Oct 15, 6:00 PM."
+   ]
+  ],
+  "reply": "Done — moved **gym** to Thursday, Oct 15, 6:30 PM.",
+  "expect": "change"
+ },
+ {
+  "id": "td-114",
+  "area": "todo",
+  "prompt": "move gym to friday at 6:30",
+  "history": [],
+  "reply": "Moved **gym** to Friday, Oct 16, 6:30 PM.",
+  "expect": "change"
+ },
+ {
+  "id": "td-115",
+  "area": "lookalike",
+  "prompt": "make it 6:30",
+  "history": [
+   [
+    "user",
+    "write a text inviting my friends to dinner at my place saturday"
+   ],
+   [
+    "assistant",
+    "Hey all! Dinner at my place this Saturday at 6 — bring your appetite. Let me know if you can make it!"
+   ]
+  ],
+  "reply": "Hey all! Dinner at my place this Saturday at 6:30 — bring your appetite. Let me know if you can make it!",
+  "expect": "answer"
+ },
+ {
+  "id": "td-116",
+  "area": "lookalike",
+  "prompt": "change the long run to 1:30",
+  "history": [
+   [
+    "user",
+    "make me a 2 week half marathon plan"
+   ],
+   [
+    "assistant",
+    "**Week 1** — Tue: 5 km easy · Thu: 6 km tempo · Sun: long run 1:00\n**Week 2** — Tue: 6 km easy · Thu: 7 km tempo · Sun: long run 1:15"
+   ]
+  ],
+  "reply": "**Week 1** — Tue: 5 km easy · Thu: 6 km tempo · Sun: long run 1:30\n**Week 2** — Tue: 6 km easy · Thu: 7 km tempo · Sun: long run 1:30",
+  "expect": "answer"
+ },
+ {
+  "id": "td-117",
+  "area": "lookalike",
+  "prompt": "set the oven timer to 10:00",
+  "history": [],
+  "reply": "Most ovens: press **Timer**, type **1-0-0-0**, then **Start**. On a dial, turn it to 10 minutes.",
+  "expect": "answer"
+ },
+ {
+  "id": "td-118",
+  "area": "lookalike",
+  "prompt": "0",
+  "history": [
+   [
+    "user",
+    "quiz me on the planets"
+   ],
+   [
+    "assistant",
+    "Question 1: how many moons does Venus have?"
+   ]
+  ],
+  "reply": "Right — Venus has no moons at all. Question 2: which planet is the hottest?",
+  "expect": "answer"
+ },
+ {
+  "id": "td-119",
+  "area": "lookalike",
+  "prompt": "6:30",
+  "history": [
+   [
+    "user",
+    "help me plan a movie night"
+   ],
+   [
+    "assistant",
+    "Fun! What time does the movie start?"
+   ]
+  ],
+  "reply": "Then start the popcorn at 6:15 and dim the lights at 6:25.",
+  "expect": "answer"
  }
 ]

@@ -5,9 +5,11 @@
  * cuts it out before our `$...$` maths split ever sees the text. Every
  * string-level pass that pairs dollars must agree, or it pairs a `$` with a
  * dollar on the far side of a code span and rewrites the code between them.
+ * The API's twin is apps/api/app/modules/chat/inline_code.py.
  */
 
-function escapedAt(text: string, at: number): boolean {
+/** True when an odd run of backslashes escapes `text[at]`. */
+export function escapedAt(text: string, at: number): boolean {
   let slashes = 0;
   for (let i = at - 1; i >= 0 && text[i] === "\\"; i -= 1) slashes += 1;
   return slashes % 2 === 1;

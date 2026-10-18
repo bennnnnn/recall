@@ -7,10 +7,13 @@ import re
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.match import calc_op
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
+from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.extract import extract_math_intent
-from app.modules.math.tools.helpers import _split_response_instruction_sentence, math_expr_or_none
+from app.modules.math.tools.request_text import _split_response_instruction_sentence
+from app.services.number_text import bounded_decimal
 
-_NUMBER = r"[+-]?(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
+_NUMBER = bounded_decimal(12)
 # ``pi``, ``2pi``, ``pi/2`` and ``e`` are exact bounds, as common as numbers.
 _CONSTANT_POINT = r"-?(?:[0-9]{1,3}\s*\*?\s*)?(?:pi|π)(?:\s*/\s*[0-9]{1,3})?|-?e"
 _POINT = rf"(?:{_NUMBER}|-?(?:infinity|inf|oo)|{_CONSTANT_POINT})"
@@ -88,10 +91,9 @@ def _point(value: str | None) -> str | float | None:
         return None
     from app.modules.math.solve.parse import _parse_expression
 
-    try:
+    with sympy_decline():
         return float(_parse_expression(value.replace("π", "pi"), []))
-    except Exception:
-        return None
+    return None
 
 
 def _matches_expression(actual: MathIntent, raw: str) -> bool:

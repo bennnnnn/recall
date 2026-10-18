@@ -22,8 +22,8 @@ import { HaloText } from "@/components/rich/skia/HaloText";
 import { pointsPath } from "@/components/rich/skia/paths";
 
 /** Changing either breaks TrajectoryGraphTicks.test.tsx, which pins tick geometry. */
-export const TRAJECTORY_PAD = 40;
-export const TRAJECTORY_CHART_HEIGHT = 220;
+const TRAJECTORY_PAD = 40;
+const TRAJECTORY_CHART_HEIGHT = 220;
 
 const DOT_RADIUS = 5.5;
 const CURVE_STROKE = 2.5;

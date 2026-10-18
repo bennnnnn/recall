@@ -59,7 +59,8 @@ async def _complete_structured_once[T: BaseModel](
     from app.gateways import litellm_gateway as gateway
 
     route = gateway.resolve_route(model_alias)
-    kwargs = gateway._litellm_kwargs(settings, route)  # ModelUnavailableError if no key
+    # No thinking pass: a reasoning model can spend the whole max_tokens on it.
+    kwargs = gateway._litellm_kwargs(settings, route, thinking=False)  # no key: ModelUnavailable
     timeout = (
         settings.background_llm_timeout_seconds if timeout_seconds is None else timeout_seconds
     )

@@ -11,7 +11,7 @@ import { scanFences, type FenceSpan } from "@/lib/mdFenceScan";
 const CHEM_LANGS = new Set(["smiles", "chemistry"]);
 const MOL3D_LANGS = new Set(["molecule3d", "mol3d", "3dmol"]);
 
-export type MoleculeFence = {
+type MoleculeFence = {
   smiles: string;
   caption: string | null;
   sdf: string | null;

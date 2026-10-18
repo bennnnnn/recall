@@ -26,6 +26,7 @@ from app.modules.math.schemas import (
     TriangleSidesInput,
     TriangleSidesResult,
 )
+from app.modules.math.solve.triangle import cosine_rule_angle, heron_area, sine_rule_side
 from app.services.solving import MathServiceError
 
 _ANGLE_INT_TOL_DEG = 0.11
@@ -55,11 +56,10 @@ def sides_from_interior_angles(
     if abs(angle_a + angle_b + angle_c - 180.0) > 0.6:
         raise MathServiceError("interior angles must sum to 180°")
     smallest = min(angle_a, angle_b, angle_c)
-    k = 1.0 / math.sin(math.radians(smallest))
-    side_a = k * math.sin(math.radians(angle_a))
-    side_b = k * math.sin(math.radians(angle_b))
-    side_c = k * math.sin(math.radians(angle_c))
-    return round(side_a, 4), round(side_b, 4), round(side_c, 4)
+    side_a, side_b, side_c = (
+        round(float(sine_rule_side(1, smallest, angle)), 4) for angle in (angle_a, angle_b, angle_c)
+    )
+    return side_a, side_b, side_c
 
 
 def rectangle_geometry(data: RectangleGeometryInput) -> RectangleGeometryResult:
@@ -269,11 +269,10 @@ def triangle_sides_geometry(data: TriangleSidesInput) -> TriangleSidesResult:
     """Area via Heron's formula, angles via the law of cosines — for a
     triangle given as three side lengths rather than base+height."""
     a, b, c = data.a, data.b, data.c
-    s = (a + b + c) / 2
-    area = math.sqrt(s * (s - a) * (s - b) * (s - c))
+    area = heron_area(a, b, c)
     perimeter = a + b + c
-    angle_a = math.degrees(math.acos((b * b + c * c - a * a) / (2 * b * c)))
-    angle_b = math.degrees(math.acos((a * a + c * c - b * b) / (2 * a * c)))
+    angle_a = float(cosine_rule_angle(b, c, a))
+    angle_b = float(cosine_rule_angle(a, c, b))
     angle_c = 180.0 - angle_a - angle_b
     unit = data.unit
     labels = {

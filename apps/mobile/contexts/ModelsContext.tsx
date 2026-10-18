@@ -12,19 +12,22 @@ import { AppState, type AppStateStatus } from "react-native";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type ModelInfo } from "@/lib/api";
+import { getSessionGeneration } from "@/lib/auth";
+import { readCachedModels, writeCachedModels } from "@/lib/cachedModels";
 import { MODEL_CATALOG_FALLBACK } from "@/lib/modelCatalogFallback";
 import { shouldRefreshModels } from "@/lib/modelRefresh";
+import { hasPlanFeature } from "@/lib/plan";
 
-export const AUTO_MODEL_ID = "auto";
+const AUTO_MODEL_ID = "auto";
 
 const MODEL_REFRESH_TTL_MS = 5 * 60 * 1000;
 
-export function defaultModelPreferences(
+function defaultModelPreferences(
   models: ModelInfo[],
-  isPro: boolean,
+  isPaid: boolean,
 ): string[] {
   const ids = models
-    .filter((m) => m.available && (isPro || m.plan_access === "free"))
+    .filter((m) => m.available && (isPaid || m.plan_access === "free"))
     .map((m) => m.id);
   return [AUTO_MODEL_ID, ...ids];
 }
@@ -42,7 +45,7 @@ type ModelsContextValue = {
   loading: boolean;
   refresh: () => Promise<void>;
   labelFor: (id: string | null | undefined) => string;
-  isPro: boolean;
+  isPaid: boolean;
   autoEnabled: boolean;
   modelEnabledSet: Set<string>;
   enabledSet: Set<string>;
@@ -52,31 +55,57 @@ type ModelsContextValue = {
 
 const ModelsContext = createContext<ModelsContextValue | null>(null);
 
+/** A catalog belongs to the account that fetched it, so after signout or an
+ * account switch the list falls back at once instead of showing the last one. */
+type AccountCatalog = { userId: string; models: ModelInfo[] };
+
 export function ModelsProvider({ children }: { children: ReactNode }) {
   const auth = useAuthOptional();
   const token = auth?.token;
   const user = auth?.user;
-  const [models, setModels] = useState<ModelInfo[]>(MODEL_CATALOG_FALLBACK);
+  const userId = user?.id;
+  const [catalog, setCatalog] = useState<AccountCatalog | null>(null);
+  const models =
+    catalog && catalog.userId === userId ? catalog.models : MODEL_CATALOG_FALLBACK;
   const [loading, setLoading] = useState(false);
   const inflightRef = useRef<Promise<void> | null>(null);
   const lastFetchedAtRef = useRef<number>(0);
 
+  // Paint the last catalog this account fetched, unless /models already answered.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    void readCachedModels(userId).then((cached) => {
+      if (cancelled || !cached) return;
+      setCatalog((current) =>
+        current?.userId === userId ? current : { userId, models: cached },
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
   const refresh = useCallback(async () => {
-    if (!token) return;
+    if (!token || !userId) return;
     if (inflightRef.current) {
       await inflightRef.current;
       return;
     }
     setLoading(true);
+    const session = getSessionGeneration();
     const task = (async () => {
       try {
         const fetched = await api.listModels(token);
+        // A list that lands after signout is neither shown nor kept.
+        if (session !== getSessionGeneration()) return;
         if (fetched.length > 0) {
-          setModels(fetched);
+          setCatalog({ userId, models: fetched });
+          void writeCachedModels(userId, fetched);
         }
         lastFetchedAtRef.current = Date.now();
       } catch {
-        /* keep last list (fallback or prior fetch) */
+        /* keep the cached or fallback list */
       } finally {
         setLoading(false);
       }
@@ -87,7 +116,7 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
     } finally {
       inflightRef.current = null;
     }
-  }, [token]);
+  }, [token, userId]);
 
   useEffect(() => {
     void refresh();
@@ -107,11 +136,12 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [refresh, token]);
 
-  const isPro = user?.plan === "pro";
+  // Paid plans (Plus and Pro) unlock every model; the server enforces it.
+  const isPaid = hasPlanFeature(user, "all_models");
 
   const preferences = useMemo(
-    () => user?.enabled_models ?? defaultModelPreferences(models, isPro),
-    [user?.enabled_models, models, isPro],
+    () => user?.enabled_models ?? defaultModelPreferences(models, isPaid),
+    [user?.enabled_models, models, isPaid],
   );
 
   const autoEnabled = preferences.includes(AUTO_MODEL_ID);
@@ -134,7 +164,7 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
       loading,
       refresh,
       labelFor,
-      isPro,
+      isPaid,
       autoEnabled,
       modelEnabledSet,
       enabledSet: modelEnabledSet,
@@ -146,7 +176,7 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
       loading,
       refresh,
       labelFor,
-      isPro,
+      isPaid,
       autoEnabled,
       modelEnabledSet,
       preferences,

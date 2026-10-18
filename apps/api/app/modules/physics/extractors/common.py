@@ -6,18 +6,16 @@ import logging
 import re
 from bisect import bisect_left, bisect_right
 
-from app.modules.physics.bodies import ELECTRON_MASS, ELEMENTARY_CHARGE, SCHOOL_GRAVITY
+from app.modules.physics.bodies import SCHOOL_GRAVITY
+from app.services.number_text import TEXT_DECIMAL, TEXT_NUMBER
 from app.services.text_match import word_index
 
 logger = logging.getLogger(__name__)
 
-# A number starts where its digit run starts. Without the lookbehind, `search`
-# retries `\d+` from every digit of a long run and each retry backtracks the
-# rest of it, so one pasted 3,000-digit line cost a second per pattern. A match
-# that starts mid-run is only ever a suffix of the one that starts at the run.
-_NUMBER = r"-?(?<!\d)\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
-# The same number without an exponent, as an angle or a reading is written.
-_DECIMAL = r"-?(?<!\d)\d+(?:\.\d+)?"
+# The extractors' short names for the shared running-text number, and the same
+# number without an exponent, as an angle or a reading is written.
+_NUMBER = TEXT_NUMBER
+_DECIMAL = TEXT_DECIMAL
 # The unit after an angle in degrees.
 _DEGREE_WORD = r"(?:degrees?|deg|\u00b0)"
 
@@ -36,10 +34,6 @@ _OHM_PATTERN = r"ohms?|\u03a9"
 _TESLA_PATTERN = r"T|tesla|teslas|mT|millitesla"
 
 _G_DEFAULT = SCHOOL_GRAVITY["earth"]
-
-_ELECTRON_MASS = ELECTRON_MASS
-
-_ELEMENTARY_CHARGE = ELEMENTARY_CHARGE
 
 _VALUE_UNIT_RE = re.compile(
     rf"({_NUMBER})\s*"

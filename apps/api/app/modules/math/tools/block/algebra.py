@@ -14,6 +14,7 @@ from app.modules.math.schemas import (
     NewtonMethodInput,
     SystemOfEquationsInput,
 )
+from app.modules.math.solve.declines import declines, sympy_decline
 from app.modules.math.solve.key_steps import (
     KeyStep,
     equation_check_latex,
@@ -24,6 +25,11 @@ from app.modules.math.solve.key_steps import (
     written_side,
 )
 from app.modules.math.solve.parse import parse_equation as parse_eq
+from app.modules.math.solve.step_rules import (
+    evaluate_powers,
+    substitution_check,
+    with_powers_evaluated,
+)
 from app.modules.math.solve.traces import (
     compound_inequality_trace,
     inequality_trace,
@@ -58,22 +64,24 @@ def _number_line_interval_latex(spec: object) -> str | None:
     return r" \cup ".join(pieces)
 
 
+@declines(False)
 def _rational_interval_is_clearer(intent: MathIntent) -> bool:
     """Use intervals for sign-chart problems with both zeros and poles."""
-    try:
-        parsed = math_solve._parse_expression(
-            intent.lhs or "", [intent.variable], real=True
-        ) - math_solve._parse_expression(intent.rhs or "", [intent.variable], real=True)
-        variable = next(
-            (symbol for symbol in parsed.free_symbols if str(symbol) == intent.variable),
-            None,
-        )
-        if variable is None:
-            return False
-        numerator, denominator = parsed.as_numer_denom()
-        return variable in denominator.free_symbols and variable in numerator.free_symbols
-    except Exception:
+    from sympy import Expr
+
+    lhs = math_solve._parse_expression(intent.lhs or "", [intent.variable], real=True)
+    rhs = math_solve._parse_expression(intent.rhs or "", [intent.variable], real=True)
+    if not (isinstance(lhs, Expr) and isinstance(rhs, Expr)):
         return False
+    parsed = lhs - rhs
+    variable = next(
+        (symbol for symbol in parsed.free_symbols if str(symbol) == intent.variable),
+        None,
+    )
+    if variable is None:
+        return False
+    numerator, denominator = parsed.as_numer_denom()
+    return variable in denominator.free_symbols and variable in numerator.free_symbols
 
 
 _COMPLEX_ROOT_CUE = re.compile(
@@ -113,9 +121,35 @@ def _written_given(
     if r"\log" in written:
         return written, key_steps
     label = rewrite_label(left[0], lhs) or rewrite_label(right[0], rhs)
+    # ``5^2`` typed is ``25`` to the solver; that number work is its own step,
+    # then the equation it gives (a Simplify line joins that step).
+    powers = evaluate_powers(left[0], right[0])
+    if powers is not None:
+        left_tex = with_powers_evaluated(left[1], left[0])
+        replaced = f"{left_tex} = {with_powers_evaluated(right[1], right[0])}"
+        steps = [KeyStep(label=powers[0], formula=powers[1])]
+        steps.append(KeyStep(label="Simplify", formula=replaced))
+        if replaced != evaluated:
+            # ``x^2 + 8 \cdot 3`` still has number work before ``x^2 + 24``.
+            product = re.search(r"\d\s*\\cdot\s*\d", replaced) is not None
+            arithmetic = "Multiply the numbers" if product else "Calculate"
+            steps.append(KeyStep(label=label or arithmetic, formula=evaluated))
+        return written, [*steps, *key_steps]
     if label is None:
         return written, key_steps
     return written, [KeyStep(label=label, formula=evaluated), *key_steps]
+
+
+def _typed_check(intent: MathIntent, lhs: Any, rhs: Any) -> str | None:
+    """The check substitutes into the equation as typed, else the solver's sides."""
+    variable = intent.variable or "x"
+    left = written_side(intent.lhs or "", [variable])
+    right = written_side(intent.rhs or "", [variable])
+    if left is not None and right is not None:
+        typed = substitution_check(left[1], right[1], lhs, rhs, variable)
+        if typed is not None:
+            return typed
+    return equation_check_latex(lhs, rhs, variable)
 
 
 def _verified_block_equation(
@@ -190,7 +224,7 @@ def _verified_block_equation(
         key_step=math_solve.factored_key_step(eq.lhs, eq.rhs, intent.variable or "x"),
         key_steps=key_steps,
         given_latex=given_latex,
-        check_latex=equation_check_latex(lhs, rhs, intent.variable or "x"),
+        check_latex=_typed_check(intent, lhs, rhs),
         alternate_method_note=alt,
     )
     block = replace(
@@ -202,7 +236,7 @@ def _verified_block_equation(
     )
     if intent.school_op != "exact_and_decimal":
         return block
-    try:
+    with sympy_decline() as declined:
         from sympy import Eq, Symbol, latex, solve
 
         variable = next(
@@ -216,7 +250,7 @@ def _verified_block_equation(
         )
         values = solve(Eq(lhs, rhs), variable)
         approximations = [str(latex(value.evalf(6))) for value in values]
-    except Exception:
+    if declined:
         return block
     if not approximations:
         return block
@@ -365,6 +399,8 @@ def _verified_block_numerical_method(
     answer = f"{newton_result.root:g}"
     return replace(
         _finish_with_answer(lines, answer),
+        # A numerical root is an approximation of the variable; its card says so.
+        display_answer=rf"{newton_input.variable} \approx {answer}",
         newton_input=newton_input.model_copy(deep=True),
         newton_result=newton_result.model_copy(deep=True),
     )

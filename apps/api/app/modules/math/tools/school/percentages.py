@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
-import math
 import re
 from dataclasses import replace
 
-from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.school._parse import (
     _count_char,
-    _finite_match_value,
+    _exactly_n_numbers,
     _has_any_word,
-    _number_immediately_before,
+)
+from app.services.number_text import (
+    DECIMAL,
+    DECIMAL_LITERAL,
+    finite_match_value,
+    number_immediately_before,
 )
 from app.services.text_match import word_index
 from app.services.workout import math_line
@@ -24,12 +27,8 @@ _PERCENT_DECREASE_WORDS = ("decrease", "decreased", "decreasing")
 
 
 _PERCENT_OF = re.compile(r"\s*%\s*of\s+", re.IGNORECASE)
-_CHAIN_NUMBER = re.compile(
-    r"\s*(?:(?:the|a\s+total\s+of)\s+)?\$?\s*(-?(?:\d+(?:\.\d+)?|\.\d+))", re.IGNORECASE
-)
-_CHAIN_ADDEND = re.compile(
-    r"\s*(plus|minus|\+|-|\u2212)\s*\$?\s*((?:\d+(?:\.\d+)?|\.\d+))", re.IGNORECASE
-)
+_CHAIN_NUMBER = re.compile(rf"\s*(?:(?:the|a\s+total\s+of)\s+)?\$?\s*(-?{DECIMAL})", re.IGNORECASE)
+_CHAIN_ADDEND = re.compile(rf"\s*(plus|minus|\+|-|\u2212)\s*\$?\s*({DECIMAL})", re.IGNORECASE)
 # Words that ask for more arithmetic than "a% of b": "plus tax of 8%",
 # "and then double it". A unit or a noun after the base ("dollars",
 # "of the students") is not another operation.
@@ -55,13 +54,13 @@ def _extract_percent_of(cleaned: str) -> MathIntent | None:
     pct = lower.find("% of ")
     if pct == -1:
         return None
-    rate_m = _number_immediately_before(cleaned, pct)
+    rate_m = number_immediately_before(cleaned, pct)
     if rate_m is None:
         return None
     if _OPERATION_BEFORE.search(cleaned[: rate_m.start()]):
         # "5 + 20% of 80": the percent is one term of a larger sum.
         return None
-    rate = _finite_match_value(rate_m)
+    rate = finite_match_value(rate_m)
     if rate is None:
         return None
     rates = [rate]
@@ -74,7 +73,7 @@ def _extract_percent_of(cleaned: str) -> MathIntent | None:
         number = _CHAIN_NUMBER.match(cleaned, link.end())
         if number is None:
             return None
-        value = _finite_match_value_group(number)
+        value = finite_match_value(number, 1)
         if value is None:
             return None
         position = number.end()
@@ -111,14 +110,6 @@ def _extract_percent_of(cleaned: str) -> MathIntent | None:
     )
 
 
-def _finite_match_value_group(match: re.Match[str]) -> float | None:
-    try:
-        value = float(match.group(1))
-    except ValueError:
-        return None
-    return value if math.isfinite(value) else None
-
-
 def _extract_percent_change(cleaned: str, lower: str) -> MathIntent | None:
     increase = _has_any_word(lower, _PERCENT_INCREASE_WORDS)
     decrease = _has_any_word(lower, _PERCENT_DECREASE_WORDS)
@@ -129,18 +120,18 @@ def _extract_percent_change(cleaned: str, lower: str) -> MathIntent | None:
     by_at = word_index(lower, "by")
     if by_at == -1:
         return None
-    nums = list(mtm._NUM.finditer(cleaned))
+    nums = list(DECIMAL_LITERAL.finditer(cleaned))
     if len(nums) != 2:
         return None
     pct_at = cleaned.find("%")
-    rate_m = _number_immediately_before(cleaned, pct_at)
+    rate_m = number_immediately_before(cleaned, pct_at)
     if rate_m is None:
         return None
     base_m = nums[0] if nums[0].span() != rate_m.span() else nums[1]
     if base_m.span() == rate_m.span() or base_m.end() > by_at or rate_m.start() < by_at:
         return None
-    rate = _finite_match_value(rate_m)
-    base = _finite_match_value(base_m)
+    rate = finite_match_value(rate_m)
+    base = finite_match_value(base_m)
     if rate is None or base is None:
         return None
     return MathIntent(
@@ -155,7 +146,7 @@ def _extract_percent_change(cleaned: str, lower: str) -> MathIntent | None:
 def _extract_percent_is(cleaned: str, lower: str) -> MathIntent | None:
     if _count_char(cleaned, "%") != 0:
         return None
-    nums = list(mtm._NUM.finditer(cleaned))
+    nums = list(DECIMAL_LITERAL.finditer(cleaned))
     if len(nums) != 2:
         return None
     part_m: re.Match[str] | None = None
@@ -168,7 +159,7 @@ def _extract_percent_is(cleaned: str, lower: str) -> MathIntent | None:
         for match in nums:
             if match.end() <= idx:
                 before = match
-        after = mtm._NUM.search(cleaned, idx + len(cue))
+        after = DECIMAL_LITERAL.search(cleaned, idx + len(cue))
         if before is None or after is None:
             return None
         part_m, whole_m = before, after
@@ -178,7 +169,7 @@ def _extract_percent_is(cleaned: str, lower: str) -> MathIntent | None:
             idx = lower.find(cue)
             if idx == -1:
                 continue
-            whole = mtm._NUM.search(cleaned, idx + len(cue))
+            whole = DECIMAL_LITERAL.search(cleaned, idx + len(cue))
             if whole is None:
                 return None
             rest = cleaned[whole.end() :].lstrip()
@@ -187,7 +178,7 @@ def _extract_percent_is(cleaned: str, lower: str) -> MathIntent | None:
             after_is = rest[2:]
             if after_is[:1].isalpha():
                 return None
-            part = mtm._NUM.search(after_is)
+            part = DECIMAL_LITERAL.search(after_is)
             if part is None:
                 return None
             part_m, whole_m = part, whole
@@ -196,8 +187,8 @@ def _extract_percent_is(cleaned: str, lower: str) -> MathIntent | None:
         return None
     if {part_m.group(0), whole_m.group(0)} != {nums[0].group(0), nums[1].group(0)}:
         return None
-    part_value = _finite_match_value(part_m)
-    whole_value = _finite_match_value(whole_m)
+    part_value = finite_match_value(part_m)
+    whole_value = finite_match_value(whole_m)
     if part_value is None or whole_value is None:
         return None
     return MathIntent(
@@ -205,6 +196,157 @@ def _extract_percent_is(cleaned: str, lower: str) -> MathIntent | None:
         school_op="percent_is",
         percent_rate=part_value,
         percent_base=whole_value,
+        operation="solve",
+    )
+
+
+# The question asks for the amount before the change: "what was the original price".
+_ORIGINAL_ASKED = re.compile(
+    r"\b(?:what\s+(?:was|is|were)|find|work\s+out|calculate|how\s+much\s+(?:was|did))\b"
+    r"[^.?!]*?\b(?:original|full|regular|usual|old|starting|initial)\s+"
+    r"(?:price|cost|value|amount|salary|wage)\b"
+    r"|\b(?:price|cost|value)\s+before\s+(?:the\s+)?(?:discount|sale|increase|rise|reduction)\b",
+    re.IGNORECASE,
+)
+_ORIGINAL_DECREASE_WORDS = (
+    "discount",
+    "off",
+    "decrease",
+    "decreased",
+    "reduced",
+    "reduction",
+    "fell",
+    "dropped",
+    "sale",
+)
+_ORIGINAL_INCREASE_WORDS = (
+    "increase",
+    "increased",
+    "rise",
+    "rose",
+    "raised",
+    "markup",
+    "tax",
+    "vat",
+    "grew",
+)
+
+
+def extract_original_before_percent(cleaned: str, lower: str) -> MathIntent | None:
+    """``after a 20% discount it costs 48, what was the original price`` -> 48 / 0.8.
+
+    Taking 20% off 48 answers a different question; the 48 is already reduced.
+    """
+    if not _ORIGINAL_ASKED.search(cleaned) or cleaned.count("%") != 1:
+        return None
+    decrease = any(word_index(lower, word) != -1 for word in _ORIGINAL_DECREASE_WORDS)
+    increase = any(word_index(lower, word) != -1 for word in _ORIGINAL_INCREASE_WORDS)
+    if decrease == increase:
+        return None
+    nums = list(DECIMAL_LITERAL.finditer(cleaned))
+    if len(nums) != 2:
+        return None
+    rate_m = number_immediately_before(cleaned, cleaned.find("%"))
+    if rate_m is None:
+        return None
+    after_m = nums[0] if nums[0].span() != rate_m.span() else nums[1]
+    if after_m.span() == rate_m.span():
+        return None
+    rate = finite_match_value(rate_m)
+    after = finite_match_value(after_m)
+    if rate is None or after is None or not 0 < rate < (100 if decrease else 1000):
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="original_before_decrease" if decrease else "original_before_increase",
+        percent_rate=rate,
+        percent_base=after,
+        operation="solve",
+    )
+
+
+def extract_discount(cleaned: str, lower: str) -> MathIntent | None:
+    if "% of " in lower:
+        return None
+    if cleaned.count("%") != 1:
+        return None
+    if word_index(lower, "discount") == -1 and word_index(lower, "off") == -1:
+        return None
+    nums = list(DECIMAL_LITERAL.finditer(cleaned))
+    if len(nums) != 2:
+        return None
+    pct_at = cleaned.find("%")
+    rate_m = number_immediately_before(cleaned, pct_at)
+    if rate_m is None:
+        return None
+    base_m = nums[0] if nums[0].span() != rate_m.span() else nums[1]
+    if base_m.span() == rate_m.span():
+        return None
+    rate = finite_match_value(rate_m)
+    base = finite_match_value(base_m)
+    if rate is None or base is None:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="discount",
+        percent_rate=rate,
+        percent_base=base,
+        operation="solve",
+    )
+
+
+def extract_with_percent_total(cleaned: str, lower: str) -> MathIntent | None:
+    if "% of " in lower or cleaned.count("%") != 1:
+        return None
+    if word_index(lower, "with") == -1 and word_index(lower, "plus") == -1:
+        return None
+    if word_index(lower, "tax") == -1 and word_index(lower, "tip") == -1:
+        return None
+    nums = list(DECIMAL_LITERAL.finditer(cleaned))
+    if len(nums) != 2:
+        return None
+    pct_at = cleaned.find("%")
+    rate_m = number_immediately_before(cleaned, pct_at)
+    if rate_m is None:
+        return None
+    base_m = nums[0] if nums[0].span() != rate_m.span() else nums[1]
+    if base_m.span() == rate_m.span():
+        return None
+    rate = finite_match_value(rate_m)
+    base = finite_match_value(base_m)
+    if rate is None or base is None:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="percent_increase",
+        percent_rate=rate,
+        percent_base=base,
+        operation="solve",
+    )
+
+
+# "percentage increase from 40 to 50", "rose from 40 to 50 ... percentage increase".
+_PERCENT_CHANGE_FROM = re.compile(
+    r"\bpercent(?:age)?\s+(?:change|increase|decrease)\s+from\b"
+    r"|\b(?:rose|rises|risen|increased|went\s+up|grew|fell|dropped|decreased|went\s+down|"
+    r"changed)\s+from\b[^.?!]*\bpercent(?:age)?\b",
+    re.IGNORECASE,
+)
+
+
+def extract_percent_change_from(cleaned: str, lower: str) -> MathIntent | None:
+    if "%" in cleaned:
+        return None
+    if not _PERCENT_CHANGE_FROM.search(cleaned):
+        return None
+    values = _exactly_n_numbers(cleaned, 2)
+    if values is None:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="percent_change_from",
+        percent_base=values[0],
+        percent_rate=values[1],
         operation="solve",
     )
 

@@ -24,20 +24,6 @@ export function formatShortWeekdayDate(date: Date, locale?: Locale): string {
   });
 }
 
-/** Long weekday plus long month and numeric day, with an optional year. */
-export function formatLongWeekdayDate(
-  date: Date,
-  includeYear = false,
-  locale?: Locale,
-): string {
-  return date.toLocaleDateString(locale, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: includeYear ? "numeric" : undefined,
-  });
-}
-
 /** Abbreviated month and numeric day ("Aug 30"). */
 export function formatMonthDay(date: Date, locale?: Locale): string {
   return date.toLocaleDateString(locale, { month: "short", day: "numeric" });

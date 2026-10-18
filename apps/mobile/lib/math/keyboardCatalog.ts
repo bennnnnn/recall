@@ -551,19 +551,3 @@ export function spliceMathInsert(
   const select = resolved.select ?? 0;
   return { text: next, selection: { start: caret, end: caret + select } };
 }
-
-export function spliceBackspace(
-  text: string,
-  selection: TextSelection,
-): { text: string; selection: TextSelection } {
-  const start = Math.max(0, Math.min(selection.start, text.length));
-  const end = Math.max(start, Math.min(selection.end, text.length));
-  if (start !== end) {
-    return { text: text.slice(0, start) + text.slice(end), selection: { start, end: start } };
-  }
-  if (start === 0) return { text, selection: { start, end: start } };
-  return {
-    text: text.slice(0, start - 1) + text.slice(end),
-    selection: { start: start - 1, end: start - 1 },
-  };
-}

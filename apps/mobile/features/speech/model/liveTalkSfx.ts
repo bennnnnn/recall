@@ -1,9 +1,10 @@
 import { EncodingType, cacheDirectory, writeAsStringAsync } from "expo-file-system/legacy";
 
+import { encodePcm16Wav } from "@/lib/audio/wav";
 import { notifySuccess, tap } from "@/lib/haptics";
 import { loadExpoAudio } from "@/lib/speech/voiceAudio";
 
-export type LiveTalkCue = "start" | "end";
+type LiveTalkCue = "start" | "end";
 
 /** Rising open / falling close. Open must finish and release before WebRTC. */
 export const LIVE_TALK_CUE_TONES: Record<LiveTalkCue, readonly { hz: number; ms: number }[]> = {
@@ -22,7 +23,7 @@ const AMPLITUDE = 0.22;
 const GAP_MS = 24;
 const CUE_RELEASE_PAD_MS = 80;
 
-export function liveTalkCueDurationMs(kind: LiveTalkCue): number {
+function liveTalkCueDurationMs(kind: LiveTalkCue): number {
   const tones = LIVE_TALK_CUE_TONES[kind];
   return tones.reduce((sum, tone) => sum + tone.ms, 0) + GAP_MS * Math.max(0, tones.length - 1);
 }
@@ -38,46 +39,12 @@ let cuePlayer: CuePlayer | null = null;
 const cueUriByKind: Partial<Record<LiveTalkCue, string>> = {};
 const cueWrite: Partial<Record<LiveTalkCue, Promise<string | null>>> = {};
 
-function uint8ToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 1) {
-    binary += String.fromCharCode(bytes[i] ?? 0);
-  }
-  return btoa(binary);
-}
-
-function writeInt16LE(view: DataView, offset: number, value: number): void {
-  view.setInt16(offset, value, true);
-}
-
-function writeAscii(view: DataView, offset: number, text: string): void {
-  for (let i = 0; i < text.length; i += 1) {
-    view.setUint8(offset + i, text.charCodeAt(i));
-  }
-}
-
 /** 16-bit mono WAV. Envelope avoids clicks. */
 export function buildLiveTalkCueWavBase64(kind: LiveTalkCue): string {
   const tones = LIVE_TALK_CUE_TONES[kind];
   const totalMs = tones.reduce((sum, tone) => sum + tone.ms, 0) + GAP_MS * (tones.length - 1);
   const sampleCount = Math.max(1, Math.round((totalMs / 1000) * SAMPLE_RATE));
-  const dataBytes = sampleCount * 2;
-  const buffer = new ArrayBuffer(44 + dataBytes);
-  const view = new DataView(buffer);
-  writeAscii(view, 0, "RIFF");
-  view.setUint32(4, 36 + dataBytes, true);
-  writeAscii(view, 8, "WAVE");
-  writeAscii(view, 12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, SAMPLE_RATE, true);
-  view.setUint32(28, SAMPLE_RATE * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeAscii(view, 36, "data");
-  view.setUint32(40, dataBytes, true);
-
+  const samples = new Int16Array(sampleCount);
   let sampleIndex = 0;
   const attack = Math.round(SAMPLE_RATE * 0.008);
   const release = Math.round(SAMPLE_RATE * 0.04);
@@ -89,7 +56,7 @@ export function buildLiveTalkCueWavBase64(kind: LiveTalkCue): string {
       const env =
         i < attack ? i / attack : i > n - release ? Math.max(0, (n - i) / release) : 1;
       const sample = Math.sin((2 * Math.PI * tone.hz * i) / SAMPLE_RATE) * AMPLITUDE * env;
-      writeInt16LE(view, 44 + sampleIndex * 2, Math.max(-32767, Math.min(32767, sample * 32767)));
+      samples[sampleIndex] = Math.max(-32767, Math.min(32767, sample * 32767));
       sampleIndex += 1;
     }
     if (t < tones.length - 1) {
@@ -97,8 +64,7 @@ export function buildLiveTalkCueWavBase64(kind: LiveTalkCue): string {
       sampleIndex = Math.min(sampleCount, sampleIndex + gap);
     }
   }
-
-  return uint8ToBase64(new Uint8Array(buffer));
+  return encodePcm16Wav(samples, SAMPLE_RATE);
 }
 
 async function cueFileUri(kind: LiveTalkCue): Promise<string | null> {

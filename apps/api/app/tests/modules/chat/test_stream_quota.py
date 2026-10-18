@@ -8,15 +8,10 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat import stream as stream_module
-
-
-class _FakeSessionCM:
-    async def __aenter__(self):
-        return AsyncMock()
-
-    async def __aexit__(self, *args):
-        return False
+from app.modules.chat import stream_entry
+from app.modules.chat.turn_resources import TurnResources
+from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 
 def _pro_user() -> MagicMock:
@@ -32,16 +27,34 @@ def _turn_load():
     chat = MagicMock()
     chat.summary = None
     with (
-        patch("app.modules.chat.stream.chats_repo.get_by_id", AsyncMock(return_value=chat)),
-        patch("app.modules.chat.stream.messages_repo.list_recent", AsyncMock(return_value=[])),
-        patch("app.modules.chat.stream.messages_repo.count_for_chat", AsyncMock(return_value=0)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
     ):
         yield
 
 
-def _borrowed_resources(redis, user_id, chat_id, reserved: int) -> stream_module.TurnResources:
+def _deps(**fields):
+    """A Pro user on smart-chat with the default daily limit; sessions offline."""
+    quota = {"daily_limit_for_user": MagicMock(return_value=100_000), **fields.pop("quota", {})}
+    return turn_deps(
+        session_factory=_FakeSessionCM,
+        plan={"resolve_user_model_override": MagicMock(return_value="smart-chat")},
+        quota=quota,
+        **fields,
+    )
+
+
+def _held_lock():
+    """This turn owns its own lock + reservation (the plain message path)."""
+    return {"acquire_lock": AsyncMock(return_value="tok"), "release_lock": AsyncMock()}
+
+
+def _borrowed_resources(deps, redis, user_id, chat_id, reserved: int) -> TurnResources:
     """Resources already held by an outer turn (what regenerate hands down)."""
-    return stream_module.TurnResources(
+    return TurnResources(
+        deps=deps,
         redis=redis,
         user_id=user_id,
         chat_id=chat_id,
@@ -58,34 +71,25 @@ async def test_stream_chat_response_refunds_pre_reserved_on_image_gen():
     chat_id = uuid4()
     redis = AsyncMock()
     refund = AsyncMock()
+    deps = _deps(quota={"refund_usage": refund})
 
     with (
-        patch("app.modules.chat.stream.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.stream.wait_for_pending_finalize", AsyncMock()),
         _turn_load(),
         patch(
-            "app.modules.chat.stream.plan_service.resolve_user_model_override",
-            return_value="smart-chat",
-        ),
-        patch(
-            "app.modules.chat.stream.quota_service.daily_limit_for_user",
-            return_value=100_000,
-        ),
-        patch(
-            "app.modules.chat.stream._try_image_gen_for_turn",
+            "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
             AsyncMock(return_value=True),
         ),
-        patch("app.modules.chat.stream.quota_service.refund_usage", refund),
     ):
         tokens = [
             t
-            async for t in stream_module.stream_chat_response(
+            async for t in stream_entry.stream_chat_response(
+                deps,
                 redis,
                 Settings(),
                 user_id=user.id,
                 chat_id=chat_id,
                 content="draw a cat",
-                resources=_borrowed_resources(redis, user.id, chat_id, 500),
+                resources=_borrowed_resources(deps, redis, user.id, chat_id, 500),
                 user=user,
                 skip_usage_seed=True,
             )
@@ -106,35 +110,23 @@ async def test_stream_chat_response_refunds_on_cancelled_error():
         raise asyncio.CancelledError()
         yield  # pragma: no cover — make this an async generator
 
+    deps = _deps(quota={"refund_usage": refund}, locks=_held_lock())
     with (
-        patch("app.modules.chat.stream.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.stream.wait_for_pending_finalize", AsyncMock()),
         _turn_load(),
         patch(
-            "app.modules.chat.stream.plan_service.resolve_user_model_override",
-            return_value="smart-chat",
-        ),
-        patch(
-            "app.modules.chat.stream.quota_service.daily_limit_for_user",
-            return_value=100_000,
-        ),
-        patch(
-            "app.modules.chat.stream._try_image_gen_for_turn",
+            "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
             AsyncMock(return_value=False),
         ),
         patch(
-            "app.modules.chat.stream.prepare_chat_turn",
+            "app.modules.chat.stream_entry.prepare_chat_turn",
             AsyncMock(return_value=MagicMock()),
         ),
-        patch("app.modules.chat.stream.stream_and_finalize", boom_stream),
-        patch("app.modules.chat.stream.quota_service.refund_usage", refund),
-        # This turn owns its own lock + reservation (the plain message path).
-        patch("app.modules.chat.stream.acquire_lock", AsyncMock(return_value="tok")),
-        patch("app.modules.chat.stream.release_lock", AsyncMock()),
-        patch("app.modules.chat.stream.reserve_turn_quota", AsyncMock(return_value=250)),
+        patch("app.modules.chat.stream_entry.stream_and_finalize", boom_stream),
+        patch("app.modules.chat.turn_resources.reserve_turn_quota", AsyncMock(return_value=250)),
     ):
         with pytest.raises(asyncio.CancelledError):
-            async for _ in stream_module.stream_chat_response(
+            async for _ in stream_entry.stream_chat_response(
+                deps,
                 redis,
                 Settings(),
                 user_id=user.id,
@@ -160,31 +152,20 @@ async def test_stream_chat_response_reserves_max_output_ceiling():
             yield ""
 
     with (
-        patch("app.modules.chat.stream.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.stream.wait_for_pending_finalize", AsyncMock()),
         _turn_load(),
         patch(
-            "app.modules.chat.stream.plan_service.resolve_user_model_override",
-            return_value="smart-chat",
-        ),
-        patch(
-            "app.modules.chat.stream.quota_service.daily_limit_for_user",
-            return_value=100_000,
-        ),
-        patch(
-            "app.modules.chat.stream._try_image_gen_for_turn",
+            "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
             AsyncMock(return_value=False),
         ),
         patch(
-            "app.modules.chat.stream.prepare_chat_turn",
+            "app.modules.chat.stream_entry.prepare_chat_turn",
             AsyncMock(return_value=MagicMock()),
         ),
-        patch("app.modules.chat.stream.stream_and_finalize", empty_stream),
-        patch("app.modules.chat.stream.acquire_lock", AsyncMock(return_value="tok")),
-        patch("app.modules.chat.stream.release_lock", AsyncMock()),
-        patch("app.modules.chat.stream.reserve_turn_quota", reserve),
+        patch("app.modules.chat.stream_entry.stream_and_finalize", empty_stream),
+        patch("app.modules.chat.turn_resources.reserve_turn_quota", reserve),
     ):
-        async for _ in stream_module.stream_chat_response(
+        async for _ in stream_entry.stream_chat_response(
+            _deps(locks=_held_lock()),
             redis,
             Settings(max_output_tokens=1200),
             user_id=user.id,
@@ -202,7 +183,7 @@ async def test_stream_chat_response_reserves_max_output_ceiling():
 
 @pytest.mark.asyncio
 async def test_prior_count_uses_recent_length_when_window_has_room():
-    from app.modules.chat.stream_entry import _prior_count_for_window
+    from app.modules.chat.turn_load import _prior_count_for_window
 
     count = AsyncMock(return_value=99)
     recent = [MagicMock(), MagicMock()]
@@ -219,7 +200,7 @@ async def test_prior_count_uses_recent_length_when_window_has_room():
 
 @pytest.mark.asyncio
 async def test_prior_count_queries_when_recent_window_is_full():
-    from app.modules.chat.stream_entry import _prior_count_for_window
+    from app.modules.chat.turn_load import _prior_count_for_window
 
     count = AsyncMock(return_value=40)
     recent = [MagicMock(), MagicMock()]
@@ -246,30 +227,22 @@ async def test_stream_skips_count_when_recent_window_has_room():
     chat = MagicMock()
     chat.summary = None
     with (
-        patch("app.modules.chat.stream.acquire_lock", AsyncMock(return_value="tok")),
-        patch("app.modules.chat.stream.release_lock", AsyncMock()),
-        patch("app.modules.chat.stream.wait_for_pending_finalize", AsyncMock()),
-        patch("app.modules.chat.stream.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.stream.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[MagicMock()])),
+        patch("app.repositories.messages.count_for_chat", count),
         patch(
-            "app.modules.chat.stream.messages_repo.list_recent",
-            AsyncMock(return_value=[MagicMock()]),
-        ),
-        patch("app.modules.chat.stream.messages_repo.count_for_chat", count),
-        patch(
-            "app.modules.chat.stream.plan_service.resolve_user_model_override",
-            return_value="smart-chat",
+            "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
+            AsyncMock(return_value=False),
         ),
         patch(
-            "app.modules.chat.stream.quota_service.daily_limit_for_user",
-            return_value=100_000,
+            "app.modules.chat.stream_entry.prepare_chat_turn", AsyncMock(return_value=MagicMock())
         ),
-        patch("app.modules.chat.stream._try_image_gen_for_turn", AsyncMock(return_value=False)),
-        patch("app.modules.chat.stream.prepare_chat_turn", AsyncMock(return_value=MagicMock())),
-        patch("app.modules.chat.stream.stream_and_finalize", fake_stream),
-        patch("app.modules.chat.stream.reserve_turn_quota", AsyncMock(return_value=100)),
+        patch("app.modules.chat.stream_entry.stream_and_finalize", fake_stream),
+        patch("app.modules.chat.turn_resources.reserve_turn_quota", AsyncMock(return_value=100)),
     ):
-        async for _ in stream_module.stream_chat_response(
+        async for _ in stream_entry.stream_chat_response(
+            _deps(locks=_held_lock()),
             redis,
             Settings(),
             user_id=user.id,
@@ -295,30 +268,25 @@ async def test_stream_counts_when_recent_window_is_full():
     chat = MagicMock()
     chat.summary = None
     with (
-        patch("app.modules.chat.stream.acquire_lock", AsyncMock(return_value="tok")),
-        patch("app.modules.chat.stream.release_lock", AsyncMock()),
-        patch("app.modules.chat.stream.wait_for_pending_finalize", AsyncMock()),
-        patch("app.modules.chat.stream.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.stream.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.modules.chat.stream.messages_repo.list_recent",
+            "app.repositories.messages.list_recent",
             AsyncMock(return_value=[MagicMock(), MagicMock()]),
         ),
-        patch("app.modules.chat.stream.messages_repo.count_for_chat", count),
+        patch("app.repositories.messages.count_for_chat", count),
         patch(
-            "app.modules.chat.stream.plan_service.resolve_user_model_override",
-            return_value="smart-chat",
+            "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
+            AsyncMock(return_value=False),
         ),
         patch(
-            "app.modules.chat.stream.quota_service.daily_limit_for_user",
-            return_value=100_000,
+            "app.modules.chat.stream_entry.prepare_chat_turn", AsyncMock(return_value=MagicMock())
         ),
-        patch("app.modules.chat.stream._try_image_gen_for_turn", AsyncMock(return_value=False)),
-        patch("app.modules.chat.stream.prepare_chat_turn", AsyncMock(return_value=MagicMock())),
-        patch("app.modules.chat.stream.stream_and_finalize", fake_stream),
-        patch("app.modules.chat.stream.reserve_turn_quota", AsyncMock(return_value=100)),
+        patch("app.modules.chat.stream_entry.stream_and_finalize", fake_stream),
+        patch("app.modules.chat.turn_resources.reserve_turn_quota", AsyncMock(return_value=100)),
     ):
-        async for _ in stream_module.stream_chat_response(
+        async for _ in stream_entry.stream_chat_response(
+            _deps(locks=_held_lock()),
             redis,
             Settings(recent_message_window=2),
             user_id=user.id,

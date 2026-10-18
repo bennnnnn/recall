@@ -8,12 +8,6 @@ import { Type, Weight } from "@/lib/type";
 
 export function makeChatScreenStyles(C: Theme) {
   return StyleSheet.create({
-    center: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: C.bg,
-    },
     container: { flex: 1, backgroundColor: C.bg },
     quotaNudge: {
       position: "absolute",

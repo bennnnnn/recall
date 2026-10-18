@@ -28,20 +28,6 @@ _OCR_CONCURRENCY = 2
 DEFAULT_MAX_PAGE_PIXELS = 4_000_000
 
 
-def render_pdf_pages(
-    data: bytes,
-    *,
-    max_pages: int,
-    scale: float,
-    max_pixels: int = DEFAULT_MAX_PAGE_PIXELS,
-) -> list[tuple[str, bytes]]:
-    """Render PDF pages to JPEG bytes. Never raises."""
-    pages, _total = render_pdf_pages_and_count(
-        data, max_pages=max_pages, scale=scale, max_pixels=max_pixels
-    )
-    return pages
-
-
 def render_pdf_pages_and_count(
     data: bytes,
     *,

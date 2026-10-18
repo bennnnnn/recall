@@ -23,7 +23,15 @@ type Options = {
   recordingFormat?: VoiceRecordingFormat;
   /** When set, skip default alerts so the caller can refund / show live-talk copy. */
   onTranscribeError?: (reason: TranscribeFail) => void;
+  /** The server said the plan has no voice input (HTTP 403): show the plans. */
+  onPlanRequired?: () => void;
 };
+
+function errorStatus(error: unknown): unknown {
+  return error && typeof error === "object" && "status" in error
+    ? (error as { status: unknown }).status
+    : undefined;
+}
 
 const VOICE_SPEECH_LEVEL = 0.28;
 const VOICE_MIN_SPEECH_SAMPLES = 2;
@@ -34,6 +42,7 @@ export function useVoiceInput({
   t,
   recordingFormat = "aac",
   onTranscribeError,
+  onPlanRequired,
 }: Options) {
   const feedback = useActionFeedbackOptional();
   const recordingRef = useRef<VoiceRecorder | null>(null);
@@ -157,6 +166,10 @@ export function useVoiceInput({
       return text;
     } catch (error) {
       if (gen !== captureGenRef.current) return null;
+      if (errorStatus(error) === 403 && onPlanRequired) {
+        onPlanRequired();
+        return null;
+      }
       const message = error instanceof Error ? error.message : "";
       const reason: TranscribeFail =
         /network request failed|failed to fetch|timeout|timed out|could not reach/i.test(
@@ -183,7 +196,7 @@ export function useVoiceInput({
       if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null;
       if (gen === captureGenRef.current) setTranscribing(false);
     }
-  }, [token, stopRecording, onTranscript, onTranscribeError, feedback, t]);
+  }, [token, stopRecording, onTranscript, onTranscribeError, onPlanRequired, feedback, t]);
 
   finishRecordingRef.current = finishRecording;
 

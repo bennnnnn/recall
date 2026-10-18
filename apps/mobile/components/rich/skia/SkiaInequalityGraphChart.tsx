@@ -14,9 +14,9 @@ import {
 import {
   formatAxisNumber,
   graphAxisTicks,
-  graphTickCount,
   mapGraphPoint,
 } from "@/lib/math/graphBlock";
+import { tickCountW } from "@/lib/math/graphWorklets";
 import { type InequalityGraphSpec } from "@/lib/math/graphSpec";
 import { clipInequalityRegion } from "@/lib/math/inequalityGraph";
 import type { Theme } from "@/lib/theme";
@@ -62,7 +62,7 @@ export function SkiaInequalityGraphChart({
       graphAxisTicks(
         bounds.xMin,
         bounds.xMax,
-        graphTickCount(bounds.xMin, bounds.xMax),
+        tickCountW(bounds.xMin, bounds.xMax),
         true,
       ),
     [bounds.xMax, bounds.xMin],
@@ -72,7 +72,7 @@ export function SkiaInequalityGraphChart({
       graphAxisTicks(
         bounds.yMin,
         bounds.yMax,
-        graphTickCount(bounds.yMin, bounds.yMax),
+        tickCountW(bounds.yMin, bounds.yMax),
         true,
       ),
     [bounds.yMax, bounds.yMin],

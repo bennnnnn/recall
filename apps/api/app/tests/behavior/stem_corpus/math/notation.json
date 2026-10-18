@@ -28,5 +28,6 @@
   {"id": "n27", "area": "notation", "prompt": "2^-3", "expect": "answer", "check": ["num", "1/8"]},
   {"id": "n28", "area": "notation", "prompt": "sin(30) + cos(60)", "expect": "answer", "check": ["num", "1"], "note": "degrees convention per docs"},
   {"id": "n29", "area": "notation", "prompt": "solve sin(2x) = 1 for 0 ≤ x ≤ π", "expect": "answer", "check": ["num", "pi/4"]},
-  {"id": "n30", "area": "notation", "prompt": "find the inverse of y = e^x", "expect": "answer", "check": ["expr", "log(x)"]}
+  {"id": "n30", "area": "notation", "prompt": "find the inverse of y = e^x", "expect": "answer", "check": ["expr", "log(x)"]},
+  {"id": "n31", "area": "notation", "prompt": "1.8·10⁻⁵ divided by 3", "expect": "answer", "check": ["num", "6*10**-6"], "note": "a power of ten with a superscript minus"}
 ]

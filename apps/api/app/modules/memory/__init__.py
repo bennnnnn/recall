@@ -27,6 +27,7 @@ __all__ = [
     "invalidate_memory_block",
     "is_explicit_memory_command",
     "is_food_or_diet_query",
+    "list_areas",
     "list_for_user",
     "list_range",
     "memory_extract_user_text",

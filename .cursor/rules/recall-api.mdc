@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Recall API (Python)
 
-~44k lines in `app/` excluding tests. Product domains are migrating from horizontal
+~168k lines in `app/` excluding tests. Product domains are migrating from horizontal
 routers/services folders into `modules/<domain>/`; infrastructure stays in core/gateways/repositories.
 
 - async/await for all IO; full type hints; Pydantic v2 schemas

@@ -6,12 +6,12 @@
 type Locale = string | string[] | undefined;
 
 /** 0 = Sunday … 6 = Saturday, like `Date.getDay()`. */
-export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export type YearMonth = { year: number; month: number };
 
 /** Every grid has six weeks so the dialog keeps its height between months. */
-export const GRID_WEEKS = 6;
+const GRID_WEEKS = 6;
 
 /** Regions whose week starts on Sunday or Saturday (CLDR week data). The rest start Monday. */
 const SUNDAY_REGIONS = new Set(
@@ -86,17 +86,6 @@ export function clampDay(date: Date, min?: Date | null, max?: Date | null): Date
   if (min != null && compareDays(date, min) < 0) return pick(min);
   if (max != null && compareDays(date, max) > 0) return pick(max);
   return new Date(date.getTime());
-}
-
-/**
- * `date` moved to another year and month, keeping the day when it exists
- * (Jan 31 → Feb 28) and keeping the time of day.
- */
-export function withYearMonth(date: Date, at: YearMonth): Date {
-  const next = new Date(date.getTime());
-  const day = Math.min(date.getDate(), daysInMonth(at.year, at.month));
-  next.setFullYear(at.year, at.month, day);
-  return next;
 }
 
 /** `date` on another calendar day, keeping the time of day. */

@@ -31,6 +31,8 @@ _WRITTEN_OPERATOR_ALIASES = (
     ("minus", "-"),
     ("\u00d7", "*"),
     ("\u00f7", "/"),
+    # U+2212, the minus sign the app itself prints in suggestions.
+    ("\u2212", "-"),
     ("*", "*"),
     ("/", "/"),
     ("+", "+"),
@@ -62,6 +64,16 @@ _WRITTEN_METHODS: tuple[tuple[str, frozenset[str]], ...] = (
     ),
 )
 _WRITTEN_METHOD_CONNECTORS = ("using the", "using", "use the", "use", "with", "by")
+
+
+_OTHER_WRITTEN_METHODS = ("long division", "short division", "column method", "written method")
+
+
+def requests_written_method(text: str) -> bool:
+    """True when the learner names a written procedure: "8 + 7 using carrying"."""
+    lower = collapse_ws(text).lower()
+    names = (*(method for method, _ in _WRITTEN_METHODS), *_OTHER_WRITTEN_METHODS)
+    return any(word_index(lower, name) != -1 for name in names)
 
 
 def _strip_written_method_cues(value: str) -> tuple[str, frozenset[str] | None]:
@@ -144,7 +156,7 @@ def _power_exponent(token: str) -> int | None:
     lower = token.lower()
     if lower in _POWER_ORDINALS:
         return _POWER_ORDINALS[lower]
-    ordinal = re.fullmatch(r"(\d+)(?:st|nd|rd|th)", lower)
+    ordinal = re.fullmatch(r"^(\d+)(?:st|nd|rd|th)", lower)
     raw = ordinal.group(1) if ordinal is not None else lower
     if not raw.isdigit():
         return None

@@ -109,6 +109,25 @@ describe("parseSimpleLatex", () => {
     }
   });
 
+  it.each([
+    ["3 x^{2} + 25 = 25", "3x^{2} + 25 = 25"],
+    [String.raw`2 \left(x + 9\right) = 24`, String.raw`2\left(x + 9\right) = 24`],
+    [String.raw`4 \sqrt{2}`, String.raw`4\sqrt{2}`],
+    ["2.5 t + 1", "2.5t + 1"],
+  ])("closes the gap between a coefficient and its term: %s", (expr, expected) => {
+    expect(fixImplicitExponents(expr)).toBe(expected);
+  });
+
+  it.each([
+    ["x + 3 = 5"],
+    [String.raw`x = 2 \text{ or } x = 3`],
+    [String.raw`\text{For } x = 2:`],
+    [String.raw`2 \cdot 3 = 6`],
+    [String.raw`14 = 14 \quad \text{(true)}`],
+  ])("leaves operators, relations and text spacing alone: %s", (expr) => {
+    expect(fixImplicitExponents(expr)).toBe(expr);
+  });
+
   it("BUG FIX regression: braced 2/3 exponent is one sup (not 3 then 2 then /3)", () => {
     const segs = parseSimpleLatex("3^{2/3}");
     expect(segs.some((s) => s.type === "sup" && s.value === "2/3")).toBe(true);
@@ -472,6 +491,36 @@ describe("parseSimpleLatex", () => {
     expect(
       segmentsToPlain(parseSimpleLatex(String.raw`\begin{multline}x = 1\end{multline}`)),
     ).toBe("x = 1");
+  });
+});
+
+describe("parseSimpleLatex: which commands take an argument", () => {
+  it.each([
+    // A root and a fraction are read by their prefix: `\sqrtx` is the root of x.
+    [String.raw`\sqrtx`, [{ type: "sqrt", body: [{ type: "text", value: "x" }] }]],
+    [String.raw`\sqrtab+1`, [{ type: "sqrt", body: [{ type: "text", value: "ab" }] }, { type: "text", value: "+1" }]],
+    [String.raw`\fracture`, [{ type: "text", value: "fracture" }]],
+    [String.raw`\cancelled`, [{ type: "text", value: "cancelled" }]],
+    [String.raw`\cancelto{0}{x}`, [{ type: "text", value: "cancelto(0)x" }]],
+    // An accent is read only as its whole word.
+    [String.raw`\hatx`, [{ type: "text", value: "hatx" }]],
+    [String.raw`\overlinex`, [{ type: "text", value: "overlinex" }]],
+    [String.raw`\dotx`, [{ type: "text", value: "dotx" }]],
+    [String.raw`\hat x`, [{ type: "accent", kind: "hat", span: false, body: [{ type: "text", value: "x" }] }]],
+    [String.raw`\ddot{x}`, [{ type: "accent", kind: "ddot", span: false, body: [{ type: "text", value: "x" }] }]],
+    [String.raw`\vec\text{v}`, [{ type: "accent", kind: "vec", span: false, body: [{ type: "upright", value: "v" }] }]],
+    // Without its argument a command is its name, and an object method is not a command.
+    [String.raw`\sqrt`, [{ type: "text", value: "sqrt" }]],
+    [String.raw`\sqrt[3`, [{ type: "text", value: "sqrt[3" }]],
+    [String.raw`\cancel`, [{ type: "text", value: "cancel" }]],
+    [String.raw`\bar`, [{ type: "text", value: "bar" }]],
+    [String.raw`\frac{1}`, [{ type: "text", value: "frac(1)" }]],
+    [String.raw`\constructor`, [{ type: "text", value: "constructor" }]],
+    [String.raw`\toString{x}`, [{ type: "text", value: "toString(x)" }]],
+    [String.raw`\hasOwnProperty{x}`, [{ type: "text", value: "hasOwnProperty(x)" }]],
+    ["x^", [{ type: "text", value: "x" }]],
+  ])("parses %s", (latex, segments) => {
+    expect(parseSimpleLatex(latex)).toEqual(segments);
   });
 });
 

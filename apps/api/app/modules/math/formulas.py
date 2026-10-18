@@ -21,7 +21,14 @@ from sympy import (
 )
 
 from app.modules.math.school import _format_school_number, _progression
-from app.modules.math.solve import MathServiceError, _parse_expression, format_verified_latex
+from app.modules.math.solve import (
+    MathServiceError,
+    _parse_expression,
+    definite_integral,
+    format_verified_latex,
+)
+from app.modules.math.solve.calculus import _parse_infinity_aware_point
+from app.services.school_rounding import round_figures, round_places
 
 
 def sale_price(base: float, rate: float) -> str:
@@ -51,13 +58,14 @@ def inverse_proportion(a: float, b: float, c: float) -> str:
 def round_decimal_places(value: float, places: int) -> str:
     if not math.isfinite(value) or places < 0 or places > 12:
         raise MathServiceError("rounding needs a finite value and 0-12 places")
-    return _format_school_number(round(value, places))
+    return _format_school_number(float(round_places(value, places)))
 
 
 def round_significant_figures(value: float, figs: int) -> str:
     if not math.isfinite(value) or value == 0 or figs < 1 or figs > 12:
         raise MathServiceError("significant figures need a nonzero finite value")
-    return _format_school_number(float(f"{value:.{figs}g}"))
+    mantissa, exponent = round_figures(value, figs)
+    return _format_school_number(float(mantissa.scaleb(exponent)))
 
 
 def infinite_geometric_sum(terms: list[float]) -> str:
@@ -251,15 +259,23 @@ def sas_triangle_area(side_a: float, side_b: float, angle_deg: float) -> str:
 
 
 def average_value(expr: str, variable: str, lower: str, upper: str) -> str:
-    from sympy import integrate
+    from sympy import AccumBounds, Integral, Limit, nan, oo, zoo
 
     parsed = _parse_expression(expr, [variable])
-    lo = _parse_expression(lower, [variable])
-    hi = _parse_expression(upper, [variable])
+    # "infinity" is oo, not the letters i, n, f, t and y; and an average needs
+    # a finite interval (sin over [0, oo) was <0, 2> / oo = 0).
+    lo = _parse_infinity_aware_point(lower)
+    hi = _parse_infinity_aware_point(upper)
+    if lo.is_finite is False or hi.is_finite is False:
+        raise MathServiceError("average value needs a finite interval")
     width = simplify(hi - lo)
     if width == 0:
         raise MathServiceError("average value needs a nonempty interval")
-    total = integrate(parsed, (Symbol(variable), lo, hi))
+    total = definite_integral(parsed, Symbol(variable), lo, hi)
+    # 1/x^2 on [-1, 1] diverges; x^x is left unevaluated.
+    unsettled = total.has(AccumBounds, Integral, Limit, nan, zoo, oo, -oo)
+    if unsettled or total.is_extended_real is False:
+        raise MathServiceError("average value needs an integral with a finite value")
     return format_verified_latex(simplify(total / width))
 
 

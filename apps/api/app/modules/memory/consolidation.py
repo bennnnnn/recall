@@ -12,7 +12,6 @@ from typing import Any
 
 from app.modules.memory.fact_quality import FactView, texts_to_drop
 from app.modules.memory.text import (
-    _split_sentences,
     merge_diet_facts,
     normalize_memory_text,
 )
@@ -93,25 +92,6 @@ def facts_need_consolidation(memories: Iterable[Any]) -> bool:
             if fact_text_jaccard(left_text, right_text) >= _NEAR_DUP_JACCARD:
                 return True
     return False
-
-
-def section_needs_consolidation(text: str) -> bool:
-    """True only for migration-style glue (duplicates), not normal long summaries."""
-    clean = text.strip()
-    if not clean:
-        return False
-    sentences = _split_sentences(clean)
-    normalized = [normalize_memory_text(sentence).lower() for sentence in sentences]
-    if len(normalized) != len(set(normalized)):
-        return True
-    prefixes = [" ".join(sentence.split()[:3]) for sentence in normalized if sentence]
-    if len(prefixes) >= 2 and len(prefixes) != len(set(prefixes)):
-        return True
-    return len(clean) > 900 and len(sentences) >= 6
-
-
-def sections_need_consolidation(sections: dict[str, str]) -> bool:
-    return any(section_needs_consolidation(text) for text in sections.values())
 
 
 def extract_consolidation_anchors(text: str) -> frozenset[str]:

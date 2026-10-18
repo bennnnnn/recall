@@ -290,7 +290,7 @@ async def test_stream_tokens_sse_resumes_generator_parked_at_yield(monkeypatch):
 @pytest.mark.asyncio
 async def test_stream_message_sse_passes_cancel_event_as_should_cancel():
     """The same cancel_event driving disconnect detection must reach the
-    actual chat_service call, or a disconnect stops relaying tokens without
+    actual stream_entry call, or a disconnect stops relaying tokens without
     ever stopping the underlying (costly) generation."""
     from app.models.schemas import ChatMessageRequest
     from app.modules.chat.stream_api import stream_message_sse
@@ -312,7 +312,7 @@ async def test_stream_message_sse_passes_cancel_event_as_should_cancel():
             "app.modules.chat.stream_api.allow_chat_message",
             AsyncMock(return_value=True),
         ),
-        patch("app.modules.chat.stream_api.chat_service.stream_chat_response", fake_stream),
+        patch("app.modules.chat.stream_api.stream_entry.stream_chat_response", fake_stream),
     ):
         response = await stream_message_sse(
             chat_id=uuid4(),

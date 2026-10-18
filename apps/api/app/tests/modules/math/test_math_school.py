@@ -101,5 +101,5 @@ def test_formula_helpers():
     assert math_school.work_together(6, 3) == "2"
     assert math_school.mixture_percent(3, 10, 5, 20) == "16.25"
     assert math_school.twice_as_many(30) == "10 and 20"
-    assert math_school.verify_identity("sin(x)**2+cos(x)**2", "1") == "true"
-    assert math_school.verify_identity("(x+1)**2", "x**2+2*x+1") == "true"
+    assert math_school.analyze_identity("sin(x)**2+cos(x)**2", "1")[0] is True
+    assert math_school.analyze_identity("(x+1)**2", "x**2+2*x+1")[0] is True

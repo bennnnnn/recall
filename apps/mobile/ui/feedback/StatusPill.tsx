@@ -6,7 +6,7 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
-export type StatusPillTone = "accent" | "success" | "neutral";
+type StatusPillTone = "accent" | "success" | "neutral";
 
 type Props = {
   label: string;

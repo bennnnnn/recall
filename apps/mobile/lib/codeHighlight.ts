@@ -30,7 +30,7 @@ export const TOKEN_COLORS = {
  * variant here. `colorFor()` in CodeBlock swaps a tokenized light color for
  * its dark counterpart when `theme.isDark`.
  */
-export const DARK_TOKEN_COLORS = {
+const DARK_TOKEN_COLORS = {
   plain: "#E6E6E6",
   comment: "#9CA3AF",
   string: "#34D399",
@@ -58,7 +58,7 @@ export function resolveTokenColor(color: string, isDark: boolean): string {
   return LIGHT_TO_DARK_TOKEN[color] ?? color;
 }
 
-export const LANG_TO_PRISM: Record<string, string> = {
+const LANG_TO_PRISM: Record<string, string> = {
   javascript: "javascript",
   js: "javascript",
   jsx: "jsx",

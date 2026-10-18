@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import re
 
-from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.school._parse import (
     _colon_ratio_parts,
-    _finite_match_value,
+    _exactly_n_numbers,
     _has_any_word,
 )
+from app.services.number_text import DECIMAL_LITERAL, finite_match_value
+from app.services.text_match import word_index
 
 _RATIO_SPLIT_WORDS = ("split", "share", "divide")
 
@@ -28,13 +29,13 @@ def _extract_ratio_split(cleaned: str, lower: str) -> MathIntent | None:
         return None
     leftover: list[re.Match[str]] = []
     used = set(spans)
-    for match in mtm._NUM.finditer(cleaned):
+    for match in DECIMAL_LITERAL.finditer(cleaned):
         if (match.start(), match.end()) in used:
             continue
         leftover.append(match)
     if len(leftover) != 1:
         return None
-    total = _finite_match_value(leftover[0])
+    total = finite_match_value(leftover[0])
     if total is None or total <= 0:
         return None
     return MathIntent(
@@ -48,15 +49,15 @@ def _extract_ratio_split(cleaned: str, lower: str) -> MathIntent | None:
 
 def _extract_colon_ratio(cleaned: str, lower: str) -> MathIntent | None:
     if ":" in cleaned and ("ratio" in lower or "simplify" in lower):
-        first = mtm._NUM.search(cleaned)
+        first = DECIMAL_LITERAL.search(cleaned)
         if first:
-            second = mtm._NUM.search(cleaned, first.end())
+            second = DECIMAL_LITERAL.search(cleaned, first.end())
             if second:
-                left = _finite_match_value(first)
-                right = _finite_match_value(second)
+                left = finite_match_value(first)
+                right = finite_match_value(second)
                 if left is None or right is None:
                     return None
-                extra = mtm._NUM.search(cleaned, second.end())
+                extra = DECIMAL_LITERAL.search(cleaned, second.end())
                 if extra is not None:
                     return None
                 return MathIntent(
@@ -67,6 +68,33 @@ def _extract_colon_ratio(cleaned: str, lower: str) -> MathIntent | None:
                     operation="solve",
                 )
     return None
+
+
+def extract_proportion(cleaned: str, lower: str) -> MathIntent | None:
+    values = _exactly_n_numbers(cleaned, 3)
+    if values is None:
+        return None
+    inverse = word_index(lower, "inverse") != -1
+    direct = (
+        word_index(lower, "cost") != -1
+        or word_index(lower, "costs") != -1
+        or "direct proportion" in lower
+    )
+    if inverse and ("proportion" in lower or word_index(lower, "inversely") != -1):
+        return MathIntent(
+            kind="arithmetic",
+            school_op="inverse_proportion",
+            stats_numbers=values,
+            operation="solve",
+        )
+    if inverse or not direct:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="direct_proportion",
+        stats_numbers=values,
+        operation="solve",
+    )
 
 
 def _block_proportion(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:

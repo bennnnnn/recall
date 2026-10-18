@@ -10,6 +10,7 @@ from app.modules.math.response_intent import (
 )
 from app.modules.math.tools.prompt import needs_symbolic_math
 from app.services.answer_fence import answer_fence_value
+from app.services.number_text import FRACTION_OR_DECIMAL
 
 MATH_FOLLOWUP_HINT = (
     "This short request refers to the immediately preceding math exchange. Give only "
@@ -258,7 +259,6 @@ def restated_math_problem(
     return problem
 
 
-_CLAIM_NUMBER = r"[-+]?\s*(?:\d+(?:\.\d+)?|\.\d+)(?:\s*/\s*\d+)?"
 _CLAIM_LEAD = re.compile(
     r"^(?:(?:can|could)\s+you\s+|please\s+)?"
     r"(?:(?:check|verify|mark)\s+(?:my|this|the)\s+(?:answer|solution|result|work)\s*[:,-]?\s*"
@@ -272,10 +272,10 @@ _CLAIM_TAIL = re.compile(
     re.IGNORECASE,
 )
 _CLAIM = re.compile(
-    rf"(?P<var>[A-Za-z])\s*=\s*(?P<first>{_CLAIM_NUMBER})"
-    rf"(?P<more>(?:\s*(?:,|\bor\b|\band\b)\s*(?:(?P=var)\s*=\s*)?{_CLAIM_NUMBER})*)",
+    rf"(?P<var>[A-Za-z])\s*=\s*(?P<first>{FRACTION_OR_DECIMAL})"
+    rf"(?P<more>(?:\s*(?:,|\bor\b|\band\b)\s*(?:(?P=var)\s*=\s*)?{FRACTION_OR_DECIMAL})*)",
 )
-_MORE_VALUES = re.compile(_CLAIM_NUMBER)
+_MORE_VALUES = re.compile(FRACTION_OR_DECIMAL)
 
 
 def _claimed_values(query: str) -> tuple[str, list[str]] | None:
@@ -302,7 +302,7 @@ def _one_equation_in(text: str, variable: str) -> tuple[str, str] | None:
     """The single equation in one unknown that ``text`` states, or None."""
     from app.modules.math.solve import guess_variables
     from app.modules.math.solve.extract_eq import try_extract_equations_from_text
-    from app.modules.math.tools.extractors.algebra import already_solved
+    from app.modules.math.tools.extractors.stated import already_solved
 
     pairs = {
         (lhs.strip(" *:"), rhs.strip(" *:."))
@@ -401,8 +401,8 @@ _SAME_VALUE_OPERATIONS = frozenset({"simplify", "expand", "factor"})
 
 def _expression_in(text: str) -> str | None:
     """The one expression a message is about: ``expand (x+1)^2`` → ``(x+1)^2``."""
+    from app.modules.math.tools.expr_rewrite import math_expr_or_none
     from app.modules.math.tools.extract import extract_math_intent
-    from app.modules.math.tools.helpers import math_expr_or_none
 
     if "=" in text or "<" in text or ">" in text:
         return None

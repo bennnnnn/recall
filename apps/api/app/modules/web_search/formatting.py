@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from typing import TypedDict
 
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.web_search.patterns import (
@@ -317,8 +318,16 @@ def format_sources_fence(hits: list[WebSearchHit]) -> str:
     return f"\n\n```sources\n{json.dumps(sources_payload(hits), ensure_ascii=False)}\n```"
 
 
-def sources_payload(hits: list[WebSearchHit]) -> list[dict[str, str]]:
-    rows: list[dict[str, str]] = []
+class SearchSource(TypedDict):
+    """One source chip under a searched reply."""
+
+    title: str
+    url: str
+    snippet: str
+
+
+def sources_payload(hits: list[WebSearchHit]) -> list[SearchSource]:
+    rows: list[SearchSource] = []
     for hit in hits:
         snippet = _sanitize_fence_json_text(hit.snippet[:280])
         rows.append({"title": hit.title, "url": hit.url, "snippet": snippet})

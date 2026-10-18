@@ -1,29 +1,28 @@
-import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenIntent";
+import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenMessages";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 
-export const CHAT_HEADER_BAR_HEIGHT = 52;
+const CHAT_HEADER_BAR_HEIGHT = 52;
 const CHAT_HEADER_TITLE_LINE_HEIGHT_RATIO = 1.3;
 const CHAT_HEADER_TITLE_VERTICAL_AIR = 8;
 /** Matches the in-bubble action row (34px icons + 4px margin). */
 export const CHAT_ACTION_ROW_HEIGHT = 44;
-export const CHAT_KEYBOARD_LIFT_EXTRA = 0;
+const CHAT_KEYBOARD_LIFT_EXTRA = 0;
 export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
 /**
  * One-line composer row. Shorter than the 44 pt touch minimum; the buttons
  * add hitSlop so the placeholder, +, mic, and live talk stay on one line.
+ * Also the input's minimum height, so the placeholder shares the controls' midline.
  */
 export const COMPOSER_CONTROL_SIZE = 36;
-/** Matches the + / mic / live controls so the placeholder shares their midline. */
-export const COMPOSER_INPUT_MIN_HEIGHT = COMPOSER_CONTROL_SIZE;
 /** Extra Returns grow by one text line, not another full control. */
 export const COMPOSER_INPUT_LINE_HEIGHT = Space.lg;
 export const COMPOSER_INPUT_MAX_HEIGHT =
-  COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT * 5;
+  COMPOSER_CONTROL_SIZE + COMPOSER_INPUT_LINE_HEIGHT * 5;
 /** Cap on the field at large text sizes: fewer than six lines when six would pass it. */
 const COMPOSER_INPUT_MAX_FRAME = 240;
 
-export type ComposerInputMetrics = {
+type ComposerInputMetrics = {
   /** One text line. */
   line: number;
   /** One-line frame: the + / send height, or the line when that is taller. */
@@ -41,7 +40,7 @@ export type ComposerInputMetrics = {
  */
 export function composerInputMetrics(fontScale = 1): ComposerInputMetrics {
   const line = COMPOSER_INPUT_LINE_HEIGHT * (fontScale > 0 ? fontScale : 1);
-  const min = Math.max(COMPOSER_INPUT_MIN_HEIGHT, line);
+  const min = Math.max(COMPOSER_CONTROL_SIZE, line);
   const extraLines = Math.max(
     1,
     Math.min(5, Math.floor((COMPOSER_INPUT_MAX_FRAME - min) / line)),
@@ -181,110 +180,13 @@ export function composerGapFadeHeight(bottomPad: number): number {
   return bottomPad * 2 + COMPOSER_GAP_FADE_OVERLAP;
 }
 
-export const CHAT_EMPTY_MIN_HEIGHT = 160;
-
-export type ModelOption = { id: string; label: string; hint?: string };
-
-export type ModelCostFields = {
-  input_price_per_m: number | null;
-  output_price_per_m: number | null;
-  quota_multiplier?: number;
-};
-
-export type TranslateFn = (
-  key: string,
-  params?: Record<string, string | number>,
-) => string;
-
-function formatQuotaMultiplier(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
-/** Daily-quota weight for model picker rows (no per-token pricing in the UI). */
-export function formatModelCostHint(
-  model: ModelCostFields,
-  t: TranslateFn,
-): string | undefined {
-  const mult = model.quota_multiplier ?? 1;
-  if (mult > 1.001) {
-    return t("settings.model_quota_multiplier", {
-      multiplier: formatQuotaMultiplier(mult),
-    });
-  }
-  return undefined;
-}
-
-export function isModelSelectableInComposer(
-  model: { available: boolean; plan_access: "free" | "pro" },
-  isPro: boolean,
-): boolean {
-  if (!model.available) return false;
-  if (!isPro && model.plan_access === "pro") return false;
-  return true;
-}
-
-export function buildModelOptions(options: {
-  autoEnabled: boolean;
-  autoModelId: string;
-  autoLabel: string;
-  modelEnabledSet: Set<string>;
-  models: Array<{
-    id: string;
-    label: string;
-    available: boolean;
-    plan_access: "free" | "pro";
-    input_price_per_m?: number | null;
-    output_price_per_m?: number | null;
-    quota_multiplier?: number;
-  }> | undefined;
-  isPro: boolean;
-  t?: TranslateFn;
-}): ModelOption[] {
-  const catalog = options.models ?? [];
-  const byId = new Map(catalog.map((model) => [model.id, model]));
-  const opts: ModelOption[] = [];
-  if (options.autoEnabled) {
-    opts.push({ id: options.autoModelId, label: options.autoLabel });
-  }
-  for (const id of options.modelEnabledSet) {
-    const info = byId.get(id);
-    if (!info || !isModelSelectableInComposer(info, options.isPro)) {
-      continue;
-    }
-    opts.push({
-      id,
-      label: info.label || id,
-      hint: options.t
-        ? formatModelCostHint(
-            {
-              input_price_per_m: info.input_price_per_m ?? null,
-              output_price_per_m: info.output_price_per_m ?? null,
-              quota_multiplier: info.quota_multiplier,
-            },
-            options.t,
-          )
-        : undefined,
-    });
-  }
-  return opts;
-}
-
-export function resolveSelectedModelLabel(
-  selectedModel: string,
-  autoModelId: string,
-  autoLabel: string,
-  labelFor: (id: string) => string | undefined,
-): string {
-  return selectedModel === autoModelId
-    ? autoLabel
-    : labelFor(selectedModel) || selectedModel;
-}
+const CHAT_EMPTY_MIN_HEIGHT = 160;
 
 export function isComposerMenuOverlayOpen(attachSheetOpen: boolean): boolean {
   return attachSheetOpen;
 }
 
-export type ComposerNativeInputTraits = {
+type ComposerNativeInputTraits = {
   autoCorrect: boolean;
   spellCheck: boolean;
   autoCapitalize: "none" | "sentences";
@@ -328,7 +230,7 @@ export function shouldReserveComposerActionGap(lastMessageId?: string): boolean 
   return lastMessageId === "streaming" || lastMessageId === IMAGE_GEN_PENDING_ASSISTANT_ID;
 }
 
-export type ChatLayoutMetrics = {
+type ChatLayoutMetrics = {
   headerMinimumHeight: number;
   headerInset: number;
   composerLift: number;

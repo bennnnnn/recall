@@ -7,7 +7,8 @@ from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import (
+from app.modules.chemistry.solvers.constants import AVOGADRO
+from app.modules.chemistry.solvers.display import (
     atomic_mass,
     const,
     inp,
@@ -18,7 +19,6 @@ from app.modules.chemistry.solvers.common_chem import (
     table_num,
     verified,
 )
-from app.modules.chemistry.solvers.constants import AVOGADRO
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.stoichiometry import (

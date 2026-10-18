@@ -29,7 +29,6 @@ from app.models.schemas.chats import (
     PinUpdate,
     SearchResultItem,
     SearchResults,
-    TitleGenerationResult,
 )
 from app.models.schemas.common import (
     MemoryOpKind,
@@ -151,7 +150,6 @@ __all__ = [
     "SuggestionGenerationResult",
     "SuggestionItem",
     "SuggestionOut",
-    "TitleGenerationResult",
     "TodoActionItem",
     "TodoCreate",
     "TodoExtractionResult",

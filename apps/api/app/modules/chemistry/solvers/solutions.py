@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
-from app.modules.chemistry import sig_figs
+import app.modules.chemistry.sig_figs as sig_figs
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import convert, to_liters
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import (
+from app.modules.chemistry.solvers.constants import GAS_R
+from app.modules.chemistry.solvers.display import (
     const,
     converted_from,
     fixed,
@@ -19,10 +20,10 @@ from app.modules.chemistry.solvers.common_chem import (
     typed_unit,
     verified,
 )
-from app.modules.chemistry.solvers.constants import GAS_R
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.services.solving import SolveServiceError
+from app.services.units import CELSIUS_OFFSET_K
 
 
 def _volume_in_l(value: float, unit: str) -> float:
@@ -228,7 +229,6 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
 _GRAMS_PER = {"g": 1.0, "mg": 1e-3, "kg": 1e3}
 # The volume units a reader converts to litres, by their size in litres.
 _LITRES = (("mL", 1e-3),)
-_CELSIUS_OFFSET = 273.15
 
 
 def _solvent_kilograms(intent: ChemistryIntent) -> tuple[float, str, float]:
@@ -314,7 +314,7 @@ def _colligative(
     point = symbol.removeprefix("Δ")
     written = sig_figs.current()
     typed = None if written is None else written.converted.get(repr(normal))
-    celsius = normal - _CELSIUS_OFFSET
+    celsius = normal - CELSIUS_OFFSET_K
     places = _decimals_shown(change)
     if typed is not None:
         normal_text = sig_figs.as_written(typed)

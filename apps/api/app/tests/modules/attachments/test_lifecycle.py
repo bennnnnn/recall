@@ -41,10 +41,6 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
             side_effect=delete_rows,
         ),
         patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            AsyncMock(),
-        ) as chunks,
-        patch(
             "app.modules.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
@@ -54,7 +50,6 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
         )
 
     assert deleted == 1
-    chunks.assert_not_awaited()
     assert order == ["rows", "bytes:user/file"]
 
 
@@ -88,10 +83,6 @@ async def test_purge_attachments_for_user_deletes_bytes_before_rows():
             side_effect=delete_rows,
         ),
         patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            AsyncMock(),
-        ) as chunks,
-        patch(
             "app.modules.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
@@ -99,7 +90,6 @@ async def test_purge_attachments_for_user_deletes_bytes_before_rows():
         deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, user_id)
 
     assert deleted == 1
-    chunks.assert_not_awaited()
     assert order == [f"bytes:{row.storage_key}", f"rows:{row.id}"]
 
 
@@ -154,10 +144,6 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
             AsyncMock(return_value=1),
         ) as delete_rows,
         patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            AsyncMock(),
-        ) as chunks,
-        patch(
             "app.modules.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
@@ -169,7 +155,6 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
         deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, user_id)
 
     assert deleted == 1
-    chunks.assert_not_awaited()
     assert deleted_keys == ["user/ok"]
     delete_rows.assert_awaited_once()
     assert delete_rows.await_args.args[1] == [ok.id]
@@ -317,8 +302,7 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
     fake_redis = AsyncMock()
-    refund_upload = AsyncMock()
-    refund_gen = AsyncMock()
+    refund = AsyncMock()
 
     with (
         patch(
@@ -337,20 +321,12 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
             "app.modules.attachments.lifecycle.get_redis_client",
             return_value=fake_redis,
         ),
-        patch(
-            "app.modules.attachments.lifecycle.quota_service.refund_image_upload",
-            refund_upload,
-        ),
-        patch(
-            "app.modules.attachments.lifecycle.quota_service.refund_image_generation",
-            refund_gen,
-        ),
+        patch("app.modules.attachments.lifecycle.counters.refund", refund),
     ):
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
 
     assert deleted == 1
-    refund_upload.assert_awaited_once_with(fake_redis, user_id)
-    refund_gen.assert_not_awaited()
+    refund.assert_awaited_once_with("image_upload", fake_redis, user_id)
 
 
 @pytest.mark.asyncio
@@ -387,8 +363,7 @@ async def test_reap_orphan_attachments_does_not_refund_generated_reuse_clones():
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
     fake_redis = AsyncMock()
-    refund_upload = AsyncMock()
-    refund_gen = AsyncMock()
+    refund = AsyncMock()
 
     with (
         patch(
@@ -407,20 +382,12 @@ async def test_reap_orphan_attachments_does_not_refund_generated_reuse_clones():
             "app.modules.attachments.lifecycle.get_redis_client",
             return_value=fake_redis,
         ),
-        patch(
-            "app.modules.attachments.lifecycle.quota_service.refund_image_upload",
-            refund_upload,
-        ),
-        patch(
-            "app.modules.attachments.lifecycle.quota_service.refund_image_generation",
-            refund_gen,
-        ),
+        patch("app.modules.attachments.lifecycle.counters.refund", refund),
     ):
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
 
     assert deleted == 1
-    refund_gen.assert_not_awaited()
-    refund_upload.assert_not_awaited()
+    refund.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -456,7 +423,7 @@ async def test_reap_orphan_attachments_does_not_refund_for_non_image():
             return_value=fake_redis,
         ),
         patch(
-            "app.modules.attachments.lifecycle.quota_service.refund_image_upload",
+            "app.modules.attachments.lifecycle.counters.refund",
             refund_mock,
         ),
     ):
@@ -500,7 +467,7 @@ async def test_reap_orphan_attachments_skips_refund_when_row_linked_after_list()
             return_value=fake_redis,
         ),
         patch(
-            "app.modules.attachments.lifecycle.quota_service.refund_image_upload",
+            "app.modules.attachments.lifecycle.counters.refund",
             refund_mock,
         ),
     ):

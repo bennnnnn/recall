@@ -74,6 +74,9 @@
   {"id": "b73", "area": "trap", "prompt": "how many real roots does x^2 + 2x + 5 = 0 have", "expect": "answer", "check": ["regex", "\\bno real|\\bnone\\b|\\b0\\b|zero"]},
   {"id": "b74", "area": "trap", "prompt": "find f(2) if f(x) = 3x^2 - x", "expect": "answer", "check": ["num", "10"]},
   {"id": "b75", "area": "trap", "prompt": "what is the y intercept of the line 4x - 2y = 8", "expect": "answer", "check": ["num", "-4"]},
+  {"id": "b76", "area": "arithmetic", "prompt": "round 2.675 to 2 decimal places", "expect": "answer", "check": ["regex", "\\b2\\.68\\b"], "note": "a 5 rounds up: 2.68, not the 2.67 of a binary float; num's 0.5% tolerance would pass 2.67"},
+  {"id": "b77", "area": "arithmetic", "prompt": "round 0.125 to 2 decimal places", "expect": "answer", "check": ["num", "0.13"], "note": "a 5 rounds up, not to even"},
+  {"id": "b78", "area": "arithmetic", "prompt": "round 1.005 to 2 decimal places", "expect": "answer", "check": ["num", "1.01"], "note": "1.005 is stored as 1.00499..., but a student wrote 1.005"},
   {"id": "m1", "area": "followup", "prompt": "check my answer: x = 2 and x = 3", "expect": "answer", "check": ["regex", "correct|right|✓|yes"], "history": [["user", "give me a quadratic to practice"], ["assistant", "Try this: solve $x^2 - 5x + 6 = 0$."]]},
   {"id": "m2", "area": "followup", "prompt": "is it 7?", "expect": "answer", "check": ["regex", "yes|correct|right|x\\s*=\\s*7"], "history": [["user", "give me a practice problem"], ["assistant", "Here's one to try:\n\n**Solve:** $4x - 7 = 21$"]]},
   {"id": "m3", "area": "followup", "prompt": "x = 6", "expect": "answer", "check": ["regex", "not|incorrect|wrong|x\\s*=\\s*7"], "history": [["user", "give me a practice problem"], ["assistant", "Here's one to try:\n\n**Solve:** $4x - 7 = 21$"]], "note": "student types a wrong answer"},
@@ -92,5 +95,10 @@
   {"id": "v2", "area": "trap", "prompt": "find the equation of the line perpendicular to y = 2x + 1 passing through (4, 3)", "expect": "answer", "check": ["regex", "y\\s*=\\s*-"]},
   {"id": "v3", "area": "complex", "prompt": "simplify i^23", "expect": "answer", "check": ["num", "-I"]},
   {"id": "v4", "area": "trap", "prompt": "solve for k: kx + x^2 + 9 = 0", "expect": "answer", "check": ["expr", "-x-9/x"]},
-  {"id": "v5", "area": "trap", "prompt": "solve 2x + 3y + 5 = 0 for x", "expect": "answer", "check": ["expr", "(-3*y-5)/2"]}
+  {"id": "v5", "area": "trap", "prompt": "solve 2x + 3y + 5 = 0 for x", "expect": "answer", "check": ["expr", "(-3*y-5)/2"]},
+  {"id": "v6", "area": "trap", "prompt": "numerically solve the nonlinear equation cos(x) = x with guess 0.5", "expect": "answer", "check": ["num", "0.739085"], "note": "\"near\" inside \"nonlinear\" was read as the guess label"},
+  {"id": "v7", "area": "trap", "prompt": "use newton's method to solve the linear equation 2x - 3 = 0 with guess 4", "expect": "answer", "check": ["num", "3/2"], "note": "\"near\" inside \"linear\" took the guess 2 and cut the equation off"},
+  {"id": "v8", "area": "trap", "prompt": "find the supplement of 35°", "expect": "answer", "check": ["num", "145"], "note": "the degree sign never met the word boundary after it"},
+  {"id": "v9", "area": "trap", "prompt": "What is the complement of 28°?", "expect": "answer", "check": ["num", "62"], "note": "read as a probability complement and declined before"},
+  {"id": "v10", "area": "trap", "prompt": "Centre and radius of the circle y^2 + x^2 = z.", "expect": "decline", "note": "a letter for r squared is no numeric radius; it once raised a TypeError"}
 ]

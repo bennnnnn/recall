@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from app.services import time_context
 from app.services.time_context import (
     correct_weekday_dates,
     describe_due_at,
@@ -249,6 +250,13 @@ def test_format_time_answer_uses_clock_fence():
     assert answer == "```clock\n```"
 
 
+@pytest.mark.parametrize("text", ["what’s the time?", "What’s the time", "ok what’s the time now?"])
+def test_curly_apostrophe_time_ask_gets_the_clock_fence(text: str) -> None:
+    # iOS smart punctuation types U+2019. The phone's clock card reads this reply, not the ask.
+    assert is_time_question(text) is True
+    assert maybe_local_now_reply(text, "UTC") == format_time_answer("UTC") == "```clock\n```"
+
+
 def test_is_location_question():
     assert is_location_question("location")
     assert is_location_question("Where am I?")
@@ -264,6 +272,13 @@ def test_is_location_question():
     assert not is_location_question("weather in Paris")
     assert not is_location_question("Where is the meeting")
     assert not is_location_question("where am I going tomorrow")
+
+
+def test_location_ask_folded_entries_can_match():
+    # A message is folded (letters only, doubles collapsed) before the lookup, so an
+    # entry written unfolded ("whatsmycurrentlocation") could never match (ES-42).
+    for entry in time_context._LOCATION_ASK_FOLDED:
+        assert time_context._fold_location_ask(entry) == entry, entry
 
 
 def test_format_location_answer_with_city():

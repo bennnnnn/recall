@@ -9,7 +9,6 @@ import { TrajectoryChart } from "@/components/rich/TrajectoryChart";
 import { figureTitleStyle, figureWidth } from "@/components/rich/figure";
 import { formatGraphExpr, formatInequalityExpr } from "@/lib/math/graphBlock";
 import { parseGraphSpec } from "@/lib/math/graphSpec";
-import { CODE_FONT } from "@/lib/fonts";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -89,26 +88,6 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
     },
     title: figureTitleStyle(theme),
-    legendRow: {
-      flexDirection: "row",
-      gap: Space.md,
-      marginBottom: Space.xs,
-    },
-    legendItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xs,
-    },
-    legendDot: {
-      width: 8,
-      height: 8,
-      borderRadius: Radius.full,
-    },
-    legendText: {
-      fontFamily: CODE_FONT,
-      fontSize: 12,
-      color: theme.textSecondary,
-    },
     fallback: {
       marginVertical: Space.xs,
       padding: Space.sm,

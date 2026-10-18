@@ -92,6 +92,7 @@ class Settings(BaseSettings):
     # than text, so cap uploads separately from the token quota. Enforced at
     # presign so a user can't accumulate uploads past the limit.
     daily_image_limit: int = 5
+    daily_image_limit_plus: int = 30
     daily_image_limit_pro: int = 30
     # Per-image token reserve added to the quota reservation for vision turns,
     # so a near-limit user can't start a heavy image call that blows past the
@@ -193,6 +194,7 @@ class Settings(BaseSettings):
     web_search_cache_ttl: int = 300
     # Paid Tavily queries per user per UTC day; when exceeded, fall back to DuckDuckGo.
     daily_tavily_searches: int = 20
+    daily_tavily_searches_plus: int = 150
     daily_tavily_searches_pro: int = 150
 
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
@@ -219,29 +221,39 @@ class Settings(BaseSettings):
     # Direct OpenAI voice. Empty overrides use the speech catalog aliases.
     speech_transcription_model: str = ""
     speech_rate_limit_per_minute: int = 10
-    daily_speech_transcriptions: int = 30
+    # Per-plan caps (free / plus / pro). 0 = not part of that plan; see
+    # modules/billing/entitlements.py, the one place plan policy lives.
+    daily_speech_transcriptions: int = 0
+    daily_speech_transcriptions_plus: int = 200
     daily_speech_transcriptions_pro: int = 200
     # Cloud TTS (read-aloud). Operator override (OpenAI model); empty →
     # catalog alias `speech-tts-model`.
     speech_tts_enabled: bool = True
     speech_tts_model: str = ""
     speech_tts_voice: str = ""
-    daily_speech_tts: int = 20
+    daily_speech_tts: int = 0
+    daily_speech_tts_plus: int = 100
     daily_speech_tts_pro: int = 100
     # Turn-taking live voice: WebRTC + OpenAI gpt-realtime (not OpenRouter).
-    # Free limit 0 = Pro-only; Pro still has a daily turn cap.
+    # A minutes allowance per UTC calendar month; 0 = not part of that plan.
     speech_live_talk_enabled: bool = True
     openai_realtime_model: str = "gpt-realtime-2.1"
     speech_realtime_voice_enabled: bool = True
-    daily_live_talk: int = 0
-    daily_live_talk_pro: int = 30
+    monthly_live_talk_minutes: int = 0
+    monthly_live_talk_minutes_plus: int = 0
+    monthly_live_talk_minutes_pro: int = 60
+    # One session reserves up to this many seconds at mint (the phone hangs up
+    # there), and a mint is refused when fewer than the minimum remain.
+    live_talk_max_session_seconds: int = 900
+    live_talk_min_session_seconds: int = 60
 
     image_generation_enabled: bool = True
     # Operator override (raw OpenRouter slug); empty → catalog alias
     # `image-gen-model`.
     image_generation_model: str = ""
-    daily_image_generations: int = 0
-    daily_image_generations_pro: int = 10
+    daily_image_generations: int = 3
+    daily_image_generations_plus: int = 10
+    daily_image_generations_pro: int = 15
 
     # Real reference-photo lookup ("show me an ear" / "what does X look like")
     # — separate from AI generation. Reuses Tavily (image_search_enabled also
@@ -251,6 +263,7 @@ class Settings(BaseSettings):
     image_search_enabled: bool = True
     image_search_max_results: int = 3
     daily_image_searches: int = 15
+    daily_image_searches_plus: int = 60
     daily_image_searches_pro: int = 60
     image_search_fetch_timeout_seconds: float = 8.0
 
@@ -259,7 +272,9 @@ class Settings(BaseSettings):
 
     revenuecat_secret_key: str = ""
     revenuecat_webhook_auth: str = ""
+    # Top plan. Keeps the single-plan id so existing subscribers stay on it.
     revenuecat_entitlement_id: str = "pro"
+    revenuecat_plus_entitlement_id: str = "plus"
     billing_reconcile_enabled: bool = True
     billing_reconcile_interval_seconds: int = 3600
     billing_reconcile_batch_size: int = 25
@@ -276,6 +291,7 @@ class Settings(BaseSettings):
     email_from: str = "Recall <noreply@recall.app>"
 
     daily_token_limit: int = 100_000
+    daily_token_limit_plus: int = 500_000
     daily_token_limit_pro: int = 500_000
     # UTC-day OpenRouter spend ceiling (foreground + background). 0 = unlimited
     # (dev/tests). Production boot requires a positive value.
@@ -310,19 +326,12 @@ class Settings(BaseSettings):
     memory_min_confidence: float = 0.4
     memory_inject_limit: int = 15
     memory_active_fact_cap: int = 150
-    # Bound provider embedding fan-out after extract or a migrate backfill.
-    memory_embed_concurrency: int = 6
     # Untouched stale vectors embedded per apply pass. Touched rows always
     # embed; leftover NULLs wait for a later pass instead of bursting 150
     # HTTP calls on the first write after migration.
     memory_embed_backfill_per_pass: int = 16
     # Hard cap on formatted memory block chars injected into the system prompt.
     memory_inject_max_chars: int = 1500
-    # Hard cap on formatted quiz exclusion-list chars injected into the system
-    # prompt. Item-count caps don't bound tokens when trivia questions are long;
-    # this is the quiz analogue of memory_inject_max_chars. Keep it generous —
-    # repeat-suppression is why the list exists — but it must be a char budget.
-    quiz_exclusion_max_chars: int = 4000
     memory_cache_ttl: int = 300
     memory_query_cache_ttl: int = 120
     # Run memory extraction every N completed assistant turns (always on turn 1,
@@ -339,6 +348,8 @@ class Settings(BaseSettings):
     # codebase lives in Settings, so don't reintroduce an inline magic number
     # here — change this constant instead.
     embedding_input_max_chars: int = 8000
+    # Provider calls in flight per embed_many batch (attachment/chat-history index, memory).
+    embedding_concurrency: int = 8
     link_preview_cache_ttl: int = 3600
     home_cache_ttl: int = 120
     todo_inject_limit: int = 100
@@ -346,8 +357,6 @@ class Settings(BaseSettings):
     # done, move, delete). Off: chat writes to-dos as soon as it reads them.
     reminder_proposals_enabled: bool = True
     todo_prompt_limit: int = 48
-    project_inject_limit: int = 50
-    project_item_inject_limit: int = 300
 
     # History compression — keep recent turns verbatim within a token budget,
     # summarise everything older.

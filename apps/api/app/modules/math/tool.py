@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
 from app.core.config import Settings
-from app.gateways.mcp.base import ToolResult
+from app.gateways.mcp.base import ToolContext, ToolResult
 from app.models.schemas.tools import SympyToolInput
 from app.modules.math import solve as math_solve
 from app.modules.math import tools as math_tools
@@ -607,7 +607,7 @@ class SympyAdapter:
             ),
         )
 
-    async def invoke(self, args: dict[str, Any]) -> ToolResult:
+    async def invoke(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         action = str(args.get("action") or "solve").strip().lower()
         try:
             handler = _ACTION_HANDLERS.get(action)

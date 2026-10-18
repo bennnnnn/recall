@@ -3,9 +3,9 @@ import { useState } from "react";
 
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import { MATH_KEYBOARD_SYMBOLS } from "@/lib/math/keyboardSymbols";
-import { clipboardIsImageOnly } from "@/lib/math/clipboard";
+import { clipboardIsImageOnly } from "@/lib/clipboard";
 
-jest.mock("@/lib/math/clipboard", () => ({
+jest.mock("@/lib/clipboard", () => ({
   clipboardIsImageOnly: jest.fn(async () => false),
 }));
 

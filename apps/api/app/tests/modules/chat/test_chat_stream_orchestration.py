@@ -1,18 +1,23 @@
 import asyncio
 from contextlib import ExitStack, suppress
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.tests.modules.chat.chat_test_support import (
     FakeSessionCM as _FakeSessionCM,
 )
 from app.tests.modules.chat.chat_test_support import (
+    offline_deps,
+    stub_recent,
+    turn_deps,
+)
+from app.tests.modules.chat.chat_test_support import (
     offline_session_patches as _offline_session_patches,
 )
-from app.tests.modules.chat.chat_test_support import stub_recent
 
 pytest_plugins = ("app.tests.modules.chat.chat_test_support",)
 
@@ -66,6 +71,7 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
     ):
         collected = []
         async for tok in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=user_id,
@@ -116,8 +122,9 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
-        result: dict[str, str] = {}
+        outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(
                 max_output_tokens=100,
@@ -127,10 +134,10 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="second turn info",
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize = result.get("_finalize_task")
+        finalize = outcome.finalize_task
         if finalize is not None:
             await finalize
 
@@ -183,17 +190,18 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
-        result: dict[str, str] = {}
+        outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="second turn info",
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize = result.get("_finalize_task")
+        finalize = outcome.finalize_task
         if finalize is not None:
             await finalize
 
@@ -240,8 +248,9 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
-        result: dict[str, str] = {}
+        outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(
                 max_output_tokens=100, memory_extract_every_n_turns=3, mcp_tool_loop_enabled=False
@@ -249,10 +258,10 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="turn two chit chat",
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize = result.get("_finalize_task")
+        finalize = outcome.finalize_task
         if finalize is not None:
             await finalize
 
@@ -302,6 +311,7 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
     ):
         async for _ in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
@@ -357,8 +367,9 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
-        result: dict[str, str] = {}
+        outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(
                 max_output_tokens=100,
@@ -368,22 +379,22 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="Sounds good for tomorrow",
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize = result.get("_finalize_task")
+        finalize = outcome.finalize_task
         if finalize is not None:
             await finalize
 
     job_types = [call.args[1] for call in enqueue_job.call_args_list]
     assert ("todos" in job_types) is not proposals
-    assert result.get("todos_sync") == "1"
+    assert outcome.todos_changed
 
 
 @pytest.mark.asyncio
 async def test_stream_sets_final_content_on_cancel(stream_offline_io):
     """On a user-initiated stop, the server persists text the client may not have
-    rendered yet; `result["final_content"]` carries the authoritative persisted
+    rendered yet; `outcome.final_content` carries the authoritative persisted
     text so the client can reconcile (stop/regenerate desync fix)."""
     from app.modules import chat as chat_module
 
@@ -427,26 +438,27 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
-        result: dict[str, object] = {}
+        outcome = TurnOutcome()
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="question",
             should_cancel=should_cancel,
-            result=result,
+            outcome=outcome,
         ):
             yielded.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
     # Only the first token was yielded before cancel broke the loop.
     assert yielded == ["one "]
     # The authoritative persisted text is exposed for client reconciliation.
-    assert result.get("final_content") == "one"
+    assert outcome.final_content == "one"
 
 
 @pytest.mark.asyncio
@@ -454,7 +466,7 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
     """User stop must not record a failed health sample (poisons fallback routing)."""
     from uuid import uuid4
 
-    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
     async def fake_stream(**_kwargs):
@@ -480,23 +492,26 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
         skip_memory_jobs=True,
     )
 
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
     with ExitStack() as stack:
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
         stack.enter_context(patch("app.services.model_health.record_sample", record))
-        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", AsyncMock()))
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock())
+        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         async for _ in stream_and_finalize(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=should_cancel,
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
@@ -506,7 +521,7 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
 @pytest.mark.asyncio
 async def test_stream_and_finalize_starts_before_user_message_persist(stream_offline_io):
     """First token must not wait on the Neon user-row commit."""
-    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
     persist_hold = asyncio.Event()
@@ -533,19 +548,22 @@ async def test_stream_and_finalize_starts_before_user_message_persist(stream_off
         skip_memory_jobs=True,
         user_message_persist=asyncio.create_task(persist()),
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
     with ExitStack() as stack:
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
+        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         agen = stream_and_finalize(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         )
         token = await agen.__anext__()
         assert token == "ok"
@@ -556,7 +574,7 @@ async def test_stream_and_finalize_starts_before_user_message_persist(stream_off
         persist_hold.set()
         async for _ in agen:
             pass
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
@@ -571,7 +589,7 @@ async def test_hard_cancel_before_tokens_skips_model_health_sample(stream_offlin
     import asyncio
     from uuid import uuid4
 
-    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
     async def fake_stream(**_kwargs):
@@ -598,6 +616,7 @@ async def test_hard_cancel_before_tokens_skips_model_health_sample(stream_offlin
         stack.enter_context(patch("app.services.model_health.record_sample", record))
         with pytest.raises(asyncio.CancelledError):
             async for _ in stream_and_finalize(
+                offline_deps(),
                 AsyncMock(),
                 Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 ctx,
@@ -611,10 +630,11 @@ async def test_hard_cancel_before_tokens_skips_model_health_sample(stream_offlin
 @pytest.mark.asyncio
 async def test_stream_chat_response_rejects_empty_content(stream_offline_io):
     from app.exceptions import ChatNotFoundError
-    from app.modules.chat.stream import stream_chat_response
+    from app.modules.chat.stream_entry import stream_chat_response
 
     with pytest.raises(ChatNotFoundError, match="empty"):
         async for _ in stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(),
             user_id=uuid4(),
@@ -625,27 +645,59 @@ async def test_stream_chat_response_rejects_empty_content(stream_offline_io):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content",
+    ["draw ethanol", "A lens has focal length 15 cm. Where's the image?"],
+)
+async def test_try_image_gen_leaves_a_stem_turn_to_its_subject(content: str):
+    """A chemistry structure or an optics question is not a picture request, on any
+    plan: generation would spend an image and skip the solver and its drawing."""
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    generate = AsyncMock()
+    deps = turn_deps(
+        plan={"can_use": MagicMock(return_value=True)},
+        image_generation={"generate_for_chat": generate},
+    )
+    handled = await try_image_gen_for_turn(
+        deps,
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content=content,
+        outcome=None,
+        create_user_message=True,
+    )
+
+    assert handled is False
+    generate.assert_not_awaited()
+
+
+def _image_gen_deps(**fields):
+    """A Pro user's turn: image generation is on the plan."""
+    return turn_deps(plan={"can_use": MagicMock(return_value=True)}, **fields)
+
+
+@pytest.mark.asyncio
 async def test_try_image_gen_skips_recent_lookup_when_text_cannot_be_revision():
-    from app.modules.chat.stream import _try_image_gen_for_turn
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
 
     user = MagicMock()
     user.id = uuid4()
     list_recent = AsyncMock(return_value=[])
     long_text = "x" * 121
 
-    with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
-        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
-        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
-    ):
-        handled = await _try_image_gen_for_turn(
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content=long_text,
-            result=None,
-            create_user_message=True,
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content=long_text,
+        outcome=None,
+        create_user_message=True,
+    )
 
     assert handled is False
     list_recent.assert_not_awaited()
@@ -654,25 +706,21 @@ async def test_try_image_gen_skips_recent_lookup_when_text_cannot_be_revision():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("greeting", ["hi", "hello", "thanks", "ok"])
 async def test_try_image_gen_skips_recent_lookup_for_greeting(greeting: str):
-    from app.modules.chat.stream import _try_image_gen_for_turn
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
 
     user = MagicMock()
     user.id = uuid4()
     list_recent = AsyncMock(return_value=[])
 
-    with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
-        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
-        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
-    ):
-        handled = await _try_image_gen_for_turn(
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content=greeting,
-            result=None,
-            create_user_message=True,
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content=greeting,
+        outcome=None,
+        create_user_message=True,
+    )
 
     assert handled is False
     list_recent.assert_not_awaited()
@@ -680,25 +728,21 @@ async def test_try_image_gen_skips_recent_lookup_for_greeting(greeting: str):
 
 @pytest.mark.asyncio
 async def test_try_image_gen_looks_up_recent_when_text_could_be_revision():
-    from app.modules.chat.stream import _try_image_gen_for_turn
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
 
     user = MagicMock()
     user.id = uuid4()
     list_recent = AsyncMock(return_value=[])
 
-    with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
-        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
-        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
-    ):
-        handled = await _try_image_gen_for_turn(
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content="make it blue",
-            result=None,
-            create_user_message=True,
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content="make it blue",
+        outcome=None,
+        create_user_message=True,
+    )
 
     assert handled is False
     list_recent.assert_awaited_once()
@@ -706,26 +750,22 @@ async def test_try_image_gen_looks_up_recent_when_text_could_be_revision():
 
 @pytest.mark.asyncio
 async def test_try_image_gen_uses_preloaded_recent_without_lookup():
-    from app.modules.chat.stream import _try_image_gen_for_turn
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
 
     user = MagicMock()
     user.id = uuid4()
     list_recent = AsyncMock(return_value=[])
 
-    with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
-        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
-        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
-    ):
-        handled = await _try_image_gen_for_turn(
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content="make it blue",
-            result=None,
-            create_user_message=True,
-            recent_messages=[],
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content="make it blue",
+        outcome=None,
+        create_user_message=True,
+        recent_messages=[],
+    )
 
     assert handled is False
     list_recent.assert_not_awaited()
@@ -734,25 +774,21 @@ async def test_try_image_gen_uses_preloaded_recent_without_lookup():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("text", ["what's 2+2", "help me think", "how are you"])
 async def test_try_image_gen_skips_recent_lookup_for_chat_openers(text: str):
-    from app.modules.chat.stream import _try_image_gen_for_turn
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
 
     user = MagicMock()
     user.id = uuid4()
     list_recent = AsyncMock(return_value=[])
 
-    with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
-        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
-        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
-    ):
-        handled = await _try_image_gen_for_turn(
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content=text,
-            result=None,
-            create_user_message=True,
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content=text,
+        outcome=None,
+        create_user_message=True,
+    )
 
     assert handled is False
     list_recent.assert_not_awaited()
@@ -761,26 +797,22 @@ async def test_try_image_gen_skips_recent_lookup_for_chat_openers(text: str):
 @pytest.mark.asyncio
 async def test_try_image_gen_skips_recent_lookup_on_empty_chat():
     """A brand-new chat has no prior image — don't pay Neon list_recent."""
-    from app.modules.chat.stream import _try_image_gen_for_turn
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
 
     user = MagicMock()
     user.id = uuid4()
     list_recent = AsyncMock(return_value=[])
 
-    with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
-        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
-        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
-    ):
-        handled = await _try_image_gen_for_turn(
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content="red",
-            result=None,
-            create_user_message=True,
-            skip_revision_lookup=True,
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(messages={"list_recent": list_recent}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content="red",
+        outcome=None,
+        create_user_message=True,
+        skip_revision_lookup=True,
+    )
 
     assert handled is False
     list_recent.assert_not_awaited()
@@ -788,7 +820,7 @@ async def test_try_image_gen_skips_recent_lookup_on_empty_chat():
 
 @pytest.mark.asyncio
 async def test_try_image_gen_dog_then_image_uses_prior_subject():
-    from app.modules.chat.stream import _try_image_gen_for_turn
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
 
     user = MagicMock()
     user.id = uuid4()
@@ -801,55 +833,120 @@ async def test_try_image_gen_dog_then_image_uses_prior_subject():
     dog.role = "user"
     dog.content = "Dog"
 
-    with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
-        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
-        patch("app.modules.chat.stream.image_generation_service.generate_for_chat", generate),
-    ):
-        handled = await _try_image_gen_for_turn(
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content="Image",
-            result=None,
-            create_user_message=True,
-            recent_messages=[dog],
-        )
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(image_generation={"generate_for_chat": generate}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content="Image",
+        outcome=None,
+        create_user_message=True,
+        recent_messages=[dog],
+    )
 
     assert handled is True
     assert generate.await_args.kwargs["prompt"] == "Dog"
+
+
+def _turn_row(role: str, content: str, model: str | None = None) -> MagicMock:
+    row = MagicMock()
+    row.role = role
+    row.content = content
+    row.model = model
+    return row
+
+
+_PICTURE_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+_AFTER_PICTURE = (
+    ("user", "draw me a dog", None),
+    ("assistant", f"[Image: /attachments/{_PICTURE_ID}/file]", "image-gen-model"),
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content, recent, create_user_message, prompt, references",
+    [
+        # "that car" is the car named earlier, as the composer reads it.
+        (
+            "create a picture of that car",
+            (("user", "draw a red sports car", None), ("assistant", "Which style?", None)),
+            True,
+            "red sports car",
+            None,
+        ),
+        # An edit starts from the last picture; regenerating lets generation pick it.
+        ("make it blue", _AFTER_PICTURE, True, "dog, blue", [UUID(_PICTURE_ID)]),
+        ("make it blue", _AFTER_PICTURE, False, "dog, blue", None),
+        # A new request after a picture is a new picture.
+        ("draw a fox", _AFTER_PICTURE, True, "fox", None),
+    ],
+)
+async def test_try_image_gen_reads_the_chat_like_the_composer(
+    content: str,
+    recent: tuple[tuple[str, str, str | None], ...],
+    create_user_message: bool,
+    prompt: str,
+    references: list[UUID] | None,
+):
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    asst_msg = MagicMock()
+    asst_msg.id = uuid4()
+    asst_msg.content = "[Image: /attachments/x/file]"
+    asst_msg.model = "image-gen-model"
+    generate = AsyncMock(return_value=(MagicMock(), asst_msg))
+
+    handled = await try_image_gen_for_turn(
+        _image_gen_deps(image_generation={"generate_for_chat": generate}),
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content=content,
+        outcome=None,
+        create_user_message=create_user_message,
+        recent_messages=[_turn_row(*row) for row in recent],
+    )
+
+    assert handled is True
+    call = generate.await_args
+    assert call is not None
+    assert call.kwargs["prompt"] == prompt
+    assert call.kwargs["reference_attachment_ids"] == references
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status_code", [403, 404])
 async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
     """403/404 must not delete the prior assistant (omit-until-success)."""
-    from app.modules.chat.stream import _try_image_gen_for_turn
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
     from app.modules.images.generation import ImageGenerationError
 
     user = MagicMock()
     user.id = uuid4()
     old_id = uuid4()
     delete_message = AsyncMock()
+    deps = _image_gen_deps(
+        messages={"delete_message": delete_message},
+        image_generation={
+            "generate_for_chat": AsyncMock(
+                side_effect=ImageGenerationError("Not available", status_code=status_code)
+            )
+        },
+    )
 
-    with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
-        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value="a cat"),
-        patch("app.modules.chat.stream.messages_repo.delete_message", delete_message),
-        patch(
-            "app.modules.chat.stream.image_generation_service.generate_for_chat",
-            AsyncMock(side_effect=ImageGenerationError("Not available", status_code=status_code)),
-        ),
-    ):
-        handled = await _try_image_gen_for_turn(
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content="Generate image: a cat",
-            result=None,
-            create_user_message=False,
-            replace_assistant_id=old_id,
-        )
+    handled = await try_image_gen_for_turn(
+        deps,
+        Settings(),
+        user=user,
+        chat_id=uuid4(),
+        content="Generate image: a cat",
+        outcome=None,
+        create_user_message=False,
+        replace_assistant_id=old_id,
+    )
 
     assert handled is False
     delete_message.assert_not_awaited()
@@ -857,7 +954,7 @@ async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
 
 @pytest.mark.asyncio
 async def test_image_regen_deletes_prior_assistant_only_after_success():
-    from app.modules.chat.stream import _try_image_gen_for_turn
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
 
     user = MagicMock()
     user.id = uuid4()
@@ -883,31 +980,23 @@ async def test_image_regen_deletes_prior_assistant_only_after_success():
         order.append(f"purge:{message_ids[0]}")
 
     get_by_id = AsyncMock(return_value=old)
+    deps = _image_gen_deps(
+        session_factory=_FakeSessionCM,
+        messages={"get_by_id": get_by_id, "delete_message": delete_message},
+        attachments={"purge_attachments_for_messages": purge_attachments_for_messages},
+        image_generation={"generate_for_chat": generate_for_chat},
+    )
 
-    with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
-        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value="a cat"),
-        patch("app.modules.chat.stream.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.stream.messages_repo.get_by_id", get_by_id),
-        patch("app.modules.chat.stream.messages_repo.delete_message", delete_message),
-        patch(
-            "app.modules.chat.stream.attachment_lifecycle.purge_attachments_for_messages",
-            purge_attachments_for_messages,
-        ),
-        patch(
-            "app.modules.chat.stream.image_generation_service.generate_for_chat",
-            generate_for_chat,
-        ),
-    ):
-        handled = await _try_image_gen_for_turn(
-            Settings(),
-            user=user,
-            chat_id=chat_id,
-            content="Generate image: a cat",
-            result={},
-            create_user_message=False,
-            replace_assistant_id=old_id,
-        )
+    handled = await try_image_gen_for_turn(
+        deps,
+        Settings(),
+        user=user,
+        chat_id=chat_id,
+        content="Generate image: a cat",
+        outcome=TurnOutcome(),
+        create_user_message=False,
+        replace_assistant_id=old_id,
+    )
 
     assert handled is True
     assert order == ["generate", f"purge:{old_id}", f"delete:{old_id}"]
@@ -916,18 +1005,19 @@ async def test_image_regen_deletes_prior_assistant_only_after_success():
 
 @pytest.mark.asyncio
 async def test_try_image_lookup_returns_false_when_disabled():
-    from app.modules.chat.stream import _try_image_lookup_for_turn
+    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
 
     user = MagicMock()
     user.id = uuid4()
 
-    with patch("app.modules.chat.stream.extract_image_lookup_query", return_value="ear"):
-        handled = await _try_image_lookup_for_turn(
+    with patch("app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value="ear"):
+        handled = await try_image_lookup_for_turn(
+            turn_deps(),
             Settings(image_search_enabled=False),
             user=user,
             chat_id=uuid4(),
             content="show me an ear",
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -936,18 +1026,19 @@ async def test_try_image_lookup_returns_false_when_disabled():
 
 @pytest.mark.asyncio
 async def test_try_image_lookup_returns_false_when_no_query_match():
-    from app.modules.chat.stream import _try_image_lookup_for_turn
+    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
 
     user = MagicMock()
     user.id = uuid4()
 
-    with patch("app.modules.chat.stream.extract_image_lookup_query", return_value=None):
-        handled = await _try_image_lookup_for_turn(
+    with patch("app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value=None):
+        handled = await try_image_lookup_for_turn(
+            turn_deps(),
             Settings(image_search_enabled=True),
             user=user,
             chat_id=uuid4(),
             content="what's the weather",
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -955,8 +1046,8 @@ async def test_try_image_lookup_returns_false_when_no_query_match():
 
 
 @pytest.mark.asyncio
-async def test_try_image_lookup_succeeds_and_populates_result():
-    from app.modules.chat.stream import _try_image_lookup_for_turn
+async def test_try_image_lookup_succeeds_and_populates_outcome():
+    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
 
     user = MagicMock()
     user.id = uuid4()
@@ -968,28 +1059,25 @@ async def test_try_image_lookup_succeeds_and_populates_result():
     asst_msg.model = "image-search-model"
 
     search_and_attach = AsyncMock(return_value=(user_msg, asst_msg))
-    result: dict = {}
+    outcome = TurnOutcome()
 
-    with (
-        patch("app.modules.chat.stream.extract_image_lookup_query", return_value="human ear"),
-        patch(
-            "app.modules.chat.stream.image_search_service.search_and_attach_for_chat",
-            search_and_attach,
-        ),
+    with patch(
+        "app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value="human ear"
     ):
-        handled = await _try_image_lookup_for_turn(
+        handled = await try_image_lookup_for_turn(
+            turn_deps(image_search={"search_and_attach_for_chat": search_and_attach}),
             Settings(image_search_enabled=True),
             user=user,
             chat_id=chat_id,
             content="show me an ear",
-            result=result,
+            outcome=outcome,
             create_user_message=True,
         )
 
     assert handled is True
-    assert result["message_id"] == str(asst_msg.id)
-    assert result["final_content"] == asst_msg.content
-    assert result["resolved_model"] == "image-search-model"
+    assert outcome.message_id == str(asst_msg.id)
+    assert outcome.final_content == asst_msg.content
+    assert outcome.resolved_model == "image-search-model"
     search_and_attach.assert_awaited_once()
     _args, kwargs = search_and_attach.call_args
     assert kwargs["query"] == "human ear"
@@ -1000,7 +1088,7 @@ async def test_try_image_lookup_succeeds_and_populates_result():
 @pytest.mark.asyncio
 async def test_try_image_lookup_quota_exceeded_raises():
     from app.exceptions import QuotaExceededError
-    from app.modules.chat.stream import _try_image_lookup_for_turn
+    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
     from app.modules.images.search import ImageSearchError
 
     user = MagicMock()
@@ -1009,19 +1097,16 @@ async def test_try_image_lookup_quota_exceeded_raises():
     search_and_attach = AsyncMock(side_effect=ImageSearchError("limit reached", status_code=429))
 
     with (
-        patch("app.modules.chat.stream.extract_image_lookup_query", return_value="ear"),
-        patch(
-            "app.modules.chat.stream.image_search_service.search_and_attach_for_chat",
-            search_and_attach,
-        ),
+        patch("app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value="ear"),
         pytest.raises(QuotaExceededError),
     ):
-        await _try_image_lookup_for_turn(
+        await try_image_lookup_for_turn(
+            turn_deps(image_search={"search_and_attach_for_chat": search_and_attach}),
             Settings(image_search_enabled=True),
             user=user,
             chat_id=uuid4(),
             content="show me an ear",
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -1030,7 +1115,7 @@ async def test_try_image_lookup_quota_exceeded_raises():
 @pytest.mark.parametrize("status_code", [404, 502, 503])
 async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int):
     """No-results / provider-down lookups fall through to a normal LLM answer."""
-    from app.modules.chat.stream import _try_image_lookup_for_turn
+    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
     from app.modules.images.search import ImageSearchError
 
     user = MagicMock()
@@ -1040,19 +1125,14 @@ async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int
         side_effect=ImageSearchError("not found", status_code=status_code)
     )
 
-    with (
-        patch("app.modules.chat.stream.extract_image_lookup_query", return_value="ear"),
-        patch(
-            "app.modules.chat.stream.image_search_service.search_and_attach_for_chat",
-            search_and_attach,
-        ),
-    ):
-        handled = await _try_image_lookup_for_turn(
+    with patch("app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value="ear"):
+        handled = await try_image_lookup_for_turn(
+            turn_deps(image_search={"search_and_attach_for_chat": search_and_attach}),
             Settings(image_search_enabled=True),
             user=user,
             chat_id=uuid4(),
             content="show me an ear",
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -1062,7 +1142,7 @@ async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int
 @pytest.mark.asyncio
 async def test_try_image_lookup_other_error_raises_chat_service_error():
     from app.exceptions import ChatServiceError
-    from app.modules.chat.stream import _try_image_lookup_for_turn
+    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
     from app.modules.images.search import ImageSearchError
 
     user = MagicMock()
@@ -1071,19 +1151,16 @@ async def test_try_image_lookup_other_error_raises_chat_service_error():
     search_and_attach = AsyncMock(side_effect=ImageSearchError("boom", status_code=500))
 
     with (
-        patch("app.modules.chat.stream.extract_image_lookup_query", return_value="ear"),
-        patch(
-            "app.modules.chat.stream.image_search_service.search_and_attach_for_chat",
-            search_and_attach,
-        ),
+        patch("app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value="ear"),
         pytest.raises(ChatServiceError),
     ):
-        await _try_image_lookup_for_turn(
+        await try_image_lookup_for_turn(
+            turn_deps(image_search={"search_and_attach_for_chat": search_and_attach}),
             Settings(image_search_enabled=True),
             user=user,
             chat_id=uuid4(),
             content="show me an ear",
-            result=None,
+            outcome=None,
             create_user_message=True,
         )
 
@@ -1094,7 +1171,7 @@ async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
     import asyncio
     from uuid import uuid4
 
-    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
     async def fake_stream(**_kwargs):
@@ -1113,37 +1190,40 @@ async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
 
     with ExitStack() as stack:
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
+        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         tokens: list[str] = []
         async for tok in stream_and_finalize(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             tokens.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
     assert tokens == ["partial "]
-    assert result.get("final_content") == "partial"
-    assert result.get("completion") == "user_stop"
+    assert outcome.final_content == "partial"
+    assert outcome.completion == "user_stop"
     finalize.assert_awaited()
 
 
 @pytest.mark.asyncio
 async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
     """Stopping the task after a token must still save that partial reply."""
-    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
     async def fake_stream(**_kwargs):
@@ -1162,16 +1242,17 @@ async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
     tokens: list[str] = []
 
     async def consume() -> None:
         async for tok in stream_and_finalize(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             tokens.append(tok)
 
@@ -1179,7 +1260,9 @@ async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
+        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         task = asyncio.create_task(consume())
         for _ in range(50):
@@ -1189,13 +1272,13 @@ async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
         task.cancel()
         with suppress(asyncio.CancelledError):
             await task
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if isinstance(finalize_db, asyncio.Task):
             await finalize_db
 
     assert tokens == ["partial "]
-    assert result.get("final_content") == "partial"
-    assert result.get("completion") == "user_stop"
+    assert outcome.final_content == "partial"
+    assert outcome.completion == "user_stop"
     finalize.assert_awaited()
 
 
@@ -1205,7 +1288,7 @@ async def test_hard_cancel_with_empty_reply_reraises(stream_offline_io):
     import asyncio
     from uuid import uuid4
 
-    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
     async def fake_stream(**_kwargs):
@@ -1226,15 +1309,16 @@ async def test_hard_cancel_with_empty_reply_reraises(stream_offline_io):
 
     with (
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.modules.chat.stream.finalize_stream_turn_db", AsyncMock()) as finalize,
+        patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock()) as finalize,
         pytest.raises(asyncio.CancelledError),
     ):
         async for _ in stream_and_finalize(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result={},
+            outcome=TurnOutcome(),
         ):
             pass
 
@@ -1247,7 +1331,7 @@ async def test_provider_fail_with_partial_reply_marks_interrupted(stream_offline
     from uuid import uuid4
 
     from app.gateways.litellm_gateway import ModelUnavailableError
-    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
     async def fake_stream(**_kwargs):
@@ -1266,29 +1350,32 @@ async def test_provider_fail_with_partial_reply_marks_interrupted(stream_offline
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
 
     with ExitStack() as stack:
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
+        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         tokens: list[str] = []
         async for tok in stream_and_finalize(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             tokens.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
     assert tokens == ["partial "]
-    assert result.get("completion") == "interrupted"
+    assert outcome.completion == "interrupted"
     finalize.assert_awaited()
 
 
@@ -1297,7 +1384,7 @@ async def test_token_limit_finish_reason_marks_interrupted(stream_offline_io):
     """finish_reason=length is a truncated answer, not a completed one."""
     from uuid import uuid4
 
-    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
     async def fake_stream(**kwargs):
@@ -1318,27 +1405,30 @@ async def test_token_limit_finish_reason_marks_interrupted(stream_offline_io):
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
 
     with ExitStack() as stack:
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
+        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         async for _ in stream_and_finalize(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
-    assert result.get("completion") == "interrupted"
+    assert outcome.completion == "interrupted"
     finalize.assert_awaited()
 
 
@@ -1346,7 +1436,7 @@ async def test_token_limit_finish_reason_marks_interrupted(stream_offline_io):
 async def test_soft_cancel_mid_stream_marks_user_stop(stream_offline_io):
     from uuid import uuid4
 
-    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
     async def fake_stream(**_kwargs):
@@ -1371,29 +1461,32 @@ async def test_soft_cancel_mid_stream_marks_user_stop(stream_offline_io):
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
 
     with ExitStack() as stack:
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
+        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         tokens: list[str] = []
         async for tok in stream_and_finalize(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=should_cancel,
-            result=result,
+            outcome=outcome,
         ):
             tokens.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
     assert tokens == ["keep "]
-    assert result.get("completion") == "user_stop"
+    assert outcome.completion == "user_stop"
     finalize.assert_awaited()
 
 
@@ -1459,6 +1552,7 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         async for _ in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
@@ -1510,6 +1604,7 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
     ):
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
@@ -1566,6 +1661,7 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
     ):
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
@@ -1635,7 +1731,9 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
         stack.enter_context(patch("app.repositories.usage.add_tokens", AsyncMock()))
         stack.enter_context(patch("app.repositories.chats.touch_by_id", AsyncMock()))
         stack.enter_context(patch("app.core.jobs.enqueue", AsyncMock()))
-        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
+        )
         stack.enter_context(
             patch(
                 "app.modules.todos.materialize_reminder_fences",
@@ -1643,19 +1741,20 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
             )
         )
 
-        result: dict[str, object] = {}
+        outcome = TurnOutcome()
         collected: list[str] = []
         async for tok in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="question",
-            result=result,
+            outcome=outcome,
             user=fake_user,
         ):
             collected.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
@@ -1703,21 +1802,22 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
         patch("app.repositories.chats.touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
-        result: dict[str, object] = {}
+        outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="question",
-            result=result,
+            outcome=outcome,
         ):
             pass
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
-    assert "final_content" not in result
+    assert outcome.final_content is None
 
 
 @pytest.mark.asyncio
@@ -1772,6 +1872,11 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
         stack.enter_context(
             patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
+        # Every plan can generate images now, so a short regenerate reads the
+        # thread for an image follow-up before it searches.
+        stack.enter_context(
+            patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
+        )
         stack.enter_context(
             patch(
                 "app.modules.chat.turn_prep.context.build_prompt_messages",
@@ -1798,13 +1903,13 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
         )
         stack.enter_context(
             patch(
-                "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+                "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
                 AsyncMock(return_value=(None, None, [], None, False, None, None)),
             )
         )
         stack.enter_context(
             patch(
-                "app.modules.chat.turn_prep.context.inject_web_and_tools",
+                "app.modules.chat.turn_prep.augment.inject_web_and_tools",
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
         )
@@ -1826,11 +1931,14 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
         )
-        stack.enter_context(patch("app.modules.chat.stream.restore_regenerate_backup", restore))
+        stack.enter_context(
+            patch("app.modules.chat.stream_entry.restore_regenerate_backup", restore)
+        )
         from app.gateways.litellm_gateway import ModelUnavailableError
 
         with pytest.raises(ModelUnavailableError, match="isn't responding"):
             async for _ in chat_module.stream_regenerate_response(
+                offline_deps(),
                 fake_redis,
                 Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=fake_user.id,
@@ -1871,8 +1979,8 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
     fake_last_user = MagicMock()
     fake_last_user.content = "question"
 
-    async def track_build(*_args, **kwargs):
-        captured["omit"] = kwargs.get("omit_message_ids")
+    async def track_build(request, *_args):
+        captured["omit"] = request.omit_message_ids
         return TurnPromptBundle(
             prompt_messages=[{"role": "system", "content": "sys"}],
             meta={},
@@ -1925,7 +2033,7 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
         )
         stack.enter_context(
             patch(
-                "app.modules.chat.stream.build_stream_prompt_context",
+                "app.modules.chat.stream_entry.build_stream_prompt_context",
                 side_effect=track_build,
             )
         )
@@ -1952,11 +2060,14 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
         )
-        stack.enter_context(patch("app.modules.chat.stream.restore_regenerate_backup", AsyncMock()))
+        stack.enter_context(
+            patch("app.modules.chat.stream_entry.restore_regenerate_backup", AsyncMock())
+        )
         from app.gateways.litellm_gateway import ModelUnavailableError
 
         with pytest.raises(ModelUnavailableError):
             async for _ in chat_module.stream_regenerate_response(
+                offline_deps(),
                 fake_redis,
                 Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=fake_user.id,
@@ -2019,6 +2130,11 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         stack.enter_context(
             patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
+        # Every plan can generate images now, so a short regenerate reads the
+        # thread for an image follow-up before it searches.
+        stack.enter_context(
+            patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
+        )
         stack.enter_context(
             patch(
                 "app.modules.chat.turn_prep.context.build_prompt_messages",
@@ -2039,13 +2155,13 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         )
         stack.enter_context(
             patch(
-                "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+                "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
                 fetch_web,
             )
         )
         stack.enter_context(
             patch(
-                "app.modules.chat.turn_prep.context.inject_web_and_tools",
+                "app.modules.chat.turn_prep.augment.inject_web_and_tools",
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
         )
@@ -2067,11 +2183,14 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
         )
-        stack.enter_context(patch("app.modules.chat.stream.restore_regenerate_backup", AsyncMock()))
+        stack.enter_context(
+            patch("app.modules.chat.stream_entry.restore_regenerate_backup", AsyncMock())
+        )
         from app.gateways.litellm_gateway import ModelUnavailableError
 
         with pytest.raises(ModelUnavailableError):
             async for _ in chat_module.stream_regenerate_response(
+                offline_deps(),
                 fake_redis,
                 Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=fake_user.id,
@@ -2095,12 +2214,12 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
     ignored, so quota fell back to full prompt re-estimation and overcharged."""
     from uuid import uuid4
 
-    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
     captured: dict[str, object] = {}
 
-    async def capture_finalize(_redis, _ctx, assistant_text, usage, _result):
+    async def capture_finalize(_redis, _ctx, assistant_text, usage, _outcome):
         captured["usage"] = dict(usage)
         captured["assistant_text"] = assistant_text
 
@@ -2117,21 +2236,24 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
         skip_memory_jobs=True,
     )
 
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
     with (
-        patch("app.modules.chat.stream.finalize_stream_turn_db", side_effect=capture_finalize),
+        patch(
+            "app.modules.chat.stream_pipeline.finalize_stream_turn_db", side_effect=capture_finalize
+        ),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
     ):
         tokens: list[str] = []
         async for tok in stream_and_finalize(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             tokens.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 
@@ -2154,7 +2276,7 @@ async def test_web_search_tool_round_streams_final_instead_of_regenerating(
 ):
     """After web_search tools run, the visible answer is streamed — not a
     leftover complete_with_tools dumped as one instant_reply chunk."""
-    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
     query = "What's the latest news on SpaceX?"
@@ -2182,11 +2304,11 @@ async def test_web_search_tool_round_streams_final_instead_of_regenerating(
         max_output_tokens=50,
         skip_memory_jobs=True,
     )
-    result: dict[str, object] = {}
+    outcome = TurnOutcome()
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                "app.services.tool_loop.run_tool_rounds",
+                "app.modules.chat.tool_loop.run_tool_rounds",
                 AsyncMock(return_value=(after_tools, None, None, [])),
             )
         )
@@ -2196,19 +2318,22 @@ async def test_web_search_tool_round_streams_final_instead_of_regenerating(
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", AsyncMock()))
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock())
+        )
         stack.enter_context(patch("app.services.model_health.record_sample", AsyncMock()))
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         yielded: list[str] = []
         async for tok in stream_and_finalize(
+            offline_deps(),
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=True),
             ctx,
             should_cancel=None,
-            result=result,
+            outcome=outcome,
         ):
             yielded.append(tok)
-        finalize_db = result.get("_finalize_db_task")
+        finalize_db = outcome.finalize_db_task
         if finalize_db is not None:
             await finalize_db
 

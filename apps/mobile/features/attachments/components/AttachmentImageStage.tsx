@@ -38,8 +38,6 @@ import { getSessionGeneration } from "@/lib/auth";
 import { fitImageToStage } from "@/lib/fitImageToStage";
 import { useReduceMotion } from "@/lib/reduceMotion";
 
-export type { AttachmentViewerImage };
-
 /** Settles without bounce, so a released photo never shows the stage edge. */
 const ZOOM_SPRING = { damping: 30, stiffness: 300, overshootClamping: true } as const;
 /** Long enough to tell a double tap from a tap, short enough that a tap feels immediate. */

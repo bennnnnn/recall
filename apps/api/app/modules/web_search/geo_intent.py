@@ -4,20 +4,23 @@ from __future__ import annotations
 
 import re
 
-from app.modules.web_search.patterns import (
-    _AMBIGUOUS_NEARBY_SUBJECT,
+from app.modules.web_search.distance_patterns import (
     _DISTANCE_INTENT,
     _FIXED_DISTANCE_FROM,
     _FROM_USER,
-    _IMPLICIT_LOCAL,
     _MOTION_HOMEWORK,
+    _TIMETABLE,
+    _UNIT_CONVERSION,
+    distance_between_phrase,
+    trip_how_many_phrase,
+)
+from app.modules.web_search.patterns import (
+    _AMBIGUOUS_NEARBY_SUBJECT,
+    _IMPLICIT_LOCAL,
     _NEARBY_INTENT,
     _PROXIMITY_PHRASES,
     _QUALIFIED_NEARBY,
-    _TIMETABLE,
-    _UNIT_CONVERSION,
     best_near_phrase,
-    distance_between_phrase,
     is_weather_request,
     non_geographic_nearest,
 )
@@ -88,7 +91,9 @@ def is_proximity_query(text: str) -> bool:
 def is_distance_query(text: str) -> bool:
     """Distance, travel time, or directions from the user's location."""
     cleaned = text.strip()
-    if not cleaned or not _DISTANCE_INTENT.search(cleaned):
+    if not cleaned:
+        return False
+    if not (_DISTANCE_INTENT.search(cleaned) or trip_how_many_phrase(cleaned)):
         return False
     if _MOTION_HOMEWORK.search(cleaned):
         return False
@@ -110,11 +115,6 @@ def is_places_list_query(text: str) -> bool:
     """Render the native ```places card (find venues, not mileage-only answers)."""
     if is_ambiguous_local_places_query(text):
         return False
-    return is_proximity_query(text)
-
-
-def is_local_places_query(text: str) -> bool:
-    """Backward-compatible alias — prefer is_geo_query / is_places_list_query."""
     return is_proximity_query(text)
 
 

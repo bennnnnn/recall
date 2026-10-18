@@ -30,7 +30,7 @@ export const UNIT_CATEGORIES = [
 
 export type UnitCategory = (typeof UNIT_CATEGORIES)[number];
 
-export type UnitDef = {
+type UnitDef = {
   id: string;
   symbol: string;
   name: string;

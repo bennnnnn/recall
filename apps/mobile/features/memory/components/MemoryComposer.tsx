@@ -13,21 +13,20 @@ import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 
 /** Same limit as the server (MEMORY_INSTRUCTION_MAX_LENGTH). */
-export const MEMORY_INSTRUCTION_MAX_LENGTH = 500;
+const MEMORY_INSTRUCTION_MAX_LENGTH = 500;
 
 type Props = {
   /** An example instruction, e.g. "Keep lists under five things". */
   placeholder: string;
   /** Resolves true when memory took the edit; the box then clears. */
   onSubmit: (instruction: string) => Promise<boolean>;
-  testID?: string;
 };
 
 /**
  * "Tell Recall what to change": a plain-words edit box docked under the memory
  * pages. On iOS it rides above the keyboard; Android resizes the window itself.
  */
-export function MemoryComposer({ placeholder, onSubmit, testID = "memory-composer" }: Props) {
+export function MemoryComposer({ placeholder, onSubmit }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -64,7 +63,7 @@ export function MemoryComposer({ placeholder, onSubmit, testID = "memory-compose
           editable={!busy}
           accessibilityLabel={t("memory.composer_label")}
           accessibilityHint={placeholder}
-          testID={`${testID}-input`}
+          testID="memory-composer-input"
         />
         <Pressable
           style={[s.send, !ready && s.sendIdle]}
@@ -74,7 +73,7 @@ export function MemoryComposer({ placeholder, onSubmit, testID = "memory-compose
           accessibilityRole="button"
           accessibilityLabel={t("memory.composer_send")}
           accessibilityState={{ disabled: !ready, busy }}
-          testID={`${testID}-send`}
+          testID="memory-composer-send"
         >
           {busy ? (
             <ActivityIndicator size="small" color={theme.textTertiary} />

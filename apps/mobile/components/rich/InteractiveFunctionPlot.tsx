@@ -1,75 +1,23 @@
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  useWindowDimensions,
-  View,
-  type LayoutChangeEvent,
-} from "react-native";
-import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated from "react-native-reanimated";
+import { Suspense, useMemo, type RefObject } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/ui/icons/Icon";
-import {
-  GraphCanvas,
-  GRAPH_AXIS_PAD,
-  type GraphHoleMarker,
-} from "@/components/rich/GraphCanvas";
-import {
-  type DrawnSeries,
-  drawGraphSeries,
-  useGraphSeries,
-  useGraphViewport,
-} from "@/hooks/useInteractiveGraph";
-import { useSheetPanDismiss } from "@/ui/overlay/useSheetPanDismiss";
-import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
+import { ExplorerModal } from "@/components/rich/ExplorerModal";
+import { GraphCanvas, GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
+import { SkiaGraphCanvasLazy } from "@/components/rich/skia/SkiaGraphCanvasLazy";
+import { CHART_HEIGHT, GRAPH_CARD_INSET, useFunctionPlotState } from "@/components/rich/useFunctionPlotState";
+import { type DrawnSeries } from "@/hooks/useInteractiveGraph";
 import { CODE_FONT } from "@/lib/fonts";
-import { formatGraphExpr, interactiveFunctionBounds } from "@/lib/math/graphBlock";
+import { formatGraphExpr } from "@/lib/math/graphBlock";
 import { type GraphSpec } from "@/lib/math/graphSpec";
-import { defaultInteractiveBounds, expandGraphView } from "@/lib/math/graphViewport";
-import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { IconSize } from "@/ui/icons/sizes";
-import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 import { Theme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
-import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
-import { HeaderButton } from "@/ui/controls/HeaderButton";
 
-const CHART_HEIGHT = 220;
 const MODAL_LIST_MAX = 220;
-const MODAL_PLOT_MIN = 200;
-const GRAPH_CARD_INSET = Space.sm;
-/** Skia explorer samples a 3x window at 3x density for mid-gesture runway. */
-const SKIA_SAMPLE_EXPAND = 3;
-const SKIA_SAMPLES = 480;
-
-// Skia stays out of the import graph unless a native graph actually renders
-// (Expo Go and stale clients keep the SVG compatibility path).
-const SkiaGraphCanvasLazy = lazy(() =>
-  import("@/components/rich/skia/SkiaGraphExplorer").then((m) => ({
-    default: m.SkiaGraphCanvas,
-  })),
-);
 
 type Props = {
   spec: GraphSpec;
@@ -83,197 +31,76 @@ type Props = {
 
 export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Props) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
-  const { width: screenW, height: screenH } = useWindowDimensions();
-  const [open, setOpen] = useState(false);
-  const [plotWidth, setPlotWidth] = useState(
-    Math.max(1, chartWidth - GRAPH_CARD_INSET * 2),
-  );
-  const closeModal = useCallback(() => setOpen(false), []);
-  const cardClipId = useId().replace(/:/g, "");
-  const modalClipId = useId().replace(/:/g, "");
+  const plot = useFunctionPlotState(spec, chartWidth, theme);
+  const { card, explorer, editor, holes, verticalX } = plot;
   const explorerStyles = useMemo(() => makeExplorerStyles(theme), [theme]);
-  const verticalX = spec.type === "vertical" ? spec.x : undefined;
-  const isVerticalLine = verticalX != null;
-  const editable = spec.type === "function";
-  const seedExprs = hasCurve2(spec) ? [spec.expr, spec.expr2 ?? ""] : [spec.expr];
-  const seedFallbacks = hasCurve2(spec)
-    ? [
-        { points: spec.points, segments: spec.segments },
-        { points: spec.points2 ?? [], segments: spec.segments2 },
-      ]
-    : [{ points: spec.points, segments: spec.segments }];
-  const { series, canAdd, setExpr, toggleVisible, removeSeries, addSeries } = useGraphSeries(
-    seedExprs,
-    seedFallbacks,
-  );
-  const palette = theme.graphSeries;
-  const holes = useMemo<GraphHoleMarker[]>(() => {
-    if (spec.type !== "function") return [];
-    const markers: GraphHoleMarker[] = [];
-    const append = (
-      row: (typeof series)[number] | undefined,
-      points: [number, number][] | undefined,
-      color: string,
-    ) => {
-      if (!row?.visible || row.seedExpr !== row.expr) return;
-      for (const point of points ?? []) markers.push({ point, color });
-    };
-    append(series[0], spec.holes, palette[0]);
-    append(series[1], spec.holes2, palette[1 % palette.length]);
-    return markers;
-  }, [palette, series, spec]);
-  const variable = spec.variable ?? "x";
-  const cardWidth = Math.max(1, plotWidth);
-  const cardAspect = (cardWidth - GRAPH_AXIS_PAD * 2) / (CHART_HEIGHT - GRAPH_AXIS_PAD * 2 || 1);
-  const cardBounds = useMemo(
-    () => interactiveFunctionBounds(spec, cardAspect),
-    [cardAspect, spec],
-  );
-  const ignoreCardCommit = useCallback(() => {}, []);
-  const cardSkiaViewport = useSkiaGraphViewport({
-    width: cardWidth,
-    height: CHART_HEIGHT,
-    pad: GRAPH_AXIS_PAD,
-    initialView: cardBounds,
-    onCommit: ignoreCardCommit,
-  });
-  const cardDrawn = useMemo(
-    () => series.map((row, i) => drawGraphSeries(row, palette[i % palette.length], variable, cardBounds)),
-    [cardBounds, palette, series, variable],
-  );
-  const modalWidth = Math.max(1, screenW - insets.left - insets.right);
-  const fallbackModalH = Math.max(MODAL_PLOT_MIN, screenH - insets.top - insets.bottom - 200);
-  const [modalPlot, setModalPlot] = useState({ width: modalWidth, height: fallbackModalH });
-  const skiaExplorer = isSkiaAvailable();
-  const modalAspect =
-    (modalPlot.width - GRAPH_AXIS_PAD * 2) / (modalPlot.height - GRAPH_AXIS_PAD * 2 || 1);
-  const modalInitialView = useMemo(
-    () => interactiveFunctionBounds(spec, modalAspect),
-    [modalAspect, spec],
-  );
-  const viewport = useGraphViewport({
-    width: modalPlot.width,
-    height: modalPlot.height,
-    pad: GRAPH_AXIS_PAD,
-    initialView: modalInitialView,
-  });
-  const onCardLayout = (e: LayoutChangeEvent) => {
-    const w = Math.round(e.nativeEvent.layout.width - GRAPH_CARD_INSET * 2);
-    if (w > 0 && w !== plotWidth) setPlotWidth(w);
-  };
-  const onModalPlotLayout = (e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout;
-    const w = Math.round(width);
-    const h = Math.round(height);
-    if (w > 0 && h > 0 && (w !== modalPlot.width || h !== modalPlot.height)) {
-      setModalPlot({ width: w, height: h });
-    }
-  };
-  // The Skia explorer pans/zooms on the UI thread against samples taken over
-  // an expanded window; viewport.bounds only moves on gesture-end commits.
-  const sampleBounds = useMemo(
-    () => (skiaExplorer ? expandGraphView(viewport.bounds, SKIA_SAMPLE_EXPAND) : viewport.bounds),
-    [skiaExplorer, viewport.bounds],
-  );
-  const modalDrawn = useMemo(
-    () =>
-      series.map((row, i) =>
-        drawGraphSeries(
-          row,
-          palette[i % palette.length],
-          variable,
-          sampleBounds,
-          skiaExplorer ? SKIA_SAMPLES : 160,
-        ),
-      ),
-    [palette, series, variable, sampleBounds, skiaExplorer],
-  );
   const customTitle =
     spec.title != null && spec.title.trim() !== "" && spec.title.trim() !== spec.expr
       ? formatGraphExpr(spec.title)
       : null;
-  const seriesListRef = useRef<ScrollView>(null);
-  const addSeriesAndReveal = () => {
-    addSeries();
-    requestAnimationFrame(() => {
-      seriesListRef.current?.scrollToEnd({ animated: true });
-    });
-  };
   const seriesEditor = (rows: DrawnSeries[], mode: "card" | "modal") =>
-    editable ? (
+    spec.type === "function" ? (
       <SeriesList
         rows={rows}
         theme={theme}
         styles={explorerStyles}
-        canAdd={canAdd}
-        scrollRef={mode === "modal" ? seriesListRef : undefined}
-        onChangeExpr={setExpr}
-        onToggle={toggleVisible}
-        onRemove={removeSeries}
-        onAdd={mode === "modal" ? addSeriesAndReveal : addSeries}
+        canAdd={editor.canAdd}
+        scrollRef={mode === "modal" ? editor.seriesListRef : undefined}
+        onChangeExpr={editor.setExpr}
+        onToggle={editor.toggleVisible}
+        onRemove={editor.removeSeries}
+        onAdd={mode === "modal" ? editor.addSeriesAndReveal : editor.addSeries}
       />
     ) : null;
+  const svgCard = (
+    <GraphCanvas
+      spec={spec}
+      theme={theme}
+      clipId={card.clipId}
+      width={card.width}
+      height={CHART_HEIGHT}
+      bounds={card.bounds}
+      drawn={card.drawn}
+      holes={holes}
+      verticalX={verticalX}
+    />
+  );
 
   return (
     <View
       style={[styles.wrap, explorerStyles.card]}
-      onLayout={onCardLayout}
+      onLayout={card.onLayout}
       testID="graph-card"
     >
       {customTitle ? <Text style={styles.title}>{customTitle}</Text> : null}
-      {isVerticalLine ? (
+      {verticalX != null ? (
         <Text style={styles.title}>{formatGraphExpr(spec.title ?? spec.expr)}</Text>
       ) : null}
       <Pressable
-        onPress={() => setOpen(true)}
+        onPress={plot.openExplorer}
         testID="graph-expand"
         accessibilityRole="button"
         accessibilityLabel={t("rich.expand")}
-        style={[explorerStyles.plotPress, { width: cardWidth, height: CHART_HEIGHT }]}
+        style={[explorerStyles.plotPress, { width: card.width, height: CHART_HEIGHT }]}
       >
-        {skiaExplorer ? (
-          <Suspense
-            fallback={
-              <GraphCanvas
-                spec={spec}
-                theme={theme}
-                clipId={cardClipId}
-                width={cardWidth}
-                height={CHART_HEIGHT}
-                bounds={cardBounds}
-                drawn={cardDrawn}
-                holes={holes}
-                verticalX={verticalX}
-              />
-            }
-          >
+        {plot.skia ? (
+          <Suspense fallback={svgCard}>
             <SkiaGraphCanvasLazy
-              drawn={cardDrawn}
+              drawn={card.drawn}
               holes={holes}
               verticalX={verticalX}
               xName={spec.variable ?? "x"}
               yName="y"
-              width={cardWidth}
+              width={card.width}
               height={CHART_HEIGHT}
               pad={GRAPH_AXIS_PAD}
               theme={theme}
-              viewport={cardSkiaViewport}
+              viewport={card.skiaViewport}
               testID="skia-graph-card"
             />
           </Suspense>
         ) : (
-          <GraphCanvas
-            spec={spec}
-            theme={theme}
-            clipId={cardClipId}
-            width={cardWidth}
-            height={CHART_HEIGHT}
-            bounds={cardBounds}
-            drawn={cardDrawn}
-            holes={holes}
-            verticalX={verticalX}
-          />
+          svgCard
         )}
         <View
           style={explorerStyles.expandBadge}
@@ -283,192 +110,27 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
           <Icon name="expand" size={IconSize.xs} color={theme.textSecondary} />
         </View>
       </Pressable>
-      {open ? null : seriesEditor(cardDrawn, "card")}
+      {plot.open ? null : seriesEditor(card.drawn, "card")}
       <ExplorerModal
-        open={open}
-        onClose={closeModal}
+        open={plot.open}
+        onClose={plot.closeExplorer}
         theme={theme}
-        styles={explorerStyles}
-        insets={insets}
+        insets={plot.insets}
         spec={spec}
-        clipId={modalClipId}
-        plot={modalPlot}
-        onPlotLayout={onModalPlotLayout}
-        bounds={viewport.bounds}
-        gesture={viewport.gesture}
-        drawn={modalDrawn}
+        clipId={explorer.clipId}
+        plot={explorer.plot}
+        onPlotLayout={explorer.onPlotLayout}
+        bounds={explorer.viewport.bounds}
+        gesture={explorer.viewport.gesture}
+        drawn={explorer.drawn}
         holes={holes}
         verticalX={verticalX}
-        editor={seriesEditor(modalDrawn, "modal")}
-        skia={skiaExplorer}
-        initialView={modalInitialView}
-        onCommitBounds={viewport.commitBounds}
+        editor={seriesEditor(explorer.drawn, "modal")}
+        skia={plot.skia}
+        initialView={explorer.initialView}
+        onCommitBounds={explorer.viewport.commitBounds}
       />
     </View>
-  );
-}
-
-function hasCurve2(spec: GraphSpec): boolean {
-  return spec.type === "function" && !!spec.expr2 && !!spec.points2?.length;
-}
-
-function ExplorerModal({
-  open,
-  onClose,
-  theme,
-  styles,
-  insets,
-  spec,
-  clipId,
-  plot,
-  onPlotLayout,
-  bounds,
-  gesture,
-  drawn,
-  holes,
-  verticalX,
-  editor,
-  skia,
-  initialView,
-  onCommitBounds,
-}: {
-  open: boolean;
-  onClose: () => void;
-  theme: Theme;
-  styles: ReturnType<typeof makeExplorerStyles>;
-  insets: { top: number; bottom: number };
-  spec: GraphSpec;
-  clipId: string;
-  plot: { width: number; height: number };
-  onPlotLayout: (e: LayoutChangeEvent) => void;
-  bounds: ReturnType<typeof defaultInteractiveBounds>;
-  gesture: ReturnType<typeof useGraphViewport>["gesture"];
-  drawn: DrawnSeries[];
-  holes: GraphHoleMarker[];
-  verticalX?: number;
-  editor: ReactNode;
-  skia: boolean;
-  initialView: ReturnType<typeof defaultInteractiveBounds>;
-  onCommitBounds: (next: ReturnType<typeof defaultInteractiveBounds>) => void;
-}) {
-  const { t } = useTranslation();
-  const reduceMotion = useReduceMotion();
-  const { pan, panStyle } = useSheetPanDismiss(open, reduceMotion, onClose);
-  const skiaViewport = useSkiaGraphViewport({
-    width: plot.width,
-    height: plot.height,
-    pad: GRAPH_AXIS_PAD,
-    initialView,
-    onCommit: onCommitBounds,
-  });
-
-  return (
-    <FullScreenModal
-      visible={open}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      {open ? (
-        <GestureHandlerRootView
-          style={[styles.modalRoot, styles.modalBackdrop]}
-          testID="graph-modal-backdrop"
-        >
-          <KeyboardAvoidingView
-            style={styles.modalRoot}
-            testID="graph-modal-keyboard-host"
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-          >
-            <Animated.View
-              testID="graph-modal-sheet"
-              style={[
-                styles.modalSheet,
-                {
-                  backgroundColor: theme.elevated,
-                  marginTop: Math.max(insets.top, Space.sm),
-                  paddingBottom: insets.bottom,
-                },
-                panStyle,
-              ]}
-            >
-              <GestureDetector gesture={pan}>
-                <View style={styles.modalToolbar} testID="graph-sheet-handle">
-                  <View style={styles.handle} />
-                  <HeaderButton
-                    icon="close"
-                    onPress={onClose}
-                    testID="graph-close"
-                    accessibilityLabel={t("preview.close")}
-                    style={styles.closeBtn}
-                  />
-                </View>
-              </GestureDetector>
-              {skia ? (
-                // Own the native touch surface here, just like the SVG
-                // fallback below. Keeping the detector inside a box-only
-                // parent made the parent swallow every pinch and pan.
-                <GestureDetector gesture={skiaViewport.gesture}>
-                  <View
-                    collapsable={false}
-                    pointerEvents="box-only"
-                    accessible
-                    accessibilityLabel={t("rich.graph_plot_a11y")}
-                    testID="graph-interaction-surface"
-                    onLayout={onPlotLayout}
-                    style={styles.modalPlot}
-                  >
-                    <Suspense
-                      fallback={
-                        <View style={styles.skiaLoading}>
-                          <ActivityIndicator color={theme.textSecondary} />
-                        </View>
-                      }
-                    >
-                      <SkiaGraphCanvasLazy
-                        drawn={drawn}
-                        holes={holes}
-                        verticalX={verticalX}
-                        xName={spec.variable ?? "x"}
-                        yName="y"
-                        width={plot.width}
-                        height={plot.height}
-                        pad={GRAPH_AXIS_PAD}
-                        theme={theme}
-                        viewport={skiaViewport}
-                      />
-                    </Suspense>
-                  </View>
-                </GestureDetector>
-              ) : (
-                <GestureDetector gesture={gesture}>
-                  <View
-                    collapsable={false}
-                    pointerEvents="box-only"
-                    accessible
-                    accessibilityLabel={t("rich.graph_plot_a11y")}
-                    onLayout={onPlotLayout}
-                    style={styles.modalPlot}
-                  >
-                    <GraphCanvas
-                      spec={spec}
-                      theme={theme}
-                      clipId={clipId}
-                      width={plot.width}
-                      height={plot.height}
-                      bounds={bounds}
-                      drawn={drawn}
-                      holes={holes}
-                      verticalX={verticalX}
-                    />
-                  </View>
-                </GestureDetector>
-              )}
-              {editor}
-            </Animated.View>
-          </KeyboardAvoidingView>
-        </GestureHandlerRootView>
-      ) : null}
-    </FullScreenModal>
   );
 }
 
@@ -636,52 +298,6 @@ const makeExplorerStyles = (theme: Theme) =>
       right: 8,
       width: 28,
       height: 28,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    modalRoot: {
-      flex: 1,
-    },
-    modalBackdrop: {
-      backgroundColor: theme.scrim,
-    },
-    modalSheet: {
-      flex: 1,
-      borderTopLeftRadius: Radius.sheet,
-      borderTopRightRadius: Radius.sheet,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      overflow: "hidden",
-    },
-    modalToolbar: {
-      alignSelf: "stretch",
-      minHeight: 60,
-    },
-    handle: {
-      alignSelf: "center",
-      width: 48,
-      height: 5,
-      borderRadius: Radius.full,
-      backgroundColor: theme.textTertiary,
-      marginTop: Space.sm,
-      marginBottom: Space.xs,
-    },
-    closeBtn: {
-      alignSelf: "flex-start",
-      marginLeft: Space.sm,
-    },
-    modalPlot: {
-      flex: 1,
-      minHeight: MODAL_PLOT_MIN,
-      marginHorizontal: Space.sm,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      borderRadius: Radius.md,
-      backgroundColor: theme.surface,
-      overflow: "hidden",
-    },
-    skiaLoading: {
-      flex: 1,
       alignItems: "center",
       justifyContent: "center",
     },

@@ -143,6 +143,14 @@ def test_word_problems_and_small_talk_do_not_search(text: str) -> None:
         "what's the temperature in addis in fahrenheit today",
         "who won the game last night",
         "what's new in the world",
+        # A statement about the world with "today" is still news.
+        "Apple announced a new iPhone today in California",
+        "the price of gold went up again today in London",
+        "the boiling point of water in Addis today",
+        "the score of my team's game today",
+        # "my" with nothing said about it: a lookup, not a statement.
+        "the exchange rate in my country today",
+        "the gas prices in my area today",
     ],
 )
 def test_live_questions_still_search(text: str) -> None:
@@ -256,3 +264,29 @@ def test_a_forecast_that_also_mentions_a_planet_still_searches() -> None:
     from app.modules.web_search.detection import needs_web_search
 
     assert needs_web_search("what's the weather tonight? I want to see the rings on saturn")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "the boiling point of my patience is low today",
+        "the battery of my brain is at 2 percent today",
+        "the freezing point of my enthusiasm hit a new low today",
+        "the energy levels in my office are really low today",
+        "the pressure in my head is through the roof today",
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_statement_about_the_user_is_not_news(text: str) -> None:
+    """Its "today" tells how the user is; the classifier is not asked either."""
+    from unittest.mock import AsyncMock, patch
+
+    from app.core.config import Settings
+    from app.modules.web_search.detection import needs_web_search, should_web_search
+
+    assert not needs_web_search(text)
+    settings = Settings(_env_file=None, web_search_enabled=True)  # type: ignore[call-arg]
+    classify = AsyncMock(return_value=None)
+    with patch("app.modules.web_search.detection.classify_web_search", classify):
+        assert not await should_web_search(text, settings)
+    classify.assert_not_awaited()

@@ -24,7 +24,7 @@ import { IconSize } from "../icons/sizes";
  * - `input`: something the person added, with a remove button (skills).
  * - `tag`: a small read-only fact (salary, remote, a class's language).
  */
-export type ChipVariant = "assist" | "filter" | "input" | "tag";
+type ChipVariant = "assist" | "filter" | "input" | "tag";
 
 type Props = {
   label: string;

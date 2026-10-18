@@ -34,7 +34,7 @@ from sympy import (
 )
 
 from app.modules.math.schemas import MathExprResult
-from app.modules.math.solve import MathServiceError, _parse_expression
+from app.modules.math.solve import MathServiceError, _parse_expression, declines
 from app.services.units import get_unit_registry
 
 logger = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ def _defined_value_latex(value: Any) -> str:
     """
     from sympy import nan, oo, zoo
 
-    from app.modules.math.solve.parse import format_verified_latex
+    from app.modules.math.solve.display import format_verified_latex
 
     if value is nan or value is zoo or value.has(nan, zoo):
         return UNDEFINED_LATEX
@@ -267,12 +267,6 @@ def twice_as_many(total: float) -> str:
     small = total / 3.0
     large = 2.0 * total / 3.0
     return f"{_format_school_number(small)} and {_format_school_number(large)}"
-
-
-def verify_identity(lhs: str, rhs: str) -> str:
-    """Return whether ``lhs = rhs`` is an identity over the real numbers."""
-    holds, _condition, _counterexample = analyze_identity(lhs, rhs)
-    return "true" if holds else "false"
 
 
 def analyze_identity(lhs: str, rhs: str) -> tuple[bool, str | None, str | None]:
@@ -613,7 +607,7 @@ def _first_order_separable_ode_steps(
     """
     y_of_x = dependent(independent)
     derivative = Derivative(y_of_x, independent)
-    try:
+    with declines.sympy_decline() as declined:
         isolated = solve(equation, derivative)
         if len(isolated) != 1:
             return []
@@ -623,7 +617,7 @@ def _first_order_separable_ode_steps(
         antiderivative = integrate(rate, independent)
         if antiderivative.has(Integral):
             return []
-    except Exception:
+    if declined:
         return []
 
     var_tex = latex(independent)

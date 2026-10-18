@@ -9,8 +9,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.background import handlers
-from app.core import jobs
 from app.core.db import Base
+from app.core.jobs import queue
 from app.main import app
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -56,7 +56,7 @@ def test_job_search_http_routes_are_absent() -> None:
 
 def test_no_job_search_job_type_is_registered() -> None:
     handlers.register_all()
-    assert not any("job" in name for name in jobs._HANDLERS)
+    assert not any("job" in name for name in queue._HANDLERS)
 
 
 def test_mobile_job_search_routes_are_absent() -> None:

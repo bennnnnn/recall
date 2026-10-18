@@ -215,7 +215,7 @@ records how each given was typed, and the solve formats every number from that r
   model to copy each verified number exactly, neither adding nor dropping a zero. A percent
   composition from a formula alone has the table's four figures: N in NH4NO3 is `35.00%`.
 - **A 5 rounds up**, as a class rounds: `62.5 mL` to two figures is `63 mL`, never the `62` of
-  round-half-even.
+  round-half-even. Every subject shares this rule (`services/school_rounding.py`).
 - **Typed values are echoed as typed**: `E° = 1.10 V` stays `1.10 V`, `Kc = 0.02370` keeps its zero.
 - **A pH, pOH or pK** is a logarithm, so it has as many decimals as its data have
   figures: `[H+] = 2.5 × 10^-4` gives `pH = 3.60`. A concentration from a typed pH has as
@@ -229,9 +229,12 @@ records how each given was typed, and the solve formats every number from that r
 - **Molar masses** stay at full precision inside the arithmetic. A working row shows them
   to the table's three decimals (`18.015`), and only a molar-mass answer rounds to two
   (`98.07 g/mol`). Rounding first moved answers: 4 g of H₂ gave 35.68 g of water, not 35.74.
-- A physical constant is a CODATA value from the shared Pint registry (`services/units.constant`,
-  pinned by a test) and is shown to 5 figures (`R = 0.08206`). Intermediate rows show
-  the answer's figures while the arithmetic keeps full precision.
+- A physical constant is a CODATA value from the shared Pint registry, read once in
+  `solvers/constants.py` (`services/units.constant`, pinned by a test), and is shown to 5
+  figures (`R = 0.082057 L·atm/(mol·K)`). A formula law's substitution row names the constant
+  its arithmetic uses (`{R_J}`, `{F}`, `{N_A}`) instead of typing it, so the figure shown is
+  the one computed. A Celsius reading becomes kelvin by `services/units.CELSIUS_OFFSET_K`.
+  Intermediate rows show the answer's figures while the arithmetic keeps full precision.
 
 ## Teaching scenes
 
@@ -293,7 +296,7 @@ is drawn as tetrahedral, not square planar.
 | Turn integration | `apps/api/app/modules/chemistry/context.py` |
 | Balance / formula primitives | `apps/api/app/modules/chemistry/equations.py`, `stoichiometry.py` |
 | Species, elements, units | `species.py`, `formula.py`, `elements.py`, `quantity.py` |
-| Notation / number format | `notation.py`, `sig_figs.py`, `solvers/types.py`, `solvers/common_chem.py`, `solvers/constants.py`, `solvers/params.py` |
+| Notation / number format | `notation.py`, `sig_figs.py`, `solvers/types.py`, `solvers/display.py`, `solvers/constants.py`, `solvers/params.py` |
 | Structure / organic / nuclear | `structure.py`, `lewis.py`, `organic.py`, `coordination.py`, `nuclear.py` |
 | Ionic names (ion table) | `apps/api/app/modules/chemistry/nomenclature.py` |
 | SMILES / 3D / post-stream | `apps/api/app/modules/chemistry/smiles.py`, `fence.py` |

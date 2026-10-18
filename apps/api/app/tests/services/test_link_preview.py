@@ -105,43 +105,43 @@ async def test_fetch_link_preview_no_meta():
 @pytest.mark.asyncio
 async def test_validate_external_url_blocks_loopback():
     """127.0.0.1 should be blocked as a loopback address."""
-    from app.services.link_preview import _validate_external_url
+    from app.gateways.safe_fetch import resolve_external_host
 
     with pytest.raises(ValueError, match="Blocked request"):
-        await _validate_external_url("http://127.0.0.1:8080/secret")
+        await resolve_external_host("http://127.0.0.1:8080/secret")
 
 
 @pytest.mark.asyncio
 async def test_validate_external_url_blocks_private_range():
     """10.x.x.x should be blocked as a private address."""
-    from app.services.link_preview import _validate_external_url
+    from app.gateways.safe_fetch import resolve_external_host
 
     with pytest.raises(ValueError, match="Blocked request"):
-        await _validate_external_url("http://10.0.0.1/admin")
+        await resolve_external_host("http://10.0.0.1/admin")
 
 
 @pytest.mark.asyncio
 async def test_validate_external_url_blocks_link_local():
     """169.254.x.x (AWS/GCP metadata) should be blocked."""
-    from app.services.link_preview import _validate_external_url
+    from app.gateways.safe_fetch import resolve_external_host
 
     with pytest.raises(ValueError, match="Blocked request"):
-        await _validate_external_url("http://169.254.169.254/metadata")
+        await resolve_external_host("http://169.254.169.254/metadata")
 
 
 @pytest.mark.asyncio
 async def test_validate_external_url_blocks_192_168():
     """192.168.x.x should be blocked."""
-    from app.services.link_preview import _validate_external_url
+    from app.gateways.safe_fetch import resolve_external_host
 
     with pytest.raises(ValueError, match="Blocked request"):
-        await _validate_external_url("http://192.168.1.1:5432")
+        await resolve_external_host("http://192.168.1.1:5432")
 
 
 @pytest.mark.asyncio
 async def test_validate_external_url_allows_public():
     """A public IP (e.g., 1.1.1.1) should pass validation."""
-    from app.services.link_preview import _validate_external_url
+    from app.gateways.safe_fetch import resolve_external_host
 
     # Keep the public-address check real without depending on external DNS.
     with patch.object(
@@ -149,17 +149,17 @@ async def test_validate_external_url_allows_public():
         "getaddrinfo",
         AsyncMock(return_value=[(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("1.1.1.1", 0))]),
     ) as resolve:
-        await _validate_external_url("https://one.one.one.one/")
+        await resolve_external_host("https://one.one.one.one/")
     resolve.assert_awaited_once_with("one.one.one.one", None)
 
 
 @pytest.mark.asyncio
 async def test_validate_external_url_no_hostname():
     """A URL with no hostname should raise ValueError."""
-    from app.services.link_preview import _validate_external_url
+    from app.gateways.safe_fetch import resolve_external_host
 
     with pytest.raises(ValueError, match="URL has no hostname"):
-        await _validate_external_url("http:///no-host")
+        await resolve_external_host("http:///no-host")
 
 
 @pytest.mark.asyncio
@@ -227,10 +227,10 @@ async def test_fetch_link_preview_uses_redis_cache(fake_redis):
 @pytest.mark.asyncio
 async def test_validate_external_url_unresolvable_hostname():
     """An unresolvable hostname should raise ValueError."""
-    from app.services.link_preview import _validate_external_url
+    from app.gateways.safe_fetch import resolve_external_host
 
     with pytest.raises(ValueError, match="Cannot resolve hostname"):
-        await _validate_external_url("http://thishostnamedoesnotexist.invalid/")
+        await resolve_external_host("http://thishostnamedoesnotexist.invalid/")
 
 
 def test_link_preview_router_rate_limit_fails_closed():

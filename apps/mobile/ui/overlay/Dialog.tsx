@@ -53,7 +53,7 @@ type Props = {
   testID?: string;
 };
 
-export const DIALOG_WIDTH = 340;
+const DIALOG_WIDTH = 340;
 
 /**
  * Centered card for decisions and messages: title, message, right-aligned

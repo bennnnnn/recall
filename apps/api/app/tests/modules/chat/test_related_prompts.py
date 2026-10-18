@@ -3,7 +3,7 @@
 import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import cast
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -22,7 +22,8 @@ from app.modules.chat.related_prompts import (
     thread_problem,
 )
 from app.modules.chat.service import list_messages_page
-from app.modules.chat.stream_events import build_done_payload, take_related_prompts_event
+from app.modules.chat.stream_events import DoneEvent, take_related_prompts_event
+from app.modules.chat.turn_outcome import TurnOutcome
 
 PHYSICS = "what is the force on a 10 kg object accelerating at 3 m/s^2"
 PHYSICS_FOLLOWUPS = [
@@ -128,13 +129,11 @@ def test_an_arithmetic_follow_up_still_asks_for_more() -> None:
 
 @pytest.mark.parametrize("text", ["how's your day", "hi"])
 async def test_chitchat_does_not_call_the_model(text: str, fake_redis) -> None:
-    result: dict[str, Any] = {}
     with patch(
         "app.modules.chat.related_prompts.complete_structured",
         new_callable=AsyncMock,
     ) as complete:
-        schedule_related_prompts(
-            result,
+        task = schedule_related_prompts(
             fake_redis,
             Settings(),
             message_id="m1",
@@ -143,7 +142,7 @@ async def test_chitchat_does_not_call_the_model(text: str, fake_redis) -> None:
         )
         prompts = await generate_related_questions(Settings(), text, "Pretty good.")
 
-    assert "_related_task" not in result
+    assert task is None
     assert prompts == []
     complete.assert_not_called()
 
@@ -158,16 +157,13 @@ async def test_done_payload_does_not_wait_for_the_follow_up() -> None:
         await release.wait()
         return {"type": "related_prompts", "message_id": "msg-1", "prompts": [question]}
 
-    result: dict[str, Any] = {
-        "message_id": "msg-1",
-        "_related_task": asyncio.create_task(slow()),
-    }
-    done = build_done_payload(result)
+    outcome = TurnOutcome(message_id="msg-1", related_task=asyncio.create_task(slow()))
+    done = DoneEvent.from_outcome(outcome).model_dump()
     assert done["type"] == "done"
     assert "related_prompts" not in done
     assert "prompts" not in done
 
-    waiter = asyncio.create_task(take_related_prompts_event(result.pop("_related_task")))
+    waiter = asyncio.create_task(take_related_prompts_event(outcome.related_task))
     await asyncio.wait_for(started.wait(), timeout=1)
     assert not waiter.done()
     release.set()
@@ -177,26 +173,43 @@ async def test_done_payload_does_not_wait_for_the_follow_up() -> None:
 
 
 async def test_schedule_caches_questions_for_reopen(fake_redis) -> None:
-    result: dict[str, Any] = {}
     with patch(
         "app.modules.chat.related_prompts.complete_structured",
         new_callable=AsyncMock,
     ) as complete:
         complete.return_value = RelatedQuestions(questions=PHYSICS_FOLLOWUPS)
-        schedule_related_prompts(
-            result,
+        task = schedule_related_prompts(
             fake_redis,
             Settings(),
             message_id="abc",
             question=PHYSICS,
             answer="The force is 30 newtons.",
         )
-        event = await take_related_prompts_event(result.pop("_related_task"))
+        event = await take_related_prompts_event(task)
 
     assert event is not None
     assert event["prompts"] == PHYSICS_FOLLOWUPS
     assert await load_related_prompts(fake_redis, "abc") == PHYSICS_FOLLOWUPS
     assert await load_related_prompts(fake_redis, "missing") == []
+
+
+@pytest.mark.parametrize("completion", ["user_stop", "interrupted"])
+async def test_a_stopped_or_cut_off_reply_gets_no_follow_ups(completion: str, fake_redis) -> None:
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        task = schedule_related_prompts(
+            fake_redis,
+            Settings(),
+            message_id="abc",
+            question=PHYSICS,
+            answer="The force is 30 newtons.",
+            completion=completion,
+        )
+
+    assert task is None
+    complete.assert_not_called()
 
 
 def _page_rows(assistant_id):
@@ -389,13 +402,11 @@ async def test_an_everyday_question_gets_follow_ups_on_its_topic() -> None:
 async def test_drafts_reminders_updates_and_small_talk_get_no_follow_ups(
     question: str, fake_redis
 ) -> None:
-    result: dict[str, Any] = {}
     with patch(
         "app.modules.chat.related_prompts.complete_structured",
         new_callable=AsyncMock,
     ) as complete:
-        schedule_related_prompts(
-            result,
+        task = schedule_related_prompts(
             fake_redis,
             Settings(),
             message_id="m1",
@@ -404,7 +415,7 @@ async def test_drafts_reminders_updates_and_small_talk_get_no_follow_ups(
         )
         prompts = await generate_related_questions(Settings(), question, SOURDOUGH_REPLY)
 
-    assert "_related_task" not in result
+    assert task is None
     assert prompts == []
     complete.assert_not_called()
 
@@ -421,9 +432,7 @@ async def test_a_short_reply_or_a_greeting_turn_gets_no_everyday_follow_ups(fake
         off = await generate_related_questions(
             Settings(), SOURDOUGH, SOURDOUGH_REPLY, allow_general=False
         )
-        result: dict[str, Any] = {}
-        schedule_related_prompts(
-            result,
+        task = schedule_related_prompts(
             fake_redis,
             Settings(),
             message_id="m2",
@@ -435,7 +444,7 @@ async def test_a_short_reply_or_a_greeting_turn_gets_no_everyday_follow_ups(fake
     assert short == []
     assert small_talk == []
     assert off == []
-    assert "_related_task" not in result
+    assert task is None
     complete.assert_not_called()
 
 

@@ -9,7 +9,7 @@
 /** The estimate stops here until the real image arrives. */
 export const IMAGE_GEN_PROGRESS_CAP = 95;
 /** Time constant: about 60% of the cap after this long. */
-export const IMAGE_GEN_PROGRESS_TAU_MS = 12_000;
+const IMAGE_GEN_PROGRESS_TAU_MS = 12_000;
 
 /** Whole percent, 1 to 95, for `elapsedMs` since the card appeared. */
 export function estimateImageGenPercent(elapsedMs: number): number {

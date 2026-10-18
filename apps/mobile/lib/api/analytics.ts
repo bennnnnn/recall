@@ -8,7 +8,7 @@ export type ProductEventName =
   | "push_permission"
   | "chat_ttft";
 
-export type ProductEventInput = {
+type ProductEventInput = {
   name: ProductEventName;
   properties: Record<string, string>;
   platform?: "ios" | "android" | "web";

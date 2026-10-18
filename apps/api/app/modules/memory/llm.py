@@ -237,21 +237,6 @@ async def instruct_memory(
     )
 
 
-async def revise_memory_sections(
-    settings: Settings,
-    transcript: str,
-    *,
-    existing_sections: dict[str, str] | None = None,
-) -> MemoryFactUpdateResult | None:
-    """Back-compat name: existing section map is flattened to fact dicts."""
-    existing_facts = [
-        {"type": memory_type, "text": text}
-        for memory_type, text in (existing_sections or {}).items()
-        if text.strip()
-    ]
-    return await revise_memory_facts(settings, transcript, existing_facts=existing_facts)
-
-
 async def merge_memory_section(
     settings: Settings,
     *,

@@ -17,6 +17,7 @@ from app.modules.math.tools.block.algebra import (
     _verified_block_numerical_method,
     _verified_block_system,
 )
+from app.modules.math.tools.block.calculus import _verified_block_calculus
 from app.modules.math.tools.block.canonical import (
     _answer_canonical as _answer_canonical,
 )
@@ -33,13 +34,8 @@ from app.modules.math.tools.block.common import (
     _format_system_answer as _format_system_answer,
 )
 from app.modules.math.tools.block.discrete import (
-    _verified_block_calculus,
     _verified_block_combinatorics,
-    _verified_block_limit,
-    _verified_block_matrix,
     _verified_block_number_theory,
-    _verified_block_series,
-    _verified_block_statistics,
 )
 from app.modules.math.tools.block.geometry import (
     _verified_block_circle,
@@ -59,6 +55,10 @@ from app.modules.math.tools.block.graph import (
     _verified_block_point,
     _verified_block_vertical,
 )
+from app.modules.math.tools.block.limits import _verified_block_limit
+from app.modules.math.tools.block.matrix import _verified_block_matrix
+from app.modules.math.tools.block.series import _verified_block_series
+from app.modules.math.tools.block.statistics import _verified_block_statistics
 from app.modules.math.tools.block.word import _verified_block_word_problem
 from app.modules.math.tools.block.work import _verified_block_work_check
 from app.services.solving import (
@@ -128,10 +128,14 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             return None
         from app.services.solving import wrap_verified_math
 
+        # A rendered reply and a literal plot are bound to the request they read.
+        bound = block.direct_reply is not None or intent.plot_point is not None
         return replace(
             block,
             text=wrap_verified_math(block.text),
-            direct_request_text=(intent._request_text if block.direct_reply is not None else None),
+            geometry_request=intent.geometry_request,
+            plot_point=intent.plot_point,
+            direct_request_text=intent._request_text if bound else None,
             direct_requires_calculus_guard=bool(
                 block.direct_reply is not None
                 and intent.kind == "calculus"

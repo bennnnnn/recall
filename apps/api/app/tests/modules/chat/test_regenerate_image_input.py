@@ -13,12 +13,11 @@ from app.models.orm import Chat, User
 from app.modules.chat import stream_entry
 from app.modules.chat.turn_prep.attachments import vision_reserve_tokens
 from app.modules.chat.turn_prep.context import (
-    ClientGeoContext,
     TurnPromptBundle,
-    stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
-from app.tests.modules.chat.chat_test_support import FakeSessionCM
+from app.modules.chat.turn_prep.request import ClientGeoContext
+from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 _MODULE = "app.modules.chat.turn_prep.regenerate_vision"
 _SETTINGS = Settings(attachments_enabled=True)
@@ -170,9 +169,8 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
     async def resources(*_args, **_kwargs):
         yield resource
 
-    async def build(*args, **kwargs):
-        captured["build_model"] = args[3]
-        captured["build_kwargs"] = kwargs
+    async def build(request, *_args):
+        captured["request"] = request
         return TurnPromptBundle(
             prompt_messages=[
                 {"role": "system", "content": "policy"},
@@ -190,45 +188,50 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
             local_tz="UTC",
         )
 
-    async def final_stream(_redis, _settings, ctx, **_kwargs):
+    async def final_stream(_deps, _redis, _settings, ctx, **_kwargs):
         captured["ctx"] = ctx
         yield "Regenerated answer"
 
-    async def passthrough(_redis, _key, _token, tokens):
+    async def passthrough(_res, tokens):
         async for token in tokens:
             yield token
 
-    seams = SimpleNamespace(
-        wrap_stream_status=lambda _timing, status: status,
-        turn_resources=resources,
-        wait_for_pending_finalize=AsyncMock(),
-        SessionLocal=FakeSessionCM,
-        users_repo=SimpleNamespace(get_by_id=AsyncMock(return_value=user)),
-        chats_repo=SimpleNamespace(get_by_id=AsyncMock(return_value=chat)),
-        messages_repo=SimpleNamespace(
-            get_last=AsyncMock(return_value=previous),
-            get_last_user=AsyncMock(return_value=last_user),
-            count_for_chat=AsyncMock(return_value=2),
-        ),
-        plan_service=SimpleNamespace(resolve_regenerate_model=lambda *_args: "free-chat"),
-        _try_image_lookup_for_turn=AsyncMock(return_value=False),
-        _try_image_gen_for_turn=AsyncMock(return_value=False),
-        vision_reserve_tokens=vision_reserve_tokens,
-        build_stream_prompt_context=build,
-        stream_context_from_bundle=stream_context_from_bundle,
-        _top_up_reserve_for_prompt=AsyncMock(),
-        quota_service=SimpleNamespace(daily_limit_for_user=lambda *_args: 10000),
-        _yield_with_chatprep_refresh=passthrough,
-        stream_and_finalize=final_stream,
-        restore_regenerate_backup=AsyncMock(),
+    deps = turn_deps(
+        session_factory=FakeSessionCM,
+        users={"get_by_id": AsyncMock(return_value=user)},
+        chats={"get_by_id": AsyncMock(return_value=chat)},
+        messages={
+            "get_last": AsyncMock(return_value=previous),
+            "get_last_user": AsyncMock(return_value=last_user),
+            "count_for_chat": AsyncMock(return_value=2),
+        },
+        plan={"resolve_regenerate_model": lambda *_args: "free-chat"},
+        quota={"daily_limit_for_user": lambda *_args: 10000},
     )
+    restore = AsyncMock()
     lookup = AsyncMock(return_value=[_row(uid)])
     gateway = SimpleNamespace(read_bytes=AsyncMock(return_value=b"saved-scanner"))
+    entry = "app.modules.chat.stream_entry"
     with (
+        patch(f"{entry}.turn_resources", resources),
+        patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
         patch(
-            "app.modules.chat.stream_entry._classify_turn_mode",
+            "app.modules.chat.turn_load._classify_turn_mode",
             AsyncMock(return_value=MagicMock()),
         ),
+        patch(
+            "app.modules.chat.turn_intercepts.try_image_lookup_for_turn",
+            AsyncMock(return_value=False),
+        ),
+        patch(
+            "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
+            AsyncMock(return_value=False),
+        ),
+        patch(f"{entry}.build_stream_prompt_context", build),
+        patch(f"{entry}.top_up_reserve_for_prompt", AsyncMock()),
+        patch(f"{entry}.yield_with_chatprep_refresh", passthrough),
+        patch(f"{entry}.stream_and_finalize", final_stream),
+        patch(f"{entry}.restore_regenerate_backup", restore),
         patch(f"{_MODULE}.SessionLocal", FakeSessionCM),
         patch(f"{_MODULE}.attachments_service.get_by_ids", lookup),
         patch(f"{_MODULE}.get_storage_gateway", return_value=gateway),
@@ -236,21 +239,22 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         result = [
             token
             async for token in stream_entry.stream_regenerate_response(
-                seams, AsyncMock(), _SETTINGS, user_id=owner, chat_id=chat_id
+                deps, AsyncMock(), _SETTINGS, user_id=owner, chat_id=chat_id
             )
         ]
     assert result == ["Regenerated answer"]
     ctx = captured["ctx"]
-    assert ctx.model == captured["build_model"] == ("vision-chat" if with_image else "free-chat")
-    assert captured["build_kwargs"]["has_image_attachment"] is with_image
-    assert captured["build_kwargs"]["omit_message_ids"] == {previous.id}
+    request = captured["request"]
+    assert ctx.model == request.model == ("vision-chat" if with_image else "free-chat")
+    assert request.has_image_attachment is with_image
+    assert request.omit_message_ids == {previous.id}
     assert resource.reserve.await_args.kwargs["vision_extra"] == vision_reserve_tokens(
         _SETTINGS, int(with_image)
     )
     assert ctx.regenerate_backup.message_id == previous.id
     assert ctx.regenerate_backup.content == "Original successful response"
     assert ctx.user_message_content == caption
-    seams.restore_regenerate_backup.assert_not_awaited()
+    restore.assert_not_awaited()
     if with_image:
         assert any(part["type"] == "image_url" for part in ctx.prompt_messages[-1]["content"])
         assert lookup.await_args.args[1:] == ([uid], owner)

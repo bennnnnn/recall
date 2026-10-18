@@ -6,7 +6,7 @@ import { prefFilePath, readPrefFile, writePrefFile } from "@/lib/filePrefs";
 export const TTS_DEVICE_MODEL = "device";
 export const TTS_QUALITY_MODEL = "speech-tts-model";
 export const TTS_FAST_MODEL = "speech-tts-fast-model";
-export type TtsModelAlias =
+type TtsModelAlias =
   | typeof TTS_DEVICE_MODEL
   | typeof TTS_QUALITY_MODEL
   | typeof TTS_FAST_MODEL;

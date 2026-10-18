@@ -9,6 +9,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat.post_turn import finalize_stream_turn_db
+from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup, StreamContext
 
 
@@ -73,7 +74,7 @@ async def test_adjust_usage_failure_after_commit_does_not_refund():
             ctx,
             "hello",
             {"input": 10, "output": 5},
-            result={},
+            outcome=TurnOutcome(),
         )
 
     session.commit.assert_awaited()
@@ -130,11 +131,11 @@ async def test_finalize_persists_estimated_cost_usd():
             ctx,
             "hello",
             {"input": 1_000_000, "output": 1_000_000},
-            result={},
+            outcome=TurnOutcome(),
         )
 
     add_tokens.assert_awaited_once()
-    assert add_tokens.await_args.kwargs["est_cost_usd"] == pytest.approx(0.14 + 0.28)
+    assert add_tokens.await_args.kwargs["est_cost_usd"] == pytest.approx(0.10 + 0.50)
 
 
 @pytest.mark.asyncio
@@ -176,7 +177,7 @@ async def test_failed_regenerate_preserves_original_attachment_bytes(failure_ste
     ):
         with pytest.raises(RuntimeError, match="database unavailable"):
             await finalize_stream_turn_db(
-                AsyncMock(), ctx, "replacement", {"input": 10, "output": 5}, result={}
+                AsyncMock(), ctx, "replacement", {"input": 10, "output": 5}, outcome=TurnOutcome()
             )
     delete_bytes.assert_not_awaited()
     refund.assert_awaited_once()
@@ -198,7 +199,7 @@ async def test_finalize_success_does_not_depend_on_post_commit_refresh():
     )
     refund = AsyncMock()
     adjust = AsyncMock()
-    result = {}
+    outcome = TurnOutcome()
     assistant_id = uuid4()
     with (
         patch("app.modules.chat.post_turn.SessionLocal", lambda: _FakeSessionCM(session)),
@@ -213,10 +214,10 @@ async def test_finalize_success_does_not_depend_on_post_commit_refresh():
         patch("app.modules.chat.post_turn.get_settings", return_value=Settings(_env_file=None)),
     ):
         await finalize_stream_turn_db(
-            AsyncMock(), ctx, "reply", {"input": 10, "output": 5}, result=result
+            AsyncMock(), ctx, "reply", {"input": 10, "output": 5}, outcome=outcome
         )
     session.commit.assert_awaited_once()
-    assert result["message_id"] == str(assistant_id)
+    assert outcome.message_id == str(assistant_id)
     adjust.assert_awaited_once()
     refund.assert_not_awaited()
 
@@ -260,7 +261,11 @@ async def test_finalize_links_the_answer_photo_to_the_reply():
         patch("app.modules.chat.post_turn.clear_pending_finalize", AsyncMock()),
     ):
         await finalize_stream_turn_db(
-            AsyncMock(), ctx, "[Image: x]\n\nEthiopia.", {"input": 1, "output": 1}, result={}
+            AsyncMock(),
+            ctx,
+            "[Image: x]\n\nEthiopia.",
+            {"input": 1, "output": 1},
+            outcome=TurnOutcome(),
         )
 
     link.assert_awaited_once()

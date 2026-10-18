@@ -142,14 +142,7 @@ def _session_mint_patches(
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
         patch("app.modules.speech.realtime.get_redis_client", return_value=fake_redis),
-        patch(
-            "app.modules.speech.realtime.quota_service.live_talk_limit_for_user",
-            return_value=30,
-        ),
-        patch(
-            "app.modules.speech.realtime.quota_service.live_talk_has_capacity",
-            AsyncMock(return_value=True),
-        ),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
             "app.modules.speech.realtime.live_talk_service.load_live_talk_session_context",
             AsyncMock(return_value=LiveTalkSessionContext(None, memory_block, schedule_block)),
@@ -159,7 +152,7 @@ def _session_mint_patches(
             mint,
         ),
     ):
-        yield
+        yield fake_redis
 
 
 def test_persist_requires_issued_realtime_session():
@@ -223,14 +216,6 @@ def test_voice_sources_persist_in_the_canonical_chat_fence():
             AsyncMock(return_value=chat_id),
         ),
         patch(
-            "app.modules.speech.realtime.quota_service.reserve_live_talk",
-            AsyncMock(return_value=True),
-        ),
-        patch(
-            "app.modules.speech.realtime.quota_service.clear_live_talk_pending",
-            AsyncMock(),
-        ),
-        patch(
             "app.modules.speech.realtime.quota_service.record_voice_spend",
             AsyncMock(),
         ),
@@ -261,13 +246,11 @@ def test_voice_sources_persist_in_the_canonical_chat_fence():
     )
 
 
-def test_persist_rejects_when_daily_turn_cap_is_exhausted():
-    user = _fake_user(plan="pro")
-    settings = Settings(
-        speech_live_talk_enabled=True,
-        speech_realtime_voice_enabled=True,
-        daily_live_talk_pro=30,
-    )
+@pytest.mark.parametrize("plan", ["free", "plus"])
+def test_persist_stops_when_the_plan_no_longer_has_live_talk(plan):
+    """Pro ended mid-call: the very next turn is refused, not saved."""
+    user = _fake_user(plan=plan)
+    settings = Settings(speech_live_talk_enabled=True, speech_realtime_voice_enabled=True)
     chat_id = uuid4()
     persist = AsyncMock(return_value=(None, None))
     client = TestClient(_realtime_app(user, settings))
@@ -281,10 +264,6 @@ def test_persist_rejects_when_daily_turn_cap_is_exhausted():
             "app.modules.speech.realtime.live_talk_service.realtime_session_bound_chat_id",
             AsyncMock(return_value=chat_id),
         ),
-        patch(
-            "app.modules.speech.realtime.quota_service.reserve_live_talk",
-            AsyncMock(return_value=False),
-        ),
         patch("app.modules.speech.realtime.live_talk_service.persist_live_talk_turn", persist),
     ):
         response = client.post(
@@ -297,7 +276,7 @@ def test_persist_rejects_when_daily_turn_cap_is_exhausted():
                 "assistant_text": "hi",
             },
         )
-    assert response.status_code == 429
+    assert response.status_code == 403
     persist.assert_not_awaited()
 
 
@@ -361,31 +340,124 @@ def test_persist_rejects_chat_id_that_is_not_bound_to_the_session():
     persist.assert_not_awaited()
 
 
-def test_realtime_session_mint_does_not_consume_a_turn_slot():
-    user = _fake_user(plan="pro")
-    settings = Settings(
-        openai_api_key="sk-test",
-        speech_live_talk_enabled=True,
-        speech_realtime_voice_enabled=True,
-        speech_rate_limit_per_minute=0,
-    )
+def _minutes_settings(**overrides: object) -> Settings:
+    values: dict[str, object] = {
+        "openai_api_key": "sk-test",
+        "speech_live_talk_enabled": True,
+        "speech_realtime_voice_enabled": True,
+        "speech_rate_limit_per_minute": 0,
+        "monthly_live_talk_minutes_pro": 60,
+        "live_talk_max_session_seconds": 900,
+        "live_talk_min_session_seconds": 60,
+    }
+    values.update(overrides)
+    return Settings(**values)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("plan", ["free", "plus"])
+def test_realtime_session_mint_is_refused_without_live_talk_in_the_plan(plan):
     mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
-    reserve = AsyncMock(return_value=True)
-    client = TestClient(_realtime_app(user, settings))
-    with (
-        _session_mint_patches(mint=mint),
-        patch(
-            "app.modules.speech.realtime.quota_service.reserve_live_talk",
-            reserve,
-        ),
-    ):
+    client = TestClient(_realtime_app(_fake_user(plan=plan), _minutes_settings()))
+    with _session_mint_patches(mint=mint) as fake_redis:
+        r = client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
+        assert r.status_code == 403
+        assert not mint.await_count
+        assert fake_redis is not None
+
+
+def test_realtime_session_mint_reserves_a_capped_session_from_the_month():
+    user = _fake_user(plan="pro")
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    client = TestClient(_realtime_app(user, _minutes_settings()))
+    with _session_mint_patches(mint=mint) as fake_redis:
+        r = client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
+        assert r.status_code == 200
+        assert r.json()["max_duration_seconds"] == 900
+        status = client.get("/speech/live", headers={"Authorization": "Bearer tok"}).json()
+    assert status["limit"] == 60
+    assert status["remaining"] == 45
+    assert status["remaining_seconds"] == 3600 - 900
+    assert status["entitled"] is True
+    assert fake_redis is not None
+
+
+def test_realtime_session_mint_gets_only_what_is_left():
+    user = _fake_user(plan="pro")
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    client = TestClient(_realtime_app(user, _minutes_settings()))
+    with _session_mint_patches(mint=mint) as fake_redis:
+        import asyncio
+
+        from app.services import quota as quota_service
+
+        key = f"livetalk_sec:{user.id}:{quota_service.utc_month()}"
+        asyncio.run(fake_redis.set(key, 3600 - 120))
+        r = client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
+        assert r.status_code == 200
+        assert r.json()["max_duration_seconds"] == 120
+
+
+def test_realtime_session_mint_refused_below_the_minimum_session():
+    user = _fake_user(plan="pro")
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    client = TestClient(_realtime_app(user, _minutes_settings()))
+    with _session_mint_patches(mint=mint) as fake_redis:
+        import asyncio
+
+        from app.services import quota as quota_service
+
+        key = f"livetalk_sec:{user.id}:{quota_service.utc_month()}"
+        asyncio.run(fake_redis.set(key, 3600 - 30))
+        r = client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
+        assert r.status_code == 429
+        assert r.json()["detail"] == quota_service.LIVE_TALK_MINUTES_USED_MESSAGE
+        mint.assert_not_awaited()
+
+
+def test_realtime_session_mint_failure_gives_the_minutes_back():
+    user = _fake_user(plan="pro")
+    mint = AsyncMock(return_value=None)
+    client = TestClient(_realtime_app(user, _minutes_settings()))
+    with _session_mint_patches(mint=mint):
+        r = client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
+        assert r.status_code == 502
+        status = client.get("/speech/live", headers={"Authorization": "Bearer tok"}).json()
+    assert status["remaining_seconds"] == 3600
+
+
+def test_live_end_settles_to_the_time_used_and_closes_saving():
+    user = _fake_user(plan="pro")
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    client = TestClient(_realtime_app(user, _minutes_settings()))
+    headers = {"Authorization": "Bearer tok"}
+    with _session_mint_patches(mint=mint) as fake_redis:
+        import asyncio
+
+        call_id = client.post("/speech/live/session", headers=headers, json={}).json()["call_id"]
+        ended = client.post("/speech/live/end", headers=headers, json={"call_id": call_id})
+        assert ended.status_code == 200
+        # A few seconds at most were used; the rest of the 900 came back.
+        assert ended.json()["remaining_seconds"] >= 3600 - 5
+        again = client.post("/speech/live/end", headers=headers, json={"call_id": call_id})
+        assert again.json()["remaining_seconds"] == ended.json()["remaining_seconds"]
+        ttl = asyncio.run(fake_redis.ttl(f"live_talk_rt:{user.id}:{call_id}"))
+    # Only the tail for the last turn to save is left of the session.
+    assert 0 < ttl <= 60
+
+
+def test_live_end_cannot_refund_a_session_it_does_not_own():
+    user = _fake_user(plan="pro")
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    client = TestClient(_realtime_app(user, _minutes_settings()))
+    with _session_mint_patches(mint=mint):
+        client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
         r = client.post(
-            "/speech/live/session",
+            "/speech/live/end",
             headers={"Authorization": "Bearer tok"},
-            json={},
+            json={"call_id": "someone-elses-call"},
         )
     assert r.status_code == 200
-    reserve.assert_not_awaited()
+    assert r.json()["remaining_seconds"] == 3600 - 900
 
 
 def test_realtime_session_returns_ephemeral_key_and_recall_session_id():
@@ -525,12 +597,13 @@ def test_legacy_webrtc_endpoint_requires_current_mobile_bundle():
         ("wrong_chat", 403),
         ("missing_chat", 404),
         ("free", 403),
+        ("plus", 403),
         ("write_tool", 422),
     ],
 )
 def test_voice_tools_enforce_session_ownership_plan_and_read_only_allowlist(case, expected):
     chat_id = uuid4()
-    user = _fake_user(plan="free" if case == "free" else "pro")
+    user = _fake_user(plan=case if case in {"free", "plus"} else "pro")
     client = TestClient(
         _realtime_app(
             user, Settings(speech_live_talk_enabled=True, speech_realtime_voice_enabled=True)

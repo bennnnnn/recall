@@ -2,65 +2,39 @@
 
 from __future__ import annotations
 
-import re
+import app.modules.math.match.homework_cues as cues
+import app.modules.math.match.need_signals as signals
+from app.modules.math.match.need_signals import NeedSignal
+from app.modules.math.match.scan import has_math_keyword, prepare
 
-from app.modules.math.match.arithmetic import bare_arithmetic_expr
-from app.modules.math.match.calculus import (
-    calc_object,
-    calc_op,
-    parse_limit,
-    parse_series,
-    y_prime_math_cue,
-)
-from app.modules.math.match.discrete import (
-    combinatorics_signal,
-    gcd_lcm_list_signal,
-    matrix_signal,
-    number_theory_signal,
-    stats_signal,
-)
-from app.modules.math.match.geometry import (
-    parse_solid,
-    trapezoid_dimensions,
-    triangle_angles_signal,
-    triangle_sides_signal,
-)
-from app.modules.math.match.graph import (
-    bare_coord,
-    graph_expr,
-    plot_point,
-    vertical_line_x,
-)
-from app.modules.math.match.literal_geometry import parse_named_rectangle_request
-from app.modules.math.match.scan import (
-    bare_equation_system,
-    first_dim_pair,
-    geometry_dim_context,
-    has_algebraic_equation,
-    has_draw_shape,
-    has_math_keyword,
-    inequality_signal,
-    number_after,
-    prepare,
-    two_numbers_after,
-)
-from app.modules.math.match.statistics import bivariate_stats_signal
-from app.modules.math.match.written import spoken_power_request, written_arithmetic_request
-from app.services.text_match import has_equation, word_index
-
-_CHANCE_WORD = re.compile(r"\b(?:probability|chance|likelihood)\b", re.IGNORECASE)
-_COUNTED_OUTCOME = re.compile(
-    r"\b(?:\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+"
-    r"(?:heads|tails|sixes)\b",
-    re.IGNORECASE,
-)
-
-
-# "make r the subject of A = pi r^2" is "solve A = pi r^2 for r".
-_MAKE_SUBJECT = re.compile(r"\bmake\s+[a-zA-Z]\s+the\s+subject\s+of\s+\S.*=", re.IGNORECASE)
-_COMPLEX_ARITHMETIC = re.compile(
-    r"(?:(?:what\s+is|what's|whats|simplify|evaluate|compute|calculate|expand|multiply)\s+)?"
-    r"[\d\s+\-*/().^i]+[?.]?"
+# Cheap lexical signals, asked before any extractor runs. The order is only
+# speed: the line is maths when any one of them fires.
+NEED_SIGNALS: tuple[NeedSignal, ...] = (
+    signals.named_rectangle,
+    signals.drawn_shape,
+    signals.shape_with_measures,
+    signals.keyword_equation,
+    signals.bare_equation,
+    signals.bare_arithmetic,
+    signals.complex_arithmetic,
+    signals.make_subject,
+    signals.coordinate_vector,
+    signals.graph_request,
+    signals.inequality,
+    signals.calculus,
+    signals.numerical_method,
+    signals.solve_request,
+    signals.discrete,
+    cues.percent_cue,
+    cues.everyday_cue,
+    cues.sequence_cue,
+    cues.identity_cue,
+    cues.curve_plot_cue,
+    cues.coordinate_cue,
+    cues.probability_cue,
+    cues.structure_cue,
+    cues.calculus_cue,
+    cues.trig_cue,
 )
 
 
@@ -70,479 +44,19 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return False
     if not cleaned and not has_image_attachment:
         return False
-    from app.modules.math.image_extract import is_math_camera_prompt
     from app.services.subject_scan import scanner_camera_subject
 
-    if has_image_attachment and is_math_camera_prompt(cleaned):
+    if has_image_attachment and scanner_camera_subject(cleaned) == "math":
         return True
     # The raw text: prepare() folds the newline that ends a camera caption.
     if scanner_camera_subject(text) not in (None, "math"):
         return False
     lower = cleaned.lower()
-    if parse_named_rectangle_request(cleaned) is not None:
-        return True
-    if (
-        has_draw_shape(lower, "rectangle")
-        or has_draw_shape(lower, "right triangle")
-        or has_draw_shape(lower, "square")
-        or has_draw_shape(lower, "circle")
-        or has_draw_shape(lower, "trapezoid")
-        or has_draw_shape(lower, "trapezium")
-        or has_draw_shape(lower, "parallelogram")
-        or has_draw_shape(lower, "sector")
-        or has_draw_shape(lower, "pie slice")
-        or has_draw_shape(lower, "triangle")
-    ):
-        return True
-    # Shape words alone must NOT trigger verified geometry — bare
-    # "what is a trapezoid?" used to invent dimensions and sell them as
-    # SymPy-verified. Require printed measures (or the draw gates above).
-    if ("trapezoid" in lower or "trapezium" in lower) and trapezoid_dimensions(cleaned):
-        return True
-    if "parallelogram" in lower and (
-        number_after(cleaned, "base") is not None and number_after(cleaned, "height") is not None
-    ):
-        return True
-    # "sector" alone is an ordinary English word ("the tech sector") far
-    # more often than a circle sector — require geometry context AND both
-    # radius + angle (partial dims used to invent the missing one).
-    if (
-        "sector" in lower
-        and any(k in lower for k in ("circle", "radius", "pie", "arc"))
-        and number_after(cleaned, "radius") is not None
-        and number_after(cleaned, "angle") is not None
-    ):
-        return True
-    if triangle_sides_signal(cleaned) is not None:
-        return True
-    if triangle_angles_signal(cleaned) is not None:
-        return True
-    if parse_solid(cleaned) is not None:
-        return True
     if has_image_attachment and has_math_keyword(lower):
         return True
-    if has_equation(cleaned) and has_math_keyword(lower):
+    if any(signal(cleaned, lower) for signal in NEED_SIGNALS):
         return True
-    # Bare algebraic equation with no verb — "2x+3=7" / "y=x^2". The
-    # equation extractor already handles these, but the gate used to require
-    # a math keyword too, so a bare equation shipped unverified (or the model
-    # emitted its own wrong spec). has_algebraic_equation requires a standalone
-    # single-letter variable so prose with an '=' ("meeting = 3pm") is excluded.
-    if has_algebraic_equation(cleaned):
-        return True
-    # A system typed with no verb: "3x+2y=12 and x-y=1".
-    if bare_equation_system(cleaned):
-        return True
-    # Digits + operators with no leftover English — same helper the arithmetic
-    # extractor uses. Without this, ``first_dim_pair`` treated ``8*2`` inside
-    # ``8-8*2`` as a rectangle size, extract returned None, and the reply
-    # stamped *Couldn't verify this with SymPy.* under a correct -8.
-    if bare_arithmetic_expr(cleaned) is not None:
-        return True
-    if written_arithmetic_request(cleaned) is not None:
-        return True
-    if spoken_power_request(cleaned) is not None:
-        return True
-    from app.modules.math.tools.extractors.fractions import extract_fraction_intent
+    # Last, the requests only a grammar can read. Extraction reuses these reads.
+    from app.modules.math.tools.extractors.detection import an_extractor_reads
 
-    # "3/4 divided by 2/5", "2/3 of 60": the fraction grammar reads the whole request.
-    if extract_fraction_intent(cleaned) is not None:
-        return True
-    from app.modules.math.tools.school.function_value import extract_function_value_intent
-
-    # "if f(x) = 3x + 1, what is f(2)": a function's value at a number.
-    if extract_function_value_intent(cleaned) is not None:
-        return True
-    if _COMPLEX_ARITHMETIC.fullmatch(lower) and re.search(r"\d\s*i\b|\bi\s*[)^]", lower):
-        # "(2 + 3i)(1 - i)": numbers, operators, brackets and i, nothing else.
-        return True
-    from app.modules.math.tools.extractors.calculus_applications import (
-        CALCULUS_APPLICATION_EXTRACTORS,
-    )
-
-    # Area under or between curves, arc length, volume, tangents, stationary points.
-    if any(extractor(cleaned) is not None for extractor in CALCULUS_APPLICATION_EXTRACTORS):
-        return True
-    from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
-    from app.modules.math.tools.school.equation_features import extract_equation_feature_intent
-    from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
-    from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
-    from app.modules.math.tools.school.number_facts import extract_number_fact_intent
-
-    # A missing leg or polygon angles; roots, percentages, standard form and
-    # sums in words; completing the square and the cosine rule.
-    if any(
-        extract(cleaned) is not None
-        for extract in (
-            extract_geometry_fact_intent,
-            extract_geometry_measure_intent,
-            extract_number_fact_intent,
-            extract_algebra_fact_intent,
-            extract_equation_feature_intent,
-        )
-    ):
-        return True
-    if _MAKE_SUBJECT.search(cleaned):
-        return True
-    from app.modules.math.tools.school.single_draw import extract_single_draw_intent
-
-    # "probability of rolling a sum of 7 with two dice", "drawing a king from a deck".
-    if extract_single_draw_intent(cleaned) is not None:
-        return True
-    from app.modules.math.tools.school.bag_draws import extract_bag_draws_intent
-
-    # "a bag has 3 red and 5 blue marbles, pick 2 without replacement, probability both red".
-    if extract_bag_draws_intent(cleaned) is not None:
-        return True
-    from app.modules.math.tools.school.probability import extract_at_least_one_intent
-
-    # "the probability of getting at least one head in 3 coin flips".
-    if extract_at_least_one_intent(cleaned) is not None:
-        return True
-    from app.modules.math.tools.school.units import extract_how_many_in_intent
-
-    # "how many seconds in a day": a conversion between two units of fixed size.
-    if extract_how_many_in_intent(cleaned) is not None:
-        return True
-    from app.modules.math.tools.school.shopping import extract_change_intent
-
-    # "I bought 3 notebooks at $2.40 each ... I paid with a $20 bill. how much change".
-    if extract_change_intent(cleaned) is not None:
-        return True
-    from app.modules.math.match.coordinate_vector import is_closed_coordinate_vector_request
-
-    # "magnitude of the vector (3, 4)", "dot product of (1, 2, 3) and (4, 5, 6)".
-    if is_closed_coordinate_vector_request(cleaned):
-        return True
-    if "=" in cleaned:
-        from app.modules.math.tools.helpers import substituted_eval_expr
-
-        if substituted_eval_expr(cleaned) is not None:
-            return True
-    if geometry_dim_context(lower):
-        from app.modules.math.match.units import strip_geometry_length_units
-
-        dimensions = strip_geometry_length_units(cleaned)
-        if first_dim_pair(dimensions) is not None:
-            return True
-        if "rectangle" in lower and (
-            two_numbers_after(dimensions, "sides") is not None
-            or two_numbers_after(dimensions, "side lengths") is not None
-        ):
-            return True
-    if (
-        "circle" in lower
-        and "sector" not in lower
-        and "pie slice" not in lower
-        and (
-            number_after(cleaned, "radius") is not None
-            or number_after(cleaned, "diameter") is not None
-        )
-    ):
-        return True
-    if "triangle" in lower and (
-        number_after(cleaned, "base") is not None and number_after(cleaned, "height") is not None
-    ):
-        return True
-    if word_index(lower, "square") != -1:
-        from app.modules.math.tools.extractors.geometry import _extract_square_intent
-
-        if _extract_square_intent(cleaned) is not None:
-            return True
-    if "right triangle" in lower and (
-        first_dim_pair(cleaned) is not None
-        or two_numbers_after(cleaned, "legs") is not None
-        or two_numbers_after(cleaned, "leg") is not None
-    ):
-        return True
-    if bare_coord(cleaned) is not None or plot_point(cleaned) is not None:
-        return True
-    if graph_expr(cleaned) is not None:
-        return True
-    if vertical_line_x(cleaned) is not None:
-        return True
-    # 1-variable inequality on a number line ("x > 4", "1 < x < 5") — the
-    # inequality extractor already exists, but the gate used to require a
-    # math keyword, so bare "X>4" never reached it and the model emitted
-    # "Could not render that diagram." with no verified fence.
-    if inequality_signal(cleaned):
-        return True
-    # Domain/range/inverse/composition are not ordinary calculus command words,
-    # so route them only when the dedicated extractor can consume the whole ask.
-    if any(
-        cue in lower
-        for cue in ("domain of", "range of", "inverse function", "inverse of", "compose")
-    ):
-        from app.modules.math.tools.extractors.functions import _extract_function_analysis_intent
-
-        if _extract_function_analysis_intent(cleaned) is not None:
-            return True
-    # The verb alone is English too: "differentiate between weather and
-    # climate", "integrate Slack with Notion", "simplify it".
-    if calc_op(cleaned) is not None and calc_object(cleaned):
-        return True
-    if any(cue in lower for cue in ("critical point", "extrema", "local max", "local min")):
-        from app.modules.math.tools.extractors.calculus import _extract_critical_points_intent
-
-        critical = _extract_critical_points_intent(cleaned)
-        if critical is not None and critical.expr:
-            return True
-    if parse_limit(cleaned) is not None:
-        return True
-    if parse_series(cleaned) is not None:
-        return True
-    if any(ch.isdigit() for ch in cleaned) and (
-        word_index(lower, "newton") != -1
-        or word_index(lower, "numerically") != -1
-        or word_index(lower, "root of") != -1
-    ):
-        return True
-    if "solve" in lower and has_equation(cleaned):
-        return True
-    # "find x if 2x + 3 = 7" / "find the value of x in 2x = 10" — "find" + an
-    # equation is a solve ask just like "solve …". Without this, a bare
-    # "find x when 2x = 10" fell through (no "solve" keyword) and shipped
-    # unverified. Requires an equation so prose "find the right moment" is
-    # not pulled into SymPy.
-    if "find" in lower and has_equation(cleaned):
-        return True
-    # "roots of x^2 - 4" / "zeros of x^2 - 1" — a polynomial-roots ask with no
-    # "=". Require a digit so English "roots of the tree" / "zeros of the
-    # array" is not mistaken for algebra (the extractor rewrites these to
-    # "solve <expr> = 0" when it runs).
-    if ("roots of" in lower or "zeros of" in lower) and any(ch.isdigit() for ch in cleaned):
-        return True
-    if (
-        "evaluate" in lower
-        and any(ch.isdigit() for ch in cleaned)
-        and any(op in cleaned for op in ("+", "-", "*", "/", "^", "("))
-    ):
-        return True
-    if stats_signal(cleaned) is not None or bivariate_stats_signal(cleaned) is not None:
-        return True
-    if combinatorics_signal(cleaned) is not None:
-        return True
-    if number_theory_signal(cleaned) is not None or gcd_lcm_list_signal(cleaned) is not None:
-        return True
-    if matrix_signal(cleaned) is not None:
-        return True
-    if school_homework_cue(cleaned):
-        return True
-    return has_math_keyword(lower) and has_equation(cleaned)
-
-
-def _has_ordinal_term_cue(lower: str) -> bool:
-    i = 0
-    n = len(lower)
-    while i < n:
-        if lower[i].isdigit():
-            if i > 0 and lower[i - 1] == ".":
-                i += 1
-                continue
-            j = i
-            while j < n and lower[j].isdigit():
-                j += 1
-            if lower[j : j + 2] in {"st", "nd", "rd", "th"}:
-                k = j + 2
-                while k < n and lower[k].isspace():
-                    k += 1
-                if lower.startswith("term", k):
-                    return True
-            i = j
-        else:
-            i += 1
-    return False
-
-
-def school_homework_cue(cleaned: str) -> bool:
-    """Bare arithmetic / percent / coord / vectors / convert / binomial / ODE."""
-    lower = cleaned.lower()
-    if "% of " in lower and any(ch.isdigit() for ch in cleaned):
-        return True
-    has_digit = any(ch.isdigit() for ch in cleaned)
-    if (
-        has_digit
-        and "%" in cleaned
-        and any(
-            word_index(lower, word) != -1
-            for word in ("increase", "increased", "decrease", "decreased")
-        )
-    ):
-        return True
-    if has_digit and ("what percent" in lower or "what percentage" in lower):
-        return True
-    if (
-        has_digit
-        and "ratio" in lower
-        and ":" in cleaned
-        and any(word_index(lower, word) != -1 for word in ("split", "share", "divide"))
-    ):
-        return True
-    if has_digit and _has_ordinal_term_cue(lower):
-        return True
-    if "sum of the first" in lower or "sum of first" in lower:
-        if word_index(lower, "even") != -1 or word_index(lower, "odd") != -1:
-            return True
-        if "," in cleaned:
-            return True
-    if (
-        has_digit
-        and "%" in cleaned
-        and (
-            "compound interest" in lower
-            or "simple interest" in lower
-            or "compound amount" in lower
-            # "$5000 invested at 4% interest compounded annually for 3 years"
-            or ("compounded" in lower and "interest" in lower)
-        )
-    ):
-        return True
-    if "{" in cleaned and any(
-        word_index(lower, word) != -1 for word in ("union", "intersection", "difference")
-    ):
-        return True
-    if has_equation(cleaned) and (
-        "identity" in lower
-        or "show that" in lower
-        or "prove that" in lower
-        or "verify that" in lower
-    ):
-        return True
-    compact = lower.replace(" ", "")
-    polar_plot = any(
-        word_index(lower, word) != -1 for word in ("graph", "plot", "polar", "sketch", "draw")
-    )
-    if "r=" in compact and ("polar" in lower or "theta" in lower or "θ" in cleaned) and polar_plot:
-        return True
-    if (
-        "x=" in compact
-        and "y=" in compact
-        and (
-            "parametric" in lower
-            or word_index(lower, "graph") != -1
-            or word_index(lower, "plot") != -1
-        )
-    ):
-        return True
-    if word_index(lower, "together") != -1 and "hour" in lower and has_digit:
-        return True
-    if (
-        has_digit
-        and cleaned.count("%") == 2
-        and "% of " not in lower
-        and any(word_index(lower, word) != -1 for word in ("mix", "mixed", "mixture"))
-    ):
-        return True
-    if (
-        has_digit
-        and ("twice as many" in lower or "2 times as many" in lower)
-        and (word_index(lower, "together") != -1)
-    ):
-        return True
-    if (
-        has_digit
-        and "%" in cleaned
-        and (
-            word_index(lower, "tax") != -1
-            or word_index(lower, "tip") != -1
-            or word_index(lower, "discount") != -1
-            or word_index(lower, "off") != -1
-            or word_index(lower, "markup") != -1
-        )
-    ):
-        return True
-    if has_digit:
-        from app.modules.math.tools.extractors.formulas import extract_arithmetic_formulas
-
-        # Percent change from 40 to 50, the price before a 20% discount, ...
-        if extract_arithmetic_formulas(cleaned) is not None:
-            return True
-    if has_digit and ("direct proportion" in lower or "inverse proportion" in lower):
-        return True
-    if has_digit and word_index(lower, "cost") != -1 and word_index(lower, "if") != -1:
-        return True
-    if (
-        has_digit
-        and word_index(lower, "round") != -1
-        and ("decimal" in lower or "significant" in lower)
-    ):
-        return True
-    if "present value" in lower and has_digit:
-        return True
-    if ("infinity" in lower or "infinite" in lower) and ("sum" in lower or "series" in lower):
-        return True
-    if "equation of" in lower and "line" in lower and "(" in cleaned:
-        return True
-    if word_index(lower, "distance") != -1 and "(" in cleaned and "=" in cleaned:
-        return True
-    if (
-        any(w in lower for w in ("unit vector", "projection of", "angle between"))
-        and "<" in cleaned
-    ):
-        return True
-    if "geometric" in lower and "k=" in lower.replace(" ", ""):
-        return True
-    if "poisson" in lower:
-        return True
-    if word_index(lower, "bayes") != -1 or word_index(lower, "complement") != -1:
-        return True
-    if any(
-        word_index(lower, word) != -1
-        for word in ("quartiles", "percentile", "iqr", "interquartile")
-    ):
-        return True
-    if "range of" in lower and "," in cleaned:
-        return True
-    if "modular inverse" in lower or ("totient" in lower and has_digit):
-        return True
-    if "chinese remainder" in lower or word_index(lower, "crt") != -1:
-        return True
-    if "transpose" in lower and "[[" in cleaned:
-        return True
-    if word_index(lower, "add") != -1 and "[[" in cleaned:
-        return True
-    if any(
-        word in lower
-        for word in (
-            "gradient",
-            "directional derivative",
-            "divergence",
-            "curl",
-            "average value",
-            "linear approximation",
-            "implicit",
-            "triple integral",
-        )
-    ):
-        return True
-    if "area" in lower and "triangle" in lower and "angle" in lower and "sides" in lower:
-        return True
-    if "convert" in lower and " to " in lower and any(ch.isdigit() for ch in cleaned):
-        return True
-    if any(w in lower for w in ("midpoint", "distance between", "slope of")) and "(" in cleaned:
-        return True
-    if any(w in lower for w in ("dot product", "cross product", "magnitude of <")):
-        return True
-    if "binomial" in lower or "expected value" in lower:
-        return True
-    if _CHANCE_WORD.search(cleaned) and _COUNTED_OUTCOME.search(cleaned):
-        # "exactly 2 heads in 4 coin flips": a fair coin or die, repeated.
-        return True
-    if "z-score" in lower or "z score" in lower:
-        return True
-    if "taylor of " in lower or "maclaurin" in lower or ("taylor" in lower and "series" in lower):
-        return True
-    if "partial of " in lower or "partial derivative" in lower or " wrt" in lower:
-        return True
-    if "dy/dx" in lower or "day/dx" in lower or y_prime_math_cue(cleaned):
-        return True
-    if "modulus" in lower or "imaginary" in lower or "complex number" in lower:
-        return True
-    if bare_arithmetic_expr(cleaned) is not None:
-        return True
-    if written_arithmetic_request(cleaned) is not None:
-        return True
-    has_trig_call = any(f"{fn}(" in lower or f"{fn} " in lower for fn in ("sin", "cos", "tan"))
-    if has_trig_call and ("\u00b0" in cleaned or any(ch.isdigit() for ch in cleaned)):
-        return True
-    return False
+    return an_extractor_reads(cleaned, lower)

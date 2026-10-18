@@ -74,7 +74,7 @@ export const PREVIEW_CSP_LIVE = [
  * in-page demos. Injected immediately after the CSP meta so it runs before
  * user scripts.
  */
-export const HTML_RUN_STAY_JS = `(function () {
+const HTML_RUN_STAY_JS = `(function () {
   function stay(e) {
     try {
       var t = e.target;

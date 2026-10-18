@@ -2,16 +2,31 @@ export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking";
 
 export type LiveTalkGate = "ok" | "upgrade" | "limit" | "unavailable" | "offline" | "unconfigured";
 
+/** Live talk for this user: `remaining` / `limit` are whole minutes this month. */
 export type LiveTalkStatus = {
   enabled: boolean;
   entitled: boolean;
   remaining: number;
   limit: number;
   refunded?: boolean;
+  remaining_seconds?: number;
+  limit_seconds?: number;
+  /** The server refuses a session when fewer seconds than this are left. */
+  min_session_seconds?: number;
+  /** When the monthly minutes renew (ISO, UTC). */
+  resets_at?: string | null;
 };
 
-/** Cap billed OpenAI Realtime minutes; server Redis TTL matches this. */
+/** Fallback session cap when the server did not say (it reserves at mint). */
 export const LIVE_TALK_MAX_SESSION_MS = 15 * 60 * 1000;
+
+/** Hang up when the session's reserved minutes run out. */
+export function liveTalkSessionLimitMs(maxDurationSeconds: number | null | undefined): number {
+  if (typeof maxDurationSeconds === "number" && maxDurationSeconds > 0) {
+    return Math.min(maxDurationSeconds * 1000, LIVE_TALK_MAX_SESSION_MS);
+  }
+  return LIVE_TALK_MAX_SESSION_MS;
+}
 /** Local tail after `output_audio_buffer.stopped` before the mic reopens. */
 export const LIVE_TALK_PLAYBACK_TAIL_MS = 500;
 /** Ignore connect/track-start noise before the first real user utterance. */
@@ -19,9 +34,9 @@ export const LIVE_TALK_CONNECT_WARMUP_MS = 1_500;
 /** If session.created never arrives, start accepting user turns after this. */
 export const LIVE_TALK_SESSION_READY_FALLBACK_MS = 2_500;
 
-export type LiveTalkOrbAction = "begin" | "finishListen" | "cancelThink" | "none";
+type LiveTalkOrbAction = "begin" | "finishListen" | "cancelThink" | "none";
 
-export type LiveTalkOrbMode = "listen" | "speak" | "think" | "idle";
+type LiveTalkOrbMode = "listen" | "speak" | "think" | "idle";
 
 /** Visual language for the orb — no on-screen Listening/Speaking copy. */
 export function liveTalkOrbMode(phase: LiveTalkPhase): LiveTalkOrbMode {
@@ -61,7 +76,8 @@ export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean):
   if (isOffline) return "offline";
   if (!status || !status.enabled) return "unavailable";
   if (!status.entitled || status.limit <= 0) return "upgrade";
-  if (status.remaining <= 0) return "limit";
+  const secondsLeft = status.remaining_seconds ?? status.remaining * 60;
+  if (secondsLeft <= 0 || secondsLeft < (status.min_session_seconds ?? 1)) return "limit";
   return "ok";
 }
 
@@ -130,12 +146,33 @@ export function liveTalkShouldCreateResponse(input: {
   );
 }
 
-export function liveTalkNormalizeTranscript(text: string): string {
+function liveTalkNormalizeTranscript(text: string): string {
   return text
     .toLowerCase()
     .replace(/[.!?,;:'"()[\]{}]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** The text of a Realtime transcript event: a whole `transcript`, else a `delta`. */
+export function liveTalkTranscriptText(event: Record<string, unknown>): string {
+  const transcript = event.transcript;
+  if (typeof transcript === "string") return transcript.trim();
+  const delta = event.delta;
+  if (typeof delta === "string") return delta;
+  return "";
+}
+
+const SILENCE_HALLUCINATIONS = new Set([
+  "thank you for watching",
+  "thanks for watching",
+  "please subscribe",
+  "subscribe",
+]);
+
+/** Whisper-style captions the transcriber invents from silence. */
+export function isLiveTalkSilenceHallucination(text: string): boolean {
+  return SILENCE_HALLUCINATIONS.has(liveTalkNormalizeTranscript(text));
 }
 
 /** Speaker bleed often transcribes as a short slice of the last assistant line. */

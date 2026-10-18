@@ -15,6 +15,7 @@ from datetime import tzinfo as TzInfo
 from typing import Literal, Protocol
 
 from app.modules.todos.schemas import RecurrenceRule
+from app.modules.todos.spoken_when import DAY_NAMES, Clock, due_on_day, find_clock, read_clock
 
 SpokenAction = Literal["complete", "uncheck", "delete", "set_due"]
 
@@ -274,9 +275,6 @@ def _parse_move(
     user_timezone: str | None,
     now: datetime | None,
 ) -> SpokenReminderChange | None:
-    from app.modules.todos.reminder_fences import _DAY_NAMES, _due_date_for_day, _parse_clock
-    from app.services import time_context as time_context_service
-
     lowered = rest.lower()
     to_at = lowered.find(" to ")
     if to_at < 0:
@@ -299,7 +297,7 @@ def _parse_move(
     while day_end < len(after) and after[day_end].isalpha():
         day_end += 1
     day_name = after[:day_end].lower()
-    if day_name not in _DAY_NAMES:
+    if day_name not in DAY_NAMES:
         return None
     at_rel = after.lower().find(" at ", day_end)
     if at_rel < 0:
@@ -311,16 +309,12 @@ def _parse_move(
             use_latest=use_latest,
             day=following + day_name,
         )
-    clock = _parse_clock(after, at_rel + len(" at "))
+    clock = read_clock(after, at_rel + len(" at "))
     if clock is None:
         return None
-    tz = time_context_service.resolve_timezone(user_timezone)
-    when = now.astimezone(tz) if now is not None else _now(tz)
-    day = _due_date_for_day(following + day_name, when)
-    if day is None:
+    due = _due_on_day(following + day_name, clock, user_timezone=user_timezone, now=now)
+    if due is None:
         return None
-    hour, minute = clock
-    due = datetime(day.year, day.month, day.day, hour, minute, tzinfo=tz)
     return SpokenReminderChange(
         action="set_due",
         title_hint="" if use_latest else hint,
@@ -520,7 +514,7 @@ def _parse_adjust(
             break
     if not body or _is_fresh_reminder(body):
         return None
-    clock = _clock_in_change(body)
+    clock = find_clock(body)
     day = _marked_day(body)
     repeat = _repeat(body.lower())
     topic = None
@@ -528,7 +522,7 @@ def _parse_adjust(
         topic = _topic_name(body)
     hint, use_latest = _subject(body, clock=clock, day=day, repeat=repeat, topic=topic)
     if day is not None and clock is not None:
-        due = _due_on_day(day[0], clock[0], clock[1], user_timezone=user_timezone, now=now)
+        due = _due_on_day(day[0], clock, user_timezone=user_timezone, now=now)
         if due is None:
             return None
         return SpokenReminderChange(
@@ -552,8 +546,8 @@ def _parse_adjust(
             repeat=repeat,
             use_latest=use_latest,
             keep_date=True,
-            hour=clock[0],
-            minute=clock[1],
+            hour=clock.hour,
+            minute=clock.minute,
         )
     if repeat is not None:
         return SpokenReminderChange(
@@ -581,7 +575,7 @@ def _is_fresh_reminder(body: str) -> bool:
 def _subject(
     body: str,
     *,
-    clock: tuple[int, int, int] | None,
+    clock: Clock | None,
     day: tuple[str, int] | None,
     repeat: RecurrenceRule | None,
     topic: str | None,
@@ -596,7 +590,7 @@ def _subject(
             if at >= 0:
                 cut = min(cut, at)
     if clock is not None:
-        cut = min(cut, clock[2])
+        cut = min(cut, clock.start)
     if day is not None:
         cut = min(cut, day[1])
     if topic is not None:
@@ -612,62 +606,19 @@ def _subject(
 
 def _due_on_day(
     day_name: str,
-    hour: int,
-    minute: int,
+    clock: Clock,
     *,
     user_timezone: str | None,
     now: datetime | None,
 ) -> datetime | None:
-    from app.modules.todos.reminder_fences import _due_date_for_day
     from app.services import time_context as time_context_service
 
     tz = time_context_service.resolve_timezone(user_timezone)
     when = now.astimezone(tz) if now is not None else _now(tz)
-    day = _due_date_for_day(day_name, when)
-    if day is None:
-        return None
-    return datetime(day.year, day.month, day.day, hour, minute, tzinfo=tz)
-
-
-def _clock_in_change(text: str) -> tuple[int, int, int] | None:
-    from app.modules.todos.reminder_fences import _parse_clock
-
-    for index, char in enumerate(text):
-        if not char.isdigit():
-            continue
-        parsed = _parse_clock(text, index)
-        if parsed is not None:
-            return parsed[0], parsed[1], index
-    return _bare_hour_in(text)
-
-
-def _bare_hour_in(text: str) -> tuple[int, int, int] | None:
-    """A trailing hour with no am/pm. 1-11 means PM, matching a new reminder."""
-    for index, char in enumerate(text):
-        if not char.isdigit() or (index > 0 and text[index - 1].isalpha()):
-            continue
-        end = index
-        hour = 0
-        digits = 0
-        while end < len(text) and text[end].isdigit() and digits < 2:
-            hour = hour * 10 + (ord(text[end]) - 48)
-            end += 1
-            digits += 1
-        if digits == 0 or (end < len(text) and text[end] == ":"):
-            continue
-        if text[end:].strip(" ."):
-            continue
-        if hour == 0 or hour > 23:
-            continue
-        if 1 <= hour <= 11:
-            hour += 12
-        return hour, 0, index
-    return None
+    return due_on_day(day_name, clock.hour, clock.minute, when)
 
 
 def _marked_day(text: str) -> tuple[str, int] | None:
-    from app.modules.todos.reminder_fences import _DAY_NAMES
-
     lowered = text.lower()
     for mark in (" to ", " on ", " for "):
         start = 0
@@ -682,7 +633,7 @@ def _marked_day(text: str) -> tuple[str, int] | None:
             while end < len(lowered) and lowered[end].isalpha():
                 end += 1
             name = lowered[rest_at:end]
-            if name in _DAY_NAMES:
+            if name in DAY_NAMES:
                 return name, rest_at
             start = at + len(mark)
     return None
@@ -703,15 +654,13 @@ def _topic_name(body: str) -> str | None:
 
 
 def _ok_topic(name: str) -> bool:
-    from app.modules.todos.reminder_fences import _DAY_NAMES
-
     if not name or len(name) > 40:
         return False
     words = name.split()
     if not 1 <= len(words) <= 3 or not all(word.isalpha() for word in words):
         return False
     lowered = name.lower()
-    if lowered in _DAY_NAMES or lowered in _PRONOUNS:
+    if lowered in DAY_NAMES or lowered in _PRONOUNS:
         return False
     if lowered in {"morning", "afternoon", "evening", "night", "daily", "weekly", "monthly"}:
         return False

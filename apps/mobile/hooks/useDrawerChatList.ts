@@ -34,6 +34,7 @@ import {
 import { Chat, ChatList } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
+import { useReadFailureReport } from "@/hooks/useReadFailureReport";
 
 type Params = { token: string | null; isDrawerOpen: boolean };
 
@@ -55,6 +56,7 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
   const mountedRef = useRef(true);
   const loadIdRef = useRef(0);
   const [, setTitlePendingTick] = useState(0);
+  const reportFailure = useReadFailureReport();
   if (ownerRef.current !== session) {
     ownerRef.current = session;
     hasLoadedOnceRef.current = false;
@@ -100,12 +102,12 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     const loadId = ++loadIdRef.current;
     if (!background) setLoading(true);
     setError(false);
-    const data = await fetchChatList(token, { force });
+    const result = await fetchChatList(token, { force, report: reportFailure });
     if (!current() || loadId !== loadIdRef.current) return;
-    if (data) applyChatList(getCachedChatList() ?? data);
-    else if (!background) setError(true);
+    if (result.data) applyChatList(getCachedChatList() ?? result.data);
+    if (result.error && !background) setError(true);
     if (!background) setLoading(false);
-  }, [token, current, hydrateFromCache, applyChatList]);
+  }, [token, current, hydrateFromCache, applyChatList, reportFailure]);
 
   const handleRefresh = useCallback(async () => {
     if (!token || !current()) return;
@@ -122,7 +124,7 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     let cancelled = false;
     const cancelIdle = scheduleIdleTask(() => {
       if (cancelled || !current()) return;
-      void fetchChatList(token).then((data) => {
+      void fetchChatList(token).then(({ data }) => {
         if (!cancelled && current() && data) applyChatList(getCachedChatList() ?? data);
       });
     });

@@ -10,7 +10,7 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
   IMAGE_GEN_FAILED_ASSISTANT_ID,
   IMAGE_GEN_PENDING_ASSISTANT_ID,
-} from "@/features/images/model/imageGenIntent";
+} from "@/features/images/model/imageGenMessages";
 import {
   applyImageGenFailure,
   hasImageGenFailedAssistant,
@@ -19,18 +19,10 @@ import {
 } from "@/features/images/model/imageGenTurn";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
-import { uploadChatAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
-
-type DraftChat = {
-  prepareDraftChat: (
-    model?: string,
-    opts?: { force?: boolean },
-  ) => Promise<string | null>;
-  skipLoadForChatIdRef: React.MutableRefObject<string | null>;
-  draftChatIdRef: React.MutableRefObject<string | null>;
-  setDraftChatId: React.Dispatch<React.SetStateAction<string | null>>;
-  creatingRef: React.MutableRefObject<boolean>;
-};
+import type { PendingAttachment } from "@/features/attachments/model/attachments";
+import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
+import { uploadSendAttachment } from "@/features/chat/hooks/useSendAttachment";
+import type { useDraftChat } from "@/hooks/useDraftChat";
 
 type Options = {
   token: string | null;
@@ -38,11 +30,11 @@ type Options = {
   setChatId: React.Dispatch<React.SetStateAction<string | null>>;
   setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
   setMessages: React.Dispatch<React.SetStateAction<import("@/lib/api").Message[]>>;
-  draft: DraftChat;
+  draft: ReturnType<typeof useDraftChat>;
   router: ReturnType<typeof useRouter>;
   selectedModel: string;
   streaming: boolean;
-  isPro: boolean;
+  isPaid: boolean;
   isOffline: boolean;
   onOpenUpgrade: () => void;
   onOfflineBlocked?: () => void;
@@ -51,7 +43,7 @@ type Options = {
   t: (key: string) => string;
 };
 
-export type ImageGenSubmit = {
+type ImageGenSubmit = {
   prompt: string;
   userMessage: string;
   aspectRatio?: string | null;
@@ -74,7 +66,7 @@ export function useImageGeneration({
   router,
   selectedModel,
   streaming,
-  isPro,
+  isPaid,
   isOffline,
   onOpenUpgrade,
   onOfflineBlocked,
@@ -97,24 +89,7 @@ export function useImageGeneration({
   streamingRef.current = streaming;
   tokenRef.current = token;
 
-  const { creatingRef, prepareDraftChat, skipLoadForChatIdRef, draftChatIdRef, setDraftChatId } = draft;
-  const ensureChatId = useCallback(async (): Promise<string | null> => {
-    if (chatId) return chatId;
-    creatingRef.current = true;
-    try {
-      const id = await prepareDraftChat(selectedModel);
-      if (!id) throw new Error("Could not create chat");
-      skipLoadForChatIdRef.current = id;
-      setChatTitle(null);
-      setChatId(id);
-      draftChatIdRef.current = null;
-      setDraftChatId(null);
-      router.setParams({ chatId: id });
-      return id;
-    } finally {
-      creatingRef.current = false;
-    }
-  }, [chatId, creatingRef, prepareDraftChat, skipLoadForChatIdRef, draftChatIdRef, setDraftChatId, router, selectedModel, setChatId, setChatTitle]);
+  const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
 
   const submitPrompt = useCallback(
     async (input: ImageGenSubmit) => {
@@ -125,7 +100,7 @@ export function useImageGeneration({
         reportRecoverableError(feedback, t("chat.busy"));
         return;
       }
-      // Don't trust client isPro alone — try the API; HTTP 403 opens upgrade.
+      // Don't trust client isPaid alone — try the API; HTTP 403 opens upgrade.
       if (isOffline) {
         notifyOfflineSendBlocked({
           warn: notifyWarning,
@@ -223,7 +198,7 @@ export function useImageGeneration({
           return;
         }
         const referenceIds = input.referenceAttachment
-          ? [await uploadChatAttachment(authToken, input.referenceAttachment)]
+          ? (await uploadSendAttachment(authToken, input.referenceAttachment)).ids
           : input.referenceAttachmentIds;
         // Retry the same upload/reference, not whatever image is newest later.
         lastSubmitRef.current = {
@@ -267,7 +242,7 @@ export function useImageGeneration({
           return;
         }
         const message = error instanceof Error ? error.message : t("common.error");
-        const resolved = resolveChatError({ message, isPro, t });
+        const resolved = resolveChatError({ message, isPaid, t });
         setMessages((prev) => applyImageGenFailure(prev, "failed", resolved.message));
       } finally {
         if (abortRef.current === abort) abortRef.current = null;
@@ -276,7 +251,7 @@ export function useImageGeneration({
       }
     },
     [
-      isPro,
+      isPaid,
       isOffline,
       onOfflineBlocked,
       ensureChatId,

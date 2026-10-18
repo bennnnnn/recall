@@ -7,10 +7,13 @@ error payloads) live here once; routers only handle transport plumbing.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator, Coroutine
 from contextlib import suppress
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel, model_serializer
 
 from app.core.background_tasks import create_background_task
 from app.exceptions import (
@@ -22,6 +25,8 @@ from app.exceptions import (
     UnknownModelOverrideError,
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
+from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.web_search import SearchSource
 
 logger = logging.getLogger(__name__)
 
@@ -81,20 +86,6 @@ async def finish_open_stream(stream: AsyncIterator[Any]) -> None:
 # commit FAILS (vs. is slow) we send an error instead of a ghost `done`.
 DONE_COMMIT_WAIT_SECONDS = 10.0
 
-_DONE_PAYLOAD_KEYS = (
-    "message_id",
-    "recalled",
-    "memory_hints",
-    "context_summarized",
-    "todos_sync",
-    "search_sources",
-    "final_content",
-    "resolved_model",
-    "fallback_used",
-    # "interrupted" | "user_stop" — omitted when the reply completed normally.
-    "completion",
-)
-
 
 def build_start_event() -> dict[str, Any]:
     """First frame of a turn; tells the client generation has begun."""
@@ -119,25 +110,103 @@ def build_reasoning_event(content: str) -> dict[str, Any]:
     return {"type": "reasoning", "content": content}
 
 
-def build_stream_end_payload(result: dict[str, Any]) -> dict[str, Any]:
-    """Assemble the ``stream_end`` event fields from a stream result dict.
+class StreamEndEvent(BaseModel):
+    """The token stream is done; ``done`` waits on the commit.
 
-    Sent once the token stream is done but before the DB commit is awaited,
-    so clients can settle layout while ``done`` is still pending.
+    Sent before that wait, so clients can settle layout while ``done`` is pending.
     """
-    stream_end: dict[str, Any] = {"type": "stream_end"}
-    resolved_model = result.get("resolved_model")
-    if resolved_model:
-        stream_end["resolved_model"] = resolved_model
-    if result.get("fallback_used"):
-        stream_end["fallback_used"] = result["fallback_used"]
-    return stream_end
+
+    type: Literal["stream_end"] = "stream_end"
+    resolved_model: str | None = None
+    fallback_used: bool = False
+
+    @classmethod
+    def from_outcome(cls, outcome: TurnOutcome) -> StreamEndEvent:
+        return cls(resolved_model=outcome.resolved_model, fallback_used=outcome.fallback_used)
+
+    @model_serializer
+    def _wire(self) -> dict[str, Any]:
+        """Absent fields are left out; ``fallback_used`` is the string ``"1"``."""
+        event: dict[str, Any] = {"type": self.type}
+        if self.resolved_model:
+            event["resolved_model"] = self.resolved_model
+        if self.fallback_used:
+            event["fallback_used"] = "1"
+        return event
 
 
-def pop_finalize_tasks(result: dict[str, Any]) -> asyncio.Task[None] | None:
-    """Pop finalize tasks off the result dict; return the DB-commit task."""
-    finalize_db_task = result.pop("_finalize_db_task", None)
-    result.pop("_finalize_task", None)
+class DoneEvent(BaseModel):
+    """The turn's last event: the saved reply and what the client shows with it."""
+
+    type: Literal["done"] = "done"
+    # None while the commit is still running (``persisting``).
+    message_id: str | None = None
+    recalled: int = 0
+    memory_hints: list[str] = []
+    context_summarized: int = 0
+    todos_changed: bool = False
+    search_sources: list[SearchSource] = []
+    final_content: str | None = None
+    resolved_model: str | None = None
+    fallback_used: bool = False
+    completion: str | None = None
+    # The commit outlived the wait: the client keeps its bubble and refetches.
+    persisting: bool = False
+
+    @classmethod
+    def from_outcome(cls, outcome: TurnOutcome, *, persisting: bool = False) -> DoneEvent:
+        return cls(
+            message_id=None if persisting else outcome.message_id,
+            recalled=outcome.recalled,
+            memory_hints=outcome.memory_hints,
+            context_summarized=outcome.context_summarized,
+            todos_changed=outcome.todos_changed,
+            search_sources=outcome.search_sources,
+            final_content=outcome.final_content,
+            resolved_model=outcome.resolved_model,
+            fallback_used=outcome.fallback_used,
+            completion=outcome.completion,
+            persisting=persisting,
+        )
+
+    @model_serializer
+    def _wire(self) -> dict[str, Any]:
+        """The shape installed clients read: absent fields left out, the rest as strings.
+
+        ``todos_changed`` goes out as ``todos_sync: "1"`` and the lists as JSON text;
+        ES-45 sends them typed once the clients that accept both are the ones in use.
+        """
+        event: dict[str, Any] = {"type": self.type}
+        if self.message_id:
+            event["message_id"] = self.message_id
+        if self.recalled:
+            event["recalled"] = str(self.recalled)
+        if self.memory_hints:
+            event["memory_hints"] = json.dumps(self.memory_hints)
+        if self.context_summarized:
+            event["context_summarized"] = str(self.context_summarized)
+        if self.todos_changed:
+            event["todos_sync"] = "1"
+        if self.search_sources:
+            event["search_sources"] = json.dumps(self.search_sources)
+        if self.final_content:
+            event["final_content"] = self.final_content
+        if self.resolved_model:
+            event["resolved_model"] = self.resolved_model
+        if self.fallback_used:
+            event["fallback_used"] = "1"
+        if self.completion:
+            event["completion"] = self.completion
+        if self.persisting:
+            event["persisting"] = True
+        return event
+
+
+def pop_finalize_tasks(outcome: TurnOutcome) -> asyncio.Task[None] | None:
+    """Clear the turn's finalize tasks; return the DB-commit task."""
+    finalize_db_task = outcome.finalize_db_task
+    outcome.finalize_db_task = None
+    outcome.finalize_task = None
     return finalize_db_task
 
 
@@ -178,14 +247,14 @@ async def await_finalize_commit(
         return "failed"
 
 
-async def persist_finalize_if_pending(result: dict[str, Any]) -> None:
+async def persist_finalize_if_pending(outcome: TurnOutcome) -> None:
     """Await a still-pending DB finalize after the transport drops.
 
     SSE and WS success paths pop and wait for ``done``. If the client closes
     first, that wait never runs — call this from a ``finally`` so a partial
     assistant row is still committed (quota refund + title job included).
     """
-    finalize_db_task = pop_finalize_tasks(result)
+    finalize_db_task = pop_finalize_tasks(outcome)
     if finalize_db_task is None:
         return
     with suppress(Exception):
@@ -215,16 +284,6 @@ async def take_related_prompts_event(
     if not isinstance(event, dict) or event.get("type") != "related_prompts":
         return None
     return event
-
-
-def build_done_payload(result: dict[str, Any]) -> dict[str, Any]:
-    """Assemble the shared ``done`` event fields from a stream result dict."""
-    done: dict[str, Any] = {"type": "done"}
-    for key in _DONE_PAYLOAD_KEYS:
-        value = result.get(key)
-        if value:
-            done[key] = value
-    return done
 
 
 def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:

@@ -1,5 +1,6 @@
 """Tests for the shared SSRF-safe fetch helpers in app.gateways.safe_fetch."""
 
+import ipaddress
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,7 +15,7 @@ def _mock_response(status=200, headers=None):
     return m
 
 
-# ── resolve_external_host / validate_external_url (real function, no mock) ──
+# ── resolve_external_host (real function, no mock) ──
 
 
 @pytest.mark.asyncio
@@ -50,9 +51,42 @@ async def test_resolve_external_host_literal_public_ip():
 
 
 @pytest.mark.asyncio
-async def test_validate_external_url_no_hostname():
+async def test_resolve_external_host_no_hostname():
     with pytest.raises(ValueError, match="URL has no hostname"):
-        await safe_fetch.validate_external_url("http:///no-host")
+        await safe_fetch.resolve_external_host("http:///no-host")
+
+
+# ── is_blocked_ip fails closed ──────────────────────────────────────────────
+
+
+class _UnclassifiableIPv4(ipaddress.IPv4Address):
+    @property
+    def is_global(self) -> bool:
+        raise ValueError("globality unknown")
+
+
+class _UnclassifiableIPv6(ipaddress.IPv6Address):
+    @property
+    def is_global(self) -> bool:
+        raise ValueError("globality unknown")
+
+
+@pytest.mark.parametrize(
+    "addr",
+    [_UnclassifiableIPv6("2606:4700:4700::1111"), _UnclassifiableIPv4("93.184.216.34")],
+)
+def test_is_blocked_ip_blocks_an_address_whose_is_global_raises(addr):
+    """Passes every other check, so only the is_global fallback decides."""
+    assert safe_fetch.is_blocked_ip(addr) is True
+
+
+@pytest.mark.asyncio
+async def test_resolve_external_host_blocks_an_unclassifiable_ipv6():
+    with (
+        patch.object(safe_fetch.ipaddress, "ip_address", side_effect=_UnclassifiableIPv6),
+        pytest.raises(ValueError, match=safe_fetch.PRIVATE_IP_ERR),
+    ):
+        await safe_fetch.resolve_external_host("http://[2606:4700:4700::1111]/x")
 
 
 # ── pin_url / host_header ──────────────────────────────────────────────────

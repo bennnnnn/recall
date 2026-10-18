@@ -1,7 +1,7 @@
 import asyncio
 import logging
-import re
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
@@ -11,78 +11,22 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
-from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
-from app.modules.account import profile as profile_service
-from app.modules.chat.continuation_subject import (
-    blocks_math_followup,
-)
-from app.modules.chat.prompt_constants import (
-    ADVICE_PERSONALIZE_HINT,
-    CAREER_PERSONALIZE_HINT,
-    CODE_INK_REMINDER,
-    EXAMPLE_PERSONALIZE_HINT,
-    LIGHTWEIGHT_REPLY_HINT,
-    MATH_FENCE_SAFETY_HINT,
-    PERSONAL_DISCLOSURE_HINT,
-    PROFILE_FACT_HINT,
-    SHORT_RESPONSE_FORMAT_HINT,
-    STYLE_HINTS,
-    TONE_FORMAT_GUARD,
-    active_lesson_step,
-    is_bare_writing_line,
-    is_capabilities_question,
-    is_career_personal_question,
-    is_email_or_message_request,
-    is_learning_plan_request,
-    is_personal_disclosure_turn,
-    is_profile_fact_question,
-    is_profile_recall_pushback,
-    is_short_confirmation,
-    is_standing_preference,
-    is_teaching_request,
-    learning_plan_daily_contract,
-    programming_lesson_contract,
-    recalls_earlier_conversation,
-)
-from app.modules.chat.prompt_context import (
-    _load_context_blocks,
-    _load_unsummarized_gap,
-)
-from app.modules.chat.prompt_format import (
-    _integration_hints,
-    _style_format_hints,
-    code_question_layout,
-    slim_geo_hints,
+from app.modules.chat.prompt_constants import recalls_earlier_conversation
+from app.modules.chat.prompt_context import _load_context_blocks
+from app.modules.chat.prompt_format import render_rules
+from app.modules.chat.prompt_sections import NEARBY_CONTRACTS, PROMPT_SECTIONS, PromptTurn
+from app.modules.chat.prompt_window import (
+    PromptWindow,
+    followup_subject,
+    history_messages,
+    load_prompt_window,
 )
 from app.modules.chat.stream_status import StreamStatusFn, status_phase_for_subject
-from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT, chemistry_followup_problem
-from app.modules.math.followup import (
-    MATH_FOLLOWUP_HINT,
-    is_math_followup,
-    readable_standalone_answer,
-)
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
-from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, physics_followup_problem
-from app.services import locale as locale_service
-from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
-from app.services.answer_fence import answer_fence_value
-from app.services.context_window import (
-    estimate_tokens,
-    select_recent_window,
-    trim_message_for_summary,
-)
-from app.services.day_planning import is_day_planning_question
-from app.services.md_fence_scan import map_closed_fences, strip_closed_fences
 from app.services.prompt_inject import inject_before_last_user
-from app.services.prompt_safety import (
-    wrap_persisted_attachment_excerpts,
-    wrap_untrusted,
-    wrap_user_preferences,
-)
 from app.services.solving import VerifiedSolveBlock
 from app.services.subject_solving import (
     SubjectName,
@@ -90,126 +34,9 @@ from app.services.subject_solving import (
     detect_subject,
 )
 
-_PROMPT_STRIP_FENCE_LANGS = ("geometry", "graph", "sources", "places", "photo")
-
-
-def _answer_line(body: str) -> str:
-    value = " ".join(answer_fence_value(body).split())
-    # The fence took its own line break with it; the line keeps one.
-    return f"Answer: {value}\n" if value else ""
-
-
-def _strip_prompt_owned_fences(content: str) -> str:
-    """Drop solver/search fences from assistant history before the model sees them.
-
-    Persisted messages keep the fences for the client. Re-injecting ```answer /
-    ```graph / ```sources / ```photo into the recent window teaches the model to copy them.
-    The answer card stays as a plain ``Answer:`` line: "in km/h?" or "just the answer"
-    then reads the verified value instead of working the problem again unchecked.
-    """
-    out = map_closed_fences(content, "answer", _answer_line)
-    for lang in _PROMPT_STRIP_FENCE_LANGS:
-        out = strip_closed_fences(out, lang)
-    return out
-
-
-def _custom_instructions_block(user: User) -> str | None:
-    ci = getattr(user, "custom_instructions", None)
-    custom = ci.strip() if isinstance(ci, str) and ci.strip() else ""
-    if not custom:
-        return None
-    return wrap_user_preferences(f"User's personal instructions:\n{custom[:2000]}")
-
-
 logger = logging.getLogger(__name__)
 
 StreamReasoningFn = Callable[[str], Awaitable[None]]
-
-# Account email is PII — only inject when the turn clearly needs it.
-_PROFILE_EMAIL_ASK = re.compile(
-    r"\b("
-    r"what(?:'s| is) my (?:e-?mail|email address)|"
-    r"remind me (?:of |what )?my (?:e-?mail|email)|"
-    r"(?:tell|show|give) me my (?:e-?mail|email address)"
-    r")\b",
-    re.IGNORECASE,
-)
-
-
-def should_include_profile_email(query_text: str | None) -> bool:
-    """True when the turn needs the account email (an ask or a draft)."""
-    cleaned = (query_text or "").strip()
-    if not cleaned:
-        return False
-    if _PROFILE_EMAIL_ASK.search(cleaned):
-        return True
-    return is_email_or_message_request(cleaned)
-
-
-# The user sends the drafts Recall writes, so the sign-off is their own name.
-_SIGN_DRAFTS_WITH = (
-    "Sign emails and messages the user will send as {first}. Never write [Your Name] "
-    "or another placeholder."
-)
-_NO_NAME_TO_SIGN = (
-    "With no name on file, end emails and messages on the closing word (Love, Best,) "
-    "with no name line. Never write [Your Name] or another placeholder."
-)
-
-
-def format_user_profile_block(
-    user: User,
-    *,
-    location_override: str | None = None,
-    include_email: bool = False,
-) -> str:
-    """Basic identity — injected into every chat prompt."""
-    lines = [
-        "User profile (internal — from their account; do not quote email or location "
-        "unless they explicitly ask for those details):"
-    ]
-    if user.name and user.name.strip():
-        lines.append(f"- Name: {user.name.strip()}")
-    if include_email and user.email and user.email.strip():
-        lines.append(f"- Email: {user.email.strip()}")
-    plan = (getattr(user, "plan", None) or "free").strip().lower()
-    if plan not in {"free", "pro"}:
-        plan = "free"
-    lines.append(f"- Plan: {plan}")
-    if user.age is not None:
-        lines.append(f"- Age: {user.age}")
-    if user.country and user.country.strip():
-        lines.append(f"- Country: {user.country.strip()}")
-    if user.job and user.job.strip():
-        lines.append(f"- Job: {user.job.strip()}")
-    location = location_override or profile_service.user_location_label(user)
-    if location:
-        lines.append(f"- Location: {location}")
-    lines.append(
-        "Share profile fields only when the user asks for that specific field — never recite "
-        "email or location in a general 'who am I' answer. Do not say their name is missing "
-        "from memory if it is listed here."
-    )
-    if user.name and user.name.strip():
-        lines.append(_SIGN_DRAFTS_WITH.format(first=user.name.strip().split()[0]))
-    else:
-        lines.append(_NO_NAME_TO_SIGN)
-    return "\n".join(lines)
-
-
-def format_user_name_only_block(user: User) -> str:
-    """First name only: sign their drafts, answer 'who am I', share no other profile field."""
-    name = (user.name or "").strip()
-    if not name:
-        return (
-            "User name is not on file — for a 'who am I' reply, say you don't have their name yet "
-            f"without inventing one. {_NO_NAME_TO_SIGN}"
-        )
-    first = name.split()[0]
-    return (
-        f"User's first name: {first}. Use it in a 'who am I' reply; share no other profile "
-        f"detail. {_SIGN_DRAFTS_WITH.format(first=first)}"
-    )
 
 
 async def fetch_web_and_tools(
@@ -386,6 +213,85 @@ async def _augment_web_and_tools(
     return updated, search_sources, verified_math
 
 
+@dataclass(frozen=True)
+class _ContextPlan:
+    """What a turn loads beyond the recent window."""
+
+    # Memory and integration context; a slim turn gets the name-only profile.
+    slim: bool
+    load_memory: bool
+    # "What did we decide last time": memory and past chats answer even a slim turn.
+    recalls_shared_past: bool
+    history_rag: bool
+
+
+async def _context_plan(
+    user: User,
+    chat_id: UUID,
+    settings: Settings,
+    *,
+    query_text: str | None,
+    minimal_personal_context: bool,
+    lightweight: bool,
+    rich_context: bool,
+    advice_memory: bool,
+    probe_attachment_rag: bool,
+) -> _ContextPlan:
+    # If this chat has indexed attachment chunks, force rich context so a
+    # casual follow-up ("what's on page 10?") still retrieves RAG chunks.
+    # Without this, a lightweight query after uploading a PDF skips RAG
+    # entirely and the user gets no document context on follow-ups.
+    if not rich_context and settings.attachment_rag_enabled and probe_attachment_rag:
+        from app.modules.attachments import service as attachments_service
+
+        try:
+            async with SessionLocal() as s:
+                rich_context = await attachments_service.has_chunks_for_chat(s, user.id, chat_id)
+        except Exception:
+            logger.debug("has_chunks_for_chat probe failed for chat_id=%s", chat_id, exc_info=True)
+    # Personal continuity only when this turn is actually about the user.
+    # A normal question ("what is the capital of France") used to embed memory
+    # and chat history on every non-greeting, which sat on the first token
+    # for seconds before the model started.
+    personal_context = (rich_context or advice_memory) and not lightweight
+    recalls_shared_past = bool(query_text and recalls_earlier_conversation(query_text))
+    return _ContextPlan(
+        slim=minimal_personal_context or lightweight or not rich_context,
+        load_memory=personal_context,
+        recalls_shared_past=recalls_shared_past,
+        history_rag=bool(
+            (personal_context or recalls_shared_past)
+            and settings.chat_history_rag_enabled
+            and query_text
+            and query_text.strip()
+        ),
+    )
+
+
+async def _history_rag_block(
+    settings: Settings,
+    user: User,
+    query_text: str | None,
+    *,
+    vector: list[float] | None,
+    window: PromptWindow,
+    omit_message_ids: set[UUID] | None,
+) -> str:
+    # The context gather already attempted the history embed. None means no
+    # chunks or a failed/timed-out embed; do not repeat that work serially.
+    if vector is None:
+        return ""
+    from app.modules.chat import history_rag as chat_history_rag_service
+
+    return await chat_history_rag_service.retrieve_for_prompt(
+        settings,
+        user_id=user.id,
+        query=query_text or "",
+        exclude_message_ids=window.message_ids | (omit_message_ids or set()),
+        query_vec=vector,
+    )
+
+
 async def build_prompt_messages(
     user: User,
     chat_id: UUID,
@@ -410,37 +316,19 @@ async def build_prompt_messages(
     """Assemble system + recent messages for a chat turn.
 
     Context loading uses short-lived sessions so embeds cannot pin a caller
-    connection across the concurrent gather.
+    connection across the concurrent gather. The system prompt is
+    ``PROMPT_SECTIONS``; the history is ``prompt_window``.
     """
-    recent_limit = settings.recent_message_window
-    # Greetings stay on the short-reply style. Other turns load memory and
-    # past-chat retrieval only when the text is actually about the user.
-    is_day_plan = bool(query_text and is_day_planning_question(query_text))
-    # If this chat has indexed attachment chunks, force rich context so a
-    # casual follow-up ("what's on page 10?") still retrieves RAG chunks.
-    # Without this, a lightweight query after uploading a PDF skips RAG
-    # entirely and the user gets no document context on follow-ups.
-    if not rich_context and settings.attachment_rag_enabled and probe_attachment_rag:
-        from app.modules.attachments import service as attachments_service
-
-        try:
-            async with SessionLocal() as s:
-                rich_context = await attachments_service.has_chunks_for_chat(s, user.id, chat_id)
-        except Exception:
-            logger.debug("has_chunks_for_chat probe failed for chat_id=%s", chat_id, exc_info=True)
-    # Personal continuity only when this turn is actually about the user.
-    # A normal question ("what is the capital of France") used to embed memory
-    # and chat history on every non-greeting, which sat on the first token
-    # for seconds before the model started.
-    personal_context = (rich_context or advice_memory) and not lightweight
-    load_memory = personal_context
-    slim_context = minimal_personal_context or lightweight or not rich_context
-    recalls_shared_past = bool(query_text and recalls_earlier_conversation(query_text))
-    history_rag = bool(
-        (personal_context or recalls_shared_past)
-        and settings.chat_history_rag_enabled
-        and query_text
-        and query_text.strip()
+    plan = await _context_plan(
+        user,
+        chat_id,
+        settings,
+        query_text=query_text,
+        minimal_personal_context=minimal_personal_context,
+        lightweight=lightweight,
+        rich_context=rich_context,
+        advice_memory=advice_memory,
+        probe_attachment_rag=probe_attachment_rag,
     )
     blocks = await _load_context_blocks(
         user,
@@ -448,242 +336,59 @@ async def build_prompt_messages(
         settings,
         chat=chat,
         query_text=query_text,
-        recent_limit=recent_limit,
-        slim_context=slim_context,
-        load_memory=load_memory,
+        recent_limit=settings.recent_message_window,
+        slim_context=plan.slim,
+        load_memory=plan.load_memory,
         client_timezone=client_timezone,
         out=out,
-        history_rag=history_rag,
+        history_rag=plan.history_rag,
         recent_messages=recent_messages,
     )
     chat = blocks.chat
-    recent_source = blocks.recent_all
-    if omit_message_ids:
-        recent_source = [m for m in recent_source if m.id not in omit_message_ids]
-    keep = select_recent_window(recent_source, settings.context_token_budget, recent_limit)
-    recent = recent_source[-keep:] if keep else []
-    tail_tokens = sum(
-        estimate_tokens(message.content)
-        for message in recent
-        if isinstance(getattr(message, "content", None), str)
-    )
-    gap = await _load_unsummarized_gap(
+    window = await load_prompt_window(
         chat_id,
         chat,
         blocks.recent_all,
-        recent,
-        recent_limit=recent_limit,
-        token_budget=max(0, settings.context_token_budget - tail_tokens),
+        settings,
+        query_text=query_text,
+        omit_message_ids=omit_message_ids,
         current_user_message_id=current_user_message_id,
     )
-    if omit_message_ids:
-        gap = [m for m in gap if m.id not in omit_message_ids]
-    recent_ids = {m.id for m in recent}
-    gap = [m for m in gap if m.id not in recent_ids]
-    followup_exchange = recent
-    # New-turn preparation includes its current user in history, sometimes
-    # before persistence completes. Only the caller's explicit ID proves that
-    # it is the current turn, rather than an incomplete previous exchange.
-    if (
-        current_user_message_id is not None
-        and recent
-        and recent[-1].id == current_user_message_id
-        and recent[-1].role == "user"
-        and recent[-1].content == query_text
-    ):
-        followup_exchange = recent[:-1]
-    # Regeneration retains the persisted current user while omitting its newest
-    # assistant. Classify the preceding completed exchange only with that proof.
-    elif (
-        omit_message_ids
-        and len(blocks.recent_all) >= 2
-        and blocks.recent_all[-1].role == "assistant"
-        and blocks.recent_all[-1].id in omit_message_ids
-        and recent
-        and recent[-1] is blocks.recent_all[-2]
-        and recent[-1].role == "user"
-        and recent[-1].content == query_text
-    ):
-        followup_exchange = recent[:-1]
-    math_followup = is_math_followup(query_text, followup_exchange, blocked=blocks_math_followup)
-    chemistry_followup = (
-        not math_followup and chemistry_followup_problem(query_text, followup_exchange) is not None
+    followup = followup_subject(query_text, window.exchange)
+    chat_history_rag_block = await _history_rag_block(
+        settings,
+        user,
+        query_text,
+        vector=blocks.history_rag_query_vec if plan.history_rag else None,
+        window=window,
+        omit_message_ids=omit_message_ids,
     )
-    physics_followup = (
-        not math_followup
-        and not chemistry_followup
-        and physics_followup_problem(query_text, followup_exchange) is not None
-    )
-    lesson = active_lesson_step(followup_exchange)
-    chat_history_rag_block = ""
-    # The context gather already attempted the history embed. None means no
-    # chunks or a failed/timed-out embed; do not repeat that work serially.
-    if history_rag and blocks.history_rag_query_vec is not None:
-        from app.modules.chat import history_rag as chat_history_rag_service
-
-        exclude = {m.id for m in recent} | {m.id for m in gap}
-        if omit_message_ids:
-            exclude |= omit_message_ids
-        chat_history_rag_block = await chat_history_rag_service.retrieve_for_prompt(
-            settings,
-            user_id=user.id,
-            query=query_text or "",
-            exclude_message_ids=exclude,
-            query_vec=blocks.history_rag_query_vec,
-        )
     if out is not None and chat and chat.summary and (chat.summary_message_count or 0) > 0:
         out["context_summarized"] = chat.summary_message_count
-    local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
-
-    style = user.response_style if user.response_style in STYLE_HINTS else "balanced"
-    location_for_context = prompt_location or profile_service.user_location_label(user)
-    system_parts: list[str] = [
-        "You are Recall, a helpful personal AI assistant.",
-        time_context_service.format_now_awareness(local_tz, user.locale),
-        format_user_name_only_block(user)
-        if slim_context
-        else format_user_profile_block(
-            user,
-            location_override=prompt_location,
-            include_email=should_include_profile_email(query_text),
-        ),
-        STYLE_HINTS["short"] if lightweight else STYLE_HINTS[style],
+    turn = PromptTurn(
+        user=user,
+        settings=settings,
+        query_text=query_text,
+        local_tz=time_context_service.effective_timezone(user.timezone, client_timezone),
+        lightweight=lightweight,
+        slim=plan.slim,
+        recall_memory=plan.load_memory or plan.recalls_shared_past,
+        advice_memory=advice_memory,
+        minimal_personal_context=minimal_personal_context,
+        prompt_location=prompt_location,
+        summary=summary,
+        memory_block=blocks.memory_block,
+        attachment_rag_block=blocks.attachment_rag_block,
+        todos_section=blocks.todos_section,
+        chat_history_rag_block=chat_history_rag_block,
+        exchange=window.exchange,
+        followup=followup,
+    )
+    messages = [
+        {"role": "system", "content": "\n\n".join(render_rules(PROMPT_SECTIONS, turn))},
+        *history_messages(window, math_followup=followup == "math"),
     ]
-    prior_messages = [
-        (message.role, message.content)
-        for message in followup_exchange
-        if message.role in {"user", "assistant"} and isinstance(message.content, str)
-    ]
-    compact_format = bool(query_text and is_bare_writing_line(query_text))
-    if query_text and is_short_confirmation(query_text) and not lightweight:
-        compact_format = True
-    if lesson:
-        # "ok" / "next" after a lesson asks for the next lesson, not a casual reply.
-        compact_format = False
-    if lightweight:
-        system_parts.append(LIGHTWEIGHT_REPLY_HINT)
-        system_parts.append(SHORT_RESPONSE_FORMAT_HINT)
-        # Lightweight/chit-chat turns skipped the math guardrails entirely,
-        # so incidental `$...$` rendered as raw ```latex. A two-line fence
-        # safety hint is enough — not the full math pack.
-        system_parts.append(MATH_FENCE_SAFETY_HINT)
-    else:
-        system_parts.extend(
-            _style_format_hints(
-                query_text=query_text,
-                style=style,
-                is_day_plan=is_day_plan,
-                minimal_personal_context=minimal_personal_context,
-                compact=compact_format,
-                image_generation_enabled=settings.image_generation_enabled,
-                image_search_enabled=settings.image_search_enabled,
-                lesson=lesson,
-                prior_messages=prior_messages,
-            )
-        )
-    system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
-    system_parts.append(TONE_FORMAT_GUARD)
-    custom_block = _custom_instructions_block(user)
-    if custom_block:
-        system_parts.append(custom_block)
-    locale_hint = locale_service.locale_system_hint(user.locale)
-    if locale_hint:
-        system_parts.append(locale_hint)
-    # M8: inject the rolling summary even on the slim path. A slim long thread
-    # (lightweight / not rich_context) still drops everything older than the
-    # recent window from the prompt — without the summary the model loses all
-    # context from earlier in the conversation. The summary is already
-    # computed and is just a string, so including it is free.
-    if summary:
-        system_parts.append(
-            wrap_untrusted("conversation summary", f"Summary of earlier conversation:\n{summary}")
-        )
-    if not slim_context:
-        system_parts.extend(
-            _integration_hints(
-                settings=settings,
-                query_text=query_text,
-                local_tz=local_tz,
-                user_locale=user.locale,
-                location_for_context=location_for_context,
-                prompt_location=prompt_location,
-                memory_block=blocks.memory_block,
-                attachment_rag_block=blocks.attachment_rag_block,
-                todos_section=blocks.todos_section,
-                summary=summary,
-                chat_history_rag_block=chat_history_rag_block,
-            )
-        )
-    else:
-        # "Coffee near me" is a slim turn, yet it needs the place and the places layout.
-        system_parts.extend(slim_geo_hints(settings, query_text, prompt_location))
-        if load_memory or recalls_shared_past:
-            if blocks.memory_block:
-                system_parts.append(wrap_untrusted("memory", blocks.memory_block, first_party=True))
-            if chat_history_rag_block:
-                system_parts.append(chat_history_rag_block)
-            if advice_memory and not (query_text and is_capabilities_question(query_text)):
-                if query_text and (
-                    is_profile_fact_question(query_text) or is_profile_recall_pushback(query_text)
-                ):
-                    system_parts.append(PROFILE_FACT_HINT)
-                elif query_text and is_teaching_request(query_text):
-                    system_parts.append(EXAMPLE_PERSONALIZE_HINT)
-                elif query_text and is_career_personal_question(query_text):
-                    system_parts.append(CAREER_PERSONALIZE_HINT)
-                else:
-                    system_parts.append(ADVICE_PERSONALIZE_HINT)
-
-    if math_followup:
-        system_parts.extend([MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT])
-    elif chemistry_followup:
-        system_parts.append(CHEMISTRY_FOLLOWUP_HINT)
-    elif physics_followup:
-        system_parts.append(PHYSICS_FOLLOWUP_HINT)
-
-    # Keep the acknowledgement contract closest to the user turn. Memory and
-    # integration context is appended after the style pack and can otherwise
-    # tempt the model into an unsolicited plan even though no task was asked.
-    if (
-        query_text
-        and is_personal_disclosure_turn(query_text)
-        and not is_standing_preference(query_text)
-    ):
-        system_parts.append(PERSONAL_DISCLOSURE_HINT)
-
-    messages: list[dict[str, str]] = [{"role": "system", "content": "\n\n".join(system_parts)}]
-    gap_ids = {m.id for m in gap}
-    for msg in (*gap, *recent):
-        content = msg.content
-        if msg.id in gap_ids:
-            content = trim_message_for_summary(content)
-        if msg.role == "user":
-            content = wrap_persisted_attachment_excerpts(content)
-        elif msg.role == "assistant":
-            prior_result = (
-                readable_standalone_answer(content)
-                if math_followup and msg is followup_exchange[-1]
-                else None
-            )
-            content = prior_result or todos_service.reminder_cards_as_text(
-                _strip_prompt_owned_fences(content)
-            )
-        messages.append({"role": msg.role, "content": content})
-    # Repeat only the machine-checkable turn contract immediately before the
-    # current user message. Smaller low-latency models follow nearby system
-    # constraints more reliably than a clause inside the large base prompt.
-    nearby_contracts: list[str] = []
-    if query_text and is_learning_plan_request(query_text):
-        daily_contract = learning_plan_daily_contract(query_text)
-        if daily_contract:
-            nearby_contracts.append(daily_contract)
-    if query_text and is_teaching_request(query_text):
-        code_contract = programming_lesson_contract(query_text)
-        if code_contract:
-            nearby_contracts.append(code_contract)
-    # Pasted code to explain or fix: the `$...$` math rule must not reach its values.
-    if not lightweight and code_question_layout(query_text):
-        nearby_contracts.append(CODE_INK_REMINDER)
-    if nearby_contracts:
-        messages = inject_before_last_user(messages, "\n\n".join(nearby_contracts))
+    nearby = render_rules(NEARBY_CONTRACTS, turn)
+    if nearby:
+        messages = inject_before_last_user(messages, "\n\n".join(nearby))
     return messages

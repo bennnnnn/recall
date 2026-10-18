@@ -23,6 +23,7 @@ from functools import lru_cache
 from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.intent import MAX_DECIMALS, MAX_WRITTEN
+from app.services.units import CELSIUS_OFFSET_K
 
 MIN_FIGURES = 2
 MAX_FIGURES = 4
@@ -46,7 +47,6 @@ ADDITIVE_OPS = frozenset(
     {"bond_enthalpy", "cell_potential", "dalton", "formation_enthalpy", "hess"}
 )
 
-_CELSIUS_OFFSET = 273.15
 # Units an extractor converts between. A converted value keeps its typed literal's figures.
 _CONVERTIBLE = (
     ("atm", "pascal", "kilopascal", "bar", "mmHg", "torr"),
@@ -60,7 +60,7 @@ _CONVERTIBLE = (
 # A number as the extracted text writes it ("1.10", "0.0050", "1.8e-5"); a digit inside a
 # formula ("H2O") follows a letter and is not one. A full stop may end the sentence after it
 # ("Ka = 1.8e-5."); only a decimal point followed by a digit continues it.
-_LITERAL = re.compile(r"(?<![\w.])-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?(?!\d|\.\d)")
+_LITERAL = re.compile(r"(?<![\w.])-?(?:\b\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?(?!\d|\.\d)")
 
 
 def figures_of(literal: str) -> int:
@@ -133,7 +133,7 @@ def _reading(value: float, forms: dict[float, list[str]]) -> tuple[list[str], st
     for number, written in forms.items():
         if not written or number == 0:
             continue
-        if math.isclose(value, number + _CELSIUS_OFFSET, rel_tol=0, abs_tol=1e-9):
+        if math.isclose(value, number + CELSIUS_OFFSET_K, rel_tol=0, abs_tol=1e-9):
             sources.append((written, "celsius"))
         elif any(math.isclose(value, number * factor, rel_tol=1e-9) for factor in _unit_factors()):
             sources.append((written, "scaled"))
@@ -179,7 +179,7 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
                 log_places.append(typed_places)
             elif how == "celsius" or key in CELSIUS_KEYS:
                 # 25 °C is 298 K: adding 273.15 keeps the decimal places, not the figures.
-                kelvin = value if how == "celsius" else value + _CELSIUS_OFFSET
+                kelvin = value if how == "celsius" else value + CELSIUS_OFFSET_K
                 figures.append(figures_of(f"{kelvin:.{decimals_of(typed)}f}"))
             else:
                 figures.append(figures_of(typed))

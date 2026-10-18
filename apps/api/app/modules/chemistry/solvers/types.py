@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
 
 from app.modules.chemistry.schemas.scene import ChemistryScene
+from app.services.school_rounding import round_figures
 
 # A textbook answer carries as many figures as its least precise input, and the inputs a
 # student types have two to four. Four is enough to check a hand calculation without printing
@@ -17,27 +17,6 @@ SIGNIFICANT_FIGURES = 4
 INPUT_FIGURES = 6
 # Physical constants are echoed with one more figure than an answer so they never limit it.
 CONSTANT_FIGURES = 5
-
-
-def round_half_up(value: float, places: int) -> Decimal:
-    """``value`` to ``places`` decimals the way a class rounds: a 5 rounds away from zero.
-
-    The value is read as the shortest decimal that names it (62.5, 2.675), so a tie a student
-    sees is a tie: 62.5 mL to two figures is 63 mL, not the 62 that round-half-even gives.
-    """
-    return Decimal(repr(value)).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
-
-
-def _round_significant(value: float, digits: int) -> tuple[Decimal, int]:
-    """``value`` rounded half up to ``digits`` significant digits as ``(mantissa, exponent)``."""
-    exact = Decimal(repr(value))
-    exponent = exact.adjusted()
-    rounded = round_half_up(value, digits - 1 - exponent)
-    if rounded.adjusted() != exponent:
-        # 9.995 to three figures is 10.0: the rounding carried into a new leading digit.
-        exponent = rounded.adjusted()
-        rounded = rounded.quantize(Decimal(1).scaleb(exponent - digits + 1))
-    return rounded.scaleb(-exponent), exponent
 
 
 def _trim(text: str) -> str:
@@ -58,7 +37,7 @@ def format_number(
         return "0"
     if not math.isfinite(value):
         return str(value)
-    mantissa, exponent = _round_significant(value, significant)
+    mantissa, exponent = round_figures(value, significant)
     # Once the answer's figures come from the data, a whole number whose digits rounding
     # replaced with zeros is written in powers of ten: 1780 to two figures is 1.8 × 10^3,
     # since 1800 would read as measured. Zeros that are the number's own digits stay plain:

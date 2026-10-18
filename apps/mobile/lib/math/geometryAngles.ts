@@ -107,7 +107,7 @@ export function isRightAngleDeg(deg: number, tolerance = 0.6): boolean {
  * Interior angle at vertex B of triangle ABC (SVG y-down). The shorter arc
  * is the interior for convex polygons.
  */
-export function vertexAngleMark(
+function vertexAngleMark(
   ax: number,
   ay: number,
   bx: number,

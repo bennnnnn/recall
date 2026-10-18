@@ -21,7 +21,7 @@ def should_classify_tool_web_search(
     """
     if not settings.web_search_enabled or has_search_sources:
         return False
-    from app.services.tool_loop import turn_needs_tool_loop
+    from app.modules.chat.tool_loop import turn_needs_tool_loop
 
     flags = {
         "lightweight": lightweight,

@@ -231,6 +231,20 @@ _DATE_ARITHMETIC = re.compile(
 _TELLS = re.compile(
     r"(?:ugh|omg|lol|haha|so|well|just|i|i'm|im|i've|my|we|we're|today\s+i)\b", re.IGNORECASE
 )
+# "The boiling point of my patience is low today", "the battery in my head is
+# flat today": the sentence says how something of the user's is, however it
+# opens. "The exchange rate in my country today" says nothing; it asks.
+_ABOUT_THE_USER = re.compile(
+    r"(?:the|a|an|this|that|these|those)\s+(?:[\w'-]+\s+){0,4}?(?:of|in|on|inside)\s+"
+    r"(?:my|our)\s+(?:[\w'-]+\s+){1,2}?"
+    r"(?:is|are|was|were|has|have|had|feels?|seems?|hit|went|got|keeps?)\b",
+    re.IGNORECASE,
+)
+
+
+def _tells_about_the_user(text: str) -> bool:
+    """A statement about something of the user's: its "today" is not news."""
+    return "?" not in text and _ABOUT_THE_USER.match(text) is not None
 
 
 def needs_web_search_heuristic(
@@ -254,7 +268,8 @@ def needs_web_search_heuristic(
     if has_recency(cleaned) and "?" in cleaned:
         return True
     # "ugh forgot my umbrella today and its pouring" tells; it asks nothing.
-    if has_recency(cleaned) and len(cleaned.split()) >= 6 and not _TELLS.match(cleaned):
+    tells = _TELLS.match(cleaned) or _tells_about_the_user(cleaned)
+    if has_recency(cleaned) and len(cleaned.split()) >= 6 and not tells:
         return True
     return False
 
@@ -317,7 +332,8 @@ async def should_web_search(
     if web_search_fast_yes(text, prior_user_messages=prior_user_messages):
         return True
     cleaned = collapse_ws(text)
-    if not (_live_lookup_cue(cleaned) or _continues_searchable_topic(cleaned, prior_user_messages)):
+    live = _live_lookup_cue(cleaned) and not _tells_about_the_user(cleaned)
+    if not (live or _continues_searchable_topic(cleaned, prior_user_messages)):
         return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
     classification = await classify_web_search(
         text,

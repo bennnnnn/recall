@@ -61,6 +61,16 @@ class UserOut(BaseModel):
             return "dev"
         return "dev"
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def features(self) -> list[str]:
+        """What this plan includes, so the app can show locks. The server still
+        checks every request; this is display only."""
+        from app.core.config import get_settings
+        from app.modules.billing.entitlements import features_for
+
+        return list(features_for(self.plan, get_settings()))
+
 
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
@@ -185,6 +195,8 @@ class GoogleAuthRequest(DeviceSessionIn):
 class AppleAuthRequest(DeviceSessionIn):
     id_token: str
     name: str | None = None
+    # The raw nonce; the app gave Apple its SHA-256, which the token carries.
+    nonce: str | None = Field(default=None, max_length=256)
 
 
 class DevAuthRequest(DeviceSessionIn):

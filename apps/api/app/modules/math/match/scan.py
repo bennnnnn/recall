@@ -1,25 +1,30 @@
-"""Number / dimension scans (CodeQL-safe, mostly linear)."""
+"""Maths text scans: the prepare pass, number folding, command words and equation gates.
+
+CodeQL-safe, mostly linear. Letter runs are read in ``letter_runs.py`` and geometry
+dimensions in ``dimensions.py``.
+"""
 
 from __future__ import annotations
 
 import re
 
-from app.modules.math.function_names import MATH_FUNCTION_NAMES
+from app.modules.math.match.letter_runs import (
+    _GLUEABLE_VIZ,
+    _text_has_command,
+    has_unknown_english_run,
+    looks_like_math_expr,
+)
+from app.services.number_text import fold_scientific
 from app.services.symbolic_text import (
     collapse_repeated_si_unit_powers as _collapse_repeated_si_unit_powers,
 )
 from app.services.symbolic_text import (
-    fold_numeric_superscripts,
     normalize_symbolic_request,
     strip_inline_math_delimiters,
 )
 from app.services.text_match import has_equation, word_index
-from app.services.text_normalize import collapse_ws
 
 _MAX = 1000
-# Keep a leading decimal point (and its sign) in the numeric token. Skipping
-# it used to turn a sector/circle radius of .5 into a verified radius of 5.
-_NUM = re.compile(r"-?(?:\d+(?:\.\d+)?|\.\d+)")
 # Math keyboard / Unicode units: m/s² and m/s^{2} must match m/s^2.
 _BARE_COORD = re.compile(r"^\((?P<x>-?\d+(?:\.\d+)?),(?P<y>-?\d+(?:\.\d+)?)\)$")
 _CALC_OP = re.compile(
@@ -40,190 +45,6 @@ CALC_OP_SPELLINGS = {
     "intergrate": "integrate",
     "intergral": "integral",
 }
-_DIM_SEPS = ("\u00d7", "by", "x", "*")
-_DIM_UNITS = ("units", "unit", "cm", "mm", "ft", "in", "m")
-
-_GEOMETRY_DIM_WORDS = (
-    "rectangle",
-    "triangle",
-    "square",
-    "circle",
-    "trapezoid",
-    "trapezium",
-    "parallelogram",
-    "diagonal",
-    "sector",
-    "prism",
-    "cuboid",
-)
-
-# Multi-letter tokens SymPy already treats as one name. Any other 3+ letter
-# run is English or a command — never g*r*a*p*h, and never ``squared``/``plus``
-# slipping into letter-products.
-MATH_MULTI_LETTER = MATH_FUNCTION_NAMES | frozenset(
-    {
-        "min",
-        "max",
-        "pi",
-        "oo",
-        "inf",
-        "infinity",
-        "nan",
-        "det",
-        "gcd",
-        "lcm",
-        "mod",
-        "theta",
-    }
-)
-VIZ_COMMANDS = frozenset(
-    {
-        "graph",
-        "plot",
-        "draw",
-        "show",
-        "sketch",
-        "visualize",
-        "visualise",
-        "vertical",
-    }
-)
-# Only these may glue onto a following 1-letter variable (``graphx=4``).
-# ``show``/``draw`` are too common as English prefixes (``shown``, ``drawn``).
-_GLUEABLE_VIZ = frozenset({"graph", "plot"})
-
-
-def _alpha_run_end(s: str, start: int) -> int:
-    j = start
-    n = len(s)
-    while j < n and s[j].isalpha():
-        j += 1
-    return j
-
-
-def _looks_like_math_core(s: str) -> bool:
-    if not s:
-        return False
-    if any(ch.isdigit() for ch in s):
-        return True
-    if any(ch in "+-*/^()" for ch in s):
-        return True
-    letters = [ch for ch in s if ch.isalpha()]
-    return len(letters) == 1
-
-
-def peel_edge_english(side: str) -> str:
-    """Trim unknown 3+ letter runs glued to an equation side.
-
-    ``X=6graph`` → RHS ``6``. ``velocity=12`` stays (the whole side is the
-    name). ``E=mc^2`` is untouched (2-letter ``mc`` is implicit product).
-    """
-    s = side.strip()
-    i = len(s)
-    while i > 0 and s[i - 1].isalpha():
-        i -= 1
-    run = s[i:]
-    rest = s[:i].rstrip()
-    if len(run) >= 3 and run.lower() not in MATH_MULTI_LETTER and _looks_like_math_core(rest):
-        s = rest
-    j = 0
-    while j < len(s) and s[j].isalpha():
-        j += 1
-    run = s[:j]
-    rest = s[j:].lstrip()
-    if len(run) >= 3 and run.lower() not in MATH_MULTI_LETTER and _looks_like_math_core(rest):
-        s = rest
-    return s
-
-
-def _alpha_run_is_viz(run: str, *, commands: frozenset[str], glueable: frozenset[str]) -> bool:
-    low = run.lower()
-    if low in commands:
-        return True
-    for cmd in glueable:
-        if len(low) > len(cmd) and low.startswith(cmd) and _looks_like_math_core(low[len(cmd) :]):
-            return True
-    return False
-
-
-def _text_has_command(
-    text: str,
-    commands: frozenset[str],
-    glueable: frozenset[str] | None = None,
-) -> bool:
-    glue = glueable or frozenset()
-    lower = text.lower()
-    start = 0
-    n = len(lower)
-    while start < n:
-        if lower[start].isalpha():
-            end = _alpha_run_end(lower, start)
-            if _alpha_run_is_viz(lower[start:end], commands=commands, glueable=glue):
-                return True
-            start = end
-        else:
-            start += 1
-    return False
-
-
-def has_viz_command(text: str) -> bool:
-    """True when the user asked to graph/plot/draw — whole word or glued.
-
-    Substring ``graph`` must not match ``paragraph``. Glued ``X=6graph``
-    still counts: ``graph`` is its own letter-run, not five variables.
-    ``graphx=4`` counts because ``graph`` is a prefix of the run and ``x``
-    is a 1-letter variable.
-    """
-    lower = text.lower()
-    if "visuali" in lower:
-        return True
-    return _text_has_command(text, VIZ_COMMANDS, _GLUEABLE_VIZ)
-
-
-def mask_unknown_letter_runs(text: str) -> str:
-    """Replace unknown 3+ letter runs with spaces so they are not split into
-    per-letter variables (``6graph`` must not guess g,r,a,p,h)."""
-    out: list[str] = []
-    i = 0
-    n = len(text)
-    while i < n:
-        if text[i].isalpha():
-            j = _alpha_run_end(text, i)
-            run = text[i:j]
-            if len(run) >= 3 and run.lower() not in MATH_MULTI_LETTER:
-                out.append(" ")
-            else:
-                out.append(run)
-            i = j
-        else:
-            out.append(text[i])
-            i += 1
-    return "".join(out)
-
-
-def has_unknown_english_run(text: str) -> bool:
-    """True when an alpha-run of length >= 3 is not a known math token."""
-    i = 0
-    n = len(text)
-    while i < n:
-        if text[i].isalpha():
-            j = _alpha_run_end(text, i)
-            if (j - i) >= 3 and text[i:j].lower() not in MATH_MULTI_LETTER:
-                return True
-            i = j
-        else:
-            i += 1
-    return False
-
-
-def looks_like_math_expr(text: str) -> bool:
-    """Candidate is an expression, not leftover English with a digit in it."""
-    stripped = text.strip()
-    if not stripped:
-        return False
-    if has_unknown_english_run(stripped):
-        return False
-    return any(ch.isalnum() or ch in "+-*/^=()." for ch in stripped)
 
 
 def _leibniz_op_end(text: str, start: int) -> int | None:
@@ -273,63 +94,6 @@ def ddx_expr_after(text: str) -> str | None:
     return text[end:]
 
 
-def split_glued_viz_runs(text: str) -> str:
-    """``graphx=4`` → ``graph x=4`` so ``x`` is a standalone variable."""
-    out: list[str] = []
-    i = 0
-    n = len(text)
-    while i < n:
-        if text[i].isalpha():
-            end = _alpha_run_end(text, i)
-            run = text[i:end]
-            low = run.lower()
-            split_at: int | None = None
-            for cmd in _GLUEABLE_VIZ:
-                if (
-                    len(low) > len(cmd)
-                    and low.startswith(cmd)
-                    and _looks_like_math_core(low[len(cmd) :])
-                ):
-                    split_at = len(cmd)
-                    break
-            if split_at is not None:
-                out.append(run[:split_at])
-                out.append(" ")
-                out.append(run[split_at:])
-            else:
-                out.append(run)
-            i = end
-        else:
-            out.append(text[i])
-            i += 1
-    return "".join(out)
-
-
-def _parse_unsigned_number(s: str, start: int = 0) -> tuple[float, int] | None:
-    """Parse ``digits`` or ``digits.digits`` / ``digits,digits`` at ``start``.
-
-    A comma with no space before the fraction (``3,5``) is a decimal, not a
-    thousands/list split.
-    """
-    n = len(s)
-    i = start
-    if i >= n or not s[i].isdigit():
-        return None
-    while i < n and s[i].isdigit():
-        i += 1
-    if i < n and s[i] in ".,":
-        j = i + 1
-        if j < n and s[j].isdigit():
-            while j < n and s[j].isdigit():
-                j += 1
-            i = j
-        # else: "5." at end of a sentence — keep the integer, ignore the period.
-    try:
-        return float(s[start:i].replace(",", ".")), i
-    except ValueError:
-        return None
-
-
 def strip_inline_math_delims(text: str) -> str:
     """Composer/math keyboard wraps numbers in ``$...$`` / ``\\(...\\)``.
 
@@ -338,15 +102,6 @@ def strip_inline_math_delims(text: str) -> str:
     in words and never attached the plot.
     """
     return strip_inline_math_delimiters(text)
-
-
-def fold_match_superscripts(s: str) -> str:
-    """Turn ``m/s²`` / ``m/s^{2}`` into ``m/s^2`` so unit scanners can bind.
-
-    Linear scan — math-keyboard superscripts used to miss F=ma extract, then
-    the reply still said *Couldn't verify this with SymPy.*
-    """
-    return fold_numeric_superscripts(s)
 
 
 def collapse_repeated_si_unit_powers(s: str) -> str:
@@ -359,10 +114,12 @@ def collapse_repeated_si_unit_powers(s: str) -> str:
 
 
 def prepare(text: str) -> str | None:
-    cleaned = normalize_symbolic_request(text)
+    # ``1.8 x 10^-5`` is the product it means, never an unknown x, and folding
+    # it before superscripts become carets reads ``1.8·10⁻⁵`` too.
+    cleaned = normalize_symbolic_request(fold_scientific(text, style="product"))
     if cleaned is None:
         return None
-    return fold_scientific_notation(fold_digit_groups(fix_leading_solve_typo(cleaned)))
+    return fold_digit_groups(fix_leading_solve_typo(cleaned))
 
 
 # "slove 4x - 8 = 12": the command a student meant, as the first word only.
@@ -375,7 +132,7 @@ def fix_leading_solve_typo(text: str) -> str:
 
 
 # Clauses of a typed system: "x+y=5, x-y=1", "3x+2y=12 and x-y=1".
-_SYSTEM_CLAUSE_SPLIT = re.compile(r"\s*(?:[,;]|\band\b)\s*", re.IGNORECASE)
+_SYSTEM_CLAUSE_SPLIT = re.compile(r"(?:[,;]|\band\b)\s*", re.IGNORECASE)
 # An equation with a term in it, not only "x = 1".
 _EQUATION_TERM = re.compile(r"[+\-*/^]|\d\s*[a-zA-Z]")
 _MAX_BARE_SYSTEM = 4
@@ -437,46 +194,6 @@ def fold_digit_groups(text: str) -> str:
         return lead + groups.replace(",", "")
 
     return _DIGIT_GROUPS.sub(fold, text)
-
-
-# ``1.8 x 10^-5``: the x is "times", never an unknown.
-_SCIENTIFIC = re.compile(
-    r"(?<![\w.])(\d+(?:\.\d+)?)\s*[xX]\s*10\s*\^\s*"
-    r"(?:\{\s*([+\-\u2212]?\d+)\s*\}|\(\s*([+\-\u2212]?\d+)\s*\)|([+\-\u2212]?\d+))"
-    r"(?![\d.])"
-)
-
-
-def fold_scientific_notation(text: str) -> str:
-    """Write ``1.8 x 10^-5`` as ``1.8*10^(-5)``, the product it means."""
-    if "10" not in text or "^" not in text:
-        return text
-
-    def fold(match: re.Match[str]) -> str:
-        power = next(group for group in match.groups()[1:] if group is not None)
-        power = power.replace("\u2212", "-").lstrip("+")
-        exponent = f"({power})" if power.startswith("-") else power
-        return f"{match.group(1)}*10^{exponent}"
-
-    return _SCIENTIFIC.sub(fold, text)
-
-
-def geometry_dim_context(lower: str) -> bool:
-    """Shape / diagonal words that geometry extractors actually require.
-
-    ``first_dim_pair`` alone matches ``8*2`` inside ``8-8*2``. The gate must
-    not treat that as verified geometry.
-    """
-    padded = f" {lower} "
-    if " rect " in padded:
-        return True
-    return any(word_index(lower, cue) != -1 for cue in _GEOMETRY_DIM_WORDS)
-
-
-def has_draw_shape(lower: str, shape: str) -> bool:
-    if shape not in lower:
-        return False
-    return any(v in lower for v in ("draw ", "show ", "sketch ", "visualize ", "visualise "))
 
 
 # Whole words only. ``solve`` inside ``resolved`` and ``factor`` inside
@@ -564,37 +281,6 @@ def has_math_keyword(lower: str) -> bool:
 # letter (every letter sits inside a multi-letter word), so prose with an '='
 # is not pulled into SymPy.
 _STANDALONE_VAR_RE = re.compile(r"(?<![a-zA-Z])[a-zA-Z](?![a-zA-Z])")
-_EQ_SIDE_LEADINS = (
-    "let ",
-    "set ",
-    "given ",
-    "if ",
-    "when ",
-    "where ",
-    "and ",
-    "so ",
-    "then ",
-)
-
-
-def _math_equation_side(side: str) -> bool:
-    """True when one side of ``=`` is an expression, not leftover English."""
-    s = collapse_ws(side)
-    if not s:
-        return False
-    prev = None
-    while prev != s:
-        prev = s
-        lower = s.lower()
-        for prefix in _EQ_SIDE_LEADINS:
-            if lower.startswith(prefix):
-                s = s[len(prefix) :].strip()
-                break
-        else:
-            break
-    return looks_like_math_expr(s)
-
-
 _ATTACHMENT_MARKER_HEADS = ("[File:", "[Image:", "[File attached:", "[File (")
 
 
@@ -659,128 +345,3 @@ def inequality_signal(cleaned: str) -> bool:
         if any(c.isalpha() for c in window) and any(c.isdigit() for c in window):
             return True
     return False
-
-
-def first_dim_pair(text: str) -> tuple[float, float, str] | None:
-    # Collapse "8 x 5 cm" → "8x5cm" so separators are adjacent (no space pumps).
-    compact = (
-        text.replace(" \u00d7 ", "\u00d7")
-        .replace(" x ", "x")
-        .replace(" * ", "*")
-        .replace(" by ", "by")
-        .replace(" ", "")
-    )
-    lower = compact.lower()
-    n = len(compact)
-    i = 0
-    while i < n:
-        a_hit = _parse_unsigned_number(compact, i)
-        if a_hit is None:
-            i += 1
-            continue
-        a, j = a_hit
-        sep_len = 0
-        for sep in _DIM_SEPS:
-            if lower.startswith(sep, j):
-                sep_len = len(sep)
-                break
-        if not sep_len:
-            i += 1
-            continue
-        b_hit = _parse_unsigned_number(compact, j + sep_len)
-        if b_hit is None:
-            i += 1
-            continue
-        b, k = b_hit
-        unit = "cm"
-        for cand in _DIM_UNITS:
-            if lower.startswith(cand, k):
-                unit = "units" if cand.startswith("unit") else cand
-                break
-        return a, b, unit
-    return None
-
-
-def first_dim_triple(text: str) -> tuple[float, float, float, str] | None:
-    """Parse ``3 by 4 by 5 cm`` / ``3x4x5`` — a 2-value pair is not enough."""
-    compact = (
-        text.replace(" \u00d7 ", "\u00d7")
-        .replace(" x ", "x")
-        .replace(" * ", "*")
-        .replace(" by ", "by")
-        .replace(" ", "")
-    )
-    lower = compact.lower()
-    n = len(compact)
-    i = 0
-    while i < n:
-        a_hit = _parse_unsigned_number(compact, i)
-        if a_hit is None:
-            i += 1
-            continue
-        a, j = a_hit
-        sep1 = 0
-        for sep in _DIM_SEPS:
-            if lower.startswith(sep, j):
-                sep1 = len(sep)
-                break
-        if not sep1:
-            i += 1
-            continue
-        b_hit = _parse_unsigned_number(compact, j + sep1)
-        if b_hit is None:
-            i += 1
-            continue
-        b, k = b_hit
-        sep2 = 0
-        for sep in _DIM_SEPS:
-            if lower.startswith(sep, k):
-                sep2 = len(sep)
-                break
-        if not sep2:
-            i += 1
-            continue
-        c_hit = _parse_unsigned_number(compact, k + sep2)
-        if c_hit is None:
-            i += 1
-            continue
-        c, m = c_hit
-        unit = "cm"
-        for cand in _DIM_UNITS:
-            if lower.startswith(cand, m):
-                unit = "units" if cand.startswith("unit") else cand
-                break
-        return a, b, c, unit
-    return None
-
-
-def number_after(text: str, label: str) -> float | None:
-    lower = text.lower()
-    idx = lower.find(label)
-    if idx == -1:
-        return None
-    m = _NUM.search(text, idx + len(label))
-    return float(m.group(0)) if m else None
-
-
-def two_numbers_after(text: str, label: str) -> tuple[float, float] | None:
-    """``legs 3 and 4`` / ``legs 3, 4`` → (3, 4). Linear ``find`` + digit scan."""
-    lower = text.lower()
-    idx = lower.find(label)
-    if idx == -1:
-        return None
-    found: list[float] = []
-    pos = idx + len(label)
-    while True:
-        m = _NUM.search(text, pos)
-        if m is None:
-            break
-        try:
-            found.append(float(m.group(0)))
-        except ValueError:
-            pos = m.end()
-            continue
-        if len(found) >= 2:
-            return found[0], found[1]
-        pos = m.end()
-    return None

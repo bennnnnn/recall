@@ -605,7 +605,7 @@ def test_formation_enthalpy_of_hydrogen_chloride_uses_the_molecular_elements() -
 
 
 def test_water_vapor_pressure_is_accurate_between_table_points() -> None:
-    from app.modules.chemistry.solvers.common_chem import water_vapor_mmhg
+    from app.modules.chemistry.solvers.constants import water_vapor_mmhg
 
     assert water_vapor_mmhg(25) == pytest.approx(23.76)
     assert water_vapor_mmhg(22) == pytest.approx(19.83, abs=0.03)

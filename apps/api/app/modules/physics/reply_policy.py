@@ -42,3 +42,8 @@ PHYSICS_REPLY_POLICY = (
     "solution unless the user asked for it. State the result once, on the "
     "Answer line, and never end on the heading."
 )
+
+
+def physics_prompt_hints(short: bool) -> tuple[str, ...]:
+    """The physics pack: the short one in Short style or on a compact turn."""
+    return (PHYSICS_SHORT_HINT,) if short else (PHYSICS_INTENT_HINT,)

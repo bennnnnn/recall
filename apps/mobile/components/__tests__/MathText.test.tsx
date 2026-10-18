@@ -2,7 +2,8 @@ import { Dimensions, StyleSheet } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 
 import { MathText } from "@/components/rich/MathText";
-import { findLayouts, FRAC_SIZE_RATIO, layoutMath, layoutProblems, SCRIPT_RATIO } from "@/lib/math/layout";
+import { FRAC_SIZE_RATIO, layoutMath, SCRIPT_RATIO } from "@/lib/math/layout";
+import { findLayouts, layoutProblems } from "@/lib/math/layoutChecks";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex } from "@/lib/math/text";
 import { lightTheme } from "@/lib/theme";

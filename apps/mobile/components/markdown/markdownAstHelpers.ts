@@ -24,15 +24,6 @@ export function immediateAncestorType(parent: unknown): string | undefined {
   return typeof first?.type === "string" ? first.type : undefined;
 }
 
-export function ancestorTypeCount(parent: unknown, type: string): number {
-  if (!Array.isArray(parent)) return 0;
-  let n = 0;
-  for (const node of parent) {
-    if (node && (node as { type?: string }).type === type) n += 1;
-  }
-  return n;
-}
-
 /** Numbers carry order/rank semantics; nested unordered items stay bullets. */
 export function shouldNumberListItem(parent: unknown): boolean {
   return immediateAncestorType(parent) === "ordered_list";
@@ -194,6 +185,24 @@ export function inPlainBlockquote(parent: unknown): boolean {
   if (!Array.isArray(parent)) return false;
   const quote = parent.find((node) => (node as AstNode | undefined)?.type === "blockquote");
   return quote ? blockquoteCitation(quote as AstNode) === null : false;
+}
+
+export function unwrapSingle(node: AstNode): AstNode {
+  let current = node;
+  while ((current.children?.length ?? 0) === 1) {
+    const only = current.children?.[0];
+    if (!only || only.type === "text" || only.type === "strong") break;
+    current = only;
+  }
+  return current;
+}
+
+/** The bold heading that opens a paragraph, if the paragraph starts with one. */
+export function openingStrong(node: AstNode | undefined): AstNode | null {
+  if (!node) return null;
+  if (node.type === "strong") return node;
+  const kids = node.children ?? [];
+  return node.type === "textgroup" && kids.length === 1 ? openingStrong(kids[0]) : null;
 }
 
 /** Like `astText`, but soft/hard breaks and block siblings become newlines. */

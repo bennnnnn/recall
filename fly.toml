@@ -72,7 +72,9 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
   path = "/health/ready"
 
 [[vm]]
-  memory = "512mb"
+  # The API warms SYMPY_MAX_WORKERS (3) SymPy worker processes at boot: about
+  # 270-400 MB for the API plus 90-150 MB per worker (docs/PRODUCTION.md).
+  memory = "1gb"
   cpu_kind = "shared"
   cpus = 1
   processes = ["app"]

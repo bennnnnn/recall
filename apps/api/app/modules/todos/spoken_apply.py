@@ -48,12 +48,12 @@ async def apply_spoken_change(
     about a reminder, so a missing one gets the "Could not" line, not the claim.
     """
     from app.modules import home as home_service
-    from app.modules.todos.reminder_fences import (
-        _load_existing,
-        _mutate_one,
-        _ReminderFence,
-        _ReminderFenceCreateState,
+    from app.modules.todos.reminder_fence_parse import ReminderFence
+    from app.modules.todos.reminder_writes import (
+        ReminderWrites,
         format_schedule_result,
+        load_existing,
+        mutate_one,
     )
     from app.modules.todos.spoken_add import (
         _NEED_A_TIME,
@@ -62,7 +62,7 @@ async def apply_spoken_change(
         edits_prior_reply,
     )
 
-    state = _ReminderFenceCreateState(
+    state = ReminderWrites(
         session=session,
         user_id=user_id,
         chat_id=chat_id,
@@ -70,7 +70,7 @@ async def apply_spoken_change(
     )
     explicit = names_reminders(user_text)
     prior_about = about_saved_reminders(prior_assistant) or asks_about_my_reminders(prior_user)
-    await _load_existing(state)
+    await load_existing(state)
     named_in_message = spoken.use_latest and match_from_context(state.existing, spoken) is not None
     if (
         spoken.use_latest
@@ -131,9 +131,9 @@ async def apply_spoken_change(
         if ok:
             await home_service.invalidate_home_cache(user_id)
         return line, (1 if ok else 0)
-    draft = _ReminderFence(action=spoken.action, title=title, due_at=spoken.due_at)
+    draft = ReminderFence(action=spoken.action, title=title, due_at=spoken.due_at)
     draft.repeat = spoken.repeat
-    line, ok = await _mutate_one(state, draft)
+    line, ok = await mutate_one(state, draft)
     if ok:
         await home_service.invalidate_home_cache(user_id)
     return line, (1 if ok else 0)
@@ -148,7 +148,7 @@ async def _apply_saved_fields(
     user_timezone: str | None,
 ) -> tuple[str, bool]:
     from app.modules.todos import repository as todos_repo
-    from app.modules.todos.reminder_fences import format_schedule_result, format_schedule_when
+    from app.modules.todos.reminder_writes import format_schedule_result, format_schedule_when
 
     fields: dict[str, Any] = {}
     due = getattr(item, "due_at", None)
@@ -228,7 +228,7 @@ def _moved_due(
     item: Any, spoken: SpokenReminderChange, *, user_timezone: str | None
 ) -> datetime | None:
     """The saved clock on the named day, or the same day and clock a week on."""
-    from app.modules.todos.reminder_fences import _due_date_for_day
+    from app.modules.todos.spoken_when import date_for_day
     from app.services import time_context as time_context_service
 
     due = getattr(item, "due_at", None)
@@ -238,7 +238,7 @@ def _moved_due(
     local = (due if due.tzinfo else due.replace(tzinfo=UTC)).astimezone(tz)
     if spoken.shift_days:
         return local + timedelta(days=spoken.shift_days)
-    day = _due_date_for_day(spoken.day or "", datetime.now(tz))
+    day = date_for_day(spoken.day or "", datetime.now(tz))
     if day is None:
         return None
     return local.replace(year=day.year, month=day.month, day=day.day)
@@ -246,7 +246,7 @@ def _moved_due(
 
 def format_reminder_reading(items: Sequence[Any], user_timezone: str | None) -> str:
     """One line per saved reminder. Nothing in this text is invented."""
-    from app.modules.todos.reminder_fences import format_schedule_when
+    from app.modules.todos.reminder_writes import format_schedule_when
 
     rows = list(items)
     open_lines: list[tuple[datetime, str]] = []

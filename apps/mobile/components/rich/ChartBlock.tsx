@@ -17,7 +17,7 @@ import {
   CHART_HEIGHT_EPSILON_PX,
   CHART_MAX_EXPANDED,
   CHART_MAX_HEIGHT,
-  CHART_PREVIEW_HEIGHT,
+  CHART_MIN_HEIGHT,
   chartPreviewIsClipped,
   chartTogglePreviewHeight,
   nextChartPreviewHeight,
@@ -54,9 +54,9 @@ export function ChartBlock({ content }: Props) {
   const [showSource, setShowSource] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [viewWidth, setViewWidth] = useState(0);
-  const [previewHeight, setPreviewHeight] = useState(CHART_PREVIEW_HEIGHT);
+  const [previewHeight, setPreviewHeight] = useState(CHART_MIN_HEIGHT);
   const [reportedHeight, setReportedHeight] = useState(0);
-  const heightRef = useRef(CHART_PREVIEW_HEIGHT);
+  const heightRef = useRef(CHART_MIN_HEIGHT);
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
 

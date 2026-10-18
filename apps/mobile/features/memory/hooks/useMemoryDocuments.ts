@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, type Memory } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { useReadFailureReport } from "@/hooks/useReadFailureReport";
 import {
   fetchMemoryDocuments,
   getCachedMemoryDocuments,
@@ -12,7 +13,7 @@ import {
 import { invalidateMemoriesCache } from "@/features/memory/model/memoryListCache";
 import type { MemoryDocument, MemoryDocuments } from "@/features/memory/types";
 
-export type InstructOutcome = { ok: true; reply: string } | { ok: false };
+type InstructOutcome = { ok: true; reply: string } | { ok: false };
 
 function withoutFact(documents: MemoryDocument[], factId: string): MemoryDocument[] {
   return documents
@@ -72,6 +73,7 @@ export function useMemoryDocuments(token: string | null) {
   const [loaded, setLoaded] = useState(Boolean(data));
   const [error, setError] = useState(false);
   const mounted = useRef(true);
+  const reportFailure = useReadFailureReport();
 
   useEffect(() => {
     mounted.current = true;
@@ -84,11 +86,11 @@ export function useMemoryDocuments(token: string | null) {
   const load = useCallback(async () => {
     if (!token) return;
     setError(false);
-    const result = await fetchMemoryDocuments(token);
+    const result = await fetchMemoryDocuments(token, { report: reportFailure });
     if (!mounted.current) return;
     setLoaded(true);
-    if (result === null && !getCachedMemoryDocuments()) setError(true);
-  }, [token]);
+    if (result.error && !getCachedMemoryDocuments()) setError(true);
+  }, [token, reportFailure]);
 
   const instruct = useCallback(async (
     instruction: string,

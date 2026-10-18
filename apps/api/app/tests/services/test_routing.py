@@ -9,7 +9,6 @@ from app.modules.billing import plan as plan_service
 from app.services import model_catalog, routing
 from app.services.routing import (
     message_needs_thinking,
-    resolve_alias,
     resolve_alias_in_pool,
     route_chat_model,
 )
@@ -19,12 +18,12 @@ from app.services.routing import (
     "content,expected",
     [
         # Simple messages → the fast auto alias (Gemini Flash).
-        ("hi", "gemini-flash"),
-        ("hello world", "gemini-flash"),
-        ("what's for lunch", "gemini-flash"),
-        ("explain quantum computing", "gemini-flash"),
-        ("why is the sky blue", "gemini-flash"),
-        ("compare two options", "gemini-flash"),
+        ("hi", "qwen-3.7-flash"),
+        ("hello world", "qwen-3.7-flash"),
+        ("what's for lunch", "qwen-3.7-flash"),
+        ("explain quantum computing", "qwen-3.7-flash"),
+        ("why is the sky blue", "qwen-3.7-flash"),
+        ("compare two options", "qwen-3.7-flash"),
         # Smart triggers → smart-chat
         ("prove p = np", "smart-chat"),
         ("debug the memory leak", "smart-chat"),
@@ -38,23 +37,23 @@ from app.services.routing import (
         ("what is the complexity of this", "smart-chat"),
         # Tutoring has a strict format/state contract and uses the low-latency
         # teaching lane; live QA showed the reasoning tier added 10-20s TTFT.
-        ("Teach me python dictionaries", "gemini-flash"),
-        ("Teach me python dictionaries step by step", "gemini-flash"),
-        ("Help me learn SQL joins", "gemini-flash"),
-        ("Give me a 70-day Python mastery plan", "gemini-flash"),
-        ("70 days mastering python from beginner to senior level plan", "gemini-flash"),
-        ("Create a 70-day Python plan", "gemini-flash"),
-        ("70-day roadmap for Python", "gemini-flash"),
-        ("Give me a daily Python curriculum for 70 days", "gemini-flash"),
-        ("Teach me Python over the next 70 days", "gemini-flash"),
+        ("Teach me python dictionaries", "qwen-3.7-flash"),
+        ("Teach me python dictionaries step by step", "qwen-3.7-flash"),
+        ("Help me learn SQL joins", "qwen-3.7-flash"),
+        ("Give me a 70-day Python mastery plan", "qwen-3.7-flash"),
+        ("70 days mastering python from beginner to senior level plan", "qwen-3.7-flash"),
+        ("Create a 70-day Python plan", "qwen-3.7-flash"),
+        ("70-day roadmap for Python", "qwen-3.7-flash"),
+        ("Give me a daily Python curriculum for 70 days", "qwen-3.7-flash"),
+        ("Teach me Python over the next 70 days", "qwen-3.7-flash"),
         # Ordinary non-learning plans stay fast.
-        ("Give me a 30-day workout plan", "gemini-flash"),
-        ("Create a 12-week business plan", "gemini-flash"),
+        ("Give me a 30-day workout plan", "qwen-3.7-flash"),
+        ("Create a 12-week business plan", "qwen-3.7-flash"),
         (
             "Create a 4-column markdown table with a Main tradeoff column, then show a code block",
-            "gemini-flash",
+            "qwen-3.7-flash",
         ),
-        ("I studied Python for 70 days and now plan to apply for jobs", "gemini-flash"),
+        ("I studied Python for 70 days and now plan to apply for jobs", "qwen-3.7-flash"),
         # Comparison cues → smart-chat (previously classifier-only web search
         # with no model upgrade; a weak model answered "X vs Y" questions).
         ("kenya vs ethiopia", "smart-chat"),
@@ -68,7 +67,7 @@ from app.services.routing import (
         ("solve this leetcode problem", "smart-chat"),
         # Long message (>=800 chars → smart-chat)
         ("a" * 801, "smart-chat"),
-        ("a" * 799, "gemini-flash"),
+        ("a" * 799, "qwen-3.7-flash"),
         # Any code fence → smart-chat, regardless of language tag (or lack of
         # one). BUG FIX: this used to only match a fixed language allowlist,
         # so a bare fence or an unlisted language (bash, shell, C, HTML, ...)
@@ -88,32 +87,32 @@ from app.services.routing import (
         ("standard deviation of 1, 2, 3, 4, 5", "glm-5.2"),
         # Verified closed-form arithmetic stays free-chat — R1 used to dump a
         # live Reasoning essay ("the user just wrote 4!") on these.
-        ("4!", "gemini-flash"),
-        ("what is 1+1", "gemini-flash"),
-        ("3+0", "gemini-flash"),
-        ("3 + 0", "gemini-flash"),
-        ("7*8", "gemini-flash"),
-        ("8-8*2", "gemini-flash"),
+        ("4!", "qwen-3.7-flash"),
+        ("what is 1+1", "qwen-3.7-flash"),
+        ("3+0", "qwen-3.7-flash"),
+        ("3 + 0", "qwen-3.7-flash"),
+        ("7*8", "qwen-3.7-flash"),
+        ("8-8*2", "qwen-3.7-flash"),
         # Arithmetic next to a hard question is not a fast-path whole message.
         ("what is 1+1 and also graph y = x^2", "glm-5.2"),
         # A recognized physics template stays on the fast model; the verifier
         # owns the number. Homework the templates miss still goes to smart-chat.
         (
             "a 2kg block slides down a 30° frictionless incline, find its acceleration",
-            "gemini-flash",
+            "qwen-3.7-flash",
         ),
-        ("calculate the momentum of a 5kg object moving at 12 m/s", "gemini-flash"),
-        ("what is the escape velocity of earth", "gemini-flash"),
-        ("a ball is dropped from 20 m, how long to hit the ground", "gemini-flash"),
+        ("calculate the momentum of a 5kg object moving at 12 m/s", "qwen-3.7-flash"),
+        ("what is the escape velocity of earth", "qwen-3.7-flash"),
+        ("a ball is dropped from 20 m, how long to hit the ground", "qwen-3.7-flash"),
         ("equations of motion for a pendulum", "smart-chat"),
         (
             "a block slides down a 90° frictionless incline, find its acceleration",
             "smart-chat",
         ),
-        ("physics", "gemini-flash"),
-        ("the project has momentum now", "gemini-flash"),
+        ("physics", "qwen-3.7-flash"),
+        ("the project has momentum now", "qwen-3.7-flash"),
         # Plain prose with no math cue stays on the fast alias.
-        ("what's for dinner tonight", "gemini-flash"),
+        ("what's for dinner tonight", "qwen-3.7-flash"),
     ],
 )
 def test_route_chat_model(content: str, expected: str) -> None:
@@ -152,20 +151,20 @@ def test_verified_physics_stays_smart_when_math_tools_are_off() -> None:
 @pytest.mark.parametrize(
     "content,prior_user,expected",
     [
-        ("Now fix it", None, "gemini-flash"),
+        ("Now fix it", None, "qwen-3.7-flash"),
         ("Now fix it", "debug this algorithm", "smart-chat"),
         ("add tests", "debug this algorithm", "smart-chat"),
         ("check if it is fixed", "debug this algorithm", "smart-chat"),
         ("Handle the edge cases", "debug this algorithm", "smart-chat"),
         ("Can you verify the patch?", "debug this algorithm", "smart-chat"),
         ("please review this", "debug this algorithm", "smart-chat"),
-        ("check the weather", "debug this algorithm", "gemini-flash"),
-        ("handle dinner tonight", "debug this algorithm", "gemini-flash"),
-        ("thanks", "debug this algorithm", "gemini-flash"),
-        ("what's for dinner tonight", "debug this algorithm", "gemini-flash"),
-        ("explain photosynthesis", "debug this algorithm", "gemini-flash"),
-        ("fix dinner", "debug this algorithm", "gemini-flash"),
-        ("add milk to my grocery list", "debug this algorithm", "gemini-flash"),
+        ("check the weather", "debug this algorithm", "qwen-3.7-flash"),
+        ("handle dinner tonight", "debug this algorithm", "qwen-3.7-flash"),
+        ("thanks", "debug this algorithm", "qwen-3.7-flash"),
+        ("what's for dinner tonight", "debug this algorithm", "qwen-3.7-flash"),
+        ("explain photosynthesis", "debug this algorithm", "qwen-3.7-flash"),
+        ("fix dinner", "debug this algorithm", "qwen-3.7-flash"),
+        ("add milk to my grocery list", "debug this algorithm", "qwen-3.7-flash"),
     ],
 )
 def test_route_chat_model_inherits_smart_on_short_followup(
@@ -183,7 +182,7 @@ def test_route_chat_model_inherits_smart_from_prior_turn_model() -> None:
     assert (
         route_chat_model("fix it", prior_user="add tests", prior_model="smart-chat") == "smart-chat"
     )
-    assert route_chat_model("fix it", prior_user="add tests") == "gemini-flash"
+    assert route_chat_model("fix it", prior_user="add tests") == "qwen-3.7-flash"
 
 
 def test_route_chat_model_keeps_math_followup_on_low_latency_strong_model() -> None:
@@ -202,17 +201,17 @@ def test_route_chat_model_keeps_math_followup_on_low_latency_strong_model() -> N
     ["A", "red", "I'm confused", "why?", "next", "Bad bdbd head hdjjd jdjdd"],
 )
 def test_route_chat_model_keeps_active_tutor_turns_on_low_latency_lane(reaction: str) -> None:
-    assert route_chat_model(reaction, lesson_active=True) == "gemini-flash"
+    assert route_chat_model(reaction, lesson_active=True) == "qwen-3.7-flash"
 
 
 def test_route_chat_model_does_not_treat_short_text_as_a_lesson_without_state() -> None:
-    assert route_chat_model("red") == "gemini-flash"
+    assert route_chat_model("red") == "qwen-3.7-flash"
 
 
-def test_last_user_content_returns_newest_user_line() -> None:
+def test_last_user_turn_returns_newest_user_line() -> None:
     from types import SimpleNamespace
 
-    from app.services.routing import last_user_content, last_user_turn
+    from app.services.routing import last_user_turn
 
     recent = [
         SimpleNamespace(role="user", content="debug this algorithm", model="smart-chat"),
@@ -220,10 +219,7 @@ def test_last_user_content_returns_newest_user_line() -> None:
         SimpleNamespace(role="user", content=""),
         SimpleNamespace(role="assistant", content="ok"),
     ]
-    assert last_user_content(recent) == "debug this algorithm"
     assert last_user_turn(recent) == ("debug this algorithm", "smart-chat")
-    assert last_user_content([]) is None
-    assert last_user_content(None) is None
     assert last_user_turn([]) == (None, None)
 
 
@@ -258,21 +254,21 @@ def test_is_reasoning_alias() -> None:
     from app.services.model_catalog import is_reasoning_alias, quota_multiplier
 
     assert is_reasoning_alias("smart-chat") is True
-    assert is_reasoning_alias("gpt-5.5") is True
+    assert is_reasoning_alias("glm-5.2") is True
     assert is_reasoning_alias("free-chat") is False
     assert quota_multiplier("free-chat") == 1.0
     assert quota_multiplier("smart-chat") == 3.5
-    assert quota_multiplier("gpt-5.5") == 3.5
+    assert quota_multiplier("glm-5.2") == 3.5
 
 
 def test_weighted_reserve_tokens_applies_quota_multiplier() -> None:
     from unittest.mock import patch
 
     from app.core.config import Settings
-    from app.modules.chat.stream import weighted_reserve_tokens
+    from app.modules.chat.turn_resources import weighted_reserve_tokens
 
     settings = Settings()
-    with patch("app.modules.chat.stream.estimate_tokens", return_value=100):
+    with patch("app.modules.chat.turn_resources.estimate_tokens", return_value=100):
         free = weighted_reserve_tokens(
             content="hello",
             model="free-chat",
@@ -293,14 +289,14 @@ def test_prompt_weighted_reserve_tokens_uses_full_prompt() -> None:
     from unittest.mock import patch
 
     from app.core.config import Settings
-    from app.modules.chat.stream import prompt_weighted_reserve_tokens
+    from app.modules.chat.turn_resources import prompt_weighted_reserve_tokens
 
     settings = Settings()
     messages = [
         {"role": "system", "content": "sys"},
         {"role": "user", "content": "hello"},
     ]
-    with patch("app.modules.chat.stream.estimate_tokens", return_value=40):
+    with patch("app.modules.chat.turn_resources.estimate_tokens", return_value=40):
         assert (
             prompt_weighted_reserve_tokens(
                 messages,
@@ -316,23 +312,24 @@ def test_prompt_weighted_reserve_tokens_uses_full_prompt() -> None:
     "alias,content,expected",
     [
         # auto resolves via route_chat_model
-        ("auto", "hello", "gemini-flash"),
-        ("auto", "explain gravity", "gemini-flash"),
+        ("auto", "hello", "qwen-3.7-flash"),
+        ("auto", "explain gravity", "qwen-3.7-flash"),
         ("auto", "debug this crash", "smart-chat"),
         # explicit aliases pass through
         ("free-chat", "explain gravity", "free-chat"),
         ("smart-chat", "hi", "smart-chat"),
-        ("gpt-5.5", "anything", "gpt-5.5"),
+        ("gpt-6-luna", "anything", "gpt-6-luna"),
     ],
 )
 def test_resolve_alias(alias: str, content: str, expected: str) -> None:
-    assert resolve_alias(alias, content) == expected
+    pool = [model.id for model in model_catalog.selectable_models()]
+    assert resolve_alias_in_pool(alias, content, pool) == expected
 
 
 def test_auto_hard_question_picks_strongest_when_smart_tier_absent() -> None:
     """Free pool has no smart/max model. Auto used to throw away the
     escalation signal and pick the cheapest fast alias (free-chat). Pick
-    the strongest remaining model instead (currently glm-4-flash, standard)."""
+    the strongest remaining model instead (currently glm-5.3-flash, standard)."""
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     pool = plan_service.free_pool(settings)
     resolved = resolve_alias_in_pool("auto", "prove p = np", pool, settings)
@@ -344,15 +341,13 @@ def test_auto_hard_question_picks_strongest_when_smart_tier_absent() -> None:
 
 
 def test_pick_smart_from_pool_prefers_strongest_not_cheapest() -> None:
-    """When the preferred smart alias is missing, pick strongest remaining smart
-    model — not cheapest (glm-5.2 would win on price)."""
-    pool = ["glm-5.2", "gpt-5.5"]
-    assert routing._pick_smart_from_pool(pool) == "gpt-5.5"
-    cheap = model_catalog.price_sort_key(model_catalog.get("glm-5.2"))
-    dear = model_catalog.price_sort_key(model_catalog.get("gpt-5.5"))
+    """With several smart models, pick the strongest — not the cheapest
+    (smart-chat would win on price)."""
+    pool = ["smart-chat", "glm-5.2"]
+    assert routing._pick_smart_from_pool(pool) == "glm-5.2"
+    cheap = model_catalog.price_sort_key(model_catalog.get("smart-chat"))
+    dear = model_catalog.price_sort_key(model_catalog.get("glm-5.2"))
     assert cheap < dear
-    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    assert resolve_alias_in_pool("auto", "prove p = np", pool, settings) == "gpt-5.5"
 
 
 def test_explicit_weak_pick_does_not_escalate() -> None:
@@ -406,7 +401,7 @@ def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) ->
     routing._physics_solves.cache_clear()
     try:
         for _ in range(3):
-            assert route_chat_model(_VERIFIED_PHYSICS) == "gemini-flash"
+            assert route_chat_model(_VERIFIED_PHYSICS) == "qwen-3.7-flash"
             assert (
                 route_chat_model(
                     "and its kinetic energy?",

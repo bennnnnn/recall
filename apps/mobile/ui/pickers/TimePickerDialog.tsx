@@ -34,7 +34,7 @@ import { Dialog } from "../overlay/Dialog";
 import { CLOCK_DIAL_SIZE, ClockDial } from "./ClockDial";
 
 /** Material time picker: 328 wide, so the 256 dial and 96 boxes fit inside 24 padding. */
-export const TIME_PICKER_WIDTH = 328;
+const TIME_PICKER_WIDTH = 328;
 const PERIOD_WIDTH = 52;
 const COLON_WIDTH = 24;
 const READOUT_HEIGHT = 80;

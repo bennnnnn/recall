@@ -2,7 +2,6 @@
 
 import pytest
 
-from app.modules.chat.prompt_builder import _style_format_hints
 from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
     MATH_FENCE_SAFETY_HINT,
@@ -12,6 +11,7 @@ from app.modules.chat.prompt_constants import (
     WRITING_LINE_HINT,
     is_bare_writing_line,
 )
+from app.modules.chat.prompt_format import _style_format_hints
 
 
 def test_compact_turn_skips_rich_format_pack():
@@ -657,13 +657,13 @@ def test_capabilities_overview_skips_email_draft_contract():
     ],
 )
 def test_career_updates_are_conversation_not_unsolicited_email_drafts(query):
-    from app.modules.chat.prompt_builder import _style_format_hints
     from app.modules.chat.prompt_constants import (
         EMAIL_DRAFT_HINT,
         NON_DRAFT_TURN_HINT,
         is_email_or_message_request,
         writing_request_kind,
     )
+    from app.modules.chat.prompt_format import _style_format_hints
 
     assert writing_request_kind(query) is None
     assert not is_email_or_message_request(query)
@@ -678,8 +678,8 @@ def test_career_updates_are_conversation_not_unsolicited_email_drafts(query):
 
 
 def test_explicit_google_outreach_request_still_gets_email_draft_contract():
-    from app.modules.chat.prompt_builder import _style_format_hints
     from app.modules.chat.prompt_constants import EMAIL_DRAFT_HINT, NON_DRAFT_TURN_HINT
+    from app.modules.chat.prompt_format import _style_format_hints
 
     parts = _style_format_hints(
         query_text="Write an email to a Google recruiter about my software engineering experience",
@@ -692,7 +692,6 @@ def test_explicit_google_outreach_request_still_gets_email_draft_contract():
 
 
 def test_plain_career_disclosure_gets_short_conversation_contract():
-    from app.modules.chat.prompt_builder import _style_format_hints
     from app.modules.chat.prompt_constants import (
         COPY_DELIVERABLE_HINT,
         FORMAT_CONTRACT,
@@ -700,6 +699,7 @@ def test_plain_career_disclosure_gets_short_conversation_contract():
         SHORT_RESPONSE_FORMAT_HINT,
         is_personal_disclosure_turn,
     )
+    from app.modules.chat.prompt_format import _style_format_hints
 
     query = "I work at Uber but I want to change to Google"
     assert is_personal_disclosure_turn(query)

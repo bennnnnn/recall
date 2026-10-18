@@ -32,7 +32,7 @@ export type PartialProduct = {
   columns: MultiplicationColumn[];
 };
 
-export type MultiplicationColumn = {
+type MultiplicationColumn = {
   position: number;
   place: string;
   multiplicand_digit: number;

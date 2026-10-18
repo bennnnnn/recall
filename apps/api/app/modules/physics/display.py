@@ -16,6 +16,8 @@ from __future__ import annotations
 import math
 import re
 
+from app.services.school_rounding import round_figures
+
 ANSWER_FIGURES = 3
 GIVEN_FIGURES = 6
 _SCIENTIFIC_BELOW = 1e-3
@@ -29,19 +31,17 @@ def _trim(text: str) -> str:
 
 
 def _parts(value: float, figures: int) -> tuple[str, int | None]:
-    """(mantissa, exponent) after rounding, exponent None for plain form.
+    """(mantissa, exponent) after rounding half up, exponent None for plain form.
 
     Rounding comes first, so 99999.7 is 1 × 10⁵ rather than 100000, and the
     plain form is fixed-point, so 22620 at three figures is 22600.
     """
-    mantissa, exponent_text = f"{value:.{figures - 1}e}".split("e")
-    exponent = int(exponent_text)
-    rounded = float(f"{mantissa}e{exponent}")
+    mantissa, exponent = round_figures(value, figures)
+    rounded = float(mantissa.scaleb(exponent))
     if rounded != 0 and not _SCIENTIFIC_BELOW <= abs(rounded) < _SCIENTIFIC_FROM:
-        return _trim(mantissa), exponent
+        return _trim(f"{mantissa:.{figures - 1}f}"), exponent
     decimals = max(figures - 1 - exponent, 0)
-    shown = _trim(f"{rounded:.{decimals}f}")
-    return ("0" if shown in {"-0", "+0"} else shown), None
+    return _trim(f"{rounded:.{decimals}f}"), None
 
 
 def plain_number(value: float, figures: int = ANSWER_FIGURES) -> str:

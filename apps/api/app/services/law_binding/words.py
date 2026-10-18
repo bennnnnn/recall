@@ -21,7 +21,7 @@ _CONNECTOR = re.compile(
     r"|\bto\b(?!\s+the\s+(?:right|left)\b)"
 )
 # An asked phrase followed by its own value labels a given: "an acceleration of 2".
-_LABELLED = re.compile(r"\s*(?:of|=|is|:|was)?\s*[-+]?\.?\d[\d.]*(?:[eE][-+]?\d+)?")
+_LABELLED = re.compile(r"\S\s*(?:(?:of|=|is|:|was)\s*)?[-+]?\.?\d[\d.]*(?:[eE][-+]?\d+)?")
 _CHANGE_VERBS = {
     "change": r"chang\w*",
     "increase": r"increas\w*",
@@ -94,7 +94,7 @@ def ask_strength(
     strength = 0
     for phrase in asks:
         for match in _asked_pattern(phrase).finditer(clause):
-            label = _LABELLED.match(clause, match.end())
+            label = _LABELLED.match(clause, match.end() - 1)
             if label is None or not _labels(clause, label.end(), result, units):
                 strength = max(strength, len(phrase))
     return strength

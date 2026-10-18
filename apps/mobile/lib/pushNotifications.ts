@@ -2,7 +2,9 @@ import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AppState, type AppStateStatus, Platform } from "react-native";
 
+import type { ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
+import { isExpoGo, isPhysicalDevice } from "@/lib/expoRuntime";
 import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
 import { trackProductEvent } from "@/lib/productAnalytics";
@@ -10,6 +12,7 @@ import {
   ensureAndroidNotificationChannels,
   TONE_ANDROID_CHANNELS,
 } from "@/lib/notificationChannels";
+import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -56,18 +59,54 @@ function resolveEasProjectId(): string | null {
   return null;
 }
 
-async function resolveExpoPushToken(): Promise<string | null> {
+/** Offline is routine: the next sync asks again. */
+const TOKEN_NETWORK_ERROR = "ERR_NOTIFICATIONS_NETWORK_ERROR";
+let pushTokenFailureReported = false;
+
+function errorCode(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("code" in error)) return null;
+  return typeof error.code === "string" ? error.code : null;
+}
+
+/**
+ * No token is routine offline, in Expo Go, on a simulator and with notifications denied.
+ * Anything else leaves push off while the setting says on, so the user hears it once per
+ * app run. Logs carry the error code only: Expo's messages can include the device token.
+ */
+async function reportPushTokenFailure(
+  error: unknown,
+  feedback?: ActionFeedbackApi | null,
+): Promise<void> {
+  const code = errorCode(error);
+  if (code === TOKEN_NETWORK_ERROR || isExpoGo() || isPhysicalDevice() === false) return;
+  // A permission that cannot be read is not a known routine state.
+  if (!(await getNotificationPermissionGranted().catch(() => true))) return;
+  console.warn(`[push] no push token: ${code ?? "uncoded error"}`);
+  if (!feedback || pushTokenFailureReported) return;
+  pushTokenFailureReported = true;
+  reportRecoverableWarning(feedback, i18n.t("notifications.push_unavailable"));
+}
+
+/**
+ * `feedback` is for callers with no failure report of their own (the background sync);
+ * the Settings switch reports a failed registration itself.
+ */
+async function resolveExpoPushToken(
+  feedback?: ActionFeedbackApi | null,
+): Promise<string | null> {
   const projectId = resolveEasProjectId();
+  // Without an EAS project id (Expo Go, a local build) there is no push token: normal there.
   if (!projectId) return null;
   try {
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     return tokenData.data || null;
-  } catch {
+  } catch (error) {
+    await reportPushTokenFailure(error, feedback);
     return null;
   }
 }
 
-export type PushRegisterResult = "registered" | "skipped" | "disabled_permission";
+type PushRegisterResult = "registered" | "skipped" | "disabled_permission";
 
 /** Register Expo push token with the backend for remote notifications.
  *
@@ -84,6 +123,7 @@ export type PushRegisterResult = "registered" | "skipped" | "disabled_permission
 export async function registerRemotePushToken(
   apiToken: string,
   pushNotificationsEnabled: boolean,
+  feedback?: ActionFeedbackApi | null,
 ): Promise<PushRegisterResult> {
   if (Platform.OS === "web") return "skipped";
   if (!pushNotificationsEnabled) return "skipped";
@@ -93,7 +133,7 @@ export async function registerRemotePushToken(
     return "disabled_permission";
   }
 
-  const expoPushToken = await resolveExpoPushToken();
+  const expoPushToken = await resolveExpoPushToken(feedback);
   if (!expoPushToken) {
     throw new Error("push_token_unavailable");
   }
@@ -115,9 +155,12 @@ export async function registerRemotePushToken(
  * continues sending them notifications. Best-effort: a network failure here
  * doesn't block the pref change (the next foreground sync retries).
  */
-export async function unregisterRemotePushToken(apiToken: string): Promise<boolean> {
+export async function unregisterRemotePushToken(
+  apiToken: string,
+  feedback?: ActionFeedbackApi | null,
+): Promise<boolean> {
   if (Platform.OS === "web") return true;
-  const expoPushToken = await resolveExpoPushToken();
+  const expoPushToken = await resolveExpoPushToken(feedback);
   if (!expoPushToken) return false;
   try {
     await api.unregisterPushToken(apiToken, { expo_push_token: expoPushToken });
@@ -151,13 +194,15 @@ function pushSyncIsFresh(session: number | undefined, enabled: boolean): boolean
 /**
  * `session` is the caller's session generation. Another account signing in
  * on this device rebinds the token, so a sync never counts across sign-ins;
- * without it every run syncs.
+ * without it every run syncs. `feedback` shows a push token failure that is
+ * not routine (see reportPushTokenFailure).
  */
 export function attachPushForegroundSync(
   apiToken: string | null,
   pushNotificationsEnabled: boolean,
   onPushPrefChange?: (enabled: boolean) => void,
   session?: number,
+  feedback?: ActionFeedbackApi | null,
 ): () => void {
   if (!apiToken) return () => {};
 
@@ -172,10 +217,10 @@ export function attachPushForegroundSync(
       if (session !== undefined) lastPushSync = { session, enabled, at: Date.now() };
     };
     if (enabled) {
-      const result = await registerRemotePushToken(apiToken, true);
+      const result = await registerRemotePushToken(apiToken, true, feedback);
       if (result === "registered") remember();
       if (result === "disabled_permission") onPushPrefChange?.(false);
-    } else if (await unregisterRemotePushToken(apiToken)) {
+    } else if (await unregisterRemotePushToken(apiToken, feedback)) {
       remember();
     }
   };

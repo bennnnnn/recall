@@ -1,17 +1,58 @@
-"""Vector extractor and verified block."""
+"""Vector extractors and verified block."""
 
 from __future__ import annotations
+
+import re
 
 from app.core.config import Settings
 from app.modules.math import school as math_school
 from app.modules.math.match.coordinate_vector import literal_math_tuples
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.services.text_match import word_index
+
+_ANGLE_BETWEEN_VECTORS = re.compile(
+    r"\bangle\s+between\s+(?:the\s+)?(?:two\s+)?vectors\b", re.IGNORECASE
+)
+
+
+def extract_vector_formulas(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    vecs = literal_math_tuples(cleaned, "<", ">") or []
+    if not vecs and _ANGLE_BETWEEN_VECTORS.search(cleaned):
+        # "angle between the vectors (1,0) and (1,1)": named as vectors, so the
+        # round brackets are vectors, not points.
+        vecs = literal_math_tuples(cleaned, "(", ")") or []
+    if not vecs:
+        return None
+    if "unit vector" in lower:
+        if len(vecs) != 1:
+            return None
+        return MathIntent(kind="vector", school_op="unit", vec_a=vecs[0], operation="solve")
+    if word_index(lower, "projection") != -1 or word_index(lower, "proj") != -1:
+        if len(vecs) != 2 or len(vecs[0]) != len(vecs[1]):
+            return None
+        return MathIntent(
+            kind="vector",
+            school_op="projection",
+            vec_a=vecs[0],
+            vec_b=vecs[1],
+            operation="solve",
+        )
+    if word_index(lower, "angle") != -1:
+        if len(vecs) != 2 or len(vecs[0]) != len(vecs[1]):
+            return None
+        return MathIntent(
+            kind="vector",
+            school_op="angle",
+            vec_a=vecs[0],
+            vec_b=vecs[1],
+            operation="solve",
+        )
+    return None
 
 
 def _extract_vector_intent(cleaned: str) -> MathIntent | None:
-    from app.modules.math.tools.extractors.formulas import extract_vector_formulas
-
     extra = extract_vector_formulas(cleaned)
     if extra is not None:
         return extra

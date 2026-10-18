@@ -3,9 +3,9 @@ import {
   formatAxisNumber,
   graphAxisTicks,
   graphBounds,
-  graphTickCount,
   mapGraphPoint,
 } from "@/lib/math/graphBlock";
+import { tickCountW } from "@/lib/math/graphWorklets";
 
 /**
  * Geometry for the played-back trajectory dot.
@@ -17,21 +17,21 @@ import {
 
 export type ScreenPoint = { px: number; py: number };
 
-export type TrajectoryBounds = {
+type TrajectoryBounds = {
   xMin: number;
   xMax: number;
   yMin: number;
   yMax: number;
 };
 
-export type TrajectoryAxisLabel = {
+type TrajectoryAxisLabel = {
   value: number;
   text: string;
   px: number;
   py: number;
 };
 
-export type TrajectoryAxisLayout = {
+type TrajectoryAxisLayout = {
   origin: ScreenPoint;
   xAxisY: number;
   yAxisX: number;
@@ -101,7 +101,7 @@ export function trajectoryAxisLayout(
   const xTicks = graphAxisTicks(
     bounds.xMin,
     bounds.xMax,
-    graphTickCount(bounds.xMin, bounds.xMax),
+    tickCountW(bounds.xMin, bounds.xMax),
     true,
   )
     .filter((value) => Math.abs(value) >= 1e-9)
@@ -112,7 +112,7 @@ export function trajectoryAxisLayout(
   const yTicks = graphAxisTicks(
     bounds.yMin,
     bounds.yMax,
-    graphTickCount(bounds.yMin, bounds.yMax),
+    tickCountW(bounds.yMin, bounds.yMax),
     true,
   )
     .filter((value) => Math.abs(value) >= 1e-9)

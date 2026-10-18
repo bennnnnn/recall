@@ -11,7 +11,7 @@ import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
-export type ConversationRowStyles = {
+type ConversationRowStyles = {
   row: ViewStyle;
   rowIcon: ViewStyle;
   title: TextStyle;

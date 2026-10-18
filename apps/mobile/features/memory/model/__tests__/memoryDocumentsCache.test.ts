@@ -15,6 +15,7 @@ const mockList = jest.fn();
 jest.mock("@/lib/auth", () => ({
   getSessionGeneration: () => mockSession,
   requireTokenSession: () => undefined,
+  SessionChangedError: class SessionChangedError extends Error {},
 }));
 jest.mock("@/lib/api", () => ({ api: { listMemoryDocuments: (...args: unknown[]) => mockList(...args) } }));
 
@@ -42,8 +43,8 @@ describe("memory documents cache", () => {
     const second = fetchMemoryDocuments("token");
     resolve(pages);
 
-    await expect(first).resolves.toEqual(pages);
-    await expect(second).resolves.toEqual(pages);
+    await expect(first).resolves.toEqual({ data: pages, error: null });
+    await expect(second).resolves.toEqual({ data: pages, error: null });
     expect(mockList).toHaveBeenCalledTimes(1);
     expect(getCachedMemoryDocuments()).toEqual(pages);
     expect(listener).toHaveBeenCalled();
@@ -57,7 +58,7 @@ describe("memory documents cache", () => {
     mockSession = 2;
     resolve(pages);
 
-    await expect(read).resolves.toBeNull();
+    await expect(read).resolves.toEqual({ data: null, error: expect.any(Error) });
     expect(getCachedMemoryDocuments()).toBeUndefined();
   });
 

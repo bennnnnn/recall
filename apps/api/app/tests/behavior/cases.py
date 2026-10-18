@@ -150,6 +150,13 @@ CASES: tuple[Case, ...] = (
         "80 km/h.",
     ),
     Case(
+        "math-proportion-recipe",
+        "math",
+        "A recipe needs 3 cups of flour for 12 cookies. How many cups for 30 cookies?",
+        Expect(subject="math", solved=True, search="no", no_hints=("advice",)),
+        "7.5 cups (3/12 of a cup per cookie, times 30). A proportion, not a recipe pick.",
+    ),
+    Case(
         "math-triangle-area",
         "math",
         "a triangle has sides 3, 4 and 5. what is its area?",
@@ -455,6 +462,13 @@ CASES: tuple[Case, ...] = (
         Expect(search="no"),
         "Sympathy and simple care tips; no forecast.",
     ),
+    Case(
+        "search-no-boiling-point-idiom",
+        "web search",
+        "the boiling point of my patience is low today",
+        Expect(search="no", subject=NONE, instant=""),
+        "A short, warm reply about a rough day; no lookup and no chemistry.",
+    ),
     # ── Photos and maps ─────────────────────────────────────────────────────
     Case(
         "photo-landmark",
@@ -554,8 +568,8 @@ CASES: tuple[Case, ...] = (
         "image-gen-free",
         "photos and maps",
         "generate an image of a sunset over mountains",
-        Expect(image_gen=False, photo=NO_PHOTO),
-        "On the free plan: says image generation is a Pro feature, without pretending.",
+        Expect(image_gen=True, photo=NO_PHOTO),
+        "On the free plan too: a generated picture, within the free daily images.",
     ),
     # ── Time and location ───────────────────────────────────────────────────
     Case(
@@ -623,6 +637,20 @@ CASES: tuple[Case, ...] = (
         "will it rain tomorrow",
         Expect(instant="location"),
         "Asks to turn on location (or name a city), since none is set.",
+    ),
+    Case(
+        "location-trip-minutes-unset",
+        "time and location",
+        "how many minutes to drive to the airport",
+        Expect(instant="location"),
+        "Asks to turn on location: a drive time needs a starting point.",
+    ),
+    Case(
+        "location-duration-not-a-trip",
+        "time and location",
+        "how many minutes in a good nap",
+        Expect(instant="", search="no"),
+        "About 10–20 minutes for a power nap, or 90 for a full cycle. No location needed.",
     ),
     # ── Teaching ────────────────────────────────────────────────────────────
     Case(
@@ -1003,6 +1031,22 @@ CASES: tuple[Case, ...] = (
         "remind me to call mom tomorrow at 5pm",
         Expect(search="no"),
         "Confirms a reminder for tomorrow 5 pm.",
+    ),
+    Case(
+        "personal-reminder-clock-no-day",
+        "personal",
+        "remind me to plate the dinner at 7pm",
+        Expect(search="no", photo=NO_PHOTO, image_gen=False, subject=NONE),
+        "A reminder card for 7 pm today (the next 7 pm) to tap; never 'I didn't change your "
+        "reminders'. The sweep checks the card (sweep_corpus/routing_gaps.json).",
+        pro=True,
+    ),
+    Case(
+        "personal-food-recommendation",
+        "personal",
+        "what should I cook tonight?",
+        Expect(hints=("advice",), subject=NONE),
+        "A couple of dinner ideas shaped by what it knows the user likes.",
     ),
     Case(
         "personal-capabilities",

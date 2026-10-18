@@ -7,8 +7,9 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
+from app.modules.chat.tool_loop import calls, rounds
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.services import tool_loop
+from app.tests.tool_context import tool_context
 
 
 def _call(call_id: str, name: str, args: dict) -> dict:
@@ -22,17 +23,21 @@ def _call(call_id: str, name: str, args: dict) -> dict:
 async def _run(query: str, calls: list[dict], invoke: AsyncMock):
     with (
         patch(
-            "app.services.tool_loop.litellm_gateway.complete_with_tools",
+            "app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools",
             AsyncMock(return_value={"tool_calls": calls}),
         ),
-        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
     ):
-        return await tool_loop._run_tool_rounds_bound(
+        return await rounds._run_rounds(
             settings=Settings(mcp_tool_loop_max_calls_per_round=4),
             model_alias="free-chat",
             messages=[{"role": "user", "content": query}],
             usage={},
-            tools=[{"type": "function", "function": {"name": "sympy"}}],
+            tools=[
+                {"type": "function", "function": {"name": "sympy"}},
+                {"type": "function", "function": {"name": "web_search"}},
+            ],
+            ctx=tool_context(),
             on_status=None,
             should_cancel=None,
         )
@@ -63,7 +68,7 @@ async def test_unrestricted_trig_retry_cannot_attach_canonical_answer(query: str
     assert messages[-2]["role"] == "tool" and messages[-2]["tool_call_id"] == "trig"
     assert "No solution was certified" in messages[-2]["content"]
     assert messages[-1] == {"role": "system", "content": MATH_REPLY_POLICY}
-    assert tool_loop._first_unanswered_assistant_idx(messages) is None
+    assert rounds._first_unanswered_assistant_idx(messages) is None
 
 
 @pytest.mark.asyncio
@@ -117,6 +122,6 @@ async def test_all_real_or_teaching_trig_request_keeps_tool_result(suffix: str):
     ],
 )
 def test_guard_leaves_other_actions_and_argument_validation_to_registry(name: str, args):
-    assert not tool_loop._sympy_solve_drops_trig_domain(
+    assert not calls._sympy_solve_drops_trig_domain(
         name, args, "Solve sin(x)=2 over the complex numbers"
     )

@@ -13,15 +13,13 @@ from app.modules.chat.turn_prep.attachments import (
     count_image_attachments,
     vision_reserve_tokens,
 )
+from app.modules.chat.turn_prep.augment import _load_prior_user_messages
 from app.modules.chat.turn_prep.context import (
-    ClientGeoContext,
     RegenerateBackup,
     StreamContext,
     TurnPromptBundle,
-    _load_prior_user_messages,
     await_user_message_persist,
     build_stream_prompt_context,
-    resolve_client_geo,
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import (
@@ -32,6 +30,11 @@ from app.modules.chat.turn_prep.mode import (
 from app.modules.chat.turn_prep.prepare import (
     prepare_chat_turn,
 )
+from app.modules.chat.turn_prep.request import (
+    ClientGeoContext,
+    TurnRequest,
+    resolve_client_geo,
+)
 
 __all__ = [
     "ClientGeoContext",
@@ -39,6 +42,7 @@ __all__ = [
     "SessionLocal",
     "StreamContext",
     "TurnPromptBundle",
+    "TurnRequest",
     "_AttachmentProcessResult",
     "_TurnMode",
     "_classify_turn_mode",

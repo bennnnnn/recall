@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,35 +8,7 @@ from app.core.config import Settings
 from app.modules.math import image_extract as mie
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools import needs_symbolic_math
-from app.services.subject_scan import SCAN_CONFIRMED_PREFIX
-
-
-def _ts_exported_string(source: str, name: str) -> str:
-    needle = f"export const {name} = "
-    start = source.find(needle)
-    assert start >= 0, f"missing {name}"
-    quote = source.find('"', start)
-    assert quote >= 0
-    end = source.find('"', quote + 1)
-    assert end > quote
-    return source[quote + 1 : end]
-
-
-def test_math_camera_prompt_matches_mobile_constant():
-    """MATH_CAMERA_PROMPT must stay byte-for-byte identical to
-    apps/mobile/lib/math/cameraPrompt.ts's MATH_CAMERA_PROMPT — it's an
-    exact-match trigger phrase, not translated copy, so a drift on either
-    side silently disables the camera-math verified augmentation."""
-    ts_path = Path(__file__).resolve().parents[5] / "mobile" / "lib" / "math" / "cameraPrompt.ts"
-    source = ts_path.read_text(encoding="utf-8")
-    assert mie.MATH_CAMERA_PROMPT == _ts_exported_string(source, "MATH_CAMERA_PROMPT")
-
-
-def test_is_math_camera_prompt():
-    assert mie.is_math_camera_prompt(mie.MATH_CAMERA_PROMPT)
-    assert mie.is_math_camera_prompt(mie.MATH_CAMERA_PROMPT.upper())
-    assert mie.is_math_camera_prompt(f"{mie.MATH_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} 2x+7=15")
-    assert not mie.is_math_camera_prompt("What's in this image?")
+from app.services.subject_scan import MATH_CAMERA_PROMPT
 
 
 def test_camera_math_display_text():
@@ -72,8 +43,8 @@ def test_camera_math_user_suffix_keeps_equations():
 
 
 def test_needs_symbolic_math_for_camera_prompt():
-    assert needs_symbolic_math(mie.MATH_CAMERA_PROMPT, has_image_attachment=True)
-    assert not needs_symbolic_math(mie.MATH_CAMERA_PROMPT, has_image_attachment=False)
+    assert needs_symbolic_math(MATH_CAMERA_PROMPT, has_image_attachment=True)
+    assert not needs_symbolic_math(MATH_CAMERA_PROMPT, has_image_attachment=False)
 
 
 @pytest.mark.asyncio

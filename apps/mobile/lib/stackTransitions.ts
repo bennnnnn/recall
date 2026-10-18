@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 
 /** Shared native-stack transition presets for expo-router screens. */
 
-export type StackTransitionPreset = {
+type StackTransitionPreset = {
   animation?:
     | "default"
     | "fade"

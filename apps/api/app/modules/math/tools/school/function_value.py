@@ -78,7 +78,7 @@ class _Call:
 def _parse_call(text: str) -> _Call | None:
     """``f(g(2))`` -> f of (g of 2). Arguments are numbers or further calls."""
     compact = text.replace(" ", "")
-    match = re.fullmatch(r"([a-z])\((.+)\)", compact)
+    match = re.fullmatch(r"^([a-z])\((.+)\)", compact)
     if match is None:
         return None
     inner = match[2]
@@ -144,7 +144,7 @@ def _expression_value_intent(body: str) -> MathIntent | None:
     match = _AT_VALUE.fullmatch(body)
     if match is None:
         return _several_values_intent(body)
-    if re.match(r"\s*solve\b", match["expr"], re.I):
+    if re.match(r"^\s*solve\b", match["expr"], re.I):
         return None
     # "the derivative of x^2 at x = 3" is calculus, not a value to substitute.
     expression = _parse(match["expr"], match["var"])
@@ -167,7 +167,7 @@ def _several_values_intent(body: str) -> MathIntent | None:
     the values themselves; the expression asked for was dropped.
     """
     match = _VALUES_FIRST.fullmatch(body) or _VALUES_AFTER.fullmatch(body)
-    if match is None or re.match(r"\s*solve\b", match["expr"], re.I):
+    if match is None or re.match(r"^\s*solve\b", match["expr"], re.I):
         return None
     values: dict[str, str] = {}
     for pair in _VALUE_PAIR.finditer(match["given"]):
@@ -323,7 +323,7 @@ def _call_tex(call: _Call) -> str:
 def _block_function_value(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
     from sympy import latex, sympify
 
-    from app.modules.math.solve.parse import format_verified_latex
+    from app.modules.math.solve.display import format_verified_latex
 
     if intent.school_op == "expression_value" and intent.system_equations:
         given = {name: sympify(number) for name, number in intent.system_equations}

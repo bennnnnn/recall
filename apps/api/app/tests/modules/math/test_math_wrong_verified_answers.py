@@ -458,6 +458,10 @@ def test_scientific_notation_is_not_an_unknown_x(text: str) -> None:
         ("1.8 x 10^-5 * 2", r"3.6 \cdot 10^{-5}"),
         ("3 x 10^4 + 2 x 10^3", "32000"),
         ("solve 3x + 10 = 4", "x = -2"),
+        # Every spelling of the power of ten, with the superscript minus folded first.
+        ("1.8·10⁻⁵ divided by 3", r"6.0 \cdot 10^{-6}"),
+        ("1.8 × 10⁻⁵ / 3", r"6.0 \cdot 10^{-6}"),
+        (r"1.8 \times 10^{-5} / 3", r"6.0 \cdot 10^{-6}"),
     ],
 )
 async def test_scientific_notation_reads_as_a_number(text: str, answer: str) -> None:
@@ -603,7 +607,7 @@ def test_a_maths_verb_with_a_maths_object_is_maths(text: str) -> None:
 def test_a_large_rounded_product_keeps_scientific_notation() -> None:
     from sympy import Float
 
-    from app.modules.math.solve.parse import format_verified_latex
+    from app.modules.math.solve.display import format_verified_latex
 
     assert format_verified_latex(Float(6.02e23) * 2) != "1203999999999999857393664"
     assert "10^{24}" in format_verified_latex(Float(6.02e23) * 2)
@@ -627,3 +631,99 @@ def test_solve_still_reads_a_contradiction() -> None:
 
     intent = extract_math_intent("solve 0 = 1")
     assert intent is not None and intent.kind == "equation"
+
+
+# --- K. letters that are not unknowns: units, a defined E, e-notation, subscripts ---------
+# The ES-09 capture of every test string found each of these verified wrong. Reading the
+# multiplication sign and ``\times`` like the letter x reached two of them more often.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A unit after a number is part of a quantity, never letters to solve for.
+        "m/q = 1.25 × 10^-6 kg/C",  # C = 1.25·10⁻⁶ gkq/m
+        "m/q = 1.25 x 10^-6 kg/C",
+        "v = 3 × 10⁸ m/s",  # m = sv/300000000
+        "v = 3 x 10^8 m/s",
+        "v = 20 m/s",
+        "a = 9.8 m/s^2",
+        "t = 2.02 s",  # s = 0.495 t
+        "m = 16.0 g",
+        "T = 300 K",
+        "I = 1 A",  # A = i
+        "N = 49.1 N",  # N = 0
+        "V = 22 L",
+        "d = 1.96 g/L",
+        "i = 3.92 × 10^-7 A",
+        "E = 0.40 V",  # V = e/0.4
+        "Find the half-life when k = 0.2 s^-1",
+        r"q = 1.6 \times 10^{-19} C, V = 100 V, find the energy",
+        "Find the volume of a cube side 3 cm in m3",  # 27 cm³, asked in m³
+        # A subscript names one quantity: not P·1, P² or v·0.
+        "P2 = 2.0",
+        "K2 = 17.5",
+        "M1V1 = M2V2",
+        "Use Boyle's law: P1 = 2, V1 = 3, V2 = 6, find P2",  # no solution
+        "Use Charles's law: V1 = 2 L, T1 = 300, T2 = 600 K, find V2",
+        "1234 ÷ 7 = 176 R2",
+        "back to the hand: no height, t = 2v0/g",
+        "m(O2) = 64 g",
+        # A formula asks nothing, and a number past any float is not one a student means.
+        "E = mc^2",
+        "1e-1000000",
+        # Lines of working, chains and alternatives are not one equation or a system.
+        r"$c = \sqrt{3^2 + 4^2} = 5$",  # c = s
+        r"$d = 4\sqrt{2} = 5.6569$",  # no solution
+        "**Answer**\n2x + 3 - 3 = 7 - 3\nx = 3",  # x = 4/3
+        "**Given**  \n$2 x + 3 y = 12$  \n$x - y = 1$",
+        r"x = 2 \pi k + \frac{\pi}{6} \text{ or } x = 2 \pi k + \frac{5 \pi}{6}",
+        r"x < -1 \text{ or } x > 1",  # x < -1
+        "```answer\n-2 < x < 2\n```\n",  # x < 2
+        "0 < y < 2x",  # no solution
+        r"\frac{1}{y}\,dy = 1\,dx",
+        r"\frac{2}{3} > \frac{3}{5}",  # all real x
+        "Solve over the complex numbers",
+        "imaginary",
+    ],
+)
+async def test_letters_that_are_not_unknowns_are_never_solved_for(text: str) -> None:
+    canonical, reply = await _verified(text)
+    assert canonical is None
+    assert reply is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("E = 2 + 3", "E = 5"),
+        # E on its own side is the quantity, not Euler's number: f = e/6.6261·10⁻³⁴ before.
+        (r"E = 6.6261 \times 10^{-34} \cdot f", r"f = 1.50918338087261 \cdot 10^{33} E"),
+        ("E = 2x + 3", r"x = \frac{E}{2} - \frac{3}{2}"),
+        ("E = mc^2, m = 2, c = 3", "E = 18, c = 3, m = 2"),
+        (
+            r"E = \frac{6.6261 \times 10^{-34} \cdot 3 \times 10^{8}}{5 \times 10^{-7}} + 0.3 - 4186",
+            "E = -4185.7",
+        ),
+        ("1e-5 * 3", r"3.0 \cdot 10^{-5}"),
+        ("3e+8/2", "150000000"),
+        ("1.5E+3 + 2", "1502"),
+        ("simplify 1e999", r"1.0 \cdot 10^{999}"),
+        (
+            "solve for x: x^2 / (0.10 - x) = 1.8e-5",
+            r"x = -0.00135067097307797 \text{ or } x = 0.00133267097307797",
+        ),
+        ("solve 5x - 7 = 3x + 9. my work: 5x - 3x = 9 - 7, so 2x = 2, so x = 1", "x = 8"),
+        # Look-alikes keep their answers.
+        ("solve 2m + 3 = 7", "m = 2"),
+        ("x2 + 3 = 5", r"x = \pm \sqrt{2}"),
+        ("solve x^2 = 9, is it x = 3 or x = -3?", r"x = \pm 3"),
+        ("solve 1 < x < 5", "1 < x < 5"),
+        ("modulus of 3 + 4i", "5"),
+    ],
+)
+async def test_a_defined_e_and_e_notation_read_as_written(text: str, answer: str) -> None:
+    canonical, _reply = await _verified(text)
+    assert canonical == answer

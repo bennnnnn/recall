@@ -1,6 +1,6 @@
 """Job-type → handler registration for the durable job queue.
 
-`app/core/jobs.py` owns the queue mechanics (stream, retries, DLQ, metrics)
+`app/core/jobs/` owns the queue mechanics (stream, retries, DLQ, metrics)
 and exposes `register`; the domain bodies live here, next to the background
 modules they call. Keeping this out of `core/` means the lowest layer no
 longer imports `app.background` / `app.services`, so importing the queue
@@ -24,8 +24,9 @@ from app.background import (
 )
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.core.jobs import JobDiscardError, enqueue, register
+from app.core.jobs import JobDiscardError, enqueue, purge_user_jobs, register
 from app.core.redis import get_redis_client
+from app.modules.account import lifecycle as account_lifecycle
 from app.modules.attachments import jobs as attachment_indexing
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.chat import compaction
@@ -53,7 +54,7 @@ async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 _MEMORY_LOCK_MAX_RETRIES = 3
-# Match core.jobs._RETRY_BACKOFF_S. Instant re-enqueue cannot outlast a lock
+# Match core.jobs.worker._RETRY_BACKOFF_S. Instant re-enqueue cannot outlast a lock
 # held for an LLM round-trip; the worker is not latency-sensitive.
 _MEMORY_LOCK_RETRY_BACKOFF_S = 2.0
 
@@ -238,10 +239,13 @@ async def _handle_message_index(settings: Settings, payload: dict[str, Any]) -> 
 
 
 async def _handle_storage_sweep(settings: Settings, payload: dict[str, Any]) -> None:
-    """GDPR residual: prefix-delete leftover R2 objects after account wipe.
+    """GDPR residual after account wipe: leftover R2 objects, Redis keys and jobs.
 
-    Must not be spend-capped — leftover blobs are a privacy residual, not
-    optional enrichment.
+    Must not be spend-capped — leftover blobs and cached text are a privacy
+    residual, not optional enrichment. The user's finished and failed jobs
+    (their payloads carry chat text) leave the jobs stream and the DLQ; this
+    sweep's own entry stays, since it holds only the id and must survive a
+    worker crash to run again.
     """
     raw = payload.get("user_id")
     try:
@@ -249,6 +253,9 @@ async def _handle_storage_sweep(settings: Settings, payload: dict[str, Any]) -> 
     except (TypeError, ValueError):
         logger.warning("storage_sweep invalid user_id=%r", raw)
         return
+    redis = get_redis_client()
+    await account_lifecycle.purge_user_redis_keys(redis, user_id)
+    await purge_user_jobs(redis, user_id, keep_types=frozenset({"storage_sweep"}))
     await attachment_lifecycle.sweep_user_storage(settings, user_id)
 
 

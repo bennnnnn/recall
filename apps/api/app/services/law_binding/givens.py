@@ -16,7 +16,7 @@ from app.services.number_text import numeric_spans
 # Not quantities: "to 3 s.f.", "2 decimal places", "the 2nd ball", "m/s^2".
 _NOT_A_GIVEN_AFTER = re.compile(
     # "s.f." must end there: "in 5 s. Find" is five seconds, then a sentence.
-    r"\s*(?:s\.?\s?f\.?(?![a-z])|sig(?:nificant)?\.?\s*fig(?:ure)?s?|d\.?\s?p\.?\b"
+    r"\d\s*(?:s\.?\s?f\.?(?![a-z])|sig(?:nificant)?\.?\s*fig(?:ure)?s?|d\.?\s?p\.?\b"
     r"|decimal\s+places?"
     r"|(?:st|nd|rd|th)\b)",
     re.IGNORECASE,
@@ -38,7 +38,7 @@ class Given:
     si: float | None
 
 
-_SHARED_UNIT = re.compile(r"\s*(?:to|and|\u2013|-)\s*-?\d+(?:\.\d+)?(?:[eE]-?\d+)?\s*")
+_SHARED_UNIT = re.compile(r"\d\s*(?:to|and|\u2013|-)\s*-?\d+(?:\.\d+)?(?:[eE]-?\d+)?\s*")
 
 
 def scan_givens(text: str, units: UnitTable) -> list[Given]:
@@ -47,7 +47,7 @@ def scan_givens(text: str, units: UnitTable) -> list[Given]:
     for start, end in numeric_spans(text):
         if text[max(0, start - 1) : start] == "^" or text[max(0, start - 2) : start] == "**":
             continue
-        if _NOT_A_GIVEN_AFTER.match(text, end):
+        if _NOT_A_GIVEN_AFTER.match(text, end - 1):
             continue
         # "carbon-14", "U-238": a mass number written onto its element names it.
         if _ISOTOPE_LABEL.search(text, max(0, start - 2), start):
@@ -60,7 +60,7 @@ def scan_givens(text: str, units: UnitTable) -> list[Given]:
         if unit is None:
             # "from 0 to 20 m/s", "between 2 and 5 m": the unit after the
             # range's second number is the first number's too.
-            shared = _SHARED_UNIT.match(text, end)
+            shared = _SHARED_UNIT.match(text, end - 1)
             unit = units.at(text, shared.end()) if shared is not None else None
         if unit is None:
             givens.append(Given(start, end, value, "", None, None))

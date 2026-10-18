@@ -5,9 +5,10 @@ from __future__ import annotations
 import math
 import re
 
+from app.services.number_text import bounded_decimal
 from app.services.text_match import word_index
 
-_NUMBER = r"[+-]?(?:[0-9]{1,24}(?:\.[0-9]{1,24})?|\.[0-9]{1,24})"
+_NUMBER = bounded_decimal(24)
 _UNIT = r"[A-Za-zµμ°][A-Za-z0-9µμ°*/^._-]{0,63}"
 _CONVERSION = re.compile(rf"({_NUMBER})\s*({_UNIT})\s+to\s+({_UNIT})", re.IGNORECASE)
 

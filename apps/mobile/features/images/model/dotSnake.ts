@@ -15,7 +15,7 @@ export type { Cell };
 
 export type Direction = "up" | "down" | "left" | "right";
 
-export type Random = () => number;
+type Random = () => number;
 
 export type DotSnake = {
   readonly cols: number;
@@ -35,7 +35,7 @@ export type DotSnake = {
 
 /** Time per step on screen. */
 export const DOT_SNAKE_STEP_MS = 140;
-export const DOT_SNAKE_START_LENGTH = 5;
+const DOT_SNAKE_START_LENGTH = 5;
 /** Long enough to feel like growth, short enough to stay calm on a small card. */
 const DOT_SNAKE_MAX_LENGTH = 12;
 
@@ -129,7 +129,7 @@ export function steerDotSnake(state: DotSnake, cell: Cell): DotSnake {
   return { ...state, target: head && sameCell(head, target) ? null : target };
 }
 
-export type DotSnakeMove = { direction: Direction; cell: Cell };
+type DotSnakeMove = { direction: Direction; cell: Cell };
 
 /**
  * The next move, or `null` when every move collides. Candidates are straight

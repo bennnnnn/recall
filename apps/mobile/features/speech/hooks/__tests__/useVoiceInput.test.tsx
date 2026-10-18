@@ -110,3 +110,41 @@ describe("useVoiceInput microphone ownership", () => {
     expect(recorder.stop).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("useVoiceInput plan refusal", () => {
+  it("opens the plans when the server says voice input is not in the plan", async () => {
+    const { reportRecoverableError } = jest.requireMock("@/lib/reportRecoverableError") as {
+      reportRecoverableError: jest.Mock;
+    };
+    const onPlanRequired = jest.fn();
+    let planVoice!: ReturnType<typeof useVoiceInput>;
+    function PlanProbe() {
+      const value = useVoiceInput({
+        token: "tok",
+        onTranscript: jest.fn(),
+        onPlanRequired,
+        t: (key) => key,
+      });
+      React.useLayoutEffect(() => { planVoice = value; });
+      return null;
+    }
+    const recorder = {
+      stop: jest.fn(async () => "file:///rec.m4a"),
+      subscribeMetering: jest.fn((listener: (level: number) => void) => {
+        listener(0.9);
+        listener(0.9);
+        listener(0.9);
+        return () => {};
+      }),
+    } satisfies VoiceRecorder;
+    startMock.mockResolvedValueOnce(recorder);
+    (transcribeSpeech as jest.Mock).mockRejectedValueOnce(
+      Object.assign(new Error("Voice input isn't part of your plan."), { status: 403 }),
+    );
+    await render(<PlanProbe />);
+    await act(async () => { await planVoice.startRecording(); });
+    await act(async () => { await planVoice.finishRecording(); });
+    expect(onPlanRequired).toHaveBeenCalledTimes(1);
+    expect(reportRecoverableError).not.toHaveBeenCalled();
+  });
+});

@@ -6,20 +6,19 @@ import re
 from collections.abc import Callable, Sequence
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
+from app.modules.math.match.literal_plot import literal_plot_point
 from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.declines import sympy_decline
+from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.extractors.algebra import (
     ALGEBRA_EXTRACTORS,
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
     oversized_system,
 )
 from app.modules.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
-from app.modules.math.tools.extractors.calculus_applications import (
-    CALCULUS_APPLICATION_EXTRACTORS,
-)
-from app.modules.math.tools.extractors.discrete_statistics import (
-    DISCRETE_STATISTICS_EXTRACTORS,
-)
+from app.modules.math.tools.extractors.calculus_applications import CALCULUS_APPLICATION_EXTRACTORS
+from app.modules.math.tools.extractors.discrete_statistics import DISCRETE_STATISTICS_EXTRACTORS
 from app.modules.math.tools.extractors.functions import (
     FUNCTION_EXTRACTORS,
     function_analysis_constraint_would_be_dropped,
@@ -28,16 +27,17 @@ from app.modules.math.tools.extractors.geometry_graph import (
     GEOMETRY_GRAPH_EXTRACTORS,
     SOLID_EXTRACTOR,
 )
-from app.modules.math.tools.helpers import (
-    _split_response_instruction_sentence,
+from app.modules.math.tools.extractors.geometry_request import finish_geometry_intent
+from app.modules.math.tools.extractors.readings import read
+from app.modules.math.tools.function_def import (
     has_assignment_evaluation_request,
-    math_expr_or_none,
     peel_function_definition,
 )
 from app.modules.math.tools.keyboard_notation import (
     keyboard_bounds_read_first,
     keyboard_math_to_plain,
 )
+from app.modules.math.tools.request_text import _split_response_instruction_sentence
 from app.modules.math.tools.school import SCHOOL_EXTRACTORS
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
@@ -139,25 +139,6 @@ _SOLVED_REGION_OPS = {
 # ``f(x)``, ``g(t)``: a single-letter function of a single-letter variable.
 _FUNCTION_NOTATION = re.compile(r"(?<![A-Za-z\\])[a-zA-Z]\s*\(\s*[a-zA-Z]\s*\)")
 
-_LAGRANGE_REQUEST = re.compile(
-    r"(?P<name>[a-zA-Z])\(\s*(?P<var>[a-zA-Z])\s*\)\s*=\s*(?P<expr>.+),\s*"
-    r"(?:find|calculate|compute|determine)\s+(?P=name)'{1,3}\(\s*(?P=var)\s*\)[.?]?",
-    re.IGNORECASE,
-)
-
-
-def _closed_math_syntax(text: str) -> bool:
-    """A whole math request is not invalid merely under physics's number grammar."""
-    from app.modules.math.tools.direct_statistics import statistics_direct_request
-
-    if len(text) > 1000:
-        return False
-    if statistics_direct_request(text) is True:
-        return True
-    match = _LAGRANGE_REQUEST.fullmatch(text.strip())
-    return match is not None and math_expr_or_none(match["expr"]) is not None
-
-
 _FUNCTION_NAMES = re.compile(
     r"\b(?:sqrt|cbrt|sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|exp|abs|pi)\b",
     re.IGNORECASE,
@@ -171,18 +152,20 @@ def _numeric_statement(text: str, intent: MathIntent) -> bool:
     or "all real numbers", which is wrong or meaningless to a student. A
     typed ``solve 0 = 1`` still reads as the contradiction it is.
     """
-    if intent.kind != "equation" or intent.system_equations:
+    if intent.kind not in {"equation", "inequality"} or intent.system_equations:
         return False
-    sides = _FUNCTION_NAMES.sub(" ", f"{intent.lhs or ''} {intent.rhs or ''}")
-    if re.search(r"[A-Za-z]", sides):
+    sides = _FUNCTION_NAMES.sub(" ", f"{intent.lower or ''} {intent.lhs or ''} {intent.rhs or ''}")
+    if re.search(r"[A-Za-df-z]", sides):  # e is Euler's number, never the unknown
         return False
     return re.search(r"\bsolve\b", text, re.IGNORECASE) is None
 
 
 def extract_math_intent(text: str) -> MathIntent | None:
     intent = _extract_math_intent_any(text)
-    if intent is not None and _numeric_statement(text, intent):
+    if intent is None or _numeric_statement(text, intent):
         return None
+    if intent.kind == "point":
+        intent.plot_point = literal_plot_point(text)
     return intent
 
 
@@ -342,7 +325,8 @@ def _extract_math_intent(text: str) -> MathIntent | None:
             cleaned = f"solve {tail} = 0"
     region_question = _REGION_QUESTION_RE.search(cleaned) is not None
     for extractor in _INTENT_EXTRACTORS:
-        intent = extractor(cleaned)
+        # The math gate may have read the line already: its reads are reused.
+        intent = read(extractor, cleaned)
         if intent is not None:
             if region_question and intent.school_op not in _SOLVED_REGION_OPS:
                 # A region question the application extractors declined must
@@ -363,40 +347,7 @@ def _extract_math_intent(text: str) -> MathIntent | None:
                 f"{intent.lhs or ''} {intent.rhs or ''}", text
             ):
                 return None
-            if intent.kind in {
-                "rectangle",
-                "square",
-                "triangle",
-                "right_triangle",
-                "triangle_sides",
-                "circle",
-                "trapezoid",
-                "parallelogram",
-                "sector",
-            }:
-                # A natural-language measurement must not inherit the public
-                # structured-input schema's legacy centimetre default. AAA
-                # triangles already carry relative side lengths in generic units.
-                from app.modules.math.match.literal_geometry import (
-                    parse_named_rectangle_request,
-                )
-                from app.modules.math.match.units import solid_length_unit
-
-                if intent.kind != "triangle_sides" or intent.unit != "units":
-                    named_rectangle = (
-                        parse_named_rectangle_request(cleaned)
-                        if intent.kind == "rectangle"
-                        else None
-                    )
-                    unit = (
-                        named_rectangle.unit
-                        if named_rectangle is not None
-                        else solid_length_unit(cleaned)
-                    )
-                    if unit is None:
-                        return None
-                    intent = intent.model_copy(update={"unit": unit})
-            return intent
+            return finish_geometry_intent(intent, cleaned)
     return None
 
 
@@ -470,7 +421,7 @@ def _is_plottable_expr(expr: str) -> bool:
     lower = compact.lower()
     if lower in {"it", "this", "that"}:
         return False
-    from app.modules.math.match.scan import has_unknown_english_run
+    from app.modules.math.match.letter_runs import has_unknown_english_run
 
     if has_unknown_english_run(compact):
         return False
@@ -489,11 +440,9 @@ def _function_of_x(expr: str) -> bool:
 
     if not _is_plottable_expr(expr):
         return False
-    try:
+    with sympy_decline() as declined:
         parsed = _parse_expression(expr.replace("^", "**"), ["x"])
-    except Exception:
-        return False
-    return {str(symbol) for symbol in parsed.free_symbols} <= {"x"}
+    return not declined and {str(symbol) for symbol in parsed.free_symbols} <= {"x"}
 
 
 def _named_functions(text: str) -> list[str]:

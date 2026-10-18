@@ -1,9 +1,10 @@
 /**
  * Plot-only expression eval (not a solver). Whitelisted AST — no eval/Function.
  * Used so pinch-zoom and live edits can resample y=f(x) on device.
+ * docs/fixtures/graph_expr_cases.json holds it to the server's SymPy reading.
  */
 
-export type GraphExprNode =
+type GraphExprNode =
   | { t: "num"; v: number }
   | { t: "var" }
   | { t: "call"; name: string; arg: GraphExprNode }
@@ -146,7 +147,7 @@ function readCmp(s: string, i: number): CmpTok | null {
 }
 
 /** `y = x^2` / `y < 2x` → comparator + rhs. Bare `x^2` is not a relation. */
-export function splitYRelation(raw: string): { cmp: GraphCmp; rhs: string } | null {
+function splitYRelation(raw: string): { cmp: GraphCmp; rhs: string } | null {
   const s = preprocess(raw).trim();
   let i = skipSpaces(s, 0);
   if (s[i] !== "y" && s[i] !== "Y") return null;

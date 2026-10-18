@@ -9,8 +9,8 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
-from app.modules.chat.prompt_builder import _integration_hints
 from app.modules.chat.prompt_constants import PHOTO_LOOKUP_HINT
+from app.modules.chat.prompt_sections import _integration_hints
 from app.modules.web_search import WEB_SEARCH_HINT
 
 

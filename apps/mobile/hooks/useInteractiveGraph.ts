@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Gesture } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 
-import { unmapGraphPoint } from "@/lib/math/graphBlock";
 import {
   displayGraphExpr,
   formatSeriesExpr,
@@ -10,18 +9,18 @@ import {
   sampleGraphExpr,
   type GraphCmp,
 } from "@/lib/math/graphExpr";
+import { defaultInteractiveBounds, type GraphView } from "@/lib/math/graphViewport";
 import {
-  clampGraphView,
-  defaultInteractiveBounds,
-  panGraphView,
-  zoomGraphView,
-  type GraphView,
-} from "@/lib/math/graphViewport";
+  clampGraphViewW,
+  panGraphViewW,
+  unmapPointW,
+  zoomGraphViewW,
+} from "@/lib/math/graphWorklets";
 
-export const MAX_GRAPH_SERIES = 4;
+const MAX_GRAPH_SERIES = 4;
 const SCATTER_MAX_POINTS = 20;
 
-export type SampledCurve = {
+type SampledCurve = {
   points: [number, number][];
   segments?: [number, number][][];
   cmp?: GraphCmp;
@@ -45,7 +44,7 @@ export type DrawnSeries = GraphSeriesState & {
   cmp: GraphCmp;
 };
 
-export function sampleInView(
+function sampleInView(
   expr: string,
   variable: string,
   bounds: GraphView,
@@ -160,7 +159,7 @@ type ViewportArgs = {
 export function useGraphViewport({ width, height, pad, initialView: requestedInitialView }: ViewportArgs) {
   const plotAspect = (width - pad * 2) / (height - pad * 2 || 1);
   const initialView = useMemo(
-    () => clampGraphView(requestedInitialView ?? defaultInteractiveBounds(plotAspect)),
+    () => clampGraphViewW(requestedInitialView ?? defaultInteractiveBounds(plotAspect)),
     [plotAspect, requestedInitialView],
   );
   const [bounds, setBounds] = useState<GraphView>(initialView);
@@ -175,15 +174,15 @@ export function useGraphViewport({ width, height, pad, initialView: requestedIni
   const applyPinch = useCallback(
     (scale: number, focalX: number, focalY: number) => {
       const start = startRef.current;
-      const focal = unmapGraphPoint(focalX, focalY, start, width, height, pad);
-      setBounds(zoomGraphView(start, scale, focal.x, focal.y));
+      const focal = unmapPointW(focalX, focalY, start, width, height, pad);
+      setBounds(zoomGraphViewW(start, scale, focal.x, focal.y));
     },
     [height, pad, width],
   );
 
   const applyPan = useCallback(
     (dx: number, dy: number) => {
-      setBounds(panGraphView(startRef.current, dx, dy, width, height, pad));
+      setBounds(panGraphViewW(startRef.current, dx, dy, width, height, pad));
     },
     [height, pad, width],
   );
@@ -192,7 +191,7 @@ export function useGraphViewport({ width, height, pad, initialView: requestedIni
 
   /** Skia explorer commit: one JS resample per gesture end, not per frame. */
   const commitBounds = useCallback((next: GraphView) => {
-    setBounds(clampGraphView(next));
+    setBounds(clampGraphViewW(next));
   }, []);
 
   const gesture = useMemo(() => {

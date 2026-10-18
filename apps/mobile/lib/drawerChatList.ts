@@ -4,7 +4,7 @@ import { activeChatsFromGroups, emptyChatList, insertChatByRecency } from "@/fea
 /** How long a GET /chats response stays fresh for drawer paint / prefetch. */
 export const CHAT_LIST_STALE_MS = 20_000;
 
-export type DrawerChatFetchMode = "skip" | "full";
+type DrawerChatFetchMode = "skip" | "full";
 
 /**
  * Opening the sidebar paints from cache after the first load. Pull-to-refresh

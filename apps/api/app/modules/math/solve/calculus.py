@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
+import cmath
 from typing import Any
 
 from sympy import (
+    AccumBounds,
     Integral,
+    Limit,
     Mul,
     Sum,
     Symbol,
     diff,
     integrate,
+    lambdify,
     latex,
     limit,
+    nan,
     oo,
     simplify,
+    sympify,
     zoo,
 )
 
@@ -23,13 +29,15 @@ from app.modules.math.schemas import (
     MathLimitResult,
     MathSeriesResult,
 )
-from app.modules.math.solve.algebra import _expr_equal
-from app.modules.math.solve.parse import (
-    MathServiceError,
-    _parse_expression,
-    derivative_latex,
-    format_verified_latex,
-)
+from app.modules.math.solve.declines import sympy_decline
+from app.modules.math.solve.display import derivative_latex, format_verified_latex
+from app.modules.math.solve.parse import MathServiceError, _parse_expression
+from app.modules.math.solve.root_latex import _expr_equal
+
+# A quadrature whose own error estimate is above _QUADRATURE_TRUST (relative) judges nothing; a
+# closed form within _QUADRATURE_AGREE of a trusted one passes.
+_QUADRATURE_TRUST = 1e-8
+_QUADRATURE_AGREE = 1e-6
 
 
 def _term_derivative_step(term: Any, sym: Any) -> str:
@@ -186,6 +194,57 @@ def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     return MathExprResult(result=str(result), latex=format_verified_latex(result), solved=solved)
 
 
+def definite_integral(integrand: Any, sym: Any, low: Any, high: Any) -> Any:
+    """``integrate(f, (x, a, b))``, refused when a numeric quadrature contradicts it.
+
+    SymPy's route through a definite integral follows the process's string-hash seed: on 1.14
+    about one SymPy pool worker in three gives ∫₀¹ (9ˣ - 3ˣ) dx = -76/ln 3, not 2/ln 3. A
+    contradicted closed form is rebuilt as F(b) - F(a) and kept only if that agrees.
+    """
+    low, high = sympify(low), sympify(high)
+    value = integrate(integrand, (sym, low, high))
+    numeric = _quadrature(integrand, sym, low, high)
+    if numeric is None or _agrees(value, numeric) is not False:
+        return value
+    antiderivative = integrate(integrand, sym)
+    if not antiderivative.has(Integral):
+        rebuilt = limit(antiderivative, sym, high, "-") - limit(antiderivative, sym, low, "+")
+        if _agrees(rebuilt, numeric):
+            return rebuilt
+    raise MathServiceError("the integral's closed form disagrees with a numeric check")
+
+
+def _quadrature(integrand: Any, sym: Any, low: Any, high: Any) -> complex | None:
+    """mpmath's tanh-sinh value of the integral; None when it cannot judge.
+
+    That is another symbol in the integrand or bounds, a point it cannot evaluate, or an error
+    estimate too large to trust (an oscillating tail, a kink inside the interval).
+    """
+    import mpmath
+
+    if integrand.free_symbols - {sym} or low.free_symbols or high.free_symbols:
+        return None
+    with sympy_decline() as declined:
+        f = lambdify(sym, integrand, "mpmath")
+        a, b = (lambdify((), bound, "mpmath")() for bound in (low, high))
+        value, error = mpmath.quad(f, [a, b], error=True)
+        numeric = complex(value)
+    if declined or not cmath.isfinite(numeric):
+        return None
+    return numeric if error <= _QUADRATURE_TRUST * max(1.0, abs(numeric)) else None
+
+
+def _agrees(value: Any, numeric: complex) -> bool | None:
+    """Whether a finite closed form matches the quadrature; None when there is none to compare."""
+    if value.has(Integral) or not (value.is_number and value.is_finite):
+        return None
+    with sympy_decline() as declined:
+        closed = complex(value.evalf())
+    if declined:
+        return None
+    return abs(closed - numeric) <= _QUADRATURE_AGREE * max(1.0, abs(numeric))
+
+
 def integrate_definite(expr: str, variable: str, lower: str, upper: str) -> MathExprResult:
     """Definite integral of expr w.r.t. variable from `lower` to `upper`.
 
@@ -198,7 +257,7 @@ def integrate_definite(expr: str, variable: str, lower: str, upper: str) -> Math
     a = _parse_infinity_aware_point(lower)
     b = _parse_infinity_aware_point(upper)
     try:
-        result = integrate(parsed, (sym, a, b))
+        result = definite_integral(parsed, sym, a, b)
     except Exception as exc:
         raise MathServiceError(f"Could not compute definite integral of: {expr}") from exc
     solved = not result.has(Integral)
@@ -283,6 +342,20 @@ def _parse_infinity_aware_point(raw: str) -> Any:
     return _parse_expression(raw)
 
 
+def _is_limit_value(value: Any) -> bool:
+    """A real number or a signed infinity: a limit SymPy established.
+
+    Accumulation bounds only bound the values near the point (``sin(1/x)`` at 0
+    is ``<-1, 1>``), and prove nothing either way: ``sin(1/x)^2 + cos(1/x)^2``
+    gets ``<0, 2>``, though it is 1. NaN, complex infinity inside an answer, an
+    unevaluated ``Limit`` and a complex value (``sqrt(x)`` at -1 is ``i``) are
+    no real limit either.
+    """
+    if value in (oo, -oo):
+        return True
+    return not value.has(AccumBounds, Limit, nan, zoo) and value.is_extended_real is not False
+
+
 def compute_limit(expr: str, variable: str, point: str, direction: str = "+-") -> MathLimitResult:
     # School limits are over a real input unless another domain is stated.
     # Real assumptions are required for piecewise/absolute-value behavior:
@@ -298,14 +371,24 @@ def compute_limit(expr: str, variable: str, point: str, direction: str = "+-") -
         try:
             left = limit(parsed, sym, point_val, dir="-")
             right = limit(parsed, sym, point_val, dir="+")
-            result = left if simplify(left - right) == 0 else zoo
         except Exception as side_exc:
             raise MathServiceError(f"Could not compute limit of: {expr}") from side_exc
+        if not (_is_limit_value(left) and _is_limit_value(right)):
+            # sin(1/x)/x at 0: neither side has a limit, so they cannot disagree.
+            raise MathServiceError(f"Could not compute limit of: {expr}") from exc
+        result = left if simplify(left - right) == 0 else zoo
     except Exception as exc:
         raise MathServiceError(f"Could not compute limit of: {expr}") from exc
     # A limit can legitimately evaluate to oo/-oo (diverges) or zoo (the
     # two-sided limit doesn't exist because the two sides disagree). Keep
     # the symbolic result so presentation can distinguish these statuses.
+    # zoo says that only for a two-sided limit at a point: at infinity there
+    # are no two sides, and (-2)^n is unbounded both ways.
+    if result == zoo:
+        if direction != "+-" or point_val.is_finite is not True:
+            raise MathServiceError(f"Could not compute limit of: {expr}")
+    elif not _is_limit_value(result):
+        raise MathServiceError(f"Could not compute limit of: {expr}")
     return MathLimitResult(
         result=str(result), latex=latex(result), is_infinite=bool(result.is_infinite)
     )
@@ -329,6 +412,9 @@ def evaluate_series_sum(expr: str, variable: str, start: str, end: str) -> MathS
         result = series.doit()
     except Exception as exc:
         raise MathServiceError(f"Could not evaluate series: {expr}") from exc
+    if result.has(AccumBounds, nan, zoo):
+        # 1/n from n = 0: a term is undefined, and the sum is complex infinity.
+        raise MathServiceError(f"Could not evaluate series: {expr}")
     return MathSeriesResult(
         result=str(result),
         latex=latex(result),

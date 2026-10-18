@@ -1,14 +1,13 @@
 import * as markdownPlain from "@/lib/markdown/plain";
 import {
   markdownToCopyText,
-  markdownToPlainText,
   markdownToSpeechText,
 } from "@/lib/markdown/plain";
 import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
 
 describe("markdownPlain", () => {
   it("strips fences and markdown emphasis for TTS", () => {
-    const plain = markdownToPlainText("# Title\n\n**Bold** and `code`\n\n```json\n{}\n```");
+    const plain = markdownToSpeechText("# Title\n\n**Bold** and `code`\n\n```json\n{}\n```");
     expect(plain).toContain("Title");
     expect(plain).toContain("Bold");
     expect(plain).not.toContain("```");
@@ -17,7 +16,7 @@ describe("markdownPlain", () => {
 
   it("does not re-export print helpers that pull KaTeX", () => {
     expect(Object.keys(markdownPlain).sort()).toEqual(
-      ["markdownToCopyText", "markdownToPlainText", "markdownToSpeechText"].sort(),
+      ["markdownToCopyText", "markdownToSpeechText"].sort(),
     );
   });
 
@@ -191,7 +190,6 @@ describe("markdownPlain chemistry", () => {
   it("copies and speaks a chemistry answer without its notation header", () => {
     expect(markdownToCopyText(chemistryAnswer)).toBe("M(H₂O) = 18.02 g/mol");
     expect(markdownToSpeechText(chemistryAnswer)).toBe("M(H₂O) = 18.02 g/mol");
-    expect(markdownToPlainText(chemistryAnswer)).not.toContain("notation");
   });
 
   it("does not copy the JSON of a drawn scene, and names it when read aloud", () => {

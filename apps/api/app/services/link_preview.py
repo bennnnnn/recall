@@ -10,7 +10,6 @@ import httpx
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.gateways.safe_fetch import fetch_safely
-from app.gateways.safe_fetch import validate_external_url as _validate_external_url_async
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +40,6 @@ class _MetaParser(HTMLParser):
             content = data.get("content")
             if key and content:
                 self.meta[key.lower()] = content
-
-
-async def _validate_external_url(url: str) -> None:
-    """Resolve URL hostname and validate all resulting IPs are external."""
-    await _validate_external_url_async(url)
 
 
 async def fetch_link_preview(url: str) -> dict[str, str | None]:

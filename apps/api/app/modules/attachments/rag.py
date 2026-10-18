@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import Any
@@ -100,8 +99,6 @@ _RAG_MISS_NOTE = (
     "answer in the excerpts, say so."
 )
 
-# Cap concurrent embedding calls so a large PDF doesn't stampede the provider.
-_EMBED_CONCURRENCY = 8
 # Foreground TTFT path — match memory's live-embed budget.
 _RAG_EMBED_TIMEOUT_SECONDS = 2.0
 
@@ -135,20 +132,6 @@ def is_indexable_attachment(row: Attachment) -> bool:
         not attachment_content_service.is_image_content_type(row.content_type)
         and row.content_type in EXTRACTABLE_CONTENT_TYPES
     )
-
-
-async def _embed_pieces(
-    settings: Settings,
-    pieces: list[str],
-) -> list[tuple[int, str, list[float] | None]]:
-    sem = asyncio.Semaphore(_EMBED_CONCURRENCY)
-
-    async def _one(index: int, piece: str) -> tuple[int, str, list[float] | None]:
-        async with sem:
-            vec = await embedding_gateway.embed_text(settings, piece)
-        return index, piece, vec
-
-    return list(await asyncio.gather(*(_one(i, piece) for i, piece in enumerate(pieces))))
 
 
 class AttachmentIndexError(Exception):
@@ -214,7 +197,10 @@ async def index_attachment(
     if not pieces:
         return 0
 
-    embedded = await _embed_pieces(settings, pieces)
+    vectors = await embedding_gateway.embed_many(
+        settings, pieces, concurrency=settings.embedding_concurrency
+    )
+    embedded = list(zip(range(len(pieces)), pieces, vectors, strict=True))
 
     # Filter out chunks with null embeddings. If ALL failed, raise so the
     # worker retries — storing all-null chunks creates dead rows that

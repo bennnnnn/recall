@@ -127,13 +127,6 @@ async def get_by_ids(
     return list(result.scalars().all())
 
 
-async def link_message(session: AsyncSession, row: Attachment, message_id: UUID) -> Attachment:
-    row.message_id = message_id
-    await session.commit()
-    await session.refresh(row)
-    return row
-
-
 async def link_to_message(
     session: AsyncSession,
     *,
@@ -288,15 +281,6 @@ async def chat_meta_for_message_ids(
         .where(Message.id.in_(message_ids))
     )
     return {row[0]: (row[1], row[2]) for row in result.all()}
-
-
-async def chat_ids_for_message_ids(
-    session: AsyncSession,
-    message_ids: list[UUID],
-) -> dict[UUID, UUID]:
-    """Map message id → chat id for gallery 'open chat'. Empty input skips IO."""
-    meta = await chat_meta_for_message_ids(session, message_ids)
-    return {message_id: chat_id for message_id, (chat_id, _title) in meta.items()}
 
 
 async def list_orphans(

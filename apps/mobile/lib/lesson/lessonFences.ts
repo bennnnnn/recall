@@ -11,7 +11,7 @@
  * then pull out whatever words it still holds.
  */
 
-export type QuizFence = {
+type QuizFence = {
   /** The pill at the top of the card, such as "Exercise 1". */
   label: string | null;
   question: string;
@@ -24,9 +24,9 @@ export type QuizFence = {
   explanation: string;
 };
 
-export type ArrayValue = string | number | boolean | null;
+type ArrayValue = string | number | boolean | null;
 
-export type ArrayFence = {
+type ArrayFence = {
   /** The list's name, for copy and speech ("nums = [2, 7, 11, 15]"). */
   name: string | null;
   /** A line above the boxes: "Think of a Python list as a row of numbered boxes." */
@@ -40,7 +40,7 @@ export type ArrayFence = {
 };
 
 /** A quiz explanation: prose, with any fenced code drawn as a code block. */
-export type ExplanationPart =
+type ExplanationPart =
   | { kind: "text"; text: string }
   | { kind: "code"; lang: string; code: string };
 

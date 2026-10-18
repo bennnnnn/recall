@@ -1,9 +1,9 @@
 /** A rectangle in window coordinates (what `measureInWindow` reports). */
 export type Rect = { x: number; y: number; width: number; height: number };
 
-export type Insets = { top: number; bottom: number; left: number; right: number };
+type Insets = { top: number; bottom: number; left: number; right: number };
 
-export type PopoverPlacement = {
+type PopoverPlacement = {
   top: number;
   left: number;
   /** Height the card may use before its rows scroll. */

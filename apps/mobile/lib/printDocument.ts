@@ -6,7 +6,7 @@ import { isMathFenceLang } from "@/lib/fenceRegistry";
 import { KATEX_CSS } from "@/lib/vendor/katexCss";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
 
-export function escapeHtml(text: string): string {
+function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -38,7 +38,7 @@ const PRINT_STYLES = `
 `;
 
 /** Render LaTeX to KaTeX HTML for print (same engine as in-chat math). */
-export function renderPrintMathHtml(latex: string, displayMode: boolean): string {
+function renderPrintMathHtml(latex: string, displayMode: boolean): string {
   const trimmed = latex.trim();
   if (!trimmed) return "";
   try {
@@ -65,7 +65,7 @@ function isPrintMathFenceLang(lang: string): boolean {
   return isMathFenceLang(l) || l === "katex" || l === "asciimath";
 }
 
-export function wrapPrintDocument(title: string, bodyHtml: string, meta?: string): string {
+function wrapPrintDocument(title: string, bodyHtml: string, meta?: string): string {
   const safeTitle = escapeHtml(title.trim() || "Recall report");
   const metaBlock = meta?.trim()
     ? `<p class="meta">${escapeHtml(meta.trim())}</p>`

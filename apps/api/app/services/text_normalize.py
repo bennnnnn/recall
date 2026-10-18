@@ -6,6 +6,8 @@ _HEAD_TAIL_SEP = "\n…\n"
 # Zero-width / BOM — iOS sometimes leaves these on a two-letter greeting.
 _FORMAT_CHARS = frozenset("\u200b\u200c\u200d\ufeff\u2060")
 _DROP_FORMAT_CHARS = dict.fromkeys(map(ord, _FORMAT_CHARS))
+# Smart punctuation (on by default on the iPhone keyboard) types U+2019 and U+2018.
+_STRAIGHT_APOSTROPHES = str.maketrans({"\u2018": "'", "\u2019": "'"})
 
 
 def collapse_ws(text: str) -> str:
@@ -13,6 +15,11 @@ def collapse_ws(text: str) -> str:
     if not _FORMAT_CHARS.isdisjoint(text):
         text = text.translate(_DROP_FORMAT_CHARS)
     return " ".join(text.split())
+
+
+def straighten_apostrophes(text: str) -> str:
+    """U+2018 and U+2019 become ``'``, so a rule written for "What's" reads the curly form."""
+    return text.translate(_STRAIGHT_APOSTROPHES)
 
 
 def cap_text_head_tail(text: str, max_chars: int = 4000) -> str:

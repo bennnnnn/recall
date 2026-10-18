@@ -46,8 +46,23 @@ def test_exact_c17_displays_verified_recurrence_every_iterate_and_root_without_m
     assert r"$x \approx 1.41421$" in reply
     assert "0.000001" in reply
     assert "Tip" not in reply
-    assert validate_math_fences(reply, verified=block) == reply
     assert "```answer" not in reply
+    # The fence pass lands the verified root in the card under Answer, still an
+    # approximation of x: a numerical root never looks exact.
+    landed = validate_math_fences(reply, verified=block)
+    card = "**Answer**\n\n```answer\nverified: true\nx \\approx 1.41421\n```"
+    assert landed.rstrip().endswith(card)
+    assert landed.count("```answer") == 1
+
+
+def test_an_exact_answer_card_carries_no_approximation():
+    """The approximate form is Newton's display form, not a rule for every card."""
+    block = _block("solve 3x^2+5=4")
+    assert block.newton_result is None
+    landed = validate_math_fences("Subtract 5, then divide by 3.", verified=block)
+    exact = "x = \\pm \\frac{\\sqrt{3}}{3} i"
+    assert landed.rstrip().endswith(f"**Answer**\n\n```answer\nverified: true\n{exact}\n```")
+    assert "\\approx" not in landed
 
 
 @pytest.mark.parametrize(

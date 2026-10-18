@@ -19,13 +19,13 @@ from app.modules.math.tools.lesson import (
     lesson_math_text,
     should_render_equation_lesson,
     strip_teaching_signals,
+    wants_answer_check,
     wants_detailed_math_explanation,
     wants_math_explanation,
 )
 from app.services.solving import VerifiedMathBlock
 
-# Imperative / polite glue around a closed compute. Two leftover English
-# words beyond this ("tell" + "joke") keep the LLM.
+# Polite glue around a closed compute; two more English words ("tell joke") keep the LLM.
 _MATH_REQUEST_GLUE = frozenset(
     {
         "solve",
@@ -134,7 +134,7 @@ def _closed_school_request(user_text: str, calculus_text: str) -> bool:
     tangent lines or stationary points.
     """
     from app.modules.math.match.discrete import counting_word_signal
-    from app.modules.math.tools.extractors.formulas import average_value_request
+    from app.modules.math.tools.extractors.calculus_methods import average_value_request
     from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
     from app.modules.math.tools.school.bag_draws import extract_bag_draws_intent
     from app.modules.math.tools.school.curve_points import extract_curve_point_intent
@@ -398,7 +398,7 @@ def _format_direct_math_body(
             format_direct_geometry_working,
         )
 
-        working = format_direct_geometry_working(user_text, fences[0], answer)
+        working = format_direct_geometry_working(verified.geometry_request, fences[0], answer)
         prefix = f"{working}\n\n" if working else ""
         return (
             f"{prefix}```answer\n{display_answer}\n```\n\n"
@@ -414,7 +414,7 @@ def _format_direct_math_body(
     # lets the streaming client close and render this fence immediately.
     from app.modules.math.tools.direct_geometry_working import format_direct_solid_working
 
-    solid_working = format_direct_solid_working(user_text, answer)
+    solid_working = format_direct_solid_working(verified.geometry_request, answer)
     prefix = f"{solid_working}\n\n" if solid_working else ""
     from app.modules.math.tools.direct_teaching import prepend_teaching_fence
 
@@ -497,7 +497,7 @@ def maybe_direct_math_reply(
     if should_render_equation_lesson(verified, user_text, response_style):
         reply = format_equation_lesson_reply(
             verified,
-            include_check=response_style == "detailed",
+            include_check=wants_answer_check(user_text),
             include_reasons=(
                 response_style == "detailed" or wants_detailed_math_explanation(user_text)
             ),

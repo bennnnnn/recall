@@ -13,22 +13,27 @@ import re
 _SPAN_RE = re.compile(r"\$([^$]+)\$")
 
 _INT_BOUNDS_RE = re.compile(
-    r"\\int_\{([^{}]*)\}\^\{([^{}]*)\}\s*(.+?)\s*(?:\\,)?\s*d\{?([a-z])\}?\s*$"
+    r"\\int_\{([^{}]*)\}\^\{([^{}]*)\}\s*(\S(?:[^\n]*?\S)??|[^\S\n](?=\n*\S))"
+    r"\s*(?:\\,\s*)?d\{?([a-z])\}?\s*$"
 )
-_INT_RE = re.compile(r"\\int\s*(.+?)\s*(?:\\,)?\s*d\{?([a-z])\}?\s*$")
-_SECOND_DERIVATIVE_RE = re.compile(r"^\\frac\{d\^\{?2\}?\}\{d\{?([a-z])\}?\^\{?2\}?\}\s*(.+)$")
-_DERIVATIVE_RE = re.compile(r"^\\frac\{d\}\{d\{?([a-z])\}?\}\s*(.+)$")
+_INT_RE = re.compile(
+    r"\\int\s*(\S(?:[^\n]*?\S)??|[^\S\n](?=\n*\S))\s*(?:\\,\s*)?d\{?([a-z])\}?\s*$"
+)
+_SECOND_DERIVATIVE_RE = re.compile(
+    r"^\\frac\{d\^\{?2\}?\}\{d\{?([a-z])\}?\^\{?2\}?\}\s*(\S.*|[^\S\n](?=\n?\Z))$"
+)
+_DERIVATIVE_RE = re.compile(r"^\\frac\{d\}\{d\{?([a-z])\}?\}\s*(\S.*|[^\S\n](?=\n?\Z))$")
 _BINOM_RE = re.compile(r"\\binom\{([^{}]+)\}\{([^{}]+)\}")
 _DEGREE_RE = re.compile(r"\^\{\\circ\}")
-_RADIAN_RE = re.compile(r"\s*\\mathrm\{rad\}")
+_RADIAN_RE = re.compile(r"(?:\b|\B(?<!\s))\s*\\mathrm\{rad\}")
 _DERIVATIVE_FRAC_RE = re.compile(r"\\frac\{(?:d|\\partial)")
 _GREEK_COMMAND_RE = re.compile(r"\\(var)?([a-z]+)(?![A-Za-z])")
 _MOD_RE = re.compile(r"\\bmod\b")
-_FLOOR_RE = re.compile(r"\\lfloor\s*(.+?)\s*\\rfloor")
-_CEIL_RE = re.compile(r"\\lceil\s*(.+?)\s*\\rceil")
-_PARTIAL_RE = re.compile(r"^\\frac\{\\partial\}\{\\partial ?([a-z])\}\s*(.+)$")
-_PRODUCT_RE = re.compile(r"^\\prod_\{([a-z])=(-?\d+)\}\^\{(-?\d+)\}\s*(.+)$")
-_DOT_PRODUCT_RE = re.compile(r"^\(([^()]+,[^()]+)\)\s*\\cdot\s*\(([^()]+,[^()]+)\)$")
+_FLOOR_RE = re.compile(r"\\lfloor\s*(\S(?:[^\n]*?\S)??|[^\S\n](?=\n*\S))\s*\\rfloor")
+_CEIL_RE = re.compile(r"\\lceil\s*(\S(?:[^\n]*?\S)??|[^\S\n](?=\n*\S))\s*\\rceil")
+_PARTIAL_RE = re.compile(r"^\\frac\{\\partial\}\{\\partial ?([a-z])\}\s*(\S.*|[^\S\n](?=\n?\Z))$")
+_PRODUCT_RE = re.compile(r"^\\prod_\{([a-z])=(-?\d+)\}\^\{(-?\d+)\}\s*(\S.*|[^\S\n](?=\n?\Z))$")
+_DOT_PRODUCT_RE = re.compile(r"^\(([^()][^(),]*,[^()]+)\)\s*\\cdot\s*\(([^()][^(),]*,[^()]+)\)$")
 # A product written out factor by factor; longer ones stay with the model.
 _MAX_PRODUCT_FACTORS = 20
 
@@ -98,7 +103,7 @@ def _product_factors(match: re.Match[str]) -> str | None:
     start, end = int(low), int(high)
     if not 0 <= end - start < _MAX_PRODUCT_FACTORS:
         return None
-    term = re.compile(rf"(?<![A-Za-z\\]){var}(?![A-Za-z])")
+    term = re.compile(rf"(?<![A-Za-z\\]){re.escape(var)}(?![A-Za-z])")
 
     def factor(value: int) -> str:
         def put(found: re.Match[str]) -> str:
@@ -154,12 +159,12 @@ def keyboard_bounds_read_first(text: str) -> bool:
 
 # LaTeX pasted or typed without ``$``: the whole message is one span when it
 # opens with one of these commands (``\frac{d}{dx} x^5``, ``\int_{0}^{1} x\,dx``).
-_BARE_LATEX_START = re.compile(r"\s*\\(?:frac|dfrac|int|lim|sum|prod|binom|sqrt)(?![A-Za-z])")
+_BARE_LATEX_START = re.compile(r"^\s*\\(?:frac|dfrac|int|lim|sum|prod|binom|sqrt)(?![A-Za-z])")
 
 
 def keyboard_math_to_plain(text: str) -> str:
     """Each ``$…$`` span in the plain notation the extractors read."""
-    from app.modules.math.solve.parse import _normalize_latex_to_sympy
+    from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
 
     if "$" not in text and _BARE_LATEX_START.match(text):
         return _normalize_latex_to_sympy(_template_to_words(text)).strip()

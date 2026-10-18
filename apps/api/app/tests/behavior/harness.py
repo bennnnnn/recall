@@ -22,18 +22,22 @@ from app.gateways.pubchem_gateway import PubChemCompound, PubChemResult
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
+from app.modules.billing import can_use
 from app.modules.chat import prompt_constants as pc
 from app.modules.chat.prompt_context import _PromptContextBlocks
+from app.modules.chat.stream_paths import run_tool_loop_path
+from app.modules.chat.tool_loop.selection import _search_before_the_model
+from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import _classify_turn_mode
-from app.modules.images.gen_intent import extract_image_gen_prompt
+from app.modules.chat.turn_prep.request import TurnRequest
+from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
 from app.services.subject_solving import detect_subject
-from app.services.tool_loop import _search_before_the_model
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
 
@@ -66,6 +70,8 @@ HINTS: dict[str, str] = {
     "code_ink": pc.CODE_INK_REMINDER,
     "standing_preference": pc.STANDING_PREFERENCE_HINT,
     "personal_disclosure": pc.PERSONAL_DISCLOSURE_HINT,
+    # "The user is asking for a personal recommendation": tastes shape the pick.
+    "advice": pc.ADVICE_PERSONALIZE_HINT,
     # A STEM reply the model works out itself checks its own answer first.
     "self_check": SELF_CHECK_PROMPT_RULE,
 }
@@ -125,6 +131,9 @@ def battery_settings() -> Settings:
         image_search_enabled=True,
         image_generation_enabled=True,
         math_tools_enabled=True,
+        # Coverage, not speed: a busy CI machine must not turn a 0.7s solve
+        # into an unanswered turn at the production 5s limit.
+        math_solve_timeout_seconds=30.0,
         chemistry_enabled=True,
         mcp_tool_loop_enabled=True,
         attachments_enabled=False,
@@ -212,8 +221,9 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     image_gen = bool(
         not photo
         and settings.image_generation_enabled
-        and case.pro
+        and can_use(user, "image_generation", settings)
         and extract_image_gen_prompt(text)
+        and not stem_subject_claims(text, chemistry_enabled=settings.chemistry_enabled)
     )
 
     searched: list[Any] = []
@@ -240,7 +250,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         def stub(target: str, value: Any) -> None:
             stack.enter_context(patch(target, value))
 
-        stub("app.modules.chat.turn_prep.context.SessionLocal", lambda: _Session())
+        stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
         stub("app.repositories.messages.list_recent", AsyncMock(return_value=list(rows)))
         stub("app.repositories.messages.get_last_assistant", AsyncMock(return_value=last_assistant))
@@ -249,7 +259,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stub("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
         stub("app.modules.billing.plan.chat_fallback_models", lambda *_a, **_k: [])
         stub(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
             AsyncMock(return_value=prior_users),
         )
         stub("app.modules.web_search.search_cache.run_cached_search", run_search)
@@ -257,25 +267,27 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stub("app.gateways.pubchem_gateway.lookup_by_name", _pubchem_lookup)
         stub("app.gateways.pubchem_gateway.lookup_iupac_name", AsyncMock(return_value=None))
         stub("app.modules.web_search.detection.classify_web_search", classifier)
-        stub("app.services.tool_loop.run_tool_rounds", tool_rounds)
+        stub("app.modules.chat.tool_loop.run_tool_rounds", tool_rounds)
         stub("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False))
 
         turn_mode = await _classify_turn_mode(AsyncMock(), chat, text)
         bundle = await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            text,
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content=text,
+                model="free-chat",
+                client_timezone=USER_TIMEZONE,
+                client_location=case.location,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=turn_mode,
+                recent_messages=list(rows),
+            ),
             settings,
             AsyncMock(),
-            client_timezone=USER_TIMEZONE,
-            client_location=case.location,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=turn_mode,
-            recent_messages=list(rows),
         )
         ctx = stream_context_from_bundle(
             bundle,
@@ -288,10 +300,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
             prior_count=len(rows),
         )
         prefetch_searched = bool(searched) or bool(bundle.search_sources)
-        from app.modules.chat.stream import _run_tool_loop_path
-
-        await _run_tool_loop_path(
-            AsyncMock(), settings, ctx, usage={}, on_status=None, should_cancel=None
+        await run_tool_loop_path(
+            default_deps(), AsyncMock(), settings, ctx, usage={}, on_status=None, should_cancel=None
         )
 
     loop_call = tool_rounds.await_args

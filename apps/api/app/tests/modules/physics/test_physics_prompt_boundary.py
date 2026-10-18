@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from app.modules.chat.prompt_constants.math import MATH_SOLVER_HINT
 from app.modules.chat.prompt_constants.solving import VERIFIED_SOLVE_SAFETY_HINT
+from app.modules.math.reply_policy import MATH_SOLVER_HINT
 from app.modules.physics.prompt import _unverified_physics_note
 from app.modules.physics.reply_policy import (
     PHYSICS_INTENT_HINT,

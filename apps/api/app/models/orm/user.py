@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 class User(Base):
     __tablename__ = "users"
     __table_args__ = (
-        CheckConstraint("plan IN ('free', 'pro')", name="ck_users_plan"),
+        CheckConstraint("plan IN ('free', 'plus', 'pro')", name="ck_users_plan"),
         CheckConstraint(
             "response_tone IN ('funny', 'professional', 'casual', 'soft')",
             name="ck_users_response_tone",

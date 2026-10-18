@@ -1,7 +1,5 @@
 import { Platform, Share } from "react-native";
 
-import { conversationTranscript } from "@/features/chat/model/transcript";
-import { Message } from "@/lib/api";
 import { isShareCancelled } from "@/lib/shareCancelled";
 
 /** Open the OS share sheet (Messages, Mail, Files, …). */
@@ -25,16 +23,4 @@ export async function presentShareSheet(options: {
     if (isShareCancelled(error)) return;
     throw error;
   }
-}
-
-/** Share/export a conversation as a markdown transcript via the native sheet. */
-export async function shareConversation(
-  title: string | null,
-  messages: Message[],
-): Promise<void> {
-  const transcript = conversationTranscript(title, messages);
-  await presentShareSheet({
-    message: transcript,
-    title: title?.trim() || undefined,
-  });
 }

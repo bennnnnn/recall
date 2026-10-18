@@ -389,4 +389,56 @@ describe("ArithmeticWorkBlock", () => {
     expect(queryByTestId("teaching-number_bond")).toBeNull();
     expect(queryByText("=")).toBeNull();
   });
+
+  const counting = (operation: string, first: number, second: number, result: number) =>
+    JSON.stringify({
+      type: "counting",
+      operation,
+      first,
+      second,
+      result,
+      object: "🍎",
+      answer: String(result),
+      speech: "Objects to count.",
+    });
+
+  it("draws a sum as one line per part: start, + more, = total", async () => {
+    const { getByTestId, getAllByTestId, queryAllByTestId, getByText } = await render(
+      <ArithmeticWorkBlock content={counting("add", 3, 4, 7)} />,
+    );
+    expect(getByTestId("teaching-counting")).toBeOnTheScreen();
+    expect(getByText("3")).toBeOnTheScreen();
+    expect(getByText("+ 4")).toBeOnTheScreen();
+    expect(getByText("= 7")).toBeOnTheScreen();
+    // 3, then 4, then all 7 together.
+    expect(getAllByTestId("counting-object")).toHaveLength(14);
+    expect(queryAllByTestId("counting-crossed")).toHaveLength(0);
+  });
+
+  it("shows what you start with, what is taken away, and what is left", async () => {
+    const { getAllByTestId, getByTestId, getByText } = await render(
+      <ArithmeticWorkBlock content={counting("subtract", 3, 3, 0)} />,
+    );
+    expect(getByText("3")).toBeOnTheScreen();
+    expect(getByText("− 3")).toBeOnTheScreen();
+    expect(getByText("= 0")).toBeOnTheScreen();
+    expect(getAllByTestId("counting-object")).toHaveLength(3);
+    expect(getAllByTestId("counting-crossed")).toHaveLength(3);
+    // Nothing is left: the last line is empty, not crossed-out stars.
+    expect(getByTestId("counting-empty")).toBeOnTheScreen();
+  });
+
+  it("draws rows for multiplication and equal groups for division", async () => {
+    const product = await render(<ArithmeticWorkBlock content={counting("multiply", 3, 4, 12)} />);
+    expect(product.getByText("3 × 4")).toBeOnTheScreen();
+    expect(product.getAllByTestId("counting-row")).toHaveLength(3);
+    expect(product.getAllByTestId("counting-object")).toHaveLength(12);
+    expect(product.getByText("= 12")).toBeOnTheScreen();
+    const share = await render(<ArithmeticWorkBlock content={counting("divide", 12, 3, 4)} />);
+    expect(share.getByText("÷ 3")).toBeOnTheScreen();
+    expect(share.getAllByTestId("counting-group")).toHaveLength(3);
+    // The 12 to share, then the same 12 in 3 groups of 4.
+    expect(share.getAllByTestId("counting-object")).toHaveLength(24);
+    expect(share.getByText("= 4")).toBeOnTheScreen();
+  });
 });

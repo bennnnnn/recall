@@ -24,7 +24,7 @@ export function ChipText({
   );
 }
 
-export function ChipSpans({ text, chip }: { text: string; chip: TextStyleProp }) {
+function ChipSpans({ text, chip }: { text: string; chip: TextStyleProp }) {
   const tokens = useMemo(() => parseInlineMarkdown(text), [text]);
   if (tokens.length === 0) return <>{text}</>;
   return (

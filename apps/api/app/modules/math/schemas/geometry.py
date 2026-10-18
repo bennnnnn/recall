@@ -110,8 +110,10 @@ class TriangleSidesInput(BaseModel):
 
     @model_validator(mode="after")
     def valid_triangle(self) -> TriangleSidesInput:
-        a, b, c = self.a, self.b, self.c
-        if a + b <= c or a + c <= b or b + c <= a:
+        # Deferred: the solver package imports these schemas.
+        from app.modules.math.solve.triangle import triangle_valid
+
+        if not triangle_valid(self.a, self.b, self.c):
             raise ValueError("these three side lengths cannot form a triangle")
         return self
 

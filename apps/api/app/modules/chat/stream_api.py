@@ -22,16 +22,16 @@ from app.exceptions import ChatServiceError, QuotaExceededError, RedisUnavailabl
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
-from app.modules import chat as chat_service
+from app.modules.chat import stream_entry
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.prompt_builder import StreamReasoningFn
 from app.modules.chat.stream_events import (
+    DoneEvent,
+    StreamEndEvent,
     await_finalize_commit,
-    build_done_payload,
     build_reasoning_event,
     build_start_event,
     build_status_event,
-    build_stream_end_payload,
     build_token_event,
     clear_task_cancellation,
     error_payload_for_exception,
@@ -41,6 +41,8 @@ from app.modules.chat.stream_events import (
     take_related_prompts_event,
 )
 from app.modules.chat.stream_status import StreamStatusFn
+from app.modules.chat.turn_deps import default_deps
+from app.modules.chat.turn_outcome import TurnOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +51,7 @@ router = APIRouter(prefix="/chats", tags=["chat-stream"])
 _DISCONNECT_POLL_SECONDS = 0.5
 
 _TokenStream = Callable[
-    [dict[str, Any], StreamStatusFn, StreamReasoningFn, Callable[[], bool]],
+    [TurnOutcome, StreamStatusFn, StreamReasoningFn, Callable[[], bool]],
     AsyncIterator[str],
 ]
 
@@ -83,7 +85,7 @@ async def _stream_tokens_sse(
     request: Request,
     cancel_event: asyncio.Event | None = None,
 ) -> AsyncIterator[str]:
-    result: dict[str, Any] = {}
+    outcome = TurnOutcome()
     event_queue: asyncio.Queue[tuple[str, str, str | None] | None] = asyncio.Queue()
     producer_cancelled = False
     if cancel_event is None:
@@ -100,7 +102,7 @@ async def _stream_tokens_sse(
         return cancel_event.is_set()
 
     async def produce_tokens() -> None:
-        stream = stream_factory(result, on_status, on_reasoning, should_cancel)
+        stream = stream_factory(outcome, on_status, on_reasoning, should_cancel)
         try:
             async for token_text in stream:
                 if should_cancel():
@@ -130,7 +132,7 @@ async def _stream_tokens_sse(
         closing the connection — without this, a closed tab left the LLM
         call running to completion with tokens streamed to nobody, still
         burning quota and provider cost. `cancel_event` is also passed as
-        `should_cancel` into the actual chat_service stream call, so setting
+        `should_cancel` into the actual stream_entry call, so setting
         it here stops generation at the source, not just this relay.
 
         Cancel the producer task immediately — checking should_cancel only
@@ -179,21 +181,18 @@ async def _stream_tokens_sse(
         if (exc := producer.exception()) is not None:
             raise exc
 
-        yield _sse(build_stream_end_payload(result))
-        finalize_db_task = pop_finalize_tasks(result)
+        yield _sse(StreamEndEvent.from_outcome(outcome).model_dump())
+        finalize_db_task = pop_finalize_tasks(outcome)
         commit_status = await await_finalize_commit(finalize_db_task)
         if commit_status == "failed":
             yield _sse({"type": "error", "message": "Failed to save the response. Please retry."})
             return
         if commit_status == "timeout":
-            done_payload = build_done_payload(result)
-            done_payload.pop("message_id", None)
-            done_payload["persisting"] = True
-            yield _sse(done_payload)
+            yield _sse(DoneEvent.from_outcome(outcome, persisting=True).model_dump())
             return
 
-        yield _sse(build_done_payload(result))
-        related = await take_related_prompts_event(result.pop("_related_task", None))
+        yield _sse(DoneEvent.from_outcome(outcome).model_dump())
+        related = await take_related_prompts_event(outcome.related_task)
         if related is not None:
             yield _sse(related)
     except Exception as exc:
@@ -220,7 +219,7 @@ async def _stream_tokens_sse(
         # Await it here too (bounded) so partial tokens are saved even
         # when the transport breaks. The shield inside await_finalize_commit
         # means this never cancels the commit task on timeout.
-        await persist_finalize_if_pending(result)
+        await persist_finalize_if_pending(outcome)
         if not disconnect_watcher.done():
             disconnect_watcher.cancel()
             with suppress(asyncio.CancelledError):
@@ -262,8 +261,9 @@ async def stream_message_sse(
             chat_id=chat_id,
             settings=settings,
             request=request,
-            stream_factory=lambda result, on_status, on_reasoning, should_cancel: (
-                chat_service.stream_chat_response(
+            stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
+                stream_entry.stream_chat_response(
+                    default_deps(),
                     redis,
                     settings,
                     user_id=user.id,
@@ -272,7 +272,7 @@ async def stream_message_sse(
                     model_alias=body.model,
                     attachment_ids=body.attachment_ids or None,
                     should_cancel=should_cancel,
-                    result=result,
+                    outcome=outcome,
                     on_status=on_status,
                     on_reasoning=on_reasoning,
                     user=user,
@@ -297,15 +297,16 @@ async def stream_regenerate_sse(
             chat_id=chat_id,
             settings=settings,
             request=request,
-            stream_factory=lambda result, on_status, on_reasoning, should_cancel: (
-                chat_service.stream_regenerate_response(
+            stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
+                stream_entry.stream_regenerate_response(
+                    default_deps(),
                     redis,
                     settings,
                     user_id=user.id,
                     chat_id=chat_id,
                     model_alias=body.model,
                     should_cancel=should_cancel,
-                    result=result,
+                    outcome=outcome,
                     on_status=on_status,
                     on_reasoning=on_reasoning,
                     **_client_geo(body),

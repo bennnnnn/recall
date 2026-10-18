@@ -48,29 +48,19 @@ import {
 import { retagMathAndDiagramFences } from "@/lib/math/fenceRetag";
 import { normalizeImplicitMath } from "@/lib/math/normalizeImplicit";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
+import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { presentAssistantMarkdown } from "@/lib/markdown/presentation";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 
 export { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/inlineMath";
 export {
-  normalizeQuoteAttributionDashes,
-  promoteCalloutBlockquotes,
-  promoteQuotedAttributions,
-  quotedAttributionToBlockquote,
-  splitBlockquoteInlineAttribution,
-} from "@/lib/markdown/preprocessCallouts";
-export {
   breakAttachedMathFences,
-  dedentMisindentedMarkdownSteps,
-  inlineShortMathFences,
-  liftMathFencesOutOfLists,
   unwrapProseMathBackticks,
 } from "@/lib/markdown/preprocessMathFences";
 export { layoutCheckVerificationLines } from "@/lib/markdown/preprocessMathChecks";
 export { normalizeBoldInlineMath } from "@/lib/markdown/preprocessMathInline";
 export {
   breakMidlineAtxHeadings,
-  looksLikeMarkdownListProse,
   mergeStrandedColons,
   separateStandaloneBoldLines,
   stripBoldListLabelContinuationColons,
@@ -81,9 +71,16 @@ export {
   normalizeMarkdownTables,
 } from "@/lib/markdown/preprocessTables";
 
+export type PreprocessOptions = {
+  /** The server presented this text before saving it (isServerPresentedRow):
+   * its prose is shown as saved, not presented again. */
+  presented?: boolean;
+};
+
 export function preprocessMarkdown(
   content: string,
   mathFormat?: (expr: string) => string,
+  options: PreprocessOptions = {},
 ): string {
   let out = repairBrokenMarkdownLinks(content);
   out = trimBoldDelimiterWhitespace(out);
@@ -146,7 +143,11 @@ export function preprocessMarkdown(
   // Some math normalizers rebuild the surrounding prose while preserving the
   // model's original delimiter padding. Make this the final prose cleanup so
   // malformed bold closers can never reach markdown-it as literal `**`.
+  out = trimBoldDelimiterWhitespace(out);
+  // Presented text skips the prose repairs the server already made. The passes
+  // above still build maths of their own from it (display maths and retagged
+  // fences become ```math), so the calculation rows are laid out either way.
   return attachAnswerHeadingToFence(
-    presentAssistantMarkdown(trimBoldDelimiterWhitespace(out)),
+    options.presented ? layoutCalculations(out) : presentAssistantMarkdown(out),
   );
 }

@@ -7,12 +7,9 @@ Extraction itself lives in ``content.py``.
 from __future__ import annotations
 
 import io
-import logging
 import zipfile
 
 from app.core.attachment_limits import MAX_ATTACHMENT_SIZE
-
-logger = logging.getLogger(__name__)
 
 IMAGE_CONTENT_TYPES = frozenset(
     {
@@ -102,30 +99,6 @@ def _docx_zip_bomb(data: bytes) -> bool:
                     return True
         return False
     except (zipfile.BadZipFile, OSError, EOFError, NotImplementedError):
-        return False
-
-
-def _is_docx_zip(data: bytes) -> bool:
-    """True only for a ZIP archive that contains the canonical DOCX marker
-    entry, `word/document.xml`.
-
-    The ZIP local-file-header signature (`PK\\x03\\x04`) alone is shared by
-    .xlsx (`xl/workbook.xml`), .pptx (`ppt/presentation.xml`), .jar, .apk, and
-    plain .zip files, so it isn't enough to confirm a claimed DOCX upload is
-    actually a DOCX. This only inspects the archive's namelist — it never
-    reads/parses `document.xml` itself.
-
-    Runs on untrusted, potentially adversarial or truncated bytes: any
-    failure to open the buffer as a well-formed ZIP is treated as "not a
-    DOCX" rather than raised. Zip bombs are also rejected.
-    """
-    try:
-        if _docx_zip_bomb(data):
-            return False
-        with zipfile.ZipFile(io.BytesIO(data)) as archive:
-            return _DOCX_MARKER_ENTRY in archive.namelist()
-    except (zipfile.BadZipFile, OSError, EOFError, NotImplementedError) as exc:
-        logger.debug("ZIP signature present but not a valid/DOCX archive: %s", exc)
         return False
 
 

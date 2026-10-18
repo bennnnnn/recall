@@ -9,7 +9,7 @@
  */
 import type { SkFont } from "@shopify/react-native-skia";
 
-export type FontRun = { text: string; font: SkFont; dx: number };
+type FontRun = { text: string; font: SkFont; dx: number };
 
 function hasGlyph(font: SkFont, char: string): boolean {
   const ids = font.getGlyphIDs(char);
@@ -17,7 +17,7 @@ function hasGlyph(font: SkFont, char: string): boolean {
 }
 
 /** Advance width of `text` in one font. */
-export function advanceWidth(font: SkFont, text: string): number {
+function advanceWidth(font: SkFont, text: string): number {
   if (!text) return 0;
   return font.getGlyphWidths(font.getGlyphIDs(text)).reduce((sum, width) => sum + width, 0);
 }

@@ -5,15 +5,12 @@ from __future__ import annotations
 import re
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.helpers import (
-    _normalize_latex_expr,
-    _strip_trailing_filler,
-    math_expr_or_none,
-    peel_function_definition,
-)
+from app.modules.math.tools.expr_rewrite import _normalize_latex_expr, math_expr_or_none
+from app.modules.math.tools.function_def import peel_function_definition
+from app.modules.math.tools.request_text import _strip_trailing_filler
 
 _FUNC_DEF_START = re.compile(r"\b([A-Za-z])\s*\(\s*([A-Za-z])\s*\)\s*=", re.IGNORECASE)
-_TRAILING_JOINER = re.compile(r"(?:\s+and\s*|\s*[,;]\s*)$", re.IGNORECASE)
+_TRAILING_JOINER = re.compile(r"(?:\sand|[,;])\s*$", re.IGNORECASE)
 _FUNCTION_ANALYSIS_CUE_RE = re.compile(
     r"\b(?:domain|range|inverse(?:\s+function)?)\b",
     re.IGNORECASE,
@@ -99,8 +96,9 @@ _EVEN_ODD_RE = re.compile(
     re.IGNORECASE,
 )
 _EVEN_ODD_FUNCTION_RE = re.compile(
-    r"(?:f\s*\(\s*x\s*\)|y)\s*=\s*(.+?)"
-    r"(?=\s*(?:,|;)?\s*(?:is\s+it\b|is\s+this\b|even\b|odd\b|symmetric\b)|[?.!]*$)",
+    r"(?:f\s*\(\s*x\s*\)|y)\s*=\s*"
+    r"(\S(?:[^\n]*?\S)??(?:[^\S\n]+(?=[?.!]*$))?|[^\S\n](?=\n*\S|\n?\Z))"
+    r"(?=\s*(?:[,;]\s*)?(?:is\s+it\b|is\s+this\b|even\b|odd\b|symmetric\b)|[?.!]*$)",
     re.IGNORECASE,
 )
 

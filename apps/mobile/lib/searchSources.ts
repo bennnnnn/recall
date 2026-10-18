@@ -39,6 +39,11 @@ export function parseSearchSourcesJson(raw: string): SearchSource[] {
   }
 }
 
+/** A `done` event's `search_sources`: JSON text today, an array once the server sends one (ES-45). */
+export function searchSourcesFromField(value: unknown): SearchSource[] {
+  return typeof value === "string" ? parseSearchSourcesJson(value) : normalizeSourceRows(value);
+}
+
 export function parseSearchSources(content: string): SearchSource[] {
   const fromFence = collectClosedFenceBodies(content, "sources").flatMap((body) =>
     parseSearchSourcesJson(body),

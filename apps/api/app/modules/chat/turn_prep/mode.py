@@ -87,7 +87,13 @@ def _works_out_a_sum(content: str) -> bool:
 
 
 def _asks_about_food(content: str) -> bool:
-    """Eating, cooking or diet: not homework or a sum that names a meal."""
+    """Food is the topic, not the props of a problem to solve.
+
+    "A recipe needs 3 cups of flour for 12 cookies. How many cups for 30?" is a
+    proportion, and heating 500 g of milk is physics: a subject solver claims
+    both. "9am to 5:30pm with a 45 min lunch, how many hours a week?" is a sum
+    over the numbers it states. None asks for a pick the user's tastes shape.
+    """
     if not is_food_or_diet_query(content):
         return False
     if detect_subject(content) is not None:

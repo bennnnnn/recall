@@ -1,6 +1,6 @@
 /** Parse ```molecule3d / ```mol3d / ```3dmol fence bodies. */
 
-export const MAX_SDF_LENGTH = 50000;
+const MAX_SDF_LENGTH = 50000;
 
 /**
  * V2000 counts line: "  9  9  0  0  0  0  0  0  0  0999 V2000". Only digits and blanks sit
@@ -9,7 +9,7 @@ export const MAX_SDF_LENGTH = 50000;
  */
 const COUNTS_LINE_RE = /^\s*\d[\d ]*V2000\s*$/;
 
-export type Molecule3DFence = {
+type Molecule3DFence = {
   /** SDF (MOL block) string the native viewer reads. */
   sdf: string;
   caption: string | null;

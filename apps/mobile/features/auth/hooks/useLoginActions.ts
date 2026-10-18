@@ -10,7 +10,7 @@ import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
 import { tap } from "@/lib/haptics";
 import { alertDialog } from "@/ui/overlay/dialogs";
 
-export type LoginProvider = "apple" | "google" | "dev";
+type LoginProvider = "apple" | "google" | "dev";
 
 export function useLoginActions() {
   const { signInWithApple, signInWithGoogle, signInWithDev } = useAuth();

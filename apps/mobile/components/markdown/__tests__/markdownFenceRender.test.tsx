@@ -312,12 +312,12 @@ describe("renderFence edge cases", () => {
     expect(getByLabelText("Answer: 120")).toBeOnTheScreen();
   });
 
-  it("shows an unmarked ```answer fence as ordinary math, without its header lines", async () => {
-    const { getByText, queryByLabelText, queryByText } = await render(
+  it("draws an unmarked ```answer fence as the card, without its header lines or the check", async () => {
+    const { getByLabelText, queryByTestId, queryByText } = await render(
       <>{renderFence(node("label: answer\n120", "answer"))}</>,
     );
-    expect(getByText(/120/)).toBeOnTheScreen();
-    expect(queryByLabelText(/Answer:/)).toBeNull();
+    expect(getByLabelText("Answer: 120")).toBeOnTheScreen();
+    expect(queryByTestId("answer-success-check")).toBeNull();
     expect(queryByText(/label/)).toBeNull();
   });
 

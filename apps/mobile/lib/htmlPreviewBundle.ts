@@ -7,8 +7,8 @@
 
 import { inlineScript } from "@/lib/previewSandbox";
 
-export const HTML_PREVIEW_MAX_FILES = 8;
-export const HTML_PREVIEW_MAX_FILE_CHARS = 80_000;
+const HTML_PREVIEW_MAX_FILES = 8;
+const HTML_PREVIEW_MAX_FILE_CHARS = 80_000;
 
 export type PreviewKind = "html" | "css" | "js";
 

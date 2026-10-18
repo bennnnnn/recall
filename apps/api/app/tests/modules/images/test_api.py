@@ -1,9 +1,12 @@
 """Image generation router tests."""
 
+import asyncio
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import fakeredis.aioredis
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
@@ -30,9 +33,9 @@ def _app_with_user(user: User, *, settings: Settings | None = None):
     return app
 
 
-def test_generate_image_requires_pro():
+def test_generate_image_refused_when_the_plan_has_none():
     user = _fake_user(plan="free")
-    client = TestClient(_app_with_user(user))
+    client = TestClient(_app_with_user(user, settings=Settings(daily_image_generations=0)))
     r = client.post(
         "/images/generate",
         headers={"Authorization": "Bearer tok"},
@@ -41,12 +44,39 @@ def test_generate_image_requires_pro():
     assert r.status_code == 403
 
 
-def test_generate_image_quota_exhausted():
+@pytest.mark.parametrize("plan, cap", [("free", 3), ("plus", 10), ("pro", 15)])
+def test_generate_image_stops_at_each_plans_daily_cap(quota_clock, plan, cap):
+    """Free gets a few a day; the endpoint enforces each plan's number."""
+    user = _fake_user(plan=plan)
+    app = _app_with_user(user, settings=Settings())
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    asyncio.run(fake_redis.set(f"imggen:{user.id}:2026-10-16", cap, ex=60))
+    with (
+        patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.images.generation.chats_repo.get_by_id",
+            AsyncMock(return_value=MagicMock()),
+        ),
+        patch(
+            "app.modules.images.generation.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=False),
+        ),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/images/generate",
+            headers={"Authorization": "Bearer tok"},
+            json={"chat_id": str(uuid4()), "prompt": "a cat"},
+        )
+    assert r.status_code == 429
+    assert ("Upgrade" in r.json()["detail"]) is (plan == "free")
+
+
+def test_generate_image_quota_exhausted(quota_clock):
     user = _fake_user(plan="pro")
     app = _app_with_user(user, settings=Settings(daily_image_generations_pro=1))
-    fake_redis = AsyncMock()
-    fake_redis.incrby = AsyncMock(return_value=2)
-    fake_redis.expire = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    asyncio.run(fake_redis.set(f"imggen:{user.id}:2026-10-16", 1, ex=60))
 
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
@@ -64,7 +94,7 @@ def test_generate_image_quota_exhausted():
     assert r.status_code == 429
 
 
-def test_generate_image_rejects_oversized_result():
+def test_generate_image_rejects_oversized_result(quota_clock):
     """BUG FIX: last-line-of-defense size check, matching the
     presign + actual-bytes double-check every normal attachment upload gets."""
     from app.modules.attachments.content import MAX_ATTACHMENT_SIZE
@@ -76,9 +106,7 @@ def test_generate_image_rejects_oversized_result():
     chat = MagicMock(spec=Chat)
     chat.id = chat_id
 
-    fake_redis = AsyncMock()
-    fake_redis.incrby = AsyncMock(return_value=1)
-    fake_redis.expire = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
     oversized = b"\x89PNG\r\n\x1a\n" + b"0" * MAX_ATTACHMENT_SIZE
 
@@ -99,11 +127,9 @@ def test_generate_image_rejects_oversized_result():
             headers={"Authorization": "Bearer tok"},
             json={"chat_id": str(chat_id), "prompt": "a cat"},
         )
-
+        # Reserved on entry, refunded after the size check rejects it.
+        assert asyncio.run(fake_redis.get(f"imggen:{user.id}:2026-10-16")) == "0"
     assert r.status_code == 502
-    # Reserved once (+1) on entry, refunded once (-1) after the size check rejects it.
-    assert fake_redis.incrby.await_count == 2
-    assert fake_redis.incrby.await_args_list[1].args[1] == -1
 
 
 def test_generate_image_success():
@@ -145,9 +171,7 @@ def test_generate_image_success():
     gateway.delete_bytes = AsyncMock()
     create_pending = AsyncMock()
 
-    fake_redis = AsyncMock()
-    fake_redis.incrby = AsyncMock(return_value=1)
-    fake_redis.expire = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
     fake_session = AsyncMock()
 
@@ -245,7 +269,7 @@ def test_generate_image_passes_original_user_message():
     assert generate.await_args.kwargs["user_message_content"] == "create a cat image"
 
 
-def test_generate_image_deletes_storage_when_persist_fails():
+def test_generate_image_deletes_storage_when_persist_fails(quota_clock):
     """A write with no attachment row leaks forever — rollback the object."""
     user = _fake_user(plan="pro")
     chat_id = uuid4()
@@ -269,9 +293,7 @@ def test_generate_image_deletes_storage_when_persist_fails():
     gateway.write_bytes = AsyncMock()
     gateway.delete_bytes = AsyncMock()
 
-    fake_redis = AsyncMock()
-    fake_redis.incrby = AsyncMock(return_value=1)
-    fake_redis.expire = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
@@ -296,10 +318,8 @@ def test_generate_image_deletes_storage_when_persist_fails():
             headers={"Authorization": "Bearer tok"},
             json={"chat_id": str(chat_id), "prompt": "a cat"},
         )
-
+        # Reserved once, refunded after persist fail.
+        assert asyncio.run(fake_redis.get(f"imggen:{user.id}:2026-10-16")) == "0"
     assert r.status_code == 500
     gateway.write_bytes.assert_awaited_once_with(storage_key, b"\x89PNG\r\n")
     gateway.delete_bytes.assert_awaited_once_with(storage_key)
-    # Reserved once, refunded after persist fail.
-    assert fake_redis.incrby.await_count == 2
-    assert fake_redis.incrby.await_args_list[1].args[1] == -1

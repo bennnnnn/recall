@@ -5,7 +5,7 @@ import { isAccountDeleteComplete } from "@/lib/accountDelete";
 import { api } from "@/lib/api";
 import { formatExportJsonForShare, shareAccountExport } from "@/lib/exportData";
 
-export type DataControlsProgress = "idle" | "exporting" | "deleting";
+type DataControlsProgress = "idle" | "exporting" | "deleting";
 
 export function useDataControls() {
   const { token, signOut, setIgnoreUnauthorized } = useAuth();

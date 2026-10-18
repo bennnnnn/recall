@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
 
 type AppleAuthModule = typeof import("expo-apple-authentication");
@@ -32,10 +33,18 @@ export function shouldShowAppleSignInButton(): boolean {
   return extra?.appleSignIn !== false;
 }
 
-export type AppleSignInResult = {
+type AppleSignInResult = {
   idToken: string;
   name: string | null;
+  /** Raw nonce for the server; Apple's token carries its SHA-256. */
+  nonce: string;
 };
+
+function newRawNonce(): string {
+  return Array.from(Crypto.getRandomBytes(32), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
 
 export function formatAppleSignInError(error: unknown): string {
   const message =
@@ -64,11 +73,19 @@ export async function signInWithAppleCredentials(): Promise<AppleSignInResult> {
     );
   }
 
+  // The server only accepts an Apple token together with the raw value whose
+  // hash the token carries, so a token copied from elsewhere cannot sign in.
+  const nonce = newRawNonce();
+  const hashedNonce = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    nonce,
+  );
   const credential = await AppleAuthentication.signInAsync({
     requestedScopes: [
       AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
       AppleAuthentication.AppleAuthenticationScope.EMAIL,
     ],
+    nonce: hashedNonce,
   });
 
   const idToken = credential.identityToken;
@@ -80,5 +97,5 @@ export async function signInWithAppleCredentials(): Promise<AppleSignInResult> {
   const family = credential.fullName?.familyName?.trim();
   const name = [given, family].filter(Boolean).join(" ") || null;
 
-  return { idToken, name };
+  return { idToken, name, nonce };
 }

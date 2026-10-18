@@ -24,7 +24,9 @@ def test_bare_subtraction_reaches_verified_direct_answer(text, canonical, shown)
     block = math_tools._build_verified_block(intent, Settings(_env_file=None))
     assert block is not None and block.canonical_answer == canonical
     reply = maybe_direct_math_reply(block, text)
-    assert reply == f"```answer\n{shown}\n```\n"
+    # 10 - 3 also draws objects to count above it; a negative result has none.
+    assert reply is not None and reply.endswith(f"```answer\n{shown}\n```\n")
+    assert reply.count("```answer") == 1
 
 
 @pytest.mark.parametrize(

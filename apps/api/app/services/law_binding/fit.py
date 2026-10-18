@@ -39,7 +39,7 @@ from app.services.law_binding.words import (
 _DIMENSIONLESS = "dimensionless"
 _ANGULAR = "angular "
 # "from 0 to 27 m/s": a bare number shares the unit of the value it runs to.
-_RANGE_LINK = re.compile(r"\s*(?:to|-|\u2013|and|or)\s*", re.IGNORECASE)
+_RANGE_LINK = re.compile(r"\d\s*(?:to|-|\u2013|and|or)\s*", re.IGNORECASE)
 # Only a conjunction between two values: they share the words before the first.
 _LIST_LINK = re.compile(r"\s*(?:,|and|,\s*and)\s*", re.IGNORECASE)
 
@@ -97,7 +97,7 @@ def read_givens(text: str, units: UnitTable) -> tuple[Given, ...]:
             and not given.unit
             and following is not None
             and following.dimension is not None
-            and _RANGE_LINK.fullmatch(text, given.end, following.start)
+            and _RANGE_LINK.fullmatch(text, given.end - 1, following.start)
         ):
             reading = unit_dimension(units.expression(following.unit) or "")
             if reading is not None:

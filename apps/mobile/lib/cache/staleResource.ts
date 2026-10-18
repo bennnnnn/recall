@@ -1,4 +1,4 @@
-export type StaleResourceEntry<T> = {
+type StaleResourceEntry<T> = {
   data: T;
   fetchedAt: number;
 };

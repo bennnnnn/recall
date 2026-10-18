@@ -6,6 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, PrivateAttr
 
+from app.modules.math.schemas.geometry_request import GeometryRequest
 from app.modules.math.schemas.word_problem import WordProblemSetup
 
 
@@ -71,6 +72,9 @@ class MathIntent(BaseModel):
     wants_center_distance: bool = False
     point_x: float | None = None
     point_y: float | None = None
+    # Set only when the whole request is "plot the point (x, y)": the point it
+    # names. The direct reply reads this instead of the user's words.
+    plot_point: tuple[float, float] | None = None
     unit: str = "cm"
     operation: (
         Literal[
@@ -133,6 +137,8 @@ class MathIntent(BaseModel):
     # then its rearrangement (for example A = lw, then l = A / w).
     given_area: float | None = None
     geometry_target: Literal["width", "length"] | None = None
+    # The one measurement the question names, for the direct reply's working.
+    geometry_request: GeometryRequest | None = None
     # Same idea for circles: only annotate diameter/circumference when asked.
     wants_diameter: bool = False
     wants_circumference: bool = False

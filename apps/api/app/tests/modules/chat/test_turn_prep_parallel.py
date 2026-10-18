@@ -20,6 +20,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat.turn_prep.context import build_stream_prompt_context
 from app.modules.chat.turn_prep.mode import _TurnMode
+from app.modules.chat.turn_prep.request import TurnRequest
 from app.services.time_context import format_date_answer, format_year_answer
 
 
@@ -108,10 +109,19 @@ async def test_followup_keeps_conversation_context_instead_of_instant_clock(
         ),
     ):
         bundle = await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            content,
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content=content,
+                model="free-chat",
+                client_timezone=None,
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=_slim_turn_mode(),
+            ),
             Settings(
                 _env_file=None,
                 mcp_tool_loop_enabled=False,
@@ -119,13 +129,6 @@ async def test_followup_keeps_conversation_context_instead_of_instant_clock(
                 web_search_enabled=False,
             ),
             fake_redis,
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_slim_turn_mode(),
         )
 
     assert bundle.instant_reply == expected_instant_reply()
@@ -153,10 +156,20 @@ async def test_year_date_time_instant_reply_skipped_when_image_attached(fake_red
         ),
     ):
         bundle = await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            content,
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content=content,
+                model="free-chat",
+                client_timezone=None,
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                has_image_attachment=True,
+                user=user,
+                chat=chat,
+                turn_mode=_slim_turn_mode(),
+            ),
             Settings(
                 _env_file=None,
                 mcp_tool_loop_enabled=False,
@@ -164,14 +177,6 @@ async def test_year_date_time_instant_reply_skipped_when_image_attached(fake_red
                 web_search_enabled=False,
             ),
             fake_redis,
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            has_image_attachment=True,
-            user=user,
-            chat=chat,
-            turn_mode=_slim_turn_mode(),
         )
 
     assert bundle.instant_reply is None
@@ -196,22 +201,24 @@ async def test_recurring_pay_reply_skips_prompt_model_health_and_web_search(fake
     with (
         patch("app.modules.chat.turn_prep.context.build_prompt_messages", build_prompt),
         patch("app.services.model_health.enrich_models_health", AsyncMock()) as health,
-        patch("app.modules.chat.turn_prep.context.fetch_web_and_tools", AsyncMock()) as web_search,
+        patch("app.modules.chat.turn_prep.augment.fetch_web_and_tools", AsyncMock()) as web_search,
     ):
         bundle = await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            content,
-            "gemini-flash",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content=content,
+                model="gpt-6-luna",
+                client_timezone="America/Los_Angeles",
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=_slim_turn_mode(),
+            ),
             Settings(_env_file=None),
             fake_redis,
-            client_timezone="America/Los_Angeles",
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_slim_turn_mode(),
         )
 
     assert bundle.instant_reply is not None
@@ -253,7 +260,7 @@ async def test_fetches_run_concurrently_not_serially():
         return list(base_messages)
 
     with (
-        patch("app.modules.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(side_effect=slow_prompt),
@@ -265,11 +272,11 @@ async def test_fetches_run_concurrently_not_serially():
             AsyncMock(side_effect=slow_health),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+            "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
             AsyncMock(side_effect=slow_web),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.should_classify_tool_web_search",
+            "app.modules.chat.turn_prep.augment.should_classify_tool_web_search",
             return_value=True,
         ),
         patch(
@@ -277,25 +284,34 @@ async def test_fetches_run_concurrently_not_serially():
             AsyncMock(side_effect=slow_classify),
         ) as classify,
         patch(
-            "app.modules.chat.turn_prep.context.inject_web_and_tools",
+            "app.modules.chat.turn_prep.augment.inject_web_and_tools",
             AsyncMock(side_effect=fast_inject),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.extract_settings_changes",
+            "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
         ),
     ):
         loop = asyncio.get_event_loop()
         start = loop.time()
         bundle = await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            "Who leads Acme Corporation?",
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content="Who leads Acme Corporation?",
+                model="free-chat",
+                client_timezone=None,
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=_rich_turn_mode(),
+            ),
             Settings(
                 max_output_tokens=1000,
                 mcp_tool_loop_enabled=False,
@@ -304,13 +320,6 @@ async def test_fetches_run_concurrently_not_serially():
                 web_search_classifier_enabled=True,
             ),
             MagicMock(),
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_rich_turn_mode(),
         )
         elapsed = loop.time() - start
 
@@ -337,7 +346,7 @@ async def test_injects_in_stable_order_web_then_math():
         return list(base_messages)
 
     with (
-        patch("app.modules.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(side_effect=fast_prompt),
@@ -345,23 +354,32 @@ async def test_injects_in_stable_order_web_then_math():
         # Only the FETCHES are mocked; the real inject functions run so we can
         # assert the final prompt shape end-to-end.
         patch(
-            "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+            "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
             AsyncMock(return_value=("WEB_BLOCK", "MATH_BLOCK", [], None, False, None, None)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.extract_settings_changes",
+            "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
         ),
     ):
         bundle = await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            "explain photosynthesis",
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content="explain photosynthesis",
+                model="free-chat",
+                client_timezone=None,
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=_rich_turn_mode(),
+            ),
             Settings(
                 max_output_tokens=1000,
                 mcp_tool_loop_enabled=False,
@@ -369,13 +387,6 @@ async def test_injects_in_stable_order_web_then_math():
                 web_search_enabled=True,
             ),
             MagicMock(),
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_rich_turn_mode(),
         )
 
     messages = bundle.prompt_messages
@@ -396,29 +407,38 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
     load_prior = AsyncMock(return_value=[])
 
     with (
-        patch("app.modules.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(base_messages)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+            "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
             fetch_web,
         ),
         patch(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
             load_prior,
         ),
         patch(
-            "app.modules.chat.turn_prep.context.extract_settings_changes",
+            "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
         ),
     ):
         await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            "I want to talk something through — ask me a good opening question.",
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content="I want to talk something through — ask me a good opening question.",
+                model="free-chat",
+                client_timezone=None,
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=_slim_turn_mode(),
+            ),
             Settings(
                 max_output_tokens=1000,
                 mcp_tool_loop_enabled=False,
@@ -426,13 +446,6 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
                 web_search_enabled=True,
             ),
             MagicMock(),
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_slim_turn_mode(),
         )
 
     fetch_web.assert_not_awaited()
@@ -448,29 +461,38 @@ async def test_web_augment_loads_priors():
     load_prior = AsyncMock(return_value=["earlier question"])
 
     with (
-        patch("app.modules.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(base_messages)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+            "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
             AsyncMock(return_value=(None, None, [], None, False, None, None)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
             load_prior,
         ),
         patch(
-            "app.modules.chat.turn_prep.context.extract_settings_changes",
+            "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
         ),
     ):
         await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            "explain photosynthesis",
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content="explain photosynthesis",
+                model="free-chat",
+                client_timezone=None,
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=_rich_turn_mode(),
+            ),
             Settings(
                 max_output_tokens=1000,
                 mcp_tool_loop_enabled=False,
@@ -478,13 +500,6 @@ async def test_web_augment_loads_priors():
                 web_search_enabled=True,
             ),
             MagicMock(),
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_rich_turn_mode(),
         )
 
     load_prior.assert_awaited()
@@ -514,21 +529,21 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
     )
     messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
     with (
-        patch("app.modules.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(messages)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+            "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
             AsyncMock(return_value=(None, "MATH_BLOCK", [], verified, False, None, None)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.extract_settings_changes",
+            "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
         ),
         patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
@@ -538,23 +553,25 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
         ),
     ):
         bundle = await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            content,
-            model,
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content=content,
+                model=model,
+                client_timezone=None,
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=_slim_turn_mode(),
+            ),
             Settings(
                 mcp_tool_loop_enabled=False,
                 math_tools_enabled=True,
                 web_search_enabled=False,
             ),
             fake_redis,
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_slim_turn_mode(),
         )
 
     assert bundle.verified_subject is verified
@@ -609,13 +626,13 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
     messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
 
     with (
-        patch("app.modules.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(messages)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+            "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
             AsyncMock(
                 return_value=(
                     None,
@@ -629,11 +646,11 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
             ),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.extract_settings_changes",
+            "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
         ),
         patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
@@ -643,10 +660,19 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
         ),
     ):
         bundle = await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            content,
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content=content,
+                model="free-chat",
+                client_timezone=None,
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=_slim_turn_mode(),
+            ),
             Settings(
                 mcp_tool_loop_enabled=False,
                 math_tools_enabled=True,
@@ -654,13 +680,6 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
                 web_search_enabled=False,
             ),
             fake_redis,
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_slim_turn_mode(),
         )
 
     assert bundle.verified_subject is verified_chemistry
@@ -685,21 +704,21 @@ async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None
     )
     messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
     with (
-        patch("app.modules.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(messages)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+            "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
             AsyncMock(return_value=(None, "MATH_BLOCK", [], verified, False, None, None)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.chat.turn_prep.context.extract_settings_changes",
+            "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
         ),
         patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
@@ -709,23 +728,25 @@ async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None
         ),
     ):
         bundle = await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            content,
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content=content,
+                model="free-chat",
+                client_timezone=None,
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=_slim_turn_mode(),
+            ),
             Settings(
                 mcp_tool_loop_enabled=False,
                 math_tools_enabled=True,
                 web_search_enabled=False,
             ),
             fake_redis,
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_slim_turn_mode(),
         )
 
     assert bundle.verified_subject is verified
@@ -740,13 +761,13 @@ async def _graph_it_bundle(fake_redis, priors: list[str]):
         {"role": "user", "content": content}
     ]
     with (
-        patch("app.modules.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=messages),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
             AsyncMock(return_value=priors),
         ),
         patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
@@ -756,10 +777,19 @@ async def _graph_it_bundle(fake_redis, priors: list[str]):
         ),
     ):
         return await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            content,
-            "free-chat",
+            TurnRequest(
+                user_id=user.id,
+                chat_id=chat.id,
+                content=content,
+                model="free-chat",
+                client_timezone=None,
+                client_location=None,
+                client_latitude=None,
+                client_longitude=None,
+                user=user,
+                chat=chat,
+                turn_mode=_slim_turn_mode(),
+            ),
             Settings(
                 mcp_tool_loop_enabled=False,
                 math_tools_enabled=True,
@@ -767,13 +797,6 @@ async def _graph_it_bundle(fake_redis, priors: list[str]):
                 web_search_enabled=False,
             ),
             fake_redis,
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_slim_turn_mode(),
         )
 
 

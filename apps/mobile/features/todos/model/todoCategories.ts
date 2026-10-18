@@ -3,7 +3,7 @@ import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
 /** Stable topic ids. Custom names are stored as the user typed them. */
 export const BUILTIN_CATEGORIES = ["work", "personal", "wishlist", "birthday"] as const;
 
-export type BuiltinCategory = (typeof BUILTIN_CATEGORIES)[number];
+type BuiltinCategory = (typeof BUILTIN_CATEGORIES)[number];
 
 const BUILTIN_SET = new Set<string>(BUILTIN_CATEGORIES);
 
