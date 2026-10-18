@@ -314,6 +314,34 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
   });
 
+  it("puts text beside the + until it wraps, then gives it the full width", async () => {
+    const view = await render(<ChatComposer {...baseProps} input="Hello there" />);
+    const row = () => view.getByTestId("composer-input-row");
+    await fireEvent(view.getByTestId("chat-composer-input"), "layout", {
+      nativeEvent: { layout: { width: 200, height: 24 } },
+    });
+    expect(within(row()).getByTestId("composer-attachment-button")).toBeTruthy();
+    expect(view.queryByTestId("composer-stacked-controls")).toBeNull();
+
+    await view.rerender(
+      <ChatComposer {...baseProps} input={"A long message that wraps ".repeat(4)} />,
+    );
+    const controls = view.getByTestId("composer-stacked-controls");
+    expect(within(controls).getByTestId("composer-attachment-button")).toBeTruthy();
+    expect(within(controls).getByLabelText("chat.send_a11y")).toBeTruthy();
+    expect(within(row()).queryByTestId("composer-attachment-button")).toBeNull();
+
+    // The stacked field is wider; wrapping is still judged beside the buttons.
+    await fireEvent(view.getByTestId("chat-composer-input"), "layout", {
+      nativeEvent: { layout: { width: 320, height: 72 } },
+    });
+    expect(view.getByTestId("composer-stacked-controls")).toBeTruthy();
+
+    await view.rerender(<ChatComposer {...baseProps} input="Hello there" />);
+    expect(view.queryByTestId("composer-stacked-controls")).toBeNull();
+    expect(within(row()).getByTestId("composer-attachment-button")).toBeTruthy();
+  });
+
   it("offers a full-height editor when the multiline input reaches its limit", async () => {
     const { getByTestId, getByLabelText } = await render(
       <ChatComposer

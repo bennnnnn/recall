@@ -74,6 +74,12 @@ export function makeChatComposerStyles(theme: Theme) {
     inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: Space.xs },
     inputRowMainSingleLine: { alignItems: "center" },
     inputRowMainExpanded: { flex: 1, minHeight: 0 },
+    stackedControlsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    trailingControls: { flexDirection: "row", alignItems: "center", gap: Space.xs },
     inputField: {
       flex: 1,
       justifyContent: "flex-end",
