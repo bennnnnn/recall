@@ -2340,3 +2340,36 @@ async def test_web_search_tool_round_streams_final_instead_of_regenerating(
     assert yielded == ["SpaceX ", "landed."]
     assert ctx.instant_reply is None
     assert stream_messages == [after_tools]
+
+
+@pytest.mark.asyncio
+async def test_a_photo_ask_with_no_photo_is_answered_in_words_not_drawn():
+    """ "Show me a picture of Albert Einstein" found no usable photo and drew him."""
+    from app.modules.chat.turn_intercepts import intercept_new_turn
+    from app.modules.images.search import ImageSearchError
+
+    user = MagicMock()
+    user.id = uuid4()
+    generate = AsyncMock()
+    deps = _image_gen_deps(
+        image_search={
+            "search_and_attach_for_chat": AsyncMock(
+                side_effect=ImageSearchError(
+                    "Could not find a usable reference photo", status_code=502
+                )
+            )
+        },
+        image_generation={"generate_for_chat": generate},
+    )
+    handled = await intercept_new_turn(
+        deps,
+        Settings(image_search_enabled=True),
+        user=user,
+        chat_id=uuid4(),
+        content="show me a picture of Albert Einstein",
+        outcome=None,
+        recent_messages=[],
+        prior_count=0,
+    )
+    assert handled is False
+    generate.assert_not_awaited()
