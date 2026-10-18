@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -10,6 +11,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat.finalize_reminders import apply_reminder_pass, drop_cut_reminder_fence
+from app.modules.chat.turn_prep.context import StreamContext
 from app.services.md_fence_scan import close_unclosed_fences
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -53,5 +55,7 @@ async def test_a_reply_emptied_by_the_reminder_pass_asks_when() -> None:
         prompt_messages=[],
         skip_memory_jobs=True,
     )
-    text = await apply_reminder_pass(deps, AsyncMock(), Settings(), ctx, _CLOSED, None)
+    text = await apply_reminder_pass(
+        deps, AsyncMock(), Settings(), cast(StreamContext, ctx), _CLOSED, None
+    )
     assert text == "When should I remind you?"
