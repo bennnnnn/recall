@@ -68,7 +68,11 @@ def test_seven_plus_five_is_one_equation():
     _intent, block = _block("7+5")
     assert block.canonical_answer == "12"
     assert block.display_answer == "7 + 5 = 12"
-    assert maybe_direct_math_reply(block, "7+5") == "```answer\n7 + 5 = 12\n```\n"
+    # One answer line, under a picture of objects to count.
+    reply = maybe_direct_math_reply(block, "7+5") or ""
+    assert reply.endswith("```answer\n7 + 5 = 12\n```\n")
+    assert reply.count("```answer") == 1
+    assert '"type":"counting"' in reply
 
 
 @pytest.mark.parametrize(
@@ -86,7 +90,7 @@ def test_a_single_digit_sum_is_one_forward_equation(text, equation, value):
     assert block.display_answer == equation
     assert all(fence.get("type") != "number_bond" for fence in block.canonical_fences)
     reply = maybe_direct_math_reply(block, text)
-    assert reply == f"```answer\n{equation}\n```\n"
+    assert reply is not None and reply.endswith(f"```answer\n{equation}\n```\n")
     from app.modules.math.fence import validate_math_fences
     from app.modules.math.response_intent import classify_math_response_intent
 
@@ -112,8 +116,12 @@ def test_each_operation_is_the_same_equation_line(text, equation, value):
     _intent, block = _block(text)
     assert block.canonical_answer == value
     assert block.display_answer == equation
-    assert maybe_direct_math_reply(block, text) == f"```answer\n{equation}\n```\n"
-    assert "array" not in (maybe_direct_math_reply(block, text) or "")
+    reply = maybe_direct_math_reply(block, text) or ""
+    assert reply.endswith(f"```answer\n{equation}\n```\n")
+    assert reply.count("```answer") == 1
+    # Objects to count, not the old dot array.
+    assert '"type":"array"' not in reply
+    assert '"type":"counting"' in reply
 
 
 def test_multidigit_addition_keeps_the_column_trace():

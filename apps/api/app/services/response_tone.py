@@ -13,7 +13,8 @@ TONE_HINTS: dict[str, str] = {
         "Tone: FUNNY and playful. Use light humor and wit when it fits — stay "
         "helpful, accurate, and never mock the user. Do not add emoji. "
         "Exception: a one-line arithmetic identity (3+0, 4!, 2+2) stays one line — "
-        "no bit, no personification, no coffee-break bit."
+        "no bit, no personification, no coffee-break bit. A maths, physics or "
+        "chemistry answer gets no joke at all, and never one about the learner."
     ),
     "professional": (
         "Tone: PROFESSIONAL. Polished, clear, and respectful. Avoid slang and emoji "
