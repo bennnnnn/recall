@@ -207,6 +207,46 @@ _LEGS_THEN_HYPOTENUSE = re.compile(
 )
 
 
+_SHAPES = (
+    "rectangular prism",
+    "right triangle",
+    "square pyramid",
+    "circle sector",
+    "parallelogram",
+    "trapezoid",
+    "trapezium",
+    "rectangle",
+    "triangle",
+    "cylinder",
+    "sphere",
+    "sector",
+    "square",
+    "circle",
+    "cuboid",
+    "cube",
+    "cone",
+)
+_QUANTITIES = (
+    "total surface area",
+    "surface area",
+    "circumference",
+    "arc length",
+    "hypotenuse",
+    "perimeter",
+    "diagonal",
+    "diameter",
+    "volume",
+    "area",
+)
+
+
+# "A triangle has sides 3, 4 and 5. What is its area?": the shape, then the question.
+_STATED_THEN_ASKED = re.compile(
+    r"(?:a|the) (?P<shape>[a-z ]+?) (?:has|with) (?P<dims>[^.?]+?)[.,]? "
+    r"(?:what is|what's|find|calculate|compute) (?:its|the) (?P<quantity>[a-z ]+)"
+)
+
+
 def measurement_request(user_text: str) -> tuple[str, str] | None:
     """Keep all text after a short measurement lead-in for the shape matcher."""
     if len(user_text) > 1000:
@@ -214,6 +254,9 @@ def measurement_request(user_text: str) -> tuple[str, str] | None:
     request = " ".join(user_text.lower().split()).rstrip(".?")
     if request.startswith("please "):
         request = request[7:]
+    stated = _STATED_THEN_ASKED.fullmatch(request)
+    if stated is not None and stated["shape"] in _SHAPES and stated["quantity"] in _QUANTITIES:
+        return stated["quantity"], f"{stated['shape']} with {stated['dims'].strip()}"
     legs_first = _LEGS_THEN_HYPOTENUSE.fullmatch(request)
     if legs_first is not None:
         return "hypotenuse", f"right triangle with {legs_first.group(1)}"
@@ -239,43 +282,12 @@ def measurement_request(user_text: str) -> tuple[str, str] | None:
         if request.startswith(article):
             request = request[len(article) :]
             break
-    shapes = (
-        "rectangular prism",
-        "right triangle",
-        "square pyramid",
-        "circle sector",
-        "parallelogram",
-        "trapezoid",
-        "trapezium",
-        "rectangle",
-        "triangle",
-        "cylinder",
-        "sphere",
-        "sector",
-        "square",
-        "circle",
-        "cuboid",
-        "cube",
-        "cone",
-    )
-    quantities = (
-        "total surface area",
-        "surface area",
-        "circumference",
-        "arc length",
-        "hypotenuse",
-        "perimeter",
-        "diagonal",
-        "diameter",
-        "volume",
-        "area",
-    )
-    for shape in shapes:
+    for shape in _SHAPES:
         prefix = shape + " "
         if not request.startswith(prefix):
             continue
         remainder = request[len(prefix) :]
-        for candidate in quantities:
+        for candidate in _QUANTITIES:
             quantity_prefix = candidate + " "
             if remainder.startswith(quantity_prefix):
                 dimensions = remainder[len(quantity_prefix) :].lstrip()

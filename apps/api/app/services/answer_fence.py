@@ -458,7 +458,7 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
     while steps and not steps[-1].strip():
         steps.pop()
     before = lines[:heading]
-    while before and not before[-1].strip():
+    while before and (not before[-1].strip() or _answer_heading(before[-1]) == ""):
         before.pop()
     block = [*steps, *([""] if steps else []), *([above, ""] if above else [])]
     block += [_HEADING_LINE, "", card]

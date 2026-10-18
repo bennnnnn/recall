@@ -10,6 +10,7 @@ from app.modules.math.tools.direct_geometry_working.layout import (
     figure_unit,
     given,
     number,
+    root_of_squares,
     section,
 )
 
@@ -63,7 +64,7 @@ def right_triangle_hypotenuse(request: GeometryRequest, spec: Spec, result: str)
         "Hypotenuse ($c$)",
         "Pythagorean theorem",
         [r"c^2 = a^2 + b^2", r"c = \sqrt{a^2 + b^2}"],
-        [rf"c = \sqrt{{{display(base)}^2 + {display(height)}^2}} = {result}"],
+        [root_of_squares("c", base, height, result)],
     )
 
 
@@ -78,7 +79,7 @@ def right_triangle_perimeter(request: GeometryRequest, spec: Spec, result: str) 
         "Right-triangle perimeter formula",
         [r"c = \sqrt{a^2 + b^2}", r"P = a + b + c"],
         [
-            rf"c = \sqrt{{{display(base)}^2 + {display(height)}^2}} = {display(hypotenuse)}",
+            root_of_squares("c", base, height, display(hypotenuse)),
             rf"P = {display(base)} + {display(height)} + {display(hypotenuse)} = {result}",
         ],
     )
@@ -113,7 +114,11 @@ def triangle_sides_area(request: GeometryRequest, spec: Spec, result: str) -> st
     if triangle is None:
         return None
     a, b, c, givens = triangle
-    s = display((a + b + c) / 2)
+    half = (a + b + c) / 2
+    s = display(half)
+    # Every row: the differences, their product, then the root (no jump to the answer).
+    factors = r" \cdot ".join(display(value) for value in (half, half - a, half - b, half - c))
+    product = display(half * (half - a) * (half - b) * (half - c))
     return section(
         givens,
         "Area ($A$)",
@@ -121,6 +126,7 @@ def triangle_sides_area(request: GeometryRequest, spec: Spec, result: str) -> st
         [r"s = \frac{a+b+c}{2}", r"A = \sqrt{s(s-a)(s-b)(s-c)}"],
         [
             rf"s = \frac{{{display(a)}+{display(b)}+{display(c)}}}{{2}} = {s}",
-            rf"A = \sqrt{{{s}({s}-{display(a)})({s}-{display(b)})({s}-{display(c)})}} = {result}",
+            rf"A = \sqrt{{{s}({s}-{display(a)})({s}-{display(b)})({s}-{display(c)})}}"
+            rf" = \sqrt{{{factors}}} = \sqrt{{{product}}} = {result}",
         ],
     )

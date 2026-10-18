@@ -80,3 +80,13 @@ def section(
             substitution=tuple(math_line(line) for line in substitutions),
         )
     )
+
+
+def root_of_squares(name: str, first: float, second: float, result: str) -> str:
+    """``c = √(3² + 4²) = √(9 + 16) = √25 = 5``: each square, their sum, then the root."""
+    squares = (first * first, second * second)
+    return (
+        rf"{name} = \sqrt{{{display(first)}^2 + {display(second)}^2}}"
+        rf" = \sqrt{{{display(squares[0])} + {display(squares[1])}}}"
+        rf" = \sqrt{{{display(squares[0] + squares[1])}}} = {result}"
+    )
