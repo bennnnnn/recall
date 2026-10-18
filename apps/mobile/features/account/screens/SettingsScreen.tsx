@@ -29,7 +29,7 @@ import { useTheme } from "@/lib/theme";
 export default function SettingsScreen() {
   const { token, user, signOut, updateUser } = useAuth();
   const { t } = useTranslation();
-  const { isPaid, autoEnabled, modelEnabledSet, labelFor } = useModels();
+  const { isPaid, autoEnabled, modelEnabledSet } = useModels();
   const theme = useTheme();
   const router = useRouter();
   const { preference, setPreference } = useAppearance();
@@ -68,8 +68,9 @@ export default function SettingsScreen() {
   );
   const language = LANGUAGES.find((lang) => lang.code === user?.locale) ?? LANGUAGES[0];
 
-  const [chosenModel] = modelEnabledSet;
-  const modelsValue = autoEnabled || !chosenModel ? t("settings.model_auto") : labelFor(chosenModel);
+  const modelsValue = autoEnabled
+    ? t("settings.model_auto")
+    : t("settings.models_enabled", { count: modelEnabledSet.size });
   const notificationsValue =
     osPushGranted == null
       ? undefined

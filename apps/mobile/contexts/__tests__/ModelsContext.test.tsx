@@ -8,10 +8,11 @@ import { readCachedModels, writeCachedModels } from "@/lib/cachedModels";
 let mockSession = 1;
 let mockToken: string | null = "token-a";
 let mockUserId: string | null = "account-a";
+let mockEnabledModels: string[] | null = null;
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthOptional: () => ({
     token: mockToken,
-    user: mockUserId ? { id: mockUserId, plan: "free" } : null,
+    user: mockUserId ? { id: mockUserId, plan: "free", enabled_models: mockEnabledModels } : null,
   }),
 }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
@@ -53,7 +54,7 @@ function deferred<T>() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockSession = 1; mockToken = "token-a"; mockUserId = "account-a";
+  mockSession = 1; mockToken = "token-a"; mockUserId = "account-a"; mockEnabledModels = null;
   jest.mocked(readCachedModels).mockResolvedValue(null);
   jest.mocked(writeCachedModels).mockResolvedValue(undefined);
   jest.mocked(api.listModels).mockRejectedValue(new Error("offline"));
@@ -118,3 +119,18 @@ it("does not persist a /models response that lands after signout", async () => {
   expect(writeCachedModels).not.toHaveBeenCalled();
   expect(shownIds()).toEqual(["free-chat"]);
 });
+
+// Settings → Model showed every switch off under Auto while Auto used them.
+it.each([
+  [null, ["free-chat"]],
+  [["auto"], ["free-chat"]],
+  [["auto", "free-chat"], ["free-chat"]],
+])("saved %j switches on the models Auto uses: %j", async (saved, onIds) => {
+  mockEnabledModels = saved;
+  jest.mocked(api.listModels).mockResolvedValue([everyday, reasoning]);
+  await render(<Screen />);
+  await waitFor(() => expect(shownIds()).toEqual(["free-chat", "smart-chat"]));
+  expect(current.autoEnabled).toBe(true);
+  expect([...current.modelEnabledSet]).toEqual(onIds);
+});
+

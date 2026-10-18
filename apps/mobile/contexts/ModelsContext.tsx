@@ -146,9 +146,15 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
 
   const autoEnabled = preferences.includes(AUTO_MODEL_ID);
 
+  // "Auto" saved alone (no models listed) uses the plan's default models, so
+  // those are the ones switched on: every switch showed off while Auto used them.
   const modelEnabledSet = useMemo(() => {
-    return new Set(preferences.filter((id) => id !== AUTO_MODEL_ID));
-  }, [preferences]);
+    const chosen = preferences.filter((id) => id !== AUTO_MODEL_ID);
+    const ids = chosen.length
+      ? chosen
+      : defaultModelPreferences(models, isPaid).filter((id) => id !== AUTO_MODEL_ID);
+    return new Set(ids);
+  }, [preferences, models, isPaid]);
 
   const labelFor = useCallback(
     (id: string | null | undefined) => {

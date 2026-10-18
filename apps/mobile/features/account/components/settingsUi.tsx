@@ -16,7 +16,7 @@ import { confirmDialog, type ConfirmOptions } from "@/ui/overlay/dialogs";
 import { SelectMenu, type SelectOption } from "@/ui/overlay/SelectMenu";
 
 /**
- * The Settings kit: one page layout, one group and five rows, all drawn by
+ * The Settings kit: one page layout, one group and four rows, all drawn by
  * the app's ListRow and ListGroup. Every Settings screen builds from these.
  */
 
@@ -112,22 +112,6 @@ export function SettingsLinkRow({
         onPress?.();
         if (href) router.push(href);
       }}
-    />
-  );
-}
-
-/** One choice of several on a page (a model): tap to pick it; the picked one is checked. */
-export function SettingsChoiceRow({
-  selected,
-  onPress,
-  ...row
-}: RowBase & { selected: boolean; onPress: () => void }) {
-  return (
-    <ListRow
-      {...row}
-      accessory={selected ? "check" : undefined}
-      accessibilityLabel={rowLabel(row.title, row.value)}
-      onPress={onPress}
     />
   );
 }
