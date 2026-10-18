@@ -290,3 +290,27 @@ async def test_a_statement_about_the_user_is_not_news(text: str) -> None:
     with patch("app.modules.web_search.detection.classify_web_search", classify):
         assert not await should_web_search(text, settings)
     classify.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("text", "searches"),
+    [
+        # "In Mars" searched and found Marseille's forecast.
+        ("What is the weather like in mars", False),
+        ("weather in the planet Mars", False),
+        ("temperature of mars", False),
+        ("climate of jupiter", False),
+        ("weather on the sun", False),
+        # Sunlight, a real town, and real cities still search.
+        ("temperature in the sun today", True),
+        ("weather in Mars, Pennsylvania", True),
+        ("weather in Marseille", True),
+        ("is it going to rain in seattle", True),
+    ],
+)
+def test_weather_in_or_of_another_world_is_science_not_a_forecast(
+    text: str, searches: bool
+) -> None:
+    from app.modules.web_search.detection import needs_web_search
+
+    assert needs_web_search(text) is searches
