@@ -525,28 +525,29 @@ CASES: tuple[Case, ...] = (
         "auto-photo-animal",
         "photos and maps",
         "what is a capybara",
-        Expect(hints=("answer_photo",), photo=NO_PHOTO, answer_photo=True),
+        Expect(hints=("answer_photo", "subject_photo"), photo=NO_PHOTO, answer_photo=True),
         "A real capybara photo above a short answer: the largest rodent, South American.",
     ),
     Case(
         "auto-photo-landmark",
         "photos and maps",
         "tell me about Lalibela",
-        Expect(hints=("answer_photo",), photo=NO_PHOTO, answer_photo=True),
+        Expect(hints=("answer_photo", "subject_photo"), photo=NO_PHOTO, answer_photo=True),
         "A photo of the rock-hewn churches above the answer.",
     ),
     Case(
         "auto-photo-person",
         "photos and maps",
         "who is Haile Gebrselassie",
-        Expect(hints=("answer_photo",), photo=NO_PHOTO, answer_photo=True),
+        Expect(hints=("answer_photo", "subject_photo"), photo=NO_PHOTO, answer_photo=True),
         "A photo of him above: the Ethiopian distance runner and his records.",
     ),
     Case(
         "auto-photo-none",
         "photos and maps",
         "what is recursion",
-        Expect(photo=NO_PHOTO, answer_photo=False),
+        # A programming concept: no photo is offered at all.
+        Expect(no_hints=("answer_photo", "subject_photo"), photo=NO_PHOTO, answer_photo=False),
         "A plain explanation with a tiny example; no photo.",
     ),
     Case(
