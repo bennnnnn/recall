@@ -14,6 +14,7 @@ Usage (the API must be running: ./scripts/dev.sh up, or ./scripts/dev.sh api):
     ./scripts/dev.sh battery                       # every prompt
     ./scripts/dev.sh battery --category teaching   # one category
     ./scripts/dev.sh battery --only map-where-is,photo-new-product
+    ./scripts/dev.sh battery --pro          # every prompt as a paying (Pro) user
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ import os
 import re
 import sys
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -67,7 +68,9 @@ class Turn:
     @property
     def answer_photo(self) -> bool:
         """A photo above an ordinary answer: the reply opens with its image marker."""
-        return self.reply.lstrip().startswith("[Image: /attachments/") and not self.photo
+        opens_with_image = self.reply.lstrip().startswith("[Image: /attachments/")
+        # A lookup or a generated picture is the whole reply, not a photo above one.
+        return opens_with_image and not self.photo and not self.generated
 
     @property
     def generated(self) -> bool:
@@ -131,8 +134,10 @@ class Battery:
             json={"timezone": TIMEZONE, "location_enabled": False, "location": None},
         ).raise_for_status()
         self.location[pro] = None
-        # A fresh start: last run's chats go.
+        # A fresh start: last run's chats go, and what they taught memory. A
+        # saved "teach me by asking questions" reshaped later cooking answers.
         self.client.delete("/chats", headers=headers).raise_for_status()
+        self.client.delete("/memories", headers=headers).raise_for_status()
 
     def _reset_quota(self, pro: bool) -> None:
         """A battery spends a day's free tokens; the dev reset keeps every prompt answerable."""
@@ -398,9 +403,14 @@ def main() -> int:
     parser.add_argument("--category", help=f"one of: {', '.join(CATEGORIES)}")
     parser.add_argument("--only", help="comma-separated case ids")
     parser.add_argument("--out", default=str(ROOT / "tmp" / "battery"))
+    parser.add_argument(
+        "--pro", action="store_true", help="every prompt as a Pro user: what a paying user sees"
+    )
     args = parser.parse_args()
 
     cases = _select(args)
+    if args.pro:
+        cases = [replace(case, pro=True) for case in cases]
     battery = Battery(args.api)
     battery.check_api()
     for pro in sorted({case.pro for case in cases}):
