@@ -27,6 +27,7 @@ class UserOut(BaseModel):
     response_style: str
     response_tone: str = "casual"
     memory_enabled: bool
+    follow_up_suggestions_enabled: bool = True
     memory_include_sensitive: bool = False
     push_notifications_enabled: bool = True
     push_reminders_enabled: bool = True
@@ -80,6 +81,7 @@ class UserUpdate(BaseModel):
     response_style: ResponseStyle | None = None
     response_tone: ResponseTone | None = None
     memory_enabled: bool | None = None
+    follow_up_suggestions_enabled: bool | None = None
     memory_include_sensitive: bool | None = None
     push_notifications_enabled: bool | None = None
     push_reminders_enabled: bool | None = None

@@ -7,6 +7,7 @@ import {
   SettingsLinkRow,
   SettingsMenuRow,
   SettingsPage,
+  SettingsSwitchRow,
   useSettingsAction,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,6 +59,18 @@ export default function PreferencesSettingsScreen() {
             busy={action.busy === "tone"}
             onSelect={(tone) =>
               void action.run("tone", () => updateUser({ response_tone: tone }))
+            }
+          />
+          <SettingsSwitchRow
+            title={t("settings.follow_up_suggestions")}
+            subtitle={t("settings.follow_up_suggestions_summary")}
+            value={user?.follow_up_suggestions_enabled !== false}
+            disabled={saving}
+            busy={action.busy === "follow_ups"}
+            onValueChange={(next) =>
+              void action.run("follow_ups", () =>
+                updateUser({ follow_up_suggestions_enabled: next }),
+              )
             }
           />
           <SettingsLinkRow
