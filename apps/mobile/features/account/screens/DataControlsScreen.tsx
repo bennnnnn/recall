@@ -24,7 +24,7 @@ import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function DataControlsScreen() {
   const { token, user, updateUser } = useAuth();
-  const { progress, exportData, deleteAccount } = useDataControls();
+  const { progress, exportData, cancelExport, deleteAccount } = useDataControls();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
   const router = useRouter();
@@ -43,6 +43,13 @@ export default function DataControlsScreen() {
 
   const doExport = async () => {
     if (!token || busy) return;
+    const ok = await confirmDialog({
+      title: t("settings.export_confirm_title"),
+      message: t("settings.export_confirm_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("settings.export_confirm"),
+    });
+    if (!ok) return;
     try {
       await exportData();
     } catch (error) {
@@ -147,6 +154,8 @@ export default function DataControlsScreen() {
         variant="loading"
         title={t("settings.export_progress")}
         message={t("settings.export_progress_body")}
+        onRetry={cancelExport}
+        retryLabel={t("common.cancel")}
       />
     );
   }
@@ -157,7 +166,6 @@ export default function DataControlsScreen() {
         <SettingsSwitchRow
           icon="search"
           title={t("settings.web_search")}
-          subtitle={t("settings.web_search_summary")}
           value={user?.web_search_enabled !== false}
           disabled={action.busy !== null}
           busy={action.busy === "web_search"}
@@ -168,7 +176,6 @@ export default function DataControlsScreen() {
         <SettingsSwitchRow
           icon="map-pin"
           title={t("settings.use_current_location")}
-          subtitle={locationOn ? (user?.location ?? undefined) : t("settings.location_summary")}
           value={locationOn}
           disabled={action.busy !== null}
           busy={action.busy === "location"}

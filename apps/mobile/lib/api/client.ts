@@ -167,10 +167,15 @@ export async function request<T>(
   return data as T;
 }
 
-export async function fetchExportText(token: string, allowRefresh = true): Promise<string> {
+export async function fetchExportText(
+  token: string,
+  allowRefresh = true,
+  signal?: AbortSignal,
+): Promise<string> {
   const generation = getSessionGeneration();
   const response = await requestRaw("/auth/me/export", token, {
     headers: { Accept: "application/json" },
+    signal,
   }, allowRefresh, 120_000);
   if (!response.ok) throw new ApiRequestError(response.status, await response.text());
   const text = await response.text();
