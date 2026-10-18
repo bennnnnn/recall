@@ -10,6 +10,11 @@ import pytest
 # (fail-closed). Tests that construct Settings() without an env file need this.
 os.environ.setdefault("ENVIRONMENT", "development")
 
+# LiteLLM's import runs load_dotenv() in its default DEV mode, copying a developer's
+# apps/api/.env into os.environ, where it outranks Settings defaults. Tests then pass
+# in CI and fail locally (a lower DAILY_TOKEN_LIMIT, say). Any other mode skips it.
+os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
+
 # A maths decline that would hide a programming error (an AttributeError, NameError or our
 # own TypeError; see app/modules/math/solve/declines.py) raises under pytest. A value already in
 # the environment wins: RECALL_STRICT_DECLINES=0 runs the suite with production's declines.
