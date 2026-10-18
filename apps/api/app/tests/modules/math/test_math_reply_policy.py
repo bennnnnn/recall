@@ -259,7 +259,8 @@ async def test_nonmath_augmentation_remains_unchanged() -> None:
 def test_math_prompts_number_each_move(prompt: str) -> None:
     """A maths reply the model writes numbers its moves, as the verified lesson does."""
     assert MATH_WORKOUT_PROMPT_RULE in prompt
-    assert "`**1. Subtract 4 from both sides**`" in prompt
+    assert "`**1. Subtract 4 from both sides** — Subtraction property of equality`" in prompt
+    assert "never a **Steps** heading" in prompt
     assert "`$4x + 4 - 4 = 0 - 4$`, then `$4x = -4$`" in prompt
     assert "no numbered steps" not in prompt.lower()
 
