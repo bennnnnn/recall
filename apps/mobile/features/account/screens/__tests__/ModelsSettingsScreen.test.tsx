@@ -4,7 +4,8 @@ import ModelsSettingsScreen from "@/features/account/screens/ModelsSettingsScree
 
 const mockUpdateUser = jest.fn();
 const mockBuildModelPreferences = jest.fn(
-  (_auto: boolean, modelIds: Set<string>) => [...modelIds],
+  (auto: boolean, modelIds: Iterable<string>) =>
+    auto ? ["auto", ...modelIds] : [...modelIds],
 );
 let mockIsPro = true;
 let mockAutoEnabled = true;
@@ -44,7 +45,8 @@ jest.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 jest.mock("@/hooks/useModels", () => ({
-  buildModelPreferences: (...args: [boolean, Set<string>]) => mockBuildModelPreferences(...args),
+  buildModelPreferences: (...args: [boolean, Iterable<string>]) =>
+    mockBuildModelPreferences(...args),
   useModels: () => ({
     models: mockModels,
     isPaid: mockIsPro,
@@ -62,14 +64,99 @@ jest.mock("@/components/UpgradeSheet", () => ({
   },
 }));
 
-describe("models settings", () => {
+describe("models settings: one choice, Auto or a model", () => {
   beforeEach(() => {
     mockUpdateUser.mockReset().mockResolvedValue(undefined);
     mockBuildModelPreferences.mockClear();
     mockIsPro = true;
     mockAutoEnabled = true;
-    mockEnabledModelIds = ["free-chat"];
+    mockEnabledModelIds = [];
     mockUpgradeVisible = false;
+    mockModels = [
+      {
+        id: "free-chat",
+        label: "Flash",
+        description: "Fast everyday answers.",
+        tier: "flash",
+        plan_access: "free",
+        available: true,
+        input_price_per_m: 0,
+        output_price_per_m: 0,
+        quota_multiplier: 1,
+        healthy: true,
+        latency_p50_ms: 1214,
+      },
+      {
+        id: "smart-chat",
+        label: "Luna",
+        description: "Strong reasoning for hard questions.",
+        tier: "flash",
+        plan_access: "pro",
+        available: true,
+        input_price_per_m: 0,
+        output_price_per_m: 0,
+        quota_multiplier: 1,
+        healthy: true,
+        latency_p50_ms: 1214,
+      },
+    ];
+  });
+
+  it("lists Auto and each model with what it is good at", async () => {
+    const { getByText } = await render(<ModelsSettingsScreen />);
+    expect(getByText("settings.model_auto")).toBeTruthy();
+    expect(getByText("settings.model_auto_summary")).toBeTruthy();
+    expect(getByText("Flash")).toBeTruthy();
+    expect(getByText("Fast everyday answers.")).toBeTruthy();
+    expect(getByText("Strong reasoning for hard questions.")).toBeTruthy();
+  });
+
+  it("checks Auto when it is on, never a model as well", async () => {
+    const { getByRole } = await render(<ModelsSettingsScreen />);
+    expect(
+      getByRole("button", { name: "settings.model_auto" }).props
+        .accessibilityState.selected,
+    ).toBe(true);
+    expect(
+      getByRole("button", { name: "Flash" }).props.accessibilityState.selected,
+    ).toBeUndefined();
+  });
+
+  it("picking a model saves that one model", async () => {
+    const { getByRole } = await render(<ModelsSettingsScreen />);
+    await act(async () => {
+      fireEvent.press(getByRole("button", { name: "Luna" }));
+    });
+    expect(mockUpdateUser).toHaveBeenCalledWith({
+      enabled_models: ["smart-chat"],
+    });
+  });
+
+  it("picking Auto saves Auto", async () => {
+    mockAutoEnabled = false;
+    mockEnabledModelIds = ["smart-chat"];
+    const { getByRole } = await render(<ModelsSettingsScreen />);
+    expect(
+      getByRole("button", { name: "Luna" }).props.accessibilityState.selected,
+    ).toBe(true);
+    await act(async () => {
+      fireEvent.press(getByRole("button", { name: "settings.model_auto" }));
+    });
+    expect(mockUpdateUser).toHaveBeenCalledWith({ enabled_models: ["auto"] });
+  });
+
+  it("a locked model opens the plans instead of saving", async () => {
+    mockIsPro = false;
+    const { getByRole, getByText } = await render(<ModelsSettingsScreen />);
+    expect(getByText("plans.plus")).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(getByRole("button", { name: "Luna, plans.plus" }));
+    });
+    expect(mockUpgradeVisible).toBe(true);
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it("marks a degraded model and disables an unavailable one", async () => {
     mockModels = [
       {
         id: "free-chat",
@@ -81,102 +168,28 @@ describe("models settings", () => {
         input_price_per_m: 0,
         output_price_per_m: 0,
         quota_multiplier: 1,
+        healthy: false,
+        latency_p50_ms: 1214,
+      },
+      {
+        id: "offline",
+        label: "Offline",
+        description: "",
+        tier: "flash",
+        plan_access: "free",
+        available: false,
+        input_price_per_m: 0,
+        output_price_per_m: 0,
+        quota_multiplier: 1,
         healthy: true,
         latency_p50_ms: 1214,
       },
     ];
-  });
-
-  it("keeps model controls without Usage or Advanced diagnostics", async () => {
-    const { getByText, queryByText } = await render(<ModelsSettingsScreen />);
-
-    expect(getByText("settings.model_auto")).toBeTruthy();
-    expect(getByText("Flash")).toBeTruthy();
-    expect(queryByText("settings.usage_daily")).toBeNull();
-    expect(queryByText("settings.usage_group")).toBeNull();
-    expect(queryByText("settings.advanced")).toBeNull();
-    expect(queryByText("settings.usage_split")).toBeNull();
-    expect(queryByText("settings.prompt_window")).toBeNull();
-    expect(queryByText("settings.model_latency")).toBeNull();
-  });
-
-  it("still saves model preferences when Auto is toggled", async () => {
-    const { getByText } = await render(<ModelsSettingsScreen />);
-    await fireEvent.press(getByText("settings.model_auto"));
-    expect(mockUpdateUser).toHaveBeenCalledWith({ enabled_models: ["free-chat"] });
-  });
-
-  it("keeps the last enabled model protected when Auto is off", async () => {
-    mockAutoEnabled = false;
-    const { getByRole } = await render(<ModelsSettingsScreen />);
-
-    expect(getByRole("switch", { name: "Flash" }).props.accessibilityState).toEqual({
-      checked: true,
-      disabled: true,
-    });
-  });
-
-  it("preserves degraded metadata and disables an unavailable model", async () => {
-    mockModels = [
-      {
-        ...mockModels[0],
-        id: "offline-chat",
-        label: "Offline",
-        available: false,
-        healthy: false,
-      },
-    ];
-    mockEnabledModelIds = [];
-    const { getByRole, getByText } = await render(<ModelsSettingsScreen />);
-
-    expect(getByText("settings.model_degraded")).toBeTruthy();
-    expect(getByRole("switch", { name: "Offline" }).props.accessibilityState).toEqual({
-      checked: false,
-      disabled: true,
-    });
-  });
-
-  it("keeps Pro-locked model rows actionable for the upgrade sheet", async () => {
-    mockIsPro = false;
-    mockModels = [
-      {
-        ...mockModels[0],
-        id: "smart-chat",
-        label: "Smart",
-        plan_access: "pro",
-      },
-    ];
-    mockEnabledModelIds = [];
-    const { getByRole, getByText } = await render(<ModelsSettingsScreen />);
-    const smartSwitch = getByRole("switch", { name: "Smart" });
-
-    expect(getByText("plans.plus")).toBeTruthy();
-    expect(smartSwitch.props.accessibilityState.disabled).toBe(false);
-    await fireEvent.press(smartSwitch);
-    expect(mockUpgradeVisible).toBe(true);
-    expect(mockUpdateUser).not.toHaveBeenCalled();
-  });
-
-  it("rolls controlled model draft state back after a failed save", async () => {
-    mockAutoEnabled = false;
-    mockModels = [
-      mockModels[0],
-      { ...mockModels[0], id: "balanced-chat", label: "Balanced" },
-    ];
-    let reject!: (error: Error) => void;
-    mockUpdateUser.mockReturnValueOnce(
-      new Promise((_resolve, rejectPromise) => {
-        reject = rejectPromise;
-      }),
-    );
-    const { getByRole } = await render(<ModelsSettingsScreen />);
-
-    await fireEvent.press(getByRole("switch", { name: "Balanced" }));
-    expect(getByRole("progressbar")).toBeTruthy();
-
-    await act(async () => {
-      reject(new Error("offline"));
-    });
-    expect(getByRole("switch", { name: "Balanced" }).props.accessibilityState.checked).toBe(false);
+    const { getByRole, getAllByText } = await render(<ModelsSettingsScreen />);
+    expect(getAllByText("settings.model_degraded").length).toBe(2);
+    expect(
+      getByRole("button", { name: "Offline, settings.model_degraded" }).props
+        .accessibilityState.disabled,
+    ).toBe(true);
   });
 });

@@ -55,6 +55,7 @@ jest.mock("@/hooks/useModels", () => ({
     isPaid: mockIsPro,
     autoEnabled: false,
     modelEnabledSet: new Set(["free-chat"]),
+    labelFor: (id: string) => (id === "free-chat" ? "Flash" : id),
   }),
 }));
 jest.mock("@/contexts/AppearanceContext", () => ({

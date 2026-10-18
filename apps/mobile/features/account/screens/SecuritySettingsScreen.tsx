@@ -109,9 +109,17 @@ export default function SecuritySettingsScreen() {
       contentContainerStyle={contentStyle}
       ListEmptyComponent={
         loading && !loadError ? (
-          <SettingsSkeleton rows={3} contained accessibilityLabel={t("settings.security")} />
+          <SettingsSkeleton
+            rows={3}
+            contained
+            accessibilityLabel={t("settings.security")}
+          />
         ) : loadError ? (
-          <StateView variant="error" title={t("common.error")} onRetry={() => void load()} />
+          <StateView
+            variant="error"
+            title={t("common.error")}
+            onRetry={() => void load()}
+          />
         ) : null
       }
       renderItem={({ item: session, index }) => (

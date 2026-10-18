@@ -15,6 +15,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError
 from app.models.orm import Chat, User
+from app.modules.account import profile as profile_service
 from app.modules.attachments.markers import image_attachment_ids_from_text
 from app.modules.chat.post_turn import restore_regenerate_backup
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
@@ -153,6 +154,8 @@ async def stream_chat_response(
             chat=chat,
             skip_usage_seed=skip_usage_seed,
         )
+        # The user's own switches (web search off) narrow the server's for this turn.
+        settings = profile_service.settings_for_user(settings, turn.user)
         if not attachment_ids and await intercept_new_turn(
             deps,
             settings,
@@ -247,6 +250,7 @@ async def stream_regenerate_response(
         turn = await load_regenerate_turn(
             deps, redis, settings, user_id=user_id, chat_id=chat_id, model_alias=model_alias
         )
+        settings = profile_service.settings_for_user(settings, turn.user)
         if await intercept_regenerate(
             deps,
             settings,

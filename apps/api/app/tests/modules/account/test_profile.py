@@ -122,3 +122,38 @@ def test_normalize_client_coordinates():
     assert normalize_client_coordinates(None, None) is None
     assert normalize_client_coordinates(37.8, None) is None
     assert normalize_client_coordinates(91.0, 0.0) is None
+
+
+# Web search can be turned off (Settings → Privacy): one narrowed copy of the
+# server's switches covers every search path for that user's turns.
+def test_web_search_setting_is_on_by_default_and_can_be_turned_off():
+    from app.models.orm import User
+
+    column = User.__table__.c.web_search_enabled
+    assert column.default.arg is True and column.server_default is not None
+    assert UserUpdate(web_search_enabled=False).web_search_enabled is False
+
+
+@pytest.mark.parametrize("enabled", [True, None])
+def test_settings_for_user_keeps_the_server_switches_when_search_is_on(enabled):
+    from types import SimpleNamespace
+
+    from app.core.config import Settings
+    from app.modules.account.profile import settings_for_user
+
+    settings = Settings(web_search_enabled=True, image_search_enabled=True)
+    user = SimpleNamespace() if enabled is None else SimpleNamespace(web_search_enabled=enabled)
+    assert settings_for_user(settings, user) is settings
+
+
+def test_settings_for_user_turns_every_search_off_for_that_user():
+    from types import SimpleNamespace
+
+    from app.core.config import Settings
+    from app.modules.account.profile import settings_for_user
+
+    settings = Settings(web_search_enabled=True, image_search_enabled=True)
+    narrowed = settings_for_user(settings, SimpleNamespace(web_search_enabled=False))
+    assert narrowed.web_search_enabled is False and narrowed.image_search_enabled is False
+    # The server's own settings are untouched for everyone else.
+    assert settings.web_search_enabled is True and settings.image_search_enabled is True

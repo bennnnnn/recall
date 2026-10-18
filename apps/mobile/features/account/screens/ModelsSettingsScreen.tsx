@@ -1,127 +1,76 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import {
+  SettingsChoiceRow,
   SettingsGroup,
   SettingsPage,
-  SettingsSwitchRow,
+  useSettingsAction,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
 import { planNameKey } from "@/lib/plan";
-import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
-function sameIdSet(a: Set<string>, b: Set<string>): boolean {
-  if (a.size !== b.size) return false;
-  for (const id of a) {
-    if (!b.has(id)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-type DraftPrefs = {
-  auto: boolean;
-  models: Set<string>;
-};
-
+/**
+ * Settings → Model: one choice. Auto picks a fast model for everyday questions
+ * and a stronger one when a question needs it; or every message uses the one
+ * model picked here. It is the same single choice "use Luna" makes from chat.
+ */
 export default function ModelsSettingsScreen() {
-  const { user, updateUser } = useAuth();
+  const { updateUser } = useAuth();
   const { t } = useTranslation();
   const { models, isPaid, autoEnabled, modelEnabledSet } = useModels();
+  const action = useSettingsAction();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
-  const [draft, setDraft] = useState<DraftPrefs | null>(null);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-  const savingRef = useRef(false);
-  const feedback = useActionFeedbackOptional();
 
-  const effectiveAuto = draft?.auto ?? autoEnabled;
-  const effectiveModels = draft?.models ?? modelEnabledSet;
+  const [chosenModel] = modelEnabledSet;
+  const selected = autoEnabled || !chosenModel ? "auto" : chosenModel;
 
-  useEffect(() => {
-    if (!draft) return;
-    if (draft.auto === autoEnabled && sameIdSet(draft.models, modelEnabledSet)) {
-      setDraft(null);
-    }
-  }, [autoEnabled, modelEnabledSet, draft]);
-
-  const patchPreferences = (auto: boolean, modelIds: Set<string>, key: string) => {
-    if ((!auto && modelIds.size === 0) || savingRef.current) return;
-    savingRef.current = true;
-    setSavingKey(key);
-    const nextModels = new Set(modelIds);
-    setDraft({ auto, models: nextModels });
-    void updateUser({ enabled_models: buildModelPreferences(auto, nextModels) })
-      .catch(() => {
-        setDraft(null);
-        reportRecoverableError(feedback, t("common.error"));
-      })
-      .finally(() => {
-        savingRef.current = false;
-        setSavingKey(null);
-      });
-  };
-
-  const toggleAuto = (enabled: boolean) => {
-    if (!enabled && effectiveModels.size === 0) return;
-    patchPreferences(enabled, effectiveModels, "auto");
-  };
-
-  const toggleModel = (modelId: string, enabled: boolean) => {
-    if (!user) return;
-    const option = models.find((m) => m.id === modelId);
-    if (!option?.available) return;
-    if (!isPaid && option.plan_access === "pro") {
-      if (enabled) setUpgradeVisible(true);
-      return;
-    }
-    const next = new Set(effectiveModels);
-    if (enabled) next.add(modelId);
-    else next.delete(modelId);
-    if (next.size === 0 && !effectiveAuto) return;
-    patchPreferences(effectiveAuto, next, modelId);
+  const choose = (key: string) => {
+    if (key === selected || action.busy !== null) return;
+    const preferences =
+      key === "auto" ? buildModelPreferences(true, []) : [key];
+    void action.run(key, () => updateUser({ enabled_models: preferences }));
   };
 
   return (
     <>
       <SettingsPage>
         <SettingsGroup>
-          <SettingsSwitchRow
+          <SettingsChoiceRow
+            icon="sparkles"
             title={t("settings.model_auto")}
             subtitle={t("settings.model_auto_summary")}
-            value={effectiveAuto}
-            disabled={Boolean(savingKey) || (effectiveAuto && effectiveModels.size === 0)}
-            busy={savingKey === "auto"}
-            onValueChange={toggleAuto}
+            selected={selected === "auto"}
+            busy={action.busy === "auto"}
+            disabled={action.busy !== null}
+            onPress={() => choose("auto")}
           />
         </SettingsGroup>
 
         <SettingsGroup label={t("settings.models_list")}>
           {models.map((option) => {
-            const proLocked = !isPaid && option.plan_access === "pro";
-            const enabled = effectiveModels.has(option.id) && !proLocked;
-            const isLastModel = enabled && effectiveModels.size <= 1 && !effectiveAuto;
-            const switchDisabled =
-              isLastModel || (!enabled && !option.available && !proLocked);
-
+            const locked = !isPaid && option.plan_access === "pro";
+            const note = locked
+              ? t(planNameKey("plus"))
+              : option.healthy === false || !option.available
+                ? t("settings.model_degraded")
+                : undefined;
             return (
-              <SettingsSwitchRow
+              <SettingsChoiceRow
                 key={option.id}
                 title={option.label}
-                subtitle={
-                  proLocked
-                    ? t(planNameKey("plus"))
-                    : option.healthy === false
-                      ? t("settings.model_degraded")
-                      : undefined
+                subtitle={option.description || undefined}
+                value={note}
+                selected={selected === option.id}
+                busy={action.busy === option.id}
+                disabled={
+                  action.busy !== null || (!locked && !option.available)
                 }
-                value={enabled}
-                disabled={Boolean(savingKey) || switchDisabled}
-                busy={savingKey === option.id}
-                onValueChange={(value) => toggleModel(option.id, value)}
+                onPress={() =>
+                  locked ? setUpgradeVisible(true) : choose(option.id)
+                }
               />
             );
           })}

@@ -1,5 +1,6 @@
 """Profile helpers — pure normalize wrappers + user-facing location labels."""
 
+from app.core.config import Settings
 from app.core.validation import normalize_display_name as normalize_display_name
 
 
@@ -44,3 +45,15 @@ def effective_location_label(user: object, client_location: str | None = None) -
         return normalized
     text = str(getattr(user, "location", None) or "").strip()
     return text or None
+
+
+def settings_for_user(settings: Settings, user: object | None) -> Settings:
+    """The server's switches narrowed by the user's own, for one of their turns.
+
+    Every search path (forced search, the web_search tool, photo lookups, a photo
+    above an answer, live talk) already reads these two server switches, so a user
+    who turned web search off is covered everywhere by this one copy.
+    """
+    if getattr(user, "web_search_enabled", True) is not False:
+        return settings
+    return settings.model_copy(update={"web_search_enabled": False, "image_search_enabled": False})

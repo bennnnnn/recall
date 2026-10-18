@@ -29,6 +29,7 @@ class UserOut(BaseModel):
     memory_enabled: bool
     follow_up_suggestions_enabled: bool = True
     memory_include_sensitive: bool = False
+    web_search_enabled: bool = True
     push_notifications_enabled: bool = True
     push_reminders_enabled: bool = True
     tts_voice: str | None = None
@@ -83,6 +84,7 @@ class UserUpdate(BaseModel):
     memory_enabled: bool | None = None
     follow_up_suggestions_enabled: bool | None = None
     memory_include_sensitive: bool | None = None
+    web_search_enabled: bool | None = None
     push_notifications_enabled: bool | None = None
     push_reminders_enabled: bool | None = None
     # null puts the server default back.

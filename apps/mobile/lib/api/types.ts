@@ -29,6 +29,8 @@ export type User = {
   response_style: string;
   /** Three follow-up questions under a reply; on unless the user turned it off. */
   follow_up_suggestions_enabled?: boolean;
+  /** Web search and photo lookups (Settings → Privacy); on unless turned off. */
+  web_search_enabled?: boolean;
   response_tone: string;
   memory_enabled: boolean;
   memory_include_sensitive?: boolean;
@@ -110,7 +112,12 @@ export type Memory = {
   updated_at: string;
 };
 
-export const RECURRENCE_RULES = ["daily", "weekdays", "weekly", "monthly"] as const;
+export const RECURRENCE_RULES = [
+  "daily",
+  "weekdays",
+  "weekly",
+  "monthly",
+] as const;
 export type RecurrenceRule = (typeof RECURRENCE_RULES)[number];
 
 export type Todo = {

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -38,43 +44,75 @@ let pending: { session: number; action: string } | null = null;
 const listeners = new Set<() => void>();
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  return () => { listeners.delete(listener); };
+  return () => {
+    listeners.delete(listener);
+  };
 }
-function notify() { listeners.forEach((listener) => listener()); }
+function notify() {
+  listeners.forEach((listener) => listener());
+}
 
 export default function NotificationsSettingsScreen() {
   const view = useAccountViewOwner();
-  return <NotificationsSettingsContent key={view.key} isCurrentView={view.isCurrent} />;
+  return (
+    <NotificationsSettingsContent
+      key={view.key}
+      isCurrentView={view.isCurrent}
+    />
+  );
 }
 
-function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => boolean }) {
+function NotificationsSettingsContent({
+  isCurrentView,
+}: {
+  isCurrentView: () => boolean;
+}) {
   const { token, user, updateUser } = useAuth();
   const { t } = useTranslation();
   const [reminderLeadMinutes, setReminderLeadMinutesState] = useState(
     DEFAULT_REMINDER_LEAD_MINUTES,
   );
-  const [pickingQuiet, setPickingQuiet] = useState<"start" | "end" | null>(null);
+  const [pickingQuiet, setPickingQuiet] = useState<"start" | "end" | null>(
+    null,
+  );
   const session = getSessionGeneration();
-  const busyAction = useSyncExternalStore(subscribe, () => pending?.session === session ? pending.action : null);
-  const sameAccount = useCallback(() => Boolean(token) && session === getSessionGeneration(), [token, session]);
-  const isCurrent = useCallback(() => isCurrentView() && sameAccount(), [isCurrentView, sameAccount]);
-  const begin = useCallback((action: string) => {
-    if (!token || !isCurrent() || pending?.session === session) return null;
-    const request = { session, action };
-    pending = request;
-    notify();
-    return request;
-  }, [token, isCurrent, session]);
+  const busyAction = useSyncExternalStore(subscribe, () =>
+    pending?.session === session ? pending.action : null,
+  );
+  const sameAccount = useCallback(
+    () => Boolean(token) && session === getSessionGeneration(),
+    [token, session],
+  );
+  const isCurrent = useCallback(
+    () => isCurrentView() && sameAccount(),
+    [isCurrentView, sameAccount],
+  );
+  const begin = useCallback(
+    (action: string) => {
+      if (!token || !isCurrent() || pending?.session === session) return null;
+      const request = { session, action };
+      pending = request;
+      notify();
+      return request;
+    },
+    [token, isCurrent, session],
+  );
   const finish = useCallback((request: NonNullable<typeof pending>) => {
-    if (pending === request) { pending = null; notify(); }
+    if (pending === request) {
+      pending = null;
+      notify();
+    }
   }, []);
   const feedback = useActionFeedbackOptional();
 
-  const reportError = useCallback((key: string) => {
-    if (!isCurrent()) return;
-    if (feedback) feedback.error(t(key));
-    else void alertDialog({ title: t("common.error"), message: t(key) });
-  }, [isCurrent, feedback, t]);
+  const reportError = useCallback(
+    (key: string) => {
+      if (!isCurrent()) return;
+      if (feedback) feedback.error(t(key));
+      else void alertDialog({ title: t("common.error"), message: t(key) });
+    },
+    [isCurrent, feedback, t],
+  );
 
   const acquirePushMutation = useCallback(() => {
     const request = begin("push");
@@ -107,61 +145,91 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
   useEffect(() => {
     if (!isCurrent()) return;
     if (user?.reminder_lead_minutes != null) {
-      setReminderLeadMinutesState(normalizeReminderLeadMinutes(user.reminder_lead_minutes));
+      setReminderLeadMinutesState(
+        normalizeReminderLeadMinutes(user.reminder_lead_minutes),
+      );
       return;
     }
     let active = true;
-    void getReminderLeadMinutes().then((minutes) => {
-      if (active && isCurrent()) setReminderLeadMinutesState(minutes);
-    }).catch(() => { if (active) reportError("common.error"); });
-    return () => { active = false; };
+    void getReminderLeadMinutes()
+      .then((minutes) => {
+        if (active && isCurrent()) setReminderLeadMinutesState(minutes);
+      })
+      .catch(() => {
+        if (active) reportError("common.error");
+      });
+    return () => {
+      active = false;
+    };
   }, [isCurrent, reportError, user?.reminder_lead_minutes]);
 
   const quietEnabled = user?.quiet_hours_enabled === true;
   const quietStart = user?.quiet_hours_start_minute ?? DEFAULT_QUIET_START;
   const quietEnd = user?.quiet_hours_end_minute ?? DEFAULT_QUIET_END;
 
-  const saveReminderLead = useCallback(async (minutes: number) => {
-    const request = begin("lead");
-    if (!request) return;
-    const previous = reminderLeadMinutes;
-    const normalized = normalizeReminderLeadMinutes(minutes);
-    try {
-      setReminderLeadMinutesState(normalized);
-      await updateUser({ reminder_lead_minutes: normalized });
-    } catch {
-      if (isCurrent()) setReminderLeadMinutesState(previous);
-      reportError("common.error");
-    } finally { finish(request); }
-  }, [begin, reminderLeadMinutes, updateUser, isCurrent, reportError, finish]);
+  const saveReminderLead = useCallback(
+    async (minutes: number) => {
+      const request = begin("lead");
+      if (!request) return;
+      const previous = reminderLeadMinutes;
+      const normalized = normalizeReminderLeadMinutes(minutes);
+      try {
+        setReminderLeadMinutesState(normalized);
+        await updateUser({ reminder_lead_minutes: normalized });
+      } catch {
+        if (isCurrent()) setReminderLeadMinutesState(previous);
+        reportError("common.error");
+      } finally {
+        finish(request);
+      }
+    },
+    [begin, reminderLeadMinutes, updateUser, isCurrent, reportError, finish],
+  );
 
-  const toggleEmailReminders = useCallback(async (enabled: boolean) => {
-    const request = begin("email");
-    if (!request) return;
-    try { await updateUser({ email_reminders_enabled: enabled }); }
-    catch { reportError("common.error"); }
-    finally { finish(request); }
-  }, [begin, updateUser, reportError, finish]);
+  const toggleEmailReminders = useCallback(
+    async (enabled: boolean) => {
+      const request = begin("email");
+      if (!request) return;
+      try {
+        await updateUser({ email_reminders_enabled: enabled });
+      } catch {
+        reportError("common.error");
+      } finally {
+        finish(request);
+      }
+    },
+    [begin, updateUser, reportError, finish],
+  );
 
-  const togglePushKind = useCallback(async (field: PushKindField, enabled: boolean) => {
-    const request = begin(field);
-    if (!request) return;
-    try { await updateUser({ [field]: enabled }); }
-    catch { reportError("common.error"); }
-    finally { finish(request); }
-  }, [begin, updateUser, reportError, finish]);
+  const togglePushKind = useCallback(
+    async (field: PushKindField, enabled: boolean) => {
+      const request = begin(field);
+      if (!request) return;
+      try {
+        await updateUser({ [field]: enabled });
+      } catch {
+        reportError("common.error");
+      } finally {
+        finish(request);
+      }
+    },
+    [begin, updateUser, reportError, finish],
+  );
 
-  const toggleQuietHours = useCallback(async (enabled: boolean) => {
-    const request = begin("quiet");
-    if (!request) return;
-    try {
-      await updateUser({ quiet_hours_enabled: enabled });
-    } catch {
-      reportError("common.error");
-    } finally {
-      finish(request);
-    }
-  }, [begin, updateUser, reportError, finish]);
+  const toggleQuietHours = useCallback(
+    async (enabled: boolean) => {
+      const request = begin("quiet");
+      if (!request) return;
+      try {
+        await updateUser({ quiet_hours_enabled: enabled });
+      } catch {
+        reportError("common.error");
+      } finally {
+        finish(request);
+      }
+    },
+    [begin, updateUser, reportError, finish],
+  );
 
   // The dialog keeps its title and time through the closing fade.
   const quietShown = useRef<"start" | "end">("start");
@@ -220,7 +288,9 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
         <SettingsGroup label={t("settings.reminders_group")}>
           <SettingsMenuRow
             title={t("settings.reminder_lead")}
-            value={t("settings.reminder_lead_value", { count: reminderLeadMinutes })}
+            value={t("settings.reminder_lead_value", {
+              count: reminderLeadMinutes,
+            })}
             options={REMINDER_LEAD_OPTIONS.map((minutes) => ({
               key: String(minutes),
               label: t("settings.reminder_lead_value", { count: minutes }),
@@ -275,7 +345,9 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
             ? "settings.quiet_hours_end"
             : "settings.quiet_hours_start",
         )}
-        value={timeFromMinutes(quietShown.current === "end" ? quietEnd : quietStart)}
+        value={timeFromMinutes(
+          quietShown.current === "end" ? quietEnd : quietStart,
+        )}
         onCancel={() => setPickingQuiet(null)}
         onConfirm={(time) => {
           const which = pickingQuiet;

@@ -79,6 +79,7 @@ _PROFILE_FIELDS = (
     "memory_enabled",
     "follow_up_suggestions_enabled",
     "memory_include_sensitive",
+    "web_search_enabled",
     "push_notifications_enabled",
     "push_reminders_enabled",
     "email_reminders_enabled",

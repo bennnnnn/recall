@@ -12,7 +12,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLiveTalkMinutes } from "@/features/account/hooks/useLiveTalkMinutes";
 import { useUsage } from "@/features/account/hooks/useUsage";
 import { type User } from "@/lib/api";
-import { hasPlanFeature, planNameKey, planOf, upgradeTargets } from "@/lib/plan";
+import {
+  hasPlanFeature,
+  planNameKey,
+  planOf,
+  upgradeTargets,
+} from "@/lib/plan";
 import { formatUsageSummary } from "@/lib/quota";
 
 function manageSubscriptionUrl(): string {
@@ -38,11 +43,16 @@ function signInLabel(
 export function AccountSettingsSection({ isPaid }: { isPaid: boolean }) {
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { usage } = useUsage();
+  const {
+    usage,
+    loading: usageLoading,
+    error: usageError,
+    refresh: refreshUsage,
+  } = useUsage();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const plan = planOf(user);
   const planName = t(planNameKey(plan));
-  const nextPlan = plan === "free" ? null : upgradeTargets(plan)[0] ?? null;
+  const nextPlan = plan === "free" ? null : (upgradeTargets(plan)[0] ?? null);
   const liveTalk = useLiveTalkMinutes(hasPlanFeature(user, "live_talk"));
 
   return (
@@ -76,7 +86,9 @@ export function AccountSettingsSection({ isPaid }: { isPaid: boolean }) {
         {nextPlan ? (
           <SettingsLinkRow
             icon="sparkles"
-            title={t("settings.plan_upgrade", { plan: t(planNameKey(nextPlan)) })}
+            title={t("settings.plan_upgrade", {
+              plan: t(planNameKey(nextPlan)),
+            })}
             subtitle={t("settings.plan_upgrade_live_talk")}
             onPress={() => setUpgradeVisible(true)}
             accent
@@ -92,11 +104,27 @@ export function AccountSettingsSection({ isPaid }: { isPaid: boolean }) {
             })}
           />
         ) : null}
-        <SettingsValueRow
-          icon="bar-chart"
-          title={t("settings.usage_group")}
-          value={usage ? formatUsageSummary(usage, isPaid, t) : undefined}
-        />
+        {/* Never a blank row: today's share, "…" while it loads, or a retry. */}
+        {usage || !usageError ? (
+          <SettingsValueRow
+            icon="bar-chart"
+            title={t("settings.usage_group")}
+            value={
+              usage
+                ? formatUsageSummary(usage, isPaid, t)
+                : usageLoading
+                  ? "…"
+                  : undefined
+            }
+          />
+        ) : (
+          <SettingsLinkRow
+            icon="bar-chart"
+            title={t("settings.usage_group")}
+            value={t("settings.usage_unavailable")}
+            onPress={() => void refreshUsage({ force: true })}
+          />
+        )}
       </SettingsGroup>
 
       <UpgradeSheet
