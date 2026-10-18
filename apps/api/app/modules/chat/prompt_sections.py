@@ -41,6 +41,10 @@ from app.modules.chat.prompt_constants import (
     learning_plan_daily_contract,
     programming_lesson_contract,
 )
+from app.modules.chat.prompt_constants.unclear import (
+    UNCLEAR_SHORT_TURN_HINT,
+    is_unclear_short_turn,
+)
 from app.modules.chat.prompt_format import PromptRule, _style_format_hints, code_question_layout
 from app.modules.chat.prompt_profile import (
     custom_instructions_block,
@@ -237,6 +241,16 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     ),
     PromptSection(lambda t: t.followup == "chemistry", lambda _t: [CHEMISTRY_FOLLOWUP_HINT]),
     PromptSection(lambda t: t.followup == "physics", lambda _t: [PHYSICS_FOLLOWUP_HINT]),
+    # "Bo" is not "hi": the reply notices the word instead of greeting past it.
+    PromptSection(
+        lambda t: (
+            not t.lightweight
+            and t.followup is None
+            and active_lesson_step(t.exchange) is None
+            and is_unclear_short_turn(t.query, t.exchange)
+        ),
+        lambda _t: [UNCLEAR_SHORT_TURN_HINT],
+    ),
     # Keep the acknowledgement contract closest to the user turn. Memory and
     # integration context is appended after the style pack and can otherwise
     # tempt the model into an unsolicited plan even though no task was asked.
