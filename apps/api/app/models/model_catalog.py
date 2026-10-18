@@ -42,14 +42,16 @@ class ChatModel:
     plan_access: str = "pro"  # free | pro — free-plan users only see free-tier models
     selectable: bool = True  # shown in the model picker
     quota_multiplier: float = 1.0  # weight against daily token quota (R1 costs more)
-    # How to turn thinking down on an ordinary question. None leaves the
-    # provider default (the model rejects a disable). "none" / "minimal" /
-    # "low" are reasoning.effort. "off" is reasoning.enabled false.
+    # The OpenRouter reasoning sent at each level, from the model's own list of
+    # supported efforts (GET /api/v1/models). An effort name is reasoning.effort;
+    # "off" is reasoning.enabled false; None leaves the provider default. A
+    # level a model does not list is never sent (asserted in tests).
+    # Ordinary question: as little thinking as the model allows.
     thinking_off: str | None = None
-    # How to turn thinking on for a hard question. None leaves the provider
-    # default. "on" is reasoning.enabled true, for a model whose default is
-    # not to think.
+    # A genuinely hard question: the cheapest level that still thinks.
     thinking_on: str | None = None
+    # The user said the answer was wrong, or regenerated it: one level up.
+    thinking_escalate: str | None = None
     # Hold the start of a reply until a stray closing think tag could have
     # arrived: GLM 5.3 has ended untagged reasoning with one.
     stray_think_guard: bool = False
@@ -70,6 +72,7 @@ def _or(
     quota_multiplier: float = 1.0,
     thinking_off: str | None = None,
     thinking_on: str | None = None,
+    thinking_escalate: str | None = None,
     stray_think_guard: bool = False,
 ) -> ChatModel:
     """OpenRouter-backed catalog entry (``openrouter_slug`` = OpenRouter model id)."""
@@ -89,6 +92,7 @@ def _or(
         quota_multiplier=quota_multiplier,
         thinking_off=thinking_off,
         thinking_on=thinking_on,
+        thinking_escalate=thinking_escalate,
         stray_think_guard=stray_think_guard,
     )
 
@@ -104,7 +108,9 @@ CATALOG: tuple[ChatModel, ...] = (
         description="Fast everyday chat — cheap and capable.",
         tier="fast",
         plan_access="free",
-        thinking_off="off",
+        thinking_off="none",
+        thinking_on="low",
+        thinking_escalate="medium",
     ),
     _or(
         id="smart-chat",
@@ -116,8 +122,9 @@ CATALOG: tuple[ChatModel, ...] = (
         description="Stronger reasoning for hard questions and code.",
         tier="smart",
         quota_multiplier=3.5,
-        thinking_off="off",
-        thinking_on="on",
+        thinking_off="none",
+        thinking_on="low",
+        thinking_escalate="high",
     ),
     _or(
         id="glm-5.3-flash",
@@ -129,8 +136,10 @@ CATALOG: tuple[ChatModel, ...] = (
         tier="standard",
         plan_access="free",
         # Reasoning is mandatory here: OpenRouter answers a disable with a 400.
-        thinking_off="low",
         stray_think_guard=True,
+        thinking_off="low",
+        thinking_on="low",
+        thinking_escalate="high",
     ),
     _or(
         id="glm-5.2",
@@ -141,7 +150,9 @@ CATALOG: tuple[ChatModel, ...] = (
         description="Z.ai GLM — strong reasoning and coding (1M context).",
         tier="smart",
         quota_multiplier=3.5,
-        thinking_off="off",
+        thinking_off="none",
+        thinking_on="none",
+        thinking_escalate="high",
     ),
     _or(
         id="gpt-6-luna",
@@ -153,6 +164,8 @@ CATALOG: tuple[ChatModel, ...] = (
         description="OpenAI's fast everyday model — quick, low-cost answers.",
         tier="fast",
         thinking_off="none",
+        thinking_on="low",
+        thinking_escalate="medium",
     ),
     # The free plan's everyday model: about a third of Luna's price per turn,
     # as fast and as right on everyday turns, and it reads photos. Hard and
@@ -168,6 +181,8 @@ CATALOG: tuple[ChatModel, ...] = (
         tier="fast",
         plan_access="free",
         thinking_off="off",
+        thinking_on="off",
+        thinking_escalate="off",
     ),
     # Internal aliases — not user-selectable.
     _or(
@@ -196,7 +211,7 @@ CATALOG: tuple[ChatModel, ...] = (
         model="anthropic/claude-haiku-5.5",
         provider="anthropic",
         selectable=False,
-        thinking_off="off",
+        thinking_off="none",
     ),
     _or(
         id="embedding-model",

@@ -10,6 +10,7 @@ from litellm import acompletion
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.gateways import mock_llm
+from app.gateways.reasoning import reasoning_body
 
 # Compatibility exports keep provider seams stable after splitting this module.
 from app.gateways.structured_completion import (
@@ -118,30 +119,12 @@ def resolve_route(alias: str) -> ChatModel:
     return model_catalog.get(alias)
 
 
-def _reasoning_disabled(mode: str | None) -> dict[str, Any] | None:
-    """OpenRouter body that turns thinking down. Unknown modes send nothing."""
-    if mode == "off":
-        return {"enabled": False}
-    if mode in {"none", "minimal", "low"}:
-        return {"effort": mode}
-    return None
-
-
-def _reasoning_enabled(mode: str | None) -> dict[str, Any] | None:
-    """OpenRouter body that turns thinking on. Unknown modes send nothing."""
-    if mode == "on":
-        return {"enabled": True}
-    if mode in {"low", "medium", "high"}:
-        return {"effort": mode}
-    return None
-
-
 def _litellm_kwargs(
     settings: Settings,
     route: ChatModel,
     *,
     latency_sensitive: bool = False,
-    thinking: bool | None = None,
+    thinking: bool | str | None = None,
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     api_key = getattr(settings, route.api_key_field, "")
@@ -168,15 +151,10 @@ def _litellm_kwargs(
         # on the critical path before the user-visible stream.
         if latency_sensitive:
             kwargs["extra_body"] = {"provider": {"sort": "latency"}}
-    # Ordinary questions must not wait on a thinking pass. A hard job keeps
-    # the model's own default unless the model needs asking (thinking_on: a
-    # hybrid whose default is not to think). A model whose reasoning cannot be
-    # disabled has no "off" thinking_off.
-    reasoning = None
-    if thinking is False:
-        reasoning = _reasoning_disabled(route.thinking_off)
-    elif thinking is True:
-        reasoning = _reasoning_enabled(route.thinking_on)
+    # Ordinary questions must not wait on a thinking pass; a hard one gets the
+    # cheapest level that thinks, and a disputed answer one level more. Each
+    # value is one the model lists, so an unsupported level is never sent.
+    reasoning = reasoning_body(route, thinking)
     if reasoning is not None:
         kwargs.setdefault("extra_body", {})
         kwargs["extra_body"]["reasoning"] = reasoning
@@ -221,7 +199,7 @@ async def stream_chat_completion(
     fallback_aliases: list[str] | None = None,
     stream_meta: dict[str, str] | None = None,
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
-    thinking: bool | None = None,
+    thinking: bool | str | None = None,
 ) -> AsyncIterator[str]:
     if mock_llm.should_mock_llm(settings):
         logger.info("Using mock LLM stream for alias=%s", model_alias)
@@ -337,7 +315,7 @@ async def _stream_chat_once(
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
     stream_meta: dict[str, str] | None = None,
     first_content_timeout_seconds: float | None = None,
-    thinking: bool | None = None,
+    thinking: bool | str | None = None,
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=thinking)

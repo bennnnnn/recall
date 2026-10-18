@@ -143,7 +143,7 @@ class ChatModel(Protocol):
         fallback_aliases: list[str] | None = ...,
         stream_meta: dict[str, str] | None = ...,
         on_reasoning: Callable[[str], Awaitable[None]] | None = ...,
-        thinking: bool | None = ...,
+        thinking: bool | str | None = ...,
     ) -> AsyncIterator[str]: ...
 
 

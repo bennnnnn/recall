@@ -110,15 +110,15 @@ def test_ordinary_question_turns_thinking_off_for_models_that_allow_it() -> None
     )
     assert qwen["extra_body"]["reasoning"] == {"enabled": False}
     assert luna["extra_body"]["reasoning"] == {"effort": "none"}
-    assert haiku["extra_body"]["reasoning"] == {"enabled": False}
-    assert deepseek["extra_body"]["reasoning"] == {"enabled": False}
+    assert haiku["extra_body"]["reasoning"] == {"effort": "none"}
+    assert deepseek["extra_body"]["reasoning"] == {"effort": "none"}
     # Reasoning is mandatory on GLM 5.3 Flash: the lowest effort, never a disable.
     assert glm_flash["extra_body"]["reasoning"] == {"effort": "low"}
-    assert glm["extra_body"]["reasoning"] == {"enabled": False}
+    assert glm["extra_body"]["reasoning"] == {"effort": "none"}
     assert qwen["extra_body"]["provider"] == {"sort": "latency"}
 
 
-def test_hard_job_keeps_the_provider_default_unless_the_model_needs_asking() -> None:
+def test_hard_job_asks_for_the_cheapest_level_that_thinks() -> None:
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
 
     proving = litellm_gateway._litellm_kwargs(
@@ -127,7 +127,6 @@ def test_hard_job_keeps_the_provider_default_unless_the_model_needs_asking() -> 
         latency_sensitive=True,
         thinking=True,
     )
-    # DeepSeek V4.1 Flash is a hybrid that does not think unless asked.
     hard = litellm_gateway._litellm_kwargs(
         settings,
         litellm_gateway.resolve_route("smart-chat"),
@@ -141,6 +140,9 @@ def test_hard_job_keeps_the_provider_default_unless_the_model_needs_asking() -> 
         thinking=False,
     )
 
-    assert "reasoning" not in proving["extra_body"]
-    assert hard["extra_body"]["reasoning"] == {"enabled": True}
+    # GLM 5.3 Flash cannot turn thinking off; a hard turn gets its lowest level,
+    # not the provider default of "max".
+    assert proving["extra_body"]["reasoning"] == {"effort": "low"}
+    # DeepSeek thinks at "high" by default; a hard turn asks for "low".
+    assert hard["extra_body"]["reasoning"] == {"effort": "low"}
     assert "reasoning" not in unpriced["extra_body"]

@@ -39,14 +39,10 @@ _SMART_TRIGGERS = (
     "big-o",
     "time complexity",
     "space complexity",
-    # Comparison cues — "X vs Y" / "X versus Y" are genuinely hard and were
-    # previously classifier-only web-search triggers with no model upgrade, so
-    # a weak model answered a comparison with no SymPy/search help.
+    # "X vs Y" comparisons are genuinely hard; a weak model answered them unhelped.
     " vs ",
     " versus ",
-    # Bare coding asks without a code fence — "write a function/script/…"
-    # stayed on the fast model because there was no ``` fence and no smart
-    # keyword, so a hard coding question got a weak answer.
+    # Coding asks with no ``` fence ("write a function") need the strong model too.
     "write a function",
     "write a script",
     "write a program",
@@ -370,15 +366,18 @@ def route_chat_model(
     lesson_active: bool = False,
     settings: Settings | None = None,
 ) -> str:
-    """Return a preferred chat alias for an auto-routed message (before pool filter).
+    """Preferred chat alias for an auto-routed message (before pool filter).
 
-    Active lessons stay on the low-latency teaching tier. Otherwise, score the
-    current line first: a short continuation of a prior smart turn inherits Pro,
-    while a new topic does not pin the rest of the chat.
+    Lessons stay on the low-latency tier. "That's wrong" after an answer goes to
+    the thinking tier; otherwise a short continuation of a smart turn inherits it.
     """
+    from app.services.thinking_effort import is_answer_dispute
+
     smart = model_catalog.auto_smart_alias()
     if lesson_active:
         return model_catalog.auto_fast_alias()
+    if prior_user and is_answer_dispute(content):
+        return smart
     preferred = _route_current_line(content, settings)
     if preferred == smart:
         return smart

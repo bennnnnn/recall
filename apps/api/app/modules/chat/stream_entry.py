@@ -42,7 +42,7 @@ from app.modules.chat.turn_resources import (
     yield_with_chatprep_refresh,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.services.routing import message_needs_thinking
+from app.services.thinking_effort import thinking_level
 
 logger = logging.getLogger(__name__)
 
@@ -310,7 +310,8 @@ async def stream_regenerate_response(
             run_title=False,
             skip_memory_jobs=False,
             regenerate_backup=turn.backup,
-            thinking=message_needs_thinking(turn.content, settings=settings),
+            # Regenerating says the answer was not good enough: one level more.
+            thinking=thinking_level(turn.content, regenerate=True, settings=settings),
         )
         await top_up_reserve_for_prompt(
             res,

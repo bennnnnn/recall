@@ -34,9 +34,9 @@ def test_selectable_models_count():
     assert glm.tier == "smart"
     assert glm.model == "openrouter/z-ai/glm-5.2"
     assert model_catalog.is_reasoning_alias("glm-5.2") is True
-    assert glm.thinking_off == "off"
-    assert model_catalog.get("smart-chat").thinking_off == "off"
-    assert model_catalog.get("smart-chat").thinking_on == "on"
+    assert glm.thinking_off == "none"
+    assert model_catalog.get("smart-chat").thinking_off == "none"
+    assert model_catalog.get("smart-chat").thinking_on == "low"
     assert luna.thinking_off == "none"
     # GPT-6 Luna stays, for the paid plans only.
     assert luna.plan_access == "pro"

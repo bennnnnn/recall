@@ -32,7 +32,8 @@ from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.chat.turn_prep.vision import inject_turn_images
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services.prompt_safety import messages_have_attachment_marker
-from app.services.routing import last_user_turn, message_needs_thinking
+from app.services.routing import last_user_turn
+from app.services.thinking_effort import thinking_level
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +211,7 @@ def _stream_context(
         timing=timing,
         indexable_attachment_ids=indexable,
         user_message_persist=persist,
-        thinking=message_needs_thinking(
+        thinking=thinking_level(
             turn.content,
             prior_user=prior_user,
             prior_model=prior_model,

@@ -104,7 +104,7 @@ class StreamContext:
     terminal_image_content: str | None = None
     terminal_image_model: str | None = None
     # False sends the model's thinking-off payload. Hard jobs set this True.
-    thinking: bool = False
+    thinking: bool | str = False
     # A real photo above an answer about something worth seeing: the search
     # starts when the reply's ```photo fence closes; finalize links the ids.
     answer_photo: AnswerPhoto | None = None
@@ -146,7 +146,7 @@ def stream_context_from_bundle(
     regenerate_backup: RegenerateBackup | None = None,
     indexable_attachment_ids: list[str] | None = None,
     user_message_persist: asyncio.Task[list[str]] | None = None,
-    thinking: bool = False,
+    thinking: bool | str = False,
 ) -> StreamContext:
     """Map a TurnPromptBundle into StreamContext; overrides preserve call-site semantics."""
     if run_title is None:
