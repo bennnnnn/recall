@@ -476,8 +476,6 @@ function ChatScreen() {
     regenerateResponse: handleRegenerate,
     regenerating,
     handleFeedback,
-    // Settings → Personalization can turn the follow-up questions off; a reply
-    // cached with them before the switch then shows none either.
     onSelectSuggestion: user?.follow_up_suggestions_enabled === false ? undefined : onSelectSuggestion,
     imageGenerating: imageGen.generating,
     onRetryImageGen: imageGen.retry,
