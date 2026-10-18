@@ -54,7 +54,9 @@ from app.services.draft_fences import has_draft
 
 logger = logging.getLogger(__name__)
 
-_INVALID_FENCE = "*Could not save that to-do — the format was invalid.*"
+# "Always remind me to drink water" got a repeating fence with no start time,
+# and the user read "the format was invalid". Nothing was saved: ask when.
+_ASK_WHEN = "When should I remind you?"
 # Each fence in the reply: (start, end, body).
 _Spans = list[tuple[int, int, str]]
 
@@ -318,11 +320,13 @@ async def _apply_fences(turn: _Turn, spans: _Spans) -> tuple[str, int]:
     in_place: list[str] = []
     result_lines: list[str] = []
     created_any = False
+    invalid_any = False
     for _start, _end, body in spans:
         result = _FenceResult()
         if state.applied < MAX_TODO_ACTIONS_PER_TURN:
             result = await _apply_fence(turn, state, body)
-        in_place.append(_INVALID_FENCE if result.invalid else "")
+        in_place.append("")
+        invalid_any = invalid_any or result.invalid
         if result.line is not None:
             result_lines.append(result.line)
         if result.ok:
@@ -333,6 +337,8 @@ async def _apply_fences(turn: _Turn, spans: _Spans) -> tuple[str, int]:
         await home_service.invalidate_home_cache(turn.user_id)
     if state.applied == 0:
         updated = reply_when_nothing_saved(updated, turn.user_text, about_reminders=True)
+        if invalid_any and not updated.strip():
+            updated = _ASK_WHEN
     return updated, state.applied
 
 
@@ -359,7 +365,7 @@ async def _apply_fence(turn: _Turn, state: ReminderWrites, body: str) -> _FenceR
 
 
 async def _apply_invalid_fence(turn: _Turn, state: ReminderWrites) -> _FenceResult:
-    """An invalid fence saves the user's explicit "remind me … at 6pm", or says it could not."""
+    """An invalid fence saves the user's explicit "remind me … at 6pm", or asks when."""
     fallback = explicit_user_remind(turn.user_text, turn.user_timezone)
     if fallback is None:
         return _FenceResult(invalid=True)

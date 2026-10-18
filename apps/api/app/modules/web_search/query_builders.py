@@ -208,6 +208,32 @@ def _is_team_specific_sports_query(cleaned: str) -> bool:
     )
 
 
+# "near me" becomes "near <place>"; "my location" becomes the place itself.
+_LOCATION_PHRASES = (
+    (r"\b(?:near|close to)\s+me\b|\bnearby\b|\baround here\b", "near {loc}"),
+    (r"\b(?:my|current|the user'?s)\s+(?:current\s+)?location\b", "{loc}"),
+)
+
+
+def anchor_to_location(query: str, location: str | None) -> str:
+    """``coffee near me`` with a saved place is ``coffee near Westlands, Nairobi``.
+
+    A search engine has no idea where "me" or "here" is: it answered with New
+    York cafés and Milwaukee weather. The place replaces those words, or is
+    appended when the query names no part of it ("Westlands Nairobi" does).
+    """
+    loc = (location or "").strip()
+    if not loc:
+        return query
+    anchored = query
+    for pattern, replacement in _LOCATION_PHRASES:
+        anchored = re.sub(pattern, replacement.format(loc=loc), anchored, flags=re.I)
+    parts = [part.strip().lower() for part in loc.split(",") if len(part.strip()) > 2]
+    if not any(part in anchored.lower() for part in parts):
+        anchored = f"{anchored} {loc}"
+    return anchored
+
+
 def _geo_located_queries(
     cleaned: str,
     user_location: str | None,
