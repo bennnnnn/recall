@@ -17,25 +17,14 @@ import { alertDialog } from "@/ui/overlay/dialogs";
 
 type AboutField = "age" | "country" | "job";
 
-const FIELD_COPY: Record<
-  AboutField,
-  { title: string; placeholder: string; maxLength: number }
-> = {
-  age: {
-    title: "settings.your_age",
-    placeholder: "settings.age_placeholder",
-    maxLength: 3,
-  },
+const FIELD_COPY: Record<AboutField, { title: string; placeholder: string; maxLength: number }> = {
+  age: { title: "settings.your_age", placeholder: "settings.age_placeholder", maxLength: 3 },
   country: {
     title: "settings.your_country",
     placeholder: "settings.country_placeholder",
     maxLength: 64,
   },
-  job: {
-    title: "settings.your_job",
-    placeholder: "settings.job_placeholder",
-    maxLength: 128,
-  },
+  job: { title: "settings.your_job", placeholder: "settings.job_placeholder", maxLength: 128 },
 };
 
 function fieldSeed(user: User, field: AboutField): string {
@@ -44,11 +33,7 @@ function fieldSeed(user: User, field: AboutField): string {
 }
 
 /** The change to save, `{}` when nothing changed, or null when the age is invalid. */
-function fieldPatch(
-  user: User,
-  field: AboutField,
-  text: string,
-): Partial<User> | null {
+function fieldPatch(user: User, field: AboutField, text: string): Partial<User> | null {
   const trimmed = text.trim();
   if (field === "age") {
     if (!trimmed) return user.age == null ? {} : { age: null };
@@ -80,10 +65,7 @@ export default function ProfileSettingsScreen() {
     if (!user || !editField) return;
     const patch = fieldPatch(user, editField, fieldText);
     if (patch === null) {
-      void alertDialog({
-        title: t("common.error"),
-        message: t("settings.age_invalid"),
-      });
+      void alertDialog({ title: t("common.error"), message: t("settings.age_invalid") });
       return;
     }
     if (Object.keys(patch).length === 0) {

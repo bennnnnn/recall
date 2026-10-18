@@ -15,19 +15,12 @@ jest.mock("react-i18next", () => ({
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
-jest.mock("expo-router", () => ({
-  Redirect: () => null,
-  router: { push: jest.fn() },
-}));
+jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "tok", user: mockUser, updateUser: mockUpdateUser }),
 }));
-jest.mock("@/contexts/actionFeedbackCore", () => ({
-  useActionFeedbackOptional: () => null,
-}));
-jest.mock("@/lib/config", () => ({
-  getApiUrl: () => "https://api.recall.test",
-}));
+jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
+jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.recall.test" }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/lib/api", () => ({ api: { cancelAttachment: jest.fn() } }));
 jest.mock("@/lib/profilePhoto", () => ({
@@ -41,17 +34,10 @@ jest.mock("@/features/attachments/model/attachments", () => ({
   NativePickerTimeoutError: class extends Error {},
 }));
 jest.mock("@/ui/overlay/Sheet", () => {
-  const { View: RNView } = jest.requireActual(
-    "react-native",
-  ) as typeof import("react-native");
+  const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
   return {
-    Sheet: ({
-      children,
-      visible,
-    }: {
-      children: ReactNode;
-      visible: boolean;
-    }) => (visible ? <RNView>{children}</RNView> : null),
+    Sheet: ({ children, visible }: { children: ReactNode; visible: boolean }) =>
+      visible ? <RNView>{children}</RNView> : null,
   };
 });
 
@@ -94,40 +80,24 @@ it("opens the profile editor from the avatar and saves the name", async () => {
   await fireEvent.changeText(getByDisplayValue("bini"), "  Bini  ");
   await fireEvent.press(getByLabelText("settings.save_profile"));
 
-  await waitFor(() =>
-    expect(mockUpdateUser).toHaveBeenCalledWith({ name: "Bini" }),
-  );
+  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ name: "Bini" }));
   expect(queryByTestId("settings-profile-sheet")).toBeNull();
 });
 
 it("previews a chosen photo and uploads it only when Save profile is pressed", async () => {
-  const photo = {
-    localUri: "file:///profile-preview.jpg",
-    contentType: "image/jpeg",
-    fileName: "profile.jpg",
-    kind: "image",
-  };
+  const photo = { localUri: "file:///profile-preview.jpg", contentType: "image/jpeg", fileName: "profile.jpg", kind: "image" };
   mockPickProfilePhoto.mockResolvedValue(photo);
-  const { getByLabelText, getByTestId } = await render(
-    <ProfileSettingsScreen />,
-  );
+  const { getByLabelText, getByTestId } = await render(<ProfileSettingsScreen />);
 
   await fireEvent.press(getByLabelText("settings.edit_profile"));
   await fireEvent.press(getByLabelText("settings.change_photo"));
-  await waitFor(() =>
-    expect(
-      getByTestId("avatar-image", { includeHiddenElements: true }).props.source
-        .uri,
-    ).toBe(photo.localUri),
-  );
+  await waitFor(() => expect(getByTestId("avatar-image", { includeHiddenElements: true }).props.source.uri).toBe(photo.localUri));
   expect(mockUploadPhoto).not.toHaveBeenCalled();
   await fireEvent.press(getByLabelText("settings.save_profile"));
-  await waitFor(() =>
-    expect(mockUpdateUser).toHaveBeenCalledWith({
-      name: "bini",
-      avatar_url: "/attachments/11111111-1111-4111-8111-111111111111/file",
-    }),
-  );
+  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({
+    name: "bini",
+    avatar_url: "/attachments/11111111-1111-4111-8111-111111111111/file",
+  }));
 });
 
 it("cancels a profile draft without updating the account", async () => {
@@ -143,37 +113,21 @@ it("cancels a profile draft without updating the account", async () => {
 it("saves a job and clears an age", async () => {
   const view = await render(<ProfileSettingsScreen />);
   await fireEvent.press(view.getByText("settings.job_label"));
-  await fireEvent.changeText(
-    view.getByPlaceholderText("settings.job_placeholder"),
-    " Designer ",
-  );
+  await fireEvent.changeText(view.getByPlaceholderText("settings.job_placeholder"), " Designer ");
   await fireEvent.press(view.getByLabelText("settings.save"));
-  await waitFor(() =>
-    expect(mockUpdateUser).toHaveBeenCalledWith({ job: "Designer" }),
-  );
+  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ job: "Designer" }));
 
   await fireEvent.press(view.getByText("settings.age_label"));
-  await fireEvent.changeText(
-    view.getByPlaceholderText("settings.age_placeholder"),
-    "",
-  );
+  await fireEvent.changeText(view.getByPlaceholderText("settings.age_placeholder"), "");
   await fireEvent.press(view.getByLabelText("settings.save"));
-  await waitFor(() =>
-    expect(mockUpdateUser).toHaveBeenCalledWith({ age: null }),
-  );
+  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ age: null }));
 });
 
 it("refuses an age outside 13 to 120 without saving", async () => {
   const view = await render(<ProfileSettingsScreen />);
   await fireEvent.press(view.getByText("settings.age_label"));
-  await fireEvent.changeText(
-    view.getByPlaceholderText("settings.age_placeholder"),
-    "9",
-  );
+  await fireEvent.changeText(view.getByPlaceholderText("settings.age_placeholder"), "9");
   await fireEvent.press(view.getByLabelText("settings.save"));
-  expect(Alert.alert).toHaveBeenCalledWith(
-    "common.error",
-    "settings.age_invalid",
-  );
+  expect(Alert.alert).toHaveBeenCalledWith("common.error", "settings.age_invalid");
   expect(mockUpdateUser).not.toHaveBeenCalled();
 });

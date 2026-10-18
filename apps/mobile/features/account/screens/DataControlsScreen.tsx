@@ -2,10 +2,7 @@ import { useEffect } from "react";
 import { useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import {
-  plainHeaderItems,
-  StackBackButton,
-} from "@/ui/controls/StackBackButton";
+import { plainHeaderItems, StackBackButton } from "@/ui/controls/StackBackButton";
 import { StateView } from "@/ui/feedback/StateView";
 import {
   SettingsGroup,
@@ -153,10 +150,7 @@ export default function DataControlsScreen() {
         />
       </SettingsGroup>
       <SettingsGroup label={t("settings.your_data")}>
-        <SettingsLinkRow
-          title={t("settings.export")}
-          onPress={() => void doExport()}
-        />
+        <SettingsLinkRow title={t("settings.export")} onPress={() => void doExport()} />
       </SettingsGroup>
       <SettingsGroup label={t("settings.account")}>
         <SettingsLinkRow

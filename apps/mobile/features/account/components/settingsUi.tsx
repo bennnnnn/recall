@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, type View } from "react-native";
 import { type Href, Redirect, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,9 +26,7 @@ const layout = StyleSheet.create({
 });
 
 /** Padding for a Settings list; FlashList pages pass it as contentContainerStyle. */
-export function useSettingsContentStyle(options?: {
-  underStatusBar?: boolean;
-}) {
+export function useSettingsContentStyle(options?: { underStatusBar?: boolean }) {
   const insets = useSafeAreaInsets();
   return [
     layout.content,
@@ -60,23 +52,14 @@ export function SettingsPage({
   const contentStyle = useSettingsContentStyle({ underStatusBar });
   if (!token) return <Redirect href="/login" />;
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.bg }}
-      contentContainerStyle={contentStyle}
-    >
+    <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={contentStyle}>
       {children}
     </ScrollView>
   );
 }
 
 /** Rows under an optional heading, a thin gap between each. */
-export function SettingsGroup({
-  label,
-  children,
-}: {
-  label?: string;
-  children: ReactNode;
-}) {
+export function SettingsGroup({ label, children }: { label?: string; children: ReactNode }) {
   return (
     <ListGroup label={label} spaced style={layout.section}>
       {children}
@@ -150,9 +133,7 @@ export function SettingsChoiceRow({
 }
 
 /** A row that only shows a value. */
-export function SettingsValueRow(
-  row: Omit<RowBase, "disabled" | "busy" | "accessibilityHint">,
-) {
+export function SettingsValueRow(row: Omit<RowBase, "disabled" | "busy" | "accessibilityHint">) {
   return <ListRow {...row} />;
 }
 
@@ -160,13 +141,8 @@ export function SettingsSwitchRow({
   value,
   onValueChange,
   ...row
-}: Omit<RowBase, "value"> & {
-  value: boolean;
-  onValueChange: (next: boolean) => void;
-}) {
-  return (
-    <ListRow {...row} switchValue={value} onSwitchChange={onValueChange} />
-  );
+}: Omit<RowBase, "value"> & { value: boolean; onValueChange: (next: boolean) => void }) {
+  return <ListRow {...row} switchValue={value} onSwitchChange={onValueChange} />;
 }
 
 /**
@@ -236,8 +212,7 @@ export function useSettingsAction() {
       options?: { confirm?: ConfirmOptions; errorKey?: string },
     ): Promise<boolean> => {
       if (running.current) return false;
-      if (options?.confirm && !(await confirmDialog(options.confirm)))
-        return false;
+      if (options?.confirm && !(await confirmDialog(options.confirm))) return false;
       if (running.current || !mounted.current) return false;
       running.current = true;
       setBusy(key);
@@ -245,11 +220,7 @@ export function useSettingsAction() {
         await action();
         return true;
       } catch {
-        if (mounted.current)
-          reportRecoverableError(
-            feedback,
-            t(options?.errorKey ?? "common.error"),
-          );
+        if (mounted.current) reportRecoverableError(feedback, t(options?.errorKey ?? "common.error"));
         return false;
       } finally {
         running.current = false;

@@ -112,12 +112,7 @@ export type Memory = {
   updated_at: string;
 };
 
-export const RECURRENCE_RULES = [
-  "daily",
-  "weekdays",
-  "weekly",
-  "monthly",
-] as const;
+export const RECURRENCE_RULES = ["daily", "weekdays", "weekly", "monthly"] as const;
 export type RecurrenceRule = (typeof RECURRENCE_RULES)[number];
 
 export type Todo = {

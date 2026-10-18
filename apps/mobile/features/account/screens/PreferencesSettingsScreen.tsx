@@ -26,9 +26,7 @@ export default function PreferencesSettingsScreen() {
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructionsText, setInstructionsText] = useState("");
 
-  const selectedTone = normalizeResponseTone(
-    user?.response_tone ?? DEFAULT_RESPONSE_TONE,
-  );
+  const selectedTone = normalizeResponseTone(user?.response_tone ?? DEFAULT_RESPONSE_TONE);
   const saving = action.busy !== null;
 
   const openInstructions = () => {
@@ -55,10 +53,7 @@ export default function PreferencesSettingsScreen() {
           <SettingsMenuRow
             title={t("settings.tone")}
             value={t(`settings.tone_${selectedTone}`)}
-            options={RESPONSE_TONE_ORDER.map((key) => ({
-              key,
-              label: t(`settings.tone_${key}`),
-            }))}
+            options={RESPONSE_TONE_ORDER.map((key) => ({ key, label: t(`settings.tone_${key}`) }))}
             selectedKey={selectedTone}
             disabled={saving}
             busy={action.busy === "tone"}

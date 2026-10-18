@@ -14,11 +14,7 @@ import {
   SettingsSwitchRow,
   useSettingsAction,
 } from "@/features/account/components/settingsUi";
-import {
-  useAccent,
-  useAppearance,
-  useHaptics,
-} from "@/contexts/AppearanceContext";
+import { useAccent, useAppearance, useHaptics } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
 import { prefetchMemories } from "@/features/memory/model/memoryListCache";
@@ -54,11 +50,7 @@ export default function SettingsScreen() {
   );
 
   const appearanceOptions = useMemo(
-    () =>
-      APPEARANCE_OPTIONS.map((key) => ({
-        key,
-        label: t(`settings.appearance_${key}`),
-      })),
+    () => APPEARANCE_OPTIONS.map((key) => ({ key, label: t(`settings.appearance_${key}`) })),
     [t],
   );
   const accentOptions = useMemo(
@@ -74,23 +66,17 @@ export default function SettingsScreen() {
     () => LANGUAGES.map((lang) => ({ key: lang.code, label: lang.label })),
     [],
   );
-  const language =
-    LANGUAGES.find((lang) => lang.code === user?.locale) ?? LANGUAGES[0];
+  const language = LANGUAGES.find((lang) => lang.code === user?.locale) ?? LANGUAGES[0];
 
   const [chosenModel] = modelEnabledSet;
-  const modelsValue =
-    autoEnabled || !chosenModel
-      ? t("settings.model_auto")
-      : labelFor(chosenModel);
+  const modelsValue = autoEnabled || !chosenModel ? t("settings.model_auto") : labelFor(chosenModel);
   const notificationsValue =
     osPushGranted == null
       ? undefined
       : Boolean(user?.push_notifications_enabled) && osPushGranted
         ? t("settings.on")
         : t("settings.off");
-  const voiceValue = user?.tts_voice
-    ? voiceLabel(user.tts_voice)
-    : t("settings.voice_default");
+  const voiceValue = user?.tts_voice ? voiceLabel(user.tts_voice) : t("settings.voice_default");
 
   return (
     <SettingsPage underStatusBar>
@@ -130,9 +116,7 @@ export default function SettingsScreen() {
           options={languageOptions}
           selectedKey={language.code}
           busy={action.busy === "language"}
-          onSelect={(code) =>
-            void action.run("language", () => updateUser({ locale: code }))
-          }
+          onSelect={(code) => void action.run("language", () => updateUser({ locale: code }))}
         />
         <SettingsSwitchRow
           icon="vibrate"
@@ -190,11 +174,7 @@ export default function SettingsScreen() {
           icon="eye-off"
           title={t("settings.privacy")}
           accessibilityHint={t("settings.privacy_summary")}
-          value={
-            user?.web_search_enabled === false
-              ? t("settings.web_search_off")
-              : undefined
-          }
+          value={user?.web_search_enabled === false ? t("settings.web_search_off") : undefined}
           href="/settings/privacy"
         />
         <SettingsLinkRow

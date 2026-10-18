@@ -38,13 +38,11 @@ export default function VoiceSettingsScreen() {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([getSpeechRate(), getTtsModel()]).then(
-      ([savedRate, model]) => {
-        if (!active) return;
-        setRate(savedRate);
-        setOnDevice(model === TTS_DEVICE_MODEL);
-      },
-    );
+    void Promise.all([getSpeechRate(), getTtsModel()]).then(([savedRate, model]) => {
+      if (!active) return;
+      setRate(savedRate);
+      setOnDevice(model === TTS_DEVICE_MODEL);
+    });
     return () => {
       active = false;
     };
@@ -79,8 +77,7 @@ export default function VoiceSettingsScreen() {
           selectedKey={voice ?? DEFAULT_VOICE}
           busy={action.busy === "voice"}
           onSelect={(key) => {
-            const next =
-              USER_VOICES.find((candidate) => candidate === key) ?? null;
+            const next = USER_VOICES.find((candidate) => candidate === key) ?? null;
             void action.run("voice", () => updateUser({ tts_voice: next }));
           }}
         />
