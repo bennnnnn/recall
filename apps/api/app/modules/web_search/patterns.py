@@ -175,11 +175,11 @@ _WEATHER_NOT_A_FORECAST = re.compile(
     r"|(?:mean(?:s|ing)?|definition|synonyms?|spell|spelling)\b.*\bweather"
     r"|weather\b.*\b(?:mean(?:s|ing)?|definition|synonyms?)"
     r"|weather\s+vs\.?\s+whether|whether\s+(?:or|vs)"
-    # "What's the weather like on Venus?" is planetary science: no forecast,
-    # and nothing to do with where the user is.
-    r"|(?:weather|forecast|temperature)(?:\s+[\w'\u2019]+){0,3}?\s+on\s+(?:the\s+)?"
-    r"(?:mercury|venus|mars|jupiter|saturn|uranus|neptune|pluto|moon|sun|titan|europa|io"
-    r"|other\s+planets?|another\s+planet|exoplanets?))\b",
+    # Weather on/in/of a planet is science ("in mars" found Marseille); "Mars, PA" searches.
+    r"|(?:weather|forecast|temperature|climate)(?:\s+[\w'\u2019]+){0,3}?\s+(?:(?:on|in|of|at)"
+    r"\s+(?:the\s+)?(?:planet\s+)?(?:mercury|venus|mars|jupiter|saturn|uranus|neptune|pluto"
+    r"|moon|titan|europa|io|other\s+planets?|another\s+planet|exoplanets?)\b(?!\s*,)"
+    r"|on\s+(?:the\s+)?sun\b))",
     re.IGNORECASE,
 )
 
