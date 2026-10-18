@@ -11,7 +11,12 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.gateways import pubchem_gateway
 from app.modules import chemistry as chemistry_service
-from app.modules.chemistry.block import VerifiedChemistry, build_verified_chemistry, verified_iupac
+from app.modules.chemistry.block import (
+    VerifiedChemistry,
+    build_verified_chemistry,
+    verified_iupac,
+    verified_structure,
+)
 from app.modules.chemistry.elements import BY_NUMBER, ELEMENTS, Element
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.extract import extract_chemistry_intent
@@ -38,6 +43,11 @@ _ELEMENT_CUE = re.compile(
     r"\b(?:atomic\s+(?:mass(?:es)?|numbers?|weights?)|electronegativit(?:y|ies)|"
     r"periodic\s+table|elements?|"
     r"electron\s+configuration|oxidation\s+states?|valence\s+electrons?)\b",
+    re.IGNORECASE,
+)
+# Asks to see a named compound: its structure is drawn from PubChem, not written.
+_SEE_STRUCTURE = re.compile(
+    r"\b(?:structures?|draw|show|picture|diagram|skeletal|look\s+like|molecule\s+of)\b",
     re.IGNORECASE,
 )
 _IUPAC_SMILES = re.compile(r"\bIUPAC name\b[\s\S]{0,40}\bSMILES\s+(\S+)", re.IGNORECASE)
@@ -306,6 +316,11 @@ async def build_chemistry_augmentation(
         logger.info("PubChem lookup failed for %r: %s", name, lookup.error)
         return unverified_chemistry_note(), None, True
     compound = lookup.compound
+    if _SEE_STRUCTURE.search(content):
+        verified = verified_structure(
+            name, compound.smiles, compound.molecular_formula, compound.molecular_weight
+        )
+        return verified.prompt_text, verified, False
     lines = [
         f"[Chemistry context for {name}]",
         f"Canonical SMILES: {compound.smiles}",

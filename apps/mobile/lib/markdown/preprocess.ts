@@ -4,6 +4,7 @@ import {
   dropRedundantMolecule3dFences,
 } from "@/lib/chemistry/moleculePair";
 import { attachAnswerHeadingToFence } from "@/lib/markdown/attachAnswerHeading";
+import { codeNotation } from "@/lib/markdown/notationSpans";
 import { breakListItemTitles } from "@/lib/markdown/listItemTitles";
 import {
   convertCalloutBlocks,
@@ -86,7 +87,8 @@ export function preprocessMarkdown(
   mathFormat?: (expr: string) => string,
   options: PreprocessOptions = {},
 ): string {
-  let out = repairBrokenMarkdownLinks(content);
+  // SMILES ("CC(=O)O") becomes code first: the maths passes read "(=O)" as maths.
+  let out = codeNotation(repairBrokenMarkdownLinks(content));
   out = trimBoldDelimiterWhitespace(out);
   // Do this before math normalization can reinterpret a punctuation-only
   // continuation line.

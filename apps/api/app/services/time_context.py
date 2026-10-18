@@ -5,8 +5,9 @@ from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.core.timezone import DEFAULT_TIMEZONE, resolve_timezone
+from app.services.calendar_facts import calendar_lines
+from app.services.calendar_facts import correct_weekday_dates as correct_weekday_dates
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
-from app.services.time_weekdays import correct_weekday_dates as correct_weekday_dates
 
 __all__ = ["DEFAULT_TIMEZONE", "resolve_timezone"]
 
@@ -501,8 +502,10 @@ def format_location_answer(location: str | None, timezone: str | None) -> str:
     )
 
 
-def format_now_awareness(timezone: str | None, locale: str | None = None) -> str:
-    """Facts every reply can use. Slim turns otherwise never see the clock."""
+def format_now_awareness(
+    timezone: str | None, locale: str | None = None, message: str | None = None
+) -> str:
+    """Facts every reply can use, with the calendar for the dates *message* names."""
     tz = resolve_timezone(timezone)
     now = datetime.now(tz)
     clock = format_digital_clock(now, locale)
@@ -519,14 +522,9 @@ def format_now_awareness(timezone: str | None, locale: str | None = None) -> str
         # "Christmas falls on a Monday" was wrong (2026's is a Friday).
         "When you name the weekday of a date, write the full date with it "
         '("Friday, December 25, 2026"). '
-        # "What is Tuesday" on a Sunday got Wednesday the 21st: read the week, don't count.
-        f"The next seven days: {_coming_week(now)}."
+        # Read, not counted: "what is Tuesday" and "Christmas's weekday" were miscounted.
+        f"{calendar_lines(now, message)}"
     )
-
-
-def _coming_week(now: datetime) -> str:
-    days = (now + timedelta(days=offset) for offset in range(1, 8))
-    return ", ".join(f"{day.strftime('%A')} {day.strftime('%B')} {day.day}" for day in days)
 
 
 def format_time_answer(timezone: str | None, locale: str | None = None) -> str:

@@ -41,6 +41,7 @@ def test_corpus_ids_are_unique_and_every_area_is_covered() -> None:
     assert areas == {
         "boundaries",
         "inline_code",
+        "notation",
         "calculation",
         "maths",
         "fences",

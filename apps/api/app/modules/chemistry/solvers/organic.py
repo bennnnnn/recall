@@ -77,6 +77,10 @@ def solve_iupac_name(_intent: ChemistryIntent) -> ChemistryResult:
     raise SolveServiceError("IUPAC names come from PubChem, not a local solver")
 
 
+def solve_structure(_intent: ChemistryIntent) -> ChemistryResult:
+    raise SolveServiceError("A named compound's structure comes from PubChem, not a local solver")
+
+
 _REACTIONS = {
     "bromine": (
         "bromine addition across the C=C",

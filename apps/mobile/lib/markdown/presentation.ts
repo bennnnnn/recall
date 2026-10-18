@@ -12,6 +12,7 @@
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
+import { codeNotation } from "@/lib/markdown/notationSpans";
 import { fenceReplTranscripts } from "@/lib/markdown/replTranscript";
 import { normalizeImplicitMath } from "@/lib/math/normalizeImplicit";
 import { isServerMessageId } from "@/lib/serverMessageId";
@@ -33,7 +34,10 @@ export const SERVER_PRESENTATION_CUTOVER = Date.parse("2026-11-16T00:00:00Z");
 
 /** True for a saved row (a server id, not `streaming` or `streamed-…`) that
  * the server presented before saving it. */
-export function isServerPresentedRow(row: { id: string; created_at: string }): boolean {
+export function isServerPresentedRow(row: {
+  id: string;
+  created_at: string;
+}): boolean {
   if (!isServerMessageId(row.id)) return false;
   const created = Date.parse(row.created_at);
   return Number.isFinite(created) && created >= SERVER_PRESENTATION_CUTOVER;
@@ -41,7 +45,9 @@ export function isServerPresentedRow(row: { id: string; created_at: string }): b
 
 export function presentAssistantMarkdown(text: string): string {
   if (!text) return text;
-  return layoutCalculations(repairInlineTokenBoundaries(fenceReplTranscripts(text)));
+  return layoutCalculations(
+    repairInlineTokenBoundaries(codeNotation(fenceReplTranscripts(text))),
+  );
 }
 
 /** Index of an unclosed `$`, `$$`, `\(`, or `\[`, or null when every opener closed.
@@ -132,7 +138,10 @@ function presentStreamProse(prose: string, presented: boolean): string {
   const head = openAt == null ? prose : prose.slice(0, openAt);
   const open = openAt == null ? "" : prose.slice(openAt);
   const present = presented ? layoutCalculations : presentAssistantMarkdown;
-  const wrapped = head ? present(normalizeImplicitMath(head)) : "";
+  // Notation becomes code before the maths wrap can read "(=O)" as maths.
+  const wrapped = head
+    ? present(normalizeImplicitMath(codeNotation(head)))
+    : "";
   return wrapped + open;
 }
 
@@ -147,8 +156,14 @@ export function presentStreamTail(tail: string, presented = false): string {
   const fenceAt = tail.indexOf("```");
   const tildeAt = tail.indexOf("~~~");
   const fence =
-    fenceAt === -1 ? tildeAt : tildeAt === -1 ? fenceAt : Math.min(fenceAt, tildeAt);
+    fenceAt === -1
+      ? tildeAt
+      : tildeAt === -1
+        ? fenceAt
+        : Math.min(fenceAt, tildeAt);
   if (fence === -1) return presentStreamProse(tail, presented);
   if (fence === 0) return tail;
-  return presentStreamProse(tail.slice(0, fence), presented) + tail.slice(fence);
+  return (
+    presentStreamProse(tail.slice(0, fence), presented) + tail.slice(fence)
+  );
 }

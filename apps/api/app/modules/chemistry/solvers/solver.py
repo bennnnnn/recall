@@ -102,6 +102,7 @@ from app.modules.chemistry.solvers.organic import (
     solve_iupac_name,
     solve_named_reaction,
     solve_stereochemistry,
+    solve_structure,
 )
 from app.modules.chemistry.solvers.rate_laws import (
     solve_arrhenius_two_point,
@@ -241,6 +242,7 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "plate_number": solve_plate_number,
     "plate_height": solve_plate_height,
     "iupac_name": solve_iupac_name,
+    "structure": solve_structure,
     "named_reaction": solve_named_reaction,
     "ir_ranges": solve_ir_ranges,
     "ir_peak": solve_ir_peak,

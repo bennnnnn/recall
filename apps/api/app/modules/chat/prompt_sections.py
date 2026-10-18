@@ -192,7 +192,10 @@ def _advice(turn: PromptTurn) -> list[str]:
 PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(_always, lambda _t: ["You are Recall, a helpful personal AI assistant."]),
     PromptSection(
-        _always, lambda t: [time_context_service.format_now_awareness(t.local_tz, t.user.locale)]
+        _always,
+        lambda t: [
+            time_context_service.format_now_awareness(t.local_tz, t.user.locale, t.query_text)
+        ],
     ),
     PromptSection(_always, _profile),
     PromptSection(
