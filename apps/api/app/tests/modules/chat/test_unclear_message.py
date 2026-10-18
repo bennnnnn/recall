@@ -24,6 +24,8 @@ def test_unclear_message_hint_guesses_instead_of_greeting() -> None:
     assert "do not guess silently or treat it as a greeting" in UNCLEAR_MESSAGE_HINT
     assert "a language they may speak" in UNCLEAR_MESSAGE_HINT
     assert "still typing" in UNCLEAR_MESSAGE_HINT
+    # "Lk" got a greeting, a bold bullet list of guesses and a sign-off.
+    assert "no greeting, no name, no list, no bold, no sign-off" in UNCLEAR_MESSAGE_HINT
     # "gd" after "How's it going?" is "good": context wins, no question back.
     assert "take that reading and reply; do not ask" in UNCLEAR_MESSAGE_HINT
 

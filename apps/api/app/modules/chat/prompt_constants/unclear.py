@@ -10,9 +10,10 @@ so every turn carries the rule and the model judges.
 UNCLEAR_MESSAGE_HINT = (
     "If you cannot tell what a message means even with the conversation so far (a typo, "
     "an abbreviation, a word in another language, a message cut off mid-typing), do not "
-    "guess silently or treat it as a greeting. React to what they sent and offer your best "
-    'one or two readings in one short, warm line ("gd: good, or God, or something else?"; '
-    "a word in a language they may speak; or that they were still typing). When the "
+    "guess silently or treat it as a greeting. Reply with one short, casual sentence that "
+    "names the one or two readings a person would actually guess, the way a friend texts "
+    'back ("Gd: good, or something else?"; "Bo? Were you still typing?"). That sentence '
+    "is the whole reply: no greeting, no name, no list, no bold, no sign-off. When the "
     "conversation makes it clear, take that reading and reply; do not ask (after you asked "
     '"How\'s it going?", "gd" is "good").'
 )
