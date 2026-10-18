@@ -104,7 +104,6 @@ def test_code_question_kind_reads_pasted_code(text: str, kind: str) -> None:
         "explain recursion",
         "explain two sum in python",
         "write a python function to reverse a string",
-        "run this python code: print(1+1)",
         "explain how to solve 2x + 5 = 17",
         "If f(x) = 2x + 1, explain what f(3) is",
         "Explain why x = 4 solves 3x - 2 = 10",
@@ -241,3 +240,37 @@ async def test_code_ink_reminder_sits_next_to_the_question() -> None:
     assert messages[-1]["role"] == "user"
     assert messages[-2] == {"role": "system", "content": CODE_INK_REMINDER}
     assert CODE_EXPLAIN_HINT in messages[0]["content"]
+
+
+# "Run this python code: print(1+1)" got a bare "2", as if Recall had run it.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "run this python code: print(1+1)",
+        "can you execute this: console.log(2 + 3)",
+        'compile and run: int main() { printf("hi"); }',
+        "run this code\n```python\nnums = [1, 2]\nprint(len(nums))\n```",
+    ],
+)
+def test_a_request_to_run_code_says_recall_cannot(text: str) -> None:
+    from app.modules.chat.prompt_constants import CODE_RUN_HINT
+
+    assert code_question_kind(text) == "run"
+    hints = _style_format_hints(
+        query_text=text, style="balanced", is_day_plan=False, minimal_personal_context=False
+    )
+    assert CODE_RUN_HINT in hints
+    assert "You cannot run or execute code" in CODE_RUN_HINT
+
+
+@pytest.mark.parametrize(
+    "text, kind",
+    [
+        ("why does this not run? print(x", "debug"),
+        ("what does this print? print(3 * 3)", "explain"),
+        ("run the numbers again: 2 + 2", None),
+        ("I run every morning, then print(1) my notes", None),
+    ],
+)
+def test_run_is_read_only_for_a_request_to_run(text: str, kind: str | None) -> None:
+    assert code_question_kind(text) == kind
