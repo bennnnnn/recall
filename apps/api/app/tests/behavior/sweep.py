@@ -78,7 +78,10 @@ EXPECTS = {
     *TODO_EXPECTS,
 }
 # Areas whose turns never need the live web.
-NO_SEARCH_AREAS = {"math", "physics", "chemistry", "writing", "code", "chitchat"}
+NO_SEARCH_AREAS = {"math", "physics", "chemistry", "writing", "code", "chitchat", "statement"}
+# Asks nothing to look up ("great job today", "teach me something today"): not
+# even a model round that may choose to search.
+NO_SEARCH_ROUND_AREAS = {"statement"}
 STEM_AREAS = {"math", "physics", "chemistry"}
 # Everyday messages that use a maths word ("differentiate between weather and
 # climate", "simplify it" about an essay), or that sound like a follow-up to the
@@ -398,6 +401,8 @@ def judge(outcome: Outcome) -> list[str]:
             problems.append("read as a memory command")
         if entry.area in NO_SEARCH_AREAS and route.search == "yes":
             problems.append("searched the web")
+        elif entry.area in NO_SEARCH_ROUND_AREAS and route.search == "ask":
+            problems.append("let the model decide to search")
         if entry.area in NOT_MATH_AREAS and (route.subject == "math" or route.solved):
             problems.append(f"read as maths (solved={route.solved})")
     elif expect == "instant" and not route.instant:
