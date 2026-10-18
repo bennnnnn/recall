@@ -1303,5 +1303,68 @@
   "prompt": "write a speech for a CEO announcing a new office",
   "reply": "Good morning, everyone. Today we open a new chapter: our new office brings our teams closer to the customers we serve.",
   "expect": "answer"
+ },
+ {
+  "id": "sp-135",
+  "area": "search",
+  "prompt": "what's the population of Ethiopia",
+  "reply": "Ethiopia has about 135 million people, according to recent estimates.",
+  "expect": "search"
+ },
+ {
+  "id": "sp-136",
+  "area": "search",
+  "prompt": "who won the champions league",
+  "reply": "The latest winners are listed in the results above.",
+  "expect": "search"
+ },
+ {
+  "id": "sp-137",
+  "area": "search",
+  "prompt": "best restaurants in Addis",
+  "reply": "A few well-reviewed places in Addis Ababa are listed above.",
+  "expect": "search"
+ },
+ {
+  "id": "sp-138",
+  "area": "search",
+  "prompt": "is Abiy Ahmed responsible for the Tigray war",
+  "reply": "Responsibility is contested: documented accounts point to both the federal government and the TPLF.",
+  "expect": "search"
+ },
+ {
+  "id": "sp-139",
+  "area": "search",
+  "prompt": "how many people live in Nairobi",
+  "reply": "Nairobi has roughly 5 million residents in the city proper.",
+  "expect": "search"
+ },
+ {
+  "id": "sp-140",
+  "area": "chitchat",
+  "prompt": "what are the benefits of drinking water",
+  "reply": "Water keeps you hydrated, helps your kidneys and supports focus.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-141",
+  "area": "chitchat",
+  "prompt": "how many minutes in a good nap",
+  "reply": "About 10 to 20 minutes for a power nap.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-142",
+  "area": "writing",
+  "prompt": "write a short bio for Haile Gebrselassie for a school poster",
+  "reply": "Haile Gebrselassie is an Ethiopian distance runner and two-time Olympic champion.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-143",
+  "area": "chitchat",
+  "prompt": "what is photosynthesis",
+  "reply": "Photosynthesis is how plants turn light into chemical energy.",
+  "expect": "answer"
  }
 ]
