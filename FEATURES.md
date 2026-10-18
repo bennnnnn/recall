@@ -505,19 +505,21 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - 🔜 **Collaborative cursors / shared docs** — multi-user editing not in scope for v1 personal app.
 
 ## 5. Models & routing
-- ✅ **Multiple tiers** — **Flash** (`free-chat`) and **Pro** (`smart-chat`), plus named
-  models in the picker (GPT-6 Luna and Sol, GLM, Kimi, Qwen, …). No OpenRouter-auto “Max” chip.
+- ✅ **Multiple tiers** — six chat models, none of them coding models. Free: Qwen3.7 Flash
+  (everyday, Auto's fast lane), Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard and
+  maths turns). Paid adds DeepSeek V4.1 Flash (`smart-chat`), GLM 5.2 (Auto's maths lane) and
+  GPT-6 Luna. No OpenRouter-auto “Max” chip.
 - ✅ **Manual switching** — model selection lives in Settings → Models (settings-only by
   design; the composer picker was removed to keep the composer single-purpose). Respected
   per chat turn.
 - ✅ **Chat settings from natural language** — small allowlist, confirm-then-write
-  (the same card a reminder change gets): model (Flash / Pro / Auto, nicknames like “GPT” → GPT-6 Sol),
+  (the same card a reminder change gets): model (Flash / Pro / Auto, nicknames like “GPT” → GPT-6 Luna),
   tone (funny / professional / casual / soft), app language, and appearance
   (light / dark / system — applied on-device). Respects `enabled_models` + plan.
   No open settings tool.
 - ✅ **Auto routing** — an **Auto** option (Settings → Models) picks Flash vs Pro per message via a
   fast heuristic (length, code fences, reasoning keywords). Explicit chat tutoring and substantive
-  learning roadmaps use the low-latency fast lane (GPT-6 Luna) with strict step/day and tagged-example
+  learning roadmaps use the low-latency fast lane (Qwen3.7 Flash) with strict step/day and tagged-example
   contracts; hard reasoning remains on Pro. Short follow-ups of a hard turn inherit that turn’s tier;
   a new topic drops back to Flash. No extra LLM call.
 - ✅ **Multi-provider** — a **model catalog** (`services/model_catalog.py`) defines provider, model,
@@ -1129,7 +1131,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Capability | Status |
 |------------|--------|
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed original uploads reap after `attachment_pending_orphan_hours` (default **1h**) so a killed-app image slot can refund the same UTC day. Hidden clones stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
-| Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
+| Image upload → vision-chat routing (Qwen3.7 Flash, GLM 5.3 Flash backup, via OpenRouter) | ✅ Shipped |
 | Image generation (composer send, daily cap per plan: 3 / 10 / 15) | ✅ Shipped |
 | Reference-photo lookup (`show me an ear` / what-X-looks-like / "can you show me…" / "send me a photo of X"; "show me her image" reads who from the chat; Tavily + mirrored attachment; not listed in Library) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
 | Answer photos (one real photo above an answer about something worth seeing, no "show me"; the model's hidden ```photo query, searched while the text streams) | ✅ Shipped (free+Pro; same daily cap and flag) |

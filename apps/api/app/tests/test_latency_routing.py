@@ -74,7 +74,7 @@ def test_ordinary_question_turns_thinking_off_for_models_that_allow_it() -> None
 
     qwen = litellm_gateway._litellm_kwargs(
         settings,
-        litellm_gateway.resolve_route("qwen-3.8-max"),
+        litellm_gateway.resolve_route("qwen-3.7-flash"),
         latency_sensitive=True,
         thinking=False,
     )
@@ -108,21 +108,13 @@ def test_ordinary_question_turns_thinking_off_for_models_that_allow_it() -> None
         latency_sensitive=True,
         thinking=False,
     )
-    kimi = litellm_gateway._litellm_kwargs(
-        settings,
-        litellm_gateway.resolve_route("kimi-k3"),
-        latency_sensitive=True,
-        thinking=False,
-    )
-
-    assert qwen["extra_body"]["reasoning"] == {"effort": "minimal"}
+    assert qwen["extra_body"]["reasoning"] == {"enabled": False}
     assert luna["extra_body"]["reasoning"] == {"effort": "none"}
     assert haiku["extra_body"]["reasoning"] == {"enabled": False}
     assert deepseek["extra_body"]["reasoning"] == {"enabled": False}
     # Reasoning is mandatory on GLM 5.3 Flash: the lowest effort, never a disable.
     assert glm_flash["extra_body"]["reasoning"] == {"effort": "low"}
     assert glm["extra_body"]["reasoning"] == {"enabled": False}
-    assert kimi["extra_body"]["reasoning"] == {"enabled": False}
     assert qwen["extra_body"]["provider"] == {"sort": "latency"}
 
 
@@ -131,7 +123,7 @@ def test_hard_job_keeps_the_provider_default_unless_the_model_needs_asking() -> 
 
     proving = litellm_gateway._litellm_kwargs(
         settings,
-        litellm_gateway.resolve_route("qwen-3.8-max"),
+        litellm_gateway.resolve_route("glm-5.3-flash"),
         latency_sensitive=True,
         thinking=True,
     )
@@ -144,7 +136,7 @@ def test_hard_job_keeps_the_provider_default_unless_the_model_needs_asking() -> 
     )
     unpriced = litellm_gateway._litellm_kwargs(
         settings,
-        litellm_gateway.resolve_route("llama-70b"),
+        litellm_gateway.resolve_route("embedding-model"),
         latency_sensitive=True,
         thinking=False,
     )

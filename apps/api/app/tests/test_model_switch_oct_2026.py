@@ -82,7 +82,7 @@ def test_a_closing_tag_split_across_chunks_does_not_leak() -> None:
 
 def test_only_the_glm_5_3_models_hold_the_start_of_a_reply() -> None:
     guarded = {m.id for m in model_catalog.CATALOG if m.stray_think_guard}
-    assert guarded == {"glm-5.3", "glm-5.3-flash"}
+    assert guarded == {"glm-5.3-flash"}
 
 
 # ── thinking controls ──────────────────────────────────────────────────────────
@@ -91,8 +91,8 @@ def test_only_the_glm_5_3_models_hold_the_start_of_a_reply() -> None:
 @pytest.mark.parametrize(
     "alias, reasoning",
     [
-        ("memory-model", {"effort": "none"}),
-        ("title-model", {"effort": "none"}),
+        ("memory-model", {"enabled": False}),
+        ("title-model", {"enabled": False}),
         ("fallback-memory-model", {"enabled": False}),
         ("fallback-vision-model", {"effort": "low"}),
     ],
@@ -106,11 +106,11 @@ def test_background_aliases_answer_without_a_thinking_pass(
     assert kwargs["extra_body"]["reasoning"] == reasoning
 
 
-def test_vision_chat_keeps_its_minimal_default() -> None:
+def test_vision_chat_reads_a_photo_without_a_thinking_pass() -> None:
     kwargs = litellm_gateway._litellm_kwargs(
         _SETTINGS, litellm_gateway.resolve_route("vision-chat"), thinking=False
     )
-    assert "reasoning" not in kwargs.get("extra_body", {})
+    assert kwargs["extra_body"]["reasoning"] == {"enabled": False}
 
 
 @pytest.mark.asyncio
@@ -128,8 +128,8 @@ async def test_structured_background_call_turns_thinking_off() -> None:
             messages=[{"role": "user", "content": "x"}],
             schema=TodoExtractionResult,
         )
-    assert seen[0]["model"] == "openrouter/openai/gpt-6-luna"
-    assert seen[0]["extra_body"]["reasoning"] == {"effort": "none"}
+    assert seen[0]["model"] == "openrouter/qwen/qwen3.7-flash"
+    assert seen[0]["extra_body"]["reasoning"] == {"enabled": False}
 
 
 @pytest.mark.asyncio
@@ -147,7 +147,7 @@ async def test_text_background_call_turns_thinking_off() -> None:
             messages=[{"role": "user", "content": "x"}],
         )
     assert text == "A title"
-    assert seen[0]["extra_body"]["reasoning"] == {"effort": "none"}
+    assert seen[0]["extra_body"]["reasoning"] == {"enabled": False}
 
 
 # ── photo fallback ─────────────────────────────────────────────────────────────
@@ -177,7 +177,7 @@ async def test_a_failed_photo_read_retries_on_the_fallback_model() -> None:
     response = await _vision(fake)
     assert response.choices[0].message.content == "x = 3"
     assert models == [
-        "openrouter/google/gemini-3.5-flash-lite",
+        "openrouter/qwen/qwen3.7-flash",
         "openrouter/z-ai/glm-5.3-flash",
     ]
 
@@ -192,7 +192,7 @@ async def test_a_timed_out_photo_read_does_not_retry() -> None:
         return _response("late")
 
     assert await _vision(fake) is None
-    assert models == ["openrouter/google/gemini-3.5-flash-lite"]
+    assert models == ["openrouter/qwen/qwen3.7-flash"]
 
 
 @pytest.mark.asyncio
@@ -205,7 +205,7 @@ async def test_both_photo_readers_failing_returns_none() -> None:
 
     assert await _vision(fake) is None
     assert models == [
-        "openrouter/google/gemini-3.5-flash-lite",
+        "openrouter/qwen/qwen3.7-flash",
         "openrouter/z-ai/glm-5.3-flash",
     ]
 
@@ -213,9 +213,9 @@ async def test_both_photo_readers_failing_returns_none() -> None:
 # ── stored aliases (alembic 0108) ──────────────────────────────────────────────
 
 
-def _migration() -> ModuleType:
-    path = Path(__file__).resolve().parents[2] / "alembic/versions/0108_model_aliases_oct_2026.py"
-    spec = importlib.util.spec_from_file_location("model_aliases_migration", path)
+def _migration(name: str = "0108_model_aliases_oct_2026.py") -> ModuleType:
+    path = Path(__file__).resolve().parents[2] / "alembic/versions" / name
+    spec = importlib.util.spec_from_file_location(f"migration_{name[:4]}", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -242,6 +242,25 @@ def test_migration_maps_a_removed_default_to_auto() -> None:
 
 def test_migration_targets_are_catalog_aliases_and_sources_are_gone() -> None:
     m = _migration()
+    trimmed = _migration("0109_trim_model_lineup.py")
     known = model_catalog.known_ids()
-    assert set(m.RENAMED.values()) <= known
+    # 0109 later retired gpt-6-sol, one of 0108's targets; it moves those users on.
+    assert set(m.RENAMED.values()) <= known | trimmed.REMOVED
     assert not (set(m.RENAMED) | m.REMOVED) & known
+
+
+# ── trimmed line-up (alembic 0109) ─────────────────────────────────────────────
+
+
+def test_trimmed_models_are_gone_from_the_catalog() -> None:
+    trimmed = _migration("0109_trim_model_lineup.py")
+    assert not trimmed.REMOVED & model_catalog.known_ids()
+    assert "gpt-6-luna" not in trimmed.REMOVED
+
+
+def test_trimming_keeps_the_other_switches_in_order() -> None:
+    trimmed = _migration("0109_trim_model_lineup.py")
+    stored = ["auto", "gpt-6-sol", "glm-5.2", "kimi-k3", "gpt-6-luna"]
+    assert trimmed._kept(stored) == ["auto", "glm-5.2", "gpt-6-luna"]
+    # A list of only removed models becomes NULL: the plan default, Auto on.
+    assert trimmed._kept(["gpt-6-sol", "minimax-m3"]) is None

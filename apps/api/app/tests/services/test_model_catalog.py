@@ -8,8 +8,21 @@ from app.services import model_catalog
 
 def test_selectable_models_count():
     models = model_catalog.selectable_models()
-    assert len(models) >= 7
     ids = {m.id for m in models}
+    # Six chat models: three on the free plan, the rest paid.
+    assert ids == {
+        "qwen-3.7-flash",
+        "free-chat",
+        "glm-5.3-flash",
+        "smart-chat",
+        "glm-5.2",
+        "gpt-6-luna",
+    }
+    assert {m.id for m in models if m.plan_access == "free"} == {
+        "qwen-3.7-flash",
+        "free-chat",
+        "glm-5.3-flash",
+    }
     assert "free-chat" in ids
     assert "gpt-6-luna" in ids
     assert "glm-5.3-flash" in ids
@@ -22,35 +35,39 @@ def test_selectable_models_count():
     assert glm.model == "openrouter/z-ai/glm-5.2"
     assert model_catalog.is_reasoning_alias("glm-5.2") is True
     assert glm.thinking_off == "off"
-    assert model_catalog.get("qwen-3.8-max").thinking_off == "minimal"
     assert model_catalog.get("smart-chat").thinking_off == "off"
     assert model_catalog.get("smart-chat").thinking_on == "on"
     assert luna.thinking_off == "none"
-    gpt = model_catalog.get("gpt-6-sol")
-    assert gpt.tier == "smart"
-    assert gpt.model == "openrouter/openai/gpt-6-sol"
-    assert gpt.input_price_per_m == 2.00
-    assert gpt.output_price_per_m == 10.00
-    assert model_catalog.is_reasoning_alias("gpt-6-sol") is True
-    assert "gpt-6-sol" in {m.id for m in model_catalog.selectable_models()}
+    # GPT-6 Luna stays, for the paid plans only.
+    assert luna.plan_access == "pro"
+    qwen = model_catalog.get("qwen-3.7-flash")
+    assert qwen.tier == "fast"
+    assert qwen.plan_access == "free"
+    assert qwen.model == "openrouter/qwen/qwen3.7-flash"
+    assert qwen.thinking_off == "off"
+    assert model_catalog.auto_fast_alias() == "qwen-3.7-flash"
+    # Recall is not a coding assistant: the coding and frontier models are gone.
+    for removed in ("gpt-6-sol", "kimi-k3", "qwen-3.8-max", "minimax-m3", "glm-5.3", "llama-70b"):
+        assert removed not in ids
     assert "max-chat" not in ids
 
 
 @pytest.mark.parametrize(
-    "alias, slug, input_price, output_price, tier",
+    "alias, slug, input_price, output_price, tier, plan",
     [
-        ("glm-5.3", "z-ai/glm-5.3", 1.40, 4.40, "smart"),
-        ("qwen-3.8-max", "qwen/qwen3.8-max", 2.00, 6.00, "smart"),
-        ("minimax-m3", "minimax/minimax-m3", 0.23, 0.96, "standard"),
-        ("kimi-k3", "moonshotai/kimi-k3", 2.60, 13.00, "smart"),
+        ("qwen-3.7-flash", "qwen/qwen3.7-flash", 0.03, 0.13, "fast", "free"),
+        ("smart-chat", "deepseek/deepseek-v4.1-flash", 0.15, 0.60, "smart", "pro"),
+        ("glm-5.2", "z-ai/glm-5.2", 0.62, 2.42, "smart", "pro"),
+        ("gpt-6-luna", "openai/gpt-6-luna", 0.10, 0.50, "fast", "pro"),
     ],
 )
-def test_new_frontier_models_use_fixed_openrouter_releases(
+def test_catalog_models_use_live_openrouter_prices(
     alias: str,
     slug: str,
     input_price: float,
     output_price: float,
     tier: str,
+    plan: str,
 ) -> None:
     model = model_catalog.get(alias)
 
@@ -58,7 +75,7 @@ def test_new_frontier_models_use_fixed_openrouter_releases(
     assert model.input_price_per_m == input_price
     assert model.output_price_per_m == output_price
     assert model.tier == tier
-    assert model.plan_access == "pro"
+    assert model.plan_access == plan
     assert model.selectable is True
     assert model_catalog.openrouter_slug(alias) == slug
 
@@ -78,21 +95,24 @@ def test_estimate_cost_usd_for_known_model():
     )
     assert cost == pytest.approx(0.10 + 0.50)
 
-    # smart-chat: $0.30 / 1M in, $1.20 / 1M out — 1k/2k tokens
+    # smart-chat: $0.15 / 1M in, $0.60 / 1M out — 1k/2k tokens
     cost_small = model_catalog.estimate_cost_usd(
         "smart-chat",
         input_tokens=1_000,
         output_tokens=2_000,
     )
-    assert cost_small == pytest.approx((1000 / 1_000_000) * 0.30 + (2000 / 1_000_000) * 1.20)
+    assert cost_small == pytest.approx((1000 / 1_000_000) * 0.15 + (2000 / 1_000_000) * 0.60)
 
 
 def test_estimate_cost_usd_unknown_or_unpriced():
     assert (
         model_catalog.estimate_cost_usd("no-such-model", input_tokens=10, output_tokens=10) is None
     )
-    # llama-70b has no catalog prices today
-    assert model_catalog.estimate_cost_usd("llama-70b", input_tokens=10, output_tokens=10) is None
+    # The embedding alias has no catalog prices today
+    assert (
+        model_catalog.estimate_cost_usd("embedding-model", input_tokens=10, output_tokens=10)
+        is None
+    )
 
 
 def test_get_unknown_alias_raises():
@@ -179,7 +199,7 @@ def test_chat_create_accepts_auto():
 
 def test_is_available_with_openrouter_key():
     settings = Settings(openrouter_api_key="sk-or-test", mock_llm_enabled=False)
-    minimax = model_catalog.get("minimax-m3")
+    minimax = model_catalog.get("glm-5.2")
     assert model_catalog.is_available(minimax, settings) is True
     free = model_catalog.get("free-chat")
     assert model_catalog.is_available(free, settings) is True
@@ -190,7 +210,7 @@ def test_is_available_without_keys():
         openrouter_api_key="",
         mock_llm_enabled=False,
     )
-    minimax = model_catalog.get("minimax-m3")
+    minimax = model_catalog.get("glm-5.2")
     assert model_catalog.is_available(minimax, settings) is False
 
 

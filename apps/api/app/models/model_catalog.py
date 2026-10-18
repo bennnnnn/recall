@@ -111,22 +111,13 @@ CATALOG: tuple[ChatModel, ...] = (
         label="DeepSeek V4.1 Flash",
         model="deepseek/deepseek-v4.1-flash",
         provider="deepseek",
-        input_price_per_m=0.30,
-        output_price_per_m=1.20,
+        input_price_per_m=0.15,
+        output_price_per_m=0.60,
         description="Stronger reasoning for hard questions and code.",
         tier="smart",
         quota_multiplier=3.5,
         thinking_off="off",
         thinking_on="on",
-    ),
-    _or(
-        id="minimax-m3",
-        label="MiniMax M3",
-        model="minimax/minimax-m3",
-        input_price_per_m=0.23,
-        output_price_per_m=0.96,
-        description="MiniMax multimodal flagship for long-context agentic work (1M context).",
-        tier="standard",
     ),
     _or(
         id="glm-5.3-flash",
@@ -145,55 +136,9 @@ CATALOG: tuple[ChatModel, ...] = (
         id="glm-5.2",
         label="GLM 5.2",
         model="z-ai/glm-5.2",
-        input_price_per_m=0.93,
-        output_price_per_m=2.92,
+        input_price_per_m=0.62,
+        output_price_per_m=2.42,
         description="Z.ai GLM — strong reasoning and coding (1M context).",
-        tier="smart",
-        quota_multiplier=3.5,
-        thinking_off="off",
-    ),
-    _or(
-        id="glm-5.3",
-        label="GLM 5.3",
-        model="z-ai/glm-5.3",
-        input_price_per_m=1.40,
-        output_price_per_m=4.40,
-        description="Z.ai frontier reasoning and coding model (1M context).",
-        tier="smart",
-        quota_multiplier=3.5,
-        thinking_off="low",
-        stray_think_guard=True,
-    ),
-    _or(
-        id="gpt-6-sol",
-        label="GPT-6 Sol",
-        model="openai/gpt-6-sol",
-        provider="openai",
-        input_price_per_m=2.00,
-        output_price_per_m=10.00,
-        description="OpenAI frontier — top reasoning, coding, and multimodal.",
-        tier="smart",
-        quota_multiplier=3.5,
-        thinking_off="none",
-    ),
-    _or(
-        id="qwen-3.8-max",
-        label="Qwen3.8 Max",
-        model="qwen/qwen3.8-max",
-        input_price_per_m=2.00,
-        output_price_per_m=6.00,
-        description="Alibaba flagship multimodal reasoning and coding model.",
-        tier="smart",
-        quota_multiplier=3.5,
-        thinking_off="minimal",
-    ),
-    _or(
-        id="kimi-k3",
-        label="Kimi K3",
-        model="moonshotai/kimi-k3",
-        input_price_per_m=2.60,
-        output_price_per_m=13.00,
-        description="MoonshotAI frontier model for coding and long-horizon agent tasks.",
         tier="smart",
         quota_multiplier=3.5,
         thinking_off="off",
@@ -207,32 +152,39 @@ CATALOG: tuple[ChatModel, ...] = (
         output_price_per_m=0.50,
         description="OpenAI's fast everyday model — quick, low-cost answers.",
         tier="fast",
-        plan_access="free",
         thinking_off="none",
     ),
+    # The free plan's everyday model: about a third of Luna's price per turn,
+    # as fast and as right on everyday turns, and it reads photos. Hard and
+    # maths turns go to GLM 5.3 Flash, which it does not match without thinking.
     _or(
-        id="llama-70b",
-        label="Llama 3.3 70B",
-        model="meta-llama/llama-3.3-70b-instruct",
-        description="Meta Llama — open-weight instruct model.",
-        tier="standard",
+        id="qwen-3.7-flash",
+        label="Qwen3.7 Flash",
+        model="qwen/qwen3.7-flash",
+        provider="qwen",
+        input_price_per_m=0.03,
+        output_price_per_m=0.13,
+        description="Alibaba's fast, low-cost everyday model — reads photos too.",
+        tier="fast",
+        plan_access="free",
+        thinking_off="off",
     ),
     # Internal aliases — not user-selectable.
     _or(
         id="title-model",
         label="Title",
-        model="openai/gpt-6-luna",
-        provider="openai",
+        model="qwen/qwen3.7-flash",
+        provider="qwen",
         selectable=False,
-        thinking_off="none",
+        thinking_off="off",
     ),
     _or(
         id="memory-model",
         label="Memory",
-        model="openai/gpt-6-luna",
-        provider="openai",
+        model="qwen/qwen3.7-flash",
+        provider="qwen",
         selectable=False,
-        thinking_off="none",
+        thinking_off="off",
     ),
     # Fallback for background LLM jobs (memory extraction, titles,
     # summaries). If the primary memory-model provider is down or slow, retry
@@ -253,13 +205,15 @@ CATALOG: tuple[ChatModel, ...] = (
         provider="openai",
         selectable=False,
     ),
-    # Minimal thinking is this model's default, so a photo turn sends nothing.
+    # Qwen3.7 Flash reads photos at about a twentieth of Gemini 3.5 Flash-Lite's
+    # output price; GLM 5.3 Flash below is the backup.
     _or(
         id="vision-chat",
         label="Vision",
-        model="google/gemini-3.5-flash-lite",
-        provider="google",
+        model="qwen/qwen3.7-flash",
+        provider="qwen",
         selectable=False,
+        thinking_off="off",
     ),
     # Second photo reader for when vision-chat's provider fails: another
     # company, and its reasoning cannot be disabled.
@@ -316,10 +270,10 @@ CATALOG: tuple[ChatModel, ...] = (
 
 _BY_ID: dict[str, ChatModel] = {m.id: m for m in CATALOG}
 _DEFAULT = _BY_ID["free-chat"]
-# GPT-6 Luna answers a short turn in well under a second with thinking off,
-# and ties Claude Haiku 5.5 (free-chat) as the cheapest chat model. Auto's
-# everyday lane carries most turns.
-_AUTO_FAST = "gpt-6-luna"
+# Qwen3.7 Flash answers an everyday turn as fast as GPT-6 Luna (about 0.8s to
+# first text with thinking off) for about a third of the price. Auto's everyday
+# lane carries most turns; hard and maths turns route stronger.
+_AUTO_FAST = "qwen-3.7-flash"
 _AUTO_SMART = "smart-chat"
 # Live phone QA repeatedly saw DeepSeek R1 stream hidden reasoning and then
 # return no visible answer. GLM 5.2 produced the verified worked-math contract
@@ -409,7 +363,7 @@ def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
 
 
 # BUG FIX: a flat 999.0 for every model missing catalog pricing made
-# unpriced fast/standard-tier entries (e.g. llama-70b — likely
+# unpriced fast/standard-tier entries (an open model with no list price — likely
 # cheap, just not backfilled yet) sort as if they were the single most
 # expensive option in the pool, behind even priced smart-tier models. Fall
 # back to a per-tier estimate instead so an unpriced model lands among
