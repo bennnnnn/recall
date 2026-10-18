@@ -161,7 +161,7 @@ def test_detailed_pure_power_takes_the_square_root() -> None:
     lines = reply.splitlines()
     given_line = lines[lines.index("**Given**  ") + 1]
     assert given_line.startswith("$")
-    assert "Square root" in reply
+    assert "Take the square root of both sides" in reply
     assert r"\sqrt{4}" in reply
     assert r"x = \pm 2" in reply
     before, _, _ = reply.partition("```answer")
@@ -170,7 +170,10 @@ def test_detailed_pure_power_takes_the_square_root() -> None:
     assert "lvert" not in reply
     assert "```answer" in reply
     assert r"\pm 2" in reply
-    assert "**3. Check**" in reply
+    # A check is added only when the user asks for one, not for the detailed style.
+    assert "Check**" not in reply
+    asked = maybe_direct_math_reply(_block(text), f"{text} and check", response_style="detailed")
+    assert asked is not None and "**3. Check**" in asked
 
 
 def test_rational_equation_clears_the_denominator_and_finishes_at_the_chip() -> None:
@@ -314,7 +317,7 @@ def test_bare_how_uses_the_verified_trace_and_explains_each_transformation() -> 
     assert reply is not None
     assert "**Given**" in reply
     assert "Subtract 3 from both sides" in reply
-    assert "Square root" in reply
+    assert "Take the square root of both sides" in reply
     assert "—" in reply.split("```answer")[0]
     assert block.canonical_answer in reply
 

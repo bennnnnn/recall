@@ -40,7 +40,20 @@ export function fixImplicitExponents(expr: string): string {
   if (s.includes("±") && !s.includes("\\pm")) {
     s = s.replace(/±\s*/g, "\\pm ");
   }
-  return s.replace(/\s+/g, " ").trim();
+  return tightenCoefficients(s.replace(/\s+/g, " ").trim());
+}
+
+const TEXT_GROUP_RE = /(\\text\{[^{}]*\})/;
+// `3 x` / `2 \left(` / `4 \sqrt` — a coefficient and what it multiplies. TeX
+// ignores that space; drawn literally it reads as two separate terms.
+const COEFFICIENT_SPACE_RE = /(\d) +(?=[A-Za-z]|\(|\\(?:left|sqrt|frac|pi|theta|alpha|beta)(?![A-Za-z]))/g;
+
+/** Close the gap between a number and the term it multiplies, outside `\text{}`. */
+function tightenCoefficients(s: string): string {
+  return s
+    .split(TEXT_GROUP_RE)
+    .map((part) => (TEXT_GROUP_RE.test(part) ? part : part.replace(COEFFICIENT_SPACE_RE, "$1")))
+    .join("");
 }
 
 /**

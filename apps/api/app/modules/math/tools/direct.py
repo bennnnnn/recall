@@ -19,13 +19,13 @@ from app.modules.math.tools.lesson import (
     lesson_math_text,
     should_render_equation_lesson,
     strip_teaching_signals,
+    wants_answer_check,
     wants_detailed_math_explanation,
     wants_math_explanation,
 )
 from app.services.solving import VerifiedMathBlock
 
-# Imperative / polite glue around a closed compute. Two leftover English
-# words beyond this ("tell" + "joke") keep the LLM.
+# Polite glue around a closed compute; two more English words ("tell joke") keep the LLM.
 _MATH_REQUEST_GLUE = frozenset(
     {
         "solve",
@@ -497,7 +497,7 @@ def maybe_direct_math_reply(
     if should_render_equation_lesson(verified, user_text, response_style):
         reply = format_equation_lesson_reply(
             verified,
-            include_check=response_style == "detailed",
+            include_check=wants_answer_check(user_text),
             include_reasons=(
                 response_style == "detailed" or wants_detailed_math_explanation(user_text)
             ),

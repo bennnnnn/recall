@@ -25,6 +25,11 @@ from app.modules.math.solve.key_steps import (
     written_side,
 )
 from app.modules.math.solve.parse import parse_equation as parse_eq
+from app.modules.math.solve.step_rules import (
+    evaluate_powers,
+    substitution_check,
+    with_powers_evaluated,
+)
 from app.modules.math.solve.traces import (
     compound_inequality_trace,
     inequality_trace,
@@ -116,9 +121,35 @@ def _written_given(
     if r"\log" in written:
         return written, key_steps
     label = rewrite_label(left[0], lhs) or rewrite_label(right[0], rhs)
+    # ``5^2`` typed is ``25`` to the solver; that number work is its own step,
+    # then the equation it gives (a Simplify line joins that step).
+    powers = evaluate_powers(left[0], right[0])
+    if powers is not None:
+        left_tex = with_powers_evaluated(left[1], left[0])
+        replaced = f"{left_tex} = {with_powers_evaluated(right[1], right[0])}"
+        steps = [KeyStep(label=powers[0], formula=powers[1])]
+        steps.append(KeyStep(label="Simplify", formula=replaced))
+        if replaced != evaluated:
+            # ``x^2 + 8 \cdot 3`` still has number work before ``x^2 + 24``.
+            product = re.search(r"\d\s*\\cdot\s*\d", replaced) is not None
+            arithmetic = "Multiply the numbers" if product else "Calculate"
+            steps.append(KeyStep(label=label or arithmetic, formula=evaluated))
+        return written, [*steps, *key_steps]
     if label is None:
         return written, key_steps
     return written, [KeyStep(label=label, formula=evaluated), *key_steps]
+
+
+def _typed_check(intent: MathIntent, lhs: Any, rhs: Any) -> str | None:
+    """The check substitutes into the equation as typed, else the solver's sides."""
+    variable = intent.variable or "x"
+    left = written_side(intent.lhs or "", [variable])
+    right = written_side(intent.rhs or "", [variable])
+    if left is not None and right is not None:
+        typed = substitution_check(left[1], right[1], lhs, rhs, variable)
+        if typed is not None:
+            return typed
+    return equation_check_latex(lhs, rhs, variable)
 
 
 def _verified_block_equation(
@@ -193,7 +224,7 @@ def _verified_block_equation(
         key_step=math_solve.factored_key_step(eq.lhs, eq.rhs, intent.variable or "x"),
         key_steps=key_steps,
         given_latex=given_latex,
-        check_latex=equation_check_latex(lhs, rhs, intent.variable or "x"),
+        check_latex=_typed_check(intent, lhs, rhs),
         alternate_method_note=alt,
     )
     block = replace(

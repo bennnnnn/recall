@@ -12,6 +12,7 @@ from app.modules.math.response_intent import (
     strip_math_response_wrappers,
 )
 from app.modules.math.solve.key_steps import KeyStep
+from app.modules.math.solve.step_rules import step_rule
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import (
     Workout,
@@ -31,6 +32,36 @@ def wants_math_explanation(text: str) -> bool:
 
 def wants_answer_only(text: str) -> bool:
     return classify_math_response_intent(text).mode == MathResponseMode.ANSWER_ONLY
+
+
+_ANSWER_CHECK = re.compile(
+    r"\b(?:check|verify|verified|verification|prove|proof|confirm|double[- ]check"
+    r"|plug(?:ging)?\s+(?:it|that|the\s+answer|the\s+value)\s+back"
+    r"|substitute\s+(?:it|that|the\s+answer)\s+back"
+    r"|show\s+(?:me\s+)?(?:that\s+)?it\s+works)\b",
+    re.IGNORECASE,
+)
+
+
+# "no check", "without checking", "skip the verification", "don't prove it".
+_NO_ANSWER_CHECK = re.compile(
+    r"\b(?:no|without|skip(?:ping)?|don'?t|do\s+not|never)\s+(?:the\s+|a\s+|any\s+)?"
+    r"(?:check|checking|checks|verify|verifying|verification|proof|prove|proving)\b",
+    re.IGNORECASE,
+)
+
+
+def wants_answer_check(text: str) -> bool:
+    """True when the user asks to check, verify or prove the answer.
+
+    Only then does the worked solution end with a substitution check. Grading
+    the student's own answer ("is my answer right?") is check-my-work instead.
+    """
+    if classify_math_response_intent(text).mode == MathResponseMode.CHECK:
+        return False
+    if _NO_ANSWER_CHECK.search(text) is not None:
+        return False
+    return _ANSWER_CHECK.search(text) is not None
 
 
 def wants_detailed_math_explanation(text: str) -> bool:
@@ -146,7 +177,8 @@ def lesson_workout(
         include_reasons=include_reasons,
     )
     if include_check and verified.check_latex:
-        blocks.append(_NumberedStep("Check", (verified.check_latex,)))
+        lines = tuple(line for line in verified.check_latex.split("\n") if line.strip())
+        blocks.append(_NumberedStep("Check", lines))
     workout = Workout(given=given, find=find, formula=tuple(formulas))
     return workout, _render_numbered(blocks)
 
@@ -378,8 +410,14 @@ def _render_numbered(blocks: list[_NumberedStep]) -> str:
     parts: list[str] = []
     for number, block in enumerate(blocks, start=1):
         heading = f"**{number}. {block.label}**"
-        if block.reason:
-            heading += f" — {block.reason}"
+        # The rule that allows the move, then any why-question reason after it.
+        note = " · ".join(
+            part
+            for part in (step_rule(block.label, " ".join(block.formulas)), block.reason)
+            if part
+        )
+        if note:
+            heading += f" — {note}"
         lines = [heading, *(f"${formula}$" for formula in block.formulas)]
         parts.append("  \n".join(lines))
     return "\n\n".join(parts)

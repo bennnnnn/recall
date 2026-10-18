@@ -203,6 +203,9 @@ export function revealCurrencyDollars(text: string): string {
 export function normalizeBoldInlineMath(content: string): string {
   return content.replace(/\*\*((?:(?!\*\*).)+)\*\*/g, (full, inner: string) => {
     if (!/\$[^$\n]+?\$/.test(inner)) return full;
+    // A numbered step label (`**1. Power rule on $x^3$**`) keeps its maths: the
+    // lesson-step renderer draws it, and unwrapping it drops the step badge.
+    if (/^\d+\.\s/.test(inner)) return full;
     const parts = splitInlineMath(inner);
     if (!parts.some((part) => part.type === "math")) return full;
 
