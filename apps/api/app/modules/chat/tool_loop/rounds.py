@@ -61,6 +61,7 @@ async def run_tool_rounds(
     web_search: bool | None = None,
     user_timezone: str | None = None,
     user_text: str | None = None,
+    user_location: str | None = None,
 ) -> _RoundsOutcome:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
 
@@ -90,6 +91,7 @@ async def run_tool_rounds(
         user_timezone=user_timezone,
         user_query=user_text,
         tavily_budget=TurnTavilyBudget(settings=settings, user=user),
+        user_location=user_location,
     )
     # An obvious lookup used to spend a model round deciding to call
     # web_search, then a second round writing the answer. Search first

@@ -166,6 +166,17 @@ def test_correct_weekday_dates_fixes_a_mismatched_name():
     assert kept == "Today is Sunday, October 11, 2026."
 
 
+def test_correct_weekday_dates_reads_through_bold():
+    # "Christmas this year falls on a Monday": 2026's is a Friday.
+    fixed = correct_weekday_dates("Christmas falls on **Monday**, December 25, 2026.")
+    assert fixed == "Christmas falls on **Friday**, December 25, 2026."
+
+
+def test_format_now_awareness_asks_for_the_full_date_with_a_weekday():
+    text = format_now_awareness("Africa/Nairobi", "en")
+    assert "When you name the weekday of a date, write the full date with it" in text
+
+
 def test_format_now_awareness_includes_year_month_and_time():
     now = datetime.now(ZoneInfo("America/New_York"))
     text = format_now_awareness("America/New_York", "en")

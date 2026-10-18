@@ -18,6 +18,7 @@ def tool_context(
     user_timezone: str | None = None,
     user_query: str = "",
     settings: Settings | None = None,
+    user_location: str | None = None,
 ) -> ToolContext:
     """One turn, built the way the tool loop builds it; nothing is bound by default."""
     return ToolContext(
@@ -27,4 +28,5 @@ def tool_context(
         user_timezone=user_timezone,
         user_query=user_query,
         tavily_budget=TurnTavilyBudget(settings=settings or Settings(), user=user),
+        user_location=user_location,
     )

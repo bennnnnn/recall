@@ -12,6 +12,7 @@ from typing import Any
 
 from app.core.config import Settings
 from app.modules.web_search.command import search_command
+from app.modules.web_search.geo_intent import is_geo_query
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _SHORT_FOLLOWUP_WORDS,
@@ -20,6 +21,7 @@ from app.modules.web_search.patterns import (
 )
 from app.modules.web_search.query_builders import (
     anchor_news_query_to_today,
+    anchor_to_location,
     build_search_queries,
     is_current_news_request,
 )
@@ -69,6 +71,7 @@ async def search_queries_for_turn(
     messages: list[dict[str, Any]],
     *,
     user_timezone: str | None = None,
+    user_location: str | None = None,
 ) -> list[str]:
     """Queries for this turn's search, best first; never empty for a non-empty message."""
     cleaned = collapse_ws(user_text)
@@ -97,4 +100,7 @@ async def search_queries_for_turn(
         )
         if queries:
             return queries
+    # "Coffee near me" searched those words and found New York cafés.
+    if user_location and is_geo_query(cleaned):
+        return [anchor_to_location(cleaned, user_location)]
     return [cleaned]
