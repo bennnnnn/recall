@@ -921,6 +921,18 @@ represents`;
     expect(out).toContain("```python");
   });
 
+  it("moves a quiz's JSON off the ```quiz line so the card still draws", () => {
+    // Live: "teach me american history" ended on ```quiz {"label": ...} with the
+    // closer on the next line.
+    const json =
+      '{"label": "Exercise 1", "question": "Why?", "code": "", "options": ["A", "B"], "answer": 1}';
+    const out = preprocessMarkdown(`### 5. Your turn\n\`\`\`quiz ${json}\n\`\`\``);
+    expect(out).toContain(`\`\`\`quiz\n${json}\n\`\`\``);
+    const fence = markdownItInstance.parse(out, {}).find((t) => t.type === "fence");
+    expect(fence?.info).toBe("quiz");
+    expect(JSON.parse(fence?.content ?? "")).toMatchObject({ answer: 1 });
+  });
+
   it("BUG FIX regression: does not lift ```python out of a table cell", () => {
     // Live: Python vs Java comparison — a Hello World cell started
     // ```python, breakAttachedMathFences pulled it onto its own line, and

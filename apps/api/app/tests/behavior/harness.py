@@ -67,6 +67,7 @@ HINTS: dict[str, str] = {
     "emoji_rule": EMOJI_RULE,
     "code_explain": pc.CODE_EXPLAIN_HINT,
     "code_debug": pc.CODE_DEBUG_HINT,
+    "code_run": pc.CODE_RUN_HINT,
     "code_ink": pc.CODE_INK_REMINDER,
     "standing_preference": pc.STANDING_PREFERENCE_HINT,
     "personal_disclosure": pc.PERSONAL_DISCLOSURE_HINT,
