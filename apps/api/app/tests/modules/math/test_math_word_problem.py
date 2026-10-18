@@ -372,7 +372,9 @@ def test_reply_shows_setup_steps_and_answer() -> None:
     # Given: each equation with the words it comes from. Find: what each letter is.
     assert "**Find**  \n$m$ — Maria's age now (years)  \n$s$ — her son's age now (years)" in reply
     assert '$m = 3 \\cdot s$ — "Maria is three times as old as her son"' in reply
-    assert "**Steps**" in reply and "— check" in reply
+    # The lesson layout: bold numbered moves with their rule; no check unless asked.
+    assert "**Steps**" not in reply and "Check" not in reply
+    assert "**1. Substitute into equation (2)** — " in reply
     assert "her son's age: $12$ years" in reply
     assert reply.rstrip().endswith("```answer\n12\\ \\text{years}\n```")
 
@@ -382,19 +384,30 @@ def test_money_answer_reads_as_dollars() -> None:
     assert reply is not None
     assert "the pencil costs: $0.30$ dollars" in reply
     assert "```answer\n\\$0.30\n```" in reply
-    assert "— simplify" in reply
-    assert "— subtract $\\frac{3}{2}$ from both sides" in reply
+    assert "**1. Simplify**" in reply
+    assert (
+        "**2. Subtract $\\frac{3}{2}$ from both sides** — Subtraction property of equality" in reply
+    )
+    # The last move ends on the solved letter, not on a separate "Result" step.
+    assert "Result" not in reply and "$p = \\frac{3}{10}$" in reply
 
 
-def test_inventory_change_problem_shows_equation_working_and_check() -> None:
+def test_inventory_change_problem_shows_equation_working() -> None:
     reply = _reply(BOOKS_SETUP, BOOKS)
 
     assert reply is not None
     assert "$10 + g - 5 = 10$" in reply
-    assert "**Steps**" in reply
+    assert "**Steps**" not in reply
     assert "$g = 5$" in reply
-    assert "— check" in reply
+    assert "Check" not in reply
     assert "green books Abebe had at first: $5$ books" in reply
+
+
+def test_word_problem_check_only_when_asked() -> None:
+    reply = _reply(BOOKS_SETUP, f"{BOOKS} and check it")
+    assert reply is not None
+    moves = "$g = 5$\n\n**3. Check**  \n$(5) + 5 = 10$\n\ngreen books"
+    assert moves in reply
 
 
 def test_reply_strips_markup_from_the_translation() -> None:

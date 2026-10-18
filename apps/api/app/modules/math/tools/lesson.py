@@ -183,6 +183,32 @@ def lesson_workout(
     return workout, _render_numbered(blocks)
 
 
+def numbered_steps(
+    key_steps: tuple[KeyStep, ...] | list[KeyStep],
+    *,
+    given_latex: str,
+    answer: str,
+    variable: str = "x",
+) -> tuple[list[str], str]:
+    """A verified trace in the lesson layout: (rule formulas, the numbered moves)."""
+    formulas, blocks = _numbered_blocks(
+        key_steps, given_latex=given_latex, answer=answer, variable=variable, include_reasons=False
+    )
+    return formulas, _render_numbered(blocks)
+
+
+def with_requested_check(reply: str, verified: VerifiedMathBlock, user_text: str) -> str:
+    """A prebuilt reply gets its check only when the student asked for one."""
+    check = (verified.check_latex or "").strip()
+    parts = reply.split("\n\n")
+    moves = [i for i, part in enumerate(parts) if re.match(r"\*\*\d+\. ", part)]
+    if not check or not moves or not wants_answer_check(user_text):
+        return reply
+    lines = "  \n".join(f"${line.strip()}$" for line in check.split("\n") if line.strip())
+    parts.insert(moves[-1] + 1, f"**{len(moves) + 1}. Check**  \n{lines}")
+    return "\n\n".join(parts)
+
+
 def trace_lines(
     key_steps: tuple[KeyStep, ...] | list[KeyStep],
     *,
@@ -350,7 +376,8 @@ def _numbered_blocks(
     while index < len(steps):
         step = steps[index]
         _collect_formula(step, formulas, variable)
-        if step.label == "Simplify" and blocks:
+        # A "Result" row (a word problem's solved letter) finishes the move before it.
+        if step.label in ("Simplify", "Result") and blocks:
             _attach_simplify(blocks, step, shown, include_reasons=include_reasons)
             index += 1
             continue

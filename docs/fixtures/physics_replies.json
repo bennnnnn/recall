@@ -23,7 +23,7 @@
     "heater_energy": {
       "question": "A 2 kW heater runs for 3 hours. How much energy does it use in kWh?",
       "answer": "6 kWh",
-      "reply": "**Given**  \n$P = 2\\,\\mathrm{kW}$  \n$P = 2000\\,\\mathrm{W}$\n$t = 3\\,\\mathrm{h}$  \n$t = 10800\\,\\mathrm{s}$\n\n**Find**  \n$E$\n\n**Formula**  \n$E = P t$ — Electrical-energy formula\n\n**Substitution**  \n$E = 2000 \\cdot 10800$  \n$E = 2.16 \\times 10^{7}\\,\\mathrm{J}$  \n$E = 6\\,\\mathrm{kWh}$\n\n**Answer**\n\n```answer\n6\\,\\mathrm{kWh}\n```\n"
+      "reply": "**Given**  \n$P = 2\\,\\mathrm{kW}$  \n$P = 2000\\,\\mathrm{W}$  \n$t = 3\\,\\mathrm{h}$  \n$t = 10800\\,\\mathrm{s}$\n\n**Find**  \n$E$\n\n**Formula**  \n$E = P t$ — Electrical-energy formula\n\n**Substitution**  \n$E = 2000 \\cdot 10800$  \n$E = 2.16 \\times 10^{7}\\,\\mathrm{J}$  \n$E = 6\\,\\mathrm{kWh}$\n\n**Answer**\n\n```answer\n6\\,\\mathrm{kWh}\n```\n"
     },
     "machine_advantage": {
       "question": "A wheel and axle has a wheel radius of 0.20 m and an axle radius of 0.04 m. Find its mechanical advantage.",
@@ -33,7 +33,7 @@
     "incline_sliding": {
       "question": "For the 12 kg crate on a 30 degree incline with μs = 0.45 and μk = 0.30, does it start sliding?",
       "answer": "Yes, it starts sliding.",
-      "reply": "**Given**  \n$\\theta = 30^\\circ$  \n$g = 9.81\\,\\mathrm{m/s²}$  \n$\\mu_s = 0.45$  \n$m = 12\\,\\mathrm{kg}$\n\n**Find**  \n$\\text{Will it start sliding?}$\n\n**Formula**  \n$F_{g,\\parallel}=mg\\sin\\theta$ — Static-friction threshold  \n$f_{s,\\max} = \\mu_sN$  \n$f_{s,\\max} = \\mu_smg\\cos\\theta$\n$F_{g,\\parallel}>f_{s,\\max} \\quad\\Longleftrightarrow\\quad mg\\sin\\theta>\\mu_smg\\cos\\theta$\n\n**Substitution**  \n$F_{g,\\parallel} = 12\\cdot9.81\\cdot\\sin(30^\\circ)$  \n$F_{g,\\parallel} \\approx 58.86\\,\\text{N}$\n$f_{s,\\max} = 0.45\\cdot12\\cdot9.81\\cdot\\cos(30^\\circ)$  \n$f_{s,\\max} \\approx 45.88\\,\\text{N}$\n$58.86\\,\\text{N} > 45.88\\,\\text{N}$\n\n**Answer**\n\n```answer\n\\text{Yes, it starts sliding.}\n```\n"
+      "reply": "**Given**  \n$\\theta = 30^\\circ$  \n$g = 9.81\\,\\mathrm{m/s²}$  \n$\\mu_s = 0.45$  \n$m = 12\\,\\mathrm{kg}$\n\n**Find**  \n$\\text{Will it start sliding?}$\n\n**Formula**  \n$F_{g,\\parallel}=mg\\sin\\theta$ — Static-friction threshold  \n$f_{s,\\max} = \\mu_sN$  \n$f_{s,\\max} = \\mu_smg\\cos\\theta$  \n$F_{g,\\parallel}>f_{s,\\max} \\quad\\Longleftrightarrow\\quad mg\\sin\\theta>\\mu_smg\\cos\\theta$\n\n**Substitution**  \n$F_{g,\\parallel} = 12\\cdot9.81\\cdot\\sin(30^\\circ)$  \n$F_{g,\\parallel} \\approx 58.86\\,\\text{N}$  \n$f_{s,\\max} = 0.45\\cdot12\\cdot9.81\\cdot\\cos(30^\\circ)$  \n$f_{s,\\max} \\approx 45.88\\,\\text{N}$  \n$58.86\\,\\text{N} > 45.88\\,\\text{N}$\n\n**Answer**\n\n```answer\n\\text{Yes, it starts sliding.}\n```\n"
     },
     "projectile_parts": {
       "question": "A projectile is launched at 20 m/s at 30 degrees. Find the time of flight, the maximum height and the range.",

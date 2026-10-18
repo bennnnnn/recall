@@ -34,10 +34,12 @@ from app.services.problem_followup import (
 
 PHYSICS_FOLLOWUP_HINT = (
     "This short request continues the immediately preceding physics problem. "
-    "Explain that verified result: why the formula applies and how the numbers "
-    "produce it. Do not start a new problem. Copy the verified numbers; do not "
-    "recompute them. When the request changes one given or asks for a different "
-    "quantity, the verified block is that new result."
+    "When the request changes one given or asks for a different quantity, the "
+    "verified block is that new result: present it in the usual layout with the "
+    "changed given under Given, and never compare it with or comment on the earlier "
+    "answer. When it asks why or how, explain the verified result: why the formula "
+    "applies and how the numbers produce it. Do not start a new problem. Copy the "
+    "verified numbers; do not recompute them."
 )
 
 _ABOUT = re.compile(r"^(?:and )?what about (?:the |its )?(?P<ask>[a-z][a-z ]{0,40}?)\??$")
