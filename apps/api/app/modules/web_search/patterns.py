@@ -154,8 +154,7 @@ _LATEST_NEWS = re.compile(
     re.IGNORECASE,
 )
 
-# Weather is always live. A figurative or written use ("under the weather",
-# "a poem about the weather") is not a forecast request.
+# Weather is always live; "under the weather" or a poem about it is no forecast.
 _WEATHER = re.compile(
     r"\b(?:(?:what(?:['\u2019]s|\s+is|\s+will\s+be)|how(?:['\u2019]s|\s+is))\s+the\s+"
     r"(?:weather|forecast|temperature)"
@@ -164,7 +163,9 @@ _WEATHER = re.compile(
     r"|(?:today|tomorrow|tonight)(?:['\u2019]s)?\s+(?:weather|forecast)"
     r"|(?:weather\s+)?forecast\s+(?:for|in|today|tomorrow|tonight|this)"
     r"|temperature\s+(?:outside|today|tomorrow|tonight|right\s+now|in|at)"
-    r"|(?:will|is)\s+it\s+(?:going\s+to\s+|gonna\s+)?(?:rain|snow|storm)"
+    r"|(?:(?:will|is)\s+it|^(?:i\s+(?:want|need)\s+to\s+know|(?:can|could)\s+you\s+(?:tell\s+me|check)"
+    r"|do\s+you\s+know|i\s+wonder|tell\s+me|check|find\s+out)\s+(?:if|whether)\s+it(?:\s+will"
+    r"|['\u2019]ll|\s+is|['\u2019]s))\s+(?:going\s+to\s+|gonna\s+)?(?:rain|snow|storm)(?:ing)?"
     r"|(?:how|is\s+it)\s+(?:hot|cold|warm|humid)\s+(?:is\s+it\s+)?(?:outside|today|out))\b",
     re.IGNORECASE,
 )
@@ -240,9 +241,8 @@ _TEAM_SCORE = re.compile(
     re.IGNORECASE,
 )
 
-# A bare "s" before "result" matches the end of "always result". That is a
-# math sentence, not a team possessive. "result" counts only after an
-# apostrophe. "Ethiopias game score" still matches the game/score branch.
+# "always result" is maths, not a possessive: "result" counts only after an apostrophe.
+# "Ethiopias game score" still matches the game/score branch.
 _TEAM_POSSESSIVE_SCORE = re.compile(
     r".{2,40}(?:"
     r"'s\s+(?:games?|match(?:es)?|score|scores|result|results)"

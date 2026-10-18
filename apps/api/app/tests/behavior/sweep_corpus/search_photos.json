@@ -1238,5 +1238,70 @@
   "reply": "From you the drive to **Bole International Airport** is about **20 minutes** without traffic, but after 5 PM it often takes **35–45 minutes**. Leaving at 5 you'll make 7 PM comfortably.",
   "expect": "search",
   "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "sp-126",
+  "area": "time",
+  "prompt": "I want to know if it will rain tomorrow",
+  "reply": "Tomorrow looks mostly dry: a **20%** chance of a light shower after 4 PM, high of **22°C**.",
+  "expect": "search",
+  "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "sp-127",
+  "area": "time",
+  "prompt": "Do you know whether it's going to snow this weekend?",
+  "reply": "No snow expected this weekend: lows stay around **4°C**, with rain on Sunday.",
+  "expect": "search",
+  "location": "Toronto, Canada"
+ },
+ {
+  "id": "sp-128",
+  "area": "food",
+  "prompt": "Even if it rains we're still having the picnic, any food ideas?",
+  "reply": "Rain-proof picnic ideas:\n\n1. **Wraps** — they travel well and stay dry in foil\n2. **Pasta salad** — fine at room temperature\n3. **Brownies** — no plates needed",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-129",
+  "area": "time",
+  "prompt": "I wonder whether it will matter if I skip breakfast",
+  "reply": "For most people, skipping breakfast now and then is fine; what matters more is eating well across the day.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-130",
+  "area": "search",
+  "prompt": "who is the president of ethiopia",
+  "reply": "**Taye Atske Selassie** has been President of Ethiopia since October 2024.",
+  "expect": "search"
+ },
+ {
+  "id": "sp-131",
+  "area": "search",
+  "prompt": "who is the ceo of tesla",
+  "reply": "**Elon Musk** is Tesla's CEO.",
+  "expect": "search"
+ },
+ {
+  "id": "sp-132",
+  "area": "writing",
+  "prompt": "the president of my club asked me to give a speech, any tips?",
+  "reply": "A few tips:\n\n1. **Open with a story** — one short, personal moment\n2. **Keep it to three points**\n3. **End by thanking the members**",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-133",
+  "area": "search",
+  "prompt": "explain what a prime minister does",
+  "reply": "A prime minister leads the government: they chair the cabinet, set policy priorities and answer to parliament.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-134",
+  "area": "writing",
+  "prompt": "write a speech for a CEO announcing a new office",
+  "reply": "Good morning, everyone. Today we open a new chapter: our new office brings our teams closer to the customers we serve.",
+  "expect": "answer"
  }
 ]

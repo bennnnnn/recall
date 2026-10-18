@@ -421,6 +421,18 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
+        "search-officeholder-followup",
+        "web search",
+        "What is the president?",
+        Expect(search="yes"),
+        "Searches who is President of Ethiopia now (Taye Atske Selassie since October 2024), "
+        "never a name from memory.",
+        history=(
+            ("user", "tell me about the war in ethiopia"),
+            ("assistant", "The Tigray war began in November 2020 and ended with a 2022 truce."),
+        ),
+    ),
+    Case(
         "search-newest-phone",
         "web search",
         "what's the newest iphone",
