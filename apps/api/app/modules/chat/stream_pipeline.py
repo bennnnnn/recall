@@ -78,15 +78,21 @@ async def register_and_enqueue_finalize(
         outcome.recalled = ctx.recalled_count
         outcome.memory_hints = list(ctx.memory_hints)
         outcome.context_summarized = ctx.context_summarized
-        outcome.related_task = schedule_related_prompts(
-            redis,
-            settings,
-            message_id=str(ctx.assistant_message_id),
-            question=ctx.user_message_content or "",
-            answer=assistant_text,
-            prior=_prior_window(ctx.prompt_messages),
-            allow_general=not ctx.lightweight_turn and ctx.instant_reply is None,
-            completion=outcome.completion,
+        # Settings → Personalization can turn the suggestions, and their model call, off.
+        wants_follow_ups = getattr(ctx.user, "follow_up_suggestions_enabled", True) is not False
+        outcome.related_task = (
+            None
+            if not wants_follow_ups
+            else schedule_related_prompts(
+                redis,
+                settings,
+                message_id=str(ctx.assistant_message_id),
+                question=ctx.user_message_content or "",
+                answer=assistant_text,
+                prior=_prior_window(ctx.prompt_messages),
+                allow_general=not ctx.lightweight_turn and ctx.instant_reply is None,
+                completion=outcome.completion,
+            )
         )
     await mark_pending_finalize(redis, ctx.chat_id)
     finalize_db_task = create_background_task(

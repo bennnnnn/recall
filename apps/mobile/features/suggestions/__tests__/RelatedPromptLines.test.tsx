@@ -14,14 +14,14 @@ describe("RelatedPromptLines", () => {
 
   it("sends the full question when the line is pressed", async () => {
     const onSelect = jest.fn();
-    const { getByLabelText, getAllByRole, getAllByTestId, queryByText } = await render(
-      <RelatedPromptLines prompts={[MATH, PHYSICS]} onSelect={onSelect} />,
-    );
+    const { getByLabelText, getAllByRole, getAllByTestId, queryByTestId, queryByText } =
+      await render(<RelatedPromptLines prompts={[MATH, PHYSICS]} onSelect={onSelect} />);
 
     expect(queryByText("X^2 = 9")).toBeNull();
     expect(getAllByRole("button")).toHaveLength(2);
-    // A rule opens every row, the first one included.
-    expect(getAllByTestId("related-prompt-divider")).toHaveLength(2);
+    // A dotted underline under each question's words; no rules between rows.
+    expect(getAllByTestId("related-prompt-underline")).toHaveLength(2);
+    expect(queryByTestId("related-prompt-divider")).toBeNull();
 
     await act(async () => {
       fireEvent.press(getByLabelText(MATH));
@@ -46,5 +46,19 @@ describe("RelatedPromptLines", () => {
     expect(queryByLabelText("Education level")).toBeNull();
     fireEvent.press(getByLabelText(MATH));
     expect(onSelect).toHaveBeenCalledWith(MATH);
+  });
+});
+
+describe("RelatedPromptLines underline", () => {
+  it("draws dots across the words' width once it is measured", async () => {
+    const { getByTestId } = await render(
+      <RelatedPromptLines prompts={[PHYSICS]} onSelect={jest.fn()} />,
+    );
+    const underline = getByTestId("related-prompt-underline");
+    await act(async () => {
+      fireEvent(underline, "layout", { nativeEvent: { layout: { width: 50, height: 2 } } });
+    });
+    // 2pt dots, 3pt apart: 10 across 50pt.
+    expect(underline.children).toHaveLength(10);
   });
 });

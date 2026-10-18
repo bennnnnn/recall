@@ -78,17 +78,20 @@ async def test_a_fragment_or_a_glued_equation_is_dropped() -> None:
         "app.modules.chat.related_prompts.complete_structured",
         new_callable=AsyncMock,
     ) as complete:
-        complete.return_value = RelatedQuestions(questions=[spaced, glued_radical, "How"])
-        prompts = await generate_related_questions(Settings(), PHYSICS, "The force is 30 newtons.")
-        assert prompts == ["Why does a force of $x = 5$ give a different value?"]
-
         complete.return_value = RelatedQuestions(
-            questions=[glued_variable, PHYSICS_FOLLOWUPS[0], PHYSICS_FOLLOWUPS[1]]
+            questions=[spaced, glued_radical, "How", *PHYSICS_FOLLOWUPS[:2]]
         )
+        prompts = await generate_related_questions(Settings(), PHYSICS, "The force is 30 newtons.")
+        assert prompts == [
+            "Why does a force of $x = 5$ give a different value?",
+            *PHYSICS_FOLLOWUPS[:2],
+        ]
+
+        complete.return_value = RelatedQuestions(questions=[glued_variable, *PHYSICS_FOLLOWUPS])
         prompts = await generate_related_questions(Settings(), PHYSICS, "The force is 30 newtons.")
 
     assert glued_variable not in prompts
-    assert prompts == PHYSICS_FOLLOWUPS[:2]
+    assert prompts == PHYSICS_FOLLOWUPS
 
 
 async def test_a_digit_change_of_the_same_sentence_is_dropped() -> None:
@@ -97,13 +100,11 @@ async def test_a_digit_change_of_the_same_sentence_is_dropped() -> None:
         "app.modules.chat.related_prompts.complete_structured",
         new_callable=AsyncMock,
     ) as complete:
-        complete.return_value = RelatedQuestions(
-            questions=[tweaked, PHYSICS_FOLLOWUPS[0], PHYSICS_FOLLOWUPS[1]]
-        )
+        complete.return_value = RelatedQuestions(questions=[tweaked, *PHYSICS_FOLLOWUPS])
         prompts = await generate_related_questions(Settings(), PHYSICS, "The force is 30 newtons.")
 
     assert tweaked not in prompts
-    assert prompts == PHYSICS_FOLLOWUPS[:2]
+    assert prompts == PHYSICS_FOLLOWUPS
 
 
 async def test_a_sum_follow_up_that_drops_both_numbers_is_rejected() -> None:
@@ -115,11 +116,12 @@ async def test_a_sum_follow_up_that_drops_both_numbers_is_rejected() -> None:
         "app.modules.chat.related_prompts.complete_structured",
         new_callable=AsyncMock,
     ) as complete:
-        complete.return_value = RelatedQuestions(questions=[drifted, "What is 3 + 5?"])
+        kept = ["What is 3 + 5?", "Why does 3 + 4 equal 7?", "How can 4 + 3 also make 7?"]
+        complete.return_value = RelatedQuestions(questions=[drifted, *kept])
         prompts = await generate_related_questions(Settings(), "3+4", "3 + 4 = 7")
 
     assert drifted not in prompts
-    assert prompts == ["What is 3 + 5?"]
+    assert prompts == kept
 
 
 def test_an_arithmetic_follow_up_still_asks_for_more() -> None:
@@ -309,18 +311,21 @@ async def test_a_tapped_why_keeps_the_follow_ups_coming() -> None:
         "Why is average speed not the mean of two speeds?",
         "A car travels 120 km in 2 hours. What is its average speed?",
         "What if the bike stopped for 30 minutes?",
+        "How long would 90 km take at that speed?",
     ]
     with patch(
         "app.modules.chat.related_prompts.complete_structured",
         new_callable=AsyncMock,
     ) as complete:
         # The original problem asked again is dropped.
-        complete.return_value = RelatedQuestions(questions=[followups[0], BIKE, followups[2]])
+        complete.return_value = RelatedQuestions(
+            questions=[followups[0], BIKE, followups[2], followups[3]]
+        )
         prompts = await generate_related_questions(
             Settings(), why, "Speed is distance per unit time.", BIKE_WINDOW
         )
 
-    assert prompts == [followups[0], followups[2]]
+    assert prompts == [followups[0], followups[2], followups[3]]
     sent = complete.call_args.kwargs["messages"][1]["content"]
     assert sent.startswith(f"Problem:\n{BIKE}")
     assert f"Student question:\n{why}" in sent
@@ -499,3 +504,54 @@ def test_a_reminder_or_memory_command_gets_no_follow_ups(command: str) -> None:
     from app.modules.chat.related_prompts import general_question
 
     assert not general_question(command, SOURDOUGH_REPLY)
+
+
+async def test_a_vague_what_if_is_dropped_for_one_that_names_the_change() -> None:
+    vague = "What if it was 5?"
+    named = [
+        "What if $3x + 3 = 5$?",
+        "Why subtract 3 from both sides first?",
+        "Could 3x + 3 = 3 have a negative x?",
+    ]
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        complete.return_value = RelatedQuestions(questions=[vague, *named])
+        prompts = await generate_related_questions(Settings(), "3x+3=3", "x = 0")
+
+    assert vague not in prompts
+    assert len(prompts) == 3
+
+
+async def test_always_three_or_none_after_one_more_ask() -> None:
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        # The first ask keeps two; the second brings a third.
+        complete.side_effect = [
+            RelatedQuestions(questions=PHYSICS_FOLLOWUPS[:2]),
+            RelatedQuestions(questions=[PHYSICS_FOLLOWUPS[2]]),
+        ]
+        prompts = await generate_related_questions(Settings(), PHYSICS, "The force is 30 newtons.")
+        assert prompts == PHYSICS_FOLLOWUPS
+        assert complete.await_count == 2
+        retry = complete.await_args_list[1].kwargs["messages"][-1]["content"]
+        assert PHYSICS_FOLLOWUPS[0] in retry and "different" in retry
+
+        # Still two after the second ask: none, never a half list.
+        complete.side_effect = [
+            RelatedQuestions(questions=PHYSICS_FOLLOWUPS[:2]),
+            RelatedQuestions(questions=PHYSICS_FOLLOWUPS[:2]),
+        ]
+        assert await generate_related_questions(Settings(), PHYSICS, "The force is 30.") == []
+
+
+def test_follow_up_suggestions_are_on_by_default_and_can_be_turned_off() -> None:
+    from app.models.orm import User
+    from app.models.schemas import UserUpdate
+
+    column = User.__table__.c.follow_up_suggestions_enabled
+    assert column.default.arg is True and column.server_default is not None
+    assert UserUpdate(follow_up_suggestions_enabled=False).follow_up_suggestions_enabled is False

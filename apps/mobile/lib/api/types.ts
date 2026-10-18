@@ -27,6 +27,8 @@ export type User = {
   features?: PlanFeature[];
   enabled_models: string[] | null;
   response_style: string;
+  /** Three follow-up questions under a reply; on unless the user turned it off. */
+  follow_up_suggestions_enabled?: boolean;
   response_tone: string;
   memory_enabled: boolean;
   memory_include_sensitive?: boolean;

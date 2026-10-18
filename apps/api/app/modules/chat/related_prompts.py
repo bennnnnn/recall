@@ -23,6 +23,8 @@ from redis.asyncio import Redis
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.gateways.litellm_gateway import complete_structured
+from app.modules.chat.follow_up_prompts import GENERAL_SYSTEM as _GENERAL_SYSTEM
+from app.modules.chat.follow_up_prompts import SUBJECT_SYSTEM as _SYSTEM
 from app.modules.chat.stream_events import build_related_prompts_event
 from app.services.problem_followup import message_role_content
 from app.services.subject_solving import detect_subject
@@ -35,9 +37,16 @@ RELATED_PROMPTS_TTL_SECONDS = 7 * 24 * 60 * 60
 _ANSWER_CHARS = 800
 _QUESTION_CHARS = 500
 _MAX_QUESTIONS = 3
+# Five short questions in JSON; 256 cut the fifth off.
+_CANDIDATE_TOKENS = 384
 _KEY = "related_prompts:{message_id}"
 _FORGET_BATCH = 500
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# "What if it was 5?" does not say what is 5: the 3, the right side, or x.
+_VAGUE_WHAT_IF = re.compile(
+    r"^what\s+if\s+(?:it|that|this|they)\s+(?:was|were|is|are)\s+[-+]?\d[\d.,]*\s*\??$",
+    re.IGNORECASE,
+)
 _WORD = re.compile(r"[A-Za-z]{2,}")
 _MATH_SPAN = re.compile(r"\$([^$\n]+)\$")
 # A digit glued to a radical (`^5\sqrt{x}`) or to a variable (`x5`).
@@ -97,44 +106,9 @@ _BIOLOGY_CUES = (
     "mitosis",
 )
 
-_SHAPE = (
-    "Each one is a single short question in the user's own voice, as they would "
-    "type it: 3 to 9 words, at most 60 characters, ending with ?. One sentence, no "
-    "preamble, no number, no label, no quote marks. "
-    "Do not ask what the reply already explained, and do not repeat the user's "
-    "question or one they asked before. "
-    'Return JSON {"questions": ["...", "...", "..."]}.'
-)
-
-_SYSTEM = (
-    "You write the next three questions a student would tap to keep learning "
-    "the problem they are working on, in this order: "
-    "1. Understand: why a step or the result works. "
-    "2. What if: the same problem with one number or condition changed, asked in "
-    "a few words. "
-    "3. Go further: the next idea this problem leads to. "
-    "Name the quantity, never restate the whole problem: "
-    '"Why convert km/h to m/s first?", "What if it took 10 s instead?", '
-    '"How far does the car go in 5 s?". '
-    "Write each equation in $...$ with spaces around =, as in $x^2 = 9$ or "
-    "$\\sqrt{x} = 5$. A letter and a number stay separate: never $x5$, and "
-    "never a number stuck to a radical like $^5\\sqrt{x}$. "
-    f"{_SHAPE}"
-)
-
-_GENERAL_SYSTEM = (
-    "You write up to three follow-up questions the user is likely to tap next, "
-    "about exactly what they just asked. Each digs one step further into the same "
-    "topic: a detail the reply only touched on, the usual next step, or a likely "
-    '"what if". Stay on their topic and in the language they wrote in. '
-    "Return an empty list when nothing would help: small talk, a personal update, "
-    "a message or text they asked you to write, a reminder or a setting. "
-    f"{_SHAPE}"
-)
-
 
 class RelatedQuestions(BaseModel):
-    # Asked for three; a fourth or fifth is filtered, not a failed call.
+    # Asked for five; three are shown, so a weak one is dropped, not a failed call.
     questions: list[str] = Field(default_factory=list, max_length=2 * _MAX_QUESTIONS)
 
 
@@ -366,6 +340,8 @@ def _keep_question(
     anchors: set[str],
 ) -> bool:
     cleaned = collapse_ws(candidate)
+    if _VAGUE_WHAT_IF.match(cleaned):
+        return False
     if not cleaned:
         return False
     folded = cleaned.casefold()
@@ -545,6 +521,30 @@ async def generate_related_questions(
         {"role": "system", "content": system},
         {"role": "user", "content": "\n\n".join(lines)},
     ]
+    raw = await _ask_for_questions(settings, messages)
+    if raw is None:
+        return []
+    kept = _accepted_questions(question, raw, problem, anchors)
+    if raw and len(kept) < _MAX_QUESTIONS:
+        # The filter dropped some (vague, off-topic, a repeat): one more ask, for others.
+        have = "\n".join(f"- {q}" for q in kept) or "- (none)"
+        retry = [
+            *messages,
+            {
+                "role": "user",
+                "content": f"Kept so far:\n{have}\nWrite five different ones, same rules.",
+            },
+        ]
+        more = await _ask_for_questions(settings, retry) or []
+        kept = _accepted_questions(question, [*kept, *more], problem, anchors)
+    # Always three, or none: one or two lines read as a half-finished list.
+    return kept if len(kept) == _MAX_QUESTIONS else []
+
+
+async def _ask_for_questions(
+    settings: Settings, messages: list[dict[str, str]]
+) -> list[str] | None:
+    """The model's candidate questions, or None when the call failed or timed out."""
     try:
         parsed = await asyncio.wait_for(
             complete_structured(
@@ -552,7 +552,7 @@ async def generate_related_questions(
                 model_alias="memory-model",
                 messages=messages,
                 schema=RelatedQuestions,
-                max_tokens=256,
+                max_tokens=_CANDIDATE_TOKENS,
                 timeout_seconds=RELATED_PROMPTS_TIMEOUT_SECONDS,
                 allow_fallback=False,
             ),
@@ -560,13 +560,11 @@ async def generate_related_questions(
         )
     except TimeoutError:
         logger.warning("Related questions timed out")
-        return []
+        return None
     except Exception:
         logger.warning("Related questions failed", exc_info=True)
-        return []
-    if parsed is None:
-        return []
-    return _accepted_questions(question, parsed.questions, problem, anchors)
+        return None
+    return None if parsed is None else list(parsed.questions)
 
 
 def _cache_key(message_id: str) -> str:

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { RichMathBody } from "@/components/rich/RichMathBody";
@@ -14,8 +15,9 @@ type Props = {
 };
 
 /**
- * Follow-up questions under the latest reply: a short list, one tappable row
- * per question, each opened by a 1pt rule so the rows read as a list.
+ * Follow-up questions under the latest reply: three tappable rows. Each has a
+ * dotted underline under its words, the way a link reads, so it looks tappable
+ * without a rule between rows.
  */
 export function RelatedPromptLines({ prompts, onSelect }: Props) {
   const theme = useTheme();
@@ -32,7 +34,6 @@ export function RelatedPromptLines({ prompts, onSelect }: Props) {
     <View style={s.wrap}>
       {lines.map((prompt) => (
         <View key={prompt}>
-          <View style={s.divider} testID="related-prompt-divider" />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={prompt}
@@ -41,11 +42,14 @@ export function RelatedPromptLines({ prompts, onSelect }: Props) {
           >
             <Icon name="enter" size={IconSize.xs} color={theme.textTertiary} />
             <View style={s.body}>
-              <RichMathBody
-                content={wrapSuggestionMath(prompt)}
-                style={s.line}
-                textColor={theme.text}
-              />
+              <View style={s.underlined}>
+                <RichMathBody
+                  content={wrapSuggestionMath(prompt)}
+                  style={s.line}
+                  textColor={theme.text}
+                />
+                <DottedUnderline color={theme.textTertiary} />
+              </View>
             </View>
           </Pressable>
         </View>
@@ -54,17 +58,38 @@ export function RelatedPromptLines({ prompts, onSelect }: Props) {
   );
 }
 
+const DOT = 2;
+const DOT_GAP = 3;
+
+/** Round dots across the words' width. A dotted border on one side is not
+ * drawn reliably on Android, so the dots are drawn as views. */
+function DottedUnderline({ color }: { color: string }) {
+  const [width, setWidth] = useState(0);
+  const count = Math.max(0, Math.floor((width + DOT_GAP) / (DOT + DOT_GAP)));
+  return (
+    <View
+      testID="related-prompt-underline"
+      style={dots.row}
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <View key={i} style={[dots.dot, { backgroundColor: color }]} />
+      ))}
+    </View>
+  );
+}
+
+const dots = StyleSheet.create({
+  row: { flexDirection: "row", gap: DOT_GAP, height: DOT, marginTop: 2, overflow: "hidden" },
+  dot: { width: DOT, height: DOT, borderRadius: DOT / 2 },
+});
+
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     wrap: {
       marginHorizontal: Space.md,
       marginTop: Space.xs,
       marginBottom: Space.xs,
-    },
-    // 1pt, not a hairline: a hairline in `separator` all but vanishes on white.
-    divider: {
-      height: 1,
-      backgroundColor: theme.separator,
     },
     row: {
       flexDirection: "row",
@@ -78,6 +103,11 @@ function makeStyles(theme: Theme) {
     },
     body: {
       flex: 1,
+    },
+    // As wide as the words, so the dots underline them and not the empty row.
+    underlined: {
+      alignSelf: "flex-start",
+      maxWidth: "100%",
     },
     line: {
       ...Type.secondary,

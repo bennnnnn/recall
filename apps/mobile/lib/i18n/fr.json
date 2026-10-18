@@ -631,6 +631,8 @@
   "settings.contact_support_subject": "Assistance Recall",
   "settings.country_label": "Country",
   "settings.country_placeholder": "e.g. Ethiopia",
+  "settings.follow_up_suggestions": "Suggestions de suivi",
+  "settings.follow_up_suggestions_summary": "Trois questions à toucher sous une réponse",
   "settings.custom_instructions": "Instructions personnalisées",
   "settings.custom_instructions_hint": "Ajoutez des consignes que l'assistant suit dans chaque réponse (ton, format, choses à faire ou à éviter).",
   "settings.custom_instructions_none": "Aucune",

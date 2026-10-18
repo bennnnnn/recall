@@ -77,6 +77,7 @@ _PROFILE_FIELDS = (
     "country",
     "job",
     "memory_enabled",
+    "follow_up_suggestions_enabled",
     "memory_include_sensitive",
     "push_notifications_enabled",
     "push_reminders_enabled",
