@@ -8,6 +8,7 @@ two independent equations, becomes separate rows.
 
 from __future__ import annotations
 
+from app.modules.chat.calculation_layout_tail import finish_inline, keep_hard_break
 from app.modules.chat.inline_code import code_span_opens_within, escaped_at, is_bare_number
 from app.modules.chat.markdown_regions import (
     display_math_lines,
@@ -371,10 +372,7 @@ def _layout_inline(body: str) -> str:
         index = cursor
     if not changed:
         return body
-    tail = "".join(buf)
-    if tail.strip():
-        parts.append(tail.lstrip() if parts else tail)
-    return "\n".join(parts)
+    return finish_inline(parts, "".join(buf))
 
 
 def _layout_body(body: str) -> str:
@@ -385,7 +383,7 @@ def _layout_body(body: str) -> str:
         rows = split_math_expression(inner)
         if not rows:
             return body
-        joined = _join_rows(rows, delim, punct)
+        joined = keep_hard_break(body, _join_rows(rows, delim, punct))
         indent = body[: len(body) - len(body.lstrip(" "))]
         if not indent:
             return joined

@@ -226,7 +226,7 @@ async def test_tool_loop_forces_search_when_classifier_required_and_heuristic_no
 ):
     from app.modules.web_search.detection import needs_web_search
 
-    query = "Who is the CEO of Anthropic?"
+    query = "How many employees does Anthropic have?"
     assert needs_web_search(query) is False
     messages = [{"role": "user", "content": query}]
     hit = WebSearchHit(title="CEO", url="https://example.com/ceo", snippet="Dario Amodei")
@@ -261,7 +261,7 @@ async def test_tool_loop_skips_force_search_when_not_required_and_heuristic_no(
 ):
     from app.modules.web_search.detection import needs_web_search
 
-    query = "Who is the CEO of Anthropic?"
+    query = "How many employees does Anthropic have?"
     assert needs_web_search(query) is False
     messages = [{"role": "user", "content": query}]
     complete = AsyncMock(return_value={"content": "ok", "tool_calls": []})
@@ -442,7 +442,7 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
     ctx.instant_reply = None
     ctx.lightweight_turn = False
     ctx.verified_subject = None
-    ctx.user_message_content = "Who is the CEO of Anthropic?"
+    ctx.user_message_content = "How many employees does Anthropic have?"
     ctx.search_sources = []
     ctx.user = None
     ctx.user_id = uuid4()
@@ -524,7 +524,7 @@ async def test_tool_loop_path_skips_classifier_when_spend_capped():
     ctx.instant_reply = None
     ctx.lightweight_turn = False
     ctx.verified_subject = None
-    ctx.user_message_content = "Who is the CEO of Anthropic?"
+    ctx.user_message_content = "How many employees does Anthropic have?"
     ctx.search_sources = []
     ctx.user = None
     ctx.user_id = uuid4()

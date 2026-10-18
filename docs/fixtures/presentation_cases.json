@@ -924,6 +924,18 @@
       "area": "replies",
       "input": "The ticket is $15 and the parking is $5, so you pay **$20** in total.\n\nWith a 10% discount: $0.9 \\times 20 = 18$, so**$18**.",
       "expected": "The ticket is $15 and the parking is $5, so you pay **$20** in total.\n\nWith a 10% discount: $0.9 \\times 20 = 18$, so **$18**."
+    },
+    {
+      "id": "note-stays-on-first-row",
+      "area": "calculation",
+      "input": "**Formula**  \n$h = -\\frac{b}{2a}, \\quad k = y(h)$ — Vertex of a parabola",
+      "expected": "**Formula**  \n$h = -\\frac{b}{2a}$ — Vertex of a parabola  \n$k = y(h)$"
+    },
+    {
+      "id": "chain-keeps-its-hard-break",
+      "area": "calculation",
+      "input": "$h = 6 - 3 = 3$  \n$k = 3^2 = 9$ — y at x = 3",
+      "expected": "$h = 6 - 3$  \n$h = 3$  \n$k = 3^2$ — y at x = 3  \n$k = 9$"
     }
   ]
 }

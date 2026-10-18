@@ -19,6 +19,7 @@ from app.modules.math.schemas import (
     MathImageExtract,
     MathIntent,
 )
+from app.modules.math.tools.bare_answer import BARE_ANSWER_NOTE, bare_answer
 from app.modules.math.tools.block import VerifiedMathBlock
 from app.modules.math.tools.extract import (
     extract_math_intent,
@@ -333,6 +334,8 @@ async def build_math_augmentation(
             f"{MATH_REPLY_POLICY}",
             None,
         )
+    if intent is None and image_math_extract is None and bare_answer(user_content):
+        return (BARE_ANSWER_NOTE, None)
     if intent is None and image_math_extract is None:
         from app.modules.math.tools.word_problem import word_problem_intent
 

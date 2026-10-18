@@ -34,7 +34,7 @@ def _reply(query: str) -> str:
         (
             "Find the diagonal of a rectangle 3 by 4",
             r"$d^2 = l^2 + w^2$",
-            r"$d = \sqrt{4^2 + 3^2} = 5$",
+            r"$d = \sqrt{4^2 + 3^2} = \sqrt{16 + 9} = \sqrt{25} = 5$",
         ),
         ("Find the area of a square side 4", r"$A = s^2$", r"$A = 4^2 = 16$"),
         ("Find the perimeter of a square side 4", r"$P = 4s$", r"$P = 4 \times 4 = 16$"),
@@ -51,7 +51,7 @@ def _reply(query: str) -> str:
         (
             "Find the hypotenuse of a right triangle legs 3 and 4",
             r"$c^2 = a^2 + b^2$",
-            r"$c = \sqrt{3^2 + 4^2} = 5$",
+            r"$c = \sqrt{3^2 + 4^2} = \sqrt{9 + 16} = \sqrt{25} = 5$",
         ),
         (
             "Find the perimeter of a right triangle legs 3 and 4",
@@ -176,3 +176,19 @@ def test_rectangle_area_and_one_side_finds_the_other_side(
     assert rf"${symbol} = \frac{{A}}" in reply
     assert "```answer\n" in reply
     assert reply.count("```answer") == 1
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Find the area of a triangle with sides 3,4,5",
+        # The shape first, then the question: the battery's wording.
+        "a triangle has sides 3, 4 and 5. what is its area?",
+    ],
+)
+def test_heron_shows_every_row_down_to_the_area(query: str) -> None:
+    """The working stopped at the root of the differences and jumped to 6."""
+    reply = _reply(query)
+    assert (
+        r"$A = \sqrt{6(6-3)(6-4)(6-5)} = \sqrt{6 \cdot 3 \cdot 2 \cdot 1} = \sqrt{36} = 6$" in reply
+    )
