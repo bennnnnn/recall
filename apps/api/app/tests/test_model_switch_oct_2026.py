@@ -93,7 +93,7 @@ def test_only_the_glm_5_3_models_hold_the_start_of_a_reply() -> None:
     [
         ("memory-model", {"enabled": False}),
         ("title-model", {"enabled": False}),
-        ("fallback-memory-model", {"enabled": False}),
+        ("fallback-memory-model", {"effort": "none"}),
         ("fallback-vision-model", {"effort": "low"}),
     ],
 )
