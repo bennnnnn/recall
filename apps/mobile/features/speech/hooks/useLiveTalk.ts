@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, BackHandler, Linking } from "react-native";
-import { useRouter } from "expo-router";
 
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -27,23 +26,11 @@ import {
 } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
-import type { useDraftChat } from "@/hooks/useDraftChat";
+import type { ChatTurnHost } from "@/features/chat/model/turnHost";
 
-type Options = {
-  token: string | null;
-  chatId: string | null;
-  setChatId: React.Dispatch<React.SetStateAction<string | null>>;
-  setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  draft: ReturnType<typeof useDraftChat>;
-  router: ReturnType<typeof useRouter>;
-  selectedModel: string;
-  isOffline: boolean;
+type Options = ChatTurnHost & {
   onUpgrade: () => void;
-  onScrollToLatest: () => void;
-  newMessageCountRef: React.MutableRefObject<number>;
   onFirstReply: (chatId?: string | null) => void;
-  t: (key: string) => string;
 };
 
 type CompletedTurn = {

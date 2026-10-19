@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from "react";
-import { useRouter } from "expo-router";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
@@ -22,25 +21,13 @@ import { invalidateGalleryCache } from "@/features/attachments/model/galleryList
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
 import { uploadSendAttachment } from "@/features/chat/hooks/useSendAttachment";
-import type { useDraftChat } from "@/hooks/useDraftChat";
+import type { ChatTurnHost } from "@/features/chat/model/turnHost";
 
-type Options = {
-  token: string | null;
-  chatId: string | null;
-  setChatId: React.Dispatch<React.SetStateAction<string | null>>;
-  setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
-  setMessages: React.Dispatch<React.SetStateAction<import("@/lib/api").Message[]>>;
-  draft: ReturnType<typeof useDraftChat>;
-  router: ReturnType<typeof useRouter>;
-  selectedModel: string;
+type Options = ChatTurnHost & {
   streaming: boolean;
   isPaid: boolean;
-  isOffline: boolean;
   onOpenUpgrade: () => void;
   onOfflineBlocked?: () => void;
-  onScrollToLatest: () => void;
-  newMessageCountRef: React.MutableRefObject<number>;
-  t: (key: string) => string;
 };
 
 type ImageGenSubmit = {
