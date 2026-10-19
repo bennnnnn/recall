@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -34,16 +36,23 @@ async def require_attachments_enabled(
         )
 
 
-def _workflow_http_error(exc: attachment_workflow.AttachmentWorkflowError) -> HTTPException:
-    return HTTPException(status_code=exc.status_code, detail=exc.detail)
-
-
 def _storage_http_error() -> HTTPException:
     return HTTPException(
         status_code=503,
         detail="Attachment storage is temporarily unavailable. Please try again.",
         headers={"Retry-After": "5"},
     )
+
+
+@contextmanager
+def _workflow_http_errors() -> Iterator[None]:
+    """Answer a workflow refusal with its status, and a storage outage with 503."""
+    try:
+        yield
+    except attachment_workflow.AttachmentWorkflowError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except StorageUnavailableError as exc:
+        raise _storage_http_error() from exc
 
 
 @router.get("", response_model=AttachmentListOut)
@@ -115,7 +124,7 @@ async def upload_attachment_bytes(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
-    try:
+    with _workflow_http_errors():
         await attachment_workflow.store_local_upload(
             session,
             settings,
@@ -123,10 +132,6 @@ async def upload_attachment_bytes(
             attachment_id,
             request.stream(),
         )
-    except attachment_workflow.AttachmentWorkflowError as exc:
-        raise _workflow_http_error(exc) from exc
-    except StorageUnavailableError as exc:
-        raise _storage_http_error() from exc
 
 
 @router.delete("/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -137,17 +142,13 @@ async def delete_attachment(
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
     """Cancel a pending upload, or delete a Library attachment and its chat marker."""
-    try:
+    with _workflow_http_errors():
         await attachment_workflow.delete_attachment(
             session,
             settings,
             user,
             attachment_id,
         )
-    except attachment_workflow.AttachmentWorkflowError as exc:
-        raise _workflow_http_error(exc) from exc
-    except StorageUnavailableError as exc:
-        raise _storage_http_error() from exc
 
 
 @router.post(
@@ -162,17 +163,13 @@ async def confirm_upload(
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
     """Verify bytes stored at presigned URL match the declared content type."""
-    try:
+    with _workflow_http_errors():
         await attachment_workflow.confirm_upload(
             session,
             settings,
             user,
             attachment_id,
         )
-    except attachment_workflow.AttachmentWorkflowError as exc:
-        raise _workflow_http_error(exc) from exc
-    except StorageUnavailableError as exc:
-        raise _storage_http_error() from exc
 
 
 @router.get("/{attachment_id}/file", response_model=None)
@@ -183,7 +180,7 @@ async def serve_attachment_file(
     settings: Settings = Depends(get_settings_dep),
     w: int | None = Query(default=None, ge=1, le=512),
 ) -> FileResponse | RedirectResponse | Response:
-    try:
+    with _workflow_http_errors():
         access = await attachment_workflow.get_file_access(
             session,
             settings,
@@ -191,10 +188,6 @@ async def serve_attachment_file(
             attachment_id,
             width=w,
         )
-    except attachment_workflow.AttachmentWorkflowError as exc:
-        raise _workflow_http_error(exc) from exc
-    except StorageUnavailableError as exc:
-        raise _storage_http_error() from exc
     if access.body is not None:
         return Response(
             content=access.body,
@@ -229,14 +222,10 @@ async def download_url(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> AttachmentOut:
-    try:
+    with _workflow_http_errors():
         return await attachment_workflow.get_download(
             session,
             settings,
             user,
             attachment_id,
         )
-    except attachment_workflow.AttachmentWorkflowError as exc:
-        raise _workflow_http_error(exc) from exc
-    except StorageUnavailableError as exc:
-        raise _storage_http_error() from exc
