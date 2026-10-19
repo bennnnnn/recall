@@ -16,11 +16,12 @@ from app.core.db import engine, warmup_db_pool
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.core.sentry import init_sentry
-from app.core.sympy_executor import shutdown_sympy_executor
+from app.core.sympy_executor import shutdown_sympy_executor, warm_sympy_pool
 from app.gateways import email_gateway
 from app.gateways.http_client import aclose_pooled_clients
 from app.modules.attachments import reaper as attachment_orphan_reaper
 from app.modules.chat.finalize_registry import stop_inflight_streams
+from app.modules.math.sympy_warmup import warm_math_worker
 from app.services.mcp import setup_mcp_adapters
 
 VALID_PROCESS_ROLES = frozenset({"all", "api", "worker"})
@@ -46,9 +47,6 @@ async def initialize_process(settings: Settings) -> None:
     setup_mcp_adapters(settings)
     await warmup_db_pool()
     if role in ("all", "api"):
-        from app.core.sympy_executor import warm_sympy_pool
-        from app.modules.math.sympy_warmup import warm_math_worker
-
         await warm_sympy_pool(warm_math_worker)
         install_chat_stop_on_signal()
 
