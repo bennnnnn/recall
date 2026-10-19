@@ -50,6 +50,43 @@ function mixColor(a: string, b: string, amount: number): string {
   return `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`;
 }
 
+/** Where a moving label sits this frame, and whether it shows (1) or hides with its arrow (0). */
+type LabelSpot = { x: number; y: number; shown: number };
+
+/** A label that follows an arrow: placed from `spot` every frame, hidden while it is. */
+function MovingLabel({
+  spot,
+  text,
+  font,
+  fallbacks,
+  color,
+  theme,
+}: {
+  spot: SharedValue<LabelSpot>;
+  text: string;
+  font: SkFont;
+  fallbacks: readonly (SkFont | null)[];
+  color: string;
+  theme: Theme;
+}) {
+  const x = useDerivedValue(() => spot.value.x);
+  const y = useDerivedValue(() => spot.value.y);
+  const opacity = useDerivedValue(() => spot.value.shown);
+  return (
+    <Group opacity={opacity}>
+      <HaloText
+        x={x}
+        y={y}
+        text={text}
+        font={font}
+        fallbacks={fallbacks}
+        color={color}
+        halo={theme.bg}
+      />
+    </Group>
+  );
+}
+
 /** A riding vector's label, set from its arrow every frame and hidden with it. */
 function RidingVectorLabel({
   layout,
@@ -99,21 +136,15 @@ function RidingVectorLabel({
     );
     return { x: place.x, y: place.baseline, shown: 1 };
   });
-  const x = useDerivedValue(() => spot.value.x);
-  const y = useDerivedValue(() => spot.value.y);
-  const opacity = useDerivedValue(() => spot.value.shown);
   return (
-    <Group opacity={opacity}>
-      <HaloText
-        x={x}
-        y={y}
-        text={layout.vector.label ?? ""}
-        font={font}
-        fallbacks={fallbacks}
-        color={vectorColor(layout.vector.role, theme)}
-        halo={theme.bg}
-      />
-    </Group>
+    <MovingLabel
+      spot={spot}
+      text={layout.vector.label ?? ""}
+      font={font}
+      fallbacks={fallbacks}
+      color={vectorColor(layout.vector.role, theme)}
+      theme={theme}
+    />
   );
 }
 
@@ -293,21 +324,15 @@ function DerivedArrowLabel({
     );
     return { x: place.x, y: place.baseline, shown: 1 };
   });
-  const x = useDerivedValue(() => spot.value.x);
-  const y = useDerivedValue(() => spot.value.y);
-  const opacity = useDerivedValue(() => spot.value.shown);
   return (
-    <Group opacity={opacity}>
-      <HaloText
-        x={x}
-        y={y}
-        text={label.text}
-        font={font}
-        fallbacks={fallbacks}
-        color={color}
-        halo={theme.bg}
-      />
-    </Group>
+    <MovingLabel
+      spot={spot}
+      text={label.text}
+      font={font}
+      fallbacks={fallbacks}
+      color={color}
+      theme={theme}
+    />
   );
 }
 

@@ -2031,9 +2031,9 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
-    """If regenerate deletes the prior assistant but the model returns nothing,
-    the old reply is restored so the chat is not left blank."""
+async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
+    """The model returns nothing on a regenerate: the turn fails and nothing is
+    saved or deleted, so the prior reply (never removed before the stream) stays."""
     from app.modules import chat as chat_module
 
     fake_user = MagicMock()
@@ -2055,7 +2055,8 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
     fake_last_user = MagicMock()
     fake_last_user.content = "question"
 
-    restore = AsyncMock()
+    finalize = AsyncMock()
+    delete = AsyncMock()
 
     async def empty_stream(**kwargs):
         if False:
@@ -2137,12 +2138,12 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
                 AsyncMock(),
             )
         )
-        stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
+        stack.enter_context(patch("app.repositories.messages.delete_message", delete))
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
         )
         stack.enter_context(
-            patch("app.modules.chat.stream_entry.restore_regenerate_backup", restore)
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
         )
         from app.gateways.litellm_gateway import ModelUnavailableError
 
@@ -2156,16 +2157,15 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
             ):
                 pass
 
-    restore.assert_awaited_once()
-    backup = restore.await_args.args[2]
-    assert backup.content == "prior answer"
-    assert backup.model == "free-chat"
+    finalize.assert_not_awaited()
+    delete.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_redis):
     """Prior assistant stays in DB until finalize; prompt build must omit it."""
     from app.modules import chat as chat_module
+    from app.modules.chat.prompt_builder import PromptStats
     from app.modules.chat.turn_prep import ClientGeoContext, TurnPromptBundle
 
     captured: dict[str, object] = {}
@@ -2193,7 +2193,7 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
         captured["omit"] = request.omit_message_ids
         return TurnPromptBundle(
             prompt_messages=[{"role": "system", "content": "sys"}],
-            meta={},
+            stats=PromptStats(),
             instant_reply=None,
             search_sources=[],
             local_places=False,
@@ -2269,9 +2269,6 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
         )
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
-        )
-        stack.enter_context(
-            patch("app.modules.chat.stream_entry.restore_regenerate_backup", AsyncMock())
         )
         from app.gateways.litellm_gateway import ModelUnavailableError
 
@@ -2392,9 +2389,6 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
-        )
-        stack.enter_context(
-            patch("app.modules.chat.stream_entry.restore_regenerate_backup", AsyncMock())
         )
         from app.gateways.litellm_gateway import ModelUnavailableError
 

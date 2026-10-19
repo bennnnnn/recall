@@ -1,6 +1,5 @@
-import { useCallback, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
-import { Redirect, useFocusEffect } from "expo-router";
+import { Redirect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { StateView } from "@/ui/feedback/StateView";
@@ -12,10 +11,16 @@ import {
   useSettingsContentStyle,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFocusedList } from "@/features/account/hooks/useFocusedList";
 import { api, type Chat } from "@/lib/api";
 import { invalidateChatListCache } from "@/lib/cache/chatListCache";
 import { notifyDestructive } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
+
+async function readArchivedChats(token: string): Promise<Chat[]> {
+  const list = await api.listChats(token);
+  return list.archived ?? [];
+}
 
 export default function ArchivedChatsScreen() {
   const { token } = useAuth();
@@ -23,30 +28,13 @@ export default function ArchivedChatsScreen() {
   const theme = useTheme();
   const contentStyle = useSettingsContentStyle();
   const action = useSettingsAction();
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const list = await api.listChats(token);
-      setChats(list.archived ?? []);
-    } catch {
-      // A failed load must not masquerade as an empty list.
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const {
+    items: chats,
+    setItems: setChats,
+    loading,
+    loadError,
+    load,
+  } = useFocusedList(token, readArchivedChats);
 
   const drop = (chat: Chat) => setChats((rows) => rows.filter((row) => row.id !== chat.id));
 

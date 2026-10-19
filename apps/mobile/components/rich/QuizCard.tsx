@@ -18,6 +18,7 @@ import {
   parseQuizFence,
   plainFenceText,
 } from "@/lib/lesson/lessonFences";
+import { type QuizAttempt, quizAttempt, saveQuizAttempt } from "@/lib/lesson/quizAttempts";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -25,18 +26,14 @@ import { Type, Weight } from "@/lib/type";
 import { Button } from "@/ui/controls/Button";
 
 type Props = { content: string };
-type Attempt = { picked: number | null; checked: boolean };
-
-// The answer stays picked when the list recycles the message off screen and back.
-const attempts = new Map<string, Attempt>();
 
 /** "Exercise 1": the code, pick an option, check it, see why. Nothing is sent to the chat. */
 export function QuizCard({ content }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const quiz = useMemo(() => parseQuizFence(content), [content]);
-  const [attempt, setAttempt] = useState<Attempt>(
-    () => attempts.get(content) ?? { picked: null, checked: false },
+  const [attempt, setAttempt] = useState<QuizAttempt>(
+    () => quizAttempt(content) ?? { picked: null, checked: false },
   );
 
   if (!quiz) {
@@ -53,8 +50,8 @@ export function QuizCard({ content }: Props) {
     return loose ? <LooseQuizCard quiz={loose} s={s} /> : null;
   }
 
-  const save = (next: Attempt) => {
-    attempts.set(content, next);
+  const save = (next: QuizAttempt) => {
+    saveQuizAttempt(content, next);
     setAttempt(next);
   };
   const pick = (index: number) => {
@@ -71,15 +68,7 @@ export function QuizCard({ content }: Props) {
 
   return (
     <View style={s.card} testID="quiz-card">
-      {quiz.label ? (
-        <View style={s.badge}>
-          <Text style={s.badgeText}>{quiz.label}</Text>
-        </View>
-      ) : null}
-      <ChipText style={s.question} chip={s.chip}>
-        {quiz.question}
-      </ChipText>
-      {quiz.code ? <CodeBlock code={quiz.code} lang={quiz.codeLang} /> : null}
+      <QuizHeader quiz={quiz} s={s} />
       <View accessibilityRole="radiogroup">
         {quiz.options.map((option, index) => {
           const picked = attempt.picked === index;
@@ -126,17 +115,7 @@ function LooseQuizCard({ quiz, s }: { quiz: LooseQuiz; s: Styles }) {
   const [shown, setShown] = useState(false);
   return (
     <View style={s.card} testID="quiz-card-text">
-      {quiz.label ? (
-        <View style={s.badge}>
-          <Text style={s.badgeText}>{quiz.label}</Text>
-        </View>
-      ) : null}
-      {quiz.question ? (
-        <ChipText style={s.question} chip={s.chip}>
-          {quiz.question}
-        </ChipText>
-      ) : null}
-      {quiz.code ? <CodeBlock code={quiz.code} lang={quiz.codeLang} /> : null}
+      <QuizHeader quiz={quiz} s={s} />
       {quiz.options.map((option, index) => (
         <ChipText key={`${index}:${option}`} style={s.optionText} chip={s.chip}>
           {`${optionLetter(index)} ${option}`}
@@ -155,6 +134,31 @@ function LooseQuizCard({ quiz, s }: { quiz: LooseQuiz; s: Styles }) {
         </View>
       ) : null}
     </View>
+  );
+}
+
+/** The "Exercise 1" badge, the question and the code it asks about. */
+function QuizHeader({
+  quiz,
+  s,
+}: {
+  quiz: Pick<LooseQuiz, "label" | "question" | "code" | "codeLang">;
+  s: Styles;
+}) {
+  return (
+    <>
+      {quiz.label ? (
+        <View style={s.badge}>
+          <Text style={s.badgeText}>{quiz.label}</Text>
+        </View>
+      ) : null}
+      {quiz.question ? (
+        <ChipText style={s.question} chip={s.chip}>
+          {quiz.question}
+        </ChipText>
+      ) : null}
+      {quiz.code ? <CodeBlock code={quiz.code} lang={quiz.codeLang} /> : null}
+    </>
   );
 }
 

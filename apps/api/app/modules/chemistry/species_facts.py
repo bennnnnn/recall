@@ -181,6 +181,14 @@ def formula_spans(text: str) -> list[tuple[int, int]]:
     return sorted(spans)
 
 
+def without_formulas(text: str) -> str:
+    """The text with its formulas and ions blanked, so H2's 2 is not a stated number."""
+    kept = list(text)
+    for start, end in formula_spans(text):
+        kept[start:end] = " " * (end - start)
+    return "".join(kept)
+
+
 # Anions a sparingly soluble salt releases, with their charge.
 _SALT_ANIONS: dict[str, int] = {
     "F": -1,

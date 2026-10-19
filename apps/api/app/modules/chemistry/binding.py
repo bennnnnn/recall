@@ -21,6 +21,7 @@ Anything short of one law with one way to fill it declines.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from functools import lru_cache, partial
@@ -55,7 +56,9 @@ from app.services.law_binding.fit import (
     read_question,
 )
 from app.services.law_binding.spec import VariableSpec
-from app.services.units import CELSIUS_OFFSET_K
+from app.services.units import CELSIUS_OFFSET_K, get_unit_registry
+
+logger = logging.getLogger(__name__)
 
 _VERBS = re.compile(
     r"\b(?:find|calculate|compute|determine|work\s+out|estimate|evaluate|whats?|convert|"
@@ -277,8 +280,6 @@ def _declared(variable: VariableSpec) -> str:
 
 def _converted(law: ChemistryLaw, filled: Fit) -> tuple[dict[str, float], dict[str, str]] | None:
     """The filled inputs in the units the law's solver reads, and the units it is told."""
-    from app.services.units import get_unit_registry
-
     registry = get_unit_registry()
     params: dict[str, float] = {}
     units: dict[str, str] = {}
@@ -299,7 +300,15 @@ def _converted(law: ChemistryLaw, filled: Fit) -> tuple[dict[str, float], dict[s
             return None
         try:
             quantity = registry.Quantity(value, expression).to(variable.dimension)
-        except Exception:
+        except Exception as exc:
+            # A stated unit that does not convert to the input the law reads declines the law.
+            logger.debug(
+                "%s: %s does not convert to %s: %s",
+                law.op,
+                expression,
+                variable.dimension,
+                type(exc).__name__,
+            )
             return None
         params[variable.name] = float(quantity.magnitude)
         if law.op in FORMULA_LAWS:

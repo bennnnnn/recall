@@ -347,3 +347,43 @@ async def test_allow_request_sets_ttl_on_first_hit(fake_redis):
     assert await allow_request(fake_redis, "rate:ttl", limit=5, window_seconds=90) is True
     # Subsequent hits must not refresh the window (EXPIRE NX).
     assert await fake_redis.ttl("rate:ttl") == 90
+
+
+def _env_value(name: str, annotation: object, default: object, index: int) -> tuple[str, object]:
+    """A value unlike the default for one field: its env text and what it must parse to."""
+    if annotation is bool:
+        return ("false" if default else "true"), not default
+    if annotation is int:
+        return str(1000 + index), 1000 + index
+    if annotation is float:
+        return f"{index}.25", float(f"{index}.25")
+    assert annotation is str, f"{name}: add a case for {annotation!r}"
+    return f"value-{name}", f"value-{name}"
+
+
+def test_every_setting_loads_from_its_upper_case_env_name(monkeypatch):
+    """The sections in core/settings/ keep the flat env names (``DAILY_TOKEN_LIMIT``…)."""
+    expected: dict[str, object] = {}
+    for index, (name, field) in enumerate(sorted(Settings.model_fields.items())):
+        raw, parsed = _env_value(name, field.annotation, field.default, index)
+        monkeypatch.setenv(name.upper(), raw)
+        expected[name] = parsed
+
+    loaded = Settings(_env_file=None)
+
+    assert loaded.model_dump() == expected
+
+
+def test_each_setting_is_declared_in_exactly_one_section():
+    from pydantic import BaseModel
+
+    sections = [
+        base
+        for base in Settings.__mro__[1:]
+        if issubclass(base, BaseModel) and base.__module__.startswith("app.core.settings.")
+    ]
+    declared = [name for section in sections for name in section.model_fields]
+
+    assert len(sections) >= 10
+    assert len(declared) == len(set(declared)), "a setting is declared in two sections"
+    assert set(declared) == set(Settings.model_fields), "every setting lives in a section"

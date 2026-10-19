@@ -56,7 +56,7 @@ def memory_services():
         ),
         patch.object(memory_service, "release_memory_write_lock", AsyncMock()),
         patch.object(memory_service, "invalidate_memory_block", AsyncMock()) as invalidate_memory,
-        patch("app.modules.home.invalidate_home_cache", AsyncMock()) as invalidate_home,
+        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()) as invalidate_home,
         # SQLite has no pgvector; the chunk purge is covered against Postgres.
         patch("app.modules.memory.erase.purge_fact_chunks", AsyncMock()),
     ):

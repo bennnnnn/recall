@@ -126,7 +126,7 @@ def test_related_prompts_event_shape() -> None:
 @pytest.mark.parametrize("router", [_WS, _SSE], ids=["ws", "sse"])
 def test_related_prompts_follow_done(router: Path) -> None:
     source = router.read_text()
-    assert source.rindex("DoneEvent.from_outcome") < source.rindex("take_related_prompts_event")
+    assert source.rindex("settled_turn_event") < source.rindex("take_related_prompts_event")
 
 
 def test_done_omits_complete_completion() -> None:

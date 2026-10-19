@@ -1,5 +1,7 @@
 /** Server-owned teaching pictures. The client draws the spec and does not recompute it. */
 
+import { parseJsonRecord } from "@/lib/jsonFence";
+
 export type TeachingSpec = {
   type: string;
   answer: string;
@@ -29,18 +31,9 @@ const TYPES = new Set([
   "counting",
 ]);
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
 export function parseTeaching(raw: string): TeachingSpec | null {
-  let data: unknown;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (!isRecord(data) || typeof data.type !== "string" || !TYPES.has(data.type)) return null;
+  const data = parseJsonRecord(raw);
+  if (!data || typeof data.type !== "string" || !TYPES.has(data.type)) return null;
   if (typeof data.answer !== "string" || typeof data.speech !== "string" || !data.speech.trim()) {
     return null;
   }

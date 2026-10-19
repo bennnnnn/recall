@@ -16,9 +16,6 @@ from app.modules.math.match.letter_runs import (
 )
 from app.services.number_text import fold_scientific
 from app.services.symbolic_text import (
-    collapse_repeated_si_unit_powers as _collapse_repeated_si_unit_powers,
-)
-from app.services.symbolic_text import (
     normalize_symbolic_request,
     strip_inline_math_delimiters,
 )
@@ -104,15 +101,6 @@ def strip_inline_math_delims(text: str) -> str:
     return strip_inline_math_delimiters(text)
 
 
-def collapse_repeated_si_unit_powers(s: str) -> str:
-    """Stacked math-keyboard ``$^2$`` inserts: ``m/s^2^2.^2`` → ``m/s^2``.
-
-    ``2 m/s$^2$$^2.$^2`` never bound acceleration, so F=ma shipped the
-    *Couldn't verify this with SymPy.* footer under a correct 10 N.
-    """
-    return _collapse_repeated_si_unit_powers(s)
-
-
 def prepare(text: str) -> str | None:
     # ``1.8 x 10^-5`` is the product it means, never an unknown x, and folding
     # it before superscripts become carets reads ``1.8·10⁻⁵`` too.
@@ -120,6 +108,21 @@ def prepare(text: str) -> str | None:
     if cleaned is None:
         return None
     return fold_digit_groups(fix_leading_solve_typo(cleaned))
+
+
+# The verbs a closed request may open with: "find the area of …", "what's the mean of …".
+_COMMAND_LEADS = ("find ", "calculate ", "compute ", "determine ", "what is ", "what's ")
+
+
+def strip_command_lead(request: str) -> str:
+    """``find the area of …`` → ``area of …``: one command verb, then one ``the``."""
+    for prefix in _COMMAND_LEADS:
+        if request.startswith(prefix):
+            request = request[len(prefix) :]
+            break
+    if request.startswith("the "):
+        request = request[4:]
+    return request
 
 
 # "slove 4x - 8 = 12": the command a student meant, as the first word only.

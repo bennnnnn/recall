@@ -389,3 +389,37 @@ def test_before_send_keeps_real_errors_and_scrubs_request():
     assert kept["request"]["headers"]["Content-Type"] == "application/json"
     assert kept["request"]["env"]["HTTP_AUTHORIZATION"] == "[REDACTED]"
     assert kept["tags"]["request_id"] == "req-sentry-1"
+
+
+def test_report_helpers_reach_the_sdk(monkeypatch):
+    import sentry_sdk
+
+    from app.core import sentry
+
+    calls: list[tuple[str, tuple, dict]] = []
+    for name in ("add_breadcrumb", "capture_message", "capture_exception"):
+        monkeypatch.setattr(sentry_sdk, name, lambda *a, _n=name, **kw: calls.append((_n, a, kw)))
+    sentry.report_breadcrumb("jobs.queue", "status", level="info", data={"dlq": 1})
+    sentry.report_message("DLQ deep", level="warning")
+    sentry.report_exception("enqueue_failed:memory")
+
+    assert calls[0] == (
+        "add_breadcrumb",
+        (),
+        {"category": "jobs.queue", "message": "status", "level": "info", "data": {"dlq": 1}},
+    )
+    assert calls[1] == ("capture_message", ("DLQ deep",), {"level": "warning"})
+    name, args, _ = calls[2]
+    assert name == "capture_exception"
+    assert str(args[0]) == "enqueue_failed:memory"
+
+
+def test_report_helpers_never_raise_without_the_sdk(monkeypatch):
+    import sys
+
+    from app.core import sentry
+
+    monkeypatch.setitem(sys.modules, "sentry_sdk", None)  # `import sentry_sdk` raises
+    sentry.report_breadcrumb("push.token", "rebound", level="warning", data={})
+    sentry.report_message("x", level="warning")
+    sentry.report_exception("y")

@@ -16,8 +16,8 @@ from app.modules.chemistry.quantity import to_atm
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     NAMED_COMPOUNDS,
-    formula_spans,
     is_formula,
+    without_formulas,
 )
 from app.modules.chemistry.stoichiometry import molar_mass
 
@@ -214,10 +214,7 @@ def _gases(text: str) -> list[str]:
 
 def _states_a_number(text: str) -> bool:
     """A digit outside the formulas: a rate, a time or a mass the reader does not take."""
-    kept = list(text)
-    for start, end in formula_spans(text):
-        kept[start:end] = " " * (end - start)
-    return re.search(r"\d", "".join(kept)) is not None
+    return re.search(r"\d", without_formulas(text)) is not None
 
 
 # A mixture whose volume, temperature or contents change is another state: its pressures are
@@ -281,7 +278,7 @@ def _partial_from_fraction(text: str) -> ChemistryIntent | None:
     """Pi = Xi Ptotal from a stated mole fraction: "its mole fraction is 0.25"."""
     fraction = _search(rf"mole fraction\s*(?:=|is|of)\s*({_N})", text)
     total = _STATED_TOTAL.search(text)
-    if fraction is None or total is None or len(re.findall(_N, _numbers_only(text))) != 2:
+    if fraction is None or total is None or len(re.findall(_N, without_formulas(text))) != 2:
         return None
     return ChemistryIntent(
         kind="gases",
@@ -322,7 +319,7 @@ def _partial_from_moles(text: str) -> ChemistryIntent | None:
     target = _gas_word(asked.group("gas"))
     if len(amounts) < 2 or target not in amounts:
         return None
-    if len(re.findall(_N, _numbers_only(text))) != len(amounts) + 1:
+    if len(re.findall(_N, without_formulas(text))) != len(amounts) + 1:
         return None
     return ChemistryIntent(
         kind="gases",
@@ -332,14 +329,6 @@ def _partial_from_moles(text: str) -> ChemistryIntent | None:
         params={"total_pressure": float(total.group(1))},
         units={"pressure": _CANONICAL_PRESSURE[total.group(2).lower()]},
     )
-
-
-def _numbers_only(text: str) -> str:
-    """The text with its formulas blanked, so H2's 2 is not a stated number."""
-    kept = list(text)
-    for start, end in formula_spans(text):
-        kept[start:end] = " " * (end - start)
-    return "".join(kept)
 
 
 def _extract_graham(text: str) -> ChemistryIntent | None:

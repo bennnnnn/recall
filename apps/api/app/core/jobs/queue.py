@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from redis.asyncio import Redis
 
+from app.core import sentry
 from app.core.config import Settings, get_settings
 
 logger = logging.getLogger("app.core.jobs")
@@ -26,21 +27,6 @@ JobHandler = Callable[[Settings, dict[str, Any]], Awaitable[None]]
 _HANDLERS: dict[str, JobHandler] = {}
 # Job type -> most jobs of that type one worker runs at once (see ``register``).
 _RUNNING_LIMITS: dict[str, int] = {}
-
-
-def _capture_sentry_exception(message: str) -> None:
-    """Report a best-effort failure to Sentry without raising if it's absent.
-
-    Job enqueue/DLQ paths must never raise into the chat request, but silent
-    failures should be observable in production. Falls back to a no-op when
-    sentry-sdk isn't installed or initialized.
-    """
-    try:
-        import sentry_sdk
-
-        sentry_sdk.capture_exception(Exception(message))
-    except Exception:  # intentional swallow: never raise into chat
-        logger.debug("sentry capture failed for %s", message, exc_info=True)
 
 
 def register(job_type: str, handler: JobHandler, *, max_running: int | None = None) -> None:
@@ -82,19 +68,27 @@ async def enqueue(
         fields: dict[str, str] = {"type": job_type, "payload": json.dumps(payload)}
         if dedupe_key:
             fields["dedupe_key"] = dedupe_key
-        # redis-py stubs type xadd fields as an invariant EncodedT dict; cast.
-        # The hard ceiling rides on XADD itself (no extra round trip) so the
-        # stream stays bounded even while a stale pending entry pins the
-        # MINID trim below — e.g. a worker that died mid-job and is down.
-        hard_cap = _hard_maxlen()
-        if hard_cap is None:
-            await redis.xadd(JOBS_STREAM, cast(Any, fields))
-        else:
-            await redis.xadd(JOBS_STREAM, cast(Any, fields), maxlen=hard_cap, approximate=True)
+        await append_entry(redis, fields)
         await _trim_jobs_stream(redis)
     except Exception:
         logger.exception("Failed to enqueue job type=%s", job_type)
-        _capture_sentry_exception(f"enqueue_failed:{job_type}")
+        # Never raises: a silent job loss is still visible in Sentry.
+        sentry.report_exception(f"enqueue_failed:{job_type}")
+
+
+async def append_entry(redis: Redis, fields: dict[str, str]) -> None:
+    """XADD one job entry under the stream's hard ceiling (enqueue and DLQ replay).
+
+    The ceiling rides on XADD itself (no extra round trip) so the stream stays
+    bounded even while a stale pending entry pins the MINID trim below — e.g.
+    a worker that died mid-job and is down.
+    """
+    # redis-py stubs type xadd fields as an invariant EncodedT dict; cast.
+    hard_cap = _hard_maxlen()
+    if hard_cap is None:
+        await redis.xadd(JOBS_STREAM, cast(Any, fields))
+    else:
+        await redis.xadd(JOBS_STREAM, cast(Any, fields), maxlen=hard_cap, approximate=True)
 
 
 def _hard_maxlen() -> int | None:

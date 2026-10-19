@@ -8,11 +8,14 @@ from typing import Any
 
 import httpx
 
+from app.gateways.http_client import get_pooled_client
+
 logger = logging.getLogger(__name__)
 
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts"
 MAX_RECEIPTS_PER_REQUEST = 100
+EXPO_TIMEOUT_SECONDS = 15.0
 # BUG FIX (was fleet-wide token wipe): only DeviceNotRegistered proves this
 # token is dead. InvalidCredentials means our own APNs/FCM push credentials
 # are misconfigured — every send would return it, so treating it like a dead
@@ -52,26 +55,26 @@ async def fetch_push_receipts(ticket_ids: list[str]) -> dict[str, dict[str, Any]
         return {}
 
     receipts: dict[str, dict[str, Any]] = {}
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        for offset in range(0, len(ticket_ids), MAX_RECEIPTS_PER_REQUEST):
-            chunk = ticket_ids[offset : offset + MAX_RECEIPTS_PER_REQUEST]
-            try:
-                response = await client.post(
-                    EXPO_RECEIPTS_URL,
-                    json={"ids": chunk},
-                    headers={"Accept": "application/json", "Content-Type": "application/json"},
-                )
-                response.raise_for_status()
-                body = response.json()
-            except Exception:
-                logger.exception("Expo push receipt fetch failed count=%s", len(chunk))
-                continue
-            data = body.get("data")
-            if not isinstance(data, dict):
-                continue
-            for ticket_id, receipt in data.items():
-                if isinstance(receipt, dict):
-                    receipts[str(ticket_id)] = receipt
+    client = get_pooled_client(EXPO_TIMEOUT_SECONDS)
+    for offset in range(0, len(ticket_ids), MAX_RECEIPTS_PER_REQUEST):
+        chunk = ticket_ids[offset : offset + MAX_RECEIPTS_PER_REQUEST]
+        try:
+            response = await client.post(
+                EXPO_RECEIPTS_URL,
+                json={"ids": chunk},
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+            )
+            response.raise_for_status()
+            body = response.json()
+        except Exception:
+            logger.exception("Expo push receipt fetch failed count=%s", len(chunk))
+            continue
+        data = body.get("data")
+        if not isinstance(data, dict):
+            continue
+        for ticket_id, receipt in data.items():
+            if isinstance(receipt, dict):
+                receipts[str(ticket_id)] = receipt
     return receipts
 
 
@@ -156,9 +159,9 @@ async def send_push_messages(messages: list[dict[str, Any]]) -> PushSendResult:
     delivered: list[bool] = [False] * len(messages)
     receipt_tickets: list[tuple[str, str]] = []
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        for offset in range(0, len(messages), MAX_MESSAGES_PER_REQUEST):
-            await _send_chunk(client, messages, offset, delivered, invalid, receipt_tickets)
+    client = get_pooled_client(EXPO_TIMEOUT_SECONDS)
+    for offset in range(0, len(messages), MAX_MESSAGES_PER_REQUEST):
+        await _send_chunk(client, messages, offset, delivered, invalid, receipt_tickets)
 
     return PushSendResult(
         invalid_tokens=invalid,

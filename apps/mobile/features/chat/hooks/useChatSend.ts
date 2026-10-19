@@ -5,10 +5,10 @@ import { useRouter } from "expo-router";
 import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 
-import type { useDraftChat } from "@/hooks/useDraftChat";
+import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import type { useChatScroll } from "@/features/chat/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
-import type { Message, ScanReading } from "@/lib/api";
+import type { Message } from "@/lib/api";
 import { clearPendingChatTtft } from "@/features/chat/model/latency";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
@@ -16,35 +16,22 @@ import {
   buildOptimisticUserMessage,
   buildPendingSendAfterCreate,
   type ComposerSendDraft,
+  type SendMessageOptions,
 } from "@/features/chat/model/sendLogic";
 import { canSend } from "@/features/chat/model/sendGuards";
 import { resolveSendIntercept, type SendIntercept } from "@/features/chat/model/sendIntercept";
+import { useComposerAttachmentSheet } from "@/features/chat/hooks/useComposerAttachmentSheet";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
+import { useMathScanSend } from "@/features/chat/hooks/useMathScanSend";
 import { uploadSendAttachment, useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
-import { useComposerAttachmentPick } from "@/features/chat/hooks/useComposerAttachmentPick";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
 import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
-import type { ClientGeo } from "@/lib/clientGeo";
 import {
   queryNeedsClientGeo,
   resolveClientGeoForQuery,
 } from "@/lib/resolveClientGeoForQuery";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
-import {
-  composerTextAfterScanConfirm,
-  type ReadBackSubject,
-  scanSolveMessage,
-} from "@/lib/scanner/readBack";
-import {
-  composerTextAfterSubjectScan,
-  type ScannerSubject,
-} from "@/lib/scanner/subjects";
-import {
-  scanFailureDetail,
-  scanFailureMessageKey,
-  type ScanReadFailure,
-} from "@/lib/scanner/scanReadError";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
@@ -60,21 +47,14 @@ type ChatSendPhase =
   | "uploading"
   | "creating";
 
-type SendMessageFn = (
-  text: string,
-  opts?: {
-    skipUserBubble?: boolean;
-    trackSendingMessageId?: string;
-    attachmentIds?: string[];
-    localImageUri?: string | null;
-    localFileUri?: string | null;
-    localFileName?: string | null;
-    localFileContentType?: string | null;
-    model?: string;
-    clientGeo?: ClientGeo | null;
-    composerDraft?: ComposerSendDraft;
-  },
-) => void;
+type SendMessageFn = (text: string, opts?: SendMessageOptions) => void;
+
+/** A send waiting for its new chat's id; dropped if the view moves on first. */
+type PendingChatSend = ReturnType<typeof buildPendingSendAfterCreate> & {
+  chatId: string;
+  session: number;
+  originViewVersion: number;
+};
 
 type Options = {
   token: string | null;
@@ -166,25 +146,8 @@ export function useChatSend({
   } = useSendAttachment(token);
   const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
   const [sendPhase, setSendPhase] = useState<ChatSendPhase>("idle");
-  const [attachSheetOpen, setAttachSheetOpen] = useState(false);
-  const [mathScannerOpen, setMathScannerOpen] = useState(false);
   const [pendingOutboundId, setPendingOutboundId] = useState<string | null>(null);
-  const [pendingSend, setPendingSend] = useState<{
-    chatId: string;
-    session: number;
-    originViewVersion: number;
-    text: string;
-    skipUserBubble?: boolean;
-    trackSendingMessageId?: string;
-    attachmentIds?: string[];
-    localImageUri?: string | null;
-    localFileUri?: string | null;
-    localFileName?: string | null;
-    localFileContentType?: string | null;
-    clientGeo?: ClientGeo | null;
-    composerDraft: ComposerSendDraft;
-    model: string;
-  } | null>(null);
+  const [pendingSend, setPendingSend] = useState<PendingChatSend | null>(null);
 
   const sendInFlightRef = useRef(false);
   const composerThread = composerThreadKey(routeChatId);
@@ -196,11 +159,25 @@ export function useChatSend({
   useEffect(() => () => {
     viewRef.current.version += 1;
   }, []);
-  const { attachPicking, attachPickInFlightRef, handlePickAttachment, handleAttachmentSheetSelect } =
-    useComposerAttachmentPick({
-      token, streaming, session, viewRef, sendInFlightRef, feedback, t, replacePendingAttachment,
-      setAttachSheetOpen, setMathScannerOpen,
-    });
+  const {
+    attachSheetOpen,
+    setAttachSheetOpen,
+    mathScannerOpen,
+    setMathScannerOpen,
+    attachPicking,
+    attachPickInFlightRef,
+    handlePickAttachment,
+    handleAttachmentSheetSelect,
+  } = useComposerAttachmentSheet({
+    token,
+    streaming,
+    session,
+    viewRef,
+    sendInFlightRef,
+    replacePendingAttachment,
+    feedback,
+    t,
+  });
 
   const prevComposerThreadRef = useRef(composerThread);
   const prevSessionRef = useRef(session);
@@ -224,7 +201,10 @@ export function useChatSend({
     if (!accountChanged) switchAttachmentThread(fromKey, composerThread);
     setAttachSheetOpen(false);
     setMathScannerOpen(false);
-  }, [composerThread, session, switchThread, getThreadKey, switchAttachmentThread, resetForNewSession, resetAttachmentDrafts]);
+  }, [
+    composerThread, session, switchThread, getThreadKey, switchAttachmentThread, resetForNewSession,
+    resetAttachmentDrafts, setAttachSheetOpen, setMathScannerOpen,
+  ]);
   useEffect(() => {
     const applyQueued = () => {
       if (!token || session !== getSessionGeneration()) return;
@@ -536,56 +516,20 @@ export function useChatSend({
     setInput(recovered.text);
     setPendingAttachment(recovered.attachment);
     return true;
-  }, [session, viewVersion, getThreadKey, composerThread, streaming, attachPickInFlightRef, inputRef, pendingAttachmentRef, feedback, t, setInput, setPendingAttachment]);
+  }, [
+    session, viewVersion, getThreadKey, composerThread, streaming, inputRef, pendingAttachmentRef, feedback, t,
+    setInput, setPendingAttachment, attachPickInFlightRef,
+  ]);
 
-  const handleMathScanCaptured = useCallback((
-    pending: PendingAttachment,
-    subject: ScannerSubject,
-    confirmedReading?: string,
-  ) => {
-    replacePendingAttachment(pending);
-    // A checked reading rides with the photo so the API solves what the
-    // student confirmed instead of reading the photo again.
-    const text = confirmedReading
-      ? withComposerDraft(composerTextAfterScanConfirm(confirmedReading, subject), inputRef.current)
-      : composerTextAfterSubjectScan(inputRef.current, subject);
-    setInput(text);
-    setMathScannerOpen(false);
-    void handleSend(text);
-  }, [handleSend, setInput, replacePendingAttachment, inputRef]);
-
-  const readScan = useCallback(
-    async (
-      scan: PendingAttachment,
-      subject: ReadBackSubject,
-      signal: AbortSignal,
-    ): Promise<ScanReading | ScanReadFailure | null> => {
-      if (!token) return null;
-      try {
-        // Loaded on use: the API barrel pulls in native file-system modules
-        // this hook otherwise never touches.
-        const { api } = await import("@/lib/api");
-        return await api.readScan(token, subject, scan, signal);
-      } catch (error) {
-        // Every subject names a missing reader, an oversized photo and a
-        // limit the same way. Anything else stays generic.
-        const detail = scanFailureDetail(error);
-        if (!detail) return null;
-        const key = scanFailureMessageKey(detail);
-        return { error: key ? t(key) : detail };
-      }
-    },
-    [t, token],
-  );
-
-  const handleMathScanSolve = useCallback((reading: string, subject: ScannerSubject = "math") => {
-    setMathScannerOpen(false);
-    const message = scanSolveMessage(reading, subject);
-    if (!message) return;
-    const text = withComposerDraft(message, inputRef.current);
-    setInput(text);
-    void handleSend(text);
-  }, [handleSend, setInput, inputRef]);
+  const { handleMathScanCaptured, readScan, handleMathScanSolve } = useMathScanSend({
+    token,
+    t,
+    inputRef,
+    setInput,
+    replacePendingAttachment,
+    setMathScannerOpen,
+    handleSend,
+  });
 
   return {
     setInput,
@@ -608,10 +552,4 @@ export function useChatSend({
     creatingRef,
     pendingOutboundId,
   };
-}
-
-/** Keep what the student had already typed, after the scan's own text. */
-function withComposerDraft(text: string, draft: string): string {
-  const kept = draft.trim();
-  return kept ? `${text}\n\n${kept}` : text;
 }

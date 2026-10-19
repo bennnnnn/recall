@@ -6,12 +6,11 @@ import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex, readableLatexFallback } from "@/lib/math/text";
 import { useTheme } from "@/lib/theme";
 import { makeStyles } from "@/components/rich/mathText/styles";
+import { scaled, type RenderCtx } from "@/components/rich/mathText/context";
 import {
   hasStackedMath,
   hasTallMath,
   renderSegments,
-  scaled,
-  type RenderCtx,
 } from "@/components/rich/mathText/render";
 
 type Props = {

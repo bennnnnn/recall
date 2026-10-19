@@ -121,6 +121,11 @@ export function isProposalSaved(proposal: ReminderProposal): boolean {
   return proposal.saved || savedHere.has(proposal.proposalId);
 }
 
+/** Sign-out: these are the previous account's cards. */
+export function clearSavedProposals(): void {
+  savedHere.clear();
+}
+
 /** The one action on the card's button: a single change names itself. */
 export function proposalAction(proposal: ReminderProposal): ReminderProposalAction | "all" {
   const actions = new Set(proposal.items.map((item) => item.action));

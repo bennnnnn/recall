@@ -1,6 +1,5 @@
-import { useCallback, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
-import { Redirect, useFocusEffect, useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { StateView } from "@/ui/feedback/StateView";
@@ -13,6 +12,7 @@ import {
   useSettingsContentStyle,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFocusedList } from "@/features/account/hooks/useFocusedList";
 import { api, type AuthSession } from "@/lib/api";
 import { notifyDestructive } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
@@ -24,6 +24,11 @@ function formatSeen(iso: string | null, t: (key: string) => string): string {
   return date.toLocaleString();
 }
 
+async function readSessions(token: string): Promise<AuthSession[]> {
+  const data = await api.listSessions(token);
+  return data.sessions ?? [];
+}
+
 export default function SecuritySettingsScreen() {
   const { token, signOut } = useAuth();
   const { t } = useTranslation();
@@ -31,30 +36,13 @@ export default function SecuritySettingsScreen() {
   const contentStyle = useSettingsContentStyle();
   const router = useRouter();
   const action = useSettingsAction();
-  const [sessions, setSessions] = useState<AuthSession[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const data = await api.listSessions(token);
-      setSessions(data.sessions ?? []);
-    } catch {
-      // A failed load must not look like "no other sessions".
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const {
+    items: sessions,
+    setItems: setSessions,
+    loading,
+    loadError,
+    load,
+  } = useFocusedList(token, readSessions);
 
   const revoke = (session: AuthSession) => {
     if (!token || session.current) return;

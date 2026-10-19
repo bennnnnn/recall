@@ -21,7 +21,7 @@ from app.modules.math.tools.prompt import (
     build_math_augmentation,
     needs_symbolic_math,
 )
-from app.modules.physics.extract import needs_physics
+from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.prompt import build_physics_augmentation
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock, VerifiedSolveBlock
 
@@ -144,7 +144,6 @@ def detect_subject(
         if _math_curve_request(text):
             # "h = 20t - 5t^2, find the maximum height" cues physics, but it states the
             # function and asks its maximum: physics extracts nothing, calculus does.
-            from app.modules.physics.extract import extract_physics_intent
 
             if extract_physics_intent(text) is None:
                 return "math"

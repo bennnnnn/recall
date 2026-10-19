@@ -58,3 +58,15 @@ export function withCalendarDate(current: Date, picked: Date): Date {
   next.setFullYear(picked.getFullYear(), picked.getMonth(), picked.getDate());
   return next;
 }
+
+/** A new to-do's suggested time: 9:00 today, or the next whole hour once it is past nine. */
+export function defaultDueDate(): Date {
+  const now = new Date();
+  const nineToday = new Date(now);
+  nineToday.setHours(9, 0, 0, 0);
+  if (nineToday.getTime() > now.getTime()) return nineToday;
+  const nextHour = new Date(now);
+  nextHour.setMinutes(0, 0, 0);
+  nextHour.setHours(nextHour.getHours() + 1);
+  return nextHour;
+}

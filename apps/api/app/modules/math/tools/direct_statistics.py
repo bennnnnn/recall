@@ -6,6 +6,7 @@ import math
 import re
 
 from app.modules.math.match.discrete import _STATS_WORDS, stats_signal
+from app.modules.math.match.scan import strip_command_lead
 from app.services.number_text import bounded_decimal
 from app.services.text_match import word_index
 
@@ -74,12 +75,7 @@ def statistics_direct_request(text: str) -> bool | None:
         request = request[:-1].rstrip()
     if request.startswith("please "):
         request = request[7:]
-    for prefix in ("find ", "calculate ", "compute ", "determine ", "what is ", "what's "):
-        if request.startswith(prefix):
-            request = request[len(prefix) :]
-            break
-    if request.startswith("the "):
-        request = request[4:]
+    request = strip_command_lead(request)
     for phrase, operation in _STATS_WORDS:
         if not request.startswith(phrase + " "):
             continue

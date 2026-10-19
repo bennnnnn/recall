@@ -5,6 +5,11 @@ import Svg, { Circle, G, Polygon, Polyline } from "react-native-svg";
 
 import { CartesianAxes } from "@/components/rich/CartesianAxes";
 import {
+  GRAPH_CHART_PAD,
+  INEQUALITY_REGION_OPACITY,
+  STRICT_BOUNDARY_DASH,
+} from "@/components/rich/graphPaint";
+import {
   formatGraphExpr,
   formatInequalityExpr,
   graphPolylinePoints,
@@ -18,9 +23,6 @@ import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 
 const CHART_HEIGHT = 220;
-const PAD = 28;
-const REGION_OPACITY = 0.16;
-const STRICT_DASH = [6, 5];
 
 const SkiaInequalityGraphChartLazy = lazy(() =>
   import("@/components/rich/skia/SkiaInequalityGraphChart").then((module) => ({
@@ -62,10 +64,10 @@ export function InequalityGraphChart({ spec, width }: { spec: InequalityGraphSpe
         {/* The polygon is already clipped to the viewport. Draw it before
             axes so grid/tick contrast is not reduced by the fill. */}
         {geometry.region.length >= 3 ? (
-          <Polygon testID="inequality-region" points={mapped(geometry.region)} fill={theme.primary} fillOpacity={REGION_OPACITY} />
+          <Polygon testID="inequality-region" points={mapped(geometry.region)} fill={theme.primary} fillOpacity={INEQUALITY_REGION_OPACITY} />
         ) : null}
         <CartesianAxes
-          width={width} height={CHART_HEIGHT} pad={PAD} bounds={bounds} clipId={clipId}
+          width={width} height={CHART_HEIGHT} pad={GRAPH_CHART_PAD} bounds={bounds} clipId={clipId}
           axisColor={theme.textSecondary} labelColor={theme.textSecondary} gridColor={theme.border}
           xName="x" yName="y" keepAxesInView fractionalTicks
         />
@@ -74,7 +76,7 @@ export function InequalityGraphChart({ spec, width }: { spec: InequalityGraphSpe
             <Polyline
               testID="inequality-boundary"
               points={mapped(geometry.boundary)} fill="none" stroke={theme.primary}
-              strokeWidth={2.5} strokeDasharray={strict ? STRICT_DASH : undefined}
+              strokeWidth={2.5} strokeDasharray={strict ? STRICT_BOUNDARY_DASH : undefined}
               strokeLinecap="butt"
             />
           ) : null}
@@ -103,7 +105,7 @@ export function InequalityGraphChart({ spec, width }: { spec: InequalityGraphSpe
       )}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.swatch, { backgroundColor: theme.primary, opacity: REGION_OPACITY }]} />
+          <View style={[styles.swatch, { backgroundColor: theme.primary, opacity: INEQUALITY_REGION_OPACITY }]} />
           <Text style={[styles.legendText, { color: theme.textSecondary }]}>{regionLabel}</Text>
         </View>
         <View style={styles.legendItem}>
@@ -123,7 +125,7 @@ export function InequalityGraphChart({ spec, width }: { spec: InequalityGraphSpe
 const styles = StyleSheet.create({
   wrap: { marginVertical: Space.xs, alignItems: "center", maxWidth: "100%" },
   title: { ...Type.callout, marginBottom: Space.xs, textAlign: "center" },
-  legend: { gap: Space.xs, alignSelf: "stretch", paddingHorizontal: PAD },
+  legend: { gap: Space.xs, alignSelf: "stretch", paddingHorizontal: GRAPH_CHART_PAD },
   legendItem: { flexDirection: "row", alignItems: "center", gap: Space.xs },
   legendText: { ...Type.meta, lineHeight: 17, flexShrink: 1 },
   swatch: { width: 24, height: 12, borderRadius: 2 },

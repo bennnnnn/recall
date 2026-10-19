@@ -319,11 +319,12 @@ export function useChat(
 
       let trackedId = options?.trackSendingMessageId ?? null;
       if (!options?.skipUserBubble) {
-        trackedId = `local-${Date.now()}-${attempt}`;
+        const localId = `local-${Date.now()}-${attempt}`;
+        trackedId = localId;
         setMessages((prev) => [
           ...prev,
           {
-            id: trackedId!,
+            id: localId,
             role: "user",
             content,
             model: null,
@@ -429,16 +430,16 @@ export function useChat(
     if (!token || !chatId || !isCurrentView() || streamingRef.current || finalizingRef.current) return false;
     const queue = rejectedSendsRef.current.get(chatId);
     const rejected = queue?.[0];
-    if (!rejected || rejected.reason !== "attachment_rejected") return false;
+    if (!queue || !rejected || rejected.reason !== "attachment_rejected") return false;
     const original = rejected.options.composerDraft ?? { text: rejected.content, attachment: null };
     const attachment = original.attachment ? { ...original.attachment } : null;
     // The server has rejected this reference. A local file can be uploaded
     // again when the user sends, or replaced in the restored composer.
     if (attachment) delete attachment.existingAttachmentId;
     if (!restore({ text: original.text, attachment })) return false;
-    queue!.shift();
-    if (queue!.length === 0) rejectedSendsRef.current.delete(chatId);
-    setRejectedSend(queue![0] ?? null);
+    queue.shift();
+    if (queue.length === 0) rejectedSendsRef.current.delete(chatId);
+    setRejectedSend(queue[0] ?? null);
     return true;
   }, [token, chatId, isCurrentView]);
 

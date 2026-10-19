@@ -223,7 +223,7 @@ async def test_handle_compress_delegates():
 async def test_handle_topic_delegates():
     with (
         _patch_session(),
-        patch("app.background.handlers.topic_generation.generate_chat_title", AsyncMock()) as job,
+        patch("app.background.handlers.topic_service.generate_chat_title", AsyncMock()) as job,
     ):
         await job_handlers._handle_topic(
             Settings(),

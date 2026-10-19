@@ -11,11 +11,8 @@ import { type NativeScrollEvent, type NativeSyntheticEvent, type View, type View
 import { type AnimatedStyle } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
-import type { IconName } from "@/ui/icons/names";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
-
-type Router = ReturnType<typeof useRouter>;
-
+import type { LiveTalkComposerChrome } from "@/features/chat/components/ChatComposer";
 import { ChatHeader } from "@/features/chat/components/ChatHeader";
 import type {
   ChatScreenBodyProps,
@@ -33,6 +30,8 @@ import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
 import { openDrawer } from "@/lib/drawer";
 import type { Theme } from "@/lib/theme";
+
+type Router = ReturnType<typeof useRouter>;
 
 type QuotaNudge = {
   show: boolean;
@@ -54,10 +53,7 @@ type UseChatScreenBodyPropsParams = {
     emptyHeight: number;
   };
   listBottomPadRef: MutableRefObject<number>;
-  actionBanner: {
-    message: string;
-    icon?: IconName;
-  } | null;
+  actionBanner: ChatScreenChromeProps["actionBanner"];
   dismissActionBanner: () => void;
   /** Everything needed to render the collapsible ChatHeader (title, nav, menu). */
   header: {
@@ -102,11 +98,7 @@ type UseChatScreenBodyPropsParams = {
     handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
     mathScannerOpen: boolean;
     closeMathScanner: () => void;
-    handleMathScanCaptured: (
-      pending: PendingAttachment,
-      subject: ScannerSubject,
-      confirmedReading?: string,
-    ) => void;
+    handleMathScanCaptured: ChatScreenSheetsProps["onMathScanCaptured"];
     readScan: ChatScreenSheetsProps["onReadScan"];
     handleMathScanSolve: (reading: string, subject?: ScannerSubject) => void;
     onOpenMathScanner?: () => void;
@@ -133,14 +125,7 @@ type UseChatScreenBodyPropsParams = {
     cancelVoiceInput?: () => void;
     onLiveTalkPress?: () => void;
   };
-  liveTalkSession?: {
-    muted: boolean;
-    onClose: () => void;
-    onMutePress: () => void;
-    onYield: () => void;
-  } | null;
-  listFooter?: ReactElement | null;
-  hideHomeStarters?: boolean;
+  liveTalkSession?: LiveTalkComposerChrome | null;
 };
 
 export function useChatScreenBodyProps({
@@ -218,8 +203,6 @@ export function useChatScreenBodyProps({
     onLiveTalkPress,
   },
   liveTalkSession = null,
-  listFooter = null,
-  hideHomeStarters = false,
 }: UseChatScreenBodyPropsParams): {
   bodyProps: ChatScreenBodyProps;
   openUpgradeSheet: (source?: UpgradeSource) => void;
@@ -363,8 +346,6 @@ export function useChatScreenBodyProps({
       onContentSizeChange: handleContentSizeChange,
       onListLayout: handleListLayout,
       header: listHeader,
-      footer: listFooter,
-      hideHomeStarters,
     }),
     [
       listRef,
@@ -380,8 +361,6 @@ export function useChatScreenBodyProps({
       handleContentSizeChange,
       handleListLayout,
       listHeader,
-      listFooter,
-      hideHomeStarters,
     ],
   );
 

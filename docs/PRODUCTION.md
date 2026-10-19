@@ -231,7 +231,7 @@ copy change. The server only knows the ids `free`, `plus`, `pro`.
 | AI images / day | 3 | 10 | 15 |
 | Live talk | — | — | 60 min / UTC calendar month |
 
-Every number is a `core/config.py` setting (`<NAME>`, `<NAME>_PLUS`,
+Every number is a setting in `core/settings/plans.py` (`<NAME>`, `<NAME>_PLUS`,
 `<NAME>_PRO`; see `apps/api/.env.example`). A metered feature belongs to a plan
 when its number is above zero, so moving a feature between plans is a secret
 change, not a release. `modules/billing/entitlements.py` is the one place that
@@ -524,7 +524,7 @@ second maths turn inside the 2 s slot wait gets an unverified answer.
 | `WS_IDLE_TIMEOUT_SECONDS` | `300` | A chat socket that sends no frame between turns for this long is closed with code 4408 (never during a turn). The phone opens a new socket on its next send, with no error shown. Sockets used to stay open indefinitely, so idle authenticated sockets could fill Fly's `hard_limit` of 200 per machine. `0` disables. |
 | `R2_CONNECT_TIMEOUT_SECONDS` / `R2_READ_TIMEOUT_SECONDS` / `R2_MAX_ATTEMPTS` | `5` / `20` / `3` | boto3 calls to R2 (attachment reads on the chat path, deletes, sweeps). botocore's defaults were 60s + 60s with 5 attempts, each holding a default-executor thread (5 on one CPU). Retries use botocore's `standard` mode (jittered backoff). |
 | `GOOGLE_AUTH_TIMEOUT_SECONDS` | `10` | Google cert fetch during sign-in (google-auth defaulted to 120s). A failed or slow fetch answers 503 + `Retry-After`, not 500 or 401. |
-| Link preview (`services/link_preview.py`) | 8s per fetch, 3 open per user, 20/min | `fetch_safely` takes an overall deadline (DNS, every redirect hop, the body): a server dripping one byte per read used to hold a request open for minutes. A fourth uncached preview while three are open answers 429 + `Retry-After` (Redis sorted set; a crashed fetch ages out after 30s). |
+| Link preview (`modules/link_preview/service.py`) | 8s per fetch, 3 open per user, 20/min | `fetch_safely` takes an overall deadline (DNS, every redirect hop, the body): a server dripping one byte per read used to hold a request open for minutes. A fourth uncached preview while three are open answers 429 + `Retry-After` (Redis sorted set; a crashed fetch ages out after 30s). |
 | `DB_CONNECT_TIMEOUT_SECONDS` / `DB_COMMAND_TIMEOUT_SECONDS` | `10` / `120` | asyncpg connect (default was 60s) and every statement (default was unbounded), including the `pool_pre_ping` on each checkout, so a half-open pooled connection can no longer hang a request. Client-side, so it works through Neon's pooler. Generous because account delete is one cascading `DELETE`. Migrations are not affected. A pool, connect or statement timeout, or a dropped connection, now answers `503` + `Retry-After: 5` instead of a bare 500. |
 | `JOB_TIMEOUT_SECONDS` | `900` | Deadline for one attempt of one background job. An attempt that runs out goes to the DLQ without retry. An entry delivered more than 5 times without an ack (it keeps killing the worker) also goes to the DLQ on reclaim. |
 
@@ -552,7 +552,7 @@ machine at once.
 **`DAILY_GLOBAL_SPEND_USD`** is a kill-switch on estimated provider dollars per
 UTC day (Redis `spend_musd:<date>`, `core/spend_counter.py`). What adds to it:
 
-- a chat turn: catalog price x its tokens, at finalize (`modules/chat/post_turn.py`);
+- a chat turn: catalog price x its tokens, at finalize (`modules/chat/turn_settle.py`);
 - every other model call, priced from its tokens by the gateway that makes it
   (`gateways/llm_spend.py`): memory extraction and consolidation, titles,
   suggestions, compression, follow-up questions, attachment OCR, embeddings,

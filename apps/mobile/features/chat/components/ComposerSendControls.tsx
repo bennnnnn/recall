@@ -35,7 +35,6 @@ export function ComposerSendControls({
   showSend,
   sendBusy,
   isOffline,
-  attachBusy,
   showMic,
   voiceRecording,
   voiceTranscribing,
@@ -68,12 +67,12 @@ export function ComposerSendControls({
         <VoiceMicButton
           recording={voiceRecording}
           transcribing={voiceTranscribing}
-          disabled={attachBusy || sendBusy || isOffline}
+          disabled={sendBusy || isOffline}
           onPress={onVoicePress}
         />
       ) : null}
       {onLiveTalkPress && !liveTalkOpen && !voiceActive && !showSend && !sendBusy ? (
-        <LiveTalkButton disabled={attachBusy || isOffline} onPress={onLiveTalkPress} />
+        <LiveTalkButton disabled={isOffline} onPress={onLiveTalkPress} />
       ) : null}
       {showSend || sendBusy ? (
         <Pressable

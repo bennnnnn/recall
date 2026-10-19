@@ -194,7 +194,9 @@ async def test_gateway_failure_log_omits_full_recipient(monkeypatch, caplog):
         async def post(self, *a, **kw):
             raise RuntimeError("network down")
 
-    monkeypatch.setattr("app.gateways.email_gateway.httpx.AsyncClient", FakeClient)
+    monkeypatch.setattr(
+        "app.gateways.email_gateway.get_pooled_client", lambda *_a, **_kw: FakeClient()
+    )
     with caplog.at_level("ERROR", logger="app.gateways.email_gateway"):
         ok = await email_gateway.send_email(
             settings, to="bob@secret.example", subject="Hi", html="<p/>", text="t"
@@ -246,7 +248,9 @@ async def test_gateway_real_path_posts_to_resend(monkeypatch):
             captured["headers"] = headers
             return FakeResp()
 
-    monkeypatch.setattr("app.gateways.email_gateway.httpx.AsyncClient", FakeClient)
+    monkeypatch.setattr(
+        "app.gateways.email_gateway.get_pooled_client", lambda *_a, **_kw: FakeClient()
+    )
     ok = await email_gateway.send_email(
         settings, to="a@b.com", subject="Hi", html="<p>Hi</p>", text="Hi"
     )
@@ -274,7 +278,9 @@ async def test_gateway_real_path_swallows_errors(monkeypatch):
         async def post(self, *a, **kw):
             raise RuntimeError("network down")
 
-    monkeypatch.setattr("app.gateways.email_gateway.httpx.AsyncClient", FakeClient)
+    monkeypatch.setattr(
+        "app.gateways.email_gateway.get_pooled_client", lambda *_a, **_kw: FakeClient()
+    )
     # Must not raise.
     ok = await email_gateway.send_email(settings, to="a@b.com", subject="Hi", html="<p/>", text="t")
     assert ok is False

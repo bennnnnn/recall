@@ -1,5 +1,6 @@
 """Shared process bootstrap wiring tests."""
 
+from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -28,7 +29,7 @@ async def test_initialize_process_warms_sympy_only_for_api_roles(
         patch("app.process_bootstrap.validate_production_settings"),
         patch("app.process_bootstrap.setup_mcp_adapters"),
         patch("app.process_bootstrap.warmup_db_pool", AsyncMock()),
-        patch("app.core.sympy_executor.warm_sympy_pool", warm_sympy),
+        patch("app.process_bootstrap.warm_sympy_pool", warm_sympy),
     ):
         await process_bootstrap.initialize_process(
             Settings(mock_llm_enabled=True, process_role=role)
@@ -79,6 +80,57 @@ async def test_start_worker_runtime_registers_before_consumer_and_schedulers():
         await process_bootstrap.start_worker_runtime(settings)
 
     assert order == ["register", "worker"]
+
+
+@pytest.mark.asyncio
+async def test_worker_runtime_starts_and_stops_every_scheduler_in_order():
+    calls: list[str] = []
+
+    def recorder(name: str) -> AsyncMock:
+        return AsyncMock(side_effect=lambda *_args: calls.append(name))
+
+    schedulers = {
+        "push": ("push_scheduler", "start_push_scheduler", "stop_push_scheduler"),
+        "email": (
+            "email_reminder_scheduler",
+            "start_email_reminder_scheduler",
+            "stop_email_reminder_scheduler",
+        ),
+        "reaper": ("attachment_orphan_reaper", "start_orphan_reaper", "stop_orphan_reaper"),
+        "billing": (
+            "billing_reconcile_scheduler",
+            "start_billing_reconcile_scheduler",
+            "stop_billing_reconcile_scheduler",
+        ),
+    }
+    with ExitStack() as stack:
+        stack.enter_context(patch("app.process_bootstrap.job_handlers.register_all"))
+        stack.enter_context(
+            patch("app.process_bootstrap.jobs.start_worker", recorder("start jobs"))
+        )
+        stack.enter_context(patch("app.process_bootstrap.jobs.stop_worker", recorder("stop jobs")))
+        for name, (module, start, stop) in schedulers.items():
+            stack.enter_context(
+                patch(f"app.process_bootstrap.{module}.{start}", recorder(f"start {name}"))
+            )
+            stack.enter_context(
+                patch(f"app.process_bootstrap.{module}.{stop}", recorder(f"stop {name}"))
+            )
+        await process_bootstrap.start_worker_runtime(Settings(mock_llm_enabled=True))
+        await process_bootstrap.stop_worker_runtime()
+
+    assert calls == [
+        "start jobs",
+        "start push",
+        "start email",
+        "start reaper",
+        "start billing",
+        "stop jobs",
+        "stop push",
+        "stop email",
+        "stop reaper",
+        "stop billing",
+    ]
 
 
 @pytest.mark.asyncio

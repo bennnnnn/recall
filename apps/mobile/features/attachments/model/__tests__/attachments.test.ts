@@ -6,7 +6,7 @@ jest.mock("react-native", () => ({
 
 import { File } from "expo-file-system";
 import { api } from "@/lib/api";
-import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
+import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 import { ApiRequestError, requestRaw } from "@/lib/api/client";
 import { Linking } from "react-native";
 import {

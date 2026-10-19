@@ -226,6 +226,18 @@ def _find_value_with_specific_unit(
     return float(match.group(1)), match.group(2)
 
 
+def labeled_value(text: str, label: str, unit: str) -> tuple[float, str] | None:
+    """The value a label names, with its unit: ``initial speed of 4 m/s`` → ``(4.0, "m/s")``."""
+    match = re.search(
+        rf"\b(?:{label})(?:\s+of)?\s+({_NUMBER})\s*({unit})\b",
+        text,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    return float(match.group(1)), match.group(2)
+
+
 def stated_gravity(text: str) -> float | None:
     """A gravity value the user wrote: "g = 1.6", "gravity = 1.62", "g = 1.6 m/s^2"."""
     lower = text.lower()

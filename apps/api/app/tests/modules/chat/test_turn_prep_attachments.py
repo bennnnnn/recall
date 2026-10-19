@@ -1,5 +1,4 @@
 import asyncio
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -8,8 +7,10 @@ import pytest
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway
+from app.modules.chat.turn_prep import TurnPromptBundle
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.math.schemas import MathImageExtract
+from app.tests.modules.chat.chat_test_support import prompt_bundle
 
 
 @pytest.mark.asyncio
@@ -154,18 +155,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
 
     async def _fake_build_stream_prompt_context(request: TurnRequest, *_args: object):
         captured["image_math_extract"] = request.image_math_extract
-        return SimpleNamespace(
-            prompt_messages=[],
-            meta={},
-            instant_reply=None,
-            search_sources=[],
-            local_places=False,
-            max_out=100,
-            fallback_models=[],
-            lightweight=False,
-            rich_context=True,
-            verified_subject=None,
-        )
+        return prompt_bundle()
 
     with (
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
@@ -292,18 +282,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             return None
 
     async def _fake_build_stream_prompt_context(*_args: object, **kwargs: object):
-        return SimpleNamespace(
-            prompt_messages=[],
-            meta={},
-            instant_reply=None,
-            search_sources=[],
-            local_places=False,
-            max_out=100,
-            fallback_models=[],
-            lightweight=False,
-            rich_context=True,
-            verified_subject=None,
-        )
+        return prompt_bundle()
 
     with (
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
@@ -677,19 +656,8 @@ async def test_process_attachments_document_flags_document():
     assert result.has_document_attachment is True
 
 
-def _prompt_bundle() -> SimpleNamespace:
-    return SimpleNamespace(
-        prompt_messages=[],
-        meta={},
-        instant_reply=None,
-        search_sources=[],
-        local_places=False,
-        max_out=100,
-        fallback_models=[],
-        lightweight=True,
-        rich_context=False,
-        verified_subject=None,
-    )
+def _prompt_bundle() -> TurnPromptBundle:
+    return prompt_bundle(lightweight=True, rich_context=False)
 
 
 @pytest.mark.asyncio

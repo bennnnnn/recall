@@ -1,5 +1,5 @@
 /** The scene's arrows: the vectors the solver states and the arrows a body carries. */
-import { useMemo } from "react";
+import { useMemo, type ComponentProps } from "react";
 import { DashPathEffect, Path, Skia } from "@shopify/react-native-skia";
 import { useDerivedValue, type SharedValue } from "react-native-reanimated";
 
@@ -33,6 +33,61 @@ export type Wheel = { cx: number; cy: number; radius: number } | null;
 export function vectorColor(role: VectorLayout["vector"]["role"], theme: Theme): string {
   // Motion shares the velocity arrow's colour family; the answer is primary.
   return role === "result" || role === "motion" ? theme.primary : theme.textSecondary;
+}
+
+/** How a stated vector is painted for its role: its stroke kind, colour and width. */
+function vectorPaint(role: VectorLayout["vector"]["role"], theme: Theme) {
+  return {
+    stroke: vectorStroke(role),
+    color: vectorColor(role, theme),
+    strokeWidth: role === "result" ? RESULT_STROKE : ARROW_STROKE,
+  };
+}
+
+type PathProp = ComponentProps<typeof Path>["path"];
+
+/**
+ * A stated vector's marks. A force is one arrow, stroked and filled (`shaft`
+ * holds the whole arrow); motion and a measure are a dashed shaft with a
+ * solid `head`, since dashing the head would break it up.
+ */
+function VectorMarks({
+  stroke,
+  color,
+  strokeWidth,
+  shaft,
+  head,
+}: ReturnType<typeof vectorPaint> & { shaft: PathProp; head: PathProp }) {
+  if (stroke === "force") {
+    return (
+      <>
+        <Path
+          path={shaft}
+          color={color}
+          style="stroke"
+          strokeWidth={strokeWidth}
+          strokeJoin="round"
+          strokeCap="round"
+        />
+        <Path path={shaft} color={color} style="fill" />
+      </>
+    );
+  }
+  return (
+    <>
+      <Path path={shaft} color={color} style="stroke" strokeWidth={strokeWidth}>
+        <DashPathEffect intervals={stroke === "motion" ? [5, 3] : [3, 3]} />
+      </Path>
+      <Path
+        path={head}
+        color={color}
+        style="stroke"
+        strokeWidth={strokeWidth}
+        strokeJoin="round"
+        strokeCap="round"
+      />
+    </>
+  );
 }
 
 /** A riding vector this frame: started where its body has carried it, refitted. */
@@ -81,9 +136,8 @@ export function RidingVector({
   canvasWidth: number;
   canvasHeight: number;
 }) {
-  const stroke = vectorStroke(layout.vector.role);
-  const color = vectorColor(layout.vector.role, theme);
-  const strokeWidth = layout.vector.role === "result" ? RESULT_STROKE : ARROW_STROKE;
+  const paint = vectorPaint(layout.vector.role, theme);
+  const { stroke } = paint;
   const shaft = useDerivedValue(() => {
     const path = Skia.Path.Make();
     const arrow = ridingNow(layout, track, progress.value, wheel, canvasWidth, canvasHeight);
@@ -118,36 +172,7 @@ export function RidingVector({
       arrow.length,
     );
   });
-  if (stroke === "force") {
-    return (
-      <>
-        <Path
-          path={shaft}
-          color={color}
-          style="stroke"
-          strokeWidth={strokeWidth}
-          strokeJoin="round"
-          strokeCap="round"
-        />
-        <Path path={shaft} color={color} style="fill" />
-      </>
-    );
-  }
-  return (
-    <>
-      <Path path={shaft} color={color} style="stroke" strokeWidth={strokeWidth}>
-        <DashPathEffect intervals={stroke === "motion" ? [5, 3] : [3, 3]} />
-      </Path>
-      <Path
-        path={head}
-        color={color}
-        style="stroke"
-        strokeWidth={strokeWidth}
-        strokeJoin="round"
-        strokeCap="round"
-      />
-    </>
-  );
+  return <VectorMarks {...paint} shaft={shaft} head={head} />;
 }
 
 export type ArrowContext = {
@@ -228,9 +253,8 @@ export function DerivedArrow({
 }
 
 export function StatedVector({ layout, theme }: { layout: VectorLayout; theme: Theme }) {
-  const stroke = vectorStroke(layout.vector.role);
-  const color = vectorColor(layout.vector.role, theme);
-  const strokeWidth = layout.vector.role === "result" ? RESULT_STROKE : ARROW_STROKE;
+  const paint = vectorPaint(layout.vector.role, theme);
+  const { stroke } = paint;
   const paths = useMemo(() => {
     const { from, tip, head } = layout;
     const length = Math.hypot(tip.px - from.px, tip.py - from.py);
@@ -248,35 +272,9 @@ export function StatedVector({ layout, theme }: { layout: VectorLayout; theme: T
     };
   }, [layout, stroke]);
   if (!paths) return null;
-
-  if (paths.solid) {
-    return (
-      <>
-        <Path
-          path={paths.whole}
-          color={color}
-          style="stroke"
-          strokeWidth={strokeWidth}
-          strokeJoin="round"
-          strokeCap="round"
-        />
-        <Path path={paths.whole} color={color} style="fill" />
-      </>
-    );
-  }
-  return (
-    <>
-      <Path path={paths.shaft} color={color} style="stroke" strokeWidth={strokeWidth}>
-        <DashPathEffect intervals={stroke === "motion" ? [5, 3] : [3, 3]} />
-      </Path>
-      <Path
-        path={paths.head}
-        color={color}
-        style="stroke"
-        strokeWidth={strokeWidth}
-        strokeJoin="round"
-        strokeCap="round"
-      />
-    </>
+  return paths.solid ? (
+    <VectorMarks {...paint} shaft={paths.whole} head={paths.whole} />
+  ) : (
+    <VectorMarks {...paint} shaft={paths.shaft} head={paths.head} />
   );
 }

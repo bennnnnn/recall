@@ -5,7 +5,7 @@ jest.mock("react-i18next", () => {
   const t = (key: string) => key;
   return { useTranslation: () => ({ t }) };
 });
-jest.mock("@/hooks/useQuotaNudge", () => ({ useQuotaNudge: jest.fn() }));
+jest.mock("@/features/chat/hooks/useQuotaNudge", () => ({ useQuotaNudge: jest.fn() }));
 
 it("clears the previous chat's rejection while preserving unrelated errors", async () => {
   const { result } = await renderHook(() => useChatErrorHandlers(false));

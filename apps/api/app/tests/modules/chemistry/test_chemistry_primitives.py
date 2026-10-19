@@ -14,6 +14,7 @@ from app.modules.chemistry.organic import isomer_relationship, organic_facts
 from app.modules.chemistry.quantity import to_atm, to_kelvin, to_liters
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers import solve_chemistry
+from app.modules.chemistry.species_facts import without_formulas
 from app.modules.chemistry.structure import lewis_structure, oxidation_states
 from app.services.solving import SolveServiceError
 
@@ -262,3 +263,17 @@ def test_organic_facts_and_coordination_names() -> None:
 
 def test_nuclear_equations_conserve_nucleons() -> None:
     assert format_nuclear(balance_nuclear("238U -> 234Th + ?")) == "238U → 234Th + 4He"
+
+
+@pytest.mark.parametrize(
+    ("text", "blanked"),
+    [
+        ("2.0 g of H2 and 16 g of O2", "2.0 g of    and 16 g of   "),
+        ("0.10 M Cu2+ from CuSO4", "0.10 M      from      "),
+        ("Fe2O3 is 70% iron", "      is 70% iron"),
+        ("no formula here", "no formula here"),
+    ],
+)
+def test_without_formulas_blanks_formula_digits_in_place(text: str, blanked: str) -> None:
+    assert without_formulas(text) == blanked
+    assert len(without_formulas(text)) == len(text)

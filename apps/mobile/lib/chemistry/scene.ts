@@ -1,5 +1,7 @@
 /** Parse a server-owned ```chem_scene fence. Invalid JSON draws nothing. */
 
+import { isJsonRecord, parseJsonRecord } from "@/lib/jsonFence";
+
 type BalanceRow = { element: string; left: number; right: number };
 
 export type BalanceScene = {
@@ -57,10 +59,6 @@ export type ChemistryScene =
   | EquilibriumScene
   | CellScene;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
@@ -70,13 +68,8 @@ function whole(value: unknown): number | null {
 }
 
 export function parseChemistryScene(content: string): ChemistryScene | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    return null;
-  }
-  if (!isRecord(parsed)) return null;
+  const parsed = parseJsonRecord(content);
+  if (!parsed) return null;
   const title = text(parsed.title);
   const kind = parsed.kind;
   if (!title || typeof kind !== "string") return null;
@@ -90,10 +83,10 @@ export function parseChemistryScene(content: string): ChemistryScene | null {
 }
 
 function parseBalance(parsed: Record<string, unknown>, title: string): BalanceScene | null {
-  if (!Array.isArray(parsed.rows) || !isRecord(parsed.charge)) return null;
+  if (!Array.isArray(parsed.rows) || !isJsonRecord(parsed.charge)) return null;
   const rows: BalanceRow[] = [];
   for (const row of parsed.rows) {
-    if (!isRecord(row)) return null;
+    if (!isJsonRecord(row)) return null;
     const element = text(row.element);
     const left = whole(row.left);
     const right = whole(row.right);
@@ -110,7 +103,7 @@ function parseStoich(parsed: Record<string, unknown>, title: string): StoichScen
   if (!Array.isArray(parsed.steps)) return null;
   const steps: { label: string; value: string }[] = [];
   for (const step of parsed.steps) {
-    if (!isRecord(step)) return null;
+    if (!isJsonRecord(step)) return null;
     const label = text(step.label);
     const value = text(step.value);
     if (!label || !value) return null;
@@ -151,7 +144,7 @@ function parseTitration(parsed: Record<string, unknown>, title: string): Titrati
   if (!region || !Array.isArray(parsed.anchors) || parsed.anchors.length === 0) return null;
   const anchors: TitrationScene["anchors"] = [];
   for (const anchor of parsed.anchors) {
-    if (!isRecord(anchor)) return null;
+    if (!isJsonRecord(anchor)) return null;
     const label = text(anchor.label);
     if (!label) return null;
     anchors.push({
@@ -169,7 +162,7 @@ function parseEquilibrium(parsed: Record<string, unknown>, title: string): Equil
   if (!Array.isArray(parsed.rows) || parsed.rows.length === 0) return null;
   const rows: EquilibriumScene["rows"] = [];
   for (const row of parsed.rows) {
-    if (!isRecord(row)) return null;
+    if (!isJsonRecord(row)) return null;
     const species = text(row.species);
     const initial = text(row.initial);
     const change = text(row.change);

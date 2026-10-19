@@ -32,6 +32,34 @@ from app.modules.notifications import enqueue_welcome_email
 from app.repositories import users as users_repo
 
 
+async def _signed_in(
+    redis: Redis,
+    settings: Settings,
+    user: User,
+    *,
+    is_new_user: bool,
+    device_label: str | None,
+    platform: str | None,
+) -> AuthResponse:
+    """Finish any sign-in: welcome a new account, then issue its token pair."""
+    if is_new_user and settings.email_enabled:
+        # Best-effort: never let a welcome email block signup.
+        await enqueue_welcome_email(redis, user.id)
+
+    access_token, refresh_token = await tokens_service.issue_token_pair(
+        redis,
+        user.id,
+        settings,
+        device_label=device_label,
+        platform=platform,
+    )
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserOut.model_validate(user),
+    )
+
+
 async def login_with_google(
     session: AsyncSession,
     settings: Settings,
@@ -93,21 +121,13 @@ async def login_with_google(
             avatar_url=avatar_url or user.avatar_url,
         )
 
-    if is_new_user and settings.email_enabled:
-        # Best-effort: never let a welcome email block signup.
-        await enqueue_welcome_email(redis, user.id)
-
-    access_token, refresh_token = await tokens_service.issue_token_pair(
+    return await _signed_in(
         redis,
-        user.id,
         settings,
+        user,
+        is_new_user=is_new_user,
         device_label=device_label,
         platform=platform,
-    )
-    return AuthResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserOut.model_validate(user),
     )
 
 
@@ -175,20 +195,13 @@ async def login_with_apple(
         if updates:
             user = await users_repo.update(session, user, commit=True, **updates)
 
-    if is_new_user and settings.email_enabled:
-        await enqueue_welcome_email(redis, user.id)
-
-    access_token, refresh_token = await tokens_service.issue_token_pair(
+    return await _signed_in(
         redis,
-        user.id,
         settings,
+        user,
+        is_new_user=is_new_user,
         device_label=device_label,
         platform=platform,
-    )
-    return AuthResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserOut.model_validate(user),
     )
 
 
@@ -225,20 +238,13 @@ async def login_dev(
         # account instead of being stuck at the name it was first created with.
         user = await users_repo.update(session, user, name=name)
 
-    if is_new_user and settings.email_enabled:
-        await enqueue_welcome_email(redis, user.id)
-
-    access_token, refresh_token = await tokens_service.issue_token_pair(
+    return await _signed_in(
         redis,
-        user.id,
         settings,
+        user,
+        is_new_user=is_new_user,
         device_label=device_label,
         platform=platform,
-    )
-    return AuthResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserOut.model_validate(user),
     )
 
 

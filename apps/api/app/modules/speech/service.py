@@ -9,8 +9,8 @@ from collections.abc import AsyncIterator
 from app.core.config import Settings
 from app.gateways import mock_llm, speech_gateway
 from app.modules.speech.schemas import SPEECH_MAX_AUDIO_BYTES
+from app.modules.speech.transcript_validation import sanitize_transcript
 from app.services.model_catalog import openrouter_slug
-from app.services.transcript_validation import sanitize_transcript
 
 logger = logging.getLogger(__name__)
 

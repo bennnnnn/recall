@@ -41,8 +41,17 @@ import {
   parseSteps,
 } from "@/lib/richBlocks";
 
-function mathFenceKey(content: string, tokenIndex?: number): string {
+/** A display-math block's key: its source, and its token when the markdown AST gives one. */
+export function mathFenceKey(content: string, tokenIndex?: number): string {
   return tokenIndex != null ? `math:${content}#${tokenIndex}` : `math:${content}`;
+}
+
+/**
+ * An email card's key: its token when the markdown AST gives one, so a draft
+ * the user is editing keeps its state while the reply re-parses.
+ */
+function emailFenceKey(key: string, tokenIndex?: number): string {
+  return tokenIndex != null ? `email:${tokenIndex}` : key;
 }
 
 /** Render a registry fence by id — no lang-string soup, no content heuristics. */
@@ -56,8 +65,7 @@ export function renderRichFenceById(
   switch (id) {
     case "email": {
       const draft = parseEmailDraft(content) ?? { body: content };
-      const emailKey = tokenIndex != null ? `email:${tokenIndex}` : key;
-      return <EmailCard key={emailKey} draft={draft} />;
+      return <EmailCard key={emailFenceKey(key, tokenIndex)} draft={draft} />;
     }
     case "quote": {
       const { quote, author } = parseQuoteAttribution(content);
@@ -141,7 +149,7 @@ export function renderCopyStyleBlock(
   tokenIndex?: number,
 ): ReactNode | null {
   const l = lang.trim().toLowerCase();
-  const emailKey = tokenIndex != null ? `email:${tokenIndex}` : key;
+  const emailKey = emailFenceKey(key, tokenIndex);
   if (l === "email") {
     const draft = parseEmailDraft(content);
     if (draft) return <EmailCard key={emailKey} draft={draft} />;

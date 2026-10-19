@@ -15,12 +15,14 @@ from jwt.algorithms import RSAAlgorithm
 
 from app.core.config import Settings
 from app.gateways.google_auth import GoogleAuthError
+from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
 
 APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
 APPLE_ISSUER = "https://appleid.apple.com"
 _JWKS_TTL_SECONDS = 3600
+_JWKS_TIMEOUT_SECONDS = 10.0
 _jwks_cache: dict[str, Any] | None = None
 _jwks_fetched_at: float = 0.0
 # Single-flights concurrent refreshes so a cache expiry (or a kid miss, which
@@ -43,8 +45,7 @@ async def _fetch_apple_jwks(*, force_refresh: bool = False) -> dict[str, Any]:
         # it while we were waiting, so we don't fetch a second time in a row.
         if not force_refresh and _cache_is_fresh():
             return _jwks_cache  # type: ignore[return-value]
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(APPLE_JWKS_URL)
+        response = await get_pooled_client(_JWKS_TIMEOUT_SECONDS).get(APPLE_JWKS_URL)
         response.raise_for_status()
         parsed: dict[str, Any] = response.json()
         _jwks_cache = parsed

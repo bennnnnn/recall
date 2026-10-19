@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from sympy import Symbol, diff, latex
+from sympy.utilities.lambdify import lambdify
 
 from app.modules.math.schemas import (
     NewtonIterationStep,
@@ -21,8 +22,6 @@ def newton_method(data: NewtonMethodInput) -> NewtonMethodResult:
     sym = Symbol(data.variable)
     parsed = _parse_expression(data.expr, [data.variable])
     derivative = diff(parsed, sym)
-
-    from sympy.utilities.lambdify import lambdify
 
     f = lambdify(sym, parsed, modules=["math"])
     fprime = lambdify(sym, derivative, modules=["math"])

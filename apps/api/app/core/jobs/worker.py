@@ -11,6 +11,7 @@ from typing import Any, Literal, cast
 
 from redis.asyncio import Redis
 
+from app.core import sentry
 from app.core.config import Settings
 from app.core.jobs.admin import _METRICS_INTERVAL_S, _move_to_dlq, report_queue_metrics
 from app.core.jobs.dedupe import (
@@ -24,13 +25,7 @@ from app.core.jobs.dedupe import (
 )
 from app.core.jobs.inflight import InFlight
 from app.core.jobs.pending import _ack_trimmed_entries, _drop_poison_entries, _forget_consumer
-from app.core.jobs.queue import (
-    JOBS_GROUP,
-    JOBS_STREAM,
-    JobDiscardError,
-    _capture_sentry_exception,
-    _dispatch,
-)
+from app.core.jobs.queue import JOBS_GROUP, JOBS_STREAM, JobDiscardError, _dispatch
 from app.core.redis import get_jobs_redis_client
 
 logger = logging.getLogger("app.core.jobs")
@@ -160,7 +155,7 @@ async def _dispatch_with_retries(
                     fields.get("type"),
                     job_timeout,
                 )
-                _capture_sentry_exception(f"job_timeout:{fields.get('type')}")
+                sentry.report_exception(f"job_timeout:{fields.get('type')}")
                 error = f"timed out after {job_timeout}s"
                 await _dead_letter(redis, entry_id, fields, dedupe_key, error)
                 return

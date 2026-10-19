@@ -148,7 +148,6 @@ async def _run(prompt: str, args: dict[str, Any], answer: str) -> tuple[list[dic
     ):
         out, verified, _terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=1),
-            model_alias="free-chat",
             messages=[{"role": "user", "content": prompt}],
             usage={},
         )

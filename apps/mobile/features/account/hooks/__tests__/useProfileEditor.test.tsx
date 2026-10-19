@@ -11,7 +11,7 @@ import {
   uploadChatAttachment,
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
-import { discardProfilePhoto, pickProfilePhoto } from "@/lib/profilePhoto";
+import { discardProfilePhoto, pickProfilePhoto } from "@/features/account/model/profilePhoto";
 
 let mockSession = 1;
 let mockUser = { id: "account-a", name: "Ada", avatar_url: "https://example.com/avatar.jpg" };
@@ -35,7 +35,7 @@ jest.mock("@/features/attachments/model/attachments", () => ({
     }
   },
 }));
-jest.mock("@/lib/profilePhoto", () => ({ pickProfilePhoto: jest.fn(), discardProfilePhoto: jest.fn() }));
+jest.mock("@/features/account/model/profilePhoto", () => ({ pickProfilePhoto: jest.fn(), discardProfilePhoto: jest.fn() }));
 
 const PHOTO: PendingAttachment = {
   localUri: "file:///profile-preview.jpg", contentType: "image/jpeg", fileName: "profile.jpg", kind: "image",

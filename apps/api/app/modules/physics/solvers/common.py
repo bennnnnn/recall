@@ -163,6 +163,14 @@ _OFFSET_DIFFERENCES = {
 }
 
 
+def one_unknown(params: dict[str, float], keys: tuple[str, ...]) -> str:
+    """The one key of ``keys`` the params leave out; any other count is refused."""
+    missing = [key for key in keys if key not in params]
+    if len(missing) != 1:
+        raise SolveServiceError("needs exactly one unknown")
+    return missing[0]
+
+
 def gravity_of(params: dict[str, float]) -> float:
     """The g a solver uses: the one in the intent, or Earth's school value."""
     return params["g"] if "g" in params else SCHOOL_GRAVITY["earth"]

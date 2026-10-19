@@ -5,6 +5,7 @@ import {
 } from "expo-file-system/legacy";
 import * as WebBrowser from "expo-web-browser";
 import { Linking, Platform, Share } from "react-native";
+import { newAccountFile } from "@/lib/accountFiles";
 import { stripScripts } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
 import { CODE_FONT } from "@/lib/fonts";
@@ -58,7 +59,7 @@ async function writeHtmlPreviewFile(html: string): Promise<string | null> {
   const dir = cacheDirectory;
   if (!dir) return null;
 
-  const fileUri = `${dir}recall-preview-${Date.now()}.html`;
+  const fileUri = newAccountFile("htmlPreview", "html");
   try {
     await writeAsStringAsync(fileUri, html, {
       encoding: EncodingType.UTF8,

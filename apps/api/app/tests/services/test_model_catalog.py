@@ -80,10 +80,10 @@ def test_catalog_models_use_live_openrouter_prices(
     assert model_catalog.openrouter_slug(alias) == slug
 
 
-def test_known_model_aliases_match_catalog():
-    from app.core.validation import KNOWN_MODEL_ALIASES
-
-    assert KNOWN_MODEL_ALIASES == model_catalog.known_ids()
+def test_every_catalog_alias_validates():
+    """The catalog is the one alias list; request schemas accept each id in it."""
+    for alias in model_catalog.known_ids():
+        model_catalog.validate_user_alias(alias)
 
 
 def test_estimate_cost_usd_for_known_model():

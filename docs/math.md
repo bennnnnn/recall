@@ -225,6 +225,29 @@ solver, and tests. New physics homework uses the equivalent physics-owned regist
 subject adds a branch to the other's registry. `math/tools` is a package (`extract.py` registry,
 `block/` builders, `school.py` extra kinds) — do not add a second math kind table.
 
+### Adding a verified operation
+
+Each step has one home; nothing else needs an edit.
+
+- **A new operation of an existing kind** (a statistic, a matrix operation, a solid, a
+  fraction procedure): add its name to the kind's `Literal` in `schemas/operations.py`, which
+  `MathIntent`, the solver inputs and the matchers all read; then teach the matcher
+  (`match/discrete.py`, `match/geometry.py`) the words and the solver (`solve/`) the
+  operation.
+- **A school operation** (a percent, interest, ratio or rounding shape on `arithmetic`,
+  `coord`, `vector`, `probability`, `complex`, `unit` or `trig`): put its reader and its block
+  side by side in `tools/school/<topic>.py`. A new reader goes into `SCHOOL_EXTRACTORS`
+  (`tools/school/__init__.py`) at the place its order comment allows; a new school kind's
+  block goes into `SCHOOL_BLOCK_BUILDERS`.
+- **A new kind**: add it to `MathIntent.kind` (`schemas/intent.py`), its extractor to the
+  ordered `_INTENT_EXTRACTORS` in `tools/extract.py` (the order is the behavior; say in a
+  comment why it sits where it does), its builder to `_BLOCK_BUILDERS` in
+  `tools/block/__init__.py`, and its SymPy work to `solve/`. A declined SymPy step goes
+  through `solve/declines.py` (`@declines` or `sympy_decline()`), never a bare `except`.
+- **Tests**: `test_math_catalog_all_kinds.py` needs one verified end-to-end example of every
+  kind; add the question, its look-alikes and a decline to `stem_corpus/math/` and any
+  everyday look-alike to `sweep_corpus/math_lookalikes.json`.
+
 ## When no verified result stands behind the reply
 
 Maths, physics and chemistry share one contract for a reply the model works out itself

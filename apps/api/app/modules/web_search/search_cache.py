@@ -195,15 +195,21 @@ async def _search_with_cache(
             if isinstance(item, dict)
         ]
 
-    try:
-        cached = await cache_redis.get(cache_key)
-        if cached:
-            hits = _hits_from_payload(json.loads(cached))
-            if hits is not None:
-                _record(budget, failed=False)
-                return hits
-    except Exception:
-        logger.debug("Web search cache read failed", exc_info=True)
+    async def _cached_hits() -> list[WebSearchHit] | None:
+        """This query's cached hits (counted as a search), or None on a miss or error."""
+        try:
+            cached = await cache_redis.get(cache_key)
+            if cached:
+                hits = _hits_from_payload(json.loads(cached))
+                if hits is not None:
+                    _record(budget, failed=False)
+                    return hits
+        except Exception:
+            logger.debug("Web search cache read failed", exc_info=True)
+        return None
+
+    if (hits := await _cached_hits()) is not None:
+        return hits
 
     lock_key = f"{cache_key}:lock"
     acquired = False
@@ -213,17 +219,11 @@ async def _search_with_cache(
         logger.debug("Web search lock acquire failed", exc_info=True)
 
     if not acquired:
+        # Another request is fetching this query: wait up to 2s for its result.
         for _ in range(20):
             await asyncio.sleep(0.1)
-            try:
-                cached = await cache_redis.get(cache_key)
-                if cached:
-                    hits = _hits_from_payload(json.loads(cached))
-                    if hits is not None:
-                        _record(budget, failed=False)
-                        return hits
-            except Exception:
-                logger.debug("Web search cache read failed", exc_info=True)
+            if (hits := await _cached_hits()) is not None:
+                return hits
 
     try:
         # Reserve one Tavily slot for the whole turn (shared budget), only now

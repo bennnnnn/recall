@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.models.orm import Message
 from app.models.schemas import TodoExtractionResult
-from app.modules import home as home_service
+from app.modules.home import service as home_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.actions import (
     _ACTION_RELOAD_LIMIT,

@@ -14,14 +14,13 @@ list, not import-time discovery, so the set of live job types stays greppable.
 """
 
 import asyncio
+import functools
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID
 
-from app.background import (
-    message_indexing,
-    topic_generation,
-)
+from app.background import message_indexing
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.jobs import JobDiscardError, enqueue, purge_user_jobs, register
@@ -37,24 +36,14 @@ from app.modules.memory import learning_progress as memory_learning
 from app.modules.notifications import transactional_email as transactional_email_service
 from app.modules.suggestions import service as suggestion_generation
 from app.modules.todos import jobs as todo_jobs
+from app.repositories import users as users_repo
 from app.services import quota as quota_service
+from app.services import topic as topic_service
 
 logger = logging.getLogger(__name__)
 
 # Most memory history scans one worker runs at once (of JOBS_WORKER_CONCURRENCY slots).
 HISTORY_SCANS_AT_ONCE = 3
-
-
-async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
-    user_id_raw = payload.get("user_id")
-    user_id = UUID(user_id_raw) if user_id_raw else None
-    await topic_generation.generate_chat_title(
-        settings,
-        UUID(payload["chat_id"]),
-        payload.get("user_message", ""),
-        payload.get("assistant_message", ""),
-        user_id=user_id,
-    )
 
 
 _MEMORY_LOCK_MAX_RETRIES = 3
@@ -116,9 +105,40 @@ async def _spend_capped(settings: Settings) -> bool:
     return False
 
 
+_Handler = Callable[[Settings, dict[str, Any]], Awaitable[None]]
+
+
+def _unless_spend_capped(handler: _Handler) -> _Handler:
+    """Run ``handler`` only while the global $ cap is not reached (see ``_spend_capped``).
+
+    Every job that makes a model or embedding call carries this; a job that
+    must run regardless (email, storage sweep, lesson progress) does not.
+    """
+
+    @functools.wraps(handler)
+    async def run(settings: Settings, payload: dict[str, Any]) -> None:
+        if await _spend_capped(settings):
+            return
+        await handler(settings, payload)
+
+    return run
+
+
+@_unless_spend_capped
+async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
+    user_id_raw = payload.get("user_id")
+    user_id = UUID(user_id_raw) if user_id_raw else None
+    await topic_service.generate_chat_title(
+        settings,
+        UUID(payload["chat_id"]),
+        payload.get("user_message", ""),
+        payload.get("assistant_message", ""),
+        user_id=user_id,
+    )
+
+
+@_unless_spend_capped
 async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
-    if await _spend_capped(settings):
-        return
     outcome = await memory_extraction.extract_and_store_memories(
         settings,
         user_id=UUID(payload["user_id"]),
@@ -176,15 +196,13 @@ async def _handle_lesson_progress(settings: Settings, payload: dict[str, Any]) -
     )
 
 
+@_unless_spend_capped
 async def _handle_memory_history_scan(settings: Settings, payload: dict[str, Any]) -> None:
-    if await _spend_capped(settings):
-        return
     await memory_history_scan.scan_recent_chats(settings, user_id=UUID(payload["user_id"]))
 
 
+@_unless_spend_capped
 async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]) -> None:
-    if await _spend_capped(settings):
-        return
     outcome = await memory_consolidation.consolidate_user_memory_sections(
         settings,
         user_id=UUID(payload["user_id"]),
@@ -204,9 +222,8 @@ async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]
     )
 
 
+@_unless_spend_capped
 async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
-    if await _spend_capped(settings):
-        return
     await todo_jobs.sync_todos_from_chat(
         settings,
         user_id=UUID(payload["user_id"]),
@@ -215,17 +232,15 @@ async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
     )
 
 
+@_unless_spend_capped
 async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
-    if await _spend_capped(settings):
-        return
     user_id_raw = payload.get("user_id")
     user_id = UUID(user_id_raw) if user_id_raw else None
     await compaction.compress_chat_history(settings, UUID(payload["chat_id"]), user_id=user_id)
 
 
+@_unless_spend_capped
 async def _handle_suggestions(settings: Settings, payload: dict[str, Any]) -> None:
-    if await _spend_capped(settings):
-        return
     await suggestion_generation.generate_suggestions(
         settings,
         UUID(payload["user_id"]),
@@ -236,8 +251,6 @@ async def _handle_transactional_email(settings: Settings, payload: dict[str, Any
     """Best-effort outbound email (welcome / receipts). Re-raises transient
     failures so the worker retry loop can retry; user-not-found is a permanent
     discard (JobDiscardError → DLQ, no retry)."""
-    from app.repositories import users as users_repo
-
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, UUID(payload["user_id"]))
     if user is None:
@@ -260,15 +273,13 @@ async def _handle_transactional_email(settings: Settings, payload: dict[str, Any
         raise JobDiscardError(f"transactional_email: unknown kind={kind!r}")
 
 
+@_unless_spend_capped
 async def _handle_attachment_index(settings: Settings, payload: dict[str, Any]) -> None:
-    if await _spend_capped(settings):
-        return
     await attachment_indexing.index_attachment_job(settings, payload)
 
 
+@_unless_spend_capped
 async def _handle_message_index(settings: Settings, payload: dict[str, Any]) -> None:
-    if await _spend_capped(settings):
-        return
     await message_indexing.index_message_job(settings, payload)
 
 

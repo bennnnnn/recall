@@ -14,15 +14,9 @@ from app.modules.physics.solvers.common import (
     QuantityResult,
     _params_in_si,
     gravity_of,
+    one_unknown,
 )
 from app.services.solving import SolveServiceError
-
-
-def _unknown(params: dict[str, float], keys: tuple[str, ...]) -> str:
-    missing = [key for key in keys if key not in params]
-    if len(missing) != 1:
-        raise SolveServiceError("needs exactly one unknown")
-    return missing[0]
 
 
 def _positive_speed(disc: float) -> float:
@@ -44,7 +38,7 @@ def solve_energy_conservation(intent: PhysicsIntent) -> PhysicsResult:
 
 
 def _work_energy(params: dict[str, float]) -> PhysicsResult:
-    unknown = _unknown(params, ("W", "m", "v1", "v2"))
+    unknown = one_unknown(params, ("W", "m", "v1", "v2"))
     if unknown != "m" and params["m"] <= 0:
         raise SolveServiceError("mass must be positive")
     if unknown == "W":
@@ -117,7 +111,7 @@ def _work_energy(params: dict[str, float]) -> PhysicsResult:
 
 
 def _gravity(params: dict[str, float]) -> PhysicsResult:
-    unknown = _unknown(params, ("v1", "h1", "v2", "h2"))
+    unknown = one_unknown(params, ("v1", "h1", "v2", "h2"))
     gravity = gravity_of(params)
     if gravity <= 0:
         raise SolveServiceError("gravity must be positive")
@@ -183,7 +177,7 @@ def _gravity(params: dict[str, float]) -> PhysicsResult:
 
 
 def _spring(params: dict[str, float]) -> PhysicsResult:
-    unknown = _unknown(params, ("v1", "x1", "v2", "x2"))
+    unknown = one_unknown(params, ("v1", "x1", "v2", "x2"))
     mass = params["m"]
     stiffness = params["k"]
     if mass <= 0 or stiffness <= 0:

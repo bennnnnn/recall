@@ -380,7 +380,6 @@ async def test_forced_search_queries_the_live_part_not_the_whole_line(web_search
     ):
         _out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            model_alias="free-chat",
             messages=[{"role": "user", "content": text}],
             usage={},
         )
@@ -406,7 +405,6 @@ async def test_two_live_parts_search_each_and_share_the_results(web_search_tool)
     with patch("app.modules.chat.tool_loop.forced_search.run_cached_search", side_effect=search):
         _out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            model_alias="free-chat",
             messages=[{"role": "user", "content": text}],
             usage={},
         )
@@ -425,7 +423,6 @@ async def test_verified_maths_does_not_cancel_the_live_part(web_search_tool) -> 
     ):
         _out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            model_alias="free-chat",
             messages=[{"role": "user", "content": text}],
             usage={},
             has_verified_math=True,

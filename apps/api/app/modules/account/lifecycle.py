@@ -14,13 +14,13 @@ from app.core.validation import normalize_avatar_url
 from app.gateways import apple_revoke
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
-from app.modules import home as home_service
 from app.modules import memory as memory_service
 from app.modules.account import quota_carryover
 from app.modules.account import tokens as tokens_service
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan as plan_service
 from app.modules.chat import service as chats_service
+from app.modules.home import service as home_service
 from app.repositories import users as users_repo
 
 logger = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ async def delete_account(
 
     await attachments_service.purge_attachments_for_user(session, settings, user.id)
     user_id = user.id
-    from app.core.deps import forget_user
+    from app.core.user_cache import forget_user
     from app.repositories.chats import forget_user_chats
 
     try:

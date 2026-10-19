@@ -92,8 +92,8 @@ async def _complete_structured_once[T: BaseModel](
     usage: dict[str, int] | None = None,
 ) -> T | None:
     """One structured attempt. Raises on provider outage; returns None on bad output."""
-    # Resolved at call time: litellm_gateway re-exports this module, and tests
-    # patch its provider seams (``acompletion``) there.
+    # Resolved at call time: litellm_gateway re-exports this module, and its
+    # provider seams (``acompletion``, ``resolve_route``) are patched there.
     from app.gateways import litellm_gateway as gateway
 
     route = gateway.resolve_route(model_alias)
@@ -110,7 +110,7 @@ async def _complete_structured_once[T: BaseModel](
             response_format={"type": "json_object"},
             **kwargs,
         )
-    gateway._apply_usage_from_response(usage, response)
+    gateway._apply_usage(usage, response)
     llm_spend.meter_model_call(model_alias, response)
     raw = (response.choices[0].message.content or "{}").strip()
     if raw.startswith("```"):
@@ -124,7 +124,7 @@ async def _complete_structured_once[T: BaseModel](
         return None  # the call succeeded; only fallback_on_invalid asks again
     # Models occasionally return a bare array for a single-list schema; wrap it.
     if isinstance(data, list):
-        list_field = gateway._list_field_name(schema)
+        list_field = _list_field_name(schema)
         if list_field is None:
             _invalid_output(model_alias, schema, "bare list for a schema with no list field")
             return None
@@ -133,11 +133,11 @@ async def _complete_structured_once[T: BaseModel](
         return schema.model_validate(data)
     except Exception:
         if schema is MemoryFactUpdateResult and isinstance(data, dict):
-            fact_partial = gateway._parse_memory_facts_partial(data)
+            fact_partial = _parse_memory_facts_partial(data)
             if fact_partial is not None:
                 return cast(T, fact_partial)
         if schema is MemorySectionUpdateResult and isinstance(data, dict):
-            section_partial = gateway._parse_memory_sections_partial(data)
+            section_partial = _parse_memory_sections_partial(data)
             if section_partial is not None:
                 return cast(T, section_partial)
         _invalid_output(model_alias, schema, "schema validation failed")
@@ -200,12 +200,10 @@ async def complete_structured[T: BaseModel](
     """
     if mock_llm.should_mock_llm(settings):
         return None
-    from app.gateways import litellm_gateway as gateway
-
-    fallback = gateway._fallback_alias(settings, model_alias)
+    fallback = _fallback_alias(settings, model_alias)
 
     async def ask(alias: str) -> T | None:
-        return await gateway._complete_structured_once(
+        return await _complete_structured_once(
             settings=settings,
             model_alias=alias,
             messages=messages,

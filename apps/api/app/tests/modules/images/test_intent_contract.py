@@ -25,8 +25,8 @@ from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.main import create_app
 from app.models.orm import User
-from app.modules.images.gen_intent import (
-    extract_image_gen_prompt,
+from app.modules.images.gen_intent import extract_image_gen_prompt
+from app.modules.images.gen_intent_thread import (
     extract_image_revision_prompt,
     image_gen_revision_context,
 )

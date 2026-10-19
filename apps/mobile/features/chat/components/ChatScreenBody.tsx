@@ -6,7 +6,7 @@ import { type AnimatedStyle } from "react-native-reanimated";
 import { ActionBanner } from "@/ui/feedback/ActionBanner";
 import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
 import { MathEquationScanner } from "@/components/MathEquationScanner";
-import { ChatComposer } from "@/features/chat/components/ChatComposer";
+import { ChatComposer, type LiveTalkComposerChrome } from "@/features/chat/components/ChatComposer";
 import { ChatInlineError } from "@/features/chat/components/ChatInlineError";
 import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import { ChatQuotaNudge } from "@/features/chat/components/ChatQuotaNudge";
@@ -48,8 +48,6 @@ export interface ChatScreenListProps {
   onContentSizeChange?: (width: number, height: number) => void;
   onListLayout?: (height: number) => void;
   header: ReactElement | null;
-  footer?: ReactElement | null;
-  hideHomeStarters?: boolean;
 }
 
 export interface ChatScreenComposerProps {
@@ -74,12 +72,7 @@ export interface ChatScreenComposerProps {
   onVoicePress?: () => void;
   onCancelVoice?: () => void;
   onLiveTalkPress?: () => void;
-  liveTalkSession?: {
-    muted: boolean;
-    onClose: () => void;
-    onMutePress: () => void;
-    onYield: () => void;
-  } | null;
+  liveTalkSession?: LiveTalkComposerChrome | null;
 }
 
 export interface ChatScreenChromeProps {
@@ -178,8 +171,6 @@ export const ChatScreenBody = memo(function ChatScreenBody({
           onContentSizeChange={list.onContentSizeChange}
           onListLayout={list.onListLayout}
           header={list.header}
-          hideHomeStarters={list.hideHomeStarters}
-          listFooter={list.footer}
           streamActive={composer.streaming}
         />
       </StreamingDraftProvider>

@@ -11,7 +11,7 @@ The working writes the call once with the value substituted beside it
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from app.modules.math.schemas import MathIntent
@@ -357,7 +357,6 @@ def _block_function_value(intent: MathIntent, lines: list[str]) -> VerifiedMathB
     lines.extend(f"Working: ${row}$" for row in rows)
     lines.append(f"Result: {answer}")
     block = _finish_with_answer(lines, answer)
-    from dataclasses import replace
 
     shown = "  \n".join(math_line(row) for row in rows)
     return replace(block, worked_reply=f"{shown}\n\n```answer\n{answer}\n```\n")

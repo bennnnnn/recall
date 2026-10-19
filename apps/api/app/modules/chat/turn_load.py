@@ -5,6 +5,7 @@ first, so history never misses the reply before this one.
 """
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial
@@ -19,7 +20,6 @@ from app.exceptions import ChatNotFoundError, ConsentRequiredError
 from app.models.orm import Chat, User
 from app.modules.account import consent
 from app.modules.chat.finalize_registry import wait_for_pending_finalize
-from app.modules.chat.post_turn import seed_usage_from_db
 from app.modules.chat.prompt_constants import (
     active_lesson_step,
     is_lightweight_chat_turn,
@@ -28,9 +28,12 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
+from app.modules.chat.turn_settle import seed_usage_from_db
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import model_catalog, model_health
 from app.services.routing import last_user_turn
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -132,6 +135,8 @@ async def _needs_usage_seed(
     try:
         missing = not await deps.quota.has_daily_usage_key(redis, str(user_id))
     except Exception:
+        # Unknown counts as missing: the turn re-reads today's total from the DB.
+        logger.debug("Daily usage probe failed user_id=%s", user_id, exc_info=True)
         missing = True
     timing.mark_phase("quota_probe_ready")
     return missing

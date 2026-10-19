@@ -716,7 +716,7 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
         ),
         patch("app.modules.memory.extraction_workflow.memories_repo.apply_writes", apply_writes),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.modules.home.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()),
         patch(EMBED_MANY, embed_each(AsyncMock(return_value=vector))),
         patch(
             "app.gateways.embedding_gateway.serialize_embedding",
@@ -807,7 +807,7 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
         patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply),
         patch("app.modules.memory.consolidation_workflow.apply_memory_facts", apply),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.modules.home.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()),
     ):
         await asyncio.gather(
             extract_and_store_memories(

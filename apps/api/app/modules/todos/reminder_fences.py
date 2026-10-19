@@ -17,7 +17,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules import home as home_service
+from app.modules.home import service as home_service
 from app.modules.todos import proposals, write_log
 from app.modules.todos.actions import MAX_TODO_ACTIONS_PER_TURN
 from app.modules.todos.recurrence import next_recurring_due
@@ -29,16 +29,18 @@ from app.modules.todos.reminder_fence_parse import (
     parse_fence,
 )
 from app.modules.todos.reminder_writes import ReminderWrites, create_one, load_existing, mutate_one
+from app.modules.todos.reply_check import (
+    about_saved_reminders,
+    edits_prior_reply,
+    reply_when_nothing_saved,
+)
 from app.modules.todos.reply_claims import without_claims
 from app.modules.todos.spoken_add import (
     SpokenAdd,
-    about_saved_reminders,
     chat_add_needs_a_stated_time,
     due_for_add,
     due_is_past,
-    edits_prior_reply,
     passed_time_reply,
-    reply_when_nothing_saved,
 )
 from app.modules.todos.spoken_apply import apply_spoken_change, format_reminder_reading
 from app.modules.todos.spoken_change import (

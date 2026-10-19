@@ -295,7 +295,7 @@ async def confirm_proposal(
         except Exception:
             await session.rollback()
             logger.exception("Could not mark reminder card saved proposal_id=%s", proposal_id)
-        from app.modules import home as home_service
+        from app.modules.home import service as home_service
 
         await home_service.invalidate_home_cache(user_id)
         return stored.items

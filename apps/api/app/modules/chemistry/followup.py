@@ -17,18 +17,15 @@ from typing import Any
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.request import is_chemistry_question
-from app.services.law_binding.fit import read_givens
 from app.services.law_binding.units import dimension_of
 from app.services.problem_followup import (
     EXPLAIN_RE,
+    GivenRewriter,
     adjacent_problem,
     ask_replaced,
     followup_line,
-    given_name,
     new_value,
-    replace_given,
     scaled_given,
-    scaled_value,
 )
 
 CHEMISTRY_FOLLOWUP_HINT = (
@@ -97,30 +94,16 @@ def chemistry_followup_problem(query: str | None, recent: Sequence[Any]) -> str 
         return _another_quantity(prior, about.group("ask"))
     changed = _CHANGED.fullmatch(text)
     if changed is not None:
-        return _changed_given(
+        return _GIVENS.changed(
             prior, changed.group("name"), changed.group("value"), changed.group("unit")
         )
     scaled = scaled_given(text)
     if scaled is not None:
-        return _scaled_given(prior, *scaled)
+        return _GIVENS.scaled(prior, *scaled)
     value = new_value(text)
     if value is not None:
-        return _changed_given(prior, None, *value)
+        return _GIVENS.changed(prior, None, *value)
     return None
-
-
-def _scaled_given(prior: str, name: str, factor: float) -> str | None:
-    """``what if the concentration doubles``: the one given of that kind, times the factor."""
-    named_dim = _dimension_of_phrase(given_name(name).lower())
-    if named_dim is None:
-        return None
-    givens = read_givens(prior, CHEMISTRY_UNITS)
-    matches = [given for given in givens if given.dimension == named_dim]
-    if len(matches) != 1:
-        return None
-    given = matches[0]
-    rewritten = replace_given(prior, given, scaled_value(given.value, factor), given.unit)
-    return rewritten if rewritten != prior and _verifies(rewritten) else None
 
 
 def _another_quantity(prior: str, ask: str) -> str | None:
@@ -130,26 +113,6 @@ def _another_quantity(prior: str, ask: str) -> str | None:
         return None
     rewritten = ask_replaced(prior, written)
     return rewritten if _verifies(rewritten, ask=written) else None
-
-
-def _changed_given(prior: str, name: str | None, value: str, unit: str | None) -> str | None:
-    if not unit or not unit.strip():
-        return None
-    written_unit = " ".join(unit.split())
-    new_dim = _dimension_of_unit(written_unit)
-    if new_dim is None:
-        return None
-    if name:
-        named_dim = _dimension_of_phrase(given_name(name).lower())
-        if named_dim is None or named_dim != new_dim:
-            return None
-    matches = [given for given in read_givens(prior, CHEMISTRY_UNITS) if given.dimension == new_dim]
-    if len(matches) != 1:
-        return None
-    rewritten = replace_given(prior, matches[0], value, written_unit)
-    if rewritten == prior:
-        return None
-    return rewritten if _verifies(rewritten) else None
 
 
 def _verifies(text: str, *, ask: str | None = None) -> bool:
@@ -173,5 +136,9 @@ def _dimension_of_unit(unit: str) -> str | None:
 
 
 def _dimension_of_phrase(phrase: str) -> str | None:
-    expression = _NAMED_DIMENSIONS.get(phrase)
+    """A quantity named in any case ("the Concentration") by its dimension."""
+    expression = _NAMED_DIMENSIONS.get(phrase.lower())
     return None if expression is None else dimension_of(expression)
+
+
+_GIVENS = GivenRewriter(CHEMISTRY_UNITS, _dimension_of_unit, _dimension_of_phrase, _verifies)

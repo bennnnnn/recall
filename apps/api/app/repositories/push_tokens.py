@@ -6,6 +6,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import sentry
 from app.exceptions import PushTokenBindError
 from app.models.orm import PushToken
 
@@ -26,20 +27,12 @@ def _report_rebind(*, prior_user_id: UUID, new_user_id: UUID) -> None:
         prior_user_id,
         new_user_id,
     )
-    try:
-        import sentry_sdk
-
-        sentry_sdk.add_breadcrumb(
-            category="push.token",
-            message="push token rebound across users",
-            level="warning",
-            data={
-                "prior_user_id": str(prior_user_id),
-                "new_user_id": str(new_user_id),
-            },
-        )
-    except Exception:
-        logger.debug("push rebind metric report failed", exc_info=True)
+    sentry.report_breadcrumb(
+        "push.token",
+        "push token rebound across users",
+        level="warning",
+        data={"prior_user_id": str(prior_user_id), "new_user_id": str(new_user_id)},
+    )
 
 
 async def upsert(

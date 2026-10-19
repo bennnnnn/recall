@@ -18,7 +18,6 @@ from app.services.workout import (
     Workout,
     formula_name,
     math_line,
-    note_from_label,
     render_workout,
     split_equality_chain,
     text_line,
@@ -209,64 +208,6 @@ def with_requested_check(reply: str, verified: VerifiedMathBlock, user_text: str
     return "\n\n".join(parts)
 
 
-def trace_lines(
-    key_steps: tuple[KeyStep, ...] | list[KeyStep],
-    *,
-    given_latex: str,
-    answer: str,
-    variable: str = "x",
-    include_reasons: bool = False,
-) -> tuple[list[str], list[str]]:
-    """A verified trace as (rule formulas, one line per state with its move)."""
-    formulas: list[str] = []
-    lines: list[str] = []
-    # A line that restates the state before it says nothing new
-    # (``log_2(x) = 3`` repeated under "combine logarithms").
-    shown = {_state_key(given_latex)}
-    steps = [step for step in key_steps if step.formula.strip()]
-    index = 0
-    while index < len(steps):
-        step = steps[index]
-        _collect_formula(step, formulas, variable)
-        note = note_from_label(step.label)
-        if include_reasons and step.reason and not _RULE_REASON.match(step.reason):
-            note = f"{note} ({step.reason})"
-        if not include_reasons and _shows_move(step):
-            end = index
-            while end < len(steps) and _shows_move(steps[end]):
-                end += 1
-            following = steps[end] if end < len(steps) else None
-            state: str | None = None
-            consumed = end
-            if following is not None and following.label == "Simplify":
-                state, consumed = following.formula, end + 1
-            elif following is None and _single_variable_answer(answer):
-                state = answer
-            if state is not None:
-                moves = steps[index:end]
-                note = note_from_label(moves[0].label) if len(moves) == 1 else "solve each one"
-                if _state_key(state) not in shown:
-                    lines.extend(_chain(state, note))
-                    shown.add(_state_key(state))
-                index = consumed
-                continue
-        if step.label == "Simplify":
-            note = "simplify"
-        if _state_key(step.formula) not in shown:
-            lines.extend(_chain(step.formula, note))
-            shown.add(_state_key(step.formula))
-        index += 1
-    if (
-        include_reasons
-        and steps
-        and _shows_move(steps[-1])
-        and _single_variable_answer(answer)
-        and _state_key(answer) not in shown
-    ):
-        lines.append(math_line(answer, "simplify"))
-    return formulas, lines
-
-
 def _given_and_find(verified: VerifiedMathBlock) -> tuple[tuple[str, ...], tuple[str, ...], str]:
     given = (verified.given_latex or "").strip()
     if verified.given_label == "Find":
@@ -448,8 +389,3 @@ def _render_numbered(blocks: list[_NumberedStep]) -> str:
         lines = [heading, *(f"${formula}$" for formula in block.formulas)]
         parts.append("  \n".join(lines))
     return "\n\n".join(parts)
-
-
-def _chain(tex: str, note: str) -> list[str]:
-    parts = split_equality_chain(tex)
-    return [math_line(parts[0], note), *(math_line(part) for part in parts[1:])]

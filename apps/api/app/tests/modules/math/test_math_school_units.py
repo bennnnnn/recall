@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.math import school as math_school
 from app.modules.math.solve import MathServiceError
+from app.modules.math.unit_conversion import convert_unit
 
 # ---------------------------------------------------------------------------
 # Length
@@ -24,7 +24,7 @@ from app.modules.math.solve import MathServiceError
     ],
 )
 def test_convert_length(value: float, src: str, dest: str, expected: float) -> None:
-    result = float(math_school.convert_unit(value, src, dest))
+    result = float(convert_unit(value, src, dest))
     assert abs(result - expected) < 1e-6
 
 
@@ -43,7 +43,7 @@ def test_convert_length(value: float, src: str, dest: str, expected: float) -> N
     ],
 )
 def test_convert_mass(value: float, src: str, dest: str, expected: float) -> None:
-    result = float(math_school.convert_unit(value, src, dest))
+    result = float(convert_unit(value, src, dest))
     assert abs(result - expected) < 1e-6
 
 
@@ -62,7 +62,7 @@ def test_convert_mass(value: float, src: str, dest: str, expected: float) -> Non
     ],
 )
 def test_convert_time(value: float, src: str, dest: str, expected: float) -> None:
-    result = float(math_school.convert_unit(value, src, dest))
+    result = float(convert_unit(value, src, dest))
     assert abs(result - expected) < 1e-6
 
 
@@ -72,27 +72,27 @@ def test_convert_time(value: float, src: str, dest: str, expected: float) -> Non
 
 
 def test_convert_celsius_to_fahrenheit() -> None:
-    result = float(math_school.convert_unit(0.0, "C", "F"))
+    result = float(convert_unit(0.0, "C", "F"))
     assert abs(result - 32.0) < 1e-6
-    result = float(math_school.convert_unit(100.0, "C", "F"))
+    result = float(convert_unit(100.0, "C", "F"))
     assert abs(result - 212.0) < 1e-6
 
 
 def test_convert_fahrenheit_to_celsius() -> None:
-    result = math_school.convert_unit(32.0, "F", "C")
+    result = convert_unit(32.0, "F", "C")
     assert result == "0"
     assert abs(float(result) - 0.0) < 1e-6
-    result = math_school.convert_unit(212.0, "F", "C")
+    result = convert_unit(212.0, "F", "C")
     assert abs(float(result) - 100.0) < 1e-6
 
 
 def test_convert_celsius_to_kelvin() -> None:
-    result = float(math_school.convert_unit(0.0, "C", "K"))
+    result = float(convert_unit(0.0, "C", "K"))
     assert abs(result - 273.15) < 1e-6
 
 
 def test_convert_kelvin_to_celsius() -> None:
-    result = float(math_school.convert_unit(273.15, "K", "C"))
+    result = float(convert_unit(273.15, "K", "C"))
     assert abs(result - 0.0) < 1e-6
 
 
@@ -102,13 +102,13 @@ def test_convert_kelvin_to_celsius() -> None:
 
 
 def test_convert_velocity_ms_to_kmh() -> None:
-    result = float(math_school.convert_unit(10.0, "m/s", "km/h"))
+    result = float(convert_unit(10.0, "m/s", "km/h"))
     assert abs(result - 36.0) < 1e-6
 
 
 def test_convert_acceleration() -> None:
     # 1 g = 9.81 m/s^2 (approx, using standard gravity 9.80665)
-    result = float(math_school.convert_unit(1.0, "m/s^2", "m/s^2"))
+    result = float(convert_unit(1.0, "m/s^2", "m/s^2"))
     assert abs(result - 1.0) < 1e-6
 
 
@@ -118,14 +118,14 @@ def test_convert_acceleration() -> None:
 
 
 def test_plural_stripping() -> None:
-    assert float(math_school.convert_unit(1.0, "meters", "cm")) == 100.0
-    assert float(math_school.convert_unit(1.0, "inches", "cm")) == 2.54
+    assert float(convert_unit(1.0, "meters", "cm")) == 100.0
+    assert float(convert_unit(1.0, "inches", "cm")) == 2.54
 
 
 def test_unit_aliases() -> None:
     # "in" → inch, "ft" → foot, "lb" → pound
-    assert abs(float(math_school.convert_unit(12.0, "in", "ft")) - 1.0) < 1e-6
-    assert abs(float(math_school.convert_unit(1.0, "lb", "g")) - 453.59237) < 1e-4
+    assert abs(float(convert_unit(12.0, "in", "ft")) - 1.0) < 1e-6
+    assert abs(float(convert_unit(1.0, "lb", "g")) - 453.59237) < 1e-4
 
 
 # Converter-pad prompts (apps/mobile/lib/unitConverter.ts). Must parse with
@@ -150,9 +150,9 @@ def test_unit_aliases() -> None:
     ],
 )
 def test_converter_pad_prompts_round_trip(value: float, src: str, dest: str) -> None:
-    result = float(math_school.convert_unit(value, src, dest))
+    result = float(convert_unit(value, src, dest))
     assert result > 0
-    back = float(math_school.convert_unit(result, dest, src))
+    back = float(convert_unit(result, dest, src))
     assert abs(back - value) / value < 1e-6
 
 
@@ -163,9 +163,9 @@ def test_converter_pad_prompts_round_trip(value: float, src: str, dest: str) -> 
 
 def test_incompatible_dimensions_raise() -> None:
     with pytest.raises(MathServiceError):
-        math_school.convert_unit(1.0, "m", "kg")
+        convert_unit(1.0, "m", "kg")
 
 
 def test_unknown_unit_raises() -> None:
     with pytest.raises(MathServiceError):
-        math_school.convert_unit(1.0, "foo", "bar")
+        convert_unit(1.0, "foo", "bar")

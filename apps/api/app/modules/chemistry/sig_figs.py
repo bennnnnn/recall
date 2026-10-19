@@ -23,7 +23,7 @@ from functools import lru_cache
 from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.intent import MAX_DECIMALS, MAX_WRITTEN
-from app.services.units import CELSIUS_OFFSET_K
+from app.services.units import CELSIUS_OFFSET_K, get_unit_registry
 
 MIN_FIGURES = 2
 MAX_FIGURES = 4
@@ -89,8 +89,6 @@ def _exact(op: str, key: str) -> bool:
 @lru_cache(maxsize=1)
 def _unit_factors() -> tuple[float, ...]:
     """Every factor an extractor multiplies a typed value by to change its unit."""
-    from app.services.units import get_unit_registry
-
     registry = get_unit_registry()
     return tuple(
         sorted(

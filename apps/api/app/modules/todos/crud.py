@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem, User
-from app.modules import home as home_service
+from app.modules.home import service as home_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.recurrence import (
     RecurrenceRule,

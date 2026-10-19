@@ -517,7 +517,6 @@ def test_integration_hints_wraps_todos_section():
         memory_block="",
         attachment_rag_block="",
         todos_section="User Schedule\n### Today\n- ○ Milk at 09:00 (open, topic: Reminders)",
-        summary=None,
     )
     joined = "\n".join(parts)
     assert "[BEGIN UNTRUSTED CONTENT — schedule]" in joined

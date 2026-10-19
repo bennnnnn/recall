@@ -1,6 +1,7 @@
 """Shared API/worker process initialization and worker runtime wiring."""
 
 import asyncio
+from collections.abc import Awaitable, Callable
 
 from app.background import (
     billing_reconcile_scheduler,
@@ -16,14 +17,18 @@ from app.core.db import engine, warmup_db_pool
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.core.sentry import init_sentry
-from app.core.sympy_executor import shutdown_sympy_executor
+from app.core.sympy_executor import shutdown_sympy_executor, warm_sympy_pool
 from app.gateways import email_gateway
 from app.gateways.http_client import aclose_pooled_clients
 from app.modules.attachments import reaper as attachment_orphan_reaper
 from app.modules.chat.finalize_registry import stop_inflight_streams
+from app.modules.math.sympy_warmup import warm_math_worker
 from app.services.mcp import setup_mcp_adapters
 
 VALID_PROCESS_ROLES = frozenset({"all", "api", "worker"})
+
+_Start = Callable[[Settings], Awaitable[None]]
+_Stop = Callable[[], Awaitable[None]]
 
 
 def validate_process_role(settings: Settings) -> str:
@@ -46,9 +51,6 @@ async def initialize_process(settings: Settings) -> None:
     setup_mcp_adapters(settings)
     await warmup_db_pool()
     if role in ("all", "api"):
-        from app.core.sympy_executor import warm_sympy_pool
-        from app.modules.math.sympy_warmup import warm_math_worker
-
         await warm_sympy_pool(warm_math_worker)
         install_chat_stop_on_signal()
 
@@ -65,21 +67,37 @@ def install_chat_stop_on_signal() -> None:
     shutdown.install_signal_hook(asyncio.get_running_loop())
 
 
+def _schedulers() -> tuple[tuple[_Start, _Stop], ...]:
+    """Every periodic scheduler the worker runs, as (start, stop), in start order.
+
+    A new scheduler is one row here (its cycle uses ``background.periodic``).
+    Read at call time, so each module's functions stay patchable.
+    """
+    return (
+        (push_scheduler.start_push_scheduler, push_scheduler.stop_push_scheduler),
+        (
+            email_reminder_scheduler.start_email_reminder_scheduler,
+            email_reminder_scheduler.stop_email_reminder_scheduler,
+        ),
+        (attachment_orphan_reaper.start_orphan_reaper, attachment_orphan_reaper.stop_orphan_reaper),
+        (
+            billing_reconcile_scheduler.start_billing_reconcile_scheduler,
+            billing_reconcile_scheduler.stop_billing_reconcile_scheduler,
+        ),
+    )
+
+
 async def start_worker_runtime(settings: Settings) -> None:
     job_handlers.register_all()
     await jobs.start_worker(settings)
-    await push_scheduler.start_push_scheduler(settings)
-    await email_reminder_scheduler.start_email_reminder_scheduler(settings)
-    await attachment_orphan_reaper.start_orphan_reaper(settings)
-    await billing_reconcile_scheduler.start_billing_reconcile_scheduler(settings)
+    for start, _stop in _schedulers():
+        await start(settings)
 
 
 async def stop_worker_runtime() -> None:
     await jobs.stop_worker()
-    await push_scheduler.stop_push_scheduler()
-    await email_reminder_scheduler.stop_email_reminder_scheduler()
-    await attachment_orphan_reaper.stop_orphan_reaper()
-    await billing_reconcile_scheduler.stop_billing_reconcile_scheduler()
+    for _start, stop in _schedulers():
+        await stop()
 
 
 async def shutdown_process(

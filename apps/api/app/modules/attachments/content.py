@@ -22,8 +22,11 @@ from app.modules.attachments.content_types import (
     _docx_zip_bomb,
     _office_content_type,
     bytes_match_claimed,
-    is_image_content_type,
 )
+
+# Re-exported: rag and chat's vision paths read it through this module.
+from app.modules.attachments.content_types import is_image_content_type as is_image_content_type
+from app.modules.attachments.office_text import extract_office_text
 
 logger = logging.getLogger(__name__)
 
@@ -161,8 +164,6 @@ def extract_text_details(
     if content_type in _OFFICE_MARKERS.values() and content_type != _DOCX_CONTENT_TYPE:
         if _office_content_type(data) != content_type:
             return None
-        from app.services.office_text import extract_office_text
-
         office_text = extract_office_text(content_type, data, max_chars=max_chars + 1)
         if office_text:
             return ExtractedText(

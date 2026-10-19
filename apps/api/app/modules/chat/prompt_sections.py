@@ -197,7 +197,6 @@ def _integrations(turn: PromptTurn) -> list[str]:
         memory_block=turn.memory_block,
         attachment_rag_block=turn.attachment_rag_block,
         todos_section=turn.todos_section,
-        summary=turn.summary,
         chat_history_rag_block=turn.chat_history_rag_block,
     )
 
@@ -411,10 +410,9 @@ def _integration_hints(
     memory_block: str,
     attachment_rag_block: str,
     todos_section: str | None,
-    summary: str | None,
     chat_history_rag_block: str = "",
 ) -> list[str]:
-    """Time / web / memory / todos / summary hints."""
+    """Time / web / memory / todos hints (the summary is its own section)."""
     parts: list[str] = [
         time_context_service.format_time_context(local_tz, user_locale, location_for_context)
     ]

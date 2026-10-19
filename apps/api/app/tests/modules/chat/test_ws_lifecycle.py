@@ -272,7 +272,6 @@ async def test_shutdown_stops_an_sse_turn_and_still_tells_the_client(_turn_io, m
     events: list[dict] = []
     body = stream_api._stream_tokens_sse(
         chat_id=uuid4(),
-        settings=Settings(),
         stream_factory=lambda outcome, _status, _reasoning, should_cancel: _real_turn(
             outcome, should_cancel
         ),
@@ -301,7 +300,7 @@ async def test_sse_refuses_a_new_turn_once_the_server_is_stopping(monkeypatch):
     chunks = [
         chunk
         async for chunk in stream_api._stream_tokens_sse(
-            chat_id=uuid4(), settings=Settings(), stream_factory=factory, request=AsyncMock()
+            chat_id=uuid4(), stream_factory=factory, request=AsyncMock()
         )
     ]
     assert [json.loads(chunk.removeprefix("data: ")) for chunk in chunks] == [

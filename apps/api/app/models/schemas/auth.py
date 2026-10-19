@@ -9,8 +9,8 @@ from app.core.validation import (
     normalize_avatar_url,
     normalize_display_name,
     normalize_locale_code,
-    validate_user_alias,
 )
+from app.models.model_catalog import validate_user_alias
 from app.models.schemas.common import ResponseStyle, ResponseTone, UserVoice
 from app.models.schemas.text import UserText
 

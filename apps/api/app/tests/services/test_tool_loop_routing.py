@@ -102,7 +102,6 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
     ):
         out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True),
-            model_alias="free-chat",
             messages=messages,
             usage={},
         )
@@ -135,7 +134,6 @@ async def test_tool_loop_uses_dedicated_alias_for_smart_chat(web_search_register
     ):
         await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True),
-            model_alias="smart-chat",
             messages=messages,
             usage={},
         )
@@ -188,7 +186,6 @@ async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
     ):
         out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True),
-            model_alias="smart-chat",
             messages=messages,
             usage={},
         )
@@ -209,7 +206,6 @@ async def test_tool_loop_forces_search_when_model_skips_web_search(web_search_re
     ):
         out, verified, terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            model_alias="free-chat",
             messages=messages,
             usage={},
         )
@@ -243,7 +239,6 @@ async def test_tool_loop_forces_search_when_classifier_required_and_heuristic_no
     ):
         out, verified, terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            model_alias="free-chat",
             messages=messages,
             usage={},
             web_search=True,
@@ -277,7 +272,6 @@ async def test_tool_loop_skips_force_search_when_not_required_and_heuristic_no(
     ):
         out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            model_alias="free-chat",
             messages=messages,
             usage={},
         )
@@ -297,7 +291,6 @@ async def test_tool_loop_injects_empty_search_when_force_finds_nothing(web_searc
     ):
         out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            model_alias="free-chat",
             messages=messages,
             usage={},
         )
@@ -337,7 +330,6 @@ async def test_tool_loop_injects_empty_when_tool_returns_no_hits(web_search_regi
     ):
         out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            model_alias="free-chat",
             messages=messages,
             usage={},
         )

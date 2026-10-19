@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.gateways.mcp.base import ToolResult
 from app.gateways.web_search_gateway import WebSearchHit
 from app.services.solving import VerifiedMathBlock
 
@@ -25,24 +26,24 @@ class TerminalImageResult:
     resolved_model: str
 
 
-def _canonical_from_tool_result(result: Any) -> dict[str, Any] | None:
-    data = getattr(result, "data", None)
+def _canonical_from_tool_result(result: ToolResult) -> dict[str, Any] | None:
+    data = result.data
     if not isinstance(data, dict):
         return None
     fence = data.get("canonical_fence")
     return fence if isinstance(fence, dict) else None
 
 
-def _canonical_answer_from_tool_result(result: Any) -> str | None:
-    data = getattr(result, "data", None)
+def _canonical_answer_from_tool_result(result: ToolResult) -> str | None:
+    data = result.data
     if not isinstance(data, dict):
         return None
     answer = data.get("canonical_answer")
     return answer.strip() if isinstance(answer, str) and answer.strip() else None
 
 
-def _search_hits_from_tool_result(result: Any) -> list[WebSearchHit]:
-    data = getattr(result, "data", None)
+def _search_hits_from_tool_result(result: ToolResult) -> list[WebSearchHit]:
+    data = result.data
     if not isinstance(data, dict):
         return []
     raw = data.get("hits")
@@ -60,8 +61,8 @@ def _search_hits_from_tool_result(result: Any) -> list[WebSearchHit]:
     return hits
 
 
-def _terminal_image_from_tool_result(result: Any) -> TerminalImageResult | None:
-    data = getattr(result, "data", None)
+def _terminal_image_from_tool_result(result: ToolResult) -> TerminalImageResult | None:
+    data = result.data
     if not isinstance(data, dict) or not data.get("terminal"):
         return None
     marker = data.get("image_marker")
@@ -100,7 +101,9 @@ class ToolResults:
     terminal_image: TerminalImageResult | None = None
     search_hits: list[WebSearchHit] = field(default_factory=list)
 
-    def merge(self, result: Any, *, fence: dict[str, Any] | None, answer: str | None) -> None:
+    def merge(
+        self, result: ToolResult | None, *, fence: dict[str, Any] | None, answer: str | None
+    ) -> None:
         """Add one call's *result*; *fence* and *answer* are what passed the user-match check."""
         if fence is not None:
             # Merge by type so earlier fences survive later ones.

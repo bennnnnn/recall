@@ -15,16 +15,15 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from app.core.db import SessionLocal
-from app.modules.images.gen_intent import (
+from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject
+from app.modules.images.gen_intent_thread import (
     could_be_image_revision,
     could_be_image_thread_followup,
-    extract_image_gen_prompt,
     extract_image_gen_prompt_from_thread,
     extract_image_revision_prompt,
     image_gen_revision_context,
     is_deictic_subject,
     prior_user_contents_for_image_gen,
-    stem_subject,
 )
 from app.modules.images.lookup_intent import extract_image_lookup_query, is_reference_subject
 from app.repositories import chats as chats_repo

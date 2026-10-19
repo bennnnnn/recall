@@ -5,7 +5,7 @@ Schedule exports `TodoItem`. Database table and column names are unchanged.
 
 from app.models.orm.attachments import MessageChunk
 from app.models.orm.chat import Chat, Message
-from app.models.orm.integrations import PushToken
+from app.models.orm.push_tokens import PushToken
 from app.models.orm.usage import ProductEvent, UsageDaily
 from app.models.orm.user import User
 from app.modules.attachments.models import Attachment, AttachmentChunk

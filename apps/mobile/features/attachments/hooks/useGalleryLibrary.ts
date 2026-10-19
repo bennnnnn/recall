@@ -26,7 +26,7 @@ import {
 } from "@/features/attachments/model/galleryLayout";
 import { selection, tap } from "@/lib/haptics";
 import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
-import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
+import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 

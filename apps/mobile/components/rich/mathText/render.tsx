@@ -3,168 +3,34 @@ import { type ReactNode } from "react";
 import { Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
-import { MATH_FONT, mathFace } from "@/lib/fonts";
 import {
   FRAC_LINE_AT_16,
   FRAC_SIZE_RATIO,
   radicalStroke,
   SCRIPT_RATIO,
-  splitOperatorPads,
   SQRT_LINE_AT_16,
   type MathLayout,
 } from "@/lib/math/layout";
-import {
-  AMS_ONLY_CHARS,
-  BLACKBOARD_LATIN,
-  MATH_NOT_GLYPH,
-  NEGATED_RELATION,
-  NOT_ADVANCE_EM,
-  NORM_ADVANCE_EM,
-  primeRun,
-} from "@/lib/math/glyphs";
 import { attachScripts, type MathSegment } from "@/lib/math/text";
-import type { MathTextStyles } from "@/components/rich/mathText/styles";
+import { renderAccentMark } from "@/components/rich/mathText/accentMark";
+import {
+  faceAt,
+  runStyle,
+  scaled,
+  scriptShift,
+  type RenderCtx,
+} from "@/components/rich/mathText/context";
+import {
+  renderMathRun,
+  renderNonVariableRun,
+  type RunPad,
+} from "@/components/rich/mathText/runs";
+import {
+  renderFractionalScript,
+  renderScriptRun,
+} from "@/components/rich/mathText/scripts";
 
-/** Named operators are words, not products of variables, so they stay
- * upright in the same way KaTeX renders `sin`, `log`, and `mod`. */
-const UPRIGHT_MATH_WORDS = new Set([
-  "arccos", "arcsin", "arctan", "cos", "cosh", "cot", "csc", "det",
-  "exp", "gcd", "if", "lim", "ln", "log", "max", "min", "mod",
-  "otherwise", "rank", "sec", "sin", "sinh", "tan", "tanh", "where",
-]);
-
-const MATH_LETTER_RUN = /[A-Za-z\u0370-\u03ff]+/g;
-
-function isUprightWord(value: string): boolean {
-  return UPRIGHT_MATH_WORDS.has(value.toLowerCase());
-}
-
-function renderNonVariableRun(
-  value: string,
-  key: string,
-  glyphStyle: object,
-  metrics: { em: number; fontScale: number },
-): ReactNode[] {
-  return Array.from(value).map((ch, i) => renderMathGlyph(ch, `${key}-g${i}`, glyphStyle, metrics));
-}
-
-function renderMathGlyph(
-  ch: string,
-  key: string,
-  glyphStyle: object,
-  metrics: { em: number; fontScale: number },
-): ReactNode {
-  const negated = NEGATED_RELATION[ch];
-  if (negated) {
-    const shift = NOT_ADVANCE_EM * metrics.em * metrics.fontScale;
-    return (
-      <Text key={key} testID="math-negated" accessibilityLabel={ch}>
-        <Text style={{ letterSpacing: -shift }}>{MATH_NOT_GLYPH}</Text>
-        {negated.base}
-      </Text>
-    );
-  }
-  const blackboard = BLACKBOARD_LATIN[ch];
-  if (blackboard) {
-    return (
-      <Text key={key} testID="math-blackboard" style={glyphStyle}>
-        {blackboard}
-      </Text>
-    );
-  }
-  if (AMS_ONLY_CHARS.has(ch)) {
-    return (
-      <Text key={key} style={glyphStyle}>
-        {ch}
-      </Text>
-    );
-  }
-  const primes = primeRun(ch);
-  if (primes) return primes;
-  if (ch === "-") return "−";
-  if (ch === "·") return "⋅";
-  if (ch === "‖") {
-    const pull = (0.8 - NORM_ADVANCE_EM) * metrics.em * metrics.fontScale;
-    return (
-      <Text key={key} testID="math-norm" style={{ letterSpacing: -pull / 2 }}>
-        ||
-      </Text>
-    );
-  }
-  return ch;
-}
-
-function renderMathRun(
-  value: string,
-  key: string,
-  textStyle: object,
-  glyphStyle: object,
-  variableStyle: object,
-  testID?: string,
-  pad?: { em: number; fontScale: number; leadingAtom: boolean; space?: boolean },
-): ReactNode {
-  const pieces = pad && pad.space !== false
-    ? splitOperatorPads(value, pad.leadingAtom)
-    : [{ text: value, leftEm: 0, rightEm: 0 }];
-  const runs = pieces.map((piece, pieceIndex) => {
-    const pieceKey = pieces.length === 1 ? key : `${key}-p${pieceIndex}`;
-    const children: ReactNode[] = [];
-    let cursor = 0;
-    let variableIndex = 0;
-    for (const match of piece.text.matchAll(MATH_LETTER_RUN)) {
-      const start = match.index ?? 0;
-      if (start > cursor) {
-        children.push(
-          ...renderNonVariableRun(
-            piece.text.slice(cursor, start),
-            `${pieceKey}-t${cursor}`,
-            glyphStyle,
-            { em: pad?.em ?? 16, fontScale: pad?.fontScale ?? 1 },
-          ),
-        );
-      }
-      const word = match[0];
-      children.push(
-        isUprightWord(word) ? word : (
-          <Text
-            key={`${pieceKey}-v${variableIndex}`}
-            testID="math-variable"
-            style={[textStyle, variableStyle]}
-          >
-            {word}
-          </Text>
-        ),
-      );
-      variableIndex += 1;
-      cursor = start + word.length;
-    }
-    if (cursor < piece.text.length) {
-      children.push(
-        ...renderNonVariableRun(
-          piece.text.slice(cursor),
-          `${pieceKey}-t${cursor}`,
-          glyphStyle,
-          { em: pad?.em ?? 16, fontScale: pad?.fontScale ?? 1 },
-        ),
-      );
-    }
-    // Padding, not margin: nested Text on iOS ignores margin, so the
-    // measured operator space would never appear.
-    const margin = pad
-      ? {
-          paddingLeft: piece.leftEm * pad.em * pad.fontScale,
-          paddingRight: piece.rightEm * pad.em * pad.fontScale,
-        }
-      : null;
-    return (
-      <Text key={pieceKey} style={[textStyle, margin]} testID={pieces.length === 1 ? testID : undefined}>
-        {children}
-      </Text>
-    );
-  });
-  if (runs.length === 1) return runs[0];
-  return runs;
-}
+type Segment<K extends MathSegment["type"]> = Extract<MathSegment, { type: K }>;
 
 function isFractionalScript(seg: MathSegment): boolean {
   if (seg.type !== "sup") return false;
@@ -191,29 +57,19 @@ export function hasTallMath(segments: MathSegment[]): boolean {
   return hasStackedMath(segments) || hasRaisedScript(segments);
 }
 
-export type RenderCtx = {
-  styles: MathTextStyles;
-  color: string;
-  inFrac?: boolean;
-  textStyle?: object;
-  /** Device font scale only. Layout pixels are already at `em`. */
-  fontScale: number;
-  em: number;
-};
-
-function runStyle(ctx: RenderCtx): object {
-  if (ctx.textStyle) return ctx.textStyle;
-  return ctx.inFrac ? ctx.styles.fracPart : ctx.styles.base;
-}
-
-/** Face at `em`, used when a script is smaller than the stylesheet's 16px sizes. */
-function faceAt(ctx: RenderCtx, em: number, lineOverFont: number): object {
-  return {
-    ...mathFace(MATH_FONT),
-    fontSize: em,
-    lineHeight: em * lineOverFont,
-    color: ctx.color,
-  };
+/** A run inside a stack: a row of Views when it holds stacked or raised math, else one Text. */
+function renderStackRow(
+  segments: MathSegment[],
+  layout: MathLayout | undefined,
+  keyPrefix: string,
+  rowCtx: RenderCtx,
+  textStyle: object,
+): ReactNode {
+  const children = renderSegments(segments, layout?.children ?? [], keyPrefix, rowCtx);
+  if (hasTallMath(segments)) {
+    return <View style={rowCtx.styles.fracSideRow}>{children}</View>;
+  }
+  return <Text style={textStyle}>{children}</Text>;
 }
 
 function renderFracSide(
@@ -222,7 +78,6 @@ function renderFracSide(
   keyPrefix: string,
   ctx: RenderCtx,
 ): ReactNode {
-  const { styles } = ctx;
   const sideEm = ctx.inFrac ? ctx.em : ctx.em * FRAC_SIZE_RATIO;
   const sized = ctx.textStyle
     ? { ...faceAt(ctx, sideEm, FRAC_LINE_AT_16 / 14), textAlign: "center" as const }
@@ -235,18 +90,7 @@ function renderFracSide(
   };
   // Nested fraction OR a radical: keep real Views. Flattening a radicand
   // to combining overlines made the minus look like `=` and inflated the bar.
-  if (hasTallMath(segments)) {
-    return (
-      <View style={styles.fracSideRow}>
-        {renderSegments(segments, layout?.children ?? [], keyPrefix, sideCtx)}
-      </View>
-    );
-  }
-  return (
-    <Text style={sized ?? styles.fracPart}>
-      {renderSegments(segments, layout?.children ?? [], keyPrefix, sideCtx)}
-    </Text>
-  );
+  return renderStackRow(segments, layout, keyPrefix, sideCtx, sized ?? ctx.styles.fracPart);
 }
 
 /**
@@ -262,90 +106,17 @@ function renderRadicand(
   ctx: RenderCtx,
 ): ReactNode {
   const { styles } = ctx;
-  const nested = hasTallMath(segments);
   const bodyStyle = ctx.textStyle
     ? faceAt(ctx, ctx.em, (ctx.inFrac ? FRAC_LINE_AT_16 / 14 : SQRT_LINE_AT_16 / 16))
     : ctx.inFrac
       ? styles.fracPart
       : styles.sqrtBody;
-  const bodyCtx = { ...ctx, textStyle: bodyStyle };
-  if (nested) {
-    return (
-      <View style={styles.fracSideRow}>
-        {renderSegments(segments, layout?.children ?? [], keyPrefix, bodyCtx)}
-      </View>
-    );
-  }
-  return (
-    <Text style={bodyStyle}>
-      {renderSegments(segments, layout?.children ?? [], keyPrefix, bodyCtx)}
-    </Text>
-  );
-}
-
-function scriptTextStyle(node: MathLayout | undefined, ctx: RenderCtx, placed = false): object {
-  const fontSize = node?.fontSize ?? ctx.em * SCRIPT_RATIO;
-  const shift = placed
-    ? 0
-    : ((node?.raise ?? 0) > 0 ? -(node?.raise ?? 0) : (node?.drop ?? 0)) * ctx.fontScale;
-  return {
-    ...mathFace(MATH_FONT),
-    fontSize,
-    lineHeight: node?.lineHeight ?? fontSize * 1.15,
-    color: ctx.color,
-    transform: [{ translateY: shift }],
-  };
-}
-
-export function scaled(px: number, fontScale: number): number {
-  return px * fontScale;
-}
-
-function renderAccentMark(node: MathLayout, ctx: RenderCtx): ReactNode {
-  const rule = scaled(node.ruleWidth ?? node.inkWidth, ctx.fontScale);
-  const thick = Math.max(1, scaled(ctx.em * 0.06, ctx.fontScale));
-  const kind = node.accentKind;
-  if (kind === "dot" || kind === "ddot") {
-    const dot = (
-      <View
-        testID="math-accent-rule"
-        style={{ width: thick, height: thick, borderRadius: thick, backgroundColor: ctx.color }}
-      />
-    );
-    return (
-      <View style={{ flexDirection: "row", gap: thick, alignSelf: "center" }}>
-        {dot}
-        {kind === "ddot" ? dot : null}
-      </View>
-    );
-  }
-  if (kind === "hat" || kind === "vec" || kind === "vecLeft" || kind === "tilde") {
-    const w = rule;
-    const h = scaled(ctx.em * 0.18, ctx.fontScale);
-    const d = kind === "hat"
-      ? `M 0 ${h} L ${w / 2} 0 L ${w} ${h}`
-      : kind === "tilde"
-        ? `M 0 ${h * 0.7} Q ${w * 0.25} 0 ${w * 0.5} ${h * 0.55} T ${w} ${h * 0.2}`
-        : kind === "vecLeft"
-          ? `M ${w} ${h * 0.5} L 0 ${h * 0.5} M 0 ${h * 0.5} L ${w * 0.28} 0 M 0 ${h * 0.5} L ${w * 0.28} ${h}`
-          : `M 0 ${h * 0.5} L ${w} ${h * 0.5} M ${w} ${h * 0.5} L ${w * 0.72} 0 M ${w} ${h * 0.5} L ${w * 0.72} ${h}`;
-    return (
-      <Svg testID="math-accent-rule" width={w} height={h} viewBox={`0 0 ${Math.max(w, 1)} ${Math.max(h, 1)}`}>
-        <Path d={d} fill="none" stroke={ctx.color} strokeWidth={Math.max(1, thick * 0.8)} strokeLinecap="round" />
-      </Svg>
-    );
-  }
-  return (
-    <View
-      testID="math-accent-rule"
-      style={{ width: rule, height: thick, backgroundColor: ctx.color, alignSelf: "center" }}
-    />
-  );
+  return renderStackRow(segments, layout, keyPrefix, { ...ctx, textStyle: bodyStyle }, bodyStyle);
 }
 
 function renderScriptColumn(
-  sup: Extract<MathSegment, { type: "sup" }>,
-  sub: Extract<MathSegment, { type: "sub" }>,
+  sup: Segment<"sup">,
+  sub: Segment<"sub">,
   node: MathLayout | undefined,
   key: string,
   ctx: RenderCtx,
@@ -402,252 +173,262 @@ export function renderSegments(
   return nodes;
 }
 
+/** A script with a body of its own (`x^{2^n}`): a View that owns its laid-out bounds. */
+function renderScriptBody(
+  body: MathSegment[],
+  node: MathLayout | undefined,
+  key: string,
+  ctx: RenderCtx,
+  placed: boolean,
+): ReactNode {
+  const scriptEm = node?.fontSize ?? ctx.em * SCRIPT_RATIO;
+  const shift = scriptShift(node, ctx, placed);
+  const inner = node?.children[0];
+  return (
+    <View
+      key={key}
+      testID="math-script"
+      style={{
+        width: scaled(node?.width ?? 0, ctx.fontScale),
+        height: scaled(node?.height ?? 0, ctx.fontScale),
+        paddingTop: scaled(inner?.padTop ?? 0, ctx.fontScale),
+        paddingBottom: scaled(inner?.padBottom ?? 0, ctx.fontScale),
+        transform: [{ translateY: shift }],
+      }}
+    >
+      {renderSegments(body, inner?.children ?? [], `${key}-b`, {
+        ...ctx,
+        em: scriptEm,
+        textStyle: faceAt(ctx, scriptEm, 1.15),
+      })}
+    </View>
+  );
+}
+
+function renderScript(
+  seg: Segment<"sup"> | Segment<"sub">,
+  node: MathLayout | undefined,
+  key: string,
+  ctx: RenderCtx,
+  placed: boolean,
+): ReactNode {
+  if (seg.body) return renderScriptBody(seg.body, node, key, ctx, placed);
+  if (seg.type === "sup" && isFractionalScript(seg)) {
+    return renderFractionalScript(seg.value, node, key, ctx);
+  }
+  return renderScriptRun(seg.value, node, key, ctx, placed);
+}
+
+function renderFrac(
+  seg: Segment<"frac">,
+  node: MathLayout | undefined,
+  key: string,
+  ctx: RenderCtx,
+): ReactNode {
+  const { styles } = ctx;
+  return (
+    <View
+      key={key}
+      style={[styles.fracStack, {
+        width: scaled(node?.width ?? 0, ctx.fontScale),
+        height: scaled(node?.height ?? 0, ctx.fontScale),
+        marginHorizontal: scaled((node?.outer ?? 0) / 2, ctx.fontScale),
+        paddingTop: scaled(node?.padTop ?? 0, ctx.fontScale),
+        paddingBottom: scaled(node?.padBottom ?? 0, ctx.fontScale),
+      }]}
+      testID="math-frac"
+      collapsable={false}
+    >
+      {renderFracSide(seg.num, node?.children[0], `${key}-n`, ctx)}
+      <View
+        style={[styles.vinculum, { height: Math.max(1, ctx.fontScale), marginVertical: 0 }]}
+        testID="math-vinculum"
+      />
+      {renderFracSide(seg.den, node?.children[1], `${key}-d`, ctx)}
+    </View>
+  );
+}
+
+/** A root's index: a laid-out expression (`\sqrt[n+1]{x}`) or a plain degree (`\sqrt[3]{8}`). */
+function renderSqrtIndex(
+  seg: Segment<"sqrt">,
+  node: MathLayout,
+  key: string,
+  ctx: RenderCtx,
+): ReactNode {
+  const index = node.index;
+  if (!index) return null;
+  if (seg.index) {
+    return (
+      <View
+        testID="math-sqrt-index"
+        style={{
+          position: "absolute",
+          left: scaled(index.left, ctx.fontScale),
+          top: scaled(index.top, ctx.fontScale),
+          width: scaled(index.width, ctx.fontScale),
+          height: scaled(index.lineHeight, ctx.fontScale),
+        }}
+      >
+        {renderSegments(seg.index, node.children[1]?.children ?? [], `${key}-i`, {
+          ...ctx,
+          em: index.fontSize,
+          textStyle: faceAt(ctx, index.fontSize, 1.15),
+        })}
+      </View>
+    );
+  }
+  if (!seg.degree) return null;
+  return (
+    <Text
+      style={[ctx.styles.sqrtIndex, {
+        left: scaled(index.left, ctx.fontScale),
+        top: scaled(index.top, ctx.fontScale),
+        fontSize: index.fontSize,
+        lineHeight: index.lineHeight,
+        transform: [],
+      }]}
+    >
+      {seg.degree}
+    </Text>
+  );
+}
+
+function renderSqrt(
+  seg: Segment<"sqrt">,
+  node: MathLayout | undefined,
+  key: string,
+  ctx: RenderCtx,
+): ReactNode {
+  if (!node) return <View key={key} testID="math-sqrt" />;
+  const { styles } = ctx;
+  const stroke = radicalStroke(node);
+  const width = scaled(node.width, ctx.fontScale);
+  const height = scaled(node.height, ctx.fontScale);
+  const padLeft = node.padLeft ?? 0;
+  const padRight = Math.max(0, node.outer - padLeft);
+  return (
+    <View
+      key={key}
+      style={[styles.sqrtRow, {
+        width,
+        height,
+        marginLeft: scaled(padLeft, ctx.fontScale),
+        marginRight: scaled(padRight, ctx.fontScale),
+      }]}
+      testID="math-sqrt"
+      collapsable={false}
+    >
+      <Svg
+        testID="math-radical-glyph"
+        width={width}
+        height={height}
+        viewBox={`0 0 ${node.width} ${node.height}`}
+        style={styles.radicalGlyph}
+        pointerEvents="none"
+        accessible={false}
+      >
+        <Path
+          d={stroke.d}
+          fill="none"
+          stroke={ctx.color}
+          strokeWidth={Math.max(0.9, (node.em ?? ctx.em) * 0.075)}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+      {renderSqrtIndex(seg, node, key, ctx)}
+      <View
+        style={[styles.sqrtRadicand, {
+          marginLeft: scaled(node.lead ?? 0, ctx.fontScale),
+          marginTop: scaled(node.bodyTop ?? 0, ctx.fontScale),
+          width: scaled(node.children[0]?.width ?? node.bodyWidth ?? 0, ctx.fontScale),
+          height: scaled(node.bodyHeight ?? 0, ctx.fontScale),
+        }]}
+        testID="math-sqrt-radicand"
+      >
+        {renderRadicand(seg.body, node.children[0], `${key}-b`, ctx)}
+      </View>
+    </View>
+  );
+}
+
+function renderAccent(
+  seg: Segment<"accent">,
+  node: MathLayout | undefined,
+  key: string,
+  ctx: RenderCtx,
+): ReactNode {
+  if (!node) return <View key={key} testID="math-accent" />;
+  const mark = renderAccentMark(node, ctx);
+  const under = seg.kind === "underline";
+  const head = under ? 0 : scaled(node.padTop ?? 0, ctx.fontScale);
+  const foot = under ? scaled(node.padBottom ?? 0, ctx.fontScale) : 0;
+  return (
+    <View
+      key={key}
+      testID="math-accent"
+      collapsable={false}
+      style={{
+        width: scaled(node.width, ctx.fontScale),
+        height: scaled(node.height, ctx.fontScale),
+        alignItems: "center",
+        justifyContent: "flex-start",
+      }}
+    >
+      {under ? null : mark}
+      <View style={[ctx.styles.fracSideRow, { marginTop: head, marginBottom: foot }]}>
+        {renderSegments(seg.body, node.children[0]?.children ?? [], `${key}-a`, ctx)}
+      </View>
+      {under ? mark : null}
+    </View>
+  );
+}
+
+function renderCancel(
+  seg: Segment<"cancel">,
+  node: MathLayout | undefined,
+  key: string,
+  ctx: RenderCtx,
+): ReactNode {
+  const { styles } = ctx;
+  return (
+    <View key={key} testID="math-cancel" style={styles.cancelWrap} collapsable={false}>
+      {renderSegments(seg.body, node?.children[0]?.children ?? [], `${key}-c`, ctx)}
+      <View style={styles.cancelSlashHit} pointerEvents="none" accessible={false}>
+        <View testID="math-cancel-slash" style={styles.cancelSlash} />
+      </View>
+    </View>
+  );
+}
+
 function renderOneSegment(
   seg: MathSegment,
   node: MathLayout | undefined,
   key: string,
   ctx: RenderCtx,
-  pad: { em: number; fontScale: number; leadingAtom: boolean },
+  pad: RunPad,
   placed: boolean,
 ): ReactNode {
-  const { styles } = ctx;
-  if (seg.type === "sup" || seg.type === "sub") {
-      if (seg.body) {
-        const scriptEm = node?.fontSize ?? ctx.em * SCRIPT_RATIO;
-        const shift = placed
-          ? 0
-          : ((node?.raise ?? 0) > 0 ? -(node?.raise ?? 0) : (node?.drop ?? 0)) * ctx.fontScale;
-        const inner = node?.children[0];
-        return (
-          <View
-            key={key}
-            testID="math-script"
-            style={{
-              width: scaled(node?.width ?? 0, ctx.fontScale),
-              height: scaled(node?.height ?? 0, ctx.fontScale),
-              paddingTop: scaled(inner?.padTop ?? 0, ctx.fontScale),
-              paddingBottom: scaled(inner?.padBottom ?? 0, ctx.fontScale),
-              transform: [{ translateY: shift }],
-            }}
-          >
-            {renderSegments(seg.body, inner?.children ?? [], `${key}-b`, {
-              ...ctx,
-              em: scriptEm,
-              textStyle: faceAt(ctx, scriptEm, 1.15),
-            })}
-          </View>
-        );
-      }
-      if (seg.type === "sup" && isFractionalScript(seg)) {
-        const slash = seg.value.indexOf("/");
-        const scriptSize = node?.fontSize ?? ctx.em * SCRIPT_RATIO;
-        const raise = node?.raise ?? ctx.em * 0.42;
-        const scriptStyle = {
-          ...mathFace(MATH_FONT),
-          fontSize: scriptSize,
-          lineHeight: scriptSize * 1.1,
-          color: ctx.color,
-        };
-        return (
-          <View
-            key={key}
-            testID="math-fractional-sup"
-            style={{
-              width: scaled(node?.width ?? scriptSize * 2, ctx.fontScale),
-              height: scaled(node?.height ?? scriptSize * 2, ctx.fontScale),
-              paddingBottom: scaled(raise, ctx.fontScale),
-              alignItems: "center",
-              justifyContent: "flex-start",
-            }}
-          >
-            {renderMathRun(
-              seg.value.slice(0, slash),
-              `${key}-sn`,
-              scriptStyle,
-              styles.glyph,
-              styles.variable,
-              undefined,
-              { em: scriptSize, fontScale: ctx.fontScale, leadingAtom: false, space: false },
-            )}
-            <View
-              testID="math-script-bar"
-              style={[styles.vinculum, { alignSelf: "stretch", marginVertical: 0 }]}
-            />
-            {renderMathRun(
-              seg.value.slice(slash + 1),
-              `${key}-sd`,
-              scriptStyle,
-              styles.glyph,
-              styles.variable,
-              undefined,
-              { em: scriptSize, fontScale: ctx.fontScale, leadingAtom: false, space: false },
-            )}
-          </View>
-        );
-      }
-      return renderMathRun(
-        seg.value,
-        key,
-        scriptTextStyle(node, ctx, placed),
-        styles.glyph,
-        styles.variable,
-        "math-script",
-        {
-          em: node?.fontSize ?? ctx.em * SCRIPT_RATIO,
-          fontScale: ctx.fontScale,
-          leadingAtom: false,
-          space: false,
-        },
-      );
-    }
-    if (seg.type === "frac") {
-      return (
-        <View
-          key={key}
-          style={[styles.fracStack, {
-            width: scaled(node?.width ?? 0, ctx.fontScale),
-            height: scaled(node?.height ?? 0, ctx.fontScale),
-            marginHorizontal: scaled((node?.outer ?? 0) / 2, ctx.fontScale),
-            paddingTop: scaled(node?.padTop ?? 0, ctx.fontScale),
-            paddingBottom: scaled(node?.padBottom ?? 0, ctx.fontScale),
-          }]}
-          testID="math-frac"
-          collapsable={false}
-        >
-          {renderFracSide(seg.num, node?.children[0], `${key}-n`, ctx)}
-          <View
-            style={[styles.vinculum, { height: Math.max(1, ctx.fontScale), marginVertical: 0 }]}
-            testID="math-vinculum"
-          />
-          {renderFracSide(seg.den, node?.children[1], `${key}-d`, ctx)}
-        </View>
-      );
-    }
-    if (seg.type === "sqrt") {
-      if (!node) return <View key={key} testID="math-sqrt" />;
-      const stroke = radicalStroke(node);
-      const width = scaled(node.width, ctx.fontScale);
-      const height = scaled(node.height, ctx.fontScale);
-      const padLeft = node.padLeft ?? 0;
-      const padRight = Math.max(0, node.outer - padLeft);
-      return (
-        <View
-          key={key}
-          style={[styles.sqrtRow, {
-            width,
-            height,
-            marginLeft: scaled(padLeft, ctx.fontScale),
-            marginRight: scaled(padRight, ctx.fontScale),
-          }]}
-          testID="math-sqrt"
-          collapsable={false}
-        >
-          <Svg
-            testID="math-radical-glyph"
-            width={width}
-            height={height}
-            viewBox={`0 0 ${node.width} ${node.height}`}
-            style={styles.radicalGlyph}
-            pointerEvents="none"
-            accessible={false}
-          >
-            <Path
-              d={stroke.d}
-              fill="none"
-              stroke={ctx.color}
-              strokeWidth={Math.max(0.9, (node.em ?? ctx.em) * 0.075)}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-          {seg.index && node.index ? (
-            <View
-              testID="math-sqrt-index"
-              style={{
-                position: "absolute",
-                left: scaled(node.index.left, ctx.fontScale),
-                top: scaled(node.index.top, ctx.fontScale),
-                width: scaled(node.index.width, ctx.fontScale),
-                height: scaled(node.index.lineHeight, ctx.fontScale),
-              }}
-            >
-              {renderSegments(seg.index, node.children[1]?.children ?? [], `${key}-i`, {
-                ...ctx,
-                em: node.index.fontSize,
-                textStyle: faceAt(ctx, node.index.fontSize, 1.15),
-              })}
-            </View>
-          ) : seg.degree && node.index ? (
-            <Text
-              style={[styles.sqrtIndex, {
-                left: scaled(node.index.left, ctx.fontScale),
-                top: scaled(node.index.top, ctx.fontScale),
-                fontSize: node.index.fontSize,
-                lineHeight: node.index.lineHeight,
-                transform: [],
-              }]}
-            >
-              {seg.degree}
-            </Text>
-          ) : null}
-          <View
-            style={[styles.sqrtRadicand, {
-              marginLeft: scaled(node.lead ?? 0, ctx.fontScale),
-              marginTop: scaled(node.bodyTop ?? 0, ctx.fontScale),
-              width: scaled(node.children[0]?.width ?? node.bodyWidth ?? 0, ctx.fontScale),
-              height: scaled(node.bodyHeight ?? 0, ctx.fontScale),
-            }]}
-            testID="math-sqrt-radicand"
-          >
-            {renderRadicand(seg.body, node.children[0], `${key}-b`, ctx)}
-          </View>
-        </View>
-      );
-    }
-    if (seg.type === "accent") {
-      if (!node) return <View key={key} testID="math-accent" />;
-      const mark = renderAccentMark(node, ctx);
-      const head = seg.kind === "underline" ? 0 : scaled(node.padTop ?? 0, ctx.fontScale);
-      const foot = seg.kind === "underline" ? scaled(node.padBottom ?? 0, ctx.fontScale) : 0;
-      return (
-        <View
-          key={key}
-          testID="math-accent"
-          collapsable={false}
-          style={{
-            width: scaled(node.width, ctx.fontScale),
-            height: scaled(node.height, ctx.fontScale),
-            alignItems: "center",
-            justifyContent: "flex-start",
-          }}
-        >
-          {seg.kind === "underline" ? null : mark}
-          <View style={[styles.fracSideRow, { marginTop: head, marginBottom: foot }]}>
-            {renderSegments(seg.body, node.children[0]?.children ?? [], `${key}-a`, ctx)}
-          </View>
-          {seg.kind === "underline" ? mark : null}
-        </View>
-      );
-    }
-    if (seg.type === "cancel") {
-      return (
-        <View key={key} testID="math-cancel" style={styles.cancelWrap} collapsable={false}>
-          {renderSegments(seg.body, node?.children[0]?.children ?? [], `${key}-c`, ctx)}
-          <View style={styles.cancelSlashHit} pointerEvents="none" accessible={false}>
-            <View testID="math-cancel-slash" style={styles.cancelSlash} />
-          </View>
-        </View>
-      );
-    }
-    if (seg.type === "upright") {
+  switch (seg.type) {
+    case "sup":
+    case "sub":
+      return renderScript(seg, node, key, ctx, placed);
+    case "frac":
+      return renderFrac(seg, node, key, ctx);
+    case "sqrt":
+      return renderSqrt(seg, node, key, ctx);
+    case "accent":
+      return renderAccent(seg, node, key, ctx);
+    case "cancel":
+      return renderCancel(seg, node, key, ctx);
+    case "upright":
       return (
         <Text key={key} style={runStyle(ctx)} testID="math-upright-run">
-          {renderNonVariableRun(seg.value, `${key}-u`, styles.glyph, { em: ctx.em, fontScale: ctx.fontScale })}
+          {renderNonVariableRun(seg.value, `${key}-u`, ctx.styles.glyph, { em: ctx.em, fontScale: ctx.fontScale })}
         </Text>
       );
-    }
-  if (seg.type !== "text") return null;
-  return renderMathRun(seg.value, key, runStyle(ctx), styles.glyph, styles.variable, undefined, pad);
+    case "text":
+      return renderMathRun(seg.value, key, runStyle(ctx), ctx.styles.glyph, ctx.styles.variable, undefined, pad);
+  }
 }
-
-/** Native math: simple runs stay Text; stacked or raised structures own their bounds. */

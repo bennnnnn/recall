@@ -54,13 +54,6 @@ from app.modules.math.match.graph import (
 from app.modules.math.match.letter_runs import looks_like_math_expr
 from app.modules.math.match.needs import needs_symbolic
 from app.modules.math.match.scan import has_equation, has_math_keyword, prepare
-from app.modules.math.match.types import (
-    CombinatoricsOp,
-    MatrixOp,
-    NumberTheoryOp,
-    SolidShape,
-    StatsOp,
-)
 from app.modules.math.match.written import (
     division_answer_mode,
     spoken_power_request,
@@ -69,11 +62,6 @@ from app.modules.math.match.written import (
 )
 
 __all__ = [
-    "CombinatoricsOp",
-    "MatrixOp",
-    "NumberTheoryOp",
-    "SolidShape",
-    "StatsOp",
     "bare_arithmetic_expr",
     "bare_coord",
     "calc_op",

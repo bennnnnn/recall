@@ -17,10 +17,9 @@ from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_change import (
     SpokenReminderChange,
     asks_about_my_reminders,
-    match_from_context,
     names_reminders,
-    resolve_spoken_target,
 )
+from app.modules.todos.spoken_target import match_from_context, resolve_spoken_target
 
 _HIDDEN_TOPICS = frozenset({"", "General", "Reminders"})
 _READ_LIMIT = 30
@@ -47,7 +46,7 @@ async def apply_spoken_change(
     that confirms a change in the app's own shape ("Reopened: buy milk.") is
     about a reminder, so a missing one gets the "Could not" line, not the claim.
     """
-    from app.modules import home as home_service
+    from app.modules.home import service as home_service
     from app.modules.todos.reminder_fence_parse import ReminderFence
     from app.modules.todos.reminder_writes import (
         ReminderWrites,
@@ -55,8 +54,8 @@ async def apply_spoken_change(
         load_existing,
         mutate_one,
     )
-    from app.modules.todos.spoken_add import (
-        _NEED_A_TIME,
+    from app.modules.todos.reply_check import (
+        NEED_A_TIME,
         about_saved_reminders,
         claims_a_reminder_change,
         edits_prior_reply,
@@ -100,7 +99,7 @@ async def apply_spoken_change(
     ):
         return None
     if spoken.needs_time:
-        return _NEED_A_TIME, 0
+        return NEED_A_TIME, 0
     label = spoken.title_hint or "that reminder"
     if item is None or not (getattr(item, "content", None) or "").strip():
         if spoken.topic:

@@ -4,25 +4,29 @@
 finalizes the text they produce.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any
 
 from redis.asyncio import Redis
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
+from app.models.orm import User
 from app.modules.chat import tool_loop
-from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.stream_scaffold import ScaffoldFilter
+from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.tool_loop.parts import classified_live_parts, open_parts, turn_plan
+from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
@@ -65,6 +69,87 @@ async def run_instant_reply_path(
         accum.mark_user_stop()
 
 
+@dataclass(frozen=True)
+class _LoopGate:
+    """What the tool-loop gate reads about a turn: its words, and what already answered it."""
+
+    content: str
+    lightweight: bool
+    has_instant_reply: bool
+    has_verified_math: bool
+    has_search_sources: bool
+
+    @classmethod
+    def of(cls, ctx: StreamContext) -> _LoopGate:
+        sources = ctx.search_sources if isinstance(ctx.search_sources, list) else []
+        return cls(
+            content=ctx.user_message_content if isinstance(ctx.user_message_content, str) else "",
+            lightweight=bool(ctx.lightweight_turn),
+            has_instant_reply=ctx.instant_reply is not None,
+            has_verified_math=ctx.verified_subject is not None,
+            has_search_sources=bool(sources),
+        )
+
+    def needs_loop(
+        self, settings: Settings, user: User | None, *, web_search: bool | None = None
+    ) -> bool:
+        return tool_loop.turn_needs_tool_loop(
+            self.content,
+            lightweight=self.lightweight,
+            has_instant_reply=self.has_instant_reply,
+            has_verified_math=self.has_verified_math,
+            has_search_sources=self.has_search_sources,
+            web_search=web_search,
+            settings=settings,
+            user=user,
+        )
+
+    def may_classify(self, settings: Settings, user: User | None) -> bool:
+        return should_classify_tool_web_search(
+            self.content,
+            settings,
+            lightweight=self.lightweight,
+            has_instant_reply=self.has_instant_reply,
+            has_verified_math=self.has_verified_math,
+            has_search_sources=self.has_search_sources,
+            user=user,
+        )
+
+
+async def _web_verdict(
+    settings: Settings, ctx: StreamContext, gate: _LoopGate
+) -> tuple[bool | None, list[str] | None]:
+    """Whether the turn needs live results, when only a classifier can say, and
+    the requests to search: the prefetched verdict, or each request of the message
+    classified for itself (``tool_loop.parts``). ``(None, None)``: no classifier."""
+    if not gate.may_classify(settings, ctx.user):
+        return None, None
+    if isinstance(ctx.web_search_classified, bool):
+        return ctx.web_search_classified, None
+    prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
+    found = await classified_live_parts(
+        open_parts(gate.content, has_verified_math=gate.has_verified_math, settings=settings),
+        settings,
+        prior_user_messages=collect_prior_user_messages(prompt, gate.content) or None,
+        prior_assistant=last_assistant_content(prompt),
+    )
+    return bool(found), found if turn_plan(gate.content, settings).multi else None
+
+
+def _apply_tool_rounds(ctx: StreamContext, rounds: ToolRoundsOutcome) -> None:
+    """What the tool rounds found becomes the turn's: the messages the stream reads,
+    a verified block, a terminal picture, search sources the prompt path lacked."""
+    ctx.prompt_messages, tool_verified, terminal_image, tool_search_hits = rounds
+    if tool_verified is not None:
+        ctx.verified_subject = _with_tool_verified(ctx.verified_subject, tool_verified)
+    if terminal_image is not None:
+        ctx.terminal_image_message_id = terminal_image.message_id
+        ctx.terminal_image_content = terminal_image.final_content
+        ctx.terminal_image_model = terminal_image.resolved_model
+    if tool_search_hits and not ctx.search_sources:
+        ctx.search_sources = tool_search_hits
+
+
 async def run_tool_loop_path(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -75,12 +160,7 @@ async def run_tool_loop_path(
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
 ) -> None:
-    content = ctx.user_message_content if isinstance(ctx.user_message_content, str) else ""
-    sources = ctx.search_sources if isinstance(ctx.search_sources, list) else []
-    lightweight = bool(ctx.lightweight_turn)
-    has_instant = ctx.instant_reply is not None
-    has_verified = ctx.verified_subject is not None
-    has_sources = bool(sources)
+    gate = _LoopGate.of(ctx)
     web_search_flag: bool | None = None
     search_parts: list[str] | None = None
     if await deps.quota.global_spend_exceeded(redis, settings):
@@ -92,57 +172,12 @@ async def run_tool_loop_path(
         return
     # Sync heuristic first (math / news). Classifier only when
     # that gate is weak so we do not add an LLM round to already-needed turns.
-    if not tool_loop.turn_needs_tool_loop(
-        content,
-        lightweight=lightweight,
-        has_instant_reply=has_instant,
-        has_verified_math=has_verified,
-        has_search_sources=has_sources,
-        settings=settings,
-        user=ctx.user,
-    ):
-        if should_classify_tool_web_search(
-            content,
-            settings,
-            lightweight=lightweight,
-            has_instant_reply=has_instant,
-            has_verified_math=has_verified,
-            has_search_sources=has_sources,
-            user=ctx.user,
-        ):
-            if isinstance(ctx.web_search_classified, bool):
-                web_search_flag = ctx.web_search_classified
-            else:
-                prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
-                # Each request of a multi-part message is classified for itself, and
-                # searched for itself (``tool_loop.parts``).
-                found = await classified_live_parts(
-                    open_parts(content, has_verified_math=has_verified, settings=settings),
-                    settings,
-                    prior_user_messages=collect_prior_user_messages(prompt, content) or None,
-                    prior_assistant=last_assistant_content(prompt),
-                )
-                web_search_flag = bool(found)
-                search_parts = found if turn_plan(content, settings).multi else None
-        if not tool_loop.turn_needs_tool_loop(
-            content,
-            lightweight=lightweight,
-            has_instant_reply=has_instant,
-            has_verified_math=has_verified,
-            has_search_sources=has_sources,
-            web_search=web_search_flag,
-            settings=settings,
-            user=ctx.user,
-        ):
+    if not gate.needs_loop(settings, ctx.user):
+        web_search_flag, search_parts = await _web_verdict(settings, ctx, gate)
+        if not gate.needs_loop(settings, ctx.user, web_search=web_search_flag):
             return
-    (
-        ctx.prompt_messages,
-        tool_verified,
-        terminal_image,
-        tool_search_hits,
-    ) = await tool_loop.run_tool_rounds(
+    rounds = await tool_loop.run_tool_rounds(
         settings=settings,
-        model_alias=ctx.model,
         messages=ctx.prompt_messages,
         usage=usage,
         on_status=on_status,
@@ -152,19 +187,12 @@ async def run_tool_loop_path(
         chat_id=ctx.chat_id,
         web_search=web_search_flag,
         user_timezone=ctx.user_timezone,
-        user_text=content,
+        user_text=gate.content,
         user_location=ctx.search_location,
-        has_verified_math=has_verified,
+        has_verified_math=gate.has_verified_math,
         search_parts=search_parts,
     )
-    if tool_verified is not None:
-        ctx.verified_subject = _with_tool_verified(ctx.verified_subject, tool_verified)
-    if terminal_image is not None:
-        ctx.terminal_image_message_id = terminal_image.message_id
-        ctx.terminal_image_content = terminal_image.final_content
-        ctx.terminal_image_model = terminal_image.resolved_model
-    if tool_search_hits and not ctx.search_sources:
-        ctx.search_sources = tool_search_hits
+    _apply_tool_rounds(ctx, rounds)
 
 
 def _with_tool_verified(server: Any, tool: Any) -> Any:

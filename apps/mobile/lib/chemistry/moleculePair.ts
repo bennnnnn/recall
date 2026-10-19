@@ -6,10 +6,8 @@
  * into one ```molecule JSON fence so the UI mounts a single card.
  */
 import { parseChemistryFence, readSmiles } from "@/lib/chemistry/fence";
+import { fenceIdForLang } from "@/lib/fenceRegistry";
 import { scanFences, type FenceSpan } from "@/lib/mdFenceScan";
-
-const CHEM_LANGS = new Set(["smiles", "chemistry"]);
-const MOL3D_LANGS = new Set(["molecule3d", "mol3d", "3dmol"]);
 
 type MoleculeFence = {
   smiles: string;
@@ -29,11 +27,11 @@ function iterFences(text: string): Fence[] {
 }
 
 function isChemLang(lang: string): boolean {
-  return CHEM_LANGS.has(lang);
+  return fenceIdForLang(lang) === "chemistry";
 }
 
 function isMol3dLang(lang: string): boolean {
-  return MOL3D_LANGS.has(lang);
+  return fenceIdForLang(lang) === "molecule3d";
 }
 
 function encodeMoleculeFence(payload: MoleculeFence): string {

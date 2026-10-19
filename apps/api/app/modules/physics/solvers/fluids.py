@@ -7,7 +7,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
-from app.modules.physics.display import GIVEN_FIGURES, plain_number
+from app.modules.physics.display import GIVEN_FIGURES, latex_given, latex_number, plain_number
 from app.modules.physics.schemas import PhysicsIntent, SimulationSolid, SimulationVector
 from app.modules.physics.solvers.common import (
     PhysicsResult,
@@ -127,8 +127,6 @@ def _laplace_pressure(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResu
 
 def _hydraulic_by_diameter(p: dict[str, float]) -> PhysicsResult:
     """F₂ = F₁(d₂/d₁)²: an area goes with its diameter squared."""
-    from app.modules.physics.display import latex_given, latex_number
-
     if p["d1"] <= 0 or p["d2"] <= 0:
         raise SolveServiceError("hydraulic force needs positive piston diameters")
     force = p["F1"] * (p["d2"] / p["d1"]) ** 2
@@ -294,8 +292,6 @@ def _density(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
 
 def _continuity_by_diameter(p: dict[str, float]) -> PhysicsResult:
     """v₂ = v₁(d₁/d₂)²: the flow is the same through both sections."""
-    from app.modules.physics.display import latex_given, latex_number
-
     if p["d1"] <= 0 or p["d2"] <= 0 or p["v"] < 0:
         raise SolveServiceError("continuity needs positive diameters")
     v2 = p["v"] * (p["d1"] / p["d2"]) ** 2
