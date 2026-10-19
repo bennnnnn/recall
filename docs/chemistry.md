@@ -139,8 +139,9 @@ it does not declare. Pick the smallest shape that fits:
   (`formula_spans`, `without_formulas`); units go through `quantity.py` and
   `given_units.CHEMISTRY_UNITS`. A law physics already owns (gases, Q = mcΔT, half-lives)
   is not added here.
-- **Tests**: `test_chemistry_notation.py` holds every solver to a catalog row; add the
-  question, its look-alikes and a decline to `stem_corpus/chemistry/`.
+- **Tests**: `test_chemistry_remaining.py` holds the catalog to the solver map, and
+  `test_chemistry_notation.py` needs a worked case (its `ALL_CASES`) for every solver
+  operation; add the question, its look-alikes and a decline to `stem_corpus/chemistry/`.
 
 ## Shared chemistry primitives
 
