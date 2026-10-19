@@ -422,7 +422,8 @@ def test_select_memories_for_prompt_includes_project_fact_focus():
     ]
 
 
-def test_select_memories_semantic_includes_unembedded_gated_facts():
+def test_select_memories_semantic_scores_unembedded_facts_by_words():
+    """A fact with no vector yet needs a word in common, not a free pass (M5)."""
     settings = Settings(
         memory_min_confidence=0.0, memory_inject_limit=5, memory_min_similarity=0.35
     )
@@ -430,12 +431,50 @@ def test_select_memories_semantic_includes_unembedded_gated_facts():
     profile.embedding_json = "[1.0, 0.0, 0.0]"
     fact = _memory("fact", "Favorite color is blue", 1.0)
     fact.embedding_json = None
-    selected = select_memories_semantic(
-        [profile, fact],
+    chess = _memory("fact", "Plays chess on weekends", 1.0)
+    chess.embedding_json = None
+
+    off_topic = select_memories_semantic(
+        [profile, fact, chess],
         [1.0, 0.0, 0.0],
         settings,
+        query_text="how should I structure auth in my app?",
     )
-    assert [m.text for m in selected] == ["Name is Sam", "Favorite color is blue"]
+    on_topic = select_memories_semantic(
+        [profile, fact, chess],
+        [1.0, 0.0, 0.0],
+        settings,
+        query_text="what's my favorite color?",
+    )
+
+    assert [m.text for m in off_topic] == ["Name is Sam"]
+    assert [m.text for m in on_topic] == ["Name is Sam", "Favorite color is blue"]
+
+
+def test_semantic_tech_query_omits_offtopic_location_and_job():
+    """M5: the identity core is the name and reply preferences, nothing else."""
+    settings = Settings(
+        memory_min_confidence=0.0, memory_inject_limit=8, memory_min_similarity=0.35
+    )
+    name = _memory("profile", "User's name is Bini", 1.0)
+    name.embedding_json = "[0.0, 1.0, 0.0]"
+    job = _memory("profile", "Works as a nurse at a clinic", 1.0)
+    job.embedding_json = "[0.0, 1.0, 0.0]"
+    city = _memory("profile", "Lives in Addis Ababa", 1.0)
+    city.embedding_json = "[0.0, 0.0, 1.0]"
+    chess = _memory("fact", "Plays chess", 1.0)
+    chess.embedding_json = None
+    concise = _memory("preference", "Prefers concise answers", 1.0)
+    concise.embedding_json = "[0.0, 1.0, 0.0]"
+
+    selected = select_memories_semantic(
+        [name, job, city, chess, concise],
+        [1.0, 0.0, 0.0],
+        settings,
+        query_text="How should I structure auth?",
+    )
+
+    assert [m.text for m in selected] == ["User's name is Bini", "Prefers concise answers"]
 
 
 def test_select_memories_semantic_ranks_by_similarity():
@@ -576,7 +615,7 @@ async def test_load_relevant_memories_ranks_in_process_from_list():
 
 @pytest.mark.asyncio
 async def test_load_relevant_memories_applies_similarity_cutoff_in_process():
-    """Unembedded gated facts still pack via fallback; identity core stays."""
+    """Unembedded facts need a word in common with the question; identity core stays."""
     from app.modules.memory import load_relevant_memories
 
     user = AsyncMock()
@@ -606,7 +645,8 @@ async def test_load_relevant_memories_applies_similarity_cutoff_in_process():
         result = await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
 
     db_search.assert_not_awaited()
-    assert result == [unembedded_profile, unembedded_fact]
+    # The name is always in; a fact with no vector and no question is not.
+    assert result == [unembedded_profile]
 
 
 @pytest.mark.asyncio
@@ -1501,3 +1541,174 @@ async def test_delete_all_memories_releases_lock():
     invalidate.assert_awaited_once()
     acquire_lock.assert_awaited_once_with(user_id)
     release_lock.assert_awaited_once()
+
+
+def _fact(type_: str, text: str, *, topic: str | None = None, vec: str | None = None):
+    memory = _memory(type_, text, 1.0)
+    memory.topic = topic
+    memory.embedding_json = vec
+    return memory
+
+
+def _store() -> list:
+    """A user who builds Recall, and a lot about them that has nothing to do with auth."""
+    return [
+        _fact("profile", "User's name is Bini", topic="profile"),
+        _fact("profile", "Bini works as a nurse at a clinic", topic="profile"),
+        _fact("profile", "Bini lives in Addis Ababa", topic="profile"),
+        _fact("preference", "Bini prefers concise answers", topic="preferences"),
+        _fact("fact", "Bini has a cat named Mimi", topic="interests"),
+        _fact("fact", "Bini is training for a marathon", topic="goals"),
+        _fact("fact", "Bini uses React Native and FastAPI", topic="tech-stack"),
+        _fact("project", "Bini builds Recall with React Native and FastAPI", topic="area:recall"),
+        _fact("project", "Bini's wedding is planned for June", topic="area:wedding"),
+        _fact("fact", "Bini wants auth tokens kept off the device logs", topic="notes"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_embed_timeout_injects_only_identity_core(fake_redis):
+    """M6: no query vector means the name, reply preferences and facts that share a
+    word with the question, never the whole store; the block is not cached."""
+    from app.modules.memory import MemoryLoadReport, get_memory_block
+
+    user = AsyncMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    settings = Settings(semantic_memory_enabled=True, memory_min_confidence=0.0)
+    report = MemoryLoadReport()
+    warm = MagicMock(side_effect=_closing_background_task)
+
+    with (
+        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
+        patch("app.gateways.embedding_gateway.get_or_embed_query", AsyncMock(return_value=None)),
+        patch("app.modules.memory.repository.list_for_user", AsyncMock(return_value=_store())),
+        patch("app.modules.memory.create_background_task", warm),
+    ):
+        block = await get_memory_block(
+            AsyncMock(),
+            user,
+            settings,
+            query_text="How should I structure auth in my app?",
+            exclude_sensitive=True,
+            report=report,
+        )
+
+    assert "User's name is Bini" in block
+    assert "Bini prefers concise answers" in block
+    assert "auth tokens" in block
+    for unrelated in ("nurse", "Addis Ababa", "Mimi", "marathon", "wedding"):
+        assert unrelated not in block
+    assert report.status == "partial"
+    assert not [key async for key in fake_redis.scan_iter("memquery:*")]
+
+
+@pytest.mark.asyncio
+async def test_warm_repairs_the_scope_the_turn_read(fake_redis):
+    """M6: after an embed miss, the warm writes the key the next turn reads."""
+    from app.modules.memory import (
+        _memory_query_scoped_key,
+        _warm_semantic_memory_cache,
+    )
+
+    user = AsyncMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
+    with (
+        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.gateways.embedding_gateway.get_or_embed_query",
+            AsyncMock(return_value=[1.0, 0.0, 0.0]),
+        ),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
+        patch(
+            "app.modules.memory._semantic_memories_from_vec",
+            AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)]),
+        ),
+        patch("app.core.db.SessionLocal", return_value=_FakeSessionCM(AsyncMock())),
+    ):
+        await _warm_semantic_memory_cache(
+            settings, user.id, "outdoor hobbies", exclude_sensitive=True
+        )
+
+    read_key = _memory_query_scoped_key(user.id, None, "outdoor hobbies", exclude_sensitive=True)
+    other_key = _memory_query_scoped_key(user.id, None, "outdoor hobbies", exclude_sensitive=False)
+    assert "Likes hiking" in (await fake_redis.get(read_key) or "")
+    assert await fake_redis.get(other_key) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("semantic", [True, False])
+async def test_a_failed_read_is_reported_and_never_cached(fake_redis, semantic):
+    """M17: a DB error is "unavailable", not an empty memory, and the next turn retries."""
+    from app.modules.memory import MemoryLoadReport, get_memory_block
+
+    user = AsyncMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    settings = Settings(semantic_memory_enabled=semantic)
+    report = MemoryLoadReport()
+    with (
+        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.gateways.embedding_gateway.get_or_embed_query",
+            AsyncMock(return_value=[1.0, 0.0, 0.0]),
+        ),
+        patch(
+            "app.modules.memory.repository.list_for_user",
+            AsyncMock(side_effect=RuntimeError("db unavailable")),
+        ),
+    ):
+        block = await get_memory_block(
+            AsyncMock(), user, settings, query_text="what's my job?", report=report
+        )
+
+    assert block == ""
+    assert report.status == "unavailable"
+    assert not [key async for key in fake_redis.scan_iter("mem*:*")]
+
+
+def test_work_scope_reads_the_stack_and_what_the_user_builds():
+    """M2/M5: a programming turn gets the stack and the software areas, nothing else."""
+    from app.modules.memory import select_work_memories
+
+    settings = Settings(memory_min_confidence=0.0)
+    texts = [memory.text for memory in select_work_memories(_store(), settings)]
+
+    assert texts[:2] == ["User's name is Bini", "Bini prefers concise answers"]
+    assert "Bini uses React Native and FastAPI" in texts
+    assert "Bini builds Recall with React Native and FastAPI" in texts
+    for unrelated in ("nurse", "Addis Ababa", "Mimi", "marathon", "wedding"):
+        assert not any(unrelated in text for text in texts)
+
+
+def test_profile_scope_keeps_the_profile_document():
+    settings = Settings(memory_min_confidence=0.0, memory_min_similarity=0.35)
+    selected = select_memories_semantic(
+        _store(),
+        [1.0, 0.0, 0.0],
+        settings,
+        query_text="should I ask for a promotion?",
+        with_profile=True,
+    )
+    texts = [memory.text for memory in selected]
+    assert "Bini works as a nurse at a clinic" in texts
+    assert "Bini has a cat named Mimi" not in texts
+
+
+def test_fact_lines_say_when_and_how_sure():
+    """M18: a fact carries the month it was said, and a doubtful one says so."""
+    from datetime import UTC, datetime
+
+    from app.modules.memory import format_memory_block
+
+    sure = _memory("profile", "Works at Stripe", 0.95)
+    sure.last_confirmed_at = datetime(2026, 5, 2, tzinfo=UTC)
+    unsure = _memory("fact", "Might be moving to Lisbon", 0.45)
+    unsure.last_confirmed_at = datetime(2026, 9, 9, tzinfo=UTC)
+
+    block = format_memory_block([sure, unsure])
+
+    assert "- Works at Stripe (said 2026-05)" in block
+    assert "- Might be moving to Lisbon (said 2026-09, unconfirmed)" in block

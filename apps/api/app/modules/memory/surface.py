@@ -33,6 +33,9 @@ from app.modules.memory.consolidation import (
 from app.modules.memory.repository import list_areas as list_areas
 from app.modules.memory.repository import list_for_user as list_for_user
 from app.modules.memory.repository import list_range as list_range
+from app.modules.memory.retrieval import MemoryLoadReport as MemoryLoadReport
+from app.modules.memory.retrieval import MemoryLoadStatus as MemoryLoadStatus
+from app.modules.memory.retrieval import MemoryScope as MemoryScope
 from app.modules.memory.selection import (
     SECTION_LABELS as SECTION_LABELS,
 )
@@ -52,7 +55,13 @@ from app.modules.memory.selection import (
     select_memories_for_prompt as select_memories_for_prompt,
 )
 from app.modules.memory.selection import (
+    select_memories_lexical as select_memories_lexical,
+)
+from app.modules.memory.selection import (
     select_memories_semantic as select_memories_semantic,
+)
+from app.modules.memory.selection import (
+    select_work_memories as select_work_memories,
 )
 from app.modules.memory.text import (
     _split_sentences as _split_sentences,
@@ -76,6 +85,9 @@ from app.modules.memory.text import (
     is_explicit_memory_command as is_explicit_memory_command,
 )
 from app.modules.memory.text import (
+    is_explicit_mute_command as is_explicit_mute_command,
+)
+from app.modules.memory.text import (
     is_food_or_diet_memory_text as is_food_or_diet_memory_text,
 )
 from app.modules.memory.text import (
@@ -85,6 +97,9 @@ from app.modules.memory.text import (
     is_memory_candidate as is_memory_candidate,
 )
 from app.modules.memory.text import (
+    is_memory_correction as is_memory_correction,
+)
+from app.modules.memory.text import (
     is_sensitive_memory_text as is_sensitive_memory_text,
 )
 from app.modules.memory.text import (
@@ -92,6 +107,9 @@ from app.modules.memory.text import (
 )
 from app.modules.memory.text import (
     memory_extract_user_text as memory_extract_user_text,
+)
+from app.modules.memory.text import (
+    memory_reset_request as memory_reset_request,
 )
 from app.modules.memory.text import (
     merge_diet_facts as merge_diet_facts,
@@ -118,12 +136,14 @@ def _memory_query_scoped_key(
     query_text: str,
     *,
     exclude_sensitive: bool,
+    with_profile: bool = False,
 ) -> str:
     return _cache.memory_query_scoped_key(
         user_id,
         generation,
         query_text,
         exclude_sensitive=exclude_sensitive,
+        with_profile=with_profile,
     )
 
 
@@ -150,6 +170,7 @@ async def _semantic_memories_from_vec(
     query_vec: list[float],
     *,
     query_text: str | None = None,
+    with_profile: bool = False,
 ) -> list[Memory]:
     return await _retrieval.semantic_memories_from_vec(
         _seams(),
@@ -158,6 +179,7 @@ async def _semantic_memories_from_vec(
         settings,
         query_vec,
         query_text=query_text,
+        with_profile=with_profile,
     )
 
 
@@ -168,6 +190,9 @@ async def load_relevant_memories(
     *,
     query_text: str | None = None,
     query_vec: list[float] | None = None,
+    lexical: bool = False,
+    with_profile: bool = False,
+    report: MemoryLoadReport | None = None,
 ) -> list[Memory]:
     return await _retrieval.load_relevant_memories(
         _seams(),
@@ -176,6 +201,9 @@ async def load_relevant_memories(
         settings,
         query_text=query_text,
         query_vec=query_vec,
+        lexical=lexical,
+        with_profile=with_profile,
+        report=report,
     )
 
 
@@ -187,6 +215,8 @@ async def _semantic_block_from_vec(
     *,
     exclude_sensitive: bool,
     query_text: str | None = None,
+    with_profile: bool = False,
+    report: MemoryLoadReport | None = None,
 ) -> str:
     return await _retrieval.semantic_block_from_vec(
         _seams(),
@@ -196,6 +226,8 @@ async def _semantic_block_from_vec(
         query_vec,
         exclude_sensitive=exclude_sensitive,
         query_text=query_text,
+        with_profile=with_profile,
+        report=report,
     )
 
 
@@ -203,12 +235,17 @@ async def _warm_semantic_memory_cache(
     settings: Settings,
     user_id: UUID,
     query_text: str,
+    *,
+    exclude_sensitive: bool = False,
+    with_profile: bool = False,
 ) -> None:
     await _retrieval.warm_semantic_memory_cache(
         _seams(),
         settings,
         user_id,
         query_text,
+        exclude_sensitive=exclude_sensitive,
+        with_profile=with_profile,
     )
 
 
@@ -219,7 +256,10 @@ async def get_memory_block(
     *,
     query_text: str | None = None,
     exclude_sensitive: bool = False,
+    scope: MemoryScope = "query",
+    report: MemoryLoadReport | None = None,
 ) -> str:
+    """The memory block for one prompt; ``report`` says if it loaded in full."""
     return await _retrieval.get_memory_block(
         _seams(),
         session,
@@ -227,6 +267,8 @@ async def get_memory_block(
         settings,
         query_text=query_text,
         exclude_sensitive=exclude_sensitive,
+        scope=scope,
+        report=report,
     )
 
 
