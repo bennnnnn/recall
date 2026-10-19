@@ -50,9 +50,6 @@ class InFlight:
         self._closing = asyncio.Event()
         self._leasing: asyncio.Task[None] | None = None
 
-    def __len__(self) -> int:
-        return len(self._tasks)
-
     def room(self) -> int:
         """How many entries to read now: one per free slot, while few enough wait."""
         running = len(self._tasks) - self._waiting
