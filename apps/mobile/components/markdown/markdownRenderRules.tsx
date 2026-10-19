@@ -18,6 +18,8 @@ import { linkRules } from "@/components/markdown/rules/links";
 import { listRules } from "@/components/markdown/rules/lists";
 import { tableRules } from "@/components/markdown/rules/tables";
 import { textRules } from "@/components/markdown/rules/textWithMath";
+import type { RenderRules } from "react-native-markdown-display";
+
 import type { Theme } from "@/lib/theme";
 
 function makeSharedRules(
@@ -46,7 +48,7 @@ export function makeRenderRules(t: Theme, streaming = false) {
   const mdStyles = makeMdStyles(t);
   // A streaming reply is not yet the server's final text: no answer check in it.
   const fence = streaming ? renderStreamingFence : renderSettledFence;
-  const rules = {
+  const rules: RenderRules = {
     ...makeSharedRules(t, mdTable, mdMath, mdImg, mdStyles.code_inline, streaming),
     fence,
     code_block: fence,

@@ -1,7 +1,7 @@
 /** Markdown renderer — v2 (no nested Markdown / plainFence), theme-aware. */
-import React, { useEffect, useMemo, useRef } from "react";
-import { StyleSheet, View } from "react-native";
-import Markdown from "react-native-markdown-display";
+import React, { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { StyleSheet, View, type StyleProp, type TextStyle } from "react-native";
+import Markdown, { type RenderRules } from "react-native-markdown-display";
 
 import { CodeBlock } from "@/components/CodeBlock";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
@@ -43,9 +43,18 @@ type Props = {
 
 type MarkdownChunkProps = {
   content: string;
-  rules: ReturnType<typeof makeRenderRules>["rules"];
+  rules: RenderRules;
   mdStyles: ReturnType<typeof makeRenderRules>["mdStyles"];
 };
+
+/** What every `Markdown` of one reply is drawn with. */
+type MarkdownProps = {
+  style: MarkdownChunkProps["mdStyles"];
+  rules: RenderRules;
+  markdownit: typeof markdownItInstance;
+};
+
+type OpenStreamRegion = ReturnType<typeof classifyOpenStreamTail>;
 
 /**
  * One settled chunk of a streaming reply. Chunk strings never change while a
@@ -58,7 +67,7 @@ const MarkdownStreamChunk = React.memo(function MarkdownStreamChunk({
   mdStyles,
 }: MarkdownChunkProps) {
   return (
-    <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
+    <Markdown style={mdStyles} rules={rules} markdownit={markdownItInstance}>
       {content}
     </Markdown>
   );
@@ -98,6 +107,46 @@ function tailPaintsBlock(kind: "fence" | "math" | "other", preview: OpenFencePre
   return preview === "answer" || preview === "math" || preview === "code";
 }
 
+/** Open display maths, the caret after it while it is the last thing drawn. */
+function mathTail(body: string, caret: boolean): ReactNode {
+  return (
+    <View style={mathTailRow}>
+      <StreamingMathPreview body={body} />
+      {caret ? <StreamingCursor /> : null}
+    </View>
+  );
+}
+
+/**
+ * What the still-open end of a streaming reply shows: an open fence as its
+ * preview (`classifyOpenFencePreview`), open display maths typeset, or the
+ * prose typed so far.
+ */
+function openTail(
+  region: OpenStreamRegion,
+  preview: OpenFencePreviewKind | null,
+  prose: string,
+  caretOnMath: boolean,
+  md: MarkdownProps,
+): ReactNode {
+  const proseBlock = prose.trim() ? <Markdown {...md}>{prose}</Markdown> : null;
+  if (region.kind === "math") return mathTail(region.body, caretOnMath);
+  if (region.kind !== "fence") return proseBlock;
+  switch (preview) {
+    case "answer":
+      return region.body.trim() ? <AnswerBlock content={region.body} settled={false} /> : null;
+    case "math":
+      return mathTail(region.body, caretOnMath);
+    case "prose":
+      return proseBlock;
+    case "hide":
+    case "placeholder":
+      return null;
+    default:
+      return <CodeBlock code={region.body} lang={region.lang} streaming />;
+  }
+}
+
 const LEADING_HEADING = /^\s*(#{1,6})[ \t]/;
 
 /**
@@ -105,12 +154,13 @@ const LEADING_HEADING = /^\s*(#{1,6})[ \t]/;
  * margin. Read from the source, so the streaming and settled renders agree and
  * nothing jumps when the reply finishes.
  */
-function leadingHeadingMargin(text: string, styles: Record<string, unknown>): number {
+function leadingHeadingMargin(
+  text: string,
+  styles: Readonly<Record<string, StyleProp<TextStyle>>>,
+): number {
   const match = LEADING_HEADING.exec(text);
   if (!match) return 0;
-  const style = StyleSheet.flatten(styles[`heading${match[1].length}`] as never) as
-    | { marginTop?: unknown }
-    | undefined;
+  const style = StyleSheet.flatten(styles[`heading${match[1].length}`]);
   return typeof style?.marginTop === "number" ? style.marginTop : 0;
 }
 
@@ -214,6 +264,8 @@ export function MarkdownContent({
       caretHost === "after" &&
       (openRegion.kind === "math" || fencePreview === "math");
 
+    const md: MarkdownProps = { style: mdStyles, rules, markdownit: markdownItInstance };
+
     return (
       <HtmlPreviewFilesProvider files={previewFiles}>
         <View style={leadingOffset}>
@@ -225,40 +277,8 @@ export function MarkdownContent({
             mdStyles={mdStyles}
           />
         ))}
-        {unsettledShown ? (
-          <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
-            {unsettledShown}
-          </Markdown>
-        ) : null}
-        {openRegion.kind === "fence" ? (
-          fencePreview === "answer" ? (
-            openRegion.body.trim() ? (
-              <AnswerBlock content={openRegion.body} settled={false} />
-            ) : null
-          ) : fencePreview === "math" ? (
-            <View style={mathTailRow}>
-              <StreamingMathPreview body={openRegion.body} />
-              {caretOnMath ? <StreamingCursor /> : null}
-            </View>
-          ) : fencePreview === "prose" ? (
-            proseShown.trim() ? (
-              <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
-                {proseShown}
-              </Markdown>
-            ) : null
-          ) : fencePreview === "hide" || fencePreview === "placeholder" ? null : (
-            <CodeBlock code={openRegion.body} lang={openRegion.lang} streaming />
-          )
-        ) : openRegion.kind === "math" ? (
-          <View style={mathTailRow}>
-            <StreamingMathPreview body={openRegion.body} />
-            {caretOnMath ? <StreamingCursor /> : null}
-          </View>
-        ) : proseShown.trim() ? (
-          <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
-            {proseShown}
-          </Markdown>
-        ) : null}
+        {unsettledShown ? <Markdown {...md}>{unsettledShown}</Markdown> : null}
+        {openTail(openRegion, fencePreview, proseShown, caretOnMath, md)}
         {caretHost === "after" && !caretOnMath ? <StreamingCursor /> : null}
         </View>
       </HtmlPreviewFilesProvider>
@@ -268,11 +288,7 @@ export function MarkdownContent({
   return (
     <HtmlPreviewFilesProvider files={previewFiles}>
       <View style={leadingOffset}>
-        <Markdown
-          style={mdStyles}
-          rules={rules as never}
-          markdownit={markdownItInstance}
-        >
+        <Markdown style={mdStyles} rules={rules} markdownit={markdownItInstance}>
           {prepared}
         </Markdown>
       </View>
