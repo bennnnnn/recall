@@ -24,7 +24,6 @@ from app.modules.chat.post_turn import (
     finalize_stream_turn_db,
     restore_regenerate_backup,
 )
-from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.quality import detect_quality_issues
 from app.modules.chat.related_prompts import schedule_related_prompts
 from app.modules.chat.stream_accum import StreamAccum
@@ -34,6 +33,7 @@ from app.modules.chat.stream_paths import (
     run_llm_token_stream,
     run_tool_loop_path,
 )
+from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist

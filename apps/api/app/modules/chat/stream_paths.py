@@ -17,10 +17,10 @@ from redis.asyncio import Redis
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.modules.chat import tool_loop
-from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.stream_scaffold import ScaffoldFilter
+from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.tool_loop.parts import classified_live_parts, open_parts, turn_plan
 from app.modules.chat.turn_deps import ChatTurnDeps

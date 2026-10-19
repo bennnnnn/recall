@@ -23,7 +23,6 @@ from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry
 from app.modules.chat.finalize_registry import register_inflight_stream
-from app.modules.chat.prompt_builder import StreamReasoningFn
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     SERVER_RESTARTING_MESSAGE,
@@ -41,7 +40,7 @@ from app.modules.chat.stream_events import (
     take_related_prompts_event,
     turn_error_payload,
 )
-from app.modules.chat.stream_status import StreamStatusFn
+from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
 
@@ -81,7 +80,6 @@ def _sse(payload: dict[str, Any]) -> str:
 async def _stream_tokens_sse(
     *,
     chat_id: UUID,
-    settings: Settings,
     stream_factory: _TokenStream,
     request: Request,
     cancel_event: asyncio.Event | None = None,
@@ -273,7 +271,6 @@ async def stream_message_sse(
     return _sse_response(
         _stream_tokens_sse(
             chat_id=chat_id,
-            settings=settings,
             request=request,
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_chat_response(
@@ -309,7 +306,6 @@ async def stream_regenerate_sse(
     return _sse_response(
         _stream_tokens_sse(
             chat_id=chat_id,
-            settings=settings,
             request=request,
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_regenerate_response(

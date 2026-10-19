@@ -14,9 +14,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
+from redis.asyncio import Redis
 from starlette.websockets import WebSocketState
 
-from app.core import access_tokens, shutdown
+from app.core import access_tokens, chat_rate_limit, shutdown
 from app.core.client_ip import client_ip_from_websocket
 from app.core.config import Settings, get_settings
 from app.core.rate_limit import allow_request_fail_closed
@@ -31,6 +32,7 @@ from app.modules.chat.stream_events import (
     build_status_event,
     turn_error_payload,
 )
+from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.ws_limits import (
     WS_IDLE_CLOSE_CODE,
@@ -55,14 +57,12 @@ _WS_AUTH_TIMEOUT_SECONDS = 10.0
 _CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate"})
 
 
-async def _ws_rate_limit(redis, user_id: UUID) -> bool:
+async def _ws_rate_limit(redis: Redis, user_id: UUID) -> bool:
     """Per-message throttle for chat actions on an open WebSocket."""
-    from app.core.chat_rate_limit import allow_chat_message
-
-    return await allow_chat_message(redis, user_id)
+    return await chat_rate_limit.allow_chat_message(redis, user_id)
 
 
-async def _ws_connect_rate_limit(redis, user_id: UUID) -> bool:
+async def _ws_connect_rate_limit(redis: Redis, user_id: UUID) -> bool:
     """Limit new WebSocket handshakes per user (separate from per-message limits)."""
     return await allow_request_fail_closed(
         redis,
@@ -72,7 +72,7 @@ async def _ws_connect_rate_limit(redis, user_id: UUID) -> bool:
     )
 
 
-async def _ws_handshake_rate_limit(redis, websocket: WebSocket) -> bool:
+async def _ws_handshake_rate_limit(redis: Redis, websocket: WebSocket) -> bool:
     """Cap unauthenticated connect attempts by client IP before accept().
 
     Uses the shared `client_ip_from_websocket` resolver so a Fly-proxied
@@ -89,7 +89,7 @@ async def _ws_handshake_rate_limit(redis, websocket: WebSocket) -> bool:
     )
 
 
-def _status_emitters(websocket: WebSocket) -> tuple[Any, Any]:
+def _status_emitters(websocket: WebSocket) -> tuple[StreamStatusFn, StreamReasoningFn]:
     """Shared status/reasoning WS emitters for chargeable chat actions."""
 
     async def emit_status(phase: str, detail: str | None = None) -> None:
@@ -117,15 +117,15 @@ def _client_geo_kwargs(
 async def _handle_regenerate(
     websocket: WebSocket,
     *,
-    redis: Any,
-    settings: Any,
+    redis: Redis,
+    settings: Settings,
     user_id: UUID,
     chat_id: UUID,
     payload: dict[str, Any],
     client_timezone: str | None,
     cancel_event: asyncio.Event,
-    emit_status: Any,
-    emit_reasoning: Any,
+    emit_status: StreamStatusFn,
+    emit_reasoning: StreamReasoningFn,
     frame_budget: FrameBudget | None = None,
 ) -> None:
     try:
@@ -161,15 +161,15 @@ async def _handle_regenerate(
 async def _handle_message(
     websocket: WebSocket,
     *,
-    redis: Any,
-    settings: Any,
+    redis: Redis,
+    settings: Settings,
     user_id: UUID,
     chat_id: UUID,
     payload: dict[str, Any],
     client_timezone: str | None,
     cancel_event: asyncio.Event,
-    emit_status: Any,
-    emit_reasoning: Any,
+    emit_status: StreamStatusFn,
+    emit_reasoning: StreamReasoningFn,
     frame_budget: FrameBudget | None = None,
 ) -> None:
     try:
@@ -221,7 +221,7 @@ class _ChatSocket:
     """One authenticated chat socket and what its turns share."""
 
     websocket: WebSocket
-    redis: Any
+    redis: Redis
     settings: Settings
     chat_id: UUID
     user_id: UUID
@@ -232,7 +232,7 @@ class _ChatSocket:
 
 
 async def _authenticate(
-    websocket: WebSocket, redis: Any, settings: Settings, chat_id: UUID
+    websocket: WebSocket, redis: Redis, settings: Settings, chat_id: UUID
 ) -> tuple[UUID, str, str | None] | None:
     """The auth frame's user, token and time zone; None once the socket is refused."""
     try:

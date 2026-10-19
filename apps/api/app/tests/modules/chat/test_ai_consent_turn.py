@@ -178,7 +178,6 @@ async def test_server_sent_events_send_consent_required() -> None:
             json.loads(chunk.removeprefix("data: "))
             async for chunk in stream_api._stream_tokens_sse(
                 chat_id=uuid4(),
-                settings=Settings(),
                 request=request,
                 stream_factory=lambda outcome, *_callbacks: _turn(
                     "new", _deps(fakes), user=stored, outcome=outcome

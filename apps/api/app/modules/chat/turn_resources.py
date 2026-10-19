@@ -19,7 +19,7 @@ from app.exceptions import (
 )
 from app.models.orm import User
 from app.modules.chat.post_turn import seed_usage_from_db
-from app.modules.chat.prompt_builder import StreamStatusFn
+from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_timing import TurnTimingTracker
