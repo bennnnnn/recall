@@ -164,6 +164,8 @@ def _production(**overrides: str) -> Settings:
         r2_bucket="recall",
         daily_global_spend_usd=100.0,
         process_role="api",
+        database_url="postgresql+asyncpg://u:pw@ep-recall.us-east-2.aws.neon.tech/recall",
+        redis_url="rediss://default:pw@relaxed-1.upstash.io:6379",
     )
     return production.model_copy(update=overrides)
 
