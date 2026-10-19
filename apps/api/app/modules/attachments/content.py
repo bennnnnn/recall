@@ -23,9 +23,11 @@ from app.modules.attachments.content_types import (
     _docx_zip_bomb,
     _office_content_type,
     bytes_match_claimed,
-    is_image_content_type,
     normalize_content_type,
 )
+
+# Re-exported: rag and chat's vision paths read it through this module.
+from app.modules.attachments.content_types import is_image_content_type as is_image_content_type
 from app.modules.attachments.markers import _strip_image_markers
 from app.modules.attachments.office_text import extract_office_text
 from app.modules.attachments.vision_notes import VISION_NOTE
