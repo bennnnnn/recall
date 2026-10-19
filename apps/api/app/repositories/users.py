@@ -3,9 +3,9 @@ from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import object_session
+from sqlalchemy.orm import Session, object_session
 
-from app.core.user_cache import forget_user, remember_user
+from app.core.user_cache import forget_user, remember_user, remember_user_after_commit
 from app.models.orm import (
     Attachment,
     Chat,
@@ -104,9 +104,15 @@ async def update(session: AsyncSession, user: User, *, commit: bool = True, **fi
     if commit:
         await session.commit()
         await session.refresh(bound)
+        remember_user(bound)
     else:
         await session.flush()
-    remember_user(bound)
+        if isinstance(sync, Session):
+            # The caller commits; cache the change only once that commit succeeds.
+            remember_user_after_commit(sync, bound)
+        else:
+            # Session mocks in unit tests have no transaction to wait for.
+            remember_user(bound)
     return bound
 
 

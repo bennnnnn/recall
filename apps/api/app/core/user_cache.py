@@ -14,8 +14,9 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.orm import make_transient_to_detached
+from sqlalchemy.orm import Session, make_transient_to_detached
 
 from app.core.ttl_cache import TtlCache
 from app.models.orm import User
@@ -47,6 +48,33 @@ def _snapshot(user: User) -> User:
 def remember_user(user: User) -> None:
     cached = _snapshot(user) if isinstance(user, User) else user
     _user_cache.put(user.id, cached)
+
+
+def remember_user_after_commit(session: Session, user: User) -> None:
+    """Cache ``user`` as written once ``session`` commits; drop the entry if it rolls back.
+
+    Until then the change is not saved, and a rollback must not leave this
+    process serving it. Dropping (not keeping the old entry) sends the next read
+    to the database, which also covers a read that cached the old row meanwhile.
+    """
+    snapshot = _snapshot(user) if isinstance(user, User) else user
+    settled = False
+
+    def settle(committed: bool) -> None:
+        nonlocal settled
+        if settled:
+            return
+        settled = True
+        if committed:
+            _user_cache.put(snapshot.id, snapshot)
+        else:
+            _user_cache.pop(snapshot.id)
+
+    event.listen(session, "after_commit", lambda _session: settle(True), once=True)
+    # Soft too: any rollback, a savepoint's included, may have undone the write.
+    event.listen(
+        session, "after_soft_rollback", lambda _session, _previous: settle(False), once=True
+    )
 
 
 def forget_user(user_id: UUID) -> None:
