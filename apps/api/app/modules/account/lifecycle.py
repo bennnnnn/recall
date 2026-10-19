@@ -131,7 +131,7 @@ async def delete_account(
 
     await attachments_service.purge_attachments_for_user(session, settings, user.id)
     user_id = user.id
-    from app.core.deps import forget_user
+    from app.core.user_cache import forget_user
     from app.repositories.chats import forget_user_chats
 
     try:

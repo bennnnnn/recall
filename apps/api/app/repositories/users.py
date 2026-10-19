@@ -5,6 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import object_session
 
+from app.core.user_cache import forget_user, remember_user
 from app.models.orm import (
     Attachment,
     Chat,
@@ -105,8 +106,6 @@ async def update(session: AsyncSession, user: User, *, commit: bool = True, **fi
         await session.refresh(bound)
     else:
         await session.flush()
-    from app.core.deps import remember_user
-
     remember_user(bound)
     return bound
 
@@ -134,6 +133,4 @@ async def delete_user(session: AsyncSession, user_id: UUID) -> None:
     if user is not None:
         await session.delete(user)
     await session.commit()
-    from app.core.deps import forget_user
-
     forget_user(user_id)

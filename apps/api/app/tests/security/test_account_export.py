@@ -47,7 +47,7 @@ async def test_export_includes_profile_all_memory_and_every_owned_record(world: 
             UsageDaily(user_id=a.id, date=date(2026, 10, 14), input_tokens=100, output_tokens=50)
         )
         await session.commit()
-    from app.core.deps import forget_user
+    from app.core.user_cache import forget_user
 
     forget_user(a.id)
     await c.patch(
