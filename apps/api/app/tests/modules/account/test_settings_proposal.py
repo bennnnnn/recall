@@ -195,6 +195,8 @@ async def test_confirming_a_memory_reset_applies_it(monkeypatch: pytest.MonkeyPa
 
     assert [item["field"] for item in result["applied"]] == ["memory"]
     if reset == "off":
+        update.assert_awaited_once()
+        assert update.await_args is not None
         assert update.await_args.kwargs == {"memory_enabled": False}
         clear.assert_not_awaited()
     else:

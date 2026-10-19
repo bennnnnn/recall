@@ -208,6 +208,8 @@ def test_the_saved_memory_block_says_it_may_be_stale():
         ("How should I structure auth in my app?", True),
         ("fix the bug in our backend", True),
         ("what is recursion", True),
+        ("find the derivative of the function f(x) = x^2 + 3x", False),
+        ("write a python function that reverses a list", True),
         ("my history project is due friday, any tips?", True),
         ("plan my weekend", False),
         ("what's a good name for a cat", False),

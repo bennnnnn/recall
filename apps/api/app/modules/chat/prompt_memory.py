@@ -21,6 +21,7 @@ from app.modules.chat.prompt_constants import (
     is_programming_turn,
     recalls_earlier_conversation,
 )
+from app.services.subject_solving import detect_subject
 
 if TYPE_CHECKING:
     from app.modules.chat.prompt_sections import PromptTurn
@@ -100,10 +101,16 @@ def memory_switch_on(user: object) -> bool:
 
 
 def is_work_turn(text: str | None) -> bool:
-    """A programming turn, or one about the user's own app, project or backend."""
+    """A programming turn, or one about the user's own app, project or backend.
+
+    "Find the derivative of the function f(x)" uses a programming word but is a
+    maths problem: a turn a subject solver owns is not a work turn.
+    """
     if not text or not text.strip():
         return False
-    return bool(is_programming_turn(text) or _OWN_WORK.search(text) or _DEV_TASK.search(text))
+    if _OWN_WORK.search(text) or _DEV_TASK.search(text):
+        return True
+    return is_programming_turn(text) and detect_subject(text) is None
 
 
 def memory_scope_for(text: str | None) -> MemoryScope:
