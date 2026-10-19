@@ -19,6 +19,7 @@ jest.mock("@/features/chat/model/latency", () => ({
   clearPendingChatTtft: jest.fn(),
   markChatFirstToken: jest.fn(),
 }));
+jest.mock("@/lib/api", () => ({ api: { listMessages: jest.fn() } }));
 
 const NOW = Date.parse("2026-03-01T12:00:00Z");
 
@@ -32,9 +33,12 @@ async function setup(start: { messages?: Message[]; streaming?: boolean; draft?:
   const todoSyncTimersRef = { current: [] as ReturnType<typeof setTimeout>[] };
   const args = {
     t: (key: string) => key,
+    token: "token",
     chatId: "chat-1",
     isCurrentView: jest.fn(() => true),
     currentSocket: jest.fn(() => null),
+    messagesRef: { current: [] as Message[] },
+    sendAttemptRef: { current: 1 },
     setMessages,
     setStreaming: jest.fn(),
     setFinalizing: jest.fn(),
@@ -301,6 +305,15 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
     expect(clearPendingChatTtft).toHaveBeenCalledWith("turn-1");
     expect(args.queueUnsavedSend).toHaveBeenCalledWith(expect.anything(), "attachment_rejected");
     expect(args.reportError).toHaveBeenCalledWith("Too big", "attachment_rejected");
+  });
+
+  it("start marks the send taken by the server and keeps it for a later error", async () => {
+    const { args, send } = await setup({ streaming: true });
+    const turn = pending();
+    args.pendingSendRef.current = turn;
+    await send({ type: "start" });
+    expect(args.pendingSendRef.current).toBe(turn);
+    expect(turn.accepted).toBe(true);
   });
 
   it.each([

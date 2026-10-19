@@ -180,6 +180,9 @@ const error: ChatEventHandler = (payload, ctx, ttftTurnId) => {
 export const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
   start: (_payload, ctx) => {
     ctx.streamCueRef.current.activity();
+    // The server took the turn and finishes it even if the connection drops:
+    // from here a drop is reconciled with the chat, never sent a second time.
+    if (ctx.pendingSendRef.current) ctx.pendingSendRef.current.accepted = true;
     ctx.wsAuthFallbackRef.current = null;
     ctx.setSendingMessageId(null);
     ctx.setFinalizing(false);
