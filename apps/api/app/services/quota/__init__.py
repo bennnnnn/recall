@@ -3,8 +3,8 @@
 ``tokens`` is the daily token budget, ``counters`` the per-feature daily caps
 (``counters.reserve("image_search", ...)``), ``live_talk`` the monthly live talk
 seconds, ``carryover`` what account delete hands to a new account for the same
-sign-in, and ``spend`` the global daily spend breaker. ``messages`` is the copy
-a refused request shows.
+sign-in, and ``spend`` the global daily spend breaker (its counter is
+``core/spend_counter``). ``messages`` is the copy a refused request shows.
 """
 
 from app.services.quota import counters
@@ -48,10 +48,8 @@ from app.services.quota.spend import (
     IMAGE_GEN_SPEND_USD,
     IMAGE_SEARCH_SPEND_USD,
     MATH_SCAN_READ_SPEND_USD,
-    REFERENCE_RESOLVER_SPEND_USD,
     STT_SPEND_USD,
     TTS_SPEND_USD,
-    WEB_SEARCH_CLASSIFIER_SPEND_USD,
     get_global_spend_micro_usd,
     global_spend_exceeded,
     record_global_spend,
@@ -89,7 +87,6 @@ __all__ = [
     "LIVE_TALK_SAVES_USED_MESSAGE",
     "MATH_SCAN_READ_SPEND_USD",
     "QUOTA_EXCEEDED_MESSAGE_FREE",
-    "REFERENCE_RESOLVER_SPEND_USD",
     "SPEECH_NOT_IN_PLAN_MESSAGE",
     "SPEECH_RATE_LIMIT_MESSAGE",
     "SPEECH_TTS_NOT_IN_PLAN_MESSAGE",
@@ -97,7 +94,6 @@ __all__ = [
     "STT_SPEND_USD",
     "TTS_SPEND_USD",
     "VOICE_SPEND_CAP_MESSAGE",
-    "WEB_SEARCH_CLASSIFIER_SPEND_USD",
     "CarriedUsage",
     "adjust_usage",
     "apply_carried_usage",

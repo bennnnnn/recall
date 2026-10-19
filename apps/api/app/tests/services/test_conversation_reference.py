@@ -61,7 +61,8 @@ async def test_resolver_sends_the_conversation_without_the_request(no_spend_cap)
     assert "Assistant: No. The longest documented lifespan is Jeanne Calment" in prompt
     assert prompt.count("Show me her image") == 1
     assert prompt.rstrip().endswith("Latest message: Show me her image")
-    no_spend_cap.assert_awaited_once()
+    # The gateway meters the call from its token usage (gateways/llm_spend).
+    no_spend_cap.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -123,24 +124,6 @@ async def test_resolver_failure_is_best_effort(no_spend_cap) -> None:
         )
     assert out is None
     no_spend_cap.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_resolver_keeps_the_answer_when_spend_accounting_fails() -> None:
-    complete = AsyncMock(return_value=ConversationReference(text="Jeanne Calment"))
-    with (
-        patch.object(ref.mock_llm, "should_mock_llm", return_value=False),
-        patch.object(ref.litellm_gateway, "complete_structured", complete),
-        patch.object(ref.quota_service, "global_spend_exceeded", AsyncMock(return_value=False)),
-        patch.object(
-            ref.quota_service, "record_global_spend", AsyncMock(side_effect=RuntimeError("redis"))
-        ),
-        patch.object(ref, "get_redis_client", return_value=object()),
-    ):
-        out = await ref.resolve_reference(
-            _settings(), kind="photo", request="Show me her image", turns=_CALMENT
-        )
-    assert out == "Jeanne Calment"
 
 
 @pytest.mark.asyncio

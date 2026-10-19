@@ -149,9 +149,5 @@ async def resolve_reference(
     except Exception:
         logger.warning("Reference resolver failed kind=%s", kind, exc_info=True)
         return None
-    try:
-        # A known answer survives a failed spend write.
-        await quota_service.record_global_spend(redis, quota_service.REFERENCE_RESOLVER_SPEND_USD)
-    except Exception:
-        logger.exception("record_global_spend failed after the reference resolver")
+    # The gateway adds this call's cost to the global spend.
     return _clean(result.text) if result is not None else None
