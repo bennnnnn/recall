@@ -322,6 +322,10 @@ class Settings(BaseSettings):
     # forever. Generous: account delete is one cascading DELETE. 0 disables.
     db_connect_timeout_seconds: float = 10.0
     db_command_timeout_seconds: float = 120.0
+    # Each migration transaction's lock wait and statement limit (Postgres
+    # durations; core/migration_session.py). Under Fly's 5 min release timeout.
+    migration_lock_timeout: str = "5s"
+    migration_statement_timeout: str = "4min"
     # Cap concurrent DB checkouts inside the context gather so one turn cannot
     # grab all five pool slots at once.
     context_db_concurrency: int = 3
