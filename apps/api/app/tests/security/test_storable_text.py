@@ -112,6 +112,32 @@ def test_request_schema_stores_lone_surrogate_as_replacement(
     value.encode("utf-8")
 
 
+@pytest.mark.parametrize(
+    "page_text, excerpt",
+    [
+        ("Invoice\x00 total\x00", "[page 1] Invoice total"),
+        ("\x00\x00", None),  # nothing left: no text layer
+        ("plain", "[page 1] plain"),
+    ],
+)
+def test_pdf_excerpt_drops_nul_before_it_reaches_the_user_bubble(
+    page_text: str, excerpt: str | None
+) -> None:
+    """A document's excerpt is saved in the user's message, so it must be storable too."""
+    from unittest.mock import MagicMock, patch
+
+    from app.modules.attachments.content import extract_text_details
+
+    page = MagicMock()
+    page.extract_text.return_value = page_text
+    reader = MagicMock()
+    reader.pages = [page]
+    with patch("pypdf.PdfReader", return_value=reader):
+        details = extract_text_details("application/pdf", b"%PDF-1.7")
+
+    assert (details.text if details else None) == excerpt
+
+
 def test_chat_stream_rejects_nul_with_422_before_any_turn() -> None:
     app = create_app()
     user = AsyncMock()
