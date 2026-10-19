@@ -318,6 +318,8 @@
   "login.dev": "እንደ Dev ይቀጥሉ",
   "login.dev_expo_hint": "Google Sign-In dev build ይፈልጋል። Dev login በExpo Go ይሰራል።",
   "login.dev_expo_ios_hint": "Google Sign-In dev build ይፈልጋል። በ Apple ይቀጥሉ ወይም Dev login በ Expo Go ይሰራል።",
+  "login.error_account_exists_apple": "ይህ ኢሜይል አስቀድሞ የRecall መለያ አለው። ከዚህ በፊት እንደገቡት በApple ይግቡ።",
+  "login.error_account_exists_google": "ይህ ኢሜይል አስቀድሞ የRecall መለያ አለው። ከዚህ በፊት እንደገቡት በGoogle ይግቡ።",
   "login.error_android_google": "Google Sign-In on Android needs an OAuth client in Google Cloud with package com.recall.app and your debug SHA-1. Run: ./scripts/android-debug-sha1.sh",
   "login.error_bundle": "Dev build ከMetro ግንኙነት አጥቷል። `pnpm expo start` ይኑር፣ 앱 reload (⌘R)፣ ወይም Dev login።",
   "login.error_generic": "አንድ ነገር ተሳስቷል። እንደገና ይሞክሩ።",

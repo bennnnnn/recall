@@ -17,7 +17,9 @@ from app.tests.test_routers import _fake_user
 @pytest.mark.asyncio
 @pytest.mark.parametrize("provider", ["google", "apple"])
 async def test_email_match_cannot_replace_another_provider_identity(provider):
-    existing = _fake_user(email="shared@example.test")
+    # Even an address the provider owns cannot move the account to another id.
+    email = "shared@gmail.com" if provider == "google" else "shared@icloud.com"
+    existing = _fake_user(email=email, google_sub=None, apple_sub=None)
     setattr(existing, f"{provider}_sub", "existing-subject")
     payload = {"sub": "different-subject", "email": existing.email, "email_verified": True}
     with (
@@ -41,8 +43,9 @@ async def test_email_match_cannot_replace_another_provider_identity(provider):
         ) as issue,
     ):
         login = getattr(auth_service, f"login_with_{provider}")
-        with pytest.raises(GoogleAuthError, match="already linked"):
+        with pytest.raises(auth_service.AccountExistsError) as refused:
             await login(AsyncMock(), Settings(jwt_secret="x" * 32), "id-token", AsyncMock())
+    assert refused.value.sign_in_with == provider
     update.assert_not_awaited()
     issue.assert_not_awaited()
 

@@ -318,6 +318,8 @@
   "login.dev": "Als Dev-Benutzer fortfahren",
   "login.dev_expo_hint": "Google Sign-In braucht einen Dev-Build. Dev-Login funktioniert in Expo Go.",
   "login.dev_expo_ios_hint": "Google Sign-In braucht einen Dev-Build. Weiter mit Apple oder Dev funktioniert in Expo Go.",
+  "login.error_account_exists_apple": "Für diese E-Mail-Adresse gibt es schon ein Recall-Konto. Bitte wie beim letzten Mal mit Apple anmelden.",
+  "login.error_account_exists_google": "Für diese E-Mail-Adresse gibt es schon ein Recall-Konto. Bitte wie beim letzten Mal mit Google anmelden.",
   "login.error_android_google": "Google Sign-In on Android needs an OAuth client in Google Cloud with package com.recall.app and your debug SHA-1. Run: ./scripts/android-debug-sha1.sh",
   "login.error_bundle": "Die Dev-Build-Verbindung zu Metro ist abgebrochen. Lasse `pnpm expo start` laufen, lade die App neu (⌘R), oder nutze Dev-Login.",
   "login.error_generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",

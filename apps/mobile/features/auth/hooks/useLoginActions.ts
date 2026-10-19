@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { AccountExistsError } from "@/features/auth/model/accountExists";
 import { formatAppleSignInError } from "@/lib/apple-auth";
 import { isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
 import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
@@ -29,6 +30,11 @@ export function useLoginActions() {
 
   const signInErrorMessage = useCallback(
     (error: unknown, provider: Exclude<LoginProvider, "dev">) => {
+      if (error instanceof AccountExistsError) {
+        return error.signInWith === "apple"
+          ? t("login.error_account_exists_apple")
+          : t("login.error_account_exists_google");
+      }
       const key =
         provider === "google"
           ? formatGoogleSignInError(error)

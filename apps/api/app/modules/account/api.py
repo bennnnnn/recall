@@ -76,6 +76,14 @@ async def _enforce_login_rate_limit(
         )
 
 
+def _account_exists_http(exc: auth_service.AccountExistsError) -> HTTPException:
+    """409 with a code the app turns into "sign in with Apple/Google instead"."""
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={"code": "account_exists", "sign_in_with": exc.sign_in_with, "message": str(exc)},
+    )
+
+
 @router.post("/google", response_model=AuthResponse)
 async def google_login(
     body: GoogleAuthRequest,
@@ -103,6 +111,8 @@ async def google_login(
             detail=str(exc),
             headers={"Retry-After": "5"},
         ) from exc
+    except auth_service.AccountExistsError as exc:
+        raise _account_exists_http(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
@@ -130,6 +140,8 @@ async def apple_login(
         )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
+    except auth_service.AccountExistsError as exc:
+        raise _account_exists_http(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)

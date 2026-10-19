@@ -318,6 +318,8 @@
   "login.dev": "Dev kullanıcı olarak devam et",
   "login.dev_expo_hint": "Google ile giriş için geliştirme derlemesi gerekir. Dev girişi Expo Go'da çalışır.",
   "login.dev_expo_ios_hint": "Google Sign-In dev build gerektirir. Apple ile devam et veya Dev girişi Expo Go'da çalışır.",
+  "login.error_account_exists_apple": "Bu e-postanın zaten bir Recall hesabı var. Daha önce yaptığın gibi Apple ile giriş yap.",
+  "login.error_account_exists_google": "Bu e-postanın zaten bir Recall hesabı var. Daha önce yaptığın gibi Google ile giriş yap.",
   "login.error_android_google": "Google Sign-In on Android needs an OAuth client in Google Cloud with package com.recall.app and your debug SHA-1. Run: ./scripts/android-debug-sha1.sh",
   "login.error_bundle": "Dev derlemesi Metro bağlantısını kaybetti. `pnpm expo start` çalışır tutun, uygulamayı yenileyin (⌘R) veya Dev girişi kullanın.",
   "login.error_generic": "Bir şeyler ters gitti. Tekrar deneyin.",
