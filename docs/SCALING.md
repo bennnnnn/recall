@@ -25,8 +25,8 @@ Everything a turn or a request must agree on across machines lives in Redis or P
 | Global daily spend cap | Redis `spend_musd:<date>` (`core/spend_counter.py`) | Every machine adds to and reads the same counter |
 | One turn per chat at a time | Redis lock `chatprep:{chat}` (TTL 30 s, refreshed every 10 s) | A second send on another machine gets `busy` |
 | "Wait for the last reply to be saved" | Redis marker `chatfinal:{chat}` (`modules/chat/finalize_registry.py`) | Same machine awaits the task; another machine polls the marker (50 ms, up to 10 s) |
-| Memory, home, link-preview, web-search, query-embedding and follow-up caches; model health | Redis, keyed by user or query, with TTLs | Invalidation is a generation bump (`core/cache_generation.py`), so every machine sees it |
-| Memory writes | Postgres row locks (user row first) | |
+| Memory, home, link-preview, web-search, query-embedding and follow-up caches; model health | Redis, keyed by user or query, with TTLs | Where a write must invalidate one, it bumps a Redis generation key (`core/cache_generation.py`), so every machine sees it |
+| Memory writes | Redis lock per user (`modules/memory/locks.py`) plus Postgres row locks (user row first) | A busy lock re-enqueues the job with a backoff |
 | Background jobs | One Redis Stream `recall:jobs`, consumer group `workers` (`core/jobs/`) | Each worker has its own consumer name; entries are leased and reclaimed after 60 s idle; `jobdone:<key>` dedupe keeps a job from running twice; poison entries and timeouts go to the DLQ; the stream is bounded (`JOBS_STREAM_MAX_LEN`) |
 | Periodic schedulers (push, reminder email, orphan reaper, billing reconcile) | Every worker runs every loop; a Redis lock per cycle lets one run it (`background/periodic.py`) | Adding workers adds lock attempts, not duplicate sends |
 | Files | R2 presigned URLs | Production refuses local storage (`validate_production_settings`) |
@@ -98,14 +98,14 @@ plugs in.
    `core/jobs/admin.py`.
 7. **Shard the billing reconcile.** It checks every paid user one by one (a RevenueCat call
    plus a 0.2 s gap: at most 18,000 users an hour, about half that with the call's own
-   latency), so past that it no longer finishes within its hour. Split by user-id range across workers, or check only users without a recent
-   webhook. Seam: `background/billing_reconcile_scheduler.py`.
+   latency), so past that it no longer finishes within its hour. Split by user-id range
+   across workers, or check only users without a recent webhook. Seam: `background/billing_reconcile_scheduler.py`.
 8. **Separate job classes if one starves another.** All job types share one stream and
    worker slots; `max_running` limits a slow type per worker. A second stream (or a second
    consumer group) for slow jobs would keep titles and memory quick under a burst. Seams:
    `core/jobs/queue.py` (`JOBS_STREAM`, `register`), `core/jobs/worker.py`.
 9. **Move CPU off the event loop when measurements say so**: the readers and finalize
-   passes are pure functions, so a process pool like SymPy's can take them. Seams:
+   passes are text processing over the reply, so a process pool like SymPy's could take them. Seams:
    `core/sympy_executor.py` (the bounded, injectable pool), `modules/chat/finalize_passes.py`.
    A remote SymPy service would implement `BoundedSympyExecutor` and plug in through
    `set_sympy_executor`.
