@@ -1,7 +1,8 @@
-import { Component, ReactNode } from "react";
+import { Component, type ErrorInfo, ReactNode } from "react";
 import { Text } from "react-native";
 
 import { FallbackMarkdown } from "@/components/FallbackMarkdown";
+import { reportBoundaryError } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -44,10 +45,11 @@ export class MarkdownErrorBoundary extends Component<Props, State> {
     return { failed: true };
   }
 
-  componentDidCatch(error: Error) {
+  componentDidCatch(error: Error, info: ErrorInfo) {
     if (__DEV__) {
       console.warn("[MarkdownErrorBoundary]", error.message, error.stack);
     }
+    reportBoundaryError("markdown", error, info.componentStack);
   }
 
   static getDerivedStateFromProps(props: Props, state: State): State | null {

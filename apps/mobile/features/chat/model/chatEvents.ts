@@ -9,6 +9,12 @@ import type { ChatSsePayload } from "@/features/chat/model/sse";
 import type { createStreamCueGate } from "@/features/chat/model/streamFeedback";
 import type { ChatWsTransport } from "@/features/chat/model/wsTransport";
 import {
+  beginTurnOutcome,
+  completionFromDone,
+  noteTurnActivity,
+  reportTurnOutcome,
+} from "@/features/chat/model/turnOutcome";
+import {
   applyRelatedPrompts,
   applyStreamEndModel,
   buildDoneMergeInput,
@@ -84,6 +90,8 @@ const done: ChatEventHandler = (payload, ctx) => {
   if (!stoppedId) {
     ctx.streamCueRef.current.complete();
     AccessibilityInfo.announceForAccessibility(ctx.t("chat.reply_ready"));
+    // A stopped turn was reported when the user tapped Stop.
+    reportTurnOutcome(completionFromDone(payload.completion));
   }
   ctx.setStreaming(false);
   ctx.setFinalizing(false);
@@ -123,6 +131,7 @@ function unsavedReason(payload: ChatSsePayload): RejectedSend["reason"] | null {
 
 const error: ChatEventHandler = (payload, ctx, ttftTurnId) => {
   ctx.streamCueRef.current.error();
+  reportTurnOutcome("error", typeof payload.code === "string" ? payload.code : undefined);
   // Only an unsaved message is offered as Retry (resend); a saved one keeps
   // Regenerate. Servers that predate `user_message_saved` say so by code.
   const pending = ctx.pendingSendRef.current;
@@ -180,6 +189,7 @@ const error: ChatEventHandler = (payload, ctx, ttftTurnId) => {
 export const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
   start: (_payload, ctx) => {
     ctx.streamCueRef.current.activity();
+    beginTurnOutcome();
     // The server took the turn and finishes it even if the connection drops:
     // from here a drop is reconciled with the chat, never sent a second time.
     if (ctx.pendingSendRef.current) ctx.pendingSendRef.current.accepted = true;
@@ -201,6 +211,7 @@ export const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
   status: (payload, ctx) => {
     ctx.streamCueRef.current.activity();
     if (typeof payload.phase !== "string") return;
+    noteTurnActivity(payload.phase);
     ctx.updateStreamingDraft({
       content: ctx.assistantBufferRef.current,
       search_sources: ctx.streamingDraftRef.current?.search_sources,

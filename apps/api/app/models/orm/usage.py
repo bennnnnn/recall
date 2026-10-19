@@ -43,7 +43,7 @@ class ProductEvent(Base):
         CheckConstraint(
             "name IN "
             "('paywall_viewed', 'purchase_started', 'purchase_succeeded', "
-            "'purchase_failed', 'push_permission')",
+            "'purchase_failed', 'push_permission', 'chat_ttft', 'chat_turn_outcome')",
             name="ck_product_events_name",
         ),
     )

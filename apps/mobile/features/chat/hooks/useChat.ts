@@ -8,14 +8,9 @@ import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getSessionGeneration } from "@/lib/auth";
 import { useChatTransport } from "@/features/chat/hooks/useChatTransport";
 import { useChatIncomingEvents } from "@/features/chat/hooks/useChatIncoming";
-import {
-  publishStreamingDraft,
-  type StreamingDraft,
-} from "@/lib/streamingDraftStore";
-import {
-  popLastAssistantMessage,
-  restoreAssistantMessage,
-} from "@/features/chat/model/regenerateLogic";
+import { publishStreamingDraft, type StreamingDraft } from "@/lib/streamingDraftStore";
+import { popLastAssistantMessage, restoreAssistantMessage } from "@/features/chat/model/regenerateLogic";
+import { reportTurnOutcome } from "@/features/chat/model/turnOutcome";
 import { withStreamingPlaceholder } from "@/features/chat/model/partialStream";
 import type { ChatWsFallbackSignal, ChatWsTransport } from "@/features/chat/model/wsTransport";
 import type {
@@ -509,6 +504,7 @@ export function useChat(
   const stopGeneration = useCallback(() => {
     if (!isCurrentView()) return;
     streamCueRef.current.stopped();
+    reportTurnOutcome("stopped");
     sendAttemptRef.current += 1;
     const pendingRetry = pendingSendRef.current;
     if (pendingRetry?.retryingRejected && !pendingRetry.dispatched) {
