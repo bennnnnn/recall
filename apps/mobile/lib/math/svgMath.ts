@@ -9,6 +9,7 @@
  * no `<use>`/defs for react-native-svg to resolve) and uses `currentColor`;
  * the view substitutes the theme color at render time.
  */
+import type { LiteElement } from "mathjax-full/js/adaptors/lite/Element.js";
 
 /** Cap pathological model latex before MathJax can burn the JS thread. */
 const MAX_LATEX_CHARS = 4000;
@@ -125,8 +126,9 @@ async function loadRenderer(): Promise<SvgMathRenderer> {
     OutputJax: svgJax,
   });
   return (latex: string, display: boolean) => {
-    const node = doc.convert(latex, { display }) as unknown;
-    return adaptor.innerHTML(node as never);
+    // With the lite adaptor, a converted formula is a lite DOM element.
+    const node = doc.convert(latex, { display }) as LiteElement;
+    return adaptor.innerHTML(node);
   };
 }
 
