@@ -1,5 +1,7 @@
 import { Platform } from "react-native";
 
+import type { PurchasesPackage } from "react-native-purchases";
+
 import { isExpoGo } from "@/lib/expoRuntime";
 import type { PaidPlanId, PlanId } from "@/lib/plan";
 
@@ -18,19 +20,22 @@ const PLAN_PACKAGE_IDS: Record<PaidPlanId, string> = {
   pro: "pro_monthly",
 };
 
-/** Opaque handle — keeps react-native-purchases out of the static import graph. */
+/** Opaque handle — keeps react-native-purchases out of the static import graph
+ * (its types are erased at build time). */
 export type PlanPackage = {
   plan: PaidPlanId;
   /** Localized by the store ("$7.99", "7,99 €"); never hardcoded. */
   priceString: string;
   productId: string;
-  native: unknown;
+  native: PurchasesPackage;
 };
 
 type ActiveEntitlements = Record<string, { productIdentifier?: string } | undefined>;
 type CustomerInfoLike = { entitlements: { active: ActiveEntitlements } };
 
 type PurchasesModule = typeof import("react-native-purchases");
+/** Android: the Plus subscription a Pro purchase replaces. */
+type ProductChange = Parameters<PurchasesModule["default"]["purchasePackage"]>[2];
 
 let purchasesModule: PurchasesModule | null | undefined;
 
@@ -145,9 +150,9 @@ export async function getPlanPackages(): Promise<Partial<Record<PaidPlanId, Plan
 export async function purchasePlanPackage(pkg: PlanPackage): Promise<PlanId> {
   const mod = await loadPurchases();
   if (!mod) return "free";
-  let productChange: { oldProductIdentifier: string; prorationMode: number } | null = null;
+  let productChange: ProductChange = null;
   if (Platform.OS === "android" && pkg.plan === "pro") {
-    const info = (await mod.default.getCustomerInfo()) as unknown as CustomerInfoLike;
+    const info = await mod.default.getCustomerInfo();
     const plusProduct = info.entitlements.active[PLAN_ENTITLEMENT_IDS.plus]?.productIdentifier;
     const oldProduct = plusProduct?.split(":")[0];
     if (oldProduct && oldProduct !== pkg.productId.split(":")[0]) {
@@ -157,12 +162,8 @@ export async function purchasePlanPackage(pkg: PlanPackage): Promise<PlanId> {
       };
     }
   }
-  const result = await mod.default.purchasePackage(
-    pkg.native as never,
-    null,
-    productChange as never,
-  );
-  return planFromCustomerInfo(result.customerInfo as unknown as CustomerInfoLike);
+  const result = await mod.default.purchasePackage(pkg.native, null, productChange);
+  return planFromCustomerInfo(result.customerInfo);
 }
 
 /** Restore store purchases; resolves with the plan they grant. */
@@ -170,7 +171,7 @@ export async function restorePurchases(): Promise<PlanId> {
   const mod = await loadPurchases();
   if (!mod) return "free";
   const info = await mod.default.restorePurchases();
-  return planFromCustomerInfo(info as unknown as CustomerInfoLike);
+  return planFromCustomerInfo(info);
 }
 
 /**
@@ -211,8 +212,8 @@ export async function registerPlanChangeListener(
     lastPlan = plan;
     onChange(plan);
   };
-  mod.default.addCustomerInfoUpdateListener(listener as never);
+  mod.default.addCustomerInfoUpdateListener(listener);
   return () => {
-    mod.default.removeCustomerInfoUpdateListener(listener as never);
+    mod.default.removeCustomerInfoUpdateListener(listener);
   };
 }

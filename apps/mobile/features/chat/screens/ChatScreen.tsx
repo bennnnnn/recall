@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useWindowDimensions,
   View,
 } from "react-native";
 import { registerNewChat, setActiveChatIdGlobal } from "@/lib/drawer";
-import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -23,14 +23,12 @@ import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
 import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
-import { hasPlanFeature } from "@/lib/plan";
 import { useDrawer } from "@/contexts/DrawerContext";
-import { useHome } from "@/features/home/context/HomeContext";
-import { shouldRefreshHomeOnChatFocus } from "@/lib/cache/contextRefresh";
-import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
+import { useHomeRefreshOnChatFocus } from "@/features/home/hooks/useHomeRefreshOnChatFocus";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { useChatComposerState } from "@/features/chat/hooks/useChatComposerState";
+import { useComposerDictation } from "@/features/chat/hooks/useComposerDictation";
 import { useChatDraftWarmup } from "@/features/chat/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
 import { useChatMessageList } from "@/features/chat/hooks/useChatMessageList";
@@ -38,9 +36,8 @@ import { useChatRegenerate } from "@/features/chat/hooks/useChatRegenerate";
 import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/features/chat/hooks/useChatScroll";
 import { useChatSend } from "@/features/chat/hooks/useChatSend";
-import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
 import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
-import { useDraftChat } from "@/hooks/useDraftChat";
+import { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
 import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } from "@/features/chat/hooks/useChatScreenError";
@@ -65,28 +62,12 @@ function ChatScreen() {
   const [chatId, setChatId] = useState<string | null>(null);
   const draft = useDraftChat({ token, chatId });
   const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
-  const { refresh: refreshHome, hasFetched: hasFetchedHome } = useHome();
-  useFocusEffect(
-    useCallback(() => {
-      const openThread =
-        (typeof routeChatId === "string" && routeChatId) || chatId;
-      if (
-        !shouldRefreshHomeOnChatFocus({
-          hasOpenThread: Boolean(openThread),
-          hasFetchedHome,
-        })
-      ) {
-        return;
-      }
-      void refreshHome({ silent: true });
-    }, [refreshHome, routeChatId, chatId, hasFetchedHome]),
-  );
+  useHomeRefreshOnChatFocus(routeChatId, chatId);
   const { chatError, handleChatError, handleStreamBusy, dismissChatError, handleRejectedSendChange } =
     useChatErrorHandlers(isPaid);
   const activeChatId = draft.activeChatId;
 
   const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
-  const closeAttachSheetRef = useRef<() => void>(() => {});
   const showActionBannerRef = useRef<
     (message: string, icon?: IconName) => void
   >(() => {});
@@ -305,8 +286,6 @@ function ChatScreen() {
     setInput,
     pendingAttachment,
     setPendingAttachment,
-    attachBusy,
-    attachPicking,
     sendPhase,
     attachSheetOpen,
     setAttachSheetOpen,
@@ -319,7 +298,6 @@ function ChatScreen() {
     handleMathScanSolve,
     mathScannerOpen,
     setMathScannerOpen,
-    pendingOutboundId,
   } = send;
 
   useEffect(() => {
@@ -329,47 +307,14 @@ function ChatScreen() {
   const [mathChromeExtra, setMathChromeExtra] = useState(0);
   const [composerInputExtra, setComposerInputExtra] = useState(0);
 
-  const composerThread = composerThreadKey(
-    typeof routeChatId === "string" ? routeChatId : undefined,
-  );
-  const composerThreadRef = useRef(composerThread);
-  composerThreadRef.current = composerThread;
-  const voiceCaptureThreadRef = useRef(composerThread);
-
   const {
     voiceInputAvailable,
     voiceRecording,
     voiceTranscribing,
     voiceMeterLevel,
-    toggleVoiceInput,
+    toggleVoiceInput: handleToggleVoiceInput,
     cancelVoiceInput,
-  } = useVoiceInput({
-    token,
-    onTranscript: (text) => {
-      if (voiceCaptureThreadRef.current !== composerThreadRef.current) return;
-      setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
-    },
-    // The server refused: the plan has no voice input (the app's copy was stale).
-    onPlanRequired: () => openUpgradeRef.current?.("voice"),
-    t,
-  });
-
-  useLayoutEffect(() => {
-    cancelVoiceInput();
-  }, [routeChatId, cancelVoiceInput]);
-
-  const canDictate = hasPlanFeature(user, "speech_transcription");
-  const handleToggleVoiceInput = useCallback(() => {
-    if (!voiceRecording && !voiceTranscribing) {
-      // Don't record what the plan cannot send; show the plans instead.
-      if (!canDictate) {
-        openUpgradeRef.current?.("voice");
-        return;
-      }
-      voiceCaptureThreadRef.current = composerThreadRef.current;
-    }
-    void toggleVoiceInput();
-  }, [canDictate, toggleVoiceInput, voiceRecording, voiceTranscribing]);
+  } = useComposerDictation({ token, user, routeChatId, setInput, openUpgradeRef, t });
 
   const liveTalk = useLiveTalk({
     token,
@@ -389,8 +334,6 @@ function ChatScreen() {
     },
     t,
   });
-
-  closeAttachSheetRef.current = () => setAttachSheetOpen(false);
 
   const closeAttachSheet = useCallback(() => {
     setAttachSheetOpen(false);
@@ -456,8 +399,6 @@ function ChatScreen() {
     selectedModel,
   });
 
-  const displayMessages = messages;
-
   const onSelectSuggestion = useCallback(
     (prompt: string) => {
       void handleSend(prompt);
@@ -466,7 +407,7 @@ function ChatScreen() {
   );
 
   const { headerTitleLabel, renderItem } = useChatMessageList({
-    messages: displayMessages,
+    messages,
     streaming,
     finalizing,
     selectedModel,
@@ -490,9 +431,9 @@ function ChatScreen() {
     composerHeight: COMPOSER_HEIGHT + composerInputExtra,
     attachmentExtra: composerAttachmentExtra(pendingAttachment),
     mathBarExtra: mathChromeExtra,
-    messagesLength: displayMessages.length,
+    messagesLength: messages.length,
     streaming: streamActive,
-    lastMessageId: displayMessages[displayMessages.length - 1]?.id,
+    lastMessageId: messages[messages.length - 1]?.id,
   });
 
   const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen);
@@ -520,7 +461,7 @@ function ChatScreen() {
     },
     list: {
       listRef,
-      messages: displayMessages,
+      messages,
       hasMoreOlder,
       loadingOlder,
       chatLoading,
@@ -538,8 +479,6 @@ function ChatScreen() {
     attachments: {
       attachSheetOpen,
       closeAttachSheet,
-      attachBusy,
-      attachPicking,
       pendingAttachment,
       setPendingAttachment,
       handlePickAttachment,

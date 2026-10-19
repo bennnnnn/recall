@@ -2,7 +2,7 @@ import React from "react";
 import { Text } from "react-native";
 import { render, screen, waitFor } from "@testing-library/react-native";
 
-import { useDraftChat } from "@/hooks/useDraftChat";
+import { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { api } from "@/lib/api";
 
 jest.mock("@/lib/api", () => ({

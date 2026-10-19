@@ -12,6 +12,8 @@ import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from
 import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/speech/voiceAudio";
 
 type SpeechModule = typeof import("expo-speech");
+/** The longest text /speech/tts accepts (`max_length` in the API's speech schemas). */
+const TTS_MAX_CHARS = 4000;
 
 /** undefined = not loaded yet; null = unavailable or failed to load. */
 let speechModule: SpeechModule | null | undefined;
@@ -129,7 +131,7 @@ async function fetchCloudTtsClip(
   signal: AbortSignal,
   leadHash?: string | null,
 ): Promise<TtsClip | null> {
-  const plain = text.slice(0, 4000).trim();
+  const plain = text.slice(0, TTS_MAX_CHARS).trim();
   if (!plain) return null;
   const body: Record<string, string> = {
     text: plain,
@@ -444,7 +446,7 @@ export async function speakPlainText(
   stopSpeaking();
   stopReadingInBackground();
   const generation = speakGeneration;
-  const plain = markdownToSpeechText(text).slice(0, 4000);
+  const plain = markdownToSpeechText(text).slice(0, TTS_MAX_CHARS);
   if (!plain) return { ok: false, reason: "error" };
 
   const [ttsModel] = await Promise.all([getTtsModel(), getSpeechRate()]);

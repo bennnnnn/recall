@@ -1,5 +1,5 @@
 import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
-import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
+import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 
 let mockGeneration = 0;
 jest.mock("@/lib/auth", () => ({

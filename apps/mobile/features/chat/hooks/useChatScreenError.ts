@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { ComposerSendDraft } from "@/features/chat/model/sendLogic";
-import { useQuotaNudge } from "@/hooks/useQuotaNudge";
+import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
 import { resolveChatError, type ResolvedChatError } from "@/features/chat/model/errorMessage";
 
 export function useChatErrorHandlers(isPaid: boolean) {

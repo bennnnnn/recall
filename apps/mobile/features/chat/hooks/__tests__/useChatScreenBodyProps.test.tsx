@@ -99,8 +99,6 @@ function useHarness(streaming: boolean, messages: Message[], drawerOpen = false)
     attachments: {
       attachSheetOpen: false,
       closeAttachSheet,
-      attachBusy: false,
-      attachPicking: false,
       pendingAttachment: null,
       setPendingAttachment,
       handlePickAttachment,

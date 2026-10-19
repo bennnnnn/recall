@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react-native";
 import { useState } from "react";
 
-import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
+import { useMathKeyboardInsert } from "@/features/chat/hooks/useMathKeyboardInsert";
 import { MATH_KEYBOARD_SYMBOLS } from "@/lib/math/keyboardSymbols";
 import { clipboardIsImageOnly } from "@/lib/clipboard";
 

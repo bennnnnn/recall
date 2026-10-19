@@ -109,8 +109,6 @@ const baseProps: ChatScreenBodyProps = {
   },
   composer: {
     streaming: false,
-    attachBusy: false,
-    attachPicking: false,
     sendBusy: false,
     pendingAttachment: null,
     onRemoveAttachment: noop,

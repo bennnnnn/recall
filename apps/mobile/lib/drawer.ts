@@ -1,5 +1,6 @@
 import type { Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { createListenerSet } from "@/lib/listenerSet";
 
 /**
  * Screen-owned globals live on last-mounted-wins stacks. The chat screen can
@@ -167,7 +168,7 @@ export function subscribeChatTitleGenerating(fn: () => void) {
 
 /** Metadata changes shared by the drawer and the currently open conversation. */
 type ChatChangeListener = (chatId: string, patch: Partial<Chat> | null) => void;
-const chatChangeListeners = new Set<ChatChangeListener>();
+const chatChangeListeners = createListenerSet<Parameters<ChatChangeListener>>();
 let mutationSession = -1;
 const chatMutationRevisions = new Map<string, number>();
 
@@ -181,10 +182,9 @@ export function getChatMutationRevision(chatId: string): number {
 
 export function publishChatChange(chatId: string, patch: Partial<Chat> | null): void {
   chatMutationRevisions.set(chatId, getChatMutationRevision(chatId) + 1);
-  for (const listener of chatChangeListeners) listener(chatId, patch);
+  chatChangeListeners.emit(chatId, patch);
 }
 
 export function subscribeChatChanges(listener: ChatChangeListener): () => void {
-  chatChangeListeners.add(listener);
-  return () => { chatChangeListeners.delete(listener); };
+  return chatChangeListeners.subscribe(listener);
 }

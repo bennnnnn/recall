@@ -2,7 +2,7 @@ import { File } from "expo-file-system";
 import { ImageManipulator } from "expo-image-manipulator";
 
 import { pickFromPhotoLibrary, type PendingAttachment } from "@/features/attachments/model/attachments";
-import { discardProfilePhoto, pickProfilePhoto } from "@/lib/profilePhoto";
+import { discardProfilePhoto, pickProfilePhoto } from "@/features/account/model/profilePhoto";
 
 const mockDelete = jest.fn();
 const mockImage = { saveAsync: jest.fn(), release: jest.fn() };
