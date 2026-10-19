@@ -112,9 +112,14 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
     complete.assert_awaited_once()
 
 
-def test_tool_loop_completion_alias_uses_dedicated_tool_model():
-    assert rounds._tool_loop_completion_alias("smart-chat") == "gpt-6-luna"
-    assert rounds._tool_loop_completion_alias("free-chat") == "gpt-6-luna"
+def test_tool_selectors_are_tool_capable_catalog_aliases():
+    from app.services import model_catalog
+
+    selectors = model_catalog.tool_selector_aliases()
+    assert selectors[:2] == ("gpt-6-luna", "free-chat")
+    assert all(model_catalog.get(alias).supports_tools for alias in selectors)
+    # Two companies, so one provider's outage leaves the other.
+    assert len({model_catalog.get(alias).provider for alias in selectors}) == len(selectors)
 
 
 @pytest.mark.asyncio
