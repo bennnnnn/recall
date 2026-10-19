@@ -215,10 +215,7 @@ def test_voice_sources_persist_in_the_canonical_chat_fence():
             "app.modules.speech.realtime.live_talk_service.realtime_session_bound_chat_id",
             AsyncMock(return_value=chat_id),
         ),
-        patch(
-            "app.modules.speech.realtime.quota_service.record_voice_spend",
-            AsyncMock(),
-        ),
+        patch("app.modules.speech.realtime._take_persist_slot_or_raise", AsyncMock()),
         patch(
             "app.modules.speech.realtime.live_talk_service.load_live_talk_history",
             AsyncMock(return_value=([], False)),
@@ -636,3 +633,103 @@ def test_voice_tools_enforce_session_ownership_plan_and_read_only_allowlist(case
         )
     assert response.status_code == expected
     assert invoke.await_count == int(expected == 200)
+
+
+def _persist_body(chat_id, call_id: str, n: int) -> dict[str, str]:
+    return {
+        "chat_id": str(chat_id),
+        "call_id": call_id,
+        "user_text": f"fake turn {n}",
+        "assistant_text": "ok",
+    }
+
+
+@contextmanager
+def _persist_patches():
+    persist = AsyncMock(return_value=(None, None))
+    with (
+        patch(
+            "app.modules.speech.realtime.live_talk_service.load_live_talk_history",
+            AsyncMock(return_value=([], False)),
+        ),
+        patch("app.modules.speech.realtime.live_talk_service.persist_live_talk_turn", persist),
+    ):
+        yield persist
+
+
+def test_live_talk_spend_follows_reserved_time_not_posted_turns():
+    """A Pro user posting fake turns used to add $0.08 each to everyone's cap."""
+    import asyncio
+
+    from app.services import quota as quota_service
+    from app.services.quota.spend import live_talk_spend_usd
+
+    user = _fake_user(plan="pro")
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    client = TestClient(_realtime_app(user, _minutes_settings()))
+    headers = {"Authorization": "Bearer tok"}
+    chat_id = uuid4()
+    with _session_mint_patches(mint=mint) as fake_redis, _persist_patches() as persist:
+        minted = client.post(
+            "/speech/live/session", headers=headers, json={"chat_id": str(chat_id)}
+        )
+        call_id = minted.json()["call_id"]
+        at_mint = asyncio.run(quota_service.get_global_spend_micro_usd(fake_redis))
+        for n in range(10):
+            saved = client.post(
+                "/speech/live/persist", headers=headers, json=_persist_body(chat_id, call_id, n)
+            )
+            assert saved.status_code == 204
+        after_turns = asyncio.run(quota_service.get_global_spend_micro_usd(fake_redis))
+        client.post("/speech/live/end", headers=headers, json={"call_id": call_id})
+        after_end = asyncio.run(quota_service.get_global_spend_micro_usd(fake_redis))
+
+    assert persist.await_count == 10
+    assert at_mint == round(live_talk_spend_usd(900) * 1_000_000)
+    assert after_turns == at_mint
+    # Only the few seconds the test took stay charged.
+    assert after_end <= round(live_talk_spend_usd(5) * 1_000_000)
+
+
+@pytest.mark.parametrize(
+    "month_used_seconds, posts, last_status, last_detail",
+    [
+        # A 60 s session saves 12 turns, then refuses.
+        (3600 - 60, 12, 204, None),
+        (3600 - 60, 13, 429, "LIVE_TALK_SAVES_USED_MESSAGE"),
+        # A 15 min session has saves to spare; the per-user rate stops a burst.
+        (0, 20, 204, None),
+        (0, 21, 429, "LIVE_TALK_RATE_LIMIT_MESSAGE"),
+    ],
+)
+def test_live_talk_persist_is_bounded_per_session_and_per_user(
+    month_used_seconds: int, posts: int, last_status: int, last_detail: str | None
+):
+    import asyncio
+
+    from app.services import quota as quota_service
+
+    user = _fake_user(plan="pro")
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    client = TestClient(_realtime_app(user, _minutes_settings()))
+    headers = {"Authorization": "Bearer tok"}
+    chat_id = uuid4()
+    with _session_mint_patches(mint=mint) as fake_redis, _persist_patches() as persist:
+        key = f"livetalk_sec:{user.id}:{quota_service.utc_month()}"
+        asyncio.run(fake_redis.set(key, month_used_seconds))
+        minted = client.post(
+            "/speech/live/session", headers=headers, json={"chat_id": str(chat_id)}
+        )
+        call_id = minted.json()["call_id"]
+        responses = [
+            client.post(
+                "/speech/live/persist", headers=headers, json=_persist_body(chat_id, call_id, n)
+            )
+            for n in range(posts)
+        ]
+
+    assert all(r.status_code == 204 for r in responses[:-1])
+    assert responses[-1].status_code == last_status
+    if last_detail is not None:
+        assert responses[-1].json()["detail"] == getattr(quota_service, last_detail)
+    assert persist.await_count == posts - int(last_status != 204)

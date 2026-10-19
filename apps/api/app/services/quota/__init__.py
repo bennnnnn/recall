@@ -16,6 +16,7 @@ from app.services.quota.carryover import (
 )
 from app.services.quota.counters import utc_today
 from app.services.quota.live_talk import (
+    LIVE_TALK_SAVES_PER_MINUTE,
     live_talk_allowance_seconds,
     live_talk_used_seconds,
     next_month_start,
@@ -23,6 +24,7 @@ from app.services.quota.live_talk import (
     release_live_talk_seconds,
     reserve_live_talk_seconds,
     settle_live_talk_session,
+    take_live_talk_save,
     utc_month,
 )
 from app.services.quota.messages import (
@@ -33,6 +35,7 @@ from app.services.quota.messages import (
     LIVE_TALK_MINUTES_USED_MESSAGE,
     LIVE_TALK_NOT_IN_PLAN_MESSAGE,
     LIVE_TALK_RATE_LIMIT_MESSAGE,
+    LIVE_TALK_SAVES_USED_MESSAGE,
     QUOTA_EXCEEDED_MESSAGE_FREE,
     SPEECH_NOT_IN_PLAN_MESSAGE,
     SPEECH_RATE_LIMIT_MESSAGE,
@@ -44,8 +47,6 @@ from app.services.quota.messages import (
 from app.services.quota.spend import (
     IMAGE_GEN_SPEND_USD,
     IMAGE_SEARCH_SPEND_USD,
-    LIVE_TALK_SESSION_SPEND_USD,
-    LIVE_TALK_TURN_SPEND_USD,
     MATH_SCAN_READ_SPEND_USD,
     REFERENCE_RESOLVER_SPEND_USD,
     STT_SPEND_USD,
@@ -84,8 +85,8 @@ __all__ = [
     "LIVE_TALK_MINUTES_USED_MESSAGE",
     "LIVE_TALK_NOT_IN_PLAN_MESSAGE",
     "LIVE_TALK_RATE_LIMIT_MESSAGE",
-    "LIVE_TALK_SESSION_SPEND_USD",
-    "LIVE_TALK_TURN_SPEND_USD",
+    "LIVE_TALK_SAVES_PER_MINUTE",
+    "LIVE_TALK_SAVES_USED_MESSAGE",
     "MATH_SCAN_READ_SPEND_USD",
     "QUOTA_EXCEEDED_MESSAGE_FREE",
     "REFERENCE_RESOLVER_SPEND_USD",
@@ -126,6 +127,7 @@ __all__ = [
     "reset_daily_usage",
     "seed_usage_if_missing",
     "settle_live_talk_session",
+    "take_live_talk_save",
     "usage_needs_heal",
     "utc_month",
     "utc_today",

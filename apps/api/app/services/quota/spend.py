@@ -16,7 +16,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.core.config import Settings
-from app.services.quota.counters import DAILY_TTL, utc_today
+from app.services.quota.counters import DAILY_TTL, refund_daily, utc_today
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +29,10 @@ IMAGE_SEARCH_SPEND_USD = 0.01
 MATH_SCAN_READ_SPEND_USD = 0.005
 STT_SPEND_USD = 0.01
 TTS_SPEND_USD = 0.015
-LIVE_TALK_SESSION_SPEND_USD = 0.03
-LIVE_TALK_TURN_SPEND_USD = 0.08
+# An upper estimate of one minute of gpt-realtime conversation: audio both
+# ways plus the context each reply re-reads. Live talk is priced by time, not
+# by saved turn: the phone posts the turns, so a count of them is the client's.
+LIVE_TALK_SPEND_USD_PER_MINUTE = 0.20
 
 _MICRO_USD_PER_USD = 1_000_000
 # Pre-fix counter (1e-3 USD units). Still read so a mid-day deploy keeps the
@@ -53,16 +55,34 @@ def _usd_to_micro_usd(usd: float) -> int:
     return max(1, math.ceil(round(usd * _MICRO_USD_PER_USD, 6)))
 
 
-async def record_global_spend(redis: Redis, usd: float) -> int:
-    """Add estimated dollars to today's global spend counter. Returns micro-USD."""
+async def record_global_spend(redis: Redis, usd: float, *, day: date | None = None) -> int:
+    """Add estimated dollars to the global spend counter (today's unless *day*).
+
+    Returns that day's total in micro-USD.
+    """
     amount = _usd_to_micro_usd(usd)
     if amount <= 0:
         return await get_global_spend_micro_usd(redis)
-    key = _spend_key()
+    key = _spend_key(day)
     new_total = await redis.incrby(key, amount)
     if new_total == amount:
         await redis.expire(key, DAILY_TTL)
     return new_total
+
+
+async def release_global_spend(redis: Redis, usd: float, *, day: date) -> None:
+    """Give back spend recorded on *day* that never happened, never below 0.
+
+    Rounds down, so a release never exceeds what ``record_global_spend``
+    rounded up.
+    """
+    amount = math.floor(round(usd * _MICRO_USD_PER_USD, 6))
+    if amount > 0:
+        await refund_daily(redis, _spend_key(day), amount=amount)
+
+
+def live_talk_spend_usd(seconds: int) -> float:
+    return max(0, seconds) * LIVE_TALK_SPEND_USD_PER_MINUTE / 60
 
 
 async def get_global_spend_micro_usd(redis: Redis) -> int:
