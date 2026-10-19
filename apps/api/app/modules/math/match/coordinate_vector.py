@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 
+from app.modules.math.match.scan import strip_command_lead
 from app.services.text_match import word_index
 
 _OPERATIONS = ("distance", "midpoint", "slope", "magnitude", "norm", "dot", "cross")
@@ -81,12 +82,7 @@ def is_closed_coordinate_vector_request(text: str) -> bool:
         if request.startswith(prefix):
             request = request[len(prefix) :]
             break
-    for prefix in ("find ", "compute ", "calculate ", "determine ", "what is ", "what's "):
-        if request.startswith(prefix):
-            request = request[len(prefix) :]
-            break
-    if request.startswith("the "):
-        request = request[4:]
+    request = strip_command_lead(request)
     for prefix, opener, closer, count, kind in _REQUESTS:
         if not request.startswith(prefix):
             continue

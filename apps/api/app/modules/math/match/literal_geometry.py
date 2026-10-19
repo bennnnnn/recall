@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from app.modules.math.match.scan import strip_command_lead
 from app.modules.math.match.units import solid_length_unit, strip_geometry_length_units
 
 GEOMETRY_DECIMAL = r"(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
@@ -260,12 +261,7 @@ def measurement_request(user_text: str) -> tuple[str, str] | None:
     legs_first = _LEGS_THEN_HYPOTENUSE.fullmatch(request)
     if legs_first is not None:
         return "hypotenuse", f"right triangle with {legs_first.group(1)}"
-    for prefix in ("find ", "calculate ", "compute ", "determine ", "what is ", "what's "):
-        if request.startswith(prefix):
-            request = request[len(prefix) :]
-            break
-    if request.startswith("the "):
-        request = request[4:]
+    request = strip_command_lead(request)
     quantity, separator, body = request.partition(" of ")
     if separator:
         for article in ("a ", "the "):

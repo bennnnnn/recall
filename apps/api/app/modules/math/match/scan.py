@@ -110,6 +110,21 @@ def prepare(text: str) -> str | None:
     return fold_digit_groups(fix_leading_solve_typo(cleaned))
 
 
+# The verbs a closed request may open with: "find the area of …", "what's the mean of …".
+_COMMAND_LEADS = ("find ", "calculate ", "compute ", "determine ", "what is ", "what's ")
+
+
+def strip_command_lead(request: str) -> str:
+    """``find the area of …`` → ``area of …``: one command verb, then one ``the``."""
+    for prefix in _COMMAND_LEADS:
+        if request.startswith(prefix):
+            request = request[len(prefix) :]
+            break
+    if request.startswith("the "):
+        request = request[4:]
+    return request
+
+
 # "slove 4x - 8 = 12": the command a student meant, as the first word only.
 _SOLVE_TYPO = re.compile(r"^(?:slove|sovle|solv|slov)(?=\s)", re.IGNORECASE)
 
