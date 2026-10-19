@@ -22,6 +22,7 @@ from app.modules.chat.turn_prep.instant import (
     recurring_pay_reply,
     resolve_instant_reply,
 )
+from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import _classify_turn_mode
 from app.modules.chat.turn_prep.request import (
     ClientGeoContext,
@@ -322,6 +323,8 @@ async def build_stream_prompt_context(
     # (search, files, math) still emits its own activity chip.
     user, chat, mode, geo = identity.user, identity.chat, identity.mode, identity.geo
     meta: dict[str, Any] = {}
+    # More than one request: each is answered (``intents``), and the prompt says how.
+    plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
     # Phase A: prompt + instant-reply + fallback-health share no data.
     prompt_messages, instant_reply, fallback_models = await asyncio.gather(
         build_prompt_messages(
@@ -343,8 +346,9 @@ async def build_stream_prompt_context(
             probe_attachment_rag=request.probe_attachment_rag,
             recent_messages=request.recent_messages,
             current_user_message_id=request.current_user_message_id,
+            turn_plan=plan if plan.multi else None,
         ),
-        resolve_instant_reply(request, identity, settings, redis),
+        resolve_instant_reply(request, identity, settings, redis, plan),
         _fallback_models(user, settings, redis, request.model),
     )
     if timing is not None:

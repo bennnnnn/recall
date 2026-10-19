@@ -195,6 +195,8 @@ class StyleTurn:
     lesson_hint: str | None
     viz_intent: bool
     subject: str | None
+    # Several requests: each one's shape is in the multi-part contract, not the turn's.
+    multi: bool = False
 
 
 def _style_turn(
@@ -210,21 +212,18 @@ def _style_turn(
     outline_pick: bool = False,
     lesson_after_gap: bool = False,
     prior_messages: list[tuple[str, str]] | None,
+    multi: bool = False,
 ) -> StyleTurn:
     query = query_text or ""
     # "make it more polite" or "asking money" goes on with the draft asked for a
     # few turns ago: the same fence, the whole draft.
-    followup = draft_followup(query_text, prior_messages)
-    writing = (
-        draft_followup_hint(followup[0], drafted=followup[1])
-        if followup
-        else writing_format_hint(query_text)
-    )
+    followup = None if multi else draft_followup(query_text, prior_messages)
+    writing = draft_followup_hint(followup[0], drafted=followup[1]) if followup else None
+    writing = writing or (None if multi else writing_format_hint(query_text))
     # Pasted code to explain or fix: its own shape, ahead of any lesson.
-    code_hint = code_question_layout(query_text) if writing is None else None
-    open_shape = bool(query and writing is None and code_hint is None) and not is_brevity_request(
-        query
-    )
+    code_hint = code_question_layout(query_text) if writing is None and not multi else None
+    open_shape = bool(query and writing is None and code_hint is None and not multi)
+    open_shape = open_shape and not is_brevity_request(query)
     teaching = open_shape and is_teaching_request(query)
     learning_plan = open_shape and is_learning_plan_request(query)
     # "Help me understand recursion" is a lesson on one idea, the same shape.
@@ -251,6 +250,7 @@ def _style_turn(
         else lesson_turn_hint(lesson, outline_pick=outline_pick, after_gap=lesson_after_gap),
         viz_intent=_viz_intent(query_text),
         subject=effective_presentation_subject(query_text, prior_messages),
+        multi=multi,
     )
 
 
@@ -324,12 +324,8 @@ def _format_pack(turn: StyleTurn) -> list[str]:
     if turn.writing:
         return [UNIVERSAL_FORMAT_BASELINE, turn.writing]
     viz = [VISUALIZATION_HINTS] if turn.viz_intent else []
-    return [
-        UNIVERSAL_FORMAT_BASELINE,
-        FORMAT_CONTRACT,
-        *viz,
-        *_present(_layout_format_hint(turn.query)),
-    ]
+    layout = None if turn.multi else _layout_format_hint(turn.query)
+    return [UNIVERSAL_FORMAT_BASELINE, FORMAT_CONTRACT, *viz, *_present(layout)]
 
 
 def _offers_answer_photo(turn: StyleTurn) -> bool:
@@ -339,7 +335,8 @@ def _offers_answer_photo(turn: StyleTurn) -> bool:
     fragment and small talk never are. Offering the photo there only confused the
     reply ("I can't see the image you're referring to").
     """
-    if not turn.image_search_enabled or not turn.query.strip():
+    # A multi-part message's photo, if it asks for one, is in its contract.
+    if turn.multi or not turn.image_search_enabled or not turn.query.strip():
         return False
     if turn.writing or turn.writing_kind or turn.viz_intent or turn.is_day_plan:
         return False
@@ -365,7 +362,7 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
     PromptRule(_always, _hints(CLARIFICATION_HINT, PRIVACY_HINT)),
     # A proofread is a writing request too; it only has no draft fence.
     PromptRule(
-        lambda t: bool(t.query) and t.writing is None and t.writing_kind != "edit",
+        lambda t: bool(t.query) and t.writing is None and t.writing_kind != "edit" and not t.multi,
         _hints(NON_DRAFT_TURN_HINT),
     ),
     PromptRule(_asks(is_short_confirmation), _hints(CONFIRM_FOLLOW_THROUGH_HINT)),
@@ -385,7 +382,7 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
         _always,
         lambda t: subject_presentation_hints(t.subject, short=t.style == "short" or t.compact),
     ),
-    PromptRule(_asks(is_brevity_request), _hints(BREVITY_REQUEST_HINT)),
+    PromptRule(lambda t: not t.multi and is_brevity_request(t.query), _hints(BREVITY_REQUEST_HINT)),
     # Specialized translation/prose hints already own the shape; the copy-fence
     # contract would tell the model to wrap an article in ```copy. A translated
     # draft is still a draft.
@@ -470,6 +467,7 @@ def _style_format_hints(
     outline_pick: bool = False,
     lesson_after_gap: bool = False,
     prior_messages: list[tuple[str, str]] | None = None,
+    multi: bool = False,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
 
@@ -480,7 +478,7 @@ def _style_format_hints(
     Writing deliverables replace compact / short / FORMAT_CONTRACT so a
     paragraph ask is not also told to use bullets or a compare table.
     """
-    pack = _exclusive_pack(query_text, lesson, outline_pick=outline_pick)
+    pack = None if multi else _exclusive_pack(query_text, lesson, outline_pick=outline_pick)
     if pack is not None:
         return pack
     turn = _style_turn(
@@ -495,5 +493,6 @@ def _style_format_hints(
         compact=compact,
         image_generation_enabled=image_generation_enabled,
         image_search_enabled=image_search_enabled,
+        multi=multi,
     )
     return render_rules(HINT_RULES, turn)

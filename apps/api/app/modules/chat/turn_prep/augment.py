@@ -22,7 +22,9 @@ from app.models.orm import User
 from app.modules import web_search as web_search_service
 from app.modules.chat.prompt_builder import fetch_web_and_tools, inject_web_and_tools
 from app.modules.chat.tool_gate import should_classify_tool_web_search
+from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.followups import SubjectFollowup
+from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.math.tools.extract import is_graph_followup
@@ -46,6 +48,8 @@ class Augmentation:
     direct_text: str | None = None
     # None means no verdict was prefetched; False is a completed negative.
     web_search_classified: bool | None = None
+    # The message asks for more than its solve: the model answers the rest.
+    asks_more: bool = False
 
     def direct_reply(
         self, request: TurnRequest, user: User, followup: SubjectFollowup
@@ -53,7 +57,7 @@ class Augmentation:
         """The reply the verified solve writes itself, when the turn needs no model."""
         if self.direct_text:
             return self.direct_text
-        if self.verified_subject is None:
+        if self.verified_subject is None or self.asks_more:
             return None
         return maybe_direct_subject_reply(
             self.verified_subject,
@@ -77,7 +81,10 @@ async def gather_and_inject(
 ) -> Augmentation:
     """Phase B/C for one turn. A turn the gate turns away keeps its prompt as built."""
     mode = identity.mode
-    needs_math, needs_search, needs_chem = _turn_needs(request, settings, prompt_messages, followup)
+    plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
+    needs_math, needs_search, needs_chem = _turn_needs(
+        request, settings, prompt_messages, followup, plan
+    )
     if not _should_augment_web_and_tools(
         instant_reply=instant_reply,
         lightweight=mode.lightweight,
@@ -93,15 +100,22 @@ async def gather_and_inject(
 
     # Phase B: gather independent fetches.
     jobs: list[Awaitable[Any]] = [
-        _fetch_web_with_priors(request, identity, settings, redis, prompt_messages, followup)
+        _fetch_web_with_priors(
+            request, identity, settings, redis, prompt_messages, followup, _mixed_solve(plan)
+        )
     ]
-    classify = _overlapped_classifier(
-        request,
-        identity,
-        settings,
-        prompt_messages,
-        needs_subject=needs_math or needs_chem,
-        instant_reply=instant_reply,
+    # A multi-part message is classified part by part in the tool-loop path.
+    classify = (
+        None
+        if plan.multi
+        else _overlapped_classifier(
+            request,
+            identity,
+            settings,
+            prompt_messages,
+            needs_subject=needs_math or needs_chem,
+            instant_reply=instant_reply,
+        )
     )
     if classify is not None:
         jobs.append(classify)
@@ -124,7 +138,18 @@ async def gather_and_inject(
         unverified_subject=unverified_subject,
         direct_text=direct_text,
         web_search_classified=fetched[1] if len(fetched) > 1 else None,
+        asks_more=plan.multi and any(part.kind != "solve" for part in plan.parts),
     )
+
+
+def _mixed_solve(plan: TurnPlan) -> str | None:
+    """The one maths, physics or chemistry request of a message that asks for more.
+
+    "Solve 2x + 5 = 17 and also what's the weather in Paris" is solved from its own
+    words: the whole line read as one problem lost the verification.
+    """
+    solves = plan.of_kind("solve")
+    return solves[0].text if plan.multi and len(solves) == 1 else None
 
 
 def _turn_needs(
@@ -132,11 +157,12 @@ def _turn_needs(
     settings: Settings,
     prompt_messages: list[dict[str, str]],
     followup: SubjectFollowup,
+    plan: TurnPlan,
 ) -> tuple[bool, bool, bool]:
     """Whether the turn needs maths, a web search and chemistry, in that order."""
     content = request.content
     detected_subject = detect_subject(
-        content,
+        _mixed_solve(plan) or content,
         has_image_attachment=request.has_image_attachment,
         image_math_extract=request.image_math_extract,
         chemistry_enabled=settings.chemistry_enabled,
@@ -151,7 +177,7 @@ def _turn_needs(
         content,
         prior_user_messages=_prompt_prior_user_messages(prompt_messages, content) or None,
         prior_assistant=last_assistant_content(prompt_messages),
-    )
+    ) or (plan.multi and any(web_search_service.needs_web_search(text) for text in plan.texts()))
     needs_chem = settings.chemistry_enabled and (
         detected_subject == "chemistry" or followup.chemistry is not None
     )
@@ -205,6 +231,7 @@ async def _fetch_web_with_priors(
     redis: Redis,
     prompt_messages: list[dict[str, str]],
     followup: SubjectFollowup,
+    subject_text: str | None = None,
 ) -> tuple[
     str | None,
     str | None,
@@ -234,6 +261,7 @@ async def _fetch_web_with_priors(
         on_status=request.on_status,
         user=identity.user,
         redis=redis,
+        subject_text=subject_text,
     )
 
 

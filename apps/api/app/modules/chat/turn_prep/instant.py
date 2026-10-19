@@ -18,6 +18,7 @@ from app.modules import web_search as web_search_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat.prompt_constants.routing import profile_question_to_answer
+from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.turn_prep.request import ClientGeoContext, TurnIdentity, TurnRequest
 from app.modules.memory.profile_reply import reply_for_profile_question
@@ -39,9 +40,20 @@ def recurring_pay_reply(request: TurnRequest, local_tz: str) -> str | None:
 
 
 async def resolve_instant_reply(
-    request: TurnRequest, identity: TurnIdentity, settings: Settings, redis: Redis
+    request: TurnRequest,
+    identity: TurnIdentity,
+    settings: Settings,
+    redis: Redis,
+    plan: TurnPlan | None = None,
 ) -> str | None:
-    """Phase A: runs beside the prompt build and the fallback-model health read."""
+    """Phase A: runs beside the prompt build and the fallback-model health read.
+
+    A message with several requests has none: the clock or a settings card would
+    stand in for the reply and drop the rest ("switch to dark mode, and also what is
+    the capital of France?").
+    """
+    if plan is not None and plan.multi:
+        return None
     content = request.content
     # Time/location answers are CPU-only. Skip year/date/time instant-replies
     # when a photo is attached — vision should see it.

@@ -62,6 +62,8 @@ async def run_tool_rounds(
     user_timezone: str | None = None,
     user_text: str | None = None,
     user_location: str | None = None,
+    has_verified_math: bool = False,
+    search_parts: list[str] | None = None,
 ) -> _RoundsOutcome:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
 
@@ -70,6 +72,9 @@ async def run_tool_rounds(
     user-visible answer (tools omitted) instead of a discarded leftover completion.
     ``verified_math`` holds only tool results whose input matches ``user_text``
     (the user's own message; the last user prompt message when omitted).
+    ``has_verified_math``: the server already solved the turn's maths part.
+    ``search_parts``: the requests a classifier said need live results, when the
+    message holds more than one (``tool_loop.parts``); each is searched for itself.
     """
     if not settings.mcp_tool_loop_enabled:
         return messages, None, None, []
@@ -102,6 +107,7 @@ async def run_tool_rounds(
         settings,
         user,
         web_search=web_search,
+        has_verified_math=has_verified_math,
     ):
         working, hits = await _force_web_search_if_needed(
             settings=settings,
@@ -111,6 +117,8 @@ async def run_tool_rounds(
             on_status=on_status,
             should_cancel=should_cancel,
             search_required=True,
+            search_parts=search_parts,
+            has_verified_math=has_verified_math,
         )
         return working, None, None, hits
 
@@ -133,6 +141,8 @@ async def run_tool_rounds(
         on_status=on_status,
         should_cancel=should_cancel,
         search_required=web_search is True,
+        search_parts=search_parts,
+        has_verified_math=has_verified_math,
     )
     return working, verified, terminal, hits
 

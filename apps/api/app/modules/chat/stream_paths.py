@@ -20,10 +20,10 @@ from app.modules.chat import tool_loop
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.tool_gate import should_classify_tool_web_search
+from app.modules.chat.tool_loop.parts import classified_live_parts, open_parts, turn_plan
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
-from app.modules.web_search import detection as web_search_detection
 from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
 from app.services import model_health as model_health_service
 from app.services.solving import VerifiedMathBlock
@@ -105,6 +105,7 @@ async def run_tool_loop_path(
     has_verified = ctx.verified_subject is not None
     has_sources = bool(sources)
     web_search_flag: bool | None = None
+    search_parts: list[str] | None = None
     if await deps.quota.global_spend_exceeded(redis, settings):
         logger.warning(
             "skipping MCP tool loop: global spend cap user_id=%s chat_id=%s",
@@ -136,12 +137,16 @@ async def run_tool_loop_path(
                 web_search_flag = ctx.web_search_classified
             else:
                 prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
-                web_search_flag = await web_search_detection.should_web_search(
-                    content,
+                # Each request of a multi-part message is classified for itself, and
+                # searched for itself (``tool_loop.parts``).
+                found = await classified_live_parts(
+                    open_parts(content, has_verified_math=has_verified, settings=settings),
                     settings,
                     prior_user_messages=collect_prior_user_messages(prompt, content) or None,
                     prior_assistant=last_assistant_content(prompt),
                 )
+                web_search_flag = bool(found)
+                search_parts = found if turn_plan(content, settings).multi else None
         if not tool_loop.turn_needs_tool_loop(
             content,
             lightweight=lightweight,
@@ -172,6 +177,8 @@ async def run_tool_loop_path(
         user_timezone=ctx.user_timezone,
         user_text=content,
         user_location=ctx.search_location,
+        has_verified_math=has_verified,
+        search_parts=search_parts,
     )
     if tool_verified is not None:
         ctx.verified_subject = _with_tool_verified(ctx.verified_subject, tool_verified)
