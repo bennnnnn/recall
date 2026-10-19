@@ -22,9 +22,13 @@ from app.models.model_catalog import (
     openrouter_slug,
     price_sort_key,
     quota_multiplier,
+    reads_images,
     selectable_models,
     tier_rank,
+    tool_selector_aliases,
     validate_user_alias,
+    vision_alias,
+    vision_backup_alias,
 )
 
 __all__ = [
@@ -43,9 +47,13 @@ __all__ = [
     "openrouter_slug",
     "price_sort_key",
     "quota_multiplier",
+    "reads_images",
     "selectable_models",
     "tier_rank",
+    "tool_selector_aliases",
     "validate_user_alias",
+    "vision_alias",
+    "vision_backup_alias",
 ]
 
 

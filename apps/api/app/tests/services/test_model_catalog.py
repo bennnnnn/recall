@@ -244,3 +244,74 @@ def test_speech_stt_alias_uses_direct_openai():
     assert stt.model == "openai/gpt-4o-mini-transcribe"
     assert stt.api_key_field == "openai_api_key"
     assert model_catalog.openrouter_slug("speech-stt-model") == "openai/gpt-4o-mini-transcribe"
+
+
+# ── Capabilities and routing lanes ────────────────────────────────────────────
+
+
+def _chat_models() -> list[model_catalog.ChatModel]:
+    """Every alias that answers a chat prompt (not embeddings, images or speech)."""
+    return [m for m in model_catalog.CATALOG if m.context_tokens > 0]
+
+
+def test_aliases_on_one_model_claim_the_same_capabilities() -> None:
+    """An internal alias can never claim more than the model it runs on."""
+    by_model: dict[str, set[tuple[bool, bool, bool, int]]] = {}
+    for m in model_catalog.CATALOG:
+        caps = (m.supports_vision, m.supports_tools, m.json_mode, m.context_tokens)
+        by_model.setdefault(m.model, set()).add(caps)
+    assert {model: caps for model, caps in by_model.items() if len(caps) > 1} == {}
+
+
+def test_every_chat_model_fits_the_prompt_budget_and_a_full_reply() -> None:
+    settings = Settings()
+    need = settings.context_token_budget + settings.max_output_tokens
+    for m in _chat_models():
+        assert m.context_tokens >= need, m.id
+    assert {m.id for m in model_catalog.selectable_models()} <= {m.id for m in _chat_models()}
+
+
+def test_capability_flags_are_honest_about_what_is_known() -> None:
+    # The photo readers the catalog already relies on.
+    for alias in ("qwen-3.7-flash", "vision-chat", "glm-5.3-flash", "fallback-vision-model"):
+        assert model_catalog.reads_images(alias), alias
+    # Text-only models.
+    assert not model_catalog.reads_images("smart-chat")
+    assert not model_catalog.reads_images("glm-5.2")
+    assert not model_catalog.reads_images("no-such-model")
+    # The background JSON jobs call these with response_format json_object.
+    for alias in ("memory-model", "title-model", "fallback-memory-model", "gpt-6-luna"):
+        assert model_catalog.get(alias).json_mode, alias
+    for m in model_catalog.CATALOG:
+        if m.context_tokens == 0:
+            assert not (m.supports_vision or m.supports_tools or m.json_mode), m.id
+
+
+def test_routing_lanes_point_at_models_that_can_do_their_job() -> None:
+    from app.models.routing_lanes import ROUTING as lanes
+
+    selectable = {m.id for m in model_catalog.selectable_models()}
+    assert {lanes.everyday, lanes.hard, lanes.math} <= selectable
+    assert model_catalog.get(lanes.everyday).tier == "fast"
+    assert model_catalog.get(lanes.hard).tier in {"smart", "max"}
+    assert model_catalog.get(lanes.math).tier in {"smart", "max"}
+    vision, backup = model_catalog.get(lanes.vision), model_catalog.get(lanes.vision_backup)
+    assert vision.supports_vision and backup.supports_vision
+    assert vision.provider != backup.provider
+    assert model_catalog.vision_alias() == "vision-chat"
+    assert model_catalog.vision_backup_alias() == "fallback-vision-model"
+    selectors = model_catalog.tool_selector_aliases()
+    assert selectors == lanes.tool_selectors
+    assert all(model_catalog.get(alias).supports_tools for alias in selectors)
+
+
+def test_tool_selectors_drop_a_lane_entry_that_cannot_call_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dataclasses import replace
+
+    from app.models import model_catalog as catalog
+
+    lanes = replace(catalog.ROUTING, tool_selectors=("embedding-model", "gpt-6-luna"))
+    monkeypatch.setattr(catalog, "ROUTING", lanes)
+    assert catalog.tool_selector_aliases() == ("gpt-6-luna",)
