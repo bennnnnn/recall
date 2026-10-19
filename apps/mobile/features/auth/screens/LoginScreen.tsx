@@ -4,9 +4,11 @@ import {
   Image,
   Platform,
   Pressable,
+  type PressableStateCallbackType,
   StyleSheet,
   Text,
   View,
+  type ViewStyle,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect } from "expo-router";
@@ -17,7 +19,7 @@ import { Button } from "@/ui/controls/Button";
 import { BrandMark } from "@/ui/icons/brand";
 import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLoginActions } from "@/features/auth/hooks/useLoginActions";
+import { type LoginProvider, useLoginActions } from "@/features/auth/hooks/useLoginActions";
 import { AI_CONSENT_ROUTE, needsAiDataConsent } from "@/features/auth/model/aiConsent";
 import { shouldShowAppleSignInButton } from "@/lib/apple-auth";
 import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
@@ -57,6 +59,50 @@ export default function LoginScreen() {
   const googleOnlyDevBuild = !isExpoGo() && showDevLogin && showGoogleLogin;
   const expoGoIos = isExpoGo() && Platform.OS === "ios";
   const expoGoAndroid = isExpoGo() && Platform.OS === "android";
+  /** Another provider's sign-in dims this button; a press shows only while none is busy. */
+  const providerStyle =
+    (base: ViewStyle, provider: LoginProvider) => ({ pressed }: PressableStateCallbackType) => [
+      base,
+      busyProvider !== null && busyProvider !== provider && s.dim,
+      pressed && busyProvider === null && s.pressed,
+    ];
+  const devBanner = (message: string) => (
+    <View style={s.devBanner}>
+      <Icon name="info" size={IconSize.sm} color={theme.primary} />
+      <Text style={s.devBannerText}>{message}</Text>
+    </View>
+  );
+  /** Dev login as the only way in (Expo Go on Android, or no sign-in configured). */
+  const devPrimaryLogin = (
+    <Button
+      title={t("login.dev")}
+      onPress={handleDev}
+      loading={busyProvider === "dev"}
+      loadingLabel={t("login.dev")}
+      disabled={busy}
+      style={s.primaryBtn}
+    />
+  );
+  /** Dev login under a real sign-in button. */
+  const devSecondaryLogin = (
+    <>
+      <Text style={s.orText}>{t("login.or_dev")}</Text>
+      <Pressable
+        style={providerStyle(s.devSecondaryBtn, "dev")}
+        onPress={handleDev}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel={t("login.dev")}
+        accessibilityState={{ disabled: busy, busy: busyProvider === "dev" }}
+      >
+        {busyProvider === "dev" ? (
+          <ActivityIndicator size="small" color={theme.primary} />
+        ) : (
+          <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
+        )}
+      </Pressable>
+    </>
+  );
 
   if (loading) {
     return (
@@ -97,34 +143,15 @@ export default function LoginScreen() {
         <View style={s.actions}>
           {expoGoAndroid && showDevLogin ? (
             <>
-              <View style={s.devBanner}>
-                <Icon name="info" size={IconSize.sm} color={theme.primary} />
-                <Text style={s.devBannerText}>{t("login.dev_expo_hint")}</Text>
-              </View>
-              <Button
-                title={t("login.dev")}
-                onPress={handleDev}
-                loading={busyProvider === "dev"}
-                loadingLabel={t("login.dev")}
-                disabled={busy}
-                style={s.primaryBtn}
-              />
+              {devBanner(t("login.dev_expo_hint"))}
+              {devPrimaryLogin}
             </>
           ) : (
             <>
-              {expoGoIos ? (
-                <View style={s.devBanner}>
-                  <Icon name="info" size={IconSize.sm} color={theme.primary} />
-                  <Text style={s.devBannerText}>{t("login.dev_expo_ios_hint")}</Text>
-                </View>
-              ) : null}
+              {expoGoIos ? devBanner(t("login.dev_expo_ios_hint")) : null}
               {showAppleLogin ? (
                 <Pressable
-                  style={({ pressed }) => [
-                    s.appleBtn,
-                    busyProvider !== null && busyProvider !== "apple" && s.dim,
-                    pressed && busyProvider === null && s.pressed,
-                  ]}
+                  style={providerStyle(s.appleBtn, "apple")}
                   onPress={handleApple}
                   disabled={busy}
                   accessibilityRole="button"
@@ -143,11 +170,7 @@ export default function LoginScreen() {
               ) : null}
               {showGoogleLogin ? (
                 <Pressable
-                  style={({ pressed }) => [
-                    s.googleBtn,
-                    busyProvider !== null && busyProvider !== "google" && s.dim,
-                    pressed && busyProvider === null && s.pressed,
-                  ]}
+                  style={providerStyle(s.googleBtn, "google")}
                   onPress={handleGoogle}
                   disabled={busy}
                   accessibilityRole="button"
@@ -164,64 +187,14 @@ export default function LoginScreen() {
                   )}
                 </Pressable>
               ) : showDevLogin && !showAppleLogin ? (
-                <View style={s.devBanner}>
-                  <Icon name="info" size={IconSize.sm} color={theme.primary} />
-                  <Text style={s.devBannerText}>{t("login.error_not_configured")}</Text>
-                </View>
+                devBanner(t("login.error_not_configured"))
               ) : null}
               {googleOnlyDevBuild ? (
-                <>
-                  <Text style={s.orText}>{t("login.or_dev")}</Text>
-                  <Pressable
-                    style={({ pressed }) => [
-                      s.devSecondaryBtn,
-                      busyProvider !== null && busyProvider !== "dev" && s.dim,
-                      pressed && busyProvider === null && s.pressed,
-                    ]}
-                    onPress={handleDev}
-                    disabled={busy}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("login.dev")}
-                    accessibilityState={{ disabled: busy, busy: busyProvider === "dev" }}
-                  >
-                    {busyProvider === "dev" ? (
-                      <ActivityIndicator size="small" color={theme.primary} />
-                    ) : (
-                      <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
-                    )}
-                  </Pressable>
-                </>
+                devSecondaryLogin
               ) : showDevLogin && !showGoogleLogin && !showAppleLogin ? (
-                <Button
-                  title={t("login.dev")}
-                  onPress={handleDev}
-                  loading={busyProvider === "dev"}
-                  loadingLabel={t("login.dev")}
-                  disabled={busy}
-                  style={s.primaryBtn}
-                />
+                devPrimaryLogin
               ) : showDevLogin && expoGoIos ? (
-                <>
-                  <Text style={s.orText}>{t("login.or_dev")}</Text>
-                  <Pressable
-                    style={({ pressed }) => [
-                      s.devSecondaryBtn,
-                      busyProvider !== null && busyProvider !== "dev" && s.dim,
-                      pressed && busyProvider === null && s.pressed,
-                    ]}
-                    onPress={handleDev}
-                    disabled={busy}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("login.dev")}
-                    accessibilityState={{ disabled: busy, busy: busyProvider === "dev" }}
-                  >
-                    {busyProvider === "dev" ? (
-                      <ActivityIndicator size="small" color={theme.primary} />
-                    ) : (
-                      <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
-                    )}
-                  </Pressable>
-                </>
+                devSecondaryLogin
               ) : null}
             </>
           )}
