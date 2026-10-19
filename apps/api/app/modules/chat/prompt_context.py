@@ -12,6 +12,8 @@ from app.core.db import SessionLocal
 from app.models.orm import Chat, User
 from app.modules import memory as memory_service
 from app.modules import todos as todos_service
+from app.modules.attachments import rag as attachment_rag_service
+from app.modules.chat import history_rag as chat_history_rag_service
 from app.modules.chat.prompt_constants import is_broad_self_question
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
@@ -109,8 +111,6 @@ async def _load_context_blocks(
     async def _history_rag_embed() -> list[float] | None:
         if not history_rag or not query_text or not query_text.strip():
             return None
-        from app.modules.chat import history_rag as chat_history_rag_service
-
         history_query = (
             _BROAD_SELF_HISTORY_QUERY if is_broad_self_question(query_text) else query_text
         )
@@ -196,8 +196,6 @@ async def _load_context_blocks(
         # HTTP/embed-bound — do not hold a DB pool slot.
         if not settings.attachment_rag_enabled or not query_text:
             return ""
-        from app.modules.attachments import rag as attachment_rag_service
-
         return await attachment_rag_service.retrieve_for_prompt(
             settings,
             user_id=user.id,

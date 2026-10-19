@@ -13,6 +13,8 @@ from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
+from app.modules.attachments import service as attachments_service
+from app.modules.chat import history_rag as chat_history_rag_service
 from app.modules.chat.prompt_context import _load_context_blocks
 from app.modules.chat.prompt_format import render_rules
 from app.modules.chat.prompt_memory import (
@@ -223,8 +225,6 @@ async def _context_plan(
     # Without this, a lightweight query after uploading a PDF skips RAG
     # entirely and the user gets no document context on follow-ups.
     if not rich_context and settings.attachment_rag_enabled and probe_attachment_rag:
-        from app.modules.attachments import service as attachments_service
-
         try:
             async with SessionLocal() as s:
                 rich_context = await attachments_service.has_chunks_for_chat(s, user.id, chat_id)
@@ -269,8 +269,6 @@ async def _history_rag_block(
     # chunks or a failed/timed-out embed; do not repeat that work serially.
     if vector is None:
         return ""
-    from app.modules.chat import history_rag as chat_history_rag_service
-
     return await chat_history_rag_service.retrieve_for_prompt(
         settings,
         user_id=user.id,

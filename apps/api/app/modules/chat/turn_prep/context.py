@@ -34,6 +34,7 @@ from app.modules.chat.turn_prep.request import (
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
+from app.services import model_health as model_health_service
 from app.services import time_context as time_context_service
 from app.services.solving import VerifiedSolveBlock
 
@@ -272,8 +273,6 @@ async def _fallback_models(
     if unhealthy is None:
         unhealthy = frozenset()
         try:
-            from app.services import model_health as model_health_service
-
             pool = plan_service.model_pool(user, settings)
             unhealthy = await model_health_service.unhealthy_aliases(redis, settings, pool)
         except Exception:

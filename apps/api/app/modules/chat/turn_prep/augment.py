@@ -31,6 +31,7 @@ from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.math.tools.extract import is_graph_followup
+from app.modules.web_search import detection as web_search_detection
 from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
 )
@@ -215,9 +216,7 @@ def _overlapped_classifier(
         )
     ):
         return None
-    from app.modules.web_search.detection import should_web_search
-
-    return should_web_search(
+    return web_search_detection.should_web_search(
         content,
         settings,
         prior_user_messages=_prompt_prior_user_messages(prompt_messages, content) or None,
