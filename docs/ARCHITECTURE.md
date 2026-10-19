@@ -35,6 +35,25 @@ paths are listed in `app/tests/architecture/boundary_support.py` (`RETIRED_LEGAC
 migration may add a behavior-free re-export while its callers move, then deletes it and lists the
 path there.
 
+## Adding a backend domain or endpoint
+
+Every new product surface follows the same recipe; each step is one file, and the composition
+roots are the only shared files it touches.
+
+| Step | Where | Notes |
+| --- | --- | --- |
+| Package | `modules/<domain>/__init__.py` | A docstring. Name any submodule other modules may import beyond `api`, `schemas`, `service` and `crud` in `_MODULE_EXPORTS`; keep the initializer free of service code (lazy `_EXPORTS` only when importing the package must not load the graph). |
+| HTTP | `modules/<domain>/api.py` | `router = APIRouter(prefix="/<domain>")`. Thin: validate, call the service, map domain errors to `HTTPException` (one `contextmanager` when several routes share the mapping, as in `attachments/api.py`). |
+| Rules and transactions | `modules/<domain>/service.py` | Owns the commit (repository writes with `commit=False`, one commit, roll back on failure), then cache invalidation and job enqueue. |
+| Queries | `modules/<domain>/repository.py` | Queries only; writes take `commit`. Tables several domains read stay in `repositories/`. |
+| Wire and ORM | `schemas.py`, `models.py` | ORM models are registered in `models/orm/__init__.py`; schema changes are expand-then-contract migrations. |
+| Background work | `modules/<domain>/jobs.py` | The handler and its enqueue helper (the payload shape lives in one place); register the job type in `background/handlers.py`. |
+| Model tool | `modules/<domain>/tool.py` | A `ToolAdapter`; register it in `services/mcp/__init__.py`. |
+| Plan, caps, flags | `modules/billing/entitlements.py`, `services/quota/counters.COUNTERS`, `core/config.py` | A metered feature is an allowance; a daily cap is one `CounterSpec`; a kill switch is one `*_enabled` setting. |
+| Registration | `main.py` | `app.include_router(...)`; an upload route also joins `UPLOAD_BODY_PATHS`. |
+| Tests | `tests/modules/<domain>/` | Plus an ownership test in `tests/architecture/test_product_module_boundaries.py`. |
+| Phone | `features/<feature>/api.ts` | Composed into `lib/api.ts`. |
+
 ## Mobile feature shape
 
 A feature owns its screens, components, hooks, model/state helpers, API slice, and tests. Expo
