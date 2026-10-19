@@ -57,11 +57,6 @@ class ChemicalReaction:
     products: tuple[ReactionTerm, ...]
 
 
-def normalize_formula_text(text: str) -> str:
-    """Turn unicode subscripts and superscripts into ASCII formula text."""
-    return spell_scripts(text)
-
-
 def _is_charge_plus(text: str, index: int, buf: list[str]) -> bool:
     if not buf or buf[-1].isspace():
         return False
@@ -169,7 +164,7 @@ def parse_species(
     token: str, *, coefficient_already_removed: bool = False
 ) -> ChemicalSpecies | None:
     """Parse one term. None when the formula is not a complete species."""
-    text = normalize_formula_text(token).strip()
+    text = spell_scripts(token).strip()
     if not text:
         return None
     if coefficient_already_removed:
@@ -195,7 +190,7 @@ def parse_species(
 
 
 def parse_term(token: str) -> ReactionTerm | None:
-    text = normalize_formula_text(token).strip()
+    text = spell_scripts(token).strip()
     coefficient, body = _split_coefficient(text)
     species = parse_species(body, coefficient_already_removed=True)
     if species is None or coefficient < 1:
@@ -204,7 +199,7 @@ def parse_term(token: str) -> ReactionTerm | None:
 
 
 def split_equation(equation: str) -> tuple[str, str] | None:
-    normalized = normalize_formula_text(equation)
+    normalized = spell_scripts(equation)
     for arrow in ARROWS:
         if arrow in normalized:
             left, right = normalized.split(arrow, 1)
