@@ -24,6 +24,7 @@ from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
 from app.modules.chat import prompt_constants as pc
+from app.modules.chat import prompt_memory
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.selection import _search_before_the_model
@@ -77,6 +78,9 @@ HINTS: dict[str, str] = {
     "advice": pc.ADVICE_PERSONALIZE_HINT,
     # A STEM reply the model works out itself checks its own answer first.
     "self_check": SELF_CHECK_PROMPT_RULE,
+    # Memory is off, or has no record of the earlier chat the user recalls.
+    "memory_off": prompt_memory.MEMORY_OFF_HINT,
+    "no_past_record": prompt_memory.NO_PAST_RECORD_HINT,
 }
 
 USER_NAME = "Bini"
@@ -102,6 +106,10 @@ class Route:
     # The verified result handed to the model when it writes the reply itself.
     verified_answer: str = ""
     verified_text: str = ""
+    # Saved memory was read for this turn, and with which scope; earlier chats searched.
+    memory: bool = False
+    memory_scope: str = ""
+    history_rag: bool = False
 
     def summary(self) -> str:
         parts = [f"search={self.search}"]
@@ -115,6 +123,10 @@ class Route:
             parts.append(f"instant={self.instant}")
         if self.lightweight:
             parts.append("lightweight")
+        if self.memory:
+            parts.append(f"memory={self.memory_scope}")
+        if self.history_rag:
+            parts.append("history_rag")
         if self.hints:
             parts.append("hints=" + ",".join(sorted(self.hints)))
         return " ".join(parts)
@@ -209,7 +221,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         response_tone="casual",
         locale="en",
         timezone=USER_TIMEZONE,
-        memory_enabled=False,
+        memory_enabled=case.memory_enabled,
         location=case.location,
         location_enabled=case.location is not None,
     )
@@ -238,8 +250,11 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
 
     classifier = AsyncMock(return_value=None)
     tool_rounds = AsyncMock(side_effect=lambda **kw: (kw["messages"], None, None, []))
+    # What the prompt builder asked to load: the memory scope, and earlier chats.
+    loaded: dict[str, Any] = {}
 
-    async def context_blocks(*_args: Any, **_kwargs: Any) -> _PromptContextBlocks:
+    async def context_blocks(*_args: Any, **kwargs: Any) -> _PromptContextBlocks:
+        loaded.update(kwargs)
         return _PromptContextBlocks(
             memory_block="",
             todos_section=None,
@@ -339,6 +354,9 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         if verified
         else "",
         verified_text=verified.text if verified else "",
+        memory=bool(loaded.get("load_memory")),
+        memory_scope=str(loaded.get("memory_scope") or "") if loaded.get("load_memory") else "",
+        history_rag=bool(loaded.get("history_rag")),
     )
 
 
@@ -371,6 +389,9 @@ def mismatches(expect: Expect, route: Route) -> list[str]:
     check("solved", expect.solved, route.solved)
     check("instant", expect.instant, route.instant)
     check("lightweight", expect.lightweight, route.lightweight)
+    check("memory", expect.memory, route.memory)
+    if expect.memory_scope is not None and route.memory:
+        check("memory_scope", expect.memory_scope, route.memory_scope)
     if expect.answer_photo and "answer_photo" not in route.hints:
         out.append("answer photo: the turn never offers one")
     for hint in expect.hints:

@@ -2,6 +2,8 @@
 
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -157,7 +159,8 @@ async def test_retrieve_for_prompt_wraps_hits_and_excludes():
             query="which couch",
             exclude_message_ids=exclude,
         )
-    assert "past conversations" in block
+    assert "earlier chats" in block
+    assert "not this conversation and not saved memory" in block
     assert "blue couch" in block
     assert "not the full history" in block
     assert search.await_args.kwargs["exclude_message_ids"] == exclude
@@ -447,9 +450,9 @@ async def test_index_message_stores_failed_piece_as_null_under_shared_concurrenc
     ]
 
 
-@pytest.mark.asyncio
-async def test_index_turn_messages_backfills_when_corpus_empty():
+async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = True) -> int:
     settings = Settings(chat_history_rag_enabled=True, mock_llm_enabled=True)
+    account = SimpleNamespace(memory_enabled=memory_on, memory_edited_at=edited_at)
     user_id = uuid4()
     chat_id = uuid4()
     assistant = MagicMock()
@@ -467,9 +470,14 @@ async def test_index_turn_messages_backfills_when_corpus_empty():
     older.chat_id = uuid4()
     older.role = "user"
     older.content = "I live in a two-bedroom near the lake."
+    older.created_at = datetime(2026, 1, 1, tzinfo=UTC)
 
     with (
         patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.modules.chat.history_rag.users_repo.get_by_id",
+            AsyncMock(return_value=account),
+        ),
         patch(
             "app.modules.chat.history_rag.chunks_repo.count_for_user",
             AsyncMock(return_value=0),
@@ -502,5 +510,49 @@ async def test_index_turn_messages_backfills_when_corpus_empty():
             assistant_message_id=assistant.id,
         )
 
-    assert count == 3
-    assert index_one.await_count == 3
+    if not memory_on:
+        assert count == 0
+        index_one.assert_not_awaited()
+        return count
+    indexed = {call.kwargs["message"].id for call in index_one.await_args_list}
+    assert user_msg.id in indexed and assistant.id in indexed
+    # After "clear all", the backfill skips what was said before it (M13).
+    assert (older.id in indexed) is (edited_at is None)
+    return count
+
+
+@pytest.mark.asyncio
+async def test_index_turn_messages_backfills_when_corpus_empty():
+    assert await _index_a_turn() == 3
+
+
+@pytest.mark.asyncio
+async def test_index_turn_messages_backfill_skips_lines_before_a_memory_clear():
+    assert await _index_a_turn(edited_at=datetime(2026, 6, 1, tzinfo=UTC)) == 2
+
+
+@pytest.mark.asyncio
+async def test_index_turn_messages_indexes_nothing_while_memory_is_off():
+    """M14: memory off means no personal recall, so nothing is indexed for it."""
+    assert await _index_a_turn(memory_on=False) == 0
+
+
+@pytest.mark.asyncio
+async def test_retrieved_snippets_carry_the_day_they_were_said():
+    row = MagicMock()
+    row.text = "User: we picked Neon over Supabase"
+    row.created_at = datetime(2026, 5, 3, tzinfo=UTC)
+    with (
+        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.modules.chat.history_rag.chunks_repo.search_semantic",
+            AsyncMock(return_value=[row]),
+        ),
+    ):
+        block = await retrieve_for_prompt(
+            Settings(chat_history_rag_enabled=True, mock_llm_enabled=True),
+            user_id=uuid4(),
+            query="which database",
+            query_vec=[0.1] * 1536,
+        )
+    assert "[1] (2026-05-03) User: we picked Neon over Supabase" in block

@@ -1,9 +1,14 @@
 """One-off reminders, impossible fact pairs, and direct profile answers."""
 
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
+import pytest
+
 from app.modules.chat.prompt_constants.routing import profile_question_to_answer
+from app.modules.chat.turn_prep.instant import _profile_reply
 from app.modules.memory.extraction_workflow import writes_from_ops
 from app.modules.memory.fact_quality import FactView, is_one_off_schedule_fact, texts_to_drop
 from app.modules.memory.profile_reply import reply_for_profile_question
@@ -59,6 +64,61 @@ def test_second_language_is_read_from_the_profile():
     assert reply_for_profile_question("What is my education level", _FACTS) == (
         "I don't have your education level saved."
     )
+
+
+@pytest.mark.parametrize(
+    ("facts", "location", "reply"),
+    [
+        # M15: a saved home is said, never "I don't have that saved".
+        (("User lives in Addis Ababa",), None, "You live in Addis Ababa."),
+        (("Bini is based in Nairobi, Kenya",), None, "You live in Nairobi, Kenya."),
+        # Someone else's home is not the user's.
+        (("User's sister lives in Nairobi suburbs",), None, "I don't have where you live saved."),
+        (
+            (),
+            "Bole, Addis Ababa",
+            "I don't have where you live saved, but your location is set to Bole, Addis Ababa.",
+        ),
+        ((), None, "I don't have where you live saved."),
+    ],
+)
+def test_where_do_i_live_reads_the_saved_home(facts, location, reply):
+    assert profile_question_to_answer("where do I live?", []) == "where do I live?"
+    assert reply_for_profile_question("where do I live?", facts, location=location) == reply
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("memory_on", [True, False])
+async def test_instant_profile_reply_follows_the_memory_switch(memory_on):
+    """M14: with memory off, "where am I from?" is not answered from saved facts."""
+    user = SimpleNamespace(id=uuid4(), memory_enabled=memory_on, location_enabled=False)
+    identity = SimpleNamespace(user=user)
+    rows = AsyncMock(return_value=[SimpleNamespace(text="User is from Ethiopia")])
+    with (
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", _Session),
+        patch("app.modules.memory.list_for_user", rows),
+    ):
+        reply = await _profile_reply("where am I from?", identity)
+    assert reply == ("You're from Ethiopia." if memory_on else None)
+
+
+@pytest.mark.asyncio
+async def test_instant_profile_reply_does_not_deny_on_a_failed_read():
+    """M17: a failed read hands the turn to the model, which says memory didn't load."""
+    identity = SimpleNamespace(user=SimpleNamespace(id=uuid4(), memory_enabled=True))
+    with (
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", _Session),
+        patch("app.modules.memory.list_for_user", AsyncMock(side_effect=RuntimeError("db down"))),
+    ):
+        assert await _profile_reply("where do I live?", identity) is None
+
+
+class _Session:
+    async def __aenter__(self):
+        return AsyncMock()
+
+    async def __aexit__(self, *_args):
+        return None
 
 
 def test_second_after_first_language_reads_the_other_fact():

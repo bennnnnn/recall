@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from app.core.config import Settings
@@ -20,6 +20,9 @@ from app.services.context_window import (
     messages_within_token_budget,
     unsummarized_gap_bounds,
 )
+
+if TYPE_CHECKING:
+    from app.modules.memory import MemoryScope
 
 _SLIM_MEMORY_MAX_CHARS = 1000
 _BROAD_SELF_HISTORY_QUERY = (
@@ -73,6 +76,8 @@ class _PromptContextBlocks:
     attachment_rag_block: str
     chat: Chat | None
     history_rag_query_vec: list[float] | None = None
+    # "ok", or "partial" / "unavailable" when memory did not fully load.
+    memory_status: str = "ok"
 
 
 async def _load_context_blocks(
@@ -87,6 +92,7 @@ async def _load_context_blocks(
     client_timezone: str | None,
     out: dict[str, object] | None,
     load_memory: bool = False,
+    memory_scope: MemoryScope = "query",
     history_rag: bool = False,
     recent_messages: list[Any] | None = None,
 ) -> _PromptContextBlocks:
@@ -143,6 +149,7 @@ async def _load_context_blocks(
     # awaiting four DB round-trips back-to-back before the LLM call starts.
     # Cap concurrent DB checkouts so one turn cannot saturate the pool.
     db_slots = asyncio.Semaphore(max(1, settings.context_db_concurrency))
+    memory_report = memory_service.MemoryLoadReport()
 
     async def _memory_block() -> str:
         async with db_slots, SessionLocal() as s:
@@ -152,6 +159,8 @@ async def _load_context_blocks(
                 settings,
                 query_text=query_text,
                 exclude_sensitive=memory_service.exclude_sensitive_for_query(query_text),
+                scope=memory_scope,
+                report=memory_report,
             )
 
     if slim_context and load_memory:
@@ -170,6 +179,7 @@ async def _load_context_blocks(
             attachment_rag_block="",
             chat=chat,
             history_rag_query_vec=history_rag_query_vec,
+            memory_status=memory_report.status,
         )
 
     if chat is None:
@@ -236,6 +246,7 @@ async def _load_context_blocks(
         attachment_rag_block=attachment_rag_block,
         chat=chat,
         history_rag_query_vec=history_rag_query_vec,
+        memory_status=memory_report.status,
     )
 
 

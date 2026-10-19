@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -12,9 +14,15 @@ from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
-from app.modules.chat.prompt_constants import recalls_earlier_conversation
 from app.modules.chat.prompt_context import _load_context_blocks
 from app.modules.chat.prompt_format import render_rules
+from app.modules.chat.prompt_memory import (
+    is_work_turn,
+    memory_saving_paused,
+    memory_scope_for,
+    memory_switch_on,
+    recalls_shared_past,
+)
 from app.modules.chat.prompt_sections import NEARBY_CONTRACTS, PROMPT_SECTIONS, PromptTurn
 from app.modules.chat.prompt_window import (
     PromptWindow,
@@ -33,6 +41,9 @@ from app.services.subject_solving import (
     build_subject_augmentation,
     detect_subject,
 )
+
+if TYPE_CHECKING:
+    from app.modules.memory import MemoryScope
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +234,8 @@ class _ContextPlan:
     # "What did we decide last time": memory and past chats answer even a slim turn.
     recalls_shared_past: bool
     history_rag: bool
+    # Which saved facts load: by query, with the profile, everything, or the work scope.
+    memory_scope: MemoryScope = "query"
 
 
 async def _context_plan(
@@ -254,17 +267,24 @@ async def _context_plan(
     # and chat history on every non-greeting, which sat on the first token
     # for seconds before the model started.
     personal_context = (rich_context or advice_memory) and not lightweight
-    recalls_shared_past = bool(query_text and recalls_earlier_conversation(query_text))
+    # "How should I structure auth in my app?" needs the stack the user builds with,
+    # not their city or job: the work scope, without a query embed.
+    work_memory = not personal_context and not lightweight and is_work_turn(query_text)
+    recalls_past = recalls_shared_past(query_text)
+    # Memory off means no personal recall at all: no saved facts, no earlier chats.
+    memory_on = memory_switch_on(user)
     return _ContextPlan(
         slim=minimal_personal_context or lightweight or not rich_context,
-        load_memory=personal_context,
-        recalls_shared_past=recalls_shared_past,
+        load_memory=memory_on and (personal_context or work_memory or recalls_past),
+        recalls_shared_past=recalls_past,
         history_rag=bool(
-            (personal_context or recalls_shared_past)
+            memory_on
+            and (personal_context or recalls_past)
             and settings.chat_history_rag_enabled
             and query_text
             and query_text.strip()
         ),
+        memory_scope="work" if work_memory else memory_scope_for(query_text),
     )
 
 
@@ -339,6 +359,7 @@ async def build_prompt_messages(
         recent_limit=settings.recent_message_window,
         slim_context=plan.slim,
         load_memory=plan.load_memory,
+        memory_scope=plan.memory_scope,
         client_timezone=client_timezone,
         out=out,
         history_rag=plan.history_rag,
@@ -383,6 +404,11 @@ async def build_prompt_messages(
         chat_history_rag_block=chat_history_rag_block,
         exchange=window.exchange,
         followup=followup,
+        memory_status=blocks.memory_status,
+        memory_paused=bool(
+            memory_switch_on(user) and await memory_saving_paused(settings, query_text)
+        ),
+        recalls_shared_past=plan.recalls_shared_past,
     )
     messages = [
         {"role": "system", "content": "\n\n".join(render_rules(PROMPT_SECTIONS, turn))},

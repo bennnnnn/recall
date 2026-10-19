@@ -13,6 +13,13 @@ _SCHOOL = re.compile(
     re.IGNORECASE,
 )
 _FROM = re.compile(r"is from ([^.]+)", re.IGNORECASE)
+# "User lives in Addis Ababa", "Bini is based in Nairobi"; never "User's sister lives in".
+_LIVES_IN = re.compile(
+    r"^(?:the )?[a-z][\w-]*(?: (?:currently|now))? (?:lives|is living|is based|resides) in "
+    r"([^.;]+)",
+    re.IGNORECASE,
+)
+_LIVE_ASK = re.compile(r"\bwhere do i live\b", re.IGNORECASE)
 _LANGUAGE_ASK = re.compile(r"\b(?:language|langauge)s?\b", re.IGNORECASE)
 _EDUCATION_ASK = re.compile(
     r"\b(?:education|school|university|college|degree|grade)s?\b",
@@ -22,8 +29,16 @@ _SECOND = re.compile(r"\bsecond\b", re.IGNORECASE)
 _FIRST = re.compile(r"\b(?:first|native)\b", re.IGNORECASE)
 
 
-def reply_for_profile_question(question: str, facts: Sequence[str]) -> str:
-    """One sentence from the saved facts, or a clear miss. Never a question back."""
+def reply_for_profile_question(
+    question: str, facts: Sequence[str], *, location: str | None = None
+) -> str:
+    """One sentence from the saved facts, or a clear miss. Never a question back.
+
+    ``location`` is the place set on the account, used when no saved fact says
+    where the user lives.
+    """
+    if _LIVE_ASK.search(question):
+        return _home_reply(facts, location)
     if _LANGUAGE_ASK.search(question):
         return _language_reply(question, facts)
     if _EDUCATION_ASK.search(question):
@@ -34,6 +49,15 @@ def reply_for_profile_question(question: str, facts: Sequence[str]) -> str:
             return f"You're from {origin}."
         return "I don't have where you're from saved."
     return "I don't have that saved."
+
+
+def _home_reply(facts: Sequence[str], location: str | None) -> str:
+    home = _first(_LIVES_IN, facts)
+    if home:
+        return f"You live in {home}."
+    if location:
+        return f"I don't have where you live saved, but your location is set to {location}."
+    return "I don't have where you live saved."
 
 
 def _language_reply(question: str, facts: Sequence[str]) -> str:

@@ -1,0 +1,175 @@
+"""What a chat turn reads from memory, and what the prompt says when memory can't help.
+
+Which facts load (the scope), whether a programming turn carries the user's stack,
+and the one-line notes for a memory that is off, paused, unavailable or silent on
+an earlier conversation. Each note is added only on a turn it bears on.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from typing import TYPE_CHECKING
+
+from app.core.config import Settings
+from app.modules import memory as memory_service
+from app.modules.chat.prompt_constants import (
+    is_broad_self_question,
+    is_career_personal_question,
+    is_profile_fact_question,
+    is_profile_recall_pushback,
+    is_programming_turn,
+    recalls_earlier_conversation,
+)
+
+if TYPE_CHECKING:
+    from app.modules.chat.prompt_sections import PromptTurn
+    from app.modules.memory import MemoryScope
+
+logger = logging.getLogger(__name__)
+
+MEMORY_OFF_HINT = (
+    "Memory is off in the user's settings: you see nothing from their earlier chats, and "
+    "nothing from this one is saved. If they ask you to remember something, or what you "
+    "know about them, say memory is off and that they can turn it on in Settings → Memory. "
+    "Never say you will remember it."
+)
+MEMORY_PAUSED_HINT = (
+    "Saving to memory is paused right now. If the user asks you to remember something, say "
+    "it can't be saved at the moment; never say you will remember it."
+)
+MEMORY_UNAVAILABLE_HINT = (
+    "The user's saved memory could not be loaded for this turn. If they ask about something "
+    "they told you before, say you couldn't load their saved memory just now, not that it "
+    "isn't saved."
+)
+MEMORY_PARTIAL_HINT = (
+    "Only part of the user's saved memory loaded for this turn. If a detail they ask about "
+    "is not listed, say you couldn't check all of their saved memory just now, not that it "
+    "isn't saved."
+)
+NO_PAST_RECORD_HINT = (
+    "No earlier chat about this was found. If saved memory doesn't answer it either, do not "
+    "invent what was said or decided before: say you can't find it and ask the user to "
+    "remind you."
+)
+
+# "My app", "our backend": the user's own software.
+_OWN_WORK = re.compile(
+    r"\b(?:my|our)\s+(?:[\w-]+\s+){0,2}?(?:app|apps|application|project|backend|front-?end|"
+    r"api|server|codebase|code|repo|repository|website|web ?app|startup|product|database|db|"
+    r"schema|stack|bot|extension|platform|mvp|saas|plugin)\b",
+    re.IGNORECASE,
+)
+# Building software, said without "my": "write a login screen", "state management".
+_DEV_TASK = re.compile(
+    r"\b(?:auth|authentication|oauth|login (?:screen|page|flow|form)|"
+    r"sign[- ]?(?:in|up) (?:screen|page|flow|form)|state management|deploy(?:ing|ment)?|"
+    r"endpoints?|database schema|data model|push notifications|ci/cd|docker|unit tests?|"
+    r"refactor\w*)\b",
+    re.IGNORECASE,
+)
+# "What's my job?", "where do I work?", "do you remember my dog's name?".
+_ASKS_ABOUT_SELF = re.compile(
+    r"^(?:what(?:'s| is| are| was)|where(?:'s| is| do i| did i)|who(?:'s| is)|"
+    r"do you (?:know|remember))\b[^?.!]{0,40}\b(?:my|i)\b",
+    re.IGNORECASE,
+)
+# "Which option did I pick for the database?": a decision from an earlier chat.
+_RECALLS_A_DECISION = re.compile(
+    r"\bdid i (?:pick|choose|decide|go with|settle on)\b", re.IGNORECASE
+)
+# Career asks read memory with the profile document, so the current job stays.
+_OWN_CAREER = re.compile(
+    r"\b(?:career|employer|recruiter|candidacy|promotion|interview\w*|resume|cv|"
+    r"(?:my|current) (?:job|role|company|work|experience|background|skills|profile|"
+    r"responsibilities))\b",
+    re.IGNORECASE,
+)
+
+
+def memory_switch_on(user: object) -> bool:
+    """The Settings → Memory switch; an account row not loaded yet counts as on."""
+    return getattr(user, "memory_enabled", True) is not False
+
+
+def is_work_turn(text: str | None) -> bool:
+    """A programming turn, or one about the user's own app, project or backend."""
+    if not text or not text.strip():
+        return False
+    return bool(is_programming_turn(text) or _OWN_WORK.search(text) or _DEV_TASK.search(text))
+
+
+def memory_scope_for(text: str | None) -> MemoryScope:
+    """Which saved facts a personal turn reads: everything, query + profile, or by query."""
+    if not text:
+        return "query"
+    if is_broad_self_question(text):
+        return "self"
+    if (
+        is_profile_fact_question(text)
+        or is_profile_recall_pushback(text)
+        or is_career_personal_question(text)
+        or _OWN_CAREER.search(text)
+    ):
+        return "profile"
+    return "query"
+
+
+def recalls_shared_past(text: str | None) -> bool:
+    """The user asks about something said or decided in an earlier chat."""
+    if not text:
+        return False
+    return recalls_earlier_conversation(text) or bool(_RECALLS_A_DECISION.search(text))
+
+
+def asks_about_saved(text: str) -> bool:
+    """The user asks what Recall knows: a profile detail, "what do you know", "last time"."""
+    return bool(
+        is_profile_fact_question(text)
+        or is_profile_recall_pushback(text)
+        or is_broad_self_question(text)
+        or recalls_shared_past(text)
+        or _ASKS_ABOUT_SELF.search(text)
+    )
+
+
+async def memory_saving_paused(settings: Settings, query_text: str | None) -> bool:
+    """True when the user asks to remember something while saving is paused (spend cap)."""
+    if not query_text or not memory_service.is_explicit_memory_command(query_text):
+        return False
+    from app.core.redis import get_redis_client
+    from app.services import quota as quota_service
+
+    try:
+        return bool(await quota_service.global_spend_exceeded(get_redis_client(), settings))
+    except Exception:
+        logger.debug("spend-cap read for the memory note failed", exc_info=True)
+        return False
+
+
+def memory_status_note(turn: PromptTurn) -> str | None:
+    """Unavailable on any memory turn; partial only when the user asks what is saved."""
+    if turn.memory_status == "unavailable":
+        return MEMORY_UNAVAILABLE_HINT
+    if turn.memory_status == "partial" and turn.query and asks_about_saved(turn.query):
+        return MEMORY_PARTIAL_HINT
+    return None
+
+
+def memory_notes(turn: PromptTurn) -> list[str]:
+    """Notes for a memory that is off, paused, failed, or has no record of the past."""
+    query = turn.query
+    if not memory_switch_on(turn.user):
+        if query and (memory_service.is_explicit_memory_command(query) or asks_about_saved(query)):
+            return [MEMORY_OFF_HINT]
+        return []
+    notes: list[str] = []
+    if turn.memory_paused:
+        notes.append(MEMORY_PAUSED_HINT)
+    status = memory_status_note(turn)
+    if status:
+        notes.append(status)
+    if turn.recalls_shared_past and not turn.chat_history_rag_block:
+        notes.append(NO_PAST_RECORD_HINT)
+    return notes

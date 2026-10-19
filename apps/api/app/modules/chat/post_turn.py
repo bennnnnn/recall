@@ -16,7 +16,11 @@ from app.modules.chat.finalize_registry import clear_pending_finalize
 from app.modules.chat.prompt_constants.lesson_flow import lesson_step
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup, StreamContext
-from app.modules.memory import is_explicit_memory_command, memory_extract_user_text
+from app.modules.memory import (
+    is_explicit_memory_command,
+    is_memory_correction,
+    memory_extract_user_text,
+)
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
@@ -318,6 +322,8 @@ async def enqueue_post_turn_jobs(
             and turn_number % settings.memory_extract_every_n_turns == 0
         )
         or is_explicit_memory_command(memory_user_text)
+        # "That's wrong, I'm at Stripe now": the saved fact changes on this turn.
+        or is_memory_correction(memory_user_text)
     )
     if (
         not spend_capped
@@ -428,11 +434,13 @@ async def enqueue_post_turn_jobs(
                 f"attachment_index:{attachment_id}:{ctx.chat_id}",
             ),
         )
+    # Memory off means no personal recall: past turns are not indexed for it either.
     if (
         not spend_capped
         and settings.chat_history_rag_enabled
         and ctx.assistant_message_id is not None
         and not ctx.skip_memory_jobs
+        and (ctx.user is None or ctx.user.memory_enabled is not False)
     ):
         job_specs.append(
             (
