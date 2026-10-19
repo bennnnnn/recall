@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/auth/AuthContext";
+import { AiConsent } from "@/components/AiConsent";
 import { Login } from "@/components/Login";
 import { ChatList } from "@/components/ChatList";
 import { ChatView } from "@/components/ChatView";
@@ -9,6 +10,8 @@ function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="loading-screen">Loading…</div>;
   if (!user) return <Navigate to="/" replace />;
+  // Same one-time consent as the phone: null until the account agrees.
+  if (user.ai_data_consent_at === null) return <AiConsent />;
   return <>{children}</>;
 }
 

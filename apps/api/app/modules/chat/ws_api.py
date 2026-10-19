@@ -1,9 +1,14 @@
+"""The chat WebSocket: handshake limits, auth, then one frame at a time.
+
+A message or regenerate frame becomes a turn (``ws_turn``); the socket's own
+limits (frames, sockets per user, idle time) are ``ws_limits``.
+"""
+
 import asyncio
 import json
 import logging
-import time
-from collections.abc import AsyncIterator, Callable
-from contextlib import suppress
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
@@ -11,39 +16,33 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from starlette.websockets import WebSocketState
 
-from app.core import access_tokens
-from app.core.background_tasks import create_background_task
+from app.core import access_tokens, shutdown
 from app.core.client_ip import client_ip_from_websocket
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
-from app.exceptions import (
-    ChatBusyError,
-    ChatServiceError,
-    QuotaExceededError,
-    RedisUnavailableError,
-)
+from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
-from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry, turn_deps
-from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
-    DoneEvent,
-    StreamEndEvent,
-    await_finalize_commit,
+    SERVER_RESTARTING_MESSAGE,
     build_reasoning_event,
-    build_start_event,
     build_status_event,
-    build_token_event,
-    clear_task_cancellation,
-    error_payload_for_exception,
-    finish_open_stream,
-    persist_finalize_if_pending,
-    pop_finalize_tasks,
-    take_related_prompts_event,
+    turn_error_payload,
 )
 from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.chat.ws_limits import (
+    WS_IDLE_CLOSE_CODE,
+    WS_TOO_MANY_SOCKETS_CLOSE_CODE,
+    FrameBudget,
+    close_flooding_socket,
+    close_quietly,
+    receive_frame,
+    safe_send_json,
+    user_socket_slot,
+)
+from app.modules.chat.ws_turn import run_chat_stream
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
@@ -54,49 +53,6 @@ _WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
 # Drop sockets that connect but never send the auth frame (resource leak).
 _WS_AUTH_TIMEOUT_SECONDS = 10.0
 _CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate"})
-# Every frame after auth counts, chargeable or not. Only message/regenerate
-# were limited (30/min, account-wide); pings, cancels, unknown types and bad
-# JSON were unlimited, and each bad frame was parsed and answered. The app
-# sends at most a message plus a cancel per turn, so 120/min per socket is
-# far above real use. In-process: the budget belongs to one socket.
-_WS_FRAME_LIMIT = 120
-_WS_FRAME_WINDOW_SECONDS = 60.0
-_WS_FRAME_FLOOD_PAYLOAD = {
-    "type": "error",
-    "code": "rate_limited",
-    "message": "Too many messages. Reconnect in a minute.",
-}
-
-
-class _FrameBudget:
-    """Fixed-window frame counter for one socket."""
-
-    def __init__(self) -> None:
-        self._window_start = time.monotonic()
-        self._count = 0
-
-    def allow(self) -> bool:
-        now = time.monotonic()
-        if now - self._window_start >= _WS_FRAME_WINDOW_SECONDS:
-            self._window_start = now
-            self._count = 0
-        self._count += 1
-        return self._count <= _WS_FRAME_LIMIT
-
-
-async def _close_flooding_socket(websocket: WebSocket) -> None:
-    await _safe_send_json(websocket, _WS_FRAME_FLOOD_PAYLOAD)
-    with suppress(Exception):
-        await websocket.close(code=1008)
-
-
-async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
-    """Send a WS frame; return False if the client already disconnected."""
-    try:
-        await websocket.send_json(payload)
-        return True
-    except (WebSocketDisconnect, RuntimeError):
-        return False
 
 
 async def _ws_rate_limit(redis, user_id: UUID) -> bool:
@@ -133,195 +89,14 @@ async def _ws_handshake_rate_limit(redis, websocket: WebSocket) -> bool:
     )
 
 
-async def _stream_over_ws(
-    websocket: WebSocket,
-    stream: AsyncIterator[str],
-    cancel_event: asyncio.Event,
-    outcome: TurnOutcome,
-    chat_id: UUID | None = None,
-    frame_budget: _FrameBudget | None = None,
-) -> None:
-    async def run_stream() -> None:
-        sent_tokens = 0
-        try:
-            async for token_text in stream:
-                if cancel_event.is_set():
-                    break
-                if not await _safe_send_json(websocket, build_token_event(token_text)):
-                    # Client left (New chat / navigate). Keep consuming the
-                    # model stream so the thread gets a complete reply.
-                    async for _ in stream:
-                        if cancel_event.is_set():
-                            break
-                    break
-                sent_tokens += 1
-        except asyncio.CancelledError:
-            # Task cancel interrupts an in-flight LiteLLM wait; still fall
-            # through to stream_end/done so the client gets a clean stop.
-            clear_task_cancellation()
-            cancel_event.set()
-        except Exception as exc:
-            if not isinstance(exc, QuotaExceededError | ChatServiceError | ModelUnavailableError):
-                logger.exception("Chat stream failed")
-            await _safe_send_json(websocket, error_payload_for_exception(exc))
-            return
-
-        # A stop can leave the generator parked at yield. Resume it so the
-        # partial reply is saved before we read the finalize task.
-        await finish_open_stream(stream)
-
-        # M12: if the user cancelled before any token was streamed (hard
-        # cancel at the very start), skip stream_end + done entirely — an
-        # empty done with no content is misleading and the client already
-        # dropped the turn locally. SSE already returns early on cancel;
-        # this symmetrizes the WS path. Partial tokens (sent_tokens > 0)
-        # still get stream_end + done so the client can swap the streamed-*
-        # id for the persisted message_id.
-        if cancel_event.is_set() and sent_tokens == 0:
-            # Still let the finalize task run so any reserved quota is
-            # refunded, but don't send events the client doesn't expect.
-            finalize_db_task = pop_finalize_tasks(outcome)
-            if finalize_db_task is not None:
-                with suppress(Exception):
-                    await await_finalize_commit(finalize_db_task)
-            return
-
-        if not await _safe_send_json(websocket, StreamEndEvent.from_outcome(outcome).model_dump()):
-            return
-
-        # Await the DB commit before sending `done` so the message_id we hand
-        # the client always references a persisted row. The token stream is
-        # already flushed (stream_end above), so only the final `done` event
-        # waits on the commit — streaming latency is unchanged. If the commit
-        # FAILED we send an error instead of a ghost `done` with a fake id.
-        # On TIMEOUT we send `done` without `message_id` (persisting: true) so
-        # the client keeps the local bubble and refetches instead of trusting
-        # a row that may never persist if the shielded task later fails.
-        finalize_db_task = pop_finalize_tasks(outcome)
-        commit_status = await await_finalize_commit(finalize_db_task)
-        if commit_status == "failed":
-            await _safe_send_json(
-                websocket,
-                {"type": "error", "message": "Failed to save the response. Please retry."},
-            )
-            return
-        if commit_status == "timeout":
-            done = DoneEvent.from_outcome(outcome, persisting=True)
-            await _safe_send_json(websocket, done.model_dump())
-            return
-
-        await _safe_send_json(websocket, DoneEvent.from_outcome(outcome).model_dump())
-        _schedule_related_prompts(websocket, outcome)
-
-    producer = asyncio.create_task(run_stream())
-    if chat_id is not None:
-        # GET /messages waits on the producer so a New-chat leave can still
-        # return the completed assistant. Do not put this in the finalize
-        # map — stream_chat_response gather-waits that map as a child Task
-        # and would deadlock 10s on itself.
-        register_inflight_stream(chat_id, producer)
-    try:
-        while not producer.done():
-            receiver = asyncio.create_task(websocket.receive_json())
-            done, _pending = await asyncio.wait(
-                {producer, receiver},
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            if receiver in done:
-                try:
-                    msg = receiver.result()
-                except WebSocketDisconnect:
-                    # Navigate-away: finish the producer (it drains on send
-                    # failure). Do not cancel — Stop is the only hard stop.
-                    break
-                except (json.JSONDecodeError, KeyError, TypeError):
-                    # Keep ownership of the active producer when a bad JSON
-                    # or binary frame arrives, just as the idle loop does.
-                    if frame_budget is not None and not frame_budget.allow():
-                        # The producer drains on send failure; the reply is saved.
-                        await _close_flooding_socket(websocket)
-                        break
-                    await _safe_send_json(websocket, {"type": "error", "message": "Invalid JSON"})
-                    continue
-                if frame_budget is not None and not frame_budget.allow():
-                    await _close_flooding_socket(websocket)
-                    break
-                # Non-dict JSON (array/primitive) must not AttributeError the
-                # dispatch loop while the producer is still streaming.
-                if not isinstance(msg, dict):
-                    continue
-                if msg.get("type") == "cancel":
-                    cancel_event.set()
-                    # Interrupt in-flight LiteLLM wait, not only between tokens.
-                    if not producer.done():
-                        producer.cancel()
-                elif msg.get("type") != "ping":
-                    await _safe_send_json(
-                        websocket,
-                        error_payload_for_exception(ChatBusyError()),
-                    )
-            else:
-                receiver.cancel()
-                try:
-                    await receiver
-                except asyncio.CancelledError:
-                    pass
-        # Stop already cancelled the producer once. Cancelling again
-        # aborts the save of the partial reply.
-        try:
-            await producer
-        except asyncio.CancelledError:
-            pass
-    except WebSocketDisconnect:
-        if not producer.done():
-            try:
-                await producer
-            except asyncio.CancelledError:
-                pass
-    finally:
-        # Same as SSE M10: client close must not orphan the DB commit that
-        # persists the (partial) assistant row and enqueues the title job.
-        await persist_finalize_if_pending(outcome)
-
-
-async def _run_chat_stream(
-    websocket: WebSocket,
-    *,
-    cancel_event: asyncio.Event,
-    stream_factory: Callable[[TurnOutcome], AsyncIterator[str]],
-    chat_id: UUID | None = None,
-    frame_budget: _FrameBudget | None = None,
-) -> None:
-    cancel_event.clear()
-    if not await _safe_send_json(websocket, build_start_event()):
-        return
-    outcome = TurnOutcome()
-    try:
-        await _stream_over_ws(
-            websocket,
-            stream_factory(outcome),
-            cancel_event,
-            outcome,
-            chat_id,
-            frame_budget,
-        )
-    except Exception as exc:
-        if not isinstance(
-            exc,
-            QuotaExceededError | RedisUnavailableError | ChatServiceError | ModelUnavailableError,
-        ):
-            logger.exception("Unexpected chat stream error")
-        await _safe_send_json(websocket, error_payload_for_exception(exc))
-
-
 def _status_emitters(websocket: WebSocket) -> tuple[Any, Any]:
     """Shared status/reasoning WS emitters for chargeable chat actions."""
 
     async def emit_status(phase: str, detail: str | None = None) -> None:
-        await _safe_send_json(websocket, build_status_event(phase, detail))
+        await safe_send_json(websocket, build_status_event(phase, detail))
 
     async def emit_reasoning(chunk: str) -> None:
-        await _safe_send_json(websocket, build_reasoning_event(chunk))
+        await safe_send_json(websocket, build_reasoning_event(chunk))
 
     return emit_status, emit_reasoning
 
@@ -351,7 +126,7 @@ async def _handle_regenerate(
     cancel_event: asyncio.Event,
     emit_status: Any,
     emit_reasoning: Any,
-    frame_budget: _FrameBudget | None = None,
+    frame_budget: FrameBudget | None = None,
 ) -> None:
     try:
         request = ChatMessageRequest.model_validate(payload)
@@ -374,7 +149,7 @@ async def _handle_regenerate(
             **_client_geo_kwargs(request, client_timezone=client_timezone),
         )
 
-    await _run_chat_stream(
+    await run_chat_stream(
         websocket,
         cancel_event=cancel_event,
         stream_factory=_regen_stream,
@@ -395,12 +170,14 @@ async def _handle_message(
     cancel_event: asyncio.Event,
     emit_status: Any,
     emit_reasoning: Any,
-    frame_budget: _FrameBudget | None = None,
+    frame_budget: FrameBudget | None = None,
 ) -> None:
     try:
         request = ChatMessageRequest.model_validate(payload)
     except ValidationError:
-        await websocket.send_json({"type": "error", "message": "Invalid message"})
+        await websocket.send_json(
+            turn_error_payload(None, user_message_saved=False, message="Invalid message")
+        )
         return
 
     # Reject an empty text-only message at the WS layer so the client gets an
@@ -408,7 +185,9 @@ async def _handle_message(
     # ChatNotFoundError mid-flight (which the client may not map to a visible
     # error). An empty message with attachments is valid (image-only turn).
     if not request.content.strip() and not request.attachment_ids:
-        await websocket.send_json({"type": "error", "message": "Message cannot be empty."})
+        await websocket.send_json(
+            turn_error_payload(None, user_message_saved=False, message="Message cannot be empty.")
+        )
         return
 
     def _message_stream(outcome: TurnOutcome) -> AsyncIterator[str]:
@@ -428,13 +207,73 @@ async def _handle_message(
             **_client_geo_kwargs(request, client_timezone=client_timezone),
         )
 
-    await _run_chat_stream(
+    await run_chat_stream(
         websocket,
         cancel_event=cancel_event,
         stream_factory=_message_stream,
         chat_id=chat_id,
         frame_budget=frame_budget,
     )
+
+
+@dataclass
+class _ChatSocket:
+    """One authenticated chat socket and what its turns share."""
+
+    websocket: WebSocket
+    redis: Any
+    settings: Settings
+    chat_id: UUID
+    user_id: UUID
+    token: str
+    client_timezone: str | None
+    cancel_event: asyncio.Event
+    frame_budget: FrameBudget
+
+
+async def _authenticate(
+    websocket: WebSocket, redis: Any, settings: Settings, chat_id: UUID
+) -> tuple[UUID, str, str | None] | None:
+    """The auth frame's user, token and time zone; None once the socket is refused."""
+    try:
+        auth_message = await asyncio.wait_for(
+            websocket.receive_json(),
+            timeout=_WS_AUTH_TIMEOUT_SECONDS,
+        )
+        if not isinstance(auth_message, dict):
+            await websocket.send_json({"type": "error", "message": "Unauthorized"})
+            await websocket.close()
+            return None
+        token = auth_message.get("token")
+        if not isinstance(token, str) or not token.strip():
+            await websocket.send_json({"type": "error", "message": "Missing token"})
+            await websocket.close()
+            return None
+
+        user_id = await access_tokens.verify_access_token(redis, token, settings)
+        client_timezone = auth_message.get("client_timezone")
+        if client_timezone is not None and not isinstance(client_timezone, str):
+            client_timezone = None
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected before authentication chat_id=%s", chat_id)
+        return None
+    except TimeoutError:
+        await safe_send_json(websocket, {"type": "error", "message": "Auth timeout"})
+        await websocket.close()
+        return None
+    except RedisUnavailableError as exc:
+        await safe_send_json(
+            websocket,
+            {"type": "error", "code": "unavailable", "message": exc.message},
+        )
+        # 1013 Try Again Later — client should back off, not treat as auth failure.
+        await websocket.close(code=1013)
+        return None
+    except (GoogleAuthError, json.JSONDecodeError, KeyError, TypeError, AttributeError):
+        await safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
+        await websocket.close()
+        return None
+    return user_id, token, client_timezone
 
 
 @router.websocket("/ws/chats/{chat_id}")
@@ -450,45 +289,10 @@ async def chat_websocket(
         return
 
     await websocket.accept()
-
-    try:
-        auth_message = await asyncio.wait_for(
-            websocket.receive_json(),
-            timeout=_WS_AUTH_TIMEOUT_SECONDS,
-        )
-        if not isinstance(auth_message, dict):
-            await websocket.send_json({"type": "error", "message": "Unauthorized"})
-            await websocket.close()
-            return
-        token = auth_message.get("token")
-        if not isinstance(token, str) or not token.strip():
-            await websocket.send_json({"type": "error", "message": "Missing token"})
-            await websocket.close()
-            return
-
-        user_id = await access_tokens.verify_access_token(redis, token, settings)
-        client_timezone = auth_message.get("client_timezone")
-        if client_timezone is not None and not isinstance(client_timezone, str):
-            client_timezone = None
-    except WebSocketDisconnect:
-        logger.info("WebSocket disconnected before authentication chat_id=%s", chat_id)
+    auth = await _authenticate(websocket, redis, settings, chat_id)
+    if auth is None:
         return
-    except TimeoutError:
-        await _safe_send_json(websocket, {"type": "error", "message": "Auth timeout"})
-        await websocket.close()
-        return
-    except RedisUnavailableError as exc:
-        await _safe_send_json(
-            websocket,
-            {"type": "error", "code": "unavailable", "message": exc.message},
-        )
-        # 1013 Try Again Later — client should back off, not treat as auth failure.
-        await websocket.close(code=1013)
-        return
-    except (GoogleAuthError, json.JSONDecodeError, KeyError, TypeError, AttributeError):
-        await _safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
-        await websocket.close()
-        return
+    user_id, token, client_timezone = auth
 
     allowed = await _ws_connect_rate_limit(redis, user_id)
     if not allowed:
@@ -498,14 +302,37 @@ async def chat_websocket(
         await websocket.close()
         return
 
-    cancel_event = asyncio.Event()
-    emit_status, emit_reasoning = _status_emitters(websocket)
-    frame_budget = _FrameBudget()
+    with user_socket_slot(user_id, settings.ws_max_sockets_per_user) as admitted:
+        if not admitted:
+            logger.warning("Chat socket cap reached user_id=%s chat_id=%s", user_id, chat_id)
+            await close_quietly(websocket, WS_TOO_MANY_SOCKETS_CLOSE_CODE)
+            return
+        await _serve_frames(
+            _ChatSocket(
+                websocket=websocket,
+                redis=redis,
+                settings=settings,
+                chat_id=chat_id,
+                user_id=user_id,
+                token=token,
+                client_timezone=client_timezone,
+                cancel_event=asyncio.Event(),
+                frame_budget=FrameBudget(),
+            )
+        )
 
+
+async def _serve_frames(conn: _ChatSocket) -> None:
+    """Read frames until the client leaves, floods, or sits idle between turns."""
+    websocket, chat_id = conn.websocket, conn.chat_id
     try:
         while True:
             try:
-                payload = await websocket.receive_json()
+                payload = await receive_frame(websocket, conn.settings.ws_idle_timeout_seconds)
+            except TimeoutError:
+                logger.info("Idle WebSocket closed chat_id=%s", chat_id)
+                await close_quietly(websocket, WS_IDLE_CLOSE_CODE)
+                return
             except WebSocketDisconnect:
                 logger.info("WebSocket disconnected chat_id=%s", chat_id)
                 return
@@ -523,95 +350,79 @@ async def chat_websocket(
                 raise
             except (json.JSONDecodeError, KeyError, TypeError):
                 # Bad JSON, binary frames (no "text"), or other non-text payloads.
-                if not frame_budget.allow():
-                    await _close_flooding_socket(websocket)
+                if not conn.frame_budget.allow():
+                    await close_flooding_socket(websocket)
                     return
-                await _safe_send_json(websocket, {"type": "error", "message": "Invalid JSON"})
+                await safe_send_json(websocket, {"type": "error", "message": "Invalid JSON"})
                 continue
 
-            if not frame_budget.allow():
+            if not conn.frame_budget.allow():
                 logger.warning("WebSocket frame flood; closing chat_id=%s", chat_id)
-                await _close_flooding_socket(websocket)
+                await close_flooding_socket(websocket)
                 return
 
             if not isinstance(payload, dict):
-                await _safe_send_json(websocket, {"type": "error", "message": "Invalid message"})
+                await safe_send_json(websocket, {"type": "error", "message": "Invalid message"})
                 continue
-
-            msg_type = payload.get("type")
-
-            if msg_type == "cancel":
-                cancel_event.set()
-                continue
-
-            if msg_type in _CHARGEABLE_WS_TYPES:
-                # Re-check access on every chargeable frame so logout / account
-                # delete / refresh-reuse revoke (purge_user_sessions) actually
-                # closes open sockets — handshake-only verify would leave them live.
-                try:
-                    await access_tokens.verify_access_token(redis, token, settings)
-                except RedisUnavailableError as exc:
-                    await _safe_send_json(
-                        websocket,
-                        {"type": "error", "code": "unavailable", "message": exc.message},
-                    )
-                    await websocket.close(code=1013)
-                    return
-                except GoogleAuthError:
-                    await _safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
-                    await websocket.close(code=1008)
-                    return
-                if not await _ws_rate_limit(redis, user_id):
-                    await websocket.send_json(
-                        {"type": "error", "message": "Too many requests. Try again shortly."},
-                    )
-                    continue
-
-            if msg_type == "regenerate":
-                await _handle_regenerate(
-                    websocket,
-                    redis=redis,
-                    settings=settings,
-                    user_id=user_id,
-                    chat_id=chat_id,
-                    payload=payload,
-                    client_timezone=client_timezone,
-                    cancel_event=cancel_event,
-                    emit_status=emit_status,
-                    emit_reasoning=emit_reasoning,
-                    frame_budget=frame_budget,
-                )
-                continue
-
-            if msg_type != "message":
-                continue
-
-            await _handle_message(
-                websocket,
-                redis=redis,
-                settings=settings,
-                user_id=user_id,
-                chat_id=chat_id,
-                payload=payload,
-                client_timezone=client_timezone,
-                cancel_event=cancel_event,
-                emit_status=emit_status,
-                emit_reasoning=emit_reasoning,
-                frame_budget=frame_budget,
-            )
+            if not await _dispatch(conn, payload):
+                return
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected chat_id=%s", chat_id)
 
 
-def _schedule_related_prompts(websocket: WebSocket, outcome: TurnOutcome) -> None:
-    """Send follow-up questions after ``done`` without holding the next message."""
-    task = outcome.related_task
-    if task is None:
-        return
+async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
+    """Act on one frame between turns; False once the socket is closed."""
+    websocket = conn.websocket
+    msg_type = payload.get("type")
+    if msg_type == "cancel":
+        conn.cancel_event.set()
+        return True
+    if msg_type not in _CHARGEABLE_WS_TYPES:
+        return True
+    if shutdown.stopping():
+        # A turn begun now would be stopped before its first token.
+        await safe_send_json(
+            websocket,
+            turn_error_payload(None, user_message_saved=False, message=SERVER_RESTARTING_MESSAGE),
+        )
+        return True
+    # Re-check access on every chargeable frame so logout / account
+    # delete / refresh-reuse revoke (purge_user_sessions) actually
+    # closes open sockets — handshake-only verify would leave them live.
+    try:
+        await access_tokens.verify_access_token(conn.redis, conn.token, conn.settings)
+    except RedisUnavailableError as exc:
+        await safe_send_json(
+            websocket,
+            {"type": "error", "code": "unavailable", "message": exc.message},
+        )
+        await websocket.close(code=1013)
+        return False
+    except GoogleAuthError:
+        await safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
+        await websocket.close(code=1008)
+        return False
+    if not await _ws_rate_limit(conn.redis, conn.user_id):
+        await websocket.send_json(
+            turn_error_payload(
+                None, user_message_saved=False, message="Too many requests. Try again shortly."
+            ),
+        )
+        return True
 
-    async def _send() -> None:
-        event = await take_related_prompts_event(task)
-        if event is not None:
-            await _safe_send_json(websocket, event)
-
-    create_background_task(_send(), name="related_prompts_send")
+    handle = _handle_regenerate if msg_type == "regenerate" else _handle_message
+    emit_status, emit_reasoning = _status_emitters(websocket)
+    await handle(
+        websocket,
+        redis=conn.redis,
+        settings=conn.settings,
+        user_id=conn.user_id,
+        chat_id=conn.chat_id,
+        payload=payload,
+        client_timezone=conn.client_timezone,
+        cancel_event=conn.cancel_event,
+        emit_status=emit_status,
+        emit_reasoning=emit_reasoning,
+        frame_budget=conn.frame_budget,
+    )
+    return True

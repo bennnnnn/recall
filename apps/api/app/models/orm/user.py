@@ -70,6 +70,12 @@ class User(Base):
     memory_edited_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # When the user agreed to the disclosure of what goes to outside AI services
+    # (model providers, voice, photo text, search). Null until they agree; the
+    # phone shows that screen before the first chat.
+    ai_data_consent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     push_notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )

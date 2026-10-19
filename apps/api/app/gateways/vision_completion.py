@@ -11,7 +11,7 @@ import logging
 from typing import Any
 
 from app.core.config import Settings
-from app.gateways import mock_llm
+from app.gateways import llm_spend, mock_llm
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,9 @@ async def vision_completion(
             params["response_format"] = response_format
         try:
             async with asyncio.timeout(timeout):
-                return await gateway.acompletion(**params)
+                response = await gateway.acompletion(**params)
+            llm_spend.meter_model_call(alias, response)
+            return response
         except TimeoutError:
             logger.warning("Vision LLM %s timed out after %ss", alias, timeout)
             return None

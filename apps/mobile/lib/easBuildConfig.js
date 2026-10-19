@@ -62,6 +62,29 @@ function simulatorWithoutAppleSignIn(buildProfile, env) {
   return true;
 }
 
+/** With a DSN, a release build uploads source maps and debug symbols to Sentry, and
+ * Sentry's Xcode and Gradle steps fail the build at its very end when that upload fails.
+ * Checked on the EAS worker only (EAS_BUILD): the CLI resolves this config on a laptop or
+ * in CI without Secret-visibility variables, where SENTRY_AUTH_TOKEN belongs.
+ * SENTRY_DISABLE_AUTO_UPLOAD=true, Sentry's own switch, ships without the upload. */
+function missingSentryUploadSecrets(env) {
+  if (!env.EXPO_PUBLIC_SENTRY_DSN?.trim() || !env.EAS_BUILD?.trim()) return [];
+  if (env.SENTRY_DISABLE_AUTO_UPLOAD?.trim() === "true") return [];
+  return ["SENTRY_ORG", "SENTRY_PROJECT", "SENTRY_AUTH_TOKEN"].filter(
+    (key) => !env[key]?.trim(),
+  );
+}
+
+/** Options for `@sentry/react-native/expo`: the org and project its upload step names. */
+function sentryPluginOptions(env) {
+  const options = {};
+  const organization = env.SENTRY_ORG?.trim();
+  const project = env.SENTRY_PROJECT?.trim();
+  if (organization) options.organization = organization;
+  if (project) options.project = project;
+  return options;
+}
+
 function requireReleaseBuildSecrets(buildProfile, buildPlatform, env) {
   if (buildProfile !== "production" && buildProfile !== "preview") return;
 
@@ -84,9 +107,15 @@ function requireReleaseBuildSecrets(buildProfile, buildPlatform, env) {
   }
 
   const missing = required.filter(([, value]) => !value?.trim()).map(([key]) => key);
-  if (missing.length > 0) {
+  const missingSentry = missingSentryUploadSecrets(env);
+  if (missing.length > 0 || missingSentry.length > 0) {
+    const sentryHint =
+      missingSentry.length > 0
+        ? ". EXPO_PUBLIC_SENTRY_DSN is set, so the build uploads source maps to Sentry;" +
+          " set the Sentry values or SENTRY_DISABLE_AUTO_UPLOAD=true"
+        : "";
     throw new Error(
-      `Missing EAS secrets for ${buildProfile} ${buildPlatform || "release"} build: ${missing.join(", ")}`,
+      `Missing EAS secrets for ${buildProfile} ${buildPlatform || "release"} build: ${[...missing, ...missingSentry].join(", ")}${sentryHint}`,
     );
   }
 }
@@ -97,5 +126,6 @@ module.exports = {
   updatesUrl,
   requirePublicApiUrlForReleaseBuild,
   requireReleaseBuildSecrets,
+  sentryPluginOptions,
   simulatorWithoutAppleSignIn,
 };

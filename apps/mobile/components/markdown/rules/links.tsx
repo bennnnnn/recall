@@ -4,7 +4,8 @@ import { Text } from "react-native";
 
 import { type AstNode, astText } from "@/components/markdown/markdownAstHelpers";
 import type { MdImgStyles, StyleMap } from "@/components/markdown/markdownContentStyles";
-import { isAllowedImageUri } from "@/lib/images/imageUriPolicy";
+import { TapToLoadImage } from "@/components/markdown/TapToLoadImage";
+import { imageLoadPolicy } from "@/lib/images/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { isGenericSearchUrl } from "@/lib/placesList";
@@ -13,11 +14,15 @@ export function linkRules(mdImg: MdImgStyles) {
   return {
     image: (node: { key: string; attributes: { src?: string; alt?: string } }) => {
       const src = node.attributes?.src;
-      // Block insecure-scheme / local-file image URIs (tracking pixels, file:
-      // exfil, content:). Only https/data/blob render; everything else is
-      // dropped silently so a malicious or misformed URL can't auto-load.
-      if (!isAllowedImageUri(src)) return null;
+      // A model-written image URL can carry the user's data (prompt
+      // injection), so only the API's own and inline images load by
+      // themselves; another https host waits for a tap; the rest never load.
+      const policy = imageLoadPolicy(src);
+      if (policy === "block" || !src) return null;
       const alt = node.attributes?.alt?.trim() ?? "";
+      if (policy === "ask") {
+        return <TapToLoadImage key={node.key} uri={src} alt={alt} imageStyle={mdImg.image} />;
+      }
       return (
         <Image
           key={node.key}

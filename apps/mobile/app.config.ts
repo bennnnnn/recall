@@ -5,6 +5,7 @@ import {
   includeDevClientPlugin,
   releaseProfile,
   requireReleaseBuildSecrets,
+  sentryPluginOptions,
   simulatorWithoutAppleSignIn,
   updatesUrl,
 } from "./lib/easBuildConfig.js";
@@ -25,12 +26,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   );
   const includeDevClient = includeDevClientPlugin(buildProfile);
   const appleSignIn = !simulatorWithoutAppleSignIn(buildProfile, process.env);
-  const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim();
+  const sentryPlugin: [string, ReturnType<typeof sentryPluginOptions>] | null =
+    process.env.EXPO_PUBLIC_SENTRY_DSN?.trim()
+      ? ["@sentry/react-native/expo", sentryPluginOptions(process.env)]
+      : null;
   const plugins: ExpoConfig["plugins"] = [
     // Registered first so its entitlements mod runs last, after the Apple plugin's.
     ...(appleSignIn ? [] : (["./plugins/withoutAppleSignIn.js"] as const)),
     ...(includeDevClient ? (["expo-dev-client"] as const) : []),
-    ...(sentryDsn ? (["@sentry/react-native/expo"] as const) : []),
+    ...(sentryPlugin ? [sentryPlugin] : []),
     ...(base.plugins ?? []),
   ];
   const iosUrlScheme = iosUrlSchemeFromClientId(

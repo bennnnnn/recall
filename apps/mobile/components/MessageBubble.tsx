@@ -12,7 +12,7 @@ import { ImageGenPlaceholder } from "@/features/images/components/ImageGenPlaceh
 import { ActionShimmer } from "@/ui/feedback/ActionShimmer";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { LazyCircularClockBlock } from "@/components/rich/LazyHeavyRich";
-import { MarkdownContent } from "@/components/MarkdownContent";
+import { ReplyMarkdown } from "@/components/markdown/ReplyMarkdown";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { AssistantMessageScope } from "@/features/drafts/context/emailDraftPersist";
@@ -22,7 +22,6 @@ import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/features/chat/model/messageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
 import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
-import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
@@ -477,11 +476,12 @@ export const MessageBubble = React.memo(function MessageBubble({
                   resetKey={markdownResetKey}
                   content={markdownContent}
                 >
-                  <MarkdownContent
+                  <ReplyMarkdown
                     content={markdownContent}
                     streaming={markdownStreamMode}
                     presented={markdownPresented}
-                    mathFormat={formatAssistantMathExpr}
+                    userText={priorUserText}
+                    sources={searchSources}
                   />
                 </MarkdownErrorBoundary>
               </AssistantMessageScope>

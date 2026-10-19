@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -19,6 +20,7 @@ from app.core.rate_limit import allow_request_fail_closed
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.models.schemas import (
+    AccountDeleteRequest,
     AppleAuthRequest,
     AuthResponse,
     AuthSessionListOut,
@@ -33,6 +35,7 @@ from app.models.schemas import (
 )
 from app.modules.account import export as export_service
 from app.modules.account import lifecycle as account_lifecycle
+from app.modules.account import profile as profile_service
 from app.modules.account import service as auth_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account import tokens as tokens_service
@@ -76,6 +79,14 @@ async def _enforce_login_rate_limit(
         )
 
 
+def _account_exists_http(exc: auth_service.AccountExistsError) -> HTTPException:
+    """409 with a code the app turns into "sign in with Apple/Google instead"."""
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={"code": "account_exists", "sign_in_with": exc.sign_in_with, "message": str(exc)},
+    )
+
+
 @router.post("/google", response_model=AuthResponse)
 async def google_login(
     body: GoogleAuthRequest,
@@ -103,6 +114,8 @@ async def google_login(
             detail=str(exc),
             headers={"Retry-After": "5"},
         ) from exc
+    except auth_service.AccountExistsError as exc:
+        raise _account_exists_http(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
@@ -130,6 +143,8 @@ async def apple_login(
         )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
+    except auth_service.AccountExistsError as exc:
+        raise _account_exists_http(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
@@ -379,7 +394,9 @@ async def update_me(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> UserOut:
-    fields = body.model_dump(exclude_unset=True)
+    fields = profile_service.with_ai_data_consent(
+        body.model_dump(exclude_unset=True), now=datetime.now(UTC)
+    )
     try:
         updated = await account_lifecycle.update_account(session, user, settings, fields)
     except ValueError as exc:
@@ -450,13 +467,18 @@ async def export_me(
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_me(
+    body: AccountDeleteRequest | None = None,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> None:
+    # Older apps send no body; an Apple-linked account then keeps its Apple grant.
+    apple_code = body.apple_authorization_code if body is not None else None
     try:
-        await account_lifecycle.delete_account(session, redis, settings, user)
+        await account_lifecycle.delete_account(
+            session, redis, settings, user, apple_authorization_code=apple_code
+        )
     except account_lifecycle.SessionPurgeError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

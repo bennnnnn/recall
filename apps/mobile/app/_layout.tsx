@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AiConsentRedirect } from "@/features/auth/components/AiConsentRedirect";
 import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { HomeProvider } from "@/features/home/context/HomeContext";
@@ -55,6 +56,7 @@ function RootNavigator() {
       >
         <Stack.Screen name="login" options={stackAuthTransition(reduceMotion)} />
         <Stack.Screen name="onboarding" options={stackAuthTransition(reduceMotion)} />
+        <Stack.Screen name="consent" options={stackAuthTransition(reduceMotion)} />
         <Stack.Screen
           name="index"
           options={{ ...stackHomeTransition(), title: "", headerShown: false }}
@@ -133,6 +135,7 @@ export default function RootLayout() {
                 <HomeProvider>
                   <NetworkProvider>
                     <PushNotificationBootstrap />
+                    <AiConsentRedirect />
                     <RootNavigator />
                     <DialogHost />
                   </NetworkProvider>

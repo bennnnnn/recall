@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
+import logging
 import math
-import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -11,7 +11,12 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.exceptions import ChatBusyError, ChatServiceError, QuotaExceededError
+from app.exceptions import (
+    ChatBusyError,
+    ChatServiceError,
+    QuotaExceededError,
+    SpendCapReachedError,
+)
 from app.models.orm import User
 from app.modules.chat.post_turn import seed_usage_from_db
 from app.modules.chat.prompt_builder import StreamStatusFn
@@ -20,15 +25,28 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import model_catalog
 from app.services.context_window import estimate_tokens
-from app.services.quota import quota_exceeded_message
+from app.services.quota import CHAT_SPEND_CAP_MESSAGE, quota_exceeded_message
 
-CHATPREP_LOCK_TTL_SECONDS = 120
-CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS = 30.0
+logger = logging.getLogger(__name__)
+
+# The refresh is the owner's heartbeat: a machine that dies mid-turn leaves the
+# lock for at most one TTL (the phone's next send gets ``busy`` until then), so
+# it stays short and is refreshed three times a TTL.
+CHATPREP_LOCK_TTL_SECONDS = 30
+CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS = 10.0
+# Concurrent turns can take the room another read just saw; re-read this often.
+_RESERVE_ATTEMPTS = 3
 
 
 @dataclass
 class TurnResources:
-    """Prepare-lock and quota ownership for one chat turn."""
+    """Prepare-lock and quota ownership for one chat turn.
+
+    ``reserved_tokens`` is held from ``reserve`` until finalize settles it to
+    the turn's actual usage (``ctx.reserved_tokens`` carries the same number).
+    An exception that leaves ``turn_resources`` refunds it, so a path that
+    settles the reservation itself must not let an exception escape after.
+    """
 
     deps: ChatTurnDeps
     redis: Redis
@@ -70,6 +88,11 @@ class TurnResources:
             return
         self._refunded = True
         await self.deps.quota.refund_usage(self.redis, str(self.user_id), self.reserved_tokens)
+
+    def mark_settled(self) -> None:
+        """The turn's finalize now settles the reservation (actual usage, or its
+        own refund on failure); an exception escaping later must not refund it too."""
+        self._refunded = True
 
 
 async def acquire_chatprep_lock(deps: ChatTurnDeps, redis: Redis, chat_id: UUID) -> tuple[str, str]:
@@ -128,27 +151,23 @@ async def _refresh_chatprep_lock(res: TurnResources) -> bool:
 
 
 async def chatprep_refresh_loop(res: TurnResources) -> None:
+    """Keep the prepare lock alive for the whole turn, through Redis blips.
+
+    A failed or refused refresh is logged and retried on the next tick: it
+    must never end the turn, whose reply is streaming and still has to save.
+    """
     try:
         while True:
             await asyncio.sleep(CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS)
-            if not await _refresh_chatprep_lock(res):
-                raise ChatServiceError("Chat prepare lock lost during turn")
+            try:
+                if not await _refresh_chatprep_lock(res):
+                    logger.warning("Chat prepare lock no longer held key=%s", res.lock_key)
+            except Exception:
+                logger.warning(
+                    "Chat prepare lock refresh failed key=%s", res.lock_key, exc_info=True
+                )
     except asyncio.CancelledError:
         return
-
-
-async def yield_with_chatprep_refresh(
-    res: TurnResources,
-    tokens: AsyncIterator[str],
-) -> AsyncIterator[str]:
-    last_refresh = 0.0
-    async for token in tokens:
-        now = time.monotonic()
-        if now - last_refresh >= CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS:
-            if not await _refresh_chatprep_lock(res):
-                raise ChatServiceError("Chat prepare lock lost during stream")
-            last_refresh = now
-        yield token
 
 
 def wrap_stream_status(
@@ -205,16 +224,14 @@ async def top_up_reserve_for_prompt(
     ctx: StreamContext,
     daily_limit: int,
 ) -> None:
-    # Soft-quota turns intentionally reserve 0 before generation and charge
-    # actual usage after the response finishes. Do not reintroduce a strict
-    # preauthorization here after the full prompt is assembled. A non-zero
-    # reservation is a legacy/borrowed path and keeps the old top-up behavior.
-    if res.reserved_tokens <= 0:
-        ctx.reserved_tokens = 0
-        return
+    """Grow the reservation to the assembled prompt's estimate, as far as today allows.
 
+    Never refuses: the turn already holds a reservation and its context work
+    is done. Finalize settles to actual usage and clips the counter at the limit.
+    """
     messages = ctx.prompt_messages
-    if not isinstance(messages, list):
+    if res.reserved_tokens <= 0 or not isinstance(messages, list):
+        ctx.reserved_tokens = res.reserved_tokens
         return
     needed = prompt_weighted_reserve_tokens(
         messages,
@@ -223,18 +240,34 @@ async def top_up_reserve_for_prompt(
         max_output=ctx.max_output_tokens,
     )
     extra = needed - res.reserved_tokens
-    if extra <= 0:
-        return
-    ok = await res.deps.quota.reserve_usage(
-        res.redis,
-        str(res.user_id),
-        extra,
-        daily_limit=daily_limit,
-    )
-    if not ok:
-        raise QuotaExceededError(quota_exceeded_message(ctx.user) if ctx.user is not None else "")
-    res.reserved_tokens = needed
-    ctx.reserved_tokens = needed
+    if extra > 0:
+        res.reserved_tokens += await reserve_tokens_up_to(
+            res.deps, res.redis, str(res.user_id), extra, daily_limit=daily_limit
+        )
+    ctx.reserved_tokens = res.reserved_tokens
+
+
+async def reserve_tokens_up_to(
+    deps: ChatTurnDeps,
+    redis: Redis,
+    user_id: str,
+    wanted: int,
+    *,
+    daily_limit: int,
+) -> int:
+    """Take ``wanted`` of today's tokens, or all that is left. 0 when none is.
+
+    ``reserve_usage`` is the atomic check: a turn that lost a race to the
+    same room is rolled back and reads the new total again.
+    """
+    for _attempt in range(_RESERVE_ATTEMPTS):
+        room = daily_limit - await deps.quota.get_daily_usage(redis, user_id)
+        if room <= 0:
+            return 0
+        take = min(wanted, room)
+        if await deps.quota.reserve_usage(redis, user_id, take, daily_limit=daily_limit):
+            return take
+    return 0
 
 
 async def reserve_turn_quota(
@@ -250,26 +283,37 @@ async def reserve_turn_quota(
     vision_extra: int = 0,
     seed: bool = True,
 ) -> int:
-    """Soft-enforce the daily chat quota before generation.
+    """Refuse a turn the global spend cap or today's token budget cannot cover.
 
-    Chat quota is a product guardrail, not a financial preauthorization. A turn
-    that starts below the limit is allowed to finish even if its actual usage
-    carries the user slightly over; finalize records the actual weighted usage
-    and the *next* turn is blocked. Returning 0 tells the rest of the pipeline
-    there is no pre-reserved amount to top up or refund.
+    Returns the tokens reserved: this turn's estimate (the message plus the
+    turn's max output, weighted by the model's multiplier) or, near the cap,
+    whatever is left. Concurrent turns in different chats share that one
+    remaining budget, so thirty open chats cannot each start against the
+    same last thousand tokens. A turn that starts below the limit still
+    finishes whole: its max output is not cut to the reservation (a lesson
+    or a page of code would stop mid-fence), and finalize clips the counter
+    at the limit, so one turn is the most a user can go over.
 
-    Account-wide chat rate limiting remains the abuse backstop for many
-    concurrent chats. ``seed`` is kept for compatibility with regenerate and
-    legacy callers; the normal chat path only seeds when today's Redis counter
-    is missing, so ordinary sends stay on the cheap Redis path.
+    ``seed`` re-reads today's total from the DB when Redis lost it
+    (regenerate); a new turn already did that in ``turn_load``.
     """
-    _ = (content, model, max_output, vision_extra)
+    if await deps.quota.global_spend_exceeded(redis, settings):
+        raise SpendCapReachedError(CHAT_SPEND_CAP_MESSAGE)
     if seed:
         async with deps.session_factory() as session:
             await seed_usage_from_db(redis, session, user.id)
     if daily_limit is None:
         daily_limit = deps.quota.daily_limit_for_user(user, settings)
-    used = await deps.quota.get_daily_usage(redis, str(user.id))
-    if used >= daily_limit:
+    wanted = weighted_reserve_tokens(
+        content=content,
+        model=model,
+        settings=settings,
+        max_output=max_output,
+        vision_extra=vision_extra,
+    )
+    reserved = await reserve_tokens_up_to(
+        deps, redis, str(user.id), wanted, daily_limit=daily_limit
+    )
+    if reserved <= 0:
         raise QuotaExceededError(quota_exceeded_message(user))
-    return 0
+    return reserved

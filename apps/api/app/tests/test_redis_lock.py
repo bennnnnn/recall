@@ -2,9 +2,29 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from app.core.redis_lock import acquire_lock, refresh_lock, release_lock
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [RedisConnectionError("Upstash blip"), RedisTimeoutError("slow"), TimeoutError("socket")],
+)
+async def test_release_lock_redis_error_leaves_the_lock_to_its_ttl(error, caplog):
+    """A release runs in a ``finally``: raising there turned a finished, saved
+    chat turn into an error frame. The TTL frees the key instead."""
+    redis = AsyncMock()
+    redis.eval.side_effect = error
+
+    await release_lock(redis, "chatprep:c", "tok")
+
+    assert "expires on its TTL" in caplog.text
 
 
 @pytest.mark.asyncio

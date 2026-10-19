@@ -68,7 +68,11 @@ def test_websocket_turns_on_another_users_chat_are_refused(
             ws.send_json({"type": "regenerate"})
             regenerated = _frames_until_error(ws)
         for frames in (sent, regenerated):
-            assert frames[-1] == {"type": "error", "message": "Chat not found."}, frames
+            assert frames[-1] == {
+                "type": "error",
+                "message": "Chat not found.",
+                "user_message_saved": False,
+            }, frames
             assert not any(f.get("type") in {"token", "done", "stream_end"} for f in frames)
             assert data.secret_word not in str(frames)
     finally:

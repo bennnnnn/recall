@@ -140,7 +140,7 @@ async def test_ws_receive_after_client_dropped_mid_stream(error, socket_closed, 
     "invalid_frame", [json.JSONDecodeError("bad JSON", "{", 1), KeyError("text")]
 )
 async def test_ws_invalid_frame_during_stream_keeps_producer_owned(invalid_frame):
-    from app.modules.chat.ws_api import _stream_over_ws
+    from app.modules.chat.ws_turn import stream_over_ws
 
     first_token = asyncio.Event()
     resume = asyncio.Event()
@@ -168,7 +168,7 @@ async def test_ws_invalid_frame_during_stream_keeps_producer_owned(invalid_frame
 
     try:
         await asyncio.wait_for(
-            _stream_over_ws(Socket(), stream_tokens(), asyncio.Event(), TurnOutcome()), timeout=1
+            stream_over_ws(Socket(), stream_tokens(), asyncio.Event(), TurnOutcome()), timeout=1
         )
     finally:
         resume.set()
@@ -628,7 +628,7 @@ async def test_stream_over_ws_disconnect_still_finalizes():
     stream_end send fails after disconnect, so `finally` awaits finalize."""
     from starlette.websockets import WebSocketDisconnect
 
-    from app.modules.chat.ws_api import _stream_over_ws
+    from app.modules.chat.ws_turn import stream_over_ws
 
     finalized = asyncio.Event()
 
@@ -652,7 +652,7 @@ async def test_stream_over_ws_disconnect_still_finalizes():
             raise WebSocketDisconnect()
 
     await asyncio.wait_for(
-        _stream_over_ws(FakeWs(), short_stream(), asyncio.Event(), outcome),
+        stream_over_ws(FakeWs(), short_stream(), asyncio.Event(), outcome),
         timeout=2,
     )
     assert finalized.is_set()
@@ -663,7 +663,7 @@ async def test_stream_over_ws_disconnect_does_not_cancel_generation():
     """New chat closes the socket; the model must still run to completion."""
     from starlette.websockets import WebSocketDisconnect
 
-    from app.modules.chat.ws_api import _stream_over_ws
+    from app.modules.chat.ws_turn import stream_over_ws
 
     produced: list[str] = []
     finalized = asyncio.Event()
@@ -695,7 +695,7 @@ async def test_stream_over_ws_disconnect_does_not_cancel_generation():
             return {"type": "ping"}
 
     await asyncio.wait_for(
-        _stream_over_ws(FakeWs(), stream(), asyncio.Event(), outcome),
+        stream_over_ws(FakeWs(), stream(), asyncio.Event(), outcome),
         timeout=2,
     )
     assert produced == ["one", "two", "three"]

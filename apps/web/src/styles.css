@@ -68,6 +68,19 @@ a { color: var(--accent); }
 .dev-login button:hover { background: var(--accent-hover); }
 .error { color: var(--error); font-size: 13px; }
 
+/* AI data consent (shown once per account, before the first chat) */
+.consent-card { max-width: 480px; text-align: left; }
+.consent-card h1 { text-align: center; }
+.consent-card .subtitle { text-align: center; }
+.consent-card ul { padding-left: 18px; margin: 0 0 16px; }
+.consent-card li { margin-bottom: 10px; font-size: 14px; line-height: 1.45; }
+.consent-card .fine { color: var(--muted); font-size: 13px; line-height: 1.45; }
+.consent-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.login-card .consent-actions button.secondary {
+  background: transparent; color: var(--accent); border: 1px solid var(--border);
+}
+.login-card button:disabled { opacity: 0.6; cursor: default; }
+
 /* Chat list */
 .chat-list {
   max-width: 720px; margin: 0 auto; padding: 16px; height: 100%;

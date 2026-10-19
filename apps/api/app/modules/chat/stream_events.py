@@ -22,6 +22,7 @@ from app.exceptions import (
     ChatServiceError,
     QuotaExceededError,
     RedisUnavailableError,
+    SpendCapReachedError,
     UnknownModelOverrideError,
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
@@ -85,6 +86,9 @@ async def finish_open_stream(stream: AsyncIterator[Any]) -> None:
 # short enough that a wedged finalize doesn't pin the socket forever. If the
 # commit FAILS (vs. is slow) we send an error instead of a ghost `done`.
 DONE_COMMIT_WAIT_SECONDS = 10.0
+REPLY_SAVE_FAILED_MESSAGE = "Failed to save the response. Please retry."
+# A turn the server stopped (or refused) because the process is shutting down.
+SERVER_RESTARTING_MESSAGE = "The server is restarting. Send again in a moment."
 
 
 def build_start_event() -> dict[str, Any]:
@@ -286,6 +290,28 @@ async def take_related_prompts_event(
     return event
 
 
+def turn_error_payload(
+    exc: BaseException | None,
+    *,
+    user_message_saved: bool,
+    message: str | None = None,
+) -> dict[str, Any]:
+    """An error frame for a turn, saying whether its user message is in the chat.
+
+    ``user_message_saved`` is what lets a client choose its recovery: resend the
+    message when it was not saved (Retry), answer it again when it was
+    (Regenerate). Clients that predate the field ignore it. ``message`` replaces
+    the text for a failure that is not an exception (a reply that did not save).
+    """
+    payload: dict[str, Any] = (
+        error_payload_for_exception(exc) if exc is not None else {"type": "error"}
+    )
+    if message is not None:
+        payload["message"] = message
+    payload["user_message_saved"] = user_message_saved
+    return payload
+
+
 def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
     """Map stream exceptions to the shared error event shape."""
     if isinstance(exc, QuotaExceededError):
@@ -298,6 +324,8 @@ def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
         return {"type": "error", "code": "attachment_rejected", "message": exc.message}
     if isinstance(exc, UnknownModelOverrideError):
         return {"type": "error", "code": "unknown_model", "message": exc.message}
+    if isinstance(exc, SpendCapReachedError):
+        return {"type": "error", "code": "spend_cap", "message": exc.message}
     if isinstance(exc, ChatServiceError):
         return {"type": "error", "message": exc.message}
     if isinstance(exc, ModelUnavailableError):

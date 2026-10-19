@@ -6,13 +6,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
+from app.core import redis_lock
 from app.core.config import Settings
-from app.exceptions import ChatBusyError, QuotaExceededError
+from app.exceptions import ChatBusyError
 from app.modules.chat import stream_entry, turn_resources
 from app.modules.chat.stream_events import error_payload_for_exception
 from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM
 from app.tests.modules.chat.chat_test_support import turn_deps
+
+pytest_plugins = ("app.tests.modules.chat.chat_test_support",)
 
 
 def _user() -> MagicMock:
@@ -86,7 +91,7 @@ async def test_stream_chat_acquire_fail_skips_prepare_and_raises_busy():
     acquire.assert_awaited_once()
     key = acquire.await_args.args[1]
     assert key.startswith("chatprep:")
-    assert acquire.await_args.args[2] == 120
+    assert acquire.await_args.args[2] == turn_resources.CHATPREP_LOCK_TTL_SECONDS
     wait.assert_not_awaited()
     prepare.assert_not_awaited()
     release.assert_not_awaited()
@@ -138,7 +143,9 @@ async def test_stream_chat_releases_lock_on_success():
         ]
 
     assert tokens == ["ok"]
-    acquire.assert_awaited_once_with(redis, f"chatprep:{chat_id}", 120)
+    acquire.assert_awaited_once_with(
+        redis, f"chatprep:{chat_id}", turn_resources.CHATPREP_LOCK_TTL_SECONDS
+    )
     release.assert_awaited_once_with(redis, f"chatprep:{chat_id}", "tok")
 
 
@@ -263,7 +270,9 @@ async def test_regenerate_acquires_chatprep_lock():
         ]
 
     assert tokens == ["regen"]
-    acquire.assert_awaited_once_with(redis, f"chatprep:{chat_id}", 120)
+    acquire.assert_awaited_once_with(
+        redis, f"chatprep:{chat_id}", turn_resources.CHATPREP_LOCK_TTL_SECONDS
+    )
     release.assert_awaited_once_with(redis, f"chatprep:{chat_id}", "tok")
 
 
@@ -294,6 +303,154 @@ async def test_turn_resources_refreshes_lock_while_held():
 
     assert refresh.await_count >= 2
     release.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_refresh_loop_survives_redis_errors_and_a_lost_lock():
+    """The loop used to die on its first Redis exception, so one blip ended the
+    lock's heartbeat for the rest of the turn."""
+    redis = AsyncMock()
+    refresh = AsyncMock(
+        side_effect=[RedisConnectionError("blip"), False, RedisTimeoutError("slow"), True, True]
+    )
+    deps = _held_lock_deps(
+        acquire=AsyncMock(return_value="tok"), release=AsyncMock(), refresh=refresh
+    )
+    with patch.object(turn_resources, "CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS", 0.01):
+        async with turn_resources.turn_resources(deps, redis, user_id=uuid4(), chat_id=uuid4()):
+            for _ in range(200):
+                if refresh.await_count >= 4:
+                    break
+                await asyncio.sleep(0.01)
+
+    assert refresh.await_count >= 4
+
+
+@pytest.mark.asyncio
+async def test_lock_redis_errors_never_cut_the_stream_or_skip_its_save(stream_offline_io):
+    """Regression: a refresh error mid-stream closed stream_and_finalize at a yield
+    (the reply the phone saw was never saved), and a release error turned a saved
+    turn into an error frame with no ``done``."""
+    from app.modules.chat.turn_outcome import TurnOutcome
+    from app.modules.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        for index in range(5):
+            yield f"tok{index} "
+            await asyncio.sleep(0.01)
+
+    finalize = AsyncMock()
+    refresh = AsyncMock(side_effect=RedisConnectionError("Upstash blip"))
+    release = AsyncMock(side_effect=RedisConnectionError("Upstash blip"))
+    deps = turn_deps(
+        session_factory=_FakeSessionCM,
+        locks={
+            "acquire_lock": AsyncMock(return_value="tok"),
+            "refresh_lock": refresh,
+            "release_lock": redis_lock.release_lock,
+        },
+    )
+    redis = AsyncMock()
+    redis.eval = release
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=0,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    outcome = TurnOutcome()
+    with (
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
+        patch("app.services.model_health.record_sample", AsyncMock()),
+        patch.object(turn_resources, "CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS", 0.005),
+    ):
+        async with turn_resources.turn_resources(
+            deps, redis, user_id=ctx.user_id, chat_id=ctx.chat_id
+        ) as res:
+            tokens = [
+                token
+                async for token in stream_entry._stream_turn(
+                    deps,
+                    redis,
+                    Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+                    ctx,
+                    res,
+                    should_cancel=None,
+                    outcome=outcome,
+                    status=None,
+                    on_reasoning=None,
+                )
+            ]
+        assert outcome.finalize_db_task is not None
+        await outcome.finalize_db_task
+
+    assert tokens == [f"tok{index} " for index in range(5)]
+    assert refresh.await_count >= 1
+    release.assert_awaited()
+    finalize.assert_awaited_once()
+    assert outcome.message_id is not None
+
+
+@pytest.mark.asyncio
+async def test_a_turn_handed_to_finalize_is_not_refunded_on_a_later_escape(stream_offline_io):
+    """Finalize settles the reservation (actual usage, or its own refund). An
+    exception escaping turn_resources afterwards must not refund it a second time."""
+    from app.modules.chat.turn_outcome import TurnOutcome
+    from app.modules.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "reply"
+
+    refund = AsyncMock()
+    deps = turn_deps(
+        session_factory=_FakeSessionCM,
+        locks={"acquire_lock": AsyncMock(return_value="tok"), "release_lock": AsyncMock()},
+        quota={"refund_usage": refund},
+    )
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=500,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    with (
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock()),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
+        patch("app.services.model_health.record_sample", AsyncMock()),
+    ):
+        with pytest.raises(RuntimeError, match="after the save"):
+            async with turn_resources.turn_resources(
+                deps, AsyncMock(), user_id=ctx.user_id, chat_id=ctx.chat_id
+            ) as res:
+                res.reserved_tokens = 500
+                async for _ in stream_entry._stream_turn(
+                    deps,
+                    AsyncMock(),
+                    Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+                    ctx,
+                    res,
+                    should_cancel=None,
+                    outcome=TurnOutcome(),
+                    status=None,
+                    on_reasoning=None,
+                ):
+                    pass
+                raise RuntimeError("after the save")
+
+    refund.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -358,7 +515,8 @@ async def test_top_up_reserve_for_prompt_adds_delta():
 
 
 @pytest.mark.asyncio
-async def test_top_up_reserve_for_prompt_raises_when_over_limit():
+async def test_top_up_reserve_for_prompt_keeps_the_turn_when_no_more_fits():
+    """The turn already holds a reservation; a top-up that cannot grow never refuses."""
     user = _user()
     redis = AsyncMock()
     res = turn_resources.TurnResources(
@@ -378,10 +536,9 @@ async def test_top_up_reserve_for_prompt_raises_when_over_limit():
     ctx.reserved_tokens = 10
 
     with patch("app.modules.chat.turn_resources.prompt_weighted_reserve_tokens", return_value=40):
-        with pytest.raises(QuotaExceededError):
-            await turn_resources.top_up_reserve_for_prompt(
-                res, settings=Settings(), ctx=ctx, daily_limit=100
-            )
+        await turn_resources.top_up_reserve_for_prompt(
+            res, settings=Settings(), ctx=ctx, daily_limit=100
+        )
 
     assert res.reserved_tokens == 10
     assert ctx.reserved_tokens == 10

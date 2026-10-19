@@ -16,6 +16,7 @@ import {
   popLastAssistantMessage,
   restoreAssistantMessage,
 } from "@/features/chat/model/regenerateLogic";
+import { withStreamingPlaceholder } from "@/features/chat/model/partialStream";
 import type { ChatWsFallbackSignal, ChatWsTransport } from "@/features/chat/model/wsTransport";
 import type {
   ComposerSendDraft,
@@ -180,20 +181,7 @@ export function useChat(
   }, [clearStreamingBubble, isCurrentView]);
 
   const appendStreamingPlaceholder = useCallback(() => {
-    setMessages((prev) => {
-      if (prev.some((m) => m.id === "streaming")) return prev;
-      return [
-        ...prev,
-        {
-          id: "streaming",
-          renderKey: `stream-${Date.now()}`,
-          role: "assistant" as const,
-          content: "",
-          model: null,
-          created_at: new Date().toISOString(),
-        },
-      ];
-    });
+    setMessages((prev) => withStreamingPlaceholder(prev));
   }, []);
 
   /** Server never saved this user turn — drop the optimistic bubble and keep Retry. */
@@ -274,9 +262,12 @@ export function useChat(
     handleRegenerateFailure,
   } = useChatIncomingEvents({
     t,
+    token,
     chatId,
     isCurrentView,
     currentSocket,
+    messagesRef,
+    sendAttemptRef,
     setMessages,
     setStreaming,
     setFinalizing,

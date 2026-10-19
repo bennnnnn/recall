@@ -51,7 +51,28 @@ async def fetch_subscriber(secret_key: str, app_user_id: str) -> dict[str, Any] 
         return None
 
 
+def _in_future(raw: object, field: str) -> bool:
+    """True when *raw* is an ISO-8601 time after now; a missing or bad one is not."""
+    if not isinstance(raw, str) or not raw.strip():
+        return False
+    try:
+        moment = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        logger.warning("Invalid RevenueCat %s: %s", field, raw)
+        return False
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    return moment > datetime.now(UTC)
+
+
 def entitlement_active(payload: dict[str, Any], entitlement_id: str) -> bool:
+    """Whether the subscriber holds *entitlement_id* now.
+
+    No ``expires_date`` is a grant that never ends (lifetime, promotional).
+    Otherwise it holds until ``expires_date`` or, while a renewal is failing
+    (BILLING_ISSUE), until the store's ``grace_period_expires_date``,
+    whichever is later.
+    """
     subscriber = payload.get("subscriber")
     if not isinstance(subscriber, dict):
         return False
@@ -62,16 +83,8 @@ def entitlement_active(payload: dict[str, Any], entitlement_id: str) -> bool:
     if not isinstance(ent, dict):
         return False
     expires_raw = ent.get("expires_date")
-    if expires_raw is None:
-        return True
     if not isinstance(expires_raw, str) or not expires_raw.strip():
         return True
-    try:
-        normalized = expires_raw.replace("Z", "+00:00")
-        expires = datetime.fromisoformat(normalized)
-        if expires.tzinfo is None:
-            expires = expires.replace(tzinfo=UTC)
-        return expires > datetime.now(UTC)
-    except ValueError:
-        logger.warning("Invalid RevenueCat expires_date: %s", expires_raw)
-        return False
+    return _in_future(expires_raw, "expires_date") or _in_future(
+        ent.get("grace_period_expires_date"), "grace_period_expires_date"
+    )

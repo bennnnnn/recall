@@ -186,14 +186,15 @@ async def test_process_todo_reminders_logs_when_user_has_no_token(caplog):
             "_advance_past_recurring",
             AsyncMock(return_value=False),
         ) as advance,
-        caplog.at_level("WARNING"),
+        caplog.at_level("DEBUG", logger="app.modules.notifications.push"),
     ):
         messages = await push_service.process_todo_reminders(session, now=now)
 
     assert messages == []
     advance.assert_not_awaited()
-    assert "no push token" in caplog.text
-    assert str(todo.id) in caplog.text
+    # One quiet line per cycle, not a WARNING per to-do every minute for 48h.
+    assert "no push token users=1" in caplog.text
+    assert not [r for r in caplog.records if r.levelname == "WARNING"]
     session.commit.assert_not_awaited()
 
 

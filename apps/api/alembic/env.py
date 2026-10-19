@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.core.config import get_settings
 from app.core.database_url import prepare_asyncpg_url
 from app.core.db import Base
+from app.core.migration_session import bound_migration_waits
 from app.models.orm import Chat, Memory, Message, UsageDaily, User  # noqa: F401
 
 config = context.config
@@ -58,6 +59,13 @@ async def run_async_migrations() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
         connect_args=_connect_args,
+    )
+    # Fail fast instead of queueing every query on a table behind an ALTER
+    # waiting for its lock (core/migration_session.py).
+    bound_migration_waits(
+        connectable.sync_engine,
+        lock_timeout=settings.migration_lock_timeout,
+        statement_timeout=settings.migration_statement_timeout,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

@@ -110,16 +110,26 @@ const done: ChatEventHandler = (payload, ctx) => {
   }
 };
 
+/** Errors whose own action (upgrade, change model) stands in for Retry. */
+const OWN_RECOVERY_CODES = new Set(["quota_exceeded", "model_unavailable"]);
+
+/** Why a failed send can be offered again: the server says its message is not in the chat. */
+function unsavedReason(payload: ChatSsePayload): RejectedSend["reason"] | null {
+  if (payload.code === "attachment_rejected") return "attachment_rejected";
+  if (payload.code === "busy") return "send_rejected";
+  const ownRecovery = OWN_RECOVERY_CODES.has(payload.code ?? "");
+  return payload.user_message_saved === false && !ownRecovery ? "send_rejected" : null;
+}
+
 const error: ChatEventHandler = (payload, ctx, ttftTurnId) => {
   ctx.streamCueRef.current.error();
-  // These codes explicitly guarantee this user turn was never saved.
-  // A start/status event alone is not acceptance; answer events are.
+  // Only an unsaved message is offered as Retry (resend); a saved one keeps
+  // Regenerate. Servers that predate `user_message_saved` say so by code.
   const pending = ctx.pendingSendRef.current;
   ctx.pendingSendRef.current = null;
   clearPendingChatTtft(ttftTurnId ?? pending?.messageId);
   ctx.ttftTurnIdRef.current = null;
-  const reason = payload.code === "busy" ? "send_rejected"
-    : payload.code === "attachment_rejected" ? "attachment_rejected" : null;
+  const reason = unsavedReason(payload);
   const queuedUnsaved = Boolean(pending && reason);
   if (pending && reason) ctx.queueUnsavedSend(pending, reason);
   ctx.regenerateUiActiveRef.current = false;
@@ -170,6 +180,9 @@ const error: ChatEventHandler = (payload, ctx, ttftTurnId) => {
 export const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
   start: (_payload, ctx) => {
     ctx.streamCueRef.current.activity();
+    // The server took the turn and finishes it even if the connection drops:
+    // from here a drop is reconciled with the chat, never sent a second time.
+    if (ctx.pendingSendRef.current) ctx.pendingSendRef.current.accepted = true;
     ctx.wsAuthFallbackRef.current = null;
     ctx.setSendingMessageId(null);
     ctx.setFinalizing(false);

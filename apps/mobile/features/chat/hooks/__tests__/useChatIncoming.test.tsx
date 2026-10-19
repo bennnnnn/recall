@@ -19,6 +19,7 @@ jest.mock("@/features/chat/model/latency", () => ({
   clearPendingChatTtft: jest.fn(),
   markChatFirstToken: jest.fn(),
 }));
+jest.mock("@/lib/api", () => ({ api: { listMessages: jest.fn() } }));
 
 const NOW = Date.parse("2026-03-01T12:00:00Z");
 
@@ -32,9 +33,12 @@ async function setup(start: { messages?: Message[]; streaming?: boolean; draft?:
   const todoSyncTimersRef = { current: [] as ReturnType<typeof setTimeout>[] };
   const args = {
     t: (key: string) => key,
+    token: "token",
     chatId: "chat-1",
     isCurrentView: jest.fn(() => true),
     currentSocket: jest.fn(() => null),
+    messagesRef: { current: [] as Message[] },
+    sendAttemptRef: { current: 1 },
     setMessages,
     setStreaming: jest.fn(),
     setFinalizing: jest.fn(),
@@ -301,6 +305,41 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
     expect(clearPendingChatTtft).toHaveBeenCalledWith("turn-1");
     expect(args.queueUnsavedSend).toHaveBeenCalledWith(expect.anything(), "attachment_rejected");
     expect(args.reportError).toHaveBeenCalledWith("Too big", "attachment_rejected");
+  });
+
+  it("start marks the send taken by the server and keeps it for a later error", async () => {
+    const { args, send } = await setup({ streaming: true });
+    const turn = pending();
+    args.pendingSendRef.current = turn;
+    await send({ type: "start" });
+    expect(args.pendingSendRef.current).toBe(turn);
+    expect(turn.accepted).toBe(true);
+  });
+
+  it.each([
+    // Regression: every code-less error offered Regenerate, which re-answered
+    // the previous message when this one was never saved.
+    [{ message: "Redis down" }, false, "send_rejected"],
+    [{ message: "Too many requests. Try again shortly." }, false, "send_rejected"],
+    [{ code: "unavailable", message: "Restarting" }, false, "send_rejected"],
+    [{ message: "Failed to save the response. Please retry." }, true, null],
+    [{ code: "quota_exceeded", message: "Out of quota" }, false, null],
+    [{ code: "model_unavailable", message: "Down" }, false, null],
+  ])("error %o with user_message_saved=%s queues a resend: %s", async (frame, saved, reason) => {
+    const { args, send } = await setup({ messages: [streamingBubble] });
+    const turn = pending();
+    args.pendingSendRef.current = turn;
+    args.queueUnsavedSend.mockImplementation((queued: PendingSend, why: RejectedSend["reason"]) => {
+      args.rejectedSendsRef.current.set("chat-1", [{ ...queued, reason: why }]);
+    });
+    await send({ type: "error", user_message_saved: saved, ...frame });
+    if (reason) {
+      expect(args.queueUnsavedSend).toHaveBeenCalledWith(turn, reason);
+      expect(args.reportError).toHaveBeenCalledWith(frame.message, reason);
+    } else {
+      expect(args.queueUnsavedSend).not.toHaveBeenCalled();
+      expect(args.reportError).toHaveBeenCalledWith(frame.message, frame.code);
+    }
   });
 
   it("error keeps a partial reply as a stopped bubble", async () => {

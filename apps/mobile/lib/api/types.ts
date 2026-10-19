@@ -31,6 +31,9 @@ export type User = {
   follow_up_suggestions_enabled?: boolean;
   /** Web search and photo lookups (Settings → Data controls); on unless turned off. */
   web_search_enabled?: boolean;
+  /** When the account agreed to what goes to outside AI services; null until it does.
+   * Absent only from an older server, which the consent gate lets through. */
+  ai_data_consent_at?: string | null;
   response_tone: string;
   memory_enabled: boolean;
   memory_include_sensitive?: boolean;
@@ -40,6 +43,8 @@ export type User = {
   /** Read-aloud and live talk voice; null is the server default. */
   tts_voice?: UserVoice | null;
   email_reminders_enabled?: boolean;
+  /** False when the server cannot send email (no provider set up): hide the switch. */
+  email_reminders_available?: boolean;
   reminder_lead_minutes: number;
   locale: string;
   timezone: string;
@@ -51,6 +56,8 @@ export type User = {
   job: string | null;
   created_at: string;
   sign_in_provider?: "google" | "apple" | "dev";
+  /** Signs in with Apple (alone or beside Google); deleting asks Apple once more. */
+  apple_linked?: boolean;
   quiet_hours_enabled?: boolean;
   quiet_hours_start_minute?: number;
   quiet_hours_end_minute?: number;

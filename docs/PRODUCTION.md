@@ -8,7 +8,10 @@ Step-by-step guide to provision production infrastructure. Pair with [`README.md
 
 - [ ] Create Neon project (or Fly Postgres with pgvector)
 - [ ] Enable `vector` extension: `CREATE EXTENSION IF NOT EXISTS vector;`
-- [ ] Set `DATABASE_URL` as `postgresql+asyncpg://...?sslmode=require`
+- [ ] Set `DATABASE_URL` as `postgresql+asyncpg://...?sslmode=require`, the
+      project's **direct** endpoint (the app switches itself to the `-pooler`
+      host; migrations stay on the direct one). Production boot refuses a
+      `DATABASE_URL` that points at localhost, the default when it is unset.
 - [ ] Run migrations: `cd apps/api && uv run alembic upgrade head`
 - [ ] Confirm `uv run alembic current` matches `uv run alembic heads`
 
@@ -19,13 +22,54 @@ uv run alembic current
 # The same single revision should be shown by both commands.
 ```
 
+Every migration transaction runs with `lock_timeout = 5s` and
+`statement_timeout = 4min` (`MIGRATION_LOCK_TIMEOUT`,
+`MIGRATION_STATEMENT_TIMEOUT`): an `ALTER TABLE users` stuck behind a long
+query fails the release command instead of queueing every request on `users`.
+Rerun the deploy when the database is quieter. Schema changes are
+expand/contract ([ROLLBACK.md](ROLLBACK.md#schema-changes-expand-then-contract)).
+
+### Backups and restore (owner, before launch)
+
+The rollback runbook and the `0103` downgrade both assume a restorable copy of
+the database. Neon keeps one through its restore window (point-in-time restore
+from the write-ahead log); nothing in this repository takes backups.
+
+- [ ] In the Neon console, find the project's restore window (project
+      settings, "Instant restore" / "history retention"; the name depends on
+      the console version) and note how far back it reaches on your plan (it
+      differs by plan, from hours on Free to days on paid plans). Raise it to
+      at least 7 days for launch: a problem found on Monday must still be
+      restorable to Friday.
+- [ ] Rehearse one restore before launch, never onto production: create a
+      branch from a past point in time (console: Branches → create a branch
+      from past data at a chosen timestamp; `neonctl branches create` can do
+      the same, see Neon's docs for the flag), point a local API at it
+      (`DATABASE_URL=<branch URL> uv run alembic current`), check a known row,
+      then delete the branch.
+- [ ] Write down who can restore and where the connection strings live. To
+      recover production, restore to a branch at the last good time, verify
+      it, then either repoint `DATABASE_URL` (`fly secrets set`) or use
+      Neon's restore of the root branch (it keeps a backup branch of the state
+      it replaced). Both lose the writes made after that time.
+- [ ] Optional: a nightly `pg_dump` of the direct endpoint to storage outside
+      Neon, for a window longer than the plan's or an account-level disaster.
+
 ---
 
 ## 2. Redis (Upstash)
 
 - [ ] Create Upstash Redis database
-- [ ] Set `REDIS_URL=rediss://...` (TLS URL)
+- [ ] Set `REDIS_URL=rediss://...` (TLS URL). Production boot refuses a
+      `REDIS_URL` without TLS or pointing at localhost (the default when the
+      secret is missing): before this, the API booted, `/health/ready` said
+      `"redis": "degraded"` with a 200, and every signed-in request got 503.
 - [ ] Verify connectivity from Fly region (latency to Upstash region)
+- [ ] After deploy, `API_URL=https://<api> ./scripts/qa-smoke.sh --live` must show
+      readiness OK, which needs `"redis": "ok"`
+- [ ] Redis holds the job stream, quota counters, rate limits and sign-out
+      state. Nothing here backs it up; if Redis is lost or flushed, the worker
+      recreates its consumer group by itself and queued jobs are gone
 
 ---
 
@@ -50,6 +94,14 @@ Required for production attachments (`STORAGE_BACKEND=r2`).
   `attachment_orphan_grace_hours` (default 24h) — that billed window is
   intentional. Optionally add an R2 lifecycle rule
   that expires unprefixed leftovers as a last resort.
+- [ ] Recovery (owner): R2 keeps no earlier version of an object unless the
+  bucket has versioning or a bucket lock rule (check what the Cloudflare
+  dashboard offers for the bucket; the code assumes neither). A delete is final,
+  which is what account deletion needs. Decide whether that is acceptable, and
+  never add a lifecycle rule that expires `{user_id}/` objects (live
+  attachments). After a Neon restore to an earlier time (§1), rows can name
+  objects deleted since; those attachments show as missing, and objects
+  uploaded after the restore point become orphans for the reaper.
 
 Native iOS/Android uploads are not subject to browser CORS. Before enabling the
 planned web client, add an R2 bucket CORS policy that allows `PUT`/`GET` from the
@@ -62,8 +114,12 @@ exact production web origin and only the headers used by presigned uploads.
 - [ ] `fly launch` (or connect existing app to repo root; uses `apps/api/Dockerfile`)
 - [ ] Scale processes: `fly scale count app=1 worker=1` (worker is not
       covered by `min_machines_running`; pin it or jobs stop silently)
-- [ ] Confirm worker health: `fly ssh console -C 'curl -sf http://127.0.0.1:8001/health/ready'`
-  (or check worker logs show the jobs consumer started)
+- [ ] Confirm worker health:
+  `fly ssh console --process-group worker -C 'curl -sf http://127.0.0.1:8001/health/ready'`
+  (or check worker logs show the jobs consumer started). The worker retries
+  Redis forever at boot and exits non-zero (so `[[restart]]` brings it back)
+  when its jobs loop or a scheduler dies; a failing health check alone never
+  restarts a Machine on Fly.
 - [ ] Set **all** secrets (enforced by `validate_production_settings`):
 
 | Secret | Required | Notes |
@@ -72,9 +128,10 @@ exact production web origin and only the headers used by presigned uploads.
 | `DEV_AUTH_ENABLED` | yes | `false` |
 | `MOCK_LLM_ENABLED` | yes | `false` |
 | `JWT_SECRET` | yes | ≥32 random chars |
-| `DATABASE_URL` | yes | asyncpg URL |
-| `REDIS_URL` | yes | `rediss://` |
+| `DATABASE_URL` | yes | asyncpg URL, direct Neon endpoint; not localhost |
+| `REDIS_URL` | yes | `rediss://`; not localhost |
 | `GOOGLE_CLIENT_ID` | yes | Google Sign-In (ID-token audience) |
+| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | for App Review 5.1.1(v) | A Sign in with Apple key (Apple Developer → Keys); `APPLE_PRIVATE_KEY` is the `.p8` contents. Account delete revokes the user's Apple grant with it. Unset: delete still works, boot logs a warning |
 | `OPENROUTER_API_KEY` | yes | Chat + composer STT (`gpt-transcribe`) |
 | `OPENAI_API_KEY` | Live Talk only | WebRTC Realtime; OpenRouter has no Realtime API |
 | `CORS_ORIGINS` | yes | Explicit origins, never `*` |
@@ -84,19 +141,76 @@ exact production web origin and only the headers used by presigned uploads.
 | `REVENUECAT_PLUS_ENTITLEMENT_ID` | no (default `plus`) | Lower paid plan's entitlement |
 | `TAVILY_API_KEY` | if web search | |
 | `TRUST_X_FORWARDED_FOR` | yes (set in `fly.toml` `[env]`) | `true` behind Fly. Unset, every per-IP rate limit keys on Fly's proxy address and becomes one global bucket; production boot logs a warning. |
-| `DAILY_GLOBAL_SPEND_USD` | yes | UTC-day OpenRouter $ cap; must be > 0 |
+| `DAILY_GLOBAL_SPEND_USD` | yes | UTC-day provider $ cap (every model call, images, voice, live talk); must be > 0. At the cap new chat turns are refused: see [Load and abuse limits](#load-and-abuse-limits) |
 | R2 vars | yes | See §3 |
+| `RESEND_API_KEY` | if email | Without it nothing is emailed (§8) |
+
+Validate the file you import before `fly secrets import`:
+`./scripts/validate-prod-env.sh apps/api/.env.production`. It reads only that
+file (not `apps/api/.env` or your shell), and fails when `ENVIRONMENT` is not
+`production`.
+
+### Deploying
+
+Deploy with GitHub **Actions → Deploy**, run on `main`. A gate job (no secrets)
+refuses any other branch and any commit whose API CI (or Mobile CI, for the
+EAS build) push run has not passed for that commit's code; then the deploy job
+runs in the GitHub environment `production`. `scripts/deploy-api.sh` is the
+break-glass path from a laptop: it refuses a dirty tree or a branch other than
+an up-to-date `main` unless `--force`.
+
+- [ ] **Owner:** Settings → Environments → `production`: add yourself (and
+      anyone else) as **required reviewers**, set **deployment branches** to
+      `main` only, and move `FLY_API_TOKEN` and `EXPO_TOKEN` there as
+      environment secrets (delete the repository-level copies) so no other
+      job can read them. `FLY_API_TOKEN` should be a deploy token for this app
+      (`fly tokens create deploy --app recall-api`), not a personal token.
+      GitHub offers environments in private repositories on Pro, Team and
+      Enterprise plans, and required reviewers there only on Enterprise; on a
+      plan without them the gate job and the main-only checks still apply,
+      but nobody has to approve.
+- [ ] **Owner:** the `preview` environment (EAS Update to the preview channel)
+      needs `EXPO_TOKEN` too, if it is moved off the repository.
+- [ ] Bumping a pinned action or CLI (`setup-flyctl` commit and flyctl
+      version, `expo-github-action` commit and eas-cli version,
+      `pnpm/action-setup` commit) is a reviewed change to the workflow.
+
+What one deploy does (`fly.toml`):
+
+1. `release_command` runs `alembic upgrade head` once, with the bounded lock
+   and statement timeouts (§1). If it fails, nothing is replaced.
+2. `strategy = "bluegreen"`: a new Machine boots next to each old one (app and
+   worker), traffic moves only after the new Machines pass their health checks,
+   then the old ones are stopped. The org needs room for one extra Machine per
+   group during the deploy. For a moment two workers run; job leases, dedupe
+   keys and scheduler locks make that safe.
+3. An old Machine gets Fly's stop signal (SIGINT), then `kill_timeout = 45`
+   seconds: uvicorn's `--timeout-graceful-shutdown 30` lets in-flight requests
+   and chat turns finish or stop and save, and lifespan shutdown drains
+   background work for up to 10s. The worker leaves unfinished jobs pending for
+   the new worker. Keep these numbers in step in `fly.toml` and
+   `apps/api/Dockerfile` (`app/tests/test_deploy_config.py` checks them).
+4. The workflow smoke-checks `https://recall-api.fly.dev` (readiness must
+   report `"redis": "ok"`). The image is labelled `git-<sha>`
+   (`fly releases --image` maps a release back to its commit).
 
 ```bash
-# Deploy
-fly deploy
-
-# Verify
-curl -s https://<your-api>/health/ready
+# Full check after a deploy (needs flyctl auth and uv): API readiness with
+# Redis, worker health, alembic current on Fly == alembic heads here.
+API_URL=https://<your-api> ./scripts/verify-production.sh --live
 ```
 
 - [ ] Health monitor: `GET /health` (liveness) and `GET /health/ready` (Postgres;
-      Redis may report `degraded` without 503)
+      Redis may report `degraded` without 503 — alert on that too, §8)
+- [ ] **Measure before launch:** `[http_service.concurrency]` is `type =
+      "requests"`, `soft_limit = 150`, `hard_limit = 200` per Machine. Whether
+      Fly's proxy counts each open chat WebSocket as one in-flight request for
+      its whole life (so 200 idle sockets would fill the Machine and queue
+      every REST call) was not confirmed from Fly's docs here. Load-test one
+      Machine with ~200 open `/ws/chat` sockets plus REST traffic and watch
+      Fly's proxy concurrency metrics and any 503s or queueing. If sockets count, use
+      `type = "connections"` with limits sized to sockets plus REST
+      connections, or scale out on `soft_limit`; do not leave it to launch day.
 - [ ] RevenueCat webhook → `https://<api>/webhooks/revenuecat` with `Authorization` header
 - [ ] Plans and store products set up per [§4b](#4b-plans-and-revenuecat-free-plus-pro)
 
@@ -163,10 +277,15 @@ LIVE_TALK_MAX_SESSION_SECONDS)` (refused under `LIVE_TALK_MIN_SESSION_SECONDS`),
 the session may save turns and use voice tools only for that reservation, the
 phone hangs up when it ends, and `POST /speech/live/end` settles it to the time
 the server measured (never refunding more than was reserved). A phone that
-never reports keeps the whole reservation charged. Known limit: the server
-cannot hang up the OpenAI call itself, so a modified client could keep talking
-past its reservation (nothing is saved, no tools); `DAILY_GLOBAL_SPEND_USD`
-still bounds the spend.
+never reports keeps the whole reservation charged. The global spend counter
+follows the same reservation: a mint adds the reserved minutes at
+`LIVE_TALK_SPEND_USD_PER_MINUTE` ($0.20, `services/quota/spend.py`) and the
+end report gives back the unused part, so saved turns add no spend. A session
+may save one turn per 5 reserved seconds (at least 12) and a user 20 turns a
+minute; past either, `POST /speech/live/persist` answers 429. Known limit: the
+server cannot hang up the OpenAI call itself, so a modified client could keep
+talking past its reservation (nothing is saved, no tools); that time is not
+on the spend counter.
 
 ### QA (sandbox / test track)
 
@@ -189,18 +308,85 @@ still bounds the spend.
 - [ ] Set `EXPO_PUBLIC_API_URL=https://<api-host>`
 - [ ] Set Google client IDs (iOS + web) in EAS secrets
 - [ ] Set RevenueCat API keys per platform
-- [ ] Register the EAS **production** Android signing certificate SHA-1 with the
-      Android OAuth client in Google Cloud (the debug SHA-1 is not sufficient)
+- [ ] Register **both** Android release SHA-1s with Google Cloud, not only the EAS
+      one: see [§6](#6-google-sign-in)
 - [ ] Release builds pass the config guard for API URL, EAS project ID, Google
       client IDs, and the platform's RevenueCat SDK key
+- [ ] Optional crash reporting: `EXPO_PUBLIC_SENTRY_DSN` turns on Sentry. A
+      release build then uploads source maps and debug symbols, and Sentry's
+      Xcode and Gradle steps fail the build at its end when that upload fails. So
+      when the DSN is set, the config guard stops the build on the EAS worker
+      unless all three are set:
+  - `SENTRY_ORG` and `SENTRY_PROJECT` (the slugs; Plain text)
+  - `SENTRY_AUTH_TOKEN` (a Sentry organization auth token; **Secret**)
+
+  To ship without uploads (crash stacks stay minified), set
+  `SENTRY_DISABLE_AUTO_UPLOAD=true` instead. The check runs only on the build
+  worker (`EAS_BUILD`): EAS keeps Secret variables out of the config that
+  `eas build` and `eas update` resolve locally, and updates upload nothing.
 - [ ] Build:
   ```bash
   cd apps/mobile
   eas build --platform ios --profile production
   eas build --platform android --profile production
   ```
-- [ ] Submit to App Store / Play Console
-- [ ] On-device QA per [`docs/QA_MATRIX.md`](QA_MATRIX.md)
+- [ ] Submit to App Store / Play Console (see [Store submission](#store-submission-owner))
+- [ ] On-device QA per [`docs/QA_MATRIX.md`](QA_MATRIX.md), including the iPad
+      and store-build passes
+
+### What the store build declares
+
+`app.json` asks only for what the app uses, so review sees no unexplained
+permission. Changing any of it is a native change (bump `version`, new build).
+
+- **iOS purpose strings** live in `ios.infoPlist`, and every config plugin that
+  writes the same key carries the same text (`lib/__tests__/appStoreConfig.test.ts`
+  checks this), because the plugins' order decides which text wins. One
+  microphone string covers dictation and Live Talk; one camera string covers
+  photo attachments and the maths scanner.
+- **No background audio.** Read-aloud stops and Live Talk hangs up when the app
+  leaves the foreground, so `expo-audio` has `enableBackgroundPlayback: false`:
+  no `UIBackgroundModes` on iOS, no foreground service on Android.
+- **Not declared:** Face ID, Always location and Android media read access
+  (`READ_MEDIA_*`; saving to the gallery is write-only and the photo picker needs
+  none), plus WebRTC's `SYSTEM_ALERT_WINDOW` and `BLUETOOTH`
+  (`android.blockedPermissions`). `NSMotionUsageDescription` stays, saying the
+  app does not use motion: `expo-location` links Core Motion, and App Store
+  Connect rejects an upload whose binary uses an API without its purpose string
+  (ITMS-90683).
+- **Export compliance:** `ios.config.usesNonExemptEncryption: false` (HTTPS
+  only), so App Store Connect does not ask on every build.
+- Expo's dev launcher adds a local-network prompt to Info.plist; its own Release
+  build phase ("Strip Local Network Keys for Release") removes it from store builds.
+
+### Store submission (owner)
+
+- [ ] **Subscriptions ship with the first build.** Submit both products from
+      [§4b](#4b-plans-and-revenuecat-free-plus-pro) (Plus and Pro) for review
+      together with the first app version (App Store Connect: add them on the
+      version page under In-App Purchases and Subscriptions; Play: activate both
+      base plans). A product that is not approved does not load.
+- [ ] **RevenueCat offering first.** The current offering must hold the
+      `plus_monthly` and `pro_monthly` packages before review. Without them the
+      plan sheet's buy buttons stay disabled (`components/UpgradeSheet.tsx`),
+      and a paywall that cannot buy is rejected.
+- [ ] **App Review notes:** sign in with Apple (or Google). Chat, memory, to-dos
+      and the maths scanner work on Free. Voice input and read-aloud need Plus
+      and Live Talk needs Pro: buy them with the sandbox account (no charge)
+      to test the microphone features.
+- [ ] **After the first upload**, watch App Store Connect email for
+      **ITMS-91053** (an SDK uses a required-reason API without declaring it).
+      If it names an API category, add it with the listed reason under
+      `ios.privacyManifests.NSPrivacyAccessedAPITypes` in `app.json` and rebuild.
+- [ ] **App Privacy (App Store) and Data safety (Play)** answers include:
+      precise location; audio (voice input and Live Talk); photos and files
+      (attachments); user content (messages, chats, memory, to-dos); name,
+      email and user ID (sign-in); purchase history (RevenueCat); crash data
+      (Sentry, when the DSN is set); app interactions (metadata-only analytics).
+      None is used for tracking or sold.
+- [ ] Play Console → App content: the build declares no `READ_MEDIA_*` or
+      foreground-service permission, so the photo and video permissions and
+      foreground service declarations do not apply
 
 ### Over-the-air updates (EAS Update)
 
@@ -233,6 +419,18 @@ background, and runs the new code from the next launch.
 
 - [ ] OAuth consent screen published (sign-in scopes only: openid, email, profile)
 - [ ] Client IDs match the mobile bundle IDs and `GOOGLE_CLIENT_ID`
+- [ ] **Android: one Android OAuth client per signing certificate**, all with
+      package `com.recall.app` (the app signs in with the web client ID; these
+      clients only vouch for the certificate). Google is the only sign-in on
+      Android, so a missing one fails every sign-in with `DEVELOPER_ERROR`:
+  - **Play app signing key**: Play Console → Test and release → App integrity
+    → App signing → *App signing key certificate* SHA-1. Play re-signs the
+    bundle with this key, so every install from Play (production and testing
+    tracks) carries it. Registering only the EAS key breaks every Play user.
+  - **EAS upload key**: `eas credentials --platform android` → production
+    keystore SHA-1 (Play lists it as *Upload key certificate*). Covers preview
+    and other builds installed outside Play.
+  - **Debug key**: `./scripts/android-debug-sha1.sh`, for local dev builds only.
 - [ ] Old deployments: unset `GOOGLE_CLIENT_SECRET` and `OAUTH_TOKEN_ENCRYPTION_KEY`
       (`fly secrets unset ...`); Calendar/Gmail were removed in migration `0106`
 
@@ -242,15 +440,44 @@ background, and runs the new code from the next launch.
 
 - [ ] Landing page live
 - [ ] Support URL for store listings
-- [ ] Privacy policy + terms URLs (served from API `/legal/*` or static site)
+- [ ] `SUPPORT_EMAIL` (Fly secret) set to a mailbox you read. The privacy policy, terms and
+      account-deletion pages show it as the contact; production boot logs a warning while it
+      is empty
+- [ ] Privacy policy + terms URLs for both stores: `https://<api-host>/legal/privacy` and
+      `https://<api-host>/legal/terms`
+- [ ] Play Console → App content → Data safety → **Delete account URL**:
+      `https://<api-host>/legal/delete-account` (public, no sign-in: deleting in the app,
+      asking by email from the account's address, what is deleted and what is kept for how long)
+- [ ] Owner review of the legal copy in `apps/api/app/content/` (`privacy_policy.py`,
+      `terms.py`, `account_deletion.py`); bump `LEGAL_EFFECTIVE_DATE` in `legal.py` with any
+      change. App Store App Privacy and Play Data safety answers must match it, including
+      third-party AI (OpenRouter and the model providers, OpenAI for voice, Mathpix, Tavily
+      and its public-search backup)
+- [ ] Every account is asked once, after sign-in and before its first chat, to agree to what
+      goes to outside AI services (`users.ai_data_consent_at`, migration `0112`; phone
+      `/consent`, web slice 1 too). Change that screen and the policy together
 
 ---
 
-## 8. Observability (optional)
+## 8. Observability and email
 
-- [ ] `SENTRY_DSN` on API and mobile EAS secrets
-- [ ] Fly metrics / external uptime on `/health/ready`
-- [ ] Resend (`RESEND_API_KEY`) if transactional email enabled
+- [ ] `SENTRY_DSN` on the API; mobile: `EXPO_PUBLIC_SENTRY_DSN` plus the upload
+      variables in [§5](#5-mobile-eas)
+- [ ] External uptime on the API's `/health/ready`. It answers 200 with
+      `"redis": "degraded"` when Redis is down (so a Redis blip does not drain
+      Fly's routing); alert on `degraded` too, since sign-in, chat and quota
+      need Redis. `scripts/qa-smoke.sh --live` fails on it.
+- [ ] Alert on the worker's `worker-health` check (Fly metrics / Grafana). A
+      failing check never restarts a Machine; the worker exits by itself (and
+      `[[restart]]` brings it back) only when its jobs loop or a scheduler dies.
+- [ ] Email (Resend). `EMAIL_ENABLED` and `EMAIL_REMINDERS_SCHEDULER_ENABLED`
+      default to on. Set `RESEND_API_KEY` and `EMAIL_FROM` (an address on a
+      domain verified in Resend) for welcome, receipt and to-do reminder emails.
+      Without a key outside development and test nothing is sent: each send
+      reports "not sent", the reminder scheduler does not start, both processes
+      log `EMAIL_ENABLED=true but RESEND_API_KEY is not set` at boot, and
+      `/auth/me` returns `email_reminders_available: false` so the app hides the
+      email-reminder switch. To launch without email, set `EMAIL_ENABLED=false`.
 
 ---
 
@@ -290,16 +517,78 @@ second maths turn inside the 2 s slot wait gets an unverified answer.
 | `ATTACHMENT_IMAGE_MAX_DECODE_PIXELS` | `16000000` | Largest decode for a gallery thumbnail (`GET /attachments/{id}/file?w=`), which now runs off the event loop. JPEG decodes at a reduced scale first, so phone photos work; a lossless image past the budget gets 422. A 505 KiB 13000x13000 PNG used to add ~650 MB RSS and block the loop 1.4s. `0` disables. |
 | `JOBS_STREAM_MAX_LEN` | `50000` | Hard ceiling on the `recall:jobs` Redis Stream, applied on every `XADD`. The 10k soft trim only runs while nothing is pending, so a worker that died mid-job used to leave the stream unbounded. Past the ceiling the oldest jobs are dropped (they are best-effort). `0` disables. |
 | uvicorn `--ws-max-size` (in `fly.toml` and `apps/api/Dockerfile`) | `1048576` (1 MiB) | Largest WebSocket frame (uvicorn default 16 MiB). A chat frame is at most ~130 KB. Change both files together. |
-| WebSocket frame budget (`modules/chat/ws_api.py`) | 120 frames/min per socket | Every frame after auth counts, including pings, cancels and invalid JSON (only message/regenerate were limited). Over budget the server sends `{"code": "rate_limited"}` and closes with 1008; a reply in progress is still saved. |
+| WebSocket frame budget (`modules/chat/ws_limits.py`) | 120 frames/min per socket | Every frame after auth counts, including pings, cancels and invalid JSON (only message/regenerate were limited). Over budget the server sends `{"code": "rate_limited"}` and closes with 1008; a reply in progress is still saved. |
+| `WS_MAX_SOCKETS_PER_USER` | `5` | Open chat WebSockets per user on one machine (the phone holds one per open chat screen, and closes it in the background). Past it a new socket is closed with code 4429 and the phone sends over SSE instead. Counted in-process, so with N `app` machines a user can hold up to N×5. `0` disables. |
+| `WS_IDLE_TIMEOUT_SECONDS` | `300` | A chat socket that sends no frame between turns for this long is closed with code 4408 (never during a turn). The phone opens a new socket on its next send, with no error shown. Sockets used to stay open indefinitely, so idle authenticated sockets could fill Fly's `hard_limit` of 200 per machine. `0` disables. |
 | `R2_CONNECT_TIMEOUT_SECONDS` / `R2_READ_TIMEOUT_SECONDS` / `R2_MAX_ATTEMPTS` | `5` / `20` / `3` | boto3 calls to R2 (attachment reads on the chat path, deletes, sweeps). botocore's defaults were 60s + 60s with 5 attempts, each holding a default-executor thread (5 on one CPU). Retries use botocore's `standard` mode (jittered backoff). |
 | `GOOGLE_AUTH_TIMEOUT_SECONDS` | `10` | Google cert fetch during sign-in (google-auth defaulted to 120s). A failed or slow fetch answers 503 + `Retry-After`, not 500 or 401. |
+| Link preview (`services/link_preview.py`) | 8s per fetch, 3 open per user, 20/min | `fetch_safely` takes an overall deadline (DNS, every redirect hop, the body): a server dripping one byte per read used to hold a request open for minutes. A fourth uncached preview while three are open answers 429 + `Retry-After` (Redis sorted set; a crashed fetch ages out after 30s). |
 | `DB_CONNECT_TIMEOUT_SECONDS` / `DB_COMMAND_TIMEOUT_SECONDS` | `10` / `120` | asyncpg connect (default was 60s) and every statement (default was unbounded), including the `pool_pre_ping` on each checkout, so a half-open pooled connection can no longer hang a request. Client-side, so it works through Neon's pooler. Generous because account delete is one cascading `DELETE`. Migrations are not affected. A pool, connect or statement timeout, or a dropped connection, now answers `503` + `Retry-After: 5` instead of a bare 500. |
 | `JOB_TIMEOUT_SECONDS` | `900` | Deadline for one attempt of one background job. An attempt that runs out goes to the DLQ without retry. An entry delivered more than 5 times without an ack (it keeps killing the worker) also goes to the DLQ on reclaim. |
+
+**Deploys and in-flight replies.** On SIGINT/SIGTERM the API stops every chat
+turn still running the way the user's Stop does, before uvicorn's graceful wait
+(`core/shutdown.py` chains uvicorn's signal handlers; uvicorn itself runs the
+app's shutdown only after that wait). Each partial reply is saved (`completion:
+"interrupted"`) and its chat's prepare lock and finalize marker are released in
+a second or two, well inside `--timeout-graceful-shutdown` (30s) and Fly's
+`kill_timeout` (45s). A turn sent during the stop is refused with "The server is
+restarting" (`user_message_saved: false`, so the phone offers Retry). WebSockets
+close with 1012; the phone reconnects to the new machine and reloads the chat
+to pick up the saved reply. If a machine dies without the signal (OOM, host
+failure), the prepare lock (`chatprep:{chat}`, TTL 30s, refreshed every 10s)
+and the finalize marker (`chatfinal:{chat}`, TTL 30s) expire on their own: the
+chat answers `busy` for at most 30 seconds.
 
 Readiness answers inside Fly's 5s check timeout: `/health/ready` gives Postgres 3s
 (then 503) and Redis 1s (then `"redis": "degraded"`, still 200); the worker's
 probe gives Redis 3s. A stalled Redis used to time out readiness on every
 machine at once.
+
+### Spend and daily tokens
+
+**`DAILY_GLOBAL_SPEND_USD`** is a kill-switch on estimated provider dollars per
+UTC day (Redis `spend_musd:<date>`, `core/spend_counter.py`). What adds to it:
+
+- a chat turn: catalog price x its tokens, at finalize (`modules/chat/post_turn.py`);
+- every other model call, priced from its tokens by the gateway that makes it
+  (`gateways/llm_spend.py`): memory extraction and consolidation, titles,
+  suggestions, compression, follow-up questions, attachment OCR, embeddings,
+  the web-search classifier, the reference resolver, maths extraction;
+- a fixed price per call for images, photo lookup, scan reads, voice input and
+  read-aloud (`services/quota/spend.py`);
+- live talk by time: the reserved minutes at mint, settled at
+  `POST /speech/live/end` ([§4b](#live-talk-minutes)).
+
+Once the day's total reaches the cap, until 00:00 UTC:
+
+- a new chat message or regenerate is refused before any model call. Both
+  transports send `{"type": "error", "message": "Recall is at capacity for
+  today, so new messages are paused for everyone. Try again after midnight
+  UTC."}`. It has no `quota_exceeded` code, so the phone shows that text and
+  not its upgrade prompt (the user's own allowance is not used up);
+- image generation, photo lookup, voice, live talk and scan reads answer 429
+  "… temporarily unavailable";
+- background model jobs, the tool loop and follow-up questions are skipped.
+
+A Redis error counts as over the cap (fail closed). Known gap: the tool rounds
+of a turn that ends in a generated image are not charged (the image is).
+
+**Daily tokens.** A turn reserves its estimate (the message plus
+`MAX_OUTPUT_TOKENS`, x the model's quota multiplier) before it runs, or
+whatever is left of the day when less is, and finalize settles to the actual
+usage; a failed or cancelled turn gives the reservation back. Turns in
+different chats share that one remaining budget, so opening many chats at once
+cannot multiply the day's allowance. A turn that starts is not cut short to
+fit: past the limit its extra tokens are forfeit (the counter is clipped), so
+one turn is the most a user can go over. While a turn runs, the usage shown in
+Settings includes its reservation.
+
+**Scanned PDFs.** A PDF with no text layer is read with up to
+`ATTACHMENT_OCR_INDEX_MAX_PAGES` vision calls by the index job, which first
+takes one of the owner's daily image-upload slots (`DAILY_IMAGE_LIMIT*`). At
+the cap the file stays attached but is not searchable that day; a PDF read
+from its text layer gets the slot back.
 
 ---
 
@@ -308,7 +597,9 @@ machine at once.
 Each finalized chat turn logs `turn_cost … est_cost_usd=…` and accumulates
 `usage_daily.est_cost_usd` from catalog prices × **raw** input/output tokens
 (not quota-weighted). Apply migration `0061_usage_daily_est_cost_usd` before
-relying on the column.
+relying on the column. It holds chat turns only: background model calls,
+images, voice and live talk count on the Redis spend counter
+([Spend and daily tokens](#spend-and-daily-tokens)), not here.
 
 **Spend for one user in the current UTC month:**
 

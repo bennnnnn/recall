@@ -1,0 +1,251 @@
+"""One chat turn over an open WebSocket: start, tokens, Stop, stream_end, done.
+
+``ws_api`` reads the socket's frames and hands each message or regenerate here.
+The producer runs the turn on its own task while this side keeps reading the
+socket for a cancel; both go through the one ``stop`` a server shutdown uses too.
+"""
+
+import asyncio
+import json
+import logging
+from collections.abc import AsyncIterator, Callable
+from contextlib import suppress
+from uuid import UUID
+
+from fastapi import WebSocket, WebSocketDisconnect
+
+from app.core.background_tasks import create_background_task
+from app.exceptions import (
+    ChatBusyError,
+    ChatServiceError,
+    QuotaExceededError,
+    RedisUnavailableError,
+)
+from app.gateways.litellm_gateway import ModelUnavailableError
+from app.modules.chat.finalize_registry import register_inflight_stream
+from app.modules.chat.stream_events import (
+    REPLY_SAVE_FAILED_MESSAGE,
+    DoneEvent,
+    StreamEndEvent,
+    await_finalize_commit,
+    build_start_event,
+    build_token_event,
+    clear_task_cancellation,
+    finish_open_stream,
+    persist_finalize_if_pending,
+    pop_finalize_tasks,
+    take_related_prompts_event,
+    turn_error_payload,
+)
+from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.chat.ws_limits import FrameBudget, close_flooding_socket, safe_send_json
+
+logger = logging.getLogger(__name__)
+
+
+async def stream_over_ws(
+    websocket: WebSocket,
+    stream: AsyncIterator[str],
+    cancel_event: asyncio.Event,
+    outcome: TurnOutcome,
+    chat_id: UUID | None = None,
+    frame_budget: FrameBudget | None = None,
+) -> None:
+    async def run_stream() -> None:
+        sent_tokens = 0
+        try:
+            async for token_text in stream:
+                if cancel_event.is_set():
+                    break
+                if not await safe_send_json(websocket, build_token_event(token_text)):
+                    # Client left (New chat / navigate). Keep consuming the
+                    # model stream so the thread gets a complete reply.
+                    async for _ in stream:
+                        if cancel_event.is_set():
+                            break
+                    break
+                sent_tokens += 1
+        except asyncio.CancelledError:
+            # Task cancel interrupts an in-flight LiteLLM wait; still fall
+            # through to stream_end/done so the client gets a clean stop.
+            clear_task_cancellation()
+            cancel_event.set()
+        except Exception as exc:
+            if not isinstance(exc, QuotaExceededError | ChatServiceError | ModelUnavailableError):
+                logger.exception("Chat stream failed")
+            await safe_send_json(
+                websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
+            )
+            return
+
+        # A stop can leave the generator parked at yield. Resume it so the
+        # partial reply is saved before we read the finalize task.
+        await finish_open_stream(stream)
+
+        # M12: if the user cancelled before any token was streamed (hard
+        # cancel at the very start), skip stream_end + done entirely — an
+        # empty done with no content is misleading and the client already
+        # dropped the turn locally. SSE already returns early on cancel;
+        # this symmetrizes the WS path. Partial tokens (sent_tokens > 0)
+        # still get stream_end + done so the client can swap the streamed-*
+        # id for the persisted message_id.
+        if cancel_event.is_set() and sent_tokens == 0:
+            # Still let the finalize task run so any reserved quota is
+            # refunded, but don't send events the client doesn't expect.
+            finalize_db_task = pop_finalize_tasks(outcome)
+            if finalize_db_task is not None:
+                with suppress(Exception):
+                    await await_finalize_commit(finalize_db_task)
+            return
+
+        if not await safe_send_json(websocket, StreamEndEvent.from_outcome(outcome).model_dump()):
+            return
+
+        # Await the DB commit before sending `done` so the message_id we hand
+        # the client always references a persisted row. The token stream is
+        # already flushed (stream_end above), so only the final `done` event
+        # waits on the commit — streaming latency is unchanged. If the commit
+        # FAILED we send an error instead of a ghost `done` with a fake id.
+        # On TIMEOUT we send `done` without `message_id` (persisting: true) so
+        # the client keeps the local bubble and refetches instead of trusting
+        # a row that may never persist if the shielded task later fails.
+        finalize_db_task = pop_finalize_tasks(outcome)
+        commit_status = await await_finalize_commit(finalize_db_task)
+        if commit_status == "failed":
+            await safe_send_json(
+                websocket,
+                turn_error_payload(
+                    None,
+                    user_message_saved=outcome.user_message_saved,
+                    message=REPLY_SAVE_FAILED_MESSAGE,
+                ),
+            )
+            return
+        if commit_status == "timeout":
+            done = DoneEvent.from_outcome(outcome, persisting=True)
+            await safe_send_json(websocket, done.model_dump())
+            return
+
+        await safe_send_json(websocket, DoneEvent.from_outcome(outcome).model_dump())
+        schedule_related_prompts(websocket, outcome)
+
+    producer = asyncio.create_task(run_stream())
+
+    def stop() -> None:
+        """The user's Stop; a server shutdown runs the same one."""
+        cancel_event.set()
+        # Interrupt in-flight LiteLLM wait, not only between tokens.
+        if not producer.done():
+            producer.cancel()
+
+    if chat_id is not None:
+        # GET /messages waits on the producer so a New-chat leave can still
+        # return the completed assistant. Do not put this in the finalize
+        # map — stream_chat_response gather-waits that map as a child Task
+        # and would deadlock 10s on itself.
+        register_inflight_stream(chat_id, producer, stop=stop)
+    try:
+        while not producer.done():
+            receiver = asyncio.create_task(websocket.receive_json())
+            done, _pending = await asyncio.wait(
+                {producer, receiver},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if receiver in done:
+                try:
+                    msg = receiver.result()
+                except WebSocketDisconnect:
+                    # Navigate-away: finish the producer (it drains on send
+                    # failure). Do not cancel — Stop is the only hard stop.
+                    break
+                except (json.JSONDecodeError, KeyError, TypeError):
+                    # Keep ownership of the active producer when a bad JSON
+                    # or binary frame arrives, just as the idle loop does.
+                    if frame_budget is not None and not frame_budget.allow():
+                        # The producer drains on send failure; the reply is saved.
+                        await close_flooding_socket(websocket)
+                        break
+                    await safe_send_json(websocket, {"type": "error", "message": "Invalid JSON"})
+                    continue
+                if frame_budget is not None and not frame_budget.allow():
+                    await close_flooding_socket(websocket)
+                    break
+                # Non-dict JSON (array/primitive) must not AttributeError the
+                # dispatch loop while the producer is still streaming.
+                if not isinstance(msg, dict):
+                    continue
+                if msg.get("type") == "cancel":
+                    stop()
+                elif msg.get("type") != "ping":
+                    await safe_send_json(
+                        websocket,
+                        turn_error_payload(ChatBusyError(), user_message_saved=False),
+                    )
+            else:
+                receiver.cancel()
+                try:
+                    await receiver
+                except asyncio.CancelledError:
+                    pass
+        # Stop already cancelled the producer once. Cancelling again
+        # aborts the save of the partial reply.
+        try:
+            await producer
+        except asyncio.CancelledError:
+            pass
+    except WebSocketDisconnect:
+        if not producer.done():
+            try:
+                await producer
+            except asyncio.CancelledError:
+                pass
+    finally:
+        # Same as SSE M10: client close must not orphan the DB commit that
+        # persists the (partial) assistant row and enqueues the title job.
+        await persist_finalize_if_pending(outcome)
+
+
+async def run_chat_stream(
+    websocket: WebSocket,
+    *,
+    cancel_event: asyncio.Event,
+    stream_factory: Callable[[TurnOutcome], AsyncIterator[str]],
+    chat_id: UUID | None = None,
+    frame_budget: FrameBudget | None = None,
+) -> None:
+    cancel_event.clear()
+    if not await safe_send_json(websocket, build_start_event()):
+        return
+    outcome = TurnOutcome()
+    try:
+        await stream_over_ws(
+            websocket,
+            stream_factory(outcome),
+            cancel_event,
+            outcome,
+            chat_id,
+            frame_budget,
+        )
+    except Exception as exc:
+        if not isinstance(
+            exc,
+            QuotaExceededError | RedisUnavailableError | ChatServiceError | ModelUnavailableError,
+        ):
+            logger.exception("Unexpected chat stream error")
+        await safe_send_json(
+            websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
+        )
+
+
+def schedule_related_prompts(websocket: WebSocket, outcome: TurnOutcome) -> None:
+    """Send follow-up questions after ``done`` without holding the next message."""
+    task = outcome.related_task
+    if task is None:
+        return
+
+    async def _send() -> None:
+        event = await take_related_prompts_event(task)
+        if event is not None:
+            await safe_send_json(websocket, event)
+
+    create_background_task(_send(), name="related_prompts_send")

@@ -188,22 +188,40 @@ def _append_outbound(
         )
 
 
+# How far back the aged-unsent count looks: one push cycle, so each row that
+# ages out is counted once (background/push_scheduler.py runs every 60s).
+AGED_UNSENT_WINDOW = timedelta(seconds=60)
+
+
 async def log_aged_unsent_reminders(
     session: AsyncSession,
     *,
     now: datetime | None = None,
 ) -> int:
-    """Count open dated rows that aged out of the 48h overdue push window."""
+    """Count reminders that should have been pushed but aged out unsent this cycle.
+
+    It used to count every old unsent dated row, whatever the user's push
+    settings (everyone who denied notification permission has them), so the
+    WARNING fired every minute forever. Now only rows that crossed the 48h
+    overdue window during the last cycle, for users who have push reminders
+    on and a device token, count: a real delivery failure, each counted once.
+    """
     when = now or datetime.now(UTC)
     cutoff = when - timedelta(hours=OVERDUE_MAX_HOURS)
+    has_token = select(PushToken.id).where(PushToken.user_id == TodoItem.user_id).exists()
     raw = await session.scalar(
         select(func.count())
         .select_from(TodoItem)
+        .join(User, User.id == TodoItem.user_id)
         .where(
             TodoItem.checked.is_(False),
             TodoItem.due_at.isnot(None),
             TodoItem.notification_sent_at.is_(None),
             TodoItem.due_at < cutoff,
+            TodoItem.due_at >= cutoff - AGED_UNSENT_WINDOW,
+            User.push_notifications_enabled.is_(True),
+            User.push_reminders_enabled.is_(True),
+            has_token,
         )
     )
     count = raw if isinstance(raw, int) else 0
@@ -234,10 +252,10 @@ async def process_todo_reminders(
             TodoItem.notification_sent_at.is_(None),
             User.push_notifications_enabled.is_(True),
             User.push_reminders_enabled.is_(True),
-            (
-                (TodoItem.due_at <= window_end)
-                | ((TodoItem.due_at < now) & (TodoItem.due_at >= overdue_cutoff))
-            ),
+            # Older rows can never notify (should_notify_todo); bounding the
+            # range keeps every aged row out of this per-minute scan.
+            TodoItem.due_at >= overdue_cutoff,
+            TodoItem.due_at <= window_end,
         )
     )
     rows = list(result.all())
@@ -251,6 +269,7 @@ async def process_todo_reminders(
 
     messages: list[OutboundPush] = []
     tokenless_overdue: list[TodoItem] = []
+    tokenless_users: set[UUID] = set()
     timezone_by_user: dict[UUID, str | None] = {}
     for todo, user in rows:
         if todo.due_at is None:
@@ -266,11 +285,9 @@ async def process_todo_reminders(
                 continue
             user_tokens = tokens_by_user.get(todo.user_id, [])
             if not user_tokens:
-                logger.warning(
-                    "Todo reminder skipped; no push token user_id=%s todo_id=%s",
-                    todo.user_id,
-                    todo.id,
-                )
+                # Common, not a fault: push is on by default, so everyone who
+                # denied the OS permission lands here every minute for 48h.
+                tokenless_users.add(todo.user_id)
                 if todo.due_at <= now and is_recurrence_rule(
                     getattr(todo, "recurrence_rule", None)
                 ):
@@ -297,6 +314,8 @@ async def process_todo_reminders(
             logger.exception("Todo reminder failed user_id=%s todo_id=%s", todo.user_id, todo.id)
             continue
 
+    if tokenless_users:
+        logger.debug("Todo reminders skipped; no push token users=%s", len(tokenless_users))
     if tokenless_overdue:
         by_timezone: dict[str | None, list[TodoItem]] = defaultdict(list)
         for item in tokenless_overdue:

@@ -267,28 +267,41 @@ async def test_classify_web_search_need_skips_llm_when_spend_capped():
 
 
 @pytest.mark.asyncio
-async def test_classify_web_search_need_records_global_spend():
-    from app.models.schemas import WebSearchClassification
+async def test_classify_web_search_need_is_metered_once_by_the_gateway(model_spend_redis):
+    """Priced from its token usage by the gateway, not a flat guess here."""
+    from types import SimpleNamespace
+
+    from app.core.background_tasks import drain_background_tasks
+    from app.core.spend_counter import get_global_spend_micro_usd, usd_to_micro_usd
+    from app.gateways import litellm_gateway
+    from app.models.model_catalog import estimate_cost_usd
     from app.modules.web_search.classify import classify_web_search_need
 
-    settings = Settings(mock_llm_enabled=False, web_search_classifier_enabled=True)
-    classification = WebSearchClassification(needs_search=True, query="anthropic ceo")
-    record = AsyncMock()
+    settings = Settings(
+        mock_llm_enabled=False,
+        web_search_classifier_enabled=True,
+        openrouter_api_key="sk-or-test",
+    )
+    message = SimpleNamespace(content='{"needs_search": true, "query": "anthropic ceo"}')
+    response = SimpleNamespace(
+        choices=[SimpleNamespace(message=message)],
+        usage=SimpleNamespace(prompt_tokens=300, completion_tokens=12),
+    )
     with (
         patch(
             "app.modules.web_search.classify.quota_service.global_spend_exceeded",
             AsyncMock(return_value=False),
         ),
-        patch(
-            "app.modules.web_search.classify.litellm_gateway.complete_structured",
-            AsyncMock(return_value=classification),
-        ),
-        patch("app.modules.web_search.classify.quota_service.record_global_spend", record),
         patch("app.modules.web_search.classify.get_redis_client", return_value=AsyncMock()),
+        patch.object(litellm_gateway, "acompletion", AsyncMock(return_value=response)),
     ):
         result = await classify_web_search_need(settings, "Who is the CEO of Anthropic?")
-    assert result == classification
-    record.assert_awaited_once()
+    await drain_background_tasks(timeout_seconds=2)
+
+    assert result is not None and result.needs_search is True
+    cost = estimate_cost_usd("memory-model", input_tokens=300, output_tokens=12)
+    assert cost is not None
+    assert await get_global_spend_micro_usd(model_spend_redis) == usd_to_micro_usd(cost)
 
 
 @pytest.mark.asyncio

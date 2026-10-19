@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 _OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
 _GENERATE_TIMEOUT = 120.0
+# The finished picture is a few MB on the provider's CDN; the whole download,
+# redirects included, gets this long (each read still has _GENERATE_TIMEOUT).
+_RESULT_DOWNLOAD_DEADLINE = 60.0
 
 
 async def generate_via_openrouter(
@@ -96,7 +99,9 @@ async def generate_via_openrouter(
             async with httpx.AsyncClient(
                 timeout=_GENERATE_TIMEOUT, follow_redirects=False
             ) as client:
-                img_resp = await safe_fetch.fetch_safely(client, url)
+                img_resp = await safe_fetch.fetch_safely(
+                    client, url, deadline_seconds=_RESULT_DOWNLOAD_DEADLINE
+                )
                 img_resp.raise_for_status()
                 content_type = (
                     img_resp.headers.get("content-type", "image/png").split(";")[0].strip().lower()

@@ -175,16 +175,17 @@ async def test_login_with_google_rejects_missing_email_on_new_user():
 
 @pytest.mark.asyncio
 async def test_login_with_google_links_existing_account_by_email():
-    """Google signup after an Apple signup with the same email must link the
-    accounts (set google_sub on the existing user) instead of creating a
-    duplicate row, which would violate the unique(email) constraint."""
+    """Google signup after an Apple signup with the same Gmail address must link
+    the accounts (set google_sub on the existing user) instead of creating a
+    duplicate row, which would violate the unique(email) constraint. Addresses
+    Google does not own are refused instead: test_email_authority.py."""
     from app.models.schemas import UserOut
     from app.modules.account import service as auth_service
 
     uid = uuid4()
     fake_user_out = UserOut(
         id=uid,
-        email="shared@test.local",
+        email="shared@gmail.com",
         name="Shared",
         avatar_url=None,
         default_model="free-chat",
@@ -197,11 +198,11 @@ async def test_login_with_google_links_existing_account_by_email():
     )
     payload = {
         "sub": "google-sub-new",
-        "email": "shared@test.local",
+        "email": "shared@gmail.com",
         "name": "Shared",
         "picture": None,
     }
-    existing = MagicMock(id=uid, email="shared@test.local", google_sub=None)
+    existing = MagicMock(id=uid, email="shared@gmail.com", google_sub=None)
 
     create_mock = AsyncMock(return_value=MagicMock())
     update_mock = AsyncMock(return_value=existing)
@@ -341,7 +342,7 @@ async def test_login_with_apple_links_existing_account_by_email():
     uid = uuid4()
     fake_user_out = UserOut(
         id=uid,
-        email="shared-apple@test.local",
+        email="shared-apple@icloud.com",
         name="Shared",
         avatar_url=None,
         default_model="free-chat",
@@ -354,10 +355,10 @@ async def test_login_with_apple_links_existing_account_by_email():
     )
     payload = {
         "sub": "apple-sub-new",
-        "email": "shared-apple@test.local",
+        "email": "shared-apple@icloud.com",
         "email_verified": True,
     }
-    existing = MagicMock(id=uid, email="shared-apple@test.local", apple_sub=None)
+    existing = MagicMock(id=uid, email="shared-apple@icloud.com", apple_sub=None)
     create_mock = AsyncMock(return_value=MagicMock())
     update_mock = AsyncMock(return_value=existing)
 

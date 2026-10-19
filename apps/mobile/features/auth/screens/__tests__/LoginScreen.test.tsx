@@ -15,9 +15,12 @@ jest.mock("@/lib/haptics", () => ({
   notifySuccess: jest.fn(),
   notifyWarning: jest.fn(),
 }));
-jest.mock("expo-router", () => ({
-  Redirect: () => null,
-}));
+jest.mock("expo-router", () => {
+  const { Text } = jest.requireActual("react-native");
+  return {
+    Redirect: ({ href }: { href: string }) => <Text>{`redirect:${href}`}</Text>,
+  };
+});
 jest.mock("expo-linear-gradient", () => {
   const { View } = jest.requireActual("react-native");
   return { LinearGradient: View };
@@ -49,10 +52,13 @@ jest.mock("@/lib/legalUrls", () => ({
 
 let resolveApple: (() => void) | undefined;
 let resolveGoogle: (() => void) | undefined;
+let mockSignedIn: { token: string; user: { ai_data_consent_at?: string | null } } | null = null;
 
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     token: null,
+    user: null,
+    ...mockSignedIn,
     loading: false,
     onboarded: true,
     signInWithApple: () =>
@@ -71,6 +77,20 @@ describe("LoginScreen", () => {
   beforeEach(() => {
     resolveApple = undefined;
     resolveGoogle = undefined;
+    mockSignedIn = null;
+  });
+
+  // Apple 5.1.2(i): a fresh sign-in reaches the AI consent before the chat.
+  it("sends a new sign-in that has not agreed to the AI consent screen, not the chat", async () => {
+    mockSignedIn = { token: "tok", user: { ai_data_consent_at: null } };
+    const { getByText } = await render(<LoginScreen />);
+    expect(getByText("redirect:/consent")).toBeOnTheScreen();
+  });
+
+  it("sends an account that already agreed straight to the chat", async () => {
+    mockSignedIn = { token: "tok", user: { ai_data_consent_at: "2026-10-19T12:00:00Z" } };
+    const { getByText } = await render(<LoginScreen />);
+    expect(getByText("redirect:/")).toBeOnTheScreen();
   });
 
   it("BUG FIX regression: only the tapped button shows its spinner, not every visible button", async () => {

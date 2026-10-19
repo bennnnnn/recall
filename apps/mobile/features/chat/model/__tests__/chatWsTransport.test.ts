@@ -180,6 +180,55 @@ describe("ChatWsTransport", () => {
     expect(transport.shouldUseSse()).toBe(true);
   });
 
+  it.each([
+    [4408, "closed_unread"],
+    [1012, "disconnect"],
+    [1001, "disconnect"],
+  ] as const)("a deliberate %i close reconnects on the next send instead of latching SSE", async (code, reason) => {
+    const { socket, transport, onFallback } = setupTransport();
+    const connecting = transport.connect();
+    socket.open();
+    await connecting;
+
+    (socket.onclose as (event: { code: number }) => void)({ code });
+
+    expect(onFallback).toHaveBeenCalledWith({ reason, duringTurn: false });
+    expect(transport.shouldUseSse()).toBe(false);
+    expect(transport.isOpen()).toBe(false);
+  });
+
+  it("an idle close during a send says the turn was in flight", async () => {
+    const { socket, transport, onFallback } = setupTransport();
+    const connecting = transport.connect();
+    socket.open();
+    await connecting;
+    transport.sendRegenerate({
+      model: null,
+      client_location: null,
+      client_latitude: null,
+      client_longitude: null,
+    });
+
+    (socket.onclose as (event: { code: number }) => void)({ code: 4408 });
+
+    expect(onFallback).toHaveBeenCalledWith({ reason: "closed_unread", duringTurn: true });
+  });
+
+  it.each([
+    [1006, "disconnect"],
+    [4429, "closed_unread"],
+  ] as const)("any other %i close latches SSE for this chat", async (code, reason) => {
+    const { socket, transport, onFallback } = setupTransport();
+    const connecting = transport.connect();
+    socket.open();
+    await connecting;
+
+    (socket.onclose as (event: { code: number }) => void)({ code });
+
+    expect(transport.shouldUseSse()).toBe(true);
+    expect(onFallback).toHaveBeenCalledWith({ reason, duringTurn: false });
+  });
+
   it("sends cancel and detaches callbacks on intentional close", async () => {
     const { socket, transport, onPayload, onFallback } = setupTransport();
     const connecting = transport.connect();

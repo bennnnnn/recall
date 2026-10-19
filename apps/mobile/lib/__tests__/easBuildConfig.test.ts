@@ -3,6 +3,7 @@ import {
   releaseProfile,
   requirePublicApiUrlForReleaseBuild,
   requireReleaseBuildSecrets,
+  sentryPluginOptions,
   simulatorWithoutAppleSignIn,
   updatesUrl,
 } from "@/lib/easBuildConfig";
@@ -92,6 +93,75 @@ describe("easBuildConfig", () => {
         EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY: "",
       }),
     ).toThrow(/EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY/);
+  });
+
+  const sentryUpload = {
+    EXPO_PUBLIC_SENTRY_DSN: "https://key@o1.ingest.sentry.io/2",
+    EAS_BUILD: "true",
+    SENTRY_ORG: "recall",
+    SENTRY_PROJECT: "recall-mobile",
+    SENTRY_AUTH_TOKEN: "sntrys_test",
+  };
+
+  it("requires Sentry upload credentials when an EAS release build has a DSN", () => {
+    expect(() =>
+      requireReleaseBuildSecrets("production", "ios", { ...completeEnv, ...sentryUpload }),
+    ).not.toThrow();
+    expect(() =>
+      requireReleaseBuildSecrets("preview", "android", {
+        ...completeEnv,
+        ...sentryUpload,
+        SENTRY_ORG: "",
+        SENTRY_AUTH_TOKEN: undefined,
+      }),
+    ).toThrow(/SENTRY_ORG, SENTRY_AUTH_TOKEN.*SENTRY_DISABLE_AUTO_UPLOAD=true/);
+    // Reported with the other missing secrets in one message.
+    expect(() =>
+      requireReleaseBuildSecrets("production", "ios", {
+        ...completeEnv,
+        ...sentryUpload,
+        EXPO_PUBLIC_EAS_PROJECT_ID: "",
+        SENTRY_PROJECT: " ",
+      }),
+    ).toThrow(/EXPO_PUBLIC_EAS_PROJECT_ID, SENTRY_PROJECT/);
+  });
+
+  it("skips the Sentry check without a DSN, off the EAS worker, or with uploads off", () => {
+    const noCredentials = {
+      ...completeEnv,
+      ...sentryUpload,
+      SENTRY_ORG: undefined,
+      SENTRY_PROJECT: undefined,
+      SENTRY_AUTH_TOKEN: undefined,
+    };
+    expect(() =>
+      requireReleaseBuildSecrets("production", "ios", {
+        ...noCredentials,
+        EXPO_PUBLIC_SENTRY_DSN: "  ",
+      }),
+    ).not.toThrow();
+    // eas-cli resolves the config locally without EAS_BUILD or Secret variables.
+    expect(() =>
+      requireReleaseBuildSecrets("production", "ios", { ...noCredentials, EAS_BUILD: undefined }),
+    ).not.toThrow();
+    expect(() =>
+      requireReleaseBuildSecrets("production", "ios", {
+        ...noCredentials,
+        SENTRY_DISABLE_AUTO_UPLOAD: "true",
+      }),
+    ).not.toThrow();
+    expect(() => requireReleaseBuildSecrets("development", "ios", noCredentials)).not.toThrow();
+  });
+
+  it("names the Sentry org and project for the upload step when they are set", () => {
+    expect(sentryPluginOptions(sentryUpload)).toEqual({
+      organization: "recall",
+      project: "recall-mobile",
+    });
+    expect(sentryPluginOptions({ SENTRY_ORG: " recall ", SENTRY_PROJECT: "" })).toEqual({
+      organization: "recall",
+    });
+    expect(sentryPluginOptions({})).toEqual({});
   });
 
   it("does not require release secrets for development builds", () => {

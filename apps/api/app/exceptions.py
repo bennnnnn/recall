@@ -8,6 +8,15 @@ class QuotaExceededError(ChatServiceError):
     pass
 
 
+class SpendCapReachedError(ChatServiceError):
+    """Today's global spend cap (``DAILY_GLOBAL_SPEND_USD``) is reached; no turn starts.
+
+    Not a ``QuotaExceededError``: the user's own allowance is not used up, so
+    the transports send the plain error event (this message), not the quota
+    code that opens the upgrade prompt.
+    """
+
+
 class ChatNotFoundError(ChatServiceError):
     pass
 

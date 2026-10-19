@@ -13,6 +13,7 @@ from app.background.periodic import (
 )
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.gateways import email_gateway
 from app.modules.notifications import reminder_email as reminder_emails
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,8 @@ LOCK_TTL_SECONDS = lock_ttl_hold_across_ticks(INTERVAL_SECONDS)
 
 
 def _email_reminders_enabled(settings: Settings) -> bool:
-    return settings.email_enabled and settings.email_reminders_scheduler_enabled
+    # Not without a provider: a mock "send" marked reminders sent that never went out.
+    return settings.email_reminders_scheduler_enabled and email_gateway.can_send(settings)
 
 
 async def _email_cycle(settings: Settings, _lock: CycleLock) -> None:
@@ -46,6 +48,8 @@ async def run_email_reminder_cycle(settings: Settings) -> None:
 
 
 async def start_email_reminder_scheduler(settings: Settings) -> None:
+    if settings.email_reminders_scheduler_enabled and not _email_reminders_enabled(settings):
+        logger.info("Email reminder scheduler not started: this process cannot send email")
     await start_periodic(
         name=_NAME,
         interval_seconds=INTERVAL_SECONDS,

@@ -5,6 +5,11 @@ name: Publish app update
 # a config plugin or permission change) still need a store build from deploy.yml,
 # and a bump of `version` in apps/mobile/app.json: a build only takes updates whose
 # runtime version (that `version`) matches its own.
+#
+# The production channel takes updates from main only, after Mobile CI passed for
+# that commit, in the GitHub environment "production" (add required reviewers
+# there; docs/PRODUCTION.md §4). The preview channel takes any branch. Either way
+# the bundle is typechecked, linted and tested here before it is published.
 
 on:
   workflow_dispatch:
@@ -29,15 +34,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  gate:
+    name: Gate (production from main, CI green)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    steps:
+      - name: Production updates come from main only
+        if: inputs.channel == 'production' && github.ref != 'refs/heads/main'
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          echo "::error title=Not main::The production channel takes updates from main only, not $REF. Use the preview channel to try a branch."
+          exit 1
+
+      - uses: actions/checkout@v7
+        if: inputs.channel == 'production'
+        with:
+          fetch-depth: 100
+          persist-credentials: false
+
+      - name: Mobile CI passed for this commit's app code
+        if: inputs.channel == 'production'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          scripts/require-green-ci.sh mobile-ci.yml "$GITHUB_SHA"
+          apps/mobile scripts/check_file_sizes.py scripts/file_size_baseline.json
+          .github/workflows/mobile-ci.yml
+
+  publish:
+    needs: gate
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.channel }}
     defaults:
       run:
         working-directory: apps/mobile
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 9
 
@@ -50,9 +90,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - uses: expo/expo-github-action@v9
+      # The same checks as Mobile CI, on the exact tree being bundled.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test
+
+      - uses: expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385 # 9.0.0
         with:
-          eas-version: latest
+          eas-version: 24.10.0
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Publish the update

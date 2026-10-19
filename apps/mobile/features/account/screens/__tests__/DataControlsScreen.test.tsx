@@ -10,6 +10,8 @@ const mockExport = jest.fn();
 const mockCancelExport = jest.fn();
 const mockDeleteAccount = jest.fn();
 const mockDeleteAllChats = jest.fn();
+const mockReplace = jest.fn();
+const mockReportError = jest.fn();
 let mockProgress = "idle";
 let mockUser: Record<string, unknown>;
 
@@ -22,7 +24,7 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("expo-router", () => ({
   Redirect: () => null,
   router: { push: jest.fn() },
-  useRouter: () => ({ replace: jest.fn() }),
+  useRouter: () => ({ replace: mockReplace }),
   useNavigation: () => ({ setOptions: jest.fn() }),
 }));
 jest.mock("@/contexts/AuthContext", () => ({
@@ -45,6 +47,9 @@ jest.mock("@/ui/overlay/dialogs", () => ({
   alertDialog: jest.fn(),
 }));
 jest.mock("@/lib/cache/chatListCache", () => ({ invalidateChatListCache: jest.fn() }));
+jest.mock("@/lib/reportRecoverableError", () => ({
+  reportRecoverableError: (...args: unknown[]) => mockReportError(...args),
+}));
 jest.mock("@/lib/deviceLocation", () => ({
   getDeviceLocationLabel: (...args: unknown[]) => mockLocationLabel(...args),
 }));
@@ -133,13 +138,33 @@ it("shows the export in progress with a way to cancel it", async () => {
 });
 
 it("deletes the account only after a confirmation that lists what is lost", async () => {
-  mockDeleteAccount.mockResolvedValue(true);
+  mockDeleteAccount.mockResolvedValue("deleted");
   const view = await render(<DataControlsScreen />);
   await fireEvent.press(view.getByText("settings.delete"));
   await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalled());
   expect(mockConfirm).toHaveBeenCalledWith(
     expect.objectContaining({ title: "delete.title", message: "delete.message", destructive: true }),
   );
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/login"));
+});
+
+it("closing the Apple sheet during delete shows no error and stays", async () => {
+  mockDeleteAccount.mockResolvedValue("cancelled");
+  const view = await render(<DataControlsScreen />);
+  await fireEvent.press(view.getByText("settings.delete"));
+  await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalled());
+  expect(mockReplace).not.toHaveBeenCalled();
+  expect(mockReportError).not.toHaveBeenCalled();
+});
+
+it("a failed delete says so", async () => {
+  mockDeleteAccount.mockResolvedValue("failed");
+  const view = await render(<DataControlsScreen />);
+  await fireEvent.press(view.getByText("settings.delete"));
+  await waitFor(() =>
+    expect(mockReportError).toHaveBeenCalledWith(null, "settings.delete_failed"),
+  );
+  expect(mockReplace).not.toHaveBeenCalled();
 });
 
 it("shows the account deletion in progress", async () => {

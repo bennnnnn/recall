@@ -108,15 +108,5 @@ async def classify_web_search_need(
     except TimeoutError:
         logger.debug("Web-search classifier exceeded its foreground budget")
         return None
-    try:
-        # All IO shares one deadline. A valid verdict survives an accounting
-        # timeout; bookkeeping must not turn a known live-search need into no.
-        async with asyncio.timeout_at(deadline):
-            await quota_service.record_global_spend(
-                redis, quota_service.WEB_SEARCH_CLASSIFIER_SPEND_USD
-            )
-    except TimeoutError:
-        logger.warning("Web-search classifier accounting exceeded its foreground budget")
-    except Exception:
-        logger.exception("record_global_spend failed after web-search classifier")
+    # The gateway adds this call's cost to the global spend, off this deadline.
     return result

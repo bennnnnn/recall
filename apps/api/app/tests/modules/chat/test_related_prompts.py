@@ -195,6 +195,34 @@ async def test_schedule_caches_questions_for_reopen(fake_redis) -> None:
     assert await load_related_prompts(fake_redis, "missing") == []
 
 
+@pytest.mark.parametrize(
+    "spent_usd, cap_usd, asks",
+    [(0.5, 1.0, True), (1.0, 1.0, False), (3.0, 1.0, False), (3.0, 0.0, True)],
+)
+async def test_follow_ups_stop_at_the_global_spend_cap(
+    fake_redis, spent_usd: float, cap_usd: float, asks: bool
+) -> None:
+    from app.services.quota import record_global_spend
+
+    await record_global_spend(fake_redis, spent_usd)
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        complete.return_value = RelatedQuestions(questions=PHYSICS_FOLLOWUPS)
+        task = schedule_related_prompts(
+            fake_redis,
+            Settings(daily_global_spend_usd=cap_usd),
+            message_id="abc",
+            question=PHYSICS,
+            answer="The force is 30 newtons.",
+        )
+        event = await take_related_prompts_event(task)
+
+    assert (event is not None) is asks
+    assert complete.await_count == int(asks)
+
+
 @pytest.mark.parametrize("completion", ["user_stop", "interrupted"])
 async def test_a_stopped_or_cut_off_reply_gets_no_follow_ups(completion: str, fake_redis) -> None:
     with patch(

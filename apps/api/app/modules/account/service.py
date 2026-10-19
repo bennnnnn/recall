@@ -19,22 +19,17 @@ from app.models.orm import User
 from app.models.schemas import AuthResponse, UserOut
 from app.modules.account import quota_carryover
 from app.modules.account import tokens as tokens_service
+
+# Re-exported for the account API (maps it to 409 naming the earlier sign-in).
+from app.modules.account.email_authority import AccountExistsError as AccountExistsError
+from app.modules.account.email_authority import (
+    apple_owns_email,
+    claim_is_true,
+    google_owns_email,
+    previous_sign_in,
+)
 from app.modules.notifications import enqueue_welcome_email
 from app.repositories import users as users_repo
-
-
-def _is_verified_truthy(value: object) -> bool:
-    """True only for an explicit, unambiguous "verified" claim.
-
-    Apple ships `email_verified` as the string "true"/"false"; Google ships a
-    bool. A missing claim or any non-affirmative value (incl. the string
-    "false", 0, None) is treated as unverified.
-    """
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() == "true"
-    return False
 
 
 async def login_with_google(
@@ -54,15 +49,14 @@ async def login_with_google(
 
     user = await users_repo.get_by_google_sub(session, google_sub)
     is_new_user = user is None
-    # Mirror Apple sign-in: if no google_sub match but a user with this email
-    # already exists (e.g. created via Apple), link the accounts instead of
-    # creating a duplicate row — which would hit the unique(email) constraint
-    # and surface as an unhandled 500 IntegrityError.
+    # No account has this Google id. One that holds the email (e.g. made with
+    # Apple) gains this Google login only when Google owns the address; email
+    # is unique, so otherwise the user signs in the way they did before.
     if user is None and email:
         existing = await users_repo.get_by_email(session, email)
         if existing is not None:
-            if existing.google_sub and existing.google_sub != google_sub:
-                raise GoogleAuthError("This email is already linked to a different Google account")
+            if existing.google_sub or not google_owns_email(payload, email):
+                raise AccountExistsError(previous_sign_in(existing, "google"))
             user = await users_repo.update(session, existing, google_sub=google_sub)
             is_new_user = False
 
@@ -139,16 +133,18 @@ async def login_with_apple(
     # as Google's `not payload.get("email_verified")` but robust to the
     # string form and to a missing claim (which must not silently pass).
     email_verified = payload.get("email_verified")
-    if not _is_verified_truthy(email_verified):
+    if not claim_is_true(email_verified):
         raise GoogleAuthError("Apple email address is not verified")
 
     user = await users_repo.get_by_apple_sub(session, apple_sub)
     is_new_user = user is None
+    # As with Google: an account holding the email gains this Apple login only
+    # when Apple owns the address (its relay, iCloud, me.com, mac.com).
     if user is None and email:
         existing = await users_repo.get_by_email(session, email)
         if existing is not None:
-            if existing.apple_sub and existing.apple_sub != apple_sub:
-                raise GoogleAuthError("This email is already linked to a different Apple account")
+            if existing.apple_sub or not apple_owns_email(payload, email):
+                raise AccountExistsError(previous_sign_in(existing, "apple"))
             user = await users_repo.update(session, existing, apple_sub=apple_sub)
             is_new_user = False
 

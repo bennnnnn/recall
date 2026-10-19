@@ -583,6 +583,10 @@ async def test_index_attachment_stores_ocr_coverage():
             AsyncMock(return_value=b"%PDF"),
         ),
         patch(
+            "app.modules.attachments.rag.ocr_allowance.reserve_ocr",
+            AsyncMock(return_value=None),
+        ),
+        patch(
             "app.modules.attachments.rag.attachment_content_service.extract_text_details_async",
             _extract,
         ),

@@ -1,6 +1,6 @@
 """Router-level tests using FastAPI TestClient with mocked dependencies."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -41,6 +41,7 @@ def _fake_user(**kw) -> User:
     u.quiet_hours_enabled = kw.get("quiet_hours_enabled", False)
     u.quiet_hours_start_minute = kw.get("quiet_hours_start_minute", 1320)
     u.quiet_hours_end_minute = kw.get("quiet_hours_end_minute", 420)
+    u.ai_data_consent_at = kw.get("ai_data_consent_at", None)
     u.google_sub = kw.get("google_sub", "google-sub")
     u.apple_sub = kw.get("apple_sub", None)
     u.created_at = datetime(2024, 1, 1)
@@ -191,6 +192,59 @@ def test_me_patch_skips_memory_invalidation_when_unchanged():
 
     assert r.status_code == 200
     invalidate_mock.assert_not_called()
+
+
+def test_me_returns_ai_data_consent_time():
+    agreed = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)
+    client = TestClient(_app_with_user(_fake_user(ai_data_consent_at=agreed)))
+    r = client.get("/auth/me", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 200
+    assert r.json()["ai_data_consent_at"] == "2026-10-19T12:00:00Z"
+
+    client = TestClient(_app_with_user(_fake_user()))
+    me = client.get("/auth/me", headers={"Authorization": "Bearer tok"}).json()
+    assert me["ai_data_consent_at"] is None
+
+
+def _patch_capturing_fields(body: dict[str, object]) -> tuple[int, dict[str, object]]:
+    user = _fake_user()
+    app = _app_with_user(user)
+    captured: dict[str, object] = {}
+
+    async def capture(_session, _user, **fields):
+        captured.update(fields)
+        return user
+
+    with (
+        patch("app.modules.account.lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        r = TestClient(app).patch("/auth/me", headers={"Authorization": "Bearer tok"}, json=body)
+    return r.status_code, captured
+
+
+def test_me_patch_records_ai_data_consent_at_the_server_clock():
+    before = datetime.now(UTC)
+    status, captured = _patch_capturing_fields({"ai_data_consent": True})
+    assert status == 200
+    assert "ai_data_consent" not in captured
+    stored = captured["ai_data_consent_at"]
+    assert isinstance(stored, datetime) and before <= stored <= datetime.now(UTC)
+
+
+def test_me_patch_withdraws_ai_data_consent():
+    status, captured = _patch_capturing_fields({"ai_data_consent": False})
+    assert status == 200
+    assert captured["ai_data_consent_at"] is None
+
+
+def test_me_patch_ignores_a_client_supplied_consent_time():
+    status, captured = _patch_capturing_fields(
+        {"ai_data_consent_at": "2000-01-01T00:00:00Z", "name": "Ada"}
+    )
+    assert status == 200
+    assert "ai_data_consent_at" not in captured
+    assert captured["name"] == "Ada"
 
 
 def test_me_patch_rejects_blank_name():

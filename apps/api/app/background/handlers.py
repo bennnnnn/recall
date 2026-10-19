@@ -41,6 +41,9 @@ from app.services import quota as quota_service
 
 logger = logging.getLogger(__name__)
 
+# Most memory history scans one worker runs at once (of JOBS_WORKER_CONCURRENCY slots).
+HISTORY_SCANS_AT_ONCE = 3
+
 
 async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
     user_id_raw = payload.get("user_id")
@@ -296,7 +299,13 @@ def register_all() -> None:
     register("memory", _handle_memory)
     register("memory_consolidate", _handle_memory_consolidate)
     register("lesson_progress", _handle_lesson_progress)
-    register(memory_history_scan.HISTORY_SCAN_JOB, _handle_memory_history_scan)
+    # About twenty LLM extractions each, queued the first time someone opens
+    # Memory: a launch-day burst must leave slots for titles, memory and email.
+    register(
+        memory_history_scan.HISTORY_SCAN_JOB,
+        _handle_memory_history_scan,
+        max_running=HISTORY_SCANS_AT_ONCE,
+    )
     register("todos", _handle_todos)
     register("compress", _handle_compress)
     register("suggestions", _handle_suggestions)

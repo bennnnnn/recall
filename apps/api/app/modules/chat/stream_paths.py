@@ -22,7 +22,7 @@ from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
-from app.modules.chat.turn_prep import StreamContext
+from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.web_search import detection as web_search_detection
 from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
 from app.services import model_health as model_health_service
@@ -64,6 +64,11 @@ class StreamAccum:
         if self.completion == "complete":
             self.completion = "interrupted"
 
+    def mark_server_stop(self) -> None:
+        """The server stopped the reply (shutdown), whatever the stop looked like."""
+        self.was_cancelled = True
+        self.completion = "interrupted"
+
 
 async def run_instant_reply_path(
     ctx: StreamContext,
@@ -72,10 +77,11 @@ async def run_instant_reply_path(
     accum: StreamAccum,
 ) -> AsyncIterator[str]:
     if not (should_cancel and should_cancel()):
-        if ctx.timing is not None:
-            ctx.timing.mark_first_token()
         if ctx.instant_reply is None:
             return
+        await await_user_message_persist(ctx)
+        if ctx.timing is not None:
+            ctx.timing.mark_first_token()
         accum.parts.append(ctx.instant_reply)
         yield ctx.instant_reply
     else:
@@ -238,8 +244,15 @@ async def run_llm_token_stream(
             if should_cancel and should_cancel():
                 accum.mark_user_stop()
                 break
-            if ctx.timing is not None and not accum.parts:
-                ctx.timing.mark_first_token()
+            if not accum.parts:
+                # The user's row commits beside the provider's time to first
+                # token. No token goes out before it has: a reply to a message
+                # that never saved would be neither stored nor charged. The
+                # model did answer, so a failed save is not its health sample.
+                stream_ok = True
+                await await_user_message_persist(ctx)
+                if ctx.timing is not None:
+                    ctx.timing.mark_first_token()
             accum.parts.append(token)
             if ctx.answer_photo is not None and ctx.answer_photo.watching:
                 ctx.answer_photo.feed("".join(accum.parts))

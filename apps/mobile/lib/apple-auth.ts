@@ -99,3 +99,34 @@ export async function signInWithAppleCredentials(): Promise<AppleSignInResult> {
 
   return { idToken, name, nonce };
 }
+
+/**
+ * Deleting an Apple-linked account asks Apple once more for a fresh
+ * authorization code; the server trades it for the user's Apple token and
+ * revokes that (App Review 5.1.1(v)). Cancelling the sheet means the user
+ * changed their mind. When Sign in with Apple cannot run here (Android, a
+ * build without it), the delete goes ahead without a code.
+ */
+export type AppleDeleteConsent =
+  | { kind: "code"; code: string }
+  | { kind: "cancelled" }
+  | { kind: "unavailable" };
+
+function isAppleCancel(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === "ERR_REQUEST_CANCELED" || formatAppleSignInError(error) === "cancelled";
+}
+
+export async function appleConsentForAccountDelete(): Promise<AppleDeleteConsent> {
+  if (!isAppleSignInPlatform()) return { kind: "unavailable" };
+  try {
+    const AppleAuthentication = await loadAppleAuth();
+    if (!(await AppleAuthentication.isAvailableAsync())) return { kind: "unavailable" };
+    // No scopes: only the authorization code is needed, nothing about the user.
+    const credential = await AppleAuthentication.signInAsync({ requestedScopes: [] });
+    const code = credential.authorizationCode?.trim();
+    return code ? { kind: "code", code } : { kind: "unavailable" };
+  } catch (error) {
+    return isAppleCancel(error) ? { kind: "cancelled" } : { kind: "unavailable" };
+  }
+}

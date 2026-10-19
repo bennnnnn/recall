@@ -732,6 +732,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **States** — login, loading, empty chat ("How can I help?"), empty memory, drawer offline/retry.
 - ✅ **Onboarding** — a first-run welcome screen (value props + "Get started"), shown once before
   the first sign-in.
+- ✅ **AI data consent** — after sign-in and before the first chat, every account (new and
+  existing) sees once what goes to which outside service (AI models via OpenRouter, OpenAI
+  voice, Mathpix math photos, Tavily search, optional location) with a privacy-policy link;
+  Agree stores `users.ai_data_consent_at` on the account (`PATCH /auth/me`
+  `ai_data_consent`), Not now signs out. Every signed-in screen waits on it (the root
+  layout's `features/auth/components/AiConsentRedirect.tsx` sends it to `app/consent.tsx`);
+  the web client asks too. No server-side check in the chat path yet.
 - ✅ **Polish** — light haptic taps on key actions (Android via the built-in API) + chip fade-in
   animation.
 - ✅ **iOS haptics** — `expo-haptics` on real devices (graceful no-op on Android / Expo Go).
@@ -1071,8 +1078,9 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
 - 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**960** keys);
   ~350 non-en values are still English. Structural i18n is complete.
-- 🔜 **Legal page bodies** — **future.** `/legal/privacy` and `/legal/terms` remain English-only
-  markdown on the API (nav titles are localized).
+- 🔜 **Legal page bodies** — **future.** `/legal/privacy`, `/legal/terms` and
+  `/legal/delete-account` (the Play "Delete account URL") remain English-only markdown on the
+  API (nav titles are localized); the contact is `SUPPORT_EMAIL`.
 - ✅ **DB session scope in `_prepare_chat_turn`** — attachment S3 reads and web-search
   augmentation run outside the DB session.
 - ✅ **Background-job DLQ** — failed jobs (including unknown type / bad JSON) go to

@@ -12,6 +12,7 @@ from app.core.validation import (
     validate_user_alias,
 )
 from app.models.schemas.common import ResponseStyle, ResponseTone, UserVoice
+from app.models.schemas.text import UserText
 
 
 class UserOut(BaseModel):
@@ -30,6 +31,8 @@ class UserOut(BaseModel):
     follow_up_suggestions_enabled: bool = True
     memory_include_sensitive: bool = False
     web_search_enabled: bool = True
+    # When the user agreed to what is sent to outside AI services; null until then.
+    ai_data_consent_at: datetime | None = None
     push_notifications_enabled: bool = True
     push_reminders_enabled: bool = True
     tts_voice: str | None = None
@@ -65,6 +68,13 @@ class UserOut(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def apple_linked(self) -> bool:
+        """Signs in with Apple (alone or beside Google): deleting the account on
+        iOS asks Apple once more so the server can revoke the Apple grant."""
+        return isinstance(self.apple_sub, str) and bool(self.apple_sub)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def features(self) -> list[str]:
         """What this plan includes, so the app can show locks. The server still
         checks every request; this is display only."""
@@ -73,10 +83,21 @@ class UserOut(BaseModel):
 
         return list(features_for(self.plan, get_settings()))
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def email_reminders_available(self) -> bool:
+        """False when this server cannot send reminder emails (no provider key in
+        production, or turned off), so the app can hide the email-reminder switch."""
+        from app.core.config import get_settings
+        from app.gateways import email_gateway
+
+        settings = get_settings()
+        return settings.email_reminders_scheduler_enabled and email_gateway.can_send(settings)
+
 
 class UserUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=80)
-    avatar_url: str | None = Field(default=None, max_length=64)
+    name: UserText | None = Field(default=None, min_length=1, max_length=80)
+    avatar_url: UserText | None = Field(default=None, max_length=64)
     default_model: str | None = None
     enabled_models: list[str] | None = None
     response_style: ResponseStyle | None = None
@@ -85,6 +106,9 @@ class UserUpdate(BaseModel):
     follow_up_suggestions_enabled: bool | None = None
     memory_include_sensitive: bool | None = None
     web_search_enabled: bool | None = None
+    # true records agreement to the outside-AI disclosure at the server's clock;
+    # false withdraws it. The client never sends the time itself.
+    ai_data_consent: bool | None = None
     push_notifications_enabled: bool | None = None
     push_reminders_enabled: bool | None = None
     # null puts the server default back.
@@ -94,14 +118,14 @@ class UserUpdate(BaseModel):
     quiet_hours_enabled: bool | None = None
     quiet_hours_start_minute: int | None = Field(default=None, ge=0, le=1439)
     quiet_hours_end_minute: int | None = Field(default=None, ge=0, le=1439)
-    locale: str | None = None
-    timezone: str | None = Field(default=None, max_length=64)
-    location: str | None = Field(default=None, max_length=128)
+    locale: UserText | None = None
+    timezone: UserText | None = Field(default=None, max_length=64)
+    location: UserText | None = Field(default=None, max_length=128)
     location_enabled: bool | None = None
-    custom_instructions: str | None = Field(default=None, max_length=1000)
+    custom_instructions: UserText | None = Field(default=None, max_length=1000)
     age: int | None = Field(default=None, ge=13, le=120)
-    country: str | None = Field(default=None, max_length=64)
-    job: str | None = Field(default=None, max_length=128)
+    country: UserText | None = Field(default=None, max_length=64)
+    job: UserText | None = Field(default=None, max_length=128)
 
     @field_validator("name")
     @classmethod
@@ -188,8 +212,8 @@ class UserUpdate(BaseModel):
 
 
 class DeviceSessionIn(BaseModel):
-    device_label: str | None = Field(default=None, max_length=80)
-    platform: str | None = Field(default=None, max_length=16)
+    device_label: UserText | None = Field(default=None, max_length=80)
+    platform: UserText | None = Field(default=None, max_length=16)
 
 
 class GoogleAuthRequest(DeviceSessionIn):
@@ -198,14 +222,14 @@ class GoogleAuthRequest(DeviceSessionIn):
 
 class AppleAuthRequest(DeviceSessionIn):
     id_token: str
-    name: str | None = None
+    name: UserText | None = None
     # The raw nonce; the app gave Apple its SHA-256, which the token carries.
     nonce: str | None = Field(default=None, max_length=256)
 
 
 class DevAuthRequest(DeviceSessionIn):
-    email: str = "dev@recall.local"
-    name: str = "bini"
+    email: UserText = "dev@recall.local"
+    name: UserText = "bini"
 
 
 class AuthResponse(BaseModel):
@@ -235,6 +259,12 @@ class AuthSessionListOut(BaseModel):
 
 class LogoutRequest(BaseModel):
     refresh_token: str | None = None
+
+
+class AccountDeleteRequest(BaseModel):
+    # A fresh Sign in with Apple code (Apple-linked accounts on iOS); the
+    # server trades it for the user's Apple token and revokes that.
+    apple_authorization_code: str | None = Field(default=None, max_length=2048)
 
 
 class SettingsChangeOut(BaseModel):

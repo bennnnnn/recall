@@ -127,7 +127,7 @@ async def handle_revenuecat_transfer(
     """Move entitlements between app user ids.
 
     Fetches the target's plan from the RevenueCat API *before* any writes, then
-    upgrades the target and only then downgrades sources. Returns False when
+    upgrades the target and only then re-reads each source. Returns False when
     the target plan could not be resolved so the webhook is not deduped and
     RevenueCat can retry. Never defaults the target to a paid plan.
     """
@@ -159,5 +159,22 @@ async def handle_revenuecat_transfer(
     for old_id in transferred_from:
         cleaned = old_id.strip()
         if cleaned:
-            await apply_plan_for_app_user_id(session, cleaned, plan="free")
+            await _resync_transfer_source(session, settings, cleaned)
     return True
+
+
+async def _resync_transfer_source(
+    session: AsyncSession, settings: Settings, app_user_id: str
+) -> None:
+    """The plan a source keeps after its entitlement moved: any other grant it holds.
+
+    A source can still hold another product, store or promotional grant, and
+    the hourly reconcile only re-checks paid rows, so setting it to free
+    would stick until the app reopened. Unreadable falls back to free, as
+    before: the moved entitlement is no longer this account's.
+    """
+    plan = await resolve_plan_from_revenuecat(settings, app_user_id)
+    if plan is None:
+        logger.warning("RevenueCat TRANSFER source unreadable; free app_user_id=%s", app_user_id)
+        plan = "free"
+    await apply_plan_for_app_user_id(session, app_user_id, plan=plan)

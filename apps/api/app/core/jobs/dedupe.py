@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from typing import cast
+from uuid import uuid4
 
 from redis.asyncio import Redis
 
@@ -28,6 +29,17 @@ _DEDUPE_DONE = "done"
 
 def job_done_key(dedupe_key: str) -> str:
     return f"{_JOB_DONE_PREFIX}{dedupe_key}"
+
+
+def unique_dedupe_key(stem: str) -> str:
+    """A dedupe key for one enqueue of a job that may be requested again later.
+
+    A job with no key had no claim: a peer that reclaimed its entry mid-run ran
+    it a second time. A fixed key would skip every later request for 24h. This
+    key covers only this entry, so its redeliveries wait for the running claim
+    while a later enqueue (a new key) still runs.
+    """
+    return f"{stem}:{uuid4().hex}"
 
 
 async def _claim_dedupe(

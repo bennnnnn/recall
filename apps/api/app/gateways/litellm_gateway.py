@@ -9,7 +9,7 @@ from litellm import acompletion
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
-from app.gateways import mock_llm
+from app.gateways import llm_spend, mock_llm
 from app.gateways.reasoning import reasoning_body
 
 # Compatibility exports keep provider seams stable after splitting this module.
@@ -86,7 +86,9 @@ async def _acompletion_with_fallback(
             if response_format is not None:
                 params["response_format"] = response_format
             async with asyncio.timeout(settings.background_llm_timeout_seconds):
-                return await acompletion(**params)
+                response = await acompletion(**params)
+            llm_spend.meter_model_call(alias, response)
+            return response
         except TimeoutError:
             if alias == primary_alias and fallback is not None:
                 logger.warning(

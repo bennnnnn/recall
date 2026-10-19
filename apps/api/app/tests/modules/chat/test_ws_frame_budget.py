@@ -20,7 +20,7 @@ from starlette.websockets import WebSocketDisconnect
 from app.core.access_tokens import create_access_token
 from app.core.config import Settings
 from app.main import create_app
-from app.modules.chat import ws_api
+from app.modules.chat import ws_limits
 
 _LIMIT = 10
 _SECRET = "super-secret-key-that-is-at-least-32-chars!!"
@@ -44,7 +44,7 @@ def test_ws_closes_a_socket_that_floods_frames(frames: int, closed: bool) -> Non
     app = create_app()
     app.dependency_overrides[get_settings_dep] = lambda: settings
     with (
-        patch.object(ws_api, "_WS_FRAME_LIMIT", _LIMIT),
+        patch.object(ws_limits, "WS_FRAME_LIMIT", _LIMIT),
         patch(
             "app.modules.chat.ws_api.access_tokens.verify_access_token",
             AsyncMock(return_value=user_id),

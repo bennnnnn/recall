@@ -24,6 +24,8 @@ class JobDiscardError(Exception):
 
 JobHandler = Callable[[Settings, dict[str, Any]], Awaitable[None]]
 _HANDLERS: dict[str, JobHandler] = {}
+# Job type -> most jobs of that type one worker runs at once (see ``register``).
+_RUNNING_LIMITS: dict[str, int] = {}
 
 
 def _capture_sentry_exception(message: str) -> None:
@@ -41,8 +43,22 @@ def _capture_sentry_exception(message: str) -> None:
         logger.debug("sentry capture failed for %s", message, exc_info=True)
 
 
-def register(job_type: str, handler: JobHandler) -> None:
+def register(job_type: str, handler: JobHandler, *, max_running: int | None = None) -> None:
+    """Route ``job_type`` to ``handler``.
+
+    ``max_running`` caps how many jobs of this type one worker runs at once, so
+    a burst of a slow type cannot take every slot from the quick ones.
+    """
     _HANDLERS[job_type] = handler
+    if max_running is None:
+        _RUNNING_LIMITS.pop(job_type, None)
+    else:
+        _RUNNING_LIMITS[job_type] = max(1, max_running)
+
+
+def running_limit(job_type: str | None) -> int | None:
+    """The ``max_running`` cap registered for this type (None = only the worker's limit)."""
+    return _RUNNING_LIMITS.get(job_type or "")
 
 
 async def enqueue(

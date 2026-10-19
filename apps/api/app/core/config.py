@@ -3,6 +3,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.production_checks import service_url_errors, trusted_proxy_cidrs_ipv4_only
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,6 +20,10 @@ class Settings(BaseSettings):
     # as a 503 instead of holding the sign-in (and a worker thread).
     google_auth_timeout_seconds: float = 10.0
     apple_client_id: str = "com.recall.app"
+    # Sign in with Apple key (the .p8 contents): account delete revokes the Apple grant.
+    apple_team_id: str = ""
+    apple_key_id: str = ""
+    apple_private_key: str = ""
 
     jwt_secret: str = "dev-secret-change-me"
     # 60m is intentional: jti + revoked_since cover logout/reuse; lower freely
@@ -26,8 +32,7 @@ class Settings(BaseSettings):
     jwt_refresh_expire_days: int = 30
 
     openrouter_api_key: str = ""
-    # Direct OpenAI key for Live Talk WebRTC only. Composer STT uses OpenRouter.
-    # OpenRouter has no Realtime/WebRTC API, so this cannot share that hop.
+    # Direct OpenAI key for all voice: dictation, read-aloud and Live Talk WebRTC.
     openai_api_key: str = ""
     tavily_api_key: str = ""
 
@@ -199,8 +204,8 @@ class Settings(BaseSettings):
 
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
     process_role: str = "all"
-    # Max in-flight jobs per worker process when draining a Redis Stream batch.
-    # Keeps LLM handlers from head-of-line-blocking compress/topic/todo jobs.
+    # Max jobs one worker process runs at once; it keeps reading while a slot
+    # is free, so a slow LLM job never holds back compress/topic/todo jobs.
     jobs_worker_concurrency: int = 8
     # Hard ceiling on the Redis jobs stream (entries). The soft 10k trim only
     # runs while nothing is pending; one entry left pending by a dead worker
@@ -213,9 +218,9 @@ class Settings(BaseSettings):
     # attempt that runs this long goes to the DLQ (not retried). Generous: the
     # memory history scan reads 20 chats and resumes where it stopped.
     job_timeout_seconds: float = 900.0
-    # Port the worker process exposes a tiny /health/ready endpoint on, so Fly
-    # can health-check + auto-restart a stuck worker (the worker otherwise has
-    # no HTTP). 0 disables the worker health server (e.g. process_role=all dev).
+    # Port of the worker's tiny /health/ready (deploy checks, uptime monitors;
+    # Fly never restarts on a failing check, worker_main exits instead). 0
+    # disables the worker health server (e.g. process_role=all dev).
     worker_health_port: int = 8001
     speech_transcription_enabled: bool = True
     # Direct OpenAI voice. Empty overrides use the speech catalog aliases.
@@ -320,6 +325,10 @@ class Settings(BaseSettings):
     # forever. Generous: account delete is one cascading DELETE. 0 disables.
     db_connect_timeout_seconds: float = 10.0
     db_command_timeout_seconds: float = 120.0
+    # Each migration transaction's lock wait and statement limit (Postgres
+    # durations; core/migration_session.py). Under Fly's 5 min release timeout.
+    migration_lock_timeout: str = "5s"
+    migration_statement_timeout: str = "4min"
     # Cap concurrent DB checkouts inside the context gather so one turn cannot
     # grab all five pool slots at once.
     context_db_concurrency: int = 3
@@ -402,6 +411,10 @@ class Settings(BaseSettings):
 
     # Per-user/IP REST requests per minute (health + webhooks excluded).
     rest_rate_limit_per_minute: int = 240
+    # Chat WebSockets per machine (modules/chat/ws_limits.py): open sockets per
+    # user, and seconds idle between turns before a close. 0 disables either.
+    ws_max_sockets_per_user: int = 5
+    ws_idle_timeout_seconds: float = 300.0
     # Request body caps (core/body_limit.py). A declared Content-Length over
     # the cap is refused before any byte is read; a chunked body is counted as
     # it streams. JSON routes stay far below 1 MiB (chat text is 32k chars).
@@ -432,23 +445,12 @@ class Settings(BaseSettings):
     # Optional Sentry error reporting (leave empty to disable).
     sentry_dsn: str = ""
     sentry_traces_sample_rate: float = 0.1
+    support_email: str = ""  # contact on the /legal pages; boot warns while empty
 
 
-def _trusted_proxy_cidrs_ipv4_only(cidrs: str) -> bool:
-    """True when every non-empty CIDR parses as IPv4 (Fly 6PN would be ignored)."""
-    import ipaddress
-
-    parsed: list[bool] = []
-    for raw in cidrs.split(","):
-        piece = raw.strip()
-        if not piece:
-            continue
-        try:
-            net = ipaddress.ip_network(piece, strict=False)
-        except ValueError:
-            continue
-        parsed.append(isinstance(net, ipaddress.IPv4Network))
-    return bool(parsed) and all(parsed)
+def apple_revoke_configured(settings: Settings) -> bool:
+    keys = (settings.apple_team_id, settings.apple_key_id, settings.apple_private_key)
+    return all(value.strip() for value in keys)
 
 
 def _warn_proxy_trust_misconfig(settings: Settings) -> None:
@@ -467,7 +469,7 @@ def _warn_proxy_trust_misconfig(settings: Settings) -> None:
             "client IPs will not use XFF / Fly-Client-IP."
         )
         return
-    if _trusted_proxy_cidrs_ipv4_only(settings.trusted_proxy_cidrs):
+    if trusted_proxy_cidrs_ipv4_only(settings.trusted_proxy_cidrs):
         logger.warning(
             "TRUST_X_FORWARDED_FOR=true with IPv4-only TRUSTED_PROXY_CIDRS — "
             "Fly 6PN peers (fdaa::/16) will not be trusted; per-IP rate limits "
@@ -496,6 +498,8 @@ def validate_production_settings(settings: Settings) -> None:
         return
 
     _warn_proxy_trust_misconfig(settings)
+    if not apple_revoke_configured(settings):  # delete still works; the grant outlives it
+        logger.warning("APPLE_* key unset: account delete cannot revoke Sign in with Apple tokens")
 
     errors: list[str] = []
     if settings.dev_auth_enabled:
@@ -504,10 +508,7 @@ def validate_production_settings(settings: Settings) -> None:
         errors.append("MOCK_LLM_ENABLED must be false in production")
     if settings.jwt_secret == "dev-secret-change-me" or len(settings.jwt_secret) < 32:
         errors.append("JWT_SECRET must be a strong secret in production")
-    if not settings.database_url:
-        errors.append("DATABASE_URL is required in production")
-    if not settings.redis_url:
-        errors.append("REDIS_URL is required in production")
+    errors.extend(service_url_errors(settings.database_url, settings.redis_url))
     if not settings.google_client_id:
         errors.append("GOOGLE_CLIENT_ID is required in production")
     # CORS must be explicit in production — empty CORS_ORIGINS makes

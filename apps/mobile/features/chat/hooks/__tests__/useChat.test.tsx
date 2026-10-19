@@ -3,14 +3,33 @@ import { AccessibilityInfo, AppState } from "react-native";
 import { act, cleanup, render } from "@testing-library/react-native";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { streamChatMessageSse, streamChatRegenerateSse } from "@/features/chat/model/sse";
+import {
+  DROPPED_TURN_POLL_MS,
+  DROPPED_TURN_POLLS,
+  SSE_DROPPED_TURN_POLLS,
+} from "@/features/chat/model/turnReconcile";
 import { WS_FIRST_EVENT_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
 import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
+
+const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
+const SERVER_REPLY_ID = "0190a000-0000-7000-8000-000000000002";
+
+/** Let a dropped turn's reloads run out (each waits DROPPED_TURN_POLL_MS). */
+async function waitOutReconcile(polls = DROPPED_TURN_POLLS) {
+  for (let poll = 0; poll < polls; poll += 1) {
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+  }
+}
 
 jest.mock("react-i18next", () => {
   const t = (key: string) => key;
   return { useTranslation: () => ({ t }) };
 });
-jest.mock("@/lib/api", () => ({ chatWebSocketUrl: (id: string) => `wss://test/${id}` }));
+jest.mock("@/lib/api", () => ({
+  chatWebSocketUrl: (id: string) => `wss://test/${id}`,
+  api: { listMessages: jest.fn() },
+}));
+const listMessages = jest.requireMock("@/lib/api").api.listMessages as jest.Mock;
 jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "UTC" }));
 jest.mock("@/features/chat/model/sse", () => ({
   streamChatMessageSse: jest.fn(),
@@ -69,6 +88,7 @@ describe("useChat transport lifecycle", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    listMessages.mockReset();
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
     global.WebSocket = FakeSocket as unknown as typeof WebSocket;
@@ -309,17 +329,103 @@ describe("useChat transport lifecycle", () => {
     expect(current.streaming).toBe(false);
   });
 
-  it("preserves partial content on a socket error followed by close", async () => {
+  it("preserves partial content when a dropped socket's reply never lands", async () => {
+    listMessages.mockRejectedValue(new Error("offline"));
     await render(<Probe chatId="a" />);
     const socket = await openSocket();
     await sendAndStream(socket, "partial reply");
     await act(async () => { socket.onerror(); socket.onclose(); });
+    // The server keeps the turn: wait for its saved reply first.
+    expect(current.streaming).toBe(true);
+    await waitOutReconcile();
+    expect(listMessages).toHaveBeenCalledTimes(DROPPED_TURN_POLLS);
     expect(current.streaming).toBe(false);
     expect(current.messages).toEqual(expect.arrayContaining([
       expect.objectContaining({ content: "partial reply", generationStopped: true }),
     ]));
     expect(current.messages.some((message) => message.id === "streaming")).toBe(false);
     expect(onError).toHaveBeenCalledWith("chat.error_connection_lost", undefined);
+  });
+
+  it("swaps a dropped socket's bubbles for the reply the server saved", async () => {
+    const saved = [
+      { id: SERVER_USER_ID, role: "user" as const, content: "question", model: null, created_at: "t1" },
+      { id: SERVER_REPLY_ID, role: "assistant" as const, content: "whole reply", model: "free-chat", created_at: "t2" },
+    ];
+    listMessages.mockResolvedValue({ messages: saved, has_more: false });
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await sendAndStream(socket, "partial");
+    await act(async () => { socket.onclose(); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    expect(current.streaming).toBe(false);
+    expect(current.messages).toEqual(saved);
+    expect(current.rejectedSend).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("never replays a send the server took when its socket drops before a token", async () => {
+    // Regression: start, then a drop, used to queue the send as unsaved and offer
+    // Retry while the server kept going: two identical turns, charged twice.
+    listMessages.mockResolvedValue({
+      messages: [{ id: SERVER_USER_ID, role: "user", content: "question", model: null, created_at: "t1" }],
+      has_more: false,
+    });
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("question");
+      socket.emit({ type: "start" });
+    });
+    await act(async () => { socket.onclose(); });
+    expect(current.streaming).toBe(true);
+    expect(current.messages.some((m) => m.role === "user" && m.content === "question")).toBe(true);
+    await waitOutReconcile();
+    expect(current.rejectedSend).toBeNull();
+    expect(streamChatMessageSse).not.toHaveBeenCalled();
+    expect(current.messages.some((m) => m.role === "user" && m.content === "question")).toBe(true);
+    expect(onError).toHaveBeenCalledWith("chat.error_connection_lost", undefined);
+  });
+
+  it("offers Retry for a taken send only when a reload shows it is not in the chat", async () => {
+    listMessages.mockResolvedValue({ messages: [], has_more: false });
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("question");
+      socket.emit({ type: "start" });
+    });
+    await act(async () => { socket.onclose(); });
+    await waitOutReconcile();
+    expect(current.rejectedSend?.content).toBe("question");
+    expect(onError).toHaveBeenCalledWith("chat.error_unreachable", "send_rejected");
+  });
+
+  it("replays a send the server closed unread (over the socket cap) over SSE, silently", async () => {
+    (streamChatMessageSse as jest.Mock).mockResolvedValueOnce(undefined);
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => { await current.sendMessage("first words"); });
+    await act(async () => { (socket.onclose as (event: { code: number }) => void)({ code: 4429 }); });
+    expect(streamChatMessageSse).toHaveBeenCalledWith(expect.objectContaining({ content: "first words" }));
+    expect(current.rejectedSend).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("reconnects a socket the server closed for idling, with no error", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => { (socket.onclose as (event: { code: number }) => void)({ code: 4408 }); });
+    expect(onError).not.toHaveBeenCalled();
+    await act(async () => {
+      const sending = current.sendMessage("after a quiet while");
+      FakeSocket.instances[FakeSocket.instances.length - 1].open();
+      await sending;
+    });
+    expect(FakeSocket.instances).toHaveLength(2);
+    expect(streamChatMessageSse).not.toHaveBeenCalled();
+    const frames = FakeSocket.instances[1].send.mock.calls.map(([data]) => JSON.parse(data).type);
+    expect(frames).toContain("message");
   });
 
   it("ignores a previous view's SSE rejection after navigating away and back", async () => {
@@ -526,6 +632,7 @@ describe("useChat transport lifecycle", () => {
   });
 
   it("does not treat a partial SSE stream as an unsaved send", async () => {
+    listMessages.mockRejectedValue(new Error("offline"));
     (streamChatMessageSse as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
       onEvent({ type: "start" });
       onEvent({ type: "token", content: "partial reply" });
@@ -538,6 +645,8 @@ describe("useChat transport lifecycle", () => {
       FakeSocket.instances[0].onerror();
       await pending;
     });
+    await waitOutReconcile(SSE_DROPPED_TURN_POLLS);
+    expect(listMessages).toHaveBeenCalledTimes(SSE_DROPPED_TURN_POLLS);
     expect(current.rejectedSend).toBeNull();
     expect(current.messages).toEqual(expect.arrayContaining([
       expect.objectContaining({ content: "question", role: "user" }),
@@ -875,6 +984,7 @@ describe("useChat socket while the app is in the background", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    listMessages.mockReset();
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
     global.WebSocket = FakeSocket as unknown as typeof WebSocket;
