@@ -13,11 +13,10 @@ from redis.asyncio import Redis
 from redis.exceptions import ResponseError
 
 from app.core.config import Settings
-from app.core.deps import get_current_user, get_settings_dep, redis_unavailable_http_exception
+from app.core.deps import get_current_user, get_settings_dep
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.core.request_limits import reject_oversized
-from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.modules.account.consent import get_consented_user
 from app.modules.billing import can_use
@@ -484,10 +483,7 @@ async def live_talk_status(
 ) -> SpeechLiveStatusOut:
     if not settings.speech_live_talk_enabled:
         return SpeechLiveStatusOut(enabled=False, entitled=False, remaining=0, limit=0)
-    try:
-        return await live_talk_service.live_talk_status(get_redis_client(), user, settings)
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
+    return await live_talk_service.live_talk_status(get_redis_client(), user, settings)
 
 
 @router.post("/live/turn")

@@ -12,10 +12,9 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.core.deps import get_current_user, get_settings_dep, redis_unavailable_http_exception
+from app.core.deps import get_current_user, get_settings_dep
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
-from app.exceptions import RedisUnavailableError
 from app.gateways import openai_speech_gateway
 from app.models.orm import User
 from app.models.schemas import MessageOut
@@ -149,16 +148,13 @@ async def _reserve_realtime_or_raise(user: User, settings: Settings):
             detail=quota_service.VOICE_SPEND_CAP_MESSAGE,
         )
 
-    try:
-        reserved = await quota_service.reserve_live_talk_seconds(
-            redis,
-            user.id,
-            allowance_seconds=quota_service.live_talk_allowance_seconds(user, settings),
-            max_session_seconds=settings.live_talk_max_session_seconds,
-            min_session_seconds=settings.live_talk_min_session_seconds,
-        )
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
+    reserved = await quota_service.reserve_live_talk_seconds(
+        redis,
+        user.id,
+        allowance_seconds=quota_service.live_talk_allowance_seconds(user, settings),
+        max_session_seconds=settings.live_talk_max_session_seconds,
+        min_session_seconds=settings.live_talk_min_session_seconds,
+    )
     if reserved <= 0:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -230,13 +226,10 @@ async def end_realtime_session(
     if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     redis = get_redis_client()
-    try:
-        charged = await quota_service.settle_live_talk_session(redis, user.id, body.call_id)
-        if charged is not None:
-            await live_talk_service.close_realtime_session(redis, user.id, body.call_id)
-        return await live_talk_service.live_talk_status(redis, user, settings)
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
+    charged = await quota_service.settle_live_talk_session(redis, user.id, body.call_id)
+    if charged is not None:
+        await live_talk_service.close_realtime_session(redis, user.id, body.call_id)
+    return await live_talk_service.live_talk_status(redis, user, settings)
 
 
 @router.post("/live/webrtc", response_model=RealtimeOfferOut)
