@@ -54,8 +54,8 @@ async def apply_spoken_change(
         load_existing,
         mutate_one,
     )
-    from app.modules.todos.spoken_add import (
-        _NEED_A_TIME,
+    from app.modules.todos.reply_check import (
+        NEED_A_TIME,
         about_saved_reminders,
         claims_a_reminder_change,
         edits_prior_reply,
@@ -99,7 +99,7 @@ async def apply_spoken_change(
     ):
         return None
     if spoken.needs_time:
-        return _NEED_A_TIME, 0
+        return NEED_A_TIME, 0
     label = spoken.title_hint or "that reminder"
     if item is None or not (getattr(item, "content", None) or "").strip():
         if spoken.topic:

@@ -29,16 +29,18 @@ from app.modules.todos.reminder_fence_parse import (
     parse_fence,
 )
 from app.modules.todos.reminder_writes import ReminderWrites, create_one, load_existing, mutate_one
+from app.modules.todos.reply_check import (
+    about_saved_reminders,
+    edits_prior_reply,
+    reply_when_nothing_saved,
+)
 from app.modules.todos.reply_claims import without_claims
 from app.modules.todos.spoken_add import (
     SpokenAdd,
-    about_saved_reminders,
     chat_add_needs_a_stated_time,
     due_for_add,
     due_is_past,
-    edits_prior_reply,
     passed_time_reply,
-    reply_when_nothing_saved,
 )
 from app.modules.todos.spoken_apply import apply_spoken_change, format_reminder_reading
 from app.modules.todos.spoken_change import (

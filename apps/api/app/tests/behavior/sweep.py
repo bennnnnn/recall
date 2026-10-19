@@ -51,7 +51,7 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
-from app.modules.todos.spoken_add import _NEED_A_TIME
+from app.modules.todos.reply_check import NEED_A_TIME
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import USER_TIMEZONE, battery_settings, route_case
 
@@ -60,7 +60,7 @@ CORPUS = Path(__file__).with_name("sweep_corpus")
 # Replies the server writes in place of the model's when it decides a turn was
 # about reminders. On an ordinary turn any of them is a hijack.
 CANNED = (
-    _NEED_A_TIME,
+    NEED_A_TIME,
     "That time already passed.",
     "I didn't change your reminders.",
     "I didn't set a reminder.",
