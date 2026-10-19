@@ -1,12 +1,13 @@
 """Tiny HTTP health server for the standalone worker process.
 
-The worker (`app/worker_main.py`) has no HTTP surface, so Fly can't tell a
-crashed worker from one whose event loop is blocked/deadlocked. This exposes a
-single `/health/ready` endpoint (on `settings.worker_health_port`) that reports
-ready only when Redis is reachable, the job-loop task is alive, AND any started
+The worker (`app/worker_main.py`) has no HTTP surface. This exposes a single
+`/health/ready` endpoint (on `settings.worker_health_port`) that reports ready
+only when Redis is reachable, the job-loop task is alive, AND any started
 periodic schedulers (push / email / reaper / billing) have not died or gone
-stale — letting Fly auto-restart a stuck worker. It is NOT mounted on the main
-API app.
+stale. Fly uses it to gate deploys and shows it in `fly checks list` and its
+metrics, where an alert can watch it. A failing check does NOT restart the
+Machine (Fly restarts only on process exit), so `worker_main` itself exits when
+the jobs loop or a scheduler dies. It is NOT mounted on the main API app.
 """
 
 from __future__ import annotations

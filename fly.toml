@@ -86,15 +86,18 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
   processes = ["worker"]
 
 # Worker is not an HTTP service, so min_machines_running does not apply.
-# Always restart a crashed worker; keep count at 1 after deploy
-# (`fly scale count worker=1`).
+# Restart the worker whenever its process exits; keep count at 1 after deploy
+# (`fly scale count worker=1`). Fly restarts only on process exit, never for a
+# failing health check, so app/worker_main.py exits non-zero itself when its
+# jobs consumer or a scheduler dies (and the consumer retries Redis forever).
 [[restart]]
   policy = "always"
   processes = ["worker"]
 
 # Worker health check: the worker exposes a tiny /health/ready on port 8001
-# (worker_health_port) so Fly can detect + restart a stuck worker whose event
-# loop is blocked or whose job consumer has died — not just one that crashed.
+# (worker_health_port): Redis reachable, jobs consumer and schedulers alive.
+# Fly uses it to gate deploys and shows it in `fly checks list`; it does not
+# restart the Machine. Alert on its status from Fly's metrics (Grafana).
 [[checks]]
   name = "worker-health"
   port = 8001

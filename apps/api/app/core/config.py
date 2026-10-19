@@ -199,8 +199,8 @@ class Settings(BaseSettings):
 
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
     process_role: str = "all"
-    # Max in-flight jobs per worker process when draining a Redis Stream batch.
-    # Keeps LLM handlers from head-of-line-blocking compress/topic/todo jobs.
+    # Max jobs one worker process runs at once; it keeps reading while a slot
+    # is free, so a slow LLM job never holds back compress/topic/todo jobs.
     jobs_worker_concurrency: int = 8
     # Hard ceiling on the Redis jobs stream (entries). The soft 10k trim only
     # runs while nothing is pending; one entry left pending by a dead worker
@@ -213,9 +213,9 @@ class Settings(BaseSettings):
     # attempt that runs this long goes to the DLQ (not retried). Generous: the
     # memory history scan reads 20 chats and resumes where it stopped.
     job_timeout_seconds: float = 900.0
-    # Port the worker process exposes a tiny /health/ready endpoint on, so Fly
-    # can health-check + auto-restart a stuck worker (the worker otherwise has
-    # no HTTP). 0 disables the worker health server (e.g. process_role=all dev).
+    # Port of the worker's tiny /health/ready (deploy checks, uptime monitors;
+    # Fly never restarts on a failing check, worker_main exits instead). 0
+    # disables the worker health server (e.g. process_role=all dev).
     worker_health_port: int = 8001
     speech_transcription_enabled: bool = True
     # Direct OpenAI voice. Empty overrides use the speech catalog aliases.
