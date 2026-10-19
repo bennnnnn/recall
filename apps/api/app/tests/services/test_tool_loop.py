@@ -35,7 +35,6 @@ async def test_tool_loop_disabled_passthrough():
     messages = [{"role": "user", "content": "hi"}]
     out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
         settings=settings(mcp_tool_loop_enabled=False),
-        model_alias="free-chat",
         messages=messages,
         usage={},
     )
@@ -92,7 +91,6 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
     ):
         out, verified, terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
-            model_alias="free-chat",
             messages=messages,
             usage=usage,
             on_status=on_status,
@@ -137,7 +135,6 @@ async def test_tool_loop_gives_every_call_and_the_forced_search_one_turn_context
     ):
         await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            model_alias="free-chat",
             messages=[{"role": "user", "content": text}],
             usage={},
             user=user,
@@ -181,7 +178,6 @@ async def test_tool_loop_max_rounds(web_search_registered):
     ):
         await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=2),
-            model_alias="free-chat",
             messages=messages,
             usage={},
         )
@@ -213,7 +209,6 @@ async def test_tool_loop_caps_calls_per_round(web_search_registered):
                 mcp_tool_loop_enabled=True,
                 mcp_tool_loop_max_calls_per_round=4,
             ),
-            model_alias="free-chat",
             messages=messages,
             usage={},
         )
@@ -251,7 +246,6 @@ async def test_tool_loop_invoke_timeout_skips_remaining(web_search_registered):
                 mcp_tool_loop_enabled=True,
                 mcp_tool_loop_invoke_timeout_seconds=1.0,
             ),
-            model_alias="free-chat",
             messages=messages,
             usage={},
         )
@@ -304,7 +298,6 @@ async def test_tool_loop_collects_sympy_canonical_fence(sympy_registered):
     ):
         _out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
-            model_alias="free-chat",
             messages=messages,
             usage={},
         )
@@ -351,7 +344,6 @@ async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(web_search
     ):
         out, _verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
-            model_alias="free-chat",
             messages=messages,
             usage={},
             should_cancel=should_cancel,
@@ -452,7 +444,6 @@ async def test_tool_loop_generate_image_is_terminal():
                     mcp_tool_loop_max_rounds=3,
                     image_generation_enabled=True,
                 ),
-                model_alias="free-chat",
                 messages=messages,
                 usage={},
                 on_status=on_status,
@@ -528,7 +519,6 @@ async def test_tool_loop_search_image_is_terminal():
                     mcp_tool_loop_max_rounds=3,
                     image_search_enabled=True,
                 ),
-                model_alias="free-chat",
                 messages=messages,
                 usage={},
                 on_status=on_status,

@@ -30,7 +30,6 @@ async def _run(query: str, calls: list[dict], invoke: AsyncMock):
     ):
         return await rounds._run_rounds(
             settings=Settings(mcp_tool_loop_max_calls_per_round=4),
-            model_alias="free-chat",
             messages=[{"role": "user", "content": query}],
             usage={},
             tools=[

@@ -142,7 +142,6 @@ async def run_tool_loop_path(
         tool_search_hits,
     ) = await tool_loop.run_tool_rounds(
         settings=settings,
-        model_alias=ctx.model,
         messages=ctx.prompt_messages,
         usage=usage,
         on_status=on_status,
