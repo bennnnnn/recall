@@ -26,6 +26,7 @@ from app.services.quota.live_talk import (
     utc_month,
 )
 from app.services.quota.messages import (
+    CHAT_SPEND_CAP_MESSAGE,
     IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE,
     IMAGE_GENERATION_SPEND_CAP_MESSAGE,
     IMAGE_SEARCH_SPEND_CAP_MESSAGE,
@@ -73,6 +74,7 @@ from app.services.quota.tokens import (
 )
 
 __all__ = [
+    "CHAT_SPEND_CAP_MESSAGE",
     "DAILY_COUNTER_PREFIXES",
     "IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE",
     "IMAGE_GENERATION_SPEND_CAP_MESSAGE",
