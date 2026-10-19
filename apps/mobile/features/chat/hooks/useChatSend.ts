@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Keyboard, Linking } from "react-native";
+import { Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 
 import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
-import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
 
-import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/features/chat/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
-import type { Message, ScanReading } from "@/lib/api";
+import type { Message } from "@/lib/api";
 import { clearPendingChatTtft } from "@/features/chat/model/latency";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
@@ -18,42 +16,21 @@ import {
   buildOptimisticUserMessage,
   buildPendingSendAfterCreate,
   type ComposerSendDraft,
+  type SendMessageOptions,
 } from "@/features/chat/model/sendLogic";
 import { canSend } from "@/features/chat/model/sendGuards";
 import { resolveSendIntercept, type SendIntercept } from "@/features/chat/model/sendIntercept";
+import { useComposerAttachmentSheet } from "@/features/chat/hooks/useComposerAttachmentSheet";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
+import { useMathScanSend } from "@/features/chat/hooks/useMathScanSend";
 import { uploadSendAttachment, useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
 import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
-import type { ClientGeo } from "@/lib/clientGeo";
 import {
   queryNeedsClientGeo,
   resolveClientGeoForQuery,
 } from "@/lib/resolveClientGeoForQuery";
-import {
-  pickDocument,
-  HeicUnsupportedError,
-  NativePickerBusyError,
-  NativePickerTimeoutError,
-  PhotoLibraryPermissionError,
-  pickFromCamera,
-  pickFromPhotoLibrary,
-  type PendingAttachment,
-} from "@/features/attachments/model/attachments";
-import {
-  composerTextAfterScanConfirm,
-  type ReadBackSubject,
-  scanSolveMessage,
-} from "@/lib/scanner/readBack";
-import {
-  composerTextAfterSubjectScan,
-  type ScannerSubject,
-} from "@/lib/scanner/subjects";
-import {
-  scanFailureDetail,
-  scanFailureMessageKey,
-  type ScanReadFailure,
-} from "@/lib/scanner/scanReadError";
+import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
@@ -69,21 +46,14 @@ type ChatSendPhase =
   | "uploading"
   | "creating";
 
-type SendMessageFn = (
-  text: string,
-  opts?: {
-    skipUserBubble?: boolean;
-    trackSendingMessageId?: string;
-    attachmentIds?: string[];
-    localImageUri?: string | null;
-    localFileUri?: string | null;
-    localFileName?: string | null;
-    localFileContentType?: string | null;
-    model?: string;
-    clientGeo?: ClientGeo | null;
-    composerDraft?: ComposerSendDraft;
-  },
-) => void;
+type SendMessageFn = (text: string, opts?: SendMessageOptions) => void;
+
+/** A send waiting for its new chat's id; dropped if the view moves on first. */
+type PendingChatSend = ReturnType<typeof buildPendingSendAfterCreate> & {
+  chatId: string;
+  session: number;
+  originViewVersion: number;
+};
 
 type Options = {
   token: string | null;
@@ -172,27 +142,9 @@ export function useChatSend({
   const { pendingAttachment, pendingAttachmentRef, setPendingAttachment } = useSendAttachment();
   const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
   const [sendPhase, setSendPhase] = useState<ChatSendPhase>("idle");
-  const [attachSheetOpen, setAttachSheetOpen] = useState(false);
-  const [mathScannerOpen, setMathScannerOpen] = useState(false);
   const [pendingOutboundId, setPendingOutboundId] = useState<string | null>(null);
-  const [pendingSend, setPendingSend] = useState<{
-    chatId: string;
-    session: number;
-    originViewVersion: number;
-    text: string;
-    skipUserBubble?: boolean;
-    trackSendingMessageId?: string;
-    attachmentIds?: string[];
-    localImageUri?: string | null;
-    localFileUri?: string | null;
-    localFileName?: string | null;
-    localFileContentType?: string | null;
-    clientGeo?: ClientGeo | null;
-    composerDraft: ComposerSendDraft;
-    model: string;
-  } | null>(null);
+  const [pendingSend, setPendingSend] = useState<PendingChatSend | null>(null);
 
-  const attachPickInFlightRef = useRef(false);
   const sendInFlightRef = useRef(false);
   const composerThread = composerThreadKey(routeChatId);
   const session = getSessionGeneration();
@@ -203,6 +155,24 @@ export function useChatSend({
   useEffect(() => () => {
     viewRef.current.version += 1;
   }, []);
+  const {
+    attachSheetOpen,
+    setAttachSheetOpen,
+    mathScannerOpen,
+    setMathScannerOpen,
+    attachPickInFlightRef,
+    handlePickAttachment,
+    handleAttachmentSheetSelect,
+  } = useComposerAttachmentSheet({
+    token,
+    streaming,
+    session,
+    viewRef,
+    sendInFlightRef,
+    setPendingAttachment,
+    feedback,
+    t,
+  });
 
   const prevComposerThreadRef = useRef(composerThread);
   const prevSessionRef = useRef(session);
@@ -223,7 +193,10 @@ export function useChatSend({
     setPendingAttachment(null);
     setAttachSheetOpen(false);
     setMathScannerOpen(false);
-  }, [composerThread, session, switchThread, getThreadKey, setPendingAttachment, resetForNewSession]);
+  }, [
+    composerThread, session, switchThread, getThreadKey, setPendingAttachment, resetForNewSession,
+    setAttachSheetOpen, setMathScannerOpen,
+  ]);
   useEffect(() => {
     const applyQueued = () => {
       if (!token || session !== getSessionGeneration()) return;
@@ -521,123 +494,20 @@ export function useChatSend({
     setInput(recovered.text);
     setPendingAttachment(recovered.attachment);
     return true;
-  }, [session, viewVersion, getThreadKey, composerThread, streaming, inputRef, pendingAttachmentRef, feedback, t, setInput, setPendingAttachment]);
+  }, [
+    session, viewVersion, getThreadKey, composerThread, streaming, inputRef, pendingAttachmentRef, feedback, t,
+    setInput, setPendingAttachment, attachPickInFlightRef,
+  ]);
 
-  const handlePickAttachment = useCallback(() => {
-    if (!token || streaming || sendInFlightRef.current || attachPickInFlightRef.current) return;
-    Keyboard.dismiss();
-    // Let the keyboard finish dismissing so the first tap isn't swallowed on Android.
-    const version = viewRef.current.version;
-    requestAnimationFrame(() => {
-      if (viewRef.current.version === version && session === getSessionGeneration()) setAttachSheetOpen(true);
-    });
-  }, [token, streaming, session]);
-
-  const handleAttachmentSheetSelect = useCallback(
-    async (source: AttachmentSource) => {
-      if (
-        attachPickInFlightRef.current ||
-        !token ||
-        streaming ||
-        sendInFlightRef.current
-      )
-        return;
-      const version = viewRef.current.version;
-      const current = () => viewRef.current.version === version && session === getSessionGeneration();
-      attachPickInFlightRef.current = true;
-      setAttachSheetOpen(false);
-
-      if (!current() || !token || streaming || sendInFlightRef.current) {
-        attachPickInFlightRef.current = false;
-        return;
-      }
-
-      try {
-        if (source === "solve_math_camera") {
-          setMathScannerOpen(true);
-          return;
-        }
-        const picked =
-          source === "camera"
-            ? await pickFromCamera()
-            : source === "photo"
-              ? await pickFromPhotoLibrary()
-              : await pickDocument();
-        if (picked && current()) {
-          setPendingAttachment(picked);
-        }
-      } catch (error) {
-        if (!current()) return;
-        if (error instanceof HeicUnsupportedError) {
-          reportRecoverableWarning(feedback, t("chat.heic_unsupported_body"));
-        } else if (error instanceof PhotoLibraryPermissionError) {
-          if (error.needsSettings) void Linking.openSettings();
-          feedback?.error(t("chat.photos_permission"));
-        } else if (
-          error instanceof NativePickerBusyError ||
-          error instanceof NativePickerTimeoutError
-        ) {
-          feedback?.error(t("chat.picker_busy"));
-        } else {
-          feedback?.error(
-            error instanceof Error ? error.message : t("chat.attach_failed"),
-          );
-        }
-      } finally {
-        attachPickInFlightRef.current = false;
-      }
-    },
-    [feedback, session, streaming, t, token, setPendingAttachment],
-  );
-
-  const handleMathScanCaptured = useCallback((
-    pending: PendingAttachment,
-    subject: ScannerSubject,
-    confirmedReading?: string,
-  ) => {
-    setPendingAttachment(pending);
-    // A checked reading rides with the photo so the API solves what the
-    // student confirmed instead of reading the photo again.
-    const text = confirmedReading
-      ? withComposerDraft(composerTextAfterScanConfirm(confirmedReading, subject), inputRef.current)
-      : composerTextAfterSubjectScan(inputRef.current, subject);
-    setInput(text);
-    setMathScannerOpen(false);
-    void handleSend(text);
-  }, [handleSend, setInput, setPendingAttachment, inputRef]);
-
-  const readScan = useCallback(
-    async (
-      scan: PendingAttachment,
-      subject: ReadBackSubject,
-      signal: AbortSignal,
-    ): Promise<ScanReading | ScanReadFailure | null> => {
-      if (!token) return null;
-      try {
-        // Loaded on use: the API barrel pulls in native file-system modules
-        // this hook otherwise never touches.
-        const { api } = await import("@/lib/api");
-        return await api.readScan(token, subject, scan, signal);
-      } catch (error) {
-        // Every subject names a missing reader, an oversized photo and a
-        // limit the same way. Anything else stays generic.
-        const detail = scanFailureDetail(error);
-        if (!detail) return null;
-        const key = scanFailureMessageKey(detail);
-        return { error: key ? t(key) : detail };
-      }
-    },
-    [t, token],
-  );
-
-  const handleMathScanSolve = useCallback((reading: string, subject: ScannerSubject = "math") => {
-    setMathScannerOpen(false);
-    const message = scanSolveMessage(reading, subject);
-    if (!message) return;
-    const text = withComposerDraft(message, inputRef.current);
-    setInput(text);
-    void handleSend(text);
-  }, [handleSend, setInput, inputRef]);
+  const { handleMathScanCaptured, readScan, handleMathScanSolve } = useMathScanSend({
+    token,
+    t,
+    inputRef,
+    setInput,
+    setPendingAttachment,
+    setMathScannerOpen,
+    handleSend,
+  });
 
   return {
     setInput,
@@ -658,10 +528,4 @@ export function useChatSend({
     creatingRef,
     pendingOutboundId,
   };
-}
-
-/** Keep what the student had already typed, after the scan's own text. */
-function withComposerDraft(text: string, draft: string): string {
-  const kept = draft.trim();
-  return kept ? `${text}\n\n${kept}` : text;
 }
