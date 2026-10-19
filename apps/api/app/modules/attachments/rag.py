@@ -14,6 +14,7 @@ from app.gateways.storage_gateway import get_storage_gateway
 from app.models.orm import Attachment, AttachmentChunk
 from app.modules.attachments import chunks_repository as chunks_repo
 from app.modules.attachments import content as attachment_content_service
+from app.modules.attachments import ocr_allowance
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import ExtractedText
 from app.modules.attachments.content_types import EXTRACTABLE_CONTENT_TYPES
@@ -177,13 +178,16 @@ async def index_attachment(
     if not data:
         raise AttachmentIndexError(f"Failed to read attachment bytes for {attachment_id}")
 
+    ocr_day = await ocr_allowance.reserve_ocr(settings, owner_id, content_type)
     details = await attachment_content_service.extract_text_details_async(
         content_type,
         data,
         settings,
         max_chars=attachment_content_service.MAX_INDEX_EXTRACT_CHARS,
+        allow_ocr=ocr_day is not None,
         ocr_max_pages=settings.attachment_ocr_index_max_pages,
     )
+    await ocr_allowance.release_unused_ocr(owner_id, ocr_day, details)
     if details is None or not details.text:
         # Legitimate "no text" — scanned PDF with no OCR, or genuinely empty doc.
         # Not a transient failure; don't raise.
