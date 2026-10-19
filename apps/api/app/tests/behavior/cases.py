@@ -59,6 +59,8 @@ class Expect:
     # A real photo above the model's answer (it opened with ```photo). Routing can
     # only check the hint that offers it; the live replay checks the photo.
     answer_photo: bool | None = None
+    # The model the case's plan gets on Auto (``plan.resolve_user_model``).
+    model: str | None = None
 
 
 @dataclass(frozen=True)
@@ -857,6 +859,14 @@ CASES: tuple[Case, ...] = (
         "Exactly five short, scannable tips.",
     ),
     Case(
+        "format-json-planets",
+        "format",
+        "give me the list of the planets as valid JSON",
+        Expect(search="no", hints=("json_output",), model="qwen-3.7-flash"),
+        "One ```json fence holding a valid array of the eight planets, at most a line "
+        "around it; the server checks that it parses.",
+    ),
+    Case(
         "format-howto",
         "format",
         "how do I make tea",
@@ -910,8 +920,44 @@ CASES: tuple[Case, ...] = (
         "code-function",
         "code",
         "write a python function to reverse a string",
-        Expect(search="no", photo=NO_PHOTO),
+        # The free plan has no smart tier: its strongest model takes the coding ask.
+        Expect(search="no", photo=NO_PHOTO, model="glm-5.3-flash"),
         "A short tagged python block and one line on how it works.",
+    ),
+    Case(
+        "code-function-pro",
+        "code",
+        "write a python function to reverse a string",
+        Expect(search="no", photo=NO_PHOTO, model="smart-chat"),
+        "A short tagged python block and one line on how it works.",
+        pro=True,
+    ),
+    Case(
+        "code-review-no-fence",
+        "code",
+        "can you review my function that reverses a linked list, it keeps looping forever",
+        Expect(search="no", photo=NO_PHOTO, model="smart-chat"),
+        "Names the likely cause (the next pointer never advances, or the list has a cycle), "
+        "shows the fixed loop in a python fence and asks for the code if it needs it.",
+        pro=True,
+    ),
+    Case(
+        "code-hard-migration-plan",
+        "code",
+        "plan a zero-downtime migration of a monolith Postgres schema to sharded tables",
+        Expect(photo=NO_PHOTO, model="smart-chat"),
+        "A phased plan: dual writes or logical replication, a backfill, verification, the "
+        "cut-over and a rollback path, with the trade-offs of the shard key.",
+        pro=True,
+    ),
+    Case(
+        "code-json-duplicates",
+        "code",
+        'find the duplicate ids: [{"id": 7, "name": "Ana"}, {"id": 9, "name": "Ben"}, '
+        '{"id": 7, "name": "Cy"}, {"id": 12, "name": "Di"}, {"id": 9, "name": "Ed"}]',
+        Expect(photo=NO_PHOTO, model="smart-chat"),
+        "Ids 7 and 9, each with the names that share it.",
+        pro=True,
     ),
     Case(
         "code-html",
@@ -1013,7 +1059,7 @@ CASES: tuple[Case, ...] = (
         "tone-hi",
         "tone and emoji",
         "hi",
-        Expect(lightweight=True, search="no", photo=NO_PHOTO),
+        Expect(lightweight=True, search="no", photo=NO_PHOTO, model="qwen-3.7-flash"),
         "A short greeting back.",
     ),
     Case(
@@ -1034,7 +1080,7 @@ CASES: tuple[Case, ...] = (
         "tone-plain",
         "tone and emoji",
         "what are the benefits of drinking water",
-        Expect(hints=("emoji_rule",), search="no"),
+        Expect(hints=("emoji_rule",), search="no", model="qwen-3.7-flash"),
         "A clear answer with no emoji decoration.",
     ),
     Case(
