@@ -162,6 +162,22 @@ export function useMemoryDocuments(token: string | null) {
     }
   }, [token]);
 
+  /** Mute keeps a fact but stops Recall using it in chats; unmute brings it back. */
+  const setFactMuted = useCallback(async (factId: string, muted: boolean): Promise<boolean> => {
+    if (!token) return false;
+    const session = getSessionGeneration();
+    try {
+      const updated = await api.updateMemory(token, factId, {
+        status: muted ? "muted" : "active",
+      });
+      updateMemoryDocuments((documents) => withFact(documents, updated), session);
+      invalidateMemoriesCache();
+      return true;
+    } catch {
+      return false;
+    }
+  }, [token]);
+
   return {
     documents: data?.documents ?? [],
     scanning: data?.scanning ?? false,
@@ -172,5 +188,6 @@ export function useMemoryDocuments(token: string | null) {
     deleteDocument,
     deleteFact,
     editFact,
+    setFactMuted,
   };
 }

@@ -8,7 +8,7 @@ from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
-from app.models.orm import User
+from app.models.orm import Memory, User
 from app.models.schemas import MemoryOut, MemoryType, MemoryUpdate
 from app.modules import memory as memory_service
 from app.modules.memory import documents as documents_service
@@ -31,19 +31,32 @@ _LOCK_BUSY_DETAIL = "Memory is being updated right now — try again in a moment
 _INSTRUCT_PER_HOUR = 30
 
 
-def _document_out(document: documents_service.MemoryDocument) -> MemoryDocumentOut:
+def _fact_out(fact: Memory, titles: dict[UUID, str]) -> MemoryOut:
+    item = MemoryOut.model_validate(fact)
+    title = titles.get(fact.source_chat_id) if fact.source_chat_id else None
+    return item.model_copy(update={"source_chat_title": title}) if title else item
+
+
+def _document_out(
+    document: documents_service.MemoryDocument, titles: dict[UUID, str]
+) -> MemoryDocumentOut:
     return MemoryDocumentOut(
         key=document.key,
         group=document.group,
         title=document.title,
         summary=document.summary,
         updated_at=document.updated_at,
-        facts=[MemoryOut.model_validate(fact) for fact in document.facts],
+        facts=[_fact_out(fact, titles) for fact in document.facts],
     )
 
 
 async def _documents_out(session: AsyncSession, user: User) -> list[MemoryDocumentOut]:
-    return [_document_out(doc) for doc in await documents_service.list_documents(session, user.id)]
+    """Every page, each fact with the chat it was learned in (M12)."""
+    documents = await documents_service.list_documents(session, user.id)
+    titles = await enqueue_policy.source_chat_titles(
+        session, [fact for document in documents for fact in document.facts]
+    )
+    return [_document_out(document, titles) for document in documents]
 
 
 @router.get("", response_model=list[MemoryOut])
@@ -57,14 +70,7 @@ async def list_memories(
         user,
     )
     titles = await enqueue_policy.source_chat_titles(session, memories)
-    outs: list[MemoryOut] = []
-    for memory in memories:
-        item = MemoryOut.model_validate(memory)
-        title = titles.get(memory.source_chat_id) if memory.source_chat_id else None
-        if title:
-            item = item.model_copy(update={"source_chat_title": title})
-        outs.append(item)
-    return outs
+    return [_fact_out(memory, titles) for memory in memories]
 
 
 @router.get("/documents", response_model=MemoryDocumentsOut)
