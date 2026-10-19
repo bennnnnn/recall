@@ -11,8 +11,8 @@ import { type NativeScrollEvent, type NativeSyntheticEvent, type View, type View
 import { type AnimatedStyle } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
-import type { IconName } from "@/ui/icons/names";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
+import type { LiveTalkComposerChrome } from "@/features/chat/components/ChatComposer";
 import { ChatHeader } from "@/features/chat/components/ChatHeader";
 import type {
   ChatScreenBodyProps,
@@ -53,10 +53,7 @@ type UseChatScreenBodyPropsParams = {
     emptyHeight: number;
   };
   listBottomPadRef: MutableRefObject<number>;
-  actionBanner: {
-    message: string;
-    icon?: IconName;
-  } | null;
+  actionBanner: ChatScreenChromeProps["actionBanner"];
   dismissActionBanner: () => void;
   /** Everything needed to render the collapsible ChatHeader (title, nav, menu). */
   header: {
@@ -99,11 +96,7 @@ type UseChatScreenBodyPropsParams = {
     handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
     mathScannerOpen: boolean;
     closeMathScanner: () => void;
-    handleMathScanCaptured: (
-      pending: PendingAttachment,
-      subject: ScannerSubject,
-      confirmedReading?: string,
-    ) => void;
+    handleMathScanCaptured: ChatScreenSheetsProps["onMathScanCaptured"];
     readScan: ChatScreenSheetsProps["onReadScan"];
     handleMathScanSolve: (reading: string, subject?: ScannerSubject) => void;
     onOpenMathScanner?: () => void;
@@ -130,12 +123,7 @@ type UseChatScreenBodyPropsParams = {
     cancelVoiceInput?: () => void;
     onLiveTalkPress?: () => void;
   };
-  liveTalkSession?: {
-    muted: boolean;
-    onClose: () => void;
-    onMutePress: () => void;
-    onYield: () => void;
-  } | null;
+  liveTalkSession?: LiveTalkComposerChrome | null;
 };
 
 export function useChatScreenBodyProps({

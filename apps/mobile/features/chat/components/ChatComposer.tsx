@@ -84,6 +84,15 @@ export function composerAttachmentExtra(attachment: PendingAttachment | null): n
   return attachment.kind === "image" ? COMPOSER_IMAGE_PREVIEW_EXTRA : COMPOSER_FILE_PREVIEW_EXTRA;
 }
 
+/** Mic mute and close beside the real composer while live talk is open. */
+export type LiveTalkComposerChrome = {
+  muted: boolean;
+  onClose: () => void;
+  onMutePress: () => void;
+  /** The user went back to the composer (focus, attach, send): live talk closes. */
+  onYield: () => void;
+};
+
 type Props = {
   visible: boolean;
   animatedContainerStyle?: AnimatedStyle<ViewStyle>;
@@ -108,13 +117,7 @@ type Props = {
   /** Drops the open mic take, including a transcription already in flight. */
   onCancelVoice?: () => void;
   onLiveTalkPress?: () => void;
-  /** Mic mute + close beside the real composer while live talk is open. */
-  liveTalkChrome?: {
-    muted: boolean;
-    onClose: () => void;
-    onMutePress: () => void;
-    onYield: () => void;
-  } | null;
+  liveTalkChrome?: LiveTalkComposerChrome | null;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
   /** Extra field height past one line, so the thread moves up with the pill. */
