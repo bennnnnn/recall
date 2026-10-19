@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from redis.asyncio import Redis
 
+from app.core import shutdown
 from app.core.chat_rate_limit import allow_chat_message
 from app.core.config import Settings, get_settings
 from app.core.deps import get_current_user
@@ -26,6 +27,8 @@ from app.modules.chat import stream_entry
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.prompt_builder import StreamReasoningFn
 from app.modules.chat.stream_events import (
+    REPLY_SAVE_FAILED_MESSAGE,
+    SERVER_RESTARTING_MESSAGE,
     DoneEvent,
     StreamEndEvent,
     await_finalize_commit,
@@ -34,11 +37,11 @@ from app.modules.chat.stream_events import (
     build_status_event,
     build_token_event,
     clear_task_cancellation,
-    error_payload_for_exception,
     finish_open_stream,
     persist_finalize_if_pending,
     pop_finalize_tasks,
     take_related_prompts_event,
+    turn_error_payload,
 )
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import default_deps
@@ -90,6 +93,12 @@ async def _stream_tokens_sse(
     producer_cancelled = False
     if cancel_event is None:
         cancel_event = asyncio.Event()
+    if shutdown.stopping():
+        # A turn begun now would be stopped before its first token.
+        yield _sse(
+            turn_error_payload(None, user_message_saved=False, message=SERVER_RESTARTING_MESSAGE)
+        )
+        return
     yield _sse(build_start_event())
 
     async def on_status(phase: str, detail: str | None = None) -> None:
@@ -150,8 +159,13 @@ async def _stream_tokens_sse(
         except asyncio.CancelledError:
             pass
 
+    def stop() -> None:
+        """A client stops by closing the stream; a server shutdown does the same."""
+        cancel_event.set()
+        cancel_producer_once()
+
     producer = asyncio.create_task(produce_tokens())
-    register_inflight_stream(chat_id, producer)
+    register_inflight_stream(chat_id, producer, stop=stop)
     disconnect_watcher = asyncio.create_task(watch_disconnect())
 
     try:
@@ -172,7 +186,18 @@ async def _stream_tokens_sse(
             # lands in the partial-reply save and drops the text.
             with suppress(asyncio.CancelledError):
                 await producer
-            return
+            if not shutdown.stopping():
+                return
+            # The server stopped the turn; the client is still here to be told.
+            if outcome.message_id is None:
+                yield _sse(
+                    turn_error_payload(
+                        None,
+                        user_message_saved=outcome.user_message_saved,
+                        message=SERVER_RESTARTING_MESSAGE,
+                    )
+                )
+                return
 
         with suppress(asyncio.CancelledError):
             await producer
@@ -185,7 +210,13 @@ async def _stream_tokens_sse(
         finalize_db_task = pop_finalize_tasks(outcome)
         commit_status = await await_finalize_commit(finalize_db_task)
         if commit_status == "failed":
-            yield _sse({"type": "error", "message": "Failed to save the response. Please retry."})
+            yield _sse(
+                turn_error_payload(
+                    None,
+                    user_message_saved=outcome.user_message_saved,
+                    message=REPLY_SAVE_FAILED_MESSAGE,
+                )
+            )
             return
         if commit_status == "timeout":
             yield _sse(DoneEvent.from_outcome(outcome, persisting=True).model_dump())
@@ -201,7 +232,7 @@ async def _stream_tokens_sse(
             QuotaExceededError | RedisUnavailableError | ChatServiceError | ModelUnavailableError,
         ):
             logger.exception("SSE chat stream failed chat_id=%s", chat_id)
-        yield _sse(error_payload_for_exception(exc))
+        yield _sse(turn_error_payload(exc, user_message_saved=outcome.user_message_saved))
     finally:
         # The request task is cancelled when the client drops the socket.
         # That pending cancel would abort the partial-reply save on the

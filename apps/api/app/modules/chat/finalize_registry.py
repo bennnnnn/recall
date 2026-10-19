@@ -15,6 +15,11 @@ producer, then ``asyncio.gather``s the finalize wait as a *child* Task, so
 Same-process waiters use an in-memory task map. Cross-process / multi-instance
 waiters also poll a short-lived Redis marker set when finalize is registered
 and cleared when the DB task finishes.
+
+Each producer may carry its transport's Stop. When the server is told to stop
+(``core.shutdown``), ``stop_inflight_streams`` runs every one, so partial replies
+are saved and locks released inside the graceful window instead of dying with
+the machine.
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ import asyncio
 import contextlib
 import logging
 import time
+from collections.abc import Callable
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -32,11 +38,14 @@ from app.exceptions import ChatBusyError, RedisUnavailableError
 logger = logging.getLogger(__name__)
 
 _FINALIZE_WAIT_TIMEOUT_SECONDS = 10.0
-_FINALIZE_MARKER_TTL_SECONDS = 120
+# A finalize commit takes well under a second; the TTL only matters when the
+# machine died before clearing it, and then every send on the chat is busy.
+_FINALIZE_MARKER_TTL_SECONDS = 30
 _FINALIZE_POLL_INTERVAL_SECONDS = 0.05
 
 _pending: dict[UUID, asyncio.Task[None]] = {}
 _inflight: dict[UUID, asyncio.Task[None]] = {}
+_stops: dict[asyncio.Task[None], Callable[[], None]] = {}
 
 
 def _marker_key(chat_id: UUID) -> str:
@@ -68,9 +77,37 @@ def register_pending_finalize(chat_id: UUID, task: asyncio.Task[None]) -> None:
     _track(_pending, chat_id, task)
 
 
-def register_inflight_stream(chat_id: UUID, task: asyncio.Task[None]) -> None:
-    """Track the WS/SSE producer so GET /messages can wait out a New-chat leave."""
+def register_inflight_stream(
+    chat_id: UUID,
+    task: asyncio.Task[None],
+    *,
+    stop: Callable[[], None] | None = None,
+) -> None:
+    """Track the WS/SSE producer so GET /messages can wait out a New-chat leave.
+
+    ``stop`` is the transport's own Stop for this turn (``stop_inflight_streams``).
+    """
     _track(_inflight, chat_id, task)
+    if stop is not None:
+        _stops[task] = stop
+        task.add_done_callback(lambda done: _stops.pop(done, None))
+
+
+def stop_inflight_streams() -> int:
+    """Stop every turn still producing, as the user's Stop would; returns how many.
+
+    The server is shutting down: each partial reply is saved (marked interrupted),
+    the turn's quota settles and its prepare lock is released before the process exits.
+    """
+    stops = [stop for task, stop in list(_stops.items()) if not task.done()]
+    for stop in stops:
+        try:
+            stop()
+        except Exception:
+            logger.exception("Stopping an in-flight chat stream failed")
+    if stops:
+        logger.info("Stopped %d in-flight chat stream(s) for shutdown", len(stops))
+    return len(stops)
 
 
 async def mark_pending_finalize(redis: Redis, chat_id: UUID) -> None:

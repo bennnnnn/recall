@@ -139,7 +139,7 @@ def test_spend_cap_error_is_a_plain_error_not_the_users_quota() -> None:
     payload = error_payload_for_exception(SpendCapReachedError(CHAT_SPEND_CAP_MESSAGE))
 
     # quota_exceeded opens the phone's upgrade prompt; upgrading would not help.
-    assert payload == {"type": "error", "message": CHAT_SPEND_CAP_MESSAGE}
+    assert payload == {"type": "error", "code": "spend_cap", "message": CHAT_SPEND_CAP_MESSAGE}
     for phrase in ("free limit", "daily limit", "today's limit"):
         assert phrase not in CHAT_SPEND_CAP_MESSAGE.lower()
 

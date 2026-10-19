@@ -40,7 +40,6 @@ from app.modules.chat.turn_resources import (
     top_up_reserve_for_prompt,
     turn_resources,
     wrap_stream_status,
-    yield_with_chatprep_refresh,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services.thinking_effort import thinking_level
@@ -60,20 +59,18 @@ async def _stream_turn(
     status: StreamStatusFn | None,
     on_reasoning: StreamReasoningFn | None,
 ) -> AsyncIterator[str]:
-    """The prepared turn's reply, refreshing the prepare lock while it streams."""
-    async for token in yield_with_chatprep_refresh(
-        res,
-        stream_and_finalize(
-            deps,
-            redis,
-            settings,
-            ctx,
-            should_cancel=should_cancel,
-            outcome=outcome,
-            on_status=status,
-            on_reasoning=on_reasoning,
-            resources=res,
-        ),
+    """The prepared turn's reply. ``turn_resources`` keeps the prepare lock alive
+    on its own task, so a Redis blip can never cut this stream or skip its save."""
+    async for token in stream_and_finalize(
+        deps,
+        redis,
+        settings,
+        ctx,
+        should_cancel=should_cancel,
+        outcome=outcome,
+        on_status=status,
+        on_reasoning=on_reasoning,
+        resources=res,
     ):
         yield token
 
@@ -199,6 +196,7 @@ async def stream_chat_response(
             prior_count=turn.prior_count,
             recent_messages=turn.recent,
             resolved_model=turn.model,
+            on_user_saved=outcome.mark_user_message_saved if outcome is not None else None,
         )
         try:
             await top_up_reserve_for_prompt(
@@ -250,6 +248,9 @@ async def stream_regenerate_response(
         turn = await load_regenerate_turn(
             deps, redis, settings, user_id=user_id, chat_id=chat_id, model_alias=model_alias
         )
+        if outcome is not None:
+            # The message being answered again is in the chat (it just loaded).
+            outcome.mark_user_message_saved()
         settings = profile_service.settings_for_user(settings, turn.user)
         if await intercept_regenerate(
             deps,

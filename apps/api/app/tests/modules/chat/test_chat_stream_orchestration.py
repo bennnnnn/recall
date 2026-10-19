@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import ExitStack, suppress
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
@@ -519,8 +520,9 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_stream_and_finalize_starts_before_user_message_persist(stream_offline_io):
-    """First token must not wait on the Neon user-row commit."""
+async def test_stream_and_finalize_asks_the_model_beside_the_user_row_commit(stream_offline_io):
+    """The model is asked while the user's row commits (no time-to-first-token
+    cost), but its first token is sent only once the row is saved."""
     from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
 
@@ -565,13 +567,16 @@ async def test_stream_and_finalize_starts_before_user_message_persist(stream_off
             should_cancel=None,
             outcome=outcome,
         )
-        token = await agen.__anext__()
-        assert token == "ok"
-        assert llm_started.is_set()
+        first = asyncio.ensure_future(agen.__anext__())
+        await asyncio.wait_for(llm_started.wait(), 5)
+        for _ in range(5):
+            await asyncio.sleep(0)
+        assert not first.done()
         assert ctx.user_message_persist is not None
         assert ctx.user_message_persist.done() is False
         finalize.assert_not_awaited()
         persist_hold.set()
+        assert await first == "ok"
         async for _ in agen:
             pass
         finalize_db = outcome.finalize_db_task
@@ -581,6 +586,213 @@ async def test_stream_and_finalize_starts_before_user_message_persist(stream_off
     finalize.assert_awaited()
     assert ctx.indexable_attachment_ids == ["att-1"]
     assert ctx.user_message_persist is None
+
+
+def _turn_ctx(**fields: Any):
+    from app.modules.chat.turn_prep import StreamContext
+
+    return StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=0,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+        **fields,
+    )
+
+
+def _stream_of(*tokens: str):
+    async def fake_stream(**_kwargs: object):
+        for token in tokens:
+            yield token
+            await asyncio.sleep(0)
+
+    return fake_stream
+
+
+@pytest.mark.asyncio
+async def test_failed_user_row_save_sends_no_reply(stream_offline_io):
+    """Regression: a failed user-message save surfaced only after every token had
+    streamed, and the turn was never charged (a full answer for free). Now the
+    first token is held until the row commits, so a failed save sends nothing
+    and the turn fails as unsaved."""
+    from app.modules.chat.stream_pipeline import stream_and_finalize
+
+    async def failing_persist() -> list[str]:
+        raise RuntimeError("database unavailable")
+
+    finalize = AsyncMock()
+    health = AsyncMock()
+    ctx = _turn_ctx(user_message_persist=asyncio.create_task(failing_persist()))
+    outcome = TurnOutcome()
+    tokens: list[str] = []
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "app.gateways.litellm_gateway.stream_chat_completion",
+                _stream_of("Full ", "answer ", "streamed."),
+            )
+        )
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        stack.enter_context(patch("app.services.model_health.record_sample", health))
+        with pytest.raises(RuntimeError, match="database unavailable"):
+            async for token in stream_and_finalize(
+                offline_deps(),
+                AsyncMock(),
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+                ctx,
+                should_cancel=None,
+                outcome=outcome,
+            ):
+                tokens.append(token)
+
+    assert tokens == []
+    finalize.assert_not_awaited()
+    assert outcome.finalize_db_task is None
+    assert outcome.user_message_saved is False
+    # The model answered; the failure was the save's.
+    assert health.await_args.kwargs["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_terminal_image_turn_counts_its_tool_rounds_toward_global_spend():
+    """The tool rounds before a generated picture were never recorded: the turn's
+    quota is refunded and nothing else counted their provider cost."""
+    from app.modules.chat.stream_pipeline import finalize_terminal_image_turn
+
+    spend = AsyncMock()
+    estimate = MagicMock(return_value=0.0042)
+    ctx = _turn_ctx()
+    ctx.terminal_image_message_id = str(uuid4())
+    ctx.terminal_image_content = "[Image: cat.png]"
+    outcome = TurnOutcome()
+    deps = offline_deps(chats={"touch_by_id": AsyncMock()})
+    with (
+        patch("app.modules.chat.stream_pipeline.enqueue_post_turn_jobs", AsyncMock()),
+        patch("app.modules.chat.stream_pipeline.model_catalog.estimate_cost_usd", estimate),
+        patch("app.modules.chat.stream_pipeline.quota_service.record_global_spend", spend),
+    ):
+        await finalize_terminal_image_turn(
+            deps, AsyncMock(), Settings(), ctx, outcome, {"input": 1200, "output": 80}
+        )
+        assert outcome.finalize_task is not None
+        await outcome.finalize_task
+
+    estimate.assert_called_once_with("free-chat", input_tokens=1200, output_tokens=80)
+    spend.assert_awaited_once()
+    assert spend.await_args.args[1] == 0.0042
+
+
+@pytest.mark.asyncio
+async def test_stop_after_the_last_token_still_saves_the_reply(stream_offline_io):
+    """Regression: a Stop that landed during the finalize passes (answer photo up
+    to 6s, SymPy, the reminder write) cancelled the save: nothing was stored or
+    charged, and the phone's streamed bubble vanished on the next refetch."""
+    from app.modules.chat.stream_pipeline import stream_and_finalize
+
+    entered = asyncio.Event()
+
+    async def slow_enrich(*_args, assistant_text, **_kwargs):
+        entered.set()
+        await asyncio.sleep(0.2)
+        return assistant_text
+
+    finalize = AsyncMock()
+    ctx = _turn_ctx()
+    outcome = TurnOutcome()
+    tokens: list[str] = []
+
+    async def consume() -> None:
+        async for token in stream_and_finalize(
+            offline_deps(),
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            outcome=outcome,
+        ):
+            tokens.append(token)
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "app.gateways.litellm_gateway.stream_chat_completion", _stream_of("full ", "answer")
+            )
+        )
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
+        )
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.enrich_final_content", slow_enrich)
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        stack.enter_context(patch("app.services.model_health.record_sample", AsyncMock()))
+        task = asyncio.create_task(consume())
+        await asyncio.wait_for(entered.wait(), 5)
+        # The WS receive loop does exactly this on {"type": "cancel"}; twice, as
+        # the provider-socket close after a Stop cancels the task again.
+        task.cancel()
+        await asyncio.sleep(0)
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+        assert outcome.finalize_db_task is not None
+        await outcome.finalize_db_task
+
+    assert tokens == ["full ", "answer"]
+    finalize.assert_awaited_once()
+    assert finalize.await_args.args[2] == "full answer"
+    assert outcome.message_id is not None
+    # The reply was complete; the Stop only came during its finishing passes.
+    assert outcome.completion is None
+
+
+@pytest.mark.asyncio
+async def test_a_server_stop_saves_the_partial_reply_as_interrupted(stream_offline_io, monkeypatch):
+    """At shutdown the turn is stopped through the user's Stop path; the saved
+    partial reply says it was interrupted, not stopped by the user."""
+    from app.core import shutdown
+    from app.modules.chat.stream_pipeline import stream_and_finalize
+
+    monkeypatch.setattr(shutdown, "_stopping", True)
+    stopped = asyncio.Event()
+    finalize = AsyncMock()
+    outcome = TurnOutcome()
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "app.gateways.litellm_gateway.stream_chat_completion",
+                _stream_of("one ", "two ", "three"),
+            )
+        )
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        tokens: list[str] = []
+        async for token in stream_and_finalize(
+            offline_deps(),
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            _turn_ctx(),
+            should_cancel=stopped.is_set,
+            outcome=outcome,
+        ):
+            tokens.append(token)
+            stopped.set()  # the shutdown's Stop lands after the first token
+        assert outcome.finalize_db_task is not None
+        await outcome.finalize_db_task
+
+    assert tokens == ["one "]
+    finalize.assert_awaited_once()
+    assert outcome.completion == "interrupted"
 
 
 @pytest.mark.asyncio

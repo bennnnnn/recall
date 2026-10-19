@@ -17,6 +17,8 @@ export type ChatWsPayload = {
   search_sources?: SearchSource[];
   resolved_model?: string;
   completion?: string;
+  /** On an `error`: whether the turn's user message is in the chat (Retry vs Regenerate). */
+  user_message_saved?: boolean;
   /** Follow-up questions on a `related_prompts` event. The message field stays `related_prompts`. */
   prompts?: unknown;
 };

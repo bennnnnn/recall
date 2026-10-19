@@ -199,12 +199,21 @@ def stream_context_from_bundle(
 
 
 async def await_user_message_persist(ctx: StreamContext) -> None:
-    """Finish the background user-row insert. Safe to call more than once."""
+    """Finish the background user-row insert. Safe to call more than once.
+
+    Shielded: a Stop cancels the waiting turn, and cancelling the insert with it
+    would roll the user's message back. A cancelled wait keeps the task for the
+    next call; a finished one (saved or failed) is let go.
+    """
     task = ctx.user_message_persist
     if task is None:
         return
-    ctx.user_message_persist = None
-    ctx.indexable_attachment_ids = await task
+    try:
+        indexable = await asyncio.shield(task)
+    finally:
+        if task.done():
+            ctx.user_message_persist = None
+    ctx.indexable_attachment_ids = indexable
 
 
 async def _load_turn_identity(request: TurnRequest) -> TurnIdentity:

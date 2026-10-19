@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
+import logging
 import math
-import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -27,8 +27,13 @@ from app.services import model_catalog
 from app.services.context_window import estimate_tokens
 from app.services.quota import CHAT_SPEND_CAP_MESSAGE, quota_exceeded_message
 
-CHATPREP_LOCK_TTL_SECONDS = 120
-CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS = 30.0
+logger = logging.getLogger(__name__)
+
+# The refresh is the owner's heartbeat: a machine that dies mid-turn leaves the
+# lock for at most one TTL (the phone's next send gets ``busy`` until then), so
+# it stays short and is refreshed three times a TTL.
+CHATPREP_LOCK_TTL_SECONDS = 30
+CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS = 10.0
 # Concurrent turns can take the room another read just saw; re-read this often.
 _RESERVE_ATTEMPTS = 3
 
@@ -83,6 +88,11 @@ class TurnResources:
             return
         self._refunded = True
         await self.deps.quota.refund_usage(self.redis, str(self.user_id), self.reserved_tokens)
+
+    def mark_settled(self) -> None:
+        """The turn's finalize now settles the reservation (actual usage, or its
+        own refund on failure); an exception escaping later must not refund it too."""
+        self._refunded = True
 
 
 async def acquire_chatprep_lock(deps: ChatTurnDeps, redis: Redis, chat_id: UUID) -> tuple[str, str]:
@@ -141,27 +151,23 @@ async def _refresh_chatprep_lock(res: TurnResources) -> bool:
 
 
 async def chatprep_refresh_loop(res: TurnResources) -> None:
+    """Keep the prepare lock alive for the whole turn, through Redis blips.
+
+    A failed or refused refresh is logged and retried on the next tick: it
+    must never end the turn, whose reply is streaming and still has to save.
+    """
     try:
         while True:
             await asyncio.sleep(CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS)
-            if not await _refresh_chatprep_lock(res):
-                raise ChatServiceError("Chat prepare lock lost during turn")
+            try:
+                if not await _refresh_chatprep_lock(res):
+                    logger.warning("Chat prepare lock no longer held key=%s", res.lock_key)
+            except Exception:
+                logger.warning(
+                    "Chat prepare lock refresh failed key=%s", res.lock_key, exc_info=True
+                )
     except asyncio.CancelledError:
         return
-
-
-async def yield_with_chatprep_refresh(
-    res: TurnResources,
-    tokens: AsyncIterator[str],
-) -> AsyncIterator[str]:
-    last_refresh = 0.0
-    async for token in tokens:
-        now = time.monotonic()
-        if now - last_refresh >= CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS:
-            if not await _refresh_chatprep_lock(res):
-                raise ChatServiceError("Chat prepare lock lost during stream")
-            last_refresh = now
-        yield token
 
 
 def wrap_stream_status(

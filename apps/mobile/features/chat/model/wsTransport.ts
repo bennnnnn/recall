@@ -19,6 +19,25 @@ const WS_TURN_EVENT_TYPES = new Set([
 
 const WS_OPEN_STATE = 1;
 
+/** The server closed a socket idle between turns (`ws_limits.WS_IDLE_CLOSE_CODE`). */
+export const WS_IDLE_CLOSE_CODE = 4408;
+/** Over the per-user socket cap (`ws_limits.WS_TOO_MANY_SOCKETS_CLOSE_CODE`): use SSE. */
+export const WS_TOO_MANY_SOCKETS_CLOSE_CODE = 4429;
+const WS_GOING_AWAY_CLOSE_CODE = 1001;
+/** uvicorn's close when the server restarts (deploy): the next socket reaches the new machine. */
+const WS_SERVICE_RESTART_CLOSE_CODE = 1012;
+/** A deliberate close: the next send opens a new socket instead of falling back to SSE. */
+const RECONNECT_CLOSE_CODES: ReadonlySet<number> = new Set([
+  WS_IDLE_CLOSE_CODE,
+  WS_GOING_AWAY_CLOSE_CODE,
+  WS_SERVICE_RESTART_CLOSE_CODE,
+]);
+/** Closes the server makes without reading a turn's frame: a send in flight is safe to replay. */
+const UNREAD_CLOSE_CODES: ReadonlySet<number> = new Set([
+  WS_IDLE_CLOSE_CODE,
+  WS_TOO_MANY_SOCKETS_CLOSE_CODE,
+]);
+
 type ChatWsAuthFrame = {
   token: string;
   client_timezone: string;
@@ -45,6 +64,7 @@ type ChatWsRegenerateFrame = {
 export type ChatWsFallbackSignal =
   | { reason: "connect_timeout"; duringTurn: false }
   | { reason: "disconnect"; duringTurn: boolean }
+  | { reason: "closed_unread"; duringTurn: boolean }
   | {
       reason: "unauthorized";
       duringTurn: boolean;
@@ -130,7 +150,7 @@ export class ChatWsTransport {
       this.finishConnect();
     };
 
-    const disconnect = () => {
+    const disconnect = (code?: number) => {
       this.clearConnectTimer();
       this.clearFirstEventTimer();
       this.finishConnect();
@@ -138,11 +158,14 @@ export class ChatWsTransport {
       const duringTurn = this.turnActive;
       this.socket = null;
       this.turnActive = false;
-      this.preferSse = true;
-      this.options.onFallback({ reason: "disconnect", duringTurn });
+      this.preferSse = code === undefined || !RECONNECT_CLOSE_CODES.has(code);
+      this.options.onFallback({
+        reason: code !== undefined && UNREAD_CLOSE_CODES.has(code) ? "closed_unread" : "disconnect",
+        duringTurn,
+      });
     };
 
-    socket.onclose = disconnect;
+    socket.onclose = (event?: { code?: number }) => disconnect(event?.code);
     socket.onerror = () => {
       disconnect();
       socket.close();

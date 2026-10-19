@@ -16,7 +16,11 @@ from app.core.config import Settings
 async def test_initialize_process_warms_sympy_only_for_api_roles(
     role: str,
     expected_warmups: int,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from app.core import shutdown
+
+    monkeypatch.setattr(shutdown, "_callbacks", [])
     warm_sympy = AsyncMock()
     with (
         patch("app.process_bootstrap.setup_logging"),
@@ -31,6 +35,10 @@ async def test_initialize_process_warms_sympy_only_for_api_roles(
         )
 
     assert warm_sympy.await_count == expected_warmups
+    # Only a process that serves chat stops its turns at the signal.
+    from app.modules.chat.finalize_registry import stop_inflight_streams
+
+    assert (stop_inflight_streams in shutdown._callbacks) is bool(expected_warmups)
     if expected_warmups:
         from app.modules.math.sympy_warmup import warm_math_worker
 
@@ -87,9 +95,12 @@ async def test_shutdown_process_stops_worker_before_closing_resources():
         patch("app.process_bootstrap.get_redis_client", return_value=redis),
         patch("app.process_bootstrap.aclose_pooled_clients", AsyncMock()) as close_http,
         patch("app.process_bootstrap.shutdown_sympy_executor") as stop_sympy,
+        # The stop flag is process-wide; a real one would refuse later tests' turns.
+        patch("app.process_bootstrap.shutdown.begin_stop") as begin_stop,
     ):
         await process_bootstrap.shutdown_process(stop_worker=True)
 
+    begin_stop.assert_called_once_with()
     drain.assert_awaited_once_with(timeout_seconds=10.0)
     stop_worker.assert_awaited_once()
     stop_sympy.assert_called_once_with()

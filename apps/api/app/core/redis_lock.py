@@ -4,15 +4,21 @@
 holder that outlives its TTL cannot delete or refresh a lock owned by a
 later instance. Prefers Lua (atomic); falls back to GET+compare for clients
 that lack ``EVAL`` (e.g. some fakeredis setups in tests).
+
+A release that cannot reach Redis is logged and left to the TTL: no caller can
+do better, and raising from a ``finally`` turned finished work into a failure.
 """
 
 from __future__ import annotations
 
+import logging
 import secrets
 from typing import Final
 
 from redis.asyncio import Redis
-from redis.exceptions import ResponseError
+from redis.exceptions import RedisError, ResponseError
+
+logger = logging.getLogger(__name__)
 
 _RELEASE_LUA: Final[str] = """
 if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -36,11 +42,15 @@ async def acquire_lock(redis: Redis, key: str, ttl_seconds: int) -> str | None:
 
 
 async def release_lock(redis: Redis, key: str, token: str) -> None:
+    """Delete ``key`` when ``token`` still owns it; on a Redis error the TTL frees it."""
     try:
-        await redis.eval(_RELEASE_LUA, 1, key, token)
-    except ResponseError:
-        if await redis.get(key) == token:
-            await redis.delete(key)
+        try:
+            await redis.eval(_RELEASE_LUA, 1, key, token)
+        except ResponseError:
+            if await redis.get(key) == token:
+                await redis.delete(key)
+    except (RedisError, OSError) as exc:
+        logger.warning("Lock release failed; %s expires on its TTL: %r", key, exc)
 
 
 async def refresh_lock(redis: Redis, key: str, token: str, ttl_seconds: int) -> bool:
