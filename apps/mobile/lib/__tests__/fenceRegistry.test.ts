@@ -330,3 +330,67 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
     }
   });
 });
+
+describe("per-fence predicates accept exactly these fences", () => {
+  // Every registered tag, a callout variant, the unregistered control tags and
+  // a few code tags: each predicate below is pinned over all of them.
+  const probes = [
+    ...FENCES.flatMap((spec) => spec.langs),
+    "callout-tip",
+    "reminder",
+    "reminder_proposal",
+    "settings_proposal",
+    "calendar_proposal",
+    "photo",
+    "python",
+    "json",
+    "",
+  ];
+  const accepted = (predicate: (lang: string) => boolean) =>
+    [...new Set(probes.filter(predicate).map((lang) => fenceIdForLang(lang) ?? lang))].sort();
+
+  it("display maths and maths diagrams", () => {
+    expect(accepted(isMathDiagramLang)).toEqual(["arithmetic", "geometry", "graph", "math"]);
+  });
+
+  it("fences lifted out of list items", () => {
+    expect(accepted(shouldLiftFenceOutOfList)).toEqual([
+      "answer",
+      "arithmetic",
+      "geometry",
+      "graph",
+      "math",
+    ]);
+  });
+
+  it("charts and diagrams read aloud by name", () => {
+    expect(accepted(isChartFenceLang)).toEqual(["chart"]);
+    expect(accepted(isVisualDiagramFenceLang)).toEqual([
+      "arithmetic",
+      "chem_scene",
+      "chemistry",
+      "geometry",
+      "graph",
+      "mermaid",
+      "molecule",
+      "molecule3d",
+      "simulation",
+    ]);
+  });
+
+  it("control fences, never copied or spoken", () => {
+    expect(accepted(isControlFenceLang)).toEqual([
+      "calendar_proposal",
+      "photo",
+      "places",
+      "reminder",
+      "reminder_proposal",
+      "settings_proposal",
+      "sources",
+    ]);
+  });
+
+  it("maths fences", () => {
+    expect(accepted(isMathFenceLang)).toEqual(["math"]);
+  });
+});
