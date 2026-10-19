@@ -13,7 +13,6 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.exceptions import (
     ChatBusyError,
-    ChatServiceError,
     QuotaExceededError,
     SpendCapReachedError,
 )
@@ -136,7 +135,7 @@ async def turn_resources(
         raise
     finally:
         refresh_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError, ChatServiceError, Exception):
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await refresh_task
         await deps.locks.release_lock(redis, lock_key, lock_token)
 

@@ -80,7 +80,8 @@ async def finish_open_stream(stream: AsyncIterator[Any]) -> None:
             async for _ in stream:
                 pass
     except Exception:
-        return
+        # The turn reports its own failure; this only drains what was left.
+        logger.debug("Stopped chat stream raised while it finished", exc_info=True)
 
 
 # Failures a turn reports to its client without logging a traceback: the client

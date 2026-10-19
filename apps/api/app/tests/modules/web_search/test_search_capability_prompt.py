@@ -31,7 +31,6 @@ def _hints(**settings) -> str:
         memory_block="",
         attachment_rag_block="",
         todos_section=None,
-        summary=None,
     )
     return "\n".join(parts)
 

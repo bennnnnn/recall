@@ -2,8 +2,10 @@
 
 Each turn holds its prepare lock and quota (``turn_resources``), reads what it needs
 (``turn_load``), may be answered by a photo or a picture (``turn_intercepts``),
-and otherwise streams through ``stream_pipeline``. ``deps`` is what it uses
-outside the chat module (``turn_deps``); the transports pass ``default_deps()``.
+and otherwise streams through ``stream_pipeline``. ``turn_resources`` keeps the
+prepare lock alive on its own task, so a Redis blip never cuts a stream or skips
+its save. ``deps`` is what a turn uses outside the chat module (``turn_deps``); the
+transports pass ``default_deps()``.
 """
 
 import logging
@@ -29,7 +31,6 @@ from app.modules.chat.turn_intercepts import (
 from app.modules.chat.turn_load import NewTurn, load_new_turn, load_regenerate_turn
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import (
-    StreamContext,
     TurnRequest,
     await_user_message_persist,
     build_stream_prompt_context,
@@ -50,34 +51,6 @@ from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services.thinking_effort import thinking_level
 
 logger = logging.getLogger(__name__)
-
-
-async def _stream_turn(
-    deps: ChatTurnDeps,
-    redis: Redis,
-    settings: Settings,
-    ctx: StreamContext,
-    res: TurnResources,
-    *,
-    should_cancel: Callable[[], bool] | None,
-    outcome: TurnOutcome | None,
-    status: StreamStatusFn | None,
-    on_reasoning: StreamReasoningFn | None,
-) -> AsyncIterator[str]:
-    """The prepared turn's reply. ``turn_resources`` keeps the prepare lock alive
-    on its own task, so a Redis blip can never cut this stream or skip its save."""
-    async for token in stream_and_finalize(
-        deps,
-        redis,
-        settings,
-        ctx,
-        should_cancel=should_cancel,
-        outcome=outcome,
-        on_status=status,
-        on_reasoning=on_reasoning,
-        resources=res,
-    ):
-        yield token
 
 
 async def _reserve_new_turn(
@@ -211,16 +184,16 @@ async def stream_chat_response(
             await top_up_reserve_for_prompt(
                 res, settings=settings, ctx=ctx, daily_limit=turn.daily_limit
             )
-            async for token in _stream_turn(
+            async for token in stream_and_finalize(
                 deps,
                 redis,
                 settings,
                 ctx,
-                res,
                 should_cancel=should_cancel,
                 outcome=outcome,
-                status=status,
+                on_status=status,
                 on_reasoning=on_reasoning,
+                resources=res,
             ):
                 yield token
         finally:
@@ -344,16 +317,16 @@ async def stream_regenerate_response(
             deps, settings, user=turn.user, chat_id=chat_id, content=turn.content
         )
         try:
-            async for token in _stream_turn(
+            async for token in stream_and_finalize(
                 deps,
                 redis,
                 settings,
                 ctx,
-                res,
                 should_cancel=should_cancel,
                 outcome=outcome,
-                status=status,
+                on_status=status,
                 on_reasoning=on_reasoning,
+                resources=res,
             ):
                 yield token
         except BaseException:
