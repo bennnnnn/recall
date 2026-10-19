@@ -32,6 +32,7 @@ from app.modules.chat.related_questions import (
     follow_up_topic,
     topic_anchors,
 )
+from app.modules.chat.stream_accum import Completion
 from app.modules.chat.stream_events import build_related_prompts_event
 from app.services.quota import global_spend_exceeded
 from app.services.text_normalize import collapse_ws
@@ -203,7 +204,7 @@ def schedule_related_prompts(
     answer: str,
     prior: Sequence[Any] | None = None,
     allow_general: bool = True,
-    completion: str | None = None,
+    completion: Completion | None = None,
 ) -> asyncio.Task[dict[str, Any] | None] | None:
     """Start the model call without waiting. The transport sends the event after done.
 

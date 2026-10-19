@@ -27,6 +27,7 @@ from app.exceptions import (
     UnknownModelOverrideError,
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
+from app.modules.chat.stream_accum import Completion
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.web_search import SearchSource
 
@@ -166,7 +167,7 @@ class DoneEvent(BaseModel):
     final_content: str | None = None
     resolved_model: str | None = None
     fallback_used: bool = False
-    completion: str | None = None
+    completion: Completion | None = None
     # The commit outlived the wait: the client keeps its bubble and refetches.
     persisting: bool = False
 

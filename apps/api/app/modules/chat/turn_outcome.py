@@ -11,6 +11,7 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.modules.chat.stream_accum import Completion
 from app.modules.web_search import SearchSource
 
 
@@ -26,7 +27,7 @@ class TurnOutcome:
     # The provider answered on another alias than the one asked for.
     fallback_used: bool = False
     # "interrupted" or "user_stop"; None when the reply completed.
-    completion: str | None = None
+    completion: Completion | None = None
     # How much of the reply the client had drawn when its user tapped Stop (a
     # UTF-16 length, from the cancel frame); a stopped reply saves no more.
     client_shown_chars: int | None = None

@@ -20,6 +20,7 @@ from app.modules.chat.related_prompts import (
 )
 from app.modules.chat.related_questions import _digit_skeleton, subject_for_related, thread_problem
 from app.modules.chat.service import list_messages_page
+from app.modules.chat.stream_accum import Completion
 from app.modules.chat.stream_events import DoneEvent, take_related_prompts_event
 from app.modules.chat.turn_outcome import TurnOutcome
 
@@ -222,7 +223,9 @@ async def test_follow_ups_stop_at_the_global_spend_cap(
 
 
 @pytest.mark.parametrize("completion", ["user_stop", "interrupted"])
-async def test_a_stopped_or_cut_off_reply_gets_no_follow_ups(completion: str, fake_redis) -> None:
+async def test_a_stopped_or_cut_off_reply_gets_no_follow_ups(
+    completion: Completion, fake_redis
+) -> None:
     with patch(
         "app.modules.chat.related_prompts.complete_structured",
         new_callable=AsyncMock,
