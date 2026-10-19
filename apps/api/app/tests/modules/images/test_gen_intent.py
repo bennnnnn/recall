@@ -2,10 +2,10 @@
 
 import pytest
 
-from app.modules.images.gen_intent import (
+from app.modules.images.gen_intent import extract_image_gen_prompt
+from app.modules.images.gen_intent_thread import (
     could_be_image_revision,
     could_be_image_thread_followup,
-    extract_image_gen_prompt,
     extract_image_gen_prompt_from_thread,
     extract_image_revision_prompt,
     image_gen_revision_context,
