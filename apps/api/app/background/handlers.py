@@ -46,18 +46,6 @@ logger = logging.getLogger(__name__)
 HISTORY_SCANS_AT_ONCE = 3
 
 
-async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
-    user_id_raw = payload.get("user_id")
-    user_id = UUID(user_id_raw) if user_id_raw else None
-    await topic_service.generate_chat_title(
-        settings,
-        UUID(payload["chat_id"]),
-        payload.get("user_message", ""),
-        payload.get("assistant_message", ""),
-        user_id=user_id,
-    )
-
-
 _MEMORY_LOCK_MAX_RETRIES = 3
 # Match core.jobs.worker._RETRY_BACKOFF_S. Instant re-enqueue cannot outlast a lock
 # held for an LLM round-trip; the worker is not latency-sensitive.
@@ -134,6 +122,19 @@ def _unless_spend_capped(handler: _Handler) -> _Handler:
         await handler(settings, payload)
 
     return run
+
+
+@_unless_spend_capped
+async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
+    user_id_raw = payload.get("user_id")
+    user_id = UUID(user_id_raw) if user_id_raw else None
+    await topic_service.generate_chat_title(
+        settings,
+        UUID(payload["chat_id"]),
+        payload.get("user_message", ""),
+        payload.get("assistant_message", ""),
+        user_id=user_id,
+    )
 
 
 @_unless_spend_capped
