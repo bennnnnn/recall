@@ -11,12 +11,16 @@ invent attachment URLs).
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolContext, ToolResult
 from app.models.schemas.tools import ImageSearchToolInput
 from app.modules.images import search as image_search_service
+from app.modules.images.tool_result import terminal_image_result
+
+logger = logging.getLogger(__name__)
 
 
 class ImageSearchAdapter:
@@ -76,25 +80,16 @@ class ImageSearchAdapter:
         except image_search_service.ImageSearchError as exc:
             return ToolResult(name=self.name, content=f"Photo lookup failed: {exc.detail}")
         except Exception:
+            logger.exception("Photo lookup tool failed chat_id=%s", chat_id)
             return ToolResult(name=self.name, content="Photo lookup failed unexpectedly.")
 
-        marker = (asst_msg.content or "").strip()
-        if not marker.startswith("[Image:"):
-            return ToolResult(
-                name=self.name,
-                content="Photo lookup did not produce an attachment marker.",
-            )
-
-        return ToolResult(
-            name=self.name,
-            content=(
+        return terminal_image_result(
+            self.name,
+            asst_msg,
+            attached=(
                 "Reference photo found and attached. The app will show it — "
                 "do not invent URLs or write another reply."
             ),
-            data={
-                "terminal": True,
-                "image_marker": marker,
-                "assistant_message_id": str(asst_msg.id),
-                "resolved_model": asst_msg.model or "image-search-model",
-            },
+            no_marker="Photo lookup did not produce an attachment marker.",
+            default_model="image-search-model",
         )

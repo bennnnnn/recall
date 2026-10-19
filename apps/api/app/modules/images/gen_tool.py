@@ -7,6 +7,7 @@ pass (never trust the model to invent attachment URLs).
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -15,6 +16,9 @@ from app.gateways.mcp.base import ToolContext, ToolResult
 from app.models.schemas.tools import GenerateImageToolInput
 from app.modules.billing import can_use
 from app.modules.images import generation as image_generation_service
+from app.modules.images.tool_result import terminal_image_result
+
+logger = logging.getLogger(__name__)
 
 
 class ImageGenAdapter:
@@ -89,27 +93,18 @@ class ImageGenAdapter:
                 content=f"Image generation failed: {exc.detail}",
             )
         except Exception:
+            logger.exception("Image generation tool failed chat_id=%s", chat_id)
             return ToolResult(
                 name=self.name,
                 content="Image generation failed unexpectedly.",
             )
 
-        marker = (asst_msg.content or "").strip()
-        if not marker.startswith("[Image:"):
-            return ToolResult(
-                name=self.name,
-                content="Image generation did not produce an attachment marker.",
-            )
-
-        return ToolResult(
-            name=self.name,
-            content=(
+        return terminal_image_result(
+            self.name,
+            asst_msg,
+            attached=(
                 "Image generated. The app will show it — do not invent URLs or write another reply."
             ),
-            data={
-                "terminal": True,
-                "image_marker": marker,
-                "assistant_message_id": str(asst_msg.id),
-                "resolved_model": asst_msg.model or "image-gen-model",
-            },
+            no_marker="Image generation did not produce an attachment marker.",
+            default_model="image-gen-model",
         )
