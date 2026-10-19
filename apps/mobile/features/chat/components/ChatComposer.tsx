@@ -29,11 +29,14 @@ import {
   MathDraftPreview,
   MATH_DRAFT_PREVIEW_HEIGHT,
 } from "@/features/chat/components/MathDraftPreview";
-import { ComposerSendControls } from "@/features/chat/components/ComposerSendControls";
 import {
-  ComposerTextMeasure,
-  type ComposerTextSize,
-} from "@/features/chat/components/ComposerTextMeasure";
+  ComposerAttachButton,
+  ComposerExpandControl,
+  ComposerScanHint,
+  COMPOSER_SCAN_HINT_HEIGHT,
+} from "@/features/chat/components/ComposerControls";
+import { ComposerSendControls } from "@/features/chat/components/ComposerSendControls";
+import { ComposerTextMeasure } from "@/features/chat/components/ComposerTextMeasure";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
 import { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
@@ -43,21 +46,15 @@ import {
   useComposerDraftValueOptional,
 } from "@/contexts/ComposerDraftContext";
 import { useAuthToken } from "@/contexts/AuthContext";
+import { useComposerFieldLayout } from "@/features/chat/hooks/useComposerFieldLayout";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,
-  COMPOSER_CONTROL_SIZE,
   COMPOSER_GAP_FADE_OVERLAP,
-  composerInputFrameForLines,
-  composerInputFrameHeight,
-  composerInputMetrics,
-  composerInputTextBoxHeight,
-  retainedComposerContentHeight,
   composerNativeInputTraits,
   composerShowsMic,
   composerShowsSend,
-  composerSoftWrapLineCount,
 } from "@/features/chat/model/composerLogic";
 import { liveTalkShowsSideChrome } from "@/features/speech/model/liveTalkLogic";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
@@ -165,15 +162,7 @@ export const ChatComposer = memo(function ChatComposer({
     onChangeInputProp ??
     (draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput);
   const [scanHint, setScanHint] = useState(false);
-  const [inputHeight, setInputHeight] = useState<number>(COMPOSER_CONTROL_SIZE);
-  const [inputContentWidth, setInputContentWidth] = useState(0);
-  const [composerExpanded, setComposerExpanded] = useState(false);
-  // Field width beside the buttons. Wrapping is judged at this width, so the
-  // wider stacked field cannot flip the layout back.
-  const [inlineWidth, setInlineWidth] = useState(0);
-  const [textSize, setTextSize] = useState<ComposerTextSize>({ naturalWidth: 0, height: 0 });
   const inputRef = useRef<TextInput>(null);
-  const measuredContent = useRef<{ revision: number; height: number } | null>(null);
   const math = useMathKeyboardInsert({
     input,
     draftRevision: draft?.revision,
@@ -187,7 +176,7 @@ export const ChatComposer = memo(function ChatComposer({
   const mathChromeHeight =
     (math.mathBarOpen ? math.padHeight : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
-    (scanHint ? 40 : 0) +
+    (scanHint ? COMPOSER_SCAN_HINT_HEIGHT : 0) +
     (sendStatus ? COMPOSER_STATUS_LINE_HEIGHT : 0);
 
   useEffect(() => {
@@ -211,53 +200,30 @@ export const ChatComposer = memo(function ChatComposer({
   // Switching threads can keep ChatComposer mounted, so clear transient UI explicitly.
   useEffect(() => {
     setScanHint(false);
-    setComposerExpanded(false);
   }, [draft?.revision]);
 
-  useEffect(() => {
-    // iOS can retain the last multiline content size after a controlled
-    // TextInput is cleared. Pin the empty draft back to the single-line
-    // height so a sent long message cannot leave a tall blank composer.
-    // Within one draft, keep the last wrap height: a keystroke changes the
-    // string without a new content-size event. A thread switch (revision)
-    // drops that sample so the next draft does not inherit it.
-    const revision = draft?.revision ?? 0;
-    if (!input) {
-      measuredContent.current = null;
-      setInputHeight(COMPOSER_CONTROL_SIZE);
-      setComposerExpanded(false);
-      return;
-    }
-    const measured = retainedComposerContentHeight(
-      measuredContent.current,
-      revision,
-      input,
-    );
-    const frame = composerInputFrameHeight(input, measured, inputContentWidth, fontScale);
-    setInputHeight(frame.height);
-  }, [draft?.revision, fontScale, input, inputContentWidth]);
-
-  // Only hard returns move the thread. A soft wrap grows the field in place;
-  // pushing list padding here is what yanks the chat up on every line.
-  // Measured from the 44 pt field COMPOSER_HEIGHT assumes, so a taller line
-  // at a large text size moves the thread too.
-  const returnFrame = composerInputFrameHeight(input, 0, 0, fontScale);
-  // Text wraps beside the buttons: it takes the full width over a row of them.
-  // Judged on the rendered text; the glyph estimate is only for the first frame.
-  const stacked = Boolean(input) && (
-    input.includes("\n") ||
-    (textSize.naturalWidth > 0
-      ? inlineWidth > 0 && textSize.naturalWidth > inlineWidth
-      : composerSoftWrapLineCount(input, inlineWidth, fontScale) > 1)
-  );
-  // Stacking adds the button row once, so the last reply stays clear of the pill.
-  const inputFrameExtra = composerExpanded
-    ? 0
-    : Math.max(0, returnFrame.height - COMPOSER_CONTROL_SIZE) +
-      (stacked ? COMPOSER_CONTROL_SIZE : 0);
-  useEffect(() => {
-    onInputFrameExtraChange?.(visible ? inputFrameExtra : 0);
-  }, [inputFrameExtra, onInputFrameExtraChange, visible]);
+  const voiceActive = voiceRecording || voiceTranscribing;
+  const {
+    composerExpanded,
+    toggleExpanded,
+    inputContentWidth,
+    setTextSize,
+    field,
+    textBoxHeight,
+    fieldOverflows,
+    singleLineComposer,
+    showExpandControl,
+    stackedLayout,
+    onInputLayout,
+    onInputContentSizeChange,
+  } = useComposerFieldLayout({
+    input,
+    draftRevision: draft?.revision,
+    fontScale,
+    visible,
+    voiceActive,
+    onInputFrameExtraChange,
+  });
 
   const bottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
   const keyboard = useAnimatedKeyboard();
@@ -307,35 +273,11 @@ export const ChatComposer = memo(function ChatComposer({
     voiceTranscribing,
     hasSendableContent,
   });
-  const voiceActive = voiceRecording || voiceTranscribing;
   const showSend = composerShowsSend({
     voiceRecording,
     voiceTranscribing,
     hasSendableContent,
   });
-  const draftRevision = draft?.revision ?? 0;
-  const measuredNow = input
-    ? retainedComposerContentHeight(measuredContent.current, draftRevision, input)
-    : 0;
-  const field = composerInputMetrics(fontScale);
-  const frameNow =
-    textSize.height > 0
-      ? composerInputFrameForLines(Math.round(textSize.height / field.line), fontScale)
-      : composerInputFrameHeight(
-          input,
-          Math.max(measuredNow, inputHeight),
-          inputContentWidth,
-          fontScale,
-        );
-  // Same render as the keystroke. Waiting for the effect leaves one frame
-  // clipped at the end of the line.
-  const fieldHeight = input ? frameNow.height : field.min;
-  // Text box matches the lines. Centering slack stays on the wrapper so the
-  // caret remains on the last line, beside the buttons.
-  const textBoxHeight = composerInputTextBoxHeight(fieldHeight, fontScale);
-  const fieldOverflows = Boolean(input) && frameNow.overflows;
-  const singleLineComposer = !composerExpanded && fieldHeight <= field.min;
-
   const blockStyle = s.composerBlock;
   const expandedBlockStyle = composerExpanded
     ? [s.composerBlockExpanded, { top: insets.top + Space.xs }]
@@ -343,12 +285,11 @@ export const ChatComposer = memo(function ChatComposer({
   const containerStyle = animatedContainerStyle
     ? [blockStyle, animatedContainerStyle, expandedBlockStyle]
     : [blockStyle, expandedBlockStyle];
-  const showExpandControl = fieldOverflows || composerExpanded;
-  const stackedLayout = (stacked || composerExpanded) && !voiceActive;
   const attachButton = (
-    <Pressable
-      testID="composer-attachment-button"
-      style={[s.attachBtn, !voiceActive && attachmentDisabled && s.controlDisabled]}
+    <ComposerAttachButton
+      s={s}
+      voiceActive={voiceActive}
+      disabled={attachmentDisabled}
       onPress={() => {
         if (voiceActive) {
           onCancelVoice?.();
@@ -357,28 +298,7 @@ export const ChatComposer = memo(function ChatComposer({
         liveTalkChrome?.onYield();
         onPickAttachment();
       }}
-      disabled={!voiceActive && attachmentDisabled}
-      hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-      accessibilityRole="button"
-      accessibilityLabel={t(voiceActive ? "chat.voice_cancel_a11y" : "chat.attach_a11y")}
-      accessibilityState={{ disabled: !voiceActive && attachmentDisabled }}
-    >
-      {voiceActive ? (
-        <Icon
-          name="close"
-          size={IconSize.md}
-          color={theme.text}
-          testID="composer-voice-cancel-icon"
-        />
-      ) : (
-        <Icon
-          name="plus"
-          size={IconSize.md}
-          color={theme.text}
-          testID="composer-attachment-add-icon"
-        />
-      )}
-    </Pressable>
+    />
   );
   const trailingControls = (
     <View style={s.trailingControls}>
@@ -432,30 +352,14 @@ export const ChatComposer = memo(function ChatComposer({
       <View style={[s.composerAnchor, composerExpanded && s.expandedFill]}>
         <View style={[s.composer, composerExpanded && s.expandedFill]}>
           {scanHint && onOpenMathScanner ? (
-            <View style={s.scanHint}>
-              <Text style={s.scanHintText}>{t("chat.math_paste_scan_hint")}</Text>
-              <Pressable
-                onPress={() => {
-                  setScanHint(false);
-                  onOpenMathScanner();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={t("chat.math_paste_scan_cta")}
-                // A one-word link: reach the 44pt target around it.
-                hitSlop={{ top: 12, bottom: 12, left: Space.xs, right: Space.xs }}
-              >
-                <Text style={s.scanHintCta}>{t("chat.math_paste_scan_cta")}</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setScanHint(false)}
-                accessibilityRole="button"
-                accessibilityLabel={t("common.cancel")}
-                // A 16pt glyph: 14pt each side makes the 44pt target.
-                hitSlop={14}
-              >
-                <Icon name="close" size={IconSize.xs} color={theme.textSecondary} />
-              </Pressable>
-            </View>
+            <ComposerScanHint
+              s={s}
+              onOpenScanner={() => {
+                setScanHint(false);
+                onOpenMathScanner();
+              }}
+              onDismiss={() => setScanHint(false)}
+            />
           ) : null}
           <View style={[s.inputStack, composerExpanded && s.expandedFill]}>
           <View
@@ -479,25 +383,14 @@ export const ChatComposer = memo(function ChatComposer({
               />
             ) : null}
             {showExpandControl ? (
-              <View style={s.expandControlRow}>
-                <Pressable
-                  style={s.expandControl}
-                  onPress={() => {
-                    setComposerExpanded((expanded) => !expanded);
-                    requestAnimationFrame(() => inputRef.current?.focus());
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={t(composerExpanded ? "rich.collapse" : "rich.expand")}
-                  accessibilityState={{ expanded: composerExpanded }}
-                  testID="composer-expand"
-                >
-                  <Icon
-                    name={composerExpanded ? "collapse" : "expand"}
-                    size={IconSize.sm}
-                    color={theme.textSecondary}
-                  />
-                </Pressable>
-              </View>
+              <ComposerExpandControl
+                s={s}
+                expanded={composerExpanded}
+                onPress={() => {
+                  toggleExpanded();
+                  requestAnimationFrame(() => inputRef.current?.focus());
+                }}
+              />
             ) : null}
             <View
               testID="composer-input-row"
@@ -577,30 +470,8 @@ export const ChatComposer = memo(function ChatComposer({
                     // correction does not flip mid-word inside one native session.
                     {...composerNativeInputTraits(math.mathBarOpen || showMathPreview)}
                     onChangeText={math.onChangeText}
-                    onLayout={(event) => {
-                      const next = Math.round(event.nativeEvent.layout.width);
-                      if (next <= 0) return;
-                      setInputContentWidth((current) => (current === next ? current : next));
-                      if (!stackedLayout) setInlineWidth(next);
-                    }}
-                    onContentSizeChange={(event) => {
-                      const measured = Math.ceil(event.nativeEvent.contentSize.height);
-                      measuredContent.current = {
-                        revision: draft?.revision ?? 0,
-                        height: measured,
-                      };
-                      const frame = composerInputFrameHeight(
-                        input,
-                        measured,
-                        inputContentWidth,
-                        fontScale,
-                      );
-                      if (!composerExpanded) {
-                        setInputHeight((current) =>
-                          current === frame.height ? current : frame.height,
-                        );
-                      }
-                    }}
+                    onLayout={onInputLayout}
+                    onContentSizeChange={onInputContentSizeChange}
                     scrollEnabled={fieldOverflows && !composerExpanded}
                     onSelectionChange={math.onSelectionChange}
                     selection={
