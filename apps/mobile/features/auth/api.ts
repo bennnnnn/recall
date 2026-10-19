@@ -1,6 +1,7 @@
-/** Sign-in with Google, Apple, or dev auth. Session refresh lives in lib/api/client.ts. */
-import { apiUrl, fetchWithTimeout } from "@/lib/api/client";
-import type { AuthResult } from "@/lib/api/types";
+/** Sign-in with Google, Apple, or dev auth, and the consent asked right after it.
+ * Session refresh lives in lib/api/client.ts. */
+import { apiUrl, fetchWithTimeout, request } from "@/lib/api/client";
+import type { AuthResult, User } from "@/lib/api/types";
 import { deviceSessionFields } from "@/lib/deviceSession";
 
 export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
@@ -52,4 +53,12 @@ export async function loginWithDev(
     throw new Error(text || "Dev login failed — is the API running?");
   }
   return response.json() as Promise<AuthResult>;
+}
+
+/** Record that the user agreed to the outside-AI disclosure; the server stamps the time. */
+export function agreeToAiDataSharing(token: string): Promise<User> {
+  return request<User>("/auth/me", token, {
+    method: "PATCH",
+    body: JSON.stringify({ ai_data_consent: true }),
+  });
 }

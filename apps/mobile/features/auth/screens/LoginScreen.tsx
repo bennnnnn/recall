@@ -18,6 +18,7 @@ import { BrandMark } from "@/ui/icons/brand";
 import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoginActions } from "@/features/auth/hooks/useLoginActions";
+import { AI_CONSENT_ROUTE, needsAiDataConsent } from "@/features/auth/model/aiConsent";
 import { shouldShowAppleSignInButton } from "@/lib/apple-auth";
 import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
 import { isExpoGo } from "@/lib/google-auth";
@@ -42,7 +43,7 @@ const HIGHLIGHTS = [
 ];
 
 export default function LoginScreen() {
-  const { token, loading, onboarded } = useAuth();
+  const { token, user, loading, onboarded } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -65,7 +66,8 @@ export default function LoginScreen() {
     );
   }
 
-  if (token) return <Redirect href="/" />;
+  // A new sign-in goes straight to the one-time AI consent, never past the chat.
+  if (token) return <Redirect href={needsAiDataConsent(user) ? AI_CONSENT_ROUTE : "/"} />;
   if (!onboarded) return <Redirect href="/onboarding" />;
 
   const gradientColors = [theme.primaryLight, theme.bg] as const;
