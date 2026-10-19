@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { InteractionManager, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
@@ -23,7 +23,7 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
 import { useReduceMotion } from "@/lib/reduceMotion";
-import { stackHeaderOptions } from "@/lib/stackHeader";
+import { useStackHeaderOptions } from "@/lib/stackHeader";
 import {
   stackAuthTransition,
   stackHomeTransition,
@@ -39,7 +39,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 function RootNavigator() {
   const { t } = useTranslation();
   const theme = useTheme();
-  const header = useMemo(() => stackHeaderOptions(theme), [theme]);
+  const header = useStackHeaderOptions();
   const { status } = useNetwork();
   const reduceMotion = useReduceMotion();
 
