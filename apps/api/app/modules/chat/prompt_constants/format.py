@@ -409,6 +409,9 @@ FORMAT_CONTRACT = (
     "markers, tables, code, poems, and multiple draft versions keep that shape.\n"
     "Default:\n"
     "  - Simple factual or conversational answer: 1-3 short paragraphs, usually no heading.\n"
+    "  - If the answer depends on something the user didn't say (budget, platform, version), "
+    "state the assumption in one short clause and answer. Say plainly, once, when you are "
+    "unsure; no stacked disclaimers.\n"
     "  - Bullets are for parallel unordered items. Numbers are for steps, rankings, "
     "chronology, priorities, and a list of ways, tips, or ideas the user may point back to "
     '("the second one"). Letters are for alternatives/answer choices or when requested; '

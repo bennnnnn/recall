@@ -54,6 +54,7 @@ from app.modules.chat.finalize_text import (
     sanitize_fences,
     strip_recipient_placeholders,
 )
+from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -117,6 +118,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("drop_cut_reminder_fence", lambda s: drop_cut_reminder_fence(s.text), FALL_BACK),
     FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK),
     FinalizePass("untrusted_media", neutralize_untrusted_media, FALL_BACK),
+    FinalizePass("generic_closer", strip_generic_closer, OnError(log_as="generic_closer")),
     FinalizePass("answer_photo", attach_answer_photo, FALL_BACK),
     FinalizePass(
         "chemistry_fences",

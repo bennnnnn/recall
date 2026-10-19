@@ -28,3 +28,21 @@ def test_headings_rule_does_not_contradict_the_short_how_to() -> None:
 def test_a_greeting_gets_no_emoji_or_offer_unless_the_user_used_one() -> None:
     assert "No emoji unless the user used one" in LIGHTWEIGHT_REPLY_HINT
     assert "no closing offer" in LIGHTWEIGHT_REPLY_HINT
+
+
+def test_an_answer_that_rests_on_an_unstated_detail_names_its_assumption() -> None:
+    assert "state the assumption in one short clause and answer" in FORMAT_CONTRACT
+    assert "(budget, platform, version)" in FORMAT_CONTRACT
+    assert "no stacked disclaimers" in FORMAT_CONTRACT
+
+
+def test_no_hint_asks_for_a_generic_offer_line() -> None:
+    from app.modules.chat.prompt_constants import EMAIL_DRAFT_HINT, FACT_GROUNDING_HINT
+
+    # A draft ends at its fence; a line after it only names a gap or an assumption.
+    assert "offering to adjust tone or length" not in EMAIL_DRAFT_HINT
+    assert "No offer to adjust tone or length" in EMAIL_DRAFT_HINT
+    # The "may be out of date" line is for facts that change, never for settled ones.
+    assert "a settled one (a capital, a formula, history) gets no disclaimer" in (
+        FACT_GROUNDING_HINT
+    )
