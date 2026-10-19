@@ -13,14 +13,12 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat.related_prompts import (
     RelatedQuestions,
-    _digit_skeleton,
     generate_related_questions,
     load_related_prompts,
     schedule_related_prompts,
     store_related_prompts,
-    subject_for_related,
-    thread_problem,
 )
+from app.modules.chat.related_questions import _digit_skeleton, subject_for_related, thread_problem
 from app.modules.chat.service import list_messages_page
 from app.modules.chat.stream_events import DoneEvent, take_related_prompts_event
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -381,7 +379,7 @@ async def test_a_follow_up_is_one_short_line() -> None:
 
 
 def test_math_counts_as_what_the_phone_shows() -> None:
-    from app.modules.chat.related_prompts import _prepare_question
+    from app.modules.chat.related_questions import _prepare_question
 
     fraction = r"Why is $\frac{v - v_0}{t}$ the average acceleration here?"
     assert _prepare_question(fraction) == fraction
@@ -514,7 +512,7 @@ async def test_the_model_may_return_no_follow_ups() -> None:
     ],
 )
 def test_a_question_that_only_sounds_like_a_command_still_counts(question: str) -> None:
-    from app.modules.chat.related_prompts import general_question
+    from app.modules.chat.related_questions import general_question
 
     assert general_question(question, SOURDOUGH_REPLY)
 
@@ -529,7 +527,7 @@ def test_a_question_that_only_sounds_like_a_command_still_counts(question: str) 
     ],
 )
 def test_a_reminder_or_memory_command_gets_no_follow_ups(command: str) -> None:
-    from app.modules.chat.related_prompts import general_question
+    from app.modules.chat.related_questions import general_question
 
     assert not general_question(command, SOURDOUGH_REPLY)
 
