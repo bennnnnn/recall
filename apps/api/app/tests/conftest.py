@@ -77,6 +77,14 @@ def model_spend_redis():
 
 
 @pytest.fixture(autouse=True)
+def structured_invalid_redis():
+    """The invalid-structured-output counter's Redis: a fresh fake per test."""
+    client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.gateways.structured_completion.get_redis_client", return_value=client):
+        yield client
+
+
+@pytest.fixture(autouse=True)
 def _reset_sympy_executor():
     """Use a fresh in-process math worker for ordinary unit tests.
 

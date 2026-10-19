@@ -186,6 +186,32 @@ async def test_extract_equation_malformed_json_returns_none(raw_content: str):
 
 
 @pytest.mark.asyncio
+async def test_extract_equation_bad_json_is_read_again_by_the_backup_photo_model():
+    """V10.2: a malformed reply is asked once more of the other photo model."""
+    good = '{"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true,"source_text":"2*x+3=7"}'
+    completion = AsyncMock(side_effect=[_fake_response("not json {{"), _fake_response(good)])
+    with patch("app.gateways.litellm_gateway.acompletion", completion):
+        result = await mie.extract_equation_from_image(
+            _real_path_settings(), content_type="image/jpeg", data=b"fake"
+        )
+    assert result is not None and result.lhs == "2*x+3"
+    models = [call.kwargs["model"] for call in completion.await_args_list]
+    assert models == ["openrouter/qwen/qwen3.7-flash", "openrouter/z-ai/glm-5.3-flash"]
+
+
+@pytest.mark.asyncio
+async def test_extract_equation_no_problem_on_the_photo_is_not_retried():
+    raw = '{"lhs":"0","rhs":"0","variables":["x"],"found":false}'
+    completion = AsyncMock(return_value=_fake_response(raw))
+    with patch("app.gateways.litellm_gateway.acompletion", completion):
+        result = await mie.extract_equation_from_image(
+            _real_path_settings(), content_type="image/jpeg", data=b"fake"
+        )
+    assert result is None
+    completion.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_extract_equation_pydantic_validation_failure_returns_none():
     # Missing lhs/rhs (defaults are placeholder "0") with found=true is treated
     # as not found — same outcome as the old required-field validation failure.

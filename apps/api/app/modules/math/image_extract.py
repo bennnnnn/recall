@@ -1,13 +1,21 @@
-"""Extract an equation from an image via vision-chat (best-effort)."""
+"""Extract an equation from an image via the photo model (best-effort).
+
+A reply that is not valid JSON for ``MathImageExtract`` is asked once more of the
+backup photo model; a photo with no problem on it is an answer, not a retry.
+"""
 
 from __future__ import annotations
 
 import base64
 import json
 import logging
+from typing import Any
+
+from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
+from app.models.model_catalog import vision_alias, vision_backup_alias
 from app.modules.math.schemas import MathImageExtract
 
 logger = logging.getLogger(__name__)
@@ -167,41 +175,51 @@ async def vision_extract_equation(
                 ],
             }
         ]
-        response = await litellm_gateway.vision_completion(
-            settings=settings,
-            model_alias="vision-chat",
-            messages=messages,
-            max_tokens=384,
-            response_format={"type": "json_object"},
-            timeout_seconds=settings.math_image_extract_timeout_seconds,
-        )
-        if response is None:
-            return None
-        raw = (response.choices[0].message.content or "{}").strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        data_obj = json.loads(raw.strip())
-        # Vision models sometimes wrap the object in a one-element array.
-        if isinstance(data_obj, list):
-            if len(data_obj) != 1 or not isinstance(data_obj[0], dict):
+        for alias in (vision_alias(), vision_backup_alias()):
+            response = await litellm_gateway.vision_completion(
+                settings=settings,
+                model_alias=alias,
+                messages=messages,
+                max_tokens=384,
+                response_format={"type": "json_object"},
+                timeout_seconds=settings.math_image_extract_timeout_seconds,
+            )
+            if response is None:
                 return None
-            data_obj = data_obj[0]
-        parsed = MathImageExtract.model_validate(data_obj)
-        if not parsed.found:
-            return None
-        if not (parsed.source_text or "").strip():
-            # The exact transcription is the evidence used to audit whether
-            # the structured JSON dropped a printed restriction or subtask.
-            return None
-        return parsed
+            try:
+                return _read_extract(response)
+            except (ValueError, ValidationError):
+                logger.warning("math image extract returned invalid JSON alias=%s", alias)
+        return None
     except Exception:
         # Was logger.debug — silently swallowed a real OCR outage (bad
         # vision-model response, network failure, timeout) with no signal
         # in prod logs at the default level.
         logger.warning("math image extract failed", exc_info=True)
         return None
+
+
+def _read_extract(response: Any) -> MathImageExtract | None:
+    """The equation in a photo reply, None when it holds none; raises on malformed JSON."""
+    raw = (response.choices[0].message.content or "{}").strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    data_obj = json.loads(raw.strip())
+    # Vision models sometimes wrap the object in a one-element array.
+    if isinstance(data_obj, list):
+        if len(data_obj) != 1 or not isinstance(data_obj[0], dict):
+            raise ValueError("not one extract object")
+        data_obj = data_obj[0]
+    parsed = MathImageExtract.model_validate(data_obj)
+    if not parsed.found:
+        return None
+    if not (parsed.source_text or "").strip():
+        # The exact transcription is the evidence used to audit whether
+        # the structured JSON dropped a printed restriction or subtask.
+        return None
+    return parsed
 
 
 async def extract_equation_from_image(
