@@ -19,7 +19,11 @@ from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
-from app.modules.chat.post_turn import enqueue_post_turn_jobs, finalize_stream_turn_db
+from app.modules.chat.post_turn import (
+    enqueue_post_turn_jobs,
+    finalize_stream_turn_db,
+    restore_regenerate_backup,
+)
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.quality import detect_quality_issues
 from app.modules.chat.related_prompts import schedule_related_prompts
@@ -278,10 +282,13 @@ async def stream_and_finalize(
         assistant_text = accum.reply_text(outcome.client_shown_chars if outcome else None)
         if not assistant_text and user_stopped:
             # Stopped before the client drew any of it: nothing is saved or charged,
-            # and a regenerate keeps the answer it was replacing.
+            # and a regenerate keeps the answer it was replacing (as a stop before
+            # the first token does).
             if outcome is not None:
                 outcome.completion = accum.completion
             await _refund_turn(deps, redis, ctx, resources)
+            if ctx.regenerate_backup is not None:
+                await restore_regenerate_backup(ctx.user_id, ctx.chat_id, ctx.regenerate_backup)
             return
         if not assistant_text:
             raise ModelUnavailableError(
