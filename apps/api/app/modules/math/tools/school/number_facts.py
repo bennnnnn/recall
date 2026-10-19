@@ -134,10 +134,6 @@ def extract_number_fact_intent(cleaned: str) -> MathIntent | None:
     return None
 
 
-def _number(value: float) -> str:
-    return f"{value:g}"
-
-
 def _root_parts(value: int, index: int) -> tuple[int, int]:
     """``50`` under a square root -> ``(5, 2)``: 5 sqrt(2). The outside and inside factors."""
     outside, inside = 1, value

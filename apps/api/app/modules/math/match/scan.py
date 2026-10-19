@@ -16,9 +16,6 @@ from app.modules.math.match.letter_runs import (
 )
 from app.services.number_text import fold_scientific
 from app.services.symbolic_text import (
-    collapse_repeated_si_unit_powers as _collapse_repeated_si_unit_powers,
-)
-from app.services.symbolic_text import (
     normalize_symbolic_request,
     strip_inline_math_delimiters,
 )
@@ -102,15 +99,6 @@ def strip_inline_math_delims(text: str) -> str:
     in words and never attached the plot.
     """
     return strip_inline_math_delimiters(text)
-
-
-def collapse_repeated_si_unit_powers(s: str) -> str:
-    """Stacked math-keyboard ``$^2$`` inserts: ``m/s^2^2.^2`` → ``m/s^2``.
-
-    ``2 m/s$^2$$^2.$^2`` never bound acceleration, so F=ma shipped the
-    *Couldn't verify this with SymPy.* footer under a correct 10 N.
-    """
-    return _collapse_repeated_si_unit_powers(s)
 
 
 def prepare(text: str) -> str | None:

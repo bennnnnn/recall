@@ -9,7 +9,6 @@ from typing import Any
 import numpy as np
 from sympy import FiniteSet, Symbol, Union, denom, limit, solve
 
-from app.modules.math.function_names import MATH_FUNCTION_NAMES, function_name_alternation
 from app.modules.math.schemas import (
     GraphBlockSpec,
     GraphSampleInput,
@@ -445,28 +444,6 @@ def build_ellipse_graph_spec(expr: str, n: int) -> GraphBlockSpec | None:
     )
 
 
-_EQUATION_SIDE_CHARS = frozenset(
-    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/().^ "
-)
-
-_FILLER_VERBS = (
-    "solve",
-    "find",
-    "calculate",
-    "compute",
-    "evaluate",
-    "determine",
-    "simplify",
-    "what is",
-    "what's",
-)
-_SYSTEM_PREFIXES = (
-    "the system of equations ",
-    "the system ",
-    "the equations ",
-)
-
-
 _MAX_NUMBER_LINE_INTERVALS = 8
 
 
@@ -600,18 +577,3 @@ def number_line_spec_from_expr(expr: str, variable: str = "x") -> GraphBlockSpec
         title=cleaned[:64],
         intervals=intervals,
     )
-
-
-_FUNCTION_NAME_RE = re.compile(
-    rf"\b(?:{function_name_alternation(MATH_FUNCTION_NAMES | {'min', 'max'})})\b",
-    re.IGNORECASE,
-)
-
-# Multi-letter mathematical constants that must NOT be split into per-letter
-# variable candidates. Without this, "sin(pi*x) = 0" would guess 'i' and 'p'
-# as variables (alphabetically before 'x'), silently solving for the wrong
-# symbol. SymPy recognizes these as constants, so the guesser must too.
-_CONSTANT_NAMES_RE = re.compile(
-    r"\b(?:pi|oo|inf|infinity|nan)\b",
-    re.IGNORECASE,
-)
