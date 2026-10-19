@@ -19,8 +19,9 @@ import {
 } from "@/lib/copyBlock";
 import {
   type FenceId,
+  fenceIdForLang,
   fenceSpecForLang,
-  isDiagramFenceId,
+  isDataBodyFenceId,
   isMathDiagramLang,
 } from "@/lib/fenceRegistry";
 import {
@@ -135,7 +136,7 @@ export function classifyFence(lang: string, content: string): FenceDecision {
 export type OpenFencePreviewKind =
   | "answer"
   | "math"
-  | "diagram"
+  | "placeholder"
   | "code"
   | "prose"
   | "hide";
@@ -159,10 +160,14 @@ export function classifyOpenFencePreview(lang: string, body: string): OpenFenceP
   // ```molecule3d was a pulsing gray box under "3D Structure" that vanished
   // when the fence closed and the leftover was dropped. Hold nothing.
   if (decision.id === "molecule3d") return "hide";
-  if (decision.kind === "rich" && isDiagramFenceId(decision.id)) {
-    return "diagram";
-  }
-  if (decision.kind === "clock") return "code";
+  // A card drawn from JSON or another machine format (a quiz, a graph, a
+  // places list, a ```json that is really a geometry spec) shows nothing raw:
+  // half a card's source read as a finished code block. The registry says
+  // which bodies are data, so a new card fence is covered when it is added.
+  const id = decision.id ?? fenceIdForLang(lang);
+  if (id != null && isDataBodyFenceId(id)) return "placeholder";
+  // A card around text (a callout, a quote) streams as that text.
+  if (decision.kind === "rich") return "prose";
   return "code";
 }
 

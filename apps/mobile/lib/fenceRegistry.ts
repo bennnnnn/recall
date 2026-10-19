@@ -61,6 +61,17 @@ export type FenceId =
 
 type FenceOwner = "model" | "server" | "legacy";
 
+/**
+ * What a fence's body is. It decides what the open streaming tail shows before
+ * the fence closes (`classifyOpenFencePreview`):
+ * - data: JSON or another machine format the card draws (a quiz, a graph, a
+ *   SMILES string, a trace's numbered lines). Never shown raw: the open tail is
+ *   a quiet placeholder until the fence closes and the card can draw.
+ * - prose: text the card wraps (a drafted email, a callout). It streams as reply text.
+ * - latex: typeset by the native math preview.
+ */
+type FenceBody = "data" | "prose" | "latex";
+
 type FallbackKind =
   | "callout"
   | "geometry"
@@ -80,32 +91,34 @@ type FenceSpec = {
   neverCodeBlock: boolean;
   /** Who may emit this fence on new turns. */
   owner: FenceOwner;
+  /** What the body is; a `data` body never streams raw. */
+  body: FenceBody;
   /** How the crash-fallback renderer degrades this fence, when not plain code. */
   fallback?: FallbackKind;
 };
 
 export const FENCES: readonly FenceSpec[] = [
-  { id: "email", langs: ["email"], structured: true, neverCodeBlock: true, owner: "model" },
+  { id: "email", langs: ["email"], structured: true, neverCodeBlock: true, owner: "model", body: "prose" },
   {
     id: "quote",
     langs: ["quote", "blockquote"],
     structured: true,
     neverCodeBlock: false,
-    owner: "legacy",
+    owner: "legacy", body: "prose",
   },
   {
     id: "comparison",
     langs: ["compare", "comparison", "pros"],
     structured: true,
     neverCodeBlock: false,
-    owner: "legacy",
+    owner: "legacy", body: "data",
   },
   {
     id: "keyvalue",
     langs: ["kv", "keyvalue", "fields"],
     structured: true,
     neverCodeBlock: false,
-    owner: "legacy",
+    owner: "legacy", body: "data",
   },
   {
     // A lesson's trace: numbered step cards, a state line under each.
@@ -113,7 +126,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["steps", "step"],
     structured: true,
     neverCodeBlock: false,
-    owner: "model",
+    owner: "model", body: "data",
   },
   {
     // A lesson's "Your turn": options checked on the phone, nothing sent.
@@ -121,7 +134,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["quiz"],
     structured: true,
     neverCodeBlock: true,
-    owner: "model",
+    owner: "model", body: "data",
   },
   {
     // A lesson's list as boxes, each value over its index.
@@ -129,7 +142,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["array"],
     structured: true,
     neverCodeBlock: true,
-    owner: "model",
+    owner: "model", body: "data",
   },
   // `details`, `collapse`, and `summary` are unwrapped to markdown before
   // this table. They are not fence languages.
@@ -143,14 +156,14 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["math", "latex", "tex"],
     structured: true,
     neverCodeBlock: true,
-    owner: "model",
+    owner: "model", body: "latex",
   },
   {
     id: "answer",
     langs: ["answer", "result", "final"],
     structured: true,
     neverCodeBlock: true,
-    owner: "server",
+    owner: "server", body: "data",
     fallback: "answer",
   },
   {
@@ -158,7 +171,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["arithmetic"],
     structured: true,
     neverCodeBlock: true,
-    owner: "server",
+    owner: "server", body: "data",
     fallback: "visual",
   },
   {
@@ -166,14 +179,14 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["clock", "time"],
     structured: true,
     neverCodeBlock: true,
-    owner: "legacy",
+    owner: "legacy", body: "data",
   },
   {
     id: "mermaid",
     langs: ["mermaid"],
     structured: true,
     neverCodeBlock: false,
-    owner: "model",
+    owner: "model", body: "data",
     fallback: "visual",
   },
   {
@@ -181,7 +194,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["chart", "vega", "vega-lite", "plot"],
     structured: true,
     neverCodeBlock: false,
-    owner: "model",
+    owner: "model", body: "data",
     fallback: "visual",
   },
   {
@@ -189,7 +202,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["geometry"],
     structured: true,
     neverCodeBlock: true,
-    owner: "server",
+    owner: "server", body: "data",
     fallback: "geometry",
   },
   {
@@ -197,7 +210,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["graph"],
     structured: true,
     neverCodeBlock: true,
-    owner: "server",
+    owner: "server", body: "data",
     fallback: "graph",
   },
   // Server-owned like geometry/graph: the prompt forbids it and
@@ -207,7 +220,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["simulation"],
     structured: true,
     neverCodeBlock: true,
-    owner: "server",
+    owner: "server", body: "data",
     fallback: "visual",
   },
   {
@@ -215,7 +228,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["chem_scene"],
     structured: true,
     neverCodeBlock: true,
-    owner: "server",
+    owner: "server", body: "data",
     fallback: "visual",
   },
   {
@@ -223,7 +236,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["smiles", "chemistry"],
     structured: true,
     neverCodeBlock: true,
-    owner: "model",
+    owner: "model", body: "data",
     fallback: "visual",
   },
   // Display-only: the client preprocessor collapses an adjacent smiles + molecule3d pair into
@@ -234,7 +247,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["molecule"],
     structured: true,
     neverCodeBlock: true,
-    owner: "server",
+    owner: "server", body: "data",
     fallback: "visual",
   },
   {
@@ -242,7 +255,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["molecule3d", "mol3d", "3dmol"],
     structured: true,
     neverCodeBlock: true,
-    owner: "server",
+    owner: "server", body: "data",
     fallback: "visual",
   },
   {
@@ -250,7 +263,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["places"],
     structured: true,
     neverCodeBlock: true,
-    owner: "model",
+    owner: "model", body: "data",
     fallback: "places",
   },
   {
@@ -258,7 +271,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["tip", "note", "warning", "info", "important", "callout"],
     structured: true,
     neverCodeBlock: false,
-    owner: "legacy",
+    owner: "legacy", body: "prose",
     fallback: "callout",
   },
   {
@@ -280,33 +293,35 @@ export const FENCES: readonly FenceSpec[] = [
     ],
     structured: true,
     neverCodeBlock: true,
-    owner: "model",
+    owner: "model", body: "prose",
   },
   {
     id: "message",
     langs: ["sms", "message", "reply"],
     structured: true,
     neverCodeBlock: true,
-    owner: "model",
+    owner: "model", body: "prose",
   },
   // Not structured: `copy` and `sources` never reach the rich renderer, but
   // must not fall through to a syntax-highlighted code block either. `sources`
   // is attached by the backend (web_search/formatting.py) onto persisted
   // assistant text and the live `done.final_content`; clients strip it and
   // render the `search_sources` field / parsed fence as a chip.
-  { id: "copy", langs: ["copy"], structured: false, neverCodeBlock: true, owner: "model" },
+  { id: "copy", langs: ["copy"], structured: false, neverCodeBlock: true, owner: "model", body: "prose" },
   {
     id: "sources",
     langs: ["sources"],
     structured: false,
     neverCodeBlock: true,
-    owner: "server",
+    owner: "server", body: "data",
     fallback: "sources",
   },
 ];
 
 const BY_LANG = new Map<string, FenceSpec>();
+const BY_ID = new Map<FenceId, FenceSpec>();
 for (const spec of FENCES) {
+  BY_ID.set(spec.id, spec);
   for (const lang of spec.langs) BY_LANG.set(lang, spec);
 }
 
@@ -371,19 +386,9 @@ export function isVisualDiagramFenceLang(lang: string): boolean {
   );
 }
 
-export function isDiagramFenceId(id: FenceId | undefined): boolean {
-  return (
-    id === "geometry" ||
-    id === "arithmetic" ||
-    id === "graph" ||
-    id === "chart" ||
-    id === "mermaid" ||
-    id === "chemistry" ||
-    id === "chem_scene" ||
-    id === "molecule" ||
-    id === "molecule3d" ||
-    id === "simulation"
-  );
+/** A card drawn from JSON or another machine format: its open fence never streams raw. */
+export function isDataBodyFenceId(id: FenceId): boolean {
+  return BY_ID.get(id)?.body === "data";
 }
 
 /** Prompt-control JSON plus registry transport fences — never copy or speak. */

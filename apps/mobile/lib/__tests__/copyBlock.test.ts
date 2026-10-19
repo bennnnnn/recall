@@ -174,8 +174,8 @@ describe("copyBlock heuristics", () => {
   });
 
   it("BUG FIX regression: open ```geometry/```graph preview as diagram, not JSON CodeBlock", () => {
-    expect(classifyOpenFencePreview("geometry", '{"type":"square"')).toBe("diagram");
-    expect(classifyOpenFencePreview("graph", '{"type":"function"')).toBe("diagram");
+    expect(classifyOpenFencePreview("geometry", '{"type":"square"')).toBe("placeholder");
+    expect(classifyOpenFencePreview("graph", '{"type":"function"')).toBe("placeholder");
   });
 
   it("does not flash a gray diagram box for an open ```molecule3d tail", () => {
