@@ -35,6 +35,25 @@ paths are listed in `app/tests/architecture/boundary_support.py` (`RETIRED_LEGAC
 migration may add a behavior-free re-export while its callers move, then deletes it and lists the
 path there.
 
+## Adding to the backend: one place each
+
+Paths are under `apps/api/app/`. Running more than one machine is
+[SCALING.md](./SCALING.md).
+
+| To add | Do this |
+| --- | --- |
+| A setting or feature flag | One field, with its default and a comment saying why, in the section of `core/settings/` it belongs to. Its env name is the field name in upper case. Code reads `get_settings().<field>`; `core/config.py` only joins the sections and holds the production boot rules (`validate_production_settings`). |
+| A plan allowance | Three fields in `core/settings/plans.py` (`<base>`, `<base>_plus`, `<base>_pro`) and one `Allowance` in `modules/billing/entitlements.py`. |
+| A model alias | One entry in `models/model_catalog.py`. Request schemas validate against the catalog itself (`validate_user_alias`); there is no second list. |
+| An external API | One module in `gateways/` that calls `get_pooled_client(<NAME>_TIMEOUT_SECONDS)` (`gateways/http_client.py`), returns typed results and maps provider failures to its own errors or `None`. It imports no module. |
+| A background job | The handler in the owning module (`jobs.py`) or `background/handlers.py`, one `register(...)` line in `background/handlers.register_all`, and an `enqueue(...)` off the request path with a dedupe key. A job that calls a model carries `@_unless_spend_capped`. |
+| A periodic scheduler | A cycle over `background/periodic.py` (`run_locked_cycle` takes the Redis lock so one worker runs each tick; `start_periodic` / `stop_periodic`), started and stopped in `process_bootstrap.start_worker_runtime` / `stop_worker_runtime`. |
+| A Redis counter or limit | `core/rate_limit.allow_request` for a windowed limit; a key with a TTL for anything else. Never in-process state when several machines must agree. |
+| A per-process cache | `core/ttl_cache.TtlCache` (expiring, size-capped), behind a module whose functions are the interface (`core/user_cache.py` is the example), and a row in SCALING.md saying what being per machine means. |
+| A Sentry report from a best-effort path | `core/sentry.report_breadcrumb` / `report_message` / `report_exception`: they never raise. |
+| A dependency outage answered as 503 | Its exception type in `core/unavailable.UNAVAILABLE_EXCEPTIONS`. |
+| An HTTP route | The module's `api.py`, registered in `main.create_app`. |
+
 ## Mobile feature shape
 
 A feature owns its screens, components, hooks, model/state helpers, API slice, and tests. Expo

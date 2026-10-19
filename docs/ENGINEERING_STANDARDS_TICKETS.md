@@ -1268,7 +1268,6 @@ in this list grows logic beyond its table, it leaves the list.
 | `modules/chat/prompt_constants/teaching.py` | 672 | Prompt copy (59% text), same rule |
 | `modules/chat/prompt_constants/routing.py` | 662 | Prompt copy (53% text), same rule; review if the functions pass 250 lines |
 | `modules/web_search/patterns.py` | 608 | Regex pattern table plus thin predicates; the phone twin is under ES-07 |
-| `core/config.py` | 581 | `Settings`: one field per flag, the seam CLAUDE.md names |
 | `lib/math/keyboardCatalog.ts` (phone) | 553 | Key and accessibility tables (321 lines of data) |
 | `lib/codeTokenize.ts` (phone) | 517 | Prism grammar registration: Metro needs about 47 literal `require`s in one module |
 | `lib/math/latexParse.ts` (phone) | 510 | One parser; ES-38 split its one long function |
@@ -1294,9 +1293,10 @@ Not exceptions:
   `math/followup.py:261-275` (plus `math/tools/work_request.py:113`). Chemistry has none, so "I got
   21.3 g, am I right?" is not checked there. A neutral `services/student_claim.py` would serve all
   three subjects.
-- Gateways repeat inline httpx timeouts (`apple_auth.py:46` 10 s; `expo_push_gateway.py:55,159`,
-  `revenuecat_gateway.py:21` and `email_gateway.py:75` 15 s). Named per-gateway constants, or one
-  `gateways/http_client.py` default, would make them reviewable.
+- Done: gateways repeated inline httpx timeouts (`apple_auth.py` 10 s; `expo_push_gateway.py`,
+  `revenuecat_gateway.py` and `email_gateway.py` 15 s), each with a client per call. They now use
+  `gateways/http_client.get_pooled_client` with a named timeout constant, like the other gateways;
+  `image_gateway.py` and `safe_fetch` downloads keep their own client on purpose.
 - `chat/stream_pipeline.py:436-437` and about 8 other function-local imports exist to dodge import
   order. They hide dependencies; ES-22 should make them module imports or remove the need.
 - CLAUDE.md's size table (API ~44k, phone ~50k) is about 3.8× and 2× low.

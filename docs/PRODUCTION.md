@@ -231,7 +231,7 @@ copy change. The server only knows the ids `free`, `plus`, `pro`.
 | AI images / day | 3 | 10 | 15 |
 | Live talk | — | — | 60 min / UTC calendar month |
 
-Every number is a `core/config.py` setting (`<NAME>`, `<NAME>_PLUS`,
+Every number is a setting in `core/settings/plans.py` (`<NAME>`, `<NAME>_PLUS`,
 `<NAME>_PRO`; see `apps/api/.env.example`). A metered feature belongs to a plan
 when its number is above zero, so moving a feature between plans is a secret
 change, not a release. `modules/billing/entitlements.py` is the one place that
