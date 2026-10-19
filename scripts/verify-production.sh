@@ -39,7 +39,7 @@ fi
 
 echo ""
 echo "==> Fly.toml process split"
-if rg -q 'PROCESS_ROLE = "api"' "$ROOT/fly.toml" && rg -q 'worker' "$ROOT/fly.toml"; then
+if grep -q 'PROCESS_ROLE = "api"' "$ROOT/fly.toml" && grep -q 'worker' "$ROOT/fly.toml"; then
   echo "    OK: app + worker processes defined"
 else
   echo "    WARN: review fly.toml process configuration"
@@ -47,7 +47,7 @@ fi
 
 echo ""
 echo "==> Production settings validator exists"
-if rg -q 'def validate_production_settings' "$ROOT/apps/api/app/core/config.py"; then
+if grep -q 'def validate_production_settings' "$ROOT/apps/api/app/core/config.py"; then
   echo "    OK"
 else
   echo "    FAIL: validate_production_settings not found"
@@ -70,7 +70,7 @@ fi
 
 echo ""
 echo "==> Mobile EAS production profile"
-if [[ -f "$ROOT/apps/mobile/eas.json" ]] && rg -q '"production"' "$ROOT/apps/mobile/eas.json"; then
+if [[ -f "$ROOT/apps/mobile/eas.json" ]] && grep -q '"production"' "$ROOT/apps/mobile/eas.json"; then
   echo "    OK"
 else
   echo "    WARN: review apps/mobile/eas.json"
