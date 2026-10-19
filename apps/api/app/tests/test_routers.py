@@ -2539,7 +2539,7 @@ def test_speech_transcribe_rejects_oversized_multipart_content_length():
     BEFORE the file is read into memory (memory-exhaustion DoS guard)."""
     import fakeredis.aioredis
 
-    from app.models.schemas.integrations import SPEECH_MAX_REQUEST_BYTES
+    from app.modules.speech.schemas import SPEECH_MAX_REQUEST_BYTES
 
     user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))

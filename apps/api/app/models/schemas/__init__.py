@@ -31,6 +31,7 @@ from app.models.schemas.chats import (
     SearchResultItem,
     SearchResults,
 )
+from app.models.schemas.classification import ConversationReference, WebSearchClassification
 from app.models.schemas.common import (
     MemoryOpKind,
     MemorySensitivity,
@@ -51,16 +52,7 @@ from app.models.schemas.home import (
     SuggestionItem,
     SuggestionOut,
 )
-from app.models.schemas.integrations import (
-    ConversationReference,
-    PushTokenIn,
-    SpeechLiveStatusOut,
-    SpeechTranscriptionIn,
-    SpeechTranscriptionOut,
-    SpeechTtsIn,
-    SpeechTtsOut,
-    WebSearchClassification,
-)
+from app.models.schemas.push import PushTokenIn
 from app.modules.attachments.schemas import (
     AttachmentListItemOut,
     AttachmentListOut,
@@ -144,11 +136,6 @@ __all__ = [
     "SearchResults",
     "SettingsChangeOut",
     "SettingsConfirmOut",
-    "SpeechLiveStatusOut",
-    "SpeechTranscriptionIn",
-    "SpeechTranscriptionOut",
-    "SpeechTtsIn",
-    "SpeechTtsOut",
     "SuggestionGenerationResult",
     "SuggestionItem",
     "SuggestionOut",

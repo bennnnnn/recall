@@ -27,11 +27,15 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     # A one-line re-export of ``services.topic.generate_chat_title``.
     "app.background.topic_generation",
     "app.models.memory_ops",
+    # Held only PushToken after the Google integrations were removed: ``orm.push_tokens``.
+    "app.models.orm.integrations",
     "app.models.orm.memory",
     "app.models.orm.schedule",
     "app.models.orm.suggestions",
     "app.models.schemas.attachments",
     "app.models.schemas.chemistry",
+    # Split into ``classification`` and ``push``; its speech re-exports had no importer.
+    "app.models.schemas.integrations",
     "app.models.schemas.math",
     "app.models.schemas.memory",
     "app.models.schemas.physics",
