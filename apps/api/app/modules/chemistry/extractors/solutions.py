@@ -13,9 +13,9 @@ from app.modules.chemistry.request import CHEMICAL_FORMULA, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     NAMED_COMPOUNDS,
-    formula_spans,
     is_formula,
     named_species,
+    without_formulas,
 )
 from app.modules.chemistry.stoichiometry import molar_mass
 
@@ -76,7 +76,7 @@ def _stated_stock_volume(text: str) -> ChemistryIntent | None:
     ask = _VOLUME_ASK.search(text)
     if len(stocks) != 1 or len(makes) != 1 or ask is None or _ADDED.search(text):
         return None
-    if len(named_species(text)) > 1 or len(re.findall(_N, _without_formulas(text))) != 3:
+    if len(named_species(text)) > 1 or len(re.findall(_N, without_formulas(text))) != 3:
         return None
     stock, make = stocks[0], makes[0]
     asked = (ask.group("asked") or make.group("v2_unit")).lower()
@@ -91,13 +91,6 @@ def _stated_stock_volume(text: str) -> ChemistryIntent | None:
         },
         units={"v1": "mL" if asked.startswith(("ml", "milli")) else "L", "v2": v2_unit},
     )
-
-
-def _without_formulas(text: str) -> str:
-    kept = list(text)
-    for start, end in formula_spans(text):
-        kept[start:end] = " " * (end - start)
-    return "".join(kept)
 
 
 def _stock_volume(text: str) -> ChemistryIntent | None:

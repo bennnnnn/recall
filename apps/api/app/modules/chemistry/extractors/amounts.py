@@ -25,8 +25,8 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     ELEMENT_NAMES,
     NAMED_COMPOUNDS,
-    formula_spans,
     is_formula,
+    without_formulas,
 )
 from app.modules.chemistry.stoichiometry import molar_mass
 
@@ -324,10 +324,7 @@ def _particle_substance(noun: str, word: str) -> str | None:
 
 def _one_number(text: str) -> bool:
     """The text states one number outside its formulas: the count or the mass read."""
-    kept = list(text)
-    for start, end in formula_spans(text):
-        kept[start:end] = " " * (end - start)
-    return len(_NUMBER.findall("".join(kept))) == 1
+    return len(_NUMBER.findall(without_formulas(text))) == 1
 
 
 def _extract_particle_mass(text: str) -> ChemistryIntent | None:
