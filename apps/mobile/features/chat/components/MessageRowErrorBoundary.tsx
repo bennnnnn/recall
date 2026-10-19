@@ -1,7 +1,8 @@
-import { Component, useMemo, type ReactNode } from "react";
+import { Component, useMemo, type ErrorInfo, type ReactNode } from "react";
 import { StyleSheet, Text } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { reportBoundaryError } from "@/lib/sentry";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -41,10 +42,11 @@ export class MessageRowErrorBoundary extends Component<Props, State> {
     return null;
   }
 
-  componentDidCatch(error: Error) {
+  componentDidCatch(error: Error, info: ErrorInfo) {
     if (__DEV__) {
       console.warn("[MessageRowErrorBoundary]", error.message, error.stack);
     }
+    reportBoundaryError("message_row", error, info.componentStack);
   }
 
   render() {

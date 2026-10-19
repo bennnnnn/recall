@@ -8,7 +8,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.stream_paths import StreamAccum, run_llm_token_stream
+from app.modules.chat.stream_accum import StreamAccum
+from app.modules.chat.stream_paths import run_llm_token_stream
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_timing import TurnTimingTracker

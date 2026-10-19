@@ -3,6 +3,8 @@ import { memo, useCallback } from "react";
 import { MessageBubble } from "@/components/MessageBubble";
 import { useStreamingDraft } from "@/contexts/StreamingDraftContext";
 import { MessageRowErrorBoundary } from "@/features/chat/components/MessageRowErrorBoundary";
+import { StreamSilenceHint } from "@/features/chat/components/StreamSilenceHint";
+import { useStreamSilence } from "@/features/chat/hooks/useStreamSilence";
 import type { Message } from "@/lib/api";
 import { messageListKey } from "@/lib/messageListLayout";
 
@@ -48,6 +50,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   const handleRegenerate = useCallback(() => {
     onRegenerate(selectedModel);
   }, [onRegenerate, selectedModel]);
+  const stalled = useStreamSilence(liveContent?.length ?? 0, streamVisualActive && !imageGenPending);
 
   return (
     <MessageRowErrorBoundary resetKey={messageListKey(item)}>
@@ -69,6 +72,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
         highlighted={item.id === highlightedMessageId}
         isSending={item.id === sendingMessageId}
       />
+      {stalled ? <StreamSilenceHint /> : null}
     </MessageRowErrorBoundary>
   );
 });

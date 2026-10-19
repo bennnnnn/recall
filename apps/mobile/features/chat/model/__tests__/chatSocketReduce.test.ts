@@ -80,27 +80,72 @@ describe("chatSocketReduce", () => {
     expect(next[1].content).toBe("Partial");
   });
 
+  const stoppedBubble: Message[] = [
+    { id: "u1", role: "user", content: "Q", model: null, created_at: "t" },
+    {
+      id: "streamed-100",
+      role: "assistant",
+      content: "Partial reply",
+      model: null,
+      created_at: "t",
+      generationStopped: true,
+    },
+  ];
+
   it("mergeDoneIntoMessages reconciles stopped bubble in place (no duplicate)", () => {
-    const prev: Message[] = [
-      { id: "u1", role: "user", content: "Q", model: null, created_at: "t" },
-      {
-        id: "streamed-100",
-        role: "assistant",
-        content: "Partial reply",
-        model: null,
-        created_at: "t",
-      },
-    ];
-    const next = mergeDoneIntoMessages(prev, {
-      finalId: "msg-server-1",
-      messageId: "msg-server-1",
-      draftContent: "Partial reply",
-      finalContent: "Partial reply with server tail",
-      stoppedStreamedId: "streamed-100",
-    });
+    // S7.11: the server saves a stopped reply as the phone drew it, made safe.
+    const next = mergeDoneIntoMessages(
+      stoppedBubble,
+      buildDoneMergeInput(
+        {
+          type: "done",
+          message_id: "msg-server-1",
+          final_content: "Partial reply",
+          completion: "user_stop",
+        },
+        null,
+        0,
+        "streamed-100",
+      ),
+    );
     expect(next).toHaveLength(2);
     expect(next[1].id).toBe("msg-server-1");
-    expect(next[1].content).toBe("Partial reply with server tail");
+    expect(next[1].content).toBe("Partial reply");
+    expect(next[1].generationStopped).toBe(true);
+  });
+
+  it("a stopped answer never grows: a reply the server finished anyway keeps what the user saw", () => {
+    // Regression: the stopped turn's done swapped in the server's text, with
+    // tokens the phone dropped after Stop and a verified card added at finalize.
+    const next = mergeDoneIntoMessages(
+      stoppedBubble,
+      buildDoneMergeInput(
+        {
+          type: "done",
+          message_id: "msg-server-1",
+          final_content: "Partial reply with server tail\n\n```answer\nverified: true\nx = 4\n```",
+        },
+        null,
+        0,
+        "streamed-100",
+      ),
+    );
+    expect(next).toHaveLength(2);
+    expect(next[1].id).toBe("msg-server-1");
+    expect(next[1].content).toBe("Partial reply");
+  });
+
+  it("a stopped done without final_content keeps the bubble's text", () => {
+    const next = mergeDoneIntoMessages(
+      stoppedBubble,
+      buildDoneMergeInput(
+        { type: "done", message_id: "msg-server-1", completion: "user_stop" },
+        null,
+        0,
+        "streamed-100",
+      ),
+    );
+    expect(next[1].content).toBe("Partial reply");
   });
 
   it("mergeDoneIntoMessages removes stopped bubble when done is empty and has no message_id", () => {

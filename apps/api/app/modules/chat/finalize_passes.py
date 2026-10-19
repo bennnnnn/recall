@@ -82,6 +82,8 @@ class FinalizeState:
     # The text as of the last side effect (a linked photo, source chips). A failed
     # pass falls back to it, never to the raw reply (ES-03).
     committed: str | None = None
+    # The user stopped the reply: it saves as they saw it (STOPPED_REPLY_PASSES).
+    user_stopped: bool = False
 
     @property
     def server_text(self) -> bool:
@@ -161,6 +163,30 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
 )
 
 
+# After the user's Stop the reply is what they saw: only the passes that remove
+# or neutralize model text (forged checks, untrusted media, scaffolding) or lay it
+# out run. A pass that adds server text (a verified card, a note, source chips, a
+# 3D model, a clock) would grow a stopped answer, and a new pass is left out
+# until it is listed here.
+STOPPED_REPLY_PASSES = frozenset(
+    {
+        "drop_cut_reminder_fence",
+        "prepare_model_reply",
+        "untrusted_media",
+        "answer_photo",
+        "server_answer_cards",
+        "text_plots",
+        "solve_markers",
+        "instant_usage",
+        "close_fences",
+        "recipient_placeholders",
+        "prose",
+        "mermaid_and_places",
+        "presentation",
+    }
+)
+
+
 async def _run_pass(finalize_pass: FinalizePass, state: FinalizeState) -> str:
     on_error = finalize_pass.on_error
     started = time.perf_counter()
@@ -181,9 +207,12 @@ async def _run_pass(finalize_pass: FinalizePass, state: FinalizeState) -> str:
 
 
 async def run_finalize_passes(state: FinalizeState) -> bool:
-    """Every pass in order. False when one failed and the text fell back."""
+    """Every pass in order (a stopped reply's own list). False when one failed and
+    the text fell back."""
     try:
         for finalize_pass in FINALIZE_PASSES:
+            if state.user_stopped and finalize_pass.name not in STOPPED_REPLY_PASSES:
+                continue
             state.text = await _run_pass(finalize_pass, state)
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting the last committed text")
@@ -207,8 +236,14 @@ async def enrich_final_content(
     was_cancelled: bool,
     assistant_parts: list[str],
     should_cancel: Callable[[], bool] | None,
+    user_stopped: bool = False,
 ) -> str:
-    """The reply as it persists: the finalize passes, then the reminder pass."""
+    """The reply as it persists: the finalize passes, then the reminder pass.
+
+    A reply the user stopped runs only ``STOPPED_REPLY_PASSES`` and no reminder
+    pass: it changes nothing outside itself, and ``done`` carries the text the
+    user saw, made safe, never a longer one.
+    """
     state = FinalizeState(
         deps=deps,
         settings=settings,
@@ -220,10 +255,15 @@ async def enrich_final_content(
         was_cancelled=was_cancelled,
         assistant_parts=assistant_parts,
         should_cancel=should_cancel,
+        user_stopped=user_stopped,
     )
     enriched = await run_finalize_passes(state)
     # Last, on the finished text: no later pass can fail and lose its card.
-    text = await apply_reminder_pass(deps, redis, settings, ctx, state.text, outcome)
+    text = (
+        state.text
+        if user_stopped
+        else await apply_reminder_pass(deps, redis, settings, ctx, state.text, outcome)
+    )
 
     # One write: done.final_content must equal the string we persist. Skip on
     # an unchanged normal turn so done payloads stay small. After a failure the

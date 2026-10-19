@@ -9,7 +9,7 @@ import {
   isChartFenceLang,
   isControlFenceLang,
   isVisualDiagramFenceLang,
-  isDiagramFenceId,
+  isDataBodyFenceId,
   shouldLiftFenceOutOfList,
 } from "@/lib/fenceRegistry";
 
@@ -317,7 +317,9 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
     expect(isControlFenceLang("sources")).toBe(true);
     expect(isControlFenceLang("reminder")).toBe(true);
     expect(isControlFenceLang("python")).toBe(false);
-    expect(isDiagramFenceId("mermaid")).toBe(true);
+    expect(isDataBodyFenceId("mermaid")).toBe(true);
+    expect(isDataBodyFenceId("quiz")).toBe(true);
+    expect(isDataBodyFenceId("callout")).toBe(false);
     expect(shouldLiftFenceOutOfList("latex")).toBe(true);
     expect(shouldLiftFenceOutOfList("python")).toBe(false);
   });

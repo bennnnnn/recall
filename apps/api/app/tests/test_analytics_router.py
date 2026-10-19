@@ -68,3 +68,43 @@ def test_record_product_events_maps_property_error_to_422() -> None:
 
     assert response.status_code == 422
     assert response.json()["detail"] == "Invalid properties"
+
+
+def _post_turn_outcome(app, properties: dict[str, str]):
+    return TestClient(app).post(
+        "/analytics/events",
+        headers={"Authorization": "Bearer token"},
+        json={"events": [{"name": "chat_turn_outcome", "properties": properties}]},
+    )
+
+
+def test_chat_turn_outcome_is_accepted_with_metadata_only() -> None:
+    app, _, _ = _app_with_analytics_dependencies()
+    with patch(
+        "app.services.product_analytics.product_events_repo.create_batch", AsyncMock()
+    ) as create_batch:
+        response = _post_turn_outcome(
+            app, {"completion": "error", "error_code": "model_unavailable", "tool": "none"}
+        )
+
+    assert response.status_code == 204
+    create_batch.assert_awaited_once()
+
+
+def test_chat_turn_outcome_rejects_free_text_properties() -> None:
+    """O10.1: a turn outcome carries no prompt, reply, query or provider message."""
+    app, _, _ = _app_with_analytics_dependencies()
+    with patch(
+        "app.services.product_analytics.product_events_repo.create_batch", AsyncMock()
+    ) as create_batch:
+        response = _post_turn_outcome(
+            app,
+            {
+                "completion": "complete",
+                "error_code": "none",
+                "tool": "searching: cheap flights to Lagos",
+            },
+        )
+
+    assert response.status_code == 422
+    create_batch.assert_not_awaited()

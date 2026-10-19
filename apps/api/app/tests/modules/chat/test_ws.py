@@ -582,6 +582,44 @@ def test_ws_mid_stream_cancel():
             assert done["type"] == "done"
 
 
+def test_ws_cancel_carries_how_much_the_phone_drew():
+    """S7.11: the cancel frame's shown_chars reaches the turn, so the stopped reply
+    saves only the text the phone kept on screen."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    outcomes: list[TurnOutcome] = []
+
+    async def slow_stream(*args, should_cancel=None, outcome=None, **kwargs):
+        outcomes.append(outcome)
+        for word in ["one ", "two ", "three ", "four "]:
+            if should_cancel and should_cancel():
+                return
+            yield word
+            await asyncio.sleep(0.05)
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", slow_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            ws.send_json({"type": "cancel", "shown_chars": 4})
+            assert ws.receive_json()["type"] == "stream_end"
+            assert ws.receive_json()["type"] == "done"
+
+    assert [outcome.client_shown_chars for outcome in outcomes] == [4]
+
+
 def test_ws_mid_stream_non_dict_frame_is_ignored():
     """A JSON array mid-stream must not error or interrupt the producer."""
     _, tok = _token()

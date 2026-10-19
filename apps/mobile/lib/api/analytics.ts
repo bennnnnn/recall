@@ -6,7 +6,8 @@ export type ProductEventName =
   | "purchase_succeeded"
   | "purchase_failed"
   | "push_permission"
-  | "chat_ttft";
+  | "chat_ttft"
+  | "chat_turn_outcome";
 
 type ProductEventInput = {
   name: ProductEventName;

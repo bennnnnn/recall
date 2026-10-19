@@ -13,6 +13,9 @@ StreamStatusPhase = Literal[
     "chemistry",
     "thinking",
     "composing",
+    # Tool-loop activity: AI image generation, and a real reference-photo lookup.
+    "image_gen",
+    "finding_photo",
 ]
 
 _SUBJECT_STATUS_PHASE: dict[Literal["math", "physics", "chemistry"], StreamStatusPhase] = {

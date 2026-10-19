@@ -257,4 +257,27 @@ describe("markdownPreprocessStream", () => {
     const closed = "| Month | Rain |\n| --- | --- |\n| Apr | 5.7 |\n\nDone.\n";
     expect(findStableMarkdownPrefixLen(closed)).toBe(closed.length);
   });
+
+  // S7.5: the header used to render as a paragraph of literal pipes, then flip
+  // into a table once the delimiter row completed.
+  it("never shows a table header's pipes before its delimiter row arrives", () => {
+    const full = "Intro\n\n| Name | Age |\n| --- | --- |\n| Ada | 36 |\n\nDone.";
+    let cache: StreamingPreprocessCache | null = null;
+    for (let i = 1; i <= full.length; i += 1) {
+      const raw = full.slice(0, i);
+      const result = preprocessMarkdownForStream(raw, cache);
+      cache = result.cache;
+      const delimiterDone = raw.includes("| --- | --- |\n");
+      if (!delimiterDone) expect({ raw, shown: result.prepared }).toEqual({ raw, shown: expect.not.stringContaining("|") });
+    }
+    expect(preprocessMarkdownForStream("Intro\n\n| a | b |\n", null).prepared).toBe("Intro\n\n");
+    expect(preprocessMarkdownForStream("Intro\n\n| a | b |\n|---", null).prepared).toBe("Intro\n\n");
+  });
+
+  it("shows the table once its delimiter row is complete, and a pipe line that is no table", () => {
+    const table = preprocessMarkdownForStream("| a | b |\n|---|---|\n| 1 | 2", null).prepared;
+    expect(table).toContain("| 1 | 2");
+    const notTable = preprocessMarkdownForStream("| just a note |\nthen prose\n", null).prepared;
+    expect(notTable).toContain("| just a note |");
+  });
 });

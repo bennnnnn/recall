@@ -1,6 +1,13 @@
 export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking";
 
-export type LiveTalkGate = "ok" | "upgrade" | "limit" | "unavailable" | "offline" | "unconfigured";
+export type LiveTalkGate =
+  | "ok"
+  | "upgrade"
+  | "limit"
+  | "unavailable"
+  | "offline"
+  | "unconfigured"
+  | "mic_permission";
 
 /** Live talk for this user: `remaining` / `limit` are whole minutes this month. */
 export type LiveTalkStatus = {
@@ -65,11 +72,29 @@ export function liveTalkShowsSideChrome(draft: string): boolean {
   return draft.trim().length === 0;
 }
 
-export function liveTalkOrbA11yKey(
-  phase: LiveTalkPhase,
-): "chat.live_talk_cancel_a11y" | "chat.live_talk_a11y" {
-  if (phase === "thinking") return "chat.live_talk_cancel_a11y";
-  return "chat.live_talk_a11y";
+type LiveTalkPhaseA11yKey =
+  | "chat.live_talk_listening_a11y"
+  | "chat.live_talk_thinking_a11y"
+  | "chat.live_talk_speaking_a11y";
+
+/**
+ * What a screen reader hears for each phase. The orb shows no Listening or
+ * Speaking copy (FEATURES §3); a blind user still needs to know which it is.
+ */
+export function liveTalkPhaseA11yKey(phase: LiveTalkPhase): LiveTalkPhaseA11yKey | null {
+  if (phase === "recording") return "chat.live_talk_listening_a11y";
+  if (phase === "thinking") return "chat.live_talk_thinking_a11y";
+  if (phase === "speaking") return "chat.live_talk_speaking_a11y";
+  return null;
+}
+
+export function liveTalkOrbA11yKey(phase: LiveTalkPhase): LiveTalkPhaseA11yKey | "chat.live_talk_a11y" {
+  return liveTalkPhaseA11yKey(phase) ?? "chat.live_talk_a11y";
+}
+
+/** The orb's action while it waits for a reply; no other phase has one to read out. */
+export function liveTalkOrbA11yHintKey(phase: LiveTalkPhase): "chat.live_talk_cancel_a11y" | null {
+  return phase === "thinking" ? "chat.live_talk_cancel_a11y" : null;
 }
 
 export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean): LiveTalkGate {
@@ -111,6 +136,16 @@ export function liveTalkDataChannelText(data: unknown): string | null {
   return null;
 }
 
+/** react-native-webrtc rejects a denied microphone with a plain `{ name, message }`. */
+const MIC_DENIED_NAMES = new Set(["NotAllowedError", "SecurityError", "PermissionDeniedError"]);
+
+/** The device refused the microphone; an API error (it has a status) never is. */
+function isMicPermissionDenied(error: object): boolean {
+  const { name, message } = error as { name?: unknown; message?: unknown };
+  if (typeof name === "string" && MIC_DENIED_NAMES.has(name)) return true;
+  return typeof message === "string" && /permission denied|not allowed/i.test(message);
+}
+
 export function liveTalkErrorGate(error: unknown): LiveTalkGate {
   if (error instanceof Error && error.message === "webrtc_unavailable") {
     return "unavailable";
@@ -119,6 +154,9 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
     error && typeof error === "object" && "status" in error
       ? (error as { status: unknown }).status
       : undefined;
+  if (status === undefined && error && typeof error === "object" && isMicPermissionDenied(error)) {
+    return "mic_permission";
+  }
   if (status === 403) return "upgrade";
   if (status === 429) return "limit";
   if (status === 503) return "unconfigured";

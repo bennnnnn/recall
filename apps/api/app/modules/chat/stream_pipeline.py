@@ -19,13 +19,17 @@ from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
-from app.modules.chat.post_turn import enqueue_post_turn_jobs, finalize_stream_turn_db
+from app.modules.chat.post_turn import (
+    enqueue_post_turn_jobs,
+    finalize_stream_turn_db,
+    restore_regenerate_backup,
+)
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.quality import detect_quality_issues
 from app.modules.chat.related_prompts import schedule_related_prompts
+from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import await_ignoring_cancel, clear_task_cancellation
 from app.modules.chat.stream_paths import (
-    StreamAccum,
     run_instant_reply_path,
     run_llm_token_stream,
     run_tool_loop_path,
@@ -174,6 +178,16 @@ async def finalize_terminal_image_turn(
         outcome.finalize_task = task
 
 
+async def _refund_turn(
+    deps: ChatTurnDeps, redis: Redis, ctx: StreamContext, resources: TurnResources | None
+) -> None:
+    """Give back the turn's reservation: no model reply is saved for it."""
+    if resources is not None:
+        await resources.refund()
+    else:
+        await deps.quota.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+
+
 async def stream_and_finalize(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -216,10 +230,7 @@ async def stream_and_finalize(
                         outcome.message_id = ctx.terminal_image_message_id
                         outcome.final_content = ctx.terminal_image_content
                         outcome.resolved_model = ctx.terminal_image_model or "image-gen-model"
-                    if resources is not None:
-                        await resources.refund()
-                    else:
-                        await deps.quota.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+                    await _refund_turn(deps, redis, ctx, resources)
                     await await_user_message_persist(ctx)
                     await finalize_terminal_image_turn(deps, redis, settings, ctx, outcome, usage)
                     return
@@ -243,6 +254,7 @@ async def stream_and_finalize(
                         outcome=outcome,
                         on_reasoning=on_reasoning,
                         accum=accum,
+                        on_status=on_status,
                     ):
                         yield token
         except asyncio.CancelledError:
@@ -266,7 +278,18 @@ async def stream_and_finalize(
             )
         if accum.was_cancelled and shutdown.stopping():
             accum.mark_server_stop()
-        assistant_text = "".join(accum.parts).strip()
+        user_stopped = accum.completion == "user_stop"
+        assistant_text = accum.reply_text(outcome.client_shown_chars if outcome else None)
+        if not assistant_text and user_stopped:
+            # Stopped before the client drew any of it: nothing is saved or charged,
+            # and a regenerate keeps the answer it was replacing (as a stop before
+            # the first token does).
+            if outcome is not None:
+                outcome.completion = accum.completion
+            await _refund_turn(deps, redis, ctx, resources)
+            if ctx.regenerate_backup is not None:
+                await restore_regenerate_backup(ctx.user_id, ctx.chat_id, ctx.regenerate_backup)
+            return
         if not assistant_text:
             raise ModelUnavailableError(
                 "That model isn't responding right now. Try again — or pick a different model.",
@@ -288,6 +311,7 @@ async def stream_and_finalize(
                 was_cancelled=accum.was_cancelled,
                 assistant_parts=accum.parts,
                 should_cancel=should_cancel,
+                user_stopped=user_stopped,
             )
             await await_user_message_persist(ctx)
             await register_and_enqueue_finalize(

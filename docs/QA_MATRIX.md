@@ -35,7 +35,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | # | Test | iOS | Android | Notes |
 |---|------|-----|---------|-------|
 | 2.1 | Send message → tokens stream | ☐ | ☐ | WebSocket primary path |
-| 2.2 | Stop generation mid-stream | ☐ | ☐ | Partial reply kept |
+| 2.2 | Stop generation mid-stream | ☐ | ☐ | Partial reply kept exactly as it was when you tapped Stop: it does not grow or change when the reply settles, and reopening the chat shows the same text. "Generation stopped." under it. Stop before any text appears: no reply is left (a regenerate keeps the old answer). |
 | 2.3 | Regenerate last assistant reply | ☐ | ☐ | |
 | 2.4 | User bubble long-press copies only | ☐ | ☐ | No edit / resend (banned UX) |
 | 2.5 | New chat created on first message | ☐ | ☐ | No empty chat rows |
@@ -44,6 +44,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 2.8 | Teach-me lesson, one step at a time | ☐ | ☐ | “Teach me python dictionary step by step”: one line on how it will go, a complete short outline, then only `Step 1/N` with a plain explanation, one small code example, and a low-pressure question/optional check. Right / “ok” / “next” → `Step 2/N`. Plausible wrong → targeted correction with a fresh example, then `Step 2/N` (no retry gate). “I’m confused” / “why?” → keep `Step 1/N`, explain differently, preserve the step heading. Keyboard smash → brief acknowledgment and `Step 2/N`, never replay Step 1. Last step → short recap. “Just give me everything” → full reference. “How to install python step by step” / “Walk me through changing a tire” stay numbered how-tos. |
 | 2.9 | Full named-duration learning roadmap | ☐ | ☐ | Try “Create a 70-day Python plan”, “70-day roadmap for Python”, and “Teach me Python over the next 70 days.” Result is a complete mobile-scannable progression (`Foundations → Core skills → Projects`) with explicit ordered `Day 1` through `Day 70` entries, compact `Topic → Practice/build → Done when` lines, 4–6 tagged runnable examples across phases, checkpoints, milestones, and an honest production-experience caveat. First useful text should normally arrive in the app’s under-6-second telemetry bands. “I studied Python for 70 days and now plan to apply for jobs” must not trigger a new roadmap. |
 | 2.10 | Composer typing | ☐ | ☐ | Empty: “Reply to Recall”, caret level with the middle of + and send. Type a long message: at each wrap the box grows upward by one line and the line being typed stays level with the buttons, with no up-and-down jumps. Delete back to one line, or send: the box returns to one line. Largest text size: nothing clips. |
+| 2.11 | A reply that stalls mid-stream | ☐ | ☐ | Hold the provider stream after the first words (a proxy breakpoint between the API and OpenRouter; the phone's own network stays up): after 20 s without new text, "Still working on it… Tap Stop to end the reply." shows under the reply; VoiceOver/TalkBack reads it. Stop works. New text clears it. The server gives up after its idle limit (30 s in production) and keeps what arrived. |
 
 ---
 
@@ -73,7 +74,8 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 4.6 | Export chat as PDF from the ⋯ menu | ☐ | ☐ | Full thread; headings/lists/code preserved |
 | 4.7 | Export learning topic as PDF | ☐ | ☐ | Vocab words / trivia facts from project screen |
 | 4.8 | Daily image cap enforced (free) | ☐ | ☐ | |
-| 4.9 | Daily speech STT / TTS caps | ☐ | ☐ | Free 30 STT / 20 TTS |
+| 4.9 | Daily speech STT / TTS caps | ☐ | ☐ | Free: no voice input (the mic opens the plans) and read-aloud uses the phone's voice only. Plus and Pro: 200 dictations and 100 natural read-alouds a day (`core/config.py`); over the cap shows the limit message. |
+| 4.10 | Dictation with the microphone denied | ☐ | ☐ | Turn Recall's microphone off in system Settings, tap the mic: "Microphone access needed" alert; no recording starts and nothing uploads. Airplane mode after recording: "network" message, not a transcription failure. |
 
 ---
 
@@ -138,9 +140,9 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 
 | # | Test | iOS | Android | Notes |
 |---|------|-----|---------|-------|
-| 10.1 | Image generation (Pro) — composer send → inline image | ☐ | ☐ | No prompt sheet; sends immediately. Daily cap enforced (free blocked) |
+| 10.1 | Image generation (every plan) — composer send → inline image | ☐ | ☐ | No prompt sheet; sends immediately. Daily cap per plan: Free 3, Plus 10, Pro 15 (`core/config.py`); over it shows the limit message. |
 | 10.2 | Image gen intent detected from plain prompt (no attach-menu row) | ☐ | ☐ | Intent → `/images/generate`; no second modal |
-| 10.3 | Web search — source chips under reply, open source URL | ☐ | ☐ | `WEB_SEARCH_ENABLED=true`; MCP tool path wraps hits + chips; one Tavily reservation per turn; Redis reserve fail → DuckDuckGo (uncapped); no Tavily key → DDG |
+| 10.3 | Web search — source chips under reply, open source URL | ☐ | ☐ | `WEB_SEARCH_ENABLED=true`; MCP tool path wraps hits + chips; one Tavily reservation per turn; Redis reserve fail → DuckDuckGo (uncapped); no Tavily key → DDG. "Searching — “…”" ends when the search does: the wait for the answer shows typing dots only. |
 | 10.4 | Math scanner — open, torch, pinch-zoom, tap-focus, photos, corner-resize, pan | ☐ | ☐ | Dev build (camera). Close + cancel work. Tap inside the crop to focus. No front camera. |
 | 10.5 | Math scanner — capture → adjust crop → Solve → “I read this as” | ☐ | ☐ | “Reading the problem…” shows at once; the reading lands in an editable field (a hint line when it was hard to read). Edit a digit → **Solve** sends `Show steps: …` as text and the reply solves the edited problem. **Send photo** works before the read finishes and sends the crop. **Retake** returns to the camera. iOS: the field stays above the keyboard. |
 | 10.6 | Math scanner — unreadable photo, and biology | ☐ | ☐ | Blank paper or airplane mode: “Couldn't read that…”, Solve disabled, **Send photo** still sends. Biology subject: Solve sends the crop directly, no read-back. |
@@ -148,6 +150,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 10.7 | Math lessons — steps for each traced kind | ☐ | ☐ | Balanced style: `solve 2x+3<7`, `solve -3x+2>=8` (flip when dividing by −3), `-2 < 3x+1 <= 7`, `solve 2x+3y=12, x-y=1`, `differentiate x^2 sin(x) step by step` (product rule), `integrate x(x^2+1)^5` (u-substitution), `integrate x e^x` (by parts). Numbered steps render, `$…$` labels typeset, answer chip last; inequalities keep the number line. Short style: chip only. |
 | 10.8 | Check my work | ☐ | ☐ | `check my work` + lines `2x + 3 = 11`, `2x = 14`, `x = 7`: line 2 ✗ with the sign explanation and a fixed continuation ending in `x = 4`. Same with “don't give me the answer”: only the hint question, no fix, no chip. All-correct lines: ✓ on each, “Every step checks out.”, check line, chip. |
 | 10.9 | Word problems | ☐ | ☐ | “Maria is three times as old as her son. Together their ages add up to 48. How old is her son?” → **Let** / **Equations** (with the quoted words) / steps / “her son's age: 12 years”. A problem the model misreads or cannot close falls back to a normal streamed reply without a verified claim. |
+| 10.10 | Reference photo lookup | ☐ | ☐ | "Show me a photo of a human ear": typing dots with "Finding a photo — “human ear”", never the image-generation card (dot game, "Sketching it out", a percentage); the photo lands in the chat. |
 
 ---
 
@@ -218,6 +221,8 @@ These need a **dev build on hardware**. Simulator FPS and memory are not evidenc
 | 15.6 | While a reply is streaming, confirm Send is **Stop** and a second send cannot start | ☐ | ☐ | The send control is Stop during `streamActive`; a second send is rejected. Stop cancels. Typing indicator is honest. |
 | 15.7 | Immediately after `done`, send another message | ☐ | ☐ | Send is back; composer stays responsive; no double-send. |
 | 15.8 | 10 minutes of mixed chat (send, scroll, open drawer, rotate if Android) | ☐ | ☐ | Thermal/jank after warmup. Stop if the OS kills the app. |
+| 15.9 | Stream a lesson with a quiz and a table | ☐ | ☐ | "Teach me Python dictionaries step by step" (answer "next" until a `Your turn` quiz), and ask for a comparison table. Watch every frame: no raw JSON (`"question"`, `"options"`) and no line of `\|` pipes ever shows; the quiz appears as a card when its fence closes, the table as a table once its header row is complete; the list does not jump at fence close or at done. |
+| 15.10 | Stop, then leave and come back | ☐ | ☐ | Stop mid-reply, wait 5 s, background the app and reopen the chat: the stopped text is identical at every step (no extra words, card or sources appear). |
 
 **Pass bar:** the chat remains usable (scroll, send, stop) on the low-end Android. Cosmetic hitch on first WebView mount is OK; a multi-second freeze or crash is a blocker.
 
@@ -231,6 +236,7 @@ These need a **dev build on hardware**. Simulator FPS and memory are not evidenc
 | 16.2 | Maximum Android font size and display size | n/a | ☐ | Repeat 16.1; math tabs, converter keys, unit chips, swap, and close controls remain reachable and at least 44dp. |
 | 16.3 | Narrow phone portrait layout | ☐ | ☐ | Use the narrowest supported simulator/emulator; long translated labels wrap or truncate intentionally without overlapping header actions. Open and close the drawer and confirm the first message keeps its inset. |
 | 16.4 | Reduce Motion enabled | ☐ | ☐ | Navigation, drawer, sheets, lesson transitions, streaming chrome, and loading states remain understandable without required motion or flicker. |
+| 16.5 | VoiceOver / TalkBack chat flow | ☐ | ☐ | With the screen reader on: type and send a message; while it streams, the send control reads "Stop generating"; "Reply ready" is announced once when it finishes (not per token); swiping reads the reply (the caret is never read); Copy, Regenerate and the thumbs are labelled; a quiz's options and Check answer are reachable. |
 
 ---
 
@@ -302,6 +308,32 @@ Checks only a release build shows. A dev build carries dev-launcher keys and dif
 | 20.5 | Read-aloud, then press Home; start Live Talk, then press Home | ☐ | ☐ | Read-aloud stops; Live Talk hangs up. No audio keeps playing; Android shows no media notification. |
 | 20.6 | Save a chat image (Android 13+), and on an Android 10–12 device | ☐ | ☐ | 13+: saves with no permission prompt. 10–12: the storage prompt appears once, then it saves. Photo attach works with no media permission on 13+. |
 | 20.7 | App Store Connect / Play Console processing | ☐ | ☐ | No ITMS-90683 or ITMS-91053 email; Play shows no foreground-service or photo/video permission declaration request. |
+
+---
+
+## 21. Live Talk (Pro, dev build on a physical device)
+
+FEATURES calls device barge-in a release gate. Simulator Live Talk is half-duplex.
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 21.1 | Start | ☐ | ☐ | Pro account: tap the waveform. Start chime, then the orb; say a sentence and Recall answers aloud. Close: both turns are in the chat as messages. |
+| 21.2 | Mute | ☐ | ☐ | Tap the mic: it turns red and Recall does not hear you; tap again and it does. |
+| 21.3 | Barge-in | ☐ | ☐ | Talk over Recall while it speaks: playback stops at once, the cut reply reads "Generation stopped.", and your new turn is answered. |
+| 21.4 | Airplane mode mid-session | ☐ | ☐ | Turn airplane mode on while Recall talks: an error shows and no audio keeps playing; close Live Talk. Back online: the turns so far are in the chat, and Settings → Account minutes dropped by at most the session's reservation (15 min; a session whose end never reached the server keeps it). |
+| 21.5 | Microphone denied | ☐ | ☐ | Turn Recall's microphone off in system Settings, start Live Talk: "Microphone access needed" with Open Settings (opens Recall's settings page), never "needs a dev build"; no minutes are used. |
+| 21.6 | VoiceOver / TalkBack | ☐ | ☐ | The orb reads "Live talk, listening" / "Live talk, thinking" (hint "Cancel waiting") / "Live talk, Recall is speaking", and each change is announced. There is still no Listening/Speaking text on screen. |
+
+---
+
+## 22. Library
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 22.1 | Upload in chat → Library | ☐ | ☐ | Attach a photo and a PDF in a chat: both appear in drawer → Library (Uploaded, Files), and search finds them by name. A generated image is under Generated; a lookup photo ("show me an ear") is not in Library. |
+| 22.2 | Delete the chat | ☐ | ☐ | Delete that chat: its files stay in Library; long-press shows no Open chat. Use in chat attaches the file to the current chat. |
+| 22.3 | Airplane mode | ☐ | ☐ | Open Library offline: failed thumbnails show Retry and stay; back online, Retry loads them. A failed upload never leaves a ghost tile. |
+| 22.4 | Delete from Library | ☐ | ☐ | Delete a file: confirm dialog; the tile goes only after the server confirms; it no longer opens from the old chat. |
 
 ---
 

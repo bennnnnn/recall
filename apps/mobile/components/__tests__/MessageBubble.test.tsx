@@ -8,6 +8,7 @@ import type { Message } from "@/lib/api";
 
 let mockShowLiveClock = false;
 let mockMarkdownPresented = false;
+let mockHasContent = true;
 
 jest.mock("expo-clipboard", () => ({
   setStringAsync: jest.fn(async () => undefined),
@@ -54,9 +55,10 @@ jest.mock("@/components/PlacesListBlock", () => ({
 jest.mock("@/components/ChatMessageImageStrip", () => ({
   ChatMessageImageStrip: () => null,
 }));
-jest.mock("@/features/images/components/ImageGenPlaceholder", () => ({
-  ImageGenPlaceholder: () => null,
-}));
+jest.mock("@/features/images/components/ImageGenPlaceholder", () => {
+  const { View: MockView } = jest.requireActual("react-native") as typeof import("react-native");
+  return { ImageGenPlaceholder: () => <MockView testID="image-gen-placeholder" /> };
+});
 jest.mock("@/ui/feedback/ActionShimmer", () => ({
   ActionShimmer: () => null,
 }));
@@ -74,9 +76,14 @@ jest.mock("@/components/MarkdownErrorBoundary", () => ({
   MarkdownErrorBoundary: ({ children }: { children: React.ReactNode }) =>
     children,
 }));
-jest.mock("@/components/RecallTypingIndicator", () => ({
-  RecallTypingIndicator: () => null,
-}));
+jest.mock("@/components/RecallTypingIndicator", () => {
+  const { View: MockView } = jest.requireActual("react-native") as typeof import("react-native");
+  return {
+    RecallTypingIndicator: ({ phase }: { phase?: string }) => (
+      <MockView testID={`typing-indicator-${phase ?? "none"}`} />
+    ),
+  };
+});
 jest.mock("@/features/drafts/context/emailDraftPersist", () => ({
   AssistantMessageScope: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -93,7 +100,7 @@ jest.mock("@/hooks/useStreamLayoutHold", () => ({
 }));
 jest.mock("@/hooks/useAssistantMessageContent", () => ({
   useAssistantMessageContent: ({ isUser }: { isUser: boolean }) => ({
-    hasContent: true,
+    hasContent: mockHasContent,
     showActionSlot: !isUser,
     actionsReady: !isUser,
     showLiveClock: mockShowLiveClock,
@@ -150,6 +157,28 @@ const assistantMessage = {
   model: "free-chat",
   created_at: "2026-01-01T00:00:00Z",
 } as Message;
+
+describe("MessageBubble tool status (S7.9)", () => {
+  afterEach(() => {
+    mockHasContent = true;
+  });
+
+  it("draws the image-generation card only for image generation, not a photo lookup", async () => {
+    mockHasContent = false;
+    const waiting = { ...assistantMessage, id: "streaming", content: "" } as Message;
+    const photo = await render(
+      <MessageBubble message={waiting} isGenerating streamStatus="finding_photo" />,
+    );
+    expect(photo.queryByTestId("image-gen-placeholder")).toBeNull();
+    expect(photo.getByTestId("typing-indicator-finding_photo")).toBeTruthy();
+    await photo.unmount();
+
+    const generating = await render(
+      <MessageBubble message={waiting} isGenerating streamStatus="image_gen" />,
+    );
+    expect(generating.getByTestId("image-gen-placeholder")).toBeTruthy();
+  });
+});
 
 describe("MessageBubble copy feedback timers", () => {
   beforeEach(() => {

@@ -111,6 +111,74 @@ describe("useVoiceInput microphone ownership", () => {
   });
 });
 
+describe("useVoiceInput permission and transcription errors (F8.2)", () => {
+  const { reportRecoverableError } = jest.requireMock("@/lib/reportRecoverableError") as {
+    reportRecoverableError: jest.Mock;
+  };
+  const { alertDialog } = jest.requireMock("@/ui/overlay/dialogs") as { alertDialog: jest.Mock };
+  const { requestVoicePermission } = jest.requireMock("@/lib/speech/voiceAudio") as {
+    requestVoicePermission: jest.Mock;
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  /** A recorder that heard speech, so finishing it sends the file to transcribe. */
+  function speakingRecorder() {
+    return {
+      stop: jest.fn(async () => "file:///rec.m4a"),
+      subscribeMetering: jest.fn((listener: (level: number) => void) => {
+        listener(0.9);
+        listener(0.9);
+        return () => {};
+      }),
+    } satisfies VoiceRecorder;
+  }
+
+  async function transcribeFailingWith(error: Error) {
+    startMock.mockResolvedValueOnce(speakingRecorder());
+    (transcribeSpeech as jest.Mock).mockRejectedValueOnce(error);
+    await render(<Probe />);
+    await act(async () => { await voice.startRecording(); });
+    await act(async () => { await voice.finishRecording(); });
+  }
+
+  it("asks for the microphone in an alert and opens no recorder when access is denied", async () => {
+    requestVoicePermission.mockResolvedValueOnce({ granted: false });
+    await render(<Probe />);
+    let started!: boolean;
+    await act(async () => { started = await voice.startRecording(); });
+
+    expect(started).toBe(false);
+    expect(alertDialog).toHaveBeenCalledWith({
+      title: "chat.voice_permission_title",
+      message: "chat.voice_permission_body",
+    });
+    expect(startMock).not.toHaveBeenCalled();
+    expect(voice.voiceRecording).toBe(false);
+  });
+
+  it("says the network failed when the upload could not reach the server", async () => {
+    await transcribeFailingWith(new Error("Network request failed"));
+    expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.voice_network_failed");
+    expect(voice.voiceTranscribing).toBe(false);
+  });
+
+  it("says transcription failed for a server error", async () => {
+    await transcribeFailingWith(Object.assign(new Error("Internal error"), { status: 500 }));
+    expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.voice_transcribe_failed");
+  });
+
+  it("says it heard nothing when the server found no words", async () => {
+    await transcribeFailingWith(new Error("transcribe_empty"));
+    expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.voice_transcribe_empty");
+  });
+});
+
 describe("useVoiceInput plan refusal", () => {
   it("opens the plans when the server says voice input is not in the plan", async () => {
     const { reportRecoverableError } = jest.requireMock("@/lib/reportRecoverableError") as {
