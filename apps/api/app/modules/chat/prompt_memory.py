@@ -79,6 +79,12 @@ _ASKS_ABOUT_SELF = re.compile(
 _RECALLS_A_DECISION = re.compile(
     r"\bdid i (?:pick|choose|decide|go with|settle on)\b", re.IGNORECASE
 )
+# "What did we decide", "I told you", "did I pick": a conversation with Recall, not
+# "what happened in the news last week".
+_NAMES_OUR_CONVERSATION = re.compile(
+    r"\b(?:we|us|our|you said|you told|i told|i said|i mentioned|did i|last time)\b",
+    re.IGNORECASE,
+)
 # Career asks read memory with the profile document, so the current job stays.
 _OWN_CAREER = re.compile(
     r"\b(?:career|employer|recruiter|candidacy|promotion|interview\w*|resume|cv|"
@@ -170,6 +176,10 @@ def memory_notes(turn: PromptTurn) -> list[str]:
     status = memory_status_note(turn)
     if status:
         notes.append(status)
-    if turn.recalls_shared_past and not turn.chat_history_rag_block:
+    if (
+        turn.recalls_shared_past
+        and not turn.chat_history_rag_block
+        and _NAMES_OUR_CONVERSATION.search(turn.query)
+    ):
         notes.append(NO_PAST_RECORD_HINT)
     return notes

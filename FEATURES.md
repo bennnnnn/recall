@@ -547,8 +547,17 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   corrections are evaluated without requiring phrases such as “I am” or “remember.” Ops can
   raise N to skip intermediate LLM cost. Each pass includes
   user messages not processed by the previous pass (per-chat extract cursor), so a fact
-  on turn 2 is not dropped if the chat ends there. Explicit “remember this” / “forget that”
+  on turn 2 is not dropped if the chat ends there. Explicit “remember this” / “forget that”,
+  a mute ("stop mentioning my job") and a correction ("that's wrong, I'm at Stripe now")
   still extract when N>1. No remember/forget chip or confirmation sheet.
+- ✅ **Forget, mute, reset** (`modules/memory/commands.py`) — "forget that I use React"
+  deletes the fact the phrase names, never a broader one sharing a word ("builds Recall with
+  React Native") or someone else's ("my sister lives in Nairobi"). "Stop mentioning my job" /
+  "don't bring up my divorce again" **mutes** the fact (kept, never injected, its past-chat
+  snippets dropped); a do-not-mention preference is kept even when sensitive. "Forget
+  everything you know about me" and "stop remembering things about me" are a settings card
+  (clear all / memory off) that does nothing until tapped. Explicit facts and hand edits are
+  never evicted by the 150 cap. Sweep look-alikes: `sweep_corpus/memory_controls.json`.
 - ✅ **Extraction hygiene** — only what the user's own lines state or clearly show (the
   projects they build, the stack they build with, their job, goals, routines, recurring
   interests); never assistant restatements. Transcript is the **user line only**, capped ~4k
@@ -580,11 +589,20 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Typed memories** — `profile` · `preference` · `project` · `fact` · `focus` (grouping
   categories, not a 20-type taxonomy). Each row is one atomic fact (the old one-paragraph-per-type
   unique constraint is gone). Cap **150 active** facts per user.
-- ✅ **Quality controls** — confidence threshold, de-duplication / pair-merge, score-and-pack
-  packing (never mid-fact prefix cut), identity core (a few profile + communication prefs).
+- ✅ **Quality controls** — confidence threshold, de-duplication / pair-merge (newer fact
+  wins), score-and-pack packing (never mid-fact prefix cut), identity core (the name and reply
+  preferences). An add matches by exact text only.
 - ✅ **Prompt injection** — identity core always; remaining facts packed by cosine + importance +
   recency until `memory_inject_max_chars` (1500). Similarity bar stays `memory_min_similarity`
-  (0.35). Health / legal / finance / relationship stay **stripped on casual turns** (stored
+  (0.35); a fact with no vector needs a word in common with the question. Scopes
+  (`get_memory_block(scope=…)`): by query; with the profile page (career, "what's my job?");
+  everything ("what do you know about me"); **work** (programming and "my app / my backend"
+  turns: the tech-stack page and what the user builds, no query embed). An embed timeout
+  injects the identity core plus word matches, uncached, and warms the key the turn read.
+  Each fact line carries "(said YYYY-MM)" and "unconfirmed" under 0.6 confidence. A failed
+  read is reported (`MemoryLoadReport`), never cached, and the reply says memory couldn't
+  load instead of "I don't have that saved"; memory off / saving paused / no earlier chat
+  found each get one line on the turns they bear on (`modules/chat/prompt_memory.py`). Health / legal / finance / relationship stay **stripped on casual turns** (stored
   `sensitivity` first, regex defense-in-depth) and inject only when the ask is in-domain.
   Life-domain advice ("what should I eat", "I need dinner", "plan a workout")
   injects **memory only**. Ordinary need/plan phrasing
@@ -594,11 +612,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   falls back to scored packing when embeddings are missing).
 - ✅ **Memory screen** — `GET /memories/documents`: You / Topics / Areas rows with a summary
   and the last-updated date. A page shows its title, last updated, summary and each fact as a
-  bullet; tap a fact to edit or delete it, **Delete** removes the page
+  bullet with the chat it came from; tap a fact to edit, mute / unmute or delete it (a muted
+  fact reads "Muted · not used in chats"), **Delete** removes the page
   (`DELETE /memories/documents/{topic}`). `PATCH /memories/{id}` updates text or status;
-  `DELETE /memories/{id}` deletes one fact; `DELETE /memories` clears all.
-- ✅ **Memory toggle** — turn learning on/off in Settings (stops new learning; saved facts
-  remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one API.
+  `DELETE /memories/{id}` deletes one fact with the versions it superseded; `DELETE /memories`
+  clears all. A delete, clear or mute also purges the past-chat snippets that repeat it, so
+  chat-history recall cannot bring a deleted fact back.
+- ✅ **Memory toggle** — off means no personal recall: no new learning, no saved facts in
+  replies, no chat-history retrieval or indexing, no instant profile answers (saved facts
+  remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one
+  API.
 - 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;
   do not implement until this line is promoted.
 - ✅ **Memory management reliability** — account and navigation

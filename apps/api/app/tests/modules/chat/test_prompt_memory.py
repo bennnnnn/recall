@@ -185,6 +185,9 @@ async def test_a_recalled_past_with_no_record_is_not_invented():
     assert prompt_memory.NO_PAST_RECORD_HINT in system
     other = await _system_prompt("what should I cook tonight?")
     assert prompt_memory.NO_PAST_RECORD_HINT not in other
+    # The news last week is not a conversation the user had with Recall.
+    news = await _system_prompt("what happened in the news last week?")
+    assert prompt_memory.NO_PAST_RECORD_HINT not in news
 
 
 def test_the_saved_memory_block_says_it_may_be_stale():
