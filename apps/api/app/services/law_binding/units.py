@@ -11,6 +11,8 @@ import logging
 import math
 import re
 from collections.abc import Callable, Mapping
+from decimal import Decimal
+from fractions import Fraction
 from functools import lru_cache
 
 logger = logging.getLogger(__name__)
@@ -50,8 +52,19 @@ def unit_dimension(expression: str) -> tuple[str, float, float] | None:
         logger.debug("%r is not a Pint unit: %s", expression, type(exc).__name__)
         return None
     dimensionality = quantity.dimensionality
-    powers = {str(name): float(dimensionality[name]) for name in dimensionality}
-    return _canonical(powers), float(quantity.magnitude), 0.0
+    exponents = [_real(dimensionality[name]) for name in dimensionality]
+    factor = _real(quantity.magnitude)
+    if factor is None or None in exponents:
+        return None
+    powers = {
+        str(name): float(power or 0) for name, power in zip(dimensionality, exponents, strict=True)
+    }
+    return _canonical(powers), factor, 0.0
+
+
+def _real(value: object) -> float | None:
+    """A Pint number as a float; Pint types it widely, but a unit's scale and powers are real."""
+    return float(value) if isinstance(value, int | float | Decimal | Fraction) else None
 
 
 def _canonical(powers: dict[str, float]) -> str:

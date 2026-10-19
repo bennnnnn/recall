@@ -25,7 +25,7 @@ def _in_si(value: float, unit: str, si: str) -> tuple[float, str]:
 
     ureg = get_unit_registry()
     try:
-        quantity = value * ureg(unit_expression(unit) or unit)
+        quantity = ureg.Quantity(value, unit_expression(unit) or unit)
         return float(quantity.to(ureg(unit_expression(si) or si)).magnitude), si
     except Exception as exc:
         raise SolveServiceError(f"cannot convert {unit} to {si}") from exc
