@@ -29,9 +29,9 @@ from app.services.units import constant
         ("GAS_R_J", 8.314462618153241),
         ("FARADAY", 96485.33212331001),
         ("AVOGADRO", 6.02214076e23),
-        ("PROTON_U", 1.007276466620409),
-        ("NEUTRON_U", 1.0086649159477235),
-        ("MEV_PER_U", 931.4941024171442),
+        ("PROTON_U", 1.0072764665741099),
+        ("NEUTRON_U", 1.0086649160560601),
+        ("MEV_PER_U", 931.4941037185688),
         ("STANDARD_TEMPERATURE_K", 298.15),
     ],
 )

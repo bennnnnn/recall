@@ -108,7 +108,8 @@
     "lint": "expo lint app components ui features hooks lib contexts",
     "test": "jest",
     "icons": "node scripts/generate-icons.mjs",
-    "oss-licenses": "node scripts/generate-licenses.mjs"
+    "oss-licenses": "node scripts/generate-licenses.mjs",
+    "postinstall": "node scripts/generate-licenses.mjs"
   },
   "pnpm": {
     "overrides": {
