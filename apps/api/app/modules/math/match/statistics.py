@@ -3,16 +3,9 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
 
 from app.modules.math.match.discrete import numeric_data_values
-
-BivariateStatsOp = Literal[
-    "correlation",
-    "covariance",
-    "sample_covariance",
-    "linear_regression",
-]
+from app.modules.math.schemas.operations import BivariateStatsOp
 
 _LIST_RE = re.compile(r"\[([^\[\]]+)\]")
 

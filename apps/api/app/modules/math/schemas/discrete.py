@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import math
-from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.modules.math.schemas.operations import CombinatoricsOp, MatrixOp, NumberTheorySolveOp
 
 
 class StatisticsInput(BaseModel):
@@ -43,7 +44,7 @@ class StatisticsResult(BaseModel):
 
 
 class CombinatoricsInput(BaseModel):
-    operation: Literal["factorial", "combinations", "permutations"]
+    operation: CombinatoricsOp
     # Capped at 1000, not just "positive": math.comb/math.perm on an
     # unbounded n (e.g. a chat message asking for "1000000 choose 500000")
     # returns a correct but enormous integer — bounded here to keep the
@@ -53,7 +54,7 @@ class CombinatoricsInput(BaseModel):
 
 
 class CombinatoricsResult(BaseModel):
-    operation: Literal["factorial", "combinations", "permutations"]
+    operation: CombinatoricsOp
     n: int
     k: int | None
     result: int
@@ -61,7 +62,7 @@ class CombinatoricsResult(BaseModel):
 
 
 class NumberTheoryInput(BaseModel):
-    operation: Literal["gcd", "lcm", "factorize", "is_prime", "mod", "mod_inverse", "totient"]
+    operation: NumberTheorySolveOp
     # factorize/is_prime bound to 1e8 specifically to keep sympy.factorint's
     # worst case (a large semiprime) fast — trial division up to sqrt(1e8)
     # is ~10k iterations, not a stall risk. gcd/lcm/mod share the same bound
@@ -81,7 +82,7 @@ class NumberTheoryInput(BaseModel):
 
 
 class NumberTheoryResult(BaseModel):
-    operation: Literal["gcd", "lcm", "factorize", "is_prime", "mod", "mod_inverse", "totient"]
+    operation: NumberTheorySolveOp
     a: int
     b: int | None
     result_int: int | None = None
@@ -91,25 +92,8 @@ class NumberTheoryResult(BaseModel):
     steps: list[str] = Field(default_factory=list)
 
 
-_MATRIX_OPERATIONS = Literal[
-    "determinant",
-    "inverse",
-    "multiply",
-    "rref",
-    "eigenvalues",
-    "eigenvectors",
-    "rank",
-    "nullspace",
-    "columnspace",
-    "rowspace",
-    "diagonalize",
-    "add",
-    "transpose",
-]
-
-
 class MatrixInput(BaseModel):
-    operation: _MATRIX_OPERATIONS
+    operation: MatrixOp
     rows: list[list[float]] = Field(min_length=2, max_length=4)
     rows_b: list[list[float]] | None = Field(default=None, min_length=2, max_length=4)
 
@@ -157,7 +141,7 @@ class MatrixInput(BaseModel):
 
 
 class MatrixResult(BaseModel):
-    operation: _MATRIX_OPERATIONS
+    operation: MatrixOp
     determinant: float | None = None
     inverse_latex: str | None = None
     result_latex: str | None = None

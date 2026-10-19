@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.modules.math.schemas.operations import FractionOp
+
 
 class FractionStep(BaseModel):
     kind: Literal[
@@ -28,18 +30,7 @@ class FractionWorkSpec(BaseModel):
     """Exact fraction trace. The client lays it out without recalculating."""
 
     type: Literal["fraction"] = "fraction"
-    operation: Literal[
-        "simplify",
-        "equivalent",
-        "add",
-        "subtract",
-        "multiply",
-        "divide",
-        "mixed_to_improper",
-        "improper_to_mixed",
-        "of_quantity",
-        "compare",
-    ]
+    operation: FractionOp
     operands: list[str] = Field(min_length=1, max_length=3)
     answer: str
     exact_numerator: int | None = None

@@ -5,9 +5,10 @@ from __future__ import annotations
 import re
 from fractions import Fraction
 from math import gcd, lcm
-from typing import Literal, cast
+from typing import cast
 
 from app.modules.math.schemas import FractionStep, FractionWorkSpec, MathIntent
+from app.modules.math.schemas.operations import FractionOp
 
 
 def _parse_fraction(value: str) -> tuple[int, int] | None:
@@ -36,21 +37,7 @@ def _finish(
     answer: str | None = None,
 ) -> FractionWorkSpec:
     return FractionWorkSpec(
-        operation=cast(
-            Literal[
-                "simplify",
-                "equivalent",
-                "add",
-                "subtract",
-                "multiply",
-                "divide",
-                "mixed_to_improper",
-                "improper_to_mixed",
-                "of_quantity",
-                "compare",
-            ],
-            operation,
-        ),
+        operation=cast(FractionOp, operation),
         operands=operands,
         answer=answer or _latex(value.numerator, value.denominator),
         exact_numerator=value.numerator,

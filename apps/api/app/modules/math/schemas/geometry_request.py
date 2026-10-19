@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from app.modules.math.schemas.geometry import SolidGeometryInput
+from app.modules.math.schemas.operations import SolidShape
 
 GeometryShape = Literal[
     "rectangle",
@@ -18,12 +19,7 @@ GeometryShape = Literal[
     "trapezoid",
     "circle",
     "sector",
-    "cube",
-    "rectangular_prism",
-    "cylinder",
-    "cone",
-    "sphere",
-    "pyramid",
+    SolidShape,
 ]
 GeometryQuantity = Literal[
     "area",
