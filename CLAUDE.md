@@ -125,7 +125,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota/`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
 | Follow-up questions | `modules/chat/related_prompts.py` (after `done`; `modules/suggestions/` + `/suggestions` are legacy, no longer fed) | `features/suggestions/` (`RelatedPromptLines`) |
-| Todos / reminders | `modules/todos/` (HTTP `/todos`; chat changes wait for a tap: `write_log.py` + `proposals.py`, `POST /todos/proposals/{id}/confirm`) | `features/todos/` (`ReminderProposalCard`); `app/todos.tsx` route only |
+| Todos / reminders | `modules/todos/` (HTTP `/todos`; chat changes wait for a tap: `write_log.py` + `proposals.py`, `POST /todos/proposals/{id}/confirm`; the reply above an untapped card claims nothing, `reply_claims.py`) | `features/todos/` (`ReminderProposalCard`); `app/todos.tsx` route only |
 | Home | `modules/home/` (HTTP `/home`) | `features/home/`; greeting + one overdue reminder |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
@@ -172,7 +172,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 
 New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` with `turn_deps.default_deps()`: a frozen `ChatTurnDeps` holds what a turn uses outside chat (repositories, quota, plan, locks, LiteLLM, image services, todos, web search, the maths fence), and tests pass one with fakes instead of patching. Quota + per-chat prepare lock are owned by `async with turn_resources(...)` (`turn_resources.py`; do not re-introduce hand-managed `owns_lock` / `pre_reserved` flags); `turn_load.py` reads the turn and `turn_intercepts.py` holds the photo and image intercepts.
 
-1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
+1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`); no turn without the account's AI data consent (`modules/account/consent.py`, `consent_required`)
 2. Check + reserve daily quota (Redis)
 3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation. `modules/images/intent.py` reads both; the phone's composer asks it too (`POST /images/intent`)
 4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, web search, SymPy pre-solve, physics and chemistry context
