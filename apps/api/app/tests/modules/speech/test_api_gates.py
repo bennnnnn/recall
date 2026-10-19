@@ -89,7 +89,7 @@ def _speech(path: str, *, spend_capped: bool = False) -> Iterator[tuple[object, 
 def test_speech_route_refuses_a_plan_without_the_feature(path):
     request, _, _, plan_setting, message, *_ = _ROUTES[path]
     client = _client(_fake_user(plan="plus"), **{plan_setting: 0})
-    with _speech(path) as (fake_redis, _provider):
+    with _speech(path) as (_fake_redis, _provider):
         response = client.post(path, headers=_AUTH, **request)
     assert response.status_code == 403
     assert response.json() == {"detail": message}
@@ -99,7 +99,7 @@ def test_speech_route_refuses_a_plan_without_the_feature(path):
 def test_speech_route_refuses_while_the_spend_breaker_is_open(path):
     request, *_ = _ROUTES[path]
     client = _client(_fake_user(plan="plus"))
-    with _speech(path, spend_capped=True) as (fake_redis, _provider):
+    with _speech(path, spend_capped=True) as (_fake_redis, _provider):
         response = client.post(path, headers=_AUTH, **request)
     assert response.status_code == 429
     assert response.json() == {"detail": quota_service.VOICE_SPEND_CAP_MESSAGE}
@@ -150,7 +150,7 @@ def test_speech_route_refuses_past_the_days_cap(path, cap_setting, counter):
     request, *_ = _ROUTES[path]
     user = _fake_user(plan="plus")
     client = _client(user, **{cap_setting: 1})
-    with _speech(path) as (fake_redis, _provider):
+    with _speech(path) as (_fake_redis, _provider):
         first = client.post(path, headers=_AUTH, **request)
         second = client.post(path, headers=_AUTH, **request)
     assert first.status_code == 200
