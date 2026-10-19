@@ -1283,7 +1283,8 @@ Not exceptions:
   copy is gone); it is next in line.
 - `lib/markdown/calculationLayout.ts`: ES-06.
 - Every other file over 500 lines: it either has a ticket above, or it is next in line after
-  them. Next in line: `services/time_context.py` 627, `chat/related_prompts.py` 670,
+  them. Next in line: `services/time_context.py` 627 (`chat/related_prompts.py` is split:
+  the call 229, its rules `related_questions.py` 462),
   `math/school.py` 657, `math/tool.py` 650, `math/fence.py` 646, `chat/ws_api.py` 618,
   `services/answer_check.py` 601, `features/chat/screens/ChatScreen.tsx` 639,
   `components/MathEquationScanner.tsx` 638.

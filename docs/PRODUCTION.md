@@ -552,7 +552,7 @@ machine at once.
 **`DAILY_GLOBAL_SPEND_USD`** is a kill-switch on estimated provider dollars per
 UTC day (Redis `spend_musd:<date>`, `core/spend_counter.py`). What adds to it:
 
-- a chat turn: catalog price x its tokens, at finalize (`modules/chat/post_turn.py`);
+- a chat turn: catalog price x its tokens, at finalize (`modules/chat/turn_settle.py`);
 - every other model call, priced from its tokens by the gateway that makes it
   (`gateways/llm_spend.py`): memory extraction and consolidation, titles,
   suggestions, compression, follow-up questions, attachment OCR, embeddings,
