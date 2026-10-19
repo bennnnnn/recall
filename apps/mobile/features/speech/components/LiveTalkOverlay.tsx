@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -10,7 +10,13 @@ import Animated, {
 import { useTranslation } from "react-i18next";
 
 import { LiveTalkOrb } from "@/features/speech/components/LiveTalkOrb";
-import { liveTalkOrbA11yKey, liveTalkOrbAction, type LiveTalkPhase } from "@/features/speech/model/liveTalkLogic";
+import {
+  liveTalkOrbA11yHintKey,
+  liveTalkOrbA11yKey,
+  liveTalkOrbAction,
+  liveTalkPhaseA11yKey,
+  type LiveTalkPhase,
+} from "@/features/speech/model/liveTalkLogic";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -45,8 +51,17 @@ export function LiveTalkOverlay({
   const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const orbAction = liveTalkOrbAction(phase);
+  const orbLabel = t(liveTalkOrbA11yKey(phase));
+  const orbHint = liveTalkOrbA11yHintKey(phase);
   const [mounted, setMounted] = useState(visible);
   const appear = useSharedValue(visible ? 1 : 0);
+
+  // The orb has no on-screen Listening or Speaking copy; a screen reader is
+  // told each change instead, so a blind user knows when to talk.
+  useEffect(() => {
+    const key = visible ? liveTalkPhaseA11yKey(phase) : null;
+    if (key) AccessibilityInfo.announceForAccessibility(t(key));
+  }, [phase, t, visible]);
 
   useEffect(() => {
     if (visible) {
@@ -95,12 +110,15 @@ export function LiveTalkOverlay({
       <View style={s.body}>
         <Animated.View style={orbWrapStyle}>
           {orbAction === "none" ? (
-            <View testID="live-talk-orb">{orb}</View>
+            <View accessible accessibilityLabel={orbLabel} testID="live-talk-orb">
+              {orb}
+            </View>
           ) : (
             <Pressable
               onPress={onToggle}
               accessibilityRole="button"
-              accessibilityLabel={t(liveTalkOrbA11yKey(phase))}
+              accessibilityLabel={orbLabel}
+              accessibilityHint={orbHint ? t(orbHint) : undefined}
               testID="live-talk-orb"
             >
               {orb}

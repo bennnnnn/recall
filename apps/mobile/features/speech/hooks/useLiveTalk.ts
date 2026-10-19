@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, BackHandler } from "react-native";
+import { AppState, BackHandler, Linking } from "react-native";
 import { useRouter } from "expo-router";
 
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -26,6 +26,7 @@ import {
   type RealtimeVoiceSession,
 } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 
 type Options = {
@@ -94,6 +95,18 @@ export function useLiveTalk({
     (gate: LiveTalkGate) => {
       if (gate === "upgrade") {
         onUpgrade();
+        return;
+      }
+      if (gate === "mic_permission") {
+        // The OS asks only once; after a denial only Settings can turn it on.
+        void confirmDialog({
+          title: t("chat.live_talk_mic_permission_title"),
+          message: t("chat.live_talk_mic_permission_body"),
+          cancelLabel: t("common.cancel"),
+          confirmLabel: t("chat.location_open_settings"),
+        }).then((open) => {
+          if (open) void Linking.openSettings();
+        });
         return;
       }
       const message =

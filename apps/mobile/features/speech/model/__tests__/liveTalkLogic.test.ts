@@ -3,7 +3,10 @@ import {
   LIVE_TALK_PLAYBACK_TAIL_MS,
   liveTalkErrorGate,
   liveTalkGate,
+  liveTalkOrbA11yHintKey,
+  liveTalkOrbA11yKey,
   liveTalkOrbAction,
+  liveTalkPhaseA11yKey,
   liveTalkOrbMode,
   liveTalkShouldAttachSession,
   liveTalkShouldCloseOnChatChange,
@@ -118,6 +121,39 @@ describe("liveTalkErrorGate", () => {
 
   it("maps a missing Realtime server key to unconfigured", () => {
     expect(liveTalkErrorGate({ status: 503 })).toBe("unconfigured");
+  });
+
+  // F8.8: a denied microphone said "Live talk needs a dev build", which is false
+  // and leaves the user nothing to do. Only Settings can turn the mic back on.
+  it.each([
+    [{ name: "SecurityError", message: "Permission denied." }],
+    [{ name: "NotAllowedError", message: "The request is not allowed" }],
+    [new Error("Permission denied")],
+  ])("maps a denied microphone %j to the mic-permission gate", (error) => {
+    expect(liveTalkErrorGate(error)).toBe("mic_permission");
+  });
+
+  it("never reads an API refusal as a microphone denial", () => {
+    expect(liveTalkErrorGate({ status: 403, message: "Live talk is not allowed on your plan" })).toBe(
+      "upgrade",
+    );
+  });
+});
+
+describe("Live Talk screen-reader labels (S7.13)", () => {
+  it("gives listening, thinking and speaking distinct labels, and idle the feature name", () => {
+    const keys = (["recording", "thinking", "speaking"] as const).map(liveTalkOrbA11yKey);
+    expect(new Set(keys).size).toBe(3);
+    expect(liveTalkOrbA11yKey("idle")).toBe("chat.live_talk_a11y");
+    expect(liveTalkOrbA11yKey("recording")).toBe("chat.live_talk_listening_a11y");
+    expect(liveTalkOrbA11yKey("speaking")).toBe("chat.live_talk_speaking_a11y");
+  });
+
+  it("announces every phase but idle, and offers cancel only while thinking", () => {
+    expect(liveTalkPhaseA11yKey("idle")).toBeNull();
+    expect(liveTalkPhaseA11yKey("thinking")).toBe("chat.live_talk_thinking_a11y");
+    expect(liveTalkOrbA11yHintKey("thinking")).toBe("chat.live_talk_cancel_a11y");
+    expect(liveTalkOrbA11yHintKey("speaking")).toBeNull();
   });
 });
 
