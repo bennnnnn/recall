@@ -6,6 +6,13 @@
 
 app = "recall-api"
 primary_region = "iad" # change to your region; Neon DB is in us-east-2
+# A deploy or restart stops a Machine with kill_signal (Fly's default, SIGINT;
+# uvicorn and the worker shut down gracefully on SIGINT and SIGTERM) and kills
+# it kill_timeout seconds later. The default 5s cut every reply in progress.
+# uvicorn gets --timeout-graceful-shutdown 30 below (and in apps/api/Dockerfile)
+# to finish or stop-and-save in-flight chat turns; the rest is lifespan shutdown
+# (background drain up to 10s). Keep kill_timeout above 30 + 10.
+kill_timeout = 45
 
 [build]
   context = "apps/api"
@@ -29,15 +36,27 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
   CHAT_STREAM_CONNECT_TIMEOUT_SECONDS = "5"
   CHAT_STREAM_TIMEOUT_SECONDS = "30"
 
-# Run migrations once per deploy (not on every app machine boot).
+# Run migrations once per deploy (not on every app machine boot), before any
+# Machine is replaced. Old code keeps running against the new schema while the
+# deploy rolls (and after a rollback), so migrations are expand/contract:
+# docs/ROLLBACK.md#schema-changes-expand-then-contract.
 [deploy]
   release_command = "/opt/venv/bin/alembic upgrade head"
+  # Blue-green: boot the new Machines next to the old ones, wait for their
+  # health checks (http_service.checks for app, worker-health for worker),
+  # move traffic, then stop the old ones with kill_signal/kill_timeout. With
+  # one app Machine, the rolling default stopped it before its replacement
+  # was healthy: every deploy was an outage. Needs no volumes (none here) and
+  # room for a second Machine per group during the deploy. For a moment two
+  # workers run; jobs are leased and deduped, schedulers hold Redis locks.
+  strategy = "bluegreen"
 
 [processes]
   # `exec` so uvicorn/worker is PID 1 and receives SIGTERM cleanly.
   # --ws-max-size caps one WebSocket frame at 1 MiB (uvicorn default 16 MiB);
-  # a chat frame is at most ~130 KB. Keep in step with apps/api/Dockerfile.
-  app = "sh -c 'exec /opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log --ws-max-size 1048576'"
+  # a chat frame is at most ~130 KB. --timeout-graceful-shutdown bounds the
+  # drain on stop (see kill_timeout). Keep in step with apps/api/Dockerfile.
+  app = "sh -c 'exec /opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log --ws-max-size 1048576 --timeout-graceful-shutdown 30'"
   worker = "sh -c 'PROCESS_ROLE=worker exec /opt/venv/bin/python -m app.worker_main'"
 
 [http_service]
