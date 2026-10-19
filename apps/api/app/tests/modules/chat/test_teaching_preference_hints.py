@@ -34,10 +34,9 @@ TEACHING_PREFERENCE = (
 )
 
 
-def _hints(text: str, style: str = "balanced") -> list[str]:
+def _hints(text: str) -> list[str]:
     return _style_format_hints(
         query_text=text,
-        style=style,
         is_day_plan=False,
         minimal_personal_context=False,
         image_search_enabled=True,
@@ -110,9 +109,8 @@ def test_a_teach_by_preference_is_not_a_lesson_request() -> None:
     assert is_teaching_request("teach me python by building projects")
 
 
-@pytest.mark.parametrize("style", ["short", "balanced", "detailed"])
-def test_teaching_preference_gets_an_acknowledgement_not_a_photo(style: str) -> None:
-    parts = _hints(TEACHING_PREFERENCE, style)
+def test_teaching_preference_gets_an_acknowledgement_not_a_photo() -> None:
+    parts = _hints(TEACHING_PREFERENCE)
     assert STANDING_PREFERENCE_HINT in parts
     for absent in (ANSWER_PHOTO_HINT, TEACHING_HINT, PERSONAL_DISCLOSURE_HINT):
         assert absent not in parts

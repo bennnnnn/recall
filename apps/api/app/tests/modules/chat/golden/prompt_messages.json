@@ -138,7 +138,16 @@
   "ok",
   "solve 2x + 5 = 17",
   "Subtract 5 from both sides.\n\n$2x = 12$\n\n$x = 6$\n\nAnswer: x = 6\n",
-  "how?"
+  "how?",
+  "good morning!",
+  "explain in detail how Raft handles split votes",
+  "in one sentence what is DNS? Also explain in detail how TLS works",
+  "tell me a long story about a dragon",
+  "Ember was the only dragon in the Ashen Peaks who flinched at sparks. One night the elders came to the waterfall and said, \"We need fire,\" and Ember",
+  "continue",
+  "what should I cook tonight?",
+  "How about lemon garlic chicken or a beef stir-fry?",
+  "no, I said I'm vegetarian"
  ],
  "cases": [
   {
@@ -1508,6 +1517,177 @@
      [
       "user",
       "89"
+     ]
+    ],
+    "out": {}
+   }
+  },
+  {
+   "id": "branch:social-opener",
+   "history": [
+    [
+     "user",
+     "good morning!"
+    ]
+   ],
+   "kwargs": {
+    "query_text": "good morning!",
+    "current": 0
+   },
+   "expected": {
+    "messages": [
+     [
+      "system",
+      "0 @STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @COMPACT_RESPONSE_FORMAT_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @TONE_HINTS[casual] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @FACT_GROUNDING_HINT"
+     ],
+     [
+      "user",
+      "90"
+     ]
+    ],
+    "out": {}
+   }
+  },
+  {
+   "id": "branch:detail-request",
+   "history": [
+    [
+     "user",
+     "explain in detail how Raft handles split votes"
+    ]
+   ],
+   "kwargs": {
+    "query_text": "explain in detail how Raft handles split votes",
+    "current": 0
+   },
+   "expected": {
+    "messages": [
+     [
+      "system",
+      "0 @STYLE_HINTS[detailed] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @ANSWER_PHOTO_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @TONE_HINTS[casual] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @FACT_GROUNDING_HINT"
+     ],
+     [
+      "user",
+      "91"
+     ]
+    ],
+    "out": {}
+   }
+  },
+  {
+   "id": "branch:mixed-length",
+   "history": [
+    [
+     "user",
+     "in one sentence what is DNS? Also explain in detail how TLS works"
+    ]
+   ],
+   "kwargs": {
+    "query_text": "in one sentence what is DNS? Also explain in detail how TLS works",
+    "current": 0
+   },
+   "expected": {
+    "messages": [
+     [
+      "system",
+      "0 @STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @ANSWER_PHOTO_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @MIXED_LENGTH_HINT 1 @COPY_DELIVERABLE_HINT 1 @TONE_HINTS[casual] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @FACT_GROUNDING_HINT"
+     ],
+     [
+      "user",
+      "92"
+     ]
+    ],
+    "out": {}
+   }
+  },
+  {
+   "id": "branch:continue-after-reply",
+   "history": [
+    [
+     "user",
+     "tell me a long story about a dragon"
+    ],
+    [
+     "assistant",
+     "Ember was the only dragon in the Ashen Peaks who flinched at sparks. One night the elders came to the waterfall and said, \"We need fire,\" and Ember"
+    ],
+    [
+     "user",
+     "continue"
+    ]
+   ],
+   "kwargs": {
+    "query_text": "continue",
+    "current": 2
+   },
+   "expected": {
+    "messages": [
+     [
+      "system",
+      "0 @STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @TONE_HINTS[casual] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @FACT_GROUNDING_HINT"
+     ],
+     [
+      "user",
+      "93"
+     ],
+     [
+      "assistant",
+      "94"
+     ],
+     [
+      "system",
+      "@CONTINUE_HINT"
+     ],
+     [
+      "user",
+      "95"
+     ]
+    ],
+    "out": {}
+   }
+  },
+  {
+   "id": "branch:correction",
+   "history": [
+    [
+     "user",
+     "what should I cook tonight?"
+    ],
+    [
+     "assistant",
+     "How about lemon garlic chicken or a beef stir-fry?"
+    ],
+    [
+     "user",
+     "no, I said I'm vegetarian"
+    ]
+   ],
+   "kwargs": {
+    "query_text": "no, I said I'm vegetarian",
+    "advice_memory": true,
+    "current": 2
+   },
+   "expected": {
+    "messages": [
+     [
+      "system",
+      "0 @STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @ANSWER_PHOTO_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @TONE_HINTS[casual] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @FACT_GROUNDING_HINT 1 @ADVICE_PERSONALIZE_HINT"
+     ],
+     [
+      "user",
+      "96"
+     ],
+     [
+      "assistant",
+      "97"
+     ],
+     [
+      "system",
+      "@CORRECTION_HINT"
+     ],
+     [
+      "user",
+      "98"
      ]
     ],
     "out": {}

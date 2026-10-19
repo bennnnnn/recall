@@ -20,7 +20,6 @@ def test_physics_turn_is_not_labeled_as_math() -> None:
 def test_physics_prompt_uses_physics_hints() -> None:
     hints = _style_format_hints(
         query_text=_DROP,
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
     )

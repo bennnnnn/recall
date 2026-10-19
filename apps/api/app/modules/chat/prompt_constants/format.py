@@ -1,4 +1,4 @@
-"""Response-format, comparison, and length-style hints."""
+"""Response-format, comparison and layout hints (reply length is ``length.py``)."""
 
 import re
 
@@ -102,51 +102,6 @@ def is_structured_comparison_question(text: str) -> bool:
     ):
         return True
     return any(_has_whole_word(lower, word) for word in _TECHNICAL_COMPARE_WORDS)
-
-
-_BREVITY_MARKERS = (
-    "in one sentence",
-    "one sentence",
-    "in a word",
-    "in one word",
-    "in a single word",
-    "briefly",
-    "keep it short",
-    "keep it brief",
-    "shorter",
-    "tldr",
-    "tl;dr",
-)
-
-# "in 3 sentences", "under 100 words", "in two lines": a stated length is a cap too.
-_LENGTH_CAP = re.compile(
-    r"\b(?:in|within|using|with)\s+(?:only\s+|just\s+|exactly\s+)?"
-    r"(?:one|two|three|four|five|six|seven|eight|nine|ten|a\s+few|\d{1,3})\s+"
-    r"(?:short\s+)?(?:sentences?|words?|lines?|bullet(?:\s+point)?s?|paragraphs?)\b"
-    r"|\b(?:under|less\s+than|fewer\s+than|no\s+more\s+than|at\s+most|max(?:imum)?)\s+"
-    r"\d{1,4}\s+(?:words?|characters?|sentences?|lines?)\b"
-    r"|\b(?:one|two|three|four|five|\d{1,3})[- ](?:sentence|word|line|paragraph)\s+"
-    r"(?:summary|answer|reply|description|explanation|version|bio|pitch|intro|overview)\b",
-    re.IGNORECASE,
-)
-
-BREVITY_REQUEST_HINT = (
-    "The user set the length: a sentence, word or line count, or a brief answer. "
-    "Ignore decorative table/heading layout and match the length they asked exactly. Preserve a "
-    "draft/code/visual container only when that container is the requested deliverable. "
-    "When shortening existing text, never drop or blur factual details such as units, "
-    "quantities, dates, names, or commitments."
-)
-
-
-def is_brevity_request(text: str) -> bool:
-    """True when the user capped length (one sentence / briefly), not Short style."""
-    cleaned = text.strip().lower()
-    if not cleaned:
-        return False
-    return any(marker in cleaned for marker in _BREVITY_MARKERS) or bool(
-        _LENGTH_CAP.search(cleaned)
-    )
 
 
 _CHART_TURN = re.compile(
@@ -535,31 +490,6 @@ FORMAT_CONTRACT = (
 # Compat alias for the contract's historical name.
 RESPONSE_FORMAT_HINT = FORMAT_CONTRACT
 
-STYLE_HINTS = {
-    "short": (
-        "Response length: SHORT. The user chose brevity — this overrides default formatting length. "
-        "Answer in 1-3 sentences or at most 4-5 tight bullets. No preamble, no recap of the question, "
-        "no closing offers to help further. Skip sections, headings, tables, diagrams, and HTML unless "
-        "the user explicitly asked for them. Explicit prose/draft/code format requests still win. "
-        "Math follows this brevity preference too; provide a full derivation when explicitly asked. "
-        "An explicit named-duration learning roadmap (for example, a 30-day or 12-week plan) is "
-        "also a requested output shape: keep each unit concise, but cover the requested progression "
-        "instead of collapsing it to 4-5 bullets."
-    ),
-    "balanced": (
-        "Response length: BALANCED. Be clear and complete without rambling — use short headings and "
-        "bullets when helpful, but keep the overall reply moderate in length. "
-        "Lead with the answer; explanation after."
-    ),
-    "detailed": (
-        "Response length: DETAILED. Be thorough but stay scannable: use sections, headings, "
-        "and bullets when they fit the task. If the user requested an essay, article, story, "
-        "letter, or paragraph, preserve that prose form. Use a pipe table for timetables, "
-        "measurements, lookup grids, and X vs Y comparisons — not for tips or how-tos. "
-        "Include examples and nuance where useful."
-    ),
-}
-
 SHORT_RESPONSE_FORMAT_HINT = (
     "Formatting for SHORT mode: plain text or a few bullets only. No ## headings. "
     "No pipe tables unless the user explicitly requested one. No ```html / ```mermaid / "
@@ -662,9 +592,3 @@ TONE_FORMAT_GUARD = (
     "line is `— Name`, never "
     'italic `"…" - Author` prose.'
 )
-
-# NOTE: response style (short/balanced/detailed) drives *brevity through the
-# prompt* via STYLE_HINTS above — it no longer caps output tokens. A single
-# high ceiling (settings.max_output_tokens) is the safety backstop; the daily
-# token quota is the real per-user cost guardrail. Capping by style truncated
-# large deliverables (HTML pages, graph JSON) mid-fence.

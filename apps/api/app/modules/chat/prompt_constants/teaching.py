@@ -386,14 +386,6 @@ TEACHING_HINT = (
     "goal.\n" + _LESSON_SHAPE
 )
 
-# Short style: the same lesson, smaller (the SHORT format bans headings).
-TEACHING_SHORT_NOTE = (
-    "Response length is SHORT, so keep the lesson small: the title, two or three sections of a "
-    "sentence or two with one short example each, then the `Your turn` quiz and the one-line "
-    "preview."
-)
-
-
 # "Help me understand two sum": one idea, explained in full now. A lesson
 # would teach step 1 and wait; a walkthrough builds to the answer in one reply.
 _WALKTHROUGH = re.compile(

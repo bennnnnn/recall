@@ -116,7 +116,6 @@ def test_a_lesson_after_a_gap_opens_with_a_recap_and_a_warm_up():
     assert "OVER A DAY AGO" not in lesson_continue_hint(3)
     hints = _style_format_hints(
         query_text="next",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         lesson=3,
