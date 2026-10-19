@@ -83,6 +83,7 @@ def offline_session_patches():
         patch("app.modules.chat.turn_prep.persist.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.vision.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.post_turn.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.turn_settle.SessionLocal", FakeSessionCM),
     )
 
 
@@ -96,7 +97,7 @@ def stream_offline_io():
     with ExitStack() as stack:
         for patcher in offline_session_patches():
             stack.enter_context(patcher)
-        stack.enter_context(patch("app.modules.chat.post_turn.seed_usage_from_db", AsyncMock()))
+        stack.enter_context(patch("app.modules.chat.turn_settle.seed_usage_from_db", AsyncMock()))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))

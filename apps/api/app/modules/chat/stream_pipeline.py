@@ -19,11 +19,7 @@ from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
-from app.modules.chat.post_turn import (
-    enqueue_post_turn_jobs,
-    finalize_stream_turn_db,
-    restore_regenerate_backup,
-)
+from app.modules.chat.post_turn import enqueue_post_turn_jobs
 from app.modules.chat.quality import detect_quality_issues
 from app.modules.chat.related_prompts import schedule_related_prompts
 from app.modules.chat.stream_accum import StreamAccum
@@ -38,6 +34,7 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.chat.turn_resources import TurnResources
+from app.modules.chat.turn_settle import finalize_stream_turn_db, restore_regenerate_backup
 from app.modules.images.answer_photo import AnswerPhoto
 from app.services import model_catalog
 from app.services import quota as quota_service

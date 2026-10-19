@@ -5,7 +5,7 @@ place that prices them all: catalog price x the provider's reported tokens,
 as finalize prices a chat turn. Memory jobs, titles, suggestions, compression,
 follow-up questions, OCR, embeddings and the query classifiers are all metered
 here. A chat turn's own stream and tool rounds are not: finalize charges them
-with the turn's usage (``modules/chat/post_turn``), so metering them here
+with the turn's usage (``modules/chat/turn_settle``), so metering them here
 would count them twice.
 
 The write runs on its own task, so it never adds latency to the call it

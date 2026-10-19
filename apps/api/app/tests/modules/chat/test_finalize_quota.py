@@ -8,9 +8,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.post_turn import finalize_stream_turn_db
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup, StreamContext
+from app.modules.chat.turn_settle import finalize_stream_turn_db
 
 
 class _FakeSessionCM:
@@ -53,21 +53,21 @@ async def test_adjust_usage_failure_after_commit_does_not_refund():
     mark_heal = AsyncMock()
 
     with (
-        patch("app.modules.chat.post_turn.SessionLocal", lambda: _FakeSessionCM(session)),
+        patch("app.modules.chat.turn_settle.SessionLocal", lambda: _FakeSessionCM(session)),
         patch(
-            "app.modules.chat.post_turn.messages_repo.create",
+            "app.modules.chat.turn_settle.messages_repo.create",
             AsyncMock(return_value=assistant),
         ),
-        patch("app.modules.chat.post_turn.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.modules.chat.post_turn.usage_repo.add_tokens", AsyncMock()),
-        patch("app.modules.chat.post_turn.quota_service.adjust_usage", adjust),
-        patch("app.modules.chat.post_turn.quota_service.refund_usage", refund),
-        patch("app.modules.chat.post_turn.quota_service.mark_usage_needs_heal", mark_heal),
+        patch("app.modules.chat.turn_settle.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.modules.chat.turn_settle.usage_repo.add_tokens", AsyncMock()),
+        patch("app.modules.chat.turn_settle.quota_service.adjust_usage", adjust),
+        patch("app.modules.chat.turn_settle.quota_service.refund_usage", refund),
+        patch("app.modules.chat.turn_settle.quota_service.mark_usage_needs_heal", mark_heal),
         patch(
-            "app.modules.chat.post_turn.quota_service.daily_limit_for_user",
+            "app.modules.chat.turn_settle.quota_service.daily_limit_for_user",
             return_value=100_000,
         ),
-        patch("app.modules.chat.post_turn.get_settings", return_value=Settings()),
+        patch("app.modules.chat.turn_settle.get_settings", return_value=Settings()),
     ):
         await finalize_stream_turn_db(
             redis,
@@ -111,20 +111,20 @@ async def test_finalize_persists_estimated_cost_usd():
 
     add_tokens = AsyncMock()
     with (
-        patch("app.modules.chat.post_turn.SessionLocal", lambda: _FakeSessionCM(session)),
+        patch("app.modules.chat.turn_settle.SessionLocal", lambda: _FakeSessionCM(session)),
         patch(
-            "app.modules.chat.post_turn.messages_repo.create",
+            "app.modules.chat.turn_settle.messages_repo.create",
             AsyncMock(return_value=assistant),
         ),
-        patch("app.modules.chat.post_turn.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.modules.chat.post_turn.usage_repo.add_tokens", add_tokens),
-        patch("app.modules.chat.post_turn.quota_service.adjust_usage", AsyncMock()),
+        patch("app.modules.chat.turn_settle.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.modules.chat.turn_settle.usage_repo.add_tokens", add_tokens),
+        patch("app.modules.chat.turn_settle.quota_service.adjust_usage", AsyncMock()),
         patch(
-            "app.modules.chat.post_turn.quota_service.daily_limit_for_user",
+            "app.modules.chat.turn_settle.quota_service.daily_limit_for_user",
             return_value=100_000,
         ),
-        patch("app.modules.chat.post_turn.get_settings", return_value=Settings()),
-        patch("app.modules.chat.post_turn.clear_pending_finalize", AsyncMock()),
+        patch("app.modules.chat.turn_settle.get_settings", return_value=Settings()),
+        patch("app.modules.chat.turn_settle.clear_pending_finalize", AsyncMock()),
     ):
         await finalize_stream_turn_db(
             redis,
@@ -162,18 +162,20 @@ async def test_failed_regenerate_preserves_original_attachment_bytes(failure_ste
     delete_bytes = AsyncMock()
     refund = AsyncMock()
     with (
-        patch("app.modules.chat.post_turn.SessionLocal", lambda: _FakeSessionCM(session)),
-        patch("app.modules.chat.post_turn.messages_repo.get_by_id", AsyncMock(return_value=old)),
-        patch("app.modules.chat.post_turn.messages_repo.create", create),
-        patch("app.modules.chat.post_turn.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.modules.chat.post_turn.usage_repo.add_tokens", add_usage),
+        patch("app.modules.chat.turn_settle.SessionLocal", lambda: _FakeSessionCM(session)),
+        patch("app.modules.chat.turn_settle.messages_repo.get_by_id", AsyncMock(return_value=old)),
+        patch("app.modules.chat.turn_settle.messages_repo.create", create),
+        patch("app.modules.chat.turn_settle.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.modules.chat.turn_settle.usage_repo.add_tokens", add_usage),
         patch(
-            "app.modules.chat.post_turn.attachment_lifecycle.detach_attachments_for_messages",
+            "app.modules.chat.turn_settle.attachment_lifecycle.detach_attachments_for_messages",
             AsyncMock(return_value=["original.png"]),
         ),
-        patch("app.modules.chat.post_turn.attachment_lifecycle.delete_storage_keys", delete_bytes),
-        patch("app.modules.chat.post_turn.quota_service.refund_usage", refund),
-        patch("app.modules.chat.post_turn.get_settings", return_value=Settings(_env_file=None)),
+        patch(
+            "app.modules.chat.turn_settle.attachment_lifecycle.delete_storage_keys", delete_bytes
+        ),
+        patch("app.modules.chat.turn_settle.quota_service.refund_usage", refund),
+        patch("app.modules.chat.turn_settle.get_settings", return_value=Settings(_env_file=None)),
     ):
         with pytest.raises(RuntimeError, match="database unavailable"):
             await finalize_stream_turn_db(
@@ -202,16 +204,16 @@ async def test_finalize_success_does_not_depend_on_post_commit_refresh():
     outcome = TurnOutcome()
     assistant_id = uuid4()
     with (
-        patch("app.modules.chat.post_turn.SessionLocal", lambda: _FakeSessionCM(session)),
+        patch("app.modules.chat.turn_settle.SessionLocal", lambda: _FakeSessionCM(session)),
         patch(
-            "app.modules.chat.post_turn.messages_repo.create",
+            "app.modules.chat.turn_settle.messages_repo.create",
             AsyncMock(return_value=MagicMock(id=assistant_id)),
         ),
-        patch("app.modules.chat.post_turn.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.modules.chat.post_turn.usage_repo.add_tokens", AsyncMock()),
-        patch("app.modules.chat.post_turn.quota_service.adjust_usage", adjust),
-        patch("app.modules.chat.post_turn.quota_service.refund_usage", refund),
-        patch("app.modules.chat.post_turn.get_settings", return_value=Settings(_env_file=None)),
+        patch("app.modules.chat.turn_settle.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.modules.chat.turn_settle.usage_repo.add_tokens", AsyncMock()),
+        patch("app.modules.chat.turn_settle.quota_service.adjust_usage", adjust),
+        patch("app.modules.chat.turn_settle.quota_service.refund_usage", refund),
+        patch("app.modules.chat.turn_settle.get_settings", return_value=Settings(_env_file=None)),
     ):
         await finalize_stream_turn_db(
             AsyncMock(), ctx, "reply", {"input": 10, "output": 5}, outcome=outcome
@@ -244,21 +246,21 @@ async def test_finalize_links_the_answer_photo_to_the_reply():
 
     link = AsyncMock(return_value=1)
     with (
-        patch("app.modules.chat.post_turn.SessionLocal", lambda: _FakeSessionCM(session)),
+        patch("app.modules.chat.turn_settle.SessionLocal", lambda: _FakeSessionCM(session)),
         patch(
-            "app.modules.chat.post_turn.messages_repo.create",
+            "app.modules.chat.turn_settle.messages_repo.create",
             AsyncMock(return_value=assistant),
         ),
-        patch("app.modules.chat.post_turn.attachments_service.link_to_message", link),
-        patch("app.modules.chat.post_turn.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.modules.chat.post_turn.usage_repo.add_tokens", AsyncMock()),
-        patch("app.modules.chat.post_turn.quota_service.adjust_usage", AsyncMock()),
+        patch("app.modules.chat.turn_settle.attachments_service.link_to_message", link),
+        patch("app.modules.chat.turn_settle.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.modules.chat.turn_settle.usage_repo.add_tokens", AsyncMock()),
+        patch("app.modules.chat.turn_settle.quota_service.adjust_usage", AsyncMock()),
         patch(
-            "app.modules.chat.post_turn.quota_service.daily_limit_for_user",
+            "app.modules.chat.turn_settle.quota_service.daily_limit_for_user",
             return_value=100_000,
         ),
-        patch("app.modules.chat.post_turn.get_settings", return_value=Settings()),
-        patch("app.modules.chat.post_turn.clear_pending_finalize", AsyncMock()),
+        patch("app.modules.chat.turn_settle.get_settings", return_value=Settings()),
+        patch("app.modules.chat.turn_settle.clear_pending_finalize", AsyncMock()),
     ):
         await finalize_stream_turn_db(
             AsyncMock(),
