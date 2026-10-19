@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import math
 import re
-from typing import get_args
 
 from app.modules.math.schemas.operations import (
     CombinatoricsOp,
     MatrixOp,
     NumberTheoryOp,
     StatsOp,
-    SummaryStatsOp,
 )
 from app.services.text_match import word_index
 
@@ -78,10 +76,6 @@ def numeric_data_values(text: str) -> list[float] | None:
     if text[last:].strip(" ,;{}[]().?!") not in {"", "please"}:
         return None
     return values
-
-
-# Single-list summaries that one answer can state together.
-SUMMARY_STATS: frozenset[str] = frozenset(get_args(SummaryStatsOp))
 
 
 def requested_summary_stats(text: str) -> list[StatsOp]:

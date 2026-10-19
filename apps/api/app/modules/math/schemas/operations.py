@@ -8,12 +8,13 @@ same types as their values written out.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 # The statistics one list can ask for together ("mean and standard deviation of …").
 SummaryStatsOp = Literal[
     "mean", "median", "mode", "variance", "stdev", "sample_stdev", "sample_variance", "range"
 ]
+SUMMARY_STATS: frozenset[str] = frozenset(get_args(SummaryStatsOp))
 # Every statistic of one list.
 StatsOp = Literal[SummaryStatsOp, "iqr", "quartiles", "percentile"]
 # Two explicit lists of equal length.
