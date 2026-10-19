@@ -106,7 +106,7 @@ select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
 "app/modules/learning/sync.py" = ["E501", "RUF001"]
 "app/modules/learning/path_seed.py" = ["E501", "RUF001"]
 "app/modules/notifications/push.py" = ["RUF001", "RUF002", "RUF003"]
-"app/modules/notifications/transactional_email.py" = ["RUF001", "RUF002", "RUF003"]
+"app/modules/notifications/email_copy.py" = ["RUF001", "RUF002", "RUF003"]
 "app/services/reminder_timing.py" = ["RUF001", "RUF002", "RUF003"]
 # Writes the scanner reading in the glyphs students use (ℤ, ×, √).
 "app/modules/math/reading.py" = ["RUF001", "RUF002", "RUF003"]
