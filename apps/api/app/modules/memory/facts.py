@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from app.models.orm import Memory
@@ -34,6 +36,7 @@ from app.modules.memory.ops import (
 from app.modules.memory.text import (
     classify_memory_sensitivity,
     contains_phrase,
+    is_food_or_diet_memory_text,
     is_sensitive_memory_text,
 )
 
@@ -46,19 +49,11 @@ SECTION_LABELS = {
     "focus": "Focus",
 }
 
-_COMM_PREF_CUES = (
-    "concise",
-    "short answer",
-    "brief",
-    "example",
-    "alternatives",
-    "tone",
-    "detailed",
-    "direct",
-    "english",
-)
-_IDENTITY_PROFILE_LIMIT = 4
+# Always in the prompt: who the user is by name, and how they want replies.
+# Their job, city and the rest are only there when the turn is about them.
+_IDENTITY_NAME_LIMIT = 1
 _IDENTITY_PREF_LIMIT = 4
+_LOW_CONFIDENCE = 0.6
 
 
 def fallback_score(memory: Any) -> float:
@@ -77,28 +72,31 @@ def semantic_score(memory: Any, cosine: float) -> float:
 
 
 def is_communication_preference(memory: Any) -> bool:
+    """How the user wants replies or lessons ("keep lists under five things").
+
+    The preferences document holds only these; an older food preference ("prefers
+    oat milk") is a fact for food questions, not for every reply.
+    """
     if getattr(memory, "type", "") != "preference":
         return False
+    return not is_food_or_diet_memory_text(str(getattr(memory, "text", "") or ""))
+
+
+def is_name_fact(memory: Any) -> bool:
+    """ "User's name is Bini": the one profile fact every reply may use."""
+    if getattr(memory, "type", "") != "profile":
+        return False
     text = normalize_memory_text(getattr(memory, "text", "")).lower()
-    return any(contains_phrase(text, cue) for cue in _COMM_PREF_CUES)
+    return contains_phrase(text, "name is") or contains_phrase(text, "goes by")
 
 
 def identity_core(memories: list[Memory]) -> list[Memory]:
-    profiles = [m for m in memories if m.type == "profile"]
-    profiles.sort(key=lambda m: (importance_value(m), recency_score(m)), reverse=True)
+    """The user's name and their communication preferences: on every memory turn."""
+    names = [m for m in memories if is_name_fact(m)]
+    names.sort(key=lambda m: (importance_value(m), recency_score(m)), reverse=True)
     prefs = [m for m in memories if is_communication_preference(m)]
-    if not prefs:
-        prefs = [m for m in memories if m.type == "preference"]
     prefs.sort(key=lambda m: (importance_value(m), recency_score(m)), reverse=True)
-    core: list[Memory] = []
-    seen: set[int] = set()
-    for memory in (*profiles[:_IDENTITY_PROFILE_LIMIT], *prefs[:_IDENTITY_PREF_LIMIT]):
-        key = id(memory)
-        if key in seen:
-            continue
-        core.append(memory)
-        seen.add(key)
-    return core
+    return [*names[:_IDENTITY_NAME_LIMIT], *prefs[:_IDENTITY_PREF_LIMIT]]
 
 
 def should_skip_sensitive_persist(
@@ -127,8 +125,21 @@ def render_memory_block(memories: list[Any]) -> str:
             label = SECTION_LABELS.get(memory.type, str(memory.type).title())
             lines.append(f"\n## {label}")
             current_type = memory.type
-        lines.append(f"- {str(memory.text).strip()}")
+        lines.append(_fact_line(memory))
     return "\n".join(lines)
+
+
+def _fact_line(memory: Any) -> str:
+    """ "- User works at Stripe (said 2026-05)": when it was said, and if it is unsure."""
+    notes: list[str] = []
+    said = getattr(memory, "last_confirmed_at", None) or getattr(memory, "created_at", None)
+    if isinstance(said, datetime):
+        notes.append(f"said {said:%Y-%m}")
+    confidence = getattr(memory, "confidence", None)
+    if isinstance(confidence, int | float | Decimal) and float(confidence) < _LOW_CONFIDENCE:
+        notes.append("unconfirmed")
+    text = str(memory.text).strip()
+    return f"- {text} ({', '.join(notes)})" if notes else f"- {text}"
 
 
 def pack_memories(memories: list[Any], *, max_chars: int) -> list[Any]:

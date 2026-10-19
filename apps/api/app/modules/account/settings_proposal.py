@@ -47,6 +47,18 @@ _APPEARANCE_LABELS = {
     "dark": "Dark",
     "system": "System",
 }
+# "Forget everything you know about me" / "stop remembering things about me".
+_MEMORY_LABELS = {"clear": "Delete everything saved", "off": "Off"}
+_MEMORY_REPLIES = {
+    "clear": "I can delete everything Recall has saved about you. This can't be undone.",
+    "off": (
+        "I can turn memory off, so Recall stops saving new things about you and stops "
+        "using what's saved. Saved facts stay until you delete them."
+    ),
+}
+_MEMORY_REPLY_TAIL = "Tap Confirm, or do it any time in Settings → Memory."
+_MEMORY_ALREADY_OFF = "Memory is already off. You can turn it back on in Settings → Memory."
+_PROPOSAL_FIELDS = frozenset({"appearance", "default_model", "response_tone", "locale", "memory"})
 
 # Aliases the model emits in a settings_proposal fence that aren't in
 # _APPEARANCE_VALUES. "default"/"auto"/"automatic" mean "follow the system
@@ -84,6 +96,8 @@ def change_label(field: SettingsField, value: str) -> str:
         return _TONE_LABELS.get(value, value)
     if field == "locale":
         return LOCALE_NAMES.get(value, value)
+    if field == "memory":
+        return _MEMORY_LABELS.get(value, value)
     return value
 
 
@@ -93,6 +107,7 @@ def field_title(field: SettingsField) -> str:
         "default_model": "Model",
         "response_tone": "Tone",
         "locale": "Language",
+        "memory": "Memory",
     }[field]
 
 
@@ -155,6 +170,12 @@ def validate_changes(
                 already.append(change)
             else:
                 apply.append(change)
+            continue
+        if change.field == "memory" and change.value in _MEMORY_LABELS:
+            if change.value == "off" and not user.memory_enabled:
+                already.append(change)
+            else:
+                apply.append(change)
     if apply:
         return apply, already, None
     if already:
@@ -169,10 +190,18 @@ def format_proposal_reply(
     already: list[SettingsChange],
 ) -> str:
     if not apply and already:
+        if any(item.field == "memory" for item in already):
+            return _MEMORY_ALREADY_OFF
         labels = ", ".join(change_label(item.field, item.value) for item in already)
         return f"That's already set — {labels}."
     bits = [f"{field_title(item.field)} → {change_label(item.field, item.value)}" for item in apply]
     summary = "; ".join(bits)
+    memory = next((item for item in apply if item.field == "memory"), None)
+    lead = (
+        f"{_MEMORY_REPLIES[memory.value]} {_MEMORY_REPLY_TAIL}"
+        if memory is not None
+        else f"I can switch that for you: {summary}."
+    )
     payload = {
         "proposal_id": proposal_id,
         "changes": [
@@ -185,7 +214,7 @@ def format_proposal_reply(
         ],
     }
     fence = json.dumps(payload, ensure_ascii=False)
-    return f"I can switch that for you: {summary}.\n\n```settings_proposal\n{fence}\n```"
+    return f"{lead}\n\n```settings_proposal\n{fence}\n```"
 
 
 async def store_proposal(
@@ -220,9 +249,7 @@ async def load_proposal(
             continue
         field = item.get("field")
         value = item.get("value")
-        if field in {"appearance", "default_model", "response_tone", "locale"} and isinstance(
-            value, str
-        ):
+        if field in _PROPOSAL_FIELDS and isinstance(value, str):
             changes.append(SettingsChange(field, value))
     return changes or None
 
@@ -241,6 +268,24 @@ async def materialize_settings_reply(
     proposal_id = str(uuid4())
     await store_proposal(redis, user.id, proposal_id, apply)
     return format_proposal_reply(proposal_id=proposal_id, apply=apply, already=already)
+
+
+async def materialize_memory_reset_reply(
+    redis: Redis, user: User, settings: Settings, reset: str
+) -> str | None:
+    """A card to clear memory or turn it off; nothing changes until the user taps it."""
+    return await materialize_settings_reply(
+        redis, user, settings, [SettingsChange("memory", reset)]
+    )
+
+
+async def _clear_memory(session: AsyncSession, user_id: UUID) -> None:
+    try:
+        await memory_service.delete_all_memories(session, user_id)
+    except memory_service.MemoryWriteLockBusyError as exc:
+        raise SettingsProposalError(
+            "Memory is being updated right now — try again in a moment.", status_code=409
+        ) from exc
 
 
 def _enabled_models_for(user: User, settings: Settings, model_id: str) -> list[str]:
@@ -286,6 +331,12 @@ async def confirm_proposal(
         for item in apply:
             if item.field == "appearance":
                 appearance = item.value
+                continue
+            if item.field == "memory":
+                if item.value == "off":
+                    fields["memory_enabled"] = False
+                else:
+                    await _clear_memory(session, user.id)
                 continue
             if item.field == "default_model":
                 fields["default_model"] = item.value

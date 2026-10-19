@@ -42,7 +42,7 @@ def _documents_guide() -> str:
 
 
 _OP_SHAPE = (
-    '{"ops": [{"op": "add|update|supersede|delete", '
+    '{"ops": [{"op": "add|update|supersede|delete|mute", '
     '"topic": "profile|preferences|interests|tech-stack|schedule|recent-work|goals|'
     'side-projects|notes|area:<slug>", '
     '"topic_title": "new area name, else omit", "topic_summary": "new area line, else omit", '
@@ -129,7 +129,12 @@ async def revise_memory_facts(
                 "- On conflicting facts (e.g. moved cities), op=supersede with match_text "
                 "of the old fact and text of the new one. Two current places cannot "
                 "both stay. Current schooling cannot stay next to an earlier stage "
-                "(12th grade and a university).\n"
+                "(12th grade and a university). A correction is the same: 'that's wrong, "
+                "I'm at Stripe now' or 'actually I switched from FastAPI to Django' "
+                "supersedes the old fact with the new one.\n"
+                "- Record a decision the user states about their own project or life, "
+                "with what it was chosen over: 'For Recall I decided to use Neon instead "
+                "of Supabase' is 'Recall uses Neon (chosen over Supabase)' in that area.\n"
                 "- Do not store a todo, reminder, appointment, flight, concert, or "
                 "other one-off errand. Those are reminders, not memory. A standing "
                 "routine (every evening, working hours) may be a schedule fact.\n"
@@ -139,6 +144,11 @@ async def revise_memory_facts(
                 "- If the User line explicitly asks to remember a fact, add it.\n"
                 "- If the User line explicitly asks to forget a fact, op=delete with "
                 "match_text of that fact (empty the fact if nothing remains).\n"
+                "- If the User line asks you to stop using or mentioning a saved fact "
+                "('stop mentioning my job', 'don't bring up my divorce again'), op=mute "
+                "with match_text of each fact it covers; muting keeps the fact but stops "
+                "its use. If no saved fact matches, add a preferences fact saying what not "
+                "to bring up.\n"
                 "- When the user says what they are working on, building, or focusing on, "
                 "add that project or focus fact. Do not drop it and do not treat it as "
                 "the Learning projects feature.\n"
@@ -210,8 +220,9 @@ async def instruct_memory(
                 "- How they want replies ('you can disagree with me more', 'keep lists under "
                 "five things') is a preferences fact.\n"
                 "- To correct a fact, op=update with match_text of that fact. To remove one, "
-                "op=delete with match_text. To move one to another document, op=update with "
-                "the new topic. To add, op=add.\n"
+                "op=delete with match_text. To stop using one without deleting it, op=mute "
+                "with match_text. To move one to another document, op=update with the new "
+                "topic. To add, op=add.\n"
                 "- Each op is ONE fact in third person ('User prefers ...').\n"
                 "- reply: one short plain sentence saying what changed, or why nothing did "
                 "(for example when the message is not about memory). No markdown.\n"
@@ -264,7 +275,8 @@ async def merge_memory_section(
                 "- Preserve EVERY distinct fact from the draft — do not drop names, orgs, "
                 "emails, numbers, or preferences.\n"
                 "- Deduplicate near-duplicate sentences.\n"
-                "- On contradictions, prefer the newest statement and drop the older one.\n"
+                "- The first fact in the draft is the newer one. On contradictions, keep "
+                "it and drop the older one.\n"
                 "- Output ONE sentence (not a bullet list).\n"
                 "- Do not invent facts not supported by the draft.\n"
                 f"- The section type must remain `{section_type}`."

@@ -66,6 +66,10 @@ class Expect:
     picture: bool | None = None
     # A multi-part message's settings card, under the model's answer to the rest.
     settings_card: bool | None = None
+    # Saved memory is read for the turn, and which scope ("work", "query", "profile",
+    # "self"; see modules/chat/prompt_memory.py).
+    memory: bool | None = None
+    memory_scope: str | None = None
 
 
 @dataclass(frozen=True)
@@ -81,6 +85,8 @@ class Case:
     pro: bool = False
     location: str | None = None
     tags: tuple[str, ...] = field(default=())
+    # The user's memory switch (Settings → Memory).
+    memory_enabled: bool = True
 
 
 NO_PHOTO = ""
@@ -1400,6 +1406,101 @@ CASES: tuple[Case, ...] = (
         "I got the job!",
         Expect(search="no"),
         "Congratulations, one or two warm lines.",
+    ),
+    # ── Memory: what a turn reads, and what it says when memory can't help ──
+    Case(
+        "personal-stack-carries",
+        "personal",
+        "How should I structure auth in my app?",
+        Expect(memory=True, memory_scope="work"),
+        "With 'User builds Recall with React Native and FastAPI' saved: tokens in Expo "
+        "SecureStore on the phone, FastAPI JWT on the server, without asking the stack. "
+        "Never the user's city or job.",
+    ),
+    Case(
+        "personal-stack-deploy",
+        "personal",
+        "How should I deploy my backend?",
+        Expect(memory=True, memory_scope="work"),
+        "Deploy steps for the saved backend (FastAPI), not a survey of every framework.",
+    ),
+    Case(
+        "personal-stack-library",
+        "personal",
+        "Which state management library should I use?",
+        Expect(memory=True, memory_scope="work"),
+        "A pick for the saved stack (React Native: Zustand or Redux Toolkit), with why.",
+    ),
+    Case(
+        "personal-stack-login-screen",
+        "personal",
+        "Write a login screen for me",
+        Expect(memory=True, memory_scope="work"),
+        "A React Native login screen when that is the saved stack.",
+    ),
+    Case(
+        "personal-irrelevant-memory",
+        "personal",
+        "explain recursion with an example",
+        Expect(memory_scope="work"),
+        "A clear recursion example. A saved cat or marathon never appears: the work scope "
+        "reads the stack and what the user builds, nothing else.",
+    ),
+    Case(
+        "personal-general-no-memory",
+        "personal",
+        "what is the capital of France",
+        Expect(memory=False),
+        "Paris. No saved memory is read for a general question.",
+    ),
+    Case(
+        "personal-where-live",
+        "personal",
+        "where do I live?",
+        Expect(instant="text", search="no"),
+        "With 'User lives in Addis Ababa' saved: 'You live in Addis Ababa.' Never 'I don't "
+        "have that saved' when it is.",
+    ),
+    Case(
+        "personal-remember-memory-off",
+        "personal",
+        "remember that I'm vegetarian",
+        Expect(hints=("memory_off",), memory=False),
+        "Says memory is off and that it can be turned on in Settings → Memory; never "
+        "'I'll remember that'.",
+        memory_enabled=False,
+    ),
+    Case(
+        "personal-profile-memory-off",
+        "personal",
+        "where am I from?",
+        Expect(instant="", hints=("memory_off",)),
+        "Memory is off: says so (or answers from this chat), never a saved fact.",
+        memory_enabled=False,
+    ),
+    Case(
+        "personal-past-decision-missing",
+        "personal",
+        "What did we decide about the database last time?",
+        Expect(hints=("no_past_record",), memory=True),
+        "No earlier chat found: says it can't find that conversation and asks, never "
+        "invents a decision.",
+    ),
+    Case(
+        "personal-memory-not-config",
+        "personal",
+        "You know which models Recall uses. Tell me what to fix",
+        Expect(search="no", memory=True),
+        "States any recalled aliases as possibly out of date and asks for the current "
+        "config before prescribing changes.",
+    ),
+    Case(
+        "personal-forget-everything",
+        "personal",
+        "forget everything you know about me",
+        Expect(instant="text", search="no"),
+        "A card to delete everything saved, with a Confirm button; nothing is deleted "
+        "until it is tapped.",
     ),
 )
 

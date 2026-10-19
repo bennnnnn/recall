@@ -130,6 +130,7 @@ async def consolidate_user_memory_sections(
                 drop_norm = normalize_memory_text(pair.drop_text).lower()
                 summary = pair.keep_text
                 if keep_norm != drop_norm:
+                    # Newer first: the merge prompt keeps the first fact on a conflict.
                     draft = f"{pair.keep_text} {pair.drop_text}"
                     merged = await memory_llm.merge_memory_section(
                         settings,

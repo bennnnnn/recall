@@ -6,6 +6,7 @@ from sqlalchemy import delete, or_, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import app.modules.memory.erase as erase
 from app.models.orm import Memory, MemoryArea, User
 from app.modules.memory.ops import ACTIVE_STATUS, MUTED_STATUS, normalize_memory_text
 from app.modules.memory.writes_repository import MemoryFactWrite as MemoryFactWrite
@@ -14,6 +15,7 @@ from app.modules.memory.writes_repository import lock_memory_enabled as lock_mem
 from app.modules.memory.writes_repository import (
     update_embedding_if_current as update_embedding_if_current,
 )
+from app.repositories import message_chunks as chunks_repo
 
 
 async def list_for_user(
@@ -50,6 +52,7 @@ async def delete_topic(
     commit: bool = True,
 ) -> int:
     """Delete one memory document: every fact with this topic, and its area row."""
+    await _purge_where(session, user_id, Memory.topic == topic)
     result = cast(
         CursorResult[Any],
         await session.execute(
@@ -135,6 +138,7 @@ async def apply_writes(
     expected_facts: dict[UUID, str] | None,
     active_cap: int,
     commit: bool = True,
+    applied: list[str] | None = None,
 ) -> list[UUID]:
     touched = await apply_fact_ops(
         session,
@@ -142,6 +146,7 @@ async def apply_writes(
         writes,
         expected_facts,
         active_cap=active_cap,
+        applied=applied,
     )
     if commit:
         await session.commit()
@@ -198,6 +203,7 @@ async def delete_by_type(
     *,
     commit: bool = True,
 ) -> int:
+    await _purge_where(session, user_id, Memory.type == memory_type)
     result = cast(
         CursorResult[Any],
         await session.execute(
@@ -222,6 +228,8 @@ async def delete_all_for_user(
         await session.execute(delete(Memory).where(Memory.user_id == user_id)),
     )
     await session.execute(delete(MemoryArea).where(MemoryArea.user_id == user_id))
+    # With every fact gone, past-chat recall must not repeat any of them.
+    await chunks_repo.delete_all_for_user(session, user_id)
     if commit:
         await session.commit()
     else:
@@ -236,17 +244,15 @@ async def delete_by_id(
     *,
     commit: bool = True,
 ) -> bool:
-    result = cast(
-        CursorResult[Any],
-        await session.execute(
-            delete(Memory).where(Memory.id == memory_id, Memory.user_id == user_id)
-        ),
-    )
+    """Delete one fact with the older versions it superseded and the snippets repeating it."""
+    if await get_by_id(session, user_id, memory_id) is None:
+        return False
+    await erase.delete_fact_rows(session, user_id, memory_id)
     if commit:
         await session.commit()
     else:
         await session.flush()
-    return result.rowcount > 0
+    return True
 
 
 async def get_by_id(session: AsyncSession, user_id: UUID, memory_id: UUID) -> Memory | None:
@@ -278,6 +284,11 @@ async def update_text(
         await session.flush()
     await session.refresh(memory)
     return memory
+
+
+async def _purge_where(session: AsyncSession, user_id: UUID, condition: Any) -> None:
+    rows = await session.execute(select(Memory).where(Memory.user_id == user_id, condition))
+    await erase.purge_fact_chunks(session, user_id, rows.scalars().all())
 
 
 def func_now() -> datetime:
@@ -327,6 +338,9 @@ async def update_status(
         return None
     if memory.status == "superseded" and status != "superseded":
         return None
+    if status == MUTED_STATUS and memory.status != MUTED_STATUS:
+        # Muted means not used in replies, past-chat recall included.
+        await erase.purge_fact_chunks(session, user_id, [memory])
     memory.status = status
     if commit:
         await session.commit()

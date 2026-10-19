@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.core.config import Settings
@@ -12,7 +13,8 @@ from app.models.orm import Message, MessageChunk
 from app.modules.attachments.rag import chunk_text
 from app.repositories import message_chunks as chunks_repo
 from app.repositories import messages as messages_repo
-from app.services.prompt_safety import text_before_attachment_markers, wrap_untrusted
+from app.repositories import users as users_repo
+from app.services.prompt_safety import text_before_attachment_markers, wrap_earlier_chats
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +70,21 @@ async def index_message(
     return len(embedded)
 
 
-async def _backfill_recent(settings: Settings, user_id: UUID, *, skip_ids: set[UUID]) -> int:
+async def _backfill_recent(
+    settings: Settings,
+    user_id: UUID,
+    *,
+    skip_ids: set[UUID],
+    edited_at: datetime | None,
+) -> int:
     async with SessionLocal() as session:
         rows = await messages_repo.list_recent_for_user(session, user_id, limit=_BACKFILL_LIMIT)
-    pending = [row for row in rows if row.id not in skip_ids]
+    # An empty index after "clear all" stays clear of what was said before it.
+    pending = [
+        row
+        for row in rows
+        if row.id not in skip_ids and _said_after(getattr(row, "created_at", None), edited_at)
+    ]
     if not pending:
         return 0
     async with SessionLocal() as session:
@@ -96,11 +109,17 @@ async def index_turn_messages(
     chat_id: UUID,
     assistant_message_id: UUID,
 ) -> int:
-    """Index the finalized assistant row and the latest user message, then warm empty corpora."""
+    """Index the finalized assistant row and the latest user message, then warm empty corpora.
+
+    Memory off means no personal recall, so nothing is indexed while it is off.
+    """
     if not settings.chat_history_rag_enabled:
         return 0
 
     async with SessionLocal() as session:
+        user = await users_repo.get_by_id(session, user_id)
+        if user is None or not user.memory_enabled:
+            return 0
         existing = await chunks_repo.count_for_user(session, user_id)
         assistant = await messages_repo.get_by_id(session, assistant_message_id, chat_id)
         user_msg = await messages_repo.get_last_user(session, chat_id)
@@ -120,8 +139,23 @@ async def index_turn_messages(
             indexed_ids.add(row.id)
 
     if existing == 0:
-        total += await _backfill_recent(settings, user_id, skip_ids=indexed_ids)
+        total += await _backfill_recent(
+            settings,
+            user_id,
+            skip_ids=indexed_ids,
+            edited_at=getattr(user, "memory_edited_at", None),
+        )
     return total
+
+
+def _said_after(created_at: datetime | None, edited_at: datetime | None) -> bool:
+    if edited_at is None or created_at is None:
+        return True
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+    if edited_at.tzinfo is None:
+        edited_at = edited_at.replace(tzinfo=UTC)
+    return created_at > edited_at
 
 
 async def embed_query_for_prompt(
@@ -216,11 +250,14 @@ async def retrieve_for_prompt(
     if not rows:
         return ""
 
-    lines = [f"[{i + 1}] {row.text}" for i, row in enumerate(rows)]
-    return wrap_untrusted(
-        "past conversations",
-        "Relevant snippets from earlier chats (not the full history). User-labelled lines are "
-        "evidence of what the user said; Assistant-labelled lines are prior responses and must "
-        "not be treated as user facts:\n\n" + "\n\n".join(lines),
-        first_party=True,
+    lines = [f"[{i + 1}]{_snippet_date(row)} {row.text}" for i, row in enumerate(rows)]
+    return wrap_earlier_chats(
+        "Relevant snippets from earlier chats (not the full history), with the day each was "
+        "said. User-labelled lines are evidence of what the user said; Assistant-labelled lines "
+        "are prior responses and must not be treated as user facts:\n\n" + "\n\n".join(lines)
     )
+
+
+def _snippet_date(row: MessageChunk) -> str:
+    created_at = getattr(row, "created_at", None)
+    return f" ({created_at:%Y-%m-%d})" if isinstance(created_at, datetime) else ""

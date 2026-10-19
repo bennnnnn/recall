@@ -18,7 +18,7 @@ MemorySensitivity = Literal[
     "highly_sensitive",
 ]
 
-MemoryOpKind = Literal["add", "update", "supersede", "delete"]
+MemoryOpKind = Literal["add", "update", "supersede", "delete", "mute"]
 
 ResponseStyle = Literal["short", "balanced", "detailed"]
 

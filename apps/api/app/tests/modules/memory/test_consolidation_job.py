@@ -377,3 +377,38 @@ async def test_consolidate_releases_db_before_llm():
     assert changed is True
     assert db_open_during_merge == [False]
     session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_merge_is_told_which_fact_is_newer(monkeypatch):
+    """M9: the newer fact goes first in the draft, and the prompt keeps the first."""
+    from app.modules.memory import llm as memory_llm
+
+    older = _fact(text="Bini works at Uber in Nairobi as an engineer.")
+    newer = _fact(text="Bini works at Uber in Nairobi as an engineer now.")
+    older.last_confirmed_at = datetime(2026, 1, 1, tzinfo=UTC)
+    newer.last_confirmed_at = datetime(2026, 6, 1, tzinfo=UTC)
+    captured: dict[str, object] = {}
+
+    async def fake_complete(**kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete)
+    _, session_locals = _consolidation_sessions()
+    with (
+        patch(
+            "app.modules.memory.consolidation_workflow.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.modules.memory.consolidation_workflow.memories_repo.list_for_user",
+            AsyncMock(return_value=[older, newer]),
+        ),
+        patch("app.modules.memory.consolidation_workflow.apply_memory_facts", AsyncMock()),
+    ):
+        await consolidate_user_memory_sections(Settings(mock_llm_enabled=False), user_id=uuid4())
+
+    system, user = captured["messages"]
+    assert "The first fact in the draft is the newer one" in system["content"]
+    assert user["content"].index("engineer now") < user["content"].index("engineer.")

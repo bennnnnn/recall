@@ -7,6 +7,7 @@ a nearby question that has no place to search from.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from redis.asyncio import Redis
@@ -15,6 +16,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.modules import memory as memory_service
 from app.modules import web_search as web_search_service
+from app.modules.account import profile as profile_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat.prompt_constants.routing import profile_question_to_answer
@@ -26,6 +28,8 @@ from app.modules.memory.profile_reply import reply_for_profile_question
 from app.services import recurring_pay as recurring_pay_service
 from app.services import time_context as time_context_service
 from app.services.text_normalize import collapse_ws
+
+logger = logging.getLogger(__name__)
 
 
 def recurring_pay_reply(request: TurnRequest, local_tz: str) -> str | None:
@@ -72,14 +76,13 @@ async def resolve_instant_reply(
         content, _earlier_user_texts(request.recent_messages, content)
     )
     if asked:
-        async with SessionLocal() as session:
-            rows = await memory_service.list_for_user(
-                session,
-                identity.user.id,
-                include_muted=False,
-                include_superseded=False,
-            )
-        return reply_for_profile_question(asked, [row.text for row in rows])
+        return await _profile_reply(asked, identity)
+    # "Forget everything you know about me": a card to tap, never a silent wipe.
+    reset = memory_service.memory_reset_request(content)
+    if reset is not None:
+        return await settings_proposal_service.materialize_memory_reset_reply(
+            redis, identity.user, settings, reset
+        )
     settings_changes = extract_settings_changes(
         content,
         prior_assistant=_last_recent_assistant_content(request.recent_messages),
@@ -110,6 +113,33 @@ async def settings_card(
         return None
     return await settings_proposal_service.materialize_settings_reply(
         redis, identity.user, settings, changes
+    )
+
+
+async def _profile_reply(asked: str, identity: TurnIdentity) -> str | None:
+    """A saved profile detail, said without the model.
+
+    Memory off: the model answers, from this chat or by saying memory is off. A failed
+    read is not "I don't have that saved"; the model path says memory didn't load.
+    """
+    user = identity.user
+    if getattr(user, "memory_enabled", True) is False:
+        return None
+    try:
+        async with SessionLocal() as session:
+            rows = await memory_service.list_for_user(
+                session,
+                user.id,
+                include_muted=False,
+                include_superseded=False,
+            )
+    except Exception:
+        logger.warning("Profile reply memory read failed user_id=%s", user.id, exc_info=True)
+        return None
+    return reply_for_profile_question(
+        asked,
+        [row.text for row in rows],
+        location=profile_service.user_location_label(user),
     )
 
 

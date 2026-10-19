@@ -31,6 +31,11 @@ _DECAY_DAYS = {
 }
 _CAP_EVICT_ORDER = ("focus", "fact", "project", "preference", "profile")
 _PROTECTED_PROFILE_IMPORTANCE = 0.75
+# A fact the user asked for ("remember that …", a hand edit) is stored at this
+# importance and never pushed out by the active-fact cap. The memory model's own
+# importance stays below it.
+EXPLICIT_IMPORTANCE = 1.0
+MODEL_IMPORTANCE_MAX = 0.95
 _WS_RE = re.compile(r"\s+")
 
 
@@ -118,7 +123,24 @@ def evict_for_cap(facts: list[Memory], cap: int) -> list[Memory]:
     for fact in ranked:
         if len(evict) >= overflow:
             break
+        if importance_value(fact) >= EXPLICIT_IMPORTANCE:
+            continue
         if fact.type == "profile" and importance_value(fact) >= _PROTECTED_PROFILE_IMPORTANCE:
             continue
         evict.append(fact)
     return evict
+
+
+def exact_fact(facts: list[Memory], text: str) -> Memory | None:
+    """An active or muted fact of any type with exactly this text.
+
+    An add matches only this: "User uses React Native" must not overwrite the
+    richer "User uses React Native and FastAPI for Recall".
+    """
+    needle = normalize_memory_text(text).lower()
+    for fact in facts:
+        if memory_status(fact) in (ACTIVE_STATUS, MUTED_STATUS) and (
+            normalize_memory_text(fact.text).lower() == needle
+        ):
+            return fact
+    return None

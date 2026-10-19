@@ -145,7 +145,11 @@ def _memory(memory_type: str, text: str, embedding: str) -> Memory:
 
 @pytest.mark.parametrize("query", CURRENT_EMPLOYER_QUERIES)
 def test_current_employer_remains_available_for_related_google_questions(query: str) -> None:
-    """A target company must not displace the user's established current employer."""
+    """A target company must not displace the user's established current employer.
+
+    A career turn reads memory with the profile document (``with_profile``), so the
+    job stays even when its vector misses the question.
+    """
     settings = Settings(
         memory_min_confidence=0.0,
         memory_inject_limit=5,
@@ -159,11 +163,27 @@ def test_current_employer_remains_available_for_related_google_questions(query: 
         [1.0, 0.0],
         settings,
         query_text=query,
+        with_profile=True,
     )
 
     assert current_job in selected
     assert unrelated not in selected
     assert writing_request_kind(query) is None
+
+
+def test_job_and_city_stay_out_of_an_unrelated_question() -> None:
+    """Only the name and reply preferences ride along on every memory turn."""
+    settings = Settings(memory_min_confidence=0.0, memory_min_similarity=0.35)
+    name = _memory("profile", "User's name is Bini", "[0,1]")
+    job = _memory("profile", "Bini currently works as a nurse at a clinic", "[0,1]")
+    city = _memory("profile", "Bini lives in Addis Ababa", "[0,1]")
+    concise = _memory("preference", "Bini prefers concise answers", "[0,1]")
+
+    selected = select_memories_semantic(
+        [name, job, city, concise], [1.0, 0.0], settings, query_text="what should I cook tonight?"
+    )
+
+    assert selected == [name, concise]
 
 
 @pytest.mark.parametrize("statement", DURABLE_MEMORY_STATEMENTS)

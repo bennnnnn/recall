@@ -54,7 +54,7 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const feedback = useActionFeedbackOptional();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const memory = useMemoryDocuments(token);
-  const { load, instruct, deleteDocument, deleteFact, editFact } = memory;
+  const { load, instruct, deleteDocument, deleteFact, editFact, setFactMuted } = memory;
   const { clearAll } = useClearAllMemories(isCurrentView);
   const document = memory.documents.find((doc) => doc.key === key);
   const [menu, setMenu] = useState<FactMenu | null>(null);
@@ -128,6 +128,11 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     }
     setEditing(null);
   }, [editing, saving, editFact, isCurrentView, feedback, t]);
+
+  const toggleMuted = useCallback(async (fact: Memory) => {
+    const ok = await setFactMuted(fact.id, fact.status !== "muted");
+    if (!ok && isCurrentView()) reportRecoverableError(feedback, t("memory.mute_failed"));
+  }, [setFactMuted, isCurrentView, feedback, t]);
 
   const submit = useCallback(async (instruction: string) => {
     const outcome = await instruct(instruction, typeof key === "string" ? key : undefined);
@@ -214,21 +219,36 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         ) : null}
         <View style={s.block}>
           <Text style={s.label}>{t("memory.details_label")}</Text>
-          {document.facts.map((fact) => (
-            <Pressable
-              key={fact.id}
-              style={({ pressed }) => [s.fact, pressed && s.factPressed]}
-              onPress={(event) => openMenu(fact, event)}
-              onLongPress={(event) => openMenu(fact, event)}
-              accessibilityRole="button"
-              accessibilityLabel={stripMemoryAsOf(fact.text)}
-              accessibilityHint={t("memory.fact_hint")}
-              testID={`memory-fact-${fact.id}`}
-            >
-              <Text style={s.bullet}>•</Text>
-              <Text style={s.factText}>{stripMemoryAsOf(fact.text)}</Text>
-            </Pressable>
-          ))}
+          {document.facts.map((fact) => {
+            const muted = fact.status === "muted";
+            const text = stripMemoryAsOf(fact.text);
+            const source = fact.source_chat_title
+              ? t("memory.source_chat", { title: fact.source_chat_title })
+              : null;
+            return (
+              <Pressable
+                key={fact.id}
+                style={({ pressed }) => [s.fact, pressed && s.factPressed]}
+                onPress={(event) => openMenu(fact, event)}
+                onLongPress={(event) => openMenu(fact, event)}
+                accessibilityRole="button"
+                accessibilityLabel={muted ? `${text}. ${t("memory.muted_label")}` : text}
+                accessibilityHint={t("memory.fact_hint")}
+                testID={`memory-fact-${fact.id}`}
+              >
+                <Text style={s.bullet}>•</Text>
+                <View style={s.factBody}>
+                  <Text style={[s.factText, muted && s.factMuted]}>{text}</Text>
+                  {muted ? (
+                    <Text style={s.factMeta} testID={`memory-fact-muted-${fact.id}`}>
+                      {t("memory.muted_label")}
+                    </Text>
+                  ) : null}
+                  {source ? <Text style={s.factMeta}>{source}</Text> : null}
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
       </ScrollView>
       <MemoryComposer
@@ -248,6 +268,16 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
               const fact = menu?.fact;
               setMenu(null);
               if (fact) setEditing({ fact, text: stripMemoryAsOf(fact.text) });
+            },
+          },
+          {
+            key: "mute",
+            label: t(menu?.fact.status === "muted" ? "memory.unmute_fact" : "memory.mute_fact"),
+            icon: menu?.fact.status === "muted" ? "eye" : "eye-off",
+            onPress: () => {
+              const fact = menu?.fact;
+              setMenu(null);
+              if (fact) void toggleMuted(fact);
             },
           },
           {
@@ -309,6 +339,9 @@ function makeStyles(theme: Theme) {
     },
     factPressed: { backgroundColor: theme.pressed },
     bullet: { ...Type.body, ...Weight.semibold, color: theme.textSecondary },
-    factText: { ...Type.body, color: theme.text, flex: 1 },
+    factBody: { flex: 1, gap: Space.xxs },
+    factText: { ...Type.body, color: theme.text },
+    factMuted: { color: theme.textSecondary },
+    factMeta: { ...Type.label, color: theme.textSecondary },
   });
 }

@@ -63,6 +63,7 @@ from app.modules.chat.prompt_format import (
     _style_format_hints,
     code_question_layout,
 )
+from app.modules.chat.prompt_memory import memory_notes, memory_status_note
 from app.modules.chat.prompt_profile import (
     custom_instructions_block,
     format_user_name_only_block,
@@ -79,7 +80,7 @@ from app.services import locale as locale_service
 from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
 from app.services.day_planning import is_day_planning_question
-from app.services.prompt_safety import wrap_untrusted
+from app.services.prompt_safety import wrap_saved_memory, wrap_untrusted
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,12 @@ class PromptTurn:
     followup: FollowupSubject | None
     # The separate requests the message holds (``turn_prep.intents``), when more than one.
     plan: TurnPlan | None = None
+    # How the memory read went ("ok", "partial", "unavailable"); see prompt_memory.
+    memory_status: str = "ok"
+    # Saving to memory is paused (spend cap) on a "remember …" turn.
+    memory_paused: bool = False
+    # "What did we decide last time": an earlier chat may answer this turn.
+    recalls_shared_past: bool = False
 
     @property
     def query(self) -> str:
@@ -198,7 +205,7 @@ def _integrations(turn: PromptTurn) -> list[str]:
 def _slim_memory(turn: PromptTurn) -> list[str]:
     parts = []
     if turn.memory_block:
-        parts.append(wrap_untrusted("memory", turn.memory_block, first_party=True))
+        parts.append(wrap_saved_memory(turn.memory_block))
     return [*parts, *_present(turn.chat_history_rag_block)]
 
 
@@ -225,7 +232,8 @@ def _resumes(turn: PromptTurn) -> bool:
 def _advice(turn: PromptTurn) -> list[str]:
     query = turn.query
     if query and (is_profile_fact_question(query) or is_profile_recall_pushback(query)):
-        return [PROFILE_FACT_HINT]
+        # A failed memory read must not become "I don't have that yet" (memory_notes).
+        return [] if memory_status_note(turn) else [PROFILE_FACT_HINT]
     if query and is_teaching_request(query):
         return [EXAMPLE_PERSONALIZE_HINT]
     if query and is_career_personal_question(query):
@@ -288,6 +296,7 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     ),
     PromptSection(lambda t: t.slim and t.recall_memory, _slim_memory),
     PromptSection(_gives_advice, _advice),
+    PromptSection(_always, memory_notes),
     PromptSection(
         lambda t: t.followup == "math", lambda _t: [MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT]
     ),
@@ -415,7 +424,7 @@ def _integration_hints(
     if settings.image_search_enabled:
         parts.append(PHOTO_LOOKUP_HINT)
     if memory_block:
-        parts.append(wrap_untrusted("memory", memory_block, first_party=True))
+        parts.append(wrap_saved_memory(memory_block))
     if attachment_rag_block:
         parts.append(attachment_rag_block)
     if todos_section:

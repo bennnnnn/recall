@@ -24,9 +24,12 @@ def __getattr__(name: str) -> Any:
 _MODULE_EXPORTS = ("profile_reply",)
 # Names other modules import from this package (resolved through ``surface``).
 __all__ = [
+    "MemoryLoadReport",
+    "MemoryScope",
     "invalidate_memory_block",
     "is_explicit_memory_command",
     "is_food_or_diet_query",
+    "is_memory_correction",
     "list_areas",
     "list_for_user",
     "list_range",

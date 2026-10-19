@@ -9,6 +9,7 @@ from app.modules.account.settings_proposal import (
     SettingsProposalError,
     confirm_proposal,
     format_proposal_reply,
+    materialize_memory_reset_reply,
     materialize_settings_reply,
     validate_changes,
 )
@@ -134,3 +135,70 @@ async def test_confirm_expired_raises() -> None:
     redis.get = AsyncMock(return_value=None)
     with pytest.raises(SettingsProposalError):
         await confirm_proposal(AsyncMock(), redis, _user(), MagicMock(), "gone")  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("reset", "lead", "label"),
+    [
+        ("clear", "I can delete everything Recall has saved about you.", "Delete everything saved"),
+        ("off", "I can turn memory off", "Off"),
+    ],
+)
+async def test_a_memory_reset_is_a_card_to_tap(reset, lead, label) -> None:
+    """M10: "forget everything you know about me" is a confirm card, not a silent wipe."""
+    redis = AsyncMock()
+    reply = await materialize_memory_reset_reply(
+        redis,
+        _user(),  # type: ignore[arg-type]
+        MagicMock(),
+        reset,
+    )
+    assert reply is not None
+    assert reply.startswith(lead)
+    assert "Settings → Memory" in reply
+    assert "```settings_proposal" in reply
+    assert f'"label": "{label}"' in reply
+    redis.set.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_turning_memory_off_when_it_is_off_says_so() -> None:
+    reply = await materialize_memory_reset_reply(
+        AsyncMock(),
+        _user(memory_enabled=False),  # type: ignore[arg-type]
+        MagicMock(),
+        "off",
+    )
+    assert reply == "Memory is already off. You can turn it back on in Settings → Memory."
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reset", ["clear", "off"])
+async def test_confirming_a_memory_reset_applies_it(monkeypatch: pytest.MonkeyPatch, reset) -> None:
+    user = _user()
+    redis = AsyncMock()
+    redis.set = AsyncMock(return_value=True)
+    redis.getdel = AsyncMock(return_value=b"1")
+    redis.get = AsyncMock(return_value=f'[{{"field":"memory","value":"{reset}"}}]'.encode())
+
+    from app.modules.account import settings_proposal as svc
+
+    update = AsyncMock(return_value=_user(memory_enabled=False))
+    clear = AsyncMock(return_value=3)
+    monkeypatch.setattr(svc.users_repo, "update", update)
+    monkeypatch.setattr(svc.home_service, "invalidate_home_cache", AsyncMock())
+    monkeypatch.setattr(svc.memory_service, "invalidate_memory_block", AsyncMock())
+    monkeypatch.setattr(svc.memory_service, "delete_all_memories", clear)
+
+    result = await confirm_proposal(AsyncMock(), redis, user, MagicMock(), "pid")  # type: ignore[arg-type]
+
+    assert [item["field"] for item in result["applied"]] == ["memory"]
+    if reset == "off":
+        update.assert_awaited_once()
+        assert update.await_args is not None
+        assert update.await_args.kwargs == {"memory_enabled": False}
+        clear.assert_not_awaited()
+    else:
+        clear.assert_awaited_once()
+        update.assert_not_awaited()

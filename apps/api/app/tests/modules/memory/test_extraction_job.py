@@ -1040,3 +1040,208 @@ async def test_a_forget_request_counts_as_a_hand_edit(transcript, manual):
     kwargs = apply.await_args.kwargs
     assert [write.op for write in kwargs["writes"]] == ["delete"]
     assert kwargs["manual_edit"] is manual
+
+
+def _listed(*texts: str) -> list[SimpleNamespace]:
+    return [SimpleNamespace(id=uuid4(), type="fact", text=text, status="active") for text in texts]
+
+
+@pytest.mark.asyncio
+async def test_forget_word_does_not_delete_broader_fact():
+    """M10: the backup delete needs the phrase, not one shared word."""
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    listed = _listed(
+        "User uses React",
+        "User builds Recall with React Native and FastAPI",
+        "User's sister lives in Nairobi suburbs",
+    )
+    with _extract_patches(
+        session_locals=session_locals, extraction=_ops(), apply=apply, listed=listed
+    ):
+        await extract_and_store_memories(
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript="User: forget that I use React"
+        )
+
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert [(write.op, write.match_text) for write in writes] == [("delete", "User uses React")]
+
+
+@pytest.mark.asyncio
+async def test_forget_that_i_live_somewhere_leaves_my_sisters_home():
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    listed = _listed("User lives in Nairobi", "User's sister lives in Nairobi suburbs")
+    with _extract_patches(
+        session_locals=session_locals, extraction=_ops(), apply=apply, listed=listed
+    ):
+        await extract_and_store_memories(
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: forget that I live in Nairobi",
+        )
+
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert [write.match_text for write in writes] == ["User lives in Nairobi"]
+
+
+@pytest.mark.asyncio
+async def test_stop_bringing_up_my_job_mutes_the_fact_not_deletes_it():
+    """M11: the model's mute op reaches the writes, and counts as a hand edit."""
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    extraction = _ops(
+        MemoryFactOp(
+            op="mute", type="profile", text="", match_text="User works at Uber", confidence=0.9
+        )
+    )
+    with _extract_patches(
+        session_locals=session_locals,
+        extraction=extraction,
+        apply=apply,
+        listed=_listed("User works at Uber"),
+    ):
+        await extract_and_store_memories(
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript="User: stop bringing up my job"
+        )
+
+    kwargs = apply.await_args.kwargs
+    assert [(write.op, write.match_text) for write in kwargs["writes"]] == [
+        ("mute", "User works at Uber")
+    ]
+    assert kwargs["manual_edit"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_mute_the_model_missed_still_mutes_the_named_fact():
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    with _extract_patches(
+        session_locals=session_locals,
+        extraction=_ops(),
+        apply=apply,
+        listed=_listed("User has a dog named Max", "User walks every evening"),
+    ):
+        await extract_and_store_memories(
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: stop mentioning my dog Max",
+        )
+
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert [(write.op, write.match_text) for write in writes] == [
+        ("mute", "User has a dog named Max")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_do_not_mention_preference_is_kept_even_when_sensitive():
+    """M11: "don't bring up my divorce again" is saved like an explicit remember."""
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    extraction = _ops(
+        MemoryFactOp(
+            op="add",
+            type="preference",
+            topic="preferences",
+            text="User does not want their divorce brought up",
+            confidence=0.9,
+            sensitivity="legal",
+        )
+    )
+    with _extract_patches(session_locals=session_locals, extraction=extraction, apply=apply):
+        await extract_and_store_memories(
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: don't bring up my divorce again",
+        )
+
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert [write.text for write in writes] == ["User does not want their divorce brought up"]
+    # Asked for in so many words: the 150-fact cap never pushes it out (M8).
+    assert writes[0].importance == 1.0
+
+
+@pytest.mark.asyncio
+async def test_forget_everything_is_left_to_the_card():
+    """M10: "forget everything you know about me" deletes nothing on its own."""
+    apply = AsyncMock()
+    revise = AsyncMock(return_value=_ops())
+    _, session_locals = _extraction_sessions()
+    with (
+        _extract_patches(
+            session_locals=session_locals,
+            extraction=_ops(),
+            apply=apply,
+            listed=_listed("User knows everything about chess"),
+        ),
+        patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
+    ):
+        await extract_and_store_memories(
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: forget everything you know about me",
+        )
+
+    revise.assert_not_awaited()
+    apply.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_correction_supersedes_and_counts_as_a_hand_edit():
+    """M9: "that's wrong, I'm at Stripe now" replaces Uber, and the history scan can't undo it."""
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    extraction = _ops(
+        MemoryFactOp(
+            op="supersede",
+            type="profile",
+            topic="profile",
+            text="User works at Stripe",
+            match_text="User works at Uber",
+            confidence=0.9,
+        )
+    )
+    with _extract_patches(
+        session_locals=session_locals,
+        extraction=extraction,
+        apply=apply,
+        listed=_listed("User works at Uber"),
+    ):
+        await extract_and_store_memories(
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: that's wrong, I'm at Stripe now",
+        )
+
+    kwargs = apply.await_args.kwargs
+    assert [(write.op, write.text) for write in kwargs["writes"]] == [
+        ("supersede", "User works at Stripe")
+    ]
+    assert kwargs["manual_edit"] is True
+
+
+@pytest.mark.asyncio
+async def test_the_extraction_prompt_names_decisions_mutes_and_corrections(monkeypatch):
+    """M1/M9/M11: the memory model is told to keep decisions, mute, and supersede."""
+    from app.modules.memory import llm as memory_llm
+
+    captured: dict[str, object] = {}
+
+    async def fake_complete(**kwargs):
+        captured.update(kwargs)
+        return _ops()
+
+    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete)
+    await memory_llm.revise_memory_facts(
+        Settings(mock_llm_enabled=False), "User: For Recall I decided to use Neon"
+    )
+    system = captured["messages"][0]["content"]
+    assert "Recall uses Neon (chosen over Supabase)" in system
+    assert "op=mute" in system
+    assert "that's wrong, I'm at Stripe now" in system

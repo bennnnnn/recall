@@ -14,7 +14,8 @@ from app.core.validation import LOCALE_NAMES
 from app.services.draft_fences import has_draft
 from app.services.response_tone import TONE_IDS
 
-SettingsField = Literal["appearance", "default_model", "response_tone", "locale"]
+# "memory" is a reset the chat proposes ("off" or "clear"); see settings_proposal.
+SettingsField = Literal["appearance", "default_model", "response_tone", "locale", "memory"]
 
 # Product aliases the composer / Settings use — not provider names.
 _MODEL_NICKNAMES: dict[str, str] = {

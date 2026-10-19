@@ -82,6 +82,35 @@ def test_documents_endpoint_lists_documents_and_starts_the_history_scan():
     assert request_scan.await_args.args[1] is user
 
 
+def test_document_facts_say_where_they_were_learned_and_if_muted():
+    """M11/M12: each fact carries its status and the chat it came from."""
+    client, _user = _client()
+    document = _document()
+    chat_id = uuid4()
+    document.facts[0].source_chat_id = chat_id
+    document.facts[0].status = "muted"
+    with (
+        patch(
+            "app.modules.memory.api.documents_service.list_documents",
+            AsyncMock(return_value=[document]),
+        ),
+        patch(
+            "app.modules.memory.api.enqueue_policy.source_chat_titles",
+            AsyncMock(return_value={chat_id: "Planning the Lalibela trip"}),
+        ),
+        patch(
+            "app.modules.memory.api.history_scan.request_history_scan",
+            AsyncMock(return_value=False),
+        ),
+        patch("app.modules.memory.api.get_redis_client"),
+    ):
+        response = client.get("/memories/documents")
+
+    [fact] = response.json()["documents"][0]["facts"]
+    assert fact["status"] == "muted"
+    assert fact["source_chat_title"] == "Planning the Lalibela trip"
+
+
 @pytest.mark.parametrize(
     "topic,result,status",
     [
