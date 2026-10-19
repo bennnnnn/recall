@@ -18,6 +18,7 @@ from app.exceptions import RedisUnavailableError
 from app.gateways import openai_speech_gateway
 from app.models.orm import User
 from app.models.schemas import MessageOut
+from app.models.schemas.text import UserText
 from app.modules.billing import can_use
 from app.modules.speech import live_talk as live_talk_service
 from app.modules.speech.schemas import SpeechLiveStatusOut
@@ -59,9 +60,9 @@ class RealtimeOfferOut(BaseModel):
 class RealtimePersistIn(BaseModel):
     chat_id: UUID
     call_id: str = Field(min_length=8, max_length=128)
-    user_text: str = Field(default="", max_length=20_000)
-    assistant_text: str = Field(default="", max_length=20_000)
-    turn_id: str | None = Field(default=None, max_length=128)
+    user_text: UserText = Field(default="", max_length=20_000)
+    assistant_text: UserText = Field(default="", max_length=20_000)
+    turn_id: UserText | None = Field(default=None, max_length=128)
     return_messages: bool = False
 
 
@@ -70,7 +71,7 @@ class RealtimeToolIn(BaseModel):
     call_id: str = Field(min_length=8, max_length=128)
     turn_id: str = Field(min_length=1, max_length=128)
     name: Literal["memory_lookup", "web_search"]
-    query: str = Field(min_length=1, max_length=500)
+    query: UserText = Field(min_length=1, max_length=500)
 
 
 def _safety_identifier(user: User) -> str:

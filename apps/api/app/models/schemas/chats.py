@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.core.validation import normalize_stored_chat_title, validate_user_alias
 from app.models.schemas.common import MessageFeedback, MessageRole
+from app.models.schemas.text import UserText
 
 
 class ChatCreate(BaseModel):
@@ -19,7 +20,7 @@ class ChatCreate(BaseModel):
 
 
 class ChatRename(BaseModel):
-    title: str = Field(min_length=1, max_length=80)
+    title: UserText = Field(min_length=1, max_length=80)
 
 
 class PinUpdate(BaseModel):
@@ -37,9 +38,9 @@ class FeedbackUpdate(BaseModel):
 class EmailDraftUpdate(BaseModel):
     """Structured EmailCard fields — rewritten into the first ```email fence only."""
 
-    to: str | None = Field(default=None, max_length=320)
-    subject: str | None = Field(default=None, max_length=300)
-    body: str = Field(default="", max_length=20_000)
+    to: UserText | None = Field(default=None, max_length=320)
+    subject: UserText | None = Field(default=None, max_length=300)
+    body: UserText = Field(default="", max_length=20_000)
 
     @field_validator("to", "subject", mode="before")
     @classmethod
@@ -98,8 +99,8 @@ class _StreamClientContext(BaseModel):
     """Shared model + geo fields for message / regenerate / edit bodies."""
 
     model: str | None = None
-    client_timezone: str | None = Field(default=None, max_length=64)
-    client_location: str | None = Field(default=None, max_length=200)
+    client_timezone: UserText | None = Field(default=None, max_length=64)
+    client_location: UserText | None = Field(default=None, max_length=200)
     client_latitude: float | None = Field(default=None, ge=-90, le=90)
     client_longitude: float | None = Field(default=None, ge=-180, le=180)
 
@@ -115,8 +116,9 @@ class _StreamClientContext(BaseModel):
 class ChatMessageRequest(_StreamClientContext):
     # Cap the body — without it a client can push a multi-MB prompt that
     # bloats the DB row and memory-extraction job. 32k chars is well beyond
-    # any realistic chat turn.
-    content: str = Field(default="", max_length=32_000)
+    # any realistic chat turn. UserText: a NUL used to fail the background
+    # user-row insert only after the reply streamed, so the turn went unbilled.
+    content: UserText = Field(default="", max_length=32_000)
     # Cap per turn — unbounded lists let a client force huge DB/RAG work.
     attachment_ids: list[UUID] = Field(default_factory=list, max_length=10)
 

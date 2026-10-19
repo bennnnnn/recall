@@ -10,6 +10,7 @@ from app.models.schemas.common import (
     MemoryStatus,
     MemoryType,
 )
+from app.models.schemas.text import UserText
 
 MEMORY_TEXT_MAX_LENGTH = 4000
 # A persisted section may include the server's "As of YYYY-MM-DD: " prefix.
@@ -36,7 +37,7 @@ class MemoryOut(BaseModel):
 
 
 class MemoryUpdate(BaseModel):
-    text: str | None = Field(default=None, min_length=1, max_length=MEMORY_TEXT_MAX_LENGTH)
+    text: UserText | None = Field(default=None, min_length=1, max_length=MEMORY_TEXT_MAX_LENGTH)
     status: MemoryStatus | None = None
 
 
@@ -97,9 +98,9 @@ MEMORY_INSTRUCTION_MAX_LENGTH = 500
 
 
 class MemoryInstructIn(BaseModel):
-    instruction: str = Field(min_length=1, max_length=MEMORY_INSTRUCTION_MAX_LENGTH)
+    instruction: UserText = Field(min_length=1, max_length=MEMORY_INSTRUCTION_MAX_LENGTH)
     # The document the user is looking at, if any.
-    topic: str | None = Field(default=None, max_length=64)
+    topic: UserText | None = Field(default=None, max_length=64)
 
 
 class MemoryInstructOut(BaseModel):

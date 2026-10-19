@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.models.schemas.text import UserText
+
 RecurrenceRule = Literal["daily", "weekdays", "weekly", "monthly"]
 
 
@@ -39,8 +41,8 @@ class TodoPageOut(BaseModel):
 class TodoCreate(BaseModel):
     model_config = ConfigDict(title="TodoCreate")
 
-    content: str = Field(min_length=1, max_length=1000)
-    topic: str = Field(default="General", min_length=1, max_length=200)
+    content: UserText = Field(min_length=1, max_length=1000)
+    topic: UserText = Field(default="General", min_length=1, max_length=200)
     chat_id: UUID | None = None
     due_at: datetime | None = None
     recurrence_rule: RecurrenceRule | None = None
@@ -63,8 +65,8 @@ class TodoCreate(BaseModel):
 class TodoUpdate(BaseModel):
     model_config = ConfigDict(title="TodoUpdate")
 
-    content: str | None = Field(default=None, min_length=1, max_length=1000)
-    topic: str | None = Field(default=None, min_length=1, max_length=200)
+    content: UserText | None = Field(default=None, min_length=1, max_length=1000)
+    topic: UserText | None = Field(default=None, min_length=1, max_length=200)
     checked: bool | None = None
     due_at: datetime | None = None
     recurrence_rule: RecurrenceRule | None = None
@@ -102,7 +104,7 @@ class TodoReorderItem(BaseModel):
 
     id: UUID
     sort_order: int = Field(ge=0)
-    topic: str | None = Field(default=None, min_length=1, max_length=200)
+    topic: UserText | None = Field(default=None, min_length=1, max_length=200)
 
 
 class TodoReorderBody(BaseModel):
