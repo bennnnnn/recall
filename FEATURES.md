@@ -96,15 +96,23 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 3. Messaging behaviour
 - ✅ **Streaming** — token-by-token over WebSocket; the reply appears as it's generated.
   Ordinary turns show typing dots only (no “loading memory / working on it” staircase).
-  Status labels are reserved for real extra work: web search, files, math, and image
-  gen. Turn start overlaps waiting for the previous reply to persist
+  Status labels are reserved for real extra work while it runs: web search, files, math,
+  a reference-photo lookup ("Finding a photo") and image gen; the server sends
+  `composing` once a tool is done, so its label never outlives it. After the first
+  token, 20 s without new text shows "Still working on it… Tap Stop". A card fence
+  (quiz, steps, array, places, any data-bodied registry fence) is a quiet placeholder
+  until it closes, a table waits for its delimiter row, and verified-solve markers or
+  text-written tool calls never reach the phone. Turn start overlaps waiting for the previous reply to persist
   with user/quota load (regenerate still waits first so it does not miss that reply).
   Attachment-chunk probes run only when they can apply;
   time/location answers skip a database checkout.
 - ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button); the partial reply
   is kept and marked incomplete (same “Generation stopped.” footer as a provider
-  drop or token-limit cut). Hard WS/SSE disconnect with tokens already streamed also
-  finalizes (same as soft stop). **New chat / leave does not abort SSE** (Stop still
+  drop or token-limit cut). The kept text never changes after Stop: the cancel frame
+  says how much the phone drew (`shown_chars`), the server saves that text made safe
+  and laid out (no verified card, note, sources or reminder card added), and a Stop
+  before any text shows saves nothing. Hard WS/SSE disconnect with tokens already
+  streamed also finalizes (same as soft stop). **New chat / leave does not abort SSE** (Stop still
   does); leftover events are ignored for the next thread. `GET /messages` waits for
   the in-flight SSE producer the same way it waits on WS.
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
@@ -183,7 +191,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (a session that never reports keeps the whole reservation). Settings → Account shows the
   minutes left. Tap the mic (next to close) to mute so Recall
   cannot hear you; it turns red. Playback is not paused. No Listening/Speaking
-  labels. The normal composer stays so you can type and attach in voice mode.
+  labels on screen; screen readers hear each phase (listening, thinking, speaking) as
+  it changes. A denied microphone asks for access with Open Settings. The normal composer stays so you can type and attach in voice mode.
   Typing a draft hides mute and close so the field uses the full row; they
   return when the draft is empty. Spoken turns are saved as normal chat
   messages (what you said + the reply) so they are in the thread when you
