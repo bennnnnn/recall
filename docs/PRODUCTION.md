@@ -246,11 +246,24 @@ background, and runs the new code from the next launch.
 
 ---
 
-## 8. Observability (optional)
+## 8. Observability and email
 
 - [ ] `SENTRY_DSN` on API and mobile EAS secrets
-- [ ] Fly metrics / external uptime on `/health/ready`
-- [ ] Resend (`RESEND_API_KEY`) if transactional email enabled
+- [ ] External uptime on the API's `/health/ready`. It answers 200 with
+      `"redis": "degraded"` when Redis is down (so a Redis blip does not drain
+      Fly's routing); alert on `degraded` too, since sign-in, chat and quota
+      need Redis. `scripts/qa-smoke.sh --live` fails on it.
+- [ ] Alert on the worker's `worker-health` check (Fly metrics / Grafana). A
+      failing check never restarts a Machine; the worker exits by itself (and
+      `[[restart]]` brings it back) only when its jobs loop or a scheduler dies.
+- [ ] Email (Resend). `EMAIL_ENABLED` and `EMAIL_REMINDERS_SCHEDULER_ENABLED`
+      default to on. Set `RESEND_API_KEY` and `EMAIL_FROM` (an address on a
+      domain verified in Resend) for welcome, receipt and to-do reminder emails.
+      Without a key outside development and test nothing is sent: each send
+      reports "not sent", the reminder scheduler does not start, both processes
+      log `EMAIL_ENABLED=true but RESEND_API_KEY is not set` at boot, and
+      `/auth/me` returns `email_reminders_available: false` so the app hides the
+      email-reminder switch. To launch without email, set `EMAIL_ENABLED=false`.
 
 ---
 

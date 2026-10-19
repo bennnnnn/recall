@@ -40,6 +40,8 @@ export type User = {
   /** Read-aloud and live talk voice; null is the server default. */
   tts_voice?: UserVoice | null;
   email_reminders_enabled?: boolean;
+  /** False when the server cannot send email (no provider set up): hide the switch. */
+  email_reminders_available?: boolean;
   reminder_lead_minutes: number;
   locale: string;
   timezone: string;

@@ -230,13 +230,15 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
             busy={busyAction === "lead"}
             onSelect={(key) => void saveReminderLead(Number(key))}
           />
-          <SettingsSwitchRow
-            title={t("settings.email_reminders")}
-            value={user?.email_reminders_enabled ?? false}
-            disabled={busyAction !== null}
-            busy={busyAction === "email"}
-            onValueChange={(v) => void toggleEmailReminders(v)}
-          />
+          {user?.email_reminders_available === false ? null : (
+            <SettingsSwitchRow
+              title={t("settings.email_reminders")}
+              value={user?.email_reminders_enabled ?? false}
+              disabled={busyAction !== null}
+              busy={busyAction === "email"}
+              onValueChange={(v) => void toggleEmailReminders(v)}
+            />
+          )}
         </SettingsGroup>
 
         <SettingsGroup>
