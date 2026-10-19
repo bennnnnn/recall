@@ -534,3 +534,17 @@ async def test_a_second_reminder_with_no_clock_is_asked_for_then_finished(db_ses
     second = await _morning_turn(db_session, fake_redis, user, chat, "9am", "Got it.")
     [item] = _card(second)["items"]
     assert (item["title"], item["due_at"]) == ("pay rent", "2026-10-16T06:00:00Z")
+
+
+@pytest.mark.asyncio
+async def test_the_card_names_the_zone_its_time_was_read_in(db_session, fake_redis):
+    """F8.4: the phone shows the card's time in this zone, and names it when the phone
+    is somewhere else, so the card and the reply say the same 9:00 AM."""
+    user, chat = await _user_and_chat(db_session)
+    text = await _morning_turn(
+        db_session, fake_redis, user, chat, "remind me to buy milk tomorrow at 9am", "Okay."
+    )
+    card = _card(text)
+    assert card["tz"] == "Africa/Nairobi"
+    assert card["items"][0]["due_at"] == "2026-10-15T06:00:00Z"
+    assert card["items"][0]["when"] == "Thursday, Oct 15, 9:00 AM"
