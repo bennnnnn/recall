@@ -67,8 +67,7 @@
    "search",
    "save",
    "answer"
-  ],
-  "gap": "the reminder fallback replaces the answer and titles the card with the question (reminders workstream, audit I4)"
+  ]
  },
  {
   "id": "mi-settings-and-joke",

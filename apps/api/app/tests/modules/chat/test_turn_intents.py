@@ -246,7 +246,6 @@ def test_a_length_limit_binds_only_its_part() -> None:
     assert BREVITY_REQUEST_HINT not in shapes[1]
     whole = _style_format_hints(
         query_text=" ".join(plan.texts()),
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         multi=True,
@@ -262,7 +261,6 @@ def test_a_lesson_shapes_only_its_part() -> None:
     assert TEACHING_HINT not in shapes[1]
     whole = _style_format_hints(
         query_text="teach me Python and also give me a workout plan",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         multi=True,

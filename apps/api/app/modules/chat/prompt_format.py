@@ -365,9 +365,9 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
         lambda t: subject_presentation_hints(t.subject, short=t.compact),
     ),
     # A length cap; a cap on one part and detail on another (``length.reply_length``).
-    # A multi-part message scopes its lengths per request in the multi-part contract.
+    # A multi-part message scopes a cap to its request in the multi-part contract.
     PromptRule(lambda t: not t.multi and t.length == "brief", _hints(BREVITY_REQUEST_HINT)),
-    PromptRule(lambda t: not t.multi and t.length == "mixed", _hints(MIXED_LENGTH_HINT)),
+    PromptRule(lambda t: t.length == "mixed", _hints(MIXED_LENGTH_HINT)),
     # Specialized translation/prose hints already own the shape; the copy-fence
     # contract would tell the model to wrap an article in ```copy. A translated
     # draft is still a draft.

@@ -953,7 +953,8 @@ CASES: tuple[Case, ...] = (
         "format-mixed-length",
         "format",
         "in one sentence what is DNS? Also explain in detail how a TLS handshake works",
-        Expect(hints=("mixed_length",), no_hints=("brevity",)),
+        # Two requests: the cap binds request 1 only, and each part keeps its own length.
+        Expect(hints=("mixed_length", "multi_intent", "part1_brevity")),
         "DNS in exactly one sentence, then a detailed walk through the TLS handshake.",
     ),
     Case(
@@ -1348,7 +1349,7 @@ CASES: tuple[Case, ...] = (
         "multi-brief-and-detail",
         "multi-intent",
         "in one sentence what is DNS? Also explain in detail how TLS handshakes work",
-        Expect(hints=("multi_intent", "part1_brevity")),
+        Expect(hints=("multi_intent", "part1_brevity", "mixed_length")),
         "One sentence on DNS, then a full TLS handshake walk-through.",
     ),
     Case(
