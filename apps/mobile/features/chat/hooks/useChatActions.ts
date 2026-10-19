@@ -5,7 +5,7 @@ import type { IconName } from "@/ui/icons/names";
 
 import { api, type Message } from "@/lib/api";
 import { patchCachedChatMessage } from "@/features/chat/model/messageCache";
-import { exportConversationAsPdf } from "@/lib/exportMessagePdf";
+import { exportConversationAsPdf } from "@/features/chat/model/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
 import { tap } from "@/lib/haptics";
 import { useChatManagementActions } from "@/features/chat/hooks/useChatManagementActions";

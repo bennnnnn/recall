@@ -5,29 +5,6 @@ from __future__ import annotations
 import re
 from uuid import UUID
 
-# Keep in sync with app.models.model_catalog.CATALOG ids (asserted in tests).
-KNOWN_MODEL_ALIASES: frozenset[str] = frozenset(
-    {
-        "free-chat",
-        "smart-chat",
-        "glm-5.3-flash",
-        "glm-5.2",
-        "gpt-6-luna",
-        "qwen-3.7-flash",
-        "title-model",
-        "memory-model",
-        "fallback-memory-model",
-        "embedding-model",
-        "vision-chat",
-        "fallback-vision-model",
-        "image-gen-model",
-        "speech-stt-model",
-        "speech-tts-model",
-        "speech-tts-fast-model",
-        "live-talk-model",
-    }
-)
-
 # ISO 639-1 codes supported by the mobile app (see apps/mobile/lib/i18n/languages.ts).
 LOCALE_NAMES: dict[str, str] = {
     "en": "English",
@@ -148,11 +125,3 @@ def normalize_stored_chat_title(raw: str | None) -> str | None:
     """Display a saved title, including short or generic user-chosen labels."""
     title = unwrap_chat_title(raw or "")
     return title if title and len(title) <= 80 else None
-
-
-def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
-    if allow_auto and alias == "auto":
-        return
-    if alias in KNOWN_MODEL_ALIASES:
-        return
-    raise ValueError(f"Unknown model alias: {alias}")

@@ -16,14 +16,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import httpx
-
 from app.core.config import Settings
+from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
 
 # Without a provider key, only these environments log the message as if sent.
 _MOCK_ENVIRONMENTS = frozenset({"development", "test"})
+RESEND_TIMEOUT_SECONDS = 15.0
 
 
 def is_configured(settings: Settings) -> bool:
@@ -105,16 +105,15 @@ async def send_email(
         "text": text,
     }
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(
-                settings.resend_api_url,
-                json=payload,
-                headers={
-                    "Authorization": f"Bearer {settings.resend_api_key}",
-                    "Content-Type": "application/json",
-                },
-            )
-            response.raise_for_status()
+        response = await get_pooled_client(RESEND_TIMEOUT_SECONDS).post(
+            settings.resend_api_url,
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {settings.resend_api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        response.raise_for_status()
         return True
     except Exception:
         logger.exception("Transactional email send failed to=%s subject=%r", to_label, subject)

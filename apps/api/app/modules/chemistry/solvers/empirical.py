@@ -22,10 +22,6 @@ from app.modules.chemistry.stoichiometry import (
 from app.services.solving import SolveServiceError
 
 
-def _formula_from_counts(counts: dict[str, int]) -> str:
-    return hill_formula(counts)
-
-
 def _written_order(counts: dict[str, int]) -> str:
     """A carbon-hydrogen compound in Hill order (CH3); a salt as the question names its
     elements, cation first: 1.00 g Ca, 0.300 g C and 1.20 g O is CaCO3, not CCaO3."""
@@ -104,7 +100,7 @@ def solve_combustion(intent: ChemistryIntent) -> ChemistryResult:
     counts = _integer_ratio(ratios)
     if counts is None:
         raise SolveServiceError("the combustion masses do not form a simple integer ratio")
-    formula = _formula_from_counts(counts)
+    formula = hill_formula(counts)
     working = [
         f"n(C) = {inp(co2)} / {molar_mass_working(co2_mass)} = {num(moles_c)} mol",
         f"n(H) = 2 * {inp(water)} / {molar_mass_working(water_mass)} = {num(moles_h)} mol",
@@ -176,7 +172,7 @@ _SAMPLE_CLOSURE = 0.01
 def solve_empirical(intent: ChemistryIntent) -> ChemistryResult:
     grams = intent.units.get("basis") == "g"
     counts, working = _empirical_counts(dict(intent.species), grams=grams)
-    formula = _formula_from_counts(counts)
+    formula = hill_formula(counts)
     if grams:
         formula = _written_order(counts)
         sample = intent.params.get("sample_mass")
@@ -222,14 +218,14 @@ def solve_molecular(intent: ChemistryIntent) -> ChemistryResult:
         given = [f"empirical formula = {intent.formula}"]
     else:
         raise SolveServiceError("a molecular formula needs a composition or an empirical formula")
-    empirical = _formula_from_counts(counts)
+    empirical = hill_formula(counts)
     empirical_mass = molar_mass(empirical)
     multiple = molar / empirical_mass
     factor = round(multiple)
     if factor < 1 or abs(multiple - factor) > 0.05:
         raise SolveServiceError("molar mass is not an integer multiple of the empirical mass")
     molecular_counts = {element: count * factor for element, count in counts.items()}
-    formula = _formula_from_counts(molecular_counts)
+    formula = hill_formula(molecular_counts)
     return verified(
         "Verified molecular formula",
         (*given, f"M = {inp(molar)} g/mol"),

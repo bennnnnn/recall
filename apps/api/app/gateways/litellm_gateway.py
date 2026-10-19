@@ -3,7 +3,7 @@ import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
-from typing import Any
+from typing import Any, Self
 
 from litellm import acompletion
 
@@ -12,26 +12,15 @@ from app.core.config import Settings
 from app.gateways import llm_spend, mock_llm
 from app.gateways.reasoning import reasoning_body
 
-# Compatibility exports keep provider seams stable after splitting this module.
-from app.gateways.structured_completion import (
-    _complete_structured_once as _complete_structured_once,
-)
-from app.gateways.structured_completion import (
-    _fallback_alias as _fallback_alias,
-)
-from app.gateways.structured_completion import (
-    _list_field_name as _list_field_name,
-)
-from app.gateways.structured_completion import (
-    _parse_memory_facts_partial as _parse_memory_facts_partial,
-)
-from app.gateways.structured_completion import (
-    _parse_memory_sections_partial as _parse_memory_sections_partial,
-)
-from app.gateways.structured_completion import (
-    complete_structured as complete_structured,
-)
+# The completion kinds split out of this module are part of its public surface
+# (callers use ``litellm_gateway.complete_structured`` and friends). They reach
+# this module's provider seams (``acompletion``, ``resolve_route``,
+# ``_litellm_kwargs``) at call time, so a test patches each seam once, here.
+from app.gateways.structured_completion import _fallback_alias
+from app.gateways.structured_completion import complete_structured as complete_structured
 from app.gateways.think_stripper import STRAY_THINK_LEAD_HOLD, ThinkStripper
+from app.gateways.tool_completion import complete_with_tools as complete_with_tools
+from app.gateways.vision_completion import vision_completion as vision_completion
 from app.models import model_catalog
 from app.models.model_catalog import ChatModel
 
@@ -52,6 +41,11 @@ class ModelUnavailableError(Exception):
         self.message = message
         self.code = code
         self.failed_alias = failed_alias
+
+    @classmethod
+    def for_alias(cls, alias: str, *, code: str = "model_unavailable") -> Self:
+        """The user-facing "model isn't responding" error for one failed alias."""
+        return cls(_CHAT_MODEL_UNAVAILABLE_MSG, code=code, failed_alias=alias)
 
 
 _CHAT_MODEL_UNAVAILABLE_MSG = (
@@ -131,10 +125,7 @@ def _litellm_kwargs(
     kwargs: dict[str, Any] = {}
     api_key = getattr(settings, route.api_key_field, "")
     if not api_key:
-        raise ModelUnavailableError(
-            _CHAT_MODEL_UNAVAILABLE_MSG,
-            failed_alias=route.id,
-        )
+        raise ModelUnavailableError.for_alias(route.id)
     kwargs["api_key"] = api_key
     if route.api_base:
         kwargs["api_base"] = route.api_base
@@ -163,32 +154,27 @@ def _litellm_kwargs(
     return kwargs
 
 
-def _apply_usage(usage: dict[str, int] | None, chunk: Any) -> None:
+def _apply_usage(usage: dict[str, int] | None, source: Any) -> None:
+    """Add a stream chunk's or a whole response's reported tokens onto ``usage``."""
     if usage is None:
         return
-    chunk_usage = getattr(chunk, "usage", None)
-    if not chunk_usage:
+    source_usage = getattr(source, "usage", None)
+    if not source_usage:
         return
-    prompt = getattr(chunk_usage, "prompt_tokens", None)
-    completion = getattr(chunk_usage, "completion_tokens", None)
+    prompt = getattr(source_usage, "prompt_tokens", None)
+    completion = getattr(source_usage, "completion_tokens", None)
     if prompt is not None:
         usage["input"] = usage.get("input", 0) + int(prompt)
     if completion is not None:
         usage["output"] = usage.get("output", 0) + int(completion)
 
 
-def _apply_usage_from_response(usage: dict[str, int] | None, response: Any) -> None:
+def _merge_attempt_usage(usage: dict[str, int] | None, attempt: dict[str, int]) -> None:
+    """Charge the caller for one stream attempt (only an attempt that produced content)."""
     if usage is None:
         return
-    resp_usage = getattr(response, "usage", None)
-    if not resp_usage:
-        return
-    prompt = getattr(resp_usage, "prompt_tokens", None)
-    completion = getattr(resp_usage, "completion_tokens", None)
-    if prompt is not None:
-        usage["input"] = usage.get("input", 0) + int(prompt)
-    if completion is not None:
-        usage["output"] = usage.get("output", 0) + int(completion)
+    usage["input"] = usage.get("input", 0) + attempt.get("input", 0)
+    usage["output"] = usage.get("output", 0) + attempt.get("output", 0)
 
 
 async def stream_chat_completion(
@@ -253,9 +239,7 @@ async def stream_chat_completion(
                     continue
                 yield token
             if started:
-                if usage is not None:
-                    usage["input"] = usage.get("input", 0) + attempt_usage.get("input", 0)
-                    usage["output"] = usage.get("output", 0) + attempt_usage.get("output", 0)
+                _merge_attempt_usage(usage, attempt_usage)
                 if stream_meta is not None:
                     stream_meta["model_alias"] = alias
                 return
@@ -266,18 +250,13 @@ async def stream_chat_completion(
                 if index < len(aliases) - 1
                 else "",
             )
-            raise ModelUnavailableError(
-                _CHAT_MODEL_UNAVAILABLE_MSG,
-                failed_alias=alias,
-            )
+            raise ModelUnavailableError.for_alias(alias)
         except ModelUnavailableError as exc:
             last_error = exc
             # Mid-stream failure: client already has partial tokens — falling
             # back would concatenate partial + full into one persisted reply.
             if started:
-                if usage is not None:
-                    usage["input"] = usage.get("input", 0) + attempt_usage.get("input", 0)
-                    usage["output"] = usage.get("output", 0) + attempt_usage.get("output", 0)
+                _merge_attempt_usage(usage, attempt_usage)
                 raise
             if index < len(aliases) - 1:
                 logger.warning(
@@ -289,10 +268,7 @@ async def stream_chat_completion(
             failed = exc.failed_alias or alias
             if stream_meta is not None:
                 stream_meta["model_alias"] = failed
-            raise ModelUnavailableError(
-                _CHAT_MODEL_UNAVAILABLE_MSG,
-                failed_alias=failed,
-            ) from exc
+            raise ModelUnavailableError.for_alias(failed) from exc
 
     if last_error is not None:
         raise last_error
@@ -361,10 +337,7 @@ async def _stream_chat_once(
                     model_alias,
                     max_seconds,
                 )
-                raise ModelUnavailableError(
-                    _CHAT_MODEL_UNAVAILABLE_MSG,
-                    failed_alias=model_alias,
-                )
+                raise ModelUnavailableError.for_alias(model_alias)
             first_content_remaining: float | None = None
             if not visible_content_started and first_content_deadline is not None:
                 first_content_remaining = first_content_deadline - time.monotonic()
@@ -374,10 +347,7 @@ async def _stream_chat_once(
                         model_alias,
                         first_content_timeout_seconds,
                     )
-                    raise ModelUnavailableError(
-                        _CHAT_MODEL_UNAVAILABLE_MSG,
-                        failed_alias=model_alias,
-                    )
+                    raise ModelUnavailableError.for_alias(model_alias)
             read_timeout = min(idle_seconds, remaining)
             if first_content_remaining is not None:
                 read_timeout = min(read_timeout, first_content_remaining)
@@ -409,10 +379,7 @@ async def _stream_chat_once(
                         model_alias,
                         idle_seconds,
                     )
-                raise ModelUnavailableError(
-                    _CHAT_MODEL_UNAVAILABLE_MSG,
-                    failed_alias=model_alias,
-                ) from exc
+                raise ModelUnavailableError.for_alias(model_alias) from exc
             if chunk is None:
                 break
             _apply_usage(usage, chunk)
@@ -442,18 +409,12 @@ async def _stream_chat_once(
             settings.chat_stream_connect_timeout_seconds,
             settings.chat_stream_timeout_seconds,
         )
-        raise ModelUnavailableError(
-            _CHAT_MODEL_UNAVAILABLE_MSG,
-            failed_alias=model_alias,
-        ) from exc
+        raise ModelUnavailableError.for_alias(model_alias) from exc
     except ModelUnavailableError:
         raise
     except Exception as exc:
         logger.exception("LiteLLM streaming failed for alias=%s", model_alias)
-        raise ModelUnavailableError(
-            _CHAT_MODEL_UNAVAILABLE_MSG,
-            failed_alias=model_alias,
-        ) from exc
+        raise ModelUnavailableError.for_alias(model_alias) from exc
     finally:
         close = getattr(response, "aclose", None)
         if close is not None:
@@ -491,8 +452,3 @@ async def complete_text(
     except Exception:
         logger.exception("Text completion failed to parse response for %s", model_alias)
         return None
-
-
-# Imported last: these modules read this module's provider seams at call time.
-from app.gateways.tool_completion import complete_with_tools as complete_with_tools  # noqa: E402
-from app.gateways.vision_completion import vision_completion as vision_completion  # noqa: E402

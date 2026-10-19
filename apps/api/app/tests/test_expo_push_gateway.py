@@ -34,7 +34,7 @@ async def test_send_push_messages_prunes_invalid_tokens():
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
+    with patch("app.gateways.expo_push_gateway.get_pooled_client", return_value=client):
         result = await gateway.send_push_messages(
             [{"to": "ExponentPushToken[aaa]"}, {"to": "ExponentPushToken[bbb]"}]
         )
@@ -63,7 +63,7 @@ async def test_send_push_messages_survives_invalid_credentials_but_prunes_dead_d
     client.__aexit__ = AsyncMock(return_value=None)
 
     with (
-        patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client),
+        patch("app.gateways.expo_push_gateway.get_pooled_client", return_value=client),
         patch.object(gateway.logger, "critical") as critical_mock,
     ):
         result = await gateway.send_push_messages(
@@ -100,7 +100,7 @@ async def test_send_push_messages_marks_delivered_on_ticket_ok():
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
+    with patch("app.gateways.expo_push_gateway.get_pooled_client", return_value=client):
         result = await gateway.send_push_messages([{"to": "ExponentPushToken[aaa]"}])
 
     assert result.delivered == [True]
@@ -118,7 +118,7 @@ async def test_send_push_messages_does_not_block_on_receipts():
     client.__aexit__ = AsyncMock(return_value=None)
 
     with (
-        patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client),
+        patch("app.gateways.expo_push_gateway.get_pooled_client", return_value=client),
         patch(
             "app.gateways.expo_push_gateway.fetch_push_receipts",
             AsyncMock(),
@@ -145,7 +145,7 @@ async def test_fetch_push_receipts_batches_requests():
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
+    with patch("app.gateways.expo_push_gateway.get_pooled_client", return_value=client):
         receipts = await gateway.fetch_push_receipts(["ticket-1", "ticket-2"])
 
     assert receipts["ticket-1"]["status"] == "ok"
@@ -182,7 +182,7 @@ async def test_send_push_messages_chunks_over_100_messages():
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
+    with patch("app.gateways.expo_push_gateway.get_pooled_client", return_value=client):
         result = await gateway.send_push_messages(messages)
 
     assert client.post.call_count == 2
@@ -221,7 +221,7 @@ async def test_send_push_messages_one_chunk_failure_does_not_affect_others():
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
+    with patch("app.gateways.expo_push_gateway.get_pooled_client", return_value=client):
         result = await gateway.send_push_messages(messages)
 
     assert result.delivered[:100] == [False] * 100
@@ -235,7 +235,7 @@ async def test_send_push_messages_network_error_returns_empty():
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
+    with patch("app.gateways.expo_push_gateway.get_pooled_client", return_value=client):
         result = await gateway.send_push_messages([{"to": "ExponentPushToken[x]"}])
 
     assert result.invalid_tokens == []

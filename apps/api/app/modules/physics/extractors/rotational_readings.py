@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import _NUMBER, _find_value_with_specific_unit
+from app.modules.physics.extractors.common import (
+    _NUMBER,
+    _find_value_with_specific_unit,
+    labeled_value,
+)
 from app.modules.physics.schemas import PhysicsIntent
 
 _INERTIA_PATTERN = r"kg\s*m\^?2|kg\s*\*\s*m\^?2|kilogram\s+met(?:er|re)\s+squared"
@@ -22,17 +26,6 @@ def _intent(operation: str, params: dict[str, float], units: dict[str, str]) -> 
         physics_units=units,
         operation="solve",
     )
-
-
-def _first(text: str, label: str, unit: str) -> tuple[float, str] | None:
-    match = re.search(
-        rf"\b(?:{label})(?:\s+of)?\s+({_NUMBER})\s*({unit})\b",
-        text,
-        re.IGNORECASE,
-    )
-    if match is None:
-        return None
-    return float(match.group(1)), match.group(2)
 
 
 def _omega_pair(text: str) -> tuple[tuple[float, str], tuple[float, str]] | None:
@@ -54,7 +47,7 @@ def _time(text: str) -> tuple[float, str] | None:
 
 
 def _alpha(text: str) -> tuple[float, str] | None:
-    found = _first(text, r"angular acceleration", _ALPHA_UNIT)
+    found = labeled_value(text, r"angular acceleration", _ALPHA_UNIT)
     if found is not None:
         return found
     match = re.search(rf"({_NUMBER})\s*({_ALPHA_UNIT})\b", text, re.IGNORECASE)

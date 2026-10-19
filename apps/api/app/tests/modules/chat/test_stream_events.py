@@ -102,3 +102,25 @@ def test_turn_error_payload_says_whether_the_user_message_saved(saved: bool):
         "message": stream_events.REPLY_SAVE_FAILED_MESSAGE,
         "user_message_saved": saved,
     }
+
+
+@pytest.mark.parametrize(
+    ("commit", "expected"),
+    [
+        ("committed", {"type": "done", "message_id": "m1", "final_content": "hi"}),
+        ("timeout", {"type": "done", "final_content": "hi", "persisting": True}),
+        (
+            "failed",
+            {
+                "type": "error",
+                "message": stream_events.REPLY_SAVE_FAILED_MESSAGE,
+                "user_message_saved": True,
+            },
+        ),
+    ],
+)
+def test_settled_turn_event_follows_the_commit(
+    commit: stream_events.CommitStatus, expected: dict[str, object]
+) -> None:
+    outcome = TurnOutcome(message_id="m1", final_content="hi", user_message_saved=True)
+    assert stream_events.settled_turn_event(outcome, commit) == expected

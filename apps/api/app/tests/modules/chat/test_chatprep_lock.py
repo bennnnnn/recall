@@ -237,7 +237,6 @@ async def test_regenerate_acquires_chatprep_lock():
                 return_value=MagicMock(
                     max_out=100,
                     prompt_messages=[],
-                    meta={},
                     instant_reply=None,
                     search_sources=[],
                     local_places=False,
@@ -376,16 +375,14 @@ async def test_lock_redis_errors_never_cut_the_stream_or_skip_its_save(stream_of
         ) as res:
             tokens = [
                 token
-                async for token in stream_entry._stream_turn(
+                async for token in stream_entry.stream_and_finalize(
                     deps,
                     redis,
                     Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                     ctx,
-                    res,
                     should_cancel=None,
                     outcome=outcome,
-                    status=None,
-                    on_reasoning=None,
+                    resources=res,
                 )
             ]
         assert outcome.finalize_db_task is not None
@@ -436,16 +433,14 @@ async def test_a_turn_handed_to_finalize_is_not_refunded_on_a_later_escape(strea
                 deps, AsyncMock(), user_id=ctx.user_id, chat_id=ctx.chat_id
             ) as res:
                 res.reserved_tokens = 500
-                async for _ in stream_entry._stream_turn(
+                async for _ in stream_entry.stream_and_finalize(
                     deps,
                     AsyncMock(),
                     Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                     ctx,
-                    res,
                     should_cancel=None,
                     outcome=TurnOutcome(),
-                    status=None,
-                    on_reasoning=None,
+                    resources=res,
                 ):
                     pass
                 raise RuntimeError("after the save")

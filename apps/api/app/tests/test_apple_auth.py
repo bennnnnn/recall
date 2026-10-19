@@ -161,7 +161,7 @@ async def test_fetch_apple_jwks_uses_cache_within_ttl():
     apple_auth._jwks_cache = cached
     apple_auth._jwks_fetched_at = time.time()
 
-    with patch("app.gateways.apple_auth.httpx.AsyncClient") as mock_client_cls:
+    with patch("app.gateways.apple_auth.get_pooled_client") as mock_client_cls:
         result = await apple_auth._fetch_apple_jwks()
 
     assert result is cached
@@ -185,7 +185,7 @@ async def test_fetch_apple_jwks_force_refresh_bypasses_cache():
     response.json = lambda: fresh
     client_instance.get = AsyncMock(return_value=response)
 
-    with patch("app.gateways.apple_auth.httpx.AsyncClient") as mock_client_cls:
+    with patch("app.gateways.apple_auth.get_pooled_client") as mock_client_cls:
         mock_client_cls.return_value = client_instance
         result = await apple_auth._fetch_apple_jwks(force_refresh=True)
 

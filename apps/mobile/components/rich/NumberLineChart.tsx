@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from "react";
 import Svg, { Circle, Line, Polygon, Text as SvgText } from "react-native-svg";
 
+import { GRAPH_CHART_PAD } from "@/components/rich/graphPaint";
 import {
   formatInequalityExpr,
   mapGraphPoint,
@@ -21,7 +22,6 @@ type Props = {
   surfaceColor: string;
 };
 
-const PAD = 28;
 const LINE_HEIGHT = 80;
 
 const SkiaNumberLineChartLazy = lazy(() =>
@@ -40,7 +40,7 @@ function valueToPx(
   bounds: { xMin: number; xMax: number },
   width: number,
 ): number {
-  return mapGraphPoint(value, 0, { ...bounds, yMin: -1, yMax: 1 }, width, LINE_HEIGHT, PAD).px;
+  return mapGraphPoint(value, 0, { ...bounds, yMin: -1, yMax: 1 }, width, LINE_HEIGHT, GRAPH_CHART_PAD).px;
 }
 
 /** Draw an arrowhead pointing left or right at the given x,y. */
@@ -99,7 +99,7 @@ function raySegment(
   if (iv.start == null && iv.end != null) {
     // Ray to the left: (-∞, end]
     const xEnd = valueToPx(iv.end, bounds, width);
-    const xLeft = PAD;
+    const xLeft = GRAPH_CHART_PAD;
     elements.push(
       <Line
         key={`${keyPrefix}-line`}
@@ -116,7 +116,7 @@ function raySegment(
   } else if (iv.end == null && iv.start != null) {
     // Ray to the right: [start, ∞)
     const xStart = valueToPx(iv.start, bounds, width);
-    const xRight = width - PAD;
+    const xRight = width - GRAPH_CHART_PAD;
     elements.push(
       <Line
         key={`${keyPrefix}-line`}
@@ -193,16 +193,16 @@ function SvgNumberLineChart({
     >
       {/* Main horizontal axis */}
       <Line
-        x1={PAD}
+        x1={GRAPH_CHART_PAD}
         y1={y}
-        x2={width - PAD}
+        x2={width - GRAPH_CHART_PAD}
         y2={y}
         stroke={axisColor}
         strokeWidth={1.5}
       />
       {/* Arrowheads at both ends of the axis to show it extends infinitely */}
-      {arrowHead(width - PAD, y, "right", axisColor, "axis-arrow-right")}
-      {arrowHead(PAD, y, "left", axisColor, "axis-arrow-left")}
+      {arrowHead(width - GRAPH_CHART_PAD, y, "right", axisColor, "axis-arrow-right")}
+      {arrowHead(GRAPH_CHART_PAD, y, "left", axisColor, "axis-arrow-left")}
 
       {/* Tick marks */}
       {ticks.map((n) => {
@@ -282,7 +282,7 @@ function SvgNumberLineChart({
 
       {/* Variable label at the right end */}
       <SvgText
-        x={width - PAD + 10}
+        x={width - GRAPH_CHART_PAD + 10}
         y={y - 10}
         fill={labelColor}
         fontSize={11}

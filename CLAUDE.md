@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Architecture migration: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Math: [docs/math.md](./docs/math.md) (tutoring roadmap: [docs/MATH_TUTORING_TICKETS.md](./docs/MATH_TUTORING_TICKETS.md)). Physics: [docs/physics.md](./docs/physics.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (complete: `PhysicsIntent` is a peer of `MathIntent`). Engineering standards (layers, subject isolation, size limits, CI gates): [docs/ENGINEERING_STANDARDS.md](./docs/ENGINEERING_STANDARDS.md). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Architecture migration: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Math: [docs/math.md](./docs/math.md) (tutoring roadmap: [docs/MATH_TUTORING_TICKETS.md](./docs/MATH_TUTORING_TICKETS.md)). Physics: [docs/physics.md](./docs/physics.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (complete: `PhysicsIntent` is a peer of `MathIntent`). Engineering standards (layers, subject isolation, size limits, CI gates): [docs/ENGINEERING_STANDARDS.md](./docs/ENGINEERING_STANDARDS.md). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/SCALING.md](./docs/SCALING.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
@@ -27,7 +27,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 **Domain concepts:**
 
-- **user** — Google or Apple sign-in; editable profile + preferences; `plan` (`free` | `plus` | `pro`) is driven by RevenueCat. What a plan includes and its numbers are decided in one place, `modules/billing/entitlements.py` (`can_use`, `allowance`); every number is a `core/config.py` setting.
+- **user** — Google or Apple sign-in; editable profile + preferences; `plan` (`free` | `plus` | `pro`) is driven by RevenueCat. What a plan includes and its numbers are decided in one place, `modules/billing/entitlements.py` (`can_use`, `allowance`); every number is a setting in `core/settings/plans.py`.
 - **chat** — a conversation; has an auto-generated title.
 - **message** — one turn (`user` | `assistant` | `system`).
 - **memory** — one retrievable fact per row (`status` `active` | `superseded` | `muted`), cap 150 active. `topic` files each fact into a Claude-style page (`modules/memory/topics.py`: You = profile, preferences; Topics = interests, tech-stack, schedule, recent-work, goals, side-projects, notes; Areas = `area:<slug>` with a title row in `memory_areas`); `type` (`profile` | `preference` | `project` | `fact` | `focus`) follows the topic and sets prompt priority. Sensitive topics are not auto-stored unless the user said “remember” or opted in. Extraction is post-turn; a one-time `memory_history_scan` reads recent chats, only adds missing facts, and skips lines older than the user's last hand edit (`users.memory_edited_at`). What a chat line tells memory (remember, forget, mute, reset, correct) is `modules/memory/commands.py`; which facts a turn reads (query, profile, everything, or the work scope for programming turns) and the notes for memory off or unavailable are `modules/chat/prompt_memory.py`. Memory off means no personal recall, chat-history RAG included.
@@ -77,7 +77,6 @@ app/
   repositories/        # shared persistence still used while domains migrate
   routers/             # legacy HTTP until that domain is a module
   services/            # legacy product code until that domain is a module
-    chat/              # turn prep, stream, post_turn — migrate last
     notifications/ web_search/ mcp/
   exceptions.py        # shared domain exceptions
   models/              # orm/ (SQLAlchemy) + schemas/ (Pydantic: HTTP, math/, tools)
@@ -120,11 +119,11 @@ What exists in code today. Product caveats: FEATURES.md.
 |--------|-----|--------|
 | Auth / account | `modules/account/` (HTTP `/auth`: sign-in, sessions, profile, settings proposals, export, delete); per-request token check in `core/access_tokens.py` | `features/auth/` (login, onboarding), `features/account/` (settings screens); `app/login.tsx`, `onboarding.tsx`, `app/settings/*` routes only |
 | Chat history | `modules/chat/` (HTTP `/chats`) | drawer history; `features/chat/api.ts` |
-| Chat stream | `modules/chat/` (`ws_api.py` WebSocket, `stream_api.py` SSE; `stream_entry.py`, `turn_deps.py`, `turn_prep/`, `stream_pipeline.py`, `stream_paths.py`, `finalize_passes.py`, `post_turn.py`) | `features/chat/` (`screens/ChatScreen.tsx`, `hooks/useChat*.ts`, `components/`, `model/` stream, socket and cache); `app/index.tsx` route only |
+| Chat stream | `modules/chat/` (`ws_api.py` WebSocket, `stream_api.py` SSE; `stream_entry.py`, `turn_deps.py`, `turn_prep/`, `stream_pipeline.py`, `stream_paths.py`, `finalize_passes.py`, `turn_settle.py`, `post_turn.py`) | `features/chat/` (`screens/ChatScreen.tsx`, `hooks/useChat*.ts`, `components/`, `model/` stream, socket and cache); `app/index.tsx` route only |
 | Memory | `modules/memory/` (HTTP `/memories`, `/memories/documents`, `/memories/instruct`) | `features/memory/`; `app/memory/` routes only (list + `[key]` page) |
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota/`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
-| Follow-up questions | `modules/chat/related_prompts.py` (after `done`; `modules/suggestions/` + `/suggestions` are legacy, no longer fed) | `features/suggestions/` (`RelatedPromptLines`) |
+| Follow-up questions | `modules/chat/related_prompts.py` (after `done`; rules in `related_questions.py`; `modules/suggestions/` + `/suggestions` are legacy, no longer fed) | `features/suggestions/` (`RelatedPromptLines`) |
 | Todos / reminders | `modules/todos/` (HTTP `/todos`; chat changes wait for a tap: `write_log.py` + `proposals.py`, `POST /todos/proposals/{id}/confirm`; the reply above an untapped card claims nothing, `reply_claims.py`) | `features/todos/` (`ReminderProposalCard`); `app/todos.tsx` route only |
 | Home | `modules/home/` (HTTP `/home`) | `features/home/`; greeting + one overdue reminder |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
@@ -138,12 +137,13 @@ What exists in code today. Product caveats: FEATURES.md.
 | Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/` (`catalog.py` is the one operation list; `extractors/` and `solvers/` by topic, run in `registry.py` order; `binding.py` + `laws.py` on the shared `services/law_binding/`; HTTP `/chemistry/scan/read`), `modules/chemistry/schemas/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Push / email out | `modules/notifications/`, `background/*scheduler*` | notification settings |
 | Billing | `modules/billing/` (`entitlements.py` plan policy, `revenuecat.py` webhook, `subscription.py` REST sync; HTTP `/webhooks/revenuecat`, `/billing/plans`), `gateways/revenuecat_gateway.py` | RevenueCat (`lib/purchases.ts`), `lib/plan.ts`, `components/UpgradeSheet.tsx` |
-| Product analytics | `routers/analytics.py`, `services/product_analytics.py` | `lib/api/analytics.ts` (metadata-only events; never prompts) |
+| Product analytics | `modules/analytics/` (HTTP `/analytics`; events persist through the shared `repositories/product_events.py`, which account export also reads) | `lib/api/analytics.ts` (metadata-only events; never prompts) |
+| Link preview | `modules/link_preview/` (HTTP `/link-preview`; SSRF-safe fetch in `gateways/safe_fetch.py`) | `components/LinkPreviewCard.tsx`, `lib/linkPreview.ts` |
 | Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `features/account/screens/HelpScreen.tsx`, `AboutScreen.tsx`, `DataControlsScreen.tsx` |
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Home, Search, Suggestions, Chat history, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, and Notifications push-token (`/users`) APIs plus the legacy health, legal, admin, link_preview, models, and analytics routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
+**HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Home, Search, Suggestions, Chat history, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, Notifications push-token (`/users`), Analytics, and Link preview APIs plus the legacy health, legal, admin, and models routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
 
 **Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, model catalog, time context, …). New chat-loop code belongs in `modules/chat/`; new external IO belongs in a gateway, not an API surface.
 
@@ -157,7 +157,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | External API | `gateways/` | One gateway module; mock in tests | Delete gateway; keep service behind a flag if needed |
 | MCP / model tools | module `tool.py` or legacy `services/mcp/`; `gateways/mcp/` registry | `register(Adapter)` implementing `ToolAdapter`; `invoke(args, ctx: ToolContext)` gets the turn as an argument | Unregister; `mcp_tool_loop_enabled` defaults **on** |
 | Background job | module `jobs.py` or legacy `background/handlers.py`; `core/jobs/` queue | Register handler; enqueue off the stream path | Unregister + stop enqueue |
-| Feature flag | `core/config.py` `*_enabled` | One Settings field; gate service entry | Default false; then delete path |
+| Feature flag / setting | `core/settings/<section>.py` (joined into `Settings` in `core/config.py`) | One field in its section; gate service entry | Default false; then delete path |
 | Model | `services/model_catalog.py`; which alias does which job (Auto's lanes, photos, tool selection) in `models/routing_lanes.py` | Catalog entry + OpenRouter slug + capability flags (`supports_vision`, `supports_tools`, `json_mode`, `context_tokens`; unconfirmed = false). Route by capability, never by name | Remove alias; don’t leave provider names in app code |
 | Mobile network | feature `api.ts` or legacy `lib/api/<domain>.ts`, composed in `lib/api.ts` | Add typed API slice using the shared client | Delete API slice; no raw `fetch` in screens |
 | Rich fence | `lib/fenceRegistry.ts` (`FENCES`) | Add a `FenceSpec`; one block component; wire render | Delete the spec + component |
@@ -166,7 +166,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |
 | Banned UX | `.cursor/rules/chat-ux-bans.mdc` | — | If replacing UX, **delete** the old path |
 
-**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `math_tools_enabled`, `chemistry_enabled` (on), `math_word_problems_enabled` (on), `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `image_search_enabled` (on; real reference-photo lookup, separate from AI generation), `speech_*_enabled`, `reminder_proposals_enabled` (on: a chat to-do change is a card the user taps), `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
+**Flags (defaults in `core/settings/`):** `mcp_tool_loop_enabled` (on), `math_tools_enabled`, `chemistry_enabled` (on), `math_word_problems_enabled` (on), `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `image_search_enabled` (on; real reference-photo lookup, separate from AI generation), `speech_*_enabled`, `reminder_proposals_enabled` (on: a chat to-do change is a card the user taps), `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
 
 ## The chat loop
 
@@ -179,8 +179,8 @@ New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` w
 5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on); its search gates, classifier and forced search run per request (`tool_loop/parts.py`)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
 7. Post-stream fence finalization: math (`math/fence.py`), physics (`modules/physics/fence.py`), chemistry (`modules/chemistry/fence.py`)
-8. Persist assistant + usage in a finalize task
-9. `enqueue_post_turn_jobs` — topic, memory, lesson_progress (after a lesson reply: the chat's one "Learning X: reached Lesson N" memory line, no LLM), todos (only with reminder cards off: it writes without a tap), compress, attachment_index, message_index (best-effort; must not raise into the stream)
+8. Persist assistant + usage in a finalize task (`turn_settle.py`)
+9. `enqueue_post_turn_jobs` (`post_turn.POST_TURN_JOBS`, in order) — memory, lesson_progress (after a lesson reply: the chat's one "Learning X: reached Lesson N" memory line, no LLM), todos (only with reminder cards off: it writes without a tap), topic, compress, attachment_index, message_index (best-effort; must not raise into the stream)
 
 Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job.
 

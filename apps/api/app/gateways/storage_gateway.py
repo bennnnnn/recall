@@ -10,7 +10,9 @@ URL on download. ``api_upload`` tells the client whether to PUT to the API
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import shutil
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 class StorageUnavailableError(RuntimeError):
     """Storage could not complete a request; this does not mean an object is missing."""
+
+
+_R2_UNAVAILABLE = "Attachment storage is temporarily unavailable"
 
 
 @dataclass(frozen=True)
@@ -104,8 +109,6 @@ class LocalStorageGateway:
 
     async def delete_prefix(self, prefix: str) -> int:
         """Delete every object under ``prefix`` (account-wipe residual sweep)."""
-        import shutil
-
         if not prefix or prefix.startswith("/") or ".." in Path(prefix).parts:
             return 0
         root = (self.base_path / prefix).resolve()
@@ -172,8 +175,6 @@ class R2StorageGateway:
     async def presign_upload(
         self, *, user_id: str, content_type: str, size_bytes: int
     ) -> PresignedUpload:
-        import asyncio
-
         attachment_id = str(uuid.uuid4())
         storage_key = f"{user_id}/{attachment_id}"
         # R2/S3 presigned PUT — the client uploads directly; the signed URL
@@ -199,8 +200,6 @@ class R2StorageGateway:
         )
 
     async def presign_download(self, storage_key: str) -> str:
-        import asyncio
-
         return await asyncio.to_thread(
             self._client.generate_presigned_url,
             "get_object",
@@ -209,8 +208,6 @@ class R2StorageGateway:
         )
 
     async def write_bytes(self, storage_key: str, data: bytes) -> None:
-        import asyncio
-
         try:
             await asyncio.to_thread(
                 self._client.put_object,
@@ -219,13 +216,11 @@ class R2StorageGateway:
                 Body=data,
             )
         except Exception as exc:
-            raise StorageUnavailableError("Attachment storage is temporarily unavailable") from exc
+            raise StorageUnavailableError(_R2_UNAVAILABLE) from exc
 
     async def read_bytes(self, storage_key: str) -> bytes | None:
         # Used by attachment_content to extract text/vision bytes for the prompt.
         # get_object is a real network call — offload to a thread.
-        import asyncio
-
         from botocore.exceptions import ClientError
 
         try:
@@ -240,23 +235,19 @@ class R2StorageGateway:
         except ClientError as exc:
             if exc.response.get("Error", {}).get("Code") in {"NoSuchKey", "NotFound", "404"}:
                 return None
-            raise StorageUnavailableError("Attachment storage is temporarily unavailable") from exc
+            raise StorageUnavailableError(_R2_UNAVAILABLE) from exc
         except Exception as exc:
-            raise StorageUnavailableError("Attachment storage is temporarily unavailable") from exc
+            raise StorageUnavailableError(_R2_UNAVAILABLE) from exc
 
     async def delete_bytes(self, storage_key: str) -> None:
-        import asyncio
-
         try:
             await asyncio.to_thread(
                 self._client.delete_object, Bucket=self._bucket, Key=storage_key
             )
         except Exception as exc:
-            raise StorageUnavailableError("Attachment storage is temporarily unavailable") from exc
+            raise StorageUnavailableError(_R2_UNAVAILABLE) from exc
 
     async def delete_prefix(self, prefix: str) -> int:
-        import asyncio
-
         if not prefix or ".." in prefix or prefix.startswith("/"):
             return 0
         deleted = 0

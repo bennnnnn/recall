@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, NamedTuple
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -43,18 +43,20 @@ logger = logging.getLogger(__name__)
 # The first tool selector, then one retry on the next.
 _SELECTION_ATTEMPTS = 2
 
-_RoundsOutcome = tuple[
-    list[dict[str, Any]],
-    VerifiedMathBlock | None,
-    TerminalImageResult | None,
-    list[WebSearchHit],
-]
+
+class ToolRoundsOutcome(NamedTuple):
+    """The messages the visible stream gets, and what the tools produced for the turn."""
+
+    messages: list[dict[str, Any]]
+    # Only tool results whose input matches the user's own words.
+    verified_math: VerifiedMathBlock | None
+    terminal_image: TerminalImageResult | None
+    search_hits: list[WebSearchHit]
 
 
 async def run_tool_rounds(
     *,
     settings: Settings,
-    model_alias: str,
     messages: list[dict[str, Any]],
     usage: dict[str, int],
     on_status: StreamStatusFn | None = None,
@@ -68,11 +70,10 @@ async def run_tool_rounds(
     user_location: str | None = None,
     has_verified_math: bool = False,
     search_parts: list[str] | None = None,
-) -> _RoundsOutcome:
+) -> ToolRoundsOutcome:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
 
-    Returns ``(messages, verified_math, terminal_image, search_hits)``. Tool-call
-    rounds stay non-streaming. After tools execute, the caller streams the
+    Tool-call rounds stay non-streaming. After tools execute, the caller streams the
     user-visible answer (tools omitted) instead of a discarded leftover completion.
     ``verified_math`` holds only tool results whose input matches ``user_text``
     (the user's own message; the last user prompt message when omitted).
@@ -81,14 +82,14 @@ async def run_tool_rounds(
     message holds more than one (``tool_loop.parts``); each is searched for itself.
     """
     if not settings.mcp_tool_loop_enabled:
-        return messages, None, None, []
+        return ToolRoundsOutcome(messages, None, None, [])
 
     # The caller's text is the user's own words; the prompt's last user
     # message can also carry attached file text.
     own_text = user_text if user_text is not None else _last_user_content(messages)
     tools = _tools_for_user(settings, user, user_text=own_text)
     if not tools:
-        return messages, None, None, []
+        return ToolRoundsOutcome(messages, None, None, [])
 
     user_text = _last_user_content(messages)
     # One context for the turn: every tool call and the forced search share
@@ -124,11 +125,10 @@ async def run_tool_rounds(
             search_parts=search_parts,
             has_verified_math=has_verified_math,
         )
-        return working, None, None, hits
+        return ToolRoundsOutcome(working, None, None, hits)
 
     working, verified, terminal, hits = await _run_rounds(
         settings=settings,
-        model_alias=model_alias,
         messages=messages,
         usage=usage,
         tools=tools,
@@ -148,13 +148,12 @@ async def run_tool_rounds(
         search_parts=search_parts,
         has_verified_math=has_verified_math,
     )
-    return working, verified, terminal, hits
+    return ToolRoundsOutcome(working, verified, terminal, hits)
 
 
 async def _run_rounds(
     *,
     settings: Settings,
-    model_alias: str,
     messages: list[dict[str, Any]],
     usage: dict[str, int],
     tools: list[dict[str, Any]],
@@ -162,14 +161,13 @@ async def _run_rounds(
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
     user_texts: list[str] | None = None,
-) -> _RoundsOutcome:
+) -> ToolRoundsOutcome:
     """Selection round → execute its calls (merging results) → stop → hand off.
 
     Bounded by ``mcp_tool_loop_max_rounds``, but a round with no calls streams and a
     round that ran calls hands off, so at most one round runs. The selection model
-    comes from the catalog's tool selectors, whatever ``model_alias`` answers.
+    comes from the catalog's tool selectors, whatever model answers the turn.
     """
-    del model_alias
     turn = _Round(
         settings=settings,
         offered=frozenset(str((tool.get("function") or {}).get("name") or "") for tool in tools),
@@ -226,7 +224,7 @@ async def _select_tool_calls(
 
 def _hand_off(
     working: list[dict[str, Any]], prompt_len: int, collected: ToolResults
-) -> _RoundsOutcome:
+) -> ToolRoundsOutcome:
     """The messages the visible stream gets, and what the tools produced."""
     # A cancel can land after the assistant's tool_calls are recorded but before
     # every tool result is appended. Providers reject a message list where a
@@ -248,7 +246,7 @@ def _hand_off(
         # Tool content is supporting data, not a request for a worked tutorial.
         # Append after completed results; cancelled/unanswered rounds were trimmed.
         working.append({"role": "system", "content": MATH_REPLY_POLICY})
-    return working, verified, collected.terminal_image, collected.search_hits
+    return ToolRoundsOutcome(working, verified, collected.terminal_image, collected.search_hits)
 
 
 async def _complete_selection(

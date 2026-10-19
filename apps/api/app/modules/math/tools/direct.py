@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from app.modules.math.followup_what_if import is_part_change
+from app.modules.math.match.scan import strip_command_lead
 from app.modules.math.tools.direct_fences import MAX_DIRECT_ANSWER_CHARS, solver_fences
 from app.modules.math.tools.direct_graph import (
     can_direct_graph,
@@ -107,12 +108,7 @@ def _plain_prime_factorization_request(text: str) -> bool:
         if request.startswith(prefix):
             request = request[len(prefix) :]
             break
-    for prefix in ("find ", "calculate ", "compute ", "determine ", "what is ", "what's "):
-        if request.startswith(prefix):
-            request = request[len(prefix) :]
-            break
-    if request.startswith("the "):
-        request = request[4:]
+    request = strip_command_lead(request)
     for prefix in (
         "prime factorization of ",
         "prime factorisation of ",

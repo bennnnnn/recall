@@ -21,6 +21,22 @@ _db_url, _connect_args = prepare_asyncpg_url(settings.database_url)
 config.set_main_option("sqlalchemy.url", _db_url)
 
 
+# Schema objects a migration owns that the ORM deliberately leaves out, so that
+# autogenerate (and ``alembic check``) does not propose dropping them.
+_MIGRATION_ONLY_INDEXES = frozenset(
+    {
+        # Partial unique on (user_id, lower(content), due_at) for open dated to-dos
+        # (0084). Not on TodoItem: SQLite ``__table__.create()`` fixtures can't build
+        # the Postgres expression.
+        "uq_todo_open_content_due",
+    }
+)
+
+
+def include_object(obj, name, type_, reflected, compare_to) -> bool:  # type: ignore[no-untyped-def]
+    return not (type_ == "index" and reflected and name in _MIGRATION_ONLY_INDEXES)
+
+
 def _engine_config() -> dict:
     section = config.get_section(config.config_ini_section, {}) or {}
     section["sqlalchemy.url"] = _db_url
@@ -32,6 +48,7 @@ def run_migrations_offline() -> None:
     context.configure(
         url=url,
         target_metadata=target_metadata,
+        include_object=include_object,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -47,6 +64,7 @@ def do_run_migrations(connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
+        include_object=include_object,
         transaction_per_migration=True,
     )
     with context.begin_transaction():

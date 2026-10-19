@@ -1,7 +1,7 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import type { useRouter } from "expo-router";
 
-import type { useDraftChat } from "@/hooks/useDraftChat";
+import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 
 type Options = {
   chatId: string | null;

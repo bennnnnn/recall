@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.physics.extractors.common import labeled_value
 from app.modules.physics.extractors.rotational_laws import (
     _angular_impulse,
     _angular_momentum,
@@ -19,7 +20,6 @@ from app.modules.physics.extractors.rotational_readings import (
     _INERTIA_PATTERN,
     _OMEGA_UNIT,
     _alpha,
-    _first,
     _from_rest,
     _inertia_value,
     _intent,
@@ -68,8 +68,8 @@ def extract_rotational_dynamics(cleaned: str) -> PhysicsIntent | None:
     if re.search(_ALPHA_UNIT, cleaned, re.I) or "angular acceleration" in lower:
         return _kinematics(cleaned)
     labeled_endpoints = (
-        _first(cleaned, r"initial angular (?:velocity|speed)", _OMEGA_UNIT) is not None
-        and _first(cleaned, r"final angular (?:velocity|speed)", _OMEGA_UNIT) is not None
+        labeled_value(cleaned, r"initial angular (?:velocity|speed)", _OMEGA_UNIT) is not None
+        and labeled_value(cleaned, r"final angular (?:velocity|speed)", _OMEGA_UNIT) is not None
     )
     if (
         "angular displacement" in lower
@@ -90,9 +90,9 @@ def _kinematics(cleaned: str) -> PhysicsIntent | None:
     if pair is not None:
         params["omega0"], units["omega0"] = pair[0]
         params["omega"], units["omega"] = pair[1]
-    initial = _first(cleaned, r"initial angular (?:velocity|speed)", _OMEGA_UNIT)
-    final = _first(cleaned, r"final angular (?:velocity|speed)", _OMEGA_UNIT)
-    lone = _first(cleaned, r"(?:final )?angular (?:velocity|speed)", _OMEGA_UNIT)
+    initial = labeled_value(cleaned, r"initial angular (?:velocity|speed)", _OMEGA_UNIT)
+    final = labeled_value(cleaned, r"final angular (?:velocity|speed)", _OMEGA_UNIT)
+    lone = labeled_value(cleaned, r"(?:final )?angular (?:velocity|speed)", _OMEGA_UNIT)
     if initial is not None:
         params["omega0"], units["omega0"] = initial
     if initial is not None and final is not None:
@@ -111,7 +111,7 @@ def _kinematics(cleaned: str) -> PhysicsIntent | None:
     elapsed = _time(cleaned)
     if elapsed is not None:
         params["t"], units["t"] = elapsed
-    angle = _first(cleaned, r"angular displacement|angle", r"radians?|rad")
+    angle = labeled_value(cleaned, r"angular displacement|angle", r"radians?|rad")
     if angle is not None:
         params["theta"], units["theta"] = angle[0], "rad"
     lower = cleaned.lower()

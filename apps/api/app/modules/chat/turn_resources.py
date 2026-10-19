@@ -13,15 +13,14 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.exceptions import (
     ChatBusyError,
-    ChatServiceError,
     QuotaExceededError,
     SpendCapReachedError,
 )
 from app.models.orm import User
-from app.modules.chat.post_turn import seed_usage_from_db
-from app.modules.chat.prompt_builder import StreamStatusFn
+from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
+from app.modules.chat.turn_settle import seed_usage_from_db
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import model_catalog
 from app.services.context_window import estimate_tokens
@@ -136,7 +135,7 @@ async def turn_resources(
         raise
     finally:
         refresh_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError, ChatServiceError, Exception):
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await refresh_task
         await deps.locks.release_lock(redis, lock_key, lock_token)
 

@@ -13,7 +13,7 @@ import {
 } from "@/features/attachments/model/attachments";
 import { getSessionGeneration } from "@/lib/auth";
 import { sanitizeDisplayName } from "@/lib/profile";
-import { discardProfilePhoto, pickProfilePhoto } from "@/lib/profilePhoto";
+import { discardProfilePhoto, pickProfilePhoto } from "@/features/account/model/profilePhoto";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
 type Owner = { session: number; userId: string | undefined; signedIn: boolean };

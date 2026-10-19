@@ -10,6 +10,11 @@ into it.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
+
+# How a reply ended: whole, cut short (provider, length or a server stop), or stopped
+# by its user. ``done`` sends the last two as ``completion``.
+Completion = Literal["complete", "interrupted", "user_stop"]
 
 # A client's report of how much it drew is a UTF-16 length (a JS string's).
 _UTF16 = "utf-16-le"
@@ -30,7 +35,7 @@ class StreamAccum:
     # The text the client was sent: scaffolding removed (``ScaffoldFilter``).
     shown: list[str] = field(default_factory=list)
     was_cancelled: bool = False
-    completion: str = "complete"
+    completion: Completion = "complete"
 
     def mark_user_stop(self) -> None:
         self.was_cancelled = True

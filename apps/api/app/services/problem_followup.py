@@ -12,9 +12,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
+from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
+from app.services.law_binding.units import UnitTable
 
 # A line that asks only to have the previous result explained, read lowercase.
 EXPLAIN_RE = re.compile(
@@ -180,3 +183,53 @@ def replace_given(text: str, given: Given, value: str, unit: str) -> str:
     if old_unit is not None:
         end += old_unit.end()
     return text[: given.start] + f"{value} {unit}" + text[end:]
+
+
+@dataclass(frozen=True)
+class GivenRewriter:
+    """One subject's way to replace or scale one given of its previous problem.
+
+    The subject brings its unit table, how it reads a unit's and a quantity name's
+    dimension, and the check that a rewritten problem still verifies. A rewrite
+    needs exactly one given of the asked kind, changes the text, and verifies.
+    """
+
+    units: UnitTable
+    unit_dimension: Callable[[str], str | None]
+    phrase_dimension: Callable[[str], str | None]
+    verifies: Callable[[str], bool]
+
+    def changed(self, prior: str, name: str | None, value: str, unit: str | None) -> str | None:
+        """``and after 10 s``, ``what if the mass was 4 kg``: that given replaced."""
+        if not unit or not unit.strip():
+            return None
+        written_unit = " ".join(unit.split())
+        new_dim = self.unit_dimension(written_unit)
+        if new_dim is None:
+            return None
+        if name:
+            named_dim = self.phrase_dimension(given_name(name))
+            if named_dim is None or named_dim != new_dim:
+                return None
+        matches = self._of_dimension(prior, new_dim)
+        if len(matches) != 1:
+            return None
+        rewritten = replace_given(prior, matches[0], value, written_unit)
+        if rewritten == prior:
+            return None
+        return rewritten if self.verifies(rewritten) else None
+
+    def scaled(self, prior: str, name: str, factor: float) -> str | None:
+        """``what if the mass doubles``: the one given of that kind, times the factor."""
+        named_dim = self.phrase_dimension(given_name(name))
+        if named_dim is None:
+            return None
+        matches = self._of_dimension(prior, named_dim)
+        if len(matches) != 1:
+            return None
+        given = matches[0]
+        rewritten = replace_given(prior, given, scaled_value(given.value, factor), given.unit)
+        return rewritten if rewritten != prior and self.verifies(rewritten) else None
+
+    def _of_dimension(self, prior: str, dimension: str) -> list[Given]:
+        return [given for given in read_givens(prior, self.units) if given.dimension == dimension]

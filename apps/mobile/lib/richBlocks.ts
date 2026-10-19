@@ -35,7 +35,6 @@ const SOCIAL_LANGS: Record<string, SocialPlatform> = {
   caption: "generic",
   social: "generic",
 };
-const MESSAGE_LANGS = new Set(["sms", "message", "reply"]);
 
 const EMAIL_TO_LABEL =
   /^(?:to|para|à|an|a|кому|kime|ለ|gara|收件人|致|宛先|받는 사람)\s*:\s*(.+)$/i;
@@ -82,7 +81,7 @@ export function parseSocialPlatform(lang: string): SocialPlatform | null {
 }
 
 export function isMessageLang(lang: string): boolean {
-  return MESSAGE_LANGS.has(lang.trim().toLowerCase());
+  return fenceIdForLang(lang) === "message";
 }
 
 export function parseEmailDraft(text: string): EmailDraft | null {

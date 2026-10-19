@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules import home as home_service
+from app.modules.home import service as home_service
 
 
 def _user(**kwargs):
@@ -179,7 +179,7 @@ async def test_get_home_screen_cached_reuses_redis(fake_redis):
     )
 
     with (
-        patch("app.modules.home.get_redis_client", return_value=fake_redis),
+        patch("app.modules.home.service.get_redis_client", return_value=fake_redis),
         patch.object(
             home_service,
             "build_home_screen",
@@ -203,7 +203,7 @@ async def test_invalidate_home_cache_bumps_generation(fake_redis):
     await fake_redis.set(f"home:{other_id}:0:UTC:1", "{}", ex=60)
     generation_key = home_service._home_generation_key(user_id)
 
-    with patch("app.modules.home.get_redis_client", return_value=fake_redis):
+    with patch("app.modules.home.service.get_redis_client", return_value=fake_redis):
         await home_service.invalidate_home_cache(user_id)
         first = await fake_redis.get(generation_key)
         await home_service.invalidate_home_cache(user_id)
@@ -220,7 +220,7 @@ async def test_home_generation_key_expires(fake_redis):
     from app.core.cache_generation import GENERATION_TTL_SECONDS
 
     user_id = uuid4()
-    with patch("app.modules.home.get_redis_client", return_value=fake_redis):
+    with patch("app.modules.home.service.get_redis_client", return_value=fake_redis):
         await home_service.invalidate_home_cache(user_id)
 
     ttl = await fake_redis.ttl(home_service._home_generation_key(user_id))
@@ -240,7 +240,7 @@ async def test_get_home_screen_cached_rebuilds_after_invalidate(fake_redis):
     )
 
     with (
-        patch("app.modules.home.get_redis_client", return_value=fake_redis),
+        patch("app.modules.home.service.get_redis_client", return_value=fake_redis),
         patch.object(
             home_service,
             "build_home_screen",
@@ -275,19 +275,19 @@ async def test_get_home_screen_cached_unreadable_generation_skips_the_cache(fake
         return await read(key)
 
     with (
-        patch("app.modules.home.get_redis_client", return_value=fake_redis),
+        patch("app.modules.home.service.get_redis_client", return_value=fake_redis),
         patch.object(home_service, "build_home_screen", AsyncMock(side_effect=[stale, fresh])),
     ):
         await home_service.get_home_screen_cached(AsyncMock(), user, settings)
         await home_service.invalidate_home_cache(user.id)  # the user changed a reminder
         with (
             patch.object(fake_redis, "get", side_effect=get_failing_generation),
-            caplog.at_level("WARNING", logger="app.modules.home"),
+            caplog.at_level("WARNING", logger="app.modules.home.service"),
         ):
             screen = await home_service.get_home_screen_cached(AsyncMock(), user, settings)
 
     assert screen.greeting == "Fresh"
-    warnings = [r for r in caplog.records if r.name == "app.modules.home"]
+    warnings = [r for r in caplog.records if r.name == "app.modules.home.service"]
     assert [r.levelname for r in warnings] == ["WARNING"]
     assert "ConnectionError" in warnings[0].getMessage()
     # Nothing is written under a generation it could not read.

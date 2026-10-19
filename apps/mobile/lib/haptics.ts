@@ -1,11 +1,13 @@
 import { Platform, Vibration } from "react-native";
 import * as Haptics from "expo-haptics";
 
+import { createListenerSet } from "@/lib/listenerSet";
+
 /** Platform where native haptics failed. Vibration is the Android fallback only. */
 let unavailableOn: string | null = null;
 /** Settings → Haptics. Loaded from the device at start (lib/hapticsPrefs). */
 let enabled = true;
-const listeners = new Set<() => void>();
+const listeners = createListenerSet();
 
 export function hapticsEnabled(): boolean {
   return enabled;
@@ -14,14 +16,11 @@ export function hapticsEnabled(): boolean {
 export function setHapticsEnabledSnapshot(next: boolean): void {
   if (next === enabled) return;
   enabled = next;
-  listeners.forEach((listener) => listener());
+  listeners.emit();
 }
 
 export function subscribeHaptics(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
+  return listeners.subscribe(listener);
 }
 
 function vibrateAndroid(ms: number): void {

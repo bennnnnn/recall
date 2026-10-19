@@ -22,6 +22,7 @@ import {
 } from "@/features/todos/model/reminderPrefs";
 import { normalizeReminderLeadMinutes } from "@/features/todos/model/reminderTiming";
 import { type User } from "@/lib/api";
+import { createListenerSet } from "@/lib/listenerSet";
 import { alertDialog } from "@/ui/overlay/dialogs";
 import { TimePickerDialog } from "@/ui/pickers/TimePickerDialog";
 
@@ -35,12 +36,7 @@ const PUSH_KINDS = [
 type PushKindField = (typeof PUSH_KINDS)[number]["field"];
 
 let pending: { session: number; action: string } | null = null;
-const listeners = new Set<() => void>();
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => { listeners.delete(listener); };
-}
-function notify() { listeners.forEach((listener) => listener()); }
+const listeners = createListenerSet();
 
 export default function NotificationsSettingsScreen() {
   const view = useAccountViewOwner();
@@ -55,18 +51,18 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
   );
   const [pickingQuiet, setPickingQuiet] = useState<"start" | "end" | null>(null);
   const session = getSessionGeneration();
-  const busyAction = useSyncExternalStore(subscribe, () => pending?.session === session ? pending.action : null);
+  const busyAction = useSyncExternalStore(listeners.subscribe, () => pending?.session === session ? pending.action : null);
   const sameAccount = useCallback(() => Boolean(token) && session === getSessionGeneration(), [token, session]);
   const isCurrent = useCallback(() => isCurrentView() && sameAccount(), [isCurrentView, sameAccount]);
   const begin = useCallback((action: string) => {
     if (!token || !isCurrent() || pending?.session === session) return null;
     const request = { session, action };
     pending = request;
-    notify();
+    listeners.emit();
     return request;
   }, [token, isCurrent, session]);
   const finish = useCallback((request: NonNullable<typeof pending>) => {
-    if (pending === request) { pending = null; notify(); }
+    if (pending === request) { pending = null; listeners.emit(); }
   }, []);
   const feedback = useActionFeedbackOptional();
 

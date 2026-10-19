@@ -16,7 +16,6 @@ async def test_tool_selection_uses_own_budget_and_preserves_visible_cap(budget):
     with patch.object(rounds.litellm_gateway, "complete_with_tools", complete):
         await rounds._run_rounds(
             settings=settings,
-            model_alias="smart-chat",
             messages=[{"role": "user", "content": "Solve this"}],
             usage={},
             tools=[],
@@ -54,7 +53,6 @@ async def test_truncated_complete_json_never_invokes_a_tool():
     ):
         out, verified, terminal, hits = await rounds._run_rounds(
             settings=Settings(mock_llm_enabled=False, openrouter_api_key="test-only"),
-            model_alias="free-chat",
             messages=messages,
             usage=usage,
             tools=[{"type": "function", "function": {"name": "calendar"}}],
@@ -87,7 +85,6 @@ async def test_cancel_after_selection_prevents_invocation_and_failure_context():
     ):
         out, *_ = await rounds._run_rounds(
             settings=Settings(),
-            model_alias="free-chat",
             messages=messages,
             usage={},
             tools=[],
@@ -122,7 +119,6 @@ async def _select(complete: AsyncMock) -> tuple[list[dict], AsyncMock]:
     ):
         out, *_ = await rounds._run_rounds(
             settings=Settings(),
-            model_alias="smart-chat",
             messages=messages,
             usage={},
             tools=[{"type": "function", "function": {"name": "web_search"}}],

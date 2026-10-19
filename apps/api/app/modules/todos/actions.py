@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -12,12 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
 from app.models.schemas import TodoActionItem
-from app.modules import home as home_service
+from app.modules.home import service as home_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import _normalize, _topic_key
 from app.modules.todos.recurrence import RecurrenceRule, is_recurrence_rule, snap_first_due
 from app.services import time_context as time_context_service
-from app.services.action_dispatch import ActionHandler, apply_action_batch
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +264,9 @@ async def _todo_action_clear_due(state: _TodoApplyState, action: TodoActionItem)
     return 0
 
 
-_TODO_ACTION_HANDLERS: dict[str, ActionHandler[_TodoApplyState, TodoActionItem]] = {
+# Each handler mutates the preloaded state and returns how many rows it changed.
+_TodoActionHandler = Callable[[_TodoApplyState, TodoActionItem], Awaitable[int]]
+_TODO_ACTION_HANDLERS: dict[str, _TodoActionHandler] = {
     "add": _todo_action_add,
     "complete": _todo_action_complete,
     "uncheck": _todo_action_uncheck,
@@ -293,31 +295,30 @@ async def apply_todo_actions(
         items=items,
     )
 
-    def _on_error(action: TodoActionItem) -> None:
-        logger.exception(
-            "Failed todo action %s for user_id=%s topic=%s",
-            action.action,
-            user_id,
-            action.topic,
-        )
-
-    def _log_summary(applied: int) -> None:
+    applied = 0
+    for action in actions:
+        prepared = _prepare_todo_action(action)
+        if prepared is None:
+            continue
+        handler = _TODO_ACTION_HANDLERS.get(prepared.action)
+        if handler is None:
+            continue
+        try:
+            applied += await handler(state, prepared)
+        except Exception:
+            logger.exception(
+                "Failed todo action %s for user_id=%s topic=%s",
+                prepared.action,
+                user_id,
+                prepared.topic,
+            )
+    if applied > 0:
         logger.info(
             "Applied %d todo action(s) for user_id=%s chat_id=%s",
             applied,
             user_id,
             chat_id,
         )
-
-    applied = await apply_action_batch(
-        actions=actions,
-        state=state,
-        handlers=_TODO_ACTION_HANDLERS,
-        action_name=lambda a: a.action,
-        prepare=_prepare_todo_action,
-        on_error=_on_error,
-        log_summary=_log_summary,
-        invalidate_home=lambda: home_service.invalidate_home_cache(user_id),
-    )
+        await home_service.invalidate_home_cache(user_id)
     await session.commit()
     return applied

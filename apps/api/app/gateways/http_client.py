@@ -1,10 +1,15 @@
 """Pooled, keep-alive httpx.AsyncClient shared across outbound gateway calls.
 
-Each external gateway (Tavily, PubChem, Mathpix, speech) used to open a fresh
-httpx.AsyncClient per call, paying a new TCP+TLS handshake every time even
-for repeated calls to the same host within seconds. Gateways call
-get_pooled_client(timeout) instead, which lazily creates one client per
-distinct timeout/retry policy and reuses it for the life of the process.
+Each external gateway used to open a fresh httpx.AsyncClient per call, paying
+a new TCP+TLS handshake every time even for repeated calls to the same host
+within seconds. Gateways call get_pooled_client(<NAMED>_TIMEOUT_SECONDS)
+instead, which lazily creates one client per distinct timeout/retry policy and
+reuses it for the life of the process; process shutdown closes them all.
+
+A new gateway does the same: one named timeout constant (or a setting) and
+this client. The exceptions open their own client on purpose: a download
+through ``safe_fetch`` (it checks every redirect hop itself) and the image
+generation call (``image_gateway``), whose tests drive both clients together.
 """
 
 from __future__ import annotations

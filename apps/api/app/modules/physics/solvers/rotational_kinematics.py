@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import math
 
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _latex_num
+from app.modules.physics.solvers.common import (
+    PhysicsResult,
+    QuantityResult,
+    _latex_num,
+    one_unknown,
+)
 from app.services.solving import SolveServiceError
-
-
-def _unknown(params: dict[str, float], keys: tuple[str, ...]) -> str:
-    missing = [key for key in keys if key not in params]
-    if len(missing) != 1:
-        raise SolveServiceError("needs exactly one unknown")
-    return missing[0]
 
 
 def _omega(params: dict[str, float]) -> PhysicsResult:
@@ -158,7 +156,7 @@ def _alpha(params: dict[str, float]) -> PhysicsResult:
 
 
 def _torque_inertia(params: dict[str, float]) -> PhysicsResult:
-    unknown = _unknown(params, ("tau", "inertia", "ang_alpha"))
+    unknown = one_unknown(params, ("tau", "inertia", "ang_alpha"))
     if unknown == "tau":
         if params["inertia"] <= 0:
             raise SolveServiceError("moment of inertia must be positive")

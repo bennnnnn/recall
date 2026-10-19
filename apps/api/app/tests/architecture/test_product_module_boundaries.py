@@ -66,11 +66,13 @@ def test_home_runtime_code_has_one_owner() -> None:
     module_root = APP_ROOT / "modules" / "home"
     expected = {
         "api.py",
-        "memory_starters.py",
-        "time_starters.py",
-        "util.py",
+        "greeting.py",
+        "reminder_copy.py",
+        "service.py",
     }
     assert expected <= {path.name for path in module_root.glob("*.py")}
+    # The package initializer holds no service code; callers import ``service``.
+    assert "def " not in (module_root / "__init__.py").read_text()
     assert (APP_ROOT / "tests" / "modules" / "home" / "test_service.py").is_file()
 
 
@@ -90,6 +92,24 @@ def test_search_runtime_code_has_one_owner() -> None:
         "test_repository.py",
         "test_repository_db.py",
     } <= {path.name for path in (APP_ROOT / "tests" / "modules" / "search").glob("*.py")}
+
+
+def test_analytics_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "analytics"
+    assert {"api.py", "service.py"} <= {path.name for path in module_root.glob("*.py")}
+    assert not (APP_ROOT / "routers" / "analytics.py").exists()
+    assert {"test_api.py", "test_service.py"} <= {
+        path.name for path in (APP_ROOT / "tests" / "modules" / "analytics").glob("*.py")
+    }
+
+
+def test_link_preview_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "link_preview"
+    assert {"api.py", "service.py"} <= {path.name for path in module_root.glob("*.py")}
+    assert not (APP_ROOT / "routers" / "link_preview.py").exists()
+    assert {"test_api.py", "test_service.py"} <= {
+        path.name for path in (APP_ROOT / "tests" / "modules" / "link_preview").glob("*.py")
+    }
 
 
 def test_chat_runtime_code_has_one_owner() -> None:

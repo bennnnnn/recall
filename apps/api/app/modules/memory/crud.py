@@ -1,20 +1,57 @@
 import logging
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.gateways import embedding_gateway
 from app.models.orm import Memory
+from app.modules.home import service as home_service
+from app.modules.memory import repository as memories_repo
 
 logger = logging.getLogger(__name__)
 
 
 async def _invalidate_caches(seams: Any, user_id: UUID) -> None:
-    from app.modules import home as home_service
-
     await seams.invalidate_memory_block(user_id)
     await home_service.invalidate_home_cache(user_id)
+
+
+@asynccontextmanager
+async def _write_locked(seams: Any, user_id: UUID) -> AsyncIterator[None]:
+    """Hold the user's memory write lock for the block (busy: ``MemoryWriteLockBusyError``)."""
+    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
+    try:
+        yield
+    finally:
+        await seams.release_memory_write_lock(user_id, lock_token)
+
+
+async def _commit_hand_delete[T: int](
+    seams: Any,
+    session: AsyncSession,
+    user_id: UUID,
+    delete: Callable[[], Awaitable[T]],
+) -> T:
+    """One hand delete as one transaction: delete, stamp the edit, commit; then drop caches.
+
+    Stamping ``memory_edited_at`` in the same commit keeps the history scan from
+    restoring what the user removed. A failure rolls the whole unit back.
+    """
+    try:
+        removed = await delete()
+        if removed:
+            await memories_repo.note_manual_edit(session, user_id)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    if removed:
+        await _invalidate_caches(seams, user_id)
+    return removed
 
 
 async def delete_memory_fact(
@@ -28,11 +65,11 @@ async def delete_memory_fact(
     expected_text: str | None = None,
 ) -> bool:
     """Legacy sentence-index delete. Atomic rows delete the whole fact."""
-    from app.gateways import embedding_gateway
-    from app.modules.memory import repository as memories_repo
 
-    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
-    try:
+    def delete_row() -> Awaitable[bool]:
+        return memories_repo.delete_by_id(session, user_id, memory_id, commit=False)
+
+    async with _write_locked(seams, user_id):
         memory = await memories_repo.get_by_id(session, user_id, memory_id)
         if memory is None:
             return False
@@ -43,17 +80,7 @@ async def delete_memory_fact(
                 actual = seams.normalize_memory_text(memory.text).lower()
                 if expected and expected not in actual and actual not in expected:
                     return False
-            deleted = await memories_repo.delete_by_id(session, user_id, memory_id, commit=False)
-            try:
-                if deleted:
-                    await memories_repo.note_manual_edit(session, user_id)
-                await session.commit()
-            except Exception:
-                await session.rollback()
-                raise
-            if deleted:
-                await _invalidate_caches(seams, user_id)
-            return deleted
+            return await _commit_hand_delete(seams, session, user_id, delete_row)
 
         target_index = fact_index
         if expected_text is not None:
@@ -70,22 +97,7 @@ async def delete_memory_fact(
             return False
         facts.pop(target_index)
         if not facts:
-            try:
-                deleted = await memories_repo.delete_by_id(
-                    session,
-                    user_id,
-                    memory_id,
-                    commit=False,
-                )
-                if deleted:
-                    await memories_repo.note_manual_edit(session, user_id)
-                await session.commit()
-            except Exception:
-                await session.rollback()
-                raise
-            if deleted:
-                await _invalidate_caches(seams, user_id)
-            return deleted
+            return await _commit_hand_delete(seams, session, user_id, delete_row)
 
         new_text = seams.join_memory_facts(facts)
         stored = seams.normalize_memory_text(new_text)
@@ -124,8 +136,6 @@ async def delete_memory_fact(
             await _invalidate_caches(seams, user_id)
             return True
         return False
-    finally:
-        await seams.release_memory_write_lock(user_id, lock_token)
 
 
 async def update_memory(
@@ -138,9 +148,6 @@ async def update_memory(
     *,
     status: str | None = None,
 ) -> Memory | None:
-    from app.gateways import embedding_gateway
-    from app.modules.memory import repository as memories_repo
-
     clean: str | None = None
     if text is not None:
         clean = seams.normalize_memory_text(seams.strip_memory_as_of(text))
@@ -148,8 +155,7 @@ async def update_memory(
             raise seams.MemoryEmptyTextError()
     if clean is None and status is None:
         raise seams.MemoryEmptyTextError()
-    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
-    try:
+    async with _write_locked(seams, user_id):
         memory = await memories_repo.get_by_id(session, user_id, memory_id)
         if memory is None:
             return None
@@ -196,8 +202,6 @@ async def update_memory(
         if updated is not None:
             await _invalidate_caches(seams, user_id)
         return updated
-    finally:
-        await seams.release_memory_write_lock(user_id, lock_token)
 
 
 async def delete_memory(
@@ -206,28 +210,13 @@ async def delete_memory(
     user_id: UUID,
     memory_id: UUID,
 ) -> bool:
-    from app.modules.memory import repository as memories_repo
-
-    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
-    try:
-        try:
-            deleted = await memories_repo.delete_by_id(
-                session,
-                user_id,
-                memory_id,
-                commit=False,
-            )
-            if deleted:
-                await memories_repo.note_manual_edit(session, user_id)
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        if deleted:
-            await _invalidate_caches(seams, user_id)
-        return deleted
-    finally:
-        await seams.release_memory_write_lock(user_id, lock_token)
+    async with _write_locked(seams, user_id):
+        return await _commit_hand_delete(
+            seams,
+            session,
+            user_id,
+            lambda: memories_repo.delete_by_id(session, user_id, memory_id, commit=False),
+        )
 
 
 async def delete_memory_section(
@@ -236,28 +225,14 @@ async def delete_memory_section(
     user_id: UUID,
     memory_type: str,
 ) -> bool:
-    from app.modules.memory import repository as memories_repo
-
-    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
-    try:
-        try:
-            removed = await memories_repo.delete_by_type(
-                session,
-                user_id,
-                memory_type,
-                commit=False,
-            )
-            if removed:
-                await memories_repo.note_manual_edit(session, user_id)
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        if removed:
-            await _invalidate_caches(seams, user_id)
-        return removed > 0
-    finally:
-        await seams.release_memory_write_lock(user_id, lock_token)
+    async with _write_locked(seams, user_id):
+        removed = await _commit_hand_delete(
+            seams,
+            session,
+            user_id,
+            lambda: memories_repo.delete_by_type(session, user_id, memory_type, commit=False),
+        )
+    return removed > 0
 
 
 async def delete_memory_document(
@@ -267,40 +242,21 @@ async def delete_memory_document(
     topic: str,
 ) -> bool:
     """Delete every fact in one document (and an area's title row)."""
-    from app.modules.memory import repository as memories_repo
-
-    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
-    try:
-        try:
-            removed = await memories_repo.delete_topic(session, user_id, topic, commit=False)
-            if removed:
-                await memories_repo.note_manual_edit(session, user_id)
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        if removed:
-            await _invalidate_caches(seams, user_id)
-        return removed > 0
-    finally:
-        await seams.release_memory_write_lock(user_id, lock_token)
+    async with _write_locked(seams, user_id):
+        removed = await _commit_hand_delete(
+            seams,
+            session,
+            user_id,
+            lambda: memories_repo.delete_topic(session, user_id, topic, commit=False),
+        )
+    return removed > 0
 
 
 async def delete_all_memories(seams: Any, session: AsyncSession, user_id: UUID) -> int:
-    from app.modules.memory import repository as memories_repo
-
-    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
-    try:
-        try:
-            removed = await memories_repo.delete_all_for_user(session, user_id, commit=False)
-            if removed:
-                await memories_repo.note_manual_edit(session, user_id)
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        if removed:
-            await _invalidate_caches(seams, user_id)
-        return removed
-    finally:
-        await seams.release_memory_write_lock(user_id, lock_token)
+    async with _write_locked(seams, user_id):
+        return await _commit_hand_delete(
+            seams,
+            session,
+            user_id,
+            lambda: memories_repo.delete_all_for_user(session, user_id, commit=False),
+        )

@@ -35,3 +35,19 @@ function closesItsBraces(content: string): boolean {
   }
   return !inString && depth <= 0 && /[}\]]$/.test(text);
 }
+
+/** A JSON object: not null and not an array. What every fence reader expects at its root. */
+export function isJsonRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** `text` parsed as JSON when it is an object, else null (bad JSON included). */
+export function parseJsonRecord(text: string): Record<string, unknown> | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  return isJsonRecord(value) ? value : null;
+}

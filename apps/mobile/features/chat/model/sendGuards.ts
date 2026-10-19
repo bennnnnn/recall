@@ -15,7 +15,6 @@ export function canSend(input: {
   hasAttachment: boolean;
   token: string | null;
   creating: boolean;
-  attachBusy: boolean;
 }): SendGuardVerdict {
   // A send still preparing, or a routed chat whose history has not loaded.
   if (

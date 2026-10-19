@@ -20,13 +20,11 @@ from app.exceptions import (
     ChatBusyError,
     ChatServiceError,
     QuotaExceededError,
-    RedisUnavailableError,
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
-    REPLY_SAVE_FAILED_MESSAGE,
-    DoneEvent,
+    EXPECTED_TURN_ERRORS,
     StreamEndEvent,
     await_finalize_commit,
     build_start_event,
@@ -35,6 +33,7 @@ from app.modules.chat.stream_events import (
     finish_open_stream,
     persist_finalize_if_pending,
     pop_finalize_tasks,
+    settled_turn_event,
     take_related_prompts_event,
     turn_error_payload,
 )
@@ -121,25 +120,10 @@ async def stream_over_ws(
         # On TIMEOUT we send `done` without `message_id` (persisting: true) so
         # the client keeps the local bubble and refetches instead of trusting
         # a row that may never persist if the shielded task later fails.
-        finalize_db_task = pop_finalize_tasks(outcome)
-        commit_status = await await_finalize_commit(finalize_db_task)
-        if commit_status == "failed":
-            await safe_send_json(
-                websocket,
-                turn_error_payload(
-                    None,
-                    user_message_saved=outcome.user_message_saved,
-                    message=REPLY_SAVE_FAILED_MESSAGE,
-                ),
-            )
-            return
-        if commit_status == "timeout":
-            done = DoneEvent.from_outcome(outcome, persisting=True)
-            await safe_send_json(websocket, done.model_dump())
-            return
-
-        await safe_send_json(websocket, DoneEvent.from_outcome(outcome).model_dump())
-        schedule_related_prompts(websocket, outcome)
+        commit = await await_finalize_commit(pop_finalize_tasks(outcome))
+        await safe_send_json(websocket, settled_turn_event(outcome, commit))
+        if commit == "committed":
+            schedule_related_prompts(websocket, outcome)
 
     producer = asyncio.create_task(run_stream())
 
@@ -240,10 +224,7 @@ async def run_chat_stream(
             frame_budget,
         )
     except Exception as exc:
-        if not isinstance(
-            exc,
-            QuotaExceededError | RedisUnavailableError | ChatServiceError | ModelUnavailableError,
-        ):
+        if not isinstance(exc, EXPECTED_TURN_ERRORS):
             logger.exception("Unexpected chat stream error")
         await safe_send_json(
             websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)

@@ -90,31 +90,18 @@ select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
 "app/gateways/**" = ["S105", "E501"]
 "app/gateways/storage_gateway.py" = ["S105", "S108"]
 "app/models/orm/**" = ["E501"]
-"app/content/vocab_banks_en/**" = ["RUF001", "E501"]
-"app/modules/learning/items_repository.py" = ["RUF005"]
 "app/modules/chat/**" = ["E501"]
 "app/modules/chat/*_api.py" = ["B008", "E501"]
-"app/modules/learning/actions.py" = ["E501", "RUF001"]
-"app/modules/learning/common.py" = ["E501", "RUF001"]
-"app/modules/learning/crud.py" = ["E501", "RUF001"]
-"app/modules/learning/extract.py" = ["E501", "RUF001"]
-"app/modules/learning/items.py" = ["E501", "RUF001"]
-"app/modules/learning/prompt_context.py" = ["E501", "RUF001"]
-"app/modules/learning/prompts.py" = ["E501", "RUF001"]
-"app/modules/learning/quiz_grading.py" = ["E501", "RUF001"]
-"app/modules/learning/stats.py" = ["E501", "RUF001"]
-"app/modules/learning/sync.py" = ["E501", "RUF001"]
-"app/modules/learning/path_seed.py" = ["E501", "RUF001"]
 "app/modules/notifications/push.py" = ["RUF001", "RUF002", "RUF003"]
-"app/modules/notifications/transactional_email.py" = ["RUF001", "RUF002", "RUF003"]
+"app/modules/notifications/email_copy.py" = ["RUF001", "RUF002", "RUF003"]
 "app/services/reminder_timing.py" = ["RUF001", "RUF002", "RUF003"]
 # Writes the scanner reading in the glyphs students use (ℤ, ×, √).
 "app/modules/math/reading.py" = ["RUF001", "RUF002", "RUF003"]
-"app/services/todos/**" = ["E501", "S101"]
 "app/modules/todos/**" = ["E501", "S101"]
 "app/modules/web_search/*.py" = ["E501", "RUF002"]
 "app/core/deps.py" = ["B008"]
 "app/core/config.py" = ["S105"]
+"app/core/settings/auth.py" = ["S105"]
 "app/models/schemas/**" = ["S105"]
 
 [tool.mypy]
@@ -133,11 +120,11 @@ module = [
     "app.exceptions",
     "app.models.schemas",
     "app.models.schemas.*",
+    "app.modules.attachments.content",
+    "app.modules.attachments.ocr",
+    "app.modules.attachments.upload",
     "app.repositories",
     "app.repositories.*",
-    "app.services.attachment_content",
-    "app.services.attachment_ocr",
-    "app.services.attachment_upload",
     "app.services.quota",
     "app.services.quota.*",
 ]

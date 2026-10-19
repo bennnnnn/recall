@@ -76,7 +76,6 @@ const baseProps = {
   input: "",
   onChangeInput: jest.fn(),
   streaming: false,
-  attachBusy: false,
   pendingAttachment: null,
   onRemoveAttachment: jest.fn(),
   onCloseAttachSheet: jest.fn(),

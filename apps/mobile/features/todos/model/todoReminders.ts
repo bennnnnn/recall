@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 
 import type { Todo } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { formatClockTime } from "@/lib/datetime/format";
 import i18n from "@/lib/i18n";
 import { getReminderLeadMs } from "@/features/todos/model/reminderPrefs";
 import { leadMsFromMinutes, reminderNotifyDate } from "@/features/todos/model/reminderTiming";
@@ -40,9 +41,6 @@ function enqueue(session: number, operation: (current: IsCurrent) => Promise<voi
 }
 
 export function todoNotificationId(todoId: string): string { return `${TODO_PREFIX}${todoId}`; }
-function formatDueTime(due: Date): string {
-  return due.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-}
 async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android" || androidChannelReady) return;
   await ensureAndroidNotificationChannels({
@@ -84,7 +82,7 @@ async function schedule(todo: Todo, leadMs: number, current: IsCurrent): Promise
     identifier: id,
     content: {
       title: i18n.t("notifications.todo_reminder_title"),
-      body: i18n.t("notifications.todo_reminder_body", { content: todo.content, time: formatDueTime(due) }),
+      body: i18n.t("notifications.todo_reminder_body", { content: todo.content, time: formatClockTime(due) }),
       data: { type: "todo_due", screen: "todos", todo_id: todo.id, topic: todo.topic },
       sound: NOTIFICATION_SOUND,
       ...(Platform.OS === "android" ? { channelId: ANDROID_CHANNEL } : {}),

@@ -64,6 +64,7 @@ from app.modules.math.tools.block.work import _verified_block_work_check
 from app.services.solving import (
     VerifiedMathBlock as VerifiedMathBlock,
 )
+from app.services.solving import wrap_verified_math
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +127,6 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
         block = builder(intent, settings, lines)
         if block is None or _shows_non_finite(block):
             return None
-        from app.services.solving import wrap_verified_math
 
         # A rendered reply and a literal plot are bound to the request they read.
         bound = block.direct_reply is not None or intent.plot_point is not None

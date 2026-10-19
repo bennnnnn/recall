@@ -6,7 +6,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { SelectMenu } from "@/ui/overlay/SelectMenu";
 import { repeatMessageKey } from "@/features/todos/model/repeatLabel";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
-import { defaultDueDate } from "@/features/todos/components/todoHelpers";
+import { defaultDueDate } from "@/features/todos/model/dueDate";
 import type { RecurrenceRule, Todo } from "@/lib/api";
 import { formatClockTime, formatMonthDayYear } from "@/lib/datetime/format";
 import { findOverlappingReminder } from "@/features/todos/model/reminderOverlap";

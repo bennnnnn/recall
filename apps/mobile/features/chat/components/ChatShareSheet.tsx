@@ -55,7 +55,7 @@ export function ChatShareSheet({ visible, onClose, title, loadMessages }: Props)
       shareTitle={shownTitle}
       onExportPdf={async () => {
         // expo-print loads only when a PDF is asked for.
-        const { exportConversationAsPdf } = await import("@/lib/exportMessagePdf");
+        const { exportConversationAsPdf } = await import("@/features/chat/model/exportMessagePdf");
         await exportConversationAsPdf(title, await getMessages());
       }}
       labels={{

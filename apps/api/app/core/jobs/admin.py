@@ -9,13 +9,8 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
-from app.core.jobs.queue import (
-    JOBS_DLQ_STREAM,
-    JOBS_GROUP,
-    JOBS_STREAM,
-    _capture_sentry_exception,
-    _hard_maxlen,
-)
+from app.core import sentry
+from app.core.jobs.queue import JOBS_DLQ_STREAM, JOBS_GROUP, JOBS_STREAM, append_entry
 
 logger = logging.getLogger("app.core.jobs")
 
@@ -55,7 +50,7 @@ async def _move_to_dlq(
         )
     except Exception:
         logger.debug("Failed to write job to DLQ id=%s", entry_id, exc_info=True)
-        _capture_sentry_exception("dlq_write_failed")
+        sentry.report_exception("dlq_write_failed")
 
 
 # ── DLQ inspection / replay ──────────────────────────────────────────────────
@@ -98,19 +93,11 @@ async def report_queue_metrics(redis: Redis) -> QueueMetrics:
         alerts.append(f"Jobs DLQ depth {dlq} >= {_DLQ_ALERT_THRESHOLD}")
     if pending is not None and pending >= _PENDING_ALERT_THRESHOLD:
         alerts.append(f"Jobs pending entries {pending} >= {_PENDING_ALERT_THRESHOLD}")
-    try:
-        import sentry_sdk
-
-        sentry_sdk.add_breadcrumb(
-            category="jobs.queue",
-            message=f"queue metrics: dlq={dlq} pending={pending}",
-            level="info",
-            data=metrics,
-        )
-        for alert in alerts:
-            sentry_sdk.capture_message(alert, level="warning")
-    except Exception:
-        logger.debug("queue metrics report failed", exc_info=True)
+    sentry.report_breadcrumb(
+        "jobs.queue", f"queue metrics: dlq={dlq} pending={pending}", level="info", data=metrics
+    )
+    for alert in alerts:
+        sentry.report_message(alert, level="warning")
     return metrics
 
 
@@ -223,16 +210,7 @@ async def replay_dlq(redis: Redis, *, count: int = 50, delete: bool = True) -> i
                 fields["dedupe_key"] = str(dedupe_key)
             # Same hard ceiling as enqueue: the soft cap here would trim
             # queued and pending work whenever a backlog exists.
-            hard_cap = _hard_maxlen()
-            if hard_cap is None:
-                await redis.xadd(JOBS_STREAM, cast(Any, fields))
-            else:
-                await redis.xadd(
-                    JOBS_STREAM,
-                    cast(Any, fields),
-                    maxlen=hard_cap,
-                    approximate=True,
-                )
+            await append_entry(redis, fields)
             if delete:
                 await redis.xdel(JOBS_DLQ_STREAM, entry["id"])
             replayed += 1

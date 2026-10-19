@@ -9,6 +9,7 @@ import {
 } from "@/components/rich/LazyHeavyRich";
 import { MathBlock } from "@/components/rich/MathView";
 import {
+  mathFenceKey,
   renderCopyStyleBlock,
   renderRichFenceById,
 } from "@/components/rich/RichFence";
@@ -76,9 +77,7 @@ function renderFenceInner(
   }
 
   if (decision.kind === "math") {
-    const mathKey =
-      tokenIndex != null ? `math:${content}#${tokenIndex}` : `math:${content}`;
-    return <MathBlock key={mathKey} latex={content} />;
+    return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} />;
   }
 
   if (decision.kind === "clock") {

@@ -37,6 +37,18 @@ function copyFlag<T extends object>(spec: T, row: Record<string, unknown>, key: 
   }
 }
 
+/** The fence's unit, cm when it names none; a blank unit is left off. */
+function copyUnit(spec: { unit?: string }, row: Record<string, unknown>): void {
+  const unit = String(row.unit ?? "cm").trim();
+  if (unit) spec.unit = unit;
+}
+
+/** Copy a value the server stated (an area, a hypotenuse) when it is a finite number. */
+function copyNumber<T extends object>(spec: T, row: Record<string, unknown>, key: keyof T & string): void {
+  const value = Number(row[key]);
+  if (Number.isFinite(value)) (spec as Record<string, unknown>)[key] = value;
+}
+
 function parseRectangle(row: Record<string, unknown>): RectangleSpec | null {
   const rawType = String(row.type ?? "").trim().toLowerCase();
   if (!RECTANGLE_TYPES.has(rawType)) return null;
@@ -60,76 +72,48 @@ function parseRectangle(row: Record<string, unknown>): RectangleSpec | null {
     width,
     height,
   };
-  const unit = String(row.unit ?? "cm").trim();
-  if (unit) spec.unit = unit;
+  copyUnit(spec, row);
   copyFlag(spec, row, "show_diagonal");
   copyFlag(spec, row, "show_angle");
   copyFlag(spec, row, "show_area");
   copyFlag(spec, row, "show_perimeter");
   copyFlag(spec, row, "show_ticks");
-  const diagonal = Number(row.diagonal);
-  if (Number.isFinite(diagonal)) spec.diagonal = diagonal;
-  const angle = Number(row.angle_deg);
-  if (Number.isFinite(angle)) spec.angle_deg = angle;
-  const area = Number(row.area);
-  if (Number.isFinite(area)) spec.area = area;
-  const perimeter = Number(row.perimeter);
-  if (Number.isFinite(perimeter)) spec.perimeter = perimeter;
+  copyNumber(spec, row, "diagonal");
+  copyNumber(spec, row, "angle_deg");
+  copyNumber(spec, row, "area");
+  copyNumber(spec, row, "perimeter");
   spec.labels = readLabels(row);
   return spec;
 }
 
 function parseTriangle(row: Record<string, unknown>): TriangleSpec | null {
   if (row.type !== "triangle") return null;
-  const base = Number(row.base);
-  const height = Number(row.height);
-  if (
-    !Number.isFinite(base) ||
-    !Number.isFinite(height) ||
-    base <= 0 ||
-    height <= 0 ||
-    base > MAX_GEOMETRY_DIMENSION ||
-    height > MAX_GEOMETRY_DIMENSION
-  ) {
-    return null;
-  }
+  const base = readPositive(row, "base");
+  const height = readPositive(row, "height");
+  if (!base || !height) return null;
   const spec: TriangleSpec = { type: "triangle", base, height };
-  const unit = String(row.unit ?? "cm").trim();
-  if (unit) spec.unit = unit;
+  copyUnit(spec, row);
   copyFlag(spec, row, "show_labels");
   copyFlag(spec, row, "show_ticks");
   copyFlag(spec, row, "show_altitude");
   copyFlag(spec, row, "show_angle");
-  const area = Number(row.area);
-  if (Number.isFinite(area)) spec.area = area;
+  copyNumber(spec, row, "area");
   spec.labels = readLabels(row);
   return spec;
 }
 
 function parseRightTriangle(row: Record<string, unknown>): RightTriangleSpec | null {
   if (row.type !== "right_triangle") return null;
-  const base = Number(row.base);
-  const height = Number(row.height);
-  if (
-    !Number.isFinite(base) ||
-    !Number.isFinite(height) ||
-    base <= 0 ||
-    height <= 0 ||
-    base > MAX_GEOMETRY_DIMENSION ||
-    height > MAX_GEOMETRY_DIMENSION
-  ) {
-    return null;
-  }
+  const base = readPositive(row, "base");
+  const height = readPositive(row, "height");
+  if (!base || !height) return null;
   const spec: RightTriangleSpec = { type: "right_triangle", base, height };
-  const unit = String(row.unit ?? "cm").trim();
-  if (unit) spec.unit = unit;
+  copyUnit(spec, row);
   copyFlag(spec, row, "show_labels");
   copyFlag(spec, row, "show_hypotenuse");
   copyFlag(spec, row, "show_angle");
-  const hypotenuse = Number(row.hypotenuse);
-  if (Number.isFinite(hypotenuse)) spec.hypotenuse = hypotenuse;
-  const area = Number(row.area);
-  if (Number.isFinite(area)) spec.area = area;
+  copyNumber(spec, row, "hypotenuse");
+  copyNumber(spec, row, "area");
   spec.labels = readLabels(row);
   return spec;
 }
@@ -140,18 +124,14 @@ function parseCircle(row: Record<string, unknown>): CircleSpec | null {
   if (!radius) return null;
 
   const spec: CircleSpec = { type: "circle", radius };
-  const unit = String(row.unit ?? "cm").trim();
-  if (unit) spec.unit = unit;
+  copyUnit(spec, row);
   copyFlag(spec, row, "show_labels");
   copyFlag(spec, row, "show_diameter");
   copyFlag(spec, row, "show_area");
   copyFlag(spec, row, "show_circumference");
-  const diameter = Number(row.diameter);
-  if (Number.isFinite(diameter)) spec.diameter = diameter;
-  const area = Number(row.area);
-  if (Number.isFinite(area)) spec.area = area;
-  const circumference = Number(row.circumference);
-  if (Number.isFinite(circumference)) spec.circumference = circumference;
+  copyNumber(spec, row, "diameter");
+  copyNumber(spec, row, "area");
+  copyNumber(spec, row, "circumference");
   spec.labels = readLabels(row);
   return spec;
 }
@@ -165,15 +145,13 @@ function parseTriangleSides(row: Record<string, unknown>): TriangleSidesSpec | n
   if (a + b <= c || a + c <= b || b + c <= a) return null;
   const spec: TriangleSidesSpec = { type: "triangle_sides", a, b, c };
   copyFlag(spec, row, "relative_lengths");
-  const unit = String(row.unit ?? "cm").trim();
-  if (unit) spec.unit = unit;
+  copyUnit(spec, row);
   copyFlag(spec, row, "show_labels");
   copyFlag(spec, row, "show_ticks");
   copyFlag(spec, row, "show_altitude");
   copyFlag(spec, row, "show_median");
   copyFlag(spec, row, "show_angle");
-  const area = Number(row.area);
-  if (Number.isFinite(area)) spec.area = area;
+  copyNumber(spec, row, "area");
   spec.labels = readLabels(row);
   return spec;
 }
@@ -185,12 +163,10 @@ function parseTrapezoid(row: Record<string, unknown>): TrapezoidSpec | null {
   const height = readPositive(row, "height");
   if (!top || !bottom || !height) return null;
   const spec: TrapezoidSpec = { type: "trapezoid", top, bottom, height };
-  const unit = String(row.unit ?? "cm").trim();
-  if (unit) spec.unit = unit;
+  copyUnit(spec, row);
   copyFlag(spec, row, "show_labels");
   copyFlag(spec, row, "show_angle");
-  const area = Number(row.area);
-  if (Number.isFinite(area)) spec.area = area;
+  copyNumber(spec, row, "area");
   spec.labels = readLabels(row);
   return spec;
 }
@@ -206,15 +182,12 @@ function parseParallelogram(row: Record<string, unknown>): ParallelogramSpec | n
   // ParallelogramDiagram (sqrt of a negative number) against a malformed fence.
   if (side < height) return null;
   const spec: ParallelogramSpec = { type: "parallelogram", base, height, side };
-  const unit = String(row.unit ?? "cm").trim();
-  if (unit) spec.unit = unit;
+  copyUnit(spec, row);
   copyFlag(spec, row, "show_labels");
   copyFlag(spec, row, "show_angle");
   copyFlag(spec, row, "show_perimeter");
-  const area = Number(row.area);
-  if (Number.isFinite(area)) spec.area = area;
-  const perimeter = Number(row.perimeter);
-  if (Number.isFinite(perimeter)) spec.perimeter = perimeter;
+  copyNumber(spec, row, "area");
+  copyNumber(spec, row, "perimeter");
   spec.labels = readLabels(row);
   return spec;
 }
@@ -225,13 +198,10 @@ function parseSector(row: Record<string, unknown>): SectorSpec | null {
   const angleRaw = Number(row.angle_deg);
   if (!radius || !Number.isFinite(angleRaw) || angleRaw <= 0 || angleRaw > 360) return null;
   const spec: SectorSpec = { type: "sector", radius, angle_deg: angleRaw };
-  const unit = String(row.unit ?? "cm").trim();
-  if (unit) spec.unit = unit;
+  copyUnit(spec, row);
   copyFlag(spec, row, "show_labels");
-  const arcLength = Number(row.arc_length);
-  if (Number.isFinite(arcLength)) spec.arc_length = arcLength;
-  const area = Number(row.area);
-  if (Number.isFinite(area)) spec.area = area;
+  copyNumber(spec, row, "arc_length");
+  copyNumber(spec, row, "area");
   spec.labels = readLabels(row);
   return spec;
 }

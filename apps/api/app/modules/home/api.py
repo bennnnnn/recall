@@ -6,7 +6,7 @@ from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.models.orm import User
 from app.models.schemas import HomeScreenOut
-from app.modules import home as home_service
+from app.modules.home import service as home_service
 
 router = APIRouter(prefix="/home", tags=["home"])
 

@@ -3,7 +3,7 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useGalleryLibrary } from "@/features/attachments/hooks/useGalleryLibrary";
 import type { AttachmentListItem } from "@/lib/api";
-import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
+import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
 
 let mockSession = 0;
@@ -30,7 +30,7 @@ jest.mock("expo-router", () => {
   };
 });
 jest.mock("@/lib/api", () => ({ api: { deleteAttachment: jest.fn() } }));
-jest.mock("@/lib/pendingFromLibraryItem", () => ({ pendingFromLibraryItem: jest.fn() }));
+jest.mock("@/features/attachments/model/pendingFromLibraryItem", () => ({ pendingFromLibraryItem: jest.fn() }));
 jest.mock("@/features/attachments/model/pendingComposerAttachment", () => ({ queueComposerAttachment: jest.fn() }));
 jest.mock("@/features/attachments/model/galleryLayout", () => ({ getGalleryLayout: async () => "grid", peekGalleryLayout: () => "grid", setGalleryLayout: jest.fn() }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));

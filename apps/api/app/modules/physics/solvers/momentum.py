@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 
-from app.modules.physics.display import GIVEN_FIGURES, plain_number
+from app.modules.physics.display import GIVEN_FIGURES, latex_given, latex_number, plain_number
 from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationBody
 from app.modules.physics.solvers.common import (
     PhysicsResult,
@@ -21,8 +21,6 @@ from app.services.solving import SolveServiceError
 
 def _collision_substitutions(intent: PhysicsIntent, *, elastic: bool) -> tuple[str, ...]:
     """Numeric collision rows. The reply reads these; it does not rebuild them."""
-    from app.modules.physics.display import latex_given
-
     params = _params_in_si(intent)
     m1 = latex_given(params["m1"])
     m2 = latex_given(params["m2"])
@@ -158,8 +156,6 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
 
 def _explosion_speed(p: dict[str, float]) -> PhysicsResult:
     """v₂ = m₁v₁/m₂, the pieces moving apart; a stated whole must be their sum."""
-    from app.modules.physics.display import latex_given, latex_number
-
     m1, m2, v1 = p["m_moving"], p["m_other"], p["v_moving"]
     if m1 <= 0 or m2 <= 0 or v1 <= 0:
         raise SolveServiceError("an explosion needs two pieces and a speed")
@@ -197,8 +193,6 @@ def _explosion_speed(p: dict[str, float]) -> PhysicsResult:
 
 def _collision_energy_lost(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     """Kinetic energy before, less the stuck pair's after: ½m₁v₁² + ½m₂v₂² - ½(m₁+m₂)v_f²."""
-    from app.modules.physics.display import latex_given, latex_number
-
     m1, m2, v1, v2 = p["m1"], p["m2"], p["v1"], p["v2"]
     total = m1 + m2
     if m1 <= 0 or m2 <= 0 or p.get("elastic", 0.0) >= 0.5:

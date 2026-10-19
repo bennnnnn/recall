@@ -86,7 +86,6 @@ async def _run(messages: list[dict[str, Any]], *, user_text: str | None = None):
     ):
         result = await tool_loop.run_tool_rounds(
             settings=_image_settings(),
-            model_alias="free-chat",
             messages=messages,
             usage={},
             user=MagicMock(),

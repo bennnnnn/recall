@@ -6,7 +6,10 @@
  * Sources, places, answers, and heavy visuals degrade to a short summary.
  */
 import { useMemo } from "react";
-import Markdown, { renderRules as defaultRules } from "react-native-markdown-display";
+import Markdown, {
+  renderRules as defaultRules,
+  type RenderRules,
+} from "react-native-markdown-display";
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -44,7 +47,7 @@ export function FallbackMarkdown({ content }: Props) {
   const mdStyles = useMemo(() => makeMdStyles(theme), [theme]);
   const fenceStyles = useMemo(() => makeFenceStyles(theme), [theme]);
   const calloutStyles = useMemo(() => makeCalloutStyles(theme), [theme]);
-  const rules = useMemo(
+  const rules = useMemo<RenderRules>(
     () => ({
       ...defaultRules,
       fence: (node: FenceNode) =>
@@ -57,11 +60,7 @@ export function FallbackMarkdown({ content }: Props) {
   const prepared = useMemo(() => preprocessMarkdown(content), [content]);
 
   return (
-    <Markdown
-      style={mdStyles}
-      rules={rules as never}
-      markdownit={markdownItInstance}
-    >
+    <Markdown style={mdStyles} rules={rules} markdownit={markdownItInstance}>
       {prepared}
     </Markdown>
   );

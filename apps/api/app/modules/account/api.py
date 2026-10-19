@@ -13,11 +13,9 @@ from app.core.deps import (
     get_current_user,
     get_redis,
     get_settings_dep,
-    redis_unavailable_http_exception,
 )
 from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
 from app.core.rate_limit import allow_request_fail_closed
-from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.models.schemas import (
     AccountDeleteRequest,
@@ -105,8 +103,6 @@ async def google_login(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
     except auth_service.GoogleAuthUnavailableError as exc:
         # Google's certs could not be fetched: retry, don't sign the user out.
         raise HTTPException(
@@ -141,8 +137,6 @@ async def apple_login(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
     except auth_service.AccountExistsError as exc:
         raise _account_exists_http(exc) from exc
     except auth_service.GoogleAuthError as exc:
@@ -182,8 +176,6 @@ async def dev_login(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
@@ -239,8 +231,6 @@ async def refresh_session(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(
@@ -281,8 +271,6 @@ async def logout(
             access_token=access_token,
             refresh_token=refresh_token,
         )
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -316,10 +304,7 @@ async def list_sessions(
         if access_token
         else None
     )
-    try:
-        rows = await tokens_service.list_sessions(redis, user.id, current_session_id=current_id)
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
+    rows = await tokens_service.list_sessions(redis, user.id, current_session_id=current_id)
     sessions = [
         AuthSessionOut(
             id=str(row["id"]),
@@ -356,8 +341,6 @@ async def revoke_session(
             current_session_id=current_id,
             settings=settings,
         )
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
     except tokens_service.CurrentSessionError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -375,12 +358,9 @@ async def logout_all(
     redis: Redis = Depends(get_redis),
 ) -> Response:
     access_token = _bearer_access_token(request)
-    try:
-        await tokens_service.purge_user_sessions(redis, user.id, settings)
-        if access_token:
-            await tokens_service.revoke_access_token(redis, access_token, settings)
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
+    await tokens_service.purge_user_sessions(redis, user.id, settings)
+    if access_token:
+        await tokens_service.revoke_access_token(redis, access_token, settings)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     if web_session.is_web_origin(request, settings):
         web_session.clear_web_session_cookies(response, settings)

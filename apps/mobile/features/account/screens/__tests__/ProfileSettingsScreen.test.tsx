@@ -23,7 +23,7 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: (
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.recall.test" }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/lib/api", () => ({ api: { cancelAttachment: jest.fn() } }));
-jest.mock("@/lib/profilePhoto", () => ({
+jest.mock("@/features/account/model/profilePhoto", () => ({
   pickProfilePhoto: (...args: unknown[]) => mockPickProfilePhoto(...args),
   discardProfilePhoto: jest.fn(),
 }));

@@ -1,9 +1,18 @@
-"""Optional Sentry error reporting."""
+"""Optional Sentry error reporting, and the never-raising report helpers.
+
+``report_breadcrumb``, ``report_message`` and ``report_exception`` are how
+infrastructure records something for Sentry from a best-effort path (a job
+that could not be enqueued, a provider that failed). They import the SDK at
+call time and swallow any failure: reporting must never break the caller,
+and they are no-ops when the SDK is absent or not initialized.
+"""
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import Callable, Mapping
+from types import ModuleType
+from typing import TYPE_CHECKING, Literal
 
 from app.core.config import Settings
 from app.core.request_id import request_id_context
@@ -81,6 +90,36 @@ def before_send(event: Event, hint: Hint) -> Event | None:
         if isinstance(tags, dict):
             tags["request_id"] = request_id
     return event
+
+
+Level = Literal["debug", "info", "warning", "error", "fatal"]
+
+
+def _send(what: str, call: Callable[[ModuleType], object]) -> None:
+    try:
+        import sentry_sdk
+
+        call(sentry_sdk)
+    except Exception:  # never raise into the caller: reporting is best-effort
+        logger.debug("Sentry %s not sent", what, exc_info=True)
+
+
+def report_breadcrumb(
+    category: str, message: str, *, level: Level, data: Mapping[str, object]
+) -> None:
+    _send(
+        "breadcrumb",
+        lambda sdk: sdk.add_breadcrumb(category=category, message=message, level=level, data=data),
+    )
+
+
+def report_message(message: str, *, level: Level) -> None:
+    _send("message", lambda sdk: sdk.capture_message(message, level=level))
+
+
+def report_exception(message: str) -> None:
+    """Capture a synthetic exception named ``message`` (a failure with no traceback to send)."""
+    _send("exception", lambda sdk: sdk.capture_exception(Exception(message)))
 
 
 def init_sentry(settings: Settings) -> None:

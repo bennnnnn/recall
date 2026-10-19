@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 from app.core.config import Settings
 from app.modules.math import school as math_school
@@ -141,7 +142,6 @@ def _verified_block_vector(
     working = _vector_working(intent)
     if working is None:
         return _finish_with_answer(lines, answer)
-    from dataclasses import replace
 
     from app.services.workout import math_line
 

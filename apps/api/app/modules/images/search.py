@@ -291,11 +291,9 @@ async def search_and_attach_for_chat(
             # Persist the turn atomically. If any link fails, session close
             # rolls back rows before byte cleanup.
             await session.commit()
-    except ImageSearchError:
-        await _rollback_written_bytes(gateway, written_keys)
-        await counters.refund("image_search", redis, user.id, day=day)
-        raise
     except BaseException:
+        # Any failure, an ImageSearchError or a cancellation too: drop the
+        # bytes written so far and give the day's slot back.
         await _rollback_written_bytes(gateway, written_keys)
         await counters.refund("image_search", redis, user.id, day=day)
         raise

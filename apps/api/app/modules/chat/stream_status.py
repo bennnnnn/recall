@@ -1,6 +1,6 @@
 """Stream status phases emitted to clients during chat turn prep."""
 
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from typing import Literal, Protocol
 
 StreamStatusPhase = Literal[
@@ -41,6 +41,10 @@ class StreamStatusFn(Protocol):
     web-search query) so clients can render an activity-specific label."""
 
     def __call__(self, phase: str, detail: str | None = None) -> Awaitable[None]: ...
+
+
+# One chunk of a reasoning model's thinking text, as it streams.
+StreamReasoningFn = Callable[[str], Awaitable[None]]
 
 
 def clip_status_detail(detail: str | None) -> str | None:

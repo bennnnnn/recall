@@ -6,14 +6,18 @@ Each tracer returns None when the equation is not its family, so
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 from sympy import (
     Abs,
     E,
     Eq,
+    Integer,
+    Mul,
     Poly,
     S,
+    exp,
     expand,
     im,
     latex,
@@ -29,6 +33,7 @@ from app.modules.math.solve.key_steps import (
     _canonical_root_formula,
     _eq_tex,
     _expr_equal,
+    equation_key_steps,
     label_tex,
 )
 
@@ -228,8 +233,6 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
 
 def exponential_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
     """``2^{x+1} = 32``: equal bases, or a logarithm of both sides."""
-    from sympy import Integer, exp
-
     if var in getattr(rhs, "free_symbols", set()) or not getattr(rhs, "is_number", False):
         return None
     if getattr(lhs, "func", None) is exp:
@@ -288,8 +291,6 @@ def rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] |
     if not left_has_variable_denominator and not right_has_variable_denominator:
         return None
     with sympy_decline() as declined:
-        from sympy import Mul
-
         denominator = simplify(left_den * right_den)
         cleared_lhs = simplify(lhs * denominator)
         cleared_rhs = simplify(rhs * denominator)
@@ -434,10 +435,6 @@ def _worked(
     ``log(2x) = 1`` becomes ``2x = 10``; that is "Divide both sides by 2", not a
     jump to ``x = 5``. With no supported trace it stays one ``label`` step.
     """
-    from dataclasses import replace
-
-    from app.modules.math.solve.key_steps import equation_key_steps
-
     steps = equation_key_steps(lhs, rhs, str(var))
     if not steps:
         return [KeyStep(label=label, formula=formula)]

@@ -5,6 +5,7 @@ import math
 import pytest
 
 from app.core.config import Settings
+from app.modules.math.schemas.intent import MathIntent
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent
@@ -131,6 +132,18 @@ def test_temperature_ratio_uses_kelvin_and_answers_both_parts() -> None:
     assert "32\\,°F = 0\\,Celsius" in reply
     assert "absolute scale" in reply
     assert "not twice as hot" in reply
+
+
+def test_a_bayes_intent_without_its_question_text_still_gets_its_answer_card() -> None:
+    """The model's own tool call builds the intent with no request text; that used to
+    raise inside the block builder, so the turn lost its verified answer."""
+    intent = MathIntent(
+        kind="probability", school_op="bayes", vec_a=[0.02, 0.95, 0.10], operation="solve"
+    )
+    block = _build_verified_block(intent, _SETTINGS)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert float(block.canonical_answer) == pytest.approx(0.162393, rel=1e-4)
 
 
 def test_named_medical_bayes_maps_specificity_to_the_false_positive_rate() -> None:

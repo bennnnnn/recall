@@ -383,7 +383,7 @@ async def test_image_generation_into_another_users_chat_is_404(world: World) -> 
         assert row is not None
         row.plan = "pro"
         await session.commit()
-    from app.core.deps import forget_user
+    from app.core.user_cache import forget_user
 
     forget_user(b.id)
     into_their_chat = await c.post(
@@ -413,7 +413,7 @@ async def test_live_talk_routes_refuse_another_users_chat(world: World) -> None:
         assert row is not None
         row.plan = "pro"
         await session.commit()
-    from app.core.deps import forget_user
+    from app.core.user_cache import forget_user
 
     forget_user(b.id)
     session_resp = await c.post(

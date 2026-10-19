@@ -76,7 +76,8 @@ async def test_get_current_user_maps_redis_outage_to_503():
 
 
 @pytest.mark.asyncio
-async def test_refresh_session_maps_redis_outage_to_503():
+async def test_refresh_session_leaves_a_redis_outage_to_the_503_handler():
+    """``core/unavailable`` answers it 503 + Retry-After, as for every route."""
     settings = Settings(jwt_secret="test-secret-32-chars-long-enough!!")
     request = MagicMock()
     request.client = MagicMock(host="127.0.0.1")
@@ -90,7 +91,7 @@ async def test_refresh_session_maps_redis_outage_to_503():
             AsyncMock(side_effect=RedisUnavailableError()),
         ),
     ):
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(RedisUnavailableError):
             await auth_router.refresh_session(
                 RefreshRequest(refresh_token="rtok"),
                 request,
@@ -98,13 +99,11 @@ async def test_refresh_session_maps_redis_outage_to_503():
                 settings=settings,
                 redis=AsyncMock(),
             )
-    assert exc.value.status_code == 503
-    assert exc.value.headers is not None
-    assert exc.value.headers.get("Retry-After") == "5"
 
 
 @pytest.mark.asyncio
-async def test_logout_maps_redis_outage_to_503():
+async def test_logout_leaves_a_redis_outage_to_the_503_handler():
+    """``core/unavailable`` answers it 503 + Retry-After, as for every route."""
     settings = Settings(jwt_secret="test-secret-32-chars-long-enough!!")
     request = MagicMock()
     request.headers = {"authorization": "Bearer atok"}
@@ -112,16 +111,13 @@ async def test_logout_maps_redis_outage_to_503():
         "app.modules.account.api.tokens_service.revoke_access_token",
         AsyncMock(side_effect=RedisUnavailableError()),
     ):
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(RedisUnavailableError):
             await auth_router.logout(
                 LogoutRequest(refresh_token="rtok"),
                 request=request,
                 settings=settings,
                 redis=AsyncMock(),
             )
-    assert exc.value.status_code == 503
-    assert exc.value.headers is not None
-    assert exc.value.headers.get("Retry-After") == "5"
 
 
 def test_error_payload_for_redis_unavailable():

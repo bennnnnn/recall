@@ -5,7 +5,12 @@ from __future__ import annotations
 import math
 import re
 
-from app.modules.math.match.types import CombinatoricsOp, MatrixOp, NumberTheoryOp, StatsOp
+from app.modules.math.schemas.operations import (
+    CombinatoricsOp,
+    MatrixOp,
+    NumberTheoryOp,
+    StatsOp,
+)
 from app.services.text_match import word_index
 
 # Longest/most-specific phrase first so e.g. "standard deviation" is found
@@ -71,12 +76,6 @@ def numeric_data_values(text: str) -> list[float] | None:
     if text[last:].strip(" ,;{}[]().?!") not in {"", "please"}:
         return None
     return values
-
-
-# Single-list summaries that one answer can state together.
-SUMMARY_STATS: frozenset[str] = frozenset(
-    {"mean", "median", "mode", "range", "variance", "stdev", "sample_stdev", "sample_variance"}
-)
 
 
 def requested_summary_stats(text: str) -> list[StatsOp]:

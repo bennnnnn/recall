@@ -95,11 +95,7 @@ def _tool_selection_result(
     """Accept a complete decision before exposing any call to the service."""
     from app.gateways import litellm_gateway as gateway
 
-    invalid = gateway.ModelUnavailableError(
-        gateway._CHAT_MODEL_UNAVAILABLE_MSG,
-        code="tool_selection_incomplete",
-        failed_alias=model_alias,
-    )
+    invalid = gateway.ModelUnavailableError.for_alias(model_alias, code="tool_selection_incomplete")
     choices = getattr(response, "choices", None) or []
     if not choices or getattr(choices[0], "finish_reason", None) not in ("tool_calls", "stop"):
         # Even valid JSON can be a truncated prefix of a multi-call response.
@@ -201,24 +197,16 @@ async def complete_with_tools(
                     raise
                 # Apply once, including a completed but rejected/truncated
                 # decision. No early abort means no lost usage-only trailer.
-                gateway._apply_usage_from_response(usage, response)
+                gateway._apply_usage(usage, response)
                 return _tool_selection_result(response, tools=tools, model_alias=model_alias)
     except TimeoutError as exc:
-        raise gateway.ModelUnavailableError(
-            gateway._CHAT_MODEL_UNAVAILABLE_MSG,
-            failed_alias=model_alias,
-        ) from exc
+        raise gateway.ModelUnavailableError.for_alias(model_alias) from exc
     except gateway.ModelUnavailableError:
         raise
     except Exception as exc:
         logger.warning(
             "complete_with_tools failed alias=%s type=%s", model_alias, type(exc).__name__
         )
-        raise gateway.ModelUnavailableError(
-            gateway._CHAT_MODEL_UNAVAILABLE_MSG,
-            failed_alias=model_alias,
-        ) from exc
+        raise gateway.ModelUnavailableError.for_alias(model_alias) from exc
 
-    raise gateway.ModelUnavailableError(
-        gateway._CHAT_MODEL_UNAVAILABLE_MSG, failed_alias=model_alias
-    )
+    raise gateway.ModelUnavailableError.for_alias(model_alias)

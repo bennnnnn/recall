@@ -15,6 +15,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.modules.notifications import push as push_notifications
+from app.repositories import push_tokens as push_repo
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,6 @@ async def _push_cycle(settings: Settings, _lock: CycleLock) -> None:
         if invalid_tokens:
             for expo_token in invalid_tokens:
                 try:
-                    from app.repositories import push_tokens as push_repo
-
                     await push_repo.delete_by_token(session, expo_token)
                     logger.info("Pruned invalid push token=%s", expo_token[:20])
                 except Exception:

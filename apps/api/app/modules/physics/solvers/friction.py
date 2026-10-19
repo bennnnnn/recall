@@ -5,6 +5,8 @@ a = g (sin(theta) - mu cos(theta)).
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.schemas import (
@@ -21,6 +23,19 @@ from app.modules.physics.solvers.common import (
     gravity_of,
 )
 from app.services.solving import SolveServiceError
+
+
+@dataclass(frozen=True)
+class _Incline:
+    """What every friction operation reads: the givens in SI, g, mu, the angle and N."""
+
+    p: dict[str, float]
+    g: float
+    mu: float
+    theta: float
+    deg: float
+    normal: float
+    m: float
 
 
 def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
@@ -44,185 +59,210 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
     normal = p.get("m", 0.0) * g * math.cos(theta)
     m = p.get("m", 0.0)
 
-    if op == "incline_sliding":
-        mu_s = p.get("mu_s")
-        if mu_s is None:
-            raise SolveServiceError("a static-friction coefficient is required")
-        if mu_s < 0:
-            raise SolveServiceError("static-friction coefficient cannot be negative")
-        if "m" in p and m <= 0:
-            raise SolveServiceError("mass must be positive")
+    solve = _FRICTION_OPS.get(op)
+    if solve is None:
+        raise SolveServiceError(f"unsupported friction op: {op}")
+    return solve(_Incline(p, g, mu, theta, deg, normal, m))
 
-        downhill_ratio = math.sin(theta)
-        static_ratio = mu_s * math.cos(theta)
-        slides = downhill_ratio - static_ratio > 1e-12
-        decision = "Yes, it starts sliding." if slides else "No, it stays at rest."
-        formulas = (
-            r"F_{g,\parallel}=mg\sin\theta",
-            r"f_{s,\max}=\mu_sN=\mu_smg\cos\theta",
-            r"\text{It starts sliding if }F_{g,\parallel}>f_{s,\max}",
-        )
-        if "m" in p:
-            downhill = m * g * downhill_ratio
-            maximum_static = m * g * static_ratio
-            substitutions = (
-                rf"F_{{g,\parallel}}={m:g}\cdot{g:g}\cdot\sin({deg:g}^\circ)"
-                rf"\approx {downhill:.2f}\,\text{{N}}",
-                rf"f_{{s,\max}}={mu_s:g}\cdot{m:g}\cdot{g:g}"
-                rf"\cdot\cos({deg:g}^\circ)\approx {maximum_static:.2f}\,\text{{N}}",
-                (
-                    rf"{downhill:.2f}\,\text{{N}} > {maximum_static:.2f}\,\text{{N}}"
-                    if slides
-                    else rf"{downhill:.2f}\,\text{{N}} \le {maximum_static:.2f}\,\text{{N}}"
-                ),
-            )
-        else:
-            substitutions = (
-                rf"\sin({deg:g}^\circ)\approx {downhill_ratio:.4f}",
-                rf"{mu_s:g}\cos({deg:g}^\circ)\approx {static_ratio:.4f}",
-                (
-                    rf"{downhill_ratio:.4f} > {static_ratio:.4f}"
-                    if slides
-                    else rf"{downhill_ratio:.4f} \le {static_ratio:.4f}"
-                ),
-            )
-        return PhysicsResult(
-            answer=decision,
-            answer_value=decision,
-            answer_latex=rf"\text{{{decision}}}",
-            formulas=formulas,
-            substitutions=substitutions,
-        )
 
-    if op == "normal_force":
-        if theta == 0:
-            plugged = rf"{m:g} \cdot {g:g}"
-            answer = rf"N = m g = {plugged} \approx {normal:.2f} \text{{ N}}"
-            formula = r"N = m g"
-        else:
-            plugged = rf"{m:g} \cdot {g:g} \cdot \cos({deg:g}^\circ)"
-            answer = rf"N = m g \cos\theta = {plugged} \approx {normal:.2f} \text{{ N}}"
-            formula = r"N = m g \cos\theta"
-        return PhysicsResult(
-            answer=answer,
-            formulas=(formula,),
-            substitutions=(rf"N = {plugged}",),
-            quantities=(QuantityResult("", normal, "N"),),
-            simulation_specs=_incline_scene(
-                deg, mu=mu, held=bool(p.get("static_equilibrium")), mass=m, g=g
-            )
-            or _floor_scene(m, g, asked="normal"),
-        )
+def _incline_sliding(s: _Incline) -> PhysicsResult:
+    p, g, theta, deg, m = s.p, s.g, s.theta, s.deg, s.m
+    mu_s = p.get("mu_s")
+    if mu_s is None:
+        raise SolveServiceError("a static-friction coefficient is required")
+    if mu_s < 0:
+        raise SolveServiceError("static-friction coefficient cannot be negative")
+    if "m" in p and m <= 0:
+        raise SolveServiceError("mass must be positive")
 
-    if op == "friction_force":
-        f_val = mu * normal
-        if p.get("static_equilibrium"):
-            f_val = m * g * abs(math.sin(theta))
-            # A stated coefficient bounds what static friction can hold; with
-            # none stated, the block resting there is the statement that it can.
-            if "mu" in p and f_val > mu * normal + 1e-12:
-                raise SolveServiceError("static friction cannot hold the stated equilibrium")
-            return PhysicsResult(
-                answer=rf"f_s = mg|\sin\theta| = {f_val:g} \text{{ N}}",
-                formulas=(r"f_s = mg|\sin\theta|", r"f_s \le \mu_s N"),
-                substitutions=(rf"f_s = {m:g}\cdot {g:g}\cdot |\sin({deg:g}^\circ)|",),
-                quantities=(QuantityResult("", f_val, "N"),),
-                simulation_specs=_incline_scene(deg, mu=mu, held=f_val > 0, mass=m, g=g),
-            )
-        answer = rf"f = \mu N = {mu:g} \cdot {normal:.2f} \approx {f_val:.2f} \text{{ N}}"
-        return PhysicsResult(
-            answer=answer,
-            formulas=(r"f = \mu N",),
-            substitutions=(rf"f = {mu:g} \cdot {normal:.2f}",),
-            quantities=(QuantityResult("", f_val, "N"),),
-            simulation_specs=_incline_scene(
-                deg, mu=mu, uphill=p.get("motion_sign") == -1, mass=m or None, g=g
-            )
-            or _floor_scene(m, g, friction=f_val, asked="friction"),
-        )
-
-    if op == "incline_acceleration":
-        motion = p.get("motion_sign", 0.0)
-        if motion not in {-1.0, 0.0, 1.0}:
-            raise SolveServiceError("unsupported incline motion direction")
-        if p.get("static_equilibrium"):
-            if abs(math.tan(theta)) > mu:
-                raise SolveServiceError("static friction cannot hold the stated equilibrium")
-            a_val = 0.0
-        else:
-            a_val = g * (math.sin(theta) - (-1 if motion < 0 else 1) * mu * math.cos(theta))
-        if (a_val <= 0 and motion == 0) or p.get("static_equilibrium"):
-            # tan(theta) <= mu: static friction holds it. Reporting a negative
-            # acceleration would describe the block sliding *up* the slope on
-            # its own, which is not what the equation means here.
-            return PhysicsResult(
-                answer=(
-                    rf"\tan({deg:g}^\circ) \le \mu = {mu:g}, "
-                    r"\text{so friction holds the block: } a = 0 \text{ m/s}^2"
-                ),
-                formulas=(
-                    rf"\tan({deg:g}^\circ) \le \mu = {mu:g}, "
-                    r"\text{so friction holds the block: } a",
-                ),
-                substitutions=(r"a = 0 \text{ m/s}^2",),
-                quantities=(QuantityResult("a", 0.0, "m/s^2"),),
-                # a = 0 is the answer, so the block stays put and the diagram
-                # is the free body that explains why.
-                simulation_specs=_incline_scene(deg, mu=mu, mass=m or None, g=g),
-            )
-        sign = "+" if motion < 0 else "-"
-        formula = rf"a = g(\sin\theta {sign} \mu\cos\theta)"
-        substituted = rf"a = {g:g}(\sin({deg:g}^\circ) {sign} {mu:g}\cos({deg:g}^\circ))"
-        answer = (
-            formula + " = " + substituted.split(" = ", 1)[1] + " "
-            rf"\approx {a_val:.2f} \text{{ m/s}}^2"
-        )
-        return PhysicsResult(
-            answer=answer,
-            formulas=(formula + (r"\quad\text{(downhill positive)}" if motion else ""),),
-            substitutions=(substituted,),
-            quantities=(QuantityResult("", a_val, "m/s^2"),),
-            # Initial rest is a supplied initial condition, not current
-            # equilibrium. Other moving bodies have no stated initial speed.
-            simulation_specs=_incline_scene(
-                deg,
-                mu=mu,
-                # Sliding down, it speeds up at a whatever speed it started
-                # with, so the drawing starts it from rest; sliding up, it
-                # slows, and a block shown starting from rest would go down.
-                accel=a_val if motion >= 0 or p.get("released_from_rest") else None,
-                uphill=motion < 0,
-                mass=m or None,
-                g=g,
+    downhill_ratio = math.sin(theta)
+    static_ratio = mu_s * math.cos(theta)
+    slides = downhill_ratio - static_ratio > 1e-12
+    decision = "Yes, it starts sliding." if slides else "No, it stays at rest."
+    formulas = (
+        r"F_{g,\parallel}=mg\sin\theta",
+        r"f_{s,\max}=\mu_sN=\mu_smg\cos\theta",
+        r"\text{It starts sliding if }F_{g,\parallel}>f_{s,\max}",
+    )
+    if "m" in p:
+        downhill = m * g * downhill_ratio
+        maximum_static = m * g * static_ratio
+        substitutions = (
+            rf"F_{{g,\parallel}}={m:g}\cdot{g:g}\cdot\sin({deg:g}^\circ)"
+            rf"\approx {downhill:.2f}\,\text{{N}}",
+            rf"f_{{s,\max}}={mu_s:g}\cdot{m:g}\cdot{g:g}"
+            rf"\cdot\cos({deg:g}^\circ)\approx {maximum_static:.2f}\,\text{{N}}",
+            (
+                rf"{downhill:.2f}\,\text{{N}} > {maximum_static:.2f}\,\text{{N}}"
+                if slides
+                else rf"{downhill:.2f}\,\text{{N}} \le {maximum_static:.2f}\,\text{{N}}"
             ),
         )
-
-    if op == "friction_coefficient":
-        mu_val = math.tan(theta)
-        return PhysicsResult(
-            answer=(rf"\mu = \tan(\theta) = \tan({deg:.1f}^\circ) \approx {mu_val:.2f}"),
-            formulas=(r"\mu = \tan(\theta)",),
-            substitutions=(rf"\mu = \tan({deg:.1f}^\circ)",),
-            quantities=(QuantityResult("", mu_val, ""),),
-            simulation_specs=_incline_scene(deg, mu=mu_val, asked="angle"),
+    else:
+        substitutions = (
+            rf"\sin({deg:g}^\circ)\approx {downhill_ratio:.4f}",
+            rf"{mu_s:g}\cos({deg:g}^\circ)\approx {static_ratio:.4f}",
+            (
+                rf"{downhill_ratio:.4f} > {static_ratio:.4f}"
+                if slides
+                else rf"{downhill_ratio:.4f} \le {static_ratio:.4f}"
+            ),
         )
+    return PhysicsResult(
+        answer=decision,
+        answer_value=decision,
+        answer_latex=rf"\text{{{decision}}}",
+        formulas=formulas,
+        substitutions=substitutions,
+    )
 
-    if op == "minimum_force":
-        f_val = mu * m * g
+
+def _normal_force(s: _Incline) -> PhysicsResult:
+    p, g, mu, theta, deg, normal, m = s.p, s.g, s.mu, s.theta, s.deg, s.normal, s.m
+    if theta == 0:
+        plugged = rf"{m:g} \cdot {g:g}"
+        answer = rf"N = m g = {plugged} \approx {normal:.2f} \text{{ N}}"
+        formula = r"N = m g"
+    else:
+        plugged = rf"{m:g} \cdot {g:g} \cdot \cos({deg:g}^\circ)"
+        answer = rf"N = m g \cos\theta = {plugged} \approx {normal:.2f} \text{{ N}}"
+        formula = r"N = m g \cos\theta"
+    return PhysicsResult(
+        answer=answer,
+        formulas=(formula,),
+        substitutions=(rf"N = {plugged}",),
+        quantities=(QuantityResult("", normal, "N"),),
+        simulation_specs=_incline_scene(
+            deg, mu=mu, held=bool(p.get("static_equilibrium")), mass=m, g=g
+        )
+        or _floor_scene(m, g, asked="normal"),
+    )
+
+
+def _friction_force(s: _Incline) -> PhysicsResult:
+    p, g, mu, theta, deg, normal, m = s.p, s.g, s.mu, s.theta, s.deg, s.normal, s.m
+    f_val = mu * normal
+    if p.get("static_equilibrium"):
+        f_val = m * g * abs(math.sin(theta))
+        # A stated coefficient bounds what static friction can hold; with
+        # none stated, the block resting there is the statement that it can.
+        if "mu" in p and f_val > mu * normal + 1e-12:
+            raise SolveServiceError("static friction cannot hold the stated equilibrium")
+        return PhysicsResult(
+            answer=rf"f_s = mg|\sin\theta| = {f_val:g} \text{{ N}}",
+            formulas=(r"f_s = mg|\sin\theta|", r"f_s \le \mu_s N"),
+            substitutions=(rf"f_s = {m:g}\cdot {g:g}\cdot |\sin({deg:g}^\circ)|",),
+            quantities=(QuantityResult("", f_val, "N"),),
+            simulation_specs=_incline_scene(deg, mu=mu, held=f_val > 0, mass=m, g=g),
+        )
+    answer = rf"f = \mu N = {mu:g} \cdot {normal:.2f} \approx {f_val:.2f} \text{{ N}}"
+    return PhysicsResult(
+        answer=answer,
+        formulas=(r"f = \mu N",),
+        substitutions=(rf"f = {mu:g} \cdot {normal:.2f}",),
+        quantities=(QuantityResult("", f_val, "N"),),
+        simulation_specs=_incline_scene(
+            deg, mu=mu, uphill=p.get("motion_sign") == -1, mass=m or None, g=g
+        )
+        or _floor_scene(m, g, friction=f_val, asked="friction"),
+    )
+
+
+def _incline_acceleration(s: _Incline) -> PhysicsResult:
+    p, g, mu, theta, deg, m = s.p, s.g, s.mu, s.theta, s.deg, s.m
+    motion = p.get("motion_sign", 0.0)
+    if motion not in {-1.0, 0.0, 1.0}:
+        raise SolveServiceError("unsupported incline motion direction")
+    if p.get("static_equilibrium"):
+        if abs(math.tan(theta)) > mu:
+            raise SolveServiceError("static friction cannot hold the stated equilibrium")
+        a_val = 0.0
+    else:
+        a_val = g * (math.sin(theta) - (-1 if motion < 0 else 1) * mu * math.cos(theta))
+    if (a_val <= 0 and motion == 0) or p.get("static_equilibrium"):
+        # tan(theta) <= mu: static friction holds it. Reporting a negative
+        # acceleration would describe the block sliding *up* the slope on
+        # its own, which is not what the equation means here.
         return PhysicsResult(
             answer=(
-                rf"F_{{min}} = \mu m g = {mu:g} \cdot {m:g} \cdot {g:g} "
-                rf"\approx {f_val:.2f} \text{{ N}}"
+                rf"\tan({deg:g}^\circ) \le \mu = {mu:g}, "
+                r"\text{so friction holds the block: } a = 0 \text{ m/s}^2"
             ),
-            formulas=(r"F_{min} = \mu m g",),
-            substitutions=(rf"F_{{min}} = {mu:g} \cdot {m:g} \cdot {g:g}",),
-            quantities=(QuantityResult("", f_val, "N"),),
-            simulation_specs=_floor_scene(m, g, friction=f_val, applied=f_val, asked="applied")
-            if m > 0
-            else [],
+            formulas=(
+                rf"\tan({deg:g}^\circ) \le \mu = {mu:g}, "
+                r"\text{so friction holds the block: } a",
+            ),
+            substitutions=(r"a = 0 \text{ m/s}^2",),
+            quantities=(QuantityResult("a", 0.0, "m/s^2"),),
+            # a = 0 is the answer, so the block stays put and the diagram
+            # is the free body that explains why.
+            simulation_specs=_incline_scene(deg, mu=mu, mass=m or None, g=g),
         )
+    sign = "+" if motion < 0 else "-"
+    formula = rf"a = g(\sin\theta {sign} \mu\cos\theta)"
+    substituted = rf"a = {g:g}(\sin({deg:g}^\circ) {sign} {mu:g}\cos({deg:g}^\circ))"
+    answer = (
+        formula + " = " + substituted.split(" = ", 1)[1] + " "
+        rf"\approx {a_val:.2f} \text{{ m/s}}^2"
+    )
+    return PhysicsResult(
+        answer=answer,
+        formulas=(formula + (r"\quad\text{(downhill positive)}" if motion else ""),),
+        substitutions=(substituted,),
+        quantities=(QuantityResult("", a_val, "m/s^2"),),
+        # Initial rest is a supplied initial condition, not current
+        # equilibrium. Other moving bodies have no stated initial speed.
+        simulation_specs=_incline_scene(
+            deg,
+            mu=mu,
+            # Sliding down, it speeds up at a whatever speed it started
+            # with, so the drawing starts it from rest; sliding up, it
+            # slows, and a block shown starting from rest would go down.
+            accel=a_val if motion >= 0 or p.get("released_from_rest") else None,
+            uphill=motion < 0,
+            mass=m or None,
+            g=g,
+        ),
+    )
 
-    raise SolveServiceError(f"unsupported friction op: {op}")
+
+def _friction_coefficient(s: _Incline) -> PhysicsResult:
+    theta, deg = s.theta, s.deg
+    mu_val = math.tan(theta)
+    return PhysicsResult(
+        answer=(rf"\mu = \tan(\theta) = \tan({deg:.1f}^\circ) \approx {mu_val:.2f}"),
+        formulas=(r"\mu = \tan(\theta)",),
+        substitutions=(rf"\mu = \tan({deg:.1f}^\circ)",),
+        quantities=(QuantityResult("", mu_val, ""),),
+        simulation_specs=_incline_scene(deg, mu=mu_val, asked="angle"),
+    )
+
+
+def _minimum_force(s: _Incline) -> PhysicsResult:
+    g, mu, m = s.g, s.mu, s.m
+    f_val = mu * m * g
+    return PhysicsResult(
+        answer=(
+            rf"F_{{min}} = \mu m g = {mu:g} \cdot {m:g} \cdot {g:g} "
+            rf"\approx {f_val:.2f} \text{{ N}}"
+        ),
+        formulas=(r"F_{min} = \mu m g",),
+        substitutions=(rf"F_{{min}} = {mu:g} \cdot {m:g} \cdot {g:g}",),
+        quantities=(QuantityResult("", f_val, "N"),),
+        simulation_specs=_floor_scene(m, g, friction=f_val, applied=f_val, asked="applied")
+        if m > 0
+        else [],
+    )
+
+
+_FRICTION_OPS: dict[str, Callable[[_Incline], PhysicsResult]] = {
+    "incline_sliding": _incline_sliding,
+    "normal_force": _normal_force,
+    "friction_force": _friction_force,
+    "incline_acceleration": _incline_acceleration,
+    "friction_coefficient": _friction_coefficient,
+    "minimum_force": _minimum_force,
+}
 
 
 # The slope's own length is never stated, so it is a display choice and the
