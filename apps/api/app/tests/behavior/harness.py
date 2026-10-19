@@ -77,6 +77,15 @@ HINTS: dict[str, str] = {
     "advice": pc.ADVICE_PERSONALIZE_HINT,
     # A STEM reply the model works out itself checks its own answer first.
     "self_check": SELF_CHECK_PROMPT_RULE,
+    # The general layout contract, and the compact one a greeting or fragment gets.
+    "format_contract": pc.FORMAT_CONTRACT,
+    "compact": pc.COMPACT_RESPONSE_FORMAT_HINT,
+    # The length line: fit to the question, or the depth the message asked for.
+    "fit_length": pc.STYLE_HINTS["balanced"],
+    "detail": pc.STYLE_HINTS["detailed"],
+    "mixed_length": pc.MIXED_LENGTH_HINT,
+    "continue": pc.CONTINUE_HINT,
+    "correction": pc.CORRECTION_HINT,
 }
 
 USER_NAME = "Bini"

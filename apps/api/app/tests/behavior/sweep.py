@@ -88,6 +88,14 @@ STEM_AREAS = {"math", "physics", "chemistry"}
 # physics or chemistry problem before them ("in french please", "what about the
 # party?"). None of them is solved.
 NOT_MATH_AREAS = {"math lookalike", "followup lookalike"}
+# Look-alikes of a rule that reads the user's words: "good morning, what's the capital of
+# Peru?" is a question, not an opener. The hint that rule adds must not be in the prompt.
+LOOKALIKE_HINTS = {
+    "opener lookalike": "compact",
+    "correction lookalike": "correction",
+    "detail lookalike": "detail",
+    "continue lookalike": "continue",
+}
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")
 
@@ -405,6 +413,9 @@ def judge(outcome: Outcome) -> list[str]:
             problems.append("let the model decide to search")
         if entry.area in NOT_MATH_AREAS and (route.subject == "math" or route.solved):
             problems.append(f"read as maths (solved={route.solved})")
+        unwanted = LOOKALIKE_HINTS.get(entry.area)
+        if unwanted and unwanted in route.hints:
+            problems.append(f"given the {unwanted!r} hint")
     elif expect == "instant" and not route.instant:
         problems.append("no instant reply")
     elif expect == "photo" and not route.photo:

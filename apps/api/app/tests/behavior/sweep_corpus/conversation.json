@@ -1,0 +1,290 @@
+[
+ {
+  "id": "cv-001",
+  "area": "code",
+  "prompt": "fix that",
+  "history": [
+   [
+    "user",
+    "write a python function that averages a list of numbers"
+   ],
+   [
+    "assistant",
+    "```python\ndef average(numbers):\n    return sum(numbers) / len(numbers)\n```"
+   ],
+   [
+    "user",
+    "it crashes on an empty list"
+   ],
+   [
+    "assistant",
+    "Right: `len([])` is `0`, so `sum([]) / 0` raises `ZeroDivisionError`."
+   ]
+  ],
+  "reply": "Guard the empty case before dividing:\n\n```python\ndef average(numbers):\n    if not numbers:\n        return 0.0\n    return sum(numbers) / len(numbers)\n```\n\n`average([])` now returns `0.0` instead of raising."
+ },
+ {
+  "id": "cv-002",
+  "area": "writing",
+  "prompt": "continue",
+  "history": [
+   [
+    "user",
+    "tell me a long story about a dragon who is afraid of fire"
+   ],
+   [
+    "assistant",
+    "Ember was the only dragon in the Ashen Peaks who flinched at sparks. Every spring the young dragons lit the valley torches, and every spring Ember hid behind the waterfall.\n\nOne night a storm knocked out every torch in the village below, and the elders came to the waterfall looking for her. \"We need fire,\" they said, and Ember"
+   ]
+  ],
+  "reply": "stepped out from behind the water. She had never breathed a spark on purpose, but the village was dark and the children were cold. She closed her eyes, thought of the warm stones of her cave, and breathed out a small, steady flame onto the first torch."
+ },
+ {
+  "id": "cv-003",
+  "area": "code",
+  "prompt": "keep going",
+  "history": [
+   [
+    "user",
+    "write a flask app with login and a todo list"
+   ],
+   [
+    "assistant",
+    "```python\nfrom flask import Flask, request, session\n\napp = Flask(__name__)\n\n@app.route('/login', methods=['POST'])\ndef login():\n```"
+   ]
+  ],
+  "reply": "```python\n    session['user'] = request.form['name']\n    return {'ok': True}\n\n@app.route('/todos')\ndef todos():\n    return {'todos': session.get('todos', [])}\n```"
+ },
+ {
+  "id": "cv-004",
+  "area": "plans",
+  "prompt": "no, I said I'm vegetarian",
+  "history": [
+   [
+    "user",
+    "what should I cook tonight?"
+   ],
+   [
+    "assistant",
+    "How about **lemon garlic chicken** or a quick **beef stir-fry**?"
+   ]
+  ],
+  "reply": "Got it. Try a **chickpea and spinach curry** with rice, or **mushroom and black bean tacos** with lime crema. Both take about 30 minutes."
+ },
+ {
+  "id": "cv-005",
+  "area": "code",
+  "prompt": "actually I meant Python 2, not 3",
+  "history": [
+   [
+    "user",
+    "how do I print hello in python"
+   ],
+   [
+    "assistant",
+    "```python\nprint(\"hello\")\n```"
+   ]
+  ],
+  "reply": "In Python 2, `print` is a statement:\n\n```python\nprint \"hello\"\n```"
+ },
+ {
+  "id": "cv-006",
+  "area": "search",
+  "prompt": "that's wrong, it's 2024 not 2023",
+  "history": [
+   [
+    "user",
+    "when did the Paris Olympics happen?"
+   ],
+   [
+    "assistant",
+    "The Paris Summer Olympics ran from 26 July to 11 August 2023."
+   ]
+  ],
+  "reply": "You're right: the Paris Summer Olympics ran from 26 July to 11 August 2024."
+ },
+ {
+  "id": "cv-007",
+  "area": "chitchat",
+  "prompt": "I already told you I'm allergic to nuts",
+  "history": [
+   [
+    "user",
+    "I'm allergic to nuts. any snack ideas?"
+   ],
+   [
+    "assistant",
+    "Try **almond butter** on apple slices or a handful of **cashews**."
+   ]
+  ],
+  "reply": "Sorry about that. Nut-free picks: **apple slices with sunflower seed butter**, **hummus with carrots**, or **popcorn** with a little salt."
+ },
+ {
+  "id": "cv-008",
+  "area": "chitchat",
+  "prompt": "good morning!",
+  "reply": "Good morning, Bini! What's on your mind today?"
+ },
+ {
+  "id": "cv-009",
+  "area": "chitchat",
+  "prompt": "how are you?",
+  "reply": "Doing well, thanks for asking. How's your day going?"
+ },
+ {
+  "id": "cv-010",
+  "area": "code",
+  "prompt": "explain in detail how Raft handles split votes and network partitions",
+  "reply": "### Split votes\n\nEach follower waits a **randomized election timeout** (say 150-300 ms) before becoming a candidate, so two candidates rarely start at once. When they do and neither gets a majority, both time out again with fresh random timeouts and a higher term.\n\n### Partitions\n\nA leader in the **minority** side cannot commit new entries, because it never hears back from a majority. The majority side elects a new leader with a higher term; when the partition heals, the old leader sees that term and steps down."
+ },
+ {
+  "id": "cv-011",
+  "area": "chitchat",
+  "prompt": "why is the sky blue?",
+  "reply": "Sunlight is scattered by the molecules in the air, and shorter blue wavelengths scatter far more than red ones (Rayleigh scattering). So wherever you look away from the sun, you see that scattered blue light coming at you from every direction of the sky.\n\nLet me know if you have any other questions!"
+ },
+ {
+  "id": "cv-012",
+  "area": "code",
+  "prompt": "how do I reverse a list in python?",
+  "reply": "Use slicing for a new reversed copy, or `reverse()` to flip the list in place:\n\n```python\nnums = [1, 2, 3]\nprint(nums[::-1])  # [3, 2, 1]\nnums.reverse()\nprint(nums)  # [3, 2, 1]\n```\n\nHope this helps! 😊"
+ },
+ {
+  "id": "cv-013",
+  "area": "writing",
+  "prompt": "write an email to my landlord about the broken heater",
+  "reply": "```email\nSubject: Broken heater\n\nHi,\n\nThe heater in my apartment stopped working on Monday. Could you send someone to look at it this week? Let me know if you have any questions.\n\nBest,\nBini\n```"
+ },
+ {
+  "id": "cv-014",
+  "area": "writing",
+  "prompt": "rewrite this to sound friendlier: Send the report now. Let me know if you have any questions.",
+  "reply": "Could you send the report over when you get a chance? Thanks so much! Let me know if you have any questions."
+ },
+ {
+  "id": "cv-015",
+  "area": "opener lookalike",
+  "prompt": "good morning, what's the capital of Peru?",
+  "reply": "Good morning! The capital of Peru is **Lima**."
+ },
+ {
+  "id": "cv-016",
+  "area": "opener lookalike",
+  "prompt": "how are you different from ChatGPT?",
+  "reply": "I'm Recall: I remember your preferences and projects across chats, set reminders you confirm with a tap, and can search the web for current answers."
+ },
+ {
+  "id": "cv-017",
+  "area": "opener lookalike",
+  "prompt": "hello world in python",
+  "reply": "```python\nprint(\"Hello, world!\")\n```"
+ },
+ {
+  "id": "cv-018",
+  "area": "opener lookalike",
+  "prompt": "how do you say good morning in French",
+  "reply": "**Bonjour** is good morning (and hello) in French."
+ },
+ {
+  "id": "cv-019",
+  "area": "opener lookalike",
+  "prompt": "what's up with my code? it throws on line 3: print(items[3])",
+  "reply": "`items` has fewer than four elements, so `items[3]` raises `IndexError`. Use `items[-1]` for the last item or check `len(items)` first."
+ },
+ {
+  "id": "cv-020",
+  "area": "correction lookalike",
+  "prompt": "no, I said it was fine — thanks",
+  "history": [
+   [
+    "user",
+    "here's my cover letter intro, is it ok? I am writing to apply for the role."
+   ],
+   [
+    "assistant",
+    "It reads well. Want me to tighten the second sentence?"
+   ]
+  ],
+  "reply": "You're welcome. Good luck with the application!"
+ },
+ {
+  "id": "cv-021",
+  "area": "correction lookalike",
+  "prompt": "actually, can you also add error handling?",
+  "history": [
+   [
+    "user",
+    "write a python function that averages a list of numbers"
+   ],
+   [
+    "assistant",
+    "```python\ndef average(numbers):\n    return sum(numbers) / len(numbers)\n```"
+   ]
+  ],
+  "reply": "```python\ndef average(numbers):\n    if not numbers:\n        raise ValueError(\"average() of an empty list\")\n    return sum(numbers) / len(numbers)\n```"
+ },
+ {
+  "id": "cv-022",
+  "area": "correction lookalike",
+  "prompt": "I said hello to my neighbour and she ignored me, what should I do?",
+  "reply": "She may not have heard you, or had a bad day. Say hello again next time; if it keeps happening, a short friendly chat can clear things up."
+ },
+ {
+  "id": "cv-023",
+  "area": "correction lookalike",
+  "prompt": "I said yes to the job offer but I'm not sure now",
+  "reply": "Second thoughts after a yes are common. Write down what made you say yes and what worries you now, then decide whether it is a real deal-breaker."
+ },
+ {
+  "id": "cv-024",
+  "area": "correction lookalike",
+  "prompt": "I meant to call my mom yesterday, how do I apologize?",
+  "reply": "Call her today and keep it simple: say you meant to call, you're sorry you didn't, and ask how her day was."
+ },
+ {
+  "id": "cv-025",
+  "area": "correction lookalike",
+  "prompt": "no, I'm good thanks",
+  "history": [
+   [
+    "user",
+    "here's my cover letter intro, is it ok? I am writing to apply for the role."
+   ],
+   [
+    "assistant",
+    "It reads well. Want me to tighten the second sentence?"
+   ]
+  ],
+  "reply": "Sounds good. Good luck with the application!"
+ },
+ {
+  "id": "cv-026",
+  "area": "detail lookalike",
+  "prompt": "how do I thoroughly clean an oven",
+  "reply": "1. **Remove the racks** - soak them in hot soapy water.\n2. **Coat the inside** - spread a baking soda and water paste and leave it overnight.\n3. **Wipe and rinse** - scrape off the paste and wipe with vinegar."
+ },
+ {
+  "id": "cv-027",
+  "area": "detail lookalike",
+  "prompt": "what is comprehensive car insurance",
+  "reply": "Comprehensive cover pays for damage to your own car that isn't from a collision, such as theft, fire, hail or a falling tree."
+ },
+ {
+  "id": "cv-028",
+  "area": "detail lookalike",
+  "prompt": "the devil is in the details, what does that mean?",
+  "reply": "It means small details that look unimportant are often where the real problems hide."
+ },
+ {
+  "id": "cv-029",
+  "area": "continue lookalike",
+  "prompt": "how do I continue a for loop in python",
+  "reply": "Use `continue` to skip to the next iteration:\n\n```python\nfor n in range(5):\n    if n == 2:\n        continue\n    print(n)\n```"
+ },
+ {
+  "id": "cv-030",
+  "area": "continue lookalike",
+  "prompt": "fix that bug in my login form: the button does nothing",
+  "reply": "The button needs `type=\"submit\"` inside the form, or an `onClick` that calls your login function."
+ }
+]

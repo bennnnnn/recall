@@ -98,7 +98,6 @@ def test_style_hints_follow_the_continuation_subject() -> None:
     for query in ("Another", "Another such question", "Change chapter", "Make it harder"):
         hints = _style_format_hints(
             query_text=query,
-            style="balanced",
             is_day_plan=False,
             minimal_personal_context=False,
             prior_messages=physics_prior,
@@ -108,7 +107,6 @@ def test_style_hints_follow_the_continuation_subject() -> None:
 
     email = _style_format_hints(
         query_text="Write me an email",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         prior_messages=physics_prior,
@@ -117,7 +115,6 @@ def test_style_hints_follow_the_continuation_subject() -> None:
 
     math_hints = _style_format_hints(
         query_text="One more",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         prior_messages=[("user", EQUATION), ("assistant", "x = 4")],
@@ -128,7 +125,6 @@ def test_style_hints_follow_the_continuation_subject() -> None:
 
     chemistry = _style_format_hints(
         query_text="Another",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         prior_messages=[("user", CHEMISTRY), ("assistant", "2 H2O")],
@@ -138,7 +134,6 @@ def test_style_hints_follow_the_continuation_subject() -> None:
 
     statistics = _style_format_hints(
         query_text="Another",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         prior_messages=[("user", STATS), ("assistant", "5")],
@@ -147,7 +142,6 @@ def test_style_hints_follow_the_continuation_subject() -> None:
 
     biology = _style_format_hints(
         query_text="Another",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         prior_messages=[("user", BIOLOGY), ("assistant", "100 fold")],
@@ -160,7 +154,6 @@ def test_why_is_it_after_physics_keeps_the_physics_contract() -> None:
     assert effective_presentation_subject("why is it 40", prior) == "physics"
     hints = _style_format_hints(
         query_text="why is it 40",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         prior_messages=prior,
@@ -238,19 +231,18 @@ def test_one_more_asks_for_a_new_problem_after_the_subject_policy() -> None:
     repeated = [*prior, ("user", "One more"), ("assistant", "John's speed = 10 km/h.")]
     assert effective_presentation_subject("One more", prior) == "physics"
     assert effective_presentation_subject("I said one more example", repeated) == "physics"
-    for style in ("default", "short"):
+    for compact in (False, True):
         parts = _style_format_hints(
             query_text="I said one more example",
-            style=style,
             is_day_plan=False,
             minimal_personal_context=False,
+            compact=compact,
             prior_messages=repeated,
         )
         assert NEW_PROBLEM_HINT in parts
         assert parts.index(NEW_PROBLEM_HINT) > parts.index(PHYSICS_REPLY_POLICY)
     plain = _style_format_hints(
         query_text="Why?",
-        style="default",
         is_day_plan=False,
         minimal_personal_context=False,
         prior_messages=prior,

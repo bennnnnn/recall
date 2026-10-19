@@ -34,7 +34,6 @@ _LIST_ANSWER = "1. **Invest early** - compound growth.\n2. **Raise your income**
 def _hints(text: str, prior: tuple[str, str] | None = None) -> list[str]:
     return _style_format_hints(
         query_text=text,
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         prior_messages=[("user", prior[0]), ("assistant", prior[1])] if prior else None,
@@ -205,7 +204,6 @@ def test_a_short_answer_goes_on_with_the_message_asked_for_earlier(text: str) ->
     assert draft_followup(text, _MOM_CHAT) == ("message", False)
     parts = _style_format_hints(
         query_text=text,
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         prior_messages=_MOM_CHAT,

@@ -19,17 +19,17 @@ from app.services.workout import (
 )
 
 
-def _messages(query: str, style: str = "balanced") -> list[dict[str, Any]]:
+def _messages(query: str, *, compact: bool = False) -> list[dict[str, Any]]:
     hints = _style_format_hints(
         query_text=query,
-        style=style,
         is_day_plan=False,
         minimal_personal_context=False,
+        compact=compact,
     )
     return [{"role": "system", "content": "\n\n".join(hints)}, {"role": "user", "content": query}]
 
 
-@pytest.mark.parametrize("style", ["balanced", "short"])
+@pytest.mark.parametrize("compact", [False, True])
 @pytest.mark.parametrize(
     "query",
     [
@@ -40,12 +40,12 @@ def _messages(query: str, style: str = "balanced") -> list[dict[str, Any]]:
     ],
 )
 def test_detected_math_policy_is_last_after_actual_style_and_tutoring_hints(
-    style: str, query: str
+    compact: bool, query: str
 ) -> None:
     assert needs_symbolic_math(query)
-    content = _messages(query, style)[0]["content"]
+    content = _messages(query, compact=compact)[0]["content"]
     assert content.endswith(MATH_REPLY_POLICY)
-    if style == "balanced":
+    if not compact:
         assert content.index(MATH_TUTORING_HINT) < content.index(MATH_REPLY_POLICY)
     assert "say you're working it out and show the steps" not in content
     assert "is stuck after a hint, or has a deadline" not in content

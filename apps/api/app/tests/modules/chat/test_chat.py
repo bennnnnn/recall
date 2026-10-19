@@ -712,7 +712,7 @@ async def test_build_prompt_includes_memory_and_ignores_a_stored_style():
     assert "first-party context" in messages[0]["content"]
     # A stored response_style from an older app is ignored: length follows the message.
     assert "response length: short" not in messages[0]["content"].lower()
-    assert "response length: balanced" in messages[0]["content"].lower()
+    assert "response length: fit the question" in messages[0]["content"].lower()
     assert "**HTML UI**" not in messages[0]["content"]
     assert "Python" in messages[0]["content"]
     assert "clarifying questions" in messages[0]["content"].lower()

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from app.modules.chat.continuation_subject import (
     effective_presentation_subject,
     is_new_problem_request,
+    works_on_last_reply,
 )
 from app.modules.chat.prompt_constants import (
     BREVITY_REQUEST_HINT,
@@ -30,6 +31,7 @@ from app.modules.chat.prompt_constants import (
     LEARNING_PLAN_HINT,
     MATH_FENCE_SAFETY_HINT,
     MERMAID_FORMAT_HINT,
+    MIXED_LENGTH_HINT,
     NEW_PROBLEM_HINT,
     NON_DRAFT_TURN_HINT,
     PERSONAL_DISCLOSURE_HINT,
@@ -40,11 +42,11 @@ from app.modules.chat.prompt_constants import (
     STANDING_PREFERENCE_HINT,
     STEPS_FORMAT_HINT,
     TEACHING_HINT,
-    TEACHING_SHORT_NOTE,
     UNIVERSAL_FORMAT_BASELINE,
     VISUALIZATION_HINTS,
     WALKTHROUGH_HINT,
     WRITING_LINE_HINT,
+    ReplyLength,
     code_question_hint,
     draft_followup,
     draft_followup_hint,
@@ -62,6 +64,7 @@ from app.modules.chat.prompt_constants import (
     is_quote_question,
     is_sequence_diagram_question,
     is_short_confirmation,
+    is_social_opener,
     is_standing_preference,
     is_structured_comparison_question,
     is_task_howto,
@@ -69,6 +72,7 @@ from app.modules.chat.prompt_constants import (
     is_walkthrough_request,
     learning_plan_daily_contract,
     programming_lesson_contract,
+    reply_length,
     writing_format_hint,
     writing_request_kind,
 )
@@ -179,7 +183,7 @@ class StyleTurn:
     """What the hint rules read about one turn, worked out once."""
 
     query: str  # "" when the turn has no text
-    style: str
+    length: ReplyLength
     is_day_plan: bool
     minimal_personal_context: bool
     compact: bool
@@ -200,7 +204,6 @@ class StyleTurn:
 def _style_turn(
     query_text: str | None,
     *,
-    style: str,
     is_day_plan: bool,
     minimal_personal_context: bool,
     compact: bool,
@@ -233,7 +236,7 @@ def _style_turn(
     shaped = teaching or walkthrough or learning_plan or writing or code_hint
     return StyleTurn(
         query=query,
-        style=style,
+        length=reply_length(query),
         is_day_plan=is_day_plan,
         minimal_personal_context=minimal_personal_context,
         compact=compact,
@@ -282,31 +285,8 @@ def _day_planning(turn: StyleTurn) -> list[str]:
     return [DAY_PLANNING_ANSWER_HINT]
 
 
-def _short_pack(turn: StyleTurn) -> list[str]:
-    # Explicit draft/prose still wins over "plain text, skip fences". A lesson
-    # keeps its title, sections and quiz, only smaller.
-    if turn.writing:
-        return [turn.writing]
-    if turn.code_hint:
-        # "Line by line" is an explicit shape; Short style keeps the bullets short.
-        return [turn.code_hint]
-    if turn.learning_plan:
-        # An explicit multi-day roadmap needs enough room to be actionable;
-        # account-level short style must not collapse it into a vague paragraph.
-        return [LEARNING_PLAN_HINT]
-    if turn.teaching:
-        return [TEACHING_HINT, TEACHING_SHORT_NOTE]
-    if turn.walkthrough:
-        return [WALKTHROUGH_HINT, TEACHING_SHORT_NOTE]
-    if turn.lesson_hint:
-        return [TEACHING_SHORT_NOTE]
-    return [SHORT_RESPONSE_FORMAT_HINT]
-
-
 def _format_pack(turn: StyleTurn) -> list[str]:
-    """The format baseline, then the one layout the turn's style and shape ask for."""
-    if turn.style == "short":
-        return [UNIVERSAL_FORMAT_BASELINE, *_short_pack(turn)]
+    """The format baseline, then the one layout the turn's shape asks for."""
     if turn.is_day_plan:
         # Day-plan used to miss math guardrails. Keep a short fence-safety
         # line so incidental `$...$` still renders; keep FORMAT_CONTRACT so
@@ -336,8 +316,8 @@ def _offers_answer_photo(turn: StyleTurn) -> bool:
     """Whether this turn could be about one thing worth seeing ("what is a capybara").
 
     Code, a subject problem, a lesson, a draft, a chart or day plan, a pasted
-    fragment and small talk never are. Offering the photo there only confused the
-    reply ("I can't see the image you're referring to").
+    fragment, small talk and "continue" / "fix that" never are. Offering the photo
+    there only confused the reply ("I can't see the image you're referring to").
     """
     if not turn.image_search_enabled or not turn.query.strip():
         return False
@@ -347,7 +327,9 @@ def _offers_answer_photo(turn: StyleTurn) -> bool:
         return False
     if turn.subject in _NO_PHOTO_SUBJECTS:
         return False
-    if is_lightweight_chat_turn(turn.query) or is_bare_writing_line(turn.query):
+    if is_lightweight_chat_turn(turn.query) or is_social_opener(turn.query):
+        return False
+    if is_bare_writing_line(turn.query) or works_on_last_reply(turn.query):
         return False
     return not is_programming_turn(turn.query)
 
@@ -373,7 +355,7 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
     PromptRule(lambda t: t.minimal_personal_context, _hints(BROAD_SELF_ANSWER_HINT)),
     PromptRule(_always, _format_pack),
     PromptRule(lambda t: bool(t.lesson_hint), lambda t: _present(t.lesson_hint)),
-    # In every account style: a real photo above an answer about something to see.
+    # A real photo above an answer about something to see.
     PromptRule(_offers_answer_photo, _answer_photo),
     PromptRule(
         _asks(is_image_generation_mention),
@@ -383,9 +365,11 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
     ),
     PromptRule(
         _always,
-        lambda t: subject_presentation_hints(t.subject, short=t.style == "short" or t.compact),
+        lambda t: subject_presentation_hints(t.subject, short=t.compact),
     ),
-    PromptRule(_asks(is_brevity_request), _hints(BREVITY_REQUEST_HINT)),
+    # A length cap; a cap on one part and detail on another (``length.reply_length``).
+    PromptRule(lambda t: t.length == "brief", _hints(BREVITY_REQUEST_HINT)),
+    PromptRule(lambda t: t.length == "mixed", _hints(MIXED_LENGTH_HINT)),
     # Specialized translation/prose hints already own the shape; the copy-fence
     # contract would tell the model to wrap an article in ```copy. A translated
     # draft is still a draft.
@@ -460,7 +444,6 @@ def _exclusive_pack(
 def _style_format_hints(
     *,
     query_text: str | None,
-    style: str,
     is_day_plan: bool,
     minimal_personal_context: bool,
     compact: bool = False,
@@ -489,7 +472,6 @@ def _style_format_hints(
         outline_pick=outline_pick,
         lesson_after_gap=lesson_after_gap,
         prior_messages=prior_messages,
-        style=style,
         is_day_plan=is_day_plan,
         minimal_personal_context=minimal_personal_context,
         compact=compact,

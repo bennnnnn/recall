@@ -79,6 +79,27 @@ class Case:
 NO_PHOTO = ""
 NONE = ""
 
+# A story cut off mid-sentence, and code with its bug report, for the follow-up turns.
+_STORY = (
+    ("user", "tell me a long story about a dragon who is afraid of fire"),
+    (
+        "assistant",
+        "Ember was the only dragon in the Ashen Peaks who flinched at sparks. Every spring the "
+        "young dragons lit the valley torches, and every spring Ember hid behind the waterfall.\n\n"
+        "One night a storm knocked out every torch in the village below, and the elders came "
+        'to the waterfall looking for her. "We need fire," they said, and Ember',
+    ),
+)
+_AVERAGE_CODE = (
+    ("user", "write a python function that averages a list of numbers"),
+    ("assistant", "```python\ndef average(numbers):\n    return sum(numbers) / len(numbers)\n```"),
+    ("user", "it crashes on an empty list"),
+    (
+        "assistant",
+        "Right: `len([])` is `0`, so `sum([]) / 0` raises `ZeroDivisionError`.",
+    ),
+)
+
 CASES: tuple[Case, ...] = (
     # ── Math ────────────────────────────────────────────────────────────────
     Case(
@@ -905,6 +926,30 @@ CASES: tuple[Case, ...] = (
         Expect(hints=("mermaid",), image_gen=False, photo=NO_PHOTO),
         "A flowchart diagram, not a generated picture.",
     ),
+    Case(
+        "format-in-detail",
+        "format",
+        "explain in detail how Raft handles split votes and network partitions",
+        Expect(hints=("detail",), no_hints=("fit_length",), search="no"),
+        "A thorough answer: randomized election timeouts and terms for split votes, what a "
+        "minority partition can and cannot commit, and a short example timeline.",
+    ),
+    Case(
+        "format-mixed-length",
+        "format",
+        "in one sentence what is DNS? Also explain in detail how a TLS handshake works",
+        Expect(hints=("mixed_length",), no_hints=("brevity",)),
+        "DNS in exactly one sentence, then a detailed walk through the TLS handshake.",
+    ),
+    Case(
+        "format-continue-story",
+        "format",
+        "continue",
+        Expect(hints=("continue",), no_hints=("answer_photo",), photo=NO_PHOTO),
+        'Picks up mid-sentence where the story stopped ("…and Ember"), with no recap and no '
+        "fresh start.",
+        history=_STORY,
+    ),
     # ── Code ────────────────────────────────────────────────────────────────
     Case(
         "code-function",
@@ -1002,6 +1047,27 @@ CASES: tuple[Case, ...] = (
         "The function has no return; the fix adds return a + b; **Output:** 5.",
     ),
     Case(
+        "code-fix-that",
+        "code",
+        "fix that",
+        Expect(no_hints=("answer_photo",), search="no", photo=NO_PHOTO),
+        "The fixed average() in one python fence that handles an empty list (returns 0 or "
+        "raises a clear ValueError), and one line on the change.",
+        history=_AVERAGE_CODE,
+    ),
+    Case(
+        "code-correction-python-2",
+        "code",
+        "actually I meant Python 2, not 3",
+        Expect(hints=("correction",), search="no"),
+        'print "hello" as a Python 2 statement, a few words of acknowledgement at most, and '
+        "nothing about Python 3 again.",
+        history=(
+            ("user", "how do I print hello in python"),
+            ("assistant", '```python\nprint("hello")\n```'),
+        ),
+    ),
+    Case(
         "code-not-pasted",
         "code",
         "explain the code of conduct",
@@ -1051,6 +1117,39 @@ CASES: tuple[Case, ...] = (
         Expect(lightweight=True, search="no"),
         "A one-line welcome.",
     ),
+    Case(
+        "tone-good-morning",
+        "tone and emoji",
+        "good morning!",
+        Expect(
+            hints=("compact",),
+            no_hints=("answer_photo", "format_contract"),
+            search="no",
+            photo=NO_PHOTO,
+        ),
+        "A short good morning back; no essay, no photo, no list of things it can do.",
+    ),
+    Case(
+        "tone-hello-there",
+        "tone and emoji",
+        "hello there",
+        Expect(hints=("compact",), no_hints=("answer_photo", "format_contract"), search="no"),
+        "A short hello back.",
+    ),
+    Case(
+        "tone-how-are-you",
+        "tone and emoji",
+        "how are you?",
+        Expect(hints=("compact",), no_hints=("answer_photo", "format_contract"), search="no"),
+        "One or two friendly sentences, maybe asking what's up.",
+    ),
+    Case(
+        "tone-greeting-then-question",
+        "tone and emoji",
+        "good morning, what's the capital of Peru?",
+        Expect(hints=("format_contract",), no_hints=("compact",)),
+        "Lima, after at most a word of good morning.",
+    ),
     # ── Personal ────────────────────────────────────────────────────────────
     Case(
         "personal-name",
@@ -1081,6 +1180,28 @@ CASES: tuple[Case, ...] = (
         "what should I cook tonight?",
         Expect(hints=("advice",), subject=NONE),
         "A couple of dinner ideas shaped by what it knows the user likes.",
+    ),
+    Case(
+        "personal-correction-vegetarian",
+        "personal",
+        "no, I said I'm vegetarian",
+        Expect(hints=("correction",), search="no"),
+        "Vegetarian dinner ideas, no meat or fish, without a long apology.",
+        history=(
+            ("user", "I'm vegetarian. what should I cook tonight?"),
+            ("assistant", "How about **lemon garlic chicken** or a quick **beef stir-fry**?"),
+        ),
+    ),
+    Case(
+        "personal-thanks-is-not-a-correction",
+        "personal",
+        "no, I said it was fine — thanks",
+        Expect(no_hints=("correction",), search="no"),
+        "A short you're welcome; nothing rewritten.",
+        history=(
+            ("user", "here's my cover letter intro, is it ok?"),
+            ("assistant", "It reads well. Want me to tighten the second sentence?"),
+        ),
     ),
     Case(
         "personal-capabilities",

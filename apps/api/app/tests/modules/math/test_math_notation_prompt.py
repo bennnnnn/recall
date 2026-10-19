@@ -10,14 +10,12 @@ from app.modules.math.match import needs_symbolic
 from app.modules.math.reply_policy import MATH_NOTATION_CLARIFICATION_HINT
 
 
-@pytest.mark.parametrize("style", ["balanced", "short"])
 @pytest.mark.parametrize("compact", [False, True])
-def test_unknown_notation_gets_clarification_without_math_intent(style: str, compact: bool) -> None:
+def test_unknown_notation_gets_clarification_without_math_intent(compact: bool) -> None:
     query = "What is frad{64}?"
     assert not needs_symbolic(query)
     hints = _style_format_hints(
         query_text=query,
-        style=style,
         is_day_plan=False,
         minimal_personal_context=False,
         compact=compact,
@@ -26,15 +24,12 @@ def test_unknown_notation_gets_clarification_without_math_intent(style: str, com
     assert "\n".join(hints).count(MATH_NOTATION_CLARIFICATION_HINT) == 1
 
 
-@pytest.mark.parametrize(
-    "style,compact", [("balanced", False), ("short", False), ("balanced", True)]
-)
+@pytest.mark.parametrize("compact", [False, True])
 def test_recognized_math_turn_keeps_clarification_guard_and_standard_aliases(
-    style: str, compact: bool
+    compact: bool,
 ) -> None:
     hints = _style_format_hints(
         query_text="Solve x + 1 = 3",
-        style=style,
         is_day_plan=False,
         minimal_personal_context=False,
         compact=compact,

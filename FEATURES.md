@@ -140,7 +140,17 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   layout. Sequence diagrams use `sequenceDiagram`, not a flowchart. Bare
   “write me an email” asks one purpose question; a named purpose still drafts
   now. Real/my chart data without numbers asks once instead of inventing a
-  sample as the answer.
+  sample as the answer. “Continue” / “keep going” resumes the last reply where it
+  stopped, never a restart or recap, and the window keeps that reply whole even past the
+  token budget; “fix that” works on the last reply. A correction (“no, I said I'm
+  vegetarian”, “actually I meant Python 2, not 3”) carries a short contract beside the
+  user turn: apply it, drop the old assumption, no long apology
+  (`prompt_constants/conversation.py`). “In detail” / “deep dive” gets the detailed length;
+  one sentence for one part and detail for another gets each its own. A reply's last line
+  loses a generic closer (“Let me know if you have any other questions”, “Hope this
+  helps”), never inside a fence, a quote or a draft the user asked for
+  (`modules/chat/generic_closer.py`). A photo too blurry or cropped to read gets what is
+  unclear and a request for a clearer one (`attachments/vision_notes.py`).
 - ✅ **Send stays busy until accepted** — after Send, the composer clears so the next
   draft can be typed, but Send and Attach stay disabled until upload/create finishes.
   A failed turn restores into an empty composer and does not overwrite a newer draft.
@@ -642,7 +652,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the full visualization/math-solver pack), keeps bounded personal memory and semantic history
   available for continuity, and skips web/math/chem prefetch unless the turn is rich or actually
   needs search, math or chemistry. Exact greetings and
-  acknowledgements stay on the zero-retrieval fast path.
+  acknowledgements stay on the zero-retrieval fast path; “good morning!” or “how are you?”
+  (an opener that asks for nothing) gets the compact format and no photo offer, while
+  “good morning, what's the capital of Peru?” is answered in full.
 - ✅ **Prompt token budgeting UI** — Settings → Account → Usage shows how much of
   today's limit is left. The composer
   shows a local draft estimate when the text is large enough to matter.

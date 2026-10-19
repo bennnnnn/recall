@@ -17,7 +17,6 @@ from app.modules.chat.prompt_format import _style_format_hints
 def test_compact_turn_skips_rich_format_pack():
     parts = _style_format_hints(
         query_text="Whoever made the best decision for me",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=True,
@@ -35,7 +34,6 @@ def test_compact_technical_compare_uses_table_and_conditional_code_examples():
 
     parts = _style_format_hints(
         query_text="Compare Python vs Java for a beginner. Side by side on typing, syntax, and use cases.",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=True,
@@ -57,7 +55,6 @@ def test_compact_chart_turn_uses_vega_fence_not_plain_prose():
             "Make a bar chart of average monthly rainfall in Seattle: "
             "Jan 5.7, Feb 3.5, Mar 3.7, Apr 2.4, May 1.8, Jun 1.5 inches."
         ),
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=True,
@@ -83,7 +80,6 @@ def test_compact_mermaid_turn_uses_flowchart_fence_not_plain_prose():
             "Draw a mermaid flowchart of making a cup of coffee, "
             "from grinding beans to drinking. Keep it to about 8 steps."
         ),
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=True,
@@ -105,7 +101,6 @@ def test_compact_tips_turn_uses_callout_blockquotes_not_plain_prose():
             "Give me 3 tips for staying focused while studying. "
             "Include a warning about all-nighters."
         ),
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=True,
@@ -125,7 +120,6 @@ def test_compact_week_plan_uses_detailed_learning_plan_not_plain_prose():
 
     parts = _style_format_hints(
         query_text="Give me a 4-week plan to learn Spanish for travel.",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=True,
@@ -151,7 +145,6 @@ def test_compact_spanish_week_plan_uses_detailed_learning_plan():
     assert is_learning_plan_request(query)
     parts = _style_format_hints(
         query_text=query,
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=True,
@@ -163,7 +156,6 @@ def test_compact_spanish_week_plan_uses_detailed_learning_plan():
 def test_day_plan_still_uses_richer_format_hint():
     parts = _style_format_hints(
         query_text="plan my day",
-        style="balanced",
         is_day_plan=True,
         minimal_personal_context=False,
     )
@@ -184,7 +176,6 @@ def test_fragment_gets_writing_line_hint():
 
     parts = _style_format_hints(
         query_text="Whoever made the best decision for me",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=True,
@@ -199,7 +190,6 @@ def test_yes_follow_through_hint_is_not_a_greeting():
 
     parts = _style_format_hints(
         query_text="yes",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=True,
@@ -213,7 +203,6 @@ def test_bare_y_does_not_invent_an_offer_to_follow_through_on():
 
     parts = _style_format_hints(
         query_text="y",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=True,
@@ -392,7 +381,6 @@ def test_each_writing_kind_gets_only_its_relevant_format_hint():
     for query, expected in cases:
         parts = _style_format_hints(
             query_text=query,
-            style="balanced",
             is_day_plan=False,
             minimal_personal_context=False,
             compact=True,
@@ -404,12 +392,9 @@ def test_each_writing_kind_gets_only_its_relevant_format_hint():
 _COPY_FENCE_INSTRUCTION = "put ONLY the final send-ready wording inside a fenced code block"
 
 
-def _writing_style_parts(
-    query: str, *, compact: bool = False, style: str = "balanced"
-) -> list[str]:
+def _writing_style_parts(query: str, *, compact: bool = False) -> list[str]:
     return _style_format_hints(
         query_text=query,
-        style=style,
         is_day_plan=False,
         minimal_personal_context=False,
         compact=compact,
@@ -450,11 +435,6 @@ def test_writing_kinds_displace_competing_format_contracts():
                 assert _COPY_FENCE_INSTRUCTION not in joined
             else:
                 assert _COPY_FENCE_INSTRUCTION in joined
-        short_parts = _writing_style_parts(query, style="short")
-        assert expected in short_parts
-        assert SHORT_RESPONSE_FORMAT_HINT not in short_parts
-        assert COMPACT_RESPONSE_FORMAT_HINT not in short_parts
-        assert FORMAT_CONTRACT not in short_parts
 
 
 def test_writing_deliverable_wins_over_incidental_comparison_layout():
@@ -466,7 +446,6 @@ def test_writing_deliverable_wins_over_incidental_comparison_layout():
 
     article = _style_format_hints(
         query_text="Write an article comparing Python vs Java",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
     )
@@ -475,7 +454,6 @@ def test_writing_deliverable_wins_over_incidental_comparison_layout():
 
     modified_article = _style_format_hints(
         query_text="Write a short article comparing Python and Java",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
     )
@@ -484,7 +462,6 @@ def test_writing_deliverable_wins_over_incidental_comparison_layout():
 
     post = _style_format_hints(
         query_text="Write a LinkedIn post comparing Python vs Java",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
     )
@@ -493,7 +470,6 @@ def test_writing_deliverable_wins_over_incidental_comparison_layout():
 
     modified_post = _style_format_hints(
         query_text="Write a short LinkedIn post comparing Python and Java",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
     )
@@ -525,7 +501,6 @@ def test_informational_queries_do_not_receive_writing_hints():
     ):
         parts = _style_format_hints(
             query_text=query,
-            style="balanced",
             is_day_plan=False,
             minimal_personal_context=False,
             compact=True,
@@ -577,7 +552,6 @@ def test_compact_quote_turn_uses_blockquote_not_plain_prose():
 
     parts = _style_format_hints(
         query_text=query,
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=True,
@@ -630,7 +604,6 @@ def test_capabilities_overview_skips_email_draft_contract():
     assert is_capabilities_question(query)
     parts = _style_format_hints(
         query_text=query,
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         compact=False,
@@ -669,7 +642,6 @@ def test_career_updates_are_conversation_not_unsolicited_email_drafts(query):
     assert not is_email_or_message_request(query)
     parts = _style_format_hints(
         query_text=query,
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
     )
@@ -683,7 +655,6 @@ def test_explicit_google_outreach_request_still_gets_email_draft_contract():
 
     parts = _style_format_hints(
         query_text="Write an email to a Google recruiter about my software engineering experience",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
     )
@@ -705,7 +676,6 @@ def test_plain_career_disclosure_gets_short_conversation_contract():
     assert is_personal_disclosure_turn(query)
     parts = _style_format_hints(
         query_text=query,
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
     )

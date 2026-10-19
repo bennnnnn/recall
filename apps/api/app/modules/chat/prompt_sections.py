@@ -14,10 +14,13 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
+from app.modules.chat.continuation_subject import is_resume_request
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
     CAREER_PERSONALIZE_HINT,
     CODE_INK_REMINDER,
+    CONTINUE_HINT,
+    CORRECTION_HINT,
     EXAMPLE_PERSONALIZE_HINT,
     FACT_GROUNDING_HINT,
     LIGHTWEIGHT_REPLY_HINT,
@@ -34,16 +37,19 @@ from app.modules.chat.prompt_constants import (
     is_bare_writing_line,
     is_capabilities_question,
     is_career_personal_question,
+    is_correction,
     is_learning_plan_request,
     is_personal_disclosure_turn,
     is_profile_fact_question,
     is_profile_recall_pushback,
     is_short_confirmation,
+    is_social_opener,
     is_standing_preference,
     is_teaching_request,
     learning_plan_daily_contract,
     outline_awaits_pick,
     programming_lesson_contract,
+    reply_length,
 )
 from app.modules.chat.prompt_constants.lesson_flow import lesson_after_gap
 from app.modules.chat.prompt_format import PromptRule, _style_format_hints, code_question_layout
@@ -95,11 +101,12 @@ class PromptTurn:
         return self.query_text or ""
 
     @property
-    def style(self) -> str:
-        # No account-wide length any more: each message says how long it wants
-        # ("briefly", "in detail"), and BREVITY_REQUEST_HINT follows it. A
-        # stored response_style from an older app is ignored.
-        return "balanced"
+    def length_hint(self) -> str:
+        # No account-wide length: each message says how long it wants ("briefly",
+        # "in detail"). A stored users.response_style from an older app is ignored.
+        if self.lightweight:
+            return STYLE_HINTS["short"]
+        return STYLE_HINTS["detailed" if reply_length(self.query) == "detailed" else "balanced"]
 
 
 PromptSection = PromptRule[PromptTurn]
@@ -130,14 +137,14 @@ def _style_hints(turn: PromptTurn) -> list[str]:
     lesson = active_lesson_step(turn.exchange)
     outline_pick = not lesson and outline_awaits_pick(turn.exchange)
     after_gap = bool(lesson) and lesson_after_gap(turn.exchange)
-    # Greetings and pasted fragments are compact. "ok" / "next" after a lesson
-    # asks for the next lesson, not a casual reply.
+    # Greetings ("good morning!", "how are you?") and pasted fragments are compact.
+    # "ok" / "next" after a lesson asks for the next lesson, not a casual reply.
     compact = not (lesson or outline_pick) and bool(
-        query and (is_bare_writing_line(query) or is_short_confirmation(query))
+        query
+        and (is_bare_writing_line(query) or is_short_confirmation(query) or is_social_opener(query))
     )
     return _style_format_hints(
         query_text=turn.query_text,
-        style=turn.style,
         is_day_plan=bool(query and is_day_planning_question(query)),
         minimal_personal_context=turn.minimal_personal_context,
         compact=compact,
@@ -186,6 +193,17 @@ def _gives_advice(turn: PromptTurn) -> bool:
     )
 
 
+def _replied(turn: PromptTurn) -> bool:
+    return any(message.role == "assistant" for message in turn.exchange)
+
+
+def _resumes(turn: PromptTurn) -> bool:
+    """After a reply, "continue" resumes it; in a lesson it asks for the next lesson."""
+    if not is_resume_request(turn.query_text) or not _replied(turn):
+        return False
+    return not (active_lesson_step(turn.exchange) or outline_awaits_pick(turn.exchange))
+
+
 def _advice(turn: PromptTurn) -> list[str]:
     query = turn.query
     if query and (is_profile_fact_question(query) or is_profile_recall_pushback(query)):
@@ -206,9 +224,7 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
         ],
     ),
     PromptSection(_always, _profile),
-    PromptSection(
-        _always, lambda t: [STYLE_HINTS["short"] if t.lightweight else STYLE_HINTS[t.style]]
-    ),
+    PromptSection(_always, lambda t: [t.length_hint]),
     # Lightweight/chit-chat turns skipped the math guardrails entirely,
     # so incidental `$...$` rendered as raw ```latex. A two-line fence
     # safety hint is enough — not the full math pack.
@@ -288,6 +304,13 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
     PromptSection(
         lambda t: not t.lightweight and bool(code_question_layout(t.query_text)),
         lambda _t: [CODE_INK_REMINDER],
+    ),
+    # "continue" resumes the last reply; it does not start over or recap.
+    PromptSection(_resumes, lambda _t: [CONTINUE_HINT]),
+    # "no, I said I'm vegetarian": the correction wins over what the last reply assumed.
+    PromptSection(
+        lambda t: bool(t.query) and _replied(t) and is_correction(t.query),
+        lambda _t: [CORRECTION_HINT],
     ),
 )
 

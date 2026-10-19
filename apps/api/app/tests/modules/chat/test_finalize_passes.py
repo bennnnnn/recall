@@ -73,6 +73,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "drop_cut_reminder_fence",
         "prepare_model_reply",
         "untrusted_media",
+        "generic_closer",
         "answer_photo",
         "chemistry_fences",
         "physics_fences",
@@ -92,10 +93,11 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "presentation",
         "clock",
     ]
-    # Only the subject fence passes and the chemistry enrichment go on after a
-    # failure; every other pass falls back to the last committed text.
+    # Only the subject fence passes, the chemistry enrichment and the closer strip
+    # go on after a failure; every other pass falls back to the last committed text.
     kept = {name: (log_as, rewrite is not None) for name, log_as, rewrite in order if log_as}
     assert kept == {
+        "generic_closer": ("generic_closer", False),
         "chemistry_fences": ("validate_math_fences", True),
         "physics_fences": ("validate_math_fences", True),
         "math_fences": ("validate_math_fences", True),

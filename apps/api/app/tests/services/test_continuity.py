@@ -181,3 +181,81 @@ async def test_prompt_keeps_the_message_pushed_out_by_the_current_turn():
     contents = [message["content"] for message in messages]
     assert "stored-0" in contents
     assert contents.index("stored-0") < contents.index("stored-1")
+
+
+@pytest.mark.asyncio
+async def test_continue_after_a_cut_long_reply_keeps_that_reply_whole():
+    """A stopped code reply far over the token budget still reaches "continue" verbatim."""
+    from app.modules.chat.prompt_builder import build_prompt_messages
+    from app.modules.chat.prompt_constants import CONTINUE_HINT
+    from app.services.context_window import estimate_tokens
+
+    chat_id = uuid4()
+    user = MagicMock(
+        id=uuid4(),
+        email="test@example.com",
+        location_enabled=False,
+        response_style="balanced",
+        response_tone="casual",
+        locale="en",
+        timezone="UTC",
+        custom_instructions=None,
+    )
+    user.name = "Test User"
+    chat = MagicMock(id=chat_id, summary=None, summary_message_count=0)
+    body = "".join(f"def step_{n}(total):\n    return total + {n}\n\n" for n in range(900))
+    # Stopped mid-function: the stop path closed the open fence before persisting.
+    cut = f"Here is the full pipeline:\n\n```python\n{body}def step_900(total):\n    return\n```"
+    settings = Settings(
+        attachment_rag_enabled=False,
+        chat_history_rag_enabled=False,
+        context_token_budget=6000,
+    )
+    assert estimate_tokens(cut) > settings.context_token_budget
+    rows = []
+    for role, content in (
+        ("user", "write the whole data pipeline as one python file"),
+        ("assistant", cut),
+        ("user", "continue"),
+    ):
+        row = MagicMock(role=role, content=content)
+        row.id = uuid4()
+        row.created_at = datetime(2026, 1, 1, tzinfo=UTC)
+        rows.append(row)
+
+    class _Session:
+        async def __aenter__(self):
+            return AsyncMock()
+
+        async def __aexit__(self, *_args):
+            return False
+
+    with (
+        patch("app.modules.chat.prompt_builder.SessionLocal", _Session),
+        patch("app.modules.chat.prompt_context.SessionLocal", _Session),
+        patch(
+            "app.modules.chat.prompt_context.messages_repo.count_for_chat",
+            AsyncMock(return_value=3),
+        ),
+        patch(
+            "app.modules.chat.prompt_context.messages_repo.list_before",
+            AsyncMock(return_value=[]),
+        ),
+        patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
+        patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
+    ):
+        messages = await build_prompt_messages(
+            user,
+            chat_id,
+            settings,
+            query_text="continue",
+            chat=chat,
+            rich_context=False,
+            recent_messages=rows,
+            current_user_message_id=rows[-1].id,
+        )
+
+    assistant = [m["content"] for m in messages if m["role"] == "assistant"]
+    assert assistant == [cut]
+    assert messages[-1] == {"role": "user", "content": "continue"}
+    assert messages[-2]["role"] == "system" and CONTINUE_HINT in messages[-2]["content"]

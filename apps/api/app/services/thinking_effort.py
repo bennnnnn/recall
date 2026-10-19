@@ -3,7 +3,7 @@
 Thinking costs time and output tokens, so an ordinary question gets none. A
 genuinely hard question gets the cheapest level that thinks (``message_needs
 _thinking``). One level more only when the user pushes back on the answer
-before ("that's wrong", "try again", "are you sure?") or regenerates it. The
+before ("that's wrong", "try again", "that's not what I asked") or regenerates it. The
 catalog turns each level into a value the model supports.
 """
 
@@ -25,6 +25,10 @@ _DISPUTE = re.compile(
     r"|\bthere(?:'s|\s+is)\s+(?:a\s+)?(?:mistake|error)\s+in\s+(?:your|the)\s+(?:answer|working)\b"
     r"|\b(?:try|do\s+it|solve\s+it|check\s+it)\s+again\b|\bre-?check\b|\bdouble[- ]check\b"
     r"|\bare\s+you\s+sure\b|\bthat\s+can(?:'t|not)\s+be\s+right\b|\bnot\s+what\s+i\s+got\b"
+    # The question itself was misread, or a correction was ignored: think again.
+    # "No, I said I'm vegetarian" corrects a fact; it needs no more thought.
+    r"|\b(?:that(?:'s|\s+is)|this\s+is|it(?:'s|\s+is))\s+not\s+what\s+i\s+"
+    r"(?:asked|meant|said|wanted)\b|\byou\s+(?:misunderstood|misread)\b|\bi\s+already\s+told\s+you\b"
     # A bare "no" answers an offer ("Want a menu section?"); "wrong" disputes.
     r"|^\s*(?:incorrect|wrong)[\s,.!]*$",
     re.IGNORECASE,
