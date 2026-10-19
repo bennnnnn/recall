@@ -67,6 +67,8 @@ request client and are composed into the existing `lib/api.ts` public barrel.
 14. Product analytics — migrated (`modules/analytics/`: `api.py` serves `/analytics`, `service.py`
     holds the per-event property allowlist). The `product_events` repository stays shared in
     `repositories/` because account export reads it too.
+15. Link preview — migrated (`modules/link_preview/`: `api.py` serves `/link-preview`, `service.py`
+    fetches through `gateways/safe_fetch.py` and caches the card).
 
 Each migration is its own reviewable change: preserve behavior, establish the public seam, run
 the feature tests and architecture checks, then remove compatibility imports in a later cleanup

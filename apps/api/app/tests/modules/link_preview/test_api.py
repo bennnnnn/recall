@@ -8,9 +8,9 @@ from fastapi.testclient import TestClient
 
 from app.core.deps import get_current_user
 from app.main import create_app
-from app.services.link_preview import LinkPreviewBusyError
+from app.modules.link_preview.service import LinkPreviewBusyError
 
-_API = "app.routers.link_preview"
+_API = "app.modules.link_preview.api"
 _CARD = {
     "url": "https://example.com/a",
     "title": "Example",

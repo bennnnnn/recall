@@ -20,6 +20,7 @@ from app.modules.chat import ws_api as ws
 from app.modules.chemistry import api as chemistry_api
 from app.modules.home import api as home
 from app.modules.images import api as images
+from app.modules.link_preview import api as link_preview
 from app.modules.math import api as math_api
 from app.modules.memory import api as memories
 from app.modules.notifications import api as users
@@ -33,7 +34,6 @@ from app.routers import (
     admin,
     health,
     legal,
-    link_preview,
     models,
 )
 
