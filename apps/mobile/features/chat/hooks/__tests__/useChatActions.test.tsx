@@ -37,7 +37,7 @@ jest.mock("@/features/chat/model/messageCache", () => ({
   patchCachedChatMessage: jest.fn(async () => undefined),
 }));
 
-jest.mock("@/lib/exportMessagePdf", () => ({
+jest.mock("@/features/chat/model/exportMessagePdf", () => ({
   exportConversationAsPdf: jest.fn(),
 }));
 
