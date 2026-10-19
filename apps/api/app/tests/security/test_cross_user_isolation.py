@@ -116,7 +116,12 @@ async def test_sse_send_and_regenerate_on_another_users_chat_fail_closed(world: 
 
     for response in (sent, regen):
         events = _sse_events(response.text)
-        assert events[-1] == {"type": "error", "message": "Chat not found."}, events
+        # Refused before any row is read: the frame says nothing of the chat.
+        assert events[-1] == {
+            "type": "error",
+            "message": "Chat not found.",
+            "user_message_saved": False,
+        }, events
         assert not any(e["type"] in {"token", "done", "stream_end"} for e in events), events
         assert data.secret_word not in response.text
     assert await _count(Message, Message.chat_id == data.chat_id) == before

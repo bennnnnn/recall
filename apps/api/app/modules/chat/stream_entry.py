@@ -244,13 +244,13 @@ async def stream_regenerate_response(
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)
-    if outcome is not None:
-        # The message being answered again is already in the chat.
-        outcome.mark_user_message_saved()
     async with turn_resources(deps, redis, user_id=user_id, chat_id=chat_id) as res:
         turn = await load_regenerate_turn(
             deps, redis, settings, user_id=user_id, chat_id=chat_id, model_alias=model_alias
         )
+        if outcome is not None:
+            # The message being answered again is in the chat (it just loaded).
+            outcome.mark_user_message_saved()
         settings = profile_service.settings_for_user(settings, turn.user)
         if await intercept_regenerate(
             deps,
