@@ -11,6 +11,11 @@ const QUOTA_NUDGE_THRESHOLD_PCT = 80;
 // Avoids adding an AsyncStorage dependency for a non-sensitive UI flag.
 let dismissedDate: string | null = null;
 
+/** Sign-out: the next account sees the nudge on its own terms. */
+export function resetQuotaNudgeDismissal(): void {
+  dismissedDate = null;
+}
+
 function today(): string {
   // L7: use UTC (toISOString) to match the server's UTC-day quota reset.
   // A local-date slice would dismiss the nudge across a midnight boundary

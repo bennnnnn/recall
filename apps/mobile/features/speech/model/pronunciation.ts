@@ -3,6 +3,7 @@
 import { cacheDirectory, deleteAsync, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 import { AppState } from "react-native";
 
+import { ACCOUNT_FILE_PREFIX } from "@/lib/accountFiles";
 import { requestRaw } from "@/lib/api/client";
 import { playbackStatusFinished } from "@/features/speech/model/cloudPlayback";
 import { markdownToSpeechText } from "@/lib/markdown/plain";
@@ -250,7 +251,7 @@ async function playCloudBase64(
     stopCloudPlayer();
     stopDeviceSpeech();
     const ext = contentType.includes("wav") ? "wav" : "mp3";
-    const path = `${cacheDirectory}recall-tts-${Date.now()}.${ext}`;
+    const path = `${cacheDirectory}${ACCOUNT_FILE_PREFIX.speech}${Date.now()}.${ext}`;
     await writeAsStringAsync(path, audioBase64, { encoding: EncodingType.Base64 });
     if (!isCurrentSpeak(generation)) return { ok: true };
     const player = Audio.createAudioPlayer(path, { updateInterval: 50 }) as PlaybackHandle;

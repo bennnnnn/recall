@@ -183,6 +183,11 @@ export async function latexToSvgMath(
   return result;
 }
 
+/** Sign-out: the cache holds maths from the previous account's replies. */
+export function clearSvgMathCache(): void {
+  cache.clear();
+}
+
 /** Test hook: inject a fake renderer (and clear the cache) without mathjax. */
 export function setSvgMathRendererForTest(renderer: SvgMathRenderer | null): void {
   rendererImpl = renderer;

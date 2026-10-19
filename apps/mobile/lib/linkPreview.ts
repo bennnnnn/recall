@@ -31,3 +31,8 @@ export async function fetchLinkPreview(url: string): Promise<LinkPreview> {
   cache.set(url, data);
   return data;
 }
+
+/** Sign-out: the next account fetches its own previews. */
+export function clearLinkPreviewCache(): void {
+  cache.clear();
+}

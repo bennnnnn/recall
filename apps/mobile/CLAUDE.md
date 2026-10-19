@@ -55,6 +55,12 @@ from "failed". A cheap stale-while-revalidate value uses `StaleResourceCache`.
 A module-level value that components read with `useSyncExternalStore` is a
 `createValueStore` (or `createListenerSet` for plain notifications) from `lib/listenerSet.ts`.
 
+A new account starts with nothing of the last one. A module-level store, or a file
+written to the cache directory, that can hold an account's data is cleared in
+`lib/signOutCleanup.ts` (cache files take a prefix in `lib/accountFiles.ts`) or is
+scoped to the session; `lib/__tests__/accountState.test.ts` lists every store and fails
+on one it doesn't know.
+
 ## A setting
 
 1. The row comes from `features/account/components/settingsUi.tsx`: `SettingsGroup`,

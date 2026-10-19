@@ -18,6 +18,7 @@ import {
   parseQuizFence,
   plainFenceText,
 } from "@/lib/lesson/lessonFences";
+import { type QuizAttempt, quizAttempt, saveQuizAttempt } from "@/lib/lesson/quizAttempts";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -25,18 +26,14 @@ import { Type, Weight } from "@/lib/type";
 import { Button } from "@/ui/controls/Button";
 
 type Props = { content: string };
-type Attempt = { picked: number | null; checked: boolean };
-
-// The answer stays picked when the list recycles the message off screen and back.
-const attempts = new Map<string, Attempt>();
 
 /** "Exercise 1": the code, pick an option, check it, see why. Nothing is sent to the chat. */
 export function QuizCard({ content }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const quiz = useMemo(() => parseQuizFence(content), [content]);
-  const [attempt, setAttempt] = useState<Attempt>(
-    () => attempts.get(content) ?? { picked: null, checked: false },
+  const [attempt, setAttempt] = useState<QuizAttempt>(
+    () => quizAttempt(content) ?? { picked: null, checked: false },
   );
 
   if (!quiz) {
@@ -53,8 +50,8 @@ export function QuizCard({ content }: Props) {
     return loose ? <LooseQuizCard quiz={loose} s={s} /> : null;
   }
 
-  const save = (next: Attempt) => {
-    attempts.set(content, next);
+  const save = (next: QuizAttempt) => {
+    saveQuizAttempt(content, next);
     setAttempt(next);
   };
   const pick = (index: number) => {
