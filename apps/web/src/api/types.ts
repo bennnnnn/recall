@@ -14,6 +14,8 @@ export type User = {
   memory_enabled: boolean;
   locale: string;
   timezone: string;
+  /** When the account agreed to what goes to outside AI services; null until it does. */
+  ai_data_consent_at?: string | null;
   created_at: string;
 };
 
