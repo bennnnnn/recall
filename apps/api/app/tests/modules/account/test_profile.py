@@ -157,3 +157,34 @@ def test_settings_for_user_turns_every_search_off_for_that_user():
     assert narrowed.web_search_enabled is False and narrowed.image_search_enabled is False
     # The server's own settings are untouched for everyone else.
     assert settings.web_search_enabled is True and settings.image_search_enabled is True
+
+
+# Consent to outside AI services (Apple 5.1.2(i)): the server stamps the time.
+@pytest.mark.parametrize(
+    "fields, expected",
+    [
+        ({"ai_data_consent": True, "name": "Ada"}, {"name": "Ada", "ai_data_consent_at": "NOW"}),
+        ({"ai_data_consent": False}, {"ai_data_consent_at": None}),
+        ({"ai_data_consent": None, "job": "x"}, {"job": "x"}),
+        ({"job": "x"}, {"job": "x"}),
+    ],
+)
+def test_with_ai_data_consent_turns_the_answer_into_the_column(fields, expected):
+    from datetime import UTC, datetime
+
+    from app.modules.account.profile import with_ai_data_consent
+
+    now = datetime(2026, 10, 19, tzinfo=UTC)
+    snapshot = dict(fields)
+    resolved = {key: now if value == "NOW" else value for key, value in expected.items()}
+    assert with_ai_data_consent(fields, now=now) == resolved
+    assert fields == snapshot
+
+
+def test_ai_data_consent_column_is_nullable_without_a_default():
+    from app.models.orm import User
+
+    column = User.__table__.c.ai_data_consent_at
+    assert column.nullable is True
+    assert column.default is None and column.server_default is None
+    assert UserUpdate(ai_data_consent=True).ai_data_consent is True

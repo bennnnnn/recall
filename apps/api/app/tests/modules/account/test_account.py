@@ -183,6 +183,7 @@ async def test_build_export_structure(_empty_product_events_for_exports):
     user.email = "e@x"
     user.name = "n"
     user.created_at = datetime(2024, 1, 1)
+    user.ai_data_consent_at = datetime(2026, 10, 19, 12, 30)
 
     chat = MagicMock()
     chat.id = uuid4()
@@ -241,6 +242,8 @@ async def test_build_export_structure(_empty_product_events_for_exports):
         data = await export_service.build_export(session, user)
 
     assert data["user"]["email"] == "e@x"
+    # The consent record is the user's own data, so the export carries it.
+    assert data["user"]["ai_data_consent_at"] == "2026-10-19T12:30:00"
     assert len(data["chats"]) == 1
     assert data["chats"][0]["messages"][0]["content"] == "hi"
     assert len(data["memories"]) == 1
