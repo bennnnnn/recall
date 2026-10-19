@@ -60,7 +60,7 @@
     "prismjs": "^1.30.0",
     "react": "19.3.0",
     "react-dom": "19.2.3",
-    "react-i18next": "^17.0.16",
+    "react-i18next": "^17.0.20",
     "react-native": "0.86.0",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-markdown-display": "^7.0.2",
