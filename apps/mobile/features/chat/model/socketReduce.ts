@@ -94,6 +94,11 @@ type DoneMergeInput = {
    */
   stoppedStreamedId?: string | null;
   generationStopped?: boolean;
+  /**
+   * The server saved the reply as the user stopped it (`completion: user_stop`):
+   * `final_content` is the text this phone drew, made safe, never longer.
+   */
+  savedAsStopped?: boolean;
 };
 
 /** Pure merge for the WebSocket `done` event — used by useChat and unit tests. */
@@ -111,6 +116,7 @@ export function mergeDoneIntoMessages(
     model,
     stoppedStreamedId,
     generationStopped,
+    savedAsStopped,
   } = input;
 
   if (prev.some((m) => m.id === "streaming")) {
@@ -138,14 +144,19 @@ export function mergeDoneIntoMessages(
   }
 
   // User stopped generation: the streaming bubble was already committed
-  // locally as `stoppedStreamedId`. Reconcile it with the server's
-  // authoritative done (real id + final_content) instead of appending.
+  // locally as `stoppedStreamedId`. Reconcile it in place (the real id)
+  // instead of appending. A stopped answer never changes past what the user
+  // saw: it takes the server's text only when the server saved it as stopped
+  // (the text this phone drew, made safe); a reply the server finished anyway,
+  // with cards or a tail the user never saw, keeps the bubble's own text.
   if (stoppedStreamedId) {
-    if (!prev.some((m) => m.id === stoppedStreamedId)) {
+    const stopped = prev.find((m) => m.id === stoppedStreamedId);
+    if (!stopped) {
       // Bubble is gone (chat switched / new send) — drop the late done.
       return prev;
     }
-    const content = stripSearchSourcesFromContent(finalContent ?? draftContent);
+    const kept = savedAsStopped ? (finalContent ?? stopped.content) : stopped.content;
+    const content = stripSearchSourcesFromContent(kept);
     if (!messageId && !content.trim()) {
       return prev.filter((m) => m.id !== stoppedStreamedId);
     }
@@ -155,10 +166,7 @@ export function mergeDoneIntoMessages(
             ...m,
             id: finalId,
             content,
-            search_sources:
-              search_sources ??
-              draftSearchSources ??
-              parseSearchSources(finalContent ?? draftContent ?? m.content),
+            search_sources: m.search_sources ?? parseSearchSources(kept),
             model: model ?? m.model,
             generationStopped: m.generationStopped || generationStopped,
           }
@@ -231,5 +239,6 @@ export function buildDoneMergeInput(
     model: payload.resolved_model ?? null,
     stoppedStreamedId,
     generationStopped: completion === "interrupted" || completion === "user_stop",
+    savedAsStopped: completion === "user_stop",
   };
 }

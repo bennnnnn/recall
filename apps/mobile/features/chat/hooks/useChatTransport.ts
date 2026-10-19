@@ -213,8 +213,9 @@ export function useChatTransport({
     sseAbortRef.current = null;
   }, []);
 
-  const cancelSocket = useCallback(() => {
-    wsTransportRef.current?.cancel();
+  /** `shownChars`: how much of the reply the phone kept on screen (see ChatWsTransport.cancel). */
+  const cancelSocket = useCallback((shownChars?: number) => {
+    wsTransportRef.current?.cancel(shownChars);
   }, []);
 
   return {

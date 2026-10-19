@@ -522,7 +522,7 @@ export function useChat(
     clearPendingChatTtft(ttftTurnIdRef.current);
     ttftTurnIdRef.current = null;
     abortSse();
-    cancelSocket();
+    cancelSocket(streamingDraftRef.current?.content.length);
     setStreaming(false);
     setFinalizing(false);
     streamingRef.current = false;

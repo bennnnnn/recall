@@ -482,6 +482,32 @@ describe("useChat transport lifecycle", () => {
     expect(getStreamingDraft()?.content).toBe("next reply");
   });
 
+  // S7.11: a stopped answer never changes past what the user saw.
+  it("tells the server how much it drew on Stop, and keeps that text when done lands", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await sendAndStream(socket, "Partial 😀 reply");
+    await act(async () => { current.stopGeneration(); });
+    const cancel = socket.send.mock.calls
+      .map(([data]) => JSON.parse(data))
+      .find((frame) => frame.type === "cancel");
+    expect(cancel).toEqual({ type: "cancel", shown_chars: "Partial 😀 reply".length });
+
+    await act(async () => {
+      // Tokens in flight when the user tapped Stop are dropped, and a done for a
+      // reply the server finished anyway does not swap its text in.
+      socket.emit({ type: "token", content: " that kept going" });
+      socket.emit({
+        type: "done",
+        message_id: SERVER_REPLY_ID,
+        final_content: "Partial 😀 reply that kept going\n\n```answer\nx = 4\n```",
+      });
+    });
+    const reply = current.messages.find((message) => message.id === SERVER_REPLY_ID);
+    expect(reply?.content).toBe("Partial 😀 reply");
+    expect(reply?.generationStopped).toBe(true);
+  });
+
   it("restores the old answer when regeneration is stopped before replacement tokens", async () => {
     await render(<Probe chatId="a" />);
     const socket = await openSocket();

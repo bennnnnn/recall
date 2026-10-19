@@ -17,5 +17,6 @@ describe("typingPulseKindForPhase", () => {
     expect(typingPulseKindForPhase("searching")).toBe("busy");
     expect(typingPulseKindForPhase("calculating")).toBe("busy");
     expect(typingPulseKindForPhase("physics")).toBe("busy");
+    expect(typingPulseKindForPhase("finding_photo")).toBe("busy");
   });
 });

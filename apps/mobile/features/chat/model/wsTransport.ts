@@ -211,9 +211,15 @@ export class ChatWsTransport {
     return this.beginTurn({ type: "regenerate", ...frame });
   }
 
-  cancel(): void {
+  /**
+   * Stop the turn. `shownChars` is how much of the reply the phone drew (the
+   * kept bubble's length): the server saves no more than that, so the stopped
+   * answer and the saved one are the same text.
+   */
+  cancel(shownChars?: number): void {
     this.clearFirstEventTimer();
-    if (this.isOpen()) this.sendFrame({ type: "cancel" });
+    if (!this.isOpen()) return;
+    this.sendFrame(shownChars == null ? { type: "cancel" } : { type: "cancel", shown_chars: shownChars });
   }
 
   close(): void {

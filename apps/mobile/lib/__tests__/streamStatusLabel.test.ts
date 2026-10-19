@@ -17,6 +17,8 @@ const t = ((key: string, options?: { detail?: string }) => {
     "chat.status.remembering": "Recalling what I know about you…",
     "chat.status.thinking": "Thinking…",
     "chat.status.composing": "Writing a reply…",
+    "chat.status.finding_photo": "Finding a photo…",
+    "chat.status.finding_photo_detail": "Finding a photo — “{{detail}}”",
     "chat.status.unknown": "missing",
   };
   const raw = map[key];
@@ -50,6 +52,14 @@ describe("streamStatusLabels", () => {
       "Searching — “weather in berlin”",
       "Searching the web…",
       "Checking sources…",
+    ]);
+  });
+
+  // S7.9: a reference-photo lookup said "Sketching it out" with an image-gen progress card.
+  it("labels a photo lookup as finding a photo, with its query", () => {
+    expect(streamStatusLabels(t, "finding_photo", "human ear")).toEqual([
+      "Finding a photo — “human ear”",
+      "Finding a photo…",
     ]);
   });
 
