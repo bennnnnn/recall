@@ -34,7 +34,7 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.chat.turn_resources import TurnResources
-from app.modules.chat.turn_settle import finalize_stream_turn_db, restore_regenerate_backup
+from app.modules.chat.turn_settle import finalize_stream_turn_db
 from app.modules.images.answer_photo import AnswerPhoto
 from app.services import model_catalog
 from app.services import quota as quota_service
@@ -303,8 +303,6 @@ async def _settle_reply(
         if outcome is not None:
             outcome.completion = accum.completion
         await _refund_turn(deps, redis, ctx, resources)
-        if ctx.regenerate_backup is not None:
-            await restore_regenerate_backup(ctx.user_id, ctx.chat_id, ctx.regenerate_backup)
         return
     if not assistant_text:
         raise ModelUnavailableError(

@@ -46,7 +46,6 @@ from app.modules.chat.turn_resources import (
     turn_resources,
     wrap_stream_status,
 )
-from app.modules.chat.turn_settle import restore_regenerate_backup
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services.thinking_effort import thinking_level
 
@@ -329,10 +328,6 @@ async def stream_regenerate_response(
                 resources=res,
             ):
                 yield token
-        except BaseException:
-            if turn.backup is not None:
-                await restore_regenerate_backup(user_id, chat_id, turn.backup)
-            raise
         finally:
             if ctx.reply_picture is not None:
                 ctx.reply_picture.cancel()

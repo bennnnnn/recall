@@ -48,11 +48,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class RegenerateBackup:
+    """The reply a regenerate replaces. Its row stays in the chat (left out of the
+    prompt) until finalize swaps in the new one, so a failed regenerate keeps it."""
+
     content: str
     model: str | None
-    # When set, the prior assistant row stays in the DB until finalize
-    # succeeds (omit from the prompt instead of delete-before-stream).
-    message_id: UUID | None = None
+    message_id: UUID
 
 
 @dataclass

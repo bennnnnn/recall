@@ -3,8 +3,7 @@
 ``finalize_stream_turn_db`` saves the assistant reply (swapping out the one a
 regenerate replaces), adds the turn's weighted tokens to the day's aggregate and
 settles the turn's reservation to its actual usage. ``seed_usage_from_db`` reads
-that aggregate back when Redis lost today's counter, and
-``restore_regenerate_backup`` puts back a reply a failed regenerate removed.
+that aggregate back when Redis lost today's counter.
 The jobs that follow a saved turn are ``post_turn``.
 """
 
@@ -23,7 +22,7 @@ from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.chat.finalize_registry import clear_pending_finalize
 from app.modules.chat.turn_outcome import TurnOutcome
-from app.modules.chat.turn_prep import RegenerateBackup, StreamContext
+from app.modules.chat.turn_prep import StreamContext
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
@@ -68,26 +67,6 @@ async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID)
             "from 0 if Redis was evicted",
             user_id,
             exc_info=True,
-        )
-
-
-async def restore_regenerate_backup(
-    user_id: UUID,
-    chat_id: UUID,
-    backup: RegenerateBackup,
-) -> None:
-    # New path: prior assistant was never deleted (omit-from-prompt). Nothing
-    # to restore. Legacy path (message_id is None): recreate the row.
-    if backup.message_id is not None:
-        return
-    async with SessionLocal() as session:
-        await messages_repo.create(
-            session,
-            chat_id=chat_id,
-            user_id=user_id,
-            role="assistant",
-            content=backup.content,
-            model=backup.model,
         )
 
 
@@ -176,7 +155,7 @@ async def _write_reply_rows(
     pending_storage_keys: list[str] = []
     # Replace the prior assistant atomically with the new reply so a
     # crash cannot leave zero assistant messages after regenerate.
-    if ctx.regenerate_backup is not None and ctx.regenerate_backup.message_id is not None:
+    if ctx.regenerate_backup is not None:
         old = await messages_repo.get_by_id(session, ctx.regenerate_backup.message_id, ctx.chat_id)
         if old is not None:
             # Detach rows in this transaction; delete bytes only after
