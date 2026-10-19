@@ -3,7 +3,7 @@ import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
-from typing import Any
+from typing import Any, Self
 
 from litellm import acompletion
 
@@ -41,6 +41,11 @@ class ModelUnavailableError(Exception):
         self.message = message
         self.code = code
         self.failed_alias = failed_alias
+
+    @classmethod
+    def for_alias(cls, alias: str, *, code: str = "model_unavailable") -> Self:
+        """The user-facing "model isn't responding" error for one failed alias."""
+        return cls(_CHAT_MODEL_UNAVAILABLE_MSG, code=code, failed_alias=alias)
 
 
 _CHAT_MODEL_UNAVAILABLE_MSG = (
@@ -120,10 +125,7 @@ def _litellm_kwargs(
     kwargs: dict[str, Any] = {}
     api_key = getattr(settings, route.api_key_field, "")
     if not api_key:
-        raise ModelUnavailableError(
-            _CHAT_MODEL_UNAVAILABLE_MSG,
-            failed_alias=route.id,
-        )
+        raise ModelUnavailableError.for_alias(route.id)
     kwargs["api_key"] = api_key
     if route.api_base:
         kwargs["api_base"] = route.api_base
@@ -248,10 +250,7 @@ async def stream_chat_completion(
                 if index < len(aliases) - 1
                 else "",
             )
-            raise ModelUnavailableError(
-                _CHAT_MODEL_UNAVAILABLE_MSG,
-                failed_alias=alias,
-            )
+            raise ModelUnavailableError.for_alias(alias)
         except ModelUnavailableError as exc:
             last_error = exc
             # Mid-stream failure: client already has partial tokens — falling
@@ -269,10 +268,7 @@ async def stream_chat_completion(
             failed = exc.failed_alias or alias
             if stream_meta is not None:
                 stream_meta["model_alias"] = failed
-            raise ModelUnavailableError(
-                _CHAT_MODEL_UNAVAILABLE_MSG,
-                failed_alias=failed,
-            ) from exc
+            raise ModelUnavailableError.for_alias(failed) from exc
 
     if last_error is not None:
         raise last_error
@@ -341,10 +337,7 @@ async def _stream_chat_once(
                     model_alias,
                     max_seconds,
                 )
-                raise ModelUnavailableError(
-                    _CHAT_MODEL_UNAVAILABLE_MSG,
-                    failed_alias=model_alias,
-                )
+                raise ModelUnavailableError.for_alias(model_alias)
             first_content_remaining: float | None = None
             if not visible_content_started and first_content_deadline is not None:
                 first_content_remaining = first_content_deadline - time.monotonic()
@@ -354,10 +347,7 @@ async def _stream_chat_once(
                         model_alias,
                         first_content_timeout_seconds,
                     )
-                    raise ModelUnavailableError(
-                        _CHAT_MODEL_UNAVAILABLE_MSG,
-                        failed_alias=model_alias,
-                    )
+                    raise ModelUnavailableError.for_alias(model_alias)
             read_timeout = min(idle_seconds, remaining)
             if first_content_remaining is not None:
                 read_timeout = min(read_timeout, first_content_remaining)
@@ -389,10 +379,7 @@ async def _stream_chat_once(
                         model_alias,
                         idle_seconds,
                     )
-                raise ModelUnavailableError(
-                    _CHAT_MODEL_UNAVAILABLE_MSG,
-                    failed_alias=model_alias,
-                ) from exc
+                raise ModelUnavailableError.for_alias(model_alias) from exc
             if chunk is None:
                 break
             _apply_usage(usage, chunk)
@@ -422,18 +409,12 @@ async def _stream_chat_once(
             settings.chat_stream_connect_timeout_seconds,
             settings.chat_stream_timeout_seconds,
         )
-        raise ModelUnavailableError(
-            _CHAT_MODEL_UNAVAILABLE_MSG,
-            failed_alias=model_alias,
-        ) from exc
+        raise ModelUnavailableError.for_alias(model_alias) from exc
     except ModelUnavailableError:
         raise
     except Exception as exc:
         logger.exception("LiteLLM streaming failed for alias=%s", model_alias)
-        raise ModelUnavailableError(
-            _CHAT_MODEL_UNAVAILABLE_MSG,
-            failed_alias=model_alias,
-        ) from exc
+        raise ModelUnavailableError.for_alias(model_alias) from exc
     finally:
         close = getattr(response, "aclose", None)
         if close is not None:
