@@ -65,6 +65,26 @@ def _isolate_rest_rate_limiter():
 
 
 @pytest.fixture(autouse=True)
+def _ai_data_consent_given():
+    """Test users have agreed to what goes to outside AI services.
+
+    The consent gate (``app/modules/account/consent.py``) refuses a chat turn,
+    speech and a scan read for an account that has not; most tests build users
+    without that column. A test that checks the refusal takes ``consent_enforced``.
+    """
+    given = patch("app.modules.account.consent.has_ai_data_consent", return_value=True)
+    given.start()
+    yield given
+    given.stop()
+
+
+@pytest.fixture
+def consent_enforced(_ai_data_consent_given):
+    """The real consent check, for tests of the refusal."""
+    _ai_data_consent_given.stop()
+
+
+@pytest.fixture(autouse=True)
 def model_spend_redis():
     """The gateway spend meter's Redis: a fresh fake per test, never the real one.
 

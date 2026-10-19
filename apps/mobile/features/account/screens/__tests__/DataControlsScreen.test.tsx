@@ -12,6 +12,9 @@ const mockDeleteAccount = jest.fn();
 const mockDeleteAllChats = jest.fn();
 const mockReplace = jest.fn();
 const mockReportError = jest.fn();
+const mockMergeUser = jest.fn();
+const mockWithdraw = jest.fn();
+const mockWriteCachedUser = jest.fn();
 let mockProgress = "idle";
 let mockUser: Record<string, unknown>;
 
@@ -28,7 +31,12 @@ jest.mock("expo-router", () => ({
   useNavigation: () => ({ setOptions: jest.fn() }),
 }));
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ token: "tok", user: mockUser, updateUser: mockUpdateUser }),
+  useAuth: () => ({
+    token: "tok",
+    user: mockUser,
+    updateUser: mockUpdateUser,
+    mergeUser: mockMergeUser,
+  }),
 }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/features/account/hooks/useDataControls", () => ({
@@ -41,6 +49,10 @@ jest.mock("@/features/account/hooks/useDataControls", () => ({
 }));
 jest.mock("@/lib/api", () => ({
   api: { archiveAllChats: jest.fn(), deleteAllChats: (...args: unknown[]) => mockDeleteAllChats(...args) },
+  withdrawAiDataSharing: (...args: unknown[]) => mockWithdraw(...args),
+}));
+jest.mock("@/lib/cachedUser", () => ({
+  writeCachedUser: (...args: unknown[]) => mockWriteCachedUser(...args),
 }));
 jest.mock("@/ui/overlay/dialogs", () => ({
   confirmDialog: (...args: unknown[]) => mockConfirm(...args),
@@ -173,3 +185,48 @@ it("shows the account deletion in progress", async () => {
   expect(view.getByText("settings.delete_progress")).toBeTruthy();
 });
 
+it("shows when the account agreed to outside AI services, and only then", async () => {
+  mockUser = { ...mockUser, ai_data_consent_at: "2026-10-19T09:00:00Z" };
+  const view = await render(<DataControlsScreen />);
+  expect(view.getByText("settings.ai_consent")).toBeTruthy();
+  expect(view.getByText("settings.ai_consent_agreed")).toBeTruthy();
+
+  mockUser = { ...mockUser, ai_data_consent_at: undefined };
+  const older = await render(<DataControlsScreen />);
+  expect(older.queryByText("settings.ai_consent")).toBeNull();
+});
+
+it("withdraws the agreement after a confirmation, so the consent screen comes back", async () => {
+  mockUser = { ...mockUser, ai_data_consent_at: "2026-10-19T09:00:00Z" };
+  const withdrawn = { ...mockUser, ai_data_consent_at: null };
+  mockWithdraw.mockResolvedValue(withdrawn);
+  const view = await render(<DataControlsScreen />);
+  await fireEvent.press(view.getByText("settings.ai_consent"));
+  await waitFor(() => expect(mockMergeUser).toHaveBeenCalledWith(withdrawn));
+  expect(mockWithdraw).toHaveBeenCalledWith("tok");
+  expect(mockWriteCachedUser).toHaveBeenCalledWith(withdrawn);
+  expect(mockConfirm).toHaveBeenCalledWith(
+    expect.objectContaining({
+      title: "settings.ai_consent_withdraw_title",
+      message: "settings.ai_consent_withdraw_body",
+      confirmLabel: "settings.ai_consent_withdraw",
+      destructive: true,
+    }),
+  );
+});
+
+it("keeps the agreement when the withdrawal is cancelled or fails", async () => {
+  mockUser = { ...mockUser, ai_data_consent_at: "2026-10-19T09:00:00Z" };
+  mockConfirm.mockResolvedValueOnce(false);
+  const view = await render(<DataControlsScreen />);
+  await fireEvent.press(view.getByText("settings.ai_consent"));
+  await waitFor(() => expect(mockConfirm).toHaveBeenCalled());
+  expect(mockWithdraw).not.toHaveBeenCalled();
+
+  mockWithdraw.mockRejectedValue(new Error("offline"));
+  await fireEvent.press(view.getByText("settings.ai_consent"));
+  await waitFor(() =>
+    expect(mockReportError).toHaveBeenCalledWith(null, "settings.ai_consent_withdraw_failed"),
+  );
+  expect(mockMergeUser).not.toHaveBeenCalled();
+});

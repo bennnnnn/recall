@@ -20,6 +20,7 @@ from app.gateways import openai_speech_gateway
 from app.models.orm import User
 from app.models.schemas import MessageOut
 from app.models.schemas.text import UserText
+from app.modules.account.consent import get_consented_user
 from app.modules.billing import can_use
 from app.modules.speech import live_talk as live_talk_service
 from app.modules.speech.schemas import SpeechLiveStatusOut
@@ -169,7 +170,7 @@ async def _reserve_realtime_or_raise(user: User, settings: Settings):
 @router.post("/live/session", response_model=RealtimeSessionOut)
 async def create_realtime_session(
     body: RealtimeSessionIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> RealtimeSessionOut:
     """Mint a short-lived key; mobile completes WebRTC directly with OpenAI."""
@@ -354,7 +355,7 @@ async def persist_realtime_turn(
 @router.post("/live/tool")
 async def execute_realtime_tool(
     body: RealtimeToolIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> dict:
     from app.modules.speech.live_talk_tools import execute_tool

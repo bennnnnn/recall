@@ -38,6 +38,22 @@ class AttachmentValidationError(ChatServiceError):
     pass
 
 
+class ConsentRequiredError(ChatServiceError):
+    """The account has not agreed to what goes to outside AI services, or withdrew.
+
+    Chat transports send ``code: "consent_required"`` and HTTP answers 403 with
+    the same code; the phone opens its consent screen (``modules/account/consent.py``).
+    """
+
+    code = "consent_required"
+
+    def __init__(
+        self,
+        message: str = "Agree to how Recall uses outside AI services to continue.",
+    ) -> None:
+        super().__init__(message)
+
+
 class UnknownModelOverrideError(ChatServiceError):
     """Per-message picker asked for an alias the user's pool does not include."""
 

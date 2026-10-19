@@ -11,6 +11,7 @@ import {
   type RejectedSend,
 } from "@/features/chat/hooks/useChatIncoming";
 import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/latency";
+import { setConsentRequiredHandler } from "@/lib/api/consentRefusal";
 
 jest.mock("@/features/chat/model/sse", () => ({
   isSseAbortError: (error: Error) => error.name === "AbortError",
@@ -340,6 +341,18 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
       expect(args.queueUnsavedSend).not.toHaveBeenCalled();
       expect(args.reportError).toHaveBeenCalledWith(frame.message, frame.code);
     }
+  });
+
+  it("a consent_required error opens the consent screen and keeps the message to resend", async () => {
+    const opened = jest.fn();
+    setConsentRequiredHandler(opened);
+    const { args, send } = await setup({ messages: [streamingBubble] });
+    const turn = pending();
+    args.pendingSendRef.current = turn;
+    await send({ type: "error", code: "consent_required", user_message_saved: false, message: "Agree first" });
+    setConsentRequiredHandler(null);
+    expect(opened).toHaveBeenCalledTimes(1);
+    expect(args.queueUnsavedSend).toHaveBeenCalledWith(turn, "send_rejected");
   });
 
   it("error keeps a partial reply as a stopped bubble", async () => {

@@ -28,6 +28,7 @@ describe("parseReminderProposals", () => {
       {
         proposalId: "p1",
         saved: false,
+        timeZone: null,
         items: [
           {
             action: "add",
@@ -45,6 +46,11 @@ describe("parseReminderProposals", () => {
   it("reads a card the server marked saved", () => {
     const [proposal] = parseReminderProposals(card({ ...ADD, status: "saved" }));
     expect(proposal?.saved).toBe(true);
+  });
+
+  it("reads the zone the card's times were read in", () => {
+    const [proposal] = parseReminderProposals(card({ ...ADD, tz: "Africa/Nairobi" }));
+    expect(proposal?.timeZone).toBe("Africa/Nairobi");
   });
 
   it.each([

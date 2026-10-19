@@ -759,7 +759,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Agree stores `users.ai_data_consent_at` on the account (`PATCH /auth/me`
   `ai_data_consent`), Not now signs out. Every signed-in screen waits on it (the root
   layout's `features/auth/components/AiConsentRedirect.tsx` sends it to `app/consent.tsx`);
-  the web client asks too. No server-side check in the chat path yet.
+  the web client asks too. The server holds the same line (`modules/account/consent.py`): a
+  chat turn (WebSocket and SSE), speech (transcribe, read aloud, a live talk key or tool) and a
+  scan read-back are refused with `consent_required` (an error frame with
+  `user_message_saved: false`, or HTTP 403) until the account agrees, and the phone answers it
+  with the consent screen. Settings → Data controls shows when the account agreed and can
+  withdraw it, which brings the consent screen back. Image generation, attachment uploads and
+  memory instructions are not gated yet.
 - ✅ **Polish** — light haptic taps on key actions (Android via the built-in API) + chip fade-in
   animation.
 - ✅ **iOS haptics** — `expo-haptics` on real devices (graceful no-op on Android / Expo Go).

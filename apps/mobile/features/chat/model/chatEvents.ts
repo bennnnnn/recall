@@ -2,6 +2,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { AccessibilityInfo } from "react-native";
 
 import type { Message } from "@/lib/api";
+import { CONSENT_REQUIRED_CODE, notifyConsentRequired } from "@/lib/api/consentRefusal";
 import type { StreamingDraft } from "@/lib/streamingDraftStore";
 import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/latency";
 import type { PendingSend, RejectedSend } from "@/features/chat/model/sendLogic";
@@ -132,6 +133,9 @@ function unsavedReason(payload: ChatSsePayload): RejectedSend["reason"] | null {
 const error: ChatEventHandler = (payload, ctx, ttftTurnId) => {
   ctx.streamCueRef.current.error();
   reportTurnOutcome("error", typeof payload.code === "string" ? payload.code : undefined);
+  // No consent to outside AI on the account: the consent screen opens, and the
+  // unsaved message waits below as Retry for when the user comes back.
+  if (payload.code === CONSENT_REQUIRED_CODE) notifyConsentRequired();
   // Only an unsaved message is offered as Retry (resend); a saved one keeps
   // Regenerate. Servers that predate `user_message_saved` say so by code.
   const pending = ctx.pendingSendRef.current;

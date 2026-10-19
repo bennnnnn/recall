@@ -354,7 +354,7 @@ async def _run_entry(entry: Entry) -> Outcome:
             assistant_parts=[entry.reply],
             should_cancel=None,
         )
-    outcome.problems = judge(outcome)
+    outcome.problems = judge(outcome) + claims_above_a_pending_card(outcome.final)
     return outcome
 
 
@@ -439,6 +439,28 @@ def judge(outcome: Outcome) -> list[str]:
     if expect in TODO_EXPECTS and route.photo:
         problems.append(f"photo lookup took the turn ({route.photo!r})")
     return problems
+
+
+# Said above a reminder card nobody has tapped: nothing is saved yet. "The
+# meeting is set for Friday" and "I set aside time to write" are not claims.
+_PENDING_CARD_CLAIM = re.compile(
+    r"\b(?:i['\u2019]ve set|i have set|i set (?:a|an|the|your|up|it)\b"
+    r"|i['\u2019]ve (?:added|scheduled|saved|created)\b"
+    r"|(?:reminder|it|that)(?:['\u2019]s| is| has been) (?:all )?set\b|reminder set\b"
+    r"|i['\u2019]ll remind you|i will remind you|you['\u2019]ll (?:get|receive) a (?:reminder|notification)"
+    r"|added (?:it |that )?to your (?:reminders|to-?dos?|list))"
+    r"|^\W*(?:done|all set)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def claims_above_a_pending_card(final: str) -> list[str]:
+    """A reply carrying an untapped reminder card makes no completed-action claim."""
+    if "```reminder_proposal" not in final or '"status": "saved"' in final:
+        return []
+    prose = re.sub(r"```.*?```", " ", final, flags=re.DOTALL)
+    claim = _PENDING_CARD_CLAIM.search(prose)
+    return [f"claims the change before the tap: {claim.group(0)!r}"] if claim else []
 
 
 async def run(entries: list[Entry]) -> list[Outcome]:
