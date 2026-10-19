@@ -200,6 +200,19 @@ gives 0.139 1/day. The conversion is the last substitution row, as for an asked 
 kWh"). A number written onto an element is an isotope's label, not a given ("carbon-14"). A law whose inputs are roles rather than kinds stays an extractor: Doppler
 (`extractors/doppler.py`) reads who moves, toward whom, and a stated speed of sound.
 
+A law that needs an extractor still starts as its catalog entry, which is its identity (the
+`PhysicsIntent` check reads it). Then:
+- the extractor goes into the file of its topic in `extractors/` and into
+  `registry.PHYSICS_EXTRACTORS` at the place its order comment allows, with its cue words in
+  that file's `_CUES` / `_CUE_RES` so the gate sees it;
+- the solver: an `expression` needs none (`solve_expression` claims it); otherwise the kind's
+  solver in `solvers/` answers the operation, and `solver._claim_solvers` refuses two solvers
+  for one operation or an operation with none;
+- shared readers live in `extractors/common.py` (a value with its unit, a labelled value) and
+  shared checks in `solvers/common.py` (SI conversion, exactly one unknown): use them rather
+  than a private copy;
+- a question, its look-alikes and a decline go into `stem_corpus/physics/`.
+
 ## Coverage
 
 ### Explicit symbolic models
