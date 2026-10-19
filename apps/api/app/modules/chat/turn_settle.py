@@ -11,12 +11,13 @@ The jobs that follow a saved turn are ``post_turn``.
 import asyncio
 import logging
 import math
+from dataclasses import dataclass
 from uuid import UUID
 
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
@@ -90,13 +91,28 @@ async def restore_regenerate_backup(
         )
 
 
-async def finalize_stream_turn_db(
-    redis: Redis,
-    ctx: StreamContext,
-    assistant_text: str,
-    usage: dict[str, int],
-    outcome: TurnOutcome | None,
-) -> None:
+@dataclass(frozen=True)
+class _TurnCharge:
+    """What one turn costs, in the units each record keeps."""
+
+    # Raw tokens: the message row shows these, and they price the turn.
+    input_tokens: int
+    output_tokens: int
+    multiplier: float
+    # The daily usage aggregate stores WEIGHTED tokens (the units Redis counts),
+    # not raw: otherwise ``seed_usage_from_db`` re-seeds Redis with a raw total
+    # after an eviction and the user silently gets ``multiplier``x more quota for
+    # the rest of the day.
+    weighted_input: int
+    weighted_output: int
+    weighted_total: int
+    # Dollars from RAW tokens x catalog prices (not quota-weighted); None when
+    # the catalog has no price for the model.
+    est_cost: float | None
+
+
+def _turn_charge(ctx: StreamContext, assistant_text: str, usage: dict[str, int]) -> _TurnCharge:
+    """The provider's reported usage, or an estimate where it reported none."""
     usage_input = usage.get("input")
     input_tokens = (
         usage_input
@@ -105,35 +121,33 @@ async def finalize_stream_turn_db(
     )
     usage_output = usage.get("output")
     output_tokens = usage_output if usage_output is not None else estimate_tokens(assistant_text)
-    total_tokens = input_tokens + output_tokens
     multiplier = model_catalog.quota_multiplier(ctx.model)
-    weighted_total = math.ceil(total_tokens * multiplier)
-
-    # The daily usage aggregate must store WEIGHTED tokens (the same units
-    # Redis uses), not raw — otherwise `seed_usage_from_db` re-seeds Redis
-    # with a raw total after an eviction and the user silently gets
-    # `multiplier`x more quota for the rest of the day. The per-message row
-    # below keeps raw input/output for per-message display; only the daily
-    # aggregate (used for re-seeding) is weighted.
-    weighted_input = math.ceil(input_tokens * multiplier)
-    weighted_output = math.ceil(output_tokens * multiplier)
-
-    # Dollar cost uses RAW tokens * catalog prices (not quota-weighted).
-    est_cost = model_catalog.estimate_cost_usd(
-        ctx.model,
+    return _TurnCharge(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
+        multiplier=multiplier,
+        weighted_input=math.ceil(input_tokens * multiplier),
+        weighted_output=math.ceil(output_tokens * multiplier),
+        weighted_total=math.ceil((input_tokens + output_tokens) * multiplier),
+        est_cost=model_catalog.estimate_cost_usd(
+            ctx.model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        ),
     )
-    if est_cost is not None:
+
+
+def _log_turn_cost(ctx: StreamContext, charge: _TurnCharge) -> None:
+    if charge.est_cost is not None:
         logger.info(
             "turn_cost user_id=%s model=%s input_tokens=%s output_tokens=%s "
             "est_cost_usd=%.6f quota_multiplier=%s",
             ctx.user_id,
             ctx.model,
-            input_tokens,
-            output_tokens,
-            est_cost,
-            multiplier,
+            charge.input_tokens,
+            charge.output_tokens,
+            charge.est_cost,
+            charge.multiplier,
         )
     else:
         logger.info(
@@ -141,138 +155,173 @@ async def finalize_stream_turn_db(
             "est_cost_usd=unknown quota_multiplier=%s",
             ctx.user_id,
             ctx.model,
-            input_tokens,
-            output_tokens,
-            multiplier,
+            charge.input_tokens,
+            charge.output_tokens,
+            charge.multiplier,
         )
 
-    persisted_text = assistant_text
+
+async def _write_reply_rows(
+    session: AsyncSession,
+    ctx: StreamContext,
+    assistant_text: str,
+    charge: _TurnCharge,
+    outcome: TurnOutcome | None,
+) -> list[str]:
+    """The reply, its photo links, the chat's touch and the day's usage, uncommitted.
+
+    Returns the storage keys of a replaced reply's attachments: their bytes are
+    deleted only after the commit.
+    """
+    pending_storage_keys: list[str] = []
+    # Replace the prior assistant atomically with the new reply so a
+    # crash cannot leave zero assistant messages after regenerate.
+    if ctx.regenerate_backup is not None and ctx.regenerate_backup.message_id is not None:
+        old = await messages_repo.get_by_id(session, ctx.regenerate_backup.message_id, ctx.chat_id)
+        if old is not None:
+            # Detach rows in this transaction; delete bytes only after
+            # commit so a failed finalize cannot orphan storage keys
+            # that still have DB rows (or vice versa).
+            pending_storage_keys = await attachment_lifecycle.detach_attachments_for_messages(
+                session, [old.id], commit=False
+            )
+            await session.delete(old)
+
+    assistant_message = await messages_repo.create(
+        session,
+        chat_id=ctx.chat_id,
+        user_id=ctx.user_id,
+        role="assistant",
+        content=assistant_text,
+        model=ctx.model,
+        input_tokens=charge.input_tokens,
+        output_tokens=charge.output_tokens,
+        message_id=ctx.assistant_message_id,
+        commit=False,  # batch with touch + usage into one commit
+    )
+    if ctx.answer_photo_ids:
+        # The reply's photo was stored while it streamed; it belongs to this row.
+        await attachments_service.link_to_message(
+            session,
+            user_id=ctx.user_id,
+            attachment_ids=ctx.answer_photo_ids,
+            message_id=assistant_message.id,
+            commit=False,
+        )
+    if outcome is not None:
+        # stream_and_finalize preassigns these; direct callers also
+        # receive the flushed row's identity before commit returns.
+        if outcome.message_id is None:
+            outcome.message_id = str(assistant_message.id)
+        if outcome.resolved_model is None:
+            outcome.resolved_model = ctx.model
+        outcome.recalled = outcome.recalled or ctx.recalled_count
+        outcome.memory_hints = outcome.memory_hints or list(ctx.memory_hints)
+        outcome.context_summarized = outcome.context_summarized or ctx.context_summarized
+
+    await chats_repo.touch_by_id(session, ctx.chat_id, commit=False)
+
+    # Usage write is NOT swallowed: if the daily aggregate misses this
+    # turn, a later Redis eviction re-seeds from the DB total and the
+    # user gets free quota. Let the exception propagate so the caller
+    # refunds the reservation and the commit never runs (the message
+    # insert rolls back with the usage row).
+    await usage_repo.add_tokens(
+        session,
+        ctx.user_id,
+        utc_today(),
+        # Weighted so the daily aggregate matches Redis units and
+        # re-seeds correctly after an eviction (see _TurnCharge).
+        input_tokens=charge.weighted_input,
+        output_tokens=charge.weighted_output,
+        # Cost is raw-token based; 0 when catalog prices are missing.
+        est_cost_usd=charge.est_cost if charge.est_cost is not None else 0.0,
+        commit=False,
+    )
+    return pending_storage_keys
+
+
+async def _settle_quota(
+    redis: Redis, ctx: StreamContext, settings: Settings, charge: _TurnCharge
+) -> None:
+    """Settle the reservation to the turn's weighted usage, after the reply committed.
+
+    The overshoot is capped at the user's daily limit so one turn's actual >
+    reserved delta can't push the counter past the cap (which would make later
+    reserve_usage checks under-report remaining quota). A failure here must not
+    refund the whole reservation: the reply already persisted.
+    """
+    daily_limit = (
+        quota_service.daily_limit_for_user(ctx.user, settings) if ctx.user is not None else None
+    )
+    try:
+        # H2: retry adjust_usage with short backoff so a transient Redis
+        # blip doesn't leave the reservation inflated (user loses quota
+        # on subsequent turns). On persistent failure, the next turn's
+        # heal_usage_drift will correct the drift from the DB total.
+        for _attempt in range(3):
+            try:
+                await quota_service.adjust_usage(
+                    redis,
+                    str(ctx.user_id),
+                    ctx.reserved_tokens,
+                    charge.weighted_total,
+                    daily_limit=daily_limit,
+                )
+                break
+            except Exception:
+                if _attempt == 2:
+                    raise
+                await asyncio.sleep(0.1 * (_attempt + 1))
+    except Exception:
+        logger.warning(
+            "adjust_usage failed after finalize commit; Redis may drift "
+            "from the DB total — heal_usage_drift on next turn will correct",
+            exc_info=True,
+        )
+        try:
+            await quota_service.mark_usage_needs_heal(redis, str(ctx.user_id))
+        except Exception:
+            logger.warning(
+                "mark_usage_needs_heal failed after adjust_usage; heal may not run",
+                exc_info=True,
+            )
+    if charge.est_cost:
+        try:
+            await quota_service.record_global_spend(redis, charge.est_cost)
+        except Exception:
+            logger.exception("record_global_spend failed after successful finalize")
+
+
+async def finalize_stream_turn_db(
+    redis: Redis,
+    ctx: StreamContext,
+    assistant_text: str,
+    usage: dict[str, int],
+    outcome: TurnOutcome | None,
+) -> None:
+    """Save the reply and the day's usage in one commit, then settle the reservation.
+
+    A failed write refunds the whole reservation and raises; the finalize marker
+    is cleared either way.
+    """
+    charge = _turn_charge(ctx, assistant_text, usage)
+    _log_turn_cost(ctx, charge)
     settings = get_settings()
     pending_storage_keys: list[str] = []
     committed = False
 
     try:
         async with SessionLocal() as session:
-            # Replace the prior assistant atomically with the new reply so a
-            # crash cannot leave zero assistant messages after regenerate.
-            if ctx.regenerate_backup is not None and ctx.regenerate_backup.message_id is not None:
-                old = await messages_repo.get_by_id(
-                    session, ctx.regenerate_backup.message_id, ctx.chat_id
-                )
-                if old is not None:
-                    # Detach rows in this transaction; delete bytes only after
-                    # commit so a failed finalize cannot orphan storage keys
-                    # that still have DB rows (or vice versa).
-                    pending_storage_keys = (
-                        await attachment_lifecycle.detach_attachments_for_messages(
-                            session, [old.id], commit=False
-                        )
-                    )
-                    await session.delete(old)
-
-            assistant_message = await messages_repo.create(
-                session,
-                chat_id=ctx.chat_id,
-                user_id=ctx.user_id,
-                role="assistant",
-                content=persisted_text,
-                model=ctx.model,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                message_id=ctx.assistant_message_id,
-                commit=False,  # batch with touch + usage into one commit below
+            pending_storage_keys = await _write_reply_rows(
+                session, ctx, assistant_text, charge, outcome
             )
-            if ctx.answer_photo_ids:
-                # The reply's photo was stored while it streamed; it belongs to this row.
-                await attachments_service.link_to_message(
-                    session,
-                    user_id=ctx.user_id,
-                    attachment_ids=ctx.answer_photo_ids,
-                    message_id=assistant_message.id,
-                    commit=False,
-                )
-            if outcome is not None:
-                # stream_and_finalize preassigns these; direct callers also
-                # receive the flushed row's identity before commit returns.
-                if outcome.message_id is None:
-                    outcome.message_id = str(assistant_message.id)
-                if outcome.resolved_model is None:
-                    outcome.resolved_model = ctx.model
-                outcome.recalled = outcome.recalled or ctx.recalled_count
-                outcome.memory_hints = outcome.memory_hints or list(ctx.memory_hints)
-                outcome.context_summarized = outcome.context_summarized or ctx.context_summarized
-
-            await chats_repo.touch_by_id(session, ctx.chat_id, commit=False)
-
-            # Usage write is NOT swallowed: if the daily aggregate misses this
-            # turn, a later Redis eviction re-seeds from the DB total and the
-            # user gets free quota. Let the exception propagate so the outer
-            # except refunds the reservation and the commit below never runs
-            # (the message insert rolls back with the usage row).
-            await usage_repo.add_tokens(
-                session,
-                ctx.user_id,
-                utc_today(),
-                # Weighted so the daily aggregate matches Redis units and
-                # re-seeds correctly after an eviction (see header comment).
-                input_tokens=weighted_input,
-                output_tokens=weighted_output,
-                # Cost is raw-token based; 0 when catalog prices are missing.
-                est_cost_usd=est_cost if est_cost is not None else 0.0,
-                commit=False,
-            )
-
             # The create flush already supplies the row identity. No refresh
             # is needed after commit: a failed read must not report a saved
             # reply as failed or refund its charged quota.
             await session.commit()
             committed = True
-
-        # Cap overshoot at the user's daily limit so one turn's actual >
-        # reserved delta can't push the counter past the cap (which would
-        # make subsequent reserve_usage checks under-report remaining quota).
-        # Runs AFTER a successful commit — failure here must not refund the
-        # full reservation (the reply already persisted).
-        daily_limit = (
-            quota_service.daily_limit_for_user(ctx.user, settings) if ctx.user is not None else None
-        )
-        try:
-            # H2: retry adjust_usage with short backoff so a transient Redis
-            # blip doesn't leave the reservation inflated (user loses quota
-            # on subsequent turns). On persistent failure, the next turn's
-            # heal_usage_drift will correct the drift from the DB total.
-            for _attempt in range(3):
-                try:
-                    await quota_service.adjust_usage(
-                        redis,
-                        str(ctx.user_id),
-                        ctx.reserved_tokens,
-                        weighted_total,
-                        daily_limit=daily_limit,
-                    )
-                    break
-                except Exception:
-                    if _attempt == 2:
-                        raise
-                    await asyncio.sleep(0.1 * (_attempt + 1))
-        except Exception:
-            logger.warning(
-                "adjust_usage failed after finalize commit; Redis may drift "
-                "from the DB total — heal_usage_drift on next turn will correct",
-                exc_info=True,
-            )
-            try:
-                await quota_service.mark_usage_needs_heal(redis, str(ctx.user_id))
-            except Exception:
-                logger.warning(
-                    "mark_usage_needs_heal failed after adjust_usage; heal may not run",
-                    exc_info=True,
-                )
-        if est_cost:
-            try:
-                await quota_service.record_global_spend(redis, est_cost)
-            except Exception:
-                logger.exception("record_global_spend failed after successful finalize")
+        await _settle_quota(redis, ctx, settings, charge)
     except Exception:
         logger.exception("Stream-turn finalize failed; refunding reserved quota")
         try:
