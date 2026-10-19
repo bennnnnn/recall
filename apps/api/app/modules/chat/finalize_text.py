@@ -33,11 +33,13 @@ if TYPE_CHECKING:
 async def attach_answer_photo(state: FinalizeState) -> str:
     """Swap the reply's ```photo fence for the photo found while it streamed.
 
-    A linked photo commits the text, so a later failure keeps its marker.
+    A linked photo commits the text, so a later failure keeps its marker. A Stop,
+    even one after the last token, does not wait (up to 6s) for the photo.
     """
     ctx = state.ctx
     photo = ctx.answer_photo
-    if photo is None or state.was_cancelled:
+    stopped = state.should_cancel is not None and state.should_cancel()
+    if photo is None or state.was_cancelled or stopped:
         if photo is not None:
             photo.cancel()
         return strip_photo_fences(state.text)

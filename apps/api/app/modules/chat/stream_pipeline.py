@@ -276,12 +276,11 @@ async def stream_and_finalize(
                 outcome=outcome,
             )
 
-        # Closing the provider socket after Stop cancels this task again.
-        # The save runs on its own task so that second cancel cannot drop it.
-        if accum.was_cancelled:
-            await await_ignoring_cancel(persist_reply())
-        else:
-            await persist_reply()
+        # Once the model stream has ended the reply is saved, whatever cancels
+        # this task: a Stop during the finalize passes (photo, SymPy, reminder
+        # write), the provider-socket close a Stop causes, or a server stop.
+        # The save runs on its own task so no cancel can drop it.
+        await await_ignoring_cancel(persist_reply())
     finally:
         if ctx.user_message_persist is not None:
             try:
