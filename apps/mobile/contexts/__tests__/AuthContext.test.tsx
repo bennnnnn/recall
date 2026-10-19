@@ -11,6 +11,7 @@ jest.mock("@/lib/api", () => ({
   api: { me: jest.fn(), updateMe: jest.fn() },
   loginWithGoogle: jest.fn(), loginWithApple: jest.fn(), loginWithDev: jest.fn(),
   logoutSession: jest.fn(), setTokenRefreshHandler: jest.fn(), setUnauthorizedHandler: jest.fn(),
+  setConsentRequiredHandler: jest.fn(),
 }));
 jest.mock("@/lib/auth", () => {
   let generation = 0;
@@ -64,6 +65,15 @@ beforeEach(() => {
   (api.me as jest.Mock).mockResolvedValue(userA);
   (logoutSession as jest.Mock).mockResolvedValue(undefined);
   (loginWithDev as jest.Mock).mockResolvedValue({ access_token: "access-b", refresh_token: "refresh-b", user: userB });
+});
+
+it("asks for consent again when the server refuses a turn for want of it", async () => {
+  (api.me as jest.Mock).mockResolvedValue({ ...userA, ai_data_consent_at: "2026-10-19T09:00:00Z" });
+  await mount();
+  const { setConsentRequiredHandler } = jest.requireMock("@/lib/api");
+  await act(async () => { setConsentRequiredHandler.mock.calls.at(-1)[0](); });
+  expect(current.user?.ai_data_consent_at).toBeNull();
+  expect(current.user?.id).toBe(userA.id);
 });
 
 it("clears the visible account before a slow logout request finishes", async () => {

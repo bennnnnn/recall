@@ -7,6 +7,7 @@ import {
   setTokenPair,
 } from "@/lib/auth";
 
+import { isConsentRequiredBody, notifyConsentRequired } from "@/lib/api/consentRefusal";
 import type { AuthResult, User } from "@/lib/api/types";
 import { deviceSessionFields } from "@/lib/deviceSession";
 
@@ -19,6 +20,19 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
 
 export function notifyUnauthorized(generation = getSessionGeneration()): void {
   if (generation === getSessionGeneration()) onUnauthorized?.();
+}
+
+/** A 403 `consent_required` for this account opens the consent screen again.
+ * The body is cloned before the caller reads its own copy for the error it throws. */
+async function readConsentRefusal(response: Response, generation: number): Promise<void> {
+  try {
+    const body = await response.clone().text();
+    if (generation === getSessionGeneration() && isConsentRequiredBody(body)) {
+      notifyConsentRequired();
+    }
+  } catch {
+    /* an unreadable body is an ordinary 403 */
+  }
 }
 
 export function setTokenRefreshHandler(
@@ -235,6 +249,7 @@ export async function requestRaw(
       }
       notifyUnauthorized(generation);
     }
+    if (response.status === 403) void readConsentRefusal(response, generation);
     streamingBodyReturned = retainStreamAbort && response.ok && response.body != null;
     return response;
   } finally {

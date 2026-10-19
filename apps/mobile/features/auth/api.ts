@@ -59,8 +59,17 @@ export async function loginWithDev(
 
 /** Record that the user agreed to the outside-AI disclosure; the server stamps the time. */
 export function agreeToAiDataSharing(token: string): Promise<User> {
+  return setAiDataSharing(token, true);
+}
+
+/** Withdraw that agreement: chat, voice and photo reads stop until the user agrees again. */
+export function withdrawAiDataSharing(token: string): Promise<User> {
+  return setAiDataSharing(token, false);
+}
+
+function setAiDataSharing(token: string, agreed: boolean): Promise<User> {
   return request<User>("/auth/me", token, {
     method: "PATCH",
-    body: JSON.stringify({ ai_data_consent: true }),
+    body: JSON.stringify({ ai_data_consent: agreed }),
   });
 }

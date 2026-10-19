@@ -16,6 +16,7 @@ import {
   loginWithDev,
   loginWithGoogle,
   logoutSession,
+  setConsentRequiredHandler,
   setTokenRefreshHandler,
   setUnauthorizedHandler,
   type User,
@@ -287,6 +288,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ++updateUserGenRef.current;
     setCurrentUser((previous) => previous ? { ...previous, ...patch } : previous);
   }, [sessionGeneration, isCurrent, setCurrentUser]);
+
+  // The server refused a chat turn, voice or a photo read for want of consent
+  // (withdrawn on another device, say): the root layout's gate asks again.
+  useEffect(() => {
+    setConsentRequiredHandler(() => mergeUser({ ai_data_consent_at: null }));
+    return () => setConsentRequiredHandler(null);
+  }, [mergeUser]);
 
   const value = useMemo(
     () => ({
