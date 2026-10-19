@@ -228,3 +228,36 @@ async def test_strict_finalize_wait_fails_closed_when_redis_is_unavailable():
         await finalize_registry.wait_for_pending_finalize(uuid4(), redis, require_complete=True)
     # History can still return its last committed snapshot during the outage.
     await finalize_registry.wait_for_pending_finalize(uuid4(), redis)
+
+
+@pytest.mark.asyncio
+async def test_stop_inflight_streams_runs_each_live_turns_stop_once():
+    """Shutdown stops turns through each transport's own Stop; a finished turn
+    is forgotten, and one failing stop does not skip the others."""
+    gate = asyncio.Event()
+    stops: list[str] = []
+
+    async def turn() -> None:
+        await gate.wait()
+
+    def broken_stop() -> None:
+        stops.append("broken")
+        raise RuntimeError("boom")
+
+    live = asyncio.create_task(turn())
+    other = asyncio.create_task(turn())
+    finished = asyncio.create_task(asyncio.sleep(0))
+    finalize_registry.register_inflight_stream(uuid4(), live, stop=broken_stop)
+    finalize_registry.register_inflight_stream(uuid4(), other, stop=lambda: stops.append("other"))
+    finalize_registry.register_inflight_stream(
+        uuid4(), finished, stop=lambda: stops.append("finished")
+    )
+    await finished
+    await asyncio.sleep(0)
+
+    assert finalize_registry.stop_inflight_streams() == 2
+    assert sorted(stops) == ["broken", "other"]
+
+    gate.set()
+    await asyncio.gather(live, other)
+    assert finalize_registry.stop_inflight_streams() == 0

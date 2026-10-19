@@ -76,3 +76,22 @@ async def test_persist_finalize_if_pending_awaits_task():
 @pytest.mark.asyncio
 async def test_persist_finalize_if_pending_is_noop_without_task():
     await stream_events.persist_finalize_if_pending(TurnOutcome())
+
+
+@pytest.mark.parametrize("saved", [True, False])
+def test_turn_error_payload_says_whether_the_user_message_saved(saved: bool):
+    from app.exceptions import ChatBusyError
+
+    assert stream_events.turn_error_payload(ChatBusyError(), user_message_saved=saved) == {
+        "type": "error",
+        "code": "busy",
+        "message": "Still generating — wait or cancel first.",
+        "user_message_saved": saved,
+    }
+    assert stream_events.turn_error_payload(
+        None, user_message_saved=saved, message=stream_events.REPLY_SAVE_FAILED_MESSAGE
+    ) == {
+        "type": "error",
+        "message": stream_events.REPLY_SAVE_FAILED_MESSAGE,
+        "user_message_saved": saved,
+    }

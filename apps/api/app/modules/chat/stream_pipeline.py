@@ -12,6 +12,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core import shutdown
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.ids import uuid7
@@ -243,6 +244,8 @@ async def stream_and_finalize(
                 ctx.chat_id,
                 len(accum.parts),
             )
+        if accum.was_cancelled and shutdown.stopping():
+            accum.mark_server_stop()
         assistant_text = "".join(accum.parts).strip()
         if not assistant_text:
             raise ModelUnavailableError(

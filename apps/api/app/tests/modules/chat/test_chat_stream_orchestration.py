@@ -656,6 +656,7 @@ async def test_failed_user_row_save_sends_no_reply(stream_offline_io):
     assert tokens == []
     finalize.assert_not_awaited()
     assert outcome.finalize_db_task is None
+    assert outcome.user_message_saved is False
     # The model answered; the failure was the save's.
     assert health.await_args.kwargs["success"] is True
 
@@ -722,6 +723,47 @@ async def test_stop_after_the_last_token_still_saves_the_reply(stream_offline_io
     assert outcome.message_id is not None
     # The reply was complete; the Stop only came during its finishing passes.
     assert outcome.completion is None
+
+
+@pytest.mark.asyncio
+async def test_a_server_stop_saves_the_partial_reply_as_interrupted(stream_offline_io, monkeypatch):
+    """At shutdown the turn is stopped through the user's Stop path; the saved
+    partial reply says it was interrupted, not stopped by the user."""
+    from app.core import shutdown
+    from app.modules.chat.stream_pipeline import stream_and_finalize
+
+    monkeypatch.setattr(shutdown, "_stopping", True)
+    stopped = asyncio.Event()
+    finalize = AsyncMock()
+    outcome = TurnOutcome()
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "app.gateways.litellm_gateway.stream_chat_completion",
+                _stream_of("one ", "two ", "three"),
+            )
+        )
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        tokens: list[str] = []
+        async for token in stream_and_finalize(
+            offline_deps(),
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            _turn_ctx(),
+            should_cancel=stopped.is_set,
+            outcome=outcome,
+        ):
+            tokens.append(token)
+            stopped.set()  # the shutdown's Stop lands after the first token
+        assert outcome.finalize_db_task is not None
+        await outcome.finalize_db_task
+
+    assert tokens == ["one "]
+    finalize.assert_awaited_once()
+    assert outcome.completion == "interrupted"
 
 
 @pytest.mark.asyncio

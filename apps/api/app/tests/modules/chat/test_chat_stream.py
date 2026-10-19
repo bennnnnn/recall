@@ -134,9 +134,10 @@ async def test_stream_tokens_sse_registers_inflight_producer(monkeypatch):
     registered: list[object] = []
     original = chat_stream.register_inflight_stream
 
-    def capture(cid: object, task: object) -> None:
+    def capture(cid: object, task: object, *, stop: object) -> None:
         registered.append(cid)
-        original(cid, task)
+        assert callable(stop)
+        original(cid, task, stop=stop)
 
     monkeypatch.setattr(chat_stream, "register_inflight_stream", capture)
 

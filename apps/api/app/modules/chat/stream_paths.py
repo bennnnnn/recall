@@ -64,6 +64,11 @@ class StreamAccum:
         if self.completion == "complete":
             self.completion = "interrupted"
 
+    def mark_server_stop(self) -> None:
+        """The server stopped the reply (shutdown), whatever the stop looked like."""
+        self.was_cancelled = True
+        self.completion = "interrupted"
+
 
 async def run_instant_reply_path(
     ctx: StreamContext,

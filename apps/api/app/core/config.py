@@ -402,6 +402,10 @@ class Settings(BaseSettings):
 
     # Per-user/IP REST requests per minute (health + webhooks excluded).
     rest_rate_limit_per_minute: int = 240
+    # Chat WebSockets per machine (modules/chat/ws_limits.py): open sockets per
+    # user, and seconds idle between turns before a close. 0 disables either.
+    ws_max_sockets_per_user: int = 5
+    ws_idle_timeout_seconds: float = 300.0
     # Request body caps (core/body_limit.py). A declared Content-Length over
     # the cap is refused before any byte is read; a chunked body is counted as
     # it streams. JSON routes stay far below 1 MiB (chat text is 32k chars).

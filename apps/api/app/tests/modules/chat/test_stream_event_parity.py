@@ -19,7 +19,8 @@ from app.modules.chat.stream_events import DoneEvent, StreamEndEvent
 from app.modules.chat.turn_outcome import TurnOutcome
 
 _CHAT = Path(__file__).resolve().parents[3] / "modules" / "chat"
-_WS = _CHAT / "ws_api.py"
+_WS = _CHAT / "ws_turn.py"  # one turn on a socket; ws_api reads its frames
+_WS_SOCKET = _CHAT / "ws_api.py"
 _SSE = _CHAT / "stream_api.py"
 
 # Every event type the protocol defines, and the builder that owns its shape.
@@ -156,7 +157,7 @@ def _inline_event_types(path: Path) -> set[str]:
     return set(re.findall(r'"type":\s*"([a-z_]+)"', source))
 
 
-@pytest.mark.parametrize("router", [_WS, _SSE], ids=["ws", "sse"])
+@pytest.mark.parametrize("router", [_WS, _WS_SOCKET, _SSE], ids=["ws", "ws-socket", "sse"])
 def test_routers_do_not_rebuild_shared_events_inline(router: Path) -> None:
     """`error` stays inline-free too — it has its own builder.
 

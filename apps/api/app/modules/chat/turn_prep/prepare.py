@@ -2,11 +2,13 @@
 
 When the caller has already read the user, chat, turn mode, message count and
 history, the user's row is saved beside the prompt build and the stream awaits it
-later (``await_user_message_persist``). Otherwise the save goes first and reads them.
+before the model is asked (``await_user_message_persist``). Otherwise the save goes
+first and reads them.
 """
 
 import asyncio
 import logging
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
@@ -60,7 +62,10 @@ async def prepare_chat_turn(
     prior_count: int | None = None,
     recent_messages: list[Any] | None = None,
     resolved_model: str | None = None,
+    on_user_saved: Callable[[], None] | None = None,
 ) -> StreamContext:
+    """``on_user_saved`` runs once the user's row has committed (an error after
+    that point must not offer to resend the message)."""
     attachments = await _process_attachments(
         user_id=user_id,
         user=user,
@@ -105,7 +110,7 @@ async def prepare_chat_turn(
         pending = SimpleNamespace(id=turn.message_id, role="user", content=turn.stored_content)
         history = [*recent_messages, pending]
     else:
-        indexable = await persist_user_turn(turn, settings, timing)
+        indexable = await _persist_and_report(turn, settings, timing, on_user_saved)
     if turn.user is None or turn.model is None:
         raise ChatNotFoundError("User not found.")
     request = TurnRequest(
@@ -133,7 +138,7 @@ async def prepare_chat_turn(
     if history is None:
         bundle = await build_stream_prompt_context(request, settings, redis)
     else:
-        bundle, persist = await _build_beside_persist(request, turn, settings, redis)
+        bundle, persist = await _build_beside_persist(request, turn, settings, redis, on_user_saved)
     if await inject_turn_images(
         bundle.prompt_messages, attachments, caption=content, settings=settings, user=turn.user
     ):
@@ -164,14 +169,31 @@ def _probe_attachment_rag(turn: UserTurn, history: list[Any] | None, settings: S
     return messages_have_attachment_marker(history) or prior_count >= settings.recent_message_window
 
 
+async def _persist_and_report(
+    turn: UserTurn,
+    settings: Settings,
+    timing: TurnTimingTracker | None,
+    on_saved: Callable[[], None] | None,
+) -> list[str]:
+    indexable = await persist_user_turn(turn, settings, timing)
+    if on_saved is not None:
+        on_saved()
+    return indexable
+
+
 async def _build_beside_persist(
-    request: TurnRequest, turn: UserTurn, settings: Settings, redis: Redis
+    request: TurnRequest,
+    turn: UserTurn,
+    settings: Settings,
+    redis: Redis,
+    on_saved: Callable[[], None] | None,
 ) -> tuple[TurnPromptBundle, asyncio.Task[list[str]]]:
-    """Build the prompt while the user's row saves; the stream awaits the save later.
+    """Build the prompt while the user's row saves; the stream awaits the save
+    before the model is asked (``stream_and_finalize``).
 
     A failed or cancelled build still waits for the save, so what the user sent is kept.
     """
-    persist = asyncio.create_task(persist_user_turn(turn, settings, request.timing))
+    persist = asyncio.create_task(_persist_and_report(turn, settings, request.timing, on_saved))
     try:
         bundle = await build_stream_prompt_context(request, settings, redis)
     except BaseException:
