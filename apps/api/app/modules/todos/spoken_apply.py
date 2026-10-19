@@ -17,10 +17,9 @@ from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_change import (
     SpokenReminderChange,
     asks_about_my_reminders,
-    match_from_context,
     names_reminders,
-    resolve_spoken_target,
 )
+from app.modules.todos.spoken_target import match_from_context, resolve_spoken_target
 
 _HIDDEN_TOPICS = frozenset({"", "General", "Reminders"})
 _READ_LIMIT = 30

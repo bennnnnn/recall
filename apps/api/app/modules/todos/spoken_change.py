@@ -8,36 +8,14 @@ extractor must not run again and rewrite the row.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import datetime
 from datetime import tzinfo as TzInfo
-from typing import Literal, Protocol
 
 from app.modules.todos.schemas import RecurrenceRule
+from app.modules.todos.spoken_target import SpokenAction, title_words
 from app.modules.todos.spoken_when import DAY_NAMES, Clock, due_on_day, find_clock, read_clock
 
-SpokenAction = Literal["complete", "uncheck", "delete", "set_due"]
-
-_SKIP = frozenset(
-    {
-        "the",
-        "a",
-        "an",
-        "my",
-        "me",
-        "to",
-        "it",
-        "reminder",
-        "reminders",
-        "todo",
-        "todos",
-        "task",
-        "tasks",
-        "call",
-        "item",
-    }
-)
 _BULK = frozenset(
     {"overdue", "all", "them", "everything", "these", "those", "first", "last", "second", "third"}
 )
@@ -107,11 +85,6 @@ _BARE_READS = frozenset({"what is scheduled", "whats scheduled"})
 _ELSEWHERE = re.compile(
     r"\s+(?:at|in)\s+(?!\d|noon\b|midnight\b|the (?:morning|afternoon|evening)\b)"
 )
-
-
-class _Named(Protocol):
-    content: str
-    checked: bool
 
 
 @dataclass(frozen=True)
@@ -223,50 +196,14 @@ def _parse_change(
         if action == "complete":
             rest = _strip_done_tail(rest)
         hint = _clean_title(rest)
-        if _words(hint) & _BULK:
+        if title_words(hint) & _BULK:
             return None
         if _is_only_pronoun(hint):
             return SpokenReminderChange(action=action, title_hint="", use_latest=True)
-        if not _words(hint):
+        if not title_words(hint):
             return None
         return SpokenReminderChange(action=action, title_hint=hint)
     return _parse_adjust(text, user_timezone=user_timezone, now=now)
-
-
-def match_spoken_reminder(
-    items: Sequence[_Named],
-    hint: str,
-    *,
-    action: SpokenAction,
-) -> _Named | None:
-    """Match a hint to one reminder. A tie matches nothing."""
-    hint_words = _words(hint)
-    if not hint_words:
-        return None
-    pool = _pool(items, action)
-    scored: list[tuple[int, _Named]] = []
-    for item in pool:
-        words = _words(item.content or "")
-        if not words:
-            continue
-        if hint_words <= words or words <= hint_words:
-            scored.append((len(hint_words & words), item))
-    if not scored:
-        return None
-    scored.sort(key=lambda pair: pair[0], reverse=True)
-    if len(scored) > 1 and scored[0][0] == scored[1][0]:
-        return None
-    return scored[0][1]
-
-
-def _pool(items: Sequence[_Named], action: SpokenAction) -> list[_Named]:
-    if action == "uncheck":
-        checked = [item for item in items if item.checked]
-        return checked or list(items)
-    if action == "delete":
-        return list(items)
-    open_items = [item for item in items if not item.checked]
-    return open_items or list(items)
 
 
 def _parse_move(
@@ -281,7 +218,7 @@ def _parse_move(
         return None
     hint = _clean_title(rest[:to_at])
     use_latest = _is_only_pronoun(hint)
-    if not _words(hint) and not use_latest:
+    if not title_words(hint) and not use_latest:
         return None
     after = rest[to_at + len(" to ") :]
     title_hint = "" if use_latest else hint
@@ -407,25 +344,6 @@ def _clean_title(text: str) -> str:
     return title.strip()
 
 
-def _words(text: str) -> set[str]:
-    words: set[str] = set()
-    token: list[str] = []
-    for char in text.lower():
-        if char.isalnum():
-            token.append(char)
-            continue
-        if token:
-            word = "".join(token)
-            token = []
-            if len(word) > 2 and word not in _SKIP:
-                words.add(word)
-    if token:
-        word = "".join(token)
-        if len(word) > 2 and word not in _SKIP:
-            words.add(word)
-    return words
-
-
 # "Mark the dentist reminder as done" names reminders; "finish the story",
 # "delete the last paragraph", "remove duplicates from a list" or "make me a
 # study schedule" does not.
@@ -450,53 +368,6 @@ def asks_about_my_reminders(user_text: str | None) -> bool:
 def names_reminders(user_text: str | None) -> bool:
     """True when the message itself says it is about a reminder or task."""
     return bool(user_text and _NAMES_REMINDERS.search(user_text))
-
-
-def match_from_context(items: Sequence[_Named], change: SpokenReminderChange) -> _Named | None:
-    """The one reminder that shares the most words with the other clause, if any."""
-    context = _words(change.context_hint)
-    if not context:
-        return None
-    scored = sorted(
-        ((len(context & _words(item.content or "")), item) for item in _pool(items, change.action)),
-        key=lambda pair: pair[0],
-        reverse=True,
-    )
-    if not scored or scored[0][0] == 0:
-        return None
-    if len(scored) > 1 and scored[0][0] == scored[1][0]:
-        return None
-    return scored[0][1]
-
-
-def resolve_spoken_target(items: Sequence[_Named], change: SpokenReminderChange) -> _Named | None:
-    """The named reminder, or the latest one when they said it/this/that."""
-    if change.use_latest and change.context_hint:
-        named = match_from_context(items, change)
-        if named is not None:
-            return named
-    if change.use_latest or not _words(change.title_hint):
-        return latest_reminder(items, change.action)
-    return match_spoken_reminder(items, change.title_hint, action=change.action)
-
-
-def latest_reminder(items: Sequence[_Named], action: SpokenAction) -> _Named | None:
-    pool = _pool(items, action)
-    if not pool:
-        return None
-    return max(pool, key=_recency)
-
-
-def _recency(item: _Named) -> tuple[datetime, datetime]:
-    return (_moment(getattr(item, "updated_at", None)), _moment(getattr(item, "created_at", None)))
-
-
-def _moment(value: object) -> datetime:
-    if isinstance(value, datetime):
-        if value.tzinfo is None:
-            return value.replace(tzinfo=UTC)
-        return value
-    return datetime.min.replace(tzinfo=UTC)
 
 
 def _parse_adjust(
@@ -599,7 +470,7 @@ def _subject(
             if at >= 0:
                 cut = min(cut, at)
     hint = _clean_title(_strip_fillers(body[:cut]))
-    if _is_only_pronoun(hint) or not _words(hint):
+    if _is_only_pronoun(hint) or not title_words(hint):
         return "", True
     return hint, False
 
