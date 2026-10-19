@@ -11,6 +11,8 @@
  * then pull out whatever words it still holds.
  */
 
+import { parseJsonRecord } from "@/lib/jsonFence";
+
 type QuizFence = {
   /** The pill at the top of the card, such as "Exercise 1". */
   label: string | null;
@@ -48,18 +50,6 @@ const MAX_OPTIONS = 6;
 const MAX_CELLS = 24;
 const LETTERS = "ABCDEF";
 
-function parseObject(content: string): Record<string, unknown> | null {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(content);
-  } catch {
-    return null;
-  }
-  return raw && typeof raw === "object" && !Array.isArray(raw)
-    ? (raw as Record<string, unknown>)
-    : null;
-}
-
 function trimmed(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -75,7 +65,7 @@ function answerIndex(answer: unknown, options: string[]): number {
 }
 
 export function parseQuizFence(content: string): QuizFence | null {
-  const data = parseObject(content);
+  const data = parseJsonRecord(content);
   if (!data) return null;
   const question = trimmed(data.question);
   const options = Array.isArray(data.options)
@@ -110,7 +100,7 @@ function isCell(value: unknown): value is ArrayValue {
 }
 
 export function parseArrayFence(content: string): ArrayFence | null {
-  const data = parseObject(content);
+  const data = parseJsonRecord(content);
   if (!data || !Array.isArray(data.values)) return null;
   const values = data.values;
   if (values.length === 0 || values.length > MAX_CELLS || !values.every(isCell))

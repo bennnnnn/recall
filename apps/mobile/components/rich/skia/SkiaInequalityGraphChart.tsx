@@ -12,6 +12,12 @@ import {
 } from "@shopify/react-native-skia";
 
 import {
+  GRAPH_CHART_PAD,
+  GRAPH_TICK_FONT_SIZE,
+  INEQUALITY_REGION_OPACITY,
+  STRICT_BOUNDARY_DASH,
+} from "@/components/rich/graphPaint";
+import {
   formatAxisNumber,
   graphAxisTicks,
   mapGraphPoint,
@@ -21,9 +27,6 @@ import { type InequalityGraphSpec } from "@/lib/math/graphSpec";
 import { clipInequalityRegion } from "@/lib/math/inequalityGraph";
 import type { Theme } from "@/lib/theme";
 
-const PAD = 28;
-const TICK_FONT_SIZE = 11;
-const STRICT_DASH = [6, 5];
 
 type Props = {
   spec: InequalityGraphSpec;
@@ -42,7 +45,7 @@ export function SkiaInequalityGraphChart({
 }: Props) {
   const font = useFont(
     require("../../../assets/fonts/KaTeX_Main-Regular.ttf"),
-    TICK_FONT_SIZE,
+    GRAPH_TICK_FONT_SIZE,
   );
   const geometry = useMemo(() => clipInequalityRegion(spec), [spec]);
   const bounds = useMemo(
@@ -54,9 +57,9 @@ export function SkiaInequalityGraphChart({
     }),
     [spec.x_max, spec.x_min, spec.y_max, spec.y_min],
   );
-  const origin = mapGraphPoint(0, 0, bounds, width, height, PAD);
-  const yAxisX = Math.max(PAD, Math.min(width - PAD, origin.px));
-  const xAxisY = Math.max(PAD, Math.min(height - PAD, origin.py));
+  const origin = mapGraphPoint(0, 0, bounds, width, height, GRAPH_CHART_PAD);
+  const yAxisX = Math.max(GRAPH_CHART_PAD, Math.min(width - GRAPH_CHART_PAD, origin.px));
+  const xAxisY = Math.max(GRAPH_CHART_PAD, Math.min(height - GRAPH_CHART_PAD, origin.py));
   const xTicks = useMemo(
     () =>
       graphAxisTicks(
@@ -82,32 +85,32 @@ export function SkiaInequalityGraphChart({
     const path = Skia.Path.Make();
     xTicks.forEach((value) => {
       if (Math.abs(value) < 1e-9) return;
-      const { px } = mapGraphPoint(value, 0, bounds, width, height, PAD);
-      path.moveTo(px, PAD);
-      path.lineTo(px, height - PAD);
+      const { px } = mapGraphPoint(value, 0, bounds, width, height, GRAPH_CHART_PAD);
+      path.moveTo(px, GRAPH_CHART_PAD);
+      path.lineTo(px, height - GRAPH_CHART_PAD);
     });
     yTicks.forEach((value) => {
       if (Math.abs(value) < 1e-9) return;
-      const { py } = mapGraphPoint(0, value, bounds, width, height, PAD);
-      path.moveTo(PAD, py);
-      path.lineTo(width - PAD, py);
+      const { py } = mapGraphPoint(0, value, bounds, width, height, GRAPH_CHART_PAD);
+      path.moveTo(GRAPH_CHART_PAD, py);
+      path.lineTo(width - GRAPH_CHART_PAD, py);
     });
     return path;
   }, [bounds, height, width, xTicks, yTicks]);
 
   const axesPath = useMemo(() => {
     const path = Skia.Path.Make();
-    path.moveTo(yAxisX, PAD);
-    path.lineTo(yAxisX, height - PAD);
-    path.moveTo(PAD, xAxisY);
-    path.lineTo(width - PAD, xAxisY);
+    path.moveTo(yAxisX, GRAPH_CHART_PAD);
+    path.lineTo(yAxisX, height - GRAPH_CHART_PAD);
+    path.moveTo(GRAPH_CHART_PAD, xAxisY);
+    path.lineTo(width - GRAPH_CHART_PAD, xAxisY);
     return path;
   }, [height, width, xAxisY, yAxisX]);
 
   const regionPath = useMemo(() => {
     const path = Skia.Path.Make();
     geometry?.region.forEach(([x, y], index) => {
-      const point = mapGraphPoint(x, y, bounds, width, height, PAD);
+      const point = mapGraphPoint(x, y, bounds, width, height, GRAPH_CHART_PAD);
       if (index === 0) path.moveTo(point.px, point.py);
       else path.lineTo(point.px, point.py);
     });
@@ -118,7 +121,7 @@ export function SkiaInequalityGraphChart({
   const boundaryPath = useMemo(() => {
     const path = Skia.Path.Make();
     geometry?.boundary.forEach(([x, y], index) => {
-      const point = mapGraphPoint(x, y, bounds, width, height, PAD);
+      const point = mapGraphPoint(x, y, bounds, width, height, GRAPH_CHART_PAD);
       if (index === 0) path.moveTo(point.px, point.py);
       else path.lineTo(point.px, point.py);
     });
@@ -135,10 +138,10 @@ export function SkiaInequalityGraphChart({
           bounds,
           width,
           height,
-          PAD,
+          GRAPH_CHART_PAD,
         )
       : null;
-  const clip = Skia.XYWHRect(PAD, PAD, width - PAD * 2, height - PAD * 2);
+  const clip = Skia.XYWHRect(GRAPH_CHART_PAD, GRAPH_CHART_PAD, width - GRAPH_CHART_PAD * 2, height - GRAPH_CHART_PAD * 2);
   const originVisible =
     bounds.xMin <= 0 && bounds.xMax >= 0 && bounds.yMin <= 0 && bounds.yMax >= 0;
 
@@ -151,7 +154,7 @@ export function SkiaInequalityGraphChart({
     >
       <Canvas testID="skia-inequality-canvas" style={{ width, height }}>
         {geometry.region.length >= 3 ? (
-          <Path path={regionPath} color={theme.primary} style="fill" opacity={0.16} />
+          <Path path={regionPath} color={theme.primary} style="fill" opacity={INEQUALITY_REGION_OPACITY} />
         ) : null}
         <Path path={gridPath} color={theme.border} style="stroke" strokeWidth={1} />
         <Path
@@ -169,7 +172,7 @@ export function SkiaInequalityGraphChart({
               strokeWidth={2.5}
               strokeCap="butt"
             >
-              {strict ? <DashPathEffect intervals={STRICT_DASH} /> : null}
+              {strict ? <DashPathEffect intervals={STRICT_BOUNDARY_DASH} /> : null}
             </Path>
           ) : null}
         </Group>
@@ -180,7 +183,7 @@ export function SkiaInequalityGraphChart({
           ? xTicks.map((value) => {
               if (Math.abs(value) < 1e-9) return null;
               const text = formatAxisNumber(value, true);
-              const { px } = mapGraphPoint(value, 0, bounds, width, height, PAD);
+              const { px } = mapGraphPoint(value, 0, bounds, width, height, GRAPH_CHART_PAD);
               return (
                 <SkiaText
                   key={`x-${text}`}
@@ -196,8 +199,8 @@ export function SkiaInequalityGraphChart({
         {font
           ? yTicks.map((value) => {
               if (Math.abs(value) < 1e-9) return null;
-              const { py } = mapGraphPoint(0, value, bounds, width, height, PAD);
-              if (py < PAD + 12) return null;
+              const { py } = mapGraphPoint(0, value, bounds, width, height, GRAPH_CHART_PAD);
+              if (py < GRAPH_CHART_PAD + 12) return null;
               const text = formatAxisNumber(value, true);
               return (
                 <SkiaText
@@ -222,7 +225,7 @@ export function SkiaInequalityGraphChart({
         ) : null}
         {font ? (
           <SkiaText
-            x={width - PAD - font.measureText("x").width}
+            x={width - GRAPH_CHART_PAD - font.measureText("x").width}
             y={xAxisY - 6}
             text="x"
             font={font}
@@ -231,8 +234,8 @@ export function SkiaInequalityGraphChart({
         ) : null}
         {font ? (
           <SkiaText
-            x={Math.max(yAxisX - TICK_FONT_SIZE, 2)}
-            y={PAD - 2}
+            x={Math.max(yAxisX - GRAPH_TICK_FONT_SIZE, 2)}
+            y={GRAPH_CHART_PAD - 2}
             text="y"
             font={font}
             color={theme.textSecondary}

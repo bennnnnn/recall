@@ -71,15 +71,7 @@ export function QuizCard({ content }: Props) {
 
   return (
     <View style={s.card} testID="quiz-card">
-      {quiz.label ? (
-        <View style={s.badge}>
-          <Text style={s.badgeText}>{quiz.label}</Text>
-        </View>
-      ) : null}
-      <ChipText style={s.question} chip={s.chip}>
-        {quiz.question}
-      </ChipText>
-      {quiz.code ? <CodeBlock code={quiz.code} lang={quiz.codeLang} /> : null}
+      <QuizHeader quiz={quiz} s={s} />
       <View accessibilityRole="radiogroup">
         {quiz.options.map((option, index) => {
           const picked = attempt.picked === index;
@@ -126,17 +118,7 @@ function LooseQuizCard({ quiz, s }: { quiz: LooseQuiz; s: Styles }) {
   const [shown, setShown] = useState(false);
   return (
     <View style={s.card} testID="quiz-card-text">
-      {quiz.label ? (
-        <View style={s.badge}>
-          <Text style={s.badgeText}>{quiz.label}</Text>
-        </View>
-      ) : null}
-      {quiz.question ? (
-        <ChipText style={s.question} chip={s.chip}>
-          {quiz.question}
-        </ChipText>
-      ) : null}
-      {quiz.code ? <CodeBlock code={quiz.code} lang={quiz.codeLang} /> : null}
+      <QuizHeader quiz={quiz} s={s} />
       {quiz.options.map((option, index) => (
         <ChipText key={`${index}:${option}`} style={s.optionText} chip={s.chip}>
           {`${optionLetter(index)} ${option}`}
@@ -155,6 +137,31 @@ function LooseQuizCard({ quiz, s }: { quiz: LooseQuiz; s: Styles }) {
         </View>
       ) : null}
     </View>
+  );
+}
+
+/** The "Exercise 1" badge, the question and the code it asks about. */
+function QuizHeader({
+  quiz,
+  s,
+}: {
+  quiz: Pick<LooseQuiz, "label" | "question" | "code" | "codeLang">;
+  s: Styles;
+}) {
+  return (
+    <>
+      {quiz.label ? (
+        <View style={s.badge}>
+          <Text style={s.badgeText}>{quiz.label}</Text>
+        </View>
+      ) : null}
+      {quiz.question ? (
+        <ChipText style={s.question} chip={s.chip}>
+          {quiz.question}
+        </ChipText>
+      ) : null}
+      {quiz.code ? <CodeBlock code={quiz.code} lang={quiz.codeLang} /> : null}
+    </>
   );
 }
 

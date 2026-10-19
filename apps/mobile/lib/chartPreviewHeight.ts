@@ -1,7 +1,9 @@
 /**
- * Height policy for the chart WebView preview.
+ * Height policy for the chart WebView preview (`lib/webPreviewHeight.ts`).
  * Grow-only after first paint so the assistant bubble does not jump.
  */
+import { previewHeightRules } from "@/lib/webPreviewHeight";
+
 /** Also the placeholder until the SVG reports its size. */
 export const CHART_MIN_HEIGHT = 140;
 /** Fit a 6-row horizontal bar chart plus title/axes. */
@@ -9,28 +11,16 @@ export const CHART_MAX_HEIGHT = 480;
 export const CHART_MAX_EXPANDED = 800;
 export const CHART_HEIGHT_EPSILON_PX = 4;
 
-export function clampChartPreviewHeight(reported: number, maxHeight: number): number {
-  if (!Number.isFinite(reported) || reported <= 0) return CHART_MIN_HEIGHT;
-  return Math.min(maxHeight, Math.max(CHART_MIN_HEIGHT, Math.ceil(reported)));
-}
+export const CHART_PREVIEW_HEIGHT = previewHeightRules({
+  min: CHART_MIN_HEIGHT,
+  max: CHART_MAX_HEIGHT,
+  maxExpanded: CHART_MAX_EXPANDED,
+  epsilon: CHART_HEIGHT_EPSILON_PX,
+});
 
-export function nextChartPreviewHeight(
-  reported: number,
-  current: number,
-  maxHeight: number,
-): number | null {
-  const next = clampChartPreviewHeight(reported, maxHeight);
-  if (next <= current + CHART_HEIGHT_EPSILON_PX) return null;
-  return next;
-}
-
-/** True when the SVG is taller than the visible WebView (expand can grow it). */
-export function chartPreviewIsClipped(reportedHeight: number, visibleHeight: number): boolean {
-  return reportedHeight > visibleHeight + CHART_HEIGHT_EPSILON_PX;
-}
-
-/** Height to apply when toggling expand — uses the raw SVG size, not the clamped ref. */
-export function chartTogglePreviewHeight(reportedHeight: number, expanded: boolean): number {
-  const maxH = expanded ? CHART_MAX_EXPANDED : CHART_MAX_HEIGHT;
-  return clampChartPreviewHeight(reportedHeight, maxH);
-}
+export const {
+  clamp: clampChartPreviewHeight,
+  next: nextChartPreviewHeight,
+  isClipped: chartPreviewIsClipped,
+  toggled: chartTogglePreviewHeight,
+} = CHART_PREVIEW_HEIGHT;

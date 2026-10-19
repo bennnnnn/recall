@@ -11,6 +11,10 @@ import {
 } from "@shopify/react-native-skia";
 
 import {
+  GRAPH_CHART_PAD,
+  GRAPH_TICK_FONT_SIZE,
+} from "@/components/rich/graphPaint";
+import {
   formatInequalityExpr,
   mapGraphPoint,
   numberLineBounds,
@@ -18,8 +22,6 @@ import {
 } from "@/lib/math/graphBlock";
 import { type GraphSpec } from "@/lib/math/graphSpec";
 
-const PAD = 28;
-const TICK_FONT_SIZE = 11;
 
 type Props = {
   spec: GraphSpec;
@@ -37,7 +39,7 @@ function valueToPx(
   width: number,
   height: number,
 ) {
-  return mapGraphPoint(value, 0, { ...bounds, yMin: -1, yMax: 1 }, width, height, PAD).px;
+  return mapGraphPoint(value, 0, { ...bounds, yMin: -1, yMax: 1 }, width, height, GRAPH_CHART_PAD).px;
 }
 
 function addArrowHead(
@@ -69,7 +71,7 @@ export function SkiaNumberLineChart({
 }: Props) {
   const font = useFont(
     require("../../../assets/fonts/KaTeX_Main-Regular.ttf"),
-    TICK_FONT_SIZE,
+    GRAPH_TICK_FONT_SIZE,
   );
   const intervals = useMemo(() => spec.intervals ?? [], [spec.intervals]);
   const bounds = useMemo(() => numberLineBounds(intervals), [intervals]);
@@ -81,8 +83,8 @@ export function SkiaNumberLineChart({
 
   const axisPath = useMemo(() => {
     const path = Skia.Path.Make();
-    path.moveTo(PAD, y);
-    path.lineTo(width - PAD, y);
+    path.moveTo(GRAPH_CHART_PAD, y);
+    path.lineTo(width - GRAPH_CHART_PAD, y);
     ticks.forEach((value) => {
       const px = valueToPx(value, bounds, width, height);
       path.moveTo(px, y - 5);
@@ -98,11 +100,11 @@ export function SkiaNumberLineChart({
         path.moveTo(valueToPx(interval.start, bounds, width, height), y);
         path.lineTo(valueToPx(interval.end, bounds, width, height), y);
       } else if (interval.start == null && interval.end != null) {
-        path.moveTo(PAD, y);
+        path.moveTo(GRAPH_CHART_PAD, y);
         path.lineTo(valueToPx(interval.end, bounds, width, height), y);
       } else if (interval.end == null && interval.start != null) {
         path.moveTo(valueToPx(interval.start, bounds, width, height), y);
-        path.lineTo(width - PAD, y);
+        path.lineTo(width - GRAPH_CHART_PAD, y);
       }
     });
     return path;
@@ -110,17 +112,17 @@ export function SkiaNumberLineChart({
 
   const axisArrowPath = useMemo(() => {
     const path = Skia.Path.Make();
-    addArrowHead(path, PAD, y, "left");
-    addArrowHead(path, width - PAD, y, "right");
+    addArrowHead(path, GRAPH_CHART_PAD, y, "left");
+    addArrowHead(path, width - GRAPH_CHART_PAD, y, "right");
     return path;
   }, [width, y]);
 
   const intervalArrowPath = useMemo(() => {
     const path = Skia.Path.Make();
     intervals.forEach((interval) => {
-      if (interval.start == null && interval.end != null) addArrowHead(path, PAD, y, "left");
+      if (interval.start == null && interval.end != null) addArrowHead(path, GRAPH_CHART_PAD, y, "left");
       if (interval.end == null && interval.start != null) {
-        addArrowHead(path, width - PAD, y, "right");
+        addArrowHead(path, width - GRAPH_CHART_PAD, y, "right");
       }
     });
     return path;
@@ -196,7 +198,7 @@ export function SkiaNumberLineChart({
           : null}
         {font ? (
           <SkiaText
-            x={width - PAD + 10 - font.measureText(spec.variable ?? "x").width}
+            x={width - GRAPH_CHART_PAD + 10 - font.measureText(spec.variable ?? "x").width}
             y={y - 10}
             text={spec.variable ?? "x"}
             font={font}
