@@ -15,7 +15,7 @@ import re
 from functools import partial
 from typing import Any
 
-from sympy import Pow, latex, preorder_traversal
+from sympy import Eq, Pow, Symbol, latex, preorder_traversal, simplify, solve
 
 from app.modules.math.solve.declines import sympy_decline
 
@@ -182,8 +182,6 @@ def substitution_check(
     The swap is on the typed LaTeX: rebuilding the expression would reorder it
     and evaluate the 5² the student wrote.
     """
-    from sympy import Eq, Symbol, simplify, solve
-
     var = next(
         (s for s in getattr(lhs - rhs, "free_symbols", set()) if str(s) == variable),
         Symbol(variable),

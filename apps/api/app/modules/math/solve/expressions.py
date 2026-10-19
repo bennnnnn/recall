@@ -3,7 +3,7 @@ shows as its key step."""
 
 from __future__ import annotations
 
-from sympy import expand, factor, latex, simplify
+from sympy import Poly, Symbol, degree, expand, factor, latex, simplify
 
 from app.modules.math.schemas import MathExprResult
 from app.modules.math.solve.declines import sympy_decline
@@ -46,8 +46,6 @@ def factored_key_step(lhs: str, rhs: str, variable: str = "x") -> str | None:
     do not factor over the rationals, where the quadratic formula did the work
     and naming it adds nothing.
     """
-    from sympy import Poly, Symbol, degree, factor, latex, simplify
-
     with sympy_decline():
         symbol = Symbol(variable)
         expr = simplify(_parse_expression(lhs, [variable]) - _parse_expression(rhs, [variable]))

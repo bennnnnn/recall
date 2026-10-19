@@ -6,6 +6,7 @@ import cmath
 from typing import Any
 
 from sympy import (
+    Abs,
     AccumBounds,
     Integral,
     Limit,
@@ -17,6 +18,7 @@ from sympy import (
     lambdify,
     latex,
     limit,
+    log,
     nan,
     oo,
     simplify,
@@ -170,8 +172,6 @@ def _absolute_logs(antiderivative: Any, integrand: Any, sym: Any) -> Any:
     A log the integrand already had (``∫ ln x``) keeps its own domain, and an
     argument that is always positive (``x² + 1``) needs no bars.
     """
-    from sympy import Abs, log
-
     if integrand.has(log):
         return antiderivative
     real = Symbol(sym.name, real=True)

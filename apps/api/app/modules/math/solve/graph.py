@@ -7,7 +7,27 @@ import re
 from typing import Any
 
 import numpy as np
-from sympy import FiniteSet, Symbol, Union, denom, limit, solve
+from sympy import (
+    EmptySet,
+    FiniteSet,
+    Ge,
+    Gt,
+    Interval,
+    Le,
+    Lt,
+    S,
+    Symbol,
+    Union,
+    cos,
+    denom,
+    limit,
+    sin,
+    solve,
+    solveset,
+    tan,
+)
+from sympy.calculus.singularities import singularities
+from sympy.utilities.lambdify import lambdify
 
 from app.modules.math.schemas import (
     GraphBlockSpec,
@@ -71,8 +91,6 @@ def _symbolic_pole_xs(parsed: Any, sym: Symbol, x_min: float, x_max: float) -> l
     symbolic poles", not a failed graph.
     """
     with sympy_decline() as declined:
-        from sympy.calculus.singularities import singularities
-
         found = singularities(parsed, sym)
     if declined:
         return []
@@ -166,8 +184,6 @@ _OSCILLATION_PERIODS_IN_VIEW = 8
 
 def _oscillation_period(parsed: Any, sym: Symbol) -> float | None:
     """2π/|ω| (or π/|ω| for tan) when the expr contains sin/cos/tan of a linear arg."""
-    from sympy import cos, sin, tan
-
     for fn, base in ((tan, math.pi), (sin, 2 * math.pi), (cos, 2 * math.pi)):
         for atom in parsed.atoms(fn):
             arg = atom.args[0]
@@ -220,8 +236,6 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     if parsed.is_Relational:
         raise MathServiceError("Inequality expressions are number lines, not y=f(x) plots")
 
-    from sympy.utilities.lambdify import lambdify
-
     numpy_fn = lambdify(sym, parsed, modules=["numpy"])
     x_min, x_max, n = _adapt_sample_window(
         data.x_min, data.x_max, data.n, _oscillation_period(parsed, sym)
@@ -273,8 +287,6 @@ def _viewport_from_points(points: list[list[float]]) -> tuple[float, float, floa
 
 def sample_polar_curve(expr: str, variable: str = "theta", n: int = 96) -> GraphSampleResult:
     """Sample ``r = f(θ)`` on ``[0, 2π]`` into cartesian `` ```graph `` points."""
-    from sympy.utilities.lambdify import lambdify
-
     count = max(16, min(int(n), 500))
     sym = Symbol(variable)
     parsed = _parse_expression(expr, [variable])
@@ -311,8 +323,6 @@ def sample_parametric_curve(
     x_expr: str, y_expr: str, variable: str = "t", n: int = 96
 ) -> GraphSampleResult:
     """Sample ``x(t), y(t)`` on ``[0, 2π]`` into cartesian `` ```graph `` points."""
-    from sympy.utilities.lambdify import lambdify
-
     count = max(16, min(int(n), 500))
     sym = Symbol(variable)
     parsed_x = _parse_expression(x_expr, [variable])
@@ -469,12 +479,9 @@ def _finite_or_none(bound: Any) -> float | None:
 
 def _collect_number_line_intervals(sol: Any, out: list[NumberLineInterval]) -> bool:
     """Walk a SymPy set into number-line intervals. False = unsupported shape."""
-    from sympy import EmptySet, FiniteSet, Interval, Union
-    from sympy import S as sympy_S
-
-    if sol is None or sol is EmptySet or sol == sympy_S.EmptySet:
+    if sol is None or sol is EmptySet or sol == S.EmptySet:
         return True
-    if sol == sympy_S.Reals:
+    if sol == S.Reals:
         out.append(NumberLineInterval(start=None, end=None))
         return True
     if isinstance(sol, Interval):
@@ -510,8 +517,6 @@ def _collect_number_line_intervals(sol: Any, out: list[NumberLineInterval]) -> b
 
 def _inequality_solution_set(expr: str, variable: str) -> Any:
     """Solve a 1-variable inequality; returns a SymPy set (possibly empty)."""
-    from sympy import Ge, Gt, Le, Lt, S, solveset
-
     compound = try_extract_compound_inequality_from_text(expr)
     if compound is not None:
         low, low_op, mid, high_op, high = compound

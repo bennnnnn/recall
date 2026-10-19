@@ -7,7 +7,7 @@ import re
 import statistics as _stats
 from typing import Literal
 
-from sympy import latex
+from sympy import Matrix, Rational, factorint, isprime, latex
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES, function_name_alternation
 from app.modules.math.match.letter_runs import mask_unknown_letter_runs
@@ -214,8 +214,6 @@ def compute_number_theory(data: NumberTheoryInput) -> NumberTheoryResult:
         )
 
     if data.operation == "factorize":
-        from sympy import factorint
-
         if a < 2:
             raise MathServiceError("Prime factorization needs an integer >= 2")
         raw_factors = factorint(a)
@@ -225,7 +223,6 @@ def compute_number_theory(data: NumberTheoryInput) -> NumberTheoryResult:
         return NumberTheoryResult(operation="factorize", a=a, b=None, factors=factors, steps=steps)
 
     # is_prime
-    from sympy import isprime
 
     result_bool = bool(isprime(a))
     steps = [f"{a} is {'prime' if result_bool else 'not prime'}"]
@@ -235,8 +232,6 @@ def compute_number_theory(data: NumberTheoryInput) -> NumberTheoryResult:
 
 
 def _matrix_from_rows(rows: list[list[float]]):
-    from sympy import Matrix, Rational
-
     return Matrix([[Rational(str(value)) for value in row] for row in rows])
 
 

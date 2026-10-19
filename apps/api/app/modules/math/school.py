@@ -5,13 +5,16 @@ from __future__ import annotations
 import logging
 import math
 from fractions import Fraction
+from math import gcd
 from typing import Any
 
 from sympy import (
+    Add,
     Derivative,
     Eq,
     Function,
     Integral,
+    Rational,
     S,
     Symbol,
     cos,
@@ -21,16 +24,21 @@ from sympy import (
     expand,
     expand_trig,
     factorial,
+    ilcm,
     integrate,
     latex,
+    nan,
     nsimplify,
+    oo,
     pi,
+    series,
     simplify,
     sin,
     solve,
     solveset,
     tan,
     trigsimp,
+    zoo,
 )
 
 from app.modules.math.schemas import MathExprResult
@@ -85,8 +93,6 @@ def _defined_value_latex(value: Any) -> str:
     student can use. A real infinity is not undefined either, so it is not
     verified at all.
     """
-    from sympy import nan, oo, zoo
-
     from app.modules.math.solve.display import format_verified_latex
 
     if value is nan or value is zoo or value.has(nan, zoo):
@@ -312,9 +318,6 @@ def _fraction_set(values: list[float]) -> set[Fraction]:
 
 
 def simplify_ratio(a: float, b: float) -> str:
-    from math import gcd
-
-    from sympy import Rational, ilcm
 
     if not math.isfinite(a) or not math.isfinite(b) or (a == 0 and b == 0):
         raise MathServiceError("Ratio needs finite values that are not both zero")
@@ -496,8 +499,6 @@ def taylor_series(
     "cos x to 4 terms" means four non-zero terms (up to x^6), not order 3. A
     series about 0 is written in ascending powers, as textbooks write it.
     """
-    from sympy import Add, series
-
     parsed = _parse_expression(expr, [variable])
     var = Symbol(variable)
     pt = _parse_expression(point, [variable])
@@ -514,8 +515,6 @@ def taylor_series(
 
 
 def partial_derivative(expr: str, variable: str) -> MathExprResult:
-    from sympy import diff
-
     parsed = _parse_expression(expr, [variable])
     out = diff(parsed, Symbol(variable))
     tex = str(latex(out))

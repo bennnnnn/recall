@@ -5,7 +5,22 @@ from __future__ import annotations
 
 from typing import Any
 
-from sympy import Symbol, latex, simplify
+from sympy import (
+    FiniteSet,
+    Ge,
+    Gt,
+    Interval,
+    Le,
+    Lt,
+    S,
+    Symbol,
+    Union,
+    latex,
+    oo,
+    simplify,
+    solve_univariate_inequality,
+    solveset,
+)
 
 from app.modules.math.schemas import MathSolveResult
 from app.modules.math.solve.declines import sympy_decline
@@ -25,8 +40,6 @@ def solve_compound_inequality(
     variable: str,
 ) -> MathSolveResult:
     """Solve ``low OP mid OP high`` (e.g. ``1 < x <= 3``) as an And of relations."""
-    from sympy import Ge, Gt, Le, Lt, S, solveset
-
     sym = Symbol(variable, real=True)
     low_e = _parse_expression(low, [variable], real=True)
     mid_e = _parse_expression(mid, [variable], real=True)
@@ -78,8 +91,6 @@ def inequality_solution_latex(solution: Any, sym: Any) -> str:
     SymPy hands back either a logical ``And``/``Or`` (printed with ``\\wedge``)
     or a set of intervals; both read as the same school notation here.
     """
-    from sympy import FiniteSet, Interval, S, Union, oo
-
     with sympy_decline() as declined:
         found = solution.as_set() if hasattr(solution, "as_set") else solution
     if declined:
@@ -128,8 +139,6 @@ def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> Math
     every other expression; the relational is built from SymPy Lt/Gt/Le/Ge, so
     no user string is eval'd.
     """
-    from sympy import Ge, Gt, Le, Lt, S, solve_univariate_inequality, solveset
-
     real = _expr_needs_real_domain(lhs, rhs)
     sym = Symbol(variable, real=True) if real else Symbol(variable)
     left = _parse_expression(lhs, [variable], real=real)

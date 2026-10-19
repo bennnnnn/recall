@@ -7,7 +7,10 @@ from fractions import Fraction
 
 from sympy import (
     Abs,
+    AccumBounds,
     I,
+    Integral,
+    Limit,
     Matrix,
     Symbol,
     arg,
@@ -16,11 +19,17 @@ from sympy import (
     diff,
     factorial,
     idiff,
+    mod_inverse,
+    nan,
+    oo,
     simplify,
     sin,
+    totient,
+    zoo,
 )
+from sympy.ntheory.modular import solve_congruence
 
-from app.modules.math.school import _format_school_number, _progression
+from app.modules.math.school import _format_school_number, _imaginary_unit_to_sympy, _progression
 from app.modules.math.solve import (
     MathServiceError,
     _parse_expression,
@@ -132,8 +141,6 @@ def vector_projection(a: list[float], b: list[float]) -> str:
 
 
 def _complex_value(expr: str):
-    from app.modules.math.school import _imaginary_unit_to_sympy
-
     parsed = _parse_expression(_imaginary_unit_to_sympy(expr), ["x"])
     if parsed.free_symbols:
         raise MathServiceError("complex expression still has variables")
@@ -219,8 +226,6 @@ def percentile(numbers: list[float], p: int) -> str:
 
 
 def modular_inverse(a: int, modulus: int) -> str:
-    from sympy import mod_inverse
-
     if modulus <= 1:
         raise MathServiceError("modular inverse needs modulus > 1")
     try:
@@ -230,16 +235,12 @@ def modular_inverse(a: int, modulus: int) -> str:
 
 
 def euler_totient(n: int) -> str:
-    from sympy import totient
-
     if n < 1:
         raise MathServiceError("totient needs a positive integer")
     return str(int(totient(n)))
 
 
 def chinese_remainder(a: int, m: int, b: int, n: int) -> str:
-    from sympy.ntheory.modular import solve_congruence
-
     if m <= 0 or n <= 0:
         raise MathServiceError("CRT moduli must be positive")
     try:
@@ -259,8 +260,6 @@ def sas_triangle_area(side_a: float, side_b: float, angle_deg: float) -> str:
 
 
 def average_value(expr: str, variable: str, lower: str, upper: str) -> str:
-    from sympy import AccumBounds, Integral, Limit, nan, oo, zoo
-
     parsed = _parse_expression(expr, [variable])
     # "infinity" is oo, not the letters i, n, f, t and y; and an average needs
     # a finite interval (sin over [0, oo) was <0, 2> / oo = 0).

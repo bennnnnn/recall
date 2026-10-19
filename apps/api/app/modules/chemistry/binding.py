@@ -55,7 +55,7 @@ from app.services.law_binding.fit import (
     read_question,
 )
 from app.services.law_binding.spec import VariableSpec
-from app.services.units import CELSIUS_OFFSET_K
+from app.services.units import CELSIUS_OFFSET_K, get_unit_registry
 
 _VERBS = re.compile(
     r"\b(?:find|calculate|compute|determine|work\s+out|estimate|evaluate|whats?|convert|"
@@ -277,8 +277,6 @@ def _declared(variable: VariableSpec) -> str:
 
 def _converted(law: ChemistryLaw, filled: Fit) -> tuple[dict[str, float], dict[str, str]] | None:
     """The filled inputs in the units the law's solver reads, and the units it is told."""
-    from app.services.units import get_unit_registry
-
     registry = get_unit_registry()
     params: dict[str, float] = {}
     units: dict[str, str] = {}

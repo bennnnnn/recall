@@ -14,7 +14,7 @@ from app.modules.chemistry.extractors.parsing import (
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.half_reaction import is_single_redox_change
-from app.modules.chemistry.species import parse_reaction
+from app.modules.chemistry.species import counts_in_mass_action, parse_reaction
 
 _ACIDIC = re.compile(r"\b(?:acidic|in acid|an?\s+acid)\b", re.IGNORECASE)
 _BASIC = re.compile(r"\b(?:basic|alkaline|in base|an?\s+base)\b", re.IGNORECASE)
@@ -60,7 +60,6 @@ def _extract_equations(text: str) -> ChemistryIntent | None:
             )
         }
         balanced = balance_equation(equation)
-        from app.modules.chemistry.species import counts_in_mass_action
 
         normalized: dict[str, float] = {}
         if balanced.balanced:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import replace
+from fractions import Fraction
 
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
@@ -361,8 +362,6 @@ def _block_percent(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | 
 
 def _block_percent_chain(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
     """``10% of 10% of 500`` and ``25% of 80 plus 10``, worked left to right."""
-    from fractions import Fraction
-
     rates = intent.stats_numbers or []
     if not rates or intent.percent_base is None:
         return None

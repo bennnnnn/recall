@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from app.modules.chemistry.species import ReactionTerm
+from app.modules.chemistry.species import ReactionTerm, parse_reaction, split_equation
 
 
 @dataclass(frozen=True)
@@ -46,8 +46,6 @@ def written_is_balanced(equation: str) -> bool:
     A common multiple counts: ``4 H2 + 2 O2 -> 4 H2O`` is balanced, not only the
     smallest integers ``2 H2 + O2 -> 2 H2O``.
     """
-    from app.modules.chemistry.species import parse_reaction
-
     reaction = parse_reaction(equation)
     if reaction is None or not reaction.reactants or not reaction.products:
         return False
@@ -80,8 +78,6 @@ def balance_equation(equation: str) -> BalancedEquation:
     e.g. "H2 + O2 -> H2O" → reactants={"H2": 2, "O2": 1}, products={"H2O": 2}
     """
     from sympy import Matrix, lcm
-
-    from app.modules.chemistry.species import parse_reaction, split_equation
 
     if split_equation(equation) is None:
         return BalancedEquation({}, {}, False, "no arrow in equation")
