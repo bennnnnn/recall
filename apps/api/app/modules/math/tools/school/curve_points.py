@@ -12,6 +12,7 @@ import re
 from dataclasses import replace
 from typing import Any
 
+from app.modules.math.function_names import variable_letters
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.services.number_text import FRACTION_OR_DECIMAL as _NUMBER
@@ -188,9 +189,7 @@ def _other_curve_intents(body: str, request: str) -> MathIntent | None:
         expr = _expression(defined["expr"])
         if expr is None:
             return None
-        letters = {
-            ch for ch in re.sub(r"(sin|cos|tan|ln|log|exp|sqrt|pi|e\^)", "", expr) if ch.isalpha()
-        }
+        letters = variable_letters(expr)
         if variable is None:
             if len(letters) != 1:
                 return None

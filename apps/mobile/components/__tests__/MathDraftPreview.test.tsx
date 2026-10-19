@@ -1,6 +1,7 @@
 import { fireEvent, render, within } from "@testing-library/react-native";
 
-import { MathDraftPreview, sentMessageShowsMathPreview } from "@/features/chat/components/MathDraftPreview";
+import { MathDraftPreview } from "@/features/chat/components/MathDraftPreview";
+import { sentMessageShowsMathPreview } from "@/lib/math/draftText";
 import { lightTheme } from "@/lib/theme";
 
 describe("sentMessageShowsMathPreview", () => {
@@ -11,6 +12,28 @@ describe("sentMessageShowsMathPreview", () => {
 });
 
 describe("MathDraftPreview", () => {
+  it("draws the keyboard's x^{2} as a reply draws x²: italic x, a smaller 2 against it", async () => {
+    const { getByText, getByTestId } = await render(
+      <MathDraftPreview input="$x^{2}$" sent showCaret={false} />,
+    );
+    expect(getByText("x")).toHaveStyle({ fontFamily: "KaTeX_MathItalic", fontSize: 16 });
+    expect(getByText("2")).toHaveStyle({ fontSize: 11 });
+    expect(getByTestId("math-slot-sup")).toHaveStyle({ minWidth: 0 });
+  });
+
+  it("shrinks every script, a definite integral's limits included", async () => {
+    const { getByText } = await render(
+      <MathDraftPreview input={String.raw`$\int_{0}^{1}$`} showCaret={false} />,
+    );
+    expect(getByText("0")).toHaveStyle({ fontSize: 11 });
+    expect(getByText("1")).toHaveStyle({ fontSize: 11 });
+  });
+
+  it("keeps words outside the dollars as upright text", async () => {
+    const { getByText } = await render(<MathDraftPreview input="solve $x$" showCaret={false} />);
+    expect(getByText(/solve/)).not.toHaveStyle({ fontFamily: "KaTeX_MathItalic" });
+  });
+
   it("uses readable root degree text while preserving the full-size radicand", async () => {
     const { getByText, getByTestId } = await render(
       <MathDraftPreview input={String.raw`$\sqrt[6]{9}$`} showCaret={false} />,

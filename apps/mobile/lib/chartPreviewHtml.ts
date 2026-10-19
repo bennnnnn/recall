@@ -13,6 +13,7 @@ import type { Theme } from "@/lib/theme";
 import { VEGA_EMBED_MIN_JS } from "@/lib/vendor/vegaEmbedMinJs";
 import { VEGA_LITE_MIN_JS } from "@/lib/vendor/vegaLiteMinJs";
 import { VEGA_MIN_JS } from "@/lib/vendor/vegaMinJs";
+import { parseChartBody, seriesChartToVegaLite } from "@/lib/chartSeriesSpec";
 
 type ChartPreviewTheme = Pick<
   Theme,
@@ -121,15 +122,13 @@ export function normalizeChartSpec(spec: Record<string, unknown>): void {
 }
 
 function specPayloadForEmbed(raw: string): string {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      normalizeChartSpec(parsed as Record<string, unknown>);
-    }
-    return JSON.stringify(parsed);
-  } catch {
-    return raw;
-  }
+  const parsed = parseChartBody(raw);
+  if (parsed === null) return raw;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return JSON.stringify(parsed);
+  const record = parsed as Record<string, unknown>;
+  const spec = seriesChartToVegaLite(record) ?? record;
+  normalizeChartSpec(spec);
+  return JSON.stringify(spec);
 }
 
 /** Build a page that renders a Vega / Vega-Lite spec via vendored Vega-Embed. */
@@ -192,6 +191,9 @@ export function buildVegaHtml(
       view: { stroke: ${JSON.stringify(axisColor)} },
     };
     parsed.config = Object.assign({}, themedConfig, parsed.config || {});
+    // The width is the card's, axes and labels included: a plain width sized only the
+    // plot, and the y axis pushed its right edge out of the card.
+    if (!parsed.autosize) parsed.autosize = { type: 'fit-x', contains: 'padding' };
     vegaEmbed('#chart', parsed, {
       actions: false,
       tooltip: false,

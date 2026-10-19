@@ -8,6 +8,7 @@ from dataclasses import replace
 from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
+from app.modules.math.function_names import TRIG, function_name_alternation
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
@@ -17,8 +18,19 @@ from app.modules.math.tools.school.trig_equations import bounded_equation_block
 from app.services.number_text import DECIMAL_LITERAL, SIGNED_DECIMAL
 from app.services.workout import Workout, math_line, render_workout
 
-_TRIG_FUNCS = ("sine", "cosine", "tangent", "sin", "cos", "tan")
-_TRIG_CANON = {"sine": "sin", "cosine": "cos", "tangent": "tan"}
+# The keypad's trig row: sin, cos, tan and their reciprocals sec, csc, cot.
+_TRIG_FUNCS = (
+    "sine", "cosine", "tangent", "secant", "cosecant", "cotangent",
+    "sin", "cos", "tan", "sec", "csc", "cot",
+)  # fmt: skip
+_TRIG_CANON = {
+    "sine": "sin",
+    "cosine": "cos",
+    "tangent": "tan",
+    "secant": "sec",
+    "cosecant": "csc",
+    "cotangent": "cot",
+}
 _TRIG_PREFIXES = (
     "find the exact value of",
     "find exact value of",
@@ -38,7 +50,7 @@ _TRIG_PREFIXES = (
 
 
 _DEGREE_TRIG_CALL = re.compile(
-    rf"(?<![A-Za-z])(sin|cos|tan)\s*\(\s*({SIGNED_DECIMAL})\s*(?:degrees?|deg|°)\s*\)",
+    rf"(?<![A-Za-z])({function_name_alternation(TRIG)})\s*\(\s*({SIGNED_DECIMAL})\s*(?:degrees?|deg|°)\s*\)",
     re.IGNORECASE,
 )
 _BOUNDED_DEGREE_DOMAIN = re.compile(
@@ -76,7 +88,7 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
     if sas is not None:
         return sas
     domain = _BOUNDED_DEGREE_DOMAIN.search(cleaned)
-    if domain is not None and any(name in cleaned.lower() for name in ("sin", "cos", "tan")):
+    if domain is not None and any(name in cleaned.lower() for name in TRIG):
         from app.modules.math import solve as math_solve
 
         pairs = math_solve.try_extract_equations_from_text(cleaned)
