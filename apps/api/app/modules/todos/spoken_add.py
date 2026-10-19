@@ -12,18 +12,19 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from datetime import tzinfo as TzInfo
 from typing import cast
-from uuid import UUID
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.todos.reminder_fence_parse import explicitly_declines_reminder_creation
+from app.modules.todos.reply_claims import (
+    COLON_CLAIM_RE,
+    PROSE_CLAIM_RE,
+    without_claim_lines,
+)
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_filler import FILLER_WORDS, without_lead_filler
 from app.modules.todos.spoken_when import (
     due_on_day,
     find_repeat,
     find_when,
-    parse_clock_only,
     without_spans,
 )
 from app.services.draft_fences import has_draft
@@ -35,25 +36,6 @@ _USER_CLOCK_RE = re.compile(
     r"|\b\d{1,2}:\d{2}\b"
     r"|\b\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\b"
     r"|\b\d{1,2}(?::\d{2})?\s+in\s+the\s+(?:morning|afternoon|evening)\b",
-    re.IGNORECASE,
-)
-_CLAIM_LINE_RE = re.compile(
-    r"^(?:added|set|moved|deleted|done|reopened|scheduled|saved|created|date removed)\s*:\s+\S",
-    re.IGNORECASE,
-)
-_COLON_CLAIM_RE = re.compile(
-    r"(?:got it!?\s*)?"
-    r"(?:added|set|moved|deleted|done|reopened|scheduled|saved|created|date removed)\s*:\s+\S",
-    re.IGNORECASE,
-)
-_PROSE_CLAIM_RE = re.compile(
-    r"\b(?:i(?:['\u2019]ve| have)?\s+added|"
-    r"i(?:['\u2019]ll| will)\s+add|"
-    r"added (?:your|it|that|a reminder|to your)|"
-    r"you(?:['\u2019]ll| will)\s+now (?:get|have)|"
-    r"marked as done|changed to|updated!|(?:to|on) your (?:grocery|shopping) list|"
-    r"(?:moved|marked|deleted|removed|pushed|rescheduled|postponed|reopened|unchecked)\s+\**\w"
-    r"|checked off|(?:is|are) open again|back on your list)",
     re.IGNORECASE,
 )
 _DECLINE_SAVE_RE = re.compile(
@@ -322,8 +304,8 @@ def reply_when_nothing_saved(
         return text
     words = _without_code(text)
     asked = _asked_to_change_or_add(user_text)
-    colon = bool(_COLON_CLAIM_RE.search(words))
-    prose = bool(asked and _PROSE_CLAIM_RE.search(words))
+    colon = bool(COLON_CLAIM_RE.search(words))
+    prose = bool(asked and PROSE_CLAIM_RE.search(words))
     needs_time = bool(
         user_text
         and _ADD_REQUEST_RE.search(user_text)
@@ -331,7 +313,7 @@ def reply_when_nothing_saved(
         and not adds_content(user_text)
     )
     lines = text.splitlines()
-    kept = _without_claim_lines(lines)
+    kept = without_claim_lines(lines)
     changed = len(kept) != len(lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip() if changed else text
     asks_when = bool(_ASKS_WHEN_RE.search(cleaned))
@@ -367,7 +349,7 @@ def claims_a_reminder_change(text: str | None) -> bool:
     if not text:
         return False
     lines = _without_code(text).splitlines()
-    return len(_without_claim_lines(lines)) != len(lines)
+    return len(without_claim_lines(lines)) != len(lines)
 
 
 def edits_prior_reply(subject: str, *, prior_assistant: str | None, reply: str | None) -> bool:
@@ -417,19 +399,6 @@ def adds_content(user_text: str | None) -> bool:
 
 def _without_code(text: str) -> str:
     return _CODE_BLOCK_RE.sub(" ", text)
-
-
-def _without_claim_lines(lines: list[str]) -> list[str]:
-    """Drop "Added: …" lines outside code fences; a ``done: false`` field stays."""
-    kept: list[str] = []
-    in_code = False
-    for line in lines:
-        if line.lstrip().startswith("```"):
-            in_code = not in_code
-        elif not in_code and _CLAIM_LINE_RE.match(line.strip()):
-            continue
-        kept.append(line)
-    return kept
 
 
 def _asked_to_change_or_add(user_text: str | None) -> bool:
@@ -499,28 +468,6 @@ def _remind_me_body(text: str) -> str:
     if _WORD_RE.search(near):
         return near
     return " ".join((without_lead_filler(before), after)).strip(" .!?")
-
-
-async def pending_add(session: AsyncSession, chat_id: UUID, current: str) -> SpokenAdd | None:
-    """The add they just described, when this message is only the missing clock."""
-    from app.repositories import messages as messages_repo
-
-    rows = await messages_repo.list_recent(session, chat_id, limit=8)
-    skipped_current = False
-    for message in reversed(rows):
-        if getattr(message, "role", None) != "user":
-            continue
-        body = (getattr(message, "content", None) or "").strip()
-        if not skipped_current and body == current.strip():
-            skipped_current = True
-            continue
-        if parse_clock_only(body) is not None:
-            continue
-        add = parse_spoken_add(body)
-        if add is None or add.hour is not None or not add.day:
-            return None
-        return add
-    return None
 
 
 def due_for_add(

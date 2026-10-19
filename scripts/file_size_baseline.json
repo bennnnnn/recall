@@ -174,7 +174,7 @@
       "why": "Over 500 before the standards; tracked in ES-40"
     },
     "apps/api/app/modules/todos/spoken_add.py": {
-      "lines": 654,
+      "lines": 601,
       "why": "Over 500 before the standards; tracked in ES-12"
     },
     "apps/api/app/modules/todos/spoken_change.py": {
