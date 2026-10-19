@@ -365,7 +365,7 @@ async def test_instruct_prompt_names_the_open_document_and_asks_for_a_reply(
 
 
 def test_memory_op_salvage_keeps_the_reply() -> None:
-    from app.gateways.litellm_gateway import _parse_memory_facts_partial
+    from app.gateways.structured_completion import _parse_memory_facts_partial
 
     parsed = _parse_memory_facts_partial(
         {

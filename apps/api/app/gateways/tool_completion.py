@@ -201,7 +201,7 @@ async def complete_with_tools(
                     raise
                 # Apply once, including a completed but rejected/truncated
                 # decision. No early abort means no lost usage-only trailer.
-                gateway._apply_usage_from_response(usage, response)
+                gateway._apply_usage(usage, response)
                 return _tool_selection_result(response, tools=tools, model_alias=model_alias)
     except TimeoutError as exc:
         raise gateway.ModelUnavailableError(

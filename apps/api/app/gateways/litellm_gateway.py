@@ -12,26 +12,15 @@ from app.core.config import Settings
 from app.gateways import llm_spend, mock_llm
 from app.gateways.reasoning import reasoning_body
 
-# Compatibility exports keep provider seams stable after splitting this module.
-from app.gateways.structured_completion import (
-    _complete_structured_once as _complete_structured_once,
-)
-from app.gateways.structured_completion import (
-    _fallback_alias as _fallback_alias,
-)
-from app.gateways.structured_completion import (
-    _list_field_name as _list_field_name,
-)
-from app.gateways.structured_completion import (
-    _parse_memory_facts_partial as _parse_memory_facts_partial,
-)
-from app.gateways.structured_completion import (
-    _parse_memory_sections_partial as _parse_memory_sections_partial,
-)
-from app.gateways.structured_completion import (
-    complete_structured as complete_structured,
-)
+# The completion kinds split out of this module are part of its public surface
+# (callers use ``litellm_gateway.complete_structured`` and friends). They reach
+# this module's provider seams (``acompletion``, ``resolve_route``,
+# ``_litellm_kwargs``) at call time, so a test patches each seam once, here.
+from app.gateways.structured_completion import _fallback_alias
+from app.gateways.structured_completion import complete_structured as complete_structured
 from app.gateways.think_stripper import STRAY_THINK_LEAD_HOLD, ThinkStripper
+from app.gateways.tool_completion import complete_with_tools as complete_with_tools
+from app.gateways.vision_completion import vision_completion as vision_completion
 from app.models import model_catalog
 from app.models.model_catalog import ChatModel
 
@@ -163,32 +152,27 @@ def _litellm_kwargs(
     return kwargs
 
 
-def _apply_usage(usage: dict[str, int] | None, chunk: Any) -> None:
+def _apply_usage(usage: dict[str, int] | None, source: Any) -> None:
+    """Add a stream chunk's or a whole response's reported tokens onto ``usage``."""
     if usage is None:
         return
-    chunk_usage = getattr(chunk, "usage", None)
-    if not chunk_usage:
+    source_usage = getattr(source, "usage", None)
+    if not source_usage:
         return
-    prompt = getattr(chunk_usage, "prompt_tokens", None)
-    completion = getattr(chunk_usage, "completion_tokens", None)
+    prompt = getattr(source_usage, "prompt_tokens", None)
+    completion = getattr(source_usage, "completion_tokens", None)
     if prompt is not None:
         usage["input"] = usage.get("input", 0) + int(prompt)
     if completion is not None:
         usage["output"] = usage.get("output", 0) + int(completion)
 
 
-def _apply_usage_from_response(usage: dict[str, int] | None, response: Any) -> None:
+def _merge_attempt_usage(usage: dict[str, int] | None, attempt: dict[str, int]) -> None:
+    """Charge the caller for one stream attempt (only an attempt that produced content)."""
     if usage is None:
         return
-    resp_usage = getattr(response, "usage", None)
-    if not resp_usage:
-        return
-    prompt = getattr(resp_usage, "prompt_tokens", None)
-    completion = getattr(resp_usage, "completion_tokens", None)
-    if prompt is not None:
-        usage["input"] = usage.get("input", 0) + int(prompt)
-    if completion is not None:
-        usage["output"] = usage.get("output", 0) + int(completion)
+    usage["input"] = usage.get("input", 0) + attempt.get("input", 0)
+    usage["output"] = usage.get("output", 0) + attempt.get("output", 0)
 
 
 async def stream_chat_completion(
@@ -253,9 +237,7 @@ async def stream_chat_completion(
                     continue
                 yield token
             if started:
-                if usage is not None:
-                    usage["input"] = usage.get("input", 0) + attempt_usage.get("input", 0)
-                    usage["output"] = usage.get("output", 0) + attempt_usage.get("output", 0)
+                _merge_attempt_usage(usage, attempt_usage)
                 if stream_meta is not None:
                     stream_meta["model_alias"] = alias
                 return
@@ -275,9 +257,7 @@ async def stream_chat_completion(
             # Mid-stream failure: client already has partial tokens — falling
             # back would concatenate partial + full into one persisted reply.
             if started:
-                if usage is not None:
-                    usage["input"] = usage.get("input", 0) + attempt_usage.get("input", 0)
-                    usage["output"] = usage.get("output", 0) + attempt_usage.get("output", 0)
+                _merge_attempt_usage(usage, attempt_usage)
                 raise
             if index < len(aliases) - 1:
                 logger.warning(
@@ -491,8 +471,3 @@ async def complete_text(
     except Exception:
         logger.exception("Text completion failed to parse response for %s", model_alias)
         return None
-
-
-# Imported last: these modules read this module's provider seams at call time.
-from app.gateways.tool_completion import complete_with_tools as complete_with_tools  # noqa: E402
-from app.gateways.vision_completion import vision_completion as vision_completion  # noqa: E402
