@@ -23,6 +23,7 @@ from app.modules.chat.prompt_window import (
     load_prompt_window,
 )
 from app.modules.chat.stream_status import StreamStatusFn, status_phase_for_subject
+from app.modules.chat.turn_plan import TurnPlan
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
 from app.services import time_context as time_context_service
@@ -57,6 +58,7 @@ async def fetch_web_and_tools(
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
+    subject_text: str | None = None,
 ) -> tuple[
     str | None,
     str | None,
@@ -74,9 +76,10 @@ async def fetch_web_and_tools(
     ``solver_unverified`` is the adapter flag. Callers must not re-derive it from
     the wording of the prompt block. ``unverified_subject`` is set only when that flag is true.
     ``direct_text`` is a reply both halves of a two-part question already rendered.
+    ``subject_text``: the solve part of a message that asks for more (its plan).
     """
-    math_user_content = math_followup_problem or user_content
-    subject_user_content = user_content
+    math_user_content = math_followup_problem or subject_text or user_content
+    subject_user_content = subject_text or user_content
     subject: SubjectName | None
     if math_followup_problem is not None or is_graph_followup(user_content):
         subject = "math"
@@ -88,7 +91,7 @@ async def fetch_web_and_tools(
         subject_user_content = physics_followup_problem
     else:
         subject = detect_subject(
-            user_content,
+            subject_user_content,
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
             chemistry_enabled=settings.chemistry_enabled,
@@ -312,12 +315,14 @@ async def build_prompt_messages(
     probe_attachment_rag: bool = True,
     recent_messages: list[Any] | None = None,
     current_user_message_id: UUID | None = None,
+    turn_plan: TurnPlan | None = None,
 ) -> list[dict[str, str]]:
     """Assemble system + recent messages for a chat turn.
 
     Context loading uses short-lived sessions so embeds cannot pin a caller
     connection across the concurrent gather. The system prompt is
-    ``PROMPT_SECTIONS``; the history is ``prompt_window``.
+    ``PROMPT_SECTIONS``; the history is ``prompt_window``. ``turn_plan``: the message's
+    separate requests, when it holds more than one (``turn_prep.intents``).
     """
     plan = await _context_plan(
         user,
@@ -383,6 +388,7 @@ async def build_prompt_messages(
         chat_history_rag_block=chat_history_rag_block,
         exchange=window.exchange,
         followup=followup,
+        plan=turn_plan,
     )
     messages = [
         {"role": "system", "content": "\n\n".join(render_rules(PROMPT_SECTIONS, turn))},

@@ -19,6 +19,11 @@ from app.modules.chat import (
 from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
 from app.modules.web_search.command import search_command
 from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answer
+from app.modules.web_search.live_asks import (
+    asks_for_a_price,
+    asks_for_entry_rules,
+    asks_for_job_listings,
+)
 from app.modules.web_search.officeholder import asks_who_holds_office
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
@@ -195,6 +200,9 @@ def web_search_fast_yes(
     if _EXPLICIT_SEARCH.search(cleaned):
         return True
     if _NEWS.search(cleaned) or _LATEST_NEWS.search(cleaned):
+        return True
+    # Openings, prices and visa rules change: the classifier alone used to decide them.
+    if asks_for_job_listings(cleaned) or asks_for_a_price(cleaned) or asks_for_entry_rules(cleaned):
         return True
     # Conditions and products change after training; no model call can know them.
     if is_weather_request(cleaned) or _NEW_PRODUCT.search(cleaned):

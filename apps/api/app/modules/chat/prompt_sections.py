@@ -18,6 +18,7 @@ from app.modules.chat.continuation_subject import is_resume_request
 from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
+    BREVITY_REQUEST_HINT,
     CAREER_PERSONALIZE_HINT,
     CODE_INK_REMINDER,
     CONTINUE_HINT,
@@ -36,6 +37,7 @@ from app.modules.chat.prompt_constants import (
     WEB_SEARCH_OFF_HINT,
     active_lesson_step,
     is_bare_writing_line,
+    is_brevity_request,
     is_capabilities_question,
     is_career_personal_question,
     is_correction,
@@ -51,9 +53,16 @@ from app.modules.chat.prompt_constants import (
     outline_awaits_pick,
     programming_lesson_contract,
     reply_length,
+    writing_format_hint,
 )
 from app.modules.chat.prompt_constants.lesson_flow import lesson_after_gap
-from app.modules.chat.prompt_format import PromptRule, _style_format_hints, code_question_layout
+from app.modules.chat.prompt_constants.multi_part import multi_part_contract
+from app.modules.chat.prompt_format import (
+    PromptRule,
+    _layout_format_hint,
+    _style_format_hints,
+    code_question_layout,
+)
 from app.modules.chat.prompt_profile import (
     custom_instructions_block,
     format_user_name_only_block,
@@ -61,6 +70,7 @@ from app.modules.chat.prompt_profile import (
     should_include_profile_email,
 )
 from app.modules.chat.prompt_window import FollowupSubject
+from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
@@ -96,6 +106,8 @@ class PromptTurn:
     # The completed exchange before this turn (``PromptWindow.exchange``).
     exchange: list[Any]
     followup: FollowupSubject | None
+    # The separate requests the message holds (``turn_prep.intents``), when more than one.
+    plan: TurnPlan | None = None
 
     @property
     def query(self) -> str:
@@ -108,6 +120,10 @@ class PromptTurn:
         if self.lightweight:
             return STYLE_HINTS["short"]
         return STYLE_HINTS["detailed" if reply_length(self.query) == "detailed" else "balanced"]
+
+    @property
+    def multi(self) -> bool:
+        return self.plan is not None and self.plan.multi
 
 
 PromptSection = PromptRule[PromptTurn]
@@ -159,6 +175,7 @@ def _style_hints(turn: PromptTurn) -> list[str]:
             for message in turn.exchange
             if message.role in {"user", "assistant"} and isinstance(message.content, str)
         ],
+        multi=turn.multi,
     )
 
 
@@ -289,16 +306,42 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     ),
 )
 
+
 # Repeat only the machine-checkable turn contract immediately before the
 # current user message. Smaller low-latency models follow nearby system
 # constraints more reliably than a clause inside the large base prompt.
+def part_shape_hints(text: str) -> list[str]:
+    """One request's own length or layout: "in one sentence" binds only its request."""
+    if is_brevity_request(text):
+        return [BREVITY_REQUEST_HINT]
+    writing = writing_format_hint(text)
+    if writing:
+        return [writing]
+    hints = _present(_layout_format_hint(text))
+    if is_learning_plan_request(text):
+        hints.extend(_present(learning_plan_daily_contract(text)))
+    elif is_teaching_request(text):
+        hints.extend(_present(programming_lesson_contract(text)))
+    return hints
+
+
+def _multi_part(turn: PromptTurn) -> list[str]:
+    """Every request answered, each in its own section and its own shape."""
+    plan = turn.plan
+    if plan is None:
+        return []
+    shapes = [part_shape_hints(part.text) for part in plan.parts]
+    return [multi_part_contract(plan, shapes)]
+
+
+# A message with several requests gets the lesson contracts per request, in its own.
 NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
     PromptSection(
-        lambda t: bool(t.query) and is_learning_plan_request(t.query),
+        lambda t: bool(t.query) and not t.multi and is_learning_plan_request(t.query),
         lambda t: _present(learning_plan_daily_contract(t.query)),
     ),
     PromptSection(
-        lambda t: bool(t.query) and is_teaching_request(t.query),
+        lambda t: bool(t.query) and not t.multi and is_teaching_request(t.query),
         lambda t: _present(programming_lesson_contract(t.query)),
     ),
     # Pasted code to explain or fix: the `$...$` math rule must not reach its values.
@@ -315,6 +358,8 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
     ),
     # Asked-for JSON is checked at finalize (``json_output``); say the shape up front.
     PromptSection(lambda t: is_json_request(t.query_text), lambda _t: [JSON_OUTPUT_HINT]),
+    # Last, closest to the user turn: what the reply must hold.
+    PromptSection(lambda t: t.multi, _multi_part),
 )
 
 

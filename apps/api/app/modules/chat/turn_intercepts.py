@@ -16,7 +16,8 @@ from app.modules.attachments.markers import strip_attachment_from_content
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup
-from app.modules.images.gen_intent import stem_subject_claims
+from app.modules.chat.turn_prep.clauses import request_body
+from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.generation import ImageGenerationError
 from app.modules.images.intent import (
     image_gen_request,
@@ -28,7 +29,12 @@ from app.modules.images.lookup_intent import (
     extract_image_lookup_query,
     is_reference_subject,
 )
+from app.modules.images.reply_picture import ReplyPicture
 from app.modules.images.search import ImageSearchError
+from app.services.quota import (
+    IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE,
+    IMAGE_GENERATION_SPEND_CAP_MESSAGE,
+)
 
 _IMAGE_SEARCH_MODEL = "image-search-model"
 _IMAGE_GEN_MODEL = "image-gen-model"
@@ -229,6 +235,33 @@ async def try_image_lookup_for_turn(
     )
     _record(outcome, asst_msg, _IMAGE_SEARCH_MODEL)
     return True
+
+
+def reply_picture_prompt(content: str, settings: Settings) -> str | None:
+    """What to draw for the picture part of a multi-part message, if it has one."""
+    from app.modules.chat.turn_prep.intents import plan_turn
+
+    plan = plan_turn(content, chemistry_enabled=settings.chemistry_enabled)
+    asked = plan.of_kind("image") if plan.multi else ()
+    return extract_image_gen_prompt(request_body(asked[0].text)) if asked else None
+
+
+def start_reply_picture(
+    deps: ChatTurnDeps, settings: Settings, *, user: User, chat_id: UUID, content: str
+) -> ReplyPicture | None:
+    """The picture one part of a multi-part message asks for, drawn beside the answer.
+
+    "Draw a cat wearing a hat and also explain what a black hole is": the intercept
+    above declines the whole line, so the model answers the rest while this draws.
+    """
+    prompt = reply_picture_prompt(content, settings)
+    if not prompt:
+        return None
+    if not settings.image_generation_enabled:
+        return ReplyPicture.refused(prompt, IMAGE_GENERATION_SPEND_CAP_MESSAGE)
+    if not deps.plan.can_use(user, "image_generation", settings):
+        return ReplyPicture.refused(prompt, IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE)
+    return ReplyPicture.start(settings, user=user, chat_id=chat_id, prompt=prompt)
 
 
 async def intercept_new_turn(

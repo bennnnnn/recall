@@ -14,6 +14,7 @@ from app.core.config import Settings, get_settings
 from app.gateways.mcp import registry as mcp_registry
 from app.models.orm import User
 from app.modules.billing import plan as plan_service
+from app.modules.chat.tool_loop.parts import live_parts, open_parts, turn_plan
 
 
 def _last_user_content(messages: list[dict[str, Any]]) -> str:
@@ -101,23 +102,22 @@ def turn_needs_tool_loop(
         return False
     if lightweight:
         return False
-    has_leftover_math = leftover_math_after_verified(text)
-    if has_verified_math and not has_leftover_math:
-        return False
     # A compound graph+solve request still needs the tool loop even when the
     # complete-request audit correctly declined the partial deterministic
     # intent. Requiring a second extraction here would turn that safe decline
     # into a silent "no tools" result.
-    if has_leftover_math:
+    if leftover_math_after_verified(text):
         return True
-
-    from app.modules.web_search.detection import needs_web_search
-
+    # A verified solve closes its own request only: "solve 2x + 5 = 17 and also
+    # what's the weather in Paris" still needs the weather searched.
+    parts = open_parts(text, has_verified_math=has_verified_math, settings=settings)
+    if not parts:
+        return False
     if web_search is True:
         return True
-    if web_search is not False and not has_search_sources and needs_web_search(text):
+    if web_search is not False and not has_search_sources and live_parts(parts):
         return True
-    return _needs_non_web_tool(text, settings, user)
+    return any(_needs_non_web_tool(part, settings, user) for part in parts)
 
 
 def _user_asks_for_image(text: str, settings: Settings) -> bool:
@@ -178,19 +178,19 @@ def _search_before_the_model(
     user: User | None,
     *,
     web_search: bool | None,
+    has_verified_math: bool = False,
 ) -> bool:
     """True when the reply only needs sources, so the selection model can be skipped."""
     if not settings.web_search_enabled or not user_text:
         return False
-    if _needs_non_web_tool(user_text, settings, user):
+    parts = open_parts(user_text, has_verified_math=has_verified_math, settings=settings)
+    if any(_needs_non_web_tool(part, settings, user) for part in parts or [user_text]):
         return False
     if web_search is True:
         return True
     if web_search is False:
         return False
-    from app.modules.web_search.detection import needs_web_search
-
-    return needs_web_search(user_text)
+    return bool(live_parts(parts or [user_text]))
 
 
 def _tools_for_user(
@@ -202,7 +202,9 @@ def _tools_for_user(
     *user_text* (the user's own message) asks for a picture.
     """
     tools = mcp_registry.build_openai_tools()
-    if not settings.image_search_enabled:
+    if not settings.image_search_enabled or turn_plan(user_text, settings).multi:
+        # A photo ends the turn, and a message with more than one request must
+        # still get its other answers: its photo comes above the reply instead.
         tools = [t for t in tools if (t.get("function") or {}).get("name") != "search_image"]
     if (
         settings.image_generation_enabled

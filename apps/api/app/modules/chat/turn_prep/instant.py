@@ -18,6 +18,8 @@ from app.modules import web_search as web_search_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat.prompt_constants.routing import profile_question_to_answer
+from app.modules.chat.turn_plan import TurnPlan
+from app.modules.chat.turn_prep.clauses import request_body
 from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.turn_prep.request import ClientGeoContext, TurnIdentity, TurnRequest
 from app.modules.memory.profile_reply import reply_for_profile_question
@@ -39,9 +41,20 @@ def recurring_pay_reply(request: TurnRequest, local_tz: str) -> str | None:
 
 
 async def resolve_instant_reply(
-    request: TurnRequest, identity: TurnIdentity, settings: Settings, redis: Redis
+    request: TurnRequest,
+    identity: TurnIdentity,
+    settings: Settings,
+    redis: Redis,
+    plan: TurnPlan | None = None,
 ) -> str | None:
-    """Phase A: runs beside the prompt build and the fallback-model health read."""
+    """Phase A: runs beside the prompt build and the fallback-model health read.
+
+    A message with several requests has none: the clock or a settings card would
+    stand in for the reply and drop the rest ("switch to dark mode, and also what is
+    the capital of France?"). Its settings card goes under the reply (``settings_card``).
+    """
+    if plan is not None and plan.multi:
+        return None
     content = request.content
     # Time/location answers are CPU-only. Skip year/date/time instant-replies
     # when a photo is attached — vision should see it.
@@ -75,6 +88,28 @@ async def resolve_instant_reply(
         return None
     return await settings_proposal_service.materialize_settings_reply(
         redis, identity.user, settings, settings_changes
+    )
+
+
+async def settings_card(
+    identity: TurnIdentity, settings: Settings, redis: Redis, plan: TurnPlan | None
+) -> str | None:
+    """The settings card for the settings part of a multi-part message, under its reply.
+
+    "Switch to dark mode and tell me a joke": the model tells the joke, and the
+    card the user taps switches the theme, as a lone "switch to dark mode" does.
+    """
+    if plan is None or not plan.multi:
+        return None
+    changes = [
+        change
+        for part in plan.of_kind("settings")
+        for change in extract_settings_changes(request_body(part.text))
+    ]
+    if not changes:
+        return None
+    return await settings_proposal_service.materialize_settings_reply(
+        redis, identity.user, settings, changes
     )
 
 
