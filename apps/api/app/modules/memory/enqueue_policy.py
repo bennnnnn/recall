@@ -54,7 +54,12 @@ async def request_consolidation(
     )
     if not acquired:
         return "in_progress"
-    await jobs.enqueue(redis, "memory_consolidate", {"user_id": str(user.id)})
+    await jobs.enqueue(
+        redis,
+        "memory_consolidate",
+        {"user_id": str(user.id)},
+        dedupe_key=jobs.unique_dedupe_key(f"memory_consolidate:{user.id}"),
+    )
     return "queued"
 
 

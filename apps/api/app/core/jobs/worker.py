@@ -6,6 +6,7 @@ import os
 import socket
 import time
 import traceback
+from functools import partial
 from typing import Any, Literal, cast
 
 from redis.asyncio import Redis
@@ -21,6 +22,8 @@ from app.core.jobs.dedupe import (
     _refresh_running_claim_loop,
     _release_dedupe,
 )
+from app.core.jobs.inflight import InFlight
+from app.core.jobs.pending import _ack_trimmed_entries, _drop_poison_entries, _forget_consumer
 from app.core.jobs.queue import (
     JOBS_GROUP,
     JOBS_STREAM,
@@ -35,24 +38,24 @@ logger = logging.getLogger("app.core.jobs")
 _BLOCK_MS = 5_000
 _BATCH = 10
 _CLAIM_IDLE_MS = 60_000
+_RECLAIM_INTERVAL_S = 30.0
+# Redis unreachable at boot: retry creating the group with this backoff, forever.
+_GROUP_RETRY_FIRST_S = 1.0
+_GROUP_RETRY_MAX_S = 30.0
 # Retry a transient failure a few times before moving to the DLQ. Background
 # jobs are not latency-sensitive, so a short backoff in-process is cheaper and
 # safer than dropping the job on the first provider/DB blip.
 _MAX_ATTEMPTS = 3
 _RETRY_BACKOFF_S = 2.0
 # How stale the worker-loop heartbeat can get before is_worker_alive() reports
-# the worker as dead even though its task hasn't crashed. While a batch runs,
-# a ticker touches the heartbeat every _JOB_HEARTBEAT_TICK_S, so a long but
-# healthy job (OCR index, LLM call + fallback) does not read as dead. That is
-# safe because every attempt has a deadline (``job_timeout_seconds``); the
-# heartbeat now goes stale only when the event loop itself is blocked or the
-# loop task is wedged outside a job.
+# the worker as dead even though its task hasn't crashed. The live loop never
+# waits on a job (jobs run as tasks, see ``inflight``) and touches the
+# heartbeat at least every _BLOCK_MS, so it goes stale only when the event
+# loop itself is blocked or the loop is wedged. ``_process_entries`` (a
+# reclaim without a pool, one-off drains) keeps it fresh with a ticker every
+# _JOB_HEARTBEAT_TICK_S; every attempt has a deadline (``job_timeout_seconds``).
 _HEARTBEAT_STALE_THRESHOLD_S = 120.0
 _JOB_HEARTBEAT_TICK_S = 15.0
-# An entry delivered this many times without being acked keeps killing the
-# process that runs it (OOM, segfault) or never finishes. Reclaim moves it to
-# the DLQ instead of starting the crash loop again.
-MAX_JOB_DELIVERIES = 5
 
 
 async def _process_one_entry(
@@ -150,7 +153,7 @@ async def _dispatch_with_retries(
         except Exception as exc:
             if isinstance(exc, TimeoutError) and deadline.expired():
                 # Not retried: a handler that ran out its whole deadline
-                # would likely do it again, holding the batch each time.
+                # would likely do it again, holding its slot each time.
                 logger.error(
                     "Job id=%s type=%s exceeded %ss; moving to DLQ",
                     entry_id,
@@ -190,40 +193,16 @@ async def _ack_entry(redis: Redis, entry_id: str) -> None:
         logger.debug("xack failed id=%s", entry_id, exc_info=True)
 
 
-async def _ack_trimmed_entries(
-    redis: Redis, entries: list[tuple[str, dict[str, Any] | None]]
-) -> list[tuple[str, dict[str, Any]]]:
-    """Drop entries the stream cap trimmed before they ran; ack them.
-
-    XAUTOCLAIM on Redis 6.2 returns a deleted entry as ``(id, None)`` and
-    leaves it pending. Acking removes it so it cannot fail every reclaim.
-    """
-    live: list[tuple[str, dict[str, Any]]] = []
-    for entry_id, fields in entries:
-        if fields is not None:
-            live.append((entry_id, fields))
-            continue
-        if not entry_id:
-            continue
-        logger.warning("Job id=%s was trimmed from the stream before it ran", entry_id)
-        try:
-            await redis.xack(JOBS_STREAM, JOBS_GROUP, entry_id)
-        except Exception:
-            logger.debug("xack of trimmed entry failed id=%s", entry_id, exc_info=True)
-    return live
-
-
 async def _process_entries(
     redis: Redis,
     settings: Settings,
     entries: list[tuple[str, dict[str, Any] | None]] | list[tuple[str, dict[str, Any]]],
+    consumer: str | None = None,
 ) -> None:
-    """Process a stream batch with bounded concurrency.
+    """Run a batch to the end, at most ``settings.jobs_worker_concurrency`` at once.
 
-    LLM jobs (memory/todos/…) can take tens of seconds; awaiting them
-    sequentially head-of-line-blocks fast jobs (compress/topic). A semaphore
-    lets up to ``settings.jobs_worker_concurrency`` entries run at once while
-    still capping provider/DB load per worker process.
+    The live loop does not wait like this: it submits to its own ``InFlight``
+    and keeps reading. A reclaim without a pool (and the tests) use this.
     """
     if not entries:
         return
@@ -232,23 +211,26 @@ async def _process_entries(
         return
     ticker = _HeartbeatTicker()
     ticker.start()
+    pool = InFlight(redis, consumer or _consumer_name(), _concurrency(settings))
     try:
-        concurrency = max(1, int(settings.jobs_worker_concurrency))
-        if concurrency == 1 or len(live) == 1:
-            for entry_id, fields in live:
-                await _process_one_entry(redis, settings, entry_id, fields)
-            return
-
-        sem = asyncio.Semaphore(concurrency)
-
-        async def _run(entry_id: str, fields: dict[str, Any]) -> None:
-            async with sem:
-                await _process_one_entry(redis, settings, entry_id, fields)
-
-        await asyncio.gather(*(_run(entry_id, fields) for entry_id, fields in live))
+        _submit_all(pool, redis, settings, live)
+        await pool.join()
     finally:
+        await pool.close()
         ticker.stop()
         _touch_heartbeat()
+
+
+def _concurrency(settings: Settings) -> int:
+    return max(1, int(settings.jobs_worker_concurrency))
+
+
+def _submit_all(
+    pool: InFlight, redis: Redis, settings: Settings, live: list[tuple[str, dict[str, Any]]]
+) -> None:
+    for entry_id, fields in live:
+        run = partial(_process_one_entry, redis, settings, entry_id, fields)
+        pool.submit(entry_id, fields.get("type"), run)
 
 
 class _HeartbeatTicker:
@@ -282,57 +264,6 @@ def _job_timeout(settings: Settings) -> float | None:
     return timeout if timeout > 0 else None
 
 
-async def _times_delivered(redis: Redis, entry_id: str) -> int:
-    try:
-        rows = await redis.xpending_range(
-            JOBS_STREAM, JOBS_GROUP, min=entry_id, max=entry_id, count=1
-        )
-    except Exception:
-        logger.debug("xpending_range failed id=%s", entry_id, exc_info=True)
-        return 0
-    if not rows:
-        return 0
-    try:
-        return int(rows[0].get("times_delivered") or 0)
-    except (AttributeError, TypeError, ValueError):
-        return 0
-
-
-async def _drop_poison_entries(
-    redis: Redis, entries: list[tuple[str, dict[str, Any] | None]]
-) -> list[tuple[str, dict[str, Any] | None]]:
-    """Move reclaimed entries past MAX_JOB_DELIVERIES to the DLQ and ack them.
-
-    A handler exception is retried and dead-lettered in-process; only an entry
-    that never gets acked (the process died or was killed while running it)
-    reaches this count.
-    """
-    keep: list[tuple[str, dict[str, Any] | None]] = []
-    for entry_id, fields in entries:
-        if fields is None:
-            keep.append((entry_id, fields))
-            continue
-        delivered = await _times_delivered(redis, entry_id)
-        if delivered <= MAX_JOB_DELIVERIES:
-            keep.append((entry_id, fields))
-            continue
-        logger.error(
-            "Job id=%s type=%s delivered %s times without finishing; moving to DLQ",
-            entry_id,
-            fields.get("type"),
-            delivered,
-        )
-        _capture_sentry_exception(f"job_poison:{fields.get('type')}")
-        await _move_to_dlq(
-            redis, entry_id, fields, f"delivered {delivered} times without finishing"
-        )
-        try:
-            await redis.xack(JOBS_STREAM, JOBS_GROUP, entry_id)
-        except Exception:
-            logger.debug("xack of poison entry failed id=%s", entry_id, exc_info=True)
-    return keep
-
-
 async def _ensure_group(redis: Redis) -> None:
     try:
         await redis.xgroup_create(JOBS_STREAM, JOBS_GROUP, id="0", mkstream=True)
@@ -341,28 +272,67 @@ async def _ensure_group(redis: Redis) -> None:
             raise
 
 
+async def _wait_for_group(redis: Redis) -> None:
+    """Create the consumer group, retrying with backoff until Redis answers.
+
+    Redis unreachable at boot used to end the loop for good while the process
+    stayed up: Fly restarts a Machine only when its process exits, never for a
+    failing health check, so jobs stopped until someone restarted the worker.
+    """
+    delay = _GROUP_RETRY_FIRST_S
+    failures = 0
+    while True:
+        _touch_heartbeat()
+        try:
+            await _ensure_group(redis)
+        except Exception:
+            failures += 1
+            logger.warning(
+                "Jobs worker cannot reach Redis (attempt %s); retrying in %.0fs",
+                failures,
+                delay,
+                exc_info=failures == 1,
+            )
+        else:
+            if failures:
+                logger.info("Jobs worker reached Redis after %s failed attempt(s)", failures)
+            return
+        await asyncio.sleep(delay)
+        delay = min(delay * 2, _GROUP_RETRY_MAX_S)
+
+
 def _touch_heartbeat() -> None:
     global _last_heartbeat
     _last_heartbeat = time.monotonic()
 
 
-async def _reclaim_pending_jobs(redis: Redis, settings: Settings, consumer: str) -> None:
+async def _reclaim_pending_jobs(
+    redis: Redis, settings: Settings, consumer: str, pool: InFlight | None = None
+) -> None:
     """Reclaim entries left pending by a crashed/slow worker via XAUTOCLAIM.
 
-    Called both on startup and periodically from the live worker loop. A
-    crashed worker leaves its in-flight entries in the consumer group's
-    pending list; XAUTOCLAIM transfers them to this consumer once they've
-    been idle for ``_CLAIM_IDLE_MS``. Without periodic reclaim, a mid-run
-    crash would leave jobs stuck until the next worker startup.
+    Called both on startup and periodically from the live loop. A crashed
+    worker leaves its in-flight entries in the consumer group's pending list;
+    XAUTOCLAIM transfers them to this consumer once they've been idle for
+    ``_CLAIM_IDLE_MS`` (a live worker's leases keep its own entries fresher).
+    With ``pool`` the entries join the live loop's jobs, up to its free room;
+    without one this runs them to the end.
     """
+    count = _BATCH if pool is None else min(_BATCH, pool.room())
+    if count <= 0:
+        return
     try:
         claimed = await redis.xautoclaim(
-            JOBS_STREAM, JOBS_GROUP, consumer, min_idle_time=_CLAIM_IDLE_MS, count=_BATCH
+            JOBS_STREAM, JOBS_GROUP, consumer, min_idle_time=_CLAIM_IDLE_MS, count=count
         )
         entries = claimed[1] if len(claimed) > 1 else []
-        if entries:
-            entries = await _drop_poison_entries(redis, entries)
-            await _process_entries(redis, settings, entries)
+        if not entries:
+            return
+        entries = await _drop_poison_entries(redis, entries)
+        if pool is None:
+            await _process_entries(redis, settings, entries, consumer)
+            return
+        _submit_all(pool, redis, settings, await _ack_trimmed_entries(redis, entries))
     except Exception:
         logger.debug("xautoclaim failed", exc_info=True)
 
@@ -377,75 +347,69 @@ async def _worker_loop(settings: Settings) -> None:
     # Longer socket_timeout than request-path Redis — XREADGROUP blocks 5s.
     redis = get_jobs_redis_client()
     consumer = _consumer_name()
-
     _touch_heartbeat()
-
-    try:
-        await _ensure_group(redis)
-    except Exception:
-        logger.exception("Jobs worker could not init (Redis unavailable?); staying idle")
-        return
-
-    # Reclaim entries left pending by a previously crashed worker.
-    await _reclaim_pending_jobs(redis, settings, consumer)
-
+    await _wait_for_group(redis)
+    pool = InFlight(redis, consumer, _concurrency(settings))
+    loop = asyncio.get_running_loop()
     last_metrics_at = 0.0
-    # Reclaim periodically, not just on startup: without this, a worker that
-    # crashes mid-job while the system is running leaves the entry pending
-    # until the *next* worker startup (could be hours/days). Reclaiming on a
-    # cadence in the live loop means a crashed worker's stuck entries are
-    # picked up by a live peer within ~_CLAIM_IDLE_MS + _RECLAIM_INTERVAL_S.
-    last_reclaim_at = asyncio.get_event_loop().time()
-    _RECLAIM_INTERVAL_S = 30.0
+    # Reclaim on startup (entries a crashed worker left pending), then on a
+    # cadence, so a peer that dies mid-job has its entries picked up within
+    # ~_CLAIM_IDLE_MS + _RECLAIM_INTERVAL_S instead of at the next restart.
+    last_reclaim_at: float | None = None
     try:
         while True:
             _touch_heartbeat()
-            now = asyncio.get_event_loop().time()
+            now = loop.time()
             if now - last_metrics_at >= _METRICS_INTERVAL_S:
                 last_metrics_at = now
                 await report_queue_metrics(redis)
-            if now - last_reclaim_at >= _RECLAIM_INTERVAL_S:
+            if last_reclaim_at is None or now - last_reclaim_at >= _RECLAIM_INTERVAL_S:
                 last_reclaim_at = now
-                await _reclaim_pending_jobs(redis, settings, consumer)
+                await _reclaim_pending_jobs(redis, settings, consumer, pool)
+            room = pool.room()
+            if room <= 0:
+                # Every slot is busy: wait for one rather than take entries
+                # that would sit here while a peer could run them.
+                await pool.wait_for_room(_BLOCK_MS / 1000)
+                continue
             try:
                 resp = cast(
-                    list[tuple[str, list[tuple[str, dict[str, Any]]]]],
+                    list[tuple[str, list[tuple[str, dict[str, Any] | None]]]],
                     await redis.xreadgroup(
-                        JOBS_GROUP, consumer, {JOBS_STREAM: ">"}, count=_BATCH, block=_BLOCK_MS
+                        JOBS_GROUP,
+                        consumer,
+                        {JOBS_STREAM: ">"},
+                        count=min(_BATCH, room),
+                        block=_BLOCK_MS,
                     ),
                 )
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                logger.debug("xreadgroup failed; backing off", exc_info=True)
-                await asyncio.sleep(2)
+            except Exception as exc:
+                await _back_off_after_read_error(redis, exc)
                 continue
-
-            if not resp:
-                continue
-            for _stream, entries in resp:
-                await _process_entries(redis, settings, entries)
-                _touch_heartbeat()
+            for _stream, entries in resp or []:
+                _submit_all(pool, redis, settings, await _ack_trimmed_entries(redis, entries))
     finally:
+        await pool.close()
         await _forget_consumer(redis, consumer)
 
 
-async def _forget_consumer(redis: Redis, consumer: str) -> None:
-    """Remove this process's consumer from the group when its loop stops.
+async def _back_off_after_read_error(redis: Redis, exc: Exception) -> None:
+    """Wait out a failed XREADGROUP; recreate the group when Redis lost it.
 
-    Consumers are named per process (host + pid), so every restart, deploy and
-    ``--reload`` added one to the group and nothing ever removed it. One that
-    still owns pending entries stays: XGROUP DELCONSUMER would drop them from
-    the pending list, and XAUTOCLAIM hands them to a live worker first.
+    A Redis restart without persistence (or a flush) drops the stream and its
+    group, and every later read then failed with NOGROUP while the worker
+    looked idle.
     """
-    try:
-        owned = await redis.xpending_range(
-            JOBS_STREAM, JOBS_GROUP, min="-", max="+", count=1, consumername=consumer
-        )
-        if not owned:
-            await redis.xgroup_delconsumer(JOBS_STREAM, JOBS_GROUP, consumer)
-    except Exception:
-        logger.debug("jobs consumer cleanup skipped consumer=%s", consumer, exc_info=True)
+    logger.debug("xreadgroup failed; backing off", exc_info=True)
+    await asyncio.sleep(2)
+    if "NOGROUP" in str(exc):
+        logger.warning("Jobs consumer group is gone; creating it again")
+        try:
+            await _ensure_group(redis)
+        except Exception:
+            logger.debug("jobs consumer group re-create failed", exc_info=True)
 
 
 _worker_task: asyncio.Task[None] | None = None
@@ -456,16 +420,14 @@ def is_worker_alive() -> bool:
     """True when the job-loop background task exists, hasn't finished, and is
     still checking in.
 
-    Used by the worker health endpoint so Fly can detect + restart a stuck
-    worker (blocked event loop, deadlocked consumer) that hasn't crashed. A
-    genuinely hung task (e.g. a handler awaiting something that never
-    resolves) never becomes done(), so we also track a heartbeat that
-    `_worker_loop` refreshes on every idle-poll iteration and after each
-    processed batch; if it goes stale while the task is still "running", the
-    worker is treated as dead. `_last_heartbeat` being unset (0.0) means the
-    loop hasn't had a chance to run its first iteration yet, which the
-    task.done() check already covers correctly, so we don't flag staleness
-    in that window.
+    The worker health endpoint reports this, and ``worker_main`` exits the
+    process when it turns false, because Fly restarts a Machine only when its
+    process exits. A genuinely hung task never becomes done(), so we also
+    track a heartbeat that `_worker_loop` refreshes on every iteration; if it
+    goes stale while the task is still "running", the worker is treated as
+    dead. `_last_heartbeat` being unset (0.0) means the loop hasn't had a
+    chance to run its first iteration yet, which the task.done() check
+    already covers correctly, so we don't flag staleness in that window.
     """
     if _worker_task is None or _worker_task.done():
         return False

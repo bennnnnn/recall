@@ -15,6 +15,7 @@ from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.core.sentry import init_sentry
 from app.core.sympy_executor import shutdown_sympy_executor
+from app.gateways import email_gateway
 from app.gateways.http_client import aclose_pooled_clients
 from app.modules.attachments import reaper as attachment_orphan_reaper
 from app.services.mcp import setup_mcp_adapters
@@ -37,6 +38,7 @@ async def initialize_process(settings: Settings) -> None:
     init_sentry(settings)
     validate_production_settings(settings)
     warn_if_no_support_email(settings)
+    email_gateway.warn_if_unavailable(settings)
     role = validate_process_role(settings)
     setup_mcp_adapters(settings)
     await warmup_db_pool()

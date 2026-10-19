@@ -48,6 +48,8 @@ def test_production_warns_when_forwarded_headers_are_ignored(
 ) -> None:
     settings = Settings(
         environment="production",
+        database_url="postgresql+asyncpg://app:pw@ep-calm-1.us-east-2.aws.neon.tech/neondb",
+        redis_url="rediss://default:pw@relaxed-1.upstash.io:6379",
         trust_x_forwarded_for=False,
         dev_auth_enabled=False,
         mock_llm_enabled=False,

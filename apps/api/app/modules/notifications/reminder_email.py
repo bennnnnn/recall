@@ -58,10 +58,9 @@ async def process_todo_reminder_emails(
             TodoItem.email_sent_at.is_(None),
             TodoItem.recurrence_rule.is_(None),
             User.email_reminders_enabled.is_(True),
-            (
-                (TodoItem.due_at <= window_end)
-                | ((TodoItem.due_at < now) & (TodoItem.due_at >= overdue_cutoff))
-            ),
+            # Older rows can never notify (should_notify_todo): keep them out of the scan.
+            TodoItem.due_at >= overdue_cutoff,
+            TodoItem.due_at <= window_end,
         )
     )
     deliveries: list[_TodoEmailDelivery] = []

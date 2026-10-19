@@ -67,7 +67,12 @@ async def request_history_scan(redis: Redis, user: User) -> bool:
         logger.warning("memory history scan check failed user_id=%s", user.id, exc_info=True)
         return False
     try:
-        await jobs.enqueue(redis, HISTORY_SCAN_JOB, {"user_id": str(user.id)})
+        await jobs.enqueue(
+            redis,
+            HISTORY_SCAN_JOB,
+            {"user_id": str(user.id)},
+            dedupe_key=jobs.unique_dedupe_key(f"{HISTORY_SCAN_JOB}:{user.id}"),
+        )
     except Exception:
         logger.warning("memory history scan enqueue failed user_id=%s", user.id, exc_info=True)
         try:

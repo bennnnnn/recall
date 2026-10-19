@@ -511,13 +511,25 @@ async def test_worker_loop_processes_then_cancels():
     redis.xgroup_create = AsyncMock()
     redis.xautoclaim = AsyncMock(return_value=("0-0", [], []))
     batch = [(jobs.JOBS_STREAM, [("1-0", {"type": "wl-job", "payload": "{}"})])]
-    redis.xreadgroup = AsyncMock(side_effect=[batch, asyncio.CancelledError()])
+    handled = asyncio.Event()
+    reads = []
+
+    async def read_then_stop(*_args, **_kwargs):
+        # The loop reads again while the job runs; stop once it has run.
+        reads.append(1)
+        if len(reads) == 1:
+            return batch
+        await handled.wait()
+        raise asyncio.CancelledError
+
+    redis.xreadgroup = AsyncMock(side_effect=read_then_stop)
     redis.xack = AsyncMock()
 
     seen = []
 
     async def handler(settings, payload):
         seen.append(payload)
+        handled.set()
 
     jobs.register("wl-job", handler)
 

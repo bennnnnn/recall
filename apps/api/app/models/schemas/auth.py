@@ -76,6 +76,17 @@ class UserOut(BaseModel):
 
         return list(features_for(self.plan, get_settings()))
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def email_reminders_available(self) -> bool:
+        """False when this server cannot send reminder emails (no provider key in
+        production, or turned off), so the app can hide the email-reminder switch."""
+        from app.core.config import get_settings
+        from app.gateways import email_gateway
+
+        settings = get_settings()
+        return settings.email_reminders_scheduler_enabled and email_gateway.can_send(settings)
+
 
 class UserUpdate(BaseModel):
     name: UserText | None = Field(default=None, min_length=1, max_length=80)

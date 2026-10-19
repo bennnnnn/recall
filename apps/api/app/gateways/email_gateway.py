@@ -1,11 +1,14 @@
 """Outbound transactional email gateway.
 
 Provider is Resend (https://resend.com) when ``resend_api_key`` is configured.
-With no key — the default in dev — :func:`send_email` logs the message instead
+With no key in development or test, :func:`send_email` logs the message instead
 so the rest of the pipeline (job enqueue, templates, locale selection) is
-exercised without any external account. Sending is best-effort: a failure is
-logged and never raised into the caller (transactional email must not break
-auth or the chat path).
+exercised without any external account. Anywhere else a missing key means the
+email is not sent: ``send_email`` returns False, the reminder scheduler does not
+start, and the API tells the app email reminders are unavailable. (The mock
+used to report success in production too, so reminders were marked sent and
+never delivered.) Sending is best-effort: a failure is logged and never raised
+into the caller (transactional email must not break auth or the chat path).
 """
 
 from __future__ import annotations
@@ -19,9 +22,32 @@ from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
 
+# Without a provider key, only these environments log the message as if sent.
+_MOCK_ENVIRONMENTS = frozenset({"development", "test"})
+
 
 def is_configured(settings: Settings) -> bool:
     return bool(settings.resend_api_key.strip())
+
+
+def _mocks_without_provider(settings: Settings) -> bool:
+    return settings.environment.strip().lower() in _MOCK_ENVIRONMENTS
+
+
+def can_send(settings: Settings) -> bool:
+    """True when ``send_email`` delivers a message (or, in development/test, mocks it)."""
+    return settings.email_enabled and (is_configured(settings) or _mocks_without_provider(settings))
+
+
+def warn_if_unavailable(settings: Settings) -> None:
+    """Log once at boot when email is on but this process cannot send any."""
+    if settings.email_enabled and not can_send(settings):
+        logger.warning(
+            "EMAIL_ENABLED=true but RESEND_API_KEY is not set (ENVIRONMENT=%s): welcome, "
+            "receipt and reminder emails are not sent and the app hides email reminders. "
+            "Set RESEND_API_KEY, or EMAIL_ENABLED=false to silence this.",
+            settings.environment,
+        )
 
 
 def _recipient_log_label(to: str) -> str:
@@ -53,6 +79,13 @@ async def send_email(
         return False
 
     if not is_configured(settings):
+        if not _mocks_without_provider(settings):
+            logger.warning(
+                "Transactional email not sent (RESEND_API_KEY is not set) to=%s subject=%r",
+                to_label,
+                subject,
+            )
+            return False
         # Dev / no-provider path: log that the flow ran, but NOT the body —
         # transactional emails (welcome, receipts, reminders) contain PII and
         # recipient-specific content that shouldn't sit in INFO logs.

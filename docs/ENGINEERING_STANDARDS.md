@@ -105,6 +105,10 @@ Correct maths, physics and chemistry is a release requirement.
   per streamed token. Handle timeouts, cancellation, retries and duplicate requests.
 - Accessibility: screen-reader labels, contrast, scalable text, real touch targets.
 - Measure before optimizing.
+- Schema changes are expand, then contract: add first; drop, rename or retype
+  only in a later release, once no deployed code reads the old shape. The old
+  release keeps running during a deploy and after a rollback
+  ([ROLLBACK.md](./ROLLBACK.md#schema-changes-expand-then-contract)).
 
 ## Enforcement
 
@@ -116,6 +120,8 @@ Correct maths, physics and chemistry is a release requirement.
 | Import cycles | `app/tests/architecture/test_import_cycles.py`; `lib/__tests__/importCycles.test.ts` (type-only imports included) | API CI, Mobile CI |
 | Layer boundaries | `app/tests/architecture/` (module boundaries; `test_pure_solvers.py` keeps solvers off infrastructure and subjects apart); ESLint `no-restricted-imports` (`ui/` leaf, subject libraries) | API CI, Mobile CI |
 | File size | `scripts/check_file_sizes.py` against `scripts/file_size_baseline.json` | API CI, Mobile CI |
+| Migrations | `app/tests/architecture/test_migration_safety.py`: one alembic head; no drop or rename in `upgrade()` without an `# expand-contract:` reason | API CI |
+| Deploy gate | Deploy and production app updates run from `main` only, after CI passed for the commit (`scripts/require-green-ci.sh`) | Deploy, Publish app update |
 | Security | CodeQL, Dependabot, GitHub secret scanning | GitHub |
 | Build | API image build; web build | API CI, Web CI |
 

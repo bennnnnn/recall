@@ -21,6 +21,7 @@ let mockUser: {
   quiet_hours_enabled?: boolean;
   quiet_hours_start_minute?: number;
   quiet_hours_end_minute?: number;
+  email_reminders_available?: boolean;
 } = { id: "user", reminder_lead_minutes: 10, push_notifications_enabled: false };
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token", user: mockUser, updateUser: mockUpdate }) }));
 jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ todos: [{ id: "stale-row" }] }) }));
@@ -81,6 +82,17 @@ it("never resyncs a captured todo list after a delayed settings save", async () 
   expect(mockUpdate).toHaveBeenCalledWith({ reminder_lead_minutes: 30 });
   expect(syncTodoReminders).not.toHaveBeenCalled();
   expect(cancelAllTodoReminders).not.toHaveBeenCalled();
+});
+
+it("offers email reminders only when the server can send email", async () => {
+  delete mockSwitches["settings.email_reminders"];
+  await render(<NotificationsSettingsScreen />);
+  expect(mockSwitches["settings.email_reminders"]).toBeDefined();
+
+  delete mockSwitches["settings.email_reminders"];
+  mockUser = { ...mockUser, email_reminders_available: false };
+  await render(<NotificationsSettingsScreen />);
+  expect(mockSwitches["settings.email_reminders"]).toBeUndefined();
 });
 
 it("saves one quiet-hours selection for the current account", async () => {

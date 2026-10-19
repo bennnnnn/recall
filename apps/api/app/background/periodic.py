@@ -129,6 +129,16 @@ def started_periodic_unhealthy() -> list[str]:
     return sorted(name for name in _tasks if not is_periodic_alive(name))
 
 
+def stopped_periodic() -> list[str]:
+    """Names of started loops whose task has ended (it crashed or returned).
+
+    Stale is not stopped: a long cycle (a burst of reminder emails) can go
+    quiet past the threshold and still finish, so only a dead task means the
+    loop will never run again.
+    """
+    return sorted(name for name, task in _tasks.items() if task.done())
+
+
 async def start_periodic(
     *,
     name: str,
