@@ -15,8 +15,9 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.exceptions import ChatNotFoundError
+from app.exceptions import ChatNotFoundError, ConsentRequiredError
 from app.models.orm import Chat, User
+from app.modules.account import consent
 from app.modules.chat.finalize_registry import wait_for_pending_finalize
 from app.modules.chat.post_turn import seed_usage_from_db
 from app.modules.chat.prompt_constants import (
@@ -72,15 +73,28 @@ async def _prior_count_for_window(
 async def _load_user(
     deps: ChatTurnDeps, timing: TurnTimingTracker, user_id: UUID, user: User | None
 ) -> User:
-    if user is not None:
+    if user is not None and consent.has_ai_data_consent(user):
         timing.mark_phase("user_ready")
         return user
+    # A user handed in from the request cache can trail an agreement made on
+    # another machine, so a refusal reads the row first.
     async with deps.session_factory() as session:
         loaded = await deps.users.get_by_id(session, user_id)
     if loaded is None:
         raise ChatNotFoundError("User not found.")
+    _require_consent(loaded)
     timing.mark_phase("user_ready")
     return loaded
+
+
+def _require_consent(user: User) -> None:
+    """No turn sends anything to outside AI services before the account agreed.
+
+    Raised before the user message is saved or quota is reserved, so the error
+    frame says ``user_message_saved: false`` and the prepare lock is released.
+    """
+    if not consent.has_ai_data_consent(user):
+        raise ConsentRequiredError()
 
 
 async def _load_chat(
@@ -269,6 +283,7 @@ async def load_regenerate_turn(
         user = await deps.users.get_by_id(session, user_id)
         if user is None:
             raise ChatNotFoundError("User not found.")
+        _require_consent(user)
         chat = await deps.chats.get_by_id(session, chat_id, user_id)
         if chat is None:
             raise ChatNotFoundError("Chat not found.")

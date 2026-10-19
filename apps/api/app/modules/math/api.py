@@ -13,9 +13,10 @@ import re
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core.config import Settings
-from app.core.deps import get_current_user, get_settings_dep
+from app.core.deps import get_settings_dep
 from app.models.orm import User
 from app.models.schemas.scan import ScanReadingOut
+from app.modules.account.consent import get_consented_user
 from app.modules.math.ocr import MathOcrResult, extract_math_from_image
 from app.services.scan_read import ScanPhoto, read_scan
 
@@ -32,7 +33,7 @@ def readable_reading(text: str) -> str:
 @router.post("/scan/read", response_model=ScanReadingOut)
 async def read_math_scan(
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> ScanReadingOut:
     if not settings.math_tools_enabled:
