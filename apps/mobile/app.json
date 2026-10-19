@@ -14,12 +14,17 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.recall.app",
       "usesAppleSignIn": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "NSUserNotificationsUsageDescription": "Recall sends reminders for your to-dos.",
         "NSLocationWhenInUseUsageDescription": "Recall uses your location for local time and to answer where you are.",
         "NSPhotoLibraryUsageDescription": "Recall needs access to your photos so you can attach images in chat.",
         "NSPhotoLibraryAddUsageDescription": "Recall saves generated and chat images to your photo library when you tap Download.",
-        "NSCameraUsageDescription": "Recall uses the camera so you can take photos to attach in chat.",
+        "NSCameraUsageDescription": "Recall uses the camera so you can take photos to attach in chat and scan math problems from your notes or worksheets.",
+        "NSMicrophoneUsageDescription": "Recall uses the microphone so you can dictate messages and talk with Recall in Live Talk.",
+        "NSMotionUsageDescription": "Recall does not use motion or fitness data and never asks for it.",
         "LSApplicationQueriesSchemes": [
           "googlegmail",
           "gmail",
@@ -37,7 +42,17 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.BLUETOOTH"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -47,7 +62,12 @@
     "plugins": [
       "expo-router",
       "expo-asset",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       "expo-apple-authentication",
       [
         "expo-splash-screen",
@@ -73,14 +93,18 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Recall uses your location for local time and to answer where you are."
+          "locationWhenInUsePermission": "Recall uses your location for local time and to answer where you are.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "motionUsagePermission": "Recall does not use motion or fitness data and never asks for it."
         }
       ],
       [
         "expo-image-picker",
         {
           "photosPermission": "Recall needs access to your photos so you can attach images in chat.",
-          "cameraPermission": "Recall uses the camera so you can take photos to attach in chat."
+          "cameraPermission": "Recall uses the camera so you can take photos to attach in chat and scan math problems from your notes or worksheets.",
+          "microphonePermission": "Recall uses the microphone so you can dictate messages and talk with Recall in Live Talk."
         }
       ],
       [
@@ -88,7 +112,8 @@
         {
           "photosPermission": "Recall needs access to your photos so you can attach images in chat.",
           "savePhotosPermission": "Recall saves generated and chat images to your photo library when you tap Download.",
-          "isAccessMediaLocationEnabled": false
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": []
         }
       ],
       [
@@ -151,8 +176,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Recall uses the camera to scan math problems from your notes or worksheets.",
-          "microphonePermission": false,
+          "cameraPermission": "Recall uses the camera so you can take photos to attach in chat and scan math problems from your notes or worksheets.",
+          "microphonePermission": "Recall uses the microphone so you can dictate messages and talk with Recall in Live Talk.",
           "recordAudioAndroid": false
         }
       ],
@@ -170,13 +195,15 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Recall uses the microphone so you can dictate messages."
+          "microphonePermission": "Recall uses the microphone so you can dictate messages and talk with Recall in Live Talk.",
+          "enableBackgroundPlayback": false
         }
       ],
       [
         "@config-plugins/react-native-webrtc",
         {
-          "microphonePermission": "Recall uses the microphone for instant Live Talk."
+          "microphonePermission": "Recall uses the microphone so you can dictate messages and talk with Recall in Live Talk.",
+          "cameraPermission": "Recall uses the camera so you can take photos to attach in chat and scan math problems from your notes or worksheets."
         }
       ]
     ],

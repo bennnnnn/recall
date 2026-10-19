@@ -270,11 +270,47 @@ Use a real model (not `MOCK_LLM_ENABLED`). Memory must be on in Settings.
 
 ---
 
+## 19. iPad (App Review tests here too)
+
+`app.json` has `supportsTablet: true`, so the app ships to iPad and App Review may run it there. iPhone apps on iPad still rotate: Expo lists every iPad orientation so the app can join Split View. Use a real iPad or the iPad simulator, production or preview build.
+
+| # | Test | iPad | Notes |
+|---|------|------|-------|
+| 19.1 | Sign in with Apple and with Google, then onboarding | ☐ | Lands on chat. |
+| 19.2 | Send, stream, stop and regenerate in portrait and landscape | ☐ | Composer above the keyboard, also with a hardware keyboard attached; messages keep their width. |
+| 19.3 | Rotate mid-stream, open the drawer, rotate back | ☐ | No clipped header, stray overlay, or drawer stuck half open. |
+| 19.4 | Split View and Slide Over at ⅓, ½ and ⅔ width | ☐ | Layout reflows like a narrow phone; nothing overlaps. |
+| 19.5 | Attach a photo (library and camera) and a PDF | ☐ | Pickers open as popovers or sheets and return the file. |
+| 19.6 | Chat ⋮ → Share, a photo's ⋮ → Save, and export to PDF | ☐ | iPad share sheets need an anchor: the sheet opens from the button and never crashes. |
+| 19.7 | Maths scanner: capture → Solve | ☐ | Camera preview fills the frame in both orientations. |
+| 19.8 | Mic dictation; Live Talk (Pro sandbox) | ☐ | Both prompts show the microphone text from 20.1. |
+| 19.9 | Plan sheet: buy Plus in the sandbox, then restore | ☐ | Prices load; both buttons enabled. |
+| 19.10 | Settings pages and the time and date pickers | ☐ | Dialogs centred; tap targets at least 44 pt. |
+
+---
+
+## 20. Store build (production or preview profile)
+
+Checks only a release build shows. A dev build carries dev-launcher keys and different permission text.
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 20.1 | First mic use (dictation) | ☐ | ☐ | iOS prompt: "Recall uses the microphone so you can dictate messages and talk with Recall in Live Talk." Never "Allow Recall to access your microphone". |
+| 20.2 | First camera use: attach a photo, and the maths scanner | ☐ | ☐ | iOS prompt: "Recall uses the camera so you can take photos to attach in chat and scan math problems from your notes or worksheets." |
+| 20.3 | Location question ("where am I?") | ☐ | ☐ | While-in-use prompt only; iOS never offers "Always". No Face ID or Motion prompt anywhere. |
+| 20.4 | First launch | ☐ | n/a | No "find and connect to devices on your local network" prompt. |
+| 20.5 | Read-aloud, then press Home; start Live Talk, then press Home | ☐ | ☐ | Read-aloud stops; Live Talk hangs up. No audio keeps playing; Android shows no media notification. |
+| 20.6 | Save a chat image (Android 13+), and on an Android 10–12 device | ☐ | ☐ | 13+: saves with no permission prompt. 10–12: the storage prompt appears once, then it saves. Photo attach works with no media permission on 13+. |
+| 20.7 | App Store Connect / Play Console processing | ☐ | ☐ | No ITMS-90683 or ITMS-91053 email; Play shows no foreground-service or photo/video permission declaration request. |
+
+---
+
 ## Sign-off
 
 | Platform | Build profile | Tester | Date | Pass/Fail |
 |----------|---------------|--------|------|-----------|
 | iOS | development / production | | | |
+| iPad | production / preview | | | |
 | Android | development / production | | | |
 
 **Blockers:** document any failures with device model, OS version, and steps to reproduce.
