@@ -84,7 +84,7 @@ exact production web origin and only the headers used by presigned uploads.
 | `REVENUECAT_PLUS_ENTITLEMENT_ID` | no (default `plus`) | Lower paid plan's entitlement |
 | `TAVILY_API_KEY` | if web search | |
 | `TRUST_X_FORWARDED_FOR` | yes (set in `fly.toml` `[env]`) | `true` behind Fly. Unset, every per-IP rate limit keys on Fly's proxy address and becomes one global bucket; production boot logs a warning. |
-| `DAILY_GLOBAL_SPEND_USD` | yes | UTC-day OpenRouter $ cap; must be > 0 |
+| `DAILY_GLOBAL_SPEND_USD` | yes | UTC-day provider $ cap (every model call, images, voice, live talk); must be > 0. At the cap new chat turns are refused: see [Load and abuse limits](#load-and-abuse-limits) |
 | R2 vars | yes | See §3 |
 
 ```bash
@@ -163,10 +163,15 @@ LIVE_TALK_MAX_SESSION_SECONDS)` (refused under `LIVE_TALK_MIN_SESSION_SECONDS`),
 the session may save turns and use voice tools only for that reservation, the
 phone hangs up when it ends, and `POST /speech/live/end` settles it to the time
 the server measured (never refunding more than was reserved). A phone that
-never reports keeps the whole reservation charged. Known limit: the server
-cannot hang up the OpenAI call itself, so a modified client could keep talking
-past its reservation (nothing is saved, no tools); `DAILY_GLOBAL_SPEND_USD`
-still bounds the spend.
+never reports keeps the whole reservation charged. The global spend counter
+follows the same reservation: a mint adds the reserved minutes at
+`LIVE_TALK_SPEND_USD_PER_MINUTE` ($0.20, `services/quota/spend.py`) and the
+end report gives back the unused part, so saved turns add no spend. A session
+may save one turn per 5 reserved seconds (at least 12) and a user 20 turns a
+minute; past either, `POST /speech/live/persist` answers 429. Known limit: the
+server cannot hang up the OpenAI call itself, so a modified client could keep
+talking past its reservation (nothing is saved, no tools); that time is not
+on the spend counter.
 
 ### QA (sandbox / test track)
 
@@ -301,6 +306,51 @@ Readiness answers inside Fly's 5s check timeout: `/health/ready` gives Postgres 
 probe gives Redis 3s. A stalled Redis used to time out readiness on every
 machine at once.
 
+### Spend and daily tokens
+
+**`DAILY_GLOBAL_SPEND_USD`** is a kill-switch on estimated provider dollars per
+UTC day (Redis `spend_musd:<date>`, `core/spend_counter.py`). What adds to it:
+
+- a chat turn: catalog price x its tokens, at finalize (`modules/chat/post_turn.py`);
+- every other model call, priced from its tokens by the gateway that makes it
+  (`gateways/llm_spend.py`): memory extraction and consolidation, titles,
+  suggestions, compression, follow-up questions, attachment OCR, embeddings,
+  the web-search classifier, the reference resolver, maths extraction;
+- a fixed price per call for images, photo lookup, scan reads, voice input and
+  read-aloud (`services/quota/spend.py`);
+- live talk by time: the reserved minutes at mint, settled at
+  `POST /speech/live/end` ([§4b](#live-talk-minutes)).
+
+Once the day's total reaches the cap, until 00:00 UTC:
+
+- a new chat message or regenerate is refused before any model call. Both
+  transports send `{"type": "error", "message": "Recall is at capacity for
+  today, so new messages are paused for everyone. Try again after midnight
+  UTC."}`. It has no `quota_exceeded` code, so the phone shows that text and
+  not its upgrade prompt (the user's own allowance is not used up);
+- image generation, photo lookup, voice, live talk and scan reads answer 429
+  "… temporarily unavailable";
+- background model jobs, the tool loop and follow-up questions are skipped.
+
+A Redis error counts as over the cap (fail closed). Known gap: the tool rounds
+of a turn that ends in a generated image are not charged (the image is).
+
+**Daily tokens.** A turn reserves its estimate (the message plus
+`MAX_OUTPUT_TOKENS`, x the model's quota multiplier) before it runs, or
+whatever is left of the day when less is, and finalize settles to the actual
+usage; a failed or cancelled turn gives the reservation back. Turns in
+different chats share that one remaining budget, so opening many chats at once
+cannot multiply the day's allowance. A turn that starts is not cut short to
+fit: past the limit its extra tokens are forfeit (the counter is clipped), so
+one turn is the most a user can go over. While a turn runs, the usage shown in
+Settings includes its reservation.
+
+**Scanned PDFs.** A PDF with no text layer is read with up to
+`ATTACHMENT_OCR_INDEX_MAX_PAGES` vision calls by the index job, which first
+takes one of the owner's daily image-upload slots (`DAILY_IMAGE_LIMIT*`). At
+the cap the file stays attached but is not searchable that day; a PDF read
+from its text layer gets the slot back.
+
 ---
 
 ## Cost telemetry dashboard queries
@@ -308,7 +358,9 @@ machine at once.
 Each finalized chat turn logs `turn_cost … est_cost_usd=…` and accumulates
 `usage_daily.est_cost_usd` from catalog prices × **raw** input/output tokens
 (not quota-weighted). Apply migration `0061_usage_daily_est_cost_usd` before
-relying on the column.
+relying on the column. It holds chat turns only: background model calls,
+images, voice and live talk count on the Redis spend counter
+([Spend and daily tokens](#spend-and-daily-tokens)), not here.
 
 **Spend for one user in the current UTC month:**
 
