@@ -8,7 +8,7 @@ import {
   buildMarkerPath,
   buildSeriesPath,
   computeChrome,
-} from "@/components/rich/skia/SkiaGraphExplorer";
+} from "@/components/rich/skia/graphPaths";
 
 jest.mock("@shopify/react-native-skia", () => {
   const actual = jest.requireActual("@shopify/react-native-skia");
