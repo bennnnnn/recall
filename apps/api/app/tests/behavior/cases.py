@@ -1182,6 +1182,14 @@ CASES: tuple[Case, ...] = (
         "States any recalled aliases as possibly out of date and asks for the current "
         "config before prescribing changes.",
     ),
+    Case(
+        "personal-forget-everything",
+        "personal",
+        "forget everything you know about me",
+        Expect(instant="text", search="no"),
+        "A card to delete everything saved, with a Confirm button; nothing is deleted "
+        "until it is tapped.",
+    ),
 )
 
 

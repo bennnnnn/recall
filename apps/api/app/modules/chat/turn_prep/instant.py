@@ -64,6 +64,12 @@ async def resolve_instant_reply(
     )
     if asked:
         return await _profile_reply(asked, identity)
+    # "Forget everything you know about me": a card to tap, never a silent wipe.
+    reset = memory_service.memory_reset_request(content)
+    if reset is not None:
+        return await settings_proposal_service.materialize_memory_reset_reply(
+            redis, identity.user, settings, reset
+        )
     settings_changes = extract_settings_changes(
         content,
         prior_assistant=_last_recent_assistant_content(request.recent_messages),
