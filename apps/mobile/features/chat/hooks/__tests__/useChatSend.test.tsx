@@ -6,7 +6,13 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useChatSend } from "@/features/chat/hooks/useChatSend";
-import { pickDocument, uploadChatAttachment } from "@/features/attachments/model/attachments";
+import {
+  pickDocument,
+  pickFromCamera,
+  pickFromPhotoLibrary,
+  uploadChatAttachment,
+} from "@/features/attachments/model/attachments";
+import { AttachmentError } from "@/features/attachments/model/attachmentErrors";
 import { registerEmailDraftFlusher } from "@/features/drafts/model/emailDraftFlush";
 import { notifyWarning, tap } from "@/lib/haptics";
 import {
@@ -54,13 +60,14 @@ jest.mock("@/features/attachments/model/attachments", () => ({
   pickFromPhotoLibrary: jest.fn(),
   uploadChatAttachment: jest.fn(),
   messageTextForSend: jest.fn((text: string) => text),
-  HeicUnsupportedError: class extends Error {},
+  discardDraftAttachment: (...args: unknown[]) => mockDiscardDraftAttachment(...args),
   NativePickerBusyError: class extends Error {},
   NativePickerTimeoutError: class extends Error {},
   PhotoLibraryPermissionError: class extends Error {
     needsSettings = false;
   },
 }));
+const mockDiscardDraftAttachment = jest.fn();
 const mockReadScan = jest.fn();
 const mockImageIntent = jest.fn();
 /** The server's reading of a send (POST /images/intent); a plain chat send unless set. */
@@ -556,6 +563,7 @@ describe("useChatSend", () => {
 
     expect(current.pendingAttachment).toBeNull();
     expect(current.sendPhase).toBe("uploading");
+    expect(current.attachPicking).toBe(false);
     expect(sendMessage).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -566,26 +574,94 @@ describe("useChatSend", () => {
     expect(current.sendPhase).toBe("idle");
   });
 
-  it("clears attachment when switching threads", async () => {
+  it("keeps each thread's attachment with its draft when switching threads", async () => {
+    const photo = { localUri: "file://pic.jpg", contentType: "image/jpeg", fileName: "pic.jpg", kind: "image" as const };
+    mockThreadKey = "chat-1";
     const view = await act(async () =>
       render(<Probe chatId="chat-1" routeChatId="chat-1" />),
     );
-    await act(async () => {
-      current.setPendingAttachment({
-        localUri: "file://pic.jpg",
-        contentType: "image/jpeg",
-        fileName: "pic.jpg",
-        kind: "image",
-      });
-    });
-    expect(current.pendingAttachment).not.toBeNull();
+    await act(async () => { current.setPendingAttachment(photo); });
 
     await act(async () => {
       await view.rerender(<Probe chatId="chat-1" routeChatId="chat-2" />);
     });
-
     expect(current.pendingAttachment).toBeNull();
     expect(mockSwitchThread).toHaveBeenCalledWith("chat-2");
+
+    mockThreadKey = "chat-2";
+    await act(async () => {
+      await view.rerender(<Probe chatId="chat-1" routeChatId="chat-1" />);
+    });
+    expect(current.pendingAttachment).toBe(photo);
+    expect(mockDiscardDraftAttachment).not.toHaveBeenCalled();
+  });
+
+  it("keeps an attachment uploaded for a chat the user left, so the next send reuses it", async () => {
+    let finishUpload!: (id: string) => void;
+    uploadAttachment.mockReturnValueOnce(new Promise((resolve) => { finishUpload = resolve; }));
+    const report = { localUri: "file://report.pdf", contentType: "application/pdf", fileName: "report.pdf", kind: "file" as const };
+    mockThreadKey = "chat-1";
+    const view = await render(<Probe chatId="chat-1" routeChatId="chat-1" />);
+    await act(async () => { current.setPendingAttachment(report); });
+    let sending!: Promise<void>;
+    await act(async () => { sending = current.handleSend(); });
+
+    await view.rerender(<Probe chatId="chat-1" routeChatId="chat-2" />);
+    mockThreadKey = "chat-2";
+    await act(async () => { finishUpload("uploaded-id"); await sending; });
+    expect(mockStashFailedDraftForThread).toHaveBeenCalledWith("chat-1", "hello");
+
+    await act(async () => { await view.rerender(<Probe chatId="chat-1" routeChatId="chat-1" />); });
+    expect(current.pendingAttachment).toEqual({ ...report, existingAttachmentId: "uploaded-id", uploadedForDraft: true });
+    // Kept, not cancelled: the upload is what the stashed draft sends next.
+    expect(mockDiscardDraftAttachment).not.toHaveBeenCalled();
+  });
+
+  it("discards an attachment the user removes or replaces, and nothing a send took", async () => {
+    const first = { localUri: "file://a.jpg", contentType: "image/jpeg", fileName: "a.jpg", kind: "image" as const };
+    const second = { ...first, localUri: "file://b.jpg", fileName: "b.jpg" };
+    (pickFromPhotoLibrary as jest.Mock).mockResolvedValueOnce(second);
+    await render(<Probe chatId="chat-1" routeChatId="chat-1" />);
+    await act(async () => { current.setPendingAttachment(first); });
+    await act(async () => { await current.handleAttachmentSheetSelect("photo"); });
+    expect(current.pendingAttachment).toBe(second);
+    expect(mockDiscardDraftAttachment).toHaveBeenCalledWith("token", first);
+
+    await act(async () => { current.removePendingAttachment(); });
+    expect(current.pendingAttachment).toBeNull();
+    expect(mockDiscardDraftAttachment).toHaveBeenLastCalledWith("token", second);
+  });
+
+  it("refuses Send while a picked photo is still being prepared", async () => {
+    let finishPick!: (value: unknown) => void;
+    (pickFromCamera as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { finishPick = resolve; }));
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" routeChatId="chat-1" sendMessage={sendMessage} />);
+    let picking!: Promise<void>;
+    await act(async () => { picking = current.handleAttachmentSheetSelect("camera"); });
+    expect(current.attachPicking).toBe(true);
+
+    await act(async () => { await current.handleSend(); });
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(mockSetInput).not.toHaveBeenCalledWith("");
+
+    const photo = { localUri: "file://shot.jpg", contentType: "image/jpeg", fileName: "shot.jpg", kind: "image" };
+    await act(async () => { finishPick(photo); await picking; });
+    expect(current.attachPicking).toBe(false);
+    expect(current.pendingAttachment).toBe(photo);
+  });
+
+  it.each([
+    [new AttachmentError("too_large"), "chat.attach_too_large"],
+    [new AttachmentError("camera_permission"), "chat.camera_permission"],
+    [new Error("Camera permission is required to take photos."), "chat.attach_failed"],
+  ])("reports a refused pick (%p) by its message key", async (error, key) => {
+    (pickFromCamera as jest.Mock).mockRejectedValueOnce(error);
+    await render(<Probe chatId="chat-1" routeChatId="chat-1" />);
+    await act(async () => { await current.handleAttachmentSheetSelect("camera"); });
+    expect(mockFeedbackError).toHaveBeenCalledWith(key);
+    expect(current.pendingAttachment).toBeNull();
+    expect(current.attachPicking).toBe(false);
   });
 
   it("stashes a failed send on the originating thread after a switch", async () => {
@@ -752,6 +828,7 @@ it("does not move a late picker result into another chat", async () => {
     await picking;
   });
   expect(current.pendingAttachment).toBeNull();
+  expect(mockDiscardDraftAttachment).toHaveBeenCalledWith(null, expect.objectContaining({ localUri: "file://report.pdf" }));
 });
 
 it("retains the uploaded id when the draft flush fails after the upload", async () => {
@@ -841,6 +918,8 @@ it("does not restore the previous account's failed attachment or text", async ()
   expect(mockSetInput).not.toHaveBeenCalled();
   expect(mockStashFailedDraftForThread).not.toHaveBeenCalled();
   expect(mockFeedbackError).not.toHaveBeenCalled();
+  // The local copy goes; the old account's token is not used to cancel anything.
+  expect(mockDiscardDraftAttachment).toHaveBeenCalledWith(null, expect.objectContaining({ localUri: "file://private.pdf" }));
 });
 
 it("continues an attachment send through an access-token refresh in the same session", async () => {
@@ -904,7 +983,7 @@ describe("rejected attachment composer recovery", () => {
     await act(async () => { current.setPendingAttachment(attachment); });
     await act(async () => { await current.handleSend(); });
     expect(sendMessage).toHaveBeenCalledWith("exact question", expect.objectContaining({ composerDraft: {
-      text: "  exact question\n", attachment: { ...attachment, existingAttachmentId: "uploaded-id" },
+      text: "  exact question\n", attachment: { ...attachment, existingAttachmentId: "uploaded-id", uploadedForDraft: true },
     } }));
   });
 });
@@ -1295,7 +1374,10 @@ describe("useChatSend send steps", () => {
   });
 
   it.each([
-    [new Error("upload failed"), "upload failed"],
+    [new AttachmentError("too_large"), "chat.attach_too_large"],
+    [new AttachmentError("upload_failed"), "chat.attach_upload_failed"],
+    // Raw error text (a network message, a JSON body) never reaches the toast.
+    [new Error("{\"detail\":\"Unsupported content type\"}"), "chat.attach_failed"],
     ["not an error", "chat.attach_failed"],
   ])("restores the draft and reports a failed upload (%p)", async (error, message) => {
     uploadAttachment.mockRejectedValueOnce(error);

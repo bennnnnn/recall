@@ -9,6 +9,8 @@ class AttachmentSettings(BaseModel):
     # thread (like the SymPy math solve) bounded by this timeout so a large or
     # adversarially crafted file can't block the event loop.
     attachment_extract_timeout_seconds: float = 5.0
+    # The index job reads the whole file; a parse past this stops and the job retries.
+    attachment_index_extract_timeout_seconds: float = 60.0
     # Image-only / photographed PDFs have no text layer. After the fast
     # pypdf extract returns empty, render pages (pypdfium2) and transcribe
     # via vision-chat. Separate budget — vision is network, not the 5s CPU
@@ -26,11 +28,16 @@ class AttachmentSettings(BaseModel):
     # bitmap (5.1 GB peak RSS locally) on a 512 MB machine. Oversized pages
     # are scaled down to this budget; a letter page at 1.5x is ~1.1 MP.
     attachment_ocr_max_page_pixels: int = 4_000_000
-    # Largest image (pixels actually decoded) a gallery thumbnail will decode.
+    # Largest image (pixels actually decoded) a thumbnail or vision copy decodes.
     # JPEG decodes at a reduced scale first, so big photos still work; a
     # lossless image past this is refused (422) instead of decoding hundreds
     # of MB from a sub-MB file. 0 disables.
     attachment_image_max_decode_pixels: int = 16_000_000
+    # Thumbnails made at once per process; each size is then kept in storage.
+    attachment_thumbnail_concurrency: int = 2
+    # A photo the model sees: long edge in pixels, and the turn's base64 total.
+    attachment_vision_max_edge: int = 2048
+    attachment_vision_max_turn_bytes: int = 20_000_000
 
     # Attachment RAG (chunk + embed PDF/doc text; retrieve into prompt).
     attachment_rag_enabled: bool = True
@@ -43,9 +50,10 @@ class AttachmentSettings(BaseModel):
     # so a near-limit user can't start a heavy image call that blows past the
     # daily cap. Real usage is still reconciled from the provider's usage chunk.
     image_attachment_reserve_tokens: int = 1200
-    # Orphan attachment reaper: hidden send-clones (library_visible false)
-    # stay until this billed window. Unverified original uploads use the
-    # shorter pending window so a killed-app image slot can refund same-day.
+    # Orphan attachment reaper: hidden send-clones (library_visible false) and
+    # uploads no message ever linked stay until this billed window. Unverified
+    # original uploads use the shorter pending window so a killed-app image
+    # slot can refund same-day.
     attachment_orphan_grace_hours: int = 24
     attachment_pending_orphan_hours: int = 1
     attachment_orphan_reaper_interval_seconds: int = 3600
@@ -66,6 +74,9 @@ class AttachmentSettings(BaseModel):
     r2_bucket: str = ""
     r2_endpoint: str = ""  # derived from account_id if empty
     r2_presign_expiry_seconds: int = 600
+    # A signed PUT stays usable until it expires, even after confirm checked the
+    # bytes; the phone starts its PUT right after presign.
+    r2_presign_upload_expiry_seconds: int = 120
     # boto3 defaults are 60s connect + 60s read with 5 legacy attempts, all on
     # the default thread pool (5 threads on one CPU) shared with sign-in and
     # PDF extraction. Bounded here; "standard" retries back off with jitter.

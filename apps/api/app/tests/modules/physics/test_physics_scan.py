@@ -110,7 +110,9 @@ def test_scan_read_returns_the_problem_as_plain_text() -> None:
     assert read.await_args.kwargs["prompt"] == PHYSICS_READ_PROMPT
     assert read.await_args.kwargs["content_type"] == "image/jpeg"
     assert rate.await_args is not None
-    assert rate.await_args.args[1].startswith("physics_scan_rl:")
+    # One per-user budget across subjects, not one per subject.
+    assert rate.await_args.args[1].startswith("scan_read_rl:")
+    assert 0 < read.await_args.kwargs["timeout_seconds"] <= Settings().scan_read_deadline_seconds
     spend.assert_awaited_once()
 
 

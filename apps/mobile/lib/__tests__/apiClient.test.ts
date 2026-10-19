@@ -1,6 +1,7 @@
 import {
   ApiRequestError,
   apiUrl,
+  authorizeNativeTransfer,
   fetchWithTimeout,
   fetchExportText,
   request,
@@ -511,4 +512,40 @@ it("SSE headers timeout aborts the fetch without marking the caller as canceled"
   } finally {
     jest.useRealTimers();
   }
+});
+
+describe("authorizeNativeTransfer", () => {
+  it("refreshes once on 401 and resends with the fresh token", async () => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ access_token: "new-access", refresh_token: "new-refresh" }),
+    } as unknown as Response);
+    const send = jest.fn<Promise<number>, [Record<string, string>]>()
+      .mockResolvedValueOnce(401)
+      .mockResolvedValueOnce(200);
+
+    await expect(authorizeNativeTransfer("stale-token", send)).resolves.toBe(200);
+    expect(send.mock.calls.map(([headers]) => headers.Authorization)).toEqual([
+      "Bearer stale-token",
+      "Bearer new-access",
+    ]);
+  });
+
+  it("signs out once when the refreshed token is refused too", async () => {
+    mockGetRefreshToken.mockResolvedValue(null);
+    const onUnauthorized = jest.fn();
+    setUnauthorizedHandler(onUnauthorized);
+    const send = jest.fn(async () => 401);
+    await expect(authorizeNativeTransfer("stale-token", send)).resolves.toBe(401);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends no credentials without a token", async () => {
+    const send = jest.fn(async () => 200);
+    await authorizeNativeTransfer(null, send);
+    expect(send).toHaveBeenCalledWith({});
+  });
 });

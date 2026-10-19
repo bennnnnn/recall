@@ -16,6 +16,14 @@ export type ScanReading = {
 const SCAN_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 /**
+ * The API answers a read within `scan_read_deadline_seconds` (20 s) of
+ * receiving it, every reader and fallback included. The client waits that
+ * plus 5 s for the upload and the reply, so a slow read comes back as the
+ * API's "could not read" answer instead of a client timeout.
+ */
+export const SCAN_READ_TIMEOUT_MS = 25_000;
+
+/**
  * Read a cropped scan back without solving it, through the subject's own
  * reader. The file is base64-encoded natively (a JS-thread encode of a full
  * photo froze the scanner once before).
@@ -42,7 +50,7 @@ export async function readScan(
       signal,
     },
     true,
-    25_000,
+    SCAN_READ_TIMEOUT_MS,
   );
 }
 

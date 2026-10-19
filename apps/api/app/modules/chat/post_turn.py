@@ -4,7 +4,8 @@ Title, memory, lesson progress, the to-do repair, compression and indexing are
 best-effort background work: enqueued after the reply commits, never on the
 stream's path. The commit itself is ``turn_settle``. ``POST_TURN_JOBS`` is the
 list, in order: each entry reads the ``FinishedTurn`` and returns the jobs it
-wants (none, one, or one per attachment).
+wants (none or one). A turn's documents are not here: they are queued for
+indexing as soon as the user's message commits (``turn_prep/persist.py``).
 """
 
 import asyncio
@@ -200,24 +201,6 @@ async def _compress_job(turn: FinishedTurn) -> list[PostTurnJob]:
     ]
 
 
-async def _attachment_index_jobs(turn: FinishedTurn) -> list[PostTurnJob]:
-    ctx = turn.ctx
-    if turn.spend_capped:
-        return []
-    return [
-        PostTurnJob(
-            "attachment_index",
-            {
-                "attachment_id": attachment_id,
-                "user_id": str(ctx.user_id),
-                "chat_id": str(ctx.chat_id),
-            },
-            f"attachment_index:{attachment_id}:{ctx.chat_id}",
-        )
-        for attachment_id in ctx.indexable_attachment_ids
-    ]
-
-
 async def _message_index_job(turn: FinishedTurn) -> list[PostTurnJob]:
     """Memory off means no personal recall: past turns are not indexed for it either."""
     ctx = turn.ctx
@@ -250,7 +233,6 @@ POST_TURN_JOBS: tuple[Callable[[FinishedTurn], Awaitable[list[PostTurnJob]]], ..
     _todos_job,
     _topic_job,
     _compress_job,
-    _attachment_index_jobs,
     _message_index_job,
 )
 

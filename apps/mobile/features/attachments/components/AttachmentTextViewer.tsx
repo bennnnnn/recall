@@ -46,24 +46,23 @@ export function AttachmentTextViewer({ visible, attachmentId, path, ...chrome }:
       setFailed(false);
       return;
     }
-    let cancelled = false;
+    // Closing the viewer stops the download, not just its result.
+    const controller = new AbortController();
     setLoading(true);
     setFailed(false);
     void (async () => {
       try {
-        const bytes = await fetchAttachmentBytes(remoteUri, token);
-        if (cancelled) return;
+        const bytes = await fetchAttachmentBytes(remoteUri, token, controller.signal);
+        if (controller.signal.aborted) return;
         const decoded = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
         setText(decoded.length > MAX_PREVIEW_CHARS ? decoded.slice(0, MAX_PREVIEW_CHARS) : decoded);
       } catch {
-        if (!cancelled) setFailed(true);
+        if (!controller.signal.aborted) setFailed(true);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [visible, remoteUri, token]);
 
   return (

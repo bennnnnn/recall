@@ -1,6 +1,5 @@
 """Attachment gallery, upload verification, and download policy."""
 
-import asyncio
 import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -11,23 +10,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.redis import get_redis_client
-from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
+from app.gateways.storage_gateway import (
+    LocalStorageGateway,
+    StorageUnavailableError,
+    get_storage_gateway,
+)
 from app.models.orm import Attachment, User
 from app.models.schemas import AttachmentListItemOut, AttachmentListOut, AttachmentOut
 from app.modules.attachments import chunks_repository as chunks_repo
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import (
-    GALLERY_THUMB_MAX_EDGE,
-    GALLERY_THUMB_MIN_EDGE,
     MAX_ATTACHMENT_SIZE,
     ensure_verified_or_purge,
     purge_invalid_upload,
-    resize_image_bytes,
 )
 from app.modules.attachments.content_types import bytes_match_claimed, is_image_content_type
 from app.modules.attachments.lifecycle import delete_storage_keys, enqueue_failed_storage_deletes
 from app.modules.attachments.markers import strip_attachment_from_content
 from app.modules.attachments.quota import has_current_upload_reservation
+from app.modules.attachments.thumbnails import thumbnail_bytes, thumbnail_edge
 from app.modules.attachments.upload import AttachmentUploadError, cancel_pending_upload
 from app.repositories import messages as messages_repo
 from app.services.quota import counters
@@ -283,12 +284,6 @@ async def _drop_row_for_missing_file(session: AsyncSession, attachment_id: UUID)
         logger.exception("Failed to drop missing-file attachment row %s", attachment_id)
 
 
-def _clamp_thumb_edge(width: int | None) -> int | None:
-    if width is None or width <= 0:
-        return None
-    return max(GALLERY_THUMB_MIN_EDGE, min(GALLERY_THUMB_MAX_EDGE, width))
-
-
 async def get_file_access(
     session: AsyncSession,
     settings: Settings,
@@ -298,23 +293,19 @@ async def get_file_access(
     width: int | None = None,
 ) -> FileAccess:
     row, gateway = await _verified_row(session, settings, user, attachment_id)
-    edge = _clamp_thumb_edge(width)
+    edge = thumbnail_edge(width)
     if edge is not None and is_image_content_type(row.content_type):
-        data = await gateway.read_bytes(row.storage_key)
-        if data is None:
-            await _drop_row_for_missing_file(session, row.id)
-            raise AttachmentWorkflowError(404, "File missing")
         try:
-            # Decoding is CPU-bound and can take seconds; keep it off the loop.
-            body, content_type = await asyncio.to_thread(
-                resize_image_bytes,
-                data,
-                edge,
-                max_pixels=settings.attachment_image_max_decode_pixels,
-            )
+            thumb = await thumbnail_bytes(gateway, settings, row.storage_key, edge)
+        except StorageUnavailableError:
+            raise
         except Exception:
             logger.exception("Thumbnail resize failed attachment_id=%s", attachment_id)
             raise AttachmentWorkflowError(422, "Could not resize image") from None
+        if thumb is None:
+            await _drop_row_for_missing_file(session, row.id)
+            raise AttachmentWorkflowError(404, "File missing")
+        body, content_type = thumb
         return FileAccess(content_type=content_type, body=body)
     if isinstance(gateway, LocalStorageGateway):
         path = gateway.resolve_local_path(row.storage_key)

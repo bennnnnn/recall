@@ -23,7 +23,8 @@ type Options = {
   /** The composer's live text; a scan keeps what the student had typed. */
   inputRef: MutableRefObject<string>;
   setInput: (text: string) => void;
-  setPendingAttachment: (value: PendingAttachment | null) => void;
+  /** Puts the scan's photo in the composer, freeing the file it replaces. */
+  replacePendingAttachment: (next: PendingAttachment | null) => void;
   setMathScannerOpen: (open: boolean) => void;
   handleSend: (overrideText?: string) => Promise<void>;
 };
@@ -34,7 +35,7 @@ export function useMathScanSend({
   t,
   inputRef,
   setInput,
-  setPendingAttachment,
+  replacePendingAttachment,
   setMathScannerOpen,
   handleSend,
 }: Options) {
@@ -43,7 +44,7 @@ export function useMathScanSend({
     subject: ScannerSubject,
     confirmedReading?: string,
   ) => {
-    setPendingAttachment(pending);
+    replacePendingAttachment(pending);
     // A checked reading rides with the photo so the API solves what the
     // student confirmed instead of reading the photo again.
     const text = confirmedReading
@@ -52,7 +53,7 @@ export function useMathScanSend({
     setInput(text);
     setMathScannerOpen(false);
     void handleSend(text);
-  }, [handleSend, setInput, setPendingAttachment, setMathScannerOpen, inputRef]);
+  }, [handleSend, setInput, replacePendingAttachment, setMathScannerOpen, inputRef]);
 
   const readScan = useCallback(
     async (

@@ -9,7 +9,6 @@ import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import type { useChatScroll } from "@/features/chat/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
 import type { Message } from "@/lib/api";
-import { clearPendingChatTtft } from "@/features/chat/model/latency";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import {
@@ -23,6 +22,7 @@ import { resolveSendIntercept, type SendIntercept } from "@/features/chat/model/
 import { useComposerAttachmentSheet } from "@/features/chat/hooks/useComposerAttachmentSheet";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
 import { useMathScanSend } from "@/features/chat/hooks/useMathScanSend";
+import { useRestoreFailedSend, type SendTurn } from "@/features/chat/hooks/useRestoreFailedSend";
 import { uploadSendAttachment, useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
 import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
@@ -30,7 +30,8 @@ import {
   queryNeedsClientGeo,
   resolveClientGeoForQuery,
 } from "@/lib/resolveClientGeoForQuery";
-import type { PendingAttachment } from "@/features/attachments/model/attachments";
+import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
+import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
@@ -73,7 +74,7 @@ type Options = {
   messages: Message[];
   selectedModel: string;
   updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
   onStreamBusy?: () => void;
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;
@@ -90,16 +91,6 @@ type Options = {
     },
   ) => void;
   imageGenerating?: boolean;
-};
-
-/** One send, from the tap that started it. */
-type SendTurn = {
-  text: string;
-  composerText: string;
-  attachment: PendingAttachment | null;
-  threadKey: string;
-  isCurrentSession: () => boolean;
-  isCurrentView: () => boolean;
 };
 
 export function useChatSend({
@@ -139,7 +130,10 @@ export function useChatSend({
     getThreadKey,
   } = useComposerDraftApi();
   const feedback = useActionFeedbackOptional();
-  const { pendingAttachment, pendingAttachmentRef, setPendingAttachment } = useSendAttachment();
+  const {
+    pendingAttachment, pendingAttachmentRef, setPendingAttachment, replacePendingAttachment,
+    switchAttachmentThread, stashAttachmentForThread, resetAttachmentDrafts,
+  } = useSendAttachment(token);
   const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
   const [sendPhase, setSendPhase] = useState<ChatSendPhase>("idle");
   const [pendingOutboundId, setPendingOutboundId] = useState<string | null>(null);
@@ -160,6 +154,7 @@ export function useChatSend({
     setAttachSheetOpen,
     mathScannerOpen,
     setMathScannerOpen,
+    attachPicking,
     attachPickInFlightRef,
     handlePickAttachment,
     handleAttachmentSheetSelect,
@@ -169,7 +164,7 @@ export function useChatSend({
     session,
     viewRef,
     sendInFlightRef,
-    setPendingAttachment,
+    replacePendingAttachment,
     feedback,
     t,
   });
@@ -182,7 +177,10 @@ export function useChatSend({
     prevSessionRef.current = session;
     // Wipe before switchThread: the shared "new" key no-ops and would keep the
     // previous account's unsent text if we only switched.
-    if (accountChanged) resetForNewSession();
+    if (accountChanged) {
+      resetForNewSession();
+      resetAttachmentDrafts();
+    }
     switchThread(composerThread);
     if (!accountChanged && prevComposerThreadRef.current === composerThread) return;
     prevComposerThreadRef.current = composerThread;
@@ -190,22 +188,22 @@ export function useChatSend({
     setSendPhase("idle");
     setPendingOutboundId(null);
     if (!accountChanged && fromKey === composerThread) return;
-    setPendingAttachment(null);
+    if (!accountChanged) switchAttachmentThread(fromKey, composerThread);
     setAttachSheetOpen(false);
     setMathScannerOpen(false);
   }, [
-    composerThread, session, switchThread, getThreadKey, setPendingAttachment, resetForNewSession,
-    setAttachSheetOpen, setMathScannerOpen,
+    composerThread, session, switchThread, getThreadKey, switchAttachmentThread, resetForNewSession,
+    resetAttachmentDrafts, setAttachSheetOpen, setMathScannerOpen,
   ]);
   useEffect(() => {
     const applyQueued = () => {
       if (!token || session !== getSessionGeneration()) return;
       const next = takeQueuedComposerAttachment(composerThread);
-      if (next) setPendingAttachment(next);
+      if (next) replacePendingAttachment(next);
     };
     applyQueued();
     return subscribeComposerAttachmentQueue(applyQueued);
-  }, [composerThread, token, session, setPendingAttachment]);
+  }, [composerThread, token, session, replacePendingAttachment]);
   useEffect(() => {
     if (
       pendingSend &&
@@ -214,7 +212,10 @@ export function useChatSend({
           ? routeChatId !== pendingSend.chatId
           : viewRef.current.version !== pendingSend.originViewVersion))
     ) {
-      if (session === pendingSend.session) stashFailedDraftForThread(pendingSend.chatId, pendingSend.text);
+      if (session === pendingSend.session) {
+        stashFailedDraftForThread(pendingSend.chatId, pendingSend.text);
+        stashAttachmentForThread(pendingSend.chatId, getThreadKey(), pendingSend.composerDraft.attachment);
+      } else discardDraftAttachment(null, pendingSend.composerDraft.attachment);
       setPendingSend(null);
       setPendingOutboundId(null);
       sendInFlightRef.current = false;
@@ -252,7 +253,7 @@ export function useChatSend({
       sendInFlightRef.current = false;
       setSendPhase("idle");
     }
-  }, [chatId, routeChatId, session, pendingSend, sendMessage, stashFailedDraftForThread]);
+  }, [chatId, routeChatId, session, pendingSend, sendMessage, stashFailedDraftForThread, stashAttachmentForThread, getThreadKey]);
 
   /** Hands an image request to generation; persistence failure brings the draft back. */
   const generateFromComposer = useCallback(
@@ -312,31 +313,10 @@ export function useChatSend({
     return optimisticId;
   }, [setInput, setPendingAttachment, setMessages, newMessageCountRef]);
 
-  /** Takes the bubble back and returns the draft to the thread it was typed in. */
-  const restoreFailedSend = useCallback(
-    (turn: SendTurn, optimisticId: string, attached: PendingAttachment | null) => {
-      clearPendingChatTtft(optimisticId);
-      if (!turn.isCurrentSession()) return;
-      if (!turn.isCurrentView()) {
-        stashFailedDraftForThread(turn.threadKey, turn.text);
-        return;
-      }
-      setPendingOutboundId(null);
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-      newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
-      if (getThreadKey() === turn.threadKey) {
-        if (!pendingAttachmentRef.current && shouldRestoreFailedSend(inputRef.current, turn.text)) {
-          setInput(turn.text);
-          setPendingAttachment(attached);
-        }
-      } else {
-        stashFailedDraftForThread(turn.threadKey, turn.text);
-      }
-      sendInFlightRef.current = false;
-      setSendPhase("idle");
-    },
-    [stashFailedDraftForThread, setMessages, newMessageCountRef, getThreadKey, pendingAttachmentRef, inputRef, setInput, setPendingAttachment],
-  );
+  const restoreFailedSend = useRestoreFailedSend({
+    token, setMessages, newMessageCountRef, pendingAttachmentRef, setPendingAttachment,
+    stashAttachmentForThread, setPendingOutboundId, sendInFlightRef, setSendPhase,
+  });
 
   const handleSend = useCallback(
     async (overrideText?: string) => {
@@ -354,6 +334,7 @@ export function useChatSend({
         hasAttachment: Boolean(pendingAttachmentRef.current),
         token,
         creating: creatingRef.current,
+        attachPicking: attachPickInFlightRef.current,
       });
       // Offline keeps the draft; banner + dimmed send already signal it. A modal
       // Alert feels unfinished without a send queue — use a soft toast instead.
@@ -429,9 +410,7 @@ export function useChatSend({
           }
         } catch (error) {
           restoreDraft();
-          if (turn.isCurrentView()) feedback?.error(
-            error instanceof Error ? error.message : t("chat.attach_failed"),
-          );
+          if (turn.isCurrentView()) feedback?.error(attachmentErrorMessage(error, t));
           return;
         }
       }
@@ -474,12 +453,14 @@ export function useChatSend({
     },
     [
       session, inputRef, chatLoading, chatId, routeChatId, isOffline, streaming, pendingAttachmentRef,
-      token, creatingRef, onOfflineBlocked, onStreamBusy, onBeforeSend, getThreadKey,
+      token, creatingRef, attachPickInFlightRef, onOfflineBlocked, onStreamBusy, onBeforeSend, getThreadKey,
       messages, onGenerateImage, imageGenerating, generateFromComposer, t, updateUser, paintUserTurn,
       restoreFailedSend, feedback, selectedModel, sendMessage, ensureChatId, discardEmptyChat,
       adoptComposerThread,
     ],
   );
+
+  const removePendingAttachment = useCallback(() => replacePendingAttachment(null), [replacePendingAttachment]);
 
   const viewVersion = viewRef.current.version;
   const restoreComposerDraft = useCallback((recovered: ComposerSendDraft): boolean => {
@@ -504,7 +485,7 @@ export function useChatSend({
     t,
     inputRef,
     setInput,
-    setPendingAttachment,
+    replacePendingAttachment,
     setMathScannerOpen,
     handleSend,
   });
@@ -513,6 +494,8 @@ export function useChatSend({
     setInput,
     pendingAttachment,
     setPendingAttachment,
+    removePendingAttachment,
+    attachPicking,
     sendPhase,
     attachSheetOpen,
     setAttachSheetOpen,

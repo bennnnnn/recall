@@ -43,9 +43,15 @@ class StemSettings(BaseModel):
     # finds exactly one solution in the stated domain.
     math_word_problems_enabled: bool = True
     math_word_problem_timeout_seconds: float = 3.0
-    # POST /math/scan/read runs OCR (Mathpix, then vision) so the student can
-    # confirm what the camera read before it is solved. Per user, per hour.
+    # POST /{math,physics,chemistry}/scan/read runs OCR (Mathpix, then vision)
+    # so the student can confirm what the camera read before it is solved.
+    # Per user, per hour, shared by every subject's reader.
     math_scan_read_rate_limit_per_hour: int = 60
+    # One read answers within this many seconds of arriving, every reader and
+    # fallback included (later steps get what earlier ones left). It stays
+    # below the phone's timeout (SCAN_READ_TIMEOUT_MS in lib/api/scan.ts,
+    # this plus 5 s for the upload), so a slow read ends as "could not read".
+    scan_read_deadline_seconds: float = 20.0
     # Dedicated math OCR (Mathpix). Empty keys keep the Gemini vision path.
     # Images always send metadata.improve_mathpix=false — student homework is
     # not opted into Mathpix QA storage.

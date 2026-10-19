@@ -189,31 +189,53 @@ export function zoomFromPinch(startZoom: number, scale: number): number {
 }
 
 /**
- * Map a screen-space (ratio) region to pixel crop coordinates for
- * ImageManipulator. CameraView fills the window with object-fit cover;
- * pass the window size so letterboxed overflow is subtracted. Defaults
- * keep the 1:1 mapping when window size equals the photo.
+ * Map a region of a view (ratios of the view) onto the image that view shows
+ * with object-fit cover (ratios of the image, clamped to 0..1). The camera
+ * preview covers the scanner, so the overflow the view hides is subtracted.
+ * The capture crop and the live OCR region of interest both use this, so the
+ * frame the student sees is the one that is read.
+ */
+export function viewRegionToImageRegion(
+  region: ScanRegion,
+  imageWidth: number,
+  imageHeight: number,
+  viewWidth = imageWidth,
+  viewHeight = imageHeight,
+): ScanRegion {
+  const scale = Math.max(viewWidth / imageWidth, viewHeight / imageHeight);
+  const displayedW = imageWidth * scale;
+  const displayedH = imageHeight * scale;
+  const left = (region.x * viewWidth + (displayedW - viewWidth) / 2) / displayedW;
+  const top = (region.y * viewHeight + (displayedH - viewHeight) / 2) / displayedH;
+  const right = left + (region.width * viewWidth) / displayedW;
+  const bottom = top + (region.height * viewHeight) / displayedH;
+  const x = Math.min(1, Math.max(0, left));
+  const y = Math.min(1, Math.max(0, top));
+  return {
+    x,
+    y,
+    width: Math.max(0, Math.min(1, right) - x),
+    height: Math.max(0, Math.min(1, bottom) - y),
+  };
+}
+
+/**
+ * Pixel crop for ImageManipulator of a view region over a covered image (see
+ * `viewRegionToImageRegion`). Defaults keep the 1:1 mapping when the view
+ * size equals the photo.
  */
 export function regionToImageCrop(
   region: ScanRegion,
   imageWidth: number,
   imageHeight: number,
-  windowWidth = imageWidth,
-  windowHeight = imageHeight,
+  viewWidth = imageWidth,
+  viewHeight = imageHeight,
 ): { originX: number; originY: number; width: number; height: number } {
-  const scale = Math.max(windowWidth / imageWidth, windowHeight / imageHeight);
-  const displayedW = imageWidth * scale;
-  const displayedH = imageHeight * scale;
-  const coverOriginX = (displayedW - windowWidth) / 2;
-  const coverOriginY = (displayedH - windowHeight) / 2;
-  const imgX = (region.x * windowWidth + coverOriginX) / scale;
-  const imgY = (region.y * windowHeight + coverOriginY) / scale;
-  const imgW = (region.width * windowWidth) / scale;
-  const imgH = (region.height * windowHeight) / scale;
-  const originX = Math.max(0, Math.min(imageWidth - 1, Math.round(imgX)));
-  const originY = Math.max(0, Math.min(imageHeight - 1, Math.round(imgY)));
-  const width = Math.max(1, Math.min(imageWidth - originX, Math.round(imgW)));
-  const height = Math.max(1, Math.min(imageHeight - originY, Math.round(imgH)));
+  const mapped = viewRegionToImageRegion(region, imageWidth, imageHeight, viewWidth, viewHeight);
+  const originX = Math.max(0, Math.min(imageWidth - 1, Math.round(mapped.x * imageWidth)));
+  const originY = Math.max(0, Math.min(imageHeight - 1, Math.round(mapped.y * imageHeight)));
+  const width = Math.max(1, Math.min(imageWidth - originX, Math.round(mapped.width * imageWidth)));
+  const height = Math.max(1, Math.min(imageHeight - originY, Math.round(mapped.height * imageHeight)));
   return { originX, originY, width, height };
 }
 

@@ -3,8 +3,8 @@ import { Linking, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useChatSend } from "@/features/chat/hooks/useChatSend";
+import { AttachmentError } from "@/features/attachments/model/attachmentErrors";
 import {
-  HeicUnsupportedError,
   NativePickerBusyError,
   NativePickerTimeoutError,
   PhotoLibraryPermissionError,
@@ -40,7 +40,7 @@ jest.mock("@/features/attachments/model/attachments", () => ({
   pickFromPhotoLibrary: jest.fn(),
   uploadChatAttachment: jest.fn(),
   messageTextForSend: jest.fn((text: string) => text),
-  HeicUnsupportedError: class extends Error {},
+  discardDraftAttachment: jest.fn(),
   NativePickerBusyError: class extends Error {},
   NativePickerTimeoutError: class extends Error {},
   PhotoLibraryPermissionError: class extends Error {
@@ -123,11 +123,12 @@ it("opens the math scanner instead of a picker", async () => {
 });
 
 it.each([
-  ["a HEIC photo warns", new HeicUnsupportedError(), "warning", "chat.heic_unsupported_body"],
   ["a busy picker", new NativePickerBusyError(), "error", "chat.picker_busy"],
   ["a picker timeout", new NativePickerTimeoutError(), "error", "chat.picker_busy"],
   ["a photo permission", new PhotoLibraryPermissionError(), "error", "chat.photos_permission"],
-  ["any other error says its message", new Error("disk full"), "error", "disk full"],
+  ["a file too large says so", new AttachmentError("too_large"), "error", "chat.attach_too_large"],
+  // Untyped failures get the generic message, never raw error text.
+  ["any other error says attach failed", new Error("disk full"), "error", "chat.attach_failed"],
   ["a non-error says attach failed", "boom", "error", "chat.attach_failed"],
 ] as const)("%s", async (_name, failure, tone, message) => {
   (pickFromPhotoLibrary as jest.Mock).mockRejectedValueOnce(failure);
@@ -135,6 +136,22 @@ it.each([
   await select("photo");
   expect(mockFeedback[tone]).toHaveBeenCalledWith(message);
   expect(current.pendingAttachment).toBeNull();
+});
+
+it("a pick being prepared shows as attachPicking until it lands", async () => {
+  let land: (value: typeof photo) => void = () => undefined;
+  (pickFromPhotoLibrary as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { land = resolve; }));
+  await render(<Probe />);
+  let picking: Promise<void> = Promise.resolve();
+  await act(async () => { picking = current.handleAttachmentSheetSelect("photo"); });
+  // Send waits on this: a send that slipped in first went without the photo.
+  expect(current.attachPicking).toBe(true);
+  await act(async () => {
+    land(photo);
+    await picking;
+  });
+  expect(current.attachPicking).toBe(false);
+  expect(current.pendingAttachment).toEqual(photo);
 });
 
 it("sends a denied photo permission to Settings when it needs them", async () => {

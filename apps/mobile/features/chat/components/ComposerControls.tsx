@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import type { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
@@ -17,12 +17,15 @@ export function ComposerAttachButton({
   s,
   voiceActive,
   disabled,
+  picking = false,
   onPress,
 }: {
   s: ComposerStyles;
   voiceActive: boolean;
   /** An attachment cannot be added right now (a send is preparing or a reply streams). */
   disabled: boolean;
+  /** A picked file is still being prepared: the button shows it is working. */
+  picking?: boolean;
   onPress: () => void;
 }) {
   const { t } = useTranslation();
@@ -36,7 +39,7 @@ export function ComposerAttachButton({
       hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
       accessibilityRole="button"
       accessibilityLabel={t(voiceActive ? "chat.voice_cancel_a11y" : "chat.attach_a11y")}
-      accessibilityState={{ disabled: !voiceActive && disabled }}
+      accessibilityState={{ disabled: !voiceActive && disabled, busy: !voiceActive && picking }}
     >
       {voiceActive ? (
         <Icon
@@ -45,6 +48,8 @@ export function ComposerAttachButton({
           color={theme.text}
           testID="composer-voice-cancel-icon"
         />
+      ) : picking ? (
+        <ActivityIndicator size="small" color={theme.textTertiary} testID="composer-attachment-busy" />
       ) : (
         <Icon
           name="plus"

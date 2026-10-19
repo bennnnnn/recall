@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -93,6 +94,66 @@ def test_scan_read_failure_degrades_to_an_empty_reading() -> None:
     assert response.status_code == 200
     assert response.json()["reading"] == ""
     spend.assert_awaited_once()
+
+
+def test_scan_read_past_the_deadline_degrades_to_an_empty_reading() -> None:
+    async def slow_read(*_args: Any, **_kwargs: Any) -> MathOcrResult:
+        await asyncio.sleep(5)
+        raise AssertionError("the deadline should have cut this read off")
+
+    patches = _redis()
+    with (
+        patches[0],
+        patches[1],
+        patches[2] as spend,
+        patches[3],
+        patch("app.modules.math.api.extract_math_from_image", AsyncMock(side_effect=slow_read)),
+    ):
+        response = _post(
+            _client(Settings(scan_read_deadline_seconds=0.05)), {"image_base64": _IMAGE}
+        )
+    assert response.status_code == 200
+    assert response.json() == {"reading": "", "uncertain": True, "source": "none"}
+    spend.assert_awaited_once()
+
+
+def test_scan_read_gives_the_reader_what_is_left_of_one_deadline() -> None:
+    empty = MathOcrResult(
+        extract=None, display_text="", source="none", confidence=None, uncertain=True
+    )
+    patches = _redis()
+    with patches[0], patches[1], patches[2], patches[3], _ocr(empty) as ocr:
+        _post(_client(Settings(scan_read_deadline_seconds=12.0)), {"image_base64": _IMAGE})
+    assert 0 < ocr.await_args.kwargs["timeout_seconds"] <= 12.0
+
+
+@pytest.mark.parametrize(
+    "subject, reader",
+    [
+        ("math", "app.modules.math.api.extract_math_from_image"),
+        ("physics", "app.modules.physics.api.read_physics_problem"),
+        ("chemistry", "app.modules.chemistry.api.read_chemistry_problem"),
+    ],
+)
+def test_scan_rate_limit_is_one_per_user_budget_across_subjects(subject: str, reader: str) -> None:
+    patches = _redis()
+    client = _client(Settings(math_tools_enabled=True, chemistry_enabled=True))
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3] as rate,
+        patch(reader, AsyncMock(side_effect=RuntimeError("down"))),
+    ):
+        client.post(
+            f"/{subject}/scan/read",
+            headers={"Authorization": "Bearer tok"},
+            json={"image_base64": _IMAGE},
+        )
+    assert rate.await_args is not None
+    key = rate.await_args.args[1]
+    assert key.startswith("scan_read_rl:")
+    assert subject not in key
 
 
 @pytest.mark.parametrize(

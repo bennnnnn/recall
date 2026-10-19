@@ -1,35 +1,41 @@
-import {
-  cacheDirectory,
-  EncodingType,
-  getInfoAsync,
-  readDirectoryAsync,
-  deleteAsync,
-  writeAsStringAsync,
-} from "expo-file-system/legacy";
+import { deleteAsync, getInfoAsync, moveAsync } from "expo-file-system/legacy";
 import { randomUUID } from "expo-crypto";
 import * as MediaLibrary from "expo-media-library";
 
-import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachmentBytes";
+import { downloadAttachmentFile } from "@/features/attachments/model/fetchAttachmentBytes";
 import { getSessionGeneration, SessionChangedError } from "@/lib/auth";
 import { recallAttachmentPath } from "@/features/attachments/model/attachmentUri";
 import { attachmentSessionGuard } from "@/features/attachments/model/attachmentSession";
+import {
+  attachmentFilePath,
+  listAttachmentFiles,
+  listRecallAttachmentFiles,
+  partialFilePath,
+  safeFileName,
+  sweepAttachmentFiles,
+} from "@/features/attachments/model/attachmentFileStore";
 import { contentTypeForFileName } from "@/features/attachments/model/gallery";
 import { shareLocalFile } from "@/lib/shareFile";
 
-function safeFileName(name: string, fallback: string): string {
-  const cleaned = name.replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "");
-  if (!cleaned) return fallback;
-  const extension = cleaned.match(/\.[a-zA-Z0-9]{1,12}$/)?.[0] ?? "";
-  const stem = extension ? cleaned.slice(0, -extension.length) : cleaned;
-  return `${stem.slice(0, 160)}${extension}`;
-}
+/** One native download, shared by every screen that asked for the same URL. */
+type Download = {
+  uri: string;
+  promise: Promise<string>;
+  /** Callers still waiting; the last one to leave cancels the transfer. */
+  waiters: number;
+  controller: AbortController;
+};
 
 const localFileCache = new Map<string, string>();
-const downloadsInFlight = new Map<string, Promise<string>>();
+const downloadsInFlight = new Map<string, Download>();
+/** Files this run wrote, reused or is writing → their URL. The sweep and sign-out spare them. */
 const cachedFiles = new Map<string, string>();
 const downloadRevisions = new Map<string, number>();
+/** Retry asked for fresh bytes: the copy on disk may be the unreadable one. */
+const refetch = new Set<string>();
 let cacheGeneration: number | null = null;
 let cacheRevision = 0;
+let swept = false;
 
 function scopeCacheToSession(): void {
   if (cacheGeneration === getSessionGeneration()) return;
@@ -38,6 +44,19 @@ function scopeCacheToSession(): void {
   downloadRevisions.clear();
   cacheGeneration = getSessionGeneration();
   cacheRevision++;
+}
+
+/** Once per run, before the first download: earlier runs' copies are bounded here. */
+function sweepOnce(): void {
+  if (swept) return;
+  swept = true;
+  void sweepAttachmentFiles((path) => cachedFiles.has(path)).catch(() => undefined);
+}
+
+function abortError(): Error {
+  const error = new Error("Download canceled");
+  error.name = "AbortError";
+  return error;
 }
 
 export function getCachedAttachmentFile(uri: string): string | null {
@@ -50,19 +69,20 @@ export function invalidateCachedAttachmentFile(uri: string): void {
   localFileCache.delete(uri);
   downloadsInFlight.delete(uri);
   downloadRevisions.set(uri, (downloadRevisions.get(uri) ?? 0) + 1);
+  refetch.add(uri);
 }
 
 /** A successful Library delete also removes its full-size and thumbnail files. */
 export async function removeCachedAttachmentFiles(attachmentId: string): Promise<void> {
   scopeCacheToSession();
-  const paths = [...cachedFiles].filter(([, uri]) =>
-    recallAttachmentPath(uri)?.split("?")[0] === `/attachments/${attachmentId}/file`,
-  ).map(([path]) => path);
+  const isThisFile = (uri: string) =>
+    recallAttachmentPath(uri)?.split("?")[0] === `/attachments/${attachmentId}/file`;
+  const remembered = [...cachedFiles].filter(([, uri]) => isThisFile(uri)).map(([path]) => path);
   for (const uri of new Set([...localFileCache.keys(), ...downloadsInFlight.keys(), ...cachedFiles.values()])) {
-    if (recallAttachmentPath(uri)?.split("?")[0] !== `/attachments/${attachmentId}/file`) continue;
-    invalidateCachedAttachmentFile(uri);
+    if (isThisFile(uri)) invalidateCachedAttachmentFile(uri);
   }
-  await Promise.allSettled(paths.map(async (path) => {
+  const onDisk = await listRecallAttachmentFiles(attachmentId).catch(() => [] as string[]);
+  await Promise.allSettled([...new Set([...remembered, ...onDisk])].map(async (path) => {
     await deleteAsync(path, { idempotent: true });
     cachedFiles.delete(path);
   }));
@@ -74,6 +94,7 @@ export function resetLocalAttachmentFileCache(): void {
   downloadsInFlight.clear();
   downloadRevisions.clear();
   cachedFiles.clear();
+  refetch.clear();
   cacheGeneration = getSessionGeneration();
   cacheRevision++;
 }
@@ -82,15 +103,7 @@ export function resetLocalAttachmentFileCache(): void {
 export async function clearLocalAttachmentFileCache(): Promise<void> {
   const remembered = new Set(cachedFiles.keys());
   resetLocalAttachmentFileCache();
-  const paths = new Set(remembered);
-  if (cacheDirectory) {
-    const names = await readDirectoryAsync(cacheDirectory).catch(() => []);
-    for (const name of names) {
-      // Only this helper writes att-* cache files. Accept basenames only, and
-      // keep directories and every other cache owner outside this cleanup.
-      if (/^att-[\w.-]+$/.test(name)) paths.add(`${cacheDirectory}${name}`);
-    }
-  }
+  const paths = new Set([...remembered, ...(await listAttachmentFiles())]);
   await Promise.allSettled([...paths].map(async (path) => {
     // A new download may have started while directory enumeration was pending.
     if (cachedFiles.has(path)) return;
@@ -102,19 +115,19 @@ export async function clearLocalAttachmentFileCache(): Promise<void> {
   }));
 }
 
-/** Fetch authenticated bytes once, checking session identity before saving them. */
-export async function ensureLocalAttachmentFile(options: {
-  uri: string;
-  token?: string | null;
-  fileName?: string;
-}): Promise<string> {
-  const { uri, token = null, fileName = "attachment.jpg" } = options;
+async function hasContent(path: string): Promise<boolean> {
+  const info = await getInfoAsync(path).catch(() => null);
+  return Boolean(info?.exists && !info.isDirectory && info.size > 0);
+}
+
+function remember(uri: string, path: string): string {
+  localFileCache.set(uri, path);
+  cachedFiles.set(path, uri);
+  return path;
+}
+
+function startDownload(uri: string, token: string | null, fileName: string): Download {
   const requireCurrent = attachmentSessionGuard(token);
-  if (uri.startsWith("file://") || uri.startsWith("content://")) return uri;
-  if (!uri.startsWith("http://") && !uri.startsWith("https://")) {
-    throw new Error("Could not open this attachment.");
-  }
-  scopeCacheToSession();
   const revision = cacheRevision;
   const uriRevision = downloadRevisions.get(uri) ?? 0;
   const requireCurrentDownload = () => {
@@ -124,42 +137,97 @@ export async function ensureLocalAttachmentFile(options: {
       throw new Error("Attachment changed. Please try again.");
     }
   };
-  const inFlight = downloadsInFlight.get(uri);
-  if (inFlight) return inFlight;
-  const download = (async () => {
+  const controller = new AbortController();
+  const promise = (async () => {
     const cached = localFileCache.get(uri);
     if (cached) {
-      const info = await getInfoAsync(cached);
+      const exists = await hasContent(cached);
       requireCurrentDownload();
-      if (info.exists) return cached;
+      if (exists) return cached;
       localFileCache.delete(uri);
     }
-    const dir = cacheDirectory;
-    if (!dir) throw new Error("Storage unavailable.");
-    const safeName = safeFileName(fileName, "attachment.jpg");
-    // A unique filename avoids both URL-tail collisions and overwrites while
-    // another request still has the previous cache file open.
-    const dest = `${dir}att-${randomUUID()}-${safeName}`;
-    cachedFiles.set(dest, uri);
+    const dest = await attachmentFilePath(uri, fileName);
+    if (!refetch.has(uri) && await hasContent(dest)) {
+      requireCurrentDownload();
+      return remember(uri, dest);
+    }
+    const partial = partialFilePath(dest, randomUUID().slice(0, 8));
+    cachedFiles.set(partial, uri);
+    let placed = false;
     try {
-      const base64 = await fetchAttachmentBase64(uri, token);
+      await downloadAttachmentFile(uri, partial, token, controller.signal);
       requireCurrentDownload();
-      await writeAsStringAsync(dest, base64, { encoding: EncodingType.Base64 });
+      await deleteAsync(dest, { idempotent: true });
+      await moveAsync({ from: partial, to: dest });
+      placed = true;
       requireCurrentDownload();
-      localFileCache.set(uri, dest);
-      return dest;
+      refetch.delete(uri);
+      return remember(uri, dest);
     } catch (error) {
-      await deleteAsync(dest, { idempotent: true }).catch(() => {});
-      cachedFiles.delete(dest);
+      await deleteAsync(placed ? dest : partial, { idempotent: true }).catch(() => undefined);
       throw error;
+    } finally {
+      cachedFiles.delete(partial);
     }
   })();
-  downloadsInFlight.set(uri, download);
-  try {
-    return await download;
-  } finally {
-    if (downloadsInFlight.get(uri) === download) downloadsInFlight.delete(uri);
+  return { uri, promise, waiters: 0, controller };
+}
+
+/** Wait for a shared download; an aborted caller stops waiting, and the last one stops the transfer. */
+function joinDownload(download: Download, signal?: AbortSignal): Promise<string> {
+  // A caller without a signal (share, save) always wants the file, so it never leaves.
+  download.waiters++;
+  if (!signal) return download.promise;
+  if (signal.aborted) {
+    download.waiters--;
+    return Promise.reject(abortError());
   }
+  return new Promise<string>((resolve, reject) => {
+    const leave = () => {
+      download.waiters--;
+      if (download.waiters === 0) {
+        download.controller.abort();
+        // The next viewer starts a new transfer instead of joining the canceled one.
+        if (downloadsInFlight.get(download.uri) === download) downloadsInFlight.delete(download.uri);
+      }
+      reject(abortError());
+    };
+    signal.addEventListener("abort", leave, { once: true });
+    download.promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", leave));
+  });
+}
+
+/**
+ * The attachment as a local file, downloaded natively once and kept under a
+ * name derived from its URL, so later views, shares and app runs reuse it.
+ */
+export async function ensureLocalAttachmentFile(options: {
+  uri: string;
+  token?: string | null;
+  fileName?: string;
+  /** Stop waiting (a closed viewer); the transfer stops when nobody else waits. */
+  signal?: AbortSignal;
+}): Promise<string> {
+  const { uri, token = null, fileName = "attachment.jpg", signal } = options;
+  const requireCurrent = attachmentSessionGuard(token);
+  if (uri.startsWith("file://") || uri.startsWith("content://")) return uri;
+  if (!uri.startsWith("http://") && !uri.startsWith("https://")) {
+    throw new Error("Could not open this attachment.");
+  }
+  scopeCacheToSession();
+  sweepOnce();
+  let download = downloadsInFlight.get(uri);
+  if (!download) {
+    const started = startDownload(uri, token, fileName);
+    download = started;
+    downloadsInFlight.set(uri, started);
+    void started.promise.catch(() => undefined).finally(() => {
+      if (downloadsInFlight.get(uri) === started) downloadsInFlight.delete(uri);
+    });
+  }
+  const local = await joinDownload(download, signal);
+  requireCurrent();
+  return local;
 }
 
 /** Open the system share sheet for a local or remote attachment. */

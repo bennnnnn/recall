@@ -39,8 +39,7 @@ async def test_ensure_unlinked_copies_copies_bytes_for_linked_rows():
 
     clone = MagicMock()
     gateway = MagicMock()
-    gateway.read_bytes = AsyncMock(return_value=b"data")
-    gateway.write_bytes = AsyncMock()
+    gateway.copy_bytes = AsyncMock(return_value=True)
 
     with (
         patch(
@@ -55,9 +54,10 @@ async def test_ensure_unlinked_copies_copies_bytes_for_linked_rows():
         out = await ensure_unlinked_copies(session, Settings(), [src])
 
     assert out == [clone]
-    gateway.read_bytes.assert_awaited_once_with("user/orig")
-    gateway.write_bytes.assert_awaited_once()
-    assert str(insert.await_args.kwargs["storage_key"]).startswith(f"{src.user_id}/")
+    # Copied inside storage under a new key; the bytes never pass through the API.
+    new_key = insert.await_args.kwargs["storage_key"]
+    gateway.copy_bytes.assert_awaited_once_with("user/orig", new_key)
+    assert str(new_key).startswith(f"{src.user_id}/")
     insert.assert_awaited_once()
 
 
@@ -68,7 +68,7 @@ async def test_ensure_unlinked_copies_raises_when_bytes_missing():
     src.message_id = uuid4()
     src.storage_key = "user/gone"
     gateway = MagicMock()
-    gateway.read_bytes = AsyncMock(return_value=None)
+    gateway.copy_bytes = AsyncMock(return_value=False)
 
     with (
         patch(
@@ -85,14 +85,14 @@ async def test_ensure_unlinked_copies_raises_when_bytes_missing():
 async def test_clone_failure_rolls_back_and_cleans_every_attempted_object(failure):
     session = AsyncMock()
     src = MagicMock(message_id=uuid4(), storage_key="u/original", user_id=uuid4())
-    gateway = MagicMock(read_bytes=AsyncMock(return_value=b"data"), write_bytes=AsyncMock())
+    gateway = MagicMock(copy_bytes=AsyncMock(return_value=True))
     insert = AsyncMock(return_value=MagicMock())
     if failure == "insert":
         insert.side_effect = RuntimeError("insert")
     elif failure == "commit":
         session.commit.side_effect = RuntimeError("commit")
     else:
-        gateway.write_bytes.side_effect = [None, RuntimeError("second_write")]
+        gateway.copy_bytes.side_effect = [True, RuntimeError("second_write")]
     with (
         patch("app.modules.attachments.reuse.get_storage_gateway", return_value=gateway),
         patch("app.modules.attachments.reuse.attachments_repo.insert_verified_clone", insert),
@@ -103,6 +103,6 @@ async def test_clone_failure_rolls_back_and_cleans_every_attempted_object(failur
     ):
         await ensure_unlinked_copies(session, Settings(), [src, src])
     session.rollback.assert_awaited_once()
-    attempted_keys = [call.args[0] for call in gateway.write_bytes.await_args_list]
+    attempted_keys = [call.args[1] for call in gateway.copy_bytes.await_args_list]
     assert cleanup.await_args.args[1] == attempted_keys
     assert "u/original" not in attempted_keys

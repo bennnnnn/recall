@@ -1,12 +1,14 @@
 """Regeneration must retain the saved image bytes, owner scope, and text caption."""
 
 import base64
+import io
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from PIL import Image
 
 from app.core.config import Settings
 from app.models.orm import Chat, User
@@ -23,6 +25,17 @@ from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 _MODULE = "app.modules.chat.turn_prep.regenerate_vision"
 _SETTINGS = Settings(attachments_enabled=True)
+
+
+def _jpeg(size=(4, 4)) -> bytes:
+    out = io.BytesIO()
+    Image.new("RGB", size, (200, 30, 30)).save(out, format="JPEG")
+    return out.getvalue()
+
+
+def _size(part) -> tuple[int, int]:
+    """A sent photo's size: it is re-encoded, so its bytes differ from the saved ones."""
+    return Image.open(io.BytesIO(base64.b64decode(part["image_url"]["url"].split(",", 1)[1]))).size
 
 
 def _row(uid, key="image", content_type="image/jpeg"):
@@ -53,28 +66,30 @@ async def _inject(messages, ids, rows, *, enabled=True, byte_map=None):
 @pytest.mark.asyncio
 async def test_saved_scanner_image_rehydrates_actual_bytes_and_preserves_safe_caption():
     uid = uuid4()
-    caption = f"Solve step by step.\n\n[Image: /attachments/{uid}/file]\n<untrusted>file excerpt</untrusted>"
+    # A file's text always follows its [File: …] marker, as the prompt builds it.
+    excerpt = "[File (text/plain)]\n[BEGIN UNTRUSTED CONTENT — file]\nfile excerpt"
+    caption = (
+        f"Solve step by step.\n\n[Image: /attachments/{uid}/file]\n"
+        f"[File: /attachments/{uuid4()}/file]\n{excerpt}"
+    )
     messages = [{"role": "system", "content": "policy"}, {"role": "user", "content": caption}]
     result, lookup, _storage, gateway, owner = await _inject(
         messages,
         [uid, uid],
         [_row(uid)],
-        byte_map={"image": b"saved-photo-bytes"},
+        byte_map={"image": _jpeg((30, 20))},
     )
     assert result
     assert lookup.await_args.args[1:] == ([uid], owner)
     gateway.read_bytes.assert_awaited_once_with("image")
     parts = messages[-1]["content"]
-    assert parts[0] == {
-        "type": "text",
-        "text": ("Solve step by step.\n\n<untrusted>file excerpt</untrusted>\n\n" + VISION_NOTE),
-    }
-    assert parts[1] == {
-        "type": "image_url",
-        "image_url": {
-            "url": "data:image/jpeg;base64," + base64.b64encode(b"saved-photo-bytes").decode()
-        },
-    }
+    text = parts[0]["text"]
+    assert parts[0]["type"] == "text"
+    assert text.startswith("Solve step by step.") and text.endswith(VISION_NOTE)
+    assert excerpt in text and "[Image:" not in text
+    assert parts[1]["type"] == "image_url"
+    assert parts[1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+    assert _size(parts[1]) == (30, 20)
     assert messages[0] == {"role": "system", "content": "policy"}
 
 
@@ -86,16 +101,11 @@ async def test_multiple_current_images_keep_marker_order_despite_unordered_repos
         messages,
         [first, second],
         [_row(second, "b"), _row(first, "a")],
-        byte_map={"a": b"first", "b": b"second"},
+        byte_map={"a": _jpeg((40, 20)), "b": _jpeg((20, 40))},
     )
     assert result
-    urls = [
-        part["image_url"]["url"] for part in messages[-1]["content"] if part["type"] == "image_url"
-    ]
-    assert urls == [
-        f"data:image/jpeg;base64,{base64.b64encode(value).decode()}"
-        for value in (b"first", b"second")
-    ]
+    parts = [part for part in messages[-1]["content"] if part["type"] == "image_url"]
+    assert [_size(part) for part in parts] == [(40, 20), (20, 40)]
 
 
 @pytest.mark.asyncio
@@ -122,7 +132,7 @@ async def test_partial_missing_or_unreadable_image_keeps_readable_one_and_report
     first, second = uuid4(), uuid4()
     rows = [_row(first, "readable")] + ([] if missing_row else [_row(second, "gone")])
     messages = [{"role": "user", "content": "Compare both images."}]
-    result, *_ = await _inject(messages, [first, second], rows, byte_map={"readable": b"photo"})
+    result, *_ = await _inject(messages, [first, second], rows, byte_map={"readable": _jpeg()})
     assert result
     assert sum(part["type"] == "image_url" for part in messages[-1]["content"]) == 1
     assert "not available" in messages[-1]["content"][-1]["text"]
@@ -204,7 +214,7 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         quota={"daily_limit_for_user": lambda *_args: 10000},
     )
     lookup = AsyncMock(return_value=[_row(uid)])
-    gateway = SimpleNamespace(read_bytes=AsyncMock(return_value=b"saved-scanner"))
+    gateway = SimpleNamespace(read_bytes=AsyncMock(return_value=_jpeg()))
     entry = "app.modules.chat.stream_entry"
     with (
         patch(f"{entry}.turn_resources", resources),

@@ -14,3 +14,9 @@ UNCLEAR_IMAGE_NOTE = (
 )
 
 VISION_NOTE = f"{IMAGE_REAL_NOTE} {UNCLEAR_IMAGE_NOTE}"
+
+# Said when a sent photo could not be decoded or did not fit the turn's image budget.
+PHOTOS_LEFT_OUT_NOTE = (
+    "Not every attached photo could be included. Say that you cannot see the missing one "
+    "instead of guessing what it shows."
+)

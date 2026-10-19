@@ -3,8 +3,9 @@ import { Keyboard, Linking } from "react-native";
 
 import type { ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
+import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
 import {
-  HeicUnsupportedError,
+  discardDraftAttachment,
   NativePickerBusyError,
   NativePickerTimeoutError,
   PhotoLibraryPermissionError,
@@ -14,7 +15,6 @@ import {
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
 import { getSessionGeneration } from "@/lib/auth";
-import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
 
 type Options = {
   token: string | null;
@@ -25,24 +25,37 @@ type Options = {
   viewRef: MutableRefObject<{ version: number }>;
   /** A send is preparing; the composer takes no new attachment until it settles. */
   sendInFlightRef: MutableRefObject<boolean>;
-  setPendingAttachment: (value: PendingAttachment | null) => void;
+  /** Puts the pick in the composer, freeing the file it replaces. */
+  replacePendingAttachment: (next: PendingAttachment | null) => void;
   feedback: ActionFeedbackApi | null;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
 };
 
-/** The composer's attach sheet and math scanner: which is open, and the pick each source runs. */
+function pickFrom(source: Exclude<AttachmentSource, "solve_math_camera">) {
+  if (source === "camera") return pickFromCamera();
+  if (source === "photo") return pickFromPhotoLibrary();
+  return pickDocument();
+}
+
+/**
+ * The composer's attach sheet and math scanner: which is open, and the pick each
+ * source runs. A pick is "in flight" from the tap until its photo is prepared
+ * (resized, re-encoded, size-checked), and Send waits: a send that slipped in
+ * first went without the photo, which then turned up afterwards as a stray draft.
+ */
 export function useComposerAttachmentSheet({
   token,
   streaming,
   session,
   viewRef,
   sendInFlightRef,
-  setPendingAttachment,
+  replacePendingAttachment,
   feedback,
   t,
 }: Options) {
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
   const [mathScannerOpen, setMathScannerOpen] = useState(false);
+  const [attachPicking, setAttachPicking] = useState(false);
   const attachPickInFlightRef = useRef(false);
 
   const handlePickAttachment = useCallback(() => {
@@ -57,59 +70,37 @@ export function useComposerAttachmentSheet({
 
   const handleAttachmentSheetSelect = useCallback(
     async (source: AttachmentSource) => {
-      if (
-        attachPickInFlightRef.current ||
-        !token ||
-        streaming ||
-        sendInFlightRef.current
-      )
+      if (attachPickInFlightRef.current || !token || streaming || sendInFlightRef.current) return;
+      setAttachSheetOpen(false);
+      if (source === "solve_math_camera") {
+        setMathScannerOpen(true);
         return;
+      }
       const version = viewRef.current.version;
       const current = () => viewRef.current.version === version && session === getSessionGeneration();
       attachPickInFlightRef.current = true;
-      setAttachSheetOpen(false);
-
-      if (!current() || !token || streaming || sendInFlightRef.current) {
-        attachPickInFlightRef.current = false;
-        return;
-      }
-
+      setAttachPicking(true);
       try {
-        if (source === "solve_math_camera") {
-          setMathScannerOpen(true);
-          return;
-        }
-        const picked =
-          source === "camera"
-            ? await pickFromCamera()
-            : source === "photo"
-              ? await pickFromPhotoLibrary()
-              : await pickDocument();
-        if (picked && current()) {
-          setPendingAttachment(picked);
-        }
+        const picked = await pickFrom(source);
+        // A pick that lands after the user moved on belongs to no composer.
+        if (picked && current()) replacePendingAttachment(picked);
+        else discardDraftAttachment(null, picked);
       } catch (error) {
         if (!current()) return;
-        if (error instanceof HeicUnsupportedError) {
-          reportRecoverableWarning(feedback, t("chat.heic_unsupported_body"));
-        } else if (error instanceof PhotoLibraryPermissionError) {
+        if (error instanceof PhotoLibraryPermissionError) {
           if (error.needsSettings) void Linking.openSettings();
           feedback?.error(t("chat.photos_permission"));
-        } else if (
-          error instanceof NativePickerBusyError ||
-          error instanceof NativePickerTimeoutError
-        ) {
+        } else if (error instanceof NativePickerBusyError || error instanceof NativePickerTimeoutError) {
           feedback?.error(t("chat.picker_busy"));
         } else {
-          feedback?.error(
-            error instanceof Error ? error.message : t("chat.attach_failed"),
-          );
+          feedback?.error(attachmentErrorMessage(error, t));
         }
       } finally {
         attachPickInFlightRef.current = false;
+        setAttachPicking(false);
       }
     },
-    [feedback, session, streaming, t, token, setPendingAttachment, viewRef, sendInFlightRef],
+    [token, streaming, session, viewRef, sendInFlightRef, feedback, t, replacePendingAttachment],
   );
 
   return {
@@ -117,6 +108,7 @@ export function useComposerAttachmentSheet({
     setAttachSheetOpen,
     mathScannerOpen,
     setMathScannerOpen,
+    attachPicking,
     attachPickInFlightRef,
     handlePickAttachment,
     handleAttachmentSheetSelect,

@@ -29,6 +29,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/attachments/model/downloadChatAttachment.ts#downloadRevisions": "clearLocalAttachmentFileCache",
   "features/attachments/model/downloadChatAttachment.ts#downloadsInFlight": "clearLocalAttachmentFileCache",
   "features/attachments/model/downloadChatAttachment.ts#localFileCache": "clearLocalAttachmentFileCache",
+  "features/attachments/model/downloadChatAttachment.ts#refetch": "clearLocalAttachmentFileCache",
   "features/attachments/model/galleryListCache.ts#resource": "invalidateGalleryCache",
   "features/chat/hooks/useQuotaNudge.ts#dismissedDate": "resetQuotaNudgeDismissal",
   "features/chat/model/draftLogic.ts#knownAssistantChats": "invalidateChatListCache",
@@ -62,6 +63,8 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
 /** Read only by the sign-in session that wrote it (checked against `getSessionGeneration()` or keyed by it). */
 const SCOPED_TO_SESSION = [
   "features/account/screens/NotificationsSettingsScreen.tsx#pending",
+  "features/attachments/model/attachmentIndexStatus.ts#generation",
+  "features/attachments/model/attachmentIndexStatus.ts#pollers",
   "features/attachments/model/pendingComposerAttachment.ts#queued",
   "features/memory/hooks/useMemoryToggle.ts#pending",
   "features/memory/model/memoryDocumentsCache.ts#resource",
@@ -75,6 +78,7 @@ const SCOPED_TO_SESSION = [
 /** Work in progress for one chat, request or clip, keyed by ids another account never has. */
 const IN_FLIGHT = [
   "features/account/model/profilePhoto.ts#generatedPhotos",
+  "features/attachments/model/localAttachmentFile.ts#ownedCopies",
   "features/chat/model/draftLogic.ts#emptyChatChecks",
   "features/chat/model/latency.ts#pending",
   "features/chat/model/mutationLock.ts#pendingMutations",
@@ -96,9 +100,13 @@ const IN_FLIGHT = [
 const NO_ACCOUNT_DATA = [
   "components/CodeBlock.tsx#cachedTokenizer",
   "components/markdown/LinkPreviewTrust.tsx#NO_PREVIEWS",
+  "features/attachments/model/attachmentIndexStatus.ts#offline",
+  "features/attachments/model/attachmentIndexStatus.ts#stopWatchingNetwork",
   "features/attachments/model/attachments.ts#nativePickerActive",
   "features/attachments/model/attachments.ts#nativePickerGeneration",
+  "features/attachments/model/downloadChatAttachment.ts#swept",
   "features/attachments/model/galleryLayout.ts#cachedLayout",
+  "features/attachments/model/pdfViewerFile.ts#written",
   "features/chat/hooks/useMathKeyboardInsert.ts#lastSystemKeyboardHeight",
   "features/images/components/dotField.ts#compiled",
   "features/speech/model/liveTalkSfx.ts#cueEpoch",
@@ -127,6 +135,7 @@ const NO_ACCOUNT_DATA = [
   "lib/haptics.ts#unavailableOn",
   "lib/math/svgMath.ts#rendererImpl",
   "lib/math/svgMath.ts#rendererPromise",
+  "lib/pdfPreviewHtml.ts#viewerHtml",
   "lib/purchases.ts#purchasesModule",
   "lib/pushNotifications.ts#androidChannelReady",
   "lib/pushNotifications.ts#pushTokenFailureReported",

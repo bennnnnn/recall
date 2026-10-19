@@ -1,12 +1,14 @@
 """embed_many: the one bounded embedding fan-out (attachments, chat history, memory).
 
-The provider call is ``embed_text``; every test here patches it, so no test
-reaches the network.
+Inputs go to the provider ``embedding_batch_size`` at a time. Every test here
+patches ``aembedding`` (or ``embed_text``), so no test reaches the network.
 """
 
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -15,107 +17,117 @@ from app.core.config import Settings
 from app.gateways import embedding_gateway
 
 _EMBED_TEXT = "app.gateways.embedding_gateway.embed_text"
+_LIVE: dict[str, Any] = {"mock_llm_enabled": False, "openrouter_api_key": "test-key"}
+
+
+def _settings(**overrides: Any) -> Settings:
+    return Settings(**(_LIVE | overrides))
 
 
 def _vector_for(text: str) -> list[float]:
     return [float(len(text)), 0.5]
 
 
+class _Provider:
+    """A fake ``aembedding``: records each request, answers in reverse order with indexes."""
+
+    def __init__(self, *, fail_when: str | None = None, delay: float = 0.0) -> None:
+        self.requests: list[list[str]] = []
+        self.in_flight = 0
+        self.peak = 0
+        self.fail_when = fail_when
+        self.delay = delay
+
+    async def __call__(self, *, model: str, input: list[str], **_kwargs: Any) -> Any:
+        self.requests.append(list(input))
+        self.in_flight += 1
+        self.peak = max(self.peak, self.in_flight)
+        try:
+            await asyncio.sleep(self.delay)
+            if self.fail_when is not None and self.fail_when in input:
+                raise RuntimeError("provider rejected the request")
+            data = [
+                {"embedding": _vector_for(text), "index": index} for index, text in enumerate(input)
+            ]
+            return SimpleNamespace(data=list(reversed(data)), usage=None)
+        finally:
+            self.in_flight -= 1
+
+
+async def _embed_many(provider: _Provider, texts: list[str], **kwargs: Any) -> Any:
+    concurrency = kwargs.pop("concurrency", 8)
+    with (
+        patch.object(embedding_gateway, "aembedding", provider),
+        patch.object(embedding_gateway.llm_spend, "meter_model_call"),
+    ):
+        return await embedding_gateway.embed_many(
+            _settings(**kwargs), texts, concurrency=concurrency
+        )
+
+
 @pytest.mark.asyncio
-async def test_embed_many_returns_results_in_input_order():
-    texts = ["a", "bb", "ccc", "dddd", "eeeee"]
+@pytest.mark.parametrize(
+    ("count", "batch_size", "request_sizes"),
+    [(1, 64, [1]), (64, 64, [64]), (65, 64, [64, 1]), (150, 64, [64, 64, 22]), (5, 2, [2, 2, 1])],
+)
+async def test_embed_many_sends_batches_and_keeps_input_order(
+    count: int, batch_size: int, request_sizes: list[int]
+):
+    texts = [f"piece {index:03d}" + "x" * index for index in range(count)]
+    provider = _Provider()
 
-    async def embed(_settings: Settings, text: str) -> list[float]:
-        # Later inputs finish first, so completion order is the reverse of input order.
-        await asyncio.sleep(0.002 * (len(texts) - len(text)))
-        return _vector_for(text)
+    result = await _embed_many(provider, texts, embedding_batch_size=batch_size)
 
-    with patch(_EMBED_TEXT, embed):
-        result = await embedding_gateway.embed_many(Settings(), texts, concurrency=len(texts))
-
+    assert sorted(len(request) for request in provider.requests) == sorted(request_sizes)
     assert result == [_vector_for(text) for text in texts]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("concurrency", "count"), [(1, 5), (3, 12), (8, 20), (8, 4)])
-async def test_embed_many_caps_calls_in_flight(concurrency: int, count: int):
-    in_flight = 0
-    peak = 0
-    calls = 0
+@pytest.mark.parametrize(("concurrency", "batches"), [(1, 5), (3, 12), (8, 4), (0, 3), (-3, 3)])
+async def test_embed_many_caps_requests_in_flight(concurrency: int, batches: int):
+    provider = _Provider(delay=0.005)
+    texts = [f"piece {index}" for index in range(batches)]
 
-    async def embed(_settings: Settings, text: str) -> list[float]:
-        nonlocal in_flight, peak, calls
-        calls += 1
-        in_flight += 1
-        peak = max(peak, in_flight)
-        await asyncio.sleep(0.005)
-        in_flight -= 1
-        return _vector_for(text)
+    result = await _embed_many(provider, texts, embedding_batch_size=1, concurrency=concurrency)
 
-    texts = [f"piece {index}" for index in range(count)]
-    with patch(_EMBED_TEXT, embed):
-        result = await embedding_gateway.embed_many(Settings(), texts, concurrency=concurrency)
-
-    assert calls == count
-    assert len(result) == count
-    # Bounded, and still a fan-out rather than one call at a time.
-    assert peak == min(concurrency, count)
+    assert len(provider.requests) == batches
+    assert len(result) == batches
+    # Bounded, and still a fan-out rather than one request at a time.
+    assert provider.peak == min(max(1, concurrency), batches)
 
 
 @pytest.mark.asyncio
 async def test_embed_many_empty_input_makes_no_calls():
-    embed = AsyncMock(return_value=[0.1])
+    provider = _Provider()
 
-    with patch(_EMBED_TEXT, embed):
-        result = await embedding_gateway.embed_many(Settings(), [], concurrency=8)
-
-    assert result == []
-    embed.assert_not_awaited()
+    assert await _embed_many(provider, []) == []
+    assert provider.requests == []
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("concurrency", [0, -3])
-async def test_embed_many_treats_concurrency_below_one_as_one(concurrency: int):
-    in_flight = 0
-    peak = 0
+async def test_embed_many_cuts_each_input_to_the_char_cap():
+    provider = _Provider()
 
-    async def embed(_settings: Settings, text: str) -> list[float]:
-        nonlocal in_flight, peak
-        in_flight += 1
-        peak = max(peak, in_flight)
-        await asyncio.sleep(0)
-        in_flight -= 1
-        return _vector_for(text)
+    await _embed_many(provider, ["a" * 50, "b" * 5], embedding_input_max_chars=10)
 
-    with patch(_EMBED_TEXT, embed):
-        async with asyncio.timeout(1):
-            result = await embedding_gateway.embed_many(
-                Settings(), ["one", "two", "three"], concurrency=concurrency
-            )
-
-    assert result == [_vector_for("one"), _vector_for("two"), _vector_for("three")]
-    assert peak == 1
+    assert provider.requests == [["a" * 10, "b" * 5]]
 
 
 @pytest.mark.asyncio
-async def test_embed_many_keeps_a_failed_piece_as_none_in_its_slot():
-    """``embed_text`` returns None on a provider failure; each caller decides what that means
-    (attachments drop it, chat history stores a null vector, memory skips the row)."""
+async def test_a_failed_batch_is_retried_one_text_at_a_time():
+    """One rejected input voids its request; the rest of that batch is still embedded."""
+    provider = _Provider(fail_when="bad")
 
-    async def embed(_settings: Settings, text: str) -> list[float] | None:
-        return None if text == "bad" else _vector_for(text)
-
-    with patch(_EMBED_TEXT, embed):
-        result = await embedding_gateway.embed_many(
-            Settings(), ["good", "bad", "fine"], concurrency=2
-        )
+    result = await _embed_many(provider, ["good", "bad", "fine"], embedding_batch_size=64)
 
     assert result == [_vector_for("good"), None, _vector_for("fine")]
+    assert provider.requests[0] == ["good", "bad", "fine"]
+    assert sorted(provider.requests[1:]) == [["bad"], ["fine"], ["good"]]
 
 
 @pytest.mark.asyncio
 async def test_embed_many_raises_what_escapes_embed_text():
-    """An error ``embed_text`` does not turn into None fails the whole batch, as each caller's
+    """An error ``embed_text`` does not turn into None fails the whole call, as each caller's
     own loop did: the attachment job retries, a chat-history message is skipped and logged."""
 
     async def embed(_settings: Settings, text: str) -> list[float]:
@@ -123,20 +135,35 @@ async def test_embed_many_raises_what_escapes_embed_text():
             raise RuntimeError("embedding route missing")
         return _vector_for(text)
 
-    with patch(_EMBED_TEXT, embed), pytest.raises(RuntimeError, match="route missing"):
-        await embedding_gateway.embed_many(Settings(), ["ok", "boom", "ok too"], concurrency=3)
+    with (
+        patch(_EMBED_TEXT, embed),
+        patch.object(embedding_gateway, "aembedding", AsyncMock(side_effect=RuntimeError("down"))),
+        pytest.raises(RuntimeError, match="route missing"),
+    ):
+        await embedding_gateway.embed_many(_settings(), ["ok", "boom", "ok too"], concurrency=3)
 
 
 @pytest.mark.asyncio
-async def test_embed_many_passes_settings_to_each_call():
-    settings = Settings(embedding_input_max_chars=123)
-    embed = AsyncMock(return_value=[0.1])
+async def test_a_short_answer_counts_as_a_failed_request():
+    """A provider that returns fewer vectors than inputs cannot be matched up: retry singly."""
+    response = SimpleNamespace(data=[{"embedding": [1.0], "index": 0}], usage=None)
+    with (
+        patch.object(embedding_gateway, "aembedding", AsyncMock(return_value=response)),
+        patch.object(embedding_gateway.llm_spend, "meter_model_call"),
+    ):
+        result = await embedding_gateway.embed_many(_settings(), ["a", "b"], concurrency=2)
 
-    with patch(_EMBED_TEXT, embed):
-        await embedding_gateway.embed_many(settings, ["x", "y"], concurrency=2)
-
-    assert [call.args for call in embed.await_args_list] == [(settings, "x"), (settings, "y")]
+    assert result == [[1.0], [1.0]]
 
 
-def test_embedding_concurrency_default_keeps_rag_fan_out():
-    assert Settings().embedding_concurrency == 8
+@pytest.mark.asyncio
+async def test_mock_mode_embeds_every_input_without_a_provider():
+    provider = _Provider()
+
+    with patch.object(embedding_gateway, "aembedding", provider):
+        result = await embedding_gateway.embed_many(
+            Settings(mock_llm_enabled=True, openrouter_api_key=""), ["a", "b", "c"], concurrency=2
+        )
+
+    assert provider.requests == []
+    assert len(result) == 3 and all(vector and len(vector) == 1536 for vector in result)

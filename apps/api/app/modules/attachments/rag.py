@@ -16,7 +16,7 @@ from app.modules.attachments import chunks_repository as chunks_repo
 from app.modules.attachments import content as attachment_content_service
 from app.modules.attachments import ocr_allowance
 from app.modules.attachments import repository as attachments_repo
-from app.modules.attachments.content import ExtractedText
+from app.modules.attachments.content import ExtractedText, ExtractTimeoutError
 from app.modules.attachments.content_types import EXTRACTABLE_CONTENT_TYPES
 from app.services.prompt_safety import wrap_untrusted
 
@@ -144,6 +144,44 @@ class AttachmentIndexError(Exception):
     """
 
 
+async def _extract_for_index(
+    settings: Settings,
+    attachment_id: UUID,
+    owner_id: UUID,
+    storage_key: str,
+    content_type: str,
+) -> ExtractedText | None:
+    """The whole file's text, OCR'd within the owner's allowance when it has no text layer.
+
+    A read failure or a parse past its budget raises :class:`AttachmentIndexError`
+    (retried) and gives back an OCR slot no vision call used.
+    """
+    gateway = get_storage_gateway(settings)
+    data = await attachment_content_service.read_attachment_bytes(gateway, storage_key)
+    if not data:
+        raise AttachmentIndexError(f"Failed to read attachment bytes for {attachment_id}")
+
+    ocr_day = await ocr_allowance.reserve_ocr(settings, owner_id, content_type, attachment_id)
+    try:
+        details = await attachment_content_service.extract_text_details_async(
+            content_type,
+            data,
+            settings,
+            max_chars=attachment_content_service.MAX_INDEX_EXTRACT_CHARS,
+            allow_ocr=ocr_day is not None,
+            ocr_max_pages=settings.attachment_ocr_index_max_pages,
+            timeout_seconds=settings.attachment_index_extract_timeout_seconds,
+            raise_on_timeout=True,
+        )
+    except ExtractTimeoutError as exc:
+        await ocr_allowance.refund_ocr(owner_id, attachment_id, ocr_day)
+        raise AttachmentIndexError(f"Text extraction timed out for {attachment_id}") from exc
+    await ocr_allowance.release_unused_ocr(owner_id, attachment_id, ocr_day, details)
+    if details is not None:
+        await ocr_allowance.remember_ocr_text(attachment_id, details)
+    return details
+
+
 async def index_attachment(
     settings: Settings,
     *,
@@ -173,21 +211,9 @@ async def index_attachment(
         owner_id = row.user_id
         row_id = row.id
 
-    gateway = get_storage_gateway(settings)
-    data = await attachment_content_service.read_attachment_bytes(gateway, storage_key)
-    if not data:
-        raise AttachmentIndexError(f"Failed to read attachment bytes for {attachment_id}")
-
-    ocr_day = await ocr_allowance.reserve_ocr(settings, owner_id, content_type)
-    details = await attachment_content_service.extract_text_details_async(
-        content_type,
-        data,
-        settings,
-        max_chars=attachment_content_service.MAX_INDEX_EXTRACT_CHARS,
-        allow_ocr=ocr_day is not None,
-        ocr_max_pages=settings.attachment_ocr_index_max_pages,
-    )
-    await ocr_allowance.release_unused_ocr(owner_id, ocr_day, details)
+    details = await ocr_allowance.recall_ocr_text(row_id)
+    if details is None:
+        details = await _extract_for_index(settings, row_id, owner_id, storage_key, content_type)
     if details is None or not details.text:
         # Legitimate "no text" — scanned PDF with no OCR, or genuinely empty doc.
         # Not a transient failure; don't raise.

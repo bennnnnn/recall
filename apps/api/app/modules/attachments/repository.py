@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import String, and_, literal, or_, select
+from sqlalchemy import String, and_, func, literal, or_, select
 from sqlalchemy import cast as sql_cast
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,18 @@ from app.models.orm import Attachment, Chat, Message, User
 # Library is the user's archive. Reference-photo lookup copies (`search`)
 # stay on the chat and are never listed.
 _LIBRARY_SOURCES = ("upload", "generated")
+
+
+def _never_sent_upload() -> ColumnElement[bool]:
+    """An upload no message ever linked: a composer draft, not a Library item.
+
+    One whose chat was deleted has ``linked_at`` and stays in Library.
+    """
+    return and_(
+        Attachment.source == "upload",
+        Attachment.linked_at.is_(None),
+        Attachment.message_id.is_(None),
+    )
 
 
 def _referenced_as_avatar() -> ColumnElement[bool]:
@@ -164,7 +176,10 @@ async def link_to_message(
                 Attachment.message_id.is_(None),
                 ~_referenced_as_avatar(),
             )
-            .values(message_id=message_id)
+            .values(
+                message_id=message_id,
+                linked_at=func.coalesce(Attachment.linked_at, func.now()),
+            )
         ),
     )
     if commit:
@@ -216,7 +231,8 @@ async def list_for_gallery(
     * ``None``     — uploads and generated files (not lookup photos)
 
     Optional ``source`` filter narrows to ``'upload'`` or ``'generated'``.
-    Reference-photo lookup copies (``source='search'``) are never listed.
+    Reference-photo lookup copies (``source='search'``) are never listed, nor
+    uploads no message ever linked (composer drafts, reaped after a day).
     Verified items stay listed after their chat is deleted (``message_id``
     SET NULL); Open chat is omitted when no chat remains. Optional ``q``
     matches original filename, content type, the linked message body, or
@@ -229,6 +245,7 @@ async def list_for_gallery(
         Attachment.verified_at.is_not(None),
         Attachment.library_visible.is_(True),
         Attachment.source.in_(_LIBRARY_SOURCES),
+        ~_never_sent_upload(),
     )
     if category == "images":
         stmt = stmt.where(Attachment.content_type.like("image/%"))
@@ -290,12 +307,13 @@ async def list_orphans(
     pending_older_than_hours: int | None = None,
     limit: int = 100,
 ) -> list[Attachment]:
-    """Pending uploads and hidden send-clones never linked to a message.
+    """Pending uploads, never-sent uploads and hidden send-clones not linked to a message.
 
     Verified Library items that lost their chat (``message_id`` SET NULL,
-    ``library_visible`` still true) are not orphans — they stay until the
-    user deletes them from Library. Hidden copies (Library reuse clones,
-    reference-photo lookups) are reaped once that chat is gone, after
+    ``linked_at`` set, ``library_visible`` still true) are not orphans — they
+    stay until the user deletes them from Library. Hidden copies (Library reuse
+    clones, reference-photo lookups) are reaped once that chat is gone, and
+    confirmed uploads no message ever linked once they are, after
     ``older_than_hours``. Unverified original uploads (``library_visible``
     true) use ``pending_older_than_hours`` (default same as
     ``older_than_hours``) so a same-day abandoned image can refund its
@@ -325,6 +343,7 @@ async def list_orphans(
                     Attachment.library_visible.is_(False),
                     Attachment.created_at < clone_cutoff,
                 ),
+                and_(_never_sent_upload(), Attachment.created_at < clone_cutoff),
             ),
         )
         .order_by(Attachment.created_at.asc(), Attachment.id.asc())
@@ -410,7 +429,11 @@ async def delete_unlinked_returning(
     )
     if orphan_only:
         statement = statement.where(
-            or_(Attachment.verified_at.is_(None), Attachment.library_visible.is_(False))
+            or_(
+                Attachment.verified_at.is_(None),
+                Attachment.library_visible.is_(False),
+                _never_sent_upload(),
+            )
         )
     result = await session.execute(statement.returning(Attachment.storage_key))
     await session.commit()

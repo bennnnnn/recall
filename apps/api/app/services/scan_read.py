@@ -3,10 +3,13 @@
 Math, physics and chemistry each read a cropped photo back for the student to
 confirm. They run the same checks before their reader and record the same
 spend after it, so a subject adds a reader here, not a copy of the guard.
+Every read also shares one deadline (``scan_read_deadline_seconds``), which
+the reader spreads over its own steps.
 """
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 import json
@@ -28,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 SCAN_RATE_LIMIT_MESSAGE = "Too many scans in a row. Try again in a few minutes."
 SCAN_SPEND_CAP_MESSAGE = "Reading photos is paused for now. Type the problem, or try again later."
+# One budget for every subject: the limit is how many photos a student has read
+# an hour, so switching subject must not grant a fresh allowance.
+SCAN_RATE_LIMIT_KEY = "scan_read_rl"
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,14 +74,18 @@ async def read_scan[T](
     user: User,
     settings: Settings,
     subject: str,
-    read: Callable[[ScanPhoto], Awaitable[T]],
+    read: Callable[[ScanPhoto, float], Awaitable[T]],
 ) -> T | None:
-    """``read`` on the photo once every guard passes; None when the read failed.
+    """``read(photo, seconds_left)`` once every guard passes; None when it failed.
 
-    A failed read is logged, never a 500: the scanner then offers to send the
+    ``seconds_left`` is what remains of the deadline for the reader to share
+    among its steps; the read is cut off when the deadline passes. A failed or
+    late read is logged, never a 500: the scanner then offers to send the
     photo itself. The spend is recorded either way, because the provider was
     called.
     """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + settings.scan_read_deadline_seconds
     photo = await scan_photo(request)
     redis = get_redis_client()
     if await quota_service.global_spend_exceeded(redis, settings):
@@ -84,13 +94,17 @@ async def read_scan[T](
         )
     limit = settings.math_scan_read_rate_limit_per_hour
     if limit > 0 and not await allow_request_fail_closed(
-        redis, f"{subject}_scan_rl:{user.id}", limit=limit, window_seconds=3600
+        redis, f"{SCAN_RATE_LIMIT_KEY}:{user.id}", limit=limit, window_seconds=3600
     ):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=SCAN_RATE_LIMIT_MESSAGE
         )
     try:
-        return await read(photo)
+        async with asyncio.timeout_at(deadline):
+            return await read(photo, max(0.0, deadline - loop.time()))
+    except TimeoutError:
+        logger.warning("%s scan read ran past %ss", subject, settings.scan_read_deadline_seconds)
+        return None
     except Exception:
         logger.warning("%s scan read failed", subject, exc_info=True)
         return None

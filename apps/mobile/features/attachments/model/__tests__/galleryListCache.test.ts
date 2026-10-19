@@ -142,3 +142,11 @@ it("refetches a shifted offset when a loaded file is deleted before the next que
   expect(listAttachments.mock.calls[1][1].offset).toBe(0);
   expect(getCachedGalleryPage("all", "")?.items.map((item) => item.id)).toEqual(["b", "c"]);
 });
+
+it("keeps at most twenty searches, dropping the least recently used", () => {
+  invalidateGalleryCache();
+  for (let i = 0; i < 25; i++) setGalleryPage("all", `query ${i}`, sample);
+  expect(getCachedGalleryPage("all", "query 0")).toBeUndefined();
+  expect(getCachedGalleryPage("all", "query 5")).toEqual(sample);
+  expect(getCachedGalleryPage("all", "query 24")).toEqual(sample);
+});

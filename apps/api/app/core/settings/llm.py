@@ -36,7 +36,9 @@ class LlmSettings(BaseModel):
     # codebase lives in Settings, so don't reintroduce an inline magic number
     # here — change this constant instead.
     embedding_input_max_chars: int = 8000
-    # Provider calls in flight per embed_many batch (attachment/chat-history index, memory).
+    # embed_many (attachment/chat-history index, memory): inputs per provider
+    # request, and requests in flight.
+    embedding_batch_size: int = 64
     embedding_concurrency: int = 8
 
     # Abort a provider stream after this many seconds with no new chunk (fly.toml

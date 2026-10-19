@@ -198,6 +198,23 @@ describe("ChatComposer math keyboard", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
+  it("holds Send and shows the + busy while a picked photo is being prepared", async () => {
+    const onSend = jest.fn();
+    const { getByLabelText, getByTestId, rerender } = await render(
+      <ChatComposer {...baseProps} input="what is this?" attachPicking onSend={onSend} />,
+    );
+    const send = getByLabelText("chat.send_a11y");
+    expect(send.props.accessibilityState).toEqual({ disabled: true, busy: false });
+    await fireEvent.press(send);
+    expect(onSend).not.toHaveBeenCalled();
+    expect(getByTestId("composer-attachment-busy")).toBeTruthy();
+    expect(getByTestId("composer-attachment-button").props.accessibilityState).toMatchObject({ busy: true });
+
+    await rerender(<ChatComposer {...baseProps} input="what is this?" onSend={onSend} />);
+    await fireEvent.press(getByLabelText("chat.send_a11y"));
+    expect(onSend).toHaveBeenCalledTimes(1);
+  });
+
   it("shows an immediate locating status without clearing the draft", async () => {
     const { getByTestId } = await render(
       <ChatComposer

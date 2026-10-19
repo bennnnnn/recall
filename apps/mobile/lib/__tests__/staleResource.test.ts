@@ -61,4 +61,15 @@ describe("StaleResourceCache", () => {
     expect(cache.get("key")).toBeUndefined();
     expect(cache.isFresh("key")).toBe(false);
   });
+
+  it("keeps only the most recently used keys when capped", () => {
+    const cache = new StaleResourceCache<string, number>(60_000, 2);
+    cache.set("a", 1);
+    cache.set("b", 2);
+    cache.get("a"); // a is now newer than b
+    cache.set("c", 3);
+    expect(cache.get("a")).toBe(1);
+    expect(cache.get("b")).toBeUndefined();
+    expect(cache.get("c")).toBe(3);
+  });
 });

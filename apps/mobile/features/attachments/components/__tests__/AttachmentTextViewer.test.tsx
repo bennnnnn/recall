@@ -61,4 +61,14 @@ describe("AttachmentTextViewer", () => {
     expect(getByLabelText("preview.share").props.accessibilityState).toMatchObject({ busy: true });
     expect(title.parent).toHaveStyle({ borderBottomWidth: 1, borderBottomColor: mockLightTheme.border });
   });
+
+  it("stops the download when the viewer closes", async () => {
+    jest.mocked(fetchAttachmentBytes).mockReturnValueOnce(new Promise(() => {}));
+    const props = { onClose: jest.fn(), onShare: jest.fn(), attachmentId: "notes", fileName: "notes.txt" };
+    const view = await render(<AttachmentTextViewer visible {...props} />);
+    const signal = jest.mocked(fetchAttachmentBytes).mock.calls.at(-1)![2]!;
+    expect(signal.aborted).toBe(false);
+    await view.rerender(<AttachmentTextViewer visible={false} {...props} />);
+    expect(signal.aborted).toBe(true);
+  });
 });

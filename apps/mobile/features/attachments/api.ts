@@ -1,6 +1,7 @@
 import { request, requestRaw } from "@/lib/api/client";
 import type { AttachmentListResponse } from "@/features/attachments/types";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
+import { AttachmentError } from "@/features/attachments/model/attachmentErrors";
 
 async function deleteAttachment(token: string, attachmentId: string): Promise<void> {
   const generation = getSessionGeneration();
@@ -111,7 +112,7 @@ export async function uploadAttachmentBytes(
   } else {
     const url = new URL(target.upload_url);
     if (url.protocol !== "https:" || url.username || url.password) {
-      throw new Error("Recall returned an invalid upload URL.");
+      throw new AttachmentError("upload_failed");
     }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ATTACHMENT_UPLOAD_TIMEOUT_MS);
@@ -122,5 +123,5 @@ export async function uploadAttachmentBytes(
     }
   }
   if (generation !== getSessionGeneration()) throw new SessionChangedError();
-  if (!response.ok) throw new Error("Upload failed. Please try again.");
+  if (!response.ok) throw new AttachmentError("upload_failed");
 }

@@ -75,6 +75,7 @@ def _memory_write_lock_always_free():
 
 # ── memory service ─────────────────────────────────────────────────────────────
 from app.modules.memory import format_memory_block, select_memories_for_prompt
+from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 
 
 def _mem(type_: str, text: str, confidence: float | None = 0.9):
@@ -480,7 +481,7 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
             AsyncMock(return_value=[memory_id]),
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.gateways.embedding_gateway.embed_text", embed_calls),
+        patch(EMBED_MANY, embed_each(embed_calls)),
         patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
         await extract_and_store_memories(
@@ -546,7 +547,7 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
             AsyncMock(return_value=[memory_id]),
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.gateways.embedding_gateway.embed_text", embed_calls),
+        patch(EMBED_MANY, embed_each(embed_calls)),
         patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
         await extract_and_store_memories(
@@ -614,7 +615,7 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
             AsyncMock(return_value=[memory_id]),
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.gateways.embedding_gateway.embed_text", embed_calls),
+        patch(EMBED_MANY, embed_each(embed_calls)),
         patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
         await extract_and_store_memories(

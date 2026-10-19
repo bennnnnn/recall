@@ -33,7 +33,6 @@ def _turn(**overrides: Any) -> StreamContext:
         "max_output_tokens": 100,
         "user": SimpleNamespace(id=_USER, memory_enabled=True),
         "assistant_message_id": _ASSISTANT,
-        "indexable_attachment_ids": ["a1", "a2"],
     }
     fields.update(overrides)
     return StreamContext(**fields)
@@ -74,8 +73,8 @@ async def test_post_turn_jobs_enqueue_in_declared_order() -> None:
         ("todos", f"todosync:{_CHAT}:{_ASSISTANT}"),
         ("topic", f"topic:{_CHAT}"),
         ("compress", f"compress:{_CHAT}"),
-        ("attachment_index", f"attachment_index:a1:{_CHAT}"),
-        ("attachment_index", f"attachment_index:a2:{_CHAT}"),
+        # A turn's documents are not here: persist_user_turn queues them when the
+        # user's message commits (test_turn_prep_persist.py).
         ("message_index", f"message_index:{_ASSISTANT}"),
     ]
 

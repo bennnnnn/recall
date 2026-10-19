@@ -12,6 +12,16 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
 
+// Mirror the rendered preview sizes instead of under-reserving the thread.
+const IMAGE_PREVIEW_EXTRA = 120;
+const FILE_PREVIEW_EXTRA = 56;
+
+/** How much taller the composer is while this preview shows. */
+export function composerAttachmentExtra(attachment: PendingAttachment | null): number {
+  if (!attachment) return 0;
+  return attachment.kind === "image" ? IMAGE_PREVIEW_EXTRA : FILE_PREVIEW_EXTRA;
+}
+
 type Props = {
   attachment: PendingAttachment;
   uploading?: boolean;

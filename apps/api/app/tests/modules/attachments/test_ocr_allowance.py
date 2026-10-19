@@ -62,7 +62,7 @@ async def test_reserve_ocr_takes_an_image_slot_for_a_pdf(
         assert await counters.reserve("image_upload", fake_redis, user, settings)
 
     with _owner(fake_redis, user):
-        day = await ocr_allowance.reserve_ocr(settings, user.id, content_type)
+        day = await ocr_allowance.reserve_ocr(settings, user.id, content_type, uuid4())
 
     assert (day is not None) is reserved
     assert await _slots_used(fake_redis, user) == used + int(reserved)
@@ -70,7 +70,7 @@ async def test_reserve_ocr_takes_an_image_slot_for_a_pdf(
 
 async def test_reserve_ocr_skips_a_deleted_owner(fake_redis) -> None:
     with _owner(fake_redis, None):
-        assert await ocr_allowance.reserve_ocr(Settings(), uuid4(), _PDF) is None
+        assert await ocr_allowance.reserve_ocr(Settings(), uuid4(), _PDF, uuid4()) is None
 
 
 @pytest.mark.parametrize(
@@ -85,9 +85,10 @@ async def test_release_unused_ocr_refunds_only_a_text_layer_pdf(
     fake_redis, details: ExtractedText | None, refunded: bool
 ) -> None:
     user = _user()
+    attachment_id = uuid4()
     with _owner(fake_redis, user):
-        day = await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF)
-        await ocr_allowance.release_unused_ocr(user.id, day, details)
+        day = await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, attachment_id)
+        await ocr_allowance.release_unused_ocr(user.id, attachment_id, day, details)
 
     assert await _slots_used(fake_redis, user) == int(not refunded)
 
@@ -124,6 +125,7 @@ async def test_index_attachment_ocrs_a_pdf_only_with_a_slot(slot: bool, allow_oc
             AsyncMock(return_value=date(2026, 10, 16) if slot else None),
         ),
         patch.object(ocr_allowance, "release_unused_ocr", release),
+        patch.object(ocr_allowance, "recall_ocr_text", AsyncMock(return_value=None)),
     ):
         count = await index_attachment(
             Settings(attachment_rag_enabled=True),
@@ -135,3 +137,136 @@ async def test_index_attachment_ocrs_a_pdf_only_with_a_slot(slot: bool, allow_oc
     assert extract.await_args is not None
     assert extract.await_args.kwargs["allow_ocr"] is allow_ocr
     release.assert_awaited_once()
+
+
+async def test_reserve_ocr_charges_one_slot_per_file_across_retries(fake_redis) -> None:
+    user = _user()
+    attachment_id = uuid4()
+    with _owner(fake_redis, user):
+        first = await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, attachment_id)
+        retry = await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, attachment_id)
+        other = await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, uuid4())
+
+    assert first is not None and retry == first and other is not None
+    assert await _slots_used(fake_redis, user) == 2
+
+
+async def test_refund_ocr_gives_the_slot_back_once(fake_redis) -> None:
+    user = _user()
+    attachment_id = uuid4()
+    with _owner(fake_redis, user):
+        day = await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, attachment_id)
+        await ocr_allowance.refund_ocr(user.id, attachment_id, day)
+        await ocr_allowance.refund_ocr(user.id, attachment_id, day)
+        assert await _slots_used(fake_redis, user) == 0
+        # The next run of the same file pays again: its slot was returned.
+        assert await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, attachment_id)
+
+    assert await _slots_used(fake_redis, user) == 1
+
+
+@pytest.mark.parametrize(
+    "details, kept",
+    [
+        (ExtractedText(text="scanned pages", page_capped=True, via_ocr=True), True),
+        (ExtractedText(text="typed pages"), False),  # a text layer is cheap to read again
+        (ExtractedText(text="", via_ocr=True), False),
+    ],
+)
+async def test_ocr_text_is_kept_for_a_retry(fake_redis, details: ExtractedText, kept: bool) -> None:
+    attachment_id = uuid4()
+    with patch.object(ocr_allowance, "get_redis_client", return_value=fake_redis):
+        await ocr_allowance.remember_ocr_text(attachment_id, details)
+        recalled = await ocr_allowance.recall_ocr_text(attachment_id)
+
+    assert (recalled == details) is kept
+    assert (recalled is not None) is kept
+
+
+async def test_unreadable_kept_ocr_text_is_ignored(fake_redis) -> None:
+    attachment_id = uuid4()
+    await fake_redis.set(ocr_allowance._text_key(attachment_id), "not base64 zlib")
+    with patch.object(ocr_allowance, "get_redis_client", return_value=fake_redis):
+        assert await ocr_allowance.recall_ocr_text(attachment_id) is None
+
+
+def _index_patches(row: MagicMock, extract: AsyncMock, recalled: ExtractedText | None):
+    return (
+        patch("app.modules.attachments.rag.SessionLocal", _session),
+        patch(
+            "app.modules.attachments.rag.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.modules.attachments.rag.attachment_content_service.read_attachment_bytes",
+            AsyncMock(return_value=b"%PDF"),
+        ),
+        patch(
+            "app.modules.attachments.rag.attachment_content_service.extract_text_details_async",
+            extract,
+        ),
+        patch.object(ocr_allowance, "recall_ocr_text", AsyncMock(return_value=recalled)),
+    )
+
+
+def _pdf_row() -> MagicMock:
+    row = MagicMock()
+    row.id = uuid4()
+    row.user_id = uuid4()
+    row.storage_key = "user/scan"
+    row.content_type = _PDF
+    return row
+
+
+async def test_index_attachment_refunds_the_slot_when_the_parse_times_out() -> None:
+    from datetime import date
+
+    from app.modules.attachments.content import ExtractTimeoutError
+    from app.modules.attachments.rag import AttachmentIndexError
+
+    row = _pdf_row()
+    day = date(2026, 10, 16)
+    refund = AsyncMock()
+    extract = AsyncMock(side_effect=ExtractTimeoutError(_PDF))
+    first, second, third, fourth, fifth = _index_patches(row, extract, None)
+    with (
+        first,
+        second,
+        third,
+        fourth,
+        fifth,
+        patch.object(ocr_allowance, "reserve_ocr", AsyncMock(return_value=day)),
+        patch.object(ocr_allowance, "refund_ocr", refund),
+        pytest.raises(AttachmentIndexError),
+    ):
+        await index_attachment(
+            Settings(attachment_rag_enabled=True), user_id=row.user_id, attachment_id=row.id
+        )
+
+    assert extract.await_args is not None
+    assert extract.await_args.kwargs["raise_on_timeout"] is True
+    refund.assert_awaited_once_with(row.user_id, row.id, day)
+
+
+async def test_index_attachment_reuses_kept_ocr_text_without_reading_again() -> None:
+    row = _pdf_row()
+    extract = AsyncMock()
+    reserve = AsyncMock()
+    first, second, third, fourth, fifth = _index_patches(
+        row, extract, ExtractedText(text="", via_ocr=True)
+    )
+    with (
+        first,
+        second,
+        third,
+        fourth,
+        fifth,
+        patch.object(ocr_allowance, "reserve_ocr", reserve),
+    ):
+        count = await index_attachment(
+            Settings(attachment_rag_enabled=True), user_id=row.user_id, attachment_id=row.id
+        )
+
+    assert count == 0
+    extract.assert_not_awaited()
+    reserve.assert_not_awaited()

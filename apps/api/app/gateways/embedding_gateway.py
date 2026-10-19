@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+from typing import Any
 from uuid import UUID
 
 from litellm import aembedding
@@ -28,16 +29,28 @@ def _embed_cache_key(user_id: UUID, query: str) -> str:
     return f"{_EMBED_CACHE_PREFIX}:{user_id}:{digest}"
 
 
-async def embed_text(settings: Settings, text: str) -> list[float] | None:
+def _mock_vector() -> list[float]:
+    # Deterministic tiny vector padded to the pgvector column dimension so
+    # dev/mock mode exercises the full RAG pipeline (has_chunks_for_chat /
+    # search_semantic require embedding IS NOT NULL). Zero-fill keeps the
+    # signal in the first 8 dims; the rest are zero so cosine similarity is
+    # driven by the meaningful dims only.
+    # Keep in sync with attachment chunk vectors (pgvector 1536).
+    seed = [0.1] * 8
+    return seed + [0.0] * (1536 - len(seed))
+
+
+def _input_index(item: Any) -> int:
+    try:
+        return int(item["index"])
+    except (KeyError, TypeError, ValueError):
+        return 0  # a stable sort keeps the provider's order
+
+
+async def _embed_request(settings: Settings, texts: list[str]) -> list[list[float]] | None:
+    """One provider request for ``texts``; vectors in input order, or None when it failed."""
     if mock_llm.should_mock_llm(settings):
-        # Deterministic tiny vector padded to the pgvector column dimension so
-        # dev/mock mode exercises the full RAG pipeline (has_chunks_for_chat /
-        # search_semantic require embedding IS NOT NULL). Zero-fill keeps the
-        # signal in the first 8 dims; the rest are zero so cosine similarity is
-        # driven by the meaningful dims only.
-        # Keep in sync with attachment chunk vectors (pgvector 1536).
-        seed = [0.1] * 8
-        return seed + [0.0] * (1536 - len(seed))
+        return [_mock_vector() for _ in texts]
 
     route = get_model("embedding-model")
     api_key = getattr(settings, route.api_key_field, "")
@@ -48,17 +61,28 @@ async def embed_text(settings: Settings, text: str) -> list[float] | None:
     if route.api_base:
         kwargs["api_base"] = route.api_base
 
+    cap = settings.embedding_input_max_chars
     try:
         async with asyncio.timeout(settings.background_llm_timeout_seconds):
             response = await aembedding(
-                model=route.model, input=[text[: settings.embedding_input_max_chars]], **kwargs
+                model=route.model, input=[text[:cap] for text in texts], **kwargs
             )
         llm_spend.meter_model_call(route.id, response)
-        data = response.data[0]["embedding"]
-        return list(data)
+        # Providers may answer out of order; each item carries its input index.
+        rows = sorted(response.data, key=_input_index)
+        vectors = [list(item["embedding"]) for item in rows]
     except Exception:
         logger.exception("Embedding failed")
         return None
+    if len(vectors) != len(texts):
+        logger.error("Embedding returned %d vectors for %d inputs", len(vectors), len(texts))
+        return None
+    return vectors
+
+
+async def embed_text(settings: Settings, text: str) -> list[float] | None:
+    vectors = await _embed_request(settings, [text])
+    return vectors[0] if vectors else None
 
 
 async def embed_many(
@@ -67,19 +91,28 @@ async def embed_many(
     *,
     concurrency: int,
 ) -> list[list[float] | None]:
-    """Embed ``texts`` with at most ``concurrency`` provider calls in flight.
+    """Embed ``texts`` in requests of ``embedding_batch_size`` inputs, at most
+    ``concurrency`` requests in flight.
 
-    Results are in input order. A text whose embed failed is None in its slot
-    (``embed_text`` already logged it); the caller decides whether to drop it.
-    An error ``embed_text`` does not catch propagates and fails the batch.
+    Results are in input order. A batch whose request failed is embedded one
+    text at a time (``embed_text``), so one bad input cannot void its whole
+    batch; a text that still fails is None in its slot and the caller decides
+    whether to drop it. An error ``embed_text`` does not catch propagates and
+    fails the call.
     """
     semaphore = asyncio.Semaphore(max(1, concurrency))
+    size = max(1, settings.embedding_batch_size)
+    batches = [texts[start : start + size] for start in range(0, len(texts), size)]
 
-    async def _one(text: str) -> list[float] | None:
+    async def _batch(batch: list[str]) -> list[list[float] | None]:
         async with semaphore:
-            return await embed_text(settings, text)
+            vectors = await _embed_request(settings, batch)
+            if vectors is not None:
+                return list(vectors)
+            return [await embed_text(settings, text) for text in batch]
 
-    return list(await asyncio.gather(*(_one(text) for text in texts)))
+    results = await asyncio.gather(*(_batch(batch) for batch in batches))
+    return [vector for batch in results for vector in batch]
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:

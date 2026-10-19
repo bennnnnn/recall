@@ -39,9 +39,12 @@ async def read_math_scan(
     if not settings.math_tools_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
 
-    async def read(photo: ScanPhoto) -> MathOcrResult:
+    async def read(photo: ScanPhoto, seconds_left: float) -> MathOcrResult:
         return await extract_math_from_image(
-            settings, content_type=photo.content_type, data=photo.data
+            settings,
+            content_type=photo.content_type,
+            data=photo.data,
+            timeout_seconds=seconds_left,
         )
 
     result = await read_scan(request, user=user, settings=settings, subject="math", read=read)

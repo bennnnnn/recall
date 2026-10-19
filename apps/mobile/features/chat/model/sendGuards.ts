@@ -15,6 +15,8 @@ export function canSend(input: {
   hasAttachment: boolean;
   token: string | null;
   creating: boolean;
+  /** A picked file is still being prepared; sending now would leave it behind. */
+  attachPicking: boolean;
 }): SendGuardVerdict {
   // A send still preparing, or a routed chat whose history has not loaded.
   if (

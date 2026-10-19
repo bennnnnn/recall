@@ -13,21 +13,16 @@ import { Icon } from "@/ui/icons/Icon";
 
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
+import { usePdfPreview } from "@/features/attachments/hooks/usePdfPreview";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { downloadChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
-import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachmentBytes";
-import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
 import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
-import {
-  getPreviewWebView,
-  STATIC_HTML_ORIGIN_WHITELIST,
-  useStaticOnlyNavigation,
-} from "@/lib/webView";
+import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 import { alertDialog } from "@/ui/overlay/dialogs";
 
 type Props = {
@@ -51,9 +46,6 @@ export function ChatMessagePdf({
   const token = useAuthToken();
   const { indexed, failed: indexFailed } = useAttachmentIndexed(attachmentId);
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [previewBase64, setPreviewBase64] = useState<string | null>(null);
-  const [loadingPreview, setLoadingPreview] = useState(false);
-  const [previewFailed, setPreviewFailed] = useState(false);
 
   const remoteUri = useMemo(
     () => resolveAttachmentUri({ attachmentId, localUri, path }),
@@ -62,43 +54,26 @@ export function ChatMessagePdf({
 
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
+  // The card's page-1 preview needs react-native-webview; Expo Go shows the card alone.
   const canRenderInline = previewWebView?.mode === "rnc";
   const { canMount, onLoaded } = useDeferredWebViewMount(
     Boolean(remoteUri && canRenderInline && !compact),
   );
-
-  useEffect(() => {
-    setPreviewBase64(null);
-    setPreviewFailed(false);
-  }, [remoteUri]);
-
-  useEffect(() => {
-    if (!remoteUri || !canRenderInline || compact || !canMount) return;
-    let cancelled = false;
-    setLoadingPreview(true);
-    void (async () => {
-      try {
-        const b64 = await fetchAttachmentBase64(remoteUri, token);
-        if (!cancelled) setPreviewBase64(b64);
-      } catch {
-        if (!cancelled) {
-          setPreviewFailed(true);
-          onLoaded();
-        }
-      } finally {
-        if (!cancelled) setLoadingPreview(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [remoteUri, canRenderInline, compact, token, canMount, onLoaded]);
-
-  const previewHtml = useMemo(
-    () => (previewBase64 ? buildPdfPreviewHtml(previewBase64, theme) : null),
-    [previewBase64, theme],
+  const preview = usePdfPreview({
+    uri: remoteUri,
+    fileName,
+    enabled: Boolean(remoteUri && canRenderInline && !compact && canMount),
+    allPages: false,
+  });
+  const previewFailed = preview.status === "failed";
+  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(
+    preview.status === "ready" ? preview.webViewKey : null,
   );
-  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(previewHtml);
+
+  useEffect(() => {
+    // Let the next deferred WebView mount instead of waiting on this card.
+    if (previewFailed) onLoaded();
+  }, [previewFailed, onLoaded]);
 
   const handleShare = useCallback(async () => {
     if (!remoteUri) return;
@@ -136,11 +111,11 @@ export function ChatMessagePdf({
         <Icon name="chevron-right" size={IconSize.sm} color={theme.textTertiary} />
       </Pressable>
 
-      {!compact && canRenderInline && WebView && canMount && previewHtml ? (
+      {!compact && canRenderInline && WebView && canMount && preview.status === "ready" ? (
         <Pressable style={s.previewWrap} onPress={() => setViewerOpen(true)}>
           <WebView
-            originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
-            source={{ html: previewHtml }}
+            key={preview.webViewKey}
+            {...preview.webViewProps}
             scrollEnabled={false}
             style={s.previewWeb}
             javaScriptEnabled
@@ -148,7 +123,7 @@ export function ChatMessagePdf({
             onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           />
         </Pressable>
-      ) : !compact && canRenderInline && (!canMount || loadingPreview) ? (
+      ) : !compact && canRenderInline && !previewFailed ? (
         <View style={s.previewWrap}>
           <ActivityIndicator color={theme.primary} />
         </View>

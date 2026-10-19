@@ -9,6 +9,7 @@ from app.gateways.storage_gateway import get_storage_gateway
 from app.modules.attachments import content as attachment_content
 from app.modules.attachments import markers as attachment_markers
 from app.modules.attachments import service as attachments_service
+from app.modules.attachments import vision_input
 
 
 async def inject_regenerated_image_content(
@@ -38,8 +39,12 @@ async def inject_regenerated_image_content(
     ]
     injected = False
     if images:
-        injected = await attachment_content.inject_vision_content(
-            prompt_messages, get_storage_gateway(settings), images, caption=caption
+        injected = await vision_input.inject_vision_content(
+            prompt_messages,
+            get_storage_gateway(settings),
+            images,
+            settings=settings,
+            caption=caption,
         )
     loaded: dict[str, Any] = next(
         (msg for msg in reversed(prompt_messages) if msg.get("role") == "user"), {}

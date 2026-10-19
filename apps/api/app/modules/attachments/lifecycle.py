@@ -15,6 +15,7 @@ from app.gateways.storage_gateway import get_storage_gateway
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content_types import is_image_content_type
 from app.modules.attachments.quota import has_current_upload_reservation
+from app.modules.attachments.thumbnails import delete_thumbnails
 from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,8 @@ async def delete_storage_keys(settings: Settings, storage_keys: list[str]) -> li
         *(gateway.delete_bytes(key) for key in storage_keys),
         return_exceptions=True,
     )
+    # An object's stored thumbnails go with it (best-effort, logged on failure).
+    await asyncio.gather(*(delete_thumbnails(gateway, key) for key in storage_keys))
     failed: list[str] = []
     for key, result in zip(storage_keys, results, strict=False):
         if isinstance(result, Exception):

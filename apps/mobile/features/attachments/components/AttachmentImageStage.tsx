@@ -263,21 +263,21 @@ export function AttachmentImageStage({ item, active, onPress, onZoomChange, acce
     }
     if (!remoteUri) return;
 
-    let cancelled = false;
+    // Leaving this photo stops its download unless Share or another view still waits.
+    const controller = new AbortController();
     void ensureLocalAttachmentFile({
       uri: remoteUri,
       token,
       fileName,
+      signal: controller.signal,
     })
       .then((uri) => {
-        if (!cancelled) setCachedFile({ key: fileKey, uri });
+        if (!controller.signal.aborted) setCachedFile({ key: fileKey, uri });
       })
       .catch(() => {
         // Keep showing previewUri / remote; download/share will surface errors.
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [active, remoteUri, item.localUri, item.previewUri, token, fileName, attempt, fileKey]);
 
   useEffect(() => {

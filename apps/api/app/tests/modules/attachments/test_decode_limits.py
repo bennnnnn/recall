@@ -22,7 +22,8 @@ from pypdf import PdfWriter
 
 from app.core.config import Settings
 from app.modules.attachments import ocr
-from app.modules.attachments.content import ImageTooLargeError, resize_image_bytes
+from app.modules.attachments.image_decode import ImageTooLargeError
+from app.modules.attachments.thumbnails import resize_image_bytes
 
 
 def _pdf_with_page(width_pt: int, height_pt: int) -> bytes:
@@ -109,11 +110,13 @@ def test_thumbnail_refuses_images_that_decode_past_the_budget(
 
 
 async def test_thumbnail_decode_runs_off_the_event_loop() -> None:
-    from app.modules.attachments import workflow
+    from app.modules.attachments import thumbnails, workflow
 
     row = MagicMock(content_type="image/png", storage_key="u/k")
     gateway = MagicMock()
-    gateway.read_bytes = AsyncMock(return_value=_image("PNG", 64))
+    original = _image("PNG", 64)
+    gateway.read_bytes = AsyncMock(side_effect=lambda key: original if key == "u/k" else None)
+    gateway.write_bytes = AsyncMock()
     calls: list[str] = []
     real_to_thread = asyncio.to_thread
 
@@ -123,7 +126,7 @@ async def test_thumbnail_decode_runs_off_the_event_loop() -> None:
 
     with (
         patch.object(workflow, "_verified_row", AsyncMock(return_value=(row, gateway))),
-        patch.object(workflow.asyncio, "to_thread", spy_to_thread),
+        patch.object(thumbnails.asyncio, "to_thread", spy_to_thread),
     ):
         access = await workflow.get_file_access(
             MagicMock(), Settings(), MagicMock(), uuid4(), width=128

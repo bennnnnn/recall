@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  type LayoutChangeEvent,
   Linking,
   Platform,
   Pressable,
@@ -10,8 +11,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { useCameraPermissions } from "expo-camera";
-import * as ImageManipulator from "expo-image-manipulator";
+import { useCameraPermissions } from "expo-image-picker";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -26,17 +26,14 @@ import {
   type LiveScannerCameraHandle,
   type LiveScannerDetection,
 } from "@/components/mathScanner/LiveMathScannerCamera";
-import {
-  ScanReadingReview,
-  type ScanReadingState,
-} from "@/components/mathScanner/ScanReadingReview";
+import { ScanReadingReview } from "@/components/mathScanner/ScanReadingReview";
 import { ScannerSubjectGuide } from "@/components/mathScanner/ScannerSubjectGuide";
+import { useScanReview } from "@/components/mathScanner/useScanReview";
 import { useMathScannerCrop } from "@/hooks/useMathScannerCrop";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { ScanReading } from "@/lib/api";
-import { type ReadBackSubject, readsBack } from "@/lib/scanner/readBack";
+import type { ReadBackSubject } from "@/lib/scanner/readBack";
 import {
-  HeicUnsupportedError,
   NativePickerBusyError,
   NativePickerTimeoutError,
   pickImageDocument,
@@ -53,6 +50,7 @@ import {
   scanChromeInset,
   type ScanRegion,
 } from "@/lib/math/scannerRegion";
+import { cropScanImage, measureScanImage, ScanFiles } from "@/lib/scanner/scanImage";
 import {
   playScannerSwitchCue,
   stopScannerSwitchCue,
@@ -68,7 +66,7 @@ import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 type Props = {
   visible: boolean;
   onClose: () => void;
-  /** Send the photo; ``confirmedReading`` when the student checked the read. */
+  /** Send the photo; ``confirmedReading`` when the student checked the read. The composer then owns the file. */
   onCaptured: (
     pending: PendingAttachment,
     subject: ScannerSubject,
@@ -84,8 +82,6 @@ type Props = {
   onSolveReading?: (reading: string, subject: ScannerSubject) => void;
 };
 
-type Review = { shot: PendingAttachment; state: ScanReadingState };
-
 type ScanShot = PendingAttachment & { width: number; height: number };
 
 const ANDROID_DISMISS_MS = 400;
@@ -96,6 +92,9 @@ const ANDROID_DISMISS_MS = 400;
  * still get an adjustable still-image crop. A math, physics or chemistry crop
  * is then read back ("I read this as") so a misread digit can be fixed before
  * solving.
+ *
+ * A shot checks after every await that the scanner is still in the session it
+ * started in: one that lands after close is dropped and its files deleted.
  */
 export function MathEquationScanner({
   visible,
@@ -107,7 +106,16 @@ export function MathEquationScanner({
   const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const windowSize = useWindowDimensions();
+  // The camera fills this view; the overlay and the crop map against its measured size.
+  const [view, setView] = useState({ width: windowSize.width, height: windowSize.height });
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    if (!(width > 0 && height > 0)) return;
+    setView((current) =>
+      current.width === width && current.height === height ? current : { width, height },
+    );
+  }, []);
   const s = useMemo(() => makeStyles(theme), [theme]);
   const reduceMotion = useReduceMotion();
   const [permission, requestPermission] = useCameraPermissions();
@@ -119,31 +127,41 @@ export function MathEquationScanner({
   const [preview, setPreview] = useState<ScanShot | null>(null);
   const [torchOn, setTorchOn] = useState(false);
   const [subject, setSubject] = useState<ScannerSubject>("math");
-  const [review, setReview] = useState<Review | null>(null);
-  const readAbortRef = useRef<AbortController | null>(null);
-  const stopReading = useCallback(() => {
-    readAbortRef.current?.abort();
-    readAbortRef.current = null;
-  }, []);
+  const [files] = useState(() => new ScanFiles());
+  const { review, deliverShot, clearReview, solve, sendPhoto } = useScanReview({
+    visible,
+    files,
+    onCaptured,
+    onReadScan,
+    onSolveReading,
+  });
+  // Bumped on every open and close; work started in an older session is stale.
+  const sessionRef = useRef(0);
   const [zoom, setZoom] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
   const [liveRegion, setLiveRegion] = useState<ScanRegion | null>(null);
   const [liveStatus, setLiveStatus] = useState<LiveScanFrameStatus>("idle");
   const liveReadyRef = useRef(false);
-  const capturePendingRef = useRef(false);
+  // One shot at a time: a capture or a preview Solve, never two.
+  const shotPendingRef = useRef(false);
   const handleCameraReady = useCallback(() => setCameraReady(true), []);
+  const handleCameraError = useCallback(() => setError(t("chat.math_scan_camera_unavailable")), [t]);
+  const handleCameraMissing = useCallback(() => setError(t("chat.math_scan_camera_needs_build")), [t]);
   const inset = useMemo(
-    () => scanChromeInset(windowWidth, windowHeight, insets),
-    [windowWidth, windowHeight, insets.top, insets.bottom],
+    () => scanChromeInset(view.width, view.height, insets),
+    [view.width, view.height, insets.top, insets.bottom],
   );
-  const handleRegionChange = useCallback((region: ScanRegion) => {
-    setLiveRegion((current) => (current && regionsClose(current, region) ? current : region));
+  const resetLive = useCallback(() => {
     setLiveStatus("idle");
     liveReadyRef.current = false;
   }, []);
+  const handleRegionChange = useCallback((region: ScanRegion) => {
+    setLiveRegion((current) => (current && regionsClose(current, region) ? current : region));
+    resetLive();
+  }, [resetLive]);
   const crop = useMathScannerCrop({
-    windowWidth,
-    windowHeight,
+    windowWidth: view.width,
+    windowHeight: view.height,
     inset,
     preview: Boolean(preview),
     reduceMotion,
@@ -165,9 +183,9 @@ export function MathEquationScanner({
 
   const previewFrame = useMemo(
     () => preview
-      ? containedPhotoRegion(preview.width, preview.height, windowWidth, windowHeight, inset)
+      ? containedPhotoRegion(preview.width, preview.height, view.width, view.height, inset)
       : null,
-    [inset, preview, windowHeight, windowWidth],
+    [inset, preview, view.height, view.width],
   );
   const resetCropRegion = crop.resetRegion;
   useEffect(() => {
@@ -175,19 +193,20 @@ export function MathEquationScanner({
   }, [previewFrame, resetCropRegion]);
 
   useEffect(() => {
+    sessionRef.current += 1;
     if (visible) {
       setHosted(true);
       setPreview(null);
-      setReview(null);
+      clearReview();
       setError(null);
       setTorchOn(false);
       setCameraReady(false);
-      setLiveStatus("idle");
-      liveReadyRef.current = false;
+      resetLive();
       crop.resetRegion();
       crop.resetZoom();
       return;
     }
+    files.discardAll();
     stopScannerSwitchCue();
     if (Platform.OS === "ios") return;
     const timer = setTimeout(() => setHosted(false), ANDROID_DISMISS_MS);
@@ -196,169 +215,128 @@ export function MathEquationScanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open-only reset
   }, [visible]);
 
-  useEffect(() => stopScannerSwitchCue, []);
-  useEffect(() => {
-    if (!visible) stopReading();
-  }, [stopReading, visible]);
-  useEffect(() => stopReading, [stopReading]);
+  useEffect(() => () => {
+    stopScannerSwitchCue();
+    files.discardAll();
+  }, [files]);
 
+  /** Show a shot for a manual crop, sized in the space the crop is cut in. */
   const showShot = useCallback(
-    async (pending: PendingAttachment, width = 0, height = 0) => {
+    async (pending: PendingAttachment, isCurrent: () => boolean) => {
       try {
-        const size =
-          width > 0 && height > 0 ? { width, height } : await measureImageSize(pending.localUri);
-        setPreview({ ...pending, ...size });
+        const size = await measureScanImage(pending.localUri);
+        if (isCurrent()) setPreview({ ...pending, ...size });
+        else files.discard(pending.localUri);
       } catch {
-        setError(t("chat.math_scan_failed"));
+        files.discard(pending.localUri);
+        if (isCurrent()) setError(t("chat.math_scan_failed"));
       }
     },
-    [t],
+    [files, t],
   );
 
-  const handleCroppedShot = useCallback(
-    (cropped: PendingAttachment) => {
-      if (readsBack(subject) && onReadScan && onSolveReading) {
-        stopReading();
-        const controller = new AbortController();
-        readAbortRef.current = controller;
-        setLiveStatus("idle");
-        liveReadyRef.current = false;
-        setReview({ shot: cropped, state: { status: "reading" } });
-        void onReadScan(cropped, subject, controller.signal)
-          .catch(() => null)
-          .then((result) => {
-            if (controller.signal.aborted) return;
-            readAbortRef.current = null;
-            setReview((current) => {
-              if (!current || current.shot !== cropped) return current;
-              if (result && "reading" in result && result.reading.trim()) {
-                return {
-                  shot: cropped,
-                  state: {
-                    status: "ready",
-                    reading: result.reading.trim(),
-                    uncertain: result.uncertain,
-                  },
-                };
-              }
-              const message = result && "error" in result ? result.error : "";
-              return {
-                shot: cropped,
-                state: { status: "failed", ...(message ? { message } : {}) },
-              };
-            });
-          });
+  /** One shot's work, told whether the scanner is still the session it started in. */
+  const runShot = useCallback(async (work: (isCurrent: () => boolean) => Promise<void>) => {
+    if (shotPendingRef.current) return;
+    shotPendingRef.current = true;
+    const session = sessionRef.current;
+    const isCurrent = () => session === sessionRef.current;
+    try {
+      await work(isCurrent);
+    } catch {
+      if (isCurrent()) setError(t("chat.math_scan_failed"));
+    } finally {
+      shotPendingRef.current = false;
+      setBusy(false);
+      setCapturing(false);
+    }
+  }, [t]);
+
+  /** Hand a fresh crop on, unless the scanner closed while it was cut. */
+  const deliverCrop = useCallback(
+    (cropped: PendingAttachment, shotSubject: ScannerSubject, isCurrent: () => boolean) => {
+      files.track(cropped.localUri);
+      if (!isCurrent()) {
+        files.discard(cropped.localUri);
         return;
       }
-      onCaptured(cropped, subject);
+      if (deliverShot(cropped, shotSubject)) resetLive();
     },
-    [onCaptured, onReadScan, onSolveReading, stopReading, subject],
+    [deliverShot, files, resetLive],
   );
 
-  const capture = useCallback(async () => {
+  const capture = useCallback(() => {
     // Not ready yet is startup, not a failure. onError already reports a real load failure.
-    if (busy || preview || capturePendingRef.current || !cameraReady || !cameraRef.current) return;
-    capturePendingRef.current = true;
-    try {
-      if (!cameraRef.current || busy || preview || !cameraReady) return;
+    if (busy || preview || !cameraReady || !cameraRef.current) return;
+    const shotSubject = subject;
+    const region = crop.readRegion();
+    const { width: viewWidth, height: viewHeight } = view;
+    void runShot(async (isCurrent) => {
+      const camera = cameraRef.current;
+      if (!camera) return;
       impactMedium();
       setBusy(true);
       setCapturing(true);
       setError(null);
-      const photo = await cameraRef.current.takePictureAsync();
+      const photo = await camera.takePictureAsync();
       if (!photo?.uri) {
-        setError(t("chat.math_scan_failed"));
+        if (isCurrent()) setError(t("chat.math_scan_failed"));
+        return;
+      }
+      files.track(photo.uri);
+      if (!isCurrent()) {
+        files.discard(photo.uri);
         return;
       }
       const pending: PendingAttachment = {
         localUri: photo.uri,
         contentType: "image/jpeg",
-        fileName: `${subject}-scan-${Date.now()}.jpg`,
+        fileName: `${shotSubject}-scan-${Date.now()}.jpg`,
         kind: "image",
       };
-      const measured =
-        photo.width && photo.height
-          ? { width: photo.width, height: photo.height }
-          : await measureImageSize(photo.uri).catch(() => ({ width: 0, height: 0 }));
-      const width = measured.width;
-      const height = measured.height;
-      if (width <= 0 || height <= 0) {
-        await showShot(pending);
-        return;
-      }
-
-      const shot: ScanShot = { ...pending, width, height };
+      let cropped: { uri: string };
       try {
-        const cropped = await cropShotToRegion(
-          shot,
-          crop.readRegion(),
-          windowWidth,
-          windowHeight,
-          null,
+        cropped = await cropScanImage(photo.uri, (size) =>
+          regionToImageCrop(region, size.width, size.height, viewWidth, viewHeight),
         );
-        handleCroppedShot(cropped);
       } catch {
         // Keep a recoverable path if a device reports unexpected camera geometry.
-        await showShot(pending, width, height);
+        await showShot(pending, isCurrent);
+        return;
       }
-    } catch {
-      setError(t("chat.math_scan_failed"));
-    } finally {
-      setBusy(false);
-      setCapturing(false);
-      capturePendingRef.current = false;
-    }
-  }, [
-    busy,
-    cameraReady,
-    crop,
-    handleCroppedShot,
-    preview,
-    showShot,
-    subject,
-    t,
-    windowHeight,
-    windowWidth,
-  ]);
+      // The full-resolution capture is not needed once it is cropped.
+      files.discard(photo.uri);
+      deliverCrop({ ...pending, localUri: cropped.uri }, shotSubject, isCurrent);
+    });
+  }, [busy, cameraReady, crop, deliverCrop, files, preview, runShot, showShot, subject, t, view]);
 
-  const confirmPreview = useCallback(async () => {
-    if (!preview || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const cropped = await cropShotToRegion(
-        preview,
-        crop.readRegion(),
-        windowWidth,
-        windowHeight,
-        previewFrame,
+  const confirmPreview = useCallback(() => {
+    if (!preview || busy || !previewFrame) return;
+    const shotSubject = subject;
+    const region = crop.readRegion();
+    void runShot(async (isCurrent) => {
+      setBusy(true);
+      setError(null);
+      const cropped = await cropScanImage(preview.localUri, (size) =>
+        regionToContainedImageCrop(region, previewFrame, size.width, size.height),
       );
-      handleCroppedShot(cropped);
-    } catch {
-      setError(t("chat.math_scan_failed"));
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    busy,
-    crop,
-    handleCroppedShot,
-    preview,
-    previewFrame,
-    t,
-    windowWidth,
-    windowHeight,
-  ]);
+      deliverCrop(
+        { localUri: cropped.uri, contentType: "image/jpeg", fileName: preview.fileName, kind: "image" },
+        shotSubject,
+        isCurrent,
+      );
+    });
+  }, [busy, crop, deliverCrop, preview, previewFrame, runShot, subject]);
 
-  const retakeFromReview = useCallback(() => {
-    stopReading();
-    setReview(null);
-    setLiveStatus("idle");
-    liveReadyRef.current = false;
+  /** Back to the live camera; every file from the last shot is deleted. */
+  const retake = useCallback(() => {
+    clearReview();
+    files.discardAll();
+    resetLive();
     crop.resetRegion();
     setPreview(null);
     setError(null);
-  }, [crop, stopReading]);
+  }, [clearReview, crop, files, resetLive]);
 
   const changeSubject = useCallback((next: ScannerSubject) => {
     if (next === subject) return;
@@ -366,27 +344,27 @@ export function MathEquationScanner({
     const previousIndex = SCANNER_SUBJECTS.indexOf(subject);
     selection();
     void playScannerSwitchCue(currentIndex > previousIndex ? 1 : -1);
-    setLiveStatus("idle");
-    liveReadyRef.current = false;
+    resetLive();
     setSubject(next);
-  }, [subject]);
+  }, [resetLive, subject]);
 
   const openLibrary = useCallback(async () => {
     if (busy) return;
+    const session = sessionRef.current;
+    const isCurrent = () => session === sessionRef.current;
     setBusy(true);
     setError(null);
     try {
       await scheduleIdlePromise();
       const picked = await pickImageDocument();
-      if (picked) {
-        setLiveStatus("idle");
-        liveReadyRef.current = false;
-        await showShot(picked);
-      }
+      if (!picked) return;
+      // The picker copied the image into the cache for the scanner.
+      files.track(picked.localUri);
+      if (isCurrent()) resetLive();
+      await showShot(picked, isCurrent);
     } catch (caught) {
-      if (caught instanceof HeicUnsupportedError) {
-        setError(t("chat.heic_unsupported_body"));
-      } else if (caught instanceof NativePickerBusyError || caught instanceof NativePickerTimeoutError) {
+      if (!isCurrent()) return;
+      if (caught instanceof NativePickerBusyError || caught instanceof NativePickerTimeoutError) {
         setError(t("chat.picker_busy"));
       } else {
         setError(t("chat.math_scan_failed"));
@@ -394,7 +372,7 @@ export function MathEquationScanner({
     } finally {
       setBusy(false);
     }
-  }, [busy, showShot, t]);
+  }, [busy, files, resetLive, showShot, t]);
 
   const granted = Boolean(permission?.granted);
 
@@ -410,7 +388,7 @@ export function MathEquationScanner({
       onDismiss={() => setHosted(false)}
       testID="math-scanner-modal"
     >
-      <GestureHandlerRootView style={s.root}>
+      <GestureHandlerRootView style={s.root} onLayout={handleLayout}>
         {!permission && !preview ? (
           <View style={s.center}>
             <ActivityIndicator color={theme.onMedia} />
@@ -459,8 +437,10 @@ export function MathEquationScanner({
                 torchOn={torchOn && !preview && !review && visible}
                 zoom={zoom}
                 scanRegion={scanRegion}
+                viewSize={view}
                 onReady={handleCameraReady}
-                onError={() => setError(t("chat.math_scan_camera_unavailable"))}
+                onError={handleCameraError}
+                onUnavailable={handleCameraMissing}
                 onDetectionChange={handleLiveDetection}
               />
             </View> : null}
@@ -472,10 +452,10 @@ export function MathEquationScanner({
                   testID="math-scanner-preview"
                   style={previewFrame ? {
                     position: "absolute",
-                    left: previewFrame.x * windowWidth,
-                    top: previewFrame.y * windowHeight,
-                    width: previewFrame.width * windowWidth,
-                    height: previewFrame.height * windowHeight,
+                    left: previewFrame.x * view.width,
+                    top: previewFrame.y * view.height,
+                    width: previewFrame.width * view.width,
+                    height: previewFrame.height * view.height,
                   } : StyleSheet.absoluteFill}
                   resizeMode="contain"
                 />
@@ -522,15 +502,9 @@ export function MathEquationScanner({
             setTorchOn((on) => !on);
           }}
           onOpenLibrary={() => void openLibrary()}
-          onCapture={() => void capture()}
-          onRetake={() => {
-            setLiveStatus("idle");
-            liveReadyRef.current = false;
-            crop.resetRegion();
-            setPreview(null);
-            setError(null);
-          }}
-          onSolve={() => void confirmPreview()}
+          onCapture={capture}
+          onRetake={retake}
+          onSolve={confirmPreview}
           reviewing={review !== null}
         />
         {review ? (
@@ -538,21 +512,9 @@ export function MathEquationScanner({
             photoUri={review.shot.localUri}
             state={review.state}
             insets={insets}
-            onSolve={(reading) => {
-              stopReading();
-              onSolveReading?.(reading, subject);
-            }}
-            onSendPhoto={(reading) => {
-              stopReading();
-              // Chemistry solves a photo from the photo; math and physics
-              // carry the checked reading so the API solves that.
-              if (subject === "chemistry") {
-                onCaptured(review.shot, "chemistry", reading || undefined);
-                return;
-              }
-              onCaptured(review.shot, subject, reading || undefined);
-            }}
-            onRetake={retakeFromReview}
+            onSolve={solve}
+            onSendPhoto={sendPhoto}
+            onRetake={retake}
           />
         ) : null}
       </GestureHandlerRootView>
@@ -599,40 +561,4 @@ function makeStyles(theme: Theme) {
       ...Weight.bold,
     },
   });
-}
-
-function measureImageSize(uri: string): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    Image.getSize(
-      uri,
-      (width, height) => {
-        if (width > 0 && height > 0) resolve({ width, height });
-        else reject(new Error("invalid image size"));
-      },
-      reject,
-    );
-  });
-}
-
-async function cropShotToRegion(
-  shot: ScanShot,
-  region: ScanRegion,
-  windowWidth: number,
-  windowHeight: number,
-  imageRegion: ScanRegion | null,
-): Promise<PendingAttachment> {
-  const crop = imageRegion
-    ? regionToContainedImageCrop(region, imageRegion, shot.width, shot.height)
-    : regionToImageCrop(region, shot.width, shot.height, windowWidth, windowHeight);
-  const result = await ImageManipulator.manipulateAsync(
-    shot.localUri,
-    [{ crop }],
-    { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG },
-  );
-  return {
-    localUri: result.uri,
-    contentType: "image/jpeg",
-    fileName: shot.fileName,
-    kind: "image",
-  };
 }

@@ -7,6 +7,7 @@ import { ComposerAttachmentPreview } from "@/features/attachments/components/Com
 import { fitAttachmentImage } from "@/features/attachments/model/attachmentImageSize";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
+import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
 
 jest.mock("@/ui/icons/Icon", () => ({ Icon: "Icon" }));
 jest.mock("@/features/attachments/components/AttachmentImageViewer", () => {
@@ -46,6 +47,12 @@ describe("decoded attachment frame proportions", () => {
     await fireEvent(view.getByTestId("chat-image-preview"), "load", load(width, height));
     expect(view.getByTestId("chat-image-frame")).toHaveStyle({ width: expectedWidth, height: expectedHeight });
     expect(view.getByTestId("chat-image-preview").props.resizeMode).toBe("contain");
+  });
+
+  it("leaves display to the image cache and downloads nothing for a chat thumbnail", async () => {
+    jest.mocked(ensureLocalAttachmentFile).mockClear();
+    await render(<ChatMessageImage attachmentId="a" animatedReveal={false} />);
+    expect(ensureLocalAttachmentFile).not.toHaveBeenCalled();
   });
 
   it("uses authenticated remote onLoad dimensions and requests a 2x-width server thumb", async () => {

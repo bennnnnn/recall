@@ -16,6 +16,8 @@ type Props = {
   showSend: boolean;
   sendBusy: boolean;
   isOffline: boolean;
+  /** A picked file is still being prepared: send, the mic and live talk wait for it. */
+  attachBusy: boolean;
   showMic: boolean;
   voiceRecording: boolean;
   voiceTranscribing: boolean;
@@ -33,6 +35,7 @@ export function ComposerSendControls({
   showSend,
   sendBusy,
   isOffline,
+  attachBusy,
   showMic,
   voiceRecording,
   voiceTranscribing,
@@ -58,29 +61,30 @@ export function ComposerSendControls({
     );
   }
   const voiceActive = voiceRecording || voiceTranscribing;
+  const sendDisabled = isOffline || sendBusy || attachBusy;
   return (
     <View style={s.sendBtnSlot}>
       {showMic && onVoicePress ? (
         <VoiceMicButton
           recording={voiceRecording}
           transcribing={voiceTranscribing}
-          disabled={sendBusy || isOffline}
+          disabled={attachBusy || sendBusy || isOffline}
           onPress={onVoicePress}
         />
       ) : null}
       {onLiveTalkPress && !liveTalkOpen && !voiceActive && !showSend && !sendBusy ? (
-        <LiveTalkButton disabled={isOffline} onPress={onLiveTalkPress} />
+        <LiveTalkButton disabled={attachBusy || isOffline} onPress={onLiveTalkPress} />
       ) : null}
       {showSend || sendBusy ? (
         <Pressable
-          style={[s.sendBtn, (isOffline || sendBusy) && s.sendBtnDisabled]}
+          style={[s.sendBtn, sendDisabled && s.sendBtnDisabled]}
           onPress={onSend}
-          disabled={isOffline || sendBusy}
+          disabled={sendDisabled}
           hitSlop={6}
           accessibilityRole="button"
           accessibilityLabel={sendBusy ? t("chat.sending") : t("chat.send_a11y")}
           accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
-          accessibilityState={{ disabled: isOffline || sendBusy, busy: sendBusy }}
+          accessibilityState={{ disabled: sendDisabled, busy: sendBusy }}
         >
           {sendBusy ? (
             <ActivityIndicator size="small" color={theme.textTertiary} />

@@ -36,13 +36,12 @@ async def ensure_unlinked_copies(
                 raise AttachmentValidationError("The attached file has not finished uploading.")
             if gateway is None:
                 gateway = get_storage_gateway(settings)
-            data = await gateway.read_bytes(row.storage_key)
-            if not data:
-                raise AttachmentValidationError("Could not read the attached file.")
             new_id = uuid4()
             storage_key = f"{row.user_id}/{new_id}"
             created_keys.append(storage_key)
-            await gateway.write_bytes(storage_key, data)
+            # Copied inside storage: a 10 MB file no longer passes through the API.
+            if not await gateway.copy_bytes(row.storage_key, storage_key):
+                raise AttachmentValidationError("Could not read the attached file.")
             out.append(
                 await attachments_repo.insert_verified_clone(
                     session,

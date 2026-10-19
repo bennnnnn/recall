@@ -16,6 +16,7 @@ from app.modules import memory as memory_service
 from app.modules.memory import extraction_workflow
 from app.modules.memory.apply import apply_memory_section_rows
 from app.modules.memory.text import embedding_text_hash
+from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 
 
 @pytest.fixture
@@ -247,7 +248,7 @@ async def test_late_background_embedding_cannot_replace_manual_edit_vector(
         sync_session.commit()
         return [0.3] * 1536
 
-    with patch("app.gateways.embedding_gateway.embed_text", AsyncMock(side_effect=embed)):
+    with patch(EMBED_MANY, embed_each(AsyncMock(side_effect=embed))):
         await apply_memory_section_rows(
             Settings(),
             user_id=owner_id,

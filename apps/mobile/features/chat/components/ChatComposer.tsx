@@ -74,15 +74,7 @@ function gapFadeColors(bg: string): [string, string] {
 
 // 36 pt row + 4 pt card padding above and below + 6 pt shell air above and below.
 export const COMPOSER_HEIGHT = 56;
-// Attachment extras mirror the rendered preview sizes instead of under-reserving the thread.
-const COMPOSER_IMAGE_PREVIEW_EXTRA = 120;
-const COMPOSER_FILE_PREVIEW_EXTRA = 56;
 const COMPOSER_STATUS_LINE_HEIGHT = 18;
-
-export function composerAttachmentExtra(attachment: PendingAttachment | null): number {
-  if (!attachment) return 0;
-  return attachment.kind === "image" ? COMPOSER_IMAGE_PREVIEW_EXTRA : COMPOSER_FILE_PREVIEW_EXTRA;
-}
 
 /** Mic mute and close beside the real composer while live talk is open. */
 export type LiveTalkComposerChrome = {
@@ -100,6 +92,8 @@ type Props = {
   input?: string;
   onChangeInput?: (text: string) => void;
   streaming: boolean;
+  /** A picked file is still being prepared: Send and Attach wait for it. */
+  attachPicking?: boolean;
   sendBusy?: boolean;
   sendStatus?: string;
   pendingAttachment: PendingAttachment | null;
@@ -130,6 +124,7 @@ export const ChatComposer = memo(function ChatComposer({
   input: inputProp,
   onChangeInput: onChangeInputProp,
   streaming,
+  attachPicking = false,
   sendBusy = false,
   sendStatus,
   pendingAttachment,
@@ -265,7 +260,7 @@ export const ChatComposer = memo(function ChatComposer({
   if (!visible) return null;
 
   const hasSendableContent = Boolean(input.trim() || pendingAttachment);
-  const attachmentDisabled = sendBusy || streaming;
+  const attachmentDisabled = attachPicking || sendBusy || streaming;
   const showLiveTalkSideChrome =
     Boolean(liveTalkChrome) && liveTalkShowsSideChrome(input);
   const parkInput = showMathPreview;
@@ -293,6 +288,7 @@ export const ChatComposer = memo(function ChatComposer({
       s={s}
       voiceActive={voiceActive}
       disabled={attachmentDisabled}
+      picking={attachPicking}
       onPress={() => {
         if (voiceActive) {
           onCancelVoice?.();
@@ -325,6 +321,7 @@ export const ChatComposer = memo(function ChatComposer({
         showSend={showSend}
         sendBusy={sendBusy}
         isOffline={isOffline}
+        attachBusy={attachPicking}
         showMic={showMic}
         voiceRecording={voiceRecording}
         voiceTranscribing={voiceTranscribing}
@@ -382,6 +379,7 @@ export const ChatComposer = memo(function ChatComposer({
             {pendingAttachment ? (
               <ComposerAttachmentPreview
                 attachment={pendingAttachment}
+                uploading={attachPicking}
                 onRemove={onRemoveAttachment}
               />
             ) : null}

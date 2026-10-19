@@ -31,6 +31,7 @@ describe("chatSendLogic", () => {
         streaming: false,
         token: "tok",
         creating: false,
+        attachPicking: false,
         isOffline: false,
       }),
     ).toBe(true);
@@ -41,6 +42,7 @@ describe("chatSendLogic", () => {
         streaming: true,
         token: "tok",
         creating: false,
+        attachPicking: false,
         isOffline: false,
       }),
     ).toBe(true);
@@ -51,6 +53,7 @@ describe("chatSendLogic", () => {
         streaming: false,
         token: null,
         creating: false,
+        attachPicking: false,
         isOffline: false,
       }),
     ).toBe(true);
@@ -61,6 +64,7 @@ describe("chatSendLogic", () => {
         streaming: false,
         token: "tok",
         creating: true,
+        attachPicking: false,
         isOffline: false,
       }),
     ).toBe(true);
@@ -71,6 +75,7 @@ describe("chatSendLogic", () => {
         streaming: false,
         token: "tok",
         creating: false,
+        attachPicking: false,
         isOffline: false,
       }),
     ).toBe(false);
@@ -81,6 +86,7 @@ describe("chatSendLogic", () => {
         streaming: false,
         token: "tok",
         creating: false,
+        attachPicking: false,
         isOffline: false,
       }),
     ).toBe(false);
@@ -94,6 +100,7 @@ describe("chatSendLogic", () => {
         streaming: false,
         token: "tok",
         creating: false,
+        attachPicking: false,
         isOffline: true,
       }),
     ).toBe(true);
@@ -104,6 +111,7 @@ describe("chatSendLogic", () => {
         streaming: false,
         token: "tok",
         creating: false,
+        attachPicking: false,
         isOffline: true,
       }),
     ).toBe(true);

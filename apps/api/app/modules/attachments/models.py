@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -25,6 +26,18 @@ class Attachment(Base):
     __tablename__ = "attachments"
     __table_args__ = (
         Index("ix_attachments_user", "user_id"),
+        # Message delete (FK SET NULL) and per-message reads.
+        Index(
+            "ix_attachments_message",
+            "message_id",
+            postgresql_where=text("message_id IS NOT NULL"),
+        ),
+        # The orphan reaper's scan of unlinked rows by age.
+        Index(
+            "ix_attachments_unlinked_created",
+            "created_at",
+            postgresql_where=text("message_id IS NULL"),
+        ),
         CheckConstraint(
             "source IN ('upload', 'generated', 'search')", name="ck_attachments_source"
         ),
@@ -55,6 +68,9 @@ class Attachment(Base):
         default=True,
         server_default="true",
     )
+    # First time a message linked this row. An upload never linked is a composer
+    # draft: kept out of Library and reaped; one whose chat was deleted stays.
+    linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # JSON: via_ocr, max_pages, max_chars, page_capped, char_capped — set after index.
     index_coverage_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -65,6 +81,8 @@ class AttachmentChunk(Base):
     __table_args__ = (
         Index("ix_attachment_chunks_user_chat", "user_id", "chat_id"),
         Index("ix_attachment_chunks_attachment", "attachment_id"),
+        # Chat delete (FK CASCADE) looks chunks up by chat alone.
+        Index("ix_attachment_chunks_chat", "chat_id"),
         # DB index (migration 0047) is actually:
         #   CREATE INDEX ix_attachment_chunks_embedding ON attachment_chunks
         #   USING hnsw (embedding vector_cosine_ops)

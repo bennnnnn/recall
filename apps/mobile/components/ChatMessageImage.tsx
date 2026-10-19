@@ -13,7 +13,6 @@ import { Icon } from "@/ui/icons/Icon";
 import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri, attachmentRequestHeaders } from "@/features/attachments/model/attachmentUri";
-import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
 import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model/attachmentImageSize";
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
@@ -187,23 +186,6 @@ function ChatMessageImageContent({
   useEffect(() => {
     setFailed(false);
   }, [remoteUri, token]);
-
-  // Warm a local file:// copy so fullscreen opens instantly and download/share
-  // don't hit createDownloadResumable (auth URLs fail there).
-  useEffect(() => {
-    if (!remoteUri || localUri?.startsWith("file://")) return;
-    let cancelled = false;
-    void ensureLocalAttachmentFile({
-      uri: remoteUri,
-      token,
-      fileName: fileName ?? "image.jpg",
-    }).catch(() => {
-      if (cancelled) return;
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [remoteUri, localUri, token, fileName]);
 
   if (!remoteUri) return null;
 

@@ -5,20 +5,37 @@ follow-up about an earlier photo reads that photo again, so the model looks at i
 rather than at its marker, and is told plainly when it is gone. Only the user's own
 photos go back in: a picture Recall generated is the model's own work, and sending
 it again would move every later turn onto a photo model for nothing.
+
+An earlier photo is read again only while the conversation is still about it: it
+was sent in the user's previous message (the reply in between was about it), or
+this message names a picture ("the photo", "that screenshot": the image intents'
+nouns plus the words people use for a picture they sent). Otherwise every later turn of a chat that once had a
+photo downloaded it again and ran on the vision model. A storage outage here
+cannot fail the turn: the user's message is already saved, so the turn goes on
+without the photo and the model is told it cannot see it.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.gateways.storage_gateway import StorageGateway, get_storage_gateway
+from app.gateways.storage_gateway import (
+    StorageGateway,
+    StorageUnavailableError,
+    get_storage_gateway,
+)
 from app.models.orm import User
 from app.modules.attachments import content as attachment_content
 from app.modules.attachments import markers as attachment_markers
 from app.modules.attachments import service as attachments_service
+from app.modules.attachments import vision_input
 from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult
+from app.modules.images.gen_intent import IMAGE_NOUNS
+
+logger = logging.getLogger(__name__)
 
 
 async def inject_turn_images(
@@ -39,10 +56,11 @@ async def inject_turn_images(
         and attachments.image_attachments
         and attachments.gateway is not None
     ):
-        await attachment_content.inject_vision_content(
+        await vision_input.inject_vision_content(
             prompt_messages,
             attachments.gateway,
             attachments.image_attachments,
+            settings=settings,
             caption=caption,
             bytes_by_key=attachments.bytes_by_key,
         )
@@ -52,6 +70,36 @@ async def inject_turn_images(
     return await _inject_prior_images(
         prompt_messages, attachments.gateway, caption=caption, settings=settings, user=user
     )
+
+
+# The image intents' nouns, plus what people call a picture they sent rather than
+# one they want drawn.
+_PICTURE_NOUNS = IMAGE_NOUNS | frozenset(
+    {
+        "photograph",
+        "photographs",
+        "screenshot",
+        "screenshots",
+        "snapshot",
+        "snapshots",
+        "selfie",
+        "selfies",
+    }
+)
+
+
+def names_a_picture(text: str) -> bool:
+    """True when the message refers to a picture by name ("in the photo", "this screenshot?").
+
+    Whole words only, so "photosynthesis" or "epic" do not read as one.
+    """
+    words = "".join(char if char.isalnum() else " " for char in text.lower()).split()
+    return any(word in _PICTURE_NOUNS for word in words)
+
+
+def _prior_photo_still_in_play(user_turns: list[dict[str, Any]], caption: str) -> bool:
+    """The previous user message carried a photo, or this one names a picture."""
+    return attachment_markers.previous_user_turn_has_image(user_turns) or names_a_picture(caption)
 
 
 async def _inject_prior_images(
@@ -64,7 +112,7 @@ async def _inject_prior_images(
 ) -> bool:
     user_turns = [message for message in prompt_messages if message.get("role") == "user"]
     prior_ids = attachment_markers.prior_image_attachment_ids(user_turns)
-    if not prior_ids:
+    if not prior_ids or not _prior_photo_still_in_play(user_turns, caption):
         return False
     rehydrate_gateway = gateway or get_storage_gateway(settings)
     async with SessionLocal() as session:
@@ -78,9 +126,12 @@ async def _inject_prior_images(
     ]
     injected = False
     if images:
-        injected = await attachment_content.inject_vision_content(
-            prompt_messages, rehydrate_gateway, images, caption=caption
-        )
+        try:
+            injected = await vision_input.inject_vision_content(
+                prompt_messages, rehydrate_gateway, images, settings=settings, caption=caption
+            )
+        except StorageUnavailableError:
+            logger.warning("Earlier photo unreadable: storage unavailable user_id=%s", user.id)
     if not injected or len(images) < len(prior_ids):
         attachment_markers.append_image_unavailable_note(prompt_messages)
     return injected
