@@ -21,6 +21,13 @@ from app.modules.memory import (
 from app.modules.memory import llm as memory_llm
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
+from app.modules.memory.commands import (
+    forget_requests,
+    is_explicit_mute_command,
+    is_memory_correction,
+    memory_reset_request,
+    mute_requests,
+)
 from app.modules.memory.extract_backlog import (
     clear_failed_extract_passes,
     expand_memory_extract_transcript,
@@ -30,12 +37,12 @@ from app.modules.memory.extract_backlog import (
 )
 from app.modules.memory.fact_quality import FactView, is_one_off_schedule_fact, texts_to_drop
 from app.modules.memory.facts import should_skip_sensitive_persist
+from app.modules.memory.forget_match import phrase_names_fact
 from app.modules.memory.name_claim import is_unclaimed_user_name
+from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX
 from app.modules.memory.self_facts import stated_fact_writes
 from app.modules.memory.text import (
     classify_memory_sensitivity,
-    contains_phrase,
-    forget_content_words,
     normalize_memory_text,
 )
 from app.modules.memory.topics import (
@@ -52,6 +59,7 @@ logger = logging.getLogger(__name__)
 # ``skipped_lock``: memory was busy, retry after a backoff. ``model_failed``: the
 # model gave no usable answer, so these lines were not read.
 ExtractOutcome = Literal["skipped_lock", "model_failed"] | None
+_MATCH_ONLY_OPS = frozenset({"delete", "mute"})
 
 
 @dataclass(frozen=True)
@@ -142,16 +150,16 @@ def writes_from_ops(
             )
             skipped += 1
             continue
-        if op.op != "delete" and not text:
+        # A delete or mute names an existing fact by match_text; it writes no text.
+        writes_text = op.op not in _MATCH_ONLY_OPS
+        if writes_text and not text:
             skipped += 1
             continue
-        if op.op != "delete" and is_unclaimed_user_name(
-            text, transcript, existing_texts=existing_texts
-        ):
+        if writes_text and is_unclaimed_user_name(text, transcript, existing_texts=existing_texts):
             logger.info("Skipping memory name the user did not claim")
             skipped += 1
             continue
-        if op.op != "delete" and is_one_off_schedule_fact(text):
+        if writes_text and is_one_off_schedule_fact(text):
             logger.info("Skipping one-off reminder stored as memory")
             skipped += 1
             continue
@@ -166,7 +174,10 @@ def writes_from_ops(
                 text=text,
                 confidence=confidence,
                 sensitivity=sensitivity,
-                importance=float(op.importance),
+                # What the user asked to keep is never pushed out by the fact cap.
+                importance=EXPLICIT_IMPORTANCE
+                if explicit_remember and writes_text
+                else min(float(op.importance), MODEL_IMPORTANCE_MAX),
                 match_text=op.match_text,
                 source_chat_id=chat_id,
                 topic=topic,
@@ -184,24 +195,47 @@ def named_forget_deletes(
     chat_id: UUID | None,
 ) -> list[MemoryFactWrite]:
     """Delete stored facts the user named when the model returned no delete."""
-    words = forget_content_words(transcript)
-    if not words:
-        return []
-    deletes: list[MemoryFactWrite] = []
-    for fact_text in existing_facts.values():
-        if not any(contains_phrase(fact_text, word) for word in words):
-            continue
-        deletes.append(
-            MemoryFactWrite(
-                op="delete",
-                type="fact",
-                text="",
-                confidence=1.0,
-                match_text=fact_text,
-                source_chat_id=chat_id,
-            )
+    return _named_fact_ops("delete", forget_requests(transcript), existing_facts, chat_id)
+
+
+def named_mute_ops(
+    transcript: str,
+    *,
+    existing_facts: dict[UUID, str],
+    chat_id: UUID | None,
+) -> list[MemoryFactWrite]:
+    """Mute stored facts the user named ("stop mentioning my job") when the model did not."""
+    return _named_fact_ops("mute", mute_requests(transcript), existing_facts, chat_id)
+
+
+def _named_fact_ops(
+    op: str,
+    phrases: list[str],
+    existing_facts: dict[UUID, str],
+    chat_id: UUID | None,
+) -> list[MemoryFactWrite]:
+    return [
+        MemoryFactWrite(
+            op=op,
+            type="fact",
+            text="",
+            confidence=1.0,
+            match_text=fact_text,
+            source_chat_id=chat_id,
         )
-    return deletes
+        for fact_text in existing_facts.values()
+        if any(phrase_names_fact(phrase, fact_text) for phrase in phrases)
+    ]
+
+
+def without_reset_requests(transcript: str) -> str:
+    """Drop "forget everything you know about me" lines: a card the user taps does that."""
+    lines = [
+        line
+        for line in transcript.splitlines()
+        if memory_reset_request(line.removeprefix("User:").strip()) is None
+    ]
+    return "\n".join(lines).strip()
 
 
 async def extract_and_store_memories(
@@ -267,10 +301,16 @@ async def _extract_pass(
                         chat_id=chat_id,
                         fallback_transcript=transcript,
                     )
+            expanded = without_reset_requests(expanded)
             if not expanded.strip():
+                if newest_cursor:
+                    await stamp_extract_cursor(user_id, chat_id, newest_cursor)
                 return None
 
             forget = is_explicit_forget_command(expanded)
+            mute = is_explicit_mute_command(expanded)
+            # A correction changes a saved fact by the user's word, like a hand edit.
+            correction = is_memory_correction(expanded)
             explicit_remember = is_explicit_memory_command(expanded) and not forget
             if not explicit_remember and not forget and not is_memory_candidate(expanded):
                 # Small talk only: nothing to learn, but the lines are read. Moving
@@ -320,6 +360,14 @@ async def _extract_pass(
             if forget and not from_history and not any(write.op == "delete" for write in writes):
                 writes.extend(
                     named_forget_deletes(
+                        expanded,
+                        existing_facts=snapshot.existing_facts,
+                        chat_id=chat_id,
+                    )
+                )
+            if mute and not from_history and not any(write.op == "mute" for write in writes):
+                writes.extend(
+                    named_mute_ops(
                         expanded,
                         existing_facts=snapshot.existing_facts,
                         chat_id=chat_id,
@@ -379,7 +427,7 @@ async def _extract_pass(
                 memories=memories_repo,
                 # A history add that matches a saved fact leaves it as it is.
                 expected_facts={} if from_history else snapshot.existing_facts,
-                manual_edit=forget and not from_history,
+                manual_edit=(forget or mute or correction) and not from_history,
             )
             logger.info(
                 "memory_extract_yield user_id=%s applied=%s skipped=%s",

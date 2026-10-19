@@ -27,8 +27,11 @@ async def apply_memory_facts(
     memories: Any = memories_repo,
     expected_facts: dict[UUID, str] | None = None,
     manual_edit: bool = False,
+    applied: list[str] | None = None,
 ) -> None:
     """Persist fact ops, (re)embed stale rows, then invalidate caches.
+
+    ``applied`` collects the op of every write that took effect.
 
     ``manual_edit`` marks writes the user asked for (a plain-words edit, a
     "forget ..."). When they change or remove saved facts, the edit is stamped
@@ -53,6 +56,7 @@ async def apply_memory_facts(
                 expected_facts=expected_facts,
                 active_cap=settings.memory_active_fact_cap,
                 commit=False,
+                **({"applied": applied} if applied is not None else {}),
             )
             if manual_edit and any(write.op != "add" for write in writes):
                 await memories.note_manual_edit(session, user_id)

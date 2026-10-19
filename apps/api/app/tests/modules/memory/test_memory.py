@@ -92,19 +92,36 @@ def test_accept_memory_section_rewrite_rejects_short_preference_alone():
     )
 
 
-def test_forget_content_words_keep_the_named_fact():
-    from app.modules.memory.text import forget_content_words
+def test_forget_requests_name_the_fact_not_the_command():
+    from app.modules.memory.commands import forget_requests
 
-    assert forget_content_words("Forget that I'm a nurse") == ["nurse"]
-    assert forget_content_words("Please forget that") == []
-    assert forget_content_words("don't forget I like tea") == []
+    assert forget_requests("Forget that I'm a nurse") == ["I'm a nurse"]
+    assert forget_requests("Please forget that I use React, thanks") == ["I use React"]
+    assert forget_requests("forget my old address") == ["my old address"]
+    assert forget_requests("Please forget that") == []
+    assert forget_requests("don't forget I like tea") == []
 
 
-def test_forget_content_words_names_the_fact_not_the_command():
-    from app.modules.memory.text import forget_content_words
+@pytest.mark.parametrize(
+    ("phrase", "fact", "named"),
+    [
+        ("I'm a nurse", "Works as a nurse in Boston", True),
+        ("I use React", "User uses React", True),
+        # One shared word is not the fact: React Native is another name.
+        ("I use React", "User builds Recall with React Native and FastAPI", False),
+        ("I use React", "User uses React Native for mobile", False),
+        ("I live in Nairobi", "User lives in Nairobi", True),
+        # About the user's sister, not the user.
+        ("I live in Nairobi", "User's sister lives in Nairobi suburbs", False),
+        ("my sister", "User's sister lives in Nairobi suburbs", True),
+        ("my dog Max", "User has a dog named Max", True),
+        ("that", "User lives in Nairobi", False),
+    ],
+)
+def test_forget_phrase_names_only_the_fact_it_says(phrase, fact, named):
+    from app.modules.memory.forget_match import phrase_names_fact
 
-    assert forget_content_words("Forget that I'm a nurse") == ["nurse"]
-    assert forget_content_words("Please forget that") == []
+    assert phrase_names_fact(phrase, fact) is named
 
 
 @pytest.mark.parametrize(
