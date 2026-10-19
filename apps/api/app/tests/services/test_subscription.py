@@ -32,6 +32,50 @@ def test_entitlement_active_expired():
     assert revenuecat_gateway.entitlement_active(payload, "pro") is False
 
 
+def _rc_time(delta: timedelta) -> str:
+    return (datetime.now(UTC) + delta).isoformat().replace("+00:00", "Z")
+
+
+@pytest.mark.parametrize(
+    "expires, grace, active",
+    [
+        (timedelta(days=-1), timedelta(days=6), True),  # BILLING_ISSUE: store grace period
+        (timedelta(days=-1), timedelta(minutes=-5), False),  # grace over too
+        (timedelta(days=-1), None, False),
+        (timedelta(days=-1), "", False),
+        (timedelta(days=-1), "not-a-date", False),
+        (timedelta(days=3), timedelta(days=-10), True),  # an old grace never cuts access
+        ("not-a-date", timedelta(days=2), True),
+    ],
+)
+def test_entitlement_active_honors_the_grace_period(expires, grace, active) -> None:
+    def _field(value):
+        return _rc_time(value) if isinstance(value, timedelta) else value
+
+    ent = {"expires_date": _field(expires), "grace_period_expires_date": _field(grace)}
+    payload = {"subscriber": {"entitlements": {"pro": ent}}}
+    assert revenuecat_gateway.entitlement_active(payload, "pro") is active
+
+
+@pytest.mark.asyncio
+async def test_reconcile_keeps_a_grace_period_subscriber_paid():
+    """The hourly reconcile and app-open sync read the same entitlement rule."""
+    ent = {
+        "expires_date": _rc_time(timedelta(hours=-2)),
+        "grace_period_expires_date": _rc_time(timedelta(days=5)),
+    }
+    payload = {"subscriber": {"entitlements": {"plus": ent}}}
+    with patch.object(
+        subscription_service.revenuecat_gateway,
+        "fetch_subscriber",
+        AsyncMock(return_value=payload),
+    ):
+        plan = await subscription_service.resolve_plan_from_revenuecat(
+            Settings(revenuecat_secret_key="sk_test"), str(uuid4())
+        )
+    assert plan == "plus"
+
+
 @pytest.mark.asyncio
 async def test_sync_user_plan_from_revenuecat_upgrades():
     user = MagicMock()
@@ -145,10 +189,11 @@ async def test_handle_revenuecat_transfer_downgrades_old_and_syncs_new():
     session = AsyncMock()
     settings = Settings(revenuecat_secret_key="sk_test", revenuecat_entitlement_id="pro")
 
+    plans = {str(new_id): "pro", str(old_id): "free"}
     with (
         patch(
             "app.modules.billing.subscription.resolve_plan_from_revenuecat",
-            AsyncMock(return_value="pro"),
+            AsyncMock(side_effect=lambda _settings, app_user_id: plans[app_user_id]),
         ) as resolve_mock,
         patch(
             "app.modules.billing.subscription.users_repo.get_by_id",
@@ -171,12 +216,58 @@ async def test_handle_revenuecat_transfer_downgrades_old_and_syncs_new():
         )
 
     assert ok is True
-    resolve_mock.assert_awaited_once_with(settings, str(new_id))
     update.assert_not_awaited()
     assert apply_mock.await_count == 2
     apply_mock.assert_any_await(session, str(new_id), plan="pro")
     apply_mock.assert_any_await(session, str(old_id), plan="free")
-    assert resolve_mock.await_args_list[0].args[1] == str(new_id)
+    # The target is read before any write; then each source is re-read.
+    assert [call.args[1] for call in resolve_mock.await_args_list] == [str(new_id), str(old_id)]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "source_reads, source_plan",
+    [
+        ("free", "free"),  # its only grant moved
+        ("plus", "plus"),  # it still holds another product or a promotional grant
+        ("pro", "pro"),
+        (None, "free"),  # unreadable: the moved entitlement is no longer its own
+    ],
+)
+async def test_handle_revenuecat_transfer_rereads_each_source(
+    source_reads: str | None, source_plan: str
+):
+    old_id, new_id = str(uuid4()), str(uuid4())
+    target = MagicMock()
+    target.plan = "pro"
+    plans = {new_id: "pro", old_id: source_reads}
+    with (
+        patch(
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
+            AsyncMock(side_effect=lambda _settings, app_user_id: plans[app_user_id]),
+        ),
+        patch(
+            "app.modules.billing.subscription.users_repo.get_by_id",
+            AsyncMock(return_value=target),
+        ),
+        patch(
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_mock,
+    ):
+        ok = await subscription_service.handle_revenuecat_transfer(
+            AsyncMock(),
+            Settings(revenuecat_secret_key="sk_test"),
+            new_app_user_id=new_id,
+            transferred_from=[old_id],
+        )
+
+    assert ok is True
+    apply_mock.assert_awaited_once()
+    source_call = apply_mock.await_args
+    assert source_call is not None
+    assert source_call.args[1] == old_id
+    assert source_call.kwargs["plan"] == source_plan
 
 
 @pytest.mark.asyncio
