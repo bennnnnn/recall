@@ -1,0 +1,132 @@
+"""A picture drawn above an answer, for a message that asks for one among other things.
+
+"Draw a cat wearing a hat and also explain what a black hole is" used to get
+nothing: the intercept that draws a picture takes a whole turn and declined the
+compound line, so neither the picture nor the explanation came back clearly. Now
+the picture is drawn while the model answers the rest, and the finished reply
+carries both: the picture above the text, or one line saying why it could not.
+
+Drawing is generation's own: the same plan check, daily slot, storage and spend
+cap (``generation``); only the rows differ. The picture is stored unlinked and the
+reply links it when it saves, as a looked-up answer photo is (``answer_photo``).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from uuid import UUID
+
+from app.core.config import Settings
+from app.core.db import SessionLocal
+from app.models.orm import User
+from app.modules.attachments import service as attachments_repo
+from app.modules.images import generation
+from app.services import quota as quota_service
+
+logger = logging.getLogger(__name__)
+
+# A picture takes 10-40 s; the answer usually streams in less. The provider's own
+# limit (120 s) is longer, so a reply never waits on a stuck call past this.
+_WAIT_SECONDS = 90.0
+_NOT_MADE = "I couldn't draw the picture ({subject}) this time: {reason}"
+_TOO_SLOW = "the picture took too long. Ask for it again on its own."
+_FAILED = "something went wrong. Ask for it again on its own."
+
+
+def _marker(attachment_id: UUID) -> str:
+    return f"[Image: /attachments/{attachment_id}/file]"
+
+
+async def draw_unlinked(settings: Settings, *, user: User, chat_id: UUID, prompt: str) -> UUID:
+    """Draw one picture and store it unlinked, under ``generate_for_chat``'s rules.
+
+    Raises ``ImageGenerationError`` as generation does; the slot is given back on
+    any failure (``generation._ReservedQuota``), and the bytes written are deleted.
+    """
+    cleaned = prompt.strip()
+    gateway, _references, redis = await generation._authorize_generation(
+        settings,
+        user=user,
+        chat_id=chat_id,
+        create_user_message=True,
+        reference_attachment_ids=[],
+    )
+    written = generation._WrittenBytes(gateway)
+    async with generation._ReservedQuota(redis, user, settings, undo=written.delete_all):
+        image = await generation._generate_and_store(
+            settings,
+            written,
+            user_id=user.id,
+            prompt=cleaned,
+            aspect_ratio=None,
+            references=[],
+            copy_references=False,
+        )
+        async with SessionLocal() as session:
+            await attachments_repo.create_pending(
+                session,
+                attachment_id=image.attachment_id,
+                user_id=user.id,
+                storage_key=image.storage_key,
+                content_type=image.content_type,
+                size_bytes=image.size_bytes,
+                source="generated",
+                original_filename=cleaned.replace("\n", " ")[:255] or None,
+                commit=False,
+            )
+            await attachments_repo.mark_verified(session, image.attachment_id, commit=False)
+            await session.commit()
+    try:
+        await quota_service.record_global_spend(redis, quota_service.IMAGE_GEN_SPEND_USD)
+    except Exception:
+        logger.exception("record_global_spend failed after a reply picture")
+    return image.attachment_id
+
+
+class ReplyPicture:
+    """One picture for one reply: started with the turn, attached when the reply ends."""
+
+    def __init__(self, subject: str, *, task: asyncio.Task[UUID] | None, refusal: str = "") -> None:
+        self.subject = subject
+        self._task = task
+        self._refusal = refusal
+
+    @classmethod
+    def start(cls, settings: Settings, *, user: User, chat_id: UUID, prompt: str) -> ReplyPicture:
+        task = asyncio.create_task(
+            draw_unlinked(settings, user=user, chat_id=chat_id, prompt=prompt),
+            name="reply_picture",
+        )
+        return cls(prompt, task=task)
+
+    @classmethod
+    def refused(cls, subject: str, reason: str) -> ReplyPicture:
+        """The picture cannot be drawn (plan, setting): the reply says so in one line."""
+        return cls(subject, task=None, refusal=reason)
+
+    async def attach(self, text: str) -> tuple[str, list[UUID]]:
+        """The reply with the picture above it, and its id; or the reply and why not."""
+        if self._task is None:
+            return self._with_note(text, self._refusal), []
+        try:
+            picture = await asyncio.wait_for(asyncio.shield(self._task), timeout=_WAIT_SECONDS)
+        except TimeoutError:
+            # A picture finished after the reply saved stays unlinked; the reaper removes it.
+            logger.info("Reply picture took too long; the reply goes without it")
+            return self._with_note(text, _TOO_SLOW), []
+        except generation.ImageGenerationError as exc:
+            return self._with_note(text, exc.detail), []
+        except Exception:
+            logger.exception("Reply picture failed")
+            return self._with_note(text, _FAILED), []
+        return f"{_marker(picture)}\n\n{text.lstrip()}", [picture]
+
+    def _with_note(self, text: str, reason: str) -> str:
+        note = _NOT_MADE.format(subject=self.subject, reason=reason.rstrip(".") + ".")
+        return f"{text.rstrip()}\n\n{note}".strip()
+
+    def cancel(self) -> None:
+        """A stopped reply draws nothing: cancelling gives the day's slot back."""
+        if self._task is not None and not self._task.done():
+            self._task.cancel()

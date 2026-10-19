@@ -21,6 +21,7 @@ from app.modules.chat.turn_prep.instant import (
     location_not_set_reply,
     recurring_pay_reply,
     resolve_instant_reply,
+    settings_card,
 )
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import _classify_turn_mode
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.modules.images.answer_photo import AnswerPhoto
+    from app.modules.images.reply_picture import ReplyPicture
 
 
 @dataclass
@@ -112,7 +114,12 @@ class StreamContext:
     # A real photo above an answer about something worth seeing: the search
     # starts when the reply's ```photo fence closes; finalize links the ids.
     answer_photo: AnswerPhoto | None = None
+    # What the reply shows above its text, linked to it when it saves: that photo, or
+    # the picture a multi-part message asked for (``reply_picture``).
     answer_photo_ids: list[UUID] = field(default_factory=list)
+    # A multi-part message's settings card and picture: the server's part of the reply.
+    settings_card: str | None = None
+    reply_picture: ReplyPicture | None = None
 
 
 @dataclass
@@ -132,6 +139,8 @@ class TurnPromptBundle:
     solver_unverified: bool = False
     unverified_subject: str | None = None
     web_search_classified: bool | None = None
+    # A multi-part message's settings card, added under the model's reply.
+    settings_card: str | None = None
 
 
 def _search_location(geo: ClientGeoContext | None) -> str | None:
@@ -193,6 +202,7 @@ def stream_context_from_bundle(
         lightweight_turn=bundle.lightweight,
         rich_context_turn=bundle.rich_context,
         web_search_classified=getattr(bundle, "web_search_classified", None),
+        settings_card=getattr(bundle, "settings_card", None),
         indexable_attachment_ids=list(indexable_attachment_ids or []),
         user_message_persist=user_message_persist,
         thinking=thinking,
@@ -326,7 +336,7 @@ async def build_stream_prompt_context(
     # More than one request: each is answered (``intents``), and the prompt says how.
     plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
     # Phase A: prompt + instant-reply + fallback-health share no data.
-    prompt_messages, instant_reply, fallback_models = await asyncio.gather(
+    prompt_messages, instant_reply, fallback_models, card = await asyncio.gather(
         build_prompt_messages(
             user,
             chat.id,
@@ -350,6 +360,7 @@ async def build_stream_prompt_context(
         ),
         resolve_instant_reply(request, identity, settings, redis, plan),
         _fallback_models(user, settings, redis, request.model),
+        settings_card(identity, settings, redis, plan),
     )
     if timing is not None:
         timing.mark_phase("prompt_assembled")
@@ -366,7 +377,7 @@ async def build_stream_prompt_context(
 
     if instant_reply is None:
         instant_reply = augmented.direct_reply(request, user, followup)
-    return _bundle(
+    bundle = _bundle(
         identity,
         settings,
         augmented,
@@ -374,3 +385,5 @@ async def build_stream_prompt_context(
         instant_reply=instant_reply,
         fallback_models=fallback_models,
     )
+    bundle.settings_card = card
+    return bundle

@@ -21,7 +21,11 @@ from app.modules.chat.post_turn import restore_regenerate_backup
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.turn_deps import ChatTurnDeps
-from app.modules.chat.turn_intercepts import intercept_new_turn, intercept_regenerate
+from app.modules.chat.turn_intercepts import (
+    intercept_new_turn,
+    intercept_regenerate,
+    start_reply_picture,
+)
 from app.modules.chat.turn_load import NewTurn, load_new_turn, load_regenerate_turn
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import (
@@ -199,6 +203,9 @@ async def stream_chat_response(
             on_user_saved=outcome.mark_user_message_saved if outcome is not None else None,
         )
         try:
+            ctx.reply_picture = start_reply_picture(
+                deps, settings, user=turn.user, chat_id=chat_id, content=content
+            )
             await top_up_reserve_for_prompt(
                 res, settings=settings, ctx=ctx, daily_limit=turn.daily_limit
             )
@@ -215,6 +222,9 @@ async def stream_chat_response(
             ):
                 yield token
         finally:
+            # A turn that failed before its reply saved draws nothing.
+            if ctx.reply_picture is not None:
+                ctx.reply_picture.cancel()
             try:
                 await await_user_message_persist(ctx)
             except Exception:
@@ -324,6 +334,9 @@ async def stream_regenerate_response(
             ctx=ctx,
             daily_limit=deps.quota.daily_limit_for_user(turn.user, settings),
         )
+        ctx.reply_picture = start_reply_picture(
+            deps, settings, user=turn.user, chat_id=chat_id, content=turn.content
+        )
         try:
             async for token in _stream_turn(
                 deps,
@@ -341,3 +354,6 @@ async def stream_regenerate_response(
             if turn.backup is not None:
                 await restore_regenerate_backup(user_id, chat_id, turn.backup)
             raise
+        finally:
+            if ctx.reply_picture is not None:
+                ctx.reply_picture.cancel()
