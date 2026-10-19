@@ -17,7 +17,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules import home as home_service
+from app.modules.home import service as home_service
 from app.modules.todos import proposals, write_log
 from app.modules.todos.actions import MAX_TODO_ACTIONS_PER_TURN
 from app.modules.todos.recurrence import next_recurring_due

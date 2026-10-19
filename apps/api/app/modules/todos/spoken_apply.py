@@ -47,7 +47,7 @@ async def apply_spoken_change(
     that confirms a change in the app's own shape ("Reopened: buy milk.") is
     about a reminder, so a missing one gets the "Could not" line, not the claim.
     """
-    from app.modules import home as home_service
+    from app.modules.home import service as home_service
     from app.modules.todos.reminder_fence_parse import ReminderFence
     from app.modules.todos.reminder_writes import (
         ReminderWrites,

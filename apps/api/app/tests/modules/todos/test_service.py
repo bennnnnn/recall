@@ -8,8 +8,8 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas import TodoActionItem
-from app.modules import home as home_service
 from app.modules import todos as todos_service
+from app.modules.home import service as home_service
 from app.modules.todos import actions as todos_actions
 from app.modules.todos import classification as todos_classification
 from app.modules.todos import crud as todos_crud

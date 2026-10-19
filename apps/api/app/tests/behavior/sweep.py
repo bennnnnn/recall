@@ -251,7 +251,7 @@ def _stores(outcome: Outcome, user: User) -> Iterator[None]:
         ):
             stack.enter_context(patch(f"{repo}.{name}", value))
         stack.enter_context(
-            patch("app.modules.home.invalidate_home_cache", AsyncMock(return_value=None))
+            patch("app.modules.home.service.invalidate_home_cache", AsyncMock(return_value=None))
         )
         yield
 

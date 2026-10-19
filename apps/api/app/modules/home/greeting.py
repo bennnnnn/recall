@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from app.models.orm import User
-from app.modules.home.util import local_hour_for_tz
 
 
 def greeting(user: User, tz: ZoneInfo) -> str:
-    hour = local_hour_for_tz(tz)
+    hour = datetime.now(tz).hour
     name = (user.name or "").strip().split()[0] if user.name else None
     if 5 <= hour < 12:
         phrase = "Good morning"

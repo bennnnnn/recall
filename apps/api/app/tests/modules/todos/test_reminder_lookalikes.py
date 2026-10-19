@@ -11,8 +11,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.modules import home as home_service
 from app.modules import todos as todos_service
+from app.modules.home import service as home_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.spoken_add import (
     claims_a_reminder_change,

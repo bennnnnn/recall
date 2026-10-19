@@ -66,11 +66,13 @@ def test_home_runtime_code_has_one_owner() -> None:
     module_root = APP_ROOT / "modules" / "home"
     expected = {
         "api.py",
-        "memory_starters.py",
-        "time_starters.py",
-        "util.py",
+        "greeting.py",
+        "reminder_copy.py",
+        "service.py",
     }
     assert expected <= {path.name for path in module_root.glob("*.py")}
+    # The package initializer holds no service code; callers import ``service``.
+    assert "def " not in (module_root / "__init__.py").read_text()
     assert (APP_ROOT / "tests" / "modules" / "home" / "test_service.py").is_file()
 
 

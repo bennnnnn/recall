@@ -49,7 +49,7 @@ def page_sql():
                 push_notifications_enabled=True,
                 push_reminders_enabled=True,
             )
-            with patch("app.modules.home.invalidate_home_cache", AsyncMock()) as invalidate:
+            with patch("app.modules.home.service.invalidate_home_cache", AsyncMock()) as invalidate:
                 yield sync_session, session, user, invalidate
     finally:
         engine.dispose()
