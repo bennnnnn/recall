@@ -22,7 +22,7 @@ def _app_with_analytics_dependencies():
 def test_record_product_events_returns_204() -> None:
     app, user, session = _app_with_analytics_dependencies()
     with patch(
-        "app.routers.analytics.product_analytics.record_batch",
+        "app.modules.analytics.service.record_batch",
         AsyncMock(),
     ) as record_batch:
         response = TestClient(app).post(
@@ -50,7 +50,7 @@ def test_record_product_events_returns_204() -> None:
 def test_record_product_events_maps_property_error_to_422() -> None:
     app, _, _ = _app_with_analytics_dependencies()
     with patch(
-        "app.routers.analytics.product_analytics.record_batch",
+        "app.modules.analytics.service.record_batch",
         AsyncMock(side_effect=ValueError("Invalid properties")),
     ):
         response = TestClient(app).post(
@@ -81,7 +81,7 @@ def _post_turn_outcome(app, properties: dict[str, str]):
 def test_chat_turn_outcome_is_accepted_with_metadata_only() -> None:
     app, _, _ = _app_with_analytics_dependencies()
     with patch(
-        "app.services.product_analytics.product_events_repo.create_batch", AsyncMock()
+        "app.modules.analytics.service.product_events_repo.create_batch", AsyncMock()
     ) as create_batch:
         response = _post_turn_outcome(
             app, {"completion": "error", "error_code": "model_unavailable", "tool": "none"}
@@ -95,7 +95,7 @@ def test_chat_turn_outcome_rejects_free_text_properties() -> None:
     """O10.1: a turn outcome carries no prompt, reply, query or provider message."""
     app, _, _ = _app_with_analytics_dependencies()
     with patch(
-        "app.services.product_analytics.product_events_repo.create_batch", AsyncMock()
+        "app.modules.analytics.service.product_events_repo.create_batch", AsyncMock()
     ) as create_batch:
         response = _post_turn_outcome(
             app,

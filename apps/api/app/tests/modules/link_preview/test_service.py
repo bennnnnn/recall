@@ -1,4 +1,4 @@
-"""Tests for app.services.link_preview with mocked HTTP and SSRF validation.
+"""Tests for app.modules.link_preview.service with mocked HTTP and SSRF validation.
 
 The fetch path now routes through ``app.gateways.safe_fetch.fetch_safely``;
 the SSRF-safe DNS pinning + per-hop re-validation is exercised in
@@ -38,7 +38,7 @@ def _mock_response(status=200, text="", headers=None):
 def _fetch_safely_patch(response):
     """Patch link_preview.fetch_safely to return *response*."""
     return patch(
-        "app.services.link_preview.fetch_safely",
+        "app.modules.link_preview.service.fetch_safely",
         AsyncMock(return_value=response),
     )
 
@@ -46,7 +46,7 @@ def _fetch_safely_patch(response):
 @pytest.mark.asyncio
 async def test_fetch_link_preview_returns_og_tags():
     """OG meta tags should be parsed as title and description."""
-    from app.services.link_preview import fetch_link_preview
+    from app.modules.link_preview.service import fetch_link_preview
 
     resp = _mock_response(text=_OG_HTML)
     with _fetch_safely_patch(resp) as fetch_mock:
@@ -67,7 +67,7 @@ async def test_fetch_link_preview_returns_og_tags():
 @pytest.mark.asyncio
 async def test_fetch_link_preview_fallback_to_title():
     """When no OG tags exist, fall back to <title> tag."""
-    from app.services.link_preview import fetch_link_preview
+    from app.modules.link_preview.service import fetch_link_preview
 
     resp = _mock_response(text=_TITLE_HTML)
     with _fetch_safely_patch(resp):
@@ -80,7 +80,7 @@ async def test_fetch_link_preview_fallback_to_title():
 @pytest.mark.asyncio
 async def test_fetch_link_preview_handles_http_error():
     """HTTP errors should be caught and return nulls, not raised."""
-    from app.services.link_preview import fetch_link_preview
+    from app.modules.link_preview.service import fetch_link_preview
 
     resp = _mock_response(status=500, text="Server Error")
     with _fetch_safely_patch(resp):
@@ -93,7 +93,7 @@ async def test_fetch_link_preview_handles_http_error():
 @pytest.mark.asyncio
 async def test_fetch_link_preview_no_meta():
     """Pages with no meta or title tags should return nulls."""
-    from app.services.link_preview import fetch_link_preview
+    from app.modules.link_preview.service import fetch_link_preview
 
     resp = _mock_response(text=_NO_META_HTML)
     with _fetch_safely_patch(resp):
@@ -182,7 +182,7 @@ async def test_pin_url_formats_ipv4_and_ipv6():
 @pytest.mark.asyncio
 async def test_fetch_link_preview_follows_redirect():
     """Redirects are handled inside fetch_safely; link_preview just parses the final body."""
-    from app.services.link_preview import fetch_link_preview
+    from app.modules.link_preview.service import fetch_link_preview
 
     final_resp = _mock_response(text=_OG_HTML)
     with _fetch_safely_patch(final_resp):
@@ -195,10 +195,10 @@ async def test_fetch_link_preview_follows_redirect():
 @pytest.mark.asyncio
 async def test_fetch_link_preview_blocks_internal_address():
     """When fetch_safely raises ValueError (blocked internal address), return nulls gracefully."""
-    from app.services.link_preview import fetch_link_preview
+    from app.modules.link_preview.service import fetch_link_preview
 
     with patch(
-        "app.services.link_preview.fetch_safely",
+        "app.modules.link_preview.service.fetch_safely",
         AsyncMock(side_effect=ValueError("Blocked request to internal/private address")),
     ):
         result = await fetch_link_preview("http://169.254.169.254/metadata")
@@ -211,7 +211,7 @@ async def test_fetch_link_preview_blocks_internal_address():
 @pytest.mark.asyncio
 async def test_fetch_link_preview_uses_redis_cache(fake_redis):
     from app.core.config import Settings
-    from app.services.link_preview import fetch_link_preview_cached
+    from app.modules.link_preview.service import fetch_link_preview_cached
 
     settings = Settings(link_preview_cache_ttl=3600)
     resp = _mock_response(text=_OG_HTML)
@@ -234,7 +234,7 @@ async def test_fetch_link_preview_uses_redis_cache(fake_redis):
 
 @pytest.mark.asyncio
 async def test_fetch_link_preview_passes_an_overall_deadline():
-    from app.services.link_preview import fetch_link_preview
+    from app.modules.link_preview.service import fetch_link_preview
 
     with _fetch_safely_patch(_mock_response(text=_OG_HTML)) as fetch_mock:
         await fetch_link_preview("https://example.com/page")
@@ -244,7 +244,7 @@ async def test_fetch_link_preview_passes_an_overall_deadline():
 @pytest.mark.asyncio
 async def test_fetch_link_preview_slow_server_ends_at_the_deadline():
     """A server sending one byte at a time used to hold the request open for minutes."""
-    from app.services import link_preview
+    from app.modules.link_preview import service as link_preview
 
     async with dripping_server(drip_seconds=0.2) as port:
         started = time.monotonic()
@@ -271,7 +271,7 @@ async def test_fetch_link_preview_slow_server_ends_at_the_deadline():
 async def test_link_preview_caps_fetches_in_flight_per_user(fake_redis):
     """A fourth uncached fetch while three are open is refused; others are not."""
     from app.core.config import Settings
-    from app.services.link_preview import LinkPreviewBusyError, fetch_link_preview_cached
+    from app.modules.link_preview.service import LinkPreviewBusyError, fetch_link_preview_cached
 
     settings = Settings()
     release = asyncio.Event()
@@ -283,7 +283,7 @@ async def test_link_preview_caps_fetches_in_flight_per_user(fake_redis):
         return {"url": url, "title": "T", "description": None, "domain": "example.com"}
 
     user_id, other_user = uuid4(), uuid4()
-    with patch("app.services.link_preview.fetch_link_preview", slow_fetch):
+    with patch("app.modules.link_preview.service.fetch_link_preview", slow_fetch):
         open_fetches = [
             asyncio.create_task(
                 fetch_link_preview_cached(
@@ -317,7 +317,7 @@ async def test_link_preview_caps_fetches_in_flight_per_user(fake_redis):
 async def test_link_preview_stale_fetch_slots_age_out(fake_redis):
     """Slots left behind by a crashed fetch do not lock the user out."""
     from app.core.config import Settings
-    from app.services.link_preview import fetch_link_preview_cached
+    from app.modules.link_preview.service import fetch_link_preview_cached
 
     user_id = uuid4()
     key = f"linkpreview:inflight:{user_id}"
@@ -334,7 +334,7 @@ async def test_link_preview_stale_fetch_slots_age_out(fake_redis):
 @pytest.mark.asyncio
 async def test_link_preview_slot_fails_closed_when_redis_errors():
     from app.core.config import Settings
-    from app.services.link_preview import LinkPreviewBusyError, fetch_link_preview_cached
+    from app.modules.link_preview.service import LinkPreviewBusyError, fetch_link_preview_cached
 
     redis = MagicMock()
     redis.get = AsyncMock(return_value=None)
@@ -352,18 +352,18 @@ async def test_link_preview_slot_fails_closed_when_redis_errors():
 def test_link_preview_router_answers_429_when_fetches_are_busy():
     from fastapi.testclient import TestClient
 
-    from app.services.link_preview import LinkPreviewBusyError
+    from app.modules.link_preview.service import LinkPreviewBusyError
     from app.tests.test_routers import _app_with_user, _fake_user
 
     user = _fake_user()
     with (
-        patch("app.routers.link_preview.get_redis_client", return_value=MagicMock()),
+        patch("app.modules.link_preview.api.get_redis_client", return_value=MagicMock()),
         patch(
-            "app.routers.link_preview.allow_request_fail_closed",
+            "app.modules.link_preview.api.allow_request_fail_closed",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.routers.link_preview.fetch_link_preview_cached",
+            "app.modules.link_preview.api.fetch_link_preview_cached",
             AsyncMock(side_effect=LinkPreviewBusyError()),
         ),
     ):
@@ -393,9 +393,9 @@ def test_link_preview_router_rate_limit_fails_closed():
 
     user = _fake_user()
     with (
-        patch("app.routers.link_preview.get_redis_client", return_value=MagicMock()),
+        patch("app.modules.link_preview.api.get_redis_client", return_value=MagicMock()),
         patch(
-            "app.routers.link_preview.allow_request_fail_closed",
+            "app.modules.link_preview.api.allow_request_fail_closed",
             AsyncMock(return_value=False),
         ),
     ):

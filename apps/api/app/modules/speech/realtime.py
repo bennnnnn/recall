@@ -20,8 +20,12 @@ from app.models.orm import User
 from app.models.schemas import MessageOut
 from app.models.schemas.text import UserText
 from app.modules.account.consent import get_consented_user
-from app.modules.billing import can_use
 from app.modules.speech import live_talk as live_talk_service
+from app.modules.speech.gates import (
+    require_plan_feature,
+    require_speech_rate,
+    require_voice_spend_ok,
+)
 from app.modules.speech.schemas import SpeechLiveStatusOut
 from app.services import quota as quota_service
 
@@ -110,11 +114,7 @@ async def _load_session_context_or_404(
 
 
 def _require_live_talk_plan(user: User, settings: Settings) -> None:
-    if not can_use(user, "live_talk", settings):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=quota_service.LIVE_TALK_NOT_IN_PLAN_MESSAGE,
-        )
+    require_plan_feature(user, settings, "live_talk", quota_service.LIVE_TALK_NOT_IN_PLAN_MESSAGE)
 
 
 async def _reserve_realtime_or_raise(user: User, settings: Settings):
@@ -129,24 +129,13 @@ async def _reserve_realtime_or_raise(user: User, settings: Settings):
         )
 
     redis = get_redis_client()
-    if settings.speech_rate_limit_per_minute > 0:
-        allowed = await allow_request_fail_closed(
-            redis,
-            f"speech_realtime_rl:{user.id}",
-            limit=settings.speech_rate_limit_per_minute,
-            window_seconds=60,
-        )
-        if not allowed:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
-            )
-
-    if await quota_service.global_spend_exceeded(redis, settings):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=quota_service.VOICE_SPEND_CAP_MESSAGE,
-        )
+    await require_speech_rate(
+        redis,
+        settings,
+        f"speech_realtime_rl:{user.id}",
+        quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
+    )
+    await require_voice_spend_ok(redis, settings)
 
     reserved = await quota_service.reserve_live_talk_seconds(
         redis,
@@ -285,11 +274,7 @@ async def persist_realtime_turn(
     _require_live_talk_plan(user, settings)
 
     redis = get_redis_client()
-    if await quota_service.global_spend_exceeded(redis, settings):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=quota_service.VOICE_SPEND_CAP_MESSAGE,
-        )
+    await require_voice_spend_ok(redis, settings)
     # The session key lives for the reserved minutes (plus a short tail), so
     # this also ends saving once the session's time is up.
     bound_chat_id = await live_talk_service.realtime_session_bound_chat_id(

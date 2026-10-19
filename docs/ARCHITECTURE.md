@@ -52,7 +52,26 @@ Paths are under `apps/api/app/`. Running more than one machine is
 | A per-process cache | `core/ttl_cache.TtlCache` (expiring, size-capped), behind a module whose functions are the interface (`core/user_cache.py` is the example), and a row in SCALING.md saying what being per machine means. |
 | A Sentry report from a best-effort path | `core/sentry.report_breadcrumb` / `report_message` / `report_exception`: they never raise. |
 | A dependency outage answered as 503 | Its exception type in `core/unavailable.UNAVAILABLE_EXCEPTIONS`. |
-| An HTTP route | The module's `api.py`, registered in `main.create_app`. |
+| An HTTP route | The module's `api.py`, registered in `main.create_app` (the domain recipe below). |
+
+## Adding a backend domain or endpoint
+
+Every new product surface follows the same recipe; each step is one file, and the composition
+roots are the only shared files it touches.
+
+| Step | Where | Notes |
+| --- | --- | --- |
+| Package | `modules/<domain>/__init__.py` | A docstring. Name any submodule other modules may import beyond `api`, `schemas`, `service` and `crud` in `_MODULE_EXPORTS`; keep the initializer free of service code (lazy `_EXPORTS` only when importing the package must not load the graph). |
+| HTTP | `modules/<domain>/api.py` | `router = APIRouter(prefix="/<domain>")`. Thin: validate, call the service, map domain errors to `HTTPException` (one `contextmanager` when several routes share the mapping, as in `attachments/api.py`). |
+| Rules and transactions | `modules/<domain>/service.py` | Owns the commit (repository writes with `commit=False`, one commit, roll back on failure), then cache invalidation and job enqueue. |
+| Queries | `modules/<domain>/repository.py` | Queries only; writes take `commit`. Tables several domains read stay in `repositories/`. |
+| Wire and ORM | `schemas.py`, `models.py` | ORM models are registered in `models/orm/__init__.py`; schema changes are expand-then-contract migrations. |
+| Background work | `modules/<domain>/jobs.py` | The handler and its enqueue helper (the payload shape lives in one place); register the job type in `background/handlers.py`. |
+| Model tool | `modules/<domain>/tool.py` | A `ToolAdapter`; register it in `services/mcp/__init__.py`. |
+| Plan, caps, flags | `modules/billing/entitlements.py`, `services/quota/counters.COUNTERS`, `core/settings/` | A metered feature is an allowance; a daily cap is one `CounterSpec`; a kill switch is one `*_enabled` setting. |
+| Registration | `main.py` | `app.include_router(...)`; an upload route also joins `UPLOAD_BODY_PATHS`. |
+| Tests | `tests/modules/<domain>/` | Plus an ownership test in `tests/architecture/test_product_module_boundaries.py`. |
+| Phone | `features/<feature>/api.ts` | Composed into `lib/api.ts`. |
 
 ## Mobile feature shape
 
@@ -83,6 +102,11 @@ request client and are composed into the existing `lib/api.ts` public barrel.
     status through the `app.modules.chat` package. The tool loop is `modules/chat/tool_loop/`.
     On mobile, the chat screen, its hooks, components, stream/socket model and API slice are
     `features/chat/`; `app/index.tsx` is a one-line route.
+14. Product analytics — migrated (`modules/analytics/`: `api.py` serves `/analytics`, `service.py`
+    holds the per-event property allowlist). The `product_events` repository stays shared in
+    `repositories/` because account export reads it too.
+15. Link preview — migrated (`modules/link_preview/`: `api.py` serves `/link-preview`, `service.py`
+    fetches through `gateways/safe_fetch.py` and caches the card).
 
 Each migration is its own reviewable change: preserve behavior, establish the public seam, run
 the feature tests and architecture checks, then remove compatibility imports in a later cleanup

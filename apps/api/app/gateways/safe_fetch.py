@@ -6,7 +6,7 @@ explicit Host/SNI headers so DNS cannot re-resolve to something different
 mid-request (closes the DNS-rebinding TOCTOU window). Callers that follow
 redirects must re-validate + re-pin on every hop — see fetch_safely().
 
-Used by app.services.link_preview (fetching arbitrary user-submitted URLs),
+Used by app.modules.link_preview (fetching arbitrary user-submitted URLs),
 app.modules.images.search (reference-photo candidates) and
 app.gateways.image_gateway (fetching provider-returned image URLs) so none of
 them duplicates the DNS-pinning/redirect logic.

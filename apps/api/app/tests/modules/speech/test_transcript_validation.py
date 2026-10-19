@@ -1,4 +1,4 @@
-from app.services.transcript_validation import sanitize_transcript
+from app.modules.speech.transcript_validation import sanitize_transcript
 
 
 def test_sanitize_keeps_real_watching_phrase_on_enough_audio():

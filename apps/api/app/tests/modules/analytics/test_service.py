@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from app.models.schemas import ProductEventBatchIn
-from app.services import product_analytics
+from app.modules.analytics import service as product_analytics
 
 
 @pytest.mark.asyncio
@@ -25,7 +25,7 @@ async def test_record_batch_persists_allowlisted_metadata() -> None:
     )
 
     with patch(
-        "app.services.product_analytics.product_events_repo.create_batch",
+        "app.modules.analytics.service.product_events_repo.create_batch",
         AsyncMock(),
     ) as create_batch:
         await product_analytics.record_batch(session, uuid4(), batch)
@@ -60,7 +60,7 @@ async def test_record_batch_accepts_bucketed_chat_ttft_only() -> None:
     )
 
     with patch(
-        "app.services.product_analytics.product_events_repo.create_batch",
+        "app.modules.analytics.service.product_events_repo.create_batch",
         AsyncMock(),
     ) as create_batch:
         await product_analytics.record_batch(session, uuid4(), batch)
@@ -95,7 +95,7 @@ async def test_record_batch_rejects_raw_chat_latency_value() -> None:
     )
 
     with patch(
-        "app.services.product_analytics.product_events_repo.create_batch",
+        "app.modules.analytics.service.product_events_repo.create_batch",
         AsyncMock(),
     ) as create_batch:
         with pytest.raises(ValueError, match="Invalid latency_bucket"):
@@ -119,7 +119,7 @@ async def test_record_batch_rejects_unexpected_properties() -> None:
     )
 
     with patch(
-        "app.services.product_analytics.product_events_repo.create_batch",
+        "app.modules.analytics.service.product_events_repo.create_batch",
         AsyncMock(),
     ) as create_batch:
         with pytest.raises(ValueError, match="Invalid properties"):
@@ -137,7 +137,7 @@ async def test_record_batch_rolls_back_failed_persistence() -> None:
     )
 
     with patch(
-        "app.services.product_analytics.product_events_repo.create_batch",
+        "app.modules.analytics.service.product_events_repo.create_batch",
         AsyncMock(side_effect=RuntimeError("database unavailable")),
     ):
         with pytest.raises(RuntimeError, match="database unavailable"):
@@ -157,7 +157,7 @@ async def test_record_batch_accepts_a_metadata_only_chat_turn_outcome() -> None:
         {"events": [{"name": "chat_turn_outcome", "properties": _OUTCOME, "platform": "ios"}]}
     )
     with patch(
-        "app.services.product_analytics.product_events_repo.create_batch", AsyncMock()
+        "app.modules.analytics.service.product_events_repo.create_batch", AsyncMock()
     ) as create_batch:
         await product_analytics.record_batch(session, uuid4(), batch)
 
@@ -185,7 +185,7 @@ async def test_record_batch_rejects_free_text_in_a_chat_turn_outcome(
         {"events": [{"name": "chat_turn_outcome", "properties": properties}]}
     )
     with patch(
-        "app.services.product_analytics.product_events_repo.create_batch", AsyncMock()
+        "app.modules.analytics.service.product_events_repo.create_batch", AsyncMock()
     ) as create_batch:
         with pytest.raises(ValueError, match="Invalid"):
             await product_analytics.record_batch(session, uuid4(), batch)

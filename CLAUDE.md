@@ -138,12 +138,13 @@ What exists in code today. Product caveats: FEATURES.md.
 | Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/` (`catalog.py` is the one operation list; `extractors/` and `solvers/` by topic, run in `registry.py` order; `binding.py` + `laws.py` on the shared `services/law_binding/`; HTTP `/chemistry/scan/read`), `modules/chemistry/schemas/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Push / email out | `modules/notifications/`, `background/*scheduler*` | notification settings |
 | Billing | `modules/billing/` (`entitlements.py` plan policy, `revenuecat.py` webhook, `subscription.py` REST sync; HTTP `/webhooks/revenuecat`, `/billing/plans`), `gateways/revenuecat_gateway.py` | RevenueCat (`lib/purchases.ts`), `lib/plan.ts`, `components/UpgradeSheet.tsx` |
-| Product analytics | `routers/analytics.py`, `services/product_analytics.py` | `lib/api/analytics.ts` (metadata-only events; never prompts) |
+| Product analytics | `modules/analytics/` (HTTP `/analytics`; events persist through the shared `repositories/product_events.py`, which account export also reads) | `lib/api/analytics.ts` (metadata-only events; never prompts) |
+| Link preview | `modules/link_preview/` (HTTP `/link-preview`; SSRF-safe fetch in `gateways/safe_fetch.py`) | `components/LinkPreviewCard.tsx`, `lib/linkPreview.ts` |
 | Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `features/account/screens/HelpScreen.tsx`, `AboutScreen.tsx`, `DataControlsScreen.tsx` |
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Home, Search, Suggestions, Chat history, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, and Notifications push-token (`/users`) APIs plus the legacy health, legal, admin, link_preview, models, and analytics routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
+**HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Home, Search, Suggestions, Chat history, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, Notifications push-token (`/users`), Analytics, and Link preview APIs plus the legacy health, legal, admin, and models routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
 
 **Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, model catalog, time context, …). New chat-loop code belongs in `modules/chat/`; new external IO belongs in a gateway, not an API surface.
 

@@ -7,7 +7,7 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.models.orm import User
-from app.services.link_preview import LinkPreviewBusyError, fetch_link_preview_cached
+from app.modules.link_preview.service import LinkPreviewBusyError, fetch_link_preview_cached
 
 router = APIRouter(tags=["link-preview"])
 

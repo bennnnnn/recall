@@ -11,6 +11,7 @@ from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.core.unavailable import register_unavailable_handlers
 from app.modules.account import api as auth
+from app.modules.analytics import api as analytics
 from app.modules.attachments import api as attachments
 from app.modules.billing import api as webhooks
 from app.modules.chat import api as chats
@@ -19,6 +20,7 @@ from app.modules.chat import ws_api as ws
 from app.modules.chemistry import api as chemistry_api
 from app.modules.home import api as home
 from app.modules.images import api as images
+from app.modules.link_preview import api as link_preview
 from app.modules.math import api as math_api
 from app.modules.memory import api as memories
 from app.modules.notifications import api as users
@@ -30,10 +32,8 @@ from app.modules.suggestions import api as suggestions
 from app.modules.todos import api as todos
 from app.routers import (
     admin,
-    analytics,
     health,
     legal,
-    link_preview,
     models,
 )
 
