@@ -24,6 +24,8 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.background.memory_extraction",
     "app.background.suggestion_generation",
     "app.background.todo_sync",
+    # A one-line re-export of ``services.topic.generate_chat_title``.
+    "app.background.topic_generation",
     "app.models.memory_ops",
     "app.models.orm.memory",
     "app.models.orm.schedule",
