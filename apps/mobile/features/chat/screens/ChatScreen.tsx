@@ -14,10 +14,8 @@ import { ChatScreenBody } from "@/features/chat/components/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/features/chat/components/ChatScreenMenuSheets";
 import { LiveTalkOverlay } from "@/features/speech/components/LiveTalkOverlay";
 import { makeChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
-import {
-  COMPOSER_HEIGHT,
-  composerAttachmentExtra,
-} from "@/features/chat/components/ChatComposer";
+import { COMPOSER_HEIGHT } from "@/features/chat/components/ChatComposer";
+import { composerAttachmentExtra } from "@/features/attachments/components/ComposerAttachmentPreview";
 import { DrawerShell } from "@/components/DrawerShell";
 import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
 import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftPersist";

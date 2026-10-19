@@ -9,7 +9,6 @@ import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import type { useChatScroll } from "@/features/chat/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
 import type { Message } from "@/lib/api";
-import { clearPendingChatTtft } from "@/features/chat/model/latency";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import {
@@ -23,6 +22,7 @@ import { resolveSendIntercept, type SendIntercept } from "@/features/chat/model/
 import { useComposerAttachmentSheet } from "@/features/chat/hooks/useComposerAttachmentSheet";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
 import { useMathScanSend } from "@/features/chat/hooks/useMathScanSend";
+import { useRestoreFailedSend, type SendTurn } from "@/features/chat/hooks/useRestoreFailedSend";
 import { uploadSendAttachment, useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
 import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
@@ -91,16 +91,6 @@ type Options = {
     },
   ) => void;
   imageGenerating?: boolean;
-};
-
-/** One send, from the tap that started it. */
-type SendTurn = {
-  text: string;
-  composerText: string;
-  attachment: PendingAttachment | null;
-  threadKey: string;
-  isCurrentSession: () => boolean;
-  isCurrentView: () => boolean;
 };
 
 export function useChatSend({
@@ -323,41 +313,10 @@ export function useChatSend({
     return optimisticId;
   }, [setInput, setPendingAttachment, setMessages, newMessageCountRef]);
 
-  /** Takes the bubble back and returns the draft to the thread it was typed in. */
-  const restoreFailedSend = useCallback(
-    (turn: SendTurn, optimisticId: string, attached: PendingAttachment | null) => {
-      clearPendingChatTtft(optimisticId);
-      if (!turn.isCurrentSession()) {
-        discardDraftAttachment(null, attached);
-        return;
-      }
-      // The attachment travels with the text: uploaded, it keeps its id for the next send.
-      const stash = () => {
-        stashFailedDraftForThread(turn.threadKey, turn.text);
-        stashAttachmentForThread(turn.threadKey, getThreadKey(), attached);
-      };
-      if (!turn.isCurrentView()) {
-        stash();
-        return;
-      }
-      setPendingOutboundId(null);
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-      newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
-      if (getThreadKey() === turn.threadKey) {
-        if (!pendingAttachmentRef.current && shouldRestoreFailedSend(inputRef.current, turn.text)) {
-          setInput(turn.text);
-          setPendingAttachment(attached);
-        } else {
-          discardDraftAttachment(token, attached);
-        }
-      } else {
-        stash();
-      }
-      sendInFlightRef.current = false;
-      setSendPhase("idle");
-    },
-    [stashFailedDraftForThread, stashAttachmentForThread, setMessages, newMessageCountRef, getThreadKey, pendingAttachmentRef, inputRef, setInput, setPendingAttachment, token],
-  );
+  const restoreFailedSend = useRestoreFailedSend({
+    token, setMessages, newMessageCountRef, pendingAttachmentRef, setPendingAttachment,
+    stashAttachmentForThread, setPendingOutboundId, sendInFlightRef, setSendPhase,
+  });
 
   const handleSend = useCallback(
     async (overrideText?: string) => {
