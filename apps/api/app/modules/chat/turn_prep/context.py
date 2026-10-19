@@ -14,7 +14,7 @@ from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.modules.billing import plan as plan_service
-from app.modules.chat.prompt_builder import build_prompt_messages
+from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.turn_prep.augment import Augmentation, gather_and_inject
 from app.modules.chat.turn_prep.followups import resolve_subject_followup
 from app.modules.chat.turn_prep.instant import (
@@ -125,7 +125,7 @@ class StreamContext:
 @dataclass
 class TurnPromptBundle:
     prompt_messages: list[dict[str, str]]
-    meta: dict[str, Any]
+    stats: PromptStats
     instant_reply: str | None
     search_sources: list[WebSearchHit]
     local_places: bool
@@ -143,9 +143,9 @@ class TurnPromptBundle:
     settings_card: str | None = None
 
 
-def _search_location(geo: ClientGeoContext | None) -> str | None:
+def _search_location(geo: ClientGeoContext) -> str | None:
     """The place a search for this turn names: only a turn that needs one."""
-    return geo.user_location if geo is not None and geo.geo_query else None
+    return geo.user_location if geo.geo_query else None
 
 
 def stream_context_from_bundle(
@@ -180,12 +180,12 @@ def stream_context_from_bundle(
         user_message_content=user_message_content,
         reserved_tokens=reserved_tokens,
         max_output_tokens=bundle.max_out,
-        user_timezone=getattr(bundle, "local_tz", None),
-        search_location=_search_location(getattr(bundle, "geo", None)),
+        user_timezone=bundle.local_tz,
+        search_location=_search_location(bundle.geo),
         user=user,
-        recalled_count=int(bundle.meta.get("recalled") or 0),
-        memory_hints=list(bundle.meta.get("memory_hints") or []),
-        context_summarized=int(bundle.meta.get("context_summarized") or 0),
+        recalled_count=bundle.stats.recalled,
+        memory_hints=list(bundle.stats.memory_hints),
+        context_summarized=bundle.stats.context_summarized,
         instant_reply=bundle.instant_reply,
         search_sources=bundle.search_sources,
         local_places=bundle.local_places,
@@ -194,15 +194,15 @@ def stream_context_from_bundle(
         regenerate_backup=regenerate_backup,
         fallback_models=bundle.fallback_models,
         verified_subject=bundle.verified_subject,
-        solver_unverified=getattr(bundle, "solver_unverified", False) is True,
-        unverified_subject=getattr(bundle, "unverified_subject", None),
+        solver_unverified=bundle.solver_unverified,
+        unverified_subject=bundle.unverified_subject,
         timing=timing,
         # Trust turn-mode: re-running is_lightweight_chat_turn without the
         # prior assistant would mark "yes"/"go" as greetings again.
         lightweight_turn=bundle.lightweight,
         rich_context_turn=bundle.rich_context,
-        web_search_classified=getattr(bundle, "web_search_classified", None),
-        settings_card=getattr(bundle, "settings_card", None),
+        web_search_classified=bundle.web_search_classified,
+        settings_card=bundle.settings_card,
         indexable_attachment_ids=list(indexable_attachment_ids or []),
         user_message_persist=user_message_persist,
         thinking=thinking,
@@ -288,13 +288,13 @@ def _bundle(
     settings: Settings,
     augmented: Augmentation,
     *,
-    meta: dict[str, Any],
+    stats: PromptStats,
     instant_reply: str | None,
     fallback_models: list[str],
 ) -> TurnPromptBundle:
     return TurnPromptBundle(
         prompt_messages=augmented.prompt_messages,
-        meta=meta,
+        stats=stats,
         instant_reply=instant_reply,
         search_sources=augmented.search_sources,
         local_places=identity.geo.local_places,
@@ -333,7 +333,7 @@ async def build_stream_prompt_context(
             identity,
             settings,
             Augmentation(prompt),
-            meta={},
+            stats=PromptStats(),
             instant_reply=pay_reply,
             fallback_models=[],
         )
@@ -343,7 +343,7 @@ async def build_stream_prompt_context(
     # theater — casual chat should look like TTS: tap, then tokens. Real work
     # (search, files, math) still emits its own activity chip.
     user, chat, mode, geo = identity.user, identity.chat, identity.mode, identity.geo
-    meta: dict[str, Any] = {}
+    stats = PromptStats()
     # More than one request: each is answered (``intents``), and the prompt says how.
     plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
     # Phase A: prompt + instant-reply + fallback-health share no data.
@@ -354,7 +354,7 @@ async def build_stream_prompt_context(
             settings,
             summary=chat.summary,
             chat=chat,
-            out=meta,
+            stats=stats,
             query_text=request.content,
             minimal_personal_context=mode.minimal_personal,
             lightweight=mode.lightweight,
@@ -362,7 +362,6 @@ async def build_stream_prompt_context(
             advice_memory=mode.advice_memory,
             client_timezone=request.client_timezone,
             prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
-            on_status=None,
             omit_message_ids=request.omit_message_ids,
             probe_attachment_rag=request.probe_attachment_rag,
             recent_messages=request.recent_messages,
@@ -394,12 +393,12 @@ async def build_stream_prompt_context(
         timing.mark_prompt_ready()
 
     if instant_reply is None:
-        instant_reply = augmented.direct_reply(request, user, followup)
+        instant_reply = augmented.direct_reply(request, followup)
     bundle = _bundle(
         identity,
         settings,
         augmented,
-        meta=meta,
+        stats=stats,
         instant_reply=instant_reply,
         fallback_models=fallback_models,
     )

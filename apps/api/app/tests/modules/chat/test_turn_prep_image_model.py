@@ -18,6 +18,7 @@ from app.modules.chat.turn_prep.context import await_user_message_persist
 from app.modules.chat.turn_prep.persist import UserTurn, turn_model
 from app.modules.chat.turn_prep.vision import inject_turn_images
 from app.services import model_catalog
+from app.tests.modules.chat.chat_test_support import prompt_bundle
 
 _SETTINGS = Settings(attachments_enabled=True, mock_llm_enabled=True, openrouter_api_key="")
 
@@ -119,17 +120,9 @@ async def test_a_resent_photo_moves_the_turn_and_its_backups_to_image_readers() 
     from app.modules.chat.turn_prep import prepare
 
     user = _pro_user()
-    bundle = SimpleNamespace(
+    bundle = prompt_bundle(
         prompt_messages=[{"role": "user", "content": "and the colour?"}],
-        meta={},
-        instant_reply=None,
-        search_sources=[],
-        local_places=False,
-        max_out=100,
         fallback_models=["glm-5.2"],
-        lightweight=False,
-        rich_context=True,
-        verified_subject=None,
     )
     processed = _attachments()
     processed.user = user

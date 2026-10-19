@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.models.orm import Chat, User
 from app.modules.attachments.vision_notes import VISION_NOTE
 from app.modules.chat import stream_entry
+from app.modules.chat.prompt_builder import PromptStats
 from app.modules.chat.turn_prep.attachments import vision_reserve_tokens
 from app.modules.chat.turn_prep.context import (
     TurnPromptBundle,
@@ -174,7 +175,7 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
                 {"role": "system", "content": "policy"},
                 {"role": "user", "content": caption},
             ],
-            meta={},
+            stats=PromptStats(),
             instant_reply=None,
             search_sources=[],
             local_places=False,

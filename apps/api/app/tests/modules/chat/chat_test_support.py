@@ -8,8 +8,13 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
-from app.modules.chat.prompt_builder import fetch_web_and_tools, inject_web_and_tools
+from app.modules.chat.prompt_builder import (
+    PromptStats,
+    fetch_web_and_tools,
+    inject_web_and_tools,
+)
 from app.modules.chat.turn_deps import ChatTurnDeps, default_deps
+from app.modules.chat.turn_prep import ClientGeoContext, TurnPromptBundle
 from app.services.solving import VerifiedSolveBlock
 
 
@@ -58,6 +63,24 @@ async def augment_web_and_tools(
     )
     updated = await inject_web_and_tools(prompt_messages, fetched.web_block, fetched.subject_block)
     return updated, fetched.search_sources, fetched.verified
+
+
+def prompt_bundle(**fields: Any) -> TurnPromptBundle:
+    """What a stubbed prompt build returns: an empty prompt unless ``fields`` say otherwise."""
+    base: dict[str, Any] = {
+        "prompt_messages": [],
+        "stats": PromptStats(),
+        "instant_reply": None,
+        "search_sources": [],
+        "local_places": False,
+        "max_out": 100,
+        "fallback_models": [],
+        "lightweight": False,
+        "rich_context": True,
+        "geo": ClientGeoContext(None, None, None, False, False, False, False),
+        "local_tz": "UTC",
+    }
+    return TurnPromptBundle(**{**base, **fields})
 
 
 def stub_recent(n: int) -> list[MagicMock]:

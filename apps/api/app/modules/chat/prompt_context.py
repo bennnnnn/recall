@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -78,6 +78,9 @@ class _PromptContextBlocks:
     history_rag_query_vec: list[float] | None = None
     # "ok", or "partial" / "unavailable" when memory did not fully load.
     memory_status: str = "ok"
+    # The memory sections the prompt drew on, for the turn's ``done``.
+    recalled: int = 0
+    memory_hints: list[str] = field(default_factory=list)
 
 
 async def _load_context_blocks(
@@ -90,7 +93,6 @@ async def _load_context_blocks(
     recent_limit: int,
     slim_context: bool,
     client_timezone: str | None,
-    out: dict[str, object] | None,
     load_memory: bool = False,
     memory_scope: MemoryScope = "query",
     history_rag: bool = False,
@@ -131,9 +133,6 @@ async def _load_context_blocks(
         else:
             recent_all = await _fetch_recent()
             history_rag_query_vec = None
-        if out is not None:
-            out["recalled"] = 0
-            out["memory_hints"] = []
         return _PromptContextBlocks(
             memory_block="",
             todos_section=None,
@@ -169,9 +168,6 @@ async def _load_context_blocks(
             _memory_block(),
             _history_rag_embed(),
         )
-        if out is not None:
-            out["recalled"] = 0
-            out["memory_hints"] = []
         return _PromptContextBlocks(
             memory_block=_cap_slim_memory_block(memory_block),
             todos_section=None,
@@ -230,15 +226,12 @@ async def _load_context_blocks(
         _attachment_rag_block(),
         _history_rag_embed(),
     )
-    if out is not None:
-        labels = set(memory_service.SECTION_LABELS.values())
-        hints = [
-            line[3:].strip()
-            for line in memory_block.split("\n")
-            if line.startswith("## ") and line[3:].strip() in labels
-        ]
-        out["recalled"] = len(hints)
-        out["memory_hints"] = hints[:3]
+    labels = set(memory_service.SECTION_LABELS.values())
+    hints = [
+        line[3:].strip()
+        for line in memory_block.split("\n")
+        if line.startswith("## ") and line[3:].strip() in labels
+    ]
     return _PromptContextBlocks(
         memory_block=memory_block,
         todos_section=todos_section,
@@ -247,6 +240,8 @@ async def _load_context_blocks(
         chat=chat,
         history_rag_query_vec=history_rag_query_vec,
         memory_status=memory_report.status,
+        recalled=len(hints),
+        memory_hints=hints[:3],
     )
 
 

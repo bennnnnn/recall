@@ -267,7 +267,6 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
             recent_limit=20,
             slim_context=True,
             client_timezone=None,
-            out=None,
             history_rag=True,
         )
     assert recent_at["t"] - t0 < 0.1

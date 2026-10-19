@@ -237,7 +237,6 @@ async def test_regenerate_acquires_chatprep_lock():
                 return_value=MagicMock(
                     max_out=100,
                     prompt_messages=[],
-                    meta={},
                     instant_reply=None,
                     search_sources=[],
                     local_places=False,

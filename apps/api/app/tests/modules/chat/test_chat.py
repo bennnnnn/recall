@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.prompt_builder import build_prompt_messages
+from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.prompt_constants import (
     is_broad_self_question,
     is_lightweight_chat_turn,
@@ -733,7 +733,7 @@ async def test_build_prompt_recalled_count_counts_section_headers():
     user.locale = "en"
     user.timezone = "UTC"
 
-    out: dict[str, object] = {}
+    stats = PromptStats()
 
     # Real format: one `## {Label}` header per injected section.
     block = (
@@ -759,10 +759,10 @@ async def test_build_prompt_recalled_count_counts_section_headers():
             AsyncMock(return_value=None),
         ),
     ):
-        await build_prompt_messages(user, uuid4(), Settings(), out=out)
+        await build_prompt_messages(user, uuid4(), Settings(), stats=stats)
 
-    assert out["recalled"] == 2
-    assert out["memory_hints"] == ["Profile", "Preferences"]
+    assert stats.recalled == 2
+    assert stats.memory_hints == ["Profile", "Preferences"]
 
 
 @pytest.mark.asyncio
@@ -777,7 +777,7 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
     user.locale = "en"
     user.timezone = "UTC"
 
-    out: dict[str, object] = {}
+    stats = PromptStats()
 
     with (
         patch(
@@ -798,10 +798,10 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
             AsyncMock(return_value=None),
         ),
     ):
-        await build_prompt_messages(user, uuid4(), Settings(), out=out)
+        await build_prompt_messages(user, uuid4(), Settings(), stats=stats)
 
-    assert out["recalled"] == 0
-    assert out["memory_hints"] == []
+    assert stats.recalled == 0
+    assert stats.memory_hints == []
 
 
 @pytest.mark.asyncio
@@ -1103,11 +1103,6 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
     user.timezone = "UTC"
     user.custom_instructions = "Always mention my cat Fluffy."
 
-    statuses: list[str] = []
-
-    async def capture_status(phase: str, detail: str | None = None) -> None:
-        statuses.append(phase)
-
     with (
         patch("app.repositories.messages.list_recent", return_value=[]) as recent_mock,
         patch(
@@ -1126,13 +1121,11 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
             query_text="hi",
             lightweight=True,
             rich_context=False,
-            on_status=capture_status,
         )
 
     recent_mock.assert_awaited()
     memory_mock.assert_not_awaited()
     todos_mock.assert_not_awaited()
-    assert statuses == []
     system = messages[0]["content"]
     assert "Dev" in system
     assert "short social turn" in system
@@ -1159,11 +1152,6 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
     user.custom_instructions = "Always mention my cat Fluffy."
     chat = MagicMock(project_id=None)
 
-    statuses: list[str] = []
-
-    async def capture_status(phase: str, detail: str | None = None) -> None:
-        statuses.append(phase)
-
     with (
         patch("app.repositories.messages.list_recent", return_value=[]) as recent_mock,
         patch(
@@ -1186,14 +1174,12 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
             query_text="How is ur day",
             lightweight=False,
             rich_context=False,
-            on_status=capture_status,
             chat=chat,
         )
 
     recent_mock.assert_awaited()
     memory_mock.assert_not_awaited()
     todos_mock.assert_not_awaited()
-    assert statuses == []
     system = messages[0]["content"]
     assert "Dev" in system
     assert "short social turn" not in system

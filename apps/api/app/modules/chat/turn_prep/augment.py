@@ -18,7 +18,6 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
-from app.models.orm import User
 from app.modules import web_search as web_search_service
 from app.modules.chat.prompt_builder import (
     WebAndSubject,
@@ -55,9 +54,7 @@ class Augmentation:
     # The message asks for more than its solve: the model answers the rest.
     asks_more: bool = False
 
-    def direct_reply(
-        self, request: TurnRequest, user: User, followup: SubjectFollowup
-    ) -> str | None:
+    def direct_reply(self, request: TurnRequest, followup: SubjectFollowup) -> str | None:
         """The reply the verified solve writes itself, when the turn needs no model."""
         if self.direct_text:
             return self.direct_text

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, NamedTuple
 from uuid import UUID
 
@@ -181,6 +181,17 @@ async def inject_web_and_tools(
     return updated
 
 
+@dataclass
+class PromptStats:
+    """What the prompt drew on, for the turn's ``done``."""
+
+    # Memory sections loaded into the prompt, and the first three of their names.
+    recalled: int = 0
+    memory_hints: list[str] = field(default_factory=list)
+    # Older messages the chat summary stands in for.
+    context_summarized: int = 0
+
+
 @dataclass(frozen=True)
 class _ContextPlan:
     """What a turn loads beyond the recent window."""
@@ -276,7 +287,7 @@ async def build_prompt_messages(
     *,
     summary: str | None = None,
     chat: Chat | None = None,
-    out: dict[str, object] | None = None,
+    stats: PromptStats | None = None,
     query_text: str | None = None,
     minimal_personal_context: bool = False,
     lightweight: bool = False,
@@ -284,7 +295,6 @@ async def build_prompt_messages(
     advice_memory: bool = False,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
-    on_status: StreamStatusFn | None = None,
     omit_message_ids: set[UUID] | None = None,
     probe_attachment_rag: bool = True,
     recent_messages: list[Any] | None = None,
@@ -296,7 +306,8 @@ async def build_prompt_messages(
     Context loading uses short-lived sessions so embeds cannot pin a caller
     connection across the concurrent gather. The system prompt is
     ``PROMPT_SECTIONS``; the history is ``prompt_window``. ``turn_plan``: the message's
-    separate requests, when it holds more than one (``turn_prep.intents``).
+    separate requests, when it holds more than one (``turn_prep.intents``). ``stats``,
+    when given, is filled with what the prompt drew on.
     """
     plan = await _context_plan(
         user,
@@ -320,7 +331,6 @@ async def build_prompt_messages(
         load_memory=plan.load_memory,
         memory_scope=plan.memory_scope,
         client_timezone=client_timezone,
-        out=out,
         history_rag=plan.history_rag,
         recent_messages=recent_messages,
     )
@@ -343,8 +353,11 @@ async def build_prompt_messages(
         window=window,
         omit_message_ids=omit_message_ids,
     )
-    if out is not None and chat and chat.summary and (chat.summary_message_count or 0) > 0:
-        out["context_summarized"] = chat.summary_message_count
+    if stats is not None:
+        stats.recalled = blocks.recalled
+        stats.memory_hints = blocks.memory_hints
+        if chat and chat.summary and (chat.summary_message_count or 0) > 0:
+            stats.context_summarized = chat.summary_message_count
     turn = PromptTurn(
         user=user,
         settings=settings,

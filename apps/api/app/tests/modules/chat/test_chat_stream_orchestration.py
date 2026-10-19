@@ -2168,6 +2168,7 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
 async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_redis):
     """Prior assistant stays in DB until finalize; prompt build must omit it."""
     from app.modules import chat as chat_module
+    from app.modules.chat.prompt_builder import PromptStats
     from app.modules.chat.turn_prep import ClientGeoContext, TurnPromptBundle
 
     captured: dict[str, object] = {}
@@ -2195,7 +2196,7 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
         captured["omit"] = request.omit_message_ids
         return TurnPromptBundle(
             prompt_messages=[{"role": "system", "content": "sys"}],
-            meta={},
+            stats=PromptStats(),
             instant_reply=None,
             search_sources=[],
             local_places=False,
