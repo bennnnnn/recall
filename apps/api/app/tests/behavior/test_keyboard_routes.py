@@ -96,3 +96,6 @@ async def test_plot_after_the_x_squared_key_graphs_x_squared(prompt: str) -> Non
 
     assert route.solved
     assert "Function samples for x^2" in route.verified_text
+    # Answered with the graph itself: the model, handed the samples, wrote out its reasoning.
+    assert route.instant == "solver"
+    assert route.instant_text.startswith("```graph")
