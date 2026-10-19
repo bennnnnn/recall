@@ -17,6 +17,7 @@ from app.exceptions import ChatNotFoundError
 from app.models.orm import Chat, User
 from app.modules.account import profile as profile_service
 from app.modules.attachments.markers import image_attachment_ids_from_text
+from app.modules.billing import plan as plan_service
 from app.modules.chat.post_turn import restore_regenerate_backup
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.stream_pipeline import stream_and_finalize
@@ -197,6 +198,7 @@ async def stream_chat_response(
             recent_messages=turn.recent,
             resolved_model=turn.model,
             on_user_saved=outcome.mark_user_message_saved if outcome is not None else None,
+            unhealthy=turn.unhealthy,
         )
         try:
             await top_up_reserve_for_prompt(
@@ -267,7 +269,11 @@ async def stream_regenerate_response(
         current_image_ids = (
             image_attachment_ids_from_text(turn.content) if settings.attachments_enabled else []
         )
-        model = "vision-chat" if current_image_ids else turn.model
+        model = turn.model
+        if current_image_ids:
+            model = plan_service.image_turn_model(
+                turn.user, settings, model, explicit=plan_service.is_explicit_pick(model_alias)
+            )
         await res.reserve(
             user=turn.user,
             content=turn.content,

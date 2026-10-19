@@ -463,6 +463,9 @@ def _verified_math_stays_fast(content: str) -> bool:
     )
 
 
+_MODES = frozenset({"auto", "fast", "smart"})
+
+
 def resolve_alias_in_pool(
     alias: str,
     content: str,
@@ -472,35 +475,54 @@ def resolve_alias_in_pool(
     prior_user: str | None = None,
     prior_model: str | None = None,
     lesson_active: bool = False,
+    unhealthy: frozenset[str] = frozenset(),
 ) -> str:
-    """Resolve a model mode or alias within an allowed pool."""
+    """Resolve a model mode or alias within an allowed pool.
+
+    A concrete alias is the user's pick and passes through. A mode (auto, fast,
+    smart) chooses among the pool's healthy models, and for a JSON ask among those
+    with JSON mode (``_usable_pool``).
+    """
     if not pool:
         return model_catalog.auto_fast_alias()
-
-    if alias == "auto":
-        preferred = route_chat_model(
-            content,
-            prior_user=prior_user,
-            prior_model=prior_model,
-            lesson_active=lesson_active,
-            settings=settings,
-        )
-        return _pick_preferred_tier(preferred, pool)
-
+    if alias not in _MODES:
+        return alias if alias in pool else _pick_cheapest_from_pool(pool, settings)
+    usable = _usable_pool(pool, unhealthy, content)
     if alias == "fast":
-        return _pick_fast_from_pool(pool)
-
+        return _pick_fast_from_pool(usable)
     if alias == "smart":
-        return _pick_smart_from_pool(pool)
+        return _pick_smart_from_pool(usable)
+    preferred = route_chat_model(
+        content,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=lesson_active,
+        settings=settings,
+    )
+    return _pick_preferred_tier(preferred, usable)
 
-    if alias in pool:
-        return alias
 
-    return _pick_cheapest_from_pool(pool, settings)
+def _usable_pool(pool: list[str], unhealthy: frozenset[str], content: str) -> list[str]:
+    """The pool without unhealthy models; for a JSON ask, only models with JSON mode.
+
+    Each filter applies only while it leaves a model: a degraded model beats none.
+    """
+    from app.modules.chat.json_output import is_json_request
+
+    usable = [model_id for model_id in pool if model_id not in unhealthy] or pool
+    if not is_json_request(content):
+        return usable
+    known = model_catalog.known_ids()
+    with_json = [m for m in usable if m in known and model_catalog.get(m).json_mode]
+    return with_json or usable
 
 
 def pick_cheapest_from_pool(pool: list[str], settings: Settings | None = None) -> str:
     return _pick_cheapest_from_pool(pool, settings)
+
+
+def pick_strongest_from_pool(pool: list[str]) -> str:
+    return _pick_strongest_from_pool(pool)
 
 
 def _models_in_pool(pool: list[str]) -> list[model_catalog.ChatModel]:

@@ -248,17 +248,28 @@ async def _load_turn_identity(request: TurnRequest) -> TurnIdentity:
     return TurnIdentity(user=user, chat=chat, mode=mode, geo=geo, local_tz=local_tz)
 
 
-async def _fallback_models(user: User, settings: Settings, redis: Redis, model: str) -> list[str]:
-    unhealthy: set[str] = set()
-    try:
-        from app.services import model_health as model_health_service
+async def _fallback_models(
+    user: User,
+    settings: Settings,
+    redis: Redis,
+    model: str,
+    *,
+    needs_vision: bool = False,
+    unhealthy: frozenset[str] | None = None,
+) -> list[str]:
+    """Backups for the turn's model; ``unhealthy`` is read here when the load did not."""
+    if unhealthy is None:
+        unhealthy = frozenset()
+        try:
+            from app.services import model_health as model_health_service
 
-        pool = plan_service.model_pool(user, settings)
-        snaps = await model_health_service.enrich_models_health(redis, settings, pool)
-        unhealthy = {mid for mid, snap in snaps.items() if not snap.healthy}
-    except Exception:
-        logger.debug("model health read failed during fallback selection", exc_info=True)
-    return plan_service.chat_fallback_models(user, settings, model, unhealthy=unhealthy)
+            pool = plan_service.model_pool(user, settings)
+            unhealthy = await model_health_service.unhealthy_aliases(redis, settings, pool)
+        except Exception:
+            logger.debug("model health read failed during fallback selection", exc_info=True)
+    return plan_service.chat_fallback_models(
+        user, settings, model, unhealthy=unhealthy, needs_vision=needs_vision
+    )
 
 
 def _bundle(
@@ -345,7 +356,14 @@ async def build_stream_prompt_context(
             current_user_message_id=request.current_user_message_id,
         ),
         resolve_instant_reply(request, identity, settings, redis),
-        _fallback_models(user, settings, redis, request.model),
+        _fallback_models(
+            user,
+            settings,
+            redis,
+            request.model,
+            needs_vision=request.has_image_attachment,
+            unhealthy=request.unhealthy_models,
+        ),
     )
     if timing is not None:
         timing.mark_phase("prompt_assembled")

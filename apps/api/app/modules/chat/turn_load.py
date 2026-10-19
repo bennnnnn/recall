@@ -28,6 +28,7 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.services import model_catalog, model_health
 from app.services.routing import last_user_turn
 
 
@@ -40,6 +41,8 @@ class NewTurn:
     prior_count: int
     turn_mode: _TurnMode
     model: str
+    # Chat models whose provider is failing; routing above already skipped them.
+    unhealthy: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -213,14 +216,21 @@ async def load_new_turn(
     if obvious_greeting:
         await wait_for_pending_finalize(chat_id, redis, require_complete=True)
         timing.mark_phase("previous_finalize_ready")
-        loaded_user, daily_limit, loaded_chat = await load_account()
+        (loaded_user, daily_limit, loaded_chat), unhealthy = await asyncio.gather(
+            load_account(), _unhealthy_models(redis, settings)
+        )
         recent: list[Any] = []
         prior_count = 0
         timing.mark_phase("history_ready")
     else:
-        (loaded_user, daily_limit, loaded_chat), (recent, prior_count) = await asyncio.gather(
+        (
+            (loaded_user, daily_limit, loaded_chat),
+            (recent, prior_count),
+            unhealthy,
+        ) = await asyncio.gather(
             load_account(),
             _load_history_after_finalize(deps, redis, settings, timing, chat_id),
+            _unhealthy_models(redis, settings),
         )
     # Only short confirmation turns touch the DB here; ordinary lightweight
     # greetings classify synchronously, so opening a fresh AsyncSession has no
@@ -236,6 +246,7 @@ async def load_new_turn(
         prior_user=prior_user,
         prior_model=prior_model,
         lesson_active=active_lesson_step(recent) is not None,
+        unhealthy=unhealthy,
     )
     timing.mark_phase("user_quota")
     return NewTurn(
@@ -246,7 +257,15 @@ async def load_new_turn(
         prior_count=prior_count,
         turn_mode=turn_mode,
         model=model,
+        unhealthy=unhealthy,
     )
+
+
+async def _unhealthy_models(redis: Redis, settings: Settings) -> frozenset[str]:
+    """Chat models whose provider is failing, read beside the account (the pool
+    needs the user, so every selectable model is read)."""
+    aliases = [model.id for model in model_catalog.selectable_models()]
+    return await model_health.unhealthy_aliases(redis, settings, aliases)
 
 
 async def load_regenerate_turn(
