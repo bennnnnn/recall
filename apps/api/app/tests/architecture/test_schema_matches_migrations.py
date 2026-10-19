@@ -18,7 +18,10 @@ _API_ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_models_match_the_migrated_schema() -> None:
-    config = Config(str(_API_ROOT / "alembic.ini"))
+    # No ini file: ``env.py`` would hand it to ``logging.config.fileConfig``, which
+    # disables every logger already created and breaks ``caplog`` for the rest of
+    # the run. ``script_location`` is the only setting the check needs.
+    config = Config()
     config.set_main_option("script_location", str(_API_ROOT / "alembic"))
     try:
         command.check(config)
