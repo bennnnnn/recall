@@ -68,20 +68,27 @@ async def enqueue(
         fields: dict[str, str] = {"type": job_type, "payload": json.dumps(payload)}
         if dedupe_key:
             fields["dedupe_key"] = dedupe_key
-        # redis-py stubs type xadd fields as an invariant EncodedT dict; cast.
-        # The hard ceiling rides on XADD itself (no extra round trip) so the
-        # stream stays bounded even while a stale pending entry pins the
-        # MINID trim below — e.g. a worker that died mid-job and is down.
-        hard_cap = _hard_maxlen()
-        if hard_cap is None:
-            await redis.xadd(JOBS_STREAM, cast(Any, fields))
-        else:
-            await redis.xadd(JOBS_STREAM, cast(Any, fields), maxlen=hard_cap, approximate=True)
+        await append_entry(redis, fields)
         await _trim_jobs_stream(redis)
     except Exception:
         logger.exception("Failed to enqueue job type=%s", job_type)
         # Never raises: a silent job loss is still visible in Sentry.
         sentry.report_exception(f"enqueue_failed:{job_type}")
+
+
+async def append_entry(redis: Redis, fields: dict[str, str]) -> None:
+    """XADD one job entry under the stream's hard ceiling (enqueue and DLQ replay).
+
+    The ceiling rides on XADD itself (no extra round trip) so the stream stays
+    bounded even while a stale pending entry pins the MINID trim below — e.g.
+    a worker that died mid-job and is down.
+    """
+    # redis-py stubs type xadd fields as an invariant EncodedT dict; cast.
+    hard_cap = _hard_maxlen()
+    if hard_cap is None:
+        await redis.xadd(JOBS_STREAM, cast(Any, fields))
+    else:
+        await redis.xadd(JOBS_STREAM, cast(Any, fields), maxlen=hard_cap, approximate=True)
 
 
 def _hard_maxlen() -> int | None:

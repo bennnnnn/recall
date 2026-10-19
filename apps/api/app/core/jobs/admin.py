@@ -10,7 +10,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from app.core import sentry
-from app.core.jobs.queue import JOBS_DLQ_STREAM, JOBS_GROUP, JOBS_STREAM, _hard_maxlen
+from app.core.jobs.queue import JOBS_DLQ_STREAM, JOBS_GROUP, JOBS_STREAM, append_entry
 
 logger = logging.getLogger("app.core.jobs")
 
@@ -210,16 +210,7 @@ async def replay_dlq(redis: Redis, *, count: int = 50, delete: bool = True) -> i
                 fields["dedupe_key"] = str(dedupe_key)
             # Same hard ceiling as enqueue: the soft cap here would trim
             # queued and pending work whenever a backlog exists.
-            hard_cap = _hard_maxlen()
-            if hard_cap is None:
-                await redis.xadd(JOBS_STREAM, cast(Any, fields))
-            else:
-                await redis.xadd(
-                    JOBS_STREAM,
-                    cast(Any, fields),
-                    maxlen=hard_cap,
-                    approximate=True,
-                )
+            await append_entry(redis, fields)
             if delete:
                 await redis.xdel(JOBS_DLQ_STREAM, entry["id"])
             replayed += 1
