@@ -20,6 +20,17 @@ from app.modules.web_search.recency import anchor_recency_to_year
 from app.modules.web_search.search_cache import run_cached_search
 from app.services.prompt_safety import wrap_untrusted
 
+# The tool result the model reads: a search that errored is not one that found nothing.
+_NO_RESULTS = (
+    "No results: the search ran and found nothing for this query. Say you couldn't find "
+    "it; do not fill in from memory."
+)
+_SEARCH_FAILED = (
+    "Search failed: the search service didn't respond, so nothing was retrieved. Say the "
+    "search didn't work just now; do not say nothing exists, and do not present an answer "
+    "from memory as checked."
+)
+
 _COUNT_WORDS = {
     "one": 1,
     "two": 2,
@@ -115,8 +126,10 @@ class WebSearchAdapter:
             ctx.first_results[self.name] = result
             return result
         if not hits:
-            content = "No results."
-            if news_today:
+            content = _NO_RESULTS
+            if ctx.tavily_budget.search_failed:
+                content = _SEARCH_FAILED
+            elif news_today:
                 content = (
                     "No search result explicitly verified an item for the user's current "
                     "local date. Say that no same-day developments could be verified; do not "

@@ -33,9 +33,13 @@ def _extract_price_from_snippet(snippet: str) -> str | None:
 
 WEB_SEARCH_HINT = (
     "Live web search may be injected immediately before the user's latest message. "
-    "When a **Web search results** block is present, you MUST answer from those results "
-    "(scores, dates, headlines, facts). Never say search failed, came up dry, or that you "
-    "cannot browse when results were provided. "
+    "When a **Web search results** block is present, ground your answer in those results "
+    "(scores, dates, headlines, facts). If none of them answers the question, say so "
+    'plainly ("The results I found don\'t cover that") instead of stretching an '
+    "off-topic result or filling in from memory. "
+    'Say where a retrieved fact comes from ("According to Reuters, ...") and keep your '
+    "own explanation or background apart from what the results say. "
+    "Never say search failed or that you cannot browse when results were provided. "
     "For today/current/latest news, use the current local date in the time context and only "
     "call an event today's when a result explicitly supports that date. Older, future, or "
     "undated snippets are not today's news; say when fewer requested items can be verified. "
@@ -51,9 +55,10 @@ WEB_SEARCH_HINT = (
     "distance and time in prose — no ```places fence. "
     "The app renders places blocks natively — do NOT also hand-format a markdown list. "
     "If you must use markdown links instead, use [Name](https://url) with parentheses "
-    "around the URL — never $url$ delimiters."
+    "around the URL — never $url$ delimiters — and link only pages from the results. "
     "When search returned no hits, say you could not verify that live right now — "
-    "do NOT guess why or fill in from training data. "
+    "do NOT guess why or fill in from training data. When the block says the search "
+    "failed, say the search didn't work just now, not that nothing exists. "
     "Do NOT add a separate Sources section — the app renders source cards. "
     "Never role-play searching. "
     "If no **Web search results** block is in this prompt, do not claim you searched the "
@@ -108,16 +113,18 @@ def format_search_block(
         lines.append(
             f"Required: answer using the results above for **{team}** only. "
             "Include concrete scores and dates when snippets mention them. "
-            "Do NOT say search failed. Do not paste this list — the app shows source cards."
+            f"If none of them gives {team}'s result, say so; do not guess one. "
+            "Do not paste this list — the app shows source cards."
         )
     else:
         lines.append(
-            "Required: answer the user's question using the results above. "
+            "Required: answer the user's question from the results above, saying which "
+            "site a fact comes from. If none of them answers it, say the results don't "
+            "cover it — do not fill the gap from memory or stretch an unrelated result. "
             "If they named a team or country, only use snippets about that entity — never "
             "attribute generic tournament results to them unless they appear in the snippet. "
             "If snippets show they did not qualify for a tournament, say so. "
             "Include concrete scores, teams, and dates when the snippets mention them. "
-            "Do NOT say search failed or came up dry. "
             "Do not paste this list — the app shows source cards."
         )
     return "\n".join(lines)
@@ -334,8 +341,19 @@ def sources_payload(hits: list[WebSearchHit]) -> list[SearchSource]:
     return rows
 
 
-def format_search_empty_block(queries: list[str], *, local_places: bool = False) -> str:
+def format_search_empty_block(
+    queries: list[str], *, local_places: bool = False, failed: bool = False
+) -> str:
+    """The block for a search that came back with nothing, or that failed (``failed``)."""
     tried = ", ".join(f'"{q}"' for q in queries[:3])
+    if failed:
+        return (
+            f"Web search was attempted ({tried}) but the search service failed, so "
+            "nothing was retrieved.\n"
+            "Tell the user in one sentence that the search didn't work just now and to try "
+            "again shortly. Do not say nothing exists, and do not present an answer from "
+            "memory as checked or current."
+        )
     if local_places:
         return (
             f"Web search was run ({tried}) but returned no usable results.\n"

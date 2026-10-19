@@ -1,10 +1,17 @@
-"""Web search — Tavily primary, DuckDuckGo fallback (server-side only)."""
+"""Web search — Tavily primary, DuckDuckGo fallback (server-side only).
+
+``search_web`` returns the hits, an empty list when the search answered with
+nothing, and raises ``WebSearchUnavailableError`` when it failed (Tavily errored
+and DuckDuckGo found nothing, or DuckDuckGo alone errored): "tried and failed"
+must not read as "nothing found".
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 import re
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from app.core.config import Settings
@@ -24,6 +31,10 @@ class WebSearchHit:
     title: str
     url: str
     snippet: str
+
+
+class WebSearchUnavailableError(Exception):
+    """Every search provider tried for a query errored or timed out."""
 
 
 def is_configured(settings: Settings) -> bool:
@@ -69,13 +80,15 @@ def _ddg_item_to_hit(item: dict[str, object]) -> WebSearchHit | None:
 
 
 def _search_duckduckgo_sync(query: str, max_results: int) -> list[WebSearchHit]:
+    """DuckDuckGo news then text. Raises when every call it made failed."""
     try:
         from ddgs import DDGS
-    except ImportError:
+    except ImportError as exc:
         logger.warning("ddgs package not installed")
-        return []
+        raise WebSearchUnavailableError("ddgs not installed") from exc
 
     hits: list[WebSearchHit] = []
+    calls = {"made": 0, "failed": 0}
 
     def _fetch(items: object) -> None:
         if not isinstance(items, list):
@@ -89,6 +102,14 @@ def _search_duckduckgo_sync(query: str, max_results: int) -> list[WebSearchHit]:
             if hit is not None:
                 hits.append(hit)
 
+    def _try(search: Callable[[], Iterable[object]], label: str) -> None:
+        calls["made"] += 1
+        try:
+            _fetch(list(search()))
+        except Exception:
+            calls["failed"] += 1
+            logger.warning("DuckDuckGo %s failed", label)
+
     try:
         try:
             ddgs_cm = DDGS(timeout=int(_DDG_TIMEOUT_SECONDS))
@@ -98,23 +119,18 @@ def _search_duckduckgo_sync(query: str, max_results: int) -> list[WebSearchHit]:
         with ddgs_cm as ddgs:
             # Do not log the query anywhere below — it can contain private user
             # content (CodeQL py/clear-text-logging-sensitive-data).
-            if _is_newsish_query(query):
-                try:
-                    _fetch(list(ddgs.news(query, max_results=max_results)))
-                except Exception:
-                    logger.warning("DuckDuckGo news search failed")
+            newsish = _is_newsish_query(query)
+            if newsish:
+                _try(lambda: ddgs.news(query, max_results=max_results), "news search")
             if not hits:
-                try:
-                    _fetch(list(ddgs.text(query, max_results=max_results)))
-                except Exception:
-                    logger.warning("DuckDuckGo text search failed")
-            if not hits and not _is_newsish_query(query):
-                try:
-                    _fetch(list(ddgs.news(query, max_results=max_results)))
-                except Exception:
-                    logger.warning("DuckDuckGo news fallback failed")
-    except Exception:
+                _try(lambda: ddgs.text(query, max_results=max_results), "text search")
+            if not hits and not newsish:
+                _try(lambda: ddgs.news(query, max_results=max_results), "news fallback")
+    except Exception as exc:
         logger.exception("DuckDuckGo search failed")
+        raise WebSearchUnavailableError("DuckDuckGo failed") from exc
+    if not hits and calls["made"] and calls["failed"] == calls["made"]:
+        raise WebSearchUnavailableError("every DuckDuckGo call failed")
     return hits
 
 
@@ -124,13 +140,14 @@ async def _search_duckduckgo(query: str, max_results: int) -> list[WebSearchHit]
             asyncio.to_thread(_search_duckduckgo_sync, query, max_results),
             timeout=_DDG_TIMEOUT_SECONDS,
         )
-    except Exception:
-        # Timeout or provider error: empty hits so the turn streams without
-        # search rather than hanging on the fallback path. Do not log the
-        # query — it can contain private user content (CodeQL
+    except WebSearchUnavailableError:
+        raise
+    except Exception as exc:
+        # A timeout or provider error is a failed search, not an empty one. Do
+        # not log the query — it can contain private user content (CodeQL
         # py/clear-text-logging-sensitive-data).
         logger.warning("DuckDuckGo fallback timed out/failed")
-        return []
+        raise WebSearchUnavailableError("DuckDuckGo timed out") from exc
 
 
 async def _search_tavily(settings: Settings, query: str, max_results: int) -> list[WebSearchHit]:
@@ -147,11 +164,11 @@ async def _search_tavily(settings: Settings, query: str, max_results: int) -> li
         response = await client.post(TAVILY_SEARCH_URL, json=payload)
         response.raise_for_status()
         data = response.json()
-    except Exception:
+    except Exception as exc:
         # Do not log the query — it can contain private user content (CodeQL
         # py/clear-text-logging-sensitive-data).
         logger.exception("Tavily web search failed")
-        return []
+        raise WebSearchUnavailableError("Tavily failed") from exc
 
     hits: list[WebSearchHit] = []
     for item in data.get("results") or []:
@@ -179,6 +196,10 @@ async def search_web(
     max_results: int | None = None,
     skip_tavily: bool = False,
 ) -> list[WebSearchHit]:
+    """Hits for ``query``: Tavily, then DuckDuckGo when Tavily has none.
+
+    Raises ``WebSearchUnavailableError`` when the search failed rather than found nothing.
+    """
     cleaned = query.strip()
     if not cleaned:
         return []
@@ -189,17 +210,32 @@ async def search_web(
     if not settings.web_search_enabled:
         return []
 
-    if not skip_tavily and settings.tavily_api_key.strip():
-        hits = await _search_tavily(settings, cleaned, limit)
-        if hits:
-            return hits
+    # Tavily is the search of record: when it errored, DuckDuckGo finding nothing
+    # does not show there is nothing (it comes back empty when it throttles).
+    primary_failed = False
+    fallback_failed = False
+    tavily_tried = not skip_tavily and bool(settings.tavily_api_key.strip())
+    if tavily_tried:
+        try:
+            hits = await _search_tavily(settings, cleaned, limit)
+        except WebSearchUnavailableError:
+            primary_failed = True
+        else:
+            if hits:
+                return hits
 
     if settings.web_search_fallback_enabled:
-        hits = await _search_duckduckgo(cleaned, limit)
-        if hits:
-            return hits
+        try:
+            hits = await _search_duckduckgo(cleaned, limit)
+        except WebSearchUnavailableError:
+            fallback_failed = True
+        else:
+            if hits:
+                return hits
 
     if settings.mock_llm_enabled:
         return mock_search_results(cleaned, max_results=limit)
 
+    if primary_failed or (fallback_failed and not tavily_tried):
+        raise WebSearchUnavailableError("the search of record failed")
     return []

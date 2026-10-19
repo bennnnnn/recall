@@ -30,7 +30,7 @@ from app.modules.web_search.query_builders import (
     is_current_news_request,
     is_news_today_request,
 )
-from app.modules.web_search.search_cache import _run_search
+from app.modules.web_search.search_cache import TurnTavilyBudget, _run_search
 from app.modules.web_search.subject import (
     collect_prior_user_messages,
     last_assistant_content,
@@ -131,7 +131,8 @@ async def build_search_augmentation(
 
         await on_status("searching", clip_status_detail(queries[0] if queries else None))
 
-    hits, tried = await _run_search(settings, queries, user=user, redis=redis)
+    budget = TurnTavilyBudget(settings=settings, user=user)
+    hits, tried = await _run_search(settings, queries, user=user, redis=redis, budget=budget)
     if is_news_today_request(user_content):
         hits = filter_hits_to_today(hits, user_timezone)
     team = _extract_team_subject(user_content.strip())
@@ -151,7 +152,9 @@ async def build_search_augmentation(
             block = f"{block}\n\n{GEO_DISTANCE_HINT}"
         block = wrap_untrusted("web search", block)
     else:
-        block = format_search_empty_block(tried, local_places=local_places)
+        block = format_search_empty_block(
+            tried, local_places=local_places, failed=budget.search_failed
+        )
     return block, hits
 
 

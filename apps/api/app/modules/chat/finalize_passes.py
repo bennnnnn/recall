@@ -55,6 +55,7 @@ from app.modules.chat.finalize_text import (
     strip_recipient_placeholders,
 )
 from app.modules.chat.json_output import check_requested_json
+from app.modules.chat.search_links import unlink_unretrieved_links
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -118,6 +119,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("drop_cut_reminder_fence", lambda s: drop_cut_reminder_fence(s.text), FALL_BACK),
     FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK),
     FinalizePass("untrusted_media", neutralize_untrusted_media, FALL_BACK),
+    FinalizePass("search_links", unlink_unretrieved_links, OnError(log_as="search_links")),
     FinalizePass("answer_photo", attach_answer_photo, FALL_BACK),
     FinalizePass(
         "chemistry_fences",
