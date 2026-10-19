@@ -185,6 +185,190 @@ async def _refund_turn(
         await deps.quota.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
 
 
+def _is_terminal_image(ctx: StreamContext) -> bool:
+    """A tool round generated a picture and saved its reply: the turn streams nothing.
+
+    Only the tool loop sets this, and an instant reply never runs the tool loop.
+    """
+    return not ctx.instant_reply and bool(
+        ctx.terminal_image_content and ctx.terminal_image_message_id
+    )
+
+
+async def _produce_reply(
+    deps: ChatTurnDeps,
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    *,
+    usage: dict[str, int],
+    accum: StreamAccum,
+    should_cancel: Callable[[], bool] | None,
+    outcome: TurnOutcome | None,
+    on_status: StreamStatusFn | None,
+    on_reasoning: StreamReasoningFn | None,
+) -> AsyncIterator[str]:
+    """The reply's text: an instant reply, or the tool loop and then the model's stream.
+
+    After the tool loop the turn may have become an instant reply, or a terminal
+    picture that yields nothing (``_is_terminal_image``).
+    """
+    if ctx.instant_reply:
+        async for token in run_instant_reply_path(ctx, should_cancel=should_cancel, accum=accum):
+            yield token
+        return
+    if ctx.timing is not None:
+        ctx.timing.mark_phase("tool_loop_start")
+    try:
+        await run_tool_loop_path(
+            deps,
+            redis,
+            settings,
+            ctx,
+            usage=usage,
+            on_status=on_status,
+            should_cancel=should_cancel,
+        )
+    finally:
+        if ctx.timing is not None:
+            ctx.timing.mark_phase("tool_loop_done")
+    if _is_terminal_image(ctx):
+        return
+    if ctx.instant_reply:
+        async for token in run_instant_reply_path(ctx, should_cancel=should_cancel, accum=accum):
+            yield token
+        return
+    if settings.image_search_enabled and ctx.user is not None:
+        ctx.answer_photo = AnswerPhoto(settings, ctx.user)
+    async for token in run_llm_token_stream(
+        deps,
+        redis,
+        settings,
+        ctx,
+        usage=usage,
+        should_cancel=should_cancel,
+        outcome=outcome,
+        on_reasoning=on_reasoning,
+        accum=accum,
+        on_status=on_status,
+    ):
+        yield token
+
+
+async def _finish_terminal_image_turn(
+    deps: ChatTurnDeps,
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    *,
+    usage: dict[str, int],
+    outcome: TurnOutcome | None,
+    resources: TurnResources | None,
+) -> None:
+    """The picture's reply is already saved: report it, refund the turn, run its jobs."""
+    if outcome is not None:
+        outcome.message_id = ctx.terminal_image_message_id
+        outcome.final_content = ctx.terminal_image_content
+        outcome.resolved_model = ctx.terminal_image_model or "image-gen-model"
+    await _refund_turn(deps, redis, ctx, resources)
+    await await_user_message_persist(ctx)
+    await finalize_terminal_image_turn(deps, redis, settings, ctx, outcome, usage)
+
+
+async def _settle_reply(
+    deps: ChatTurnDeps,
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    *,
+    usage: dict[str, int],
+    accum: StreamAccum,
+    should_cancel: Callable[[], bool] | None,
+    outcome: TurnOutcome | None,
+    resources: TurnResources | None,
+) -> None:
+    """Save the streamed reply: finalize its text, then commit it and queue its jobs.
+
+    A reply the user stopped before the client drew any of it saves and charges
+    nothing; a turn that produced no text at all is the model's failure.
+    """
+    if accum.was_cancelled and shutdown.stopping():
+        accum.mark_server_stop()
+    user_stopped = accum.completion == "user_stop"
+    assistant_text = accum.reply_text(outcome.client_shown_chars if outcome else None)
+    if not assistant_text and user_stopped:
+        # Stopped before the client drew any of it: nothing is saved or charged,
+        # and a regenerate keeps the answer it was replacing (as a stop before
+        # the first token does).
+        if outcome is not None:
+            outcome.completion = accum.completion
+        await _refund_turn(deps, redis, ctx, resources)
+        if ctx.regenerate_backup is not None:
+            await restore_regenerate_backup(ctx.user_id, ctx.chat_id, ctx.regenerate_backup)
+        return
+    if not assistant_text:
+        raise ModelUnavailableError(
+            "That model isn't responding right now. Try again — or pick a different model.",
+            failed_alias=ctx.model,
+        )
+    if outcome is not None and accum.completion != "complete":
+        outcome.completion = accum.completion
+
+    async def persist_reply() -> None:
+        final_text = await enrich_final_content(
+            deps,
+            redis,
+            settings,
+            ctx,
+            assistant_text=assistant_text,
+            usage=usage,
+            outcome=outcome,
+            was_cancelled=accum.was_cancelled,
+            assistant_parts=accum.parts,
+            should_cancel=should_cancel,
+            user_stopped=user_stopped,
+        )
+        await await_user_message_persist(ctx)
+        await register_and_enqueue_finalize(
+            redis,
+            settings,
+            ctx,
+            assistant_text=final_text,
+            usage=usage,
+            outcome=outcome,
+        )
+        if resources is not None:
+            # finalize_stream_turn_db settles ctx.reserved_tokens from here.
+            resources.mark_settled()
+
+    # Once the model stream has ended the reply is saved, whatever cancels
+    # this task: a Stop during the finalize passes (photo, SymPy, reminder
+    # write), the provider-socket close a Stop causes, or a server stop.
+    # The save runs on its own task so no cancel can drop it.
+    await await_ignoring_cancel(persist_reply())
+
+
+async def _close_turn(ctx: StreamContext) -> None:
+    """Whatever happened: the user's row has saved (or failed loudly), and the turn's
+    timing is logged."""
+    if ctx.user_message_persist is not None:
+        try:
+            await await_user_message_persist(ctx)
+        except Exception:
+            logger.exception(
+                "User message persist failed chat_id=%s",
+                ctx.chat_id,
+            )
+    if ctx.timing is not None:
+        ctx.timing.log_summary(
+            user_id=ctx.user_id,
+            chat_id=ctx.chat_id,
+            model=ctx.model,
+            lightweight=ctx.lightweight_turn,
+            content_chars=len(ctx.user_message_content or ""),
+        )
+
+
 async def stream_and_finalize(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -197,63 +381,25 @@ async def stream_and_finalize(
     on_reasoning: StreamReasoningFn | None = None,
     resources: TurnResources | None = None,
 ) -> AsyncIterator[str]:
+    """Stream the turn's reply, then save it; a Stop or a provider failure mid-reply
+    still saves the part already streamed."""
     usage: dict[str, int] = {}
     accum = StreamAccum()
     try:
         try:
-            if ctx.instant_reply:
-                async for token in run_instant_reply_path(
-                    ctx, should_cancel=should_cancel, accum=accum
-                ):
-                    yield token
-            else:
-                if ctx.timing is not None:
-                    ctx.timing.mark_phase("tool_loop_start")
-                try:
-                    await run_tool_loop_path(
-                        deps,
-                        redis,
-                        settings,
-                        ctx,
-                        usage=usage,
-                        on_status=on_status,
-                        should_cancel=should_cancel,
-                    )
-                finally:
-                    if ctx.timing is not None:
-                        ctx.timing.mark_phase("tool_loop_done")
-                if ctx.terminal_image_content and ctx.terminal_image_message_id:
-                    if outcome is not None:
-                        outcome.message_id = ctx.terminal_image_message_id
-                        outcome.final_content = ctx.terminal_image_content
-                        outcome.resolved_model = ctx.terminal_image_model or "image-gen-model"
-                    await _refund_turn(deps, redis, ctx, resources)
-                    await await_user_message_persist(ctx)
-                    await finalize_terminal_image_turn(deps, redis, settings, ctx, outcome, usage)
-                    return
-                if ctx.instant_reply:
-                    async for token in run_instant_reply_path(
-                        ctx,
-                        should_cancel=should_cancel,
-                        accum=accum,
-                    ):
-                        yield token
-                else:
-                    if settings.image_search_enabled and ctx.user is not None:
-                        ctx.answer_photo = AnswerPhoto(settings, ctx.user)
-                    async for token in run_llm_token_stream(
-                        deps,
-                        redis,
-                        settings,
-                        ctx,
-                        usage=usage,
-                        should_cancel=should_cancel,
-                        outcome=outcome,
-                        on_reasoning=on_reasoning,
-                        accum=accum,
-                        on_status=on_status,
-                    ):
-                        yield token
+            async for token in _produce_reply(
+                deps,
+                redis,
+                settings,
+                ctx,
+                usage=usage,
+                accum=accum,
+                should_cancel=should_cancel,
+                outcome=outcome,
+                on_status=on_status,
+                on_reasoning=on_reasoning,
+            ):
+                yield token
         except asyncio.CancelledError:
             if not accum.parts:
                 raise
@@ -273,75 +419,21 @@ async def stream_and_finalize(
                 ctx.chat_id,
                 len(accum.parts),
             )
-        if accum.was_cancelled and shutdown.stopping():
-            accum.mark_server_stop()
-        user_stopped = accum.completion == "user_stop"
-        assistant_text = accum.reply_text(outcome.client_shown_chars if outcome else None)
-        if not assistant_text and user_stopped:
-            # Stopped before the client drew any of it: nothing is saved or charged,
-            # and a regenerate keeps the answer it was replacing (as a stop before
-            # the first token does).
-            if outcome is not None:
-                outcome.completion = accum.completion
-            await _refund_turn(deps, redis, ctx, resources)
-            if ctx.regenerate_backup is not None:
-                await restore_regenerate_backup(ctx.user_id, ctx.chat_id, ctx.regenerate_backup)
+        if _is_terminal_image(ctx):
+            await _finish_terminal_image_turn(
+                deps, redis, settings, ctx, usage=usage, outcome=outcome, resources=resources
+            )
             return
-        if not assistant_text:
-            raise ModelUnavailableError(
-                "That model isn't responding right now. Try again — or pick a different model.",
-                failed_alias=ctx.model,
-            )
-        if outcome is not None and accum.completion != "complete":
-            outcome.completion = accum.completion
-
-        async def persist_reply() -> None:
-            nonlocal assistant_text
-            assistant_text = await enrich_final_content(
-                deps,
-                redis,
-                settings,
-                ctx,
-                assistant_text=assistant_text,
-                usage=usage,
-                outcome=outcome,
-                was_cancelled=accum.was_cancelled,
-                assistant_parts=accum.parts,
-                should_cancel=should_cancel,
-                user_stopped=user_stopped,
-            )
-            await await_user_message_persist(ctx)
-            await register_and_enqueue_finalize(
-                redis,
-                settings,
-                ctx,
-                assistant_text=assistant_text,
-                usage=usage,
-                outcome=outcome,
-            )
-            if resources is not None:
-                # finalize_stream_turn_db settles ctx.reserved_tokens from here.
-                resources.mark_settled()
-
-        # Once the model stream has ended the reply is saved, whatever cancels
-        # this task: a Stop during the finalize passes (photo, SymPy, reminder
-        # write), the provider-socket close a Stop causes, or a server stop.
-        # The save runs on its own task so no cancel can drop it.
-        await await_ignoring_cancel(persist_reply())
+        await _settle_reply(
+            deps,
+            redis,
+            settings,
+            ctx,
+            usage=usage,
+            accum=accum,
+            should_cancel=should_cancel,
+            outcome=outcome,
+            resources=resources,
+        )
     finally:
-        if ctx.user_message_persist is not None:
-            try:
-                await await_user_message_persist(ctx)
-            except Exception:
-                logger.exception(
-                    "User message persist failed chat_id=%s",
-                    ctx.chat_id,
-                )
-        if ctx.timing is not None:
-            ctx.timing.log_summary(
-                user_id=ctx.user_id,
-                chat_id=ctx.chat_id,
-                model=ctx.model,
-                lightweight=ctx.lightweight_turn,
-                content_chars=len(ctx.user_message_content or ""),
-            )
+        await _close_turn(ctx)
