@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useWindowDimensions,
   View,
@@ -23,14 +23,13 @@ import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
 import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
-import { hasPlanFeature } from "@/lib/plan";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useHome } from "@/features/home/context/HomeContext";
 import { shouldRefreshHomeOnChatFocus } from "@/lib/cache/contextRefresh";
-import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { useChatComposerState } from "@/features/chat/hooks/useChatComposerState";
+import { useComposerDictation } from "@/features/chat/hooks/useComposerDictation";
 import { useChatDraftWarmup } from "@/features/chat/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
 import { useChatMessageList } from "@/features/chat/hooks/useChatMessageList";
@@ -38,7 +37,6 @@ import { useChatRegenerate } from "@/features/chat/hooks/useChatRegenerate";
 import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/features/chat/hooks/useChatScroll";
 import { useChatSend } from "@/features/chat/hooks/useChatSend";
-import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
 import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
@@ -325,47 +323,14 @@ function ChatScreen() {
   const [mathChromeExtra, setMathChromeExtra] = useState(0);
   const [composerInputExtra, setComposerInputExtra] = useState(0);
 
-  const composerThread = composerThreadKey(
-    typeof routeChatId === "string" ? routeChatId : undefined,
-  );
-  const composerThreadRef = useRef(composerThread);
-  composerThreadRef.current = composerThread;
-  const voiceCaptureThreadRef = useRef(composerThread);
-
   const {
     voiceInputAvailable,
     voiceRecording,
     voiceTranscribing,
     voiceMeterLevel,
-    toggleVoiceInput,
+    toggleVoiceInput: handleToggleVoiceInput,
     cancelVoiceInput,
-  } = useVoiceInput({
-    token,
-    onTranscript: (text) => {
-      if (voiceCaptureThreadRef.current !== composerThreadRef.current) return;
-      setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
-    },
-    // The server refused: the plan has no voice input (the app's copy was stale).
-    onPlanRequired: () => openUpgradeRef.current?.("voice"),
-    t,
-  });
-
-  useLayoutEffect(() => {
-    cancelVoiceInput();
-  }, [routeChatId, cancelVoiceInput]);
-
-  const canDictate = hasPlanFeature(user, "speech_transcription");
-  const handleToggleVoiceInput = useCallback(() => {
-    if (!voiceRecording && !voiceTranscribing) {
-      // Don't record what the plan cannot send; show the plans instead.
-      if (!canDictate) {
-        openUpgradeRef.current?.("voice");
-        return;
-      }
-      voiceCaptureThreadRef.current = composerThreadRef.current;
-    }
-    void toggleVoiceInput();
-  }, [canDictate, toggleVoiceInput, voiceRecording, voiceTranscribing]);
+  } = useComposerDictation({ token, user, routeChatId, setInput, openUpgradeRef, t });
 
   const liveTalk = useLiveTalk({
     token,
