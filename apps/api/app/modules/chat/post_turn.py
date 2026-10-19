@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.modules import todos as todos_service
 from app.modules.chat.prompt_constants.lesson_flow import lesson_step
+from app.modules.chat.prompt_memory import memory_switch_on
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import (
     is_explicit_memory_command,
@@ -82,7 +83,7 @@ async def _memory_job(turn: FinishedTurn) -> list[PostTurnJob]:
         or ctx.skip_memory_jobs
         or not should_extract_memory
         or ctx.user is None
-        or not ctx.user.memory_enabled
+        or not memory_switch_on(ctx.user)
         or not memory_transcript
     ):
         return []
@@ -107,7 +108,7 @@ async def _lesson_progress_job(turn: FinishedTurn) -> list[PostTurnJob]:
     if (
         ctx.skip_memory_jobs
         or ctx.user is None
-        or not ctx.user.memory_enabled
+        or not memory_switch_on(ctx.user)
         or lesson_step(turn.assistant_text) is None
     ):
         return []
@@ -225,7 +226,7 @@ async def _message_index_job(turn: FinishedTurn) -> list[PostTurnJob]:
         or not turn.settings.chat_history_rag_enabled
         or ctx.assistant_message_id is None
         or ctx.skip_memory_jobs
-        or not (ctx.user is None or ctx.user.memory_enabled is not False)
+        or not (ctx.user is None or memory_switch_on(ctx.user))
     ):
         return []
     return [

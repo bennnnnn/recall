@@ -20,6 +20,7 @@ from app.modules.account import profile as profile_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat.prompt_constants.routing import profile_question_to_answer
+from app.modules.chat.prompt_memory import memory_switch_on
 from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.clauses import request_body
 from app.modules.chat.turn_prep.followups import SubjectFollowup
@@ -123,7 +124,7 @@ async def _profile_reply(asked: str, identity: TurnIdentity) -> str | None:
     read is not "I don't have that saved"; the model path says memory didn't load.
     """
     user = identity.user
-    if getattr(user, "memory_enabled", True) is False:
+    if not memory_switch_on(user):
         return None
     try:
         async with SessionLocal() as session:
