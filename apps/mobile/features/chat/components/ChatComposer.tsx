@@ -94,8 +94,6 @@ type Props = {
   input?: string;
   onChangeInput?: (text: string) => void;
   streaming: boolean;
-  attachBusy: boolean;
-  attachPicking?: boolean;
   sendBusy?: boolean;
   sendStatus?: string;
   pendingAttachment: PendingAttachment | null;
@@ -132,8 +130,6 @@ export const ChatComposer = memo(function ChatComposer({
   input: inputProp,
   onChangeInput: onChangeInputProp,
   streaming,
-  attachBusy,
-  attachPicking = false,
   sendBusy = false,
   sendStatus,
   pendingAttachment,
@@ -300,7 +296,7 @@ export const ChatComposer = memo(function ChatComposer({
   if (!visible) return null;
 
   const hasSendableContent = Boolean(input.trim() || pendingAttachment);
-  const attachmentDisabled = attachBusy || attachPicking || sendBusy || streaming;
+  const attachmentDisabled = sendBusy || streaming;
   const showLiveTalkSideChrome =
     Boolean(liveTalkChrome) && liveTalkShowsSideChrome(input);
   const parkInput = showMathPreview;
@@ -365,10 +361,7 @@ export const ChatComposer = memo(function ChatComposer({
       hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
       accessibilityRole="button"
       accessibilityLabel={t(voiceActive ? "chat.voice_cancel_a11y" : "chat.attach_a11y")}
-      accessibilityState={{
-        disabled: !voiceActive && attachmentDisabled,
-        busy: !voiceActive && attachPicking,
-      }}
+      accessibilityState={{ disabled: !voiceActive && attachmentDisabled }}
     >
       {voiceActive ? (
         <Icon
@@ -409,7 +402,6 @@ export const ChatComposer = memo(function ChatComposer({
         showSend={showSend}
         sendBusy={sendBusy}
         isOffline={isOffline}
-        attachBusy={attachBusy || attachPicking}
         showMic={showMic}
         voiceRecording={voiceRecording}
         voiceTranscribing={voiceTranscribing}
@@ -483,7 +475,6 @@ export const ChatComposer = memo(function ChatComposer({
             {pendingAttachment ? (
               <ComposerAttachmentPreview
                 attachment={pendingAttachment}
-                uploading={attachBusy}
                 onRemove={onRemoveAttachment}
               />
             ) : null}

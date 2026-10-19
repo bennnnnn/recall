@@ -171,8 +171,6 @@ export function useChatSend({
   const feedback = useActionFeedbackOptional();
   const { pendingAttachment, pendingAttachmentRef, setPendingAttachment } = useSendAttachment();
   const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
-  const attachBusy = false;
-  const [attachPicking, setAttachPicking] = useState(false);
   const [sendPhase, setSendPhase] = useState<ChatSendPhase>("idle");
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
   const [mathScannerOpen, setMathScannerOpen] = useState(false);
@@ -383,7 +381,6 @@ export function useChatSend({
         hasAttachment: Boolean(pendingAttachmentRef.current),
         token,
         creating: creatingRef.current,
-        attachBusy,
       });
       // Offline keeps the draft; banner + dimmed send already signal it. A modal
       // Alert feels unfinished without a send queue — use a soft toast instead.
@@ -504,7 +501,7 @@ export function useChatSend({
     },
     [
       session, inputRef, chatLoading, chatId, routeChatId, isOffline, streaming, pendingAttachmentRef,
-      token, creatingRef, attachBusy, onOfflineBlocked, onStreamBusy, onBeforeSend, getThreadKey,
+      token, creatingRef, onOfflineBlocked, onStreamBusy, onBeforeSend, getThreadKey,
       messages, onGenerateImage, imageGenerating, generateFromComposer, t, updateUser, paintUserTurn,
       restoreFailedSend, feedback, selectedModel, sendMessage, ensureChatId, discardEmptyChat,
       adoptComposerThread,
@@ -527,21 +524,20 @@ export function useChatSend({
   }, [session, viewVersion, getThreadKey, composerThread, streaming, inputRef, pendingAttachmentRef, feedback, t, setInput, setPendingAttachment]);
 
   const handlePickAttachment = useCallback(() => {
-    if (!token || attachBusy || streaming || sendInFlightRef.current || attachPickInFlightRef.current) return;
+    if (!token || streaming || sendInFlightRef.current || attachPickInFlightRef.current) return;
     Keyboard.dismiss();
     // Let the keyboard finish dismissing so the first tap isn't swallowed on Android.
     const version = viewRef.current.version;
     requestAnimationFrame(() => {
       if (viewRef.current.version === version && session === getSessionGeneration()) setAttachSheetOpen(true);
     });
-  }, [token, attachBusy, streaming, session]);
+  }, [token, streaming, session]);
 
   const handleAttachmentSheetSelect = useCallback(
     async (source: AttachmentSource) => {
       if (
         attachPickInFlightRef.current ||
         !token ||
-        attachBusy ||
         streaming ||
         sendInFlightRef.current
       )
@@ -551,9 +547,8 @@ export function useChatSend({
       attachPickInFlightRef.current = true;
       setAttachSheetOpen(false);
 
-      if (!current() || !token || attachBusy || streaming || sendInFlightRef.current) {
+      if (!current() || !token || streaming || sendInFlightRef.current) {
         attachPickInFlightRef.current = false;
-        setAttachPicking(false);
         return;
       }
 
@@ -590,10 +585,9 @@ export function useChatSend({
         }
       } finally {
         attachPickInFlightRef.current = false;
-        setAttachPicking(false);
       }
     },
-    [attachBusy, feedback, session, streaming, t, token, setPendingAttachment],
+    [feedback, session, streaming, t, token, setPendingAttachment],
   );
 
   const handleMathScanCaptured = useCallback((
@@ -649,8 +643,6 @@ export function useChatSend({
     setInput,
     pendingAttachment,
     setPendingAttachment,
-    attachBusy,
-    attachPicking,
     sendPhase,
     attachSheetOpen,
     setAttachSheetOpen,

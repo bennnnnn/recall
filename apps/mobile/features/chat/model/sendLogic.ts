@@ -41,13 +41,12 @@ export function shouldBlockSend(options: {
   streaming: boolean;
   token: string | null;
   creating: boolean;
-  attachBusy: boolean;
   isOffline: boolean;
 }): boolean {
   const trimmed = options.text.trim();
   if (!trimmed && !options.hasAttachment) return true;
   if (options.isOffline) return true;
-  if (options.streaming || !options.token || options.creating || options.attachBusy) {
+  if (options.streaming || !options.token || options.creating) {
     return true;
   }
   return false;

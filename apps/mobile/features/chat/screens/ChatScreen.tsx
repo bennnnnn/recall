@@ -86,7 +86,6 @@ function ChatScreen() {
   const activeChatId = draft.activeChatId;
 
   const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
-  const closeAttachSheetRef = useRef<() => void>(() => {});
   const showActionBannerRef = useRef<
     (message: string, icon?: IconName) => void
   >(() => {});
@@ -305,8 +304,6 @@ function ChatScreen() {
     setInput,
     pendingAttachment,
     setPendingAttachment,
-    attachBusy,
-    attachPicking,
     sendPhase,
     attachSheetOpen,
     setAttachSheetOpen,
@@ -319,7 +316,6 @@ function ChatScreen() {
     handleMathScanSolve,
     mathScannerOpen,
     setMathScannerOpen,
-    pendingOutboundId,
   } = send;
 
   useEffect(() => {
@@ -390,8 +386,6 @@ function ChatScreen() {
     t,
   });
 
-  closeAttachSheetRef.current = () => setAttachSheetOpen(false);
-
   const closeAttachSheet = useCallback(() => {
     setAttachSheetOpen(false);
   }, [setAttachSheetOpen]);
@@ -456,8 +450,6 @@ function ChatScreen() {
     selectedModel,
   });
 
-  const displayMessages = messages;
-
   const onSelectSuggestion = useCallback(
     (prompt: string) => {
       void handleSend(prompt);
@@ -466,7 +458,7 @@ function ChatScreen() {
   );
 
   const { headerTitleLabel, renderItem } = useChatMessageList({
-    messages: displayMessages,
+    messages,
     streaming,
     finalizing,
     selectedModel,
@@ -490,9 +482,9 @@ function ChatScreen() {
     composerHeight: COMPOSER_HEIGHT + composerInputExtra,
     attachmentExtra: composerAttachmentExtra(pendingAttachment),
     mathBarExtra: mathChromeExtra,
-    messagesLength: displayMessages.length,
+    messagesLength: messages.length,
     streaming: streamActive,
-    lastMessageId: displayMessages[displayMessages.length - 1]?.id,
+    lastMessageId: messages[messages.length - 1]?.id,
   });
 
   const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen);
@@ -520,7 +512,7 @@ function ChatScreen() {
     },
     list: {
       listRef,
-      messages: displayMessages,
+      messages,
       hasMoreOlder,
       loadingOlder,
       chatLoading,
@@ -538,8 +530,6 @@ function ChatScreen() {
     attachments: {
       attachSheetOpen,
       closeAttachSheet,
-      attachBusy,
-      attachPicking,
       pendingAttachment,
       setPendingAttachment,
       handlePickAttachment,

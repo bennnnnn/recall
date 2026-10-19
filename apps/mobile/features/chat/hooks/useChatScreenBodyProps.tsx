@@ -13,9 +13,6 @@ import { useRouter } from "expo-router";
 
 import type { IconName } from "@/ui/icons/names";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
-
-type Router = ReturnType<typeof useRouter>;
-
 import { ChatHeader } from "@/features/chat/components/ChatHeader";
 import type {
   ChatScreenBodyProps,
@@ -33,6 +30,8 @@ import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
 import { openDrawer } from "@/lib/drawer";
 import type { Theme } from "@/lib/theme";
+
+type Router = ReturnType<typeof useRouter>;
 
 type QuotaNudge = {
   show: boolean;
@@ -94,8 +93,6 @@ type UseChatScreenBodyPropsParams = {
   attachments: {
     attachSheetOpen: boolean;
     closeAttachSheet: () => void;
-    attachBusy: boolean;
-    attachPicking: boolean;
     pendingAttachment: PendingAttachment | null;
     setPendingAttachment: (value: PendingAttachment | null) => void;
     handlePickAttachment: () => void;
@@ -139,8 +136,6 @@ type UseChatScreenBodyPropsParams = {
     onMutePress: () => void;
     onYield: () => void;
   } | null;
-  listFooter?: ReactElement | null;
-  hideHomeStarters?: boolean;
 };
 
 export function useChatScreenBodyProps({
@@ -183,8 +178,6 @@ export function useChatScreenBodyProps({
   attachments: {
     attachSheetOpen,
     closeAttachSheet,
-    attachBusy,
-    attachPicking,
     pendingAttachment,
     setPendingAttachment,
     handlePickAttachment,
@@ -219,8 +212,6 @@ export function useChatScreenBodyProps({
     onLiveTalkPress,
   },
   liveTalkSession = null,
-  listFooter = null,
-  hideHomeStarters = false,
 }: UseChatScreenBodyPropsParams): {
   bodyProps: ChatScreenBodyProps;
   openUpgradeSheet: (source?: UpgradeSource) => void;
@@ -365,8 +356,6 @@ export function useChatScreenBodyProps({
       onContentSizeChange: handleContentSizeChange,
       onListLayout: handleListLayout,
       header: listHeader,
-      footer: listFooter,
-      hideHomeStarters,
     }),
     [
       listRef,
@@ -382,8 +371,6 @@ export function useChatScreenBodyProps({
       handleContentSizeChange,
       handleListLayout,
       listHeader,
-      listFooter,
-      hideHomeStarters,
     ],
   );
 
@@ -391,8 +378,6 @@ export function useChatScreenBodyProps({
     (): ChatScreenComposerProps => ({
       animatedStyle: composerAnimatedStyle,
       streaming,
-      attachBusy,
-      attachPicking,
       sendBusy,
       sendStatus,
       pendingAttachment,
@@ -416,8 +401,6 @@ export function useChatScreenBodyProps({
     [
       composerAnimatedStyle,
       streaming,
-      attachBusy,
-      attachPicking,
       sendBusy,
       sendStatus,
       pendingAttachment,

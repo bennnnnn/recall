@@ -48,15 +48,11 @@ export interface ChatScreenListProps {
   onContentSizeChange?: (width: number, height: number) => void;
   onListLayout?: (height: number) => void;
   header: ReactElement | null;
-  footer?: ReactElement | null;
-  hideHomeStarters?: boolean;
 }
 
 export interface ChatScreenComposerProps {
   animatedStyle?: AnimatedStyle<ViewStyle>;
   streaming: boolean;
-  attachBusy: boolean;
-  attachPicking: boolean;
   sendBusy: boolean;
   sendStatus?: string;
   pendingAttachment: PendingAttachment | null;
@@ -179,8 +175,6 @@ export const ChatScreenBody = memo(function ChatScreenBody({
           onContentSizeChange={list.onContentSizeChange}
           onListLayout={list.onListLayout}
           header={list.header}
-          hideHomeStarters={list.hideHomeStarters}
-          listFooter={list.footer}
           streamActive={composer.streaming}
         />
       </StreamingDraftProvider>
@@ -189,8 +183,6 @@ export const ChatScreenBody = memo(function ChatScreenBody({
         visible={!drawerOpen}
         animatedContainerStyle={composer.animatedStyle}
         streaming={composer.streaming}
-        attachBusy={composer.attachBusy}
-        attachPicking={composer.attachPicking}
         sendBusy={composer.sendBusy}
         sendStatus={composer.sendStatus}
         pendingAttachment={composer.pendingAttachment}

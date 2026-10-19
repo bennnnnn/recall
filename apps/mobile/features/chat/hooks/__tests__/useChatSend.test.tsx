@@ -556,7 +556,6 @@ describe("useChatSend", () => {
 
     expect(current.pendingAttachment).toBeNull();
     expect(current.sendPhase).toBe("uploading");
-    expect(current.attachBusy).toBe(false);
     expect(sendMessage).not.toHaveBeenCalled();
 
     await act(async () => {

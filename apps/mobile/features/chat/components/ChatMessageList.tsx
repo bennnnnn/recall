@@ -35,8 +35,6 @@ type Props = {
   onContentSizeChange?: (width: number, height: number) => void;
   onListLayout?: (height: number) => void;
   header?: ReactElement | null;
-  hideHomeStarters?: boolean;
-  listFooter?: ReactElement | null;
   /** When true, disable FlashList autoscroll — useChatScroll owns bottom-pinning. */
   streamActive?: boolean;
 };
@@ -58,14 +56,11 @@ function ChatMessageListComponent({
   onContentSizeChange,
   onListLayout,
   header,
-  hideHomeStarters = false,
-  listFooter = null,
   streamActive = false,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const showFooterInEmpty = Boolean(listFooter && messages.length === 0);
   // Stable content-container style: the previous inline `{ paddingTop, paddingBottom }`
   // object was fresh every render, so FlashList re-laid out on every parent render
   // (including every composer keystroke). Memoize so it only changes when the
@@ -156,24 +151,15 @@ function ChatMessageListComponent({
           ) : null
         }
         ListEmptyComponent={
-          showFooterInEmpty ? (
-            <View style={[s.empty, s.emptyWithFooter, { minHeight: emptyHeight }]}>
-              {listFooter}
-            </View>
-          ) : listFooter ? null : chatLoading && routeChatId ? (
+          chatLoading && routeChatId ? (
             <View style={[s.empty, { height: emptyHeight }]}>
               <SkeletonChatBubbles />
             </View>
-          ) : hideHomeStarters ? (
-            <View style={[s.empty, { height: emptyHeight }]} />
           ) : (
             <View style={[s.empty, { height: emptyHeight }]}>
               <HomeStarters />
             </View>
           )
-        }
-        ListFooterComponent={
-          messages.length > 0 && listFooter ? listFooter : undefined
         }
       />
 
@@ -205,10 +191,6 @@ function makeStyles(theme: Theme) {
       alignItems: "stretch",
       justifyContent: "flex-start",
       paddingTop: Space.xxs,
-    },
-    emptyWithFooter: {
-      justifyContent: "flex-end",
-      paddingBottom: Space.xs,
     },
   });
 }
