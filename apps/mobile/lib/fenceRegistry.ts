@@ -19,7 +19,7 @@
  * Every other per-fence behaviour (copy and read-aloud, lifting out of lists,
  * the open streaming tail, the crash fallback) is a field on the fence's row
  * too, and `FenceId` is read off the table: a new fence is one row here plus
- * its renderer.
+ * its renderer (`components/rich/README.md` has the recipe).
  *
  * `owner` classifies who may emit the fence on new turns:
  * - model: the active prompt may produce this
