@@ -11,6 +11,7 @@ from app.core.access_tokens import REVOKED_SINCE_PREFIX
 from app.core.config import Settings
 from app.core.jobs import enqueue
 from app.core.validation import normalize_avatar_url
+from app.gateways import apple_revoke
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
 from app.modules import home as home_service
@@ -108,7 +109,16 @@ async def delete_account(
     redis: Redis,
     settings: Settings,
     user: User,
+    *,
+    apple_authorization_code: str | None = None,
 ) -> None:
+    """Delete the account and everything stored for it.
+
+    *apple_authorization_code* is a fresh Sign in with Apple code the phone
+    asked for; with it, the user's Apple grant is revoked last, best effort
+    (``gateways/apple_revoke.py``), so Apple being down never blocks the delete.
+    """
+    apple_sub = user.apple_sub
     try:
         await tokens_service.purge_user_sessions(redis, user.id, settings)
     except Exception as exc:
@@ -143,6 +153,12 @@ async def delete_account(
         {"user_id": str(user_id)},
         dedupe_key=f"storage_sweep:{user_id}",
     )
+    if apple_sub and apple_authorization_code:
+        await apple_revoke.revoke_authorization_code(
+            settings, apple_authorization_code, expected_sub=apple_sub
+        )
+    elif apple_sub:
+        logger.info("Apple-linked account deleted without an Apple code; grant not revoked")
 
 
 # Kept after a delete: the cutoff that keeps the deleted account's already

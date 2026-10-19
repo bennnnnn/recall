@@ -427,7 +427,8 @@ async def test_photo_fetch_names_itself_and_asks_for_plain_bytes():
 
     fetch = AsyncMock(return_value=_fake_response())
     with patch("app.modules.images.search.safe_fetch.fetch_safely", fetch):
-        await search_module._fetch_one_image(AsyncMock(), _HIT)
+        await search_module._fetch_one_image(AsyncMock(), _HIT, deadline_seconds=8.0)
     headers = fetch.await_args.kwargs["headers"]
+    assert fetch.await_args.kwargs["deadline_seconds"] == 8.0
     assert headers["User-Agent"].startswith("RecallPhotos/")
     assert headers["Accept-Encoding"] == "identity"

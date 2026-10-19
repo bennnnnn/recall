@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react-native";
 import { Alert, Platform } from "react-native";
 
+import { AccountExistsError } from "@/features/auth/model/accountExists";
 import { useLoginActions } from "@/features/auth/hooks/useLoginActions";
 import { formatAppleSignInError } from "@/lib/apple-auth";
 import {
@@ -132,6 +133,21 @@ it("keeps a second provider from starting while one is pending", async () => {
     await request;
   });
 });
+
+it.each([
+  ["handleGoogle", mockGoogle, "apple", "login.error_account_exists_apple"],
+  ["handleApple", mockApple, "google", "login.error_account_exists_google"],
+] as const)(
+  "%s names the earlier sign-in when the email already has an account",
+  async (action, signIn, signInWith, message) => {
+    signIn.mockRejectedValueOnce(new AccountExistsError(signInWith));
+    const { result } = await renderHook(useLoginActions);
+
+    await act(async () => result.current[action]());
+
+    expect(mockFeedback.error).toHaveBeenCalledWith(message);
+  },
+);
 
 it("preserves the Expo Go Google availability alert", async () => {
   jest.mocked(isExpoGo).mockReturnValue(true);

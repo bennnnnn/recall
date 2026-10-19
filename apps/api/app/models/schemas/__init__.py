@@ -2,6 +2,7 @@
 
 from app.models.schemas.analytics import ProductEventBatchIn, ProductEventIn, ProductEventName
 from app.models.schemas.auth import (
+    AccountDeleteRequest,
     AppleAuthRequest,
     AuthResponse,
     AuthSessionListOut,
@@ -90,6 +91,7 @@ from app.modules.todos.schemas import (
 
 __all__ = [
     "MEMORY_REPLY_MAX_LENGTH",
+    "AccountDeleteRequest",
     "AppleAuthRequest",
     "ArchiveUpdate",
     "AttachmentListItemOut",

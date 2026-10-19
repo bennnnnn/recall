@@ -77,6 +77,8 @@ async def _rollback_written_bytes(gateway: StorageGateway, storage_keys: list[st
 async def _fetch_one_image(
     client: httpx.AsyncClient,
     hit: image_search_gateway.ImageSearchHit,
+    *,
+    deadline_seconds: float,
 ) -> tuple[bytes, str] | None:
     """Best-effort SSRF-safe fetch + validation of one candidate image URL.
 
@@ -88,6 +90,7 @@ async def _fetch_one_image(
         response = await safe_fetch.fetch_safely(
             client,
             hit.image_url,
+            deadline_seconds=deadline_seconds,
             max_redirects=_FETCH_MAX_REDIRECTS,
             max_body_bytes=MAX_ATTACHMENT_SIZE,
             headers=_FETCH_HEADERS,
@@ -119,7 +122,10 @@ async def _fetch_candidates(
         for hit in hits:
             if len(fetched) >= max_images:
                 break
-            result = await _fetch_one_image(client, hit)
+            # One slow candidate gets the fetch timeout in all, then the next is tried.
+            result = await _fetch_one_image(
+                client, hit, deadline_seconds=settings.image_search_fetch_timeout_seconds
+            )
             if result is not None:
                 fetched.append(result)
     return fetched

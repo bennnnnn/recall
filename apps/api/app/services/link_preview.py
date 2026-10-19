@@ -1,14 +1,31 @@
+"""Title and description for a link card, fetched server-side and cached.
+
+The phone asks only for links the user wrote or the reply's search sources
+named; a link the model wrote on its own is a plain card with no fetch, so a
+prompt-injected reply cannot make the server request a URL carrying the
+user's data (``apps/mobile/components/LinkPreviewCard.tsx``).
+
+Every fetch has an overall deadline (``fetch_safely``), and one user has at
+most ``_MAX_IN_FLIGHT_PER_USER`` fetches open at once, so slow upstreams
+cannot pile up open requests on the API machine.
+"""
+
 import hashlib
 import json
 import logging
 import re
+import time
+import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from html.parser import HTMLParser
 from urllib.parse import urlparse
+from uuid import UUID
 
 import httpx
+from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.core.redis import get_redis_client
 from app.gateways.safe_fetch import fetch_safely
 
 logger = logging.getLogger(__name__)
@@ -25,6 +42,20 @@ _USER_AGENT = "RecallLinkPreview/1.0"
 # enough — each request can still be huge within the timeout).
 _LINK_PREVIEW_MAX_BODY_BYTES = 128 * 1024
 _LINK_PREVIEW_MAX_HTML_CHARS = 120_000
+# Each read may take this long; the whole fetch (DNS, up to five redirect hops
+# and the body) gets _LINK_PREVIEW_DEADLINE_SECONDS in all.
+_LINK_PREVIEW_READ_TIMEOUT_SECONDS = 6.0
+_LINK_PREVIEW_DEADLINE_SECONDS = 8.0
+# A chat shows a few cards at once; more open fetches than this for one user
+# is a client looping over URLs. An entry older than the TTL is a fetch that
+# can no longer be running (the deadline is far shorter), e.g. after a crash.
+_MAX_IN_FLIGHT_PER_USER = 3
+_IN_FLIGHT_TTL_SECONDS = 30
+_IN_FLIGHT_PREFIX = "linkpreview:inflight:"
+
+
+class LinkPreviewBusyError(Exception):
+    """The user already has the most link-preview fetches open at once."""
 
 
 class _MetaParser(HTMLParser):
@@ -50,15 +81,15 @@ async def fetch_link_preview(url: str) -> dict[str, str | None]:
 
     try:
         async with httpx.AsyncClient(
-            timeout=httpx.Timeout(6.0),
+            timeout=httpx.Timeout(_LINK_PREVIEW_READ_TIMEOUT_SECONDS),
             follow_redirects=False,
         ) as client:
             # SSRF-safe fetch: DNS pinning + per-hop re-validation of every
-            # redirect target. Replaces the hand-rolled _get_pinned + redirect
-            # loop, which duplicated fetch_safely's logic and could drift.
+            # redirect target, all inside one overall deadline.
             resp = await fetch_safely(
                 client,
                 url,
+                deadline_seconds=_LINK_PREVIEW_DEADLINE_SECONDS,
                 headers={"User-Agent": _USER_AGENT},
                 max_body_bytes=_LINK_PREVIEW_MAX_BODY_BYTES,
             )
@@ -67,6 +98,9 @@ async def fetch_link_preview(url: str) -> dict[str, str | None]:
     except ValueError:
         # Re-raised from resolve_external_host -- blocked internal address
         logger.debug("Link preview blocked internal address: %s", url)
+        return {"url": url, "title": None, "description": None, "domain": domain}
+    except TimeoutError:
+        logger.info("Link preview passed its %.0fs deadline", _LINK_PREVIEW_DEADLINE_SECONDS)
         return {"url": url, "title": None, "description": None, "domain": domain}
     except Exception:
         logger.debug("Link preview fetch failed for %s", url, exc_info=True)
@@ -107,9 +141,43 @@ def _preview_cache_key(url: str) -> str:
     return f"linkpreview:{digest}"
 
 
-async def fetch_link_preview_cached(settings: Settings, url: str) -> dict[str, str | None]:
+@asynccontextmanager
+async def _in_flight_slot(redis: Redis, user_id: UUID) -> AsyncIterator[None]:
+    """Hold one of the user's fetch slots, or raise ``LinkPreviewBusyError``.
+
+    A sorted set of open fetches scored by start time: stale entries age out
+    on the next request, so a crashed fetch never locks the user out. A Redis
+    error denies the fetch, like the rate limit in front of it.
+    """
+    key = f"{_IN_FLIGHT_PREFIX}{user_id}"
+    member = uuid.uuid4().hex
+    now = time.time()
+    try:
+        async with redis.pipeline(transaction=True) as pipe:
+            pipe.zremrangebyscore(key, "-inf", now - _IN_FLIGHT_TTL_SECONDS)
+            pipe.zadd(key, {member: now})
+            pipe.zcard(key)
+            pipe.expire(key, _IN_FLIGHT_TTL_SECONDS)
+            _, _, open_fetches, _ = await pipe.execute()
+    except Exception as exc:
+        logger.warning("Link preview slot check failed; denying", exc_info=True)
+        raise LinkPreviewBusyError from exc
+    try:
+        if int(open_fetches) > _MAX_IN_FLIGHT_PER_USER:
+            raise LinkPreviewBusyError
+        yield
+    finally:
+        try:
+            await redis.zrem(key, member)
+        except Exception:
+            logger.debug("Link preview slot release failed", exc_info=True)
+
+
+async def fetch_link_preview_cached(
+    settings: Settings, redis: Redis, url: str, *, user_id: UUID
+) -> dict[str, str | None]:
+    """The cached card, or a fresh fetch inside one of the user's fetch slots."""
     cache_key = _preview_cache_key(url)
-    redis = get_redis_client()
     try:
         cached = await redis.get(cache_key)
         if cached:
@@ -124,7 +192,8 @@ async def fetch_link_preview_cached(settings: Settings, url: str) -> dict[str, s
     except Exception:
         logger.debug("Link preview cache read failed", exc_info=True)
 
-    result = await fetch_link_preview(url)
+    async with _in_flight_slot(redis, user_id):
+        result = await fetch_link_preview(url)
     try:
         await redis.set(
             cache_key,

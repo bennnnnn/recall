@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # as a 503 instead of holding the sign-in (and a worker thread).
     google_auth_timeout_seconds: float = 10.0
     apple_client_id: str = "com.recall.app"
+    # Sign in with Apple key (the .p8 contents): account delete revokes the Apple grant.
+    apple_team_id: str = ""
+    apple_key_id: str = ""
+    apple_private_key: str = ""
 
     jwt_secret: str = "dev-secret-change-me"
     # 60m is intentional: jti + revoked_since cover logout/reuse; lower freely
@@ -440,6 +444,11 @@ class Settings(BaseSettings):
     support_email: str = ""  # contact on the /legal pages; boot warns while empty
 
 
+def apple_revoke_configured(settings: Settings) -> bool:
+    keys = (settings.apple_team_id, settings.apple_key_id, settings.apple_private_key)
+    return all(value.strip() for value in keys)
+
+
 def _warn_proxy_trust_misconfig(settings: Settings) -> None:
     if not settings.trust_x_forwarded_for:
         if settings.environment == "production":
@@ -485,6 +494,8 @@ def validate_production_settings(settings: Settings) -> None:
         return
 
     _warn_proxy_trust_misconfig(settings)
+    if not apple_revoke_configured(settings):  # delete still works; the grant outlives it
+        logger.warning("APPLE_* key unset: account delete cannot revoke Sign in with Apple tokens")
 
     errors: list[str] = []
     if settings.dev_auth_enabled:

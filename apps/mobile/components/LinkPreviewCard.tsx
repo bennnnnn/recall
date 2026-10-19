@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
+import { useLinkPreviewAllowed } from "@/components/markdown/LinkPreviewTrust";
 import { fetchLinkPreview, LinkPreview } from "@/lib/linkPreview";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
@@ -18,10 +19,14 @@ export function LinkPreviewCard({ url }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const mayFetch = useLinkPreviewAllowed(url);
   const [preview, setPreview] = useState<LinkPreview | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    // A link the model wrote on its own: the server must not fetch it (its
+    // URL can carry the user's data), so it stays a plain link card.
+    if (!mayFetch) return;
     let cancelled = false;
     fetchLinkPreview(url)
       .then((data) => {
@@ -33,13 +38,13 @@ export function LinkPreviewCard({ url }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [url]);
+  }, [url, mayFetch]);
 
   const open = () => {
     void openAllowedUrl(url);
   };
 
-  if (failed) {
+  if (failed || !mayFetch) {
     return (
       <Pressable
         style={s.wrap}

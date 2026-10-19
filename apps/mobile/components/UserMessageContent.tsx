@@ -6,6 +6,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { LinkPreviewTrust } from "@/components/markdown/LinkPreviewTrust";
 import {
   sentMessageShowsMathPreview,
   MathDraftPreview,
@@ -129,7 +130,12 @@ function UserBubbleBody({ content }: { content: string }) {
   if (sentMessageShowsMathPreview(inline)) {
     return <MathDraftPreview input={inline} showCaret={false} sent />;
   }
-  return <MarkdownContent content={inline} compact />;
+  // The user's own links may show a preview card.
+  return (
+    <LinkPreviewTrust userText={content}>
+      <MarkdownContent content={inline} compact />
+    </LinkPreviewTrust>
+  );
 }
 
 function makeStyles(C: Theme) {

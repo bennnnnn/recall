@@ -6,9 +6,14 @@ explicit Host/SNI headers so DNS cannot re-resolve to something different
 mid-request (closes the DNS-rebinding TOCTOU window). Callers that follow
 redirects must re-validate + re-pin on every hop — see fetch_safely().
 
-Used by app.services.link_preview (fetching arbitrary user-submitted URLs)
-and app.gateways.image_gateway (fetching provider-returned image URLs) so
-neither has to duplicate the DNS-pinning/redirect logic.
+Used by app.services.link_preview (fetching arbitrary user-submitted URLs),
+app.modules.images.search (reference-photo candidates) and
+app.gateways.image_gateway (fetching provider-returned image URLs) so none of
+them duplicates the DNS-pinning/redirect logic.
+
+Every fetch has an overall deadline. The client's ``httpx.Timeout`` bounds
+each read, so a server that sends one byte just inside it, on every hop,
+would otherwise hold the request (and an API worker slot) open for minutes.
 """
 
 from __future__ import annotations
@@ -179,6 +184,7 @@ async def fetch_safely(
     client: httpx.AsyncClient,
     url: str,
     *,
+    deadline_seconds: float,
     headers: dict[str, str] | None = None,
     max_redirects: int = 5,
     max_body_bytes: int | None = None,
@@ -191,17 +197,23 @@ async def fetch_safely(
     misbehaving upstream could otherwise use to redirect to an internal
     address after the initial hostname passed validation).
 
+    *deadline_seconds* bounds the whole fetch: DNS, every redirect hop and the
+    body. Past it the fetch is cancelled and ``TimeoutError`` raised.
+
     Pass *max_body_bytes* for untrusted bodies (link preview) so a large
     response cannot exhaust worker memory.
     """
-    current_url = url
-    resp = await get_pinned(client, current_url, headers=headers, max_body_bytes=max_body_bytes)
-    hops = 0
-    while resp.status_code in _REDIRECT_STATUS_CODES and hops < max_redirects:
-        redirect_target = resp.headers.get("Location")
-        if not redirect_target:
-            break
-        current_url = urljoin(current_url, redirect_target)
+    async with asyncio.timeout(deadline_seconds):
+        current_url = url
         resp = await get_pinned(client, current_url, headers=headers, max_body_bytes=max_body_bytes)
-        hops += 1
-    return resp
+        hops = 0
+        while resp.status_code in _REDIRECT_STATUS_CODES and hops < max_redirects:
+            redirect_target = resp.headers.get("Location")
+            if not redirect_target:
+                break
+            current_url = urljoin(current_url, redirect_target)
+            resp = await get_pinned(
+                client, current_url, headers=headers, max_body_bytes=max_body_bytes
+            )
+            hops += 1
+        return resp

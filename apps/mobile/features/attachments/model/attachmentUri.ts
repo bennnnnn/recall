@@ -39,8 +39,12 @@ export function resolveAttachmentUri(options: {
   } else {
     const path = options.path?.trim();
     if (!path) return null;
-    if (path.startsWith("http://") || path.startsWith("https://")) uri = path;
-    else if (path.startsWith("/attachments/")) uri = `${getApiUrl().replace(/\/+$/, "")}${path}`;
+    // Plain http only for the API itself (a dev server); never a third party.
+    if (path.startsWith("https://") || (path.startsWith("http://") && recallAttachmentPath(path))) {
+      uri = path;
+    } else if (path.startsWith("/attachments/")) {
+      uri = `${getApiUrl().replace(/\/+$/, "")}${path}`;
+    }
   }
   if (!uri) return null;
   const width = options.width;

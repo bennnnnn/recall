@@ -1,6 +1,10 @@
 import Constants from "expo-constants";
 
-import { shouldShowAppleSignInButton, signInWithAppleCredentials } from "@/lib/apple-auth";
+import {
+  appleConsentForAccountDelete,
+  shouldShowAppleSignInButton,
+  signInWithAppleCredentials,
+} from "@/lib/apple-auth";
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -12,8 +16,9 @@ jest.mock("react-native", () => ({
 }));
 
 const mockSignInAsync = jest.fn();
+const mockIsAvailable = jest.fn(async () => true);
 jest.mock("expo-apple-authentication", () => ({
-  isAvailableAsync: jest.fn(async () => true),
+  isAvailableAsync: () => mockIsAvailable(),
   signInAsync: (...args: unknown[]) => mockSignInAsync(...args),
   AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
 }));
@@ -43,6 +48,37 @@ describe("signInWithAppleCredentials", () => {
       name: "Ada Lovelace",
       nonce: "0001feff",
     });
+  });
+});
+
+describe("appleConsentForAccountDelete", () => {
+  beforeEach(() => {
+    mockSignInAsync.mockReset();
+    mockIsAvailable.mockResolvedValue(true);
+  });
+
+  it("asks Apple for a fresh code and no personal scopes", async () => {
+    mockSignInAsync.mockResolvedValue({ identityToken: "t", authorizationCode: " code-1 " });
+    await expect(appleConsentForAccountDelete()).resolves.toEqual({ kind: "code", code: "code-1" });
+    expect(mockSignInAsync).toHaveBeenCalledWith({ requestedScopes: [] });
+  });
+
+  it("closing the sheet is a cancel", async () => {
+    mockSignInAsync.mockRejectedValue(
+      Object.assign(new Error("The user canceled the authorization attempt"), {
+        code: "ERR_REQUEST_CANCELED",
+      }),
+    );
+    await expect(appleConsentForAccountDelete()).resolves.toEqual({ kind: "cancelled" });
+  });
+
+  it.each([
+    ["Apple returns no code", () => mockSignInAsync.mockResolvedValue({ authorizationCode: null })],
+    ["Apple fails", () => mockSignInAsync.mockRejectedValue(new Error("ERR_REQUEST_FAILED"))],
+    ["Sign in with Apple is off", () => mockIsAvailable.mockResolvedValue(false)],
+  ])("%s: the delete goes ahead without a code", async (_name, arrange) => {
+    arrange();
+    await expect(appleConsentForAccountDelete()).resolves.toEqual({ kind: "unavailable" });
   });
 });
 

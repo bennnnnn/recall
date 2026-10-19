@@ -70,10 +70,11 @@ export default function DataControlsScreen() {
       destructive: true,
     }).then(async (ok) => {
       if (!ok) return;
-      if (await deleteAccount()) {
+      const outcome = await deleteAccount();
+      if (outcome === "deleted") {
         notifyDestructive();
         router.replace("/login");
-      } else {
+      } else if (outcome === "failed") {
         reportRecoverableError(feedback, t("settings.delete_failed"));
       }
     });

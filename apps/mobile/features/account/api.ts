@@ -35,8 +35,20 @@ export const accountApi = {
   listPlans: (token: string) => request<PlanCatalog>("/billing/plans", token),
   exportData: (token: string) => request<unknown>("/auth/me/export", token),
   exportDataText: (token: string, signal?: AbortSignal) => fetchExportText(token, true, signal),
-  deleteAccount: (token: string) =>
-    request<void>("/auth/me", token, { method: "DELETE" }, true, 120_000),
+  /** With a fresh Sign in with Apple code, the server also revokes the Apple grant. */
+  deleteAccount: (token: string, appleAuthorizationCode?: string | null) =>
+    request<void>(
+      "/auth/me",
+      token,
+      {
+        method: "DELETE",
+        ...(appleAuthorizationCode
+          ? { body: JSON.stringify({ apple_authorization_code: appleAuthorizationCode }) }
+          : {}),
+      },
+      true,
+      120_000,
+    ),
   listSessions: (token: string) =>
     request<{ sessions: AuthSession[] }>("/auth/sessions", token),
   revokeSession: (token: string, sessionId: string) =>
