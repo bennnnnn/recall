@@ -19,17 +19,13 @@ from app.core.chat_rate_limit import allow_chat_message
 from app.core.config import Settings, get_settings
 from app.core.deps import get_current_user
 from app.core.redis import get_redis_client
-from app.exceptions import ChatServiceError, QuotaExceededError, RedisUnavailableError
-from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry
 from app.modules.chat.finalize_registry import register_inflight_stream
-from app.modules.chat.prompt_builder import StreamReasoningFn
 from app.modules.chat.stream_events import (
-    REPLY_SAVE_FAILED_MESSAGE,
+    EXPECTED_TURN_ERRORS,
     SERVER_RESTARTING_MESSAGE,
-    DoneEvent,
     StreamEndEvent,
     await_finalize_commit,
     build_reasoning_event,
@@ -40,10 +36,11 @@ from app.modules.chat.stream_events import (
     finish_open_stream,
     persist_finalize_if_pending,
     pop_finalize_tasks,
+    settled_turn_event,
     take_related_prompts_event,
     turn_error_payload,
 )
-from app.modules.chat.stream_status import StreamStatusFn
+from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
 
@@ -83,7 +80,6 @@ def _sse(payload: dict[str, Any]) -> str:
 async def _stream_tokens_sse(
     *,
     chat_id: UUID,
-    settings: Settings,
     stream_factory: _TokenStream,
     request: Request,
     cancel_event: asyncio.Event | None = None,
@@ -207,30 +203,15 @@ async def _stream_tokens_sse(
             raise exc
 
         yield _sse(StreamEndEvent.from_outcome(outcome).model_dump())
-        finalize_db_task = pop_finalize_tasks(outcome)
-        commit_status = await await_finalize_commit(finalize_db_task)
-        if commit_status == "failed":
-            yield _sse(
-                turn_error_payload(
-                    None,
-                    user_message_saved=outcome.user_message_saved,
-                    message=REPLY_SAVE_FAILED_MESSAGE,
-                )
-            )
+        commit = await await_finalize_commit(pop_finalize_tasks(outcome))
+        yield _sse(settled_turn_event(outcome, commit))
+        if commit != "committed":
             return
-        if commit_status == "timeout":
-            yield _sse(DoneEvent.from_outcome(outcome, persisting=True).model_dump())
-            return
-
-        yield _sse(DoneEvent.from_outcome(outcome).model_dump())
         related = await take_related_prompts_event(outcome.related_task)
         if related is not None:
             yield _sse(related)
     except Exception as exc:
-        if not isinstance(
-            exc,
-            QuotaExceededError | RedisUnavailableError | ChatServiceError | ModelUnavailableError,
-        ):
+        if not isinstance(exc, EXPECTED_TURN_ERRORS):
             logger.exception("SSE chat stream failed chat_id=%s", chat_id)
         yield _sse(turn_error_payload(exc, user_message_saved=outcome.user_message_saved))
     finally:
@@ -290,7 +271,6 @@ async def stream_message_sse(
     return _sse_response(
         _stream_tokens_sse(
             chat_id=chat_id,
-            settings=settings,
             request=request,
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_chat_response(
@@ -326,7 +306,6 @@ async def stream_regenerate_sse(
     return _sse_response(
         _stream_tokens_sse(
             chat_id=chat_id,
-            settings=settings,
             request=request,
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_regenerate_response(

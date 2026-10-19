@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.models.orm import Chat, User
 from app.modules.attachments.vision_notes import VISION_NOTE
 from app.modules.chat import stream_entry
+from app.modules.chat.prompt_builder import PromptStats
 from app.modules.chat.turn_prep.attachments import vision_reserve_tokens
 from app.modules.chat.turn_prep.context import (
     TurnPromptBundle,
@@ -174,7 +175,7 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
                 {"role": "system", "content": "policy"},
                 {"role": "user", "content": caption},
             ],
-            meta={},
+            stats=PromptStats(),
             instant_reply=None,
             search_sources=[],
             local_places=False,
@@ -202,7 +203,6 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         plan={"resolve_regenerate_model": lambda *_args: "free-chat"},
         quota={"daily_limit_for_user": lambda *_args: 10000},
     )
-    restore = AsyncMock()
     lookup = AsyncMock(return_value=[_row(uid)])
     gateway = SimpleNamespace(read_bytes=AsyncMock(return_value=b"saved-scanner"))
     entry = "app.modules.chat.stream_entry"
@@ -224,7 +224,6 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         patch(f"{entry}.build_stream_prompt_context", build),
         patch(f"{entry}.top_up_reserve_for_prompt", AsyncMock()),
         patch(f"{entry}.stream_and_finalize", final_stream),
-        patch(f"{entry}.restore_regenerate_backup", restore),
         patch(f"{_MODULE}.SessionLocal", FakeSessionCM),
         patch(f"{_MODULE}.attachments_service.get_by_ids", lookup),
         patch(f"{_MODULE}.get_storage_gateway", return_value=gateway),
@@ -247,7 +246,6 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
     assert ctx.regenerate_backup.message_id == previous.id
     assert ctx.regenerate_backup.content == "Original successful response"
     assert ctx.user_message_content == caption
-    restore.assert_not_awaited()
     if with_image:
         assert any(part["type"] == "image_url" for part in ctx.prompt_messages[-1]["content"])
         assert lookup.await_args.args[1:] == ([uid], owner)

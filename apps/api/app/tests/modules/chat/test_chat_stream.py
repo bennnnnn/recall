@@ -35,7 +35,7 @@ async def test_sse_attachment_rejection_is_explicit_and_never_done():
     chunks = [
         chunk
         async for chunk in _stream_tokens_sse(
-            chat_id=uuid4(), settings=Settings(), stream_factory=rejected, request=request
+            chat_id=uuid4(), stream_factory=rejected, request=request
         )
     ]
     events = [json.loads(chunk.removeprefix("data: ")) for chunk in chunks]
@@ -110,7 +110,6 @@ async def test_stream_tokens_sse_stops_on_client_disconnect(monkeypatch):
         chunk
         async for chunk in chat_stream._stream_tokens_sse(
             chat_id=uuid4(),
-            settings=Settings(),
             stream_factory=stream_factory,
             request=request,
             cancel_event=cancel_event,
@@ -148,7 +147,6 @@ async def test_stream_tokens_sse_registers_inflight_producer(monkeypatch):
         chunk
         async for chunk in chat_stream._stream_tokens_sse(
             chat_id=chat_id,
-            settings=Settings(),
             stream_factory=stream_factory,
             request=request,
             cancel_event=asyncio.Event(),
@@ -188,7 +186,6 @@ async def test_stream_tokens_sse_cancels_hung_producer_on_disconnect(monkeypatch
             chunk
             async for chunk in chat_stream._stream_tokens_sse(
                 chat_id=uuid4(),
-                settings=Settings(),
                 stream_factory=stream_factory,
                 request=request,
                 cancel_event=cancel_event,
@@ -225,7 +222,6 @@ async def test_stream_tokens_sse_saves_partial_when_the_client_task_is_cancelled
     async def consume() -> None:
         async for chunk in chat_stream._stream_tokens_sse(
             chat_id=uuid4(),
-            settings=Settings(),
             stream_factory=stream_factory,
             request=request,
             cancel_event=asyncio.Event(),
@@ -272,7 +268,6 @@ async def test_stream_tokens_sse_resumes_generator_parked_at_yield(monkeypatch):
     async def consume() -> None:
         async for _chunk in chat_stream._stream_tokens_sse(
             chat_id=uuid4(),
-            settings=Settings(),
             stream_factory=stream_factory,
             request=request,
             cancel_event=asyncio.Event(),

@@ -18,9 +18,12 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
-from app.models.orm import User
 from app.modules import web_search as web_search_service
-from app.modules.chat.prompt_builder import fetch_web_and_tools, inject_web_and_tools
+from app.modules.chat.prompt_builder import (
+    WebAndSubject,
+    fetch_web_and_tools,
+    inject_web_and_tools,
+)
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.followups import SubjectFollowup
@@ -28,6 +31,7 @@ from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.math.tools.extract import is_graph_followup
+from app.modules.web_search import detection as web_search_detection
 from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
 )
@@ -51,9 +55,7 @@ class Augmentation:
     # The message asks for more than its solve: the model answers the rest.
     asks_more: bool = False
 
-    def direct_reply(
-        self, request: TurnRequest, user: User, followup: SubjectFollowup
-    ) -> str | None:
+    def direct_reply(self, request: TurnRequest, followup: SubjectFollowup) -> str | None:
         """The reply the verified solve writes itself, when the turn needs no model."""
         if self.direct_text:
             return self.direct_text
@@ -214,9 +216,7 @@ def _overlapped_classifier(
         )
     ):
         return None
-    from app.modules.web_search.detection import should_web_search
-
-    return should_web_search(
+    return web_search_detection.should_web_search(
         content,
         settings,
         prior_user_messages=_prompt_prior_user_messages(prompt_messages, content) or None,
@@ -232,15 +232,7 @@ async def _fetch_web_with_priors(
     prompt_messages: list[dict[str, str]],
     followup: SubjectFollowup,
     subject_text: str | None = None,
-) -> tuple[
-    str | None,
-    str | None,
-    list[WebSearchHit],
-    VerifiedSolveBlock | None,
-    bool,
-    str | None,
-    str | None,
-]:
+) -> WebAndSubject:
     # Earlier user lines name the web search subject; loaded only when augmenting.
     priors = await _load_prior_user_messages(identity.chat.id)
     geo = identity.geo

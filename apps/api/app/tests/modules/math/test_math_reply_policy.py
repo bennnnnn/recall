@@ -175,7 +175,6 @@ async def test_tool_math_guidance_follows_actual_results_before_visible_answer(
     ):
         prepared, verified, _, _ = await run_tool_rounds(
             settings=Settings(mcp_tool_loop_enabled=True, web_search_enabled=False),
-            model_alias="free-chat",
             messages=initial,
             usage={},
         )
@@ -212,7 +211,6 @@ async def test_cancelled_unanswered_math_round_does_not_inject_guidance() -> Non
     ):
         prepared, _, _, _ = await run_tool_rounds(
             settings=Settings(mcp_tool_loop_enabled=True, web_search_enabled=False),
-            model_alias="free-chat",
             messages=initial,
             usage={},
             should_cancel=lambda: cancelled,
@@ -237,7 +235,6 @@ async def test_prior_math_tool_call_does_not_add_guidance_to_unrelated_current_t
     ):
         prepared, _, _, _ = await run_tool_rounds(
             settings=Settings(mcp_tool_loop_enabled=True, web_search_enabled=False),
-            model_alias="free-chat",
             messages=initial,
             usage={},
         )

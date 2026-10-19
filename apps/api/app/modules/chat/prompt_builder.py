@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, NamedTuple
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -14,6 +13,8 @@ from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
+from app.modules.attachments import service as attachments_service
+from app.modules.chat import history_rag as chat_history_rag_service
 from app.modules.chat.prompt_context import _load_context_blocks
 from app.modules.chat.prompt_format import render_rules
 from app.modules.chat.prompt_memory import (
@@ -48,7 +49,21 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-StreamReasoningFn = Callable[[str], Awaitable[None]]
+
+class WebAndSubject(NamedTuple):
+    """What one turn's web search and subject solver found, before either is injected."""
+
+    web_block: str | None
+    subject_block: str | None
+    search_sources: list[WebSearchHit]
+    verified: VerifiedSolveBlock | None
+    # The solver adapter's own flag: callers must not re-derive it from the
+    # wording of the prompt block.
+    solver_unverified: bool
+    # Set only when ``solver_unverified`` is.
+    unverified_subject: str | None
+    # A reply both halves of a two-part question already rendered.
+    direct_text: str | None
 
 
 async def fetch_web_and_tools(
@@ -70,23 +85,10 @@ async def fetch_web_and_tools(
     user: User | None = None,
     redis: Redis | None = None,
     subject_text: str | None = None,
-) -> tuple[
-    str | None,
-    str | None,
-    list[WebSearchHit],
-    VerifiedSolveBlock | None,
-    bool,
-    str | None,
-    str | None,
-]:
+) -> WebAndSubject:
     """Fetch web-search and subject blocks WITHOUT mutating prompt_messages.
 
     Web search (network) and the subject solver are independent — gather both.
-    Returns ``(web_block, subject_block, search_sources, verified, solver_unverified,
-    unverified_subject, direct_text)``.
-    ``solver_unverified`` is the adapter flag. Callers must not re-derive it from
-    the wording of the prompt block. ``unverified_subject`` is set only when that flag is true.
-    ``direct_text`` is a reply both halves of a two-part question already rendered.
     ``subject_text``: the solve part of a message that asks for more (its plan).
     """
     math_user_content = math_followup_problem or subject_text or user_content
@@ -153,14 +155,14 @@ async def fetch_web_and_tools(
             redis=redis,
         ),
     )
-    return (
-        web_block,
-        subject_result.prompt_block,
-        search_sources,
-        subject_result.verified,
-        subject_result.unverified,
-        subject_result.subject if subject_result.unverified else None,
-        subject_result.direct_text,
+    return WebAndSubject(
+        web_block=web_block,
+        subject_block=subject_result.prompt_block,
+        search_sources=search_sources,
+        verified=subject_result.verified,
+        solver_unverified=subject_result.unverified,
+        unverified_subject=subject_result.subject if subject_result.unverified else None,
+        direct_text=subject_result.direct_text,
     )
 
 
@@ -181,50 +183,15 @@ async def inject_web_and_tools(
     return updated
 
 
-async def _augment_web_and_tools(
-    prompt_messages: list[dict[str, str]],
-    user_content: str,
-    settings: Settings,
-    *,
-    user_timezone: str | None = None,
-    user_location: str | None = None,
-    latitude: float | None = None,
-    longitude: float | None = None,
-    prior_user_messages: list[str] | None = None,
-    has_image_attachment: bool = False,
-    image_math_extract: MathImageExtract | None = None,
-    math_followup_problem: str | None = None,
-    on_status: StreamStatusFn | None = None,
-    user: User | None = None,
-    redis: Redis | None = None,
-) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedSolveBlock | None]:
-    """Backward-compatible fetch + inject (used by tests). Prefer the split pair."""
-    (
-        web_block,
-        math_block,
-        search_sources,
-        verified_math,
-        _solver_unverified,
-        _unverified_subject,
-        _direct_text,
-    ) = await fetch_web_and_tools(
-        user_content,
-        settings,
-        prompt_messages=prompt_messages,
-        user_timezone=user_timezone,
-        user_location=user_location,
-        latitude=latitude,
-        longitude=longitude,
-        prior_user_messages=prior_user_messages,
-        has_image_attachment=has_image_attachment,
-        image_math_extract=image_math_extract,
-        math_followup_problem=math_followup_problem,
-        on_status=on_status,
-        user=user,
-        redis=redis,
-    )
-    updated = await inject_web_and_tools(prompt_messages, web_block, math_block)
-    return updated, search_sources, verified_math
+@dataclass
+class PromptStats:
+    """What the prompt drew on, for the turn's ``done``."""
+
+    # Memory sections loaded into the prompt, and the first three of their names.
+    recalled: int = 0
+    memory_hints: list[str] = field(default_factory=list)
+    # Older messages the chat summary stands in for.
+    context_summarized: int = 0
 
 
 @dataclass(frozen=True)
@@ -258,8 +225,6 @@ async def _context_plan(
     # Without this, a lightweight query after uploading a PDF skips RAG
     # entirely and the user gets no document context on follow-ups.
     if not rich_context and settings.attachment_rag_enabled and probe_attachment_rag:
-        from app.modules.attachments import service as attachments_service
-
         try:
             async with SessionLocal() as s:
                 rich_context = await attachments_service.has_chunks_for_chat(s, user.id, chat_id)
@@ -304,8 +269,6 @@ async def _history_rag_block(
     # chunks or a failed/timed-out embed; do not repeat that work serially.
     if vector is None:
         return ""
-    from app.modules.chat import history_rag as chat_history_rag_service
-
     return await chat_history_rag_service.retrieve_for_prompt(
         settings,
         user_id=user.id,
@@ -322,7 +285,7 @@ async def build_prompt_messages(
     *,
     summary: str | None = None,
     chat: Chat | None = None,
-    out: dict[str, object] | None = None,
+    stats: PromptStats | None = None,
     query_text: str | None = None,
     minimal_personal_context: bool = False,
     lightweight: bool = False,
@@ -330,7 +293,6 @@ async def build_prompt_messages(
     advice_memory: bool = False,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
-    on_status: StreamStatusFn | None = None,
     omit_message_ids: set[UUID] | None = None,
     probe_attachment_rag: bool = True,
     recent_messages: list[Any] | None = None,
@@ -342,7 +304,8 @@ async def build_prompt_messages(
     Context loading uses short-lived sessions so embeds cannot pin a caller
     connection across the concurrent gather. The system prompt is
     ``PROMPT_SECTIONS``; the history is ``prompt_window``. ``turn_plan``: the message's
-    separate requests, when it holds more than one (``turn_prep.intents``).
+    separate requests, when it holds more than one (``turn_prep.intents``). ``stats``,
+    when given, is filled with what the prompt drew on.
     """
     plan = await _context_plan(
         user,
@@ -366,7 +329,6 @@ async def build_prompt_messages(
         load_memory=plan.load_memory,
         memory_scope=plan.memory_scope,
         client_timezone=client_timezone,
-        out=out,
         history_rag=plan.history_rag,
         recent_messages=recent_messages,
     )
@@ -389,8 +351,11 @@ async def build_prompt_messages(
         window=window,
         omit_message_ids=omit_message_ids,
     )
-    if out is not None and chat and chat.summary and (chat.summary_message_count or 0) > 0:
-        out["context_summarized"] = chat.summary_message_count
+    if stats is not None:
+        stats.recalled = blocks.recalled
+        stats.memory_hints = blocks.memory_hints
+        if chat and chat.summary and (chat.summary_message_count or 0) > 0:
+            stats.context_summarized = chat.summary_message_count
     turn = PromptTurn(
         user=user,
         settings=settings,

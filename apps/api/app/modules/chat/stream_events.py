@@ -27,6 +27,7 @@ from app.exceptions import (
     UnknownModelOverrideError,
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
+from app.modules.chat.stream_accum import Completion
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.web_search import SearchSource
 
@@ -79,8 +80,21 @@ async def finish_open_stream(stream: AsyncIterator[Any]) -> None:
             async for _ in stream:
                 pass
     except Exception:
-        return
+        # The turn reports its own failure; this only drains what was left.
+        logger.debug("Stopped chat stream raised while it finished", exc_info=True)
 
+
+# Failures a turn reports to its client without logging a traceback: the client
+# shows each one's message (quota, an outage, a refused request, a failed model).
+EXPECTED_TURN_ERRORS = (
+    QuotaExceededError,
+    RedisUnavailableError,
+    ChatServiceError,
+    ModelUnavailableError,
+)
+
+# How the turn's DB commit ended when ``done`` stopped waiting for it.
+CommitStatus = Literal["committed", "timeout", "failed"]
 
 # How long to hold `done` waiting on the DB commit before falling back to a
 # best-effort `done`. Long enough for a normal Neon round trip + usage write,
@@ -154,7 +168,7 @@ class DoneEvent(BaseModel):
     final_content: str | None = None
     resolved_model: str | None = None
     fallback_used: bool = False
-    completion: str | None = None
+    completion: Completion | None = None
     # The commit outlived the wait: the client keeps its bubble and refetches.
     persisting: bool = False
 
@@ -217,7 +231,7 @@ def pop_finalize_tasks(outcome: TurnOutcome) -> asyncio.Task[None] | None:
 
 async def await_finalize_commit(
     finalize_db_task: asyncio.Task[None] | None,
-) -> str:
+) -> CommitStatus:
     """Wait (bounded) for the turn's DB commit before sending ``done``.
 
     Returns:
@@ -250,6 +264,23 @@ async def await_finalize_commit(
     except Exception:
         logger.exception("Finalize commit failed before done")
         return "failed"
+
+
+def settled_turn_event(outcome: TurnOutcome, commit: CommitStatus) -> dict[str, Any]:
+    """The event after ``stream_end``, once the commit wait ends.
+
+    ``done`` when the reply committed; ``done`` without its id (``persisting``)
+    while the commit still runs; an error when it failed, so no client is handed
+    the id of a row that never saved. Follow-up questions go out only after a
+    committed ``done``.
+    """
+    if commit == "failed":
+        return turn_error_payload(
+            None,
+            user_message_saved=outcome.user_message_saved,
+            message=REPLY_SAVE_FAILED_MESSAGE,
+        )
+    return DoneEvent.from_outcome(outcome, persisting=commit == "timeout").model_dump()
 
 
 async def persist_finalize_if_pending(outcome: TurnOutcome) -> None:

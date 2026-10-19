@@ -20,6 +20,7 @@ import difflib
 import importlib
 import json
 from contextlib import ExitStack
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -31,7 +32,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Chat, User
-from app.modules.chat.prompt_builder import build_prompt_messages
+from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.tests.behavior.cases import CASES, CATEGORIES
@@ -114,7 +115,7 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
         kwargs["turn_plan"] = plan_turn(kwargs["query_text"])
     user = User(id=USER_ID, **case["user"])
     settings = Settings(_env_file=None, **case["settings"])  # type: ignore[call-arg]
-    out: dict[str, object] = {}
+    stats = PromptStats()
     stubs = {
         "app.modules.chat.prompt_builder._load_context_blocks": AsyncMock(return_value=blocks),
         "app.modules.chat.prompt_builder.SessionLocal": _Session,
@@ -140,12 +141,13 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
             CHAT_ID,
             settings,
             chat=chat,
-            out=out,
+            stats=stats,
             omit_message_ids={_row_id(i) for i in omit} if omit is not None else None,
             current_user_message_id=_row_id(current) if current is not None else None,
             **kwargs,
         )
-    return messages, out
+    # Recorded as ``out``: the stats the prompt filled in (none but a summary here).
+    return messages, {name: value for name, value in asdict(stats).items() if value}
 
 
 def prompt_copy() -> dict[str, str]:

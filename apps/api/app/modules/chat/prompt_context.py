@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import cached_property
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -12,6 +13,8 @@ from app.core.db import SessionLocal
 from app.models.orm import Chat, User
 from app.modules import memory as memory_service
 from app.modules import todos as todos_service
+from app.modules.attachments import rag as attachment_rag_service
+from app.modules.chat import history_rag as chat_history_rag_service
 from app.modules.chat.prompt_constants import is_broad_self_question
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
@@ -78,6 +81,174 @@ class _PromptContextBlocks:
     history_rag_query_vec: list[float] | None = None
     # "ok", or "partial" / "unavailable" when memory did not fully load.
     memory_status: str = "ok"
+    # The memory sections the prompt drew on, for the turn's ``done``.
+    recalled: int = 0
+    memory_hints: list[str] = field(default_factory=list)
+
+
+@dataclass
+class _ContextReads:
+    """The reads one prompt may gather; each opens its own short-lived session.
+
+    A single AsyncSession cannot run concurrent operations, and an embed (RAG,
+    memory) can take seconds: a shared session would pin the caller's connection
+    across the whole gather.
+    """
+
+    user: User
+    chat_id: UUID
+    settings: Settings
+    query_text: str | None
+    recent_limit: int
+    recent_messages: list[Any] | None
+    client_timezone: str | None
+    memory_scope: MemoryScope
+    history_rag: bool
+
+    @cached_property
+    def db_slots(self) -> asyncio.Semaphore:
+        """Caps this turn's concurrent DB checkouts so one turn cannot saturate the pool."""
+        return asyncio.Semaphore(max(1, self.settings.context_db_concurrency))
+
+    @cached_property
+    def memory_report(self) -> memory_service.MemoryLoadReport:
+        """Whether memory fully loaded, filled in by ``memory_block``."""
+        return memory_service.MemoryLoadReport()
+
+    async def history_rag_embed(self) -> list[float] | None:
+        """The chat-history query embed; it overlaps the gather, and the recent
+        window's ids are excluded later, when hits are filtered."""
+        query_text = self.query_text
+        if not self.history_rag or not query_text or not query_text.strip():
+            return None
+        history_query = (
+            _BROAD_SELF_HISTORY_QUERY if is_broad_self_question(query_text) else query_text
+        )
+        return await chat_history_rag_service.embed_query_for_prompt(
+            self.settings, user_id=self.user.id, query=history_query
+        )
+
+    async def recent(self, *, pooled: bool) -> list[Any]:
+        """The recent window, unless the caller already read it. ``pooled`` takes a
+        DB slot (the full gather); a slim turn reads it alone."""
+        if self.recent_messages is not None:
+            return self.recent_messages
+        if not pooled:
+            async with SessionLocal() as s:
+                return await messages_repo.list_recent(s, self.chat_id, limit=self.recent_limit)
+        async with self.db_slots, SessionLocal() as s:
+            return await messages_repo.list_recent(s, self.chat_id, limit=self.recent_limit)
+
+    async def memory_block(self) -> str:
+        async with self.db_slots, SessionLocal() as s:
+            return await memory_service.get_memory_block(
+                s,
+                self.user,
+                self.settings,
+                query_text=self.query_text,
+                exclude_sensitive=memory_service.exclude_sensitive_for_query(self.query_text),
+                scope=self.memory_scope,
+                report=self.memory_report,
+            )
+
+    async def todos_section(self) -> str | None:
+        async with self.db_slots, SessionLocal() as s:
+            return await todos_service.build_todos_system_section(
+                s,
+                self.user,
+                self.settings,
+                client_timezone=self.client_timezone,
+                query_text=self.query_text,
+            )
+
+    async def attachment_rag_block(self) -> str:
+        # HTTP/embed-bound — do not hold a DB pool slot.
+        if not self.settings.attachment_rag_enabled or not self.query_text:
+            return ""
+        return await attachment_rag_service.retrieve_for_prompt(
+            self.settings,
+            user_id=self.user.id,
+            chat_id=self.chat_id,
+            query=self.query_text,
+        )
+
+
+def _memory_hints(memory_block: str) -> list[str]:
+    """The memory sections in the block, by their ``## Label`` headers."""
+    labels = set(memory_service.SECTION_LABELS.values())
+    return [
+        line[3:].strip()
+        for line in memory_block.split("\n")
+        if line.startswith("## ") and line[3:].strip() in labels
+    ]
+
+
+async def _slim_blocks(reads: _ContextReads, chat: Chat | None) -> _PromptContextBlocks:
+    """A slim turn without memory: the recent window, and the history embed if asked."""
+    if reads.history_rag:
+        recent_all, history_rag_query_vec = await asyncio.gather(
+            reads.recent(pooled=False),
+            reads.history_rag_embed(),
+        )
+    else:
+        recent_all = await reads.recent(pooled=False)
+        history_rag_query_vec = None
+    return _PromptContextBlocks(
+        memory_block="",
+        todos_section=None,
+        recent_all=recent_all,
+        attachment_rag_block="",
+        chat=chat,
+        history_rag_query_vec=history_rag_query_vec,
+    )
+
+
+async def _slim_memory_blocks(reads: _ContextReads, chat: Chat | None) -> _PromptContextBlocks:
+    """A slim turn that recalls: memory too, capped to whole facts."""
+    recent_all, memory_block, history_rag_query_vec = await asyncio.gather(
+        reads.recent(pooled=False),
+        reads.memory_block(),
+        reads.history_rag_embed(),
+    )
+    return _PromptContextBlocks(
+        memory_block=_cap_slim_memory_block(memory_block),
+        todos_section=None,
+        recent_all=recent_all,
+        attachment_rag_block="",
+        chat=chat,
+        history_rag_query_vec=history_rag_query_vec,
+        memory_status=reads.memory_report.status,
+    )
+
+
+async def _full_blocks(reads: _ContextReads, chat: Chat | None) -> _PromptContextBlocks:
+    """A rich turn: memory, the schedule, the recent window, file excerpts and the
+    history embed, each an independent read, gathered instead of awaited in turn."""
+    (
+        memory_block,
+        todos_section,
+        recent_all,
+        attachment_rag_block,
+        history_rag_query_vec,
+    ) = await asyncio.gather(
+        reads.memory_block(),
+        reads.todos_section(),
+        reads.recent(pooled=True),
+        reads.attachment_rag_block(),
+        reads.history_rag_embed(),
+    )
+    hints = _memory_hints(memory_block)
+    return _PromptContextBlocks(
+        memory_block=memory_block,
+        todos_section=todos_section,
+        recent_all=recent_all,
+        attachment_rag_block=attachment_rag_block,
+        chat=chat,
+        history_rag_query_vec=history_rag_query_vec,
+        memory_status=reads.memory_report.status,
+        recalled=len(hints),
+        memory_hints=hints[:3],
+    )
 
 
 async def _load_context_blocks(
@@ -90,7 +261,6 @@ async def _load_context_blocks(
     recent_limit: int,
     slim_context: bool,
     client_timezone: str | None,
-    out: dict[str, object] | None,
     load_memory: bool = False,
     memory_scope: MemoryScope = "query",
     history_rag: bool = False,
@@ -98,156 +268,28 @@ async def _load_context_blocks(
 ) -> _PromptContextBlocks:
     """Load memory/todos/RAG + recent messages for the system prompt.
 
-    Each gather branch opens a short-lived session so external HTTP (RAG/memory
-    embed) cannot pin a caller's connection across the concurrent load.
-    Chat-history query embed overlaps the gather; recent-window excludes are
-    applied later when hits are filtered.
+    A slim turn reads the recent window (and memory, when it recalls); a rich
+    turn gathers every block (``_ContextReads``).
     """
-
-    async def _history_rag_embed() -> list[float] | None:
-        if not history_rag or not query_text or not query_text.strip():
-            return None
-        from app.modules.chat import history_rag as chat_history_rag_service
-
-        history_query = (
-            _BROAD_SELF_HISTORY_QUERY if is_broad_self_question(query_text) else query_text
-        )
-        return await chat_history_rag_service.embed_query_for_prompt(
-            settings, user_id=user.id, query=history_query
-        )
-
-    async def _fetch_recent() -> list[Any]:
-        if recent_messages is not None:
-            return recent_messages
-        async with SessionLocal() as s:
-            return await messages_repo.list_recent(s, chat_id, limit=recent_limit)
-
+    reads = _ContextReads(
+        user=user,
+        chat_id=chat_id,
+        settings=settings,
+        query_text=query_text,
+        recent_limit=recent_limit,
+        recent_messages=recent_messages,
+        client_timezone=client_timezone,
+        memory_scope=memory_scope,
+        history_rag=history_rag,
+    )
     if slim_context and not load_memory:
-        if history_rag:
-            recent_all, history_rag_query_vec = await asyncio.gather(
-                _fetch_recent(),
-                _history_rag_embed(),
-            )
-        else:
-            recent_all = await _fetch_recent()
-            history_rag_query_vec = None
-        if out is not None:
-            out["recalled"] = 0
-            out["memory_hints"] = []
-        return _PromptContextBlocks(
-            memory_block="",
-            todos_section=None,
-            recent_all=recent_all,
-            attachment_rag_block="",
-            chat=chat,
-            history_rag_query_vec=history_rag_query_vec,
-        )
-
-    # Each of these is an independent read with no dependency on the others'
-    # output — give each its own short-lived session (a single AsyncSession
-    # cannot safely run concurrent operations) and gather them, instead of
-    # awaiting four DB round-trips back-to-back before the LLM call starts.
-    # Cap concurrent DB checkouts so one turn cannot saturate the pool.
-    db_slots = asyncio.Semaphore(max(1, settings.context_db_concurrency))
-    memory_report = memory_service.MemoryLoadReport()
-
-    async def _memory_block() -> str:
-        async with db_slots, SessionLocal() as s:
-            return await memory_service.get_memory_block(
-                s,
-                user,
-                settings,
-                query_text=query_text,
-                exclude_sensitive=memory_service.exclude_sensitive_for_query(query_text),
-                scope=memory_scope,
-                report=memory_report,
-            )
-
-    if slim_context and load_memory:
-        recent_all, memory_block, history_rag_query_vec = await asyncio.gather(
-            _fetch_recent(),
-            _memory_block(),
-            _history_rag_embed(),
-        )
-        if out is not None:
-            out["recalled"] = 0
-            out["memory_hints"] = []
-        return _PromptContextBlocks(
-            memory_block=_cap_slim_memory_block(memory_block),
-            todos_section=None,
-            recent_all=recent_all,
-            attachment_rag_block="",
-            chat=chat,
-            history_rag_query_vec=history_rag_query_vec,
-            memory_status=memory_report.status,
-        )
-
+        return await _slim_blocks(reads, chat)
+    if slim_context:
+        return await _slim_memory_blocks(reads, chat)
     if chat is None:
         async with SessionLocal() as s:
             chat = await chats_repo.get_by_id(s, chat_id, user.id)
-
-    async def _todos_section() -> str | None:
-        async with db_slots, SessionLocal() as s:
-            return await todos_service.build_todos_system_section(
-                s,
-                user,
-                settings,
-                client_timezone=client_timezone,
-                query_text=query_text,
-            )
-
-    async def _attachment_rag_block() -> str:
-        # HTTP/embed-bound — do not hold a DB pool slot.
-        if not settings.attachment_rag_enabled or not query_text:
-            return ""
-        from app.modules.attachments import rag as attachment_rag_service
-
-        return await attachment_rag_service.retrieve_for_prompt(
-            settings,
-            user_id=user.id,
-            chat_id=chat_id,
-            query=query_text,
-        )
-
-    async def _load_recent() -> list[Any]:
-        if recent_messages is not None:
-            return recent_messages
-        # Own session so the caller's connection is not pinned across the gather
-        # (RAG embed / memory embed can take seconds).
-        async with db_slots, SessionLocal() as s:
-            return await messages_repo.list_recent(s, chat_id, limit=recent_limit)
-
-    (
-        memory_block,
-        todos_section,
-        recent_all,
-        attachment_rag_block,
-        history_rag_query_vec,
-    ) = await asyncio.gather(
-        _memory_block(),
-        _todos_section(),
-        _load_recent(),
-        _attachment_rag_block(),
-        _history_rag_embed(),
-    )
-    if out is not None:
-        labels = set(memory_service.SECTION_LABELS.values())
-        hints = [
-            line[3:].strip()
-            for line in memory_block.split("\n")
-            if line.startswith("## ") and line[3:].strip() in labels
-        ]
-        out["recalled"] = len(hints)
-        out["memory_hints"] = hints[:3]
-    return _PromptContextBlocks(
-        memory_block=memory_block,
-        todos_section=todos_section,
-        recent_all=recent_all,
-        attachment_rag_block=attachment_rag_block,
-        chat=chat,
-        history_rag_query_vec=history_rag_query_vec,
-        memory_status=memory_report.status,
-    )
+    return await _full_blocks(reads, chat)
 
 
 def _persisted_messages(window: list[Any], current_user_message_id: UUID | None) -> list[Any]:

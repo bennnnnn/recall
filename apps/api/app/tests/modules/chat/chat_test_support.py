@@ -6,7 +6,16 @@ from uuid import uuid4
 
 import pytest
 
+from app.core.config import Settings
+from app.gateways.web_search_gateway import WebSearchHit
+from app.modules.chat.prompt_builder import (
+    PromptStats,
+    fetch_web_and_tools,
+    inject_web_and_tools,
+)
 from app.modules.chat.turn_deps import ChatTurnDeps, default_deps
+from app.modules.chat.turn_prep import ClientGeoContext, TurnPromptBundle
+from app.services.solving import VerifiedSolveBlock
 
 
 class FakeSessionCM:
@@ -42,6 +51,38 @@ def turn_deps(**fields: Any) -> ChatTurnDeps:
     return replace(base, **swapped)
 
 
+async def augment_web_and_tools(
+    prompt_messages: list[dict[str, str]],
+    user_content: str,
+    settings: Settings,
+    **fetch_kwargs: Any,
+) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedSolveBlock | None]:
+    """Fetch the web and subject blocks, then inject them, as a turn's Phase B/C does."""
+    fetched = await fetch_web_and_tools(
+        user_content, settings, prompt_messages=prompt_messages, **fetch_kwargs
+    )
+    updated = await inject_web_and_tools(prompt_messages, fetched.web_block, fetched.subject_block)
+    return updated, fetched.search_sources, fetched.verified
+
+
+def prompt_bundle(**fields: Any) -> TurnPromptBundle:
+    """What a stubbed prompt build returns: an empty prompt unless ``fields`` say otherwise."""
+    base: dict[str, Any] = {
+        "prompt_messages": [],
+        "stats": PromptStats(),
+        "instant_reply": None,
+        "search_sources": [],
+        "local_places": False,
+        "max_out": 100,
+        "fallback_models": [],
+        "lightweight": False,
+        "rich_context": True,
+        "geo": ClientGeoContext(None, None, None, False, False, False, False),
+        "local_tz": "UTC",
+    }
+    return TurnPromptBundle(**{**base, **fields})
+
+
 def stub_recent(n: int) -> list[MagicMock]:
     """n chronological rows so prior_count can come from list_recent, not COUNT."""
     rows: list[MagicMock] = []
@@ -65,6 +106,7 @@ def offline_session_patches():
         patch("app.modules.chat.turn_prep.persist.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.vision.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.post_turn.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.turn_settle.SessionLocal", FakeSessionCM),
     )
 
 
@@ -78,7 +120,7 @@ def stream_offline_io():
     with ExitStack() as stack:
         for patcher in offline_session_patches():
             stack.enter_context(patcher)
-        stack.enter_context(patch("app.modules.chat.post_turn.seed_usage_from_db", AsyncMock()))
+        stack.enter_context(patch("app.modules.chat.turn_settle.seed_usage_from_db", AsyncMock()))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
