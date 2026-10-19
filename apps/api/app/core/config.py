@@ -3,6 +3,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.production_checks import service_url_errors, trusted_proxy_cidrs_ipv4_only
+
 logger = logging.getLogger(__name__)
 
 
@@ -434,23 +436,6 @@ class Settings(BaseSettings):
     sentry_traces_sample_rate: float = 0.1
 
 
-def _trusted_proxy_cidrs_ipv4_only(cidrs: str) -> bool:
-    """True when every non-empty CIDR parses as IPv4 (Fly 6PN would be ignored)."""
-    import ipaddress
-
-    parsed: list[bool] = []
-    for raw in cidrs.split(","):
-        piece = raw.strip()
-        if not piece:
-            continue
-        try:
-            net = ipaddress.ip_network(piece, strict=False)
-        except ValueError:
-            continue
-        parsed.append(isinstance(net, ipaddress.IPv4Network))
-    return bool(parsed) and all(parsed)
-
-
 def _warn_proxy_trust_misconfig(settings: Settings) -> None:
     if not settings.trust_x_forwarded_for:
         if settings.environment == "production":
@@ -467,7 +452,7 @@ def _warn_proxy_trust_misconfig(settings: Settings) -> None:
             "client IPs will not use XFF / Fly-Client-IP."
         )
         return
-    if _trusted_proxy_cidrs_ipv4_only(settings.trusted_proxy_cidrs):
+    if trusted_proxy_cidrs_ipv4_only(settings.trusted_proxy_cidrs):
         logger.warning(
             "TRUST_X_FORWARDED_FOR=true with IPv4-only TRUSTED_PROXY_CIDRS — "
             "Fly 6PN peers (fdaa::/16) will not be trusted; per-IP rate limits "
@@ -504,10 +489,7 @@ def validate_production_settings(settings: Settings) -> None:
         errors.append("MOCK_LLM_ENABLED must be false in production")
     if settings.jwt_secret == "dev-secret-change-me" or len(settings.jwt_secret) < 32:
         errors.append("JWT_SECRET must be a strong secret in production")
-    if not settings.database_url:
-        errors.append("DATABASE_URL is required in production")
-    if not settings.redis_url:
-        errors.append("REDIS_URL is required in production")
+    errors.extend(service_url_errors(settings.database_url, settings.redis_url))
     if not settings.google_client_id:
         errors.append("GOOGLE_CLIENT_ID is required in production")
     # CORS must be explicit in production — empty CORS_ORIGINS makes

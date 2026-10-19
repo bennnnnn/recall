@@ -3,7 +3,14 @@ from pathlib import Path
 import pytest
 
 from app.core.config import Settings, validate_production_settings
+from app.core.production_checks import service_url_errors
 from app.core.rate_limit import allow_request
+
+# Production service URLs that pass the boot rules (not localhost, Redis over TLS).
+PROD_URLS = dict(
+    database_url="postgresql+asyncpg://app:pw@ep-calm-1.us-east-2.aws.neon.tech/neondb",
+    redis_url="rediss://default:pw@relaxed-1.upstash.io:6379",
+)
 
 
 def test_example_env_keeps_long_response_ceiling_in_sync():
@@ -20,6 +27,7 @@ def test_example_env_keeps_long_response_ceiling_in_sync():
 def test_validate_production_settings_ok():
     validate_production_settings(
         Settings(
+            **PROD_URLS,
             environment="production",
             dev_auth_enabled=False,
             mock_llm_enabled=False,
@@ -45,6 +53,7 @@ def test_validate_production_settings_rejects_process_role_all():
     # worker is a separate Fly process, so "all" would double-process every
     # job (duplicate titles, memory extraction, emails). Force the split.
     base = dict(
+        **PROD_URLS,
         environment="production",
         dev_auth_enabled=False,
         mock_llm_enabled=False,
@@ -271,6 +280,57 @@ def test_validate_production_settings_requires_global_spend_cap():
                 daily_global_spend_usd=0,
             )
         )
+
+
+@pytest.mark.parametrize(
+    "database_url, redis_url, expected",
+    [
+        (PROD_URLS["database_url"], PROD_URLS["redis_url"], []),
+        # The Settings defaults: an unset secret used to pass every check.
+        (
+            "postgresql+asyncpg://postgres:dev@localhost:5432/recall",
+            "redis://localhost:6379",
+            ["DATABASE_URL points at localhost", "REDIS_URL points at localhost"],
+        ),
+        (PROD_URLS["database_url"], "redis://127.0.0.1:6379/0", ["REDIS_URL points at localhost"]),
+        (PROD_URLS["database_url"], "redis://cache.example.com:6379", ["rediss://"]),
+        ("", "", ["DATABASE_URL is required", "REDIS_URL is required"]),
+        ("postgresql://u:p@[::1]:5432/db", PROD_URLS["redis_url"], ["DATABASE_URL points"]),
+    ],
+)
+def test_service_url_errors(database_url, redis_url, expected):
+    errors = service_url_errors(database_url, redis_url)
+    assert len(errors) == len(expected)
+    for error, fragment in zip(errors, expected, strict=True):
+        assert fragment in error
+
+
+def test_validate_production_settings_rejects_the_default_redis_url():
+    """A missing REDIS_URL left the localhost default: the API booted and
+    answered every authenticated request with 503."""
+    good = dict(
+        **PROD_URLS,
+        environment="production",
+        dev_auth_enabled=False,
+        mock_llm_enabled=False,
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
+        google_client_id="client-id",
+        cors_origins="https://app.recall.app",
+        openrouter_api_key="sk-or-xxx",
+        revenuecat_webhook_auth="whsec-xxx",
+        revenuecat_secret_key="sk_rc_xxx",
+        storage_backend="r2",
+        r2_account_id="acct",
+        r2_access_key_id="key",
+        r2_secret_access_key="secret",
+        r2_bucket="recall",
+        daily_global_spend_usd=100.0,
+        process_role="worker",
+    )
+    validate_production_settings(Settings(**good))
+    default_redis = Settings.model_fields["redis_url"].default
+    with pytest.raises(RuntimeError, match="REDIS_URL points at localhost"):
+        validate_production_settings(Settings(**{**good, "redis_url": default_redis}))
 
 
 @pytest.mark.asyncio

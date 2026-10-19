@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 #
 # Automated smoke checks — backend health, migration head, local gate optional.
-# Does not replace on-device QA (see docs/QA_MATRIX.md).
+# Does not replace on-device QA (see docs/QA_MATRIX.md). The live checks cover
+# the API only; scripts/verify-production.sh --live adds the worker and the
+# database's migration state.
 #
 # Usage:
 #   ./scripts/qa-smoke.sh              # static checks only
@@ -76,11 +78,23 @@ if [[ "$LIVE" -eq 1 ]]; then
     fail=1
   fi
 
-  echo "==> Live readiness: $API_URL/health/ready"
-  if curl -sf "$API_URL/health/ready" | rg -q '"status".*"ok"'; then
+  # /health/ready answers 200 with "redis": "degraded" on purpose (a Redis blip
+  # must not drain the Fly fleet), but sign-in, chat and quota all need Redis:
+  # a smoke check has to see "redis": "ok".
+  echo "==> Live readiness: $API_URL/health/ready (Postgres and Redis)"
+  READY_BODY="$(curl -sf --max-time 10 "$API_URL/health/ready" || true)"
+  if python3 -c '
+import json, sys
+try:
+    body = json.loads(sys.argv[1])
+except ValueError:
+    sys.exit(1)
+sys.exit(0 if body.get("status") == "ok" and body.get("redis") == "ok" else 1)
+' "$READY_BODY"; then
     echo "    OK"
   else
-    echo "    FAIL: GET /health/ready (is API up with Postgres?)"
+    echo "    FAIL: GET /health/ready answered ${READY_BODY:-nothing}"
+    echo "          (needs status ok and redis ok; \"degraded\" means the API cannot reach REDIS_URL)"
     fail=1
   fi
 
