@@ -114,12 +114,12 @@ def named_particle_charge(lower: str) -> float | None:
 
 
 # Rest mass (kg) of each particle a question names. Pint has no alpha-particle mass, so it is
-# the CODATA 2018 value Pint's other masses come from.
+# the CODATA 2022 value Pint's other masses come from.
 PARTICLE_MASSES: dict[str, float] = {
     "electron": ELECTRON_MASS,
     "proton": PROTON_MASS,
     "neutron": NEUTRON_MASS,
-    "alpha particle": 6.6446573357e-27,
+    "alpha particle": 6.6446573450e-27,
 }
 
 

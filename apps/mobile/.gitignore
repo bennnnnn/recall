@@ -44,3 +44,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Built on install from node_modules (scripts/generate-licenses.mjs)
+lib/licenses.generated.json

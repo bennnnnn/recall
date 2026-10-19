@@ -5,9 +5,8 @@
  * lib/vendor, and the Lucide drawings) with their versions and licenses —
  * for Settings → Help & about → Open-source licenses.
  *
- *   pnpm oss-licenses
- *
- * Run it after adding, removing or upgrading a dependency.
+ * It runs on every `pnpm install` (postinstall), so the list always matches
+ * node_modules and is not committed. `pnpm oss-licenses` runs it by hand.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
