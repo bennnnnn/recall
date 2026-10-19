@@ -348,8 +348,8 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
     # Two chunks: first embeds, second fails (None)
     embed_results = iter([[0.1] * 1536, None])
 
-    async def _embed(_settings, _text):
-        return next(embed_results)
+    async def _embed(_settings, texts, *, concurrency):
+        return [next(embed_results) for _ in texts]
 
     with (
         patch("app.modules.attachments.rag.SessionLocal", _session_cm()),
@@ -366,7 +366,11 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
             AsyncMock(return_value=ExtractedText(text="chunk one. chunk two.")),
         ),
         patch(
-            "app.modules.attachments.rag.embedding_gateway.embed_text",
+            "app.modules.attachments.rag.ocr_allowance.recall_ocr_text",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.modules.attachments.rag.embedding_gateway.embed_many",
             _embed,
         ),
         patch(
@@ -394,8 +398,8 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
     # Now test all-fail → raises
     embed_results_all_fail = iter([None, None])
 
-    async def _embed_all_fail(_settings, _text):
-        return next(embed_results_all_fail)
+    async def _embed_all_fail(_settings, texts, *, concurrency):
+        return [next(embed_results_all_fail) for _ in texts]
 
     with (
         patch("app.modules.attachments.rag.SessionLocal", _session_cm()),
@@ -412,7 +416,11 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
             AsyncMock(return_value=ExtractedText(text="chunk one. chunk two.")),
         ),
         patch(
-            "app.modules.attachments.rag.embedding_gateway.embed_text",
+            "app.modules.attachments.rag.ocr_allowance.recall_ocr_text",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.modules.attachments.rag.embedding_gateway.embed_many",
             _embed_all_fail,
         ),
         patch(
@@ -431,10 +439,8 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
 
 @pytest.mark.asyncio
 async def test_index_attachment_embeds_under_shared_concurrency_in_chunk_order():
-    """Chunks embed at most ``embedding_concurrency`` at a time and are stored in chunk order,
-    with the failed chunk dropped (not stored as a dead null row)."""
-    import asyncio
-
+    """Chunks embed under the shared ``embedding_concurrency`` (the gateway caps requests in
+    flight) and are stored in chunk order, with the failed chunk dropped (not a dead null row)."""
     settings = Settings(
         attachment_rag_enabled=True,
         attachment_rag_chunk_chars=40,
@@ -451,16 +457,11 @@ async def test_index_attachment_embeds_under_shared_concurrency_in_chunk_order()
     )
     pieces = chunk_text(text, chunk_chars=40, overlap=0)
     assert len(pieces) > 3
-    in_flight = 0
-    peak = 0
+    seen: dict = {}
 
-    async def _embed(_settings, piece):
-        nonlocal in_flight, peak
-        in_flight += 1
-        peak = max(peak, in_flight)
-        await asyncio.sleep(0.005)
-        in_flight -= 1
-        return None if piece == pieces[2] else [float(len(piece))]
+    async def _embed_many(_settings, texts, *, concurrency):
+        seen["texts"], seen["concurrency"] = texts, concurrency
+        return [None if piece == pieces[2] else [float(len(piece))] for piece in texts]
 
     with (
         patch("app.modules.attachments.rag.SessionLocal", _session_cm()),
@@ -476,7 +477,11 @@ async def test_index_attachment_embeds_under_shared_concurrency_in_chunk_order()
             "app.modules.attachments.rag.attachment_content_service.extract_text_details_async",
             AsyncMock(return_value=ExtractedText(text=text)),
         ),
-        patch("app.modules.attachments.rag.embedding_gateway.embed_text", _embed),
+        patch(
+            "app.modules.attachments.rag.ocr_allowance.recall_ocr_text",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.attachments.rag.embedding_gateway.embed_many", _embed_many),
         patch(
             "app.modules.attachments.rag.chunks_repo.replace_chunks",
             AsyncMock(return_value=True),
@@ -490,7 +495,7 @@ async def test_index_attachment_embeds_under_shared_concurrency_in_chunk_order()
             settings, user_id=row.user_id, attachment_id=row.id, chat_id=uuid4()
         )
 
-    assert peak == 3
+    assert seen == {"texts": pieces, "concurrency": 3}
     assert count == len(pieces) - 1
     assert replace_mock.call_args.kwargs["chunks"] == [
         (index, piece, [float(len(piece))]) for index, piece in enumerate(pieces) if index != 2

@@ -104,7 +104,6 @@ async def prepare_chat_turn(
         turn_mode=turn_mode,
         unhealthy=unhealthy,
     )
-    indexable: list[str] = []
     history: list[Any] | None = None
     if (
         turn.user is not None
@@ -119,7 +118,7 @@ async def prepare_chat_turn(
         pending = SimpleNamespace(id=turn.message_id, role="user", content=turn.stored_content)
         history = [*recent_messages, pending]
     else:
-        indexable = await _persist_and_report(turn, settings, timing, on_user_saved)
+        await _persist_and_report(turn, settings, timing, on_user_saved)
     if turn.user is None or turn.model is None:
         raise ChatNotFoundError("User not found.")
     request = TurnRequest(
@@ -144,7 +143,7 @@ async def prepare_chat_turn(
         current_user_message_id=turn.message_id,
         unhealthy_models=unhealthy,
     )
-    persist: asyncio.Task[list[str]] | None = None
+    persist: asyncio.Task[None] | None = None
     if history is None:
         bundle = await build_stream_prompt_context(request, settings, redis)
     else:
@@ -167,7 +166,6 @@ async def prepare_chat_turn(
         settings,
         reserved_tokens=reserved_tokens,
         timing=timing,
-        indexable=indexable,
         persist=persist,
     )
 
@@ -192,11 +190,10 @@ async def _persist_and_report(
     settings: Settings,
     timing: TurnTimingTracker | None,
     on_saved: Callable[[], None] | None,
-) -> list[str]:
-    indexable = await persist_user_turn(turn, settings, timing)
+) -> None:
+    await persist_user_turn(turn, settings, timing)
     if on_saved is not None:
         on_saved()
-    return indexable
 
 
 async def _build_beside_persist(
@@ -205,7 +202,7 @@ async def _build_beside_persist(
     settings: Settings,
     redis: Redis,
     on_saved: Callable[[], None] | None,
-) -> tuple[TurnPromptBundle, asyncio.Task[list[str]]]:
+) -> tuple[TurnPromptBundle, asyncio.Task[None]]:
     """Build the prompt while the user's row saves; the stream awaits the save
     before the model is asked (``stream_and_finalize``).
 
@@ -232,8 +229,7 @@ def _stream_context(
     *,
     reserved_tokens: int,
     timing: TurnTimingTracker | None,
-    indexable: list[str],
-    persist: asyncio.Task[list[str]] | None,
+    persist: asyncio.Task[None] | None,
 ) -> StreamContext:
     user, model, prior_count = turn.user, turn.model, turn.prior_count
     if user is None or turn.chat is None or model is None or prior_count is None:
@@ -249,7 +245,6 @@ def _stream_context(
         user=user,
         prior_count=prior_count,
         timing=timing,
-        indexable_attachment_ids=indexable,
         user_message_persist=persist,
         thinking=thinking_level(
             turn.content,

@@ -1,7 +1,8 @@
 """Save the user's message for a new turn, in one transaction this module owns.
 
 The row, its attachment links and the indexable-attachment read share one session:
-they commit together, and a failed write rolls them all back.
+they commit together, and a failed write rolls them all back. Once committed, the
+turn's documents are queued for indexing.
 """
 
 from __future__ import annotations
@@ -96,10 +97,10 @@ def image_model(turn: UserTurn, user: User, settings: Settings, routed: str) -> 
 
 async def persist_user_turn(
     turn: UserTurn, settings: Settings, timing: TurnTimingTracker | None
-) -> list[str]:
+) -> None:
     """Insert the user's row and link its attachments; commit once, or roll back.
 
-    Returns the attachment ids to index once the turn finalizes.
+    After the commit, queue the linked documents' index jobs (best-effort).
     """
     if timing is not None:
         timing.mark_phase("persist_start")
@@ -113,7 +114,9 @@ async def persist_user_turn(
             raise
     if timing is not None:
         timing.mark_phase("persist_done")
-    return indexable
+    await attachments_service.enqueue_index_jobs(
+        settings, user_id=turn.user_id, chat_id=turn.chat_id, attachment_ids=indexable
+    )
 
 
 async def _read_missing(session: AsyncSession, turn: UserTurn, settings: Settings) -> User:

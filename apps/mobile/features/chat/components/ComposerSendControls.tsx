@@ -16,7 +16,7 @@ type Props = {
   showSend: boolean;
   sendBusy: boolean;
   isOffline: boolean;
-  /** Attachment pick or upload in flight: the mic and live talk wait. */
+  /** A picked file is still being prepared: send, the mic and live talk wait for it. */
   attachBusy: boolean;
   showMic: boolean;
   voiceRecording: boolean;
@@ -61,6 +61,7 @@ export function ComposerSendControls({
     );
   }
   const voiceActive = voiceRecording || voiceTranscribing;
+  const sendDisabled = isOffline || sendBusy || attachBusy;
   return (
     <View style={s.sendBtnSlot}>
       {showMic && onVoicePress ? (
@@ -76,14 +77,14 @@ export function ComposerSendControls({
       ) : null}
       {showSend || sendBusy ? (
         <Pressable
-          style={[s.sendBtn, (isOffline || sendBusy) && s.sendBtnDisabled]}
+          style={[s.sendBtn, sendDisabled && s.sendBtnDisabled]}
           onPress={onSend}
-          disabled={isOffline || sendBusy}
+          disabled={sendDisabled}
           hitSlop={6}
           accessibilityRole="button"
           accessibilityLabel={sendBusy ? t("chat.sending") : t("chat.send_a11y")}
           accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
-          accessibilityState={{ disabled: isOffline || sendBusy, busy: sendBusy }}
+          accessibilityState={{ disabled: sendDisabled, busy: sendBusy }}
         >
           {sendBusy ? (
             <ActivityIndicator size="small" color={theme.textTertiary} />

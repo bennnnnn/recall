@@ -211,6 +211,36 @@ async def test_both_photo_readers_failing_returns_none() -> None:
     ]
 
 
+@pytest.mark.asyncio
+async def test_photo_reads_are_greedy_on_every_attempt() -> None:
+    temperatures: list[float] = []
+
+    async def fake(**kwargs: Any) -> MagicMock:
+        temperatures.append(kwargs["temperature"])
+        if len(temperatures) == 1:
+            raise RuntimeError("down")
+        return _response("x = 3")
+
+    assert await _vision(fake) is not None
+    assert temperatures == [0.0, 0.0]
+
+
+@pytest.mark.asyncio
+async def test_the_photo_fallback_shares_the_budget_instead_of_a_fresh_one() -> None:
+    models: list[str] = []
+
+    async def fake(**kwargs: Any) -> MagicMock:
+        models.append(kwargs["model"])
+        await asyncio.sleep(0.6)
+        if len(models) == 1:
+            raise RuntimeError("down")
+        return _response("late")
+
+    # 1 s budget: the fallback starts with ~0.4 s left, so it times out.
+    assert await _vision(fake) is None
+    assert len(models) == 2
+
+
 # ── stored aliases (alembic 0108) ──────────────────────────────────────────────
 
 

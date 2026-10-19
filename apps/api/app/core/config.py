@@ -37,14 +37,12 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
 
     attachments_enabled: bool = True
-    # PDF/DOCX text extraction is sync, CPU-bound parsing; it runs on a worker
-    # thread (like the SymPy math solve) bounded by this timeout so a large or
-    # adversarially crafted file can't block the event loop.
+    # PDF/DOCX parsing runs on a worker thread under these timeouts: the turn's
+    # excerpt waits briefly; the index job reads the whole file (a timeout retries).
     attachment_extract_timeout_seconds: float = 5.0
-    # Image-only / photographed PDFs have no text layer. After the fast
-    # pypdf extract returns empty, render pages (pypdfium2) and transcribe
-    # via vision-chat. Separate budget — vision is network, not the 5s CPU
-    # extract timeout. Same excerpt + chunk/RAG path; no second pipeline.
+    attachment_index_extract_timeout_seconds: float = 60.0
+    # A PDF with no text layer: render pages (pypdfium2) and transcribe them with
+    # vision, on its own network budget. Same excerpt + chunk/RAG path.
     attachment_ocr_enabled: bool = True
     attachment_ocr_max_pages: int = 6
     # Index job only — vision cost, not 500 text-layer pages.
@@ -53,16 +51,18 @@ class Settings(BaseSettings):
     attachment_ocr_index_timeout_seconds: float = 120.0
     attachment_ocr_page_timeout_seconds: float = 12.0
     attachment_ocr_render_scale: float = 1.5
-    # Pixel budget per rendered PDF page. The scale above applied to any page
-    # size, so a 435-byte PDF with one 14400x14400 pt page rendered a ~2 GB
-    # bitmap (5.1 GB peak RSS locally) on a 512 MB machine. Oversized pages
-    # are scaled down to this budget; a letter page at 1.5x is ~1.1 MP.
+    # Pixel budget per rendered PDF page: a 435-byte PDF can declare a page that
+    # renders to ~2 GB. Oversized pages shrink to it; a letter page at 1.5x is ~1.1 MP.
     attachment_ocr_max_page_pixels: int = 4_000_000
-    # Largest image (pixels actually decoded) a gallery thumbnail will decode.
-    # JPEG decodes at a reduced scale first, so big photos still work; a
-    # lossless image past this is refused (422) instead of decoding hundreds
-    # of MB from a sub-MB file. 0 disables.
+    # Largest image (pixels actually decoded) a thumbnail or vision copy decodes.
+    # JPEG decodes at a reduced scale first; a lossless image past this is refused
+    # instead of decoding hundreds of MB from a sub-MB file. 0 disables.
     attachment_image_max_decode_pixels: int = 16_000_000
+    # Thumbnails made at once per process; each size is then kept in storage.
+    attachment_thumbnail_concurrency: int = 2
+    # A photo the model sees: long edge in pixels, and the turn's base64 total.
+    attachment_vision_max_edge: int = 2048
+    attachment_vision_max_turn_bytes: int = 20_000_000
     semantic_memory_enabled: bool = True
     # Model-initiated LiteLLM tools= loop. Ordinary chat streams immediately;
     # the loop runs only when the turn still looks like search / unsolved math /
@@ -103,8 +103,8 @@ class Settings(BaseSettings):
     # so a near-limit user can't start a heavy image call that blows past the
     # daily cap. Real usage is still reconciled from the provider's usage chunk.
     image_attachment_reserve_tokens: int = 1200
-    # Orphan attachment reaper: hidden send-clones (library_visible false)
-    # stay until this billed window. Unverified original uploads use the
+    # Orphan attachment reaper: hidden send-clones and uploads never sent stay
+    # until this billed window. Unverified original uploads use the
     # shorter pending window so a killed-app image slot can refund same-day.
     attachment_orphan_grace_hours: int = 24
     attachment_pending_orphan_hours: int = 1
@@ -126,9 +126,10 @@ class Settings(BaseSettings):
     r2_bucket: str = ""
     r2_endpoint: str = ""  # derived from account_id if empty
     r2_presign_expiry_seconds: int = 600
-    # boto3 defaults are 60s connect + 60s read with 5 legacy attempts, all on
-    # the default thread pool (5 threads on one CPU) shared with sign-in and
-    # PDF extraction. Bounded here; "standard" retries back off with jitter.
+    # A signed PUT stays usable until it expires, even after confirm checked the
+    # bytes; the phone starts its PUT right after presign.
+    r2_presign_upload_expiry_seconds: int = 120
+    # boto3's defaults (60s + 60s, 5 attempts) on the shared default thread pool.
     r2_connect_timeout_seconds: float = 5.0
     r2_read_timeout_seconds: float = 20.0
     r2_max_attempts: int = 3
@@ -172,9 +173,15 @@ class Settings(BaseSettings):
     # finds exactly one solution in the stated domain.
     math_word_problems_enabled: bool = True
     math_word_problem_timeout_seconds: float = 3.0
-    # POST /math/scan/read runs OCR (Mathpix, then vision) so the student can
-    # confirm what the camera read before it is solved. Per user, per hour.
+    # POST /{math,physics,chemistry}/scan/read runs OCR (Mathpix, then vision)
+    # so the student can confirm what the camera read before it is solved.
+    # Per user, per hour, shared by every subject's reader.
     math_scan_read_rate_limit_per_hour: int = 60
+    # One read answers within this many seconds of arriving, every reader and
+    # fallback included (later steps get what earlier ones left). It stays
+    # below the phone's timeout (SCAN_READ_TIMEOUT_MS in lib/api/scan.ts,
+    # this plus 5 s for the upload), so a slow read ends as "could not read".
+    scan_read_deadline_seconds: float = 20.0
     # Dedicated math OCR (Mathpix). Empty keys keep the Gemini vision path.
     # Images always send metadata.improve_mathpix=false — student homework is
     # not opted into Mathpix QA storage.
@@ -352,12 +359,10 @@ class Settings(BaseSettings):
     memory_query_embed_cache_ttl: int = 3600
     # Chat-path live embed budget. Background jobs use background_llm_timeout_seconds.
     memory_query_embed_timeout_seconds: float = 2.0
-    # Provider embedding-input char cap (embedding_gateway.embed_text). Was a
-    # bare `text[:8000]` inline in the gateway; every other tunable in this
-    # codebase lives in Settings, so don't reintroduce an inline magic number
-    # here — change this constant instead.
+    # Provider embedding-input char cap (embedding_gateway).
     embedding_input_max_chars: int = 8000
-    # Provider calls in flight per embed_many batch (attachment/chat-history index, memory).
+    # embed_many: inputs per provider request, and requests in flight.
+    embedding_batch_size: int = 64
     embedding_concurrency: int = 8
     link_preview_cache_ttl: int = 3600
     home_cache_ttl: int = 120

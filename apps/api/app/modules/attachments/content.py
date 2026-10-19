@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import io
 import logging
 from dataclasses import dataclass
@@ -24,10 +23,7 @@ from app.modules.attachments.content_types import (
     _office_content_type,
     bytes_match_claimed,
     is_image_content_type,
-    normalize_content_type,
 )
-from app.modules.attachments.markers import _strip_image_markers
-from app.modules.attachments.vision_notes import VISION_NOTE
 
 logger = logging.getLogger(__name__)
 
@@ -42,48 +38,9 @@ MAX_INDEX_EXTRACT_CHARS = 200_000
 PDF_EXTRACT_MAX_PAGES = 25
 PDF_INDEX_MAX_PAGES = 500
 
-GALLERY_THUMB_MIN_EDGE = 32
-GALLERY_THUMB_MAX_EDGE = 512
 
-
-# Matches Settings.attachment_image_max_decode_pixels for direct callers.
-DEFAULT_IMAGE_MAX_DECODE_PIXELS = 16_000_000
-
-
-class ImageTooLargeError(ValueError):
-    """The image would decode to more pixels than the thumbnail budget allows."""
-
-
-def resize_image_bytes(
-    data: bytes,
-    edge: int,
-    *,
-    max_pixels: int = DEFAULT_IMAGE_MAX_DECODE_PIXELS,
-) -> tuple[bytes, str]:
-    """Downscale an image for gallery tiles. Returns (bytes, content_type).
-
-    CPU-bound: call it from a worker thread. The header is read first; JPEG
-    is set to decode at a reduced scale, then anything that would still
-    decode past ``max_pixels`` is refused. A sub-MB PNG can declare
-    13000x13000 (Pillow only warns below ~179 MP).
-    """
-    from PIL import Image
-
-    size = max(GALLERY_THUMB_MIN_EDGE, min(GALLERY_THUMB_MAX_EDGE, edge))
-    opened = Image.open(io.BytesIO(data))
-    if opened.format == "JPEG":
-        opened.draft("RGB", (size, size))
-    width, height = opened.size
-    if max_pixels > 0 and width * height > max_pixels:
-        raise ImageTooLargeError(f"image decodes to {width}x{height}")
-    opened.thumbnail((size, size))
-    out = io.BytesIO()
-    if opened.mode in ("RGBA", "LA", "P"):
-        opened.save(out, format="PNG", optimize=True)
-        return out.getvalue(), "image/png"
-    converted = opened.convert("RGB") if opened.mode != "RGB" else opened
-    converted.save(out, format="JPEG", quality=80, optimize=True)
-    return out.getvalue(), "image/jpeg"
+class ExtractTimeoutError(TimeoutError):
+    """Parsing ran past its budget; the file may still have text."""
 
 
 @dataclass(frozen=True)
@@ -238,6 +195,8 @@ async def extract_text_details_async(
     max_chars: int = MAX_EXTRACT_CHARS,
     allow_ocr: bool = True,
     ocr_max_pages: int | None = None,
+    timeout_seconds: float | None = None,
+    raise_on_timeout: bool = False,
 ) -> ExtractedText | None:
     """Offload the sync, CPU-bound parse to a worker thread with a timeout,
     so a large or adversarially crafted PDF/DOCX can't block the event loop —
@@ -247,15 +206,19 @@ async def extract_text_details_async(
     photographed pages) using a separate network timeout — unless
     *allow_ocr* is False (turn prepare; OCR belongs on the index job).
     A CPU-extract timeout does not then spend another 30s on vision.
+    ``timeout_seconds`` defaults to the turn's short budget; the index job
+    passes its own and ``raise_on_timeout`` (a slow parse is not "no text").
     """
     timed_out = False
     try:
-        async with asyncio.timeout(settings.attachment_extract_timeout_seconds):
+        async with asyncio.timeout(timeout_seconds or settings.attachment_extract_timeout_seconds):
             details = await asyncio.to_thread(
                 extract_text_details, content_type, data, max_chars=max_chars
             )
-    except TimeoutError:
+    except TimeoutError as exc:
         logger.warning("Attachment text extraction timed out for content_type=%s", content_type)
+        if raise_on_timeout:
+            raise ExtractTimeoutError(content_type) from exc
         timed_out = True
         details = None
     if details:
@@ -400,6 +363,21 @@ async def ensure_verified_or_purge(
     return None, False
 
 
+def _scanned_pdf_note(settings: Settings) -> str:
+    """What the model may promise about a PDF with no text layer: only what will run."""
+    lead = (
+        "[File attached: application/pdf. No extractable text layer — this is likely a "
+        "scanned or image-only PDF. "
+    )
+    if settings.attachment_ocr_enabled and settings.attachment_rag_enabled:
+        return (
+            f"{lead}Recall will try to read its pages in the background, within the user's "
+            "daily photo allowance; if that works, the text can be searched on later turns. "
+            "Do not promise it; suggest a text-based PDF or pasting the text if needed.]"
+        )
+    return f"{lead}Recall cannot read scanned pages; suggest a text-based PDF or pasting the text.]"
+
+
 async def format_attachment_lines(
     gateway: StorageGateway,
     *,
@@ -441,15 +419,7 @@ async def format_attachment_lines(
                 False,
             )
         if content_type == "application/pdf":
-            return (
-                [
-                    file_ref,
-                    "[File attached: application/pdf. No extractable text layer — this is likely a "
-                    "scanned or image-only PDF. OCR runs in the background and will be available "
-                    "on later turns; suggest a text-based PDF or pasting the text if needed.]",
-                ],
-                False,
-            )
+            return [file_ref, _scanned_pdf_note(settings)], False
         return (
             [
                 file_ref,
@@ -460,52 +430,3 @@ async def format_attachment_lines(
         )
 
     return [file_ref, f"[File attached: {content_type}, {size_bytes} bytes]"], False
-
-
-async def inject_vision_content(
-    prompt_messages: list[dict[str, Any]],
-    gateway: StorageGateway,
-    images: list[tuple[str, str]],
-    *,
-    caption: str = "",
-    bytes_by_key: dict[str, bytes] | None = None,
-) -> bool:
-    """Replace the last user turn with multimodal content for vision models.
-
-    Prefer *bytes_by_key* (turn-prep verify cache) over re-downloading.
-    Returns True when at least one image part was injected.
-    """
-    parts: list[dict[str, Any]] = []
-    text = _strip_image_markers(caption).strip() or "What's in this image?"
-    parts.append({"type": "text", "text": text})
-
-    async def _bytes_for(storage_key: str) -> bytes | None:
-        if bytes_by_key is not None and storage_key in bytes_by_key:
-            return bytes_by_key[storage_key]
-        return await read_attachment_bytes(gateway, storage_key)
-
-    image_bytes = await asyncio.gather(
-        *(_bytes_for(storage_key) for _content_type, storage_key in images)
-    )
-    for (content_type, _storage_key), data in zip(images, image_bytes, strict=True):
-        if not data:
-            continue
-        mime = normalize_content_type(content_type)
-        encoded = base64.standard_b64encode(data).decode("ascii")
-        parts.append(
-            {
-                "type": "image_url",
-                "image_url": {"url": f"data:{mime};base64,{encoded}"},
-            }
-        )
-
-    if not any(part.get("type") == "image_url" for part in parts):
-        return False
-
-    parts[0]["text"] = f"{parts[0]['text']}\n\n{VISION_NOTE}"
-
-    for idx in range(len(prompt_messages) - 1, -1, -1):
-        if prompt_messages[idx].get("role") == "user":
-            prompt_messages[idx] = {"role": "user", "content": parts}
-            return True
-    return False

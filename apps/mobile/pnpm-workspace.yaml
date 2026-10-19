@@ -27,7 +27,6 @@ minimumReleaseAgeExclude:
   - expo
   - expo-apple-authentication
   - expo-audio
-  - expo-camera
   - expo-clipboard
   - expo-constants
   - expo-crypto

@@ -201,6 +201,26 @@ async def test_r2_delete_prefix_batches_keys():
         s3.delete_objects.assert_called_once()
 
 
+@pytest.mark.parametrize(
+    "page",
+    [
+        # A stand-in client whose replies are not listings.
+        MagicMock(),
+        # A truncated page whose token never advances.
+        {"Contents": [], "IsTruncated": True, "NextContinuationToken": "same"},
+        {"Contents": [], "IsTruncated": True, "NextContinuationToken": None},
+    ],
+)
+@pytest.mark.asyncio
+async def test_r2_delete_prefix_stops_when_listing_does_not_advance(page):
+    client = MagicMock()
+    client.list_objects_v2.return_value = page
+    with patch("boto3.client", return_value=client):
+        gateway = R2StorageGateway(_r2_settings())
+    assert await gateway.delete_prefix("u/") == 0
+    assert client.list_objects_v2.call_count <= 2
+
+
 @pytest.mark.asyncio
 async def test_unconfigured_delete_prefix_reports_unavailable():
     gateway = UnconfiguredStorageGateway()

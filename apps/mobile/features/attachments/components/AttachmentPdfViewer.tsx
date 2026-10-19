@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -7,22 +7,16 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { useAuthToken } from "@/contexts/AuthContext";
 import {
   AttachmentViewerChrome,
   type AttachmentViewerProps,
 } from "@/features/attachments/components/AttachmentViewerChrome";
+import { usePdfPreview } from "@/features/attachments/hooks/usePdfPreview";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
-import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachmentBytes";
-import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
 import { Type, Weight } from "@/lib/type";
-import {
-  getPreviewWebView,
-  STATIC_HTML_ORIGIN_WHITELIST,
-  useStaticOnlyNavigation,
-} from "@/lib/webView";
+import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 
 type Props = AttachmentViewerProps & {
   attachmentId?: string | null;
@@ -30,47 +24,27 @@ type Props = AttachmentViewerProps & {
   path?: string | null;
 };
 
+/** Every page of the PDF, drawn as it scrolls into view. Closing stops the download. */
 export function AttachmentPdfViewer({ visible, attachmentId, localUri, path, ...chrome }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeViewerStyles(theme), [theme]);
-  const token = useAuthToken();
-  const [html, setHtml] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
 
   const remoteUri = useMemo(
     () => resolveAttachmentUri({ attachmentId, localUri, path }),
     [attachmentId, localUri, path],
   );
 
-  const previewWebView = getPreviewWebView();
-  const WebView = previewWebView?.Component;
-  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html);
-
-  useEffect(() => {
-    if (!visible || !remoteUri) {
-      setHtml(null);
-      setFailed(false);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setFailed(false);
-    void (async () => {
-      try {
-        const b64 = await fetchAttachmentBase64(remoteUri, token);
-        if (!cancelled) setHtml(buildPdfPreviewHtml(b64, theme));
-      } catch {
-        if (!cancelled) setFailed(true);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [visible, remoteUri, token, theme]);
+  const WebView = getPreviewWebView()?.Component;
+  const preview = usePdfPreview({
+    uri: remoteUri,
+    fileName: chrome.fileName,
+    enabled: visible && Boolean(remoteUri),
+    allPages: true,
+  });
+  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(
+    preview.status === "ready" ? preview.webViewKey : null,
+  );
 
   return (
     <AttachmentViewerChrome
@@ -80,14 +54,14 @@ export function AttachmentPdfViewer({ visible, attachmentId, localUri, path, ...
       shareLabel={t("chat.pdf_share_a11y")}
     >
       <View style={s.body}>
-        {loading ? (
+        {preview.status === "loading" ? (
           <ActivityIndicator color={theme.primary} size="large" />
-        ) : failed || !WebView || !html ? (
+        ) : preview.status !== "ready" || !WebView ? (
           <Text style={s.error}>{t("chat.pdf_preview_failed")}</Text>
         ) : (
           <WebView
-            originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
-            source={{ html }}
+            key={preview.webViewKey}
+            {...preview.webViewProps}
             style={s.webview}
             javaScriptEnabled
             onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}

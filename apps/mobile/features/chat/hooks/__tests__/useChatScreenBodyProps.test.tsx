@@ -32,7 +32,7 @@ const dismissActionBanner = jest.fn();
 const startNewChat = jest.fn();
 const setMenuVisible = jest.fn();
 const closeAttachSheet = jest.fn();
-const setPendingAttachment = jest.fn();
+const removePendingAttachment = jest.fn();
 const handlePickAttachment = jest.fn();
 const handleAttachmentSheetSelect = jest.fn(async () => undefined);
 const closeMathScanner = jest.fn();
@@ -99,10 +99,9 @@ function useHarness(streaming: boolean, messages: Message[], drawerOpen = false)
     attachments: {
       attachSheetOpen: false,
       closeAttachSheet,
-      attachBusy: false,
       attachPicking: false,
       pendingAttachment: null,
-      setPendingAttachment,
+      removePendingAttachment,
       handlePickAttachment,
       handleAttachmentSheetSelect,
       mathScannerOpen: false,
@@ -171,6 +170,12 @@ describe("useChatScreenBodyProps", () => {
 
     await rerender({ streaming: true, messages: firstMessages });
     expect(result.current.bodyProps).toBe(streaming);
+  });
+
+  it("wires the composer's remove button to the discarding remove, not a bare clear", async () => {
+    const { result } = await renderHook(() => useHarness(false, [message]));
+    result.current.bodyProps.composer.onRemoveAttachment();
+    expect(removePendingAttachment).toHaveBeenCalledTimes(1);
   });
 
   it("updates only the list group when the message collection changes", async () => {

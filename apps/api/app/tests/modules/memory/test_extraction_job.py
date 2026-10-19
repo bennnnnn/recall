@@ -14,6 +14,7 @@ from app.models.schemas.common import MemoryType
 from app.modules.memory import embedding_text_hash
 from app.modules.memory.extraction_workflow import extract_and_store_memories, extract_history_chat
 from app.modules.memory.writes_repository import MemoryFactWrite
+from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 
 _CANDIDATE = "I like using Vim every day at work."
 
@@ -716,7 +717,7 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
         patch("app.modules.memory.extraction_workflow.memories_repo.apply_writes", apply_writes),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
         patch("app.modules.home.invalidate_home_cache", AsyncMock()),
-        patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=vector)),
+        patch(EMBED_MANY, embed_each(AsyncMock(return_value=vector))),
         patch(
             "app.gateways.embedding_gateway.serialize_embedding",
             return_value="[0.4,0.5,0.6]",

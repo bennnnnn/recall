@@ -55,7 +55,6 @@ export interface ChatScreenListProps {
 export interface ChatScreenComposerProps {
   animatedStyle?: AnimatedStyle<ViewStyle>;
   streaming: boolean;
-  attachBusy: boolean;
   attachPicking: boolean;
   sendBusy: boolean;
   sendStatus?: string;
@@ -189,7 +188,6 @@ export const ChatScreenBody = memo(function ChatScreenBody({
         visible={!drawerOpen}
         animatedContainerStyle={composer.animatedStyle}
         streaming={composer.streaming}
-        attachBusy={composer.attachBusy}
         attachPicking={composer.attachPicking}
         sendBusy={composer.sendBusy}
         sendStatus={composer.sendStatus}

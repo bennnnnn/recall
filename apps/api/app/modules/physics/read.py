@@ -101,6 +101,7 @@ async def read_physics_problem(
     *,
     content_type: str,
     data: bytes,
+    timeout_seconds: float | None = None,
 ) -> str:
     """The written problem as plain text, or empty when the page cannot be read."""
     reading = await read_problem_text(
@@ -109,5 +110,6 @@ async def read_physics_problem(
         content_type=content_type,
         data=data,
         mock_reading=_MOCK_READING,
+        timeout_seconds=timeout_seconds,
     )
     return readable_physics(reading)

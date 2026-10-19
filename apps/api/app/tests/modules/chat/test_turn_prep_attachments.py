@@ -189,7 +189,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             AsyncMock(return_value=b"fake-bytes"),
         ),
         patch(
-            "app.modules.attachments.content.inject_vision_content",
+            "app.modules.attachments.vision_input.inject_vision_content",
             AsyncMock(),
         ),
         patch(
@@ -327,7 +327,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             AsyncMock(return_value=b"fake-bytes"),
         ),
         patch(
-            "app.modules.attachments.content.inject_vision_content",
+            "app.modules.attachments.vision_input.inject_vision_content",
             AsyncMock(),
         ),
         patch(
@@ -765,11 +765,13 @@ async def test_prepare_overlap_returns_before_persist_commit():
 
 
 @pytest.mark.asyncio
-async def test_await_user_message_persist_copies_indexable_ids_once():
+async def test_await_user_message_persist_clears_the_task_once():
     from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 
-    async def persist() -> list[str]:
-        return ["att-1"]
+    saved: list[bool] = []
+
+    async def persist() -> None:
+        saved.append(True)
 
     ctx = StreamContext(
         user_id=uuid4(),
@@ -783,7 +785,6 @@ async def test_await_user_message_persist_copies_indexable_ids_once():
         user_message_persist=asyncio.create_task(persist()),
     )
     await await_user_message_persist(ctx)
-    assert ctx.indexable_attachment_ids == ["att-1"]
     assert ctx.user_message_persist is None
     await await_user_message_persist(ctx)
-    assert ctx.indexable_attachment_ids == ["att-1"]
+    assert saved == [True]

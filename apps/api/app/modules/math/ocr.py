@@ -6,6 +6,8 @@ and low-confidence reads still go to vision-chat with the OCR text as a hint.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
@@ -20,6 +22,8 @@ from app.modules.math.solve.extract_eq import (
     try_extract_equations_from_text,
     try_extract_inequality_from_text,
 )
+
+logger = logging.getLogger(__name__)
 
 _VISION_CUES = (
     "integral",
@@ -180,8 +184,13 @@ async def extract_math_from_image(
     *,
     content_type: str,
     data: bytes,
+    timeout_seconds: float | None = None,
 ) -> MathOcrResult:
-    """Mathpix first when keyed; Gemini for semantic/ambiguous pages."""
+    """Mathpix first when keyed; Gemini for semantic/ambiguous pages.
+
+    ``timeout_seconds`` bounds the whole read, Mathpix and vision together:
+    vision gets what Mathpix left. Without it each step keeps its own setting.
+    """
     if not data:
         return _empty()
     if mock_llm.should_mock_llm(settings):
@@ -194,7 +203,22 @@ async def extract_math_from_image(
         )
         return _from_extract(extract, source="vision")
 
-    mathpix = await mathpix_gateway.ocr_image(settings, content_type=content_type, data=data)
+    loop = asyncio.get_running_loop()
+    deadline = None if timeout_seconds is None else loop.time() + timeout_seconds
+
+    def time_left(step_seconds: float) -> float:
+        if deadline is None:
+            return step_seconds
+        return max(0.0, min(step_seconds, deadline - loop.time()))
+
+    mathpix: mathpix_gateway.MathpixOcrResult | None = None
+    try:
+        async with asyncio.timeout(time_left(settings.mathpix_timeout_seconds)):
+            mathpix = await mathpix_gateway.ocr_image(
+                settings, content_type=content_type, data=data
+            )
+    except TimeoutError:
+        logger.warning("mathpix ocr timed out")
     mathpix_text = ""
     mathpix_source_text = ""
     confidence: float | None = None
@@ -229,6 +253,7 @@ async def extract_math_from_image(
         content_type=content_type,
         data=data,
         ocr_hint=mathpix_source_text or mathpix_text or None,
+        timeout_seconds=time_left(settings.math_image_extract_timeout_seconds),
     )
     if vision is not None and vision.found:
         source_text = (vision.source_text or mathpix_source_text or mathpix_text).strip()

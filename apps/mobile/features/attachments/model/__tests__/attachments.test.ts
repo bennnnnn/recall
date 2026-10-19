@@ -7,16 +7,26 @@ jest.mock("react-native", () => ({
 import { File } from "expo-file-system";
 import { api } from "@/lib/api";
 import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
-import { requestRaw } from "@/lib/api/client";
+import { ApiRequestError, requestRaw } from "@/lib/api/client";
 import { Linking } from "react-native";
-import { pickDocument, pickFromCamera, pickFromPhotoLibrary, pickImageDocument, uploadChatAttachment, NativePickerBusyError } from "@/features/attachments/model/attachments";
+import {
+  discardDraftAttachment,
+  pickDocument,
+  pickFromCamera,
+  pickFromPhotoLibrary,
+  pickImageDocument,
+  uploadChatAttachment,
+  NativePickerBusyError,
+} from "@/features/attachments/model/attachments";
+import { MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
+import { ownsLocalCopy } from "@/features/attachments/model/localAttachmentFile";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
+import { ImageManipulator } from "expo-image-manipulator";
 
 const mockRead = jest.fn();
 let mockGeneration = 0;
-jest.mock("expo-file-system", () => ({ File: jest.fn() }));
+jest.mock("expo-file-system", () => ({ File: jest.fn(), Paths: { cache: { uri: "file:///cache/" } } }));
 jest.mock("expo-file-system/legacy", () => ({ getInfoAsync: jest.fn(async () => ({ exists: true, size: 3 })) }));
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn() }));
 jest.mock("expo-image-picker", () => ({
@@ -26,13 +36,42 @@ jest.mock("expo-image-picker", () => ({
   launchImageLibraryAsync: jest.fn(),
   launchCameraAsync: jest.fn(),
 }));
-jest.mock("expo-image-manipulator", () => ({
-  SaveFormat: { JPEG: "jpeg" }, manipulateAsync: jest.fn(async () => ({ uri: "file:///converted.jpg" })),
-}));
+// Decoded size of the next image the manipulator renders, and every resize asked of it.
+let mockDecoded = { width: 100, height: 100 };
+const mockResize = jest.fn();
+const mockSave = jest.fn();
+jest.mock("expo-image-manipulator", () => {
+  const image = (width: number, height: number) => ({
+    width, height, release: jest.fn(),
+    saveAsync: (options: unknown) => mockSave(options, { width, height }),
+  });
+  const context = (size: { width: number; height: number }) => ({
+    release: jest.fn(),
+    renderAsync: async () => image(size.width, size.height),
+    resize(target: { width?: number; height?: number }) {
+      mockResize(target);
+      const scale = (target.width ?? 0) / size.width || (target.height ?? 0) / size.height;
+      return context({ width: Math.round(size.width * scale), height: Math.round(size.height * scale) });
+    },
+  });
+  return {
+    SaveFormat: { JPEG: "jpeg" },
+    ImageManipulator: {
+      manipulate: jest.fn((source: string | { width: number; height: number }) =>
+        context(typeof source === "string" ? mockDecoded : source)),
+    },
+  };
+});
 jest.mock("@/lib/api", () => ({ api: {
   presignAttachment: jest.fn(), confirmAttachment: jest.fn(), cancelAttachment: jest.fn(),
 } }));
-jest.mock("@/lib/api/client", () => ({ requestRaw: jest.fn() }));
+jest.mock("@/lib/api/client", () => ({
+  requestRaw: jest.fn(),
+  ApiRequestError: class extends Error {
+    status: number;
+    constructor(status: number, message: string) { super(message); this.status = status; }
+  },
+}));
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.test" }));
 jest.mock("@/lib/auth", () => ({
   getSessionGeneration: () => mockGeneration,
@@ -47,12 +86,30 @@ jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGa
 const mockFetch = jest.fn();
 const originalFetch = globalThis.fetch;
 const pending = { localUri: "file:///picked.pdf", contentType: "application/pdf", fileName: "picked.pdf", kind: "file" as const };
+const MiB = 1024 * 1024;
+// Byte size per file (3 bytes unless set), and the files deleted.
+let mockSizes: Record<string, number> = {};
+const mockDeleted: string[] = [];
 beforeEach(() => {
   jest.clearAllMocks();
   mockGeneration = 0;
+  mockDecoded = { width: 100, height: 100 };
+  mockSizes = {};
+  mockDeleted.length = 0;
+  mockSave.mockImplementation(async (_options: unknown, size: { width: number; height: number }) => ({
+    uri: `file:///cache/ImageManipulator/out-${mockSave.mock.calls.length}.jpg`, ...size,
+  }));
   mockFetch.mockReset().mockResolvedValue({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
   mockRead.mockReset().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
-  jest.mocked(File).mockImplementation(() => ({ exists: true, size: 3, arrayBuffer: mockRead }) as unknown as File);
+  jest.mocked(File).mockImplementation((...uris) => {
+    const uri = String(uris[0]);
+    return {
+      exists: !mockDeleted.includes(uri),
+      size: mockSizes[uri] ?? 3,
+      arrayBuffer: mockRead,
+      delete: () => { mockDeleted.push(uri); },
+    } as unknown as File;
+  });
   jest.mocked(api.presignAttachment).mockResolvedValue({ attachment_id: "a1", upload_url: "/ignored", api_upload: true, storage_key: "key", headers: {} });
   jest.mocked(requestRaw).mockResolvedValue({ ok: true } as Response);
   globalThis.fetch = mockFetch as unknown as typeof fetch;
@@ -83,7 +140,7 @@ it("does not continue an upload after account change during native file reading"
 
 it("does not upload changed bytes with a stale presigned size", async () => {
   mockRead.mockResolvedValueOnce(new ArrayBuffer(9));
-  await expect(uploadChatAttachment("token", pending)).rejects.toThrow(/changed|size/i);
+  await expect(uploadChatAttachment("token", pending)).rejects.toMatchObject({ reason: "changed" });
   expect(requestRaw).not.toHaveBeenCalled();
 });
 
@@ -96,8 +153,10 @@ it("keeps cleanup best effort when an upload fails", async () => {
 
 it("converts a HEIC photo when the picker omits MIME metadata", async () => {
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({ canceled: false, assets: [{ uri: "file:///photo.HEIC", fileName: "photo.HEIC", width: 10, height: 10 }] });
-  await expect(pickFromPhotoLibrary()).resolves.toMatchObject({ contentType: "image/jpeg", localUri: "file:///converted.jpg" });
-  expect(ImageManipulator.manipulateAsync).toHaveBeenCalled();
+  await expect(pickFromPhotoLibrary()).resolves.toEqual({
+    contentType: "image/jpeg", localUri: "file:///cache/ImageManipulator/out-1.jpg", fileName: "photo.jpg", kind: "image",
+  });
+  expect(mockSave).toHaveBeenCalledWith({ format: "jpeg", compress: 0.8 }, expect.anything());
   expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledWith({
     mediaTypes: ["images"], quality: 0.85, allowsEditing: false,
   });
@@ -117,7 +176,7 @@ it("uses square editing and preserves source dimensions for profile preparation"
   expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledWith({
     mediaTypes: ["images"], quality: 0.85, allowsEditing: true, aspect: [1, 1],
   });
-  expect(ImageManipulator.manipulateAsync).not.toHaveBeenCalled();
+  expect(ImageManipulator.manipulate).not.toHaveBeenCalled();
 });
 
 it("opens Photos even when library permission is denied", async () => {
@@ -173,7 +232,7 @@ it("opens Settings when camera access cannot be requested again", async () => {
     granted: false,
     canAskAgain: false,
   } as ImagePicker.CameraPermissionResponse);
-  await expect(pickFromCamera()).rejects.toThrow(/camera permission/i);
+  await expect(pickFromCamera()).rejects.toMatchObject({ name: "AttachmentError", reason: "camera_permission" });
   expect(Linking.openSettings).toHaveBeenCalledTimes(1);
   expect(ImagePicker.launchCameraAsync).toHaveBeenCalledTimes(1);
 });
@@ -199,9 +258,10 @@ it("throws instead of silently no-oping when a native picker is already open", a
   await expect(first).resolves.toBeNull();
 });
 
-it("does not classify unknown document types as JPEG photos", async () => {
-  jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({ canceled: false, assets: [{ uri: "file:///archive.bin", name: "archive.bin", lastModified: 0 }] });
-  await expect(pickDocument()).resolves.toMatchObject({ contentType: "application/octet-stream", kind: "file" });
+it("refuses an unknown document type when it is picked, not as a JPEG and not at Send", async () => {
+  jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({ canceled: false, assets: [{ uri: "file:///cache/DocumentPicker/archive.bin", name: "archive.bin", lastModified: 0 }] });
+  await expect(pickDocument()).rejects.toMatchObject({ reason: "unsupported_type" });
+  expect(mockDeleted).toEqual(["file:///cache/DocumentPicker/archive.bin"]);
 });
 
 it("opens scanner images through Files without requesting photo permission", async () => {
@@ -240,4 +300,187 @@ it("reuploads a restored Library document after its rejected server ID is remove
     content_type: "application/pdf", size_bytes: 3, filename: "notes.pdf",
   });
   expect(requestRaw).toHaveBeenCalledWith("/attachments/a1/upload", "token", expect.objectContaining({ method: "PUT", body: expect.any(ArrayBuffer) }), true, expect.any(Number));
+});
+
+describe("every picked image leaves as something the API takes", () => {
+  type Asset = { uri: string; mimeType?: string; width?: number; height?: number; name: string };
+  const library = (asset: Asset) => {
+    jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({
+      canceled: false, assets: [{ ...asset, fileName: asset.name, width: asset.width ?? 0, height: asset.height ?? 0 }],
+    } as ImagePicker.ImagePickerResult);
+    return pickFromPhotoLibrary();
+  };
+  const camera = (asset: Asset) => {
+    jest.mocked(ImagePicker.launchCameraAsync).mockResolvedValue({
+      canceled: false, assets: [{ ...asset, fileName: asset.name, width: asset.width ?? 0, height: asset.height ?? 0 }],
+    } as ImagePicker.ImagePickerResult);
+    return pickFromCamera();
+  };
+  const files = (asset: Asset) => {
+    jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({
+      canceled: false, assets: [{ uri: asset.uri, name: asset.name, mimeType: asset.mimeType, lastModified: 0 }],
+    });
+    return pickDocument();
+  };
+  const cases: {
+    name: string;
+    via: (asset: Asset) => Promise<unknown>;
+    asset: Asset;
+    decoded?: { width: number; height: number };
+    bytes?: number;
+    resize: { width?: number; height?: number } | null;
+    contentType: string;
+    reencoded: boolean;
+  }[] = [
+    { name: "a full-size camera frame is scaled to 2048 wide", via: camera,
+      asset: { uri: "file:///cache/ImagePicker/a.jpg", mimeType: "image/jpeg", width: 4032, height: 3024, name: "a.jpg" },
+      decoded: { width: 4032, height: 3024 }, resize: { width: 2048 }, contentType: "image/jpeg", reencoded: true },
+    { name: "a tall library photo is scaled to 2048 high", via: library,
+      asset: { uri: "file:///cache/ImagePicker/b.jpg", mimeType: "image/jpeg", width: 3000, height: 4000, name: "b.jpg" },
+      decoded: { width: 3000, height: 4000 }, resize: { height: 2048 }, contentType: "image/jpeg", reencoded: true },
+    { name: "a small PNG goes untouched, without decoding", via: library,
+      asset: { uri: "file:///cache/ImagePicker/c.png", mimeType: "image/png", width: 1000, height: 800, name: "c.png" },
+      resize: null, contentType: "image/png", reencoded: false },
+    { name: "a Files GIF within bounds keeps its animation", via: files,
+      asset: { uri: "file:///cache/DocumentPicker/d.gif", mimeType: "image/gif", name: "d.gif" },
+      decoded: { width: 480, height: 270 }, resize: null, contentType: "image/gif", reencoded: false },
+    { name: "a TIFF the API does not take becomes a JPEG", via: files,
+      asset: { uri: "file:///cache/DocumentPicker/e.tiff", mimeType: "image/tiff", name: "e.tiff" },
+      decoded: { width: 800, height: 600 }, resize: null, contentType: "image/jpeg", reencoded: true },
+    { name: "a large HEIC from Files is scaled and becomes a JPEG", via: files,
+      asset: { uri: "file:///cache/DocumentPicker/f.heic", name: "f.heic" },
+      decoded: { width: 4000, height: 3000 }, resize: { width: 2048 }, contentType: "image/jpeg", reencoded: true },
+    { name: "a WEBP within bounds but over the byte cap is re-encoded", via: library,
+      asset: { uri: "file:///cache/ImagePicker/g.webp", mimeType: "image/webp", width: 2000, height: 1500, name: "g.webp" },
+      bytes: 12 * MiB, decoded: { width: 2000, height: 1500 }, resize: null, contentType: "image/jpeg", reencoded: true },
+  ];
+
+  it.each(cases)("$name", async ({ via, asset, decoded, bytes, resize, contentType, reencoded }) => {
+    if (decoded) mockDecoded = decoded;
+    if (bytes) mockSizes[asset.uri] = bytes;
+    const picked = await via(asset) as { localUri: string; contentType: string; fileName: string };
+    expect(picked.contentType).toBe(contentType);
+    if (resize) expect(mockResize).toHaveBeenCalledWith(resize);
+    else expect(mockResize).not.toHaveBeenCalled();
+    if (reencoded) {
+      expect(picked.localUri).toMatch(/^file:\/\/\/cache\/ImageManipulator\//);
+      expect(picked.fileName).toMatch(/\.jpg$/);
+      // The picker's copy is the intermediate: it goes once the JPEG replaces it.
+      expect(mockDeleted).toEqual([asset.uri]);
+      expect(ownsLocalCopy(picked.localUri)).toBe(true);
+    } else {
+      expect(picked.localUri).toBe(asset.uri);
+      expect(mockSave).not.toHaveBeenCalled();
+      expect(mockDeleted).toEqual([]);
+    }
+  });
+});
+
+describe("the size cap is checked when a file is picked", () => {
+  const document = (uri: string, mimeType: string) =>
+    jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({
+      canceled: false, assets: [{ uri, name: uri.split("/").pop()!, mimeType, lastModified: 0 }],
+    });
+
+  it("refuses an oversized PDF before Send and removes the picker's copy", async () => {
+    const uri = "file:///cache/DocumentPicker/big.pdf";
+    mockSizes[uri] = MAX_ATTACHMENT_BYTES + 1;
+    document(uri, "application/pdf");
+    await expect(pickDocument()).rejects.toMatchObject({ reason: "too_large" });
+    expect(mockDeleted).toEqual([uri]);
+  });
+
+  it("accepts a file exactly at the cap", async () => {
+    const uri = "file:///cache/DocumentPicker/edge.pdf";
+    mockSizes[uri] = MAX_ATTACHMENT_BYTES;
+    document(uri, "application/pdf");
+    await expect(pickDocument()).resolves.toMatchObject({ localUri: uri, kind: "file" });
+  });
+
+  it("refuses a photo still over the cap after re-encoding, and removes both copies", async () => {
+    const uri = "file:///cache/ImagePicker/huge.jpg";
+    mockSizes[uri] = 30 * MiB;
+    mockSizes["file:///cache/ImageManipulator/out-1.jpg"] = MAX_ATTACHMENT_BYTES + 1;
+    mockDecoded = { width: 2048, height: 2048 };
+    jest.mocked(ImagePicker.launchCameraAsync).mockResolvedValue({
+      canceled: false, assets: [{ uri, mimeType: "image/jpeg", fileName: "huge.jpg", width: 2048, height: 2048 }],
+    } as ImagePicker.ImagePickerResult);
+    await expect(pickFromCamera()).rejects.toMatchObject({ reason: "too_large" });
+    expect(mockDeleted.sort()).toEqual(["file:///cache/ImageManipulator/out-1.jpg", uri]);
+  });
+
+  it.each([
+    ["image/png", "unreadable"],
+    ["image/svg+xml", "unsupported_type"],
+  ])("names a %s that will not decode as %s", async (mimeType, reason) => {
+    jest.mocked(ImageManipulator.manipulate).mockImplementationOnce(() => ({
+      renderAsync: async () => { throw new Error("decode failed"); }, release: jest.fn(),
+    }) as never);
+    document("file:///cache/DocumentPicker/bad", mimeType);
+    await expect(pickDocument()).rejects.toMatchObject({ reason });
+  });
+
+  it("refuses an oversized restored draft at upload, before presign", async () => {
+    mockSizes[pending.localUri] = MAX_ATTACHMENT_BYTES + 1;
+    await expect(uploadChatAttachment("token", pending)).rejects.toMatchObject({ reason: "too_large" });
+    expect(api.presignAttachment).not.toHaveBeenCalled();
+  });
+});
+
+describe("upload failures carry a reason, not English", () => {
+  it.each([
+    [400, { detail: "Unsupported content type" }, "unsupported_type"],
+    [400, { detail: "Invalid file size" }, "too_large"],
+    [429, { detail: "Daily image upload limit reached." }, "daily_limit"],
+  ])("maps a presign %s %p to %s", async (status, body, reason) => {
+    jest.mocked(api.presignAttachment).mockRejectedValueOnce(new ApiRequestError(status, JSON.stringify(body)));
+    await expect(uploadChatAttachment("token", pending)).rejects.toMatchObject({ reason });
+    expect(api.cancelAttachment).not.toHaveBeenCalled();
+  });
+
+  it("names a refused storage upload and cancels its row", async () => {
+    jest.mocked(requestRaw).mockResolvedValueOnce({ ok: false } as Response);
+    await expect(uploadChatAttachment("token", pending)).rejects.toMatchObject({ reason: "upload_failed" });
+    expect(api.cancelAttachment).toHaveBeenCalledWith("token", "a1");
+  });
+});
+
+describe("discardDraftAttachment", () => {
+  const picked = async () => {
+    jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({
+      canceled: false, assets: [{ uri: "file:///cache/DocumentPicker/notes.pdf", name: "notes.pdf", mimeType: "application/pdf", lastModified: 0 }],
+    });
+    return (await pickDocument())!;
+  };
+
+  it("removes the picker's copy and cancels the draft's own unlinked upload", async () => {
+    const draft = { ...(await picked()), existingAttachmentId: "up-1", uploadedForDraft: true };
+    jest.mocked(api.cancelAttachment).mockRejectedValueOnce(new Error("offline"));
+    discardDraftAttachment("token", draft);
+    expect(mockDeleted).toEqual(["file:///cache/DocumentPicker/notes.pdf"]);
+    expect(api.cancelAttachment).toHaveBeenCalledWith("token", "up-1");
+  });
+
+  it.each([
+    ["a Library pick's row", { existingAttachmentId: "lib-1" }, "token"],
+    ["anything without the session's token", { existingAttachmentId: "up-1", uploadedForDraft: true }, null],
+  ])("never cancels %s", async (_name, fields, token) => {
+    discardDraftAttachment(token, { ...(await picked()), ...fields });
+    expect(api.cancelAttachment).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a Library download in the cache", "file:///cache/attachments/lib-1.pdf"],
+    ["a file outside the cache directory", "file:///documents/notes.pdf"],
+  ])("never deletes %s", (_name, localUri) => {
+    discardDraftAttachment("token", { ...pending, localUri, existingAttachmentId: "lib-1" });
+    expect(mockDeleted).toEqual([]);
+  });
+
+  it("deletes a copy once, however many drafts held it", async () => {
+    const draft = await picked();
+    discardDraftAttachment(null, draft);
+    discardDraftAttachment(null, { ...draft });
+    expect(mockDeleted).toEqual(["file:///cache/DocumentPicker/notes.pdf"]);
+  });
 });

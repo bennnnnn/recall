@@ -51,11 +51,13 @@ async def test_persist_user_turn_rolls_back_its_own_transaction_on_a_failed_writ
         session.commit.side_effect = error
     timing = TurnTimingTracker()
     user = SimpleNamespace(id=uuid4())
+    enqueue = AsyncMock()
     with (
         patch(f"{_MODULE}.SessionLocal", _session_local(session)),
         patch(f"{_MODULE}.messages_repo.create", create),
         patch("app.modules.attachments.repository.link_to_message", link),
         patch("app.modules.attachments.repository.get_by_ids", rows),
+        patch(f"{_MODULE}.attachments_service.enqueue_index_jobs", enqueue),
     ):
         with pytest.raises(RuntimeError, match="database went away"):
             await persist_user_turn(
@@ -75,10 +77,11 @@ async def test_persist_user_turn_rolls_back_its_own_transaction_on_a_failed_writ
         session.commit.assert_not_awaited()
     assert "persist_start" in timing._phases_ms
     assert "persist_done" not in timing._phases_ms
+    enqueue.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_persist_user_turn_reads_what_the_caller_left_out_and_returns_indexable_ids():
+async def test_persist_user_turn_reads_what_the_caller_left_out_and_queues_its_documents():
     session = AsyncMock()
     user = SimpleNamespace(id=uuid4())
     chat = SimpleNamespace(id=uuid4())
@@ -91,6 +94,11 @@ async def test_persist_user_turn_reads_what_the_caller_left_out_and_returns_inde
         day_reflection=False,
     )
     turn = _turn(attachment_ids=[document.id])
+
+    async def _after_commit(*_args, **_kwargs):
+        session.commit.assert_awaited_once()
+
+    enqueue = AsyncMock(side_effect=_after_commit)
     with (
         patch(f"{_MODULE}.SessionLocal", _session_local(session)),
         patch(f"{_MODULE}.users_repo.get_by_id", AsyncMock(return_value=user)),
@@ -104,13 +112,19 @@ async def test_persist_user_turn_reads_what_the_caller_left_out_and_returns_inde
         ) as create,
         patch("app.modules.attachments.repository.link_to_message", AsyncMock(return_value=1)),
         patch("app.modules.attachments.repository.get_by_ids", AsyncMock(return_value=[document])),
+        patch(f"{_MODULE}.attachments_service.enqueue_index_jobs", enqueue),
     ):
-        indexable = await persist_user_turn(
+        await persist_user_turn(
             turn,
             Settings(attachments_enabled=True, attachment_rag_enabled=True),
             None,
         )
-    assert indexable == [str(document.id)]
+    enqueue.assert_awaited_once()
+    assert enqueue.await_args.kwargs == {
+        "user_id": turn.user_id,
+        "chat_id": turn.chat_id,
+        "attachment_ids": [str(document.id)],
+    }
     assert (turn.user, turn.chat, turn.model, turn.prior_count, turn.turn_mode) == (
         user,
         chat,

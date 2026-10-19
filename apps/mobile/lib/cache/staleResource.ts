@@ -17,10 +17,17 @@ export class StaleResourceCache<Key, Value> {
   private readonly entries = new Map<Key, StaleResourceEntry<Value>>();
   private readonly inflight = new Map<Key, Promise<Value>>();
 
-  constructor(private readonly staleMs: number) {}
+  /** `maxEntries` keeps the most recently used keys; the least recently used one goes first. */
+  constructor(private readonly staleMs: number, private readonly maxEntries = Number.POSITIVE_INFINITY) {}
 
   get(key: Key): Value | undefined {
-    return this.entries.get(key)?.data;
+    const entry = this.entries.get(key);
+    if (entry && Number.isFinite(this.maxEntries)) {
+      // Map order is the recency order.
+      this.entries.delete(key);
+      this.entries.set(key, entry);
+    }
+    return entry?.data;
   }
 
   getEntry(key: Key): StaleResourceEntry<Value> | undefined {
@@ -37,7 +44,12 @@ export class StaleResourceCache<Key, Value> {
   }
 
   set(key: Key, data: Value, fetchedAt = Date.now()): Value {
+    this.entries.delete(key);
     this.entries.set(key, { data, fetchedAt });
+    while (this.entries.size > this.maxEntries) {
+      const oldest = this.entries.keys().next().value as Key;
+      this.entries.delete(oldest);
+    }
     return data;
   }
 

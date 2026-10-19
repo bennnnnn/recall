@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Keyboard, Linking } from "react-native";
+import { Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 
 import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
-import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
 
-import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/features/chat/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
@@ -23,6 +21,7 @@ import { canSend } from "@/features/chat/model/sendGuards";
 import { resolveSendIntercept, type SendIntercept } from "@/features/chat/model/sendIntercept";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
 import { uploadSendAttachment, useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
+import { useComposerAttachmentPick } from "@/features/chat/hooks/useComposerAttachmentPick";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
 import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
 import type { ClientGeo } from "@/lib/clientGeo";
@@ -30,16 +29,8 @@ import {
   queryNeedsClientGeo,
   resolveClientGeoForQuery,
 } from "@/lib/resolveClientGeoForQuery";
-import {
-  pickDocument,
-  HeicUnsupportedError,
-  NativePickerBusyError,
-  NativePickerTimeoutError,
-  PhotoLibraryPermissionError,
-  pickFromCamera,
-  pickFromPhotoLibrary,
-  type PendingAttachment,
-} from "@/features/attachments/model/attachments";
+import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
+import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
 import {
   composerTextAfterScanConfirm,
   type ReadBackSubject,
@@ -103,7 +94,7 @@ type Options = {
   messages: Message[];
   selectedModel: string;
   updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
   onStreamBusy?: () => void;
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;
@@ -169,10 +160,11 @@ export function useChatSend({
     getThreadKey,
   } = useComposerDraftApi();
   const feedback = useActionFeedbackOptional();
-  const { pendingAttachment, pendingAttachmentRef, setPendingAttachment } = useSendAttachment();
+  const {
+    pendingAttachment, pendingAttachmentRef, setPendingAttachment, replacePendingAttachment,
+    switchAttachmentThread, stashAttachmentForThread, resetAttachmentDrafts,
+  } = useSendAttachment(token);
   const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
-  const attachBusy = false;
-  const [attachPicking, setAttachPicking] = useState(false);
   const [sendPhase, setSendPhase] = useState<ChatSendPhase>("idle");
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
   const [mathScannerOpen, setMathScannerOpen] = useState(false);
@@ -194,7 +186,6 @@ export function useChatSend({
     model: string;
   } | null>(null);
 
-  const attachPickInFlightRef = useRef(false);
   const sendInFlightRef = useRef(false);
   const composerThread = composerThreadKey(routeChatId);
   const session = getSessionGeneration();
@@ -205,6 +196,11 @@ export function useChatSend({
   useEffect(() => () => {
     viewRef.current.version += 1;
   }, []);
+  const { attachPicking, attachPickInFlightRef, handlePickAttachment, handleAttachmentSheetSelect } =
+    useComposerAttachmentPick({
+      token, streaming, session, viewRef, sendInFlightRef, feedback, t, replacePendingAttachment,
+      setAttachSheetOpen, setMathScannerOpen,
+    });
 
   const prevComposerThreadRef = useRef(composerThread);
   const prevSessionRef = useRef(session);
@@ -214,7 +210,10 @@ export function useChatSend({
     prevSessionRef.current = session;
     // Wipe before switchThread: the shared "new" key no-ops and would keep the
     // previous account's unsent text if we only switched.
-    if (accountChanged) resetForNewSession();
+    if (accountChanged) {
+      resetForNewSession();
+      resetAttachmentDrafts();
+    }
     switchThread(composerThread);
     if (!accountChanged && prevComposerThreadRef.current === composerThread) return;
     prevComposerThreadRef.current = composerThread;
@@ -222,19 +221,19 @@ export function useChatSend({
     setSendPhase("idle");
     setPendingOutboundId(null);
     if (!accountChanged && fromKey === composerThread) return;
-    setPendingAttachment(null);
+    if (!accountChanged) switchAttachmentThread(fromKey, composerThread);
     setAttachSheetOpen(false);
     setMathScannerOpen(false);
-  }, [composerThread, session, switchThread, getThreadKey, setPendingAttachment, resetForNewSession]);
+  }, [composerThread, session, switchThread, getThreadKey, switchAttachmentThread, resetForNewSession, resetAttachmentDrafts]);
   useEffect(() => {
     const applyQueued = () => {
       if (!token || session !== getSessionGeneration()) return;
       const next = takeQueuedComposerAttachment(composerThread);
-      if (next) setPendingAttachment(next);
+      if (next) replacePendingAttachment(next);
     };
     applyQueued();
     return subscribeComposerAttachmentQueue(applyQueued);
-  }, [composerThread, token, session, setPendingAttachment]);
+  }, [composerThread, token, session, replacePendingAttachment]);
   useEffect(() => {
     if (
       pendingSend &&
@@ -243,7 +242,10 @@ export function useChatSend({
           ? routeChatId !== pendingSend.chatId
           : viewRef.current.version !== pendingSend.originViewVersion))
     ) {
-      if (session === pendingSend.session) stashFailedDraftForThread(pendingSend.chatId, pendingSend.text);
+      if (session === pendingSend.session) {
+        stashFailedDraftForThread(pendingSend.chatId, pendingSend.text);
+        stashAttachmentForThread(pendingSend.chatId, getThreadKey(), pendingSend.composerDraft.attachment);
+      } else discardDraftAttachment(null, pendingSend.composerDraft.attachment);
       setPendingSend(null);
       setPendingOutboundId(null);
       sendInFlightRef.current = false;
@@ -281,7 +283,7 @@ export function useChatSend({
       sendInFlightRef.current = false;
       setSendPhase("idle");
     }
-  }, [chatId, routeChatId, session, pendingSend, sendMessage, stashFailedDraftForThread]);
+  }, [chatId, routeChatId, session, pendingSend, sendMessage, stashFailedDraftForThread, stashAttachmentForThread, getThreadKey]);
 
   /** Hands an image request to generation; persistence failure brings the draft back. */
   const generateFromComposer = useCallback(
@@ -345,9 +347,17 @@ export function useChatSend({
   const restoreFailedSend = useCallback(
     (turn: SendTurn, optimisticId: string, attached: PendingAttachment | null) => {
       clearPendingChatTtft(optimisticId);
-      if (!turn.isCurrentSession()) return;
-      if (!turn.isCurrentView()) {
+      if (!turn.isCurrentSession()) {
+        discardDraftAttachment(null, attached);
+        return;
+      }
+      // The attachment travels with the text: uploaded, it keeps its id for the next send.
+      const stash = () => {
         stashFailedDraftForThread(turn.threadKey, turn.text);
+        stashAttachmentForThread(turn.threadKey, getThreadKey(), attached);
+      };
+      if (!turn.isCurrentView()) {
+        stash();
         return;
       }
       setPendingOutboundId(null);
@@ -357,14 +367,16 @@ export function useChatSend({
         if (!pendingAttachmentRef.current && shouldRestoreFailedSend(inputRef.current, turn.text)) {
           setInput(turn.text);
           setPendingAttachment(attached);
+        } else {
+          discardDraftAttachment(token, attached);
         }
       } else {
-        stashFailedDraftForThread(turn.threadKey, turn.text);
+        stash();
       }
       sendInFlightRef.current = false;
       setSendPhase("idle");
     },
-    [stashFailedDraftForThread, setMessages, newMessageCountRef, getThreadKey, pendingAttachmentRef, inputRef, setInput, setPendingAttachment],
+    [stashFailedDraftForThread, stashAttachmentForThread, setMessages, newMessageCountRef, getThreadKey, pendingAttachmentRef, inputRef, setInput, setPendingAttachment, token],
   );
 
   const handleSend = useCallback(
@@ -383,7 +395,7 @@ export function useChatSend({
         hasAttachment: Boolean(pendingAttachmentRef.current),
         token,
         creating: creatingRef.current,
-        attachBusy,
+        attachPicking: attachPickInFlightRef.current,
       });
       // Offline keeps the draft; banner + dimmed send already signal it. A modal
       // Alert feels unfinished without a send queue — use a soft toast instead.
@@ -459,9 +471,7 @@ export function useChatSend({
           }
         } catch (error) {
           restoreDraft();
-          if (turn.isCurrentView()) feedback?.error(
-            error instanceof Error ? error.message : t("chat.attach_failed"),
-          );
+          if (turn.isCurrentView()) feedback?.error(attachmentErrorMessage(error, t));
           return;
         }
       }
@@ -504,12 +514,14 @@ export function useChatSend({
     },
     [
       session, inputRef, chatLoading, chatId, routeChatId, isOffline, streaming, pendingAttachmentRef,
-      token, creatingRef, attachBusy, onOfflineBlocked, onStreamBusy, onBeforeSend, getThreadKey,
+      token, creatingRef, attachPickInFlightRef, onOfflineBlocked, onStreamBusy, onBeforeSend, getThreadKey,
       messages, onGenerateImage, imageGenerating, generateFromComposer, t, updateUser, paintUserTurn,
       restoreFailedSend, feedback, selectedModel, sendMessage, ensureChatId, discardEmptyChat,
       adoptComposerThread,
     ],
   );
+
+  const removePendingAttachment = useCallback(() => replacePendingAttachment(null), [replacePendingAttachment]);
 
   const viewVersion = viewRef.current.version;
   const restoreComposerDraft = useCallback((recovered: ComposerSendDraft): boolean => {
@@ -524,84 +536,14 @@ export function useChatSend({
     setInput(recovered.text);
     setPendingAttachment(recovered.attachment);
     return true;
-  }, [session, viewVersion, getThreadKey, composerThread, streaming, inputRef, pendingAttachmentRef, feedback, t, setInput, setPendingAttachment]);
-
-  const handlePickAttachment = useCallback(() => {
-    if (!token || attachBusy || streaming || sendInFlightRef.current || attachPickInFlightRef.current) return;
-    Keyboard.dismiss();
-    // Let the keyboard finish dismissing so the first tap isn't swallowed on Android.
-    const version = viewRef.current.version;
-    requestAnimationFrame(() => {
-      if (viewRef.current.version === version && session === getSessionGeneration()) setAttachSheetOpen(true);
-    });
-  }, [token, attachBusy, streaming, session]);
-
-  const handleAttachmentSheetSelect = useCallback(
-    async (source: AttachmentSource) => {
-      if (
-        attachPickInFlightRef.current ||
-        !token ||
-        attachBusy ||
-        streaming ||
-        sendInFlightRef.current
-      )
-        return;
-      const version = viewRef.current.version;
-      const current = () => viewRef.current.version === version && session === getSessionGeneration();
-      attachPickInFlightRef.current = true;
-      setAttachSheetOpen(false);
-
-      if (!current() || !token || attachBusy || streaming || sendInFlightRef.current) {
-        attachPickInFlightRef.current = false;
-        setAttachPicking(false);
-        return;
-      }
-
-      try {
-        if (source === "solve_math_camera") {
-          setMathScannerOpen(true);
-          return;
-        }
-        const picked =
-          source === "camera"
-            ? await pickFromCamera()
-            : source === "photo"
-              ? await pickFromPhotoLibrary()
-              : await pickDocument();
-        if (picked && current()) {
-          setPendingAttachment(picked);
-        }
-      } catch (error) {
-        if (!current()) return;
-        if (error instanceof HeicUnsupportedError) {
-          reportRecoverableWarning(feedback, t("chat.heic_unsupported_body"));
-        } else if (error instanceof PhotoLibraryPermissionError) {
-          if (error.needsSettings) void Linking.openSettings();
-          feedback?.error(t("chat.photos_permission"));
-        } else if (
-          error instanceof NativePickerBusyError ||
-          error instanceof NativePickerTimeoutError
-        ) {
-          feedback?.error(t("chat.picker_busy"));
-        } else {
-          feedback?.error(
-            error instanceof Error ? error.message : t("chat.attach_failed"),
-          );
-        }
-      } finally {
-        attachPickInFlightRef.current = false;
-        setAttachPicking(false);
-      }
-    },
-    [attachBusy, feedback, session, streaming, t, token, setPendingAttachment],
-  );
+  }, [session, viewVersion, getThreadKey, composerThread, streaming, attachPickInFlightRef, inputRef, pendingAttachmentRef, feedback, t, setInput, setPendingAttachment]);
 
   const handleMathScanCaptured = useCallback((
     pending: PendingAttachment,
     subject: ScannerSubject,
     confirmedReading?: string,
   ) => {
-    setPendingAttachment(pending);
+    replacePendingAttachment(pending);
     // A checked reading rides with the photo so the API solves what the
     // student confirmed instead of reading the photo again.
     const text = confirmedReading
@@ -610,7 +552,7 @@ export function useChatSend({
     setInput(text);
     setMathScannerOpen(false);
     void handleSend(text);
-  }, [handleSend, setInput, setPendingAttachment, inputRef]);
+  }, [handleSend, setInput, replacePendingAttachment, inputRef]);
 
   const readScan = useCallback(
     async (
@@ -649,7 +591,7 @@ export function useChatSend({
     setInput,
     pendingAttachment,
     setPendingAttachment,
-    attachBusy,
+    removePendingAttachment,
     attachPicking,
     sendPhase,
     attachSheetOpen,

@@ -24,9 +24,12 @@ async def read_chemistry_scan(
     if not settings.chemistry_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
 
-    async def read(photo: ScanPhoto) -> str:
+    async def read(photo: ScanPhoto, seconds_left: float) -> str:
         return await read_chemistry_problem(
-            settings, content_type=photo.content_type, data=photo.data
+            settings,
+            content_type=photo.content_type,
+            data=photo.data,
+            timeout_seconds=seconds_left,
         )
 
     reading = await read_scan(request, user=user, settings=settings, subject="chemistry", read=read)

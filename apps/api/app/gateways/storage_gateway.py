@@ -14,7 +14,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Protocol
 
 from app.core.config import Settings
 
@@ -42,6 +42,10 @@ class StorageGateway(Protocol):
     async def presign_download(self, storage_key: str) -> str: ...
 
     async def write_bytes(self, storage_key: str, data: bytes) -> None: ...
+
+    async def copy_bytes(self, source_key: str, target_key: str) -> bool:
+        """Copy inside storage, bytes never through the API. False when the source is gone."""
+        ...
 
     async def read_bytes(self, storage_key: str) -> bytes | None: ...
 
@@ -87,6 +91,15 @@ class LocalStorageGateway:
     async def write_bytes(self, storage_key: str, data: bytes) -> None:
         path = self.local_path(storage_key)
         path.write_bytes(data)
+
+    async def copy_bytes(self, source_key: str, target_key: str) -> bool:
+        import shutil
+
+        source = self.resolve_local_path(source_key)
+        if source is None:
+            return False
+        shutil.copyfile(source, self.local_path(target_key))
+        return True
 
     async def read_bytes(self, storage_key: str) -> bytes | None:
         path = self.resolve_local_path(storage_key)
@@ -149,6 +162,7 @@ class R2StorageGateway:
         )
         self._bucket = settings.r2_bucket
         self._expiry = settings.r2_presign_expiry_seconds
+        self._upload_expiry = settings.r2_presign_upload_expiry_seconds
         self._client = boto3.client(
             "s3",
             endpoint_url=endpoint,
@@ -187,7 +201,7 @@ class R2StorageGateway:
                 "ContentType": content_type,
                 "ContentLength": size_bytes,
             },
-            ExpiresIn=self._expiry,
+            ExpiresIn=self._upload_expiry,
         )
         return PresignedUpload(
             attachment_id=attachment_id,
@@ -220,6 +234,26 @@ class R2StorageGateway:
             )
         except Exception as exc:
             raise StorageUnavailableError("Attachment storage is temporarily unavailable") from exc
+
+    async def copy_bytes(self, source_key: str, target_key: str) -> bool:
+        import asyncio
+
+        from botocore.exceptions import ClientError
+
+        try:
+            await asyncio.to_thread(
+                self._client.copy_object,
+                Bucket=self._bucket,
+                Key=target_key,
+                CopySource={"Bucket": self._bucket, "Key": source_key},
+            )
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in {"NoSuchKey", "NotFound", "404"}:
+                return False
+            raise StorageUnavailableError("Attachment storage is temporarily unavailable") from exc
+        except Exception as exc:
+            raise StorageUnavailableError("Attachment storage is temporarily unavailable") from exc
+        return True
 
     async def read_bytes(self, storage_key: str) -> bytes | None:
         # Used by attachment_content to extract text/vision bytes for the prompt.
@@ -270,10 +304,14 @@ class R2StorageGateway:
             if token:
                 kwargs["ContinuationToken"] = token
 
-            def _list_page(params: dict[str, object]) -> dict[str, Any]:
-                return cast(dict[str, Any], self._client.list_objects_v2(**params))
+            def _list_page(params: dict[str, object]) -> object:
+                return self._client.list_objects_v2(**params)
 
             resp = await asyncio.to_thread(_list_page, kwargs)
+            # Only a real listing continues the sweep. A reply that is not one, or
+            # a page token that does not advance, would otherwise loop forever.
+            if not isinstance(resp, dict):
+                break
             contents = resp.get("Contents") or []
             keys = [
                 obj["Key"]
@@ -291,9 +329,10 @@ class R2StorageGateway:
                 deleted += len(keys)
             if not resp.get("IsTruncated"):
                 break
-            token = resp.get("NextContinuationToken")
-            if not token:
+            next_token = resp.get("NextContinuationToken")
+            if not isinstance(next_token, str) or not next_token or next_token == token:
                 break
+            token = next_token
         return deleted
 
     def resolve_local_path(self, storage_key: str) -> Path | None:
@@ -314,6 +353,9 @@ class UnconfiguredStorageGateway:
         raise StorageUnavailableError(self._msg)
 
     async def write_bytes(self, storage_key: str, data: bytes) -> None:
+        raise StorageUnavailableError(self._msg)
+
+    async def copy_bytes(self, source_key: str, target_key: str) -> bool:
         raise StorageUnavailableError(self._msg)
 
     async def read_bytes(self, storage_key: str) -> bytes | None:

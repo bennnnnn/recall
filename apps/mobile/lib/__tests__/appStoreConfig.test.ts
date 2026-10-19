@@ -19,10 +19,6 @@ const USAGE_DESCRIPTION_OPTIONS: Record<string, Record<string, string>> = {
     photosPermission: "NSPhotoLibraryUsageDescription",
     savePhotosPermission: "NSPhotoLibraryAddUsageDescription",
   },
-  "expo-camera": {
-    cameraPermission: "NSCameraUsageDescription",
-    microphonePermission: "NSMicrophoneUsageDescription",
-  },
   "expo-audio": {
     microphonePermission: "NSMicrophoneUsageDescription",
   },

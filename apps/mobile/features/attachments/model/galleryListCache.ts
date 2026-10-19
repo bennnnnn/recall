@@ -14,9 +14,12 @@ type GallerySession = {
   lineages: number;
 };
 type ListResponse = { items: AttachmentListItem[]; has_more: boolean };
+/** One entry per filter and search; typing a search must not keep every query forever. */
+const MAX_GALLERY_QUERIES = 20;
 
 const resource = new SessionResourceCache<string, GalleryEntry, GallerySession>({
   staleMs: CONTEXT_REFRESH_STALE_MS,
+  maxEntries: MAX_GALLERY_QUERIES,
   sessionState: () => ({ removed: new Set(), next: new Map(), lineages: 0 }),
 });
 

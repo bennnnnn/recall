@@ -13,9 +13,17 @@ from app.repositories import users
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "verified,visible,removed", [(False, True, True), (True, True, False), (True, False, True)]
+    "verified,visible,linked,removed",
+    [
+        (False, True, False, True),  # an upload that never finished
+        (True, True, True, False),  # a Library item whose chat was deleted
+        (True, True, False, True),  # confirmed, but no message ever linked it
+        (True, False, True, True),  # a hidden send-clone whose chat is gone
+    ],
 )
-async def test_reaper_rechecks_current_library_state(db_session, verified, visible, removed):
+async def test_reaper_rechecks_current_library_state(
+    db_session, verified, visible, linked, removed
+):
     user = await users.create(
         db_session,
         email=f"{uuid4()}@example.com",
@@ -29,7 +37,9 @@ async def test_reaper_rechecks_current_library_state(db_session, verified, visib
         storage_key=f"{user.id}/{uuid4()}",
         content_type="text/plain",
         size_bytes=4,
+        source="upload",
         verified_at=datetime.now(UTC) if verified else None,
+        linked_at=datetime.now(UTC) if linked else None,
         library_visible=visible,
     )
     db_session.add(row)

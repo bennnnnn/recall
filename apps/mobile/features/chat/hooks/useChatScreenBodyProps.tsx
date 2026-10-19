@@ -94,10 +94,10 @@ type UseChatScreenBodyPropsParams = {
   attachments: {
     attachSheetOpen: boolean;
     closeAttachSheet: () => void;
-    attachBusy: boolean;
     attachPicking: boolean;
     pendingAttachment: PendingAttachment | null;
-    setPendingAttachment: (value: PendingAttachment | null) => void;
+    /** The user dropped the composer's attachment: its copy and unlinked upload go too. */
+    removePendingAttachment: () => void;
     handlePickAttachment: () => void;
     handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
     mathScannerOpen: boolean;
@@ -183,10 +183,9 @@ export function useChatScreenBodyProps({
   attachments: {
     attachSheetOpen,
     closeAttachSheet,
-    attachBusy,
     attachPicking,
     pendingAttachment,
-    setPendingAttachment,
+    removePendingAttachment,
     handlePickAttachment,
     handleAttachmentSheetSelect,
     mathScannerOpen,
@@ -263,7 +262,6 @@ export function useChatScreenBodyProps({
     dismissChatError();
     router.push("/settings/models");
   }, [dismissChatError, router]);
-  const onRemoveAttachment = useCallback(() => setPendingAttachment(null), [setPendingAttachment]);
   const onAttachmentSource = useCallback(
     (source: AttachmentSource) => {
       void handleAttachmentSheetSelect(source);
@@ -391,12 +389,11 @@ export function useChatScreenBodyProps({
     (): ChatScreenComposerProps => ({
       animatedStyle: composerAnimatedStyle,
       streaming,
-      attachBusy,
       attachPicking,
       sendBusy,
       sendStatus,
       pendingAttachment,
-      onRemoveAttachment,
+      onRemoveAttachment: removePendingAttachment,
       onPickAttachment: handlePickAttachment,
       onOpenMathScanner,
       onMathChromeHeightChange,
@@ -416,12 +413,11 @@ export function useChatScreenBodyProps({
     [
       composerAnimatedStyle,
       streaming,
-      attachBusy,
       attachPicking,
       sendBusy,
       sendStatus,
       pendingAttachment,
-      onRemoveAttachment,
+      removePendingAttachment,
       handlePickAttachment,
       onOpenMathScanner,
       onMathChromeHeightChange,

@@ -1,7 +1,7 @@
 import os
 from datetime import date
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import fakeredis.aioredis
 import pytest
@@ -14,6 +14,11 @@ os.environ.setdefault("ENVIRONMENT", "development")
 # apps/api/.env into os.environ, where it outranks Settings defaults. Tests then pass
 # in CI and fail locally (a lower DAILY_TOKEN_LIMIT, say). Any other mode skips it.
 os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
+
+# CI has no provider key, so mock mode (``should_mock_llm``: enabled and no key) is what the
+# suite is written against. A developer's apps/api/.env key would turn it off and send those
+# tests to the real provider. A key exported in the shell still wins.
+os.environ.setdefault("OPENROUTER_API_KEY", "")
 
 # A maths decline that would hide a programming error (an AttributeError, NameError or our
 # own TypeError; see app/modules/math/solve/declines.py) raises under pytest. A value already in
@@ -101,6 +106,32 @@ def structured_invalid_redis():
     """The invalid-structured-output counter's Redis: a fresh fake per test."""
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with patch("app.gateways.structured_completion.get_redis_client", return_value=client):
+        yield client
+
+
+@pytest.fixture(autouse=True)
+def _no_real_embedding_provider():
+    """The embedding provider is never called from a test.
+
+    ``embed_many`` sends batches before it falls back to ``embed_text``, so a
+    test that patches only ``embed_text`` would otherwise send its first batch
+    to the real provider. A failed batch takes the fallback; tests of the
+    request itself patch ``aembedding`` over this.
+    """
+    refused = AsyncMock(side_effect=RuntimeError("no embedding provider in tests"))
+    with patch("app.gateways.embedding_gateway.aembedding", refused):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def ocr_allowance_redis():
+    """The OCR allowance and kept OCR text: a fresh fake per test, never the real one.
+
+    Every index job reads it, so a test that indexes a file would otherwise reach
+    the real Redis (and a client bound to an earlier test's event loop).
+    """
+    client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.modules.attachments.ocr_allowance.get_redis_client", return_value=client):
         yield client
 
 

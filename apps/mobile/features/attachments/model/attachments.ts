@@ -1,11 +1,14 @@
 import { Linking } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
 import { File } from "expo-file-system";
 
 import { api } from "@/lib/api";
 import { uploadAttachmentBytes } from "@/features/attachments/api";
+import { AttachmentError, presignFailure } from "@/features/attachments/model/attachmentErrors";
+import { DOCUMENT_MIME_TYPES, MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
+import { localFileSize, preparePickedAsset, type PickedAsset } from "@/features/attachments/model/attachmentPrep";
+import { discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
 
@@ -20,18 +23,9 @@ export type PendingAttachment = {
   imageSize?: { width: number; height: number };
   /** Library item already on the server — skip re-upload; the API clones if linked. */
   existingAttachmentId?: string;
+  /** The composer uploaded `existingAttachmentId` and no message links it, so dropping the draft cancels it. */
+  uploadedForDraft?: boolean;
 };
-
-const DOCUMENT_MIME_TYPES = [
-  "application/pdf",
-  "text/plain",
-  "text/markdown",
-  "text/csv",
-  "application/json",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-];
 
 let nativePickerActive = false;
 let nativePickerGeneration = 0;
@@ -136,52 +130,25 @@ function normalizeContentType(mimeType: string | null | undefined, uri: string):
   return "application/octet-stream";
 }
 
-export class HeicUnsupportedError extends Error {
-  constructor() {
-    super("HEIC_UNSUPPORTED");
-    this.name = "HeicUnsupportedError";
+async function assetToPending(asset: PickedAsset): Promise<PendingAttachment> {
+  return preparePickedAsset({
+    ...asset,
+    contentType: normalizeContentType(asset.contentType, asset.fileName || asset.uri),
+  });
+}
+
+/**
+ * A draft attachment nobody will send: remove its temporary copy and, with the
+ * session's token, the upload made for it. A Library pick keeps its row.
+ */
+export function discardDraftAttachment(token: string | null, attachment: PendingAttachment | null): void {
+  if (!attachment) return;
+  discardLocalCopy(attachment.localUri);
+  if (token && attachment.uploadedForDraft && attachment.existingAttachmentId) {
+    void api.cancelAttachment(token, attachment.existingAttachmentId).catch(() => {
+      // Best-effort: the server reaps unlinked uploads.
+    });
   }
-}
-
-function isHeicContentType(contentType: string): boolean {
-  return contentType === "image/heic" || contentType === "image/heif";
-}
-
-async function convertHeicToJpeg(uri: string): Promise<{ uri: string; fileName: string }> {
-  const result = await ImageManipulator.manipulateAsync(
-    uri,
-    [],
-    { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG },
-  );
-  const baseName = uri.split("/").pop()?.split("?")[0] ?? "image";
-  const stem = baseName.replace(/\.(heic|heif)$/i, "");
-  return { uri: result.uri, fileName: `${stem}-${Date.now()}.jpg` };
-}
-
-async function assetToPending(
-  uri: string,
-  contentType: string,
-  fileName: string,
-): Promise<PendingAttachment> {
-  const normalizedType = normalizeContentType(contentType, fileName || uri);
-  if (isHeicContentType(normalizedType)) {
-    // Auto-convert HEIC/HEIF to JPEG — most iPhone photos are HEIC by default,
-    // and rejecting them created a poor UX. expo-image-manipulator is already
-    // a dependency (used by the math scanner).
-    const converted = await convertHeicToJpeg(uri);
-    return {
-      localUri: converted.uri,
-      contentType: "image/jpeg",
-      fileName: converted.fileName,
-      kind: "image",
-    };
-  }
-  return {
-    localUri: uri,
-    contentType: normalizedType,
-    fileName,
-    kind: guessKind(normalizedType),
-  };
 }
 
 function defaultAttachmentPrompt(pending: PendingAttachment): string {
@@ -241,11 +208,9 @@ export async function pickFromPhotoLibrary(
         imageSize: { width: asset.width, height: asset.height },
       };
     }
-    return await assetToPending(
-      asset.uri,
-      asset.mimeType ?? "",
-      fileName,
-    );
+    return await assetToPending({
+      uri: asset.uri, contentType: asset.mimeType ?? "", fileName, width: asset.width, height: asset.height,
+    });
   });
 }
 
@@ -276,7 +241,7 @@ export async function pickFromCamera(): Promise<PendingAttachment | null> {
         if (cameraPermissionNeedsSettings(permission)) {
           void Linking.openSettings();
         }
-        throw new Error("Camera permission is required to take photos.");
+        throw new AttachmentError("camera_permission");
       }
       result = await launchCamera();
     }
@@ -284,11 +249,13 @@ export async function pickFromCamera(): Promise<PendingAttachment | null> {
     if (result.canceled || !result.assets[0]) return null;
 
     const asset = result.assets[0];
-    return await assetToPending(
-      asset.uri,
-      asset.mimeType ?? "",
-      asset.fileName ?? `camera-${Date.now()}.jpg`,
-    );
+    return await assetToPending({
+      uri: asset.uri,
+      contentType: asset.mimeType ?? "",
+      fileName: asset.fileName ?? `camera-${Date.now()}.jpg`,
+      width: asset.width,
+      height: asset.height,
+    });
   });
 }
 
@@ -303,12 +270,11 @@ async function pickDocumentWithTypes(types: string[]): Promise<PendingAttachment
     if (result.canceled || !result.assets[0]) return null;
 
     const asset = result.assets[0];
-    const contentType = asset.mimeType ?? "application/octet-stream";
-    return await assetToPending(
-      asset.uri,
-      contentType,
-      asset.name ?? `file-${Date.now()}`,
-    );
+    return await assetToPending({
+      uri: asset.uri,
+      contentType: asset.mimeType ?? "application/octet-stream",
+      fileName: asset.name ?? `file-${Date.now()}`,
+    });
   });
 }
 
@@ -332,22 +298,21 @@ export async function uploadChatAttachment(
   };
   if (pending.existingAttachmentId) return pending.existingAttachmentId;
 
-  const file = new File(pending.localUri);
-  if (!file.exists) throw new Error("Could not read the selected file.");
-  const sizeBytes = file.size;
-  if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0) {
-    throw new Error("Could not determine file size.");
-  }
+  const sizeBytes = localFileSize(pending.localUri);
+  // Picks are checked when chosen; a restored or Library draft is checked here, before presign.
+  if (sizeBytes > MAX_ATTACHMENT_BYTES) throw new AttachmentError("too_large");
   const presign = await api.presignAttachment(token, {
     content_type: pending.contentType,
     size_bytes: sizeBytes,
     filename: pending.fileName,
+  }).catch((error: unknown) => {
+    throw presignFailure(error);
   });
   try {
     requireCurrent();
-    const bytes = await file.arrayBuffer();
+    const bytes = await new File(pending.localUri).arrayBuffer();
     requireCurrent();
-    if (bytes.byteLength !== sizeBytes) throw new Error("The selected file changed. Please attach it again.");
+    if (bytes.byteLength !== sizeBytes) throw new AttachmentError("changed");
     await uploadAttachmentBytes(token, presign, pending.contentType, bytes);
     requireCurrent();
 

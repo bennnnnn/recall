@@ -2,10 +2,11 @@ import React from "react";
 import { Text } from "react-native";
 import { act, render, waitFor } from "@testing-library/react-native";
 
+import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
 import {
   INDEX_POLL_MAX_MS,
-  useAttachmentIndexed,
-} from "@/features/attachments/hooks/useAttachmentIndexed";
+  resetAttachmentIndexStatus,
+} from "@/features/attachments/model/attachmentIndexStatus";
 
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "token",
@@ -18,6 +19,30 @@ jest.mock("@/lib/api", () => ({
     getAttachmentUrl: (...args: unknown[]) => mockGetAttachmentUrl(...args),
   },
 }));
+
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
+
+type NetListener = (state: { isConnected: boolean | null; isInternetReachable: boolean | null }) => void;
+const mockNetListeners = new Set<NetListener>();
+jest.mock("@react-native-community/netinfo", () => ({
+  __esModule: true,
+  default: {
+    addEventListener: (listener: NetListener) => {
+      mockNetListeners.add(listener);
+      return () => mockNetListeners.delete(listener);
+    },
+  },
+}));
+
+function setConnected(isConnected: boolean) {
+  mockNetListeners.forEach((listener) => listener({ isConnected, isInternetReachable: isConnected }));
+}
+
+beforeEach(() => {
+  mockGetAttachmentUrl.mockReset();
+  resetAttachmentIndexStatus();
+  mockNetListeners.clear();
+});
 
 let indexed = false;
 let failed = false;
@@ -141,4 +166,81 @@ it("does not report the next attachment ready while its status request is pendin
   await view.rerender(<Probe attachmentId="pending" />);
   expect(indexed).toBe(false);
   expect(failed).toBe(false);
+});
+
+it("shares one poller between rows showing the same attachment and remembers a settled answer", async () => {
+  mockGetAttachmentUrl.mockResolvedValue({ indexed: true });
+  const view = await render(
+    <>
+      <Probe attachmentId="shared" />
+      <Probe attachmentId="shared" />
+    </>,
+  );
+  await waitFor(() => expect(indexed).toBe(true));
+  expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1);
+  // A FlashList remount reads the remembered answer instead of asking again.
+  await view.unmount();
+  await render(<Probe attachmentId="shared" />);
+  expect(indexed).toBe(true);
+  expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1);
+});
+
+it("backs off between polls", async () => {
+  jest.useFakeTimers();
+  mockGetAttachmentUrl.mockResolvedValue({ indexed: false, created_at: new Date().toISOString() });
+  try {
+    await act(async () => {
+      render(<Probe attachmentId="slow" />);
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(60_000);
+    });
+    // A fixed 2 s poll would ask 31 times in a minute.
+    expect(mockGetAttachmentUrl.mock.calls.length).toBeLessThan(12);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it("pauses while offline and resumes on reconnect", async () => {
+  jest.useFakeTimers();
+  mockGetAttachmentUrl.mockResolvedValue({ indexed: false, created_at: new Date().toISOString() });
+  try {
+    await act(async () => {
+      render(<Probe attachmentId="offline" />);
+    });
+    expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      setConnected(false);
+      jest.advanceTimersByTime(60_000);
+    });
+    const whileOffline = mockGetAttachmentUrl.mock.calls.length;
+    await act(async () => {
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(whileOffline);
+    mockGetAttachmentUrl.mockResolvedValue({ indexed: true });
+    await act(async () => {
+      setConnected(true);
+    });
+    expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(whileOffline + 1);
+    expect(indexed).toBe(true);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it("stops polling when no row shows the attachment", async () => {
+  jest.useFakeTimers();
+  mockGetAttachmentUrl.mockResolvedValue({ indexed: false, created_at: new Date().toISOString() });
+  try {
+    const view = await render(<Probe attachmentId="gone" />);
+    await view.unmount();
+    await act(async () => {
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
 });

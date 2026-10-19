@@ -23,6 +23,8 @@ export type ResourceFetchOptions = {
 
 type CacheOptions<T, S> = {
   staleMs: number;
+  /** Keep at most this many keys, dropping the least recently used. */
+  maxEntries?: number;
   /** The value a local edit starts from before the first read; without it, such edits wait for one. */
   empty?: () => T;
   /** Extra state that lives and dies with one account's cache (created chat, deleted ids). */
@@ -251,7 +253,7 @@ export class SessionResourceCache<Key, T, S = undefined> {
   private newOwner(session: number): Owner<Key, T, S> {
     return {
       session,
-      entries: new StaleResourceCache<Key, T>(this.options.staleMs),
+      entries: new StaleResourceCache<Key, T>(this.options.staleMs, this.options.maxEntries),
       reads: new Map(),
       reported: new Set(),
       state: this.options.sessionState(),

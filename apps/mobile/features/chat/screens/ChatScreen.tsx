@@ -304,8 +304,7 @@ function ChatScreen() {
   const {
     setInput,
     pendingAttachment,
-    setPendingAttachment,
-    attachBusy,
+    removePendingAttachment,
     attachPicking,
     sendPhase,
     attachSheetOpen,
@@ -538,10 +537,9 @@ function ChatScreen() {
     attachments: {
       attachSheetOpen,
       closeAttachSheet,
-      attachBusy,
       attachPicking,
       pendingAttachment,
-      setPendingAttachment,
+      removePendingAttachment,
       handlePickAttachment,
       handleAttachmentSheetSelect,
       mathScannerOpen,

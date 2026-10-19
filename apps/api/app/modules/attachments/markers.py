@@ -97,6 +97,14 @@ def prior_image_attachment_ids(
     return ordered
 
 
+def previous_user_turn_has_image(messages: list[dict[str, Any]]) -> bool:
+    """True when the user message before the last one carried an ``[Image: …]`` marker."""
+    user_turns = [message for message in messages if message.get("role") == "user"]
+    if len(user_turns) < 2:
+        return False
+    return bool(image_attachment_ids_from_text(_content_as_text(user_turns[-2].get("content"))))
+
+
 def append_image_unavailable_note(prompt_messages: list[dict[str, Any]]) -> None:
     """Tell the model it cannot see a prior image — do not guess from a caption."""
     for index in range(len(prompt_messages) - 1, -1, -1):

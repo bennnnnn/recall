@@ -4,6 +4,7 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { StyleSheet, View } from "react-native";
 import {
@@ -19,7 +20,7 @@ import {
 } from "react-native-vision-camera-mlkit";
 import { scheduleOnRN } from "react-native-worklets";
 
-import type { ScanRegion } from "@/lib/math/scannerRegion";
+import { type ScanRegion, viewRegionToImageRegion } from "@/lib/math/scannerRegion";
 import { hasUsefulScannerText, normalizeLiveText } from "@/lib/scanner/liveText";
 
 export type LiveScannerDetection = {
@@ -29,24 +30,32 @@ export type LiveScannerDetection = {
 };
 
 export type LiveScannerCameraHandle = {
-  takePictureAsync: () => Promise<{
-    uri: string;
-    width?: number;
-    height?: number;
-  } | null>;
+  /** A full-resolution capture in the cache; the caller deletes it. */
+  takePictureAsync: () => Promise<{ uri: string } | null>;
 };
 
-type Props = {
+export type LiveScannerCameraProps = {
   active: boolean;
   torchOn: boolean;
   zoom: number;
+  /** The crop frame, as ratios of the view the preview covers. */
   scanRegion: ScanRegion;
+  /** The measured size of the view the preview covers. */
+  viewSize: Size;
   onReady: () => void;
   onError: () => void;
   onDetectionChange: (detection: LiveScannerDetection) => void;
 };
 
+type Size = { width: number; height: number };
+
 const STABLE_FRAMES = 3;
+const FRAME_RESOLUTION = CommonResolutions.VGA_16_9;
+
+/** The app is portrait-only, so an upright frame is the taller way round. */
+function uprightSize(width: number, height: number): Size {
+  return { width: Math.min(width, height), height: Math.max(width, height) };
+}
 const MAX_SCANNER_ZOOM = 6;
 
 /**
@@ -56,13 +65,14 @@ const MAX_SCANNER_ZOOM = 6;
  * high-quality Mathpix/vision read after capture, so live frames never hit a
  * paid cloud OCR endpoint.
  */
-export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, Props>(
+export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, LiveScannerCameraProps>(
   function LiveMathScannerCameraNative(
     {
       active,
       torchOn,
       zoom,
       scanRegion,
+      viewSize,
       onReady,
       onError,
       onDetectionChange,
@@ -76,15 +86,23 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, P
       quality: 0.92,
       qualityPrioritization: "balanced",
     });
+    const [frameSize, setFrameSize] = useState<Size>(() =>
+      uprightSize(FRAME_RESOLUTION.width, FRAME_RESOLUTION.height),
+    );
+    // The preview covers the view, so the frame's hidden overflow is mapped
+    // out exactly as the capture crop maps it.
     const roi = useMemo<RegionOfInterest>(
       () => ({
-        x: scanRegion.x,
-        y: scanRegion.y,
-        width: scanRegion.width,
-        height: scanRegion.height,
+        ...viewRegionToImageRegion(
+          scanRegion,
+          frameSize.width,
+          frameSize.height,
+          viewSize.width,
+          viewSize.height,
+        ),
         unit: "normalized",
       }),
-      [scanRegion.height, scanRegion.width, scanRegion.x, scanRegion.y],
+      [frameSize, scanRegion, viewSize.height, viewSize.width],
     );
     const { textRecognition } = useTextRecognition({
       language: "LATIN",
@@ -96,7 +114,11 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, P
     const lastDetectionKeyRef = useRef("");
 
     const publishFrameText = useCallback(
-      (rawText: string) => {
+      (rawText: string, frameWidth: number, frameHeight: number) => {
+        const upright = uprightSize(frameWidth, frameHeight);
+        setFrameSize((current) =>
+          current.width === upright.width && current.height === upright.height ? current : upright,
+        );
         const normalized = normalizeLiveText(rawText);
         const hasText = hasUsefulScannerText(rawText);
 
@@ -120,7 +142,7 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, P
     );
 
     const frameOutput = useFrameOutput({
-      targetResolution: CommonResolutions.VGA_16_9,
+      targetResolution: FRAME_RESOLUTION,
       pixelFormat: "yuv",
       dropFramesWhileBusy: true,
       onFrameDropped: () => undefined,
@@ -128,7 +150,7 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, P
         "worklet";
         try {
           const result = textRecognition(frame, { outputOrientation: "portrait" });
-          scheduleOnRN(publishFrameText, result.text);
+          scheduleOnRN(publishFrameText, result.text, frame.width, frame.height);
         } finally {
           frame.dispose();
         }

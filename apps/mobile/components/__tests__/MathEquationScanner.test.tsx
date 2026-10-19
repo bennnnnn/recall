@@ -1,23 +1,27 @@
 import React from "react";
-import { Dimensions, Image } from "react-native";
-import * as ImageManipulator from "expo-image-manipulator";
+import { Dimensions } from "react-native";
+import { deleteAsync } from "expo-file-system/legacy";
 
 import { pickImageDocument } from "@/features/attachments/model/attachments";
 import { act, fireEvent, render, within } from "@testing-library/react-native";
 
 import { MathEquationScanner } from "@/components/MathEquationScanner";
+import { cropScanImage, measureScanImage } from "@/lib/scanner/scanImage";
 import { selection } from "@/lib/haptics";
 import { playScannerSwitchCue } from "@/lib/scanner/switchCue";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-const mockTakePictureAsync = jest.fn(async () => ({
+const mockTakePictureAsync = jest.fn(async (): Promise<{ uri: string } | null> => ({
   uri: "file:///shot.jpg",
-  width: 800,
-  height: 1200,
 }));
+/** Decoded sizes by file, as the manipulator reports them. */
+const MOCK_SIZES: Record<string, { width: number; height: number }> = {
+  "file:///shot.jpg": { width: 800, height: 1200 },
+  "file:///landscape.png": { width: 1200, height: 700 },
+};
 const mockPermission = { granted: true, canAskAgain: true };
 
-jest.mock("expo-camera", () => ({
+jest.mock("expo-image-picker", () => ({
   useCameraPermissions: () => [mockPermission, jest.fn()],
 }));
 
@@ -28,6 +32,7 @@ jest.mock("@/components/mathScanner/LiveMathScannerCamera", () => {
     (
       props: {
         onReady?: () => void;
+        onUnavailable?: () => void;
         onDetectionChange?: (detection: {
           hasText: boolean;
           stable: boolean;
@@ -49,6 +54,7 @@ jest.mock("@/components/mathScanner/LiveMathScannerCamera", () => {
       return ReactNative.createElement(View, {
         testID: "mock-live-scanner-camera",
         onDetectionChange: props.onDetectionChange,
+        onUnavailable: props.onUnavailable,
       });
     },
   );
@@ -57,16 +63,27 @@ jest.mock("@/components/mathScanner/LiveMathScannerCamera", () => {
 });
 
 jest.mock("expo-image-manipulator", () => ({
+  ImageManipulator: {},
   SaveFormat: { JPEG: "jpeg" },
-  manipulateAsync: jest.fn(async () => ({ uri: "file:///cropped.jpg" })),
+}));
+jest.mock("expo-file-system/legacy", () => ({ deleteAsync: jest.fn(async () => undefined) }));
+jest.mock("@/lib/scanner/scanImage", () => ({
+  ...jest.requireActual("@/lib/scanner/scanImage"),
+  cropScanImage: jest.fn(),
+  measureScanImage: jest.fn(),
 }));
 
-jest.mock("expo-file-system", () => ({
-  File: class {
-    exists = true;
-    delete = jest.fn();
-  },
-}));
+function mockScanImages() {
+  jest.mocked(measureScanImage).mockImplementation(async (uri) => MOCK_SIZES[uri]);
+  jest.mocked(cropScanImage).mockImplementation(async (uri, cropFor) => {
+    const crop = cropFor(MOCK_SIZES[uri]);
+    return { uri: "file:///cropped.jpg", width: crop.width, height: crop.height };
+  });
+}
+
+function deletedFiles(): string[] {
+  return jest.mocked(deleteAsync).mock.calls.map(([uri]) => uri);
+}
 
 jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: "LinearGradient" };
@@ -74,7 +91,6 @@ jest.mock("expo-linear-gradient", () => {
 
 jest.mock("@/features/attachments/model/attachments", () => ({
   pickImageDocument: jest.fn(async () => null),
-  HeicUnsupportedError: class extends Error {},
   NativePickerBusyError: class extends Error {},
   NativePickerTimeoutError: class extends Error {},
   PhotoLibraryPermissionError: class extends Error {
@@ -111,7 +127,9 @@ jest.mock("@/lib/reduceMotion", () => ({
 describe("MathEquationScanner", () => {
   beforeEach(() => {
     mockTakePictureAsync.mockClear();
-    jest.mocked(ImageManipulator.manipulateAsync).mockClear();
+    jest.mocked(cropScanImage).mockClear();
+    jest.mocked(deleteAsync).mockClear();
+    mockScanImages();
     mockPermission.granted = true;
     mockPermission.canAskAgain = true;
   });
@@ -183,6 +201,18 @@ describe("MathEquationScanner", () => {
     });
     expect(view.getByTestId("math-scanner-frame-ready")).toBeTruthy();
     expect(selection).toHaveBeenCalled();
+  });
+
+  it("says the live camera needs a newer build when the native camera is missing", async () => {
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    await act(async () => {
+      view.getByTestId("mock-live-scanner-camera").props.onUnavailable?.();
+    });
+    expect(view.getByText("chat.math_scan_camera_needs_build")).toBeTruthy();
+    expect(view.queryByText("chat.math_scan_camera_unavailable")).toBeNull();
+    expect(view.getByTestId("math-scanner-photos")).toBeTruthy();
   });
 
   it("switches to physics with one directional sound and haptic cue", async () => {
@@ -267,15 +297,13 @@ describe("MathEquationScanner", () => {
       fireEvent.press(getByLabelText("chat.math_scan_capture_a11y"));
     });
     expect(mockTakePictureAsync).toHaveBeenCalledTimes(1);
-    expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
-      "file:///shot.jpg",
-      [{ crop: expect.objectContaining({ width: expect.any(Number), height: expect.any(Number) }) }],
-      { compress: 0.9, format: "jpeg" },
-    );
+    expect(cropScanImage).toHaveBeenCalledWith("file:///shot.jpg", expect.any(Function));
     expect(onCaptured).toHaveBeenCalledWith(
       expect.objectContaining({ localUri: "file:///cropped.jpg" }),
       "math",
     );
+    // The full-resolution capture is deleted once cropped; the crop is the composer's.
+    expect(deletedFiles()).toEqual(["file:///shot.jpg"]);
     expect(getByTestId("math-scanner-camera")).toBeTruthy();
     expect(queryByTestId("math-scanner-preview")).toBeNull();
   });
@@ -316,14 +344,12 @@ describe("imported math scanner photos", () => {
     mockPermission.granted = true;
     mockPermission.canAskAgain = true;
     jest.spyOn(Dimensions, "get").mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1 });
-    jest.spyOn(Image, "getSize").mockImplementation(async (_uri, success) => {
-      success?.(1200, 700);
-      return { width: 1200, height: 700 };
-    });
     jest.mocked(pickImageDocument).mockResolvedValue({
       localUri: "file:///landscape.png", contentType: "image/png", fileName: "landscape.png", kind: "image",
     });
-    jest.mocked(ImageManipulator.manipulateAsync).mockClear();
+    jest.mocked(cropScanImage).mockClear();
+    jest.mocked(deleteAsync).mockClear();
+    mockScanImages();
   });
   afterEach(() => jest.restoreAllMocks());
 
@@ -343,11 +369,9 @@ describe("imported math scanner photos", () => {
     await act(async () => {
       fireEvent.press(getByLabelText("chat.math_scan_solve"));
     });
-    expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
-      "file:///landscape.png",
-      [{ crop: { originX: 0, originY: 0, width: 1200, height: 700 } }],
-      { compress: 0.9, format: "jpeg" },
-    );
+    expect(cropScanImage).toHaveBeenCalledWith("file:///landscape.png", expect.any(Function));
+    const [, cropFor] = jest.mocked(cropScanImage).mock.calls[0];
+    expect(cropFor({ width: 1200, height: 700 })).toEqual({ originX: 0, originY: 0, width: 1200, height: 700 });
     expect(onCaptured).toHaveBeenCalledWith(
       expect.objectContaining({ localUri: "file:///cropped.jpg" }),
       "math",
@@ -643,5 +667,150 @@ describe("imported math scanner photos", () => {
     });
     expect(view.getByTestId("math-scanner-preview").props.resizeMode).toBe("contain");
     expect(view.getByLabelText("chat.math_scan_frame_a11y")).toBeTruthy();
+  });
+});
+
+describe("scanner sessions and scan files", () => {
+  beforeEach(() => {
+    jest.spyOn(Dimensions, "get").mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1 });
+    mockPermission.granted = true;
+    mockTakePictureAsync.mockClear();
+    jest.mocked(cropScanImage).mockClear();
+    jest.mocked(deleteAsync).mockClear();
+    mockScanImages();
+    jest.mocked(pickImageDocument).mockResolvedValue({
+      localUri: "file:///landscape.png", contentType: "image/png", fileName: "landscape.png", kind: "image",
+    });
+  });
+
+  function deferredPhoto() {
+    let resolve: (photo: { uri: string }) => void = () => undefined;
+    mockTakePictureAsync.mockImplementationOnce(
+      () => new Promise<{ uri: string } | null>((done) => {
+        resolve = done;
+      }),
+    );
+    return () => resolve({ uri: "file:///shot.jpg" });
+  }
+
+  const reading = { reading: "2x + 3 = 7", uncertain: false, source: "mathpix" as const };
+
+  function scanner() {
+    const all = {
+      visible: true,
+      onClose: jest.fn(),
+      onCaptured: jest.fn(),
+      onReadScan: jest.fn(async () => reading),
+      onSolveReading: jest.fn(),
+    };
+    const element = (visible = true) => <MathEquationScanner {...all} visible={visible} />;
+    return { all, element };
+  }
+
+  it.each(["biology", "math"])("drops a %s capture that lands after the scanner closed", async (subject) => {
+    const finish = deferredPhoto();
+    const { all, element } = scanner();
+    const view = await render(element());
+    await act(async () => {
+      fireEvent.press(view.getByTestId(`scanner-subject-${subject}`));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
+    });
+    await view.rerender(element(false));
+    await act(async () => {
+      finish();
+    });
+    expect(cropScanImage).not.toHaveBeenCalled();
+    expect(all.onCaptured).not.toHaveBeenCalled();
+    expect(all.onReadScan).not.toHaveBeenCalled();
+    expect(deletedFiles()).toContain("file:///shot.jpg");
+  });
+
+  it("drops a crop that finishes after the scanner closed, and deletes it", async () => {
+    let finishCrop: () => void = () => undefined;
+    jest.mocked(cropScanImage).mockImplementationOnce(
+      () => new Promise((done) => {
+        finishCrop = () => done({ uri: "file:///cropped.jpg", width: 10, height: 10 });
+      }),
+    );
+    const { all, element } = scanner();
+    const view = await render(element());
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
+    });
+    await view.rerender(element(false));
+    await act(async () => {
+      finishCrop();
+    });
+    expect(all.onReadScan).not.toHaveBeenCalled();
+    expect(deletedFiles()).toEqual(expect.arrayContaining(["file:///shot.jpg", "file:///cropped.jpg"]));
+  });
+
+  it("solves with the subject the crop was read with", async () => {
+    const finish = deferredPhoto();
+    const { all, element } = scanner();
+    const view = await render(element());
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByTestId("scanner-subject-physics"));
+    });
+    await act(async () => {
+      finish();
+    });
+    expect(all.onReadScan).toHaveBeenCalledWith(expect.anything(), "math", expect.anything());
+    await act(async () => {
+      fireEvent.press(within(view.getByTestId("math-scan-review")).getByText("chat.math_scan_solve"));
+    });
+    expect(all.onSolveReading).toHaveBeenCalledWith("2x + 3 = 7", "math");
+  });
+
+  async function reviewImported(element: () => React.ReactElement) {
+    const view = await render(element());
+    await act(async () => {
+      fireEvent.press(view.getByTestId("math-scanner-photos"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    return within(view.getByTestId("math-scan-review"));
+  }
+
+  it.each([
+    ["chat.math_scan_retake", ["file:///cropped.jpg", "file:///landscape.png"]],
+    ["chat.math_scan_solve", ["file:///cropped.jpg", "file:///landscape.png"]],
+    ["chat.math_scan_send_photo", ["file:///landscape.png"]],
+  ])("after %s deletes %j; only a sent crop is kept", async (action, deleted) => {
+    const { element } = scanner();
+    const review = await reviewImported(() => element());
+    await act(async () => {
+      fireEvent.press(review.getByText(action));
+    });
+    expect(deletedFiles().sort()).toEqual(deleted);
+  });
+
+  it("deletes every scan file when the scanner closes", async () => {
+    const { element } = scanner();
+    const view = await render(element());
+    await act(async () => {
+      fireEvent.press(view.getByTestId("math-scanner-photos"));
+    });
+    await view.rerender(element(false));
+    expect(deletedFiles()).toEqual(["file:///landscape.png"]);
+  });
+
+  it("crops once when Solve is tapped twice", async () => {
+    const { element } = scanner();
+    const view = await render(element());
+    await act(async () => {
+      fireEvent.press(view.getByTestId("math-scanner-photos"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    expect(cropScanImage).toHaveBeenCalledTimes(1);
   });
 });

@@ -6,6 +6,7 @@ backup photo model; a photo with no problem on it is an answer, not a retry.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -147,8 +148,14 @@ async def vision_extract_equation(
     content_type: str,
     data: bytes,
     ocr_hint: str | None = None,
+    timeout_seconds: float | None = None,
 ) -> MathImageExtract | None:
-    """Gemini/vision-chat structured extract. Never raises into the chat path."""
+    """Gemini/vision-chat structured extract. Never raises into the chat path.
+
+    ``timeout_seconds`` (default ``math_image_extract_timeout_seconds``) is
+    the budget for the whole extract: the backup model's retry gets what the
+    first attempt left, never a fresh budget.
+    """
     if not data:
         return None
     if mock_llm.should_mock_llm(settings):
@@ -175,14 +182,24 @@ async def vision_extract_equation(
                 ],
             }
         ]
+        budget = (
+            settings.math_image_extract_timeout_seconds
+            if timeout_seconds is None
+            else timeout_seconds
+        )
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + budget
         for alias in (vision_alias(), vision_backup_alias()):
+            left = deadline - loop.time()
+            if left <= 0:
+                return None
             response = await litellm_gateway.vision_completion(
                 settings=settings,
                 model_alias=alias,
                 messages=messages,
                 max_tokens=384,
                 response_format={"type": "json_object"},
-                timeout_seconds=settings.math_image_extract_timeout_seconds,
+                timeout_seconds=left,
             )
             if response is None:
                 return None

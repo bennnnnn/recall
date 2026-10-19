@@ -13,6 +13,7 @@ import {
   scaleScanRegion,
   scanChromeInset,
   translateScanRegion,
+  viewRegionToImageRegion,
   zoomFromPinch,
 } from "@/lib/math/scannerRegion";
 
@@ -197,5 +198,37 @@ describe("regionToImageCrop", () => {
     const crop = regionToImageCrop({ x: 1, y: 1, width: 0.001, height: 0.001 }, 100, 100);
     expect(crop.width).toBeGreaterThanOrEqual(1);
     expect(crop.height).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("viewRegionToImageRegion", () => {
+  it.each([
+    // [region, image w/h, view w/h, expected]
+    [{ x: 0.25, y: 0.1, width: 0.5, height: 0.3 }, 1000, 2000, 1000, 2000, { x: 0.25, y: 0.1, width: 0.5, height: 0.3 }],
+    // 9:16 frame under a taller 390x844 view: cover crops the sides.
+    [{ x: 0, y: 0.4, width: 1, height: 0.2 }, 360, 640, 390, 844, { x: 0.0893, y: 0.4, width: 0.8215, height: 0.2 }],
+    // 4:3 photo under a 390x844 view: a full-width band is a middle strip of the photo.
+    [{ x: 0, y: 0, width: 1, height: 1 }, 3000, 4000, 390, 844, { x: 0.1919, y: 0, width: 0.6161, height: 1 }],
+  ])("maps %j through a cover-fitted image", (region, iw, ih, vw, vh, expected) => {
+    const mapped = viewRegionToImageRegion(region, iw, ih, vw, vh);
+    expect(mapped.x).toBeCloseTo(expected.x, 3);
+    expect(mapped.y).toBeCloseTo(expected.y, 3);
+    expect(mapped.width).toBeCloseTo(expected.width, 3);
+    expect(mapped.height).toBeCloseTo(expected.height, 3);
+  });
+
+  it("is the region the capture crop cuts, in pixels", () => {
+    const region = { x: 0.09, y: 0.35, width: 0.82, height: 0.3 };
+    const mapped = viewRegionToImageRegion(region, 3024, 4032, 390, 844);
+    const crop = regionToImageCrop(region, 3024, 4032, 390, 844);
+    expect(crop.originX).toBe(Math.round(mapped.x * 3024));
+    expect(crop.originY).toBe(Math.round(mapped.y * 4032));
+    expect(crop.width).toBe(Math.round(mapped.width * 3024));
+  });
+
+  it("stays inside the image", () => {
+    const mapped = viewRegionToImageRegion({ x: 0.9, y: 0.9, width: 0.3, height: 0.3 }, 100, 100);
+    expect(mapped.x + mapped.width).toBeLessThanOrEqual(1);
+    expect(mapped.y + mapped.height).toBeLessThanOrEqual(1);
   });
 });

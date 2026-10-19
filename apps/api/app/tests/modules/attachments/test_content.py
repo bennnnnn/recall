@@ -322,97 +322,6 @@ async def test_format_attachment_lines_skips_ocr_on_prepare():
     assert extract.await_args.kwargs.get("allow_ocr") is False
 
 
-@pytest.mark.asyncio
-async def test_inject_vision_content_uses_bytes_by_key_cache():
-    from unittest.mock import AsyncMock, MagicMock
-
-    from app.modules.attachments.content import inject_vision_content
-
-    gateway = MagicMock()
-    gateway.read_bytes = AsyncMock(return_value=b"should-not-read")
-    prompt_messages = [{"role": "user", "content": "look"}]
-    images = [("image/png", "key-a")]
-
-    await inject_vision_content(
-        prompt_messages,
-        gateway,
-        images,
-        caption="look",
-        bytes_by_key={"key-a": b"\x89PNG\r\n\x1a\n" + b"\x00" * 8},
-    )
-    gateway.read_bytes.assert_not_awaited()
-    content = prompt_messages[0]["content"]
-    assert any(part.get("type") == "image_url" for part in content)
-    text = next(part["text"] for part in content if part.get("type") == "text")
-    assert "These images are real" in text
-    assert "placeholders" in text
-
-
-@pytest.mark.asyncio
-async def test_inject_vision_content_preserves_image_order():
-    """Reads run concurrently via asyncio.gather — result order must still
-    match the input `images` order, not read-completion order."""
-    from unittest.mock import AsyncMock, MagicMock
-
-    from app.modules.attachments.content import inject_vision_content
-
-    gateway = MagicMock()
-    reads = {"key-a": b"AAAA", "key-b": b"BBBB", "key-c": b"CCCC"}
-    gateway.read_bytes = AsyncMock(side_effect=lambda key: reads[key])
-
-    prompt_messages = [{"role": "user", "content": "look at these"}]
-    images = [
-        ("image/png", "key-a"),
-        ("image/jpeg", "key-b"),
-        ("image/png", "key-c"),
-    ]
-
-    await inject_vision_content(prompt_messages, gateway, images, caption="check these out")
-
-    content = prompt_messages[0]["content"]
-    image_parts = [p for p in content if p["type"] == "image_url"]
-    assert len(image_parts) == 3
-    assert image_parts[0]["image_url"]["url"].startswith("data:image/png;base64,QUFBQQ")
-    assert image_parts[1]["image_url"]["url"].startswith("data:image/jpeg;base64,QkJCQg")
-    assert image_parts[2]["image_url"]["url"].startswith("data:image/png;base64,Q0NDQw")
-
-
-@pytest.mark.asyncio
-async def test_inject_vision_content_skips_unreadable_images():
-    from unittest.mock import AsyncMock, MagicMock
-
-    from app.modules.attachments.content import inject_vision_content
-
-    gateway = MagicMock()
-    gateway.read_bytes = AsyncMock(side_effect=[b"AAAA", None])
-
-    prompt_messages = [{"role": "user", "content": "hi"}]
-    images = [("image/png", "key-a"), ("image/png", "key-missing")]
-
-    await inject_vision_content(prompt_messages, gateway, images)
-
-    content = prompt_messages[0]["content"]
-    image_parts = [p for p in content if p["type"] == "image_url"]
-    assert len(image_parts) == 1
-
-
-@pytest.mark.asyncio
-async def test_inject_vision_content_noop_when_no_images_readable():
-    from unittest.mock import AsyncMock, MagicMock
-
-    from app.modules.attachments.content import inject_vision_content
-
-    gateway = MagicMock()
-    gateway.read_bytes = AsyncMock(return_value=None)
-
-    prompt_messages = [{"role": "user", "content": "hi"}]
-    images = [("image/png", "key-missing")]
-
-    await inject_vision_content(prompt_messages, gateway, images)
-
-    assert prompt_messages[0]["content"] == "hi"
-
-
 def test_unavailable_image_note_forbids_a_placeholder_story():
     from app.modules.attachments.markers import append_image_unavailable_note
 
@@ -493,7 +402,7 @@ async def test_verify_uploaded_bytes_skips_size_check_when_declared_size_none():
 def test_resize_image_bytes_shrinks_large_photo():
     from PIL import Image
 
-    from app.modules.attachments.content import resize_image_bytes
+    from app.modules.attachments.thumbnails import resize_image_bytes
 
     buf = io.BytesIO()
     Image.new("RGB", (2000, 1500), color=(12, 80, 160)).save(buf, format="JPEG")

@@ -96,12 +96,10 @@ class StreamContext:
     # (preparing/remembering/thinking/composing) is never shown; activity
     # chips remain for search, files, math, image gen.
     rich_context_turn: bool = True
-    # Attachment ids to index after the turn finalizes (post-turn jobs path).
-    indexable_attachment_ids: list[str] = field(default_factory=list)
     # Background insert of the user row. The LLM stream must not wait on it;
     # finalize and stream teardown await it so the assistant insert cannot
     # commit first and so a failed prompt still keeps what the user sent.
-    user_message_persist: asyncio.Task[list[str]] | None = None
+    user_message_persist: asyncio.Task[None] | None = None
     # None means no verdict was prefetched; False is a completed negative.
     web_search_classified: bool | None = None
     # Set when the tool loop's generate_image persisted the assistant row —
@@ -162,8 +160,7 @@ def stream_context_from_bundle(
     run_title: bool | None = None,
     skip_memory_jobs: bool | None = None,
     regenerate_backup: RegenerateBackup | None = None,
-    indexable_attachment_ids: list[str] | None = None,
-    user_message_persist: asyncio.Task[list[str]] | None = None,
+    user_message_persist: asyncio.Task[None] | None = None,
     thinking: bool | str = False,
 ) -> StreamContext:
     """Map a TurnPromptBundle into StreamContext; overrides preserve call-site semantics."""
@@ -203,7 +200,6 @@ def stream_context_from_bundle(
         rich_context_turn=bundle.rich_context,
         web_search_classified=getattr(bundle, "web_search_classified", None),
         settings_card=getattr(bundle, "settings_card", None),
-        indexable_attachment_ids=list(indexable_attachment_ids or []),
         user_message_persist=user_message_persist,
         thinking=thinking,
     )
@@ -220,11 +216,10 @@ async def await_user_message_persist(ctx: StreamContext) -> None:
     if task is None:
         return
     try:
-        indexable = await asyncio.shield(task)
+        await asyncio.shield(task)
     finally:
         if task.done():
             ctx.user_message_persist = None
-    ctx.indexable_attachment_ids = indexable
 
 
 async def _load_turn_identity(request: TurnRequest) -> TurnIdentity:

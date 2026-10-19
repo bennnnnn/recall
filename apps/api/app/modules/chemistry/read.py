@@ -25,6 +25,7 @@ async def read_chemistry_problem(
     *,
     content_type: str,
     data: bytes,
+    timeout_seconds: float | None = None,
 ) -> str:
     """The written problem, or empty when the page cannot be read."""
     return await read_problem_text(
@@ -33,4 +34,5 @@ async def read_chemistry_problem(
         content_type=content_type,
         data=data,
         mock_reading=_MOCK_READING,
+        timeout_seconds=timeout_seconds,
     )

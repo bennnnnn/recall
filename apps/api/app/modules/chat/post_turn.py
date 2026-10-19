@@ -422,18 +422,6 @@ async def enqueue_post_turn_jobs(
                 f"compress:{ctx.chat_id}",
             )
         )
-    for attachment_id in ctx.indexable_attachment_ids if not spend_capped else []:
-        job_specs.append(
-            (
-                "attachment_index",
-                {
-                    "attachment_id": attachment_id,
-                    "user_id": str(ctx.user_id),
-                    "chat_id": str(ctx.chat_id),
-                },
-                f"attachment_index:{attachment_id}:{ctx.chat_id}",
-            ),
-        )
     # Memory off means no personal recall: past turns are not indexed for it either.
     if (
         not spend_capped

@@ -260,6 +260,40 @@ export async function requestRaw(
   }
 }
 
+/**
+ * Native transfers (a download straight to disk) cannot go through fetch, so
+ * they borrow its auth recovery: a known-expired token refreshes first, and one
+ * 401 refreshes and retries once. `send` gets the headers to attach and
+ * resolves to the HTTP status it saw.
+ */
+export async function authorizeNativeTransfer(
+  token: string | null,
+  send: (headers: Record<string, string>) => Promise<number>,
+  allowRefresh = true,
+): Promise<number> {
+  if (token) requireTokenSession(token);
+  const generation = getSessionGeneration();
+  let effectiveToken = token;
+  let refreshAttempted = false;
+  if (effectiveToken && allowRefresh && accessTokenNeedsRefresh(effectiveToken)) {
+    refreshAttempted = true;
+    const refreshed = await refreshAccessToken();
+    requireSession(generation);
+    if (refreshed) effectiveToken = refreshed;
+  }
+  const status = await send(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {});
+  requireSession(generation);
+  if (status === 401 && effectiveToken) {
+    if (allowRefresh && !refreshAttempted) {
+      const refreshed = await refreshAccessToken();
+      requireSession(generation);
+      if (refreshed) return authorizeNativeTransfer(refreshed, send, false);
+    }
+    notifyUnauthorized(generation);
+  }
+  return status;
+}
+
 /** Streaming counterpart to request; returns the raw event-stream response. */
 export async function requestSse(
   path: string,

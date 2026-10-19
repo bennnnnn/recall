@@ -1,9 +1,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
-import type { ScanRegion } from "@/lib/math/scannerRegion";
 import type {
   LiveScannerCameraHandle,
+  LiveScannerCameraProps,
   LiveScannerDetection,
 } from "@/components/mathScanner/LiveMathScannerCameraNative";
 
@@ -12,25 +12,25 @@ export type { LiveScannerCameraHandle, LiveScannerDetection };
 type NativeCamera =
   typeof import("@/components/mathScanner/LiveMathScannerCameraNative").LiveMathScannerCameraNative;
 
-type Props = {
-  active: boolean;
-  torchOn: boolean;
-  zoom: number;
-  scanRegion: ScanRegion;
-  onReady: () => void;
-  onError: () => void;
-  onDetectionChange: (detection: LiveScannerDetection) => void;
+type Props = LiveScannerCameraProps & {
+  /** The native camera is not in this build (Expo Go, or a dev client built before it). */
+  onUnavailable: () => void;
 };
 
 /**
  * Loads the live scanner only after this view mounts. A static import pulls in
  * VisionCamera and Nitro, which crashes chat in Expo Go and in a dev client
- * built before that camera library existed.
+ * built before that camera library existed. There the import fails, and the
+ * scanner says the live camera needs a newer build instead of a camera error.
  */
 export const LiveMathScannerCamera = forwardRef<LiveScannerCameraHandle, Props>(
-  function LiveMathScannerCamera(props, ref) {
+  function LiveMathScannerCamera({ onUnavailable, ...props }, ref) {
     const nativeRef = useRef<LiveScannerCameraHandle>(null);
     const [Native, setNative] = useState<NativeCamera | null>(null);
+    const onUnavailableRef = useRef(onUnavailable);
+    useEffect(() => {
+      onUnavailableRef.current = onUnavailable;
+    }, [onUnavailable]);
 
     useImperativeHandle(
       ref,
@@ -51,13 +51,13 @@ export const LiveMathScannerCamera = forwardRef<LiveScannerCameraHandle, Props>(
         .catch(() => {
           if (!cancelled) {
             setNative(null);
-            props.onError();
+            onUnavailableRef.current();
           }
         });
       return () => {
         cancelled = true;
       };
-    }, [props.onError]);
+    }, []);
 
     if (!Native) return <View style={StyleSheet.absoluteFill} />;
 

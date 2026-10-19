@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -94,7 +95,7 @@ type Props = {
   input?: string;
   onChangeInput?: (text: string) => void;
   streaming: boolean;
-  attachBusy: boolean;
+  /** A picked file is still being prepared: Send and Attach wait for it. */
   attachPicking?: boolean;
   sendBusy?: boolean;
   sendStatus?: string;
@@ -132,7 +133,6 @@ export const ChatComposer = memo(function ChatComposer({
   input: inputProp,
   onChangeInput: onChangeInputProp,
   streaming,
-  attachBusy,
   attachPicking = false,
   sendBusy = false,
   sendStatus,
@@ -300,7 +300,7 @@ export const ChatComposer = memo(function ChatComposer({
   if (!visible) return null;
 
   const hasSendableContent = Boolean(input.trim() || pendingAttachment);
-  const attachmentDisabled = attachBusy || attachPicking || sendBusy || streaming;
+  const attachmentDisabled = attachPicking || sendBusy || streaming;
   const showLiveTalkSideChrome =
     Boolean(liveTalkChrome) && liveTalkShowsSideChrome(input);
   const parkInput = showMathPreview;
@@ -377,6 +377,8 @@ export const ChatComposer = memo(function ChatComposer({
           color={theme.text}
           testID="composer-voice-cancel-icon"
         />
+      ) : attachPicking ? (
+        <ActivityIndicator size="small" color={theme.textTertiary} testID="composer-attachment-busy" />
       ) : (
         <Icon
           name="plus"
@@ -409,7 +411,7 @@ export const ChatComposer = memo(function ChatComposer({
         showSend={showSend}
         sendBusy={sendBusy}
         isOffline={isOffline}
-        attachBusy={attachBusy || attachPicking}
+        attachBusy={attachPicking}
         showMic={showMic}
         voiceRecording={voiceRecording}
         voiceTranscribing={voiceTranscribing}
@@ -483,7 +485,7 @@ export const ChatComposer = memo(function ChatComposer({
             {pendingAttachment ? (
               <ComposerAttachmentPreview
                 attachment={pendingAttachment}
-                uploading={attachBusy}
+                uploading={attachPicking}
                 onRemove={onRemoveAttachment}
               />
             ) : null}

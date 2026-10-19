@@ -90,7 +90,8 @@ async def test_list_orphans_sql_uses_shorter_pending_cutoff():
     compiled = captured["stmt"].compile(dialect=postgresql.dialect())
     from datetime import datetime as dt
 
-    created = [value for value in compiled.params.values() if isinstance(value, dt)]
+    # The clone cutoff serves both hidden clones and never-sent uploads.
+    created = {value for value in compiled.params.values() if isinstance(value, dt)}
     assert len(created) == 2
     newer, older = max(created), min(created)
     assert (newer - older).total_seconds() == pytest.approx(23 * 3600, abs=2)

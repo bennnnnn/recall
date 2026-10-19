@@ -530,9 +530,8 @@ async def test_stream_and_finalize_asks_the_model_beside_the_user_row_commit(str
     llm_started = asyncio.Event()
     finalize = AsyncMock()
 
-    async def persist() -> list[str]:
+    async def persist() -> None:
         await persist_hold.wait()
-        return ["att-1"]
 
     async def fake_stream(**_kwargs: object):
         llm_started.set()
@@ -584,7 +583,6 @@ async def test_stream_and_finalize_asks_the_model_beside_the_user_row_commit(str
             await finalize_db
 
     finalize.assert_awaited()
-    assert ctx.indexable_attachment_ids == ["att-1"]
     assert ctx.user_message_persist is None
 
 
