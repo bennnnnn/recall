@@ -3,6 +3,7 @@
  * or a sent message shows it, a run's label, and the size a script is drawn at.
  */
 import { textLooksLikeMath } from "@/lib/math/composerIntent";
+import type { DraftNode } from "@/lib/math/draftSlots";
 import { SCRIPT_RATIO } from "@/lib/math/layout";
 import { isMostlyProsePaste } from "@/lib/math/pasteNormalize";
 import {
@@ -23,6 +24,9 @@ import {
 export function draftShowsMathPreview(input: string): boolean {
   const s = input.trim();
   if (s.length === 0) return false;
+  // Commands between `$`s (`\partial`, `\nabla`) are math, not words: a row of
+  // calculus keys read as prose, and the preview (and a sent bubble) went blank.
+  if (s.includes("$") && !/[A-Za-z]{2,}/.test(proseOutsideMath(s))) return true;
   if (isMostlyProsePaste(s)) return false;
   if (input.includes("$")) return true;
   return textLooksLikeMath(input);
@@ -68,8 +72,21 @@ export function sentMessageShowsMathPreview(input: string): boolean {
   return true;
 }
 
+// A command's argument (`\mathbb{N}`, `\mathrm{i}`) is read by MathText, braces and all.
+const COMMAND_ARGUMENT = /\\[A-Za-z]+\{[^{}]*\}/g;
+
 /** Drop TeX grouping braces, but keep `\{` and `\}` as the braces the user typed. */
 export function composerTextLabel(raw: string): string {
+  let label = "";
+  let last = 0;
+  for (const found of raw.matchAll(COMMAND_ARGUMENT)) {
+    label += dropGroupingBraces(raw.slice(last, found.index)) + found[0].replace(/\$/g, "");
+    last = found.index + found[0].length;
+  }
+  return label + dropGroupingBraces(raw.slice(last));
+}
+
+function dropGroupingBraces(raw: string): string {
   return raw
     .replace(/\$/g, "")
     .replace(/\\\{/g, NATIVE_LITERAL_LEFT_BRACE_MARKER)
@@ -96,4 +113,32 @@ export function insideInlineMath(input: string, index: number): boolean {
     if (input[i] === "$" && input[i - 1] !== "\\") open = !open;
   }
   return open;
+}
+
+/** A run of draft text and whether it is math (between `$`s) or prose; `$` dropped. */
+export function textRuns(input: string, start: number, end: number): { math: boolean; text: string }[] {
+  const runs: { math: boolean; text: string }[] = [];
+  let math = insideInlineMath(input, start);
+  let from = start;
+  for (let i = start; i <= end; i += 1) {
+    if (i < end && !(input[i] === "$" && input[i - 1] !== "\\")) continue;
+    const text = composerTextLabel(input.slice(from, i));
+    if (text) runs.push({ math: math && text.trim().length > 0, text });
+    math = !math;
+    from = i + 1;
+  }
+  return runs;
+}
+
+type TextNode = Extract<DraftNode, { kind: "text" }>;
+
+/**
+ * A run ending in ∫, ∑, ∏ or lim, split at that operator: the text before it is
+ * drawn as text, so `$\\int $ $\\int_{a}^{b}$` keeps its first ∫. The operator starts at
+ * the run's last backslash (the caller has matched it at the end).
+ */
+export function splitBeforeOperator(input: string, run: TextNode): { lead: TextNode | null; operator: TextNode } {
+  const at = run.start + input.slice(run.start, run.end).lastIndexOf("\\");
+  const lead = input.slice(run.start, at).replace(/[$\s]/g, "") ? { ...run, end: at } : null;
+  return { lead, operator: { ...run, start: at } };
 }

@@ -13,11 +13,11 @@ import {
   type DraftNode,
 } from "@/lib/math/draftSlots";
 import {
-  composerTextLabel,
   DRAFT_TEXT_SIZE,
   draftShowsMathPreview,
-  insideInlineMath,
   scriptSize,
+  splitBeforeOperator,
+  textRuns,
 } from "@/lib/math/draftText";
 import { healDroppedCommandSlash } from "@/lib/math/healMathSource";
 import { innermostSlot, type LatexGroup } from "@/lib/math/keyboardSymbols";
@@ -115,17 +115,20 @@ export const MathDraftPreview = memo(function MathDraftPreview({
   const pieceCaret = liveCaret ? viewCaret : -1;
   return (
     <View
-      style={[s.wrap, s.row, sent && s.sent, tall && { minHeight: MATH_TALL_LINE_HEIGHT }]}
+      style={[s.wrap, s.row, sent ? s.sent : tall && { minHeight: MATH_TALL_LINE_HEIGHT }]}
       testID="math-draft-preview"
     >
-      <Pressable
-        testID="math-slot-before"
-        onPress={() => onMoveCaret?.(before)}
-        style={s.edge}
-        accessibilityRole="button"
-      >
-        {showBeforeCaret ? <MathComposerCaret testID="math-slot-before-caret" /> : null}
-      </Pressable>
+      {/* A sent bubble has no caret: its targets wrapped to an empty second line. */}
+      {sent ? null : (
+        <Pressable
+          testID="math-slot-before"
+          onPress={() => onMoveCaret?.(before)}
+          style={s.edge}
+          accessibilityRole="button"
+        >
+          {showBeforeCaret ? <MathComposerCaret testID="math-slot-before-caret" /> : null}
+        </Pressable>
+      )}
       {pieces.map((piece) => (
         <DraftAtom
           key={`${piece.node.kind}-${piece.node.start}`}
@@ -137,14 +140,16 @@ export const MathDraftPreview = memo(function MathDraftPreview({
           onMoveCaret={onMoveCaret}
         />
       ))}
-      <Pressable
-        testID="math-slot-after"
-        onPress={() => onMoveCaret?.(after)}
-        style={s.edge}
-        accessibilityRole="button"
-      >
-        {showAfterCaret ? <MathComposerCaret testID="math-slot-after-caret" /> : null}
-      </Pressable>
+      {sent ? null : (
+        <Pressable
+          testID="math-slot-after"
+          onPress={() => onMoveCaret?.(after)}
+          style={s.edge}
+          accessibilityRole="button"
+        >
+          {showAfterCaret ? <MathComposerCaret testID="math-slot-after-caret" /> : null}
+        </Pressable>
+      )}
     </View>
   );
 });
@@ -170,43 +175,41 @@ function DraftAtom({
   const integral = piece.scripts.length > 0 && isIntegralBase(input, piece.node);
   const sup = piece.scripts.filter((node) => node.mark === "^");
   const sub = piece.scripts.filter((node) => node.mark === "_");
-  const base = (
-    <DraftPiece
-      node={piece.node}
-      input={input}
-      caret={caret}
-      before={before}
-      after={after}
-      onMoveCaret={onMoveCaret}
-    />
-  );
+  const kit = { input, caret, before, after, onMoveCaret };
+  // An operator's limits sit on the operator alone: the text before it stays text.
+  const split = (integral || limits) && piece.node.kind === "text" ? splitBeforeOperator(input, piece.node) : null;
+  const lead = split?.lead ? <DraftPiece node={split.lead} {...kit} /> : null;
+  const base = <DraftPiece node={split?.operator ?? piece.node} {...kit} />;
   if (integral) {
     return (
-      <View style={s.integral} testID="math-integral">
-        <Text style={s.integralSign} testID="math-integral-sign">
-          ∫
-        </Text>
-        <View style={s.integralLimits} testID="math-integral-limits">
-          <ScriptStack
-            scripts={sup}
-            input={input}
-            caret={caret}
-            before={before}
-            after={after}
-            onMoveCaret={onMoveCaret}
-            place="over"
-          />
-          <ScriptStack
-            scripts={sub}
-            input={input}
-            caret={caret}
-            before={before}
-            after={after}
-            onMoveCaret={onMoveCaret}
-            place="over"
-          />
+      <>
+        {lead}
+        <View style={s.integral} testID="math-integral">
+          <Text style={s.integralSign} testID="math-integral-sign">
+            ∫
+          </Text>
+          <View style={s.integralLimits} testID="math-integral-limits">
+            <ScriptStack
+              scripts={sup}
+              input={input}
+              caret={caret}
+              before={before}
+              after={after}
+              onMoveCaret={onMoveCaret}
+              place="over"
+            />
+            <ScriptStack
+              scripts={sub}
+              input={input}
+              caret={caret}
+              before={before}
+              after={after}
+              onMoveCaret={onMoveCaret}
+              place="over"
+            />
+          </View>
         </View>
-      </View>
+      </>
     );
   }
   if (!limits) {
@@ -227,27 +230,30 @@ function DraftAtom({
     );
   }
   return (
-    <View style={s.limitAtom}>
-      <ScriptStack
-        scripts={sup}
-        input={input}
-        caret={caret}
-        before={before}
-        after={after}
-        onMoveCaret={onMoveCaret}
-        place="over"
-      />
-      {base}
-      <ScriptStack
-        scripts={sub}
-        input={input}
-        caret={caret}
-        before={before}
-        after={after}
-        onMoveCaret={onMoveCaret}
-        place="over"
-      />
-    </View>
+    <>
+      {lead}
+      <View style={s.limitAtom}>
+        <ScriptStack
+          scripts={sup}
+          input={input}
+          caret={caret}
+          before={before}
+          after={after}
+          onMoveCaret={onMoveCaret}
+          place="over"
+        />
+        {base}
+        <ScriptStack
+          scripts={sub}
+          input={input}
+          caret={caret}
+          before={before}
+          after={after}
+          onMoveCaret={onMoveCaret}
+          place="over"
+        />
+      </View>
+    </>
   );
 }
 
@@ -276,7 +282,10 @@ function ScriptStack({
   const lift = place === "side" && sup.length > 0 && sub.length === 0;
   const drop = place === "side" && sub.length > 0 && sup.length === 0;
   return (
-    <View style={[place === "side" ? s.scriptStack : s.scriptOver, lift && s.scriptLift, drop && s.scriptDrop]}>
+    <View
+      testID="math-script-stack"
+      style={[place === "side" ? s.scriptStack : s.scriptOver, lift && s.scriptLift, drop && s.scriptDrop]}
+    >
       {[...sup, ...sub].map((node) => (
         <DraftPiece
           key={`${node.mark}-${node.start}`}
@@ -316,8 +325,8 @@ type PieceRenderer<K extends DraftNode["kind"]> = (
 
 /** A run of plain draft text; a tap near its front puts the caret there, else at its end. */
 const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, onMoveCaret, s, theme, size }) => {
-  const display = composerTextLabel(input.slice(node.start, node.end));
-  if (!display) return null;
+  const runs = textRuns(input, node.start, node.end);
+  if (runs.length === 0) return null;
   let start = node.start;
   if (input[start] === "$") start += 1;
   let end = node.end;
@@ -336,10 +345,14 @@ const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, o
         {caret === start && start > before ? (
           <MathComposerCaret testID="math-slot-text-caret-start" />
         ) : null}
-        {/\\/.test(display) || insideInlineMath(input, start) ? (
-          <MathText latex={display} textColor={theme.text} fontSize={size} />
-        ) : (
-          <Text style={[s.prose, { fontSize: size }]}>{display}</Text>
+        {runs.map((run, i) =>
+          run.math ? (
+            <MathText key={i} latex={run.text} textColor={theme.text} fontSize={size} />
+          ) : (
+            <Text key={i} style={[s.prose, { fontSize: size }]}>
+              {run.text}
+            </Text>
+          ),
         )}
         {caret === end && end < after ? <MathComposerCaret testID="math-slot-text-caret" /> : null}
       </View>
@@ -503,10 +516,10 @@ function EditSlot({
     >
       <View style={s.slotRow}>
         {structured ? (
-          nested.map((node, i) => (
-            <DraftPiece
-              key={`${node.kind}-${node.start}-${i}`}
-              node={node}
+          clusterDraftNodes(nested).map((piece, i) => (
+            <DraftAtom
+              key={`${piece.node.kind}-${piece.node.start}-${i}`}
+              piece={piece}
               input={text}
               caret={caret}
               before={before}
