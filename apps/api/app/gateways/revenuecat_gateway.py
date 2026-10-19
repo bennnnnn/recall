@@ -6,6 +6,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from app.core import sentry
 from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
@@ -33,21 +34,13 @@ async def fetch_subscriber(secret_key: str, app_user_id: str) -> dict[str, Any] 
         return payload if isinstance(payload, dict) else None
     except Exception:
         logger.exception("RevenueCat subscriber fetch failed user=%s", app_user_id)
-        try:
-            import sentry_sdk
-
-            sentry_sdk.add_breadcrumb(
-                category="billing.revenuecat",
-                message="subscriber fetch failed",
-                level="error",
-                data={"app_user_id": app_user_id},
-            )
-            sentry_sdk.capture_message(
-                "RevenueCat subscriber fetch failed",
-                level="warning",
-            )
-        except Exception:
-            logger.debug("RevenueCat fetch metric report failed", exc_info=True)
+        sentry.report_breadcrumb(
+            "billing.revenuecat",
+            "subscriber fetch failed",
+            level="error",
+            data={"app_user_id": app_user_id},
+        )
+        sentry.report_message("RevenueCat subscriber fetch failed", level="warning")
         return None
 
 

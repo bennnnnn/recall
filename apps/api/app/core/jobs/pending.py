@@ -5,8 +5,9 @@ from typing import Any
 
 from redis.asyncio import Redis
 
+from app.core import sentry
 from app.core.jobs.admin import _move_to_dlq
-from app.core.jobs.queue import JOBS_GROUP, JOBS_STREAM, _capture_sentry_exception
+from app.core.jobs.queue import JOBS_GROUP, JOBS_STREAM
 
 logger = logging.getLogger("app.core.jobs")
 
@@ -80,7 +81,7 @@ async def _drop_poison_entries(
             fields.get("type"),
             delivered,
         )
-        _capture_sentry_exception(f"job_poison:{fields.get('type')}")
+        sentry.report_exception(f"job_poison:{fields.get('type')}")
         await _move_to_dlq(
             redis, entry_id, fields, f"delivered {delivered} times without finishing"
         )
