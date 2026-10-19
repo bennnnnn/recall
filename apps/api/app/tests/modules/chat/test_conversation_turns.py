@@ -186,6 +186,7 @@ def test_a_request_for_depth_is_detected(text: str) -> None:
         "how do I thoroughly clean an oven",
         "what is comprehensive car insurance",
         "an elaborate birthday cake recipe",
+        "elaborate cake ideas for a 5 year old",
         "what is a deep dive in scuba",
         "is the moon fully visible tonight",
         "what's the full form of NASA",

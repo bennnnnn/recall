@@ -64,7 +64,8 @@ _DETAIL_REQUEST = re.compile(
     r"(?:explanation|answer|breakdown|overview|guide|walkthrough|analysis|rundown|tutorial)\b"
     r"|\b(?:give|tell|show) me (?:a lot |much )?more details?\b|^more details?(?: please)?[.!?]*$"
     r"|\btell me everything (?:about|on)\b|\bgo deeper\b"
-    r"|\belaborate (?:on|more)\b|^(?:please |can you |could you )?elaborate\b"
+    r"|\belaborate (?:on|more)\b"
+    r"|^(?:please |can you |could you )?elaborate(?: please| a bit| a little)?[.!?]*$"
     r"|\bdon't hold back\b|\bleave nothing out\b",
     re.IGNORECASE,
 )

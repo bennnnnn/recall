@@ -331,7 +331,7 @@ def _offers_answer_photo(turn: StyleTurn) -> bool:
         return False
     if is_bare_writing_line(turn.query) or works_on_last_reply(turn.query):
         return False
-    return not is_new_problem_request(turn.query) and not is_programming_turn(turn.query)
+    return not is_programming_turn(turn.query)
 
 
 def _answer_photo(turn: StyleTurn) -> list[str]:
