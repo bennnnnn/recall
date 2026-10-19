@@ -20,7 +20,11 @@ from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.modules import web_search as web_search_service
-from app.modules.chat.prompt_builder import fetch_web_and_tools, inject_web_and_tools
+from app.modules.chat.prompt_builder import (
+    WebAndSubject,
+    fetch_web_and_tools,
+    inject_web_and_tools,
+)
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.followups import SubjectFollowup
@@ -232,15 +236,7 @@ async def _fetch_web_with_priors(
     prompt_messages: list[dict[str, str]],
     followup: SubjectFollowup,
     subject_text: str | None = None,
-) -> tuple[
-    str | None,
-    str | None,
-    list[WebSearchHit],
-    VerifiedSolveBlock | None,
-    bool,
-    str | None,
-    str | None,
-]:
+) -> WebAndSubject:
     # Earlier user lines name the web search subject; loaded only when augmenting.
     priors = await _load_prior_user_messages(identity.chat.id)
     geo = identity.geo

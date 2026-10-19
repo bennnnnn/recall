@@ -6,7 +6,11 @@ from uuid import uuid4
 
 import pytest
 
+from app.core.config import Settings
+from app.gateways.web_search_gateway import WebSearchHit
+from app.modules.chat.prompt_builder import fetch_web_and_tools, inject_web_and_tools
 from app.modules.chat.turn_deps import ChatTurnDeps, default_deps
+from app.services.solving import VerifiedSolveBlock
 
 
 class FakeSessionCM:
@@ -40,6 +44,20 @@ def turn_deps(**fields: Any) -> ChatTurnDeps:
         for name, value in fields.items()
     }
     return replace(base, **swapped)
+
+
+async def augment_web_and_tools(
+    prompt_messages: list[dict[str, str]],
+    user_content: str,
+    settings: Settings,
+    **fetch_kwargs: Any,
+) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedSolveBlock | None]:
+    """Fetch the web and subject blocks, then inject them, as a turn's Phase B/C does."""
+    fetched = await fetch_web_and_tools(
+        user_content, settings, prompt_messages=prompt_messages, **fetch_kwargs
+    )
+    updated = await inject_web_and_tools(prompt_messages, fetched.web_block, fetched.subject_block)
+    return updated, fetched.search_sources, fetched.verified
 
 
 def stub_recent(n: int) -> list[MagicMock]:

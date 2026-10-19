@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -51,6 +51,22 @@ logger = logging.getLogger(__name__)
 StreamReasoningFn = Callable[[str], Awaitable[None]]
 
 
+class WebAndSubject(NamedTuple):
+    """What one turn's web search and subject solver found, before either is injected."""
+
+    web_block: str | None
+    subject_block: str | None
+    search_sources: list[WebSearchHit]
+    verified: VerifiedSolveBlock | None
+    # The solver adapter's own flag: callers must not re-derive it from the
+    # wording of the prompt block.
+    solver_unverified: bool
+    # Set only when ``solver_unverified`` is.
+    unverified_subject: str | None
+    # A reply both halves of a two-part question already rendered.
+    direct_text: str | None
+
+
 async def fetch_web_and_tools(
     user_content: str,
     settings: Settings,
@@ -70,23 +86,10 @@ async def fetch_web_and_tools(
     user: User | None = None,
     redis: Redis | None = None,
     subject_text: str | None = None,
-) -> tuple[
-    str | None,
-    str | None,
-    list[WebSearchHit],
-    VerifiedSolveBlock | None,
-    bool,
-    str | None,
-    str | None,
-]:
+) -> WebAndSubject:
     """Fetch web-search and subject blocks WITHOUT mutating prompt_messages.
 
     Web search (network) and the subject solver are independent — gather both.
-    Returns ``(web_block, subject_block, search_sources, verified, solver_unverified,
-    unverified_subject, direct_text)``.
-    ``solver_unverified`` is the adapter flag. Callers must not re-derive it from
-    the wording of the prompt block. ``unverified_subject`` is set only when that flag is true.
-    ``direct_text`` is a reply both halves of a two-part question already rendered.
     ``subject_text``: the solve part of a message that asks for more (its plan).
     """
     math_user_content = math_followup_problem or subject_text or user_content
@@ -153,14 +156,14 @@ async def fetch_web_and_tools(
             redis=redis,
         ),
     )
-    return (
-        web_block,
-        subject_result.prompt_block,
-        search_sources,
-        subject_result.verified,
-        subject_result.unverified,
-        subject_result.subject if subject_result.unverified else None,
-        subject_result.direct_text,
+    return WebAndSubject(
+        web_block=web_block,
+        subject_block=subject_result.prompt_block,
+        search_sources=search_sources,
+        verified=subject_result.verified,
+        solver_unverified=subject_result.unverified,
+        unverified_subject=subject_result.subject if subject_result.unverified else None,
+        direct_text=subject_result.direct_text,
     )
 
 
@@ -179,52 +182,6 @@ async def inject_web_and_tools(
     if math_block:
         updated = inject_before_last_user(updated, math_block)
     return updated
-
-
-async def _augment_web_and_tools(
-    prompt_messages: list[dict[str, str]],
-    user_content: str,
-    settings: Settings,
-    *,
-    user_timezone: str | None = None,
-    user_location: str | None = None,
-    latitude: float | None = None,
-    longitude: float | None = None,
-    prior_user_messages: list[str] | None = None,
-    has_image_attachment: bool = False,
-    image_math_extract: MathImageExtract | None = None,
-    math_followup_problem: str | None = None,
-    on_status: StreamStatusFn | None = None,
-    user: User | None = None,
-    redis: Redis | None = None,
-) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedSolveBlock | None]:
-    """Backward-compatible fetch + inject (used by tests). Prefer the split pair."""
-    (
-        web_block,
-        math_block,
-        search_sources,
-        verified_math,
-        _solver_unverified,
-        _unverified_subject,
-        _direct_text,
-    ) = await fetch_web_and_tools(
-        user_content,
-        settings,
-        prompt_messages=prompt_messages,
-        user_timezone=user_timezone,
-        user_location=user_location,
-        latitude=latitude,
-        longitude=longitude,
-        prior_user_messages=prior_user_messages,
-        has_image_attachment=has_image_attachment,
-        image_math_extract=image_math_extract,
-        math_followup_problem=math_followup_problem,
-        on_status=on_status,
-        user=user,
-        redis=redis,
-    )
-    updated = await inject_web_and_tools(prompt_messages, web_block, math_block)
-    return updated, search_sources, verified_math
 
 
 @dataclass(frozen=True)

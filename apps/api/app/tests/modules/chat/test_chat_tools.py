@@ -12,7 +12,7 @@ async def test_augment_web_and_tools_runs_web_and_subject_solver_concurrently():
     """Search and deterministic solving overlap, so TTFT pays the slower one."""
     import asyncio
 
-    from app.modules.chat.prompt_builder import _augment_web_and_tools
+    from app.tests.modules.chat.chat_test_support import augment_web_and_tools
 
     settings = Settings(
         web_search_enabled=True,
@@ -41,7 +41,7 @@ async def test_augment_web_and_tools_runs_web_and_subject_solver_concurrently():
             side_effect=slow_subject,
         ),
     ):
-        updated, _hits, _verified = await _augment_web_and_tools(messages, "q", settings)
+        updated, _hits, _verified = await augment_web_and_tools(messages, "q", settings)
 
     assert overlap["web_saw_math_waiting"]
     assert [m["content"] for m in updated if m["role"] == "system"] == [
@@ -53,7 +53,7 @@ async def test_augment_web_and_tools_runs_web_and_subject_solver_concurrently():
 
 @pytest.mark.asyncio
 async def test_closed_math_does_not_run_web_search() -> None:
-    from app.modules.chat.prompt_builder import _augment_web_and_tools
+    from app.tests.modules.chat.chat_test_support import augment_web_and_tools
 
     settings = Settings(
         web_search_enabled=True,
@@ -75,7 +75,7 @@ async def test_closed_math_does_not_run_web_search() -> None:
             AsyncMock(return_value=SubjectAugmentation("math", "math", None, unverified=True)),
         ),
     ):
-        updated, hits, _verified = await _augment_web_and_tools(messages, query, settings)
+        updated, hits, _verified = await augment_web_and_tools(messages, query, settings)
 
     web_mock.assert_not_awaited()
     assert hits == []
@@ -87,7 +87,7 @@ async def test_augment_web_and_tools_injects_math_block_only_once():
     """End-to-end regression for the duplicate verified-block injection bug:
     with the tool loop off, a math-intent turn must get exactly one
     verified-math system message, not two."""
-    from app.modules.chat.prompt_builder import _augment_web_and_tools
+    from app.tests.modules.chat.chat_test_support import augment_web_and_tools
 
     settings = Settings(
         math_tools_enabled=True,
@@ -103,7 +103,7 @@ async def test_augment_web_and_tools_injects_math_block_only_once():
         "app.modules.math.tools._build_verified_block_async",
         AsyncMock(return_value=fake_block),
     ):
-        updated, _hits, verified_math = await _augment_web_and_tools(
+        updated, _hits, verified_math = await augment_web_and_tools(
             messages,
             user_text,
             settings,
@@ -122,7 +122,7 @@ def test_owned_tool_loop_defaults_on():
 async def test_augment_web_and_tools_keeps_math_when_tool_loop_on():
     """Enabling the loop must not skip heuristic SymPy — homework cannot
     wait on the model choosing the sympy tool."""
-    from app.modules.chat.prompt_builder import _augment_web_and_tools
+    from app.tests.modules.chat.chat_test_support import augment_web_and_tools
 
     settings = Settings(
         math_tools_enabled=True,
@@ -137,7 +137,7 @@ async def test_augment_web_and_tools_keeps_math_when_tool_loop_on():
         "app.modules.math.tools._build_verified_block_async",
         AsyncMock(return_value=fake_block),
     ):
-        updated, _hits, verified_math = await _augment_web_and_tools(
+        updated, _hits, verified_math = await augment_web_and_tools(
             messages,
             user_text,
             settings,

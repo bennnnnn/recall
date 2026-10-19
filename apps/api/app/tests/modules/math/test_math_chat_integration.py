@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.prompt_builder import _augment_web_and_tools
+from app.tests.modules.chat.chat_test_support import augment_web_and_tools
 
 
 @pytest.mark.asyncio
@@ -22,7 +22,7 @@ async def test_augment_web_and_tools_injects_math_for_solve() -> None:
         "app.modules.web_search.build_search_augmentation",
         AsyncMock(return_value=(None, [])),
     ):
-        updated, hits, verified_math = await _augment_web_and_tools(
+        updated, hits, verified_math = await augment_web_and_tools(
             messages,
             "Solve x^2 + 2 = 6",
             settings,
