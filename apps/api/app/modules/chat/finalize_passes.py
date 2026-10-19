@@ -57,6 +57,7 @@ from app.modules.chat.finalize_text import (
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
+from app.modules.chat.untrusted_media import neutralize_untrusted_media
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     # Before the fence repair below can close it for the reminder pass.
     FinalizePass("drop_cut_reminder_fence", lambda s: drop_cut_reminder_fence(s.text), FALL_BACK),
     FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK),
+    FinalizePass("untrusted_media", neutralize_untrusted_media, FALL_BACK),
     FinalizePass("answer_photo", attach_answer_photo, FALL_BACK),
     FinalizePass(
         "chemistry_fences",
