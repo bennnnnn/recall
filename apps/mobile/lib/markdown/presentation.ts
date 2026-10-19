@@ -14,6 +14,7 @@ import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { codeNotation } from "@/lib/markdown/notationSpans";
 import { fenceReplTranscripts } from "@/lib/markdown/replTranscript";
+import { holdBackPendingTableHeader } from "@/lib/markdown/streamTableHold";
 import { normalizeImplicitMath } from "@/lib/math/normalizeImplicit";
 import { isServerMessageId } from "@/lib/serverMessageId";
 
@@ -146,7 +147,8 @@ function presentStreamProse(prose: string, presented: boolean): string {
 }
 
 /**
- * Repair a streaming tail without scanning an open fence body. `presented`
+ * Repair a streaming tail without scanning an open fence body, and hold back a
+ * table header still waiting for its delimiter row. `presented`
  * text is the server's saved reply, still in stream layout while its row
  * settles: as in the settled preprocess, its prose stays as saved and only the
  * maths rows the wrap builds are laid out, so settling does not move it.
@@ -161,7 +163,7 @@ export function presentStreamTail(tail: string, presented = false): string {
       : tildeAt === -1
         ? fenceAt
         : Math.min(fenceAt, tildeAt);
-  if (fence === -1) return presentStreamProse(tail, presented);
+  if (fence === -1) return presentStreamProse(holdBackPendingTableHeader(tail), presented);
   if (fence === 0) return tail;
   return (
     presentStreamProse(tail.slice(0, fence), presented) + tail.slice(fence)

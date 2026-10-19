@@ -16,7 +16,6 @@ from app.modules.chat.prompt_constants import (
     PERSONAL_DISCLOSURE_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     TEACHING_HINT,
-    TEACHING_SHORT_NOTE,
     WALKTHROUGH_HINT,
     active_lesson_step,
     is_learning_plan_request,
@@ -210,10 +209,9 @@ def test_lesson_continue_hint_keeps_the_lesson_shape():
     assert "`### Lesson N: <topic>`" in hint
 
 
-def _hints(text, *, style="balanced", lesson=None, compact=False, outline_pick=False):
+def _hints(text, *, lesson=None, compact=False, outline_pick=False):
     return _style_format_hints(
         query_text=text,
-        style=style,
         is_day_plan=False,
         minimal_personal_context=False,
         compact=compact,
@@ -309,8 +307,8 @@ def test_teach_me_in_70_days_is_a_plan_not_an_interactive_lesson():
     assert TEACHING_HINT not in hints
 
 
-def test_short_style_does_not_crush_an_explicit_learning_plan():
-    hints = _hints("Give me a 30-day plan to learn FastAPI", style="short")
+def test_an_explicit_learning_plan_is_not_crushed_to_short_prose():
+    hints = _hints("Give me a 30-day plan to learn FastAPI")
     assert LEARNING_PLAN_HINT in hints
     assert SHORT_RESPONSE_FORMAT_HINT not in hints
 
@@ -325,12 +323,6 @@ def test_walk_me_through_procedure_is_a_howto_not_an_interactive_lesson():
     hints = _hints("Walk me through changing a tire")
     assert HOWTO_FORMAT_HINT in hints
     assert TEACHING_HINT not in hints
-
-
-def test_short_style_keeps_the_lesson_smaller():
-    hints = _hints("Teach me python dictionaries", style="short")
-    assert TEACHING_HINT in hints and TEACHING_SHORT_NOTE in hints
-    assert SHORT_RESPONSE_FORMAT_HINT not in hints
 
 
 def test_brevity_request_is_not_a_lesson():
@@ -371,9 +363,9 @@ def test_random_input_mid_lesson_keeps_adaptive_continuation_policy():
     assert "Do not repeat Lesson 1" in joined
 
 
-def test_short_style_next_lesson_drops_the_no_headings_rule():
-    hints = _hints("B", style="short", lesson=2)
-    assert lesson_continue_hint(2) in hints and TEACHING_SHORT_NOTE in hints
+def test_next_lesson_drops_the_no_headings_rule():
+    hints = _hints("B", lesson=2)
+    assert lesson_continue_hint(2) in hints
     assert SHORT_RESPONSE_FORMAT_HINT not in hints
 
 

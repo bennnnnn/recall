@@ -12,9 +12,10 @@ FACT_GROUNDING_HINT = (
     "rankings, results, recent products, the date of an upcoming event) come from web "
     "results in this prompt when there are any. When there are none, never state such a "
     "fact as certain from memory: say in one line that you may be out of date and offer "
-    "to look it up. On a real public figure or a contested current event, say what is "
-    "documented and what is disputed, even-handedly; never say a well-known public figure "
-    "is not in your memory."
+    "to look it up. Only such a fact: a settled one (a capital, a formula, history) gets "
+    "no disclaimer and no offer. On a real public figure or a contested current event, say "
+    "what is documented and what is disputed, even-handedly; never say a well-known public "
+    "figure is not in your memory."
 )
 
 # The user turned web search off (Settings → Data controls): there is nothing to offer.

@@ -26,9 +26,11 @@ def memory_query_scoped_key(
     query_text: str,
     *,
     exclude_sensitive: bool,
+    with_profile: bool = False,
 ) -> str:
     sens = "x" if exclude_sensitive else "a"
-    return f"{memory_query_cache_key(user_id, generation, query_text)}:{sens}"
+    profile = "p" if with_profile else ""
+    return f"{memory_query_cache_key(user_id, generation, query_text)}:{sens}{profile}"
 
 
 def memory_block_key(user_id: UUID) -> str:
@@ -61,6 +63,8 @@ async def invalidate_memory_block(seams: Any, user_id: UUID) -> None:
         await redis.delete(
             block_key,
             f"{block_key}:x",
+            f"{block_key}:w",
+            f"{block_key}:wx",
         )
     except Exception:
         logger.debug("Memory block cache invalidation failed", exc_info=True)

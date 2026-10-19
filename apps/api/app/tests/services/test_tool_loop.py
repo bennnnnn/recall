@@ -19,7 +19,8 @@ def test_status_for_tool_omits_generic_thinking():
     assert calls._status_for_tool("web_search") == "searching"
     assert calls._status_for_tool("sympy") == "calculating"
     assert calls._status_for_tool("generate_image") == "image_gen"
-    assert calls._status_for_tool("search_image") == "image_gen"
+    # A reference-photo lookup is not image generation (S7.9).
+    assert calls._status_for_tool("search_image") == "finding_photo"
     assert calls._status_for_tool("calendar") is None
     assert calls._status_for_tool("") is None
 
@@ -99,8 +100,9 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
 
     assert complete.await_count == 1
     invoke.assert_awaited_once()
-    # The search query rides along as status detail for the client label.
-    assert statuses == [("searching", "latest news")]
+    # The search query rides along as status detail for the client label, and
+    # the label ends when the tool does (S7.2): the model round after it composes.
+    assert statuses == [("searching", "latest news"), ("composing", None)]
     assert any(m.get("role") == "tool" for m in out)
     assert any(m.get("role") == "assistant" and m.get("tool_calls") for m in out)
     assert verified is None
@@ -536,7 +538,8 @@ async def test_tool_loop_search_image_is_terminal():
         # Free users get the lookup tool even though generate_image is Pro-only.
         assert complete.await_count == 1
         invoke.assert_awaited_once()
-        assert statuses == [("image_gen", "human ear")]
+        # A found photo ends the turn: no composing label after it.
+        assert statuses == [("finding_photo", "human ear")]
         assert verified is None
         assert terminal is not None
         assert terminal.final_content == marker

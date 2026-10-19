@@ -132,3 +132,32 @@ def test_each_plan_gets_the_effort_its_lane_supports(
 )
 def test_is_answer_dispute_leaves_ordinary_lines(text: str) -> None:
     assert not is_answer_dispute(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "that's not what I asked",
+        "this is not what I meant, I wanted the async version",
+        "you misunderstood the question",
+        "you misread it, the train leaves at 4pm",
+        "I already told you the list can be empty",
+        "that's wrong, it's 2024 not 2023",
+    ],
+)
+def test_a_misread_question_or_an_ignored_correction_thinks_again(text: str) -> None:
+    assert is_answer_dispute(text)
+    assert thinking_level(text, prior_user="earlier question", settings=_SETTINGS) == "escalate"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A fact the model now applies; no harder thinking needed.
+        "no, I said I'm vegetarian",
+        "actually I meant Python 2, not 3",
+        "I told you about my trip, right?",
+    ],
+)
+def test_a_plain_correction_does_not_escalate(text: str) -> None:
+    assert not is_answer_dispute(text)

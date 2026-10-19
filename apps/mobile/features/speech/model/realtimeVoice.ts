@@ -70,6 +70,21 @@ function runToolCalls(
   })).then(() => dispatch({ type: "tools_settled", epoch }));
 }
 
+/**
+ * The server reserved this month's minutes when it minted the call; a call
+ * that never connected gives them back (it is charged only the seconds since
+ * the mint). The mint may still be in flight when the offer fails, so wait for
+ * it: a call id that arrives after the failure is ended too.
+ */
+function releaseMintedSession(
+  token: string,
+  credential: ReturnType<typeof speechApi.createRealtimeSession>,
+): void {
+  void credential
+    .then(({ call_id: callId }) => (callId ? speechApi.endRealtimeSession(token, callId) : undefined))
+    .catch(() => {});
+}
+
 export async function createRealtimeVoiceSession(options: {
   token: string;
   chatId?: string | null;
@@ -81,14 +96,6 @@ export async function createRealtimeVoiceSession(options: {
   }
   const mic = webRtcMicConstraints();
   const { stream, audioTracks } = await openRealtimeMicrophone(webrtc, mic);
-
-  // Mint the short-lived credential while local ICE gathering proceeds. The
-  // permanent OpenAI API key stays on Recall's server; only this ek_ token is
-  // ever exposed to the app.
-  const credentialPromise = speechApi.createRealtimeSession(options.token, {
-    chatId: options.chatId,
-    bargeIn: mic.echoCancellation,
-  });
 
   let callId: string | null = null;
   let maxDurationSeconds: number | null = null;
@@ -130,6 +137,14 @@ export async function createRealtimeVoiceSession(options: {
     peer.close();
   };
 
+  // Mint the short-lived credential while local ICE gathering proceeds. The
+  // permanent OpenAI API key stays on Recall's server; only this ek_ token is
+  // ever exposed to the app. Every failure from here releases the mint.
+  const credentialPromise = speechApi.createRealtimeSession(options.token, {
+    chatId: options.chatId,
+    bargeIn: mic.echoCancellation,
+  });
+
   try {
     const offerSdp = await peer.createOffer();
     const credential = await credentialPromise;
@@ -144,9 +159,7 @@ export async function createRealtimeVoiceSession(options: {
     dispatch({ type: "close" });
     tearDown();
     peer.closeChannel();
-    // The server reserved minutes at mint; a call that never connected gives
-    // them back (it is charged only the seconds since the mint).
-    if (callId) void speechApi.endRealtimeSession(options.token, callId).catch(() => {});
+    releaseMintedSession(options.token, credentialPromise);
     throw error;
   }
 

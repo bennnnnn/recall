@@ -229,6 +229,28 @@ describe("ChatWsTransport", () => {
     expect(onFallback).toHaveBeenCalledWith({ reason, duringTurn: false });
   });
 
+  // S7.11: the server saves a stopped reply as long as the phone drew it.
+  it("tells the server how much of the reply the phone kept when it cancels", async () => {
+    const { socket, transport } = setupTransport();
+    const connecting = transport.connect();
+    socket.open();
+    await connecting;
+
+    transport.sendMessage({
+      content: "hi",
+      attachment_ids: [],
+      model: null,
+      client_location: null,
+      client_latitude: null,
+      client_longitude: null,
+    });
+    transport.cancel(42);
+
+    expect(socket.send).toHaveBeenLastCalledWith(
+      JSON.stringify({ type: "cancel", shown_chars: 42 }),
+    );
+  });
+
   it("sends cancel and detaches callbacks on intentional close", async () => {
     const { socket, transport, onPayload, onFallback } = setupTransport();
     const connecting = transport.connect();

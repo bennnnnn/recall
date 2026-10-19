@@ -62,7 +62,6 @@ def _hints(query: str) -> str:
     return "\n\n".join(
         _style_format_hints(
             query_text=query,
-            style="balanced",
             is_day_plan=False,
             minimal_personal_context=False,
             image_search_enabled=True,

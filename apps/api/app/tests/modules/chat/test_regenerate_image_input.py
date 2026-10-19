@@ -10,6 +10,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Chat, User
+from app.modules.attachments.vision_notes import VISION_NOTE
 from app.modules.chat import stream_entry
 from app.modules.chat.turn_prep.attachments import vision_reserve_tokens
 from app.modules.chat.turn_prep.context import (
@@ -65,10 +66,7 @@ async def test_saved_scanner_image_rehydrates_actual_bytes_and_preserves_safe_ca
     parts = messages[-1]["content"]
     assert parts[0] == {
         "type": "text",
-        "text": (
-            "Solve step by step.\n\n<untrusted>file excerpt</untrusted>\n\n"
-            "These images are real. Do not call them placeholders or a failed generation."
-        ),
+        "text": ("Solve step by step.\n\n<untrusted>file excerpt</untrusted>\n\n" + VISION_NOTE),
     }
     assert parts[1] == {
         "type": "image_url",

@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -12,9 +14,15 @@ from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
-from app.modules.chat.prompt_constants import recalls_earlier_conversation
 from app.modules.chat.prompt_context import _load_context_blocks
 from app.modules.chat.prompt_format import render_rules
+from app.modules.chat.prompt_memory import (
+    is_work_turn,
+    memory_saving_paused,
+    memory_scope_for,
+    memory_switch_on,
+    recalls_shared_past,
+)
 from app.modules.chat.prompt_sections import NEARBY_CONTRACTS, PROMPT_SECTIONS, PromptTurn
 from app.modules.chat.prompt_window import (
     PromptWindow,
@@ -23,6 +31,7 @@ from app.modules.chat.prompt_window import (
     load_prompt_window,
 )
 from app.modules.chat.stream_status import StreamStatusFn, status_phase_for_subject
+from app.modules.chat.turn_plan import TurnPlan
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
 from app.services import time_context as time_context_service
@@ -33,6 +42,9 @@ from app.services.subject_solving import (
     build_subject_augmentation,
     detect_subject,
 )
+
+if TYPE_CHECKING:
+    from app.modules.memory import MemoryScope
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +69,7 @@ async def fetch_web_and_tools(
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
+    subject_text: str | None = None,
 ) -> tuple[
     str | None,
     str | None,
@@ -74,9 +87,10 @@ async def fetch_web_and_tools(
     ``solver_unverified`` is the adapter flag. Callers must not re-derive it from
     the wording of the prompt block. ``unverified_subject`` is set only when that flag is true.
     ``direct_text`` is a reply both halves of a two-part question already rendered.
+    ``subject_text``: the solve part of a message that asks for more (its plan).
     """
-    math_user_content = math_followup_problem or user_content
-    subject_user_content = user_content
+    math_user_content = math_followup_problem or subject_text or user_content
+    subject_user_content = subject_text or user_content
     subject: SubjectName | None
     if math_followup_problem is not None or is_graph_followup(user_content):
         subject = "math"
@@ -88,7 +102,7 @@ async def fetch_web_and_tools(
         subject_user_content = physics_followup_problem
     else:
         subject = detect_subject(
-            user_content,
+            subject_user_content,
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
             chemistry_enabled=settings.chemistry_enabled,
@@ -223,6 +237,8 @@ class _ContextPlan:
     # "What did we decide last time": memory and past chats answer even a slim turn.
     recalls_shared_past: bool
     history_rag: bool
+    # Which saved facts load: by query, with the profile, everything, or the work scope.
+    memory_scope: MemoryScope = "query"
 
 
 async def _context_plan(
@@ -254,17 +270,24 @@ async def _context_plan(
     # and chat history on every non-greeting, which sat on the first token
     # for seconds before the model started.
     personal_context = (rich_context or advice_memory) and not lightweight
-    recalls_shared_past = bool(query_text and recalls_earlier_conversation(query_text))
+    # "How should I structure auth in my app?" needs the stack the user builds with,
+    # not their city or job: the work scope, without a query embed.
+    work_memory = not personal_context and not lightweight and is_work_turn(query_text)
+    recalls_past = recalls_shared_past(query_text)
+    # Memory off means no personal recall at all: no saved facts, no earlier chats.
+    memory_on = memory_switch_on(user)
     return _ContextPlan(
         slim=minimal_personal_context or lightweight or not rich_context,
-        load_memory=personal_context,
-        recalls_shared_past=recalls_shared_past,
+        load_memory=memory_on and (personal_context or work_memory or recalls_past),
+        recalls_shared_past=recalls_past,
         history_rag=bool(
-            (personal_context or recalls_shared_past)
+            memory_on
+            and (personal_context or recalls_past)
             and settings.chat_history_rag_enabled
             and query_text
             and query_text.strip()
         ),
+        memory_scope="work" if work_memory else memory_scope_for(query_text),
     )
 
 
@@ -312,12 +335,14 @@ async def build_prompt_messages(
     probe_attachment_rag: bool = True,
     recent_messages: list[Any] | None = None,
     current_user_message_id: UUID | None = None,
+    turn_plan: TurnPlan | None = None,
 ) -> list[dict[str, str]]:
     """Assemble system + recent messages for a chat turn.
 
     Context loading uses short-lived sessions so embeds cannot pin a caller
     connection across the concurrent gather. The system prompt is
-    ``PROMPT_SECTIONS``; the history is ``prompt_window``.
+    ``PROMPT_SECTIONS``; the history is ``prompt_window``. ``turn_plan``: the message's
+    separate requests, when it holds more than one (``turn_prep.intents``).
     """
     plan = await _context_plan(
         user,
@@ -339,6 +364,7 @@ async def build_prompt_messages(
         recent_limit=settings.recent_message_window,
         slim_context=plan.slim,
         load_memory=plan.load_memory,
+        memory_scope=plan.memory_scope,
         client_timezone=client_timezone,
         out=out,
         history_rag=plan.history_rag,
@@ -383,6 +409,12 @@ async def build_prompt_messages(
         chat_history_rag_block=chat_history_rag_block,
         exchange=window.exchange,
         followup=followup,
+        plan=turn_plan,
+        memory_status=blocks.memory_status,
+        memory_paused=bool(
+            memory_switch_on(user) and await memory_saving_paused(settings, query_text)
+        ),
+        recalls_shared_past=plan.recalls_shared_past,
     )
     messages = [
         {"role": "system", "content": "\n\n".join(render_rules(PROMPT_SECTIONS, turn))},

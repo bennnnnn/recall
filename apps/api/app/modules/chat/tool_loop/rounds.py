@@ -35,9 +35,13 @@ from app.modules.chat.tool_loop.selection import (
 from app.modules.chat.tool_loop.text_calls import _tool_calls_from_text
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.web_search import TurnTavilyBudget
+from app.services import model_catalog
 from app.services.solving import VerifiedMathBlock
 
 logger = logging.getLogger(__name__)
+
+# The first tool selector, then one retry on the next.
+_SELECTION_ATTEMPTS = 2
 
 _RoundsOutcome = tuple[
     list[dict[str, Any]],
@@ -62,6 +66,8 @@ async def run_tool_rounds(
     user_timezone: str | None = None,
     user_text: str | None = None,
     user_location: str | None = None,
+    has_verified_math: bool = False,
+    search_parts: list[str] | None = None,
 ) -> _RoundsOutcome:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
 
@@ -70,6 +76,9 @@ async def run_tool_rounds(
     user-visible answer (tools omitted) instead of a discarded leftover completion.
     ``verified_math`` holds only tool results whose input matches ``user_text``
     (the user's own message; the last user prompt message when omitted).
+    ``has_verified_math``: the server already solved the turn's maths part.
+    ``search_parts``: the requests a classifier said need live results, when the
+    message holds more than one (``tool_loop.parts``); each is searched for itself.
     """
     if not settings.mcp_tool_loop_enabled:
         return messages, None, None, []
@@ -102,6 +111,7 @@ async def run_tool_rounds(
         settings,
         user,
         web_search=web_search,
+        has_verified_math=has_verified_math,
     ):
         working, hits = await _force_web_search_if_needed(
             settings=settings,
@@ -111,6 +121,8 @@ async def run_tool_rounds(
             on_status=on_status,
             should_cancel=should_cancel,
             search_required=True,
+            search_parts=search_parts,
+            has_verified_math=has_verified_math,
         )
         return working, None, None, hits
 
@@ -133,6 +145,8 @@ async def run_tool_rounds(
         on_status=on_status,
         should_cancel=should_cancel,
         search_required=web_search is True,
+        search_parts=search_parts,
+        has_verified_math=has_verified_math,
     )
     return working, verified, terminal, hits
 
@@ -152,8 +166,10 @@ async def _run_rounds(
     """Selection round → execute its calls (merging results) → stop → hand off.
 
     Bounded by ``mcp_tool_loop_max_rounds``, but a round with no calls streams and a
-    round that ran calls hands off, so at most one round runs.
+    round that ran calls hands off, so at most one round runs. The selection model
+    comes from the catalog's tool selectors, whatever ``model_alias`` answers.
     """
+    del model_alias
     turn = _Round(
         settings=settings,
         offered=frozenset(str((tool.get("function") or {}).get("name") or "") for tool in tools),
@@ -166,7 +182,7 @@ async def _run_rounds(
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     collected = ToolResults()
     for _ in range(max(1, settings.mcp_tool_loop_max_rounds)):
-        tool_calls = await _select_tool_calls(turn, model_alias, tools, working, usage)
+        tool_calls = await _select_tool_calls(turn, tools, working, usage)
         if not tool_calls:
             break
         working.append({"role": "assistant", "content": None, "tool_calls": tool_calls})
@@ -181,7 +197,6 @@ async def _run_rounds(
 
 async def _select_tool_calls(
     turn: _Round,
-    model_alias: str,
     tools: list[dict[str, Any]],
     working: list[dict[str, Any]],
     usage: dict[str, int],
@@ -192,27 +207,11 @@ async def _select_tool_calls(
     """
     if turn.cancelled():
         return []
-    settings = turn.settings
-    try:
-        msg = await litellm_gateway.complete_with_tools(
-            settings=settings,
-            model_alias=_tool_loop_completion_alias(model_alias),
-            messages=working,
-            tools=tools,
-            max_tokens=max(1, settings.mcp_tool_loop_probe_max_tokens),
-            usage=usage,
-            timeout_seconds=settings.mcp_tool_loop_timeout_seconds,
-            should_cancel=turn.should_cancel,
-        )
-    except ModelUnavailableError:
-        logger.warning("Tool-loop completion failed; falling through to stream")
-        working.append(_tool_selection_unavailable_message())
+    msg = await _complete_selection(turn, tools, working, usage)
+    if msg is None:
+        if not turn.cancelled():
+            working.append(_tool_selection_unavailable_message())
         return []
-    except Exception:
-        logger.exception("Tool-loop completion failed; falling through to stream")
-        working.append(_tool_selection_unavailable_message())
-        return []
-
     if turn.cancelled():
         return []
     if msg.get("finish_reason") in ("length", "content_filter", "error"):
@@ -252,10 +251,47 @@ def _hand_off(
     return working, verified, collected.terminal_image, collected.search_hits
 
 
-def _tool_loop_completion_alias(model_alias: str) -> str:
-    """Use one fast, function-capable selector independent of chat choice."""
-    del model_alias
-    return "gpt-6-luna"
+async def _complete_selection(
+    turn: _Round,
+    tools: list[dict[str, Any]],
+    working: list[dict[str, Any]],
+    usage: dict[str, int],
+) -> dict[str, Any] | None:
+    """The selection decision from the first tool selector that gives one, else None.
+
+    No tool runs before a complete decision, so asking the next selector after a
+    failed or invalid one is safe. A timeout is not retried: it already spent the
+    turn's selection budget, and the reply streams without tools instead.
+    """
+    settings = turn.settings
+    selectors = model_catalog.tool_selector_aliases()[:_SELECTION_ATTEMPTS]
+    for index, alias in enumerate(selectors):
+        if index and turn.cancelled():
+            return None
+        last = index == len(selectors) - 1
+        try:
+            return await litellm_gateway.complete_with_tools(
+                settings=settings,
+                model_alias=alias,
+                messages=working,
+                tools=tools,
+                max_tokens=max(1, settings.mcp_tool_loop_probe_max_tokens),
+                usage=usage,
+                timeout_seconds=settings.mcp_tool_loop_timeout_seconds,
+                should_cancel=turn.should_cancel,
+            )
+        except ModelUnavailableError as exc:
+            timed_out = isinstance(exc.__cause__, TimeoutError)
+            logger.warning(
+                "Tool selection failed alias=%s code=%s timed_out=%s", alias, exc.code, timed_out
+            )
+            if last or timed_out:
+                return None
+        except Exception:
+            logger.exception("Tool selection failed alias=%s", alias)
+            if last:
+                return None
+    return None
 
 
 def _tool_selection_unavailable_message() -> dict[str, Any]:

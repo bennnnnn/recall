@@ -69,7 +69,8 @@ async def classify_web_search_need(
                 "(who holds an office, a population, an exchange rate, who won, the best "
                 "places in a city). Also YES when the user asserts something about a real "
                 "public figure or current event: the answer should rest on the record. "
-                "Also current events, live scores, weather and local venues.\n\n"
+                "Also current events, live scores, weather, local venues, job openings "
+                "and postings, and the price of a named product, stock or currency.\n\n"
                 "Search NO for settled facts that do not change, even when specific: "
                 "capitals and official languages, natural geography (the highest "
                 "mountain, the longest river, a mountain's height, the distance to the "
@@ -104,6 +105,8 @@ async def classify_web_search_need(
                 max_tokens=64,
                 timeout_seconds=settings.web_search_classifier_timeout_seconds,
                 allow_fallback=False,
+                # Bad JSON asks the fallback model once, inside the same deadline.
+                fallback_on_invalid=True,
             )
     except TimeoutError:
         logger.debug("Web-search classifier exceeded its foreground budget")

@@ -87,7 +87,6 @@ def test_day_planning_answer_hint_says_recall_has_no_calendar_or_inbox():
 def test_day_plan_style_hints_include_snapshot_and_override_format_contract_callouts():
     parts = _style_format_hints(
         query_text="What's still open for me to finish tonight?",
-        style="balanced",
         is_day_plan=True,
         minimal_personal_context=False,
     )
@@ -103,7 +102,6 @@ def test_day_plan_style_hints_include_snapshot_and_override_format_contract_call
 def test_reflection_style_hints_keep_reminders_and_loose_ends():
     parts = _style_format_hints(
         query_text="How did my day go? Help me reflect and wrap up loose ends.",
-        style="balanced",
         is_day_plan=True,
         minimal_personal_context=False,
     )

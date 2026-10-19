@@ -70,19 +70,17 @@ def test_where_is_place_skips_things_not_on_a_map(text: str) -> None:
     assert where_is_place(text) is None
 
 
-def _hints(text: str, style: str = "balanced", *, photos: bool = True) -> list[str]:
+def _hints(text: str, *, photos: bool = True) -> list[str]:
     return _style_format_hints(
         query_text=text,
-        style=style,
         is_day_plan=False,
         minimal_personal_context=False,
         image_search_enabled=photos,
     )
 
 
-@pytest.mark.parametrize("style", ["short", "balanced", "detailed"])
-def test_where_is_question_asks_for_a_location_map_in_every_style(style: str) -> None:
-    parts = _hints("where is kenya", style)
+def test_where_is_question_asks_for_a_location_map() -> None:
+    parts = _hints("where is kenya")
     assert ANSWER_PHOTO_HINT in parts
     assert WHERE_IS_PHOTO_HINT in parts
     assert "<place> location map" in WHERE_IS_PHOTO_HINT
@@ -104,9 +102,8 @@ def test_a_thing_worth_seeing_may_get_a_photo_but_only_where_is_asks_for_a_map()
         "what does a ball python eat",
     ],
 )
-@pytest.mark.parametrize("style", ["short", "balanced"])
-def test_photo_hint_stays_for_things_worth_seeing(text: str, style: str) -> None:
-    assert ANSWER_PHOTO_HINT in _hints(text, style)
+def test_photo_hint_stays_for_things_worth_seeing(text: str) -> None:
+    assert ANSWER_PHOTO_HINT in _hints(text)
 
 
 @pytest.mark.parametrize(
@@ -131,17 +128,22 @@ def test_photo_hint_stays_for_things_worth_seeing(text: str, style: str) -> None
         "write an email to my landlord about a broken heater",
         "make a bar chart of rainfall: Jan 5, Feb 3, Mar 7",
         "Is this sentence correct: me and him goes to the market",
+        # Small talk that asks for nothing, and turns about the last reply itself.
+        "good morning!",
+        "hello there",
+        "how are you?",
+        "continue",
+        "keep going",
+        "fix that",
     ],
 )
-@pytest.mark.parametrize("style", ["short", "balanced"])
-def test_photo_hint_stays_off_turns_that_are_not_about_one_thing(text: str, style: str) -> None:
-    assert ANSWER_PHOTO_HINT not in _hints(text, style)
+def test_photo_hint_stays_off_turns_that_are_not_about_one_thing(text: str) -> None:
+    assert ANSWER_PHOTO_HINT not in _hints(text)
 
 
 def test_photo_hint_stays_off_a_lesson_in_progress() -> None:
     parts = _style_format_hints(
         query_text="next",
-        style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
         image_search_enabled=True,

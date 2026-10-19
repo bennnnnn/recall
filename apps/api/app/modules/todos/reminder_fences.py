@@ -29,17 +29,15 @@ from app.modules.todos.reminder_fence_parse import (
     parse_fence,
 )
 from app.modules.todos.reminder_writes import ReminderWrites, create_one, load_existing, mutate_one
-from app.modules.todos.schemas import RecurrenceRule
+from app.modules.todos.reply_claims import without_claims
 from app.modules.todos.spoken_add import (
+    SpokenAdd,
     about_saved_reminders,
     chat_add_needs_a_stated_time,
-    day_for_a_bare_clock,
     due_for_add,
     due_is_past,
     edits_prior_reply,
-    parse_spoken_add,
     passed_time_reply,
-    pending_add,
     reply_when_nothing_saved,
 )
 from app.modules.todos.spoken_apply import apply_spoken_change, format_reminder_reading
@@ -49,6 +47,7 @@ from app.modules.todos.spoken_change import (
     names_reminders,
     parse_spoken_reminder_change,
 )
+from app.modules.todos.spoken_clauses import parse_spoken_adds, pending_add
 from app.modules.todos.spoken_when import parse_clock_only
 from app.services.draft_fences import has_draft
 
@@ -57,6 +56,8 @@ logger = logging.getLogger(__name__)
 # "Always remind me to drink water" got a repeating fence with no start time,
 # and the user read "the format was invalid". Nothing was saved: ask when.
 _ASK_WHEN = "When should I remind you?"
+# One of two reminders in a message with no time, or one already past.
+_ASK_WHEN_FOR = "When should I remind you to {title}?"
 # Each fence in the reply: (start, end, body).
 _Spans = list[tuple[int, int, str]]
 
@@ -105,7 +106,8 @@ async def materialize_reminder_fences(
         user_timezone=user_timezone,
     )
     kept = [line for line in text.split("\n") if not proposals.is_card_line(line, writes)]
-    body = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
+    # Nothing is saved until the tap: "Done! I've set a reminder" would be false.
+    body = without_claims("\n".join(kept), [write.title for write in writes])
     return (f"{body}\n\n{card}" if body else card), 0
 
 
@@ -222,22 +224,24 @@ async def _match_clock_reply(turn: _Turn) -> tuple[str, int] | None:
     pending = await pending_add(turn.session, turn.chat_id, turn.user_text or "")
     if pending is None:
         return None
-    due = due_for_add(
-        pending,
-        user_timezone=turn.user_timezone,
-        hour=clock[0],
-        minute=clock[1],
-    )
+    stated = replace(pending, hour=clock[0], minute=clock[1])
+    due = due_for_add(stated, user_timezone=turn.user_timezone)
     if due is None or due_is_past(due, user_timezone=turn.user_timezone):
         return passed_time_reply(), 0
-    return await _save_spoken_add(turn, title=pending.title, due=due, repeat=pending.repeat)
+    # The message is only the clock: there is nothing else for a reply to answer.
+    return await _save_spoken_adds(replace(turn, assistant_text=""), [], [stated])
 
 
 async def _match_spoken_add(turn: _Turn, spans: _Spans) -> tuple[str, int] | None:
     """An add the user stated with a day and a clock, saved without a fence."""
-    stated = parse_spoken_add(turn.user_text)
-    if stated is None:
+    adds = parse_spoken_adds(turn.user_text, user_timezone=turn.user_timezone)
+    if not adds:
         return None
+    if len(adds) > 1:
+        # Two reminders in one message: the model's own fences, when it wrote
+        # them, decide; otherwise each clause is saved with its own time.
+        return None if spans else await _save_spoken_adds(turn, spans, adds)
+    stated = adds[0]
     if (
         not spans
         and not names_reminders(turn.user_text)
@@ -247,11 +251,6 @@ async def _match_spoken_add(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
         )
     ):
         return turn.assistant_text, 0
-    # "At 9pm every night" starts tonight, or tomorrow once 9pm has passed.
-    if stated.day is None and stated.repeat and stated.hour is not None:
-        stated = replace(stated, day="today")
-    # "Remind me to plate the dinner at 7pm" is the next 7pm, the same way.
-    stated = day_for_a_bare_clock(stated, turn.user_text, user_timezone=turn.user_timezone)
     # The model's own reminder fence, when it wrote one, keeps its cleaner title,
     # unless its time already passed: "at 7pm" said at 9pm is tomorrow's 7pm, and
     # the model's "today 19:00" saved nothing and emptied the reply.
@@ -262,14 +261,19 @@ async def _match_spoken_add(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
         stated = replace(stated, title=title)
     if stated.day is None or stated.hour is None:
         return None
-    due = due_for_add(stated, user_timezone=turn.user_timezone)
-    if due is not None and stated.repeat and due_is_past(due, user_timezone=turn.user_timezone):
-        due = next_recurring_due(
-            due, stated.repeat, now=datetime.now(UTC), timezone=turn.user_timezone
-        )
-    if due is None or due_is_past(due, user_timezone=turn.user_timezone):
+    if _upcoming_due(stated, turn.user_timezone) is None:
         return passed_time_reply(), 0
-    return await _save_spoken_add(turn, title=stated.title, due=due, repeat=stated.repeat)
+    return await _save_spoken_adds(turn, spans, [stated])
+
+
+def _upcoming_due(add: SpokenAdd, user_timezone: str | None) -> datetime | None:
+    """The instant to save; a repeat that passed moves on, a one-off that passed is None."""
+    due = due_for_add(add, user_timezone=user_timezone)
+    if due is not None and add.repeat and due_is_past(due, user_timezone=user_timezone):
+        due = next_recurring_due(due, add.repeat, now=datetime.now(UTC), timezone=user_timezone)
+    if due is None or due_is_past(due, user_timezone=user_timezone):
+        return None
+    return due
 
 
 def _past_fence_title(spans: _Spans, user_timezone: str | None) -> str | None:
@@ -295,6 +299,9 @@ async def _save_user_remind(turn: _Turn) -> tuple[str, int]:
         return reply, 0
     line, ok = await create_one(turn.writes(), draft)
     updated = turn.assistant_text.strip()
+    if not ok:
+        # "Could not set …" follows: the model's "I've set it" is false.
+        updated = without_claims(updated, [draft.title])
     if line:
         updated = f"{updated}\n\n{line}" if updated else line
     if ok:
@@ -405,16 +412,26 @@ def _tidy(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
-async def _save_spoken_add(
-    turn: _Turn,
-    *,
-    title: str,
-    due: datetime,
-    repeat: RecurrenceRule | None,
-) -> tuple[str, int]:
-    draft = ReminderFence(action="add", title=title, due_at=due)
-    draft.repeat = repeat
-    line, ok = await create_one(turn.writes(), draft)
-    if ok:
+async def _save_spoken_adds(turn: _Turn, spans: _Spans, adds: list[SpokenAdd]) -> tuple[str, int]:
+    """Save each add, or ask when for one with no time or a time that passed.
+
+    The model's answer stays, minus the fences and any claim of its own: "What
+    is the boiling point of water? Also remind me…" keeps "Water boils at 100 °C".
+    """
+    state = turn.writes()
+    lines: list[str] = []
+    for add in adds[:MAX_TODO_ACTIONS_PER_TURN]:
+        due = _upcoming_due(add, turn.user_timezone) if add.hour is not None else None
+        if due is None:
+            lines.append(_ASK_WHEN_FOR.format(title=add.title))
+            continue
+        draft = ReminderFence(action="add", title=add.title, due_at=due)
+        draft.repeat = add.repeat
+        line, ok = await create_one(state, draft)
+        lines.append(line)
+        state.applied += 1 if ok else 0
+    if state.applied:
         await home_service.invalidate_home_cache(turn.user_id)
-    return line, (1 if ok else 0)
+    answer = _render(turn.assistant_text, spans, [""] * len(spans), [])
+    titles = [add.title for add in adds]
+    return _render(without_claims(answer, titles), [], [], lines), state.applied

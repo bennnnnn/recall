@@ -23,11 +23,16 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
+from app.modules.billing import plan as plan_service
 from app.modules.chat import prompt_constants as pc
+from app.modules.chat import prompt_memory
+from app.modules.chat.json_output import JSON_OUTPUT_HINT
+from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.selection import _search_before_the_model
 from app.modules.chat.turn_deps import default_deps
+from app.modules.chat.turn_intercepts import reply_picture_prompt
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
     stream_context_from_bundle,
@@ -37,6 +42,7 @@ from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
+from app.services.routing import last_user_turn
 from app.services.subject_solving import detect_subject
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
@@ -77,6 +83,23 @@ HINTS: dict[str, str] = {
     "advice": pc.ADVICE_PERSONALIZE_HINT,
     # A STEM reply the model works out itself checks its own answer first.
     "self_check": SELF_CHECK_PROMPT_RULE,
+    # The general layout contract, and the compact one a greeting or fragment gets.
+    "format_contract": pc.FORMAT_CONTRACT,
+    "compact": pc.COMPACT_RESPONSE_FORMAT_HINT,
+    # The length line: fit to the question, or the depth the message asked for.
+    "fit_length": pc.STYLE_HINTS["balanced"],
+    "detail": pc.STYLE_HINTS["detailed"],
+    "mixed_length": pc.MIXED_LENGTH_HINT,
+    "continue": pc.CONTINUE_HINT,
+    "correction": pc.CORRECTION_HINT,
+    "json_output": JSON_OUTPUT_HINT,
+    # Two or more separate requests: every one answered, each in its own section.
+    "multi_intent": MULTI_PART_MARKER,
+    # "In one sentence" binds only the request that said it.
+    "part1_brevity": f"For request 1 only: {pc.BREVITY_REQUEST_HINT}",
+    # Memory is off, or has no record of the earlier chat the user recalls.
+    "memory_off": prompt_memory.MEMORY_OFF_HINT,
+    "no_past_record": prompt_memory.NO_PAST_RECORD_HINT,
 }
 
 USER_NAME = "Bini"
@@ -94,6 +117,8 @@ class Route:
     solved: bool
     instant: str
     lightweight: bool
+    # The model Auto picks for the case's plan.
+    model: str = ""
     hints: set[str] = field(default_factory=set)
     # The ``programming_lesson`` contract is turn-specific text, not a constant.
     system_prompt: str = ""
@@ -102,6 +127,13 @@ class Route:
     # The verified result handed to the model when it writes the reply itself.
     verified_answer: str = ""
     verified_text: str = ""
+    # A multi-part message's picture and settings card (the server's part of its reply).
+    picture: bool = False
+    settings_card: str = ""
+    # Saved memory was read for this turn, and with which scope; earlier chats searched.
+    memory: bool = False
+    memory_scope: str = ""
+    history_rag: bool = False
 
     def summary(self) -> str:
         parts = [f"search={self.search}"]
@@ -109,12 +141,22 @@ class Route:
             parts.append(f"photo={self.photo!r}")
         if self.image_gen:
             parts.append("image_gen")
+        if self.picture:
+            parts.append("picture")
+        if self.settings_card:
+            parts.append("settings_card")
         if self.subject:
             parts.append(f"subject={self.subject}{'+solved' if self.solved else ''}")
         if self.instant:
             parts.append(f"instant={self.instant}")
         if self.lightweight:
             parts.append("lightweight")
+        if self.model:
+            parts.append(f"model={self.model}")
+        if self.memory:
+            parts.append(f"memory={self.memory_scope}")
+        if self.history_rag:
+            parts.append("history_rag")
         if self.hints:
             parts.append("hints=" + ",".join(sorted(self.hints)))
         return " ".join(parts)
@@ -209,7 +251,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         response_tone="casual",
         locale="en",
         timezone=USER_TIMEZONE,
-        memory_enabled=False,
+        memory_enabled=case.memory_enabled,
         location=case.location,
         location_enabled=case.location is not None,
     )
@@ -218,6 +260,15 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     prior_users = [row.content for row in rows if row.role == "user"]
     last_assistant = next((row for row in reversed(rows) if row.role == "assistant"), None)
     text = case.prompt
+    prior_user, prior_model = last_user_turn(rows)
+    model = plan_service.resolve_user_model(
+        user,
+        text,
+        settings,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=pc.active_lesson_step(rows) is not None,
+    )
 
     found = extract_image_lookup_query(text) if settings.image_search_enabled else None
     photo = dated_lookup_query(found, datetime.now(UTC).year) if found else ""
@@ -238,8 +289,11 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
 
     classifier = AsyncMock(return_value=None)
     tool_rounds = AsyncMock(side_effect=lambda **kw: (kw["messages"], None, None, []))
+    # What the prompt builder asked to load: the memory scope, and earlier chats.
+    loaded: dict[str, Any] = {}
 
-    async def context_blocks(*_args: Any, **_kwargs: Any) -> _PromptContextBlocks:
+    async def context_blocks(*_args: Any, **kwargs: Any) -> _PromptContextBlocks:
+        loaded.update(kwargs)
         return _PromptContextBlocks(
             memory_block="",
             todos_section=None,
@@ -279,7 +333,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
                 user_id=user.id,
                 chat_id=chat.id,
                 content=text,
-                model="free-chat",
+                model=model,
                 client_timezone=USER_TIMEZONE,
                 client_location=case.location,
                 client_latitude=None,
@@ -296,7 +350,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
             bundle,
             user_id=user.id,
             chat_id=chat.id,
-            model="free-chat",
+            model=model,
             user_message_content=text,
             reserved_tokens=100,
             user=user,
@@ -310,7 +364,10 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     loop_call = tool_rounds.await_args
     loop_ran = loop_call is not None
     web_flag = loop_call.kwargs.get("web_search") if loop_call is not None else None
-    direct = loop_ran and _search_before_the_model(text, settings, user, web_search=web_flag)
+    verified_part = bool(loop_call and loop_call.kwargs.get("has_verified_math"))
+    direct = loop_ran and _search_before_the_model(
+        text, settings, user, web_search=web_flag, has_verified_math=verified_part
+    )
     if prefetch_searched or direct or (loop_ran and needs_web_search(text)):
         search = "yes"
     elif classifier.await_count or loop_ran:
@@ -333,12 +390,24 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         instant=_instant_kind(bundle.instant_reply, solved=solved),
         instant_text=bundle.instant_reply or "",
         lightweight=bool(bundle.lightweight),
+        model=model,
         hints=_hints_in(system, case),
         system_prompt=system,
         verified_answer=(verified.display_answer or verified.canonical_answer or "")
         if verified
         else "",
         verified_text=verified.text if verified else "",
+        picture=bool(
+            not photo
+            and not image_gen
+            and reply_picture_prompt(text, settings)
+            and settings.image_generation_enabled
+            and can_use(user, "image_generation", settings)
+        ),
+        settings_card=bundle.settings_card or "",
+        memory=bool(loaded.get("load_memory")),
+        memory_scope=str(loaded.get("memory_scope") or "") if loaded.get("load_memory") else "",
+        history_rag=bool(loaded.get("history_rag")),
     )
 
 
@@ -363,6 +432,8 @@ def mismatches(expect: Expect, route: Route) -> list[str]:
             if word in words:
                 out.append(f"photo: {route.photo!r} still says {word!r}")
     check("image_gen", expect.image_gen, route.image_gen)
+    check("picture", expect.picture, route.picture)
+    check("settings_card", expect.settings_card, bool(route.settings_card))
     # An intercepted turn (photo or generated image) never reaches the rest.
     if route.photo or route.image_gen:
         return out
@@ -371,6 +442,10 @@ def mismatches(expect: Expect, route: Route) -> list[str]:
     check("solved", expect.solved, route.solved)
     check("instant", expect.instant, route.instant)
     check("lightweight", expect.lightweight, route.lightweight)
+    check("model", expect.model, route.model)
+    check("memory", expect.memory, route.memory)
+    if expect.memory_scope is not None and route.memory:
+        check("memory_scope", expect.memory_scope, route.memory_scope)
     if expect.answer_photo and "answer_photo" not in route.hints:
         out.append("answer photo: the turn never offers one")
     for hint in expect.hints:

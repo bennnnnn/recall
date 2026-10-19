@@ -66,8 +66,34 @@ _PHRASES = frozenset(
         "go on",
         "continue",
         "keep going",
+        "carry on",
+        "keep writing",
+        "continue writing",
+        "continue the story",
+        "continue from there",
+        "continue where you left off",
+        "finish it",
+        "fix it",
+        "fix that",
+        "fix this",
     }
 )
+# Of those, the ones that ask the last reply to go on from where it stopped.
+_RESUME_PHRASES = frozenset(
+    {
+        "go on",
+        "continue",
+        "keep going",
+        "carry on",
+        "keep writing",
+        "continue writing",
+        "continue the story",
+        "continue from there",
+        "continue where you left off",
+        "finish it",
+    }
+)
+_FIX_PHRASES = frozenset({"fix it", "fix that", "fix this"})
 # A fresh problem of the same kind, not the last one again. "Another way" or
 # "another method" asks about the same problem, so those stay out.
 _NEW_PROBLEM_PHRASES = frozenset(
@@ -140,6 +166,18 @@ def is_pure_continuation(text: str | None) -> bool:
     if is_lightweight_chat_turn(collapsed):
         return False
     return _phrase(collapsed) in _PHRASES
+
+
+def is_resume_request(text: str | None) -> bool:
+    """True for "continue" / "keep going": the last reply goes on, it does not restart."""
+    return is_pure_continuation(text) and _phrase(text or "") in _RESUME_PHRASES
+
+
+def works_on_last_reply(text: str | None) -> bool:
+    """True for "continue" or "fix that": the last reply is the whole subject of the turn."""
+    return is_resume_request(text) or (
+        is_pure_continuation(text) and _phrase(text or "") in _FIX_PHRASES
+    )
 
 
 def is_new_problem_request(text: str | None) -> bool:

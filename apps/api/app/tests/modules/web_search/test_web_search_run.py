@@ -464,8 +464,8 @@ async def test_search_web_returns_empty_when_all_providers_fail():
 
 
 @pytest.mark.asyncio
-async def test_search_duckduckgo_timeout_returns_empty():
-    """Stalled DDG must not hang the turn — wait_for returns []."""
+async def test_search_duckduckgo_timeout_is_a_failed_search():
+    """Stalled DDG must not hang the turn, and a timeout is a failure, not "no results"."""
     import asyncio
 
     from app.gateways import web_search_gateway as gw
@@ -477,9 +477,9 @@ async def test_search_duckduckgo_timeout_returns_empty():
     with (
         patch.object(gw, "_DDG_TIMEOUT_SECONDS", 0.05),
         patch.object(gw.asyncio, "to_thread", side_effect=never_finishes),
+        pytest.raises(gw.WebSearchUnavailableError),
     ):
-        hits = await gw._search_duckduckgo("slow query", max_results=3)
-    assert hits == []
+        await gw._search_duckduckgo("slow query", max_results=3)
 
 
 @pytest.mark.asyncio

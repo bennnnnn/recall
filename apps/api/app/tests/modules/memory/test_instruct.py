@@ -33,9 +33,19 @@ def _snapshot(*, enabled: bool = True) -> MemorySnapshot:
     )
 
 
+def _applies(ops: list[str] | None):
+    """An apply_memory_facts double that reports ``ops`` as applied (all writes when None)."""
+
+    async def apply(*_args, **kwargs):
+        landed = [write.op for write in kwargs["writes"]] if ops is None else ops
+        kwargs["applied"].extend(landed)
+
+    return AsyncMock(side_effect=apply)
+
+
 @contextmanager
-def _patches(*, result, snapshot=None, lock="token"):
-    apply = AsyncMock()
+def _patches(*, result, snapshot=None, lock="token", applied_ops=None):
+    apply = _applies(applied_ops)
     instruct = AsyncMock(return_value=result)
     release = AsyncMock()
     with ExitStack() as stack:
@@ -114,6 +124,35 @@ async def test_an_instruction_with_nothing_to_change_only_replies():
     assert outcome.applied == 0
     assert outcome.reply == "That isn't something to remember."
     apply.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("landed", "reply"),
+    [
+        # The model said it removed the fact; the stale match dropped it.
+        ([], instruct_service.NOTHING_CHANGED_REPLY),
+        # One of two edits landed.
+        (["delete"], "Memory updated: 1 removed."),
+        (["delete", "add"], "Removed tea and saved coffee."),
+    ],
+)
+async def test_the_reply_says_what_was_actually_applied(landed, reply):
+    result = MemoryFactUpdateResult(
+        ops=[
+            MemoryFactOp(
+                op="delete", type="fact", text="", confidence=1.0, match_text="User likes tea"
+            ),
+            MemoryFactOp(op="add", type="fact", text="User likes coffee", confidence=0.9),
+        ],
+        reply="Removed tea and saved coffee.",
+    )
+    with _patches(result=result, applied_ops=landed):
+        outcome = await instruct_service.apply_memory_instruction(
+            Settings(), user_id=uuid4(), instruction="I switched from tea to coffee"
+        )
+    assert outcome.applied == len(landed)
+    assert outcome.reply == reply
 
 
 @pytest.mark.asyncio

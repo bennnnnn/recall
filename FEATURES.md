@@ -96,15 +96,23 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 3. Messaging behaviour
 - ✅ **Streaming** — token-by-token over WebSocket; the reply appears as it's generated.
   Ordinary turns show typing dots only (no “loading memory / working on it” staircase).
-  Status labels are reserved for real extra work: web search, files, math, and image
-  gen. Turn start overlaps waiting for the previous reply to persist
+  Status labels are reserved for real extra work while it runs: web search, files, math,
+  a reference-photo lookup ("Finding a photo") and image gen; the server sends
+  `composing` once a tool is done, so its label never outlives it. After the first
+  token, 20 s without new text shows "Still working on it… Tap Stop". A card fence
+  (quiz, steps, array, places, any data-bodied registry fence) is a quiet placeholder
+  until it closes, a table waits for its delimiter row, and verified-solve markers or
+  text-written tool calls never reach the phone. Turn start overlaps waiting for the previous reply to persist
   with user/quota load (regenerate still waits first so it does not miss that reply).
   Attachment-chunk probes run only when they can apply;
   time/location answers skip a database checkout.
 - ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button); the partial reply
   is kept and marked incomplete (same “Generation stopped.” footer as a provider
-  drop or token-limit cut). Hard WS/SSE disconnect with tokens already streamed also
-  finalizes (same as soft stop). **New chat / leave does not abort SSE** (Stop still
+  drop or token-limit cut). The kept text never changes after Stop: the cancel frame
+  says how much the phone drew (`shown_chars`), the server saves that text made safe
+  and laid out (no verified card, note, sources or reminder card added), and a Stop
+  before any text shows saves nothing. Hard WS/SSE disconnect with tokens already
+  streamed also finalizes (same as soft stop). **New chat / leave does not abort SSE** (Stop still
   does); leftover events are ignored for the next thread. `GET /messages` waits for
   the in-flight SSE producer the same way it waits on WS.
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
@@ -140,7 +148,17 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   layout. Sequence diagrams use `sequenceDiagram`, not a flowchart. Bare
   “write me an email” asks one purpose question; a named purpose still drafts
   now. Real/my chart data without numbers asks once instead of inventing a
-  sample as the answer.
+  sample as the answer. “Continue” / “keep going” resumes the last reply where it
+  stopped, never a restart or recap, and the window keeps that reply whole even past the
+  token budget; “fix that” works on the last reply. A correction (“no, I said I'm
+  vegetarian”, “actually I meant Python 2, not 3”) carries a short contract beside the
+  user turn: apply it, drop the old assumption, no long apology
+  (`prompt_constants/conversation.py`). “In detail” / “deep dive” gets the detailed length;
+  one sentence for one part and detail for another gets each its own. A reply's last line
+  loses a generic closer (“Let me know if you have any other questions”, “Hope this
+  helps”), never inside a fence, a quote or a draft the user asked for
+  (`modules/chat/generic_closer.py`). A photo too blurry or cropped to read gets what is
+  unclear and a request for a clearer one (`attachments/vision_notes.py`).
 - ✅ **Send stays busy until accepted** — after Send, the composer clears so the next
   draft can be typed, but Send and Attach stay disabled until upload/create finishes.
   A failed turn restores into an empty composer and does not overwrite a newer draft.
@@ -183,7 +201,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (a session that never reports keeps the whole reservation). Settings → Account shows the
   minutes left. Tap the mic (next to close) to mute so Recall
   cannot hear you; it turns red. Playback is not paused. No Listening/Speaking
-  labels. The normal composer stays so you can type and attach in voice mode.
+  labels on screen; screen readers hear each phase (listening, thinking, speaking) as
+  it changes. A denied microphone asks for access with Open Settings. The normal composer stays so you can type and attach in voice mode.
   Typing a draft hides mute and close so the field uses the full row; they
   return when the draft is empty. Spoken turns are saved as normal chat
   messages (what you said + the reply) so they are in the thread when you
@@ -547,8 +566,17 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   corrections are evaluated without requiring phrases such as “I am” or “remember.” Ops can
   raise N to skip intermediate LLM cost. Each pass includes
   user messages not processed by the previous pass (per-chat extract cursor), so a fact
-  on turn 2 is not dropped if the chat ends there. Explicit “remember this” / “forget that”
+  on turn 2 is not dropped if the chat ends there. Explicit “remember this” / “forget that”,
+  a mute ("stop mentioning my job") and a correction ("that's wrong, I'm at Stripe now")
   still extract when N>1. No remember/forget chip or confirmation sheet.
+- ✅ **Forget, mute, reset** (`modules/memory/commands.py`) — "forget that I use React"
+  deletes the fact the phrase names, never a broader one sharing a word ("builds Recall with
+  React Native") or someone else's ("my sister lives in Nairobi"). "Stop mentioning my job" /
+  "don't bring up my divorce again" **mutes** the fact (kept, never injected, its past-chat
+  snippets dropped); a do-not-mention preference is kept even when sensitive. "Forget
+  everything you know about me" and "stop remembering things about me" are a settings card
+  (clear all / memory off) that does nothing until tapped. Explicit facts and hand edits are
+  never evicted by the 150 cap. Sweep look-alikes: `sweep_corpus/memory_controls.json`.
 - ✅ **Extraction hygiene** — only what the user's own lines state or clearly show (the
   projects they build, the stack they build with, their job, goals, routines, recurring
   interests); never assistant restatements. Transcript is the **user line only**, capped ~4k
@@ -580,11 +608,20 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Typed memories** — `profile` · `preference` · `project` · `fact` · `focus` (grouping
   categories, not a 20-type taxonomy). Each row is one atomic fact (the old one-paragraph-per-type
   unique constraint is gone). Cap **150 active** facts per user.
-- ✅ **Quality controls** — confidence threshold, de-duplication / pair-merge, score-and-pack
-  packing (never mid-fact prefix cut), identity core (a few profile + communication prefs).
+- ✅ **Quality controls** — confidence threshold, de-duplication / pair-merge (newer fact
+  wins), score-and-pack packing (never mid-fact prefix cut), identity core (the name and reply
+  preferences). An add matches by exact text only.
 - ✅ **Prompt injection** — identity core always; remaining facts packed by cosine + importance +
   recency until `memory_inject_max_chars` (1500). Similarity bar stays `memory_min_similarity`
-  (0.35). Health / legal / finance / relationship stay **stripped on casual turns** (stored
+  (0.35); a fact with no vector needs a word in common with the question. Scopes
+  (`get_memory_block(scope=…)`): by query; with the profile page (career, "what's my job?");
+  everything ("what do you know about me"); **work** (programming and "my app / my backend"
+  turns: the tech-stack page and what the user builds, no query embed). An embed timeout
+  injects the identity core plus word matches, uncached, and warms the key the turn read.
+  Each fact line carries "(said YYYY-MM)" and "unconfirmed" under 0.6 confidence. A failed
+  read is reported (`MemoryLoadReport`), never cached, and the reply says memory couldn't
+  load instead of "I don't have that saved"; memory off / saving paused / no earlier chat
+  found each get one line on the turns they bear on (`modules/chat/prompt_memory.py`). Health / legal / finance / relationship stay **stripped on casual turns** (stored
   `sensitivity` first, regex defense-in-depth) and inject only when the ask is in-domain.
   Life-domain advice ("what should I eat", "I need dinner", "plan a workout")
   injects **memory only**. Ordinary need/plan phrasing
@@ -594,11 +631,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   falls back to scored packing when embeddings are missing).
 - ✅ **Memory screen** — `GET /memories/documents`: You / Topics / Areas rows with a summary
   and the last-updated date. A page shows its title, last updated, summary and each fact as a
-  bullet; tap a fact to edit or delete it, **Delete** removes the page
+  bullet with the chat it came from; tap a fact to edit, mute / unmute or delete it (a muted
+  fact reads "Muted · not used in chats"), **Delete** removes the page
   (`DELETE /memories/documents/{topic}`). `PATCH /memories/{id}` updates text or status;
-  `DELETE /memories/{id}` deletes one fact; `DELETE /memories` clears all.
-- ✅ **Memory toggle** — turn learning on/off in Settings (stops new learning; saved facts
-  remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one API.
+  `DELETE /memories/{id}` deletes one fact with the versions it superseded; `DELETE /memories`
+  clears all. A delete, clear or mute also purges the past-chat snippets that repeat it, so
+  chat-history recall cannot bring a deleted fact back.
+- ✅ **Memory toggle** — off means no personal recall: no new learning, no saved facts in
+  replies, no chat-history retrieval or indexing, no instant profile answers (saved facts
+  remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one
+  API.
 - 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;
   do not implement until this line is promoted.
 - ✅ **Memory management reliability** — account and navigation
@@ -642,7 +684,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the full visualization/math-solver pack), keeps bounded personal memory and semantic history
   available for continuity, and skips web/math/chem prefetch unless the turn is rich or actually
   needs search, math or chemistry. Exact greetings and
-  acknowledgements stay on the zero-retrieval fast path.
+  acknowledgements stay on the zero-retrieval fast path; “good morning!” or “how are you?”
+  (an opener that asks for nothing) gets the compact format and no photo offer, while
+  “good morning, what's the capital of Peru?” is answered in full.
 - ✅ **Prompt token budgeting UI** — Settings → Account → Usage shows how much of
   today's limit is left. The composer
   shows a local draft estimate when the text is large enough to matter.
@@ -738,7 +782,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Agree stores `users.ai_data_consent_at` on the account (`PATCH /auth/me`
   `ai_data_consent`), Not now signs out. Every signed-in screen waits on it (the root
   layout's `features/auth/components/AiConsentRedirect.tsx` sends it to `app/consent.tsx`);
-  the web client asks too. No server-side check in the chat path yet.
+  the web client asks too. The server holds the same line (`modules/account/consent.py`): a
+  chat turn (WebSocket and SSE), speech (transcribe, read aloud, a live talk key or tool) and a
+  scan read-back are refused with `consent_required` (an error frame with
+  `user_message_saved: false`, or HTTP 403) until the account agrees, and the phone answers it
+  with the consent screen. Settings → Data controls shows when the account agreed and can
+  withdraw it, which brings the consent screen back. Image generation, attachment uploads and
+  memory instructions are not gated yet.
 - ✅ **Polish** — light haptic taps on key actions (Android via the built-in API) + chip fade-in
   animation.
 - ✅ **iOS haptics** — `expo-haptics` on real devices (graceful no-op on Android / Expo Go).

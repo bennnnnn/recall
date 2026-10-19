@@ -1,13 +1,22 @@
-"""Structured model completion, schema recovery and bounded fallback."""
+"""Structured model completion, schema recovery and bounded fallback.
+
+Output that does not parse or fit its schema is never used. It is logged at
+WARNING with the alias and the schema, and counted per UTC day in Redis
+(``structured_invalid:<day>``, one field per alias and schema), so a model that
+starts returning bad JSON shows up instead of silently dropping work.
+"""
 
 import asyncio
 import json
 import logging
+from datetime import UTC, datetime
 from typing import cast, get_args, get_origin
 
 from pydantic import BaseModel
 
+from app.core.background_tasks import create_background_task
 from app.core.config import Settings
+from app.core.redis import get_redis_client
 from app.gateways import llm_spend, mock_llm
 from app.models.schemas import (
     MEMORY_REPLY_MAX_LENGTH,
@@ -18,6 +27,35 @@ from app.models.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+# A day's counts outlive it long enough to read yesterday's, then expire.
+_INVALID_COUNT_TTL_SECONDS = 60 * 60 * 48
+_INVALID_COUNT_TIMEOUT_SECONDS = 2.0
+
+
+def invalid_output_key(day: datetime | None = None) -> str:
+    return f"structured_invalid:{(day or datetime.now(UTC)).date().isoformat()}"
+
+
+def _invalid_output(model_alias: str, schema: type[BaseModel], reason: str) -> None:
+    """Log and count one structured reply that was thrown away."""
+    logger.warning(
+        "Structured completion: %s alias=%s schema=%s", reason, model_alias, schema.__name__
+    )
+    create_background_task(
+        _count_invalid(f"{model_alias}:{schema.__name__}"), name="structured_invalid"
+    )
+
+
+async def _count_invalid(field: str) -> None:
+    try:
+        async with asyncio.timeout(_INVALID_COUNT_TIMEOUT_SECONDS):
+            redis = get_redis_client()
+            key = invalid_output_key()
+            await redis.hincrby(key, field, 1)
+            await redis.expire(key, _INVALID_COUNT_TTL_SECONDS)
+    except Exception:
+        logger.debug("structured invalid count not recorded field=%s", field, exc_info=True)
 
 
 def _list_field_name(schema: type[BaseModel]) -> str | None:
@@ -82,16 +120,13 @@ async def _complete_structured_once[T: BaseModel](
     try:
         data = json.loads(raw.strip())
     except json.JSONDecodeError:
-        logger.debug("Structured completion: bad JSON for %s", model_alias)
-        return None  # call succeeded but output was unparseable — retry won't help
+        _invalid_output(model_alias, schema, "bad JSON")
+        return None  # the call succeeded; only fallback_on_invalid asks again
     # Models occasionally return a bare array for a single-list schema; wrap it.
     if isinstance(data, list):
         list_field = gateway._list_field_name(schema)
         if list_field is None:
-            logger.debug(
-                "Structured completion: bare list returned for %s with no list field",
-                schema.__name__,
-            )
+            _invalid_output(model_alias, schema, "bare list for a schema with no list field")
             return None
         data = {list_field: data}
     try:
@@ -105,7 +140,7 @@ async def _complete_structured_once[T: BaseModel](
             section_partial = gateway._parse_memory_sections_partial(data)
             if section_partial is not None:
                 return cast(T, section_partial)
-        logger.debug("Structured completion: validation failed for %s", model_alias)
+        _invalid_output(model_alias, schema, "schema validation failed")
         return None
 
 
@@ -157,60 +192,52 @@ async def complete_structured[T: BaseModel](
     allow_fallback: bool = True,
     fallback_on_invalid: bool = False,
 ) -> T | None:
+    """One structured reply, validated against ``schema``; None when there is none.
+
+    ``allow_fallback``: a provider failure asks the background fallback model once.
+    ``fallback_on_invalid``: so does output that does not parse or validate, even
+    with ``allow_fallback`` off (a foreground caller keeps its own deadline).
+    """
     if mock_llm.should_mock_llm(settings):
         return None
     from app.gateways import litellm_gateway as gateway
 
-    fallback = gateway._fallback_alias(settings, model_alias) if allow_fallback else None
-    try:
-        result = await gateway._complete_structured_once(
+    fallback = gateway._fallback_alias(settings, model_alias)
+
+    async def ask(alias: str) -> T | None:
+        return await gateway._complete_structured_once(
             settings=settings,
-            model_alias=model_alias,
+            model_alias=alias,
             messages=messages,
             schema=schema,
             max_tokens=max_tokens,
             timeout_seconds=timeout_seconds,
             usage=usage,
         )
-        if result is not None:
-            return result
-        if fallback is None or not fallback_on_invalid:
-            return None
-        logger.warning(
-            "Background LLM %s returned invalid structured output; retrying with fallback %s",
-            model_alias,
-            fallback,
-        )
+
+    async def ask_fallback(alias: str) -> T | None:
         try:
-            return await gateway._complete_structured_once(
-                settings=settings,
-                model_alias=fallback,
-                messages=messages,
-                schema=schema,
-                max_tokens=max_tokens,
-                timeout_seconds=timeout_seconds,
-                usage=usage,
-            )
+            return await ask(alias)
         except Exception:
-            logger.exception("Background LLM fallback %s also failed", fallback)
+            logger.exception("Background LLM fallback %s also failed", alias)
             return None
+
+    try:
+        result = await ask(model_alias)
     except Exception:
-        if fallback is None:
+        if fallback is None or not allow_fallback:
             logger.exception("Background LLM %s failed and no fallback configured", model_alias)
             return None
         logger.warning(
             "Background LLM %s unavailable; retrying with fallback %s", model_alias, fallback
         )
-        try:
-            return await gateway._complete_structured_once(
-                settings=settings,
-                model_alias=fallback,
-                messages=messages,
-                schema=schema,
-                max_tokens=max_tokens,
-                timeout_seconds=timeout_seconds,
-                usage=usage,
-            )
-        except Exception:
-            logger.exception("Background LLM fallback %s also failed", fallback)
-            return None
+        return await ask_fallback(fallback)
+    if result is not None or fallback is None or not fallback_on_invalid:
+        return result
+    logger.warning(
+        "Background LLM %s returned invalid %s; retrying with fallback %s",
+        model_alias,
+        schema.__name__,
+        fallback,
+    )
+    return await ask_fallback(fallback)

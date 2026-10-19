@@ -2,9 +2,11 @@
  * A reminder change the chat offers as a card. Nothing is saved until the
  * user taps it; the server then marks the card `"status": "saved"`.
  *
- * ```reminder_proposal {"proposal_id": "…", "items": [{"action": "add",
+ * ```reminder_proposal {"proposal_id": "…", "tz": "Africa/Nairobi", "items": [{"action": "add",
  *   "title": "Call mom", "due_at": "2026-10-15T18:00:00Z", "repeat": "daily",
  *   "when": "Thursday, Oct 15, 6:00 PM · daily"}]}
+ *
+ * `tz` is the zone the server read the user's words in (absent on older cards).
  */
 
 import type { RecurrenceRule } from "@/lib/api/types";
@@ -33,6 +35,8 @@ export type ReminderProposal = {
   proposalId: string;
   items: ReminderProposalItem[];
   saved: boolean;
+  /** The IANA zone the card's times were read in, or null on an older card. */
+  timeZone: string | null;
 };
 
 const ACTIONS = new Set<ReminderProposalAction>([
@@ -79,7 +83,7 @@ function normalizeProposal(raw: unknown): ReminderProposal | null {
     .map(normalizeItem)
     .filter((item): item is ReminderProposalItem => item !== null);
   if (items.length === 0) return null;
-  return { proposalId, items, saved: row.status === "saved" };
+  return { proposalId, items, saved: row.status === "saved", timeZone: text(row.tz) };
 }
 
 export function parseReminderProposals(content: string): ReminderProposal[] {

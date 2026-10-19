@@ -27,6 +27,7 @@ from app.modules.attachments.content_types import (
     normalize_content_type,
 )
 from app.modules.attachments.markers import _strip_image_markers
+from app.modules.attachments.vision_notes import VISION_NOTE
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,6 @@ MAX_INDEX_EXTRACT_CHARS = 200_000
 # Inline excerpts stay small; background indexing can read later PDF pages.
 PDF_EXTRACT_MAX_PAGES = 25
 PDF_INDEX_MAX_PAGES = 500
-
-_IMAGE_REAL_NOTE = "These images are real. Do not call them placeholders or a failed generation."
 
 GALLERY_THUMB_MIN_EDGE = 32
 GALLERY_THUMB_MAX_EDGE = 512
@@ -503,7 +502,7 @@ async def inject_vision_content(
     if not any(part.get("type") == "image_url" for part in parts):
         return False
 
-    parts[0]["text"] = f"{parts[0]['text']}\n\n{_IMAGE_REAL_NOTE}"
+    parts[0]["text"] = f"{parts[0]['text']}\n\n{VISION_NOTE}"
 
     for idx in range(len(prompt_messages) - 1, -1, -1):
         if prompt_messages[idx].get("role") == "user":

@@ -18,7 +18,7 @@ from typing import Any
 from app.core.config import Settings
 from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolContext
-from app.modules.chat.stream_status import StreamStatusFn, clip_status_detail
+from app.modules.chat.stream_status import StreamStatusFn, StreamStatusPhase, clip_status_detail
 from app.modules.chat.tool_loop.results import (
     ToolResults,
     _canonical_answer_from_tool_result,
@@ -58,13 +58,17 @@ class _Round:
         return bool(self.should_cancel and self.should_cancel())
 
 
-def _status_for_tool(name: str) -> str | None:
+def _status_for_tool(name: str) -> StreamStatusPhase | None:
     if name == "web_search":
         return "searching"
     if name == "sympy":
         return "calculating"
-    if name in ("generate_image", "search_image"):
+    if name == "generate_image":
         return "image_gen"
+    # A reference-photo lookup finds a real photo; it is not image generation,
+    # whose card (progress estimate, "Sketching it out") would be a false claim.
+    if name == "search_image":
+        return "finding_photo"
     return None
 
 
@@ -129,6 +133,7 @@ async def _execute_calls(
     invoke_deadline = time.monotonic() + max(
         0.0, turn.settings.mcp_tool_loop_invoke_timeout_seconds
     )
+    announced = False
     for index, call in enumerate(tool_calls):
         if turn.cancelled():
             break
@@ -138,12 +143,17 @@ async def _execute_calls(
         refusal = _refusal(
             turn, name, raw_args, over_cap=index >= max_calls, deadline=invoke_deadline
         )
+        announced = announced or (refusal is None and _status_for_tool(name) is not None)
         content = (
             refusal if refusal is not None else await _run_call(turn, name, raw_args, collected)
         )
         working.append(
             {"role": "tool", "tool_call_id": str(call.get("id") or name), "content": content}
         )
+    if announced and turn.on_status is not None and collected.terminal_image is None:
+        # The tools are done; the model is next. A "Searching — …" label must not
+        # keep rotating through that model round. A picture ends the turn itself.
+        await turn.on_status("composing")
 
 
 def _refusal(

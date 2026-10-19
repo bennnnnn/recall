@@ -30,6 +30,40 @@ _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
         "transport": frozenset({"ws", "sse"}),
         "has_attachment": frozenset({"yes", "no"}),
     },
+    # How a chat turn ended, from the phone at done or error. Metadata only:
+    # never the prompt, the reply, a query, a chat id or a provider message.
+    "chat_turn_outcome": {
+        "completion": frozenset({"complete", "stopped", "interrupted", "error"}),
+        # The error frame's code (stream_events.error_payload_for_exception);
+        # "other" for one with no code, "none" for a turn that did not fail.
+        "error_code": frozenset(
+            {
+                "none",
+                "quota_exceeded",
+                "spend_cap",
+                "model_unavailable",
+                "unavailable",
+                "busy",
+                "attachment_rejected",
+                "unknown_model",
+                "rate_limited",
+                "other",
+            }
+        ),
+        # The first tool the turn showed working (stream_status phases).
+        "tool": frozenset(
+            {
+                "none",
+                "searching",
+                "calculating",
+                "physics",
+                "chemistry",
+                "reading_files",
+                "finding_photo",
+                "image_gen",
+            }
+        ),
+    },
 }
 
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import itertools
 from collections.abc import Callable
 from typing import Any
 
@@ -9,6 +11,7 @@ from app.core.config import Settings
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat.stream_status import StreamStatusFn, clip_status_detail
+from app.modules.chat.tool_loop.parts import live_parts, open_parts
 from app.modules.chat.tool_loop.selection import _last_user_content
 from app.modules.web_search import (
     format_search_block,
@@ -40,12 +43,16 @@ async def _force_web_search_if_needed(
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
     search_required: bool = False,
+    search_parts: list[str] | None = None,
+    has_verified_math: bool = False,
 ) -> tuple[list[dict[str, Any]], list[WebSearchHit]]:
     """If the model skipped web_search on a turn that needs live results, search once.
 
     ``search_required`` preserves a classifier-yes decision. The sync heuristic
     alone would otherwise drop that turn (silent answer from training data).
     Empty hits still inject a no-results block so the model cannot look current.
+    A message with more than one request searches each live part for itself:
+    "I need a laptop, and I also want remote backend jobs" searches the jobs.
     """
     if search_hits:
         return messages, search_hits
@@ -56,12 +63,14 @@ async def _force_web_search_if_needed(
     user_text = _last_user_content(messages)
     if not user_text:
         return messages, search_hits
-    from app.modules.web_search.detection import needs_web_search
     from app.services.prompt_inject import inject_before_last_user
     from app.services.prompt_safety import wrap_untrusted
 
     already_searched = _web_search_was_called(messages)
-    if not search_required and not already_searched and not needs_web_search(user_text):
+    targets = search_parts or live_parts(
+        open_parts(user_text, has_verified_math=has_verified_math, settings=settings)
+    )
+    if not search_required and not already_searched and not targets:
         return messages, search_hits
 
     tried = [user_text]
@@ -69,27 +78,76 @@ async def _force_web_search_if_needed(
         # Show the search before reading the chat for a follow-up's topic.
         if on_status is not None:
             await on_status("searching", None)
-        # "do a search" / "when did she die?" search for what the chat was
-        # about, not for the words of the request.
-        queries = await search_queries_for_turn(
-            settings,
-            user_text,
-            messages,
-            user_timezone=ctx.user_timezone,
-            user_location=ctx.user_location,
-        )
-        if on_status is not None:
-            await on_status("searching", clip_status_detail(queries[0] if queries else user_text))
-        hits, tried = await run_cached_search(
-            settings,
-            queries or [user_text],
-            user=ctx.user,
-            redis=ctx.redis,
-            budget=ctx.tavily_budget,
+        hits, tried = await _search_targets(
+            settings, messages, ctx, targets or [user_text], on_status
         )
         if hits:
             block = wrap_untrusted("web search", format_search_block(hits))
             return inject_before_last_user(messages, block), hits
 
-    empty = format_search_empty_block(tried or [user_text])
+    empty = format_search_empty_block(tried or [user_text], failed=ctx.tavily_budget.search_failed)
     return inject_before_last_user(messages, empty), search_hits
+
+
+async def _search_targets(
+    settings: Settings,
+    messages: list[dict[str, Any]],
+    ctx: ToolContext,
+    targets: list[str],
+    on_status: StreamStatusFn | None,
+) -> tuple[list[WebSearchHit], list[str]]:
+    """Each target's best query, searched side by side on the turn's one budget.
+
+    "do a search" / "when did she die?" search for what the chat was about, not for
+    the words of the request. Hits alternate between targets, so a part with many
+    results cannot crowd out another's.
+    """
+    query_lists = await asyncio.gather(
+        *(
+            search_queries_for_turn(
+                settings,
+                target,
+                messages,
+                user_timezone=ctx.user_timezone,
+                user_location=ctx.user_location,
+            )
+            for target in targets
+        )
+    )
+    if on_status is not None:
+        first = query_lists[0][0] if query_lists[0] else targets[0]
+        await on_status("searching", clip_status_detail(first))
+    if len(targets) == 1:
+        return await run_cached_search(
+            settings,
+            query_lists[0] or targets,
+            user=ctx.user,
+            redis=ctx.redis,
+            budget=ctx.tavily_budget,
+        )
+    queries = [
+        found[0] if found else target for found, target in zip(query_lists, targets, strict=True)
+    ]
+    results = await asyncio.gather(
+        *(
+            run_cached_search(
+                settings, [query], user=ctx.user, redis=ctx.redis, budget=ctx.tavily_budget
+            )
+            for query in queries
+        )
+    )
+    return _interleave([hits for hits, _tried in results], settings), queries
+
+
+def _interleave(per_target: list[list[WebSearchHit]], settings: Settings) -> list[WebSearchHit]:
+    limit = max(1, min(settings.web_search_max_results, 10))
+    merged: list[WebSearchHit] = []
+    seen: set[str] = set()
+    for row in itertools.zip_longest(*per_target):
+        for hit in row:
+            key = (hit.url if hit else "").strip().lower()
+            if hit is None or key in seen:
+                continue
+            seen.add(key)
+            merged.append(hit)
+    return merged[: max(limit, len(per_target))]

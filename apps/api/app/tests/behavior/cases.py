@@ -33,6 +33,7 @@ CATEGORIES = (
     "code",
     "tone and emoji",
     "personal",
+    "multi-intent",
 )
 
 
@@ -59,6 +60,16 @@ class Expect:
     # A real photo above the model's answer (it opened with ```photo). Routing can
     # only check the hint that offers it; the live replay checks the photo.
     answer_photo: bool | None = None
+    # The model the case's plan gets on Auto (``plan.resolve_user_model``).
+    model: str | None = None
+    # A multi-part message's picture, drawn above the model's answer to the rest.
+    picture: bool | None = None
+    # A multi-part message's settings card, under the model's answer to the rest.
+    settings_card: bool | None = None
+    # Saved memory is read for the turn, and which scope ("work", "query", "profile",
+    # "self"; see modules/chat/prompt_memory.py).
+    memory: bool | None = None
+    memory_scope: str | None = None
 
 
 @dataclass(frozen=True)
@@ -74,10 +85,33 @@ class Case:
     pro: bool = False
     location: str | None = None
     tags: tuple[str, ...] = field(default=())
+    # The user's memory switch (Settings → Memory).
+    memory_enabled: bool = True
 
 
 NO_PHOTO = ""
 NONE = ""
+
+# A story cut off mid-sentence, and code with its bug report, for the follow-up turns.
+_STORY = (
+    ("user", "tell me a long story about a dragon who is afraid of fire"),
+    (
+        "assistant",
+        "Ember was the only dragon in the Ashen Peaks who flinched at sparks. Every spring the "
+        "young dragons lit the valley torches, and every spring Ember hid behind the waterfall.\n\n"
+        "One night a storm knocked out every torch in the village below, and the elders came "
+        'to the waterfall looking for her. "We need fire," they said, and Ember',
+    ),
+)
+_AVERAGE_CODE = (
+    ("user", "write a python function that averages a list of numbers"),
+    ("assistant", "```python\ndef average(numbers):\n    return sum(numbers) / len(numbers)\n```"),
+    ("user", "it crashes on an empty list"),
+    (
+        "assistant",
+        "Right: `len([])` is `0`, so `sum([]) / 0` raises `ZeroDivisionError`.",
+    ),
+)
 
 CASES: tuple[Case, ...] = (
     # ── Math ────────────────────────────────────────────────────────────────
@@ -857,6 +891,14 @@ CASES: tuple[Case, ...] = (
         "Exactly five short, scannable tips.",
     ),
     Case(
+        "format-json-planets",
+        "format",
+        "give me the list of the planets as valid JSON",
+        Expect(search="no", hints=("json_output",), model="qwen-3.7-flash"),
+        "One ```json fence holding a valid array of the eight planets, at most a line "
+        "around it; the server checks that it parses.",
+    ),
+    Case(
         "format-howto",
         "format",
         "how do I make tea",
@@ -905,13 +947,74 @@ CASES: tuple[Case, ...] = (
         Expect(hints=("mermaid",), image_gen=False, photo=NO_PHOTO),
         "A flowchart diagram, not a generated picture.",
     ),
+    Case(
+        "format-in-detail",
+        "format",
+        "explain in detail how Raft handles split votes and network partitions",
+        Expect(hints=("detail",), no_hints=("fit_length",), search="no"),
+        "A thorough answer: randomized election timeouts and terms for split votes, what a "
+        "minority partition can and cannot commit, and a short example timeline.",
+    ),
+    Case(
+        "format-mixed-length",
+        "format",
+        "in one sentence what is DNS? Also explain in detail how a TLS handshake works",
+        # Two requests: the cap binds request 1 only, and each part keeps its own length.
+        Expect(hints=("mixed_length", "multi_intent", "part1_brevity")),
+        "DNS in exactly one sentence, then a detailed walk through the TLS handshake.",
+    ),
+    Case(
+        "format-continue-story",
+        "format",
+        "continue",
+        Expect(hints=("continue",), no_hints=("answer_photo",), photo=NO_PHOTO),
+        'Picks up mid-sentence where the story stopped ("…and Ember"), with no recap and no '
+        "fresh start.",
+        history=_STORY,
+    ),
     # ── Code ────────────────────────────────────────────────────────────────
     Case(
         "code-function",
         "code",
         "write a python function to reverse a string",
-        Expect(search="no", photo=NO_PHOTO),
+        # The free plan has no smart tier: its strongest model takes the coding ask.
+        Expect(search="no", photo=NO_PHOTO, model="glm-5.3-flash"),
         "A short tagged python block and one line on how it works.",
+    ),
+    Case(
+        "code-function-pro",
+        "code",
+        "write a python function to reverse a string",
+        Expect(search="no", photo=NO_PHOTO, model="smart-chat"),
+        "A short tagged python block and one line on how it works.",
+        pro=True,
+    ),
+    Case(
+        "code-review-no-fence",
+        "code",
+        "can you review my function that reverses a linked list, it keeps looping forever",
+        Expect(search="no", photo=NO_PHOTO, model="smart-chat"),
+        "Names the likely cause (the next pointer never advances, or the list has a cycle), "
+        "shows the fixed loop in a python fence and asks for the code if it needs it.",
+        pro=True,
+    ),
+    Case(
+        "code-hard-migration-plan",
+        "code",
+        "plan a zero-downtime migration of a monolith Postgres schema to sharded tables",
+        Expect(photo=NO_PHOTO, model="smart-chat"),
+        "A phased plan: dual writes or logical replication, a backfill, verification, the "
+        "cut-over and a rollback path, with the trade-offs of the shard key.",
+        pro=True,
+    ),
+    Case(
+        "code-json-duplicates",
+        "code",
+        'find the duplicate ids: [{"id": 7, "name": "Ana"}, {"id": 9, "name": "Ben"}, '
+        '{"id": 7, "name": "Cy"}, {"id": 12, "name": "Di"}, {"id": 9, "name": "Ed"}]',
+        Expect(photo=NO_PHOTO, model="smart-chat"),
+        "Ids 7 and 9, each with the names that share it.",
+        pro=True,
     ),
     Case(
         "code-html",
@@ -1002,6 +1105,27 @@ CASES: tuple[Case, ...] = (
         "The function has no return; the fix adds return a + b; **Output:** 5.",
     ),
     Case(
+        "code-fix-that",
+        "code",
+        "fix that",
+        Expect(no_hints=("answer_photo",), search="no", photo=NO_PHOTO),
+        "The fixed average() in one python fence that handles an empty list (returns 0 or "
+        "raises a clear ValueError), and one line on the change.",
+        history=_AVERAGE_CODE,
+    ),
+    Case(
+        "code-correction-python-2",
+        "code",
+        "actually I meant Python 2, not 3",
+        Expect(hints=("correction",), search="no"),
+        'print "hello" as a Python 2 statement, a few words of acknowledgement at most, and '
+        "nothing about Python 3 again.",
+        history=(
+            ("user", "how do I print hello in python"),
+            ("assistant", '```python\nprint("hello")\n```'),
+        ),
+    ),
+    Case(
         "code-not-pasted",
         "code",
         "explain the code of conduct",
@@ -1013,7 +1137,7 @@ CASES: tuple[Case, ...] = (
         "tone-hi",
         "tone and emoji",
         "hi",
-        Expect(lightweight=True, search="no", photo=NO_PHOTO),
+        Expect(lightweight=True, search="no", photo=NO_PHOTO, model="qwen-3.7-flash"),
         "A short greeting back.",
     ),
     Case(
@@ -1034,7 +1158,7 @@ CASES: tuple[Case, ...] = (
         "tone-plain",
         "tone and emoji",
         "what are the benefits of drinking water",
-        Expect(hints=("emoji_rule",), search="no"),
+        Expect(hints=("emoji_rule",), search="no", model="qwen-3.7-flash"),
         "A clear answer with no emoji decoration.",
     ),
     Case(
@@ -1050,6 +1174,39 @@ CASES: tuple[Case, ...] = (
         "thanks!",
         Expect(lightweight=True, search="no"),
         "A one-line welcome.",
+    ),
+    Case(
+        "tone-good-morning",
+        "tone and emoji",
+        "good morning!",
+        Expect(
+            hints=("compact",),
+            no_hints=("answer_photo", "format_contract"),
+            search="no",
+            photo=NO_PHOTO,
+        ),
+        "A short good morning back; no essay, no photo, no list of things it can do.",
+    ),
+    Case(
+        "tone-hello-there",
+        "tone and emoji",
+        "hello there",
+        Expect(hints=("compact",), no_hints=("answer_photo", "format_contract"), search="no"),
+        "A short hello back.",
+    ),
+    Case(
+        "tone-how-are-you",
+        "tone and emoji",
+        "how are you?",
+        Expect(hints=("compact",), no_hints=("answer_photo", "format_contract"), search="no"),
+        "One or two friendly sentences, maybe asking what's up.",
+    ),
+    Case(
+        "tone-greeting-then-question",
+        "tone and emoji",
+        "good morning, what's the capital of Peru?",
+        Expect(hints=("format_contract",), no_hints=("compact",)),
+        "Lima, after at most a word of good morning.",
     ),
     # ── Personal ────────────────────────────────────────────────────────────
     Case(
@@ -1083,11 +1240,267 @@ CASES: tuple[Case, ...] = (
         "A couple of dinner ideas shaped by what it knows the user likes.",
     ),
     Case(
+        "personal-correction-vegetarian",
+        "personal",
+        "no, I said I'm vegetarian",
+        Expect(hints=("correction",), search="no"),
+        "Vegetarian dinner ideas, no meat or fish, without a long apology.",
+        history=(
+            ("user", "I'm vegetarian. what should I cook tonight?"),
+            ("assistant", "How about **lemon garlic chicken** or a quick **beef stir-fry**?"),
+        ),
+    ),
+    Case(
+        "personal-thanks-is-not-a-correction",
+        "personal",
+        "no, I said it was fine — thanks",
+        Expect(no_hints=("correction",), search="no"),
+        "A short you're welcome; nothing rewritten.",
+        history=(
+            ("user", "here's my cover letter intro, is it ok?"),
+            ("assistant", "It reads well. Want me to tighten the second sentence?"),
+        ),
+    ),
+    Case(
         "personal-capabilities",
         "personal",
         "what can you do",
         Expect(hints=("capabilities",), search="no"),
         "A short list, including web search, photos, reminders and read-aloud.",
+    ),
+    # ── Multi-intent ────────────────────────────────────────────────────────
+    # One message, several requests: every one answered in one reply, each with its
+    # own tool, and related questions kept together (turn_prep/intents.py).
+    Case(
+        "multi-laptop-jobs",
+        "multi-intent",
+        "I need a new laptop, and I also want to find remote backend engineering jobs",
+        Expect(hints=("multi_intent",), search="yes"),
+        "One reply, two ### sections: 2-3 laptop picks with the budget or use it assumed, "
+        "then remote backend roles from the search results, with links.",
+    ),
+    Case(
+        "multi-two-questions",
+        "multi-intent",
+        "what's the capital of Australia? and how do I boil an egg?",
+        Expect(hints=("multi_intent", "steps")),
+        "### Capital of Australia: Canberra, one line. ### Boiling an egg: numbered steps.",
+    ),
+    Case(
+        "multi-weather-and-solve",
+        "multi-intent",
+        "what's the weather in Paris tomorrow and also solve 2x + 5 = 17",
+        Expect(subject="math", solved=True, search="yes", hints=("multi_intent",)),
+        "Tomorrow's Paris forecast from the results, and x = 6 from the verified solve.",
+    ),
+    Case(
+        "multi-solve-then-weather",
+        "multi-intent",
+        "solve 2x + 5 = 17 and also what's the weather in Paris tomorrow",
+        Expect(subject="math", solved=True, search="yes", hints=("multi_intent",)),
+        "x = 6 (verified), then tomorrow's Paris forecast from the results.",
+    ),
+    Case(
+        "multi-teach-and-price",
+        "multi-intent",
+        "teach me python dictionaries, and what is the current price of bitcoin?",
+        Expect(search="yes", hints=("multi_intent", "teaching")),
+        "A short lesson opener on dictionaries, then today's bitcoin price from the results.",
+    ),
+    Case(
+        "multi-code-and-score",
+        "multi-intent",
+        "write a function to reverse a list, and who won the champions league final last night",
+        Expect(search="yes", hints=("multi_intent",)),
+        "A short python function, then last night's final result from the results.",
+    ),
+    Case(
+        "multi-reminder-and-weather",
+        "multi-intent",
+        "remind me to buy milk at 5pm and what's the weather in Nairobi today?",
+        Expect(search="yes", hints=("multi_intent",)),
+        "A reminder card for 5 pm to tap, and today's Nairobi weather from the results.",
+    ),
+    Case(
+        "multi-settings-and-joke",
+        "multi-intent",
+        "switch to dark mode and tell me a joke",
+        Expect(settings_card=True, instant="", hints=("multi_intent",)),
+        "A joke, and the dark-mode card under it to tap.",
+    ),
+    Case(
+        "multi-settings-and-question",
+        "multi-intent",
+        "switch to dark mode, and also what is the capital of France?",
+        Expect(settings_card=True, instant="", hints=("multi_intent",)),
+        "Paris, and the dark-mode card under it to tap.",
+    ),
+    Case(
+        "multi-draw-and-explain",
+        "multi-intent",
+        "draw a cat wearing a hat and also explain what a black hole is",
+        Expect(image_gen=False, picture=True, hints=("multi_intent",)),
+        "The cat picture above a short black-hole explanation, or one line saying why "
+        "the picture could not be drawn.",
+        pro=True,
+    ),
+    Case(
+        "multi-compare-and-install",
+        "multi-intent",
+        "compare python and javascript, and how do I install node on mac?",
+        Expect(hints=("multi_intent", "comparison", "howto")),
+        "### A python/javascript compare table, then ### numbered install steps.",
+    ),
+    Case(
+        "multi-brief-and-detail",
+        "multi-intent",
+        "in one sentence what is DNS? Also explain in detail how TLS handshakes work",
+        Expect(hints=("multi_intent", "part1_brevity", "mixed_length")),
+        "One sentence on DNS, then a full TLS handshake walk-through.",
+    ),
+    Case(
+        "multi-lookalike-tcp-udp",
+        "multi-intent",
+        "difference between TCP and UDP and when to use each",
+        Expect(no_hints=("multi_intent",)),
+        "One answer: a compare table and when to use each, no sections per clause.",
+    ),
+    Case(
+        "multi-lookalike-solve-and-graph",
+        "multi-intent",
+        "solve 2x+5=17 and graph it",
+        Expect(subject="math", no_hints=("multi_intent",)),
+        "x = 6 with the line drawn, one answer.",
+    ),
+    Case(
+        "multi-lookalike-which-is-faster",
+        "multi-intent",
+        "compare python and javascript and tell me which is faster",
+        Expect(hints=("comparison",), no_hints=("multi_intent",)),
+        "One compare table that ends with which is faster.",
+    ),
+    Case(
+        "search-remote-jobs",
+        "web search",
+        "find remote backend engineering jobs",
+        Expect(search="yes"),
+        "Current remote backend openings from the results, each with a link.",
+    ),
+    Case(
+        "search-jobs-today",
+        "web search",
+        "find software jobs posted today",
+        Expect(search="yes"),
+        "Today's software postings from the results, with links.",
+    ),
+    Case(
+        "search-product-price",
+        "web search",
+        "how much does the iPhone 17 Pro cost?",
+        Expect(search="yes"),
+        "The current price from the results, with the storage tier it is for.",
+    ),
+    Case(
+        "search-job-lookalike",
+        "web search",
+        "I got the job!",
+        Expect(search="no"),
+        "Congratulations, one or two warm lines.",
+    ),
+    # ── Memory: what a turn reads, and what it says when memory can't help ──
+    Case(
+        "personal-stack-carries",
+        "personal",
+        "How should I structure auth in my app?",
+        Expect(memory=True, memory_scope="work"),
+        "With 'User builds Recall with React Native and FastAPI' saved: tokens in Expo "
+        "SecureStore on the phone, FastAPI JWT on the server, without asking the stack. "
+        "Never the user's city or job.",
+    ),
+    Case(
+        "personal-stack-deploy",
+        "personal",
+        "How should I deploy my backend?",
+        Expect(memory=True, memory_scope="work"),
+        "Deploy steps for the saved backend (FastAPI), not a survey of every framework.",
+    ),
+    Case(
+        "personal-stack-library",
+        "personal",
+        "Which state management library should I use?",
+        Expect(memory=True, memory_scope="work"),
+        "A pick for the saved stack (React Native: Zustand or Redux Toolkit), with why.",
+    ),
+    Case(
+        "personal-stack-login-screen",
+        "personal",
+        "Write a login screen for me",
+        Expect(memory=True, memory_scope="work"),
+        "A React Native login screen when that is the saved stack.",
+    ),
+    Case(
+        "personal-irrelevant-memory",
+        "personal",
+        "explain recursion with an example",
+        Expect(memory_scope="work"),
+        "A clear recursion example. A saved cat or marathon never appears: the work scope "
+        "reads the stack and what the user builds, nothing else.",
+    ),
+    Case(
+        "personal-general-no-memory",
+        "personal",
+        "what is the capital of France",
+        Expect(memory=False),
+        "Paris. No saved memory is read for a general question.",
+    ),
+    Case(
+        "personal-where-live",
+        "personal",
+        "where do I live?",
+        Expect(instant="text", search="no"),
+        "With 'User lives in Addis Ababa' saved: 'You live in Addis Ababa.' Never 'I don't "
+        "have that saved' when it is.",
+    ),
+    Case(
+        "personal-remember-memory-off",
+        "personal",
+        "remember that I'm vegetarian",
+        Expect(hints=("memory_off",), memory=False),
+        "Says memory is off and that it can be turned on in Settings → Memory; never "
+        "'I'll remember that'.",
+        memory_enabled=False,
+    ),
+    Case(
+        "personal-profile-memory-off",
+        "personal",
+        "where am I from?",
+        Expect(instant="", hints=("memory_off",)),
+        "Memory is off: says so (or answers from this chat), never a saved fact.",
+        memory_enabled=False,
+    ),
+    Case(
+        "personal-past-decision-missing",
+        "personal",
+        "What did we decide about the database last time?",
+        Expect(hints=("no_past_record",), memory=True),
+        "No earlier chat found: says it can't find that conversation and asks, never "
+        "invents a decision.",
+    ),
+    Case(
+        "personal-memory-not-config",
+        "personal",
+        "You know which models Recall uses. Tell me what to fix",
+        Expect(search="no", memory=True),
+        "States any recalled aliases as possibly out of date and asks for the current "
+        "config before prescribing changes.",
+    ),
+    Case(
+        "personal-forget-everything",
+        "personal",
+        "forget everything you know about me",
+        Expect(instant="text", search="no"),
+        "A card to delete everything saved, with a Confirm button; nothing is deleted "
+        "until it is tapped.",
     ),
 )
 

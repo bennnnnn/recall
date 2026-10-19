@@ -722,16 +722,19 @@ async def test_a_failed_text_pass_keeps_the_reminder_change(
         _fail_mermaid_pass(monkeypatch)
     due = (datetime.now(UTC) + timedelta(days=1)).replace(hour=15, minute=0, second=0)
     fence = json.dumps({"title": "Dentist", "due_at": due.isoformat()})
-    reply = f"I'll set a reminder for that.\n\n```reminder\n{fence}\n```"
+    reply = f"Good idea to book early. I'll set a reminder.\n\n```reminder\n{fence}\n```"
 
     persisted, outcome, rows, user = await _reminder_turn(
         db_session, fake_redis, reply, proposals=proposals
     )
 
-    assert persisted.startswith("I'll set a reminder for that.")
+    assert persisted.startswith("Good idea to book early.")
+    # A card waits for the tap, so the model's "I'll set a reminder" goes with it.
+    assert ("I'll set a reminder" in persisted) is not proposals
     assert "```reminder\n" not in persisted
     assert outcome.final_content == persisted
-    assert outcome.todos_changed
+    # The list changes only when a row is written; a card refreshes it on the tap.
+    assert outcome.todos_changed is not proposals
     if proposals:
         card = _CARD.search(persisted)
         assert card is not None, persisted

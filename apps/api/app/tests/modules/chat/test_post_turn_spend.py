@@ -109,6 +109,49 @@ async def test_memory_job_strips_attachments_and_drops_assistant():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("memory_on", [True, False])
+async def test_memory_off_indexes_no_turn_for_past_chat_recall(memory_on):
+    """M14: with the memory switch off, no message_index job is queued."""
+    ctx = _ctx(prior_count=2)
+    ctx.user.memory_enabled = memory_on
+    with (
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
+        patch(
+            "app.modules.chat.post_turn.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=False),
+        ),
+    ):
+        await enqueue_post_turn_jobs(
+            AsyncMock(),
+            Settings(history_compression_enabled=False, chat_history_rag_enabled=True),
+            ctx,
+            "We picked the blue couch.",
+        )
+    job_types = [c.args[1] for c in enqueue.call_args_list]
+    assert ("message_index" in job_types) is memory_on
+    assert ("memory" in job_types) is memory_on
+
+
+@pytest.mark.asyncio
+async def test_throttled_interval_still_extracts_a_correction():
+    """M9: "that's wrong, I'm at Stripe now" updates memory on this turn."""
+    ctx = _ctx(prior_count=2)  # turn_number = 2
+    ctx.user_message_content = "that's wrong, I'm at Stripe now"
+    with patch("app.core.jobs.enqueue", AsyncMock()) as enqueue:
+        await enqueue_post_turn_jobs(
+            AsyncMock(),
+            Settings(
+                history_compression_enabled=False,
+                chat_history_rag_enabled=False,
+                memory_extract_every_n_turns=3,
+            ),
+            ctx,
+            "Got it.",
+        )
+    assert "memory" in [c.args[1] for c in enqueue.call_args_list]
+
+
+@pytest.mark.asyncio
 async def test_throttled_interval_still_extracts_remember_this():
     ctx = _ctx(prior_count=2)  # turn_number = 2
     ctx.user_message_content = "Remember this: I am allergic to peanuts."

@@ -21,6 +21,7 @@ from redis.asyncio import Redis
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.timezone import resolve_timezone
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.recurrence import next_recurring_due
 from app.modules.todos.write_log import PlannedWrite
@@ -165,6 +166,9 @@ async def propose(
     await redis.set(_key(user_id, proposal_id), json.dumps(stored), ex=PROPOSAL_TTL_SECONDS)
     card = {
         "proposal_id": proposal_id,
+        # The zone the user's words were read in: the phone shows the card's
+        # time there, and names it when the phone is in another zone.
+        "tz": resolve_timezone(user_timezone).key,
         "items": [item.model_dump(mode="json", exclude_none=True) for item in items],
     }
     return f"```{FENCE_LANG}\n{json.dumps(card, ensure_ascii=False)}\n```"

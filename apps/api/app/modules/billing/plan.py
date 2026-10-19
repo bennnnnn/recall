@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeGuard
 
 from app.core.config import Settings
 from app.exceptions import UnknownModelOverrideError
@@ -19,7 +19,9 @@ __all__ = [
     "chat_fallback_models",
     "default_pro_enabled",
     "free_pool",
+    "image_turn_model",
     "is_auto_enabled",
+    "is_explicit_pick",
     "is_paid",
     "model_pool",
     "resolve_regenerate_model",
@@ -91,8 +93,13 @@ def resolve_user_model(
     prior_user: str | None = None,
     prior_model: str | None = None,
     lesson_active: bool = False,
+    unhealthy: frozenset[str] = frozenset(),
 ) -> str:
-    """Pick a concrete model from the user's Settings preferences."""
+    """Pick a concrete model from the user's Settings preferences.
+
+    Auto skips models whose provider is failing (``unhealthy``) while a healthy
+    one is left in the pool.
+    """
     pool = model_pool(user, settings)
     if is_auto_enabled(user):
         return routing.resolve_alias_in_pool(
@@ -103,6 +110,7 @@ def resolve_user_model(
             prior_user=prior_user,
             prior_model=prior_model,
             lesson_active=lesson_active,
+            unhealthy=unhealthy,
         )
     if len(pool) == 1:
         return pool[0]
@@ -130,6 +138,7 @@ def resolve_user_model_override(
     prior_user: str | None = None,
     prior_model: str | None = None,
     lesson_active: bool = False,
+    unhealthy: frozenset[str] = frozenset(),
 ) -> str:
     """Pick a concrete model, honoring a per-message override when allowed.
 
@@ -138,7 +147,7 @@ def resolve_user_model_override(
     ``auto`` and ``None`` route within the Settings pool. A concrete alias
     that is not in that pool raises rather than silently switching models.
     """
-    if model_alias and model_alias != AUTO_ALIAS:
+    if is_explicit_pick(model_alias):
         if model_alias not in _override_pool(user, settings):
             raise UnknownModelOverrideError(model_alias)
         return model_alias
@@ -149,7 +158,46 @@ def resolve_user_model_override(
         prior_user=prior_user,
         prior_model=prior_model,
         lesson_active=lesson_active,
+        unhealthy=unhealthy,
     )
+
+
+def is_explicit_pick(model_alias: str | None) -> TypeGuard[str]:
+    """The picker named one model for this message (not Auto, not unset)."""
+    return bool(model_alias) and model_alias != AUTO_ALIAS
+
+
+def image_turn_model(
+    user: User,
+    settings: Settings,
+    routed: str,
+    *,
+    explicit: bool,
+    unhealthy: frozenset[str] = frozenset(),
+) -> str:
+    """The model for a turn that shows the model an image: one that can read it.
+
+    An explicit pick that reads images keeps the turn. Auto's hard lanes take the
+    strongest healthy image reader above the everyday tier in the user's pool, so
+    a hard question about a photo still gets a model that thinks. Everything else
+    goes to the photo lane (``model_catalog.vision_alias``).
+    """
+    vision = model_catalog.vision_alias()
+    if explicit:
+        return routed if model_catalog.reads_images(routed) else vision
+    if routed == vision or routed not in model_catalog.known_ids():
+        return vision
+    everyday = model_catalog.tier_rank(model_catalog.get(model_catalog.auto_fast_alias()))
+    if model_catalog.tier_rank(model_catalog.get(routed)) <= everyday:
+        return vision
+    readers = [
+        model_id
+        for model_id in model_pool(user, settings)
+        if model_id not in unhealthy
+        and model_catalog.reads_images(model_id)
+        and model_catalog.tier_rank(model_catalog.get(model_id)) > everyday
+    ]
+    return routing.pick_strongest_from_pool(readers) if readers else vision
 
 
 def resolve_regenerate_model(
@@ -170,7 +218,7 @@ def resolve_regenerate_model(
     if the prior model is unknown or no longer in the user's enabled pool.
     """
     pool = _override_pool(user, settings)
-    if model_alias and model_alias != AUTO_ALIAS:
+    if is_explicit_pick(model_alias):
         if model_alias not in pool:
             raise UnknownModelOverrideError(model_alias)
         return model_alias
@@ -189,18 +237,25 @@ def chat_fallback_models(
     primary: str,
     *,
     max_fallbacks: int = 2,
-    unhealthy: set[str] | None = None,
+    unhealthy: set[str] | frozenset[str] | None = None,
+    needs_vision: bool = False,
 ) -> list[str]:
     """Other models in the user's pool to try when the primary provider is down.
 
     ``unhealthy`` is a set of model aliases with poor health (high error rate
     or latency). When provided, unhealthy models are skipped so the fallback
-    doesn't repeatedly hit a degraded provider.
+    doesn't repeatedly hit a degraded provider. A model running the primary's
+    own provider model is no backup. A turn that shows the model an image
+    (``needs_vision``, or the photo lane as primary) falls back only to image
+    readers, then to the photo lane's own backup.
     """
     if max_fallbacks <= 0:
         return []
 
     skip = unhealthy or set()
+    known = model_catalog.known_ids()
+    primary_model = model_catalog.get(primary) if primary in known else None
+    needs_vision = needs_vision or primary == model_catalog.vision_alias()
     allowed = allowed_model_ids(user, settings)
     candidates: list[str] = []
 
@@ -213,17 +268,17 @@ def chat_fallback_models(
     for model_id in model_pool(user, settings):
         if model_id == primary or model_id in candidates:
             continue
-        if model_id not in allowed:
+        if model_id not in allowed or model_id in skip:
             continue
-        if model_id in skip:
+        model = model_catalog.get(model_id)
+        if primary_model is not None and model.model == primary_model.model:
             continue
-        if model_catalog.is_available(model_catalog.get(model_id), settings):
+        if needs_vision and not model.supports_vision:
+            continue
+        if model_catalog.is_available(model, settings):
             candidates.append(model_id)
 
-    primary_rank = 0
-    known = model_catalog.known_ids()
-    if primary in known:
-        primary_rank = model_catalog.tier_rank(model_catalog.get(primary))
+    primary_rank = model_catalog.tier_rank(primary_model) if primary_model is not None else 0
 
     def _fallback_sort_key(model_id: str) -> tuple[int, tuple[float, float, str]]:
         model = model_catalog.get(model_id)
@@ -233,6 +288,17 @@ def chat_fallback_models(
         )
 
     candidates.sort(key=_fallback_sort_key)
+    if needs_vision:
+        backup = model_catalog.get(model_catalog.vision_backup_alias())
+        used = {model_catalog.get(model_id).model for model_id in candidates}
+        if primary_model is not None:
+            used.add(primary_model.model)
+        if (
+            backup.id not in skip
+            and backup.model not in used
+            and model_catalog.is_available(backup, settings)
+        ):
+            candidates.append(backup.id)
     return candidates[:max_fallbacks]
 
 

@@ -35,6 +35,6 @@ def test_sweep_corpus_is_well_formed() -> None:
     assert len(ids) == len(set(ids)), "entry ids repeat"
     assert len(ENTRIES) >= 500
     for entry in ENTRIES:
-        assert entry.expect in EXPECTS, entry.id
+        assert set(entry.expects) <= EXPECTS, entry.id
         assert entry.prompt.strip(), entry.id
         assert entry.reply.strip() or entry.expect == "instant", entry.id

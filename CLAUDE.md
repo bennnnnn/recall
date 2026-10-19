@@ -30,7 +30,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 - **user** — Google or Apple sign-in; editable profile + preferences; `plan` (`free` | `plus` | `pro`) is driven by RevenueCat. What a plan includes and its numbers are decided in one place, `modules/billing/entitlements.py` (`can_use`, `allowance`); every number is a `core/config.py` setting.
 - **chat** — a conversation; has an auto-generated title.
 - **message** — one turn (`user` | `assistant` | `system`).
-- **memory** — one retrievable fact per row (`status` `active` | `superseded` | `muted`), cap 150 active. `topic` files each fact into a Claude-style page (`modules/memory/topics.py`: You = profile, preferences; Topics = interests, tech-stack, schedule, recent-work, goals, side-projects, notes; Areas = `area:<slug>` with a title row in `memory_areas`); `type` (`profile` | `preference` | `project` | `fact` | `focus`) follows the topic and sets prompt priority. Sensitive topics are not auto-stored unless the user said “remember” or opted in. Extraction is post-turn; a one-time `memory_history_scan` reads recent chats, only adds missing facts, and skips lines older than the user's last hand edit (`users.memory_edited_at`).
+- **memory** — one retrievable fact per row (`status` `active` | `superseded` | `muted`), cap 150 active. `topic` files each fact into a Claude-style page (`modules/memory/topics.py`: You = profile, preferences; Topics = interests, tech-stack, schedule, recent-work, goals, side-projects, notes; Areas = `area:<slug>` with a title row in `memory_areas`); `type` (`profile` | `preference` | `project` | `fact` | `focus`) follows the topic and sets prompt priority. Sensitive topics are not auto-stored unless the user said “remember” or opted in. Extraction is post-turn; a one-time `memory_history_scan` reads recent chats, only adds missing facts, and skips lines older than the user's last hand edit (`users.memory_edited_at`). What a chat line tells memory (remember, forget, mute, reset, correct) is `modules/memory/commands.py`; which facts a turn reads (query, profile, everything, or the work scope for programming turns) and the notes for memory off or unavailable are `modules/chat/prompt_memory.py`. Memory off means no personal recall, chat-history RAG included.
 - **model alias** — product-level model name mapped to a provider by the gateway.
 - **quota** — per-user daily token budget (free tier 100k/day).
 - **todo** — a lightweight task the user tracks; optionally linked to a chat.
@@ -125,7 +125,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota/`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
 | Follow-up questions | `modules/chat/related_prompts.py` (after `done`; `modules/suggestions/` + `/suggestions` are legacy, no longer fed) | `features/suggestions/` (`RelatedPromptLines`) |
-| Todos / reminders | `modules/todos/` (HTTP `/todos`; chat changes wait for a tap: `write_log.py` + `proposals.py`, `POST /todos/proposals/{id}/confirm`) | `features/todos/` (`ReminderProposalCard`); `app/todos.tsx` route only |
+| Todos / reminders | `modules/todos/` (HTTP `/todos`; chat changes wait for a tap: `write_log.py` + `proposals.py`, `POST /todos/proposals/{id}/confirm`; the reply above an untapped card claims nothing, `reply_claims.py`) | `features/todos/` (`ReminderProposalCard`); `app/todos.tsx` route only |
 | Home | `modules/home/` (HTTP `/home`) | `features/home/`; greeting + one overdue reminder |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
@@ -158,7 +158,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | MCP / model tools | module `tool.py` or legacy `services/mcp/`; `gateways/mcp/` registry | `register(Adapter)` implementing `ToolAdapter`; `invoke(args, ctx: ToolContext)` gets the turn as an argument | Unregister; `mcp_tool_loop_enabled` defaults **on** |
 | Background job | module `jobs.py` or legacy `background/handlers.py`; `core/jobs/` queue | Register handler; enqueue off the stream path | Unregister + stop enqueue |
 | Feature flag | `core/config.py` `*_enabled` | One Settings field; gate service entry | Default false; then delete path |
-| Model | `services/model_catalog.py` | Catalog entry + OpenRouter slug | Remove alias; don’t leave provider names in app code |
+| Model | `services/model_catalog.py`; which alias does which job (Auto's lanes, photos, tool selection) in `models/routing_lanes.py` | Catalog entry + OpenRouter slug + capability flags (`supports_vision`, `supports_tools`, `json_mode`, `context_tokens`; unconfirmed = false). Route by capability, never by name | Remove alias; don’t leave provider names in app code |
 | Mobile network | feature `api.ts` or legacy `lib/api/<domain>.ts`, composed in `lib/api.ts` | Add typed API slice using the shared client | Delete API slice; no raw `fetch` in screens |
 | Rich fence | `lib/fenceRegistry.ts` (`FENCES`) | Add a `FenceSpec`; one block component; wire render | Delete the spec + component |
 | UI primitive | `apps/mobile/ui/` (see `ui/README.md`) | Add or extend one kit component; features import it by path | Delete the component and its callers' use; never fork it inside a feature |
@@ -172,11 +172,11 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 
 New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` with `turn_deps.default_deps()`: a frozen `ChatTurnDeps` holds what a turn uses outside chat (repositories, quota, plan, locks, LiteLLM, image services, todos, web search, the maths fence), and tests pass one with fakes instead of patching. Quota + per-chat prepare lock are owned by `async with turn_resources(...)` (`turn_resources.py`; do not re-introduce hand-managed `owns_lock` / `pre_reserved` flags); `turn_load.py` reads the turn and `turn_intercepts.py` holds the photo and image intercepts.
 
-1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
+1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`); no turn without the account's AI data consent (`modules/account/consent.py`, `consent_required`)
 2. Check + reserve daily quota (Redis)
 3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation. `modules/images/intent.py` reads both; the phone's composer asks it too (`POST /images/intent`)
-4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, web search, SymPy pre-solve, physics and chemistry context
-5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
+4. `turn_prep/`: the turn's plan (`intents.py`: the separate requests one message holds, deterministic, no model call; two or more get a multi-part prompt contract, a settings card under the reply and a picture drawn above it, `finalize_parts.py`), memory + recent window, attachments/RAG, chat-history RAG, web search, SymPy pre-solve, physics and chemistry context
+5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on); its search gates, classifier and forced search run per request (`tool_loop/parts.py`)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
 7. Post-stream fence finalization: math (`math/fence.py`), physics (`modules/physics/fence.py`), chemistry (`modules/chemistry/fence.py`)
 8. Persist assistant + usage in a finalize task

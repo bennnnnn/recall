@@ -31,6 +31,31 @@ class MemoryInstructionOutcome:
     reply: str
 
 
+_OP_WORDS = {
+    "add": "added",
+    "update": "changed",
+    "supersede": "replaced",
+    "delete": "removed",
+    "mute": "muted",
+}
+NOTHING_CHANGED_REPLY = "Nothing in your memory changed. Try saying it another way."
+
+
+def instruction_reply(model_reply: str, *, proposed: int, applied: list[str]) -> str:
+    """What the user is told: the model's sentence only when every edit it made landed.
+
+    The model writes its reply before the edits are checked, so "Done, I removed it"
+    must not stand when a filter or a stale match dropped the change.
+    """
+    if not applied:
+        return model_reply if proposed == 0 and model_reply else NOTHING_CHANGED_REPLY
+    if len(applied) >= proposed and model_reply:
+        return model_reply
+    counts = {op: applied.count(op) for op in _OP_WORDS if op in applied}
+    parts = [f"{count} {_OP_WORDS[op]}" for op, count in counts.items()]
+    return f"Memory updated: {', '.join(parts)}."
+
+
 async def apply_memory_instruction(
     settings: Settings,
     *,
@@ -70,6 +95,7 @@ async def apply_memory_instruction(
             transcript=f"User: {instruction}",
             existing_texts=snapshot.existing_facts.values(),
         )
+        applied: list[str] = []
         if writes:
             await apply_memory_facts(
                 settings,
@@ -79,8 +105,14 @@ async def apply_memory_instruction(
                 memories=memories_repo,
                 expected_facts=snapshot.existing_facts,
                 manual_edit=True,
+                applied=applied,
             )
-        logger.info("memory_instruction user_id=%s applied=%s", user_id, len(writes))
-        return MemoryInstructionOutcome(applied=len(writes), reply=result.reply.strip())
+        logger.info("memory_instruction user_id=%s applied=%s", user_id, len(applied))
+        return MemoryInstructionOutcome(
+            applied=len(applied),
+            reply=instruction_reply(
+                result.reply.strip(), proposed=len(result.ops), applied=applied
+            ),
+        )
     finally:
         await memory_service.release_memory_write_lock(user_id, lock_token)

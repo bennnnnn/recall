@@ -2,7 +2,9 @@ type SettingsProposalField =
   | "appearance"
   | "default_model"
   | "response_tone"
-  | "locale";
+  | "locale"
+  /** "clear" (delete everything saved) or "off" (turn memory off), from a chat ask. */
+  | "memory";
 
 export type SettingsProposalChange = {
   field: SettingsProposalField;
@@ -22,7 +24,13 @@ const FIELDS = new Set<SettingsProposalField>([
   "default_model",
   "response_tone",
   "locale",
+  "memory",
 ]);
+
+/** A memory card clears or turns off memory: it asks for a plain "Confirm". */
+export function isMemoryProposal(proposal: SettingsProposal): boolean {
+  return proposal.changes.some((change) => change.field === "memory");
+}
 
 function normalizeChange(raw: unknown): SettingsProposalChange | null {
   if (!raw || typeof raw !== "object") return null;

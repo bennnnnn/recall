@@ -15,7 +15,11 @@ in front raises the programming errors a decline would hide (``math/solve/declin
 "instant" (the server answers without the model: the date, the time),
 "photo", "search", "image_gen", "save" (a reminder is saved), "ask_time",
 "change" (done / delete / move), "read" (the reminder list), "settings",
-"memory", "todo" (any of the reminder outcomes).
+"memory", "todo" (any of the reminder outcomes). A list asks for every outcome on
+the one turn: ``["search", "answer"]`` is a message with a live part and another
+answered beside it ("image_gen" and "settings" there are the picture or card a
+multi-part reply carries). Area "multi" must be read as more than one request and
+"multi lookalike" as one.
 
 Turns run as a Pro user, so image generation can claim one; ``"pro": false``
 runs one as free. ``"location"`` gives the user a saved location. ``"gap"``
@@ -83,11 +87,22 @@ NO_SEARCH_AREAS = {"math", "physics", "chemistry", "writing", "code", "chitchat"
 # even a model round that may choose to search.
 NO_SEARCH_ROUND_AREAS = {"statement"}
 STEM_AREAS = {"math", "physics", "chemistry"}
+# Messages with separate requests, and look-alikes that are one request.
+MULTI_AREAS = {"multi"}
+SINGLE_PART_AREAS = {"multi lookalike"}
 # Everyday messages that use a maths word ("differentiate between weather and
 # climate", "simplify it" about an essay), or that sound like a follow-up to the
 # physics or chemistry problem before them ("in french please", "what about the
 # party?"). None of them is solved.
 NOT_MATH_AREAS = {"math lookalike", "followup lookalike"}
+# Look-alikes of a rule that reads the user's words: "good morning, what's the capital of
+# Peru?" is a question, not an opener. The hint that rule adds must not be in the prompt.
+LOOKALIKE_HINTS = {
+    "opener lookalike": "compact",
+    "correction lookalike": "correction",
+    "detail lookalike": "detail",
+    "continue lookalike": "continue",
+}
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")
 
@@ -103,6 +118,12 @@ class Entry:
     pro: bool = True
     location: str | None = None
     gap: str | None = None
+    # More outcomes the same turn must also have (``"expect": ["search", "answer"]``).
+    also: tuple[str, ...] = ()
+
+    @property
+    def expects(self) -> tuple[str, ...]:
+        return (self.expect, *self.also)
 
 
 @dataclass
@@ -126,17 +147,20 @@ def load(paths: list[Path] | None = None) -> list[Entry]:
                 for pair in raw.get("history") or []
                 if len(pair) == 2 and pair[1]
             )
+            expects = raw.get("expect") or "answer"
+            first, *also = [expects] if isinstance(expects, str) else expects
             entries.append(
                 Entry(
                     id=str(raw["id"]),
                     area=str(raw.get("area") or path.stem),
                     prompt=str(raw["prompt"]),
                     reply=str(raw.get("reply") or ""),
-                    expect=str(raw.get("expect") or "answer"),
+                    expect=str(first),
                     history=history,
                     pro=bool(raw.get("pro", True)),
                     location=raw.get("location"),
                     gap=raw.get("gap"),
+                    also=tuple(str(item) for item in also),
                 )
             )
     return entries
@@ -320,6 +344,8 @@ async def _run_entry(entry: Entry) -> Outcome:
         max_output_tokens=0,
         user_timezone=USER_TIMEZONE,
         user=user,
+        # A multi-part message's settings card, as the turn's prompt build made it.
+        settings_card=outcome.route.settings_card or None,
     )
     with (
         _stores(outcome, user),
@@ -346,7 +372,7 @@ async def _run_entry(entry: Entry) -> Outcome:
             assistant_parts=[entry.reply],
             should_cancel=None,
         )
-    outcome.problems = judge(outcome)
+    outcome.problems = judge(outcome) + claims_above_a_pending_card(outcome.final)
     return outcome
 
 
@@ -368,9 +394,22 @@ def _kept(reply: str, final: str) -> bool:
 
 
 def judge(outcome: Outcome) -> list[str]:
+    """Every way the turn missed one of its expected outcomes, each named once."""
+    entry, route = outcome.entry, outcome.route
+    problems: list[str] = []
+    for expect in entry.expects:
+        problems.extend(p for p in _judge_expect(outcome, expect) if p not in problems)
+    if entry.area in MULTI_AREAS and "multi_intent" not in route.hints:
+        problems.append("not read as more than one request")
+    if entry.area in SINGLE_PART_AREAS and "multi_intent" in route.hints:
+        problems.append("split into separate requests")
+    return problems
+
+
+def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
     entry, route, final = outcome.entry, outcome.route, outcome.final
     problems: list[str] = []
-    expect = entry.expect
+    expects = set(entry.expects)
     canned = next((text for text in CANNED if final.strip().startswith(text)), None)
 
     if expect in {"answer", "photo", "search", "image_gen", "settings", "memory"}:
@@ -378,9 +417,10 @@ def judge(outcome: Outcome) -> list[str]:
             problems.append(f"reply replaced by {canned!r}")
         elif not _kept(entry.reply, final):
             problems.append("reply lost most of its words")
-        if outcome.saved:
+        # A reminder the entry also expects is the other part of the same turn.
+        if outcome.saved and not expects & TODO_EXPECTS:
             problems.append(f"saved a reminder {outcome.saved[0].get('content')!r}")
-        if outcome.changed:
+        if outcome.changed and not expects & TODO_EXPECTS:
             problems.append(f"changed reminders: {outcome.changed[0]}")
     if expect == "answer":
         if route.photo:
@@ -395,7 +435,7 @@ def judge(outcome: Outcome) -> list[str]:
         # "3 cups of flour for 12 cookies…" is a problem to solve, not a pick to personalise.
         if entry.area in STEM_AREAS and "advice" in route.hints:
             problems.append("given the personal-recommendation hint")
-        if outcome.settings_changes:
+        if (outcome.settings_changes or route.settings_card) and "settings" not in expects:
             problems.append(f"read as a settings change: {outcome.settings_changes}")
         if outcome.memory_command:
             problems.append("read as a memory command")
@@ -405,15 +445,18 @@ def judge(outcome: Outcome) -> list[str]:
             problems.append("let the model decide to search")
         if entry.area in NOT_MATH_AREAS and (route.subject == "math" or route.solved):
             problems.append(f"read as maths (solved={route.solved})")
+        unwanted = LOOKALIKE_HINTS.get(entry.area)
+        if unwanted and unwanted in route.hints:
+            problems.append(f"given the {unwanted!r} hint")
     elif expect == "instant" and not route.instant:
         problems.append("no instant reply")
     elif expect == "photo" and not route.photo:
         problems.append("no photo lookup")
     elif expect == "search" and route.search == "no":
         problems.append("no web search")
-    elif expect == "image_gen" and not route.image_gen:
+    elif expect == "image_gen" and not (route.image_gen or route.picture):
         problems.append("no image generation")
-    elif expect == "settings" and not outcome.settings_changes:
+    elif expect == "settings" and not (outcome.settings_changes or route.settings_card):
         problems.append("not read as a settings change")
     elif expect == "memory" and not outcome.memory_command:
         problems.append("not read as a memory command")
@@ -428,6 +471,28 @@ def judge(outcome: Outcome) -> list[str]:
     if expect in TODO_EXPECTS and route.photo:
         problems.append(f"photo lookup took the turn ({route.photo!r})")
     return problems
+
+
+# Said above a reminder card nobody has tapped: nothing is saved yet. "The
+# meeting is set for Friday" and "I set aside time to write" are not claims.
+_PENDING_CARD_CLAIM = re.compile(
+    r"\b(?:i['\u2019]ve set|i have set|i set (?:a|an|the|your|up|it)\b"
+    r"|i['\u2019]ve (?:added|scheduled|saved|created)\b"
+    r"|(?:reminder|it|that)(?:['\u2019]s| is| has been) (?:all )?set\b|reminder set\b"
+    r"|i['\u2019]ll remind you|i will remind you|you['\u2019]ll (?:get|receive) a (?:reminder|notification)"
+    r"|added (?:it |that )?to your (?:reminders|to-?dos?|list))"
+    r"|^\W*(?:done|all set)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def claims_above_a_pending_card(final: str) -> list[str]:
+    """A reply carrying an untapped reminder card makes no completed-action claim."""
+    if "```reminder_proposal" not in final or '"status": "saved"' in final:
+        return []
+    prose = re.sub(r"```.*?```", " ", final, flags=re.DOTALL)
+    claim = _PENDING_CARD_CLAIM.search(prose)
+    return [f"claims the change before the tap: {claim.group(0)!r}"] if claim else []
 
 
 async def run(entries: list[Entry]) -> list[Outcome]:

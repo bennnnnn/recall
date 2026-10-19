@@ -12,11 +12,12 @@ from typing import Any
 
 from app.core.config import Settings
 from app.gateways import llm_spend, mock_llm
+from app.models.model_catalog import vision_backup_alias
 
 logger = logging.getLogger(__name__)
 
 # A second image-capable model from another company (memory's fallback is text-only).
-FALLBACK_VISION_ALIAS = "fallback-vision-model"
+FALLBACK_VISION_ALIAS = vision_backup_alias()
 
 
 async def vision_completion(

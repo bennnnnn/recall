@@ -14,10 +14,15 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
+from app.modules.chat.continuation_subject import is_resume_request
+from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
+    BREVITY_REQUEST_HINT,
     CAREER_PERSONALIZE_HINT,
     CODE_INK_REMINDER,
+    CONTINUE_HINT,
+    CORRECTION_HINT,
     EXAMPLE_PERSONALIZE_HINT,
     FACT_GROUNDING_HINT,
     LIGHTWEIGHT_REPLY_HINT,
@@ -32,21 +37,33 @@ from app.modules.chat.prompt_constants import (
     WEB_SEARCH_OFF_HINT,
     active_lesson_step,
     is_bare_writing_line,
+    is_brevity_request,
     is_capabilities_question,
     is_career_personal_question,
+    is_correction,
     is_learning_plan_request,
     is_personal_disclosure_turn,
     is_profile_fact_question,
     is_profile_recall_pushback,
     is_short_confirmation,
+    is_social_opener,
     is_standing_preference,
     is_teaching_request,
     learning_plan_daily_contract,
     outline_awaits_pick,
     programming_lesson_contract,
+    reply_length,
+    writing_format_hint,
 )
 from app.modules.chat.prompt_constants.lesson_flow import lesson_after_gap
-from app.modules.chat.prompt_format import PromptRule, _style_format_hints, code_question_layout
+from app.modules.chat.prompt_constants.multi_part import multi_part_contract
+from app.modules.chat.prompt_format import (
+    PromptRule,
+    _layout_format_hint,
+    _style_format_hints,
+    code_question_layout,
+)
+from app.modules.chat.prompt_memory import memory_notes, memory_status_note
 from app.modules.chat.prompt_profile import (
     custom_instructions_block,
     format_user_name_only_block,
@@ -54,6 +71,7 @@ from app.modules.chat.prompt_profile import (
     should_include_profile_email,
 )
 from app.modules.chat.prompt_window import FollowupSubject
+from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
@@ -62,7 +80,7 @@ from app.services import locale as locale_service
 from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
 from app.services.day_planning import is_day_planning_question
-from app.services.prompt_safety import wrap_untrusted
+from app.services.prompt_safety import wrap_saved_memory, wrap_untrusted
 
 
 @dataclass(frozen=True)
@@ -89,17 +107,30 @@ class PromptTurn:
     # The completed exchange before this turn (``PromptWindow.exchange``).
     exchange: list[Any]
     followup: FollowupSubject | None
+    # The separate requests the message holds (``turn_prep.intents``), when more than one.
+    plan: TurnPlan | None = None
+    # How the memory read went ("ok", "partial", "unavailable"); see prompt_memory.
+    memory_status: str = "ok"
+    # Saving to memory is paused (spend cap) on a "remember …" turn.
+    memory_paused: bool = False
+    # "What did we decide last time": an earlier chat may answer this turn.
+    recalls_shared_past: bool = False
 
     @property
     def query(self) -> str:
         return self.query_text or ""
 
     @property
-    def style(self) -> str:
-        # No account-wide length any more: each message says how long it wants
-        # ("briefly", "in detail"), and BREVITY_REQUEST_HINT follows it. A
-        # stored response_style from an older app is ignored.
-        return "balanced"
+    def length_hint(self) -> str:
+        # No account-wide length: each message says how long it wants ("briefly",
+        # "in detail"). A stored users.response_style from an older app is ignored.
+        if self.lightweight:
+            return STYLE_HINTS["short"]
+        return STYLE_HINTS["detailed" if reply_length(self.query) == "detailed" else "balanced"]
+
+    @property
+    def multi(self) -> bool:
+        return self.plan is not None and self.plan.multi
 
 
 PromptSection = PromptRule[PromptTurn]
@@ -130,14 +161,14 @@ def _style_hints(turn: PromptTurn) -> list[str]:
     lesson = active_lesson_step(turn.exchange)
     outline_pick = not lesson and outline_awaits_pick(turn.exchange)
     after_gap = bool(lesson) and lesson_after_gap(turn.exchange)
-    # Greetings and pasted fragments are compact. "ok" / "next" after a lesson
-    # asks for the next lesson, not a casual reply.
+    # Greetings ("good morning!", "how are you?") and pasted fragments are compact.
+    # "ok" / "next" after a lesson asks for the next lesson, not a casual reply.
     compact = not (lesson or outline_pick) and bool(
-        query and (is_bare_writing_line(query) or is_short_confirmation(query))
+        query
+        and (is_bare_writing_line(query) or is_short_confirmation(query) or is_social_opener(query))
     )
     return _style_format_hints(
         query_text=turn.query_text,
-        style=turn.style,
         is_day_plan=bool(query and is_day_planning_question(query)),
         minimal_personal_context=turn.minimal_personal_context,
         compact=compact,
@@ -151,6 +182,7 @@ def _style_hints(turn: PromptTurn) -> list[str]:
             for message in turn.exchange
             if message.role in {"user", "assistant"} and isinstance(message.content, str)
         ],
+        multi=turn.multi,
     )
 
 
@@ -173,7 +205,7 @@ def _integrations(turn: PromptTurn) -> list[str]:
 def _slim_memory(turn: PromptTurn) -> list[str]:
     parts = []
     if turn.memory_block:
-        parts.append(wrap_untrusted("memory", turn.memory_block, first_party=True))
+        parts.append(wrap_saved_memory(turn.memory_block))
     return [*parts, *_present(turn.chat_history_rag_block)]
 
 
@@ -186,10 +218,22 @@ def _gives_advice(turn: PromptTurn) -> bool:
     )
 
 
+def _replied(turn: PromptTurn) -> bool:
+    return any(message.role == "assistant" for message in turn.exchange)
+
+
+def _resumes(turn: PromptTurn) -> bool:
+    """After a reply, "continue" resumes it; in a lesson it asks for the next lesson."""
+    if not is_resume_request(turn.query_text) or not _replied(turn):
+        return False
+    return not (active_lesson_step(turn.exchange) or outline_awaits_pick(turn.exchange))
+
+
 def _advice(turn: PromptTurn) -> list[str]:
     query = turn.query
     if query and (is_profile_fact_question(query) or is_profile_recall_pushback(query)):
-        return [PROFILE_FACT_HINT]
+        # A failed memory read must not become "I don't have that yet" (memory_notes).
+        return [] if memory_status_note(turn) else [PROFILE_FACT_HINT]
     if query and is_teaching_request(query):
         return [EXAMPLE_PERSONALIZE_HINT]
     if query and is_career_personal_question(query):
@@ -206,9 +250,7 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
         ],
     ),
     PromptSection(_always, _profile),
-    PromptSection(
-        _always, lambda t: [STYLE_HINTS["short"] if t.lightweight else STYLE_HINTS[t.style]]
-    ),
+    PromptSection(_always, lambda t: [t.length_hint]),
     # Lightweight/chit-chat turns skipped the math guardrails entirely,
     # so incidental `$...$` rendered as raw ```latex. A two-line fence
     # safety hint is enough — not the full math pack.
@@ -254,6 +296,7 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     ),
     PromptSection(lambda t: t.slim and t.recall_memory, _slim_memory),
     PromptSection(_gives_advice, _advice),
+    PromptSection(_always, memory_notes),
     PromptSection(
         lambda t: t.followup == "math", lambda _t: [MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT]
     ),
@@ -272,16 +315,42 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     ),
 )
 
+
 # Repeat only the machine-checkable turn contract immediately before the
 # current user message. Smaller low-latency models follow nearby system
 # constraints more reliably than a clause inside the large base prompt.
+def part_shape_hints(text: str) -> list[str]:
+    """One request's own length or layout: "in one sentence" binds only its request."""
+    if is_brevity_request(text):
+        return [BREVITY_REQUEST_HINT]
+    writing = writing_format_hint(text)
+    if writing:
+        return [writing]
+    hints = _present(_layout_format_hint(text))
+    if is_learning_plan_request(text):
+        hints.extend(_present(learning_plan_daily_contract(text)))
+    elif is_teaching_request(text):
+        hints.extend(_present(programming_lesson_contract(text)))
+    return hints
+
+
+def _multi_part(turn: PromptTurn) -> list[str]:
+    """Every request answered, each in its own section and its own shape."""
+    plan = turn.plan
+    if plan is None:
+        return []
+    shapes = [part_shape_hints(part.text) for part in plan.parts]
+    return [multi_part_contract(plan, shapes)]
+
+
+# A message with several requests gets the lesson contracts per request, in its own.
 NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
     PromptSection(
-        lambda t: bool(t.query) and is_learning_plan_request(t.query),
+        lambda t: bool(t.query) and not t.multi and is_learning_plan_request(t.query),
         lambda t: _present(learning_plan_daily_contract(t.query)),
     ),
     PromptSection(
-        lambda t: bool(t.query) and is_teaching_request(t.query),
+        lambda t: bool(t.query) and not t.multi and is_teaching_request(t.query),
         lambda t: _present(programming_lesson_contract(t.query)),
     ),
     # Pasted code to explain or fix: the `$...$` math rule must not reach its values.
@@ -289,6 +358,17 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
         lambda t: not t.lightweight and bool(code_question_layout(t.query_text)),
         lambda _t: [CODE_INK_REMINDER],
     ),
+    # "continue" resumes the last reply; it does not start over or recap.
+    PromptSection(_resumes, lambda _t: [CONTINUE_HINT]),
+    # "no, I said I'm vegetarian": the correction wins over what the last reply assumed.
+    PromptSection(
+        lambda t: bool(t.query) and _replied(t) and is_correction(t.query),
+        lambda _t: [CORRECTION_HINT],
+    ),
+    # Asked-for JSON is checked at finalize (``json_output``); say the shape up front.
+    PromptSection(lambda t: is_json_request(t.query_text), lambda _t: [JSON_OUTPUT_HINT]),
+    # Last, closest to the user turn: what the reply must hold.
+    PromptSection(lambda t: t.multi, _multi_part),
 )
 
 
@@ -344,7 +424,7 @@ def _integration_hints(
     if settings.image_search_enabled:
         parts.append(PHOTO_LOOKUP_HINT)
     if memory_block:
-        parts.append(wrap_untrusted("memory", memory_block, first_party=True))
+        parts.append(wrap_saved_memory(memory_block))
     if attachment_rag_block:
         parts.append(attachment_rag_block)
     if todos_section:

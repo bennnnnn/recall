@@ -19,6 +19,7 @@ from app.core.redis import get_redis_client
 from app.core.request_limits import reject_oversized
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
+from app.modules.account.consent import get_consented_user
 from app.modules.billing import can_use
 from app.modules.billing.entitlements import Feature
 from app.modules.speech import live_talk as live_talk_service
@@ -239,10 +240,7 @@ async def _transcribe_bytes(
     if not settings.speech_transcription_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     text = await speech_service.transcribe_audio(
-        settings,
-        data,
-        filename=filename,
-        language=language,
+        settings, data, filename=filename, language=language
     )
     if text is None:
         raise HTTPException(
@@ -255,7 +253,7 @@ async def _transcribe_bytes(
 @router.post("/tts", response_model=SpeechTtsOut)
 async def synthesize_speech(
     body: SpeechTtsIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> SpeechTtsOut:
     if not settings.speech_tts_enabled:
@@ -346,7 +344,7 @@ async def synthesize_speech(
 @router.post("/tts/stream")
 async def stream_speech(
     body: SpeechTtsIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> StreamingResponse:
     if not settings.speech_tts_enabled:
@@ -390,7 +388,7 @@ async def stream_speech(
 @router.post("/transcribe", response_model=SpeechTranscriptionOut)
 async def transcribe_speech(
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> SpeechTranscriptionOut:
     if not settings.speech_transcription_enabled:

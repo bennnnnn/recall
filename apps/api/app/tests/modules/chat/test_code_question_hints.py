@@ -51,10 +51,9 @@ JAVA_LOOP = (
 )
 
 
-def _hints(text: str, style: str = "balanced") -> list[str]:
+def _hints(text: str) -> list[str]:
     return _style_format_hints(
         query_text=text,
-        style=style,
         is_day_plan=False,
         minimal_personal_context=False,
         image_search_enabled=True,
@@ -176,8 +175,8 @@ def test_pasted_code_beats_walk_me_through() -> None:
     assert WALKTHROUGH_HINT not in parts
 
 
-def test_short_style_keeps_the_code_contract_instead_of_plain_text() -> None:
-    parts = _hints(TRACE_LOOP, "short")
+def test_code_contract_is_not_crushed_to_plain_text() -> None:
+    parts = _hints(TRACE_LOOP)
     assert CODE_EXPLAIN_HINT in parts
     assert SHORT_RESPONSE_FORMAT_HINT not in parts
 
@@ -256,9 +255,7 @@ def test_a_request_to_run_code_says_recall_cannot(text: str) -> None:
     from app.modules.chat.prompt_constants import CODE_RUN_HINT
 
     assert code_question_kind(text) == "run"
-    hints = _style_format_hints(
-        query_text=text, style="balanced", is_day_plan=False, minimal_personal_context=False
-    )
+    hints = _style_format_hints(query_text=text, is_day_plan=False, minimal_personal_context=False)
     assert CODE_RUN_HINT in hints
     assert "You cannot run or execute code" in CODE_RUN_HINT
 

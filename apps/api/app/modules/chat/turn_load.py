@@ -15,8 +15,9 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.exceptions import ChatNotFoundError
+from app.exceptions import ChatNotFoundError, ConsentRequiredError
 from app.models.orm import Chat, User
+from app.modules.account import consent
 from app.modules.chat.finalize_registry import wait_for_pending_finalize
 from app.modules.chat.post_turn import seed_usage_from_db
 from app.modules.chat.prompt_constants import (
@@ -28,6 +29,7 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.services import model_catalog, model_health
 from app.services.routing import last_user_turn
 
 
@@ -40,6 +42,8 @@ class NewTurn:
     prior_count: int
     turn_mode: _TurnMode
     model: str
+    # Chat models whose provider is failing; routing above already skipped them.
+    unhealthy: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -72,15 +76,28 @@ async def _prior_count_for_window(
 async def _load_user(
     deps: ChatTurnDeps, timing: TurnTimingTracker, user_id: UUID, user: User | None
 ) -> User:
-    if user is not None:
+    if user is not None and consent.has_ai_data_consent(user):
         timing.mark_phase("user_ready")
         return user
+    # A user handed in from the request cache can trail an agreement made on
+    # another machine, so a refusal reads the row first.
     async with deps.session_factory() as session:
         loaded = await deps.users.get_by_id(session, user_id)
     if loaded is None:
         raise ChatNotFoundError("User not found.")
+    _require_consent(loaded)
     timing.mark_phase("user_ready")
     return loaded
+
+
+def _require_consent(user: User) -> None:
+    """No turn sends anything to outside AI services before the account agreed.
+
+    Raised before the user message is saved or quota is reserved, so the error
+    frame says ``user_message_saved: false`` and the prepare lock is released.
+    """
+    if not consent.has_ai_data_consent(user):
+        raise ConsentRequiredError()
 
 
 async def _load_chat(
@@ -213,14 +230,21 @@ async def load_new_turn(
     if obvious_greeting:
         await wait_for_pending_finalize(chat_id, redis, require_complete=True)
         timing.mark_phase("previous_finalize_ready")
-        loaded_user, daily_limit, loaded_chat = await load_account()
+        (loaded_user, daily_limit, loaded_chat), unhealthy = await asyncio.gather(
+            load_account(), _unhealthy_models(redis, settings)
+        )
         recent: list[Any] = []
         prior_count = 0
         timing.mark_phase("history_ready")
     else:
-        (loaded_user, daily_limit, loaded_chat), (recent, prior_count) = await asyncio.gather(
+        (
+            (loaded_user, daily_limit, loaded_chat),
+            (recent, prior_count),
+            unhealthy,
+        ) = await asyncio.gather(
             load_account(),
             _load_history_after_finalize(deps, redis, settings, timing, chat_id),
+            _unhealthy_models(redis, settings),
         )
     # Only short confirmation turns touch the DB here; ordinary lightweight
     # greetings classify synchronously, so opening a fresh AsyncSession has no
@@ -236,6 +260,7 @@ async def load_new_turn(
         prior_user=prior_user,
         prior_model=prior_model,
         lesson_active=active_lesson_step(recent) is not None,
+        unhealthy=unhealthy,
     )
     timing.mark_phase("user_quota")
     return NewTurn(
@@ -246,7 +271,15 @@ async def load_new_turn(
         prior_count=prior_count,
         turn_mode=turn_mode,
         model=model,
+        unhealthy=unhealthy,
     )
+
+
+async def _unhealthy_models(redis: Redis, settings: Settings) -> frozenset[str]:
+    """Chat models whose provider is failing, read beside the account (the pool
+    needs the user, so every selectable model is read)."""
+    aliases = [model.id for model in model_catalog.selectable_models()]
+    return await model_health.unhealthy_aliases(redis, settings, aliases)
 
 
 async def load_regenerate_turn(
@@ -269,6 +302,7 @@ async def load_regenerate_turn(
         user = await deps.users.get_by_id(session, user_id)
         if user is None:
             raise ChatNotFoundError("User not found.")
+        _require_consent(user)
         chat = await deps.chats.get_by_id(session, chat_id, user_id)
         if chat is None:
             raise ChatNotFoundError("Chat not found.")

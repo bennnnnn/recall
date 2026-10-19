@@ -117,6 +117,26 @@ async def test_this_turns_photo_uses_the_bytes_already_read_and_skips_the_earlie
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("earlier", [False, True])
+async def test_a_photo_turn_says_what_to_do_with_an_unreadable_photo(earlier):
+    """A blurry or cropped photo gets "what I can't read" and a request for a better one."""
+    from app.modules.attachments.vision_notes import IMAGE_REAL_NOTE, UNCLEAR_IMAGE_NOTE
+
+    uid = uuid4()
+    if earlier:
+        messages = _earlier(uid)
+        attachments = _attachments()
+    else:
+        messages = _earlier()
+        attachments = _attachments(images=[("image/png", "now")], gateway=MagicMock())
+    await _run(messages, attachments, [_row(uid)], byte_map={f"key-{uid}": b"photo"})
+    text = messages[-1]["content"][0]["text"]
+    assert IMAGE_REAL_NOTE in text and UNCLEAR_IMAGE_NOTE in text
+    assert "ask for a clearer photo instead of guessing" in UNCLEAR_IMAGE_NOTE
+    assert "say what you cannot make out" in UNCLEAR_IMAGE_NOTE
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("enabled", [False, True])
 async def test_no_earlier_photo_or_attachments_off_does_no_work(enabled):
     messages = _earlier(uuid4()) if not enabled else _earlier()

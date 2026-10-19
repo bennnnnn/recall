@@ -104,3 +104,42 @@ async def search_semantic(
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+
+async def delete_near(
+    session: AsyncSession,
+    user_id: UUID,
+    embedding: list[float],
+    *,
+    max_distance: float,
+) -> None:
+    """Drop the user's chunks within ``max_distance`` (cosine) of ``embedding``; no commit."""
+    if len(embedding) != EMBEDDING_DIM:
+        return
+    await session.execute(
+        delete(MessageChunk).where(
+            MessageChunk.user_id == user_id,
+            MessageChunk.embedding.isnot(None),
+            MessageChunk.embedding.cosine_distance(embedding) <= max_distance,
+        )
+    )
+
+
+async def delete_mentioning_all(
+    session: AsyncSession,
+    user_id: UUID,
+    names: list[str],
+    *,
+    role: str,
+) -> None:
+    """Drop the user's ``role`` chunks whose text names every one of ``names``; no commit."""
+    if not names:
+        return
+    filters = [MessageChunk.user_id == user_id, MessageChunk.role == role]
+    filters.extend(MessageChunk.text.icontains(name, autoescape=True) for name in names)
+    await session.execute(delete(MessageChunk).where(*filters))
+
+
+async def delete_all_for_user(session: AsyncSession, user_id: UUID) -> None:
+    """Drop every chunk of the user's chat-history index; no commit."""
+    await session.execute(delete(MessageChunk).where(MessageChunk.user_id == user_id))

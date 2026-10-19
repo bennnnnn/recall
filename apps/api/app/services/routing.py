@@ -16,45 +16,9 @@ from typing import Any
 
 from app.core.config import Settings
 from app.services import model_catalog
+from app.services.routing_signals import SMART_TRIGGERS, needs_strong_model
 
 logger = logging.getLogger(__name__)
-
-# Hard triggers only — broad words like "why/explain" route too often to the
-# strong model. "compare" alone is too broad (it fires on "compare these two
-# files"), so comparison routing uses the explicit "X vs Y" / "versus" cues.
-_SMART_TRIGGERS = (
-    "prove ",
-    "derive ",
-    "debug ",
-    "algorithm",
-    "complexity",
-    "architecture",
-    "refactor",
-    "trade-off",
-    "tradeoff",
-    "step by step",
-    "design a system",
-    "design a distributed",
-    "optimize this",
-    "big-o",
-    "time complexity",
-    "space complexity",
-    # "X vs Y" comparisons are genuinely hard; a weak model answered them unhelped.
-    " vs ",
-    " versus ",
-    # Coding asks with no ``` fence ("write a function") need the strong model too.
-    "write a function",
-    "write a script",
-    "write a program",
-    "write a method",
-    "write a class",
-    "write a regex",
-    "write a snippet",
-    "implement a",
-    "implement the",
-    "code a",
-    "leetcode",
-)
 
 # Homework physics the verified solver does not cover (incline, momentum,
 # escape velocity, …). needs_symbolic stays the solver gate so we don't
@@ -98,7 +62,7 @@ _PHYSICS_FORMULA_CUES = (
 
 _FOLLOWUP_MAX_CHARS = 120
 # Linear phrase scan — same style as prompt_constants.routing `_OFFER_PHRASES`.
-# Do not add bare "fix" to `_SMART_TRIGGERS`; that would pin every "fix dinner"
+# Do not add bare "fix" to `SMART_TRIGGERS`; that would pin every "fix dinner"
 # ask onto the strong model.
 _FOLLOWUP_CUES = (
     "now fix",
@@ -340,7 +304,12 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
         cue in text for cue in ("create ", "show ", "give me ", "make ")
     ):
         return fast
-    if any(trigger in text for trigger in _SMART_TRIGGERS):
+    if any(trigger in text for trigger in SMART_TRIGGERS):
+        return smart
+    from app.modules.chat.prompt_constants.writing_kind import is_writing_deliverable_request
+
+    # A tweet or an email about a migration is writing, not the migration.
+    if needs_strong_model(content) and not is_writing_deliverable_request(content):
         return smart
     physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
     if physics_alias is not None:
@@ -494,6 +463,9 @@ def _verified_math_stays_fast(content: str) -> bool:
     )
 
 
+_MODES = frozenset({"auto", "fast", "smart"})
+
+
 def resolve_alias_in_pool(
     alias: str,
     content: str,
@@ -503,35 +475,54 @@ def resolve_alias_in_pool(
     prior_user: str | None = None,
     prior_model: str | None = None,
     lesson_active: bool = False,
+    unhealthy: frozenset[str] = frozenset(),
 ) -> str:
-    """Resolve a model mode or alias within an allowed pool."""
+    """Resolve a model mode or alias within an allowed pool.
+
+    A concrete alias is the user's pick and passes through. A mode (auto, fast,
+    smart) chooses among the pool's healthy models, and for a JSON ask among those
+    with JSON mode (``_usable_pool``).
+    """
     if not pool:
         return model_catalog.auto_fast_alias()
-
-    if alias == "auto":
-        preferred = route_chat_model(
-            content,
-            prior_user=prior_user,
-            prior_model=prior_model,
-            lesson_active=lesson_active,
-            settings=settings,
-        )
-        return _pick_preferred_tier(preferred, pool)
-
+    if alias not in _MODES:
+        return alias if alias in pool else _pick_cheapest_from_pool(pool, settings)
+    usable = _usable_pool(pool, unhealthy, content)
     if alias == "fast":
-        return _pick_fast_from_pool(pool)
-
+        return _pick_fast_from_pool(usable)
     if alias == "smart":
-        return _pick_smart_from_pool(pool)
+        return _pick_smart_from_pool(usable)
+    preferred = route_chat_model(
+        content,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=lesson_active,
+        settings=settings,
+    )
+    return _pick_preferred_tier(preferred, usable)
 
-    if alias in pool:
-        return alias
 
-    return _pick_cheapest_from_pool(pool, settings)
+def _usable_pool(pool: list[str], unhealthy: frozenset[str], content: str) -> list[str]:
+    """The pool without unhealthy models; for a JSON ask, only models with JSON mode.
+
+    Each filter applies only while it leaves a model: a degraded model beats none.
+    """
+    from app.modules.chat.json_output import is_json_request
+
+    usable = [model_id for model_id in pool if model_id not in unhealthy] or pool
+    if not is_json_request(content):
+        return usable
+    known = model_catalog.known_ids()
+    with_json = [m for m in usable if m in known and model_catalog.get(m).json_mode]
+    return with_json or usable
 
 
 def pick_cheapest_from_pool(pool: list[str], settings: Settings | None = None) -> str:
     return _pick_cheapest_from_pool(pool, settings)
+
+
+def pick_strongest_from_pool(pool: list[str]) -> str:
+    return _pick_strongest_from_pool(pool)
 
 
 def _models_in_pool(pool: list[str]) -> list[model_catalog.ChatModel]:

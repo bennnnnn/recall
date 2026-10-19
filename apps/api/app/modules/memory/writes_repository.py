@@ -10,12 +10,14 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import app.modules.memory.erase as erase
 from app.models.orm import Memory, MemoryArea, User
 from app.modules.memory.ops import (
     ACTIVE_STATUS,
+    MUTED_STATUS,
     SUPERSEDED_STATUS,
     evict_for_cap,
-    is_active_memory,
+    exact_fact,
     match_fact,
     normalize_memory_text,
 )
@@ -68,11 +70,13 @@ async def apply_fact_ops(
     expected_facts: dict[UUID, str] | None,
     *,
     active_cap: int,
+    applied: list[str] | None = None,
 ) -> list[UUID]:
-    """Apply add/update/supersede/delete. Returns ids whose text changed.
+    """Apply add/update/supersede/delete/mute. Returns ids whose text changed.
 
     The caller owns commit and rollback. When ``expected_facts`` is set, a
     late background write is skipped if the matched row's text changed.
+    ``applied`` collects the op of every write that took effect.
     """
     if not writes:
         return []
@@ -86,14 +90,14 @@ async def apply_fact_ops(
         if op == "add":
             if not clean:
                 continue
-            existing = match_fact(
-                facts, memory_type=write.type, match_text=clean
-            ) or _same_text_fact(facts, clean)
+            existing = exact_fact(facts, clean)
             if existing is not None:
                 if not _snapshot_ok(existing, expected_facts):
                     continue
+                # A muted fact said again stays muted: only the user unmutes it.
                 _apply_update(existing, write, clean)
                 touched.append(existing.id)
+                _note(applied, op)
                 continue
             row = Memory(
                 user_id=user_id,
@@ -112,6 +116,7 @@ async def apply_fact_ops(
             await session.flush()
             facts.append(row)
             touched.append(row.id)
+            _note(applied, op)
             continue
 
         needle = write.match_text or write.text
@@ -121,14 +126,21 @@ async def apply_fact_ops(
         if matched is None or not _snapshot_ok(matched, expected_facts):
             continue
         if op == "delete":
-            await session.delete(matched)
-            facts = [fact for fact in facts if fact.id != matched.id]
+            removed = await erase.delete_fact_rows(session, user_id, matched.id)
+            facts = [fact for fact in facts if fact.id not in removed]
+            _note(applied, op)
+            continue
+        if op == "mute":
+            matched.status = MUTED_STATUS
+            await erase.purge_fact_chunks(session, user_id, [matched])
+            _note(applied, op)
             continue
         if op == "update":
             if not clean:
                 continue
             _apply_update(matched, write, clean)
             touched.append(matched.id)
+            _note(applied, op)
             continue
         if op == "supersede":
             if not clean:
@@ -155,25 +167,22 @@ async def apply_fact_ops(
             matched.superseded_by_id = replacement.id
             facts.append(replacement)
             touched.append(replacement.id)
+            _note(applied, op)
 
+    # A fact the cap pushes out is deleted, history and all, not kept out of sight.
     for stale in evict_for_cap(facts, active_cap):
-        stale.status = SUPERSEDED_STATUS
-        stale.superseded_at = datetime.now(UTC)
+        await erase.delete_fact_rows(session, user_id, stale.id, purge=False)
     await _ensure_areas(session, user_id, writes)
     return list(dict.fromkeys(touched))
 
 
+def _note(applied: list[str] | None, op: str) -> None:
+    if applied is not None:
+        applied.append(op)
+
+
 def _write_topic(write: MemoryFactWrite) -> str:
     return write.topic or TYPE_DEFAULT_TOPIC.get(write.type, "notes")
-
-
-def _same_text_fact(facts: list[Memory], clean: str) -> Memory | None:
-    """An active fact of any type with this exact text, so a move is not a copy."""
-    needle = clean.lower()
-    for fact in facts:
-        if is_active_memory(fact) and normalize_memory_text(fact.text).lower() == needle:
-            return fact
-    return None
 
 
 async def _ensure_areas(

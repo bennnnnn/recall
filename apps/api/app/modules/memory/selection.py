@@ -6,6 +6,8 @@ calls them there, so tests patching `app.modules.memory.format_memory_block`
 and friends still intercept the internal calls.
 """
 
+import re
+
 from app.core.config import Settings
 from app.models.orm import Memory
 from app.modules.memory.facts import (
@@ -22,7 +24,23 @@ from app.modules.memory.facts import (
     render_memory_block,
     semantic_score,
 )
+from app.modules.memory.lexical import overlap, terms
 from app.modules.memory.text import is_food_or_diet_memory_text, is_food_or_diet_query
+from app.modules.memory.topics import fact_topic, is_area
+
+# Topics that hold what the user builds, besides areas.
+_WORK_TOPICS = frozenset({"side-projects", "recent-work"})
+# A fact about software the user builds or runs: its words, or a technology it names.
+_WORK_CUE = re.compile(
+    r"\b(?:apps?|application|apis?|backend|front-?end|website|web ?app|code|codebase|repo|"
+    r"software|startup|saas|mvp|platform|develop(?:s|ing|er|ment)?|program(?:s|ming|mer)?|"
+    r"engineer(?:s|ing)?|tech ?stack|server|database|deploy\w*|frameworks?|library|sdk|"
+    r"extension|bot|react|native|expo|fastapi|django|flask|rails|laravel|spring|node(?:\.?js)?|"
+    r"next\.?js|vue|angular|svelte|flutter|swiftui|swift|kotlin|python|javascript|typescript|"
+    r"java|golang|rust|ruby|php|postgres(?:ql)?|mysql|sqlite|mongodb|redis|supabase|firebase|"
+    r"neon|aws|gcp|azure|vercel|docker|kubernetes|graphql|tailwind)\b",
+    re.IGNORECASE,
+)
 
 
 def _confidence_value(memory: Memory) -> float:
@@ -61,16 +79,20 @@ def select_memories_semantic(
     settings: Settings,
     *,
     query_text: str | None = None,
+    with_profile: bool = False,
 ) -> list[Memory]:
     """Identity core always; remaining facts only above similarity.
 
-    Food/drink asks also keep diet facts whose embedding would otherwise miss.
+    A fact with no vector yet needs a word in common with the question instead
+    of riding along on every turn. Food/drink asks also keep diet facts whose
+    embedding would otherwise miss.
     """
     from app.gateways.embedding_gateway import cosine_similarity, parse_embedding
 
     eligible = [memory for memory in memories if _eligible_memory(memory, settings)]
-    always = identity_core(eligible)
+    always = _always_in(eligible, with_profile=with_profile)
     always_ids = {id(memory) for memory in always}
+    query_terms = terms(query_text)
     scored: list[tuple[float, Memory]] = []
     min_sim = settings.memory_min_similarity
     for memory in eligible:
@@ -78,22 +100,96 @@ def select_memories_semantic(
             continue
         vec = parse_embedding(getattr(memory, "embedding_json", None))
         if vec is None:
-            # Migrated / not-yet-embedded facts must still be retrievable.
-            scored.append((fallback_score(memory), memory))
+            if overlap(query_terms, memory.text):
+                scored.append((fallback_score(memory), memory))
             continue
         cosine = cosine_similarity(query_embedding, vec)
         if min_sim > 0 and cosine < min_sim:
             continue
         scored.append((semantic_score(memory, cosine), memory))
     scored.sort(key=lambda pair: pair[0], reverse=True)
-    gated = [memory for _, memory in scored]
-    merged = always + gated
-    if query_text and is_food_or_diet_query(query_text):
-        have = {id(memory) for memory in merged}
-        for memory in eligible:
-            if id(memory) in have:
-                continue
-            if is_food_or_diet_memory_text(memory.text):
-                merged.append(memory)
-                have.add(id(memory))
-    return merged[: settings.memory_inject_limit]
+    merged = always + [memory for _, memory in scored]
+    return _with_diet_facts(merged, eligible, query_text)[: settings.memory_inject_limit]
+
+
+def select_memories_lexical(
+    memories: list[Memory],
+    settings: Settings,
+    *,
+    query_text: str | None,
+    with_profile: bool = False,
+) -> list[Memory]:
+    """When the query embed is unavailable: identity core plus facts sharing a word.
+
+    Never the whole store: an auth question with no vector gets the name, reply
+    preferences and anything that says "auth", not the cat and the marathon.
+    """
+    eligible = [memory for memory in memories if _eligible_memory(memory, settings)]
+    always = _always_in(eligible, with_profile=with_profile)
+    always_ids = {id(memory) for memory in always}
+    query_terms = terms(query_text)
+    scored = [
+        (overlap(query_terms, memory.text), fallback_score(memory), memory)
+        for memory in eligible
+        if id(memory) not in always_ids
+    ]
+    matched = [entry for entry in scored if entry[0] > 0]
+    matched.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
+    merged = always + [memory for _, _, memory in matched]
+    return _with_diet_facts(merged, eligible, query_text)[: settings.memory_inject_limit]
+
+
+def select_work_memories(memories: list[Memory], settings: Settings) -> list[Memory]:
+    """Memory for a programming or "my app" turn: the stack and what the user builds.
+
+    Identity core, then the tech-stack document, then facts about what they build:
+    side projects and recent work that read as software, and every fact of an area
+    that does ("User builds Recall with React Native and FastAPI"). A wedding area,
+    the user's job or their city stay out.
+    """
+    eligible = [memory for memory in memories if _eligible_memory(memory, settings)]
+    always = identity_core(eligible)
+    always_ids = {id(memory) for memory in always}
+    work_areas = {
+        fact_topic(memory)
+        for memory in eligible
+        if is_area(fact_topic(memory)) and _WORK_CUE.search(memory.text)
+    }
+    stack: list[Memory] = []
+    built: list[Memory] = []
+    for memory in eligible:
+        if id(memory) in always_ids:
+            continue
+        topic = fact_topic(memory)
+        if topic == "tech-stack":
+            stack.append(memory)
+        elif topic in work_areas or (topic in _WORK_TOPICS and _WORK_CUE.search(memory.text)):
+            built.append(memory)
+    stack.sort(key=fallback_score, reverse=True)
+    built.sort(key=fallback_score, reverse=True)
+    return [*always, *stack, *built][: settings.memory_inject_limit]
+
+
+def _always_in(eligible: list[Memory], *, with_profile: bool) -> list[Memory]:
+    """The identity core, plus the profile document when the turn is about the user."""
+    core = identity_core(eligible)
+    if not with_profile:
+        return core
+    have = {id(memory) for memory in core}
+    profile = [m for m in eligible if m.type == "profile" and id(m) not in have]
+    profile.sort(key=fallback_score, reverse=True)
+    return [*core, *profile]
+
+
+def _with_diet_facts(
+    merged: list[Memory], eligible: list[Memory], query_text: str | None
+) -> list[Memory]:
+    if not (query_text and is_food_or_diet_query(query_text)):
+        return merged
+    have = {id(memory) for memory in merged}
+    extra = [
+        memory
+        for memory in eligible
+        if id(memory) not in have and is_food_or_diet_memory_text(memory.text)
+    ]
+    return [*merged, *extra]

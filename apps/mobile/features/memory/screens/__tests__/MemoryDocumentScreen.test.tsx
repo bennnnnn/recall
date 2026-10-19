@@ -9,6 +9,7 @@ const mockInstruct = jest.fn();
 const mockDeleteDocument = jest.fn();
 const mockDeleteFact = jest.fn();
 const mockEditFact = jest.fn();
+const mockSetFactMuted = jest.fn();
 const mockConfirm = jest.fn(async () => true);
 const mockFeedback = { error: jest.fn(), success: jest.fn() };
 const mockRouter = { back: jest.fn(), push: jest.fn() };
@@ -42,7 +43,11 @@ jest.mock("@/lib/reportRecoverableError", () => ({
   reportRecoverableError: (_feedback: unknown, message: string) => mockFeedback.error(message),
 }));
 jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
+  useTranslation: () => ({
+    t: (key: string, options?: { title?: string }) =>
+      options?.title ? `${key}:${options.title}` : key,
+    i18n: { language: "en" },
+  }),
 }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
@@ -110,6 +115,7 @@ jest.mock("@/features/memory/hooks/useMemoryDocuments", () => ({
     deleteDocument: mockDeleteDocument,
     deleteFact: mockDeleteFact,
     editFact: mockEditFact,
+    setFactMuted: mockSetFactMuted,
   }),
 }));
 
@@ -211,6 +217,50 @@ describe("MemoryDocumentScreen", () => {
     expect(mockDeleteFact).toHaveBeenCalledWith("f1");
     // Other facts remain, so the page stays open.
     expect(mockRouter.back).not.toHaveBeenCalled();
+  });
+
+  it("mutes a fact and shows it muted", async () => {
+    mockSetFactMuted.mockResolvedValue(true);
+    const ui = await render(<MemoryDocumentScreen />);
+    await fireEvent.press(ui.getByTestId("memory-fact-f2"), { nativeEvent: { pageX: 1, pageY: 1 } });
+    expect(ui.getByText("memory.mute_fact")).toBeTruthy();
+    await fireEvent.press(ui.getByTestId("menu-mute"));
+    await flush();
+    expect(mockSetFactMuted).toHaveBeenCalledWith("f2", true);
+
+    // The server answers with the muted fact; the page marks it and offers Unmute.
+    const [page] = mockDocuments;
+    mockDocuments = [
+      { ...page, facts: [page.facts[0], { ...page.facts[1], status: "muted" as const }] },
+    ];
+    await act(async () => {
+      ui.rerender(<MemoryDocumentScreen />);
+    });
+    expect(ui.getByTestId("memory-fact-muted-f2")).toBeTruthy();
+    expect(ui.getByText("memory.muted_label")).toBeTruthy();
+    await fireEvent.press(ui.getByTestId("memory-fact-f2"), { nativeEvent: { pageX: 1, pageY: 1 } });
+    expect(ui.getByText("memory.unmute_fact")).toBeTruthy();
+    await fireEvent.press(ui.getByTestId("menu-mute"));
+    await flush();
+    expect(mockSetFactMuted).toHaveBeenLastCalledWith("f2", false);
+  });
+
+  it("says when a mute did not go through", async () => {
+    mockSetFactMuted.mockResolvedValue(false);
+    const ui = await render(<MemoryDocumentScreen />);
+    await fireEvent.press(ui.getByTestId("memory-fact-f1"), { nativeEvent: { pageX: 1, pageY: 1 } });
+    await fireEvent.press(ui.getByTestId("menu-mute"));
+    await flush();
+    expect(mockFeedback.error).toHaveBeenCalledWith("memory.mute_failed");
+  });
+
+  it("shows the chat a fact was learned in", async () => {
+    mockDocuments[0].facts[0] = {
+      ...mockDocuments[0].facts[0],
+      source_chat_title: "Building Recall",
+    };
+    const ui = await render(<MemoryDocumentScreen />);
+    expect(ui.getByText("memory.source_chat:Building Recall")).toBeTruthy();
   });
 
   it("sends edits scoped to this page", async () => {

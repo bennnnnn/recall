@@ -709,10 +709,10 @@ async def test_build_prompt_includes_memory_and_ignores_a_stored_style():
     assert "Biniyam Mecuriaw" in messages[0]["content"]
     # Account email is gated to email/tool intents — omitted on a plain "Hi".
     assert "bmecuriaw@gmail.com" not in messages[0]["content"]
-    assert "first-party context" in messages[0]["content"]
+    assert "The block below is the user's saved memory" in messages[0]["content"]
     # A stored response_style from an older app is ignored: length follows the message.
     assert "response length: short" not in messages[0]["content"].lower()
-    assert "response length: balanced" in messages[0]["content"].lower()
+    assert "response length: fit the question" in messages[0]["content"].lower()
     assert "**HTML UI**" not in messages[0]["content"]
     assert "Python" in messages[0]["content"]
     assert "clarifying questions" in messages[0]["content"].lower()
@@ -1246,7 +1246,7 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     todos_mock.assert_not_awaited()
     system = messages[0]["content"]
     assert "Prefers vegetarian food" in system
-    assert "[BEGIN UNTRUSTED CONTENT — memory]" in system
+    assert "[BEGIN UNTRUSTED CONTENT — saved memory]" in system
     assert "personal recommendation" in system
     assert "TODOS SHOULD NOT LOAD" not in system
 

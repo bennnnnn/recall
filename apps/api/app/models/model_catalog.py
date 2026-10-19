@@ -12,6 +12,9 @@ this file and ``litellm_gateway``.
 """
 
 from dataclasses import dataclass
+from typing import TypedDict
+
+from app.models.routing_lanes import ROUTING
 
 OPENROUTER_KEY = "openrouter_api_key"
 
@@ -55,6 +58,12 @@ class ChatModel:
     # Hold the start of a reply until a stray closing think tag could have
     # arrived: GLM 5.3 has ended untagged reasoning with one.
     stray_think_guard: bool = False
+    # What the model can take and give. Routing asks for a capability, never a
+    # model name; a capability nobody has confirmed for this model is False.
+    supports_vision: bool = False  # reads image input
+    supports_tools: bool = False  # OpenAI-style tool calls with tool_choice "required"
+    json_mode: bool = False  # honours response_format json_object
+    context_tokens: int = 0  # context window; 0 for a model that takes no chat prompt
 
 
 def _or(
@@ -74,6 +83,10 @@ def _or(
     thinking_on: str | None = None,
     thinking_escalate: str | None = None,
     stray_think_guard: bool = False,
+    supports_vision: bool = False,
+    supports_tools: bool = False,
+    json_mode: bool = False,
+    context_tokens: int = 0,
 ) -> ChatModel:
     """OpenRouter-backed catalog entry (``openrouter_slug`` = OpenRouter model id)."""
     return ChatModel(
@@ -94,7 +107,32 @@ def _or(
         thinking_on=thinking_on,
         thinking_escalate=thinking_escalate,
         stray_think_guard=stray_think_guard,
+        supports_vision=supports_vision,
+        supports_tools=supports_tools,
+        json_mode=json_mode,
+        context_tokens=context_tokens,
     )
+
+
+# Capabilities shared by every entry on one underlying model, so an internal alias
+# can never claim more than the model it runs on. Sources: each model's OpenRouter
+# card (input modalities, supported parameters, context length) and how Recall
+# already calls it (structured JSON jobs, the photo reader, the tool selector).
+# Context windows are the smallest any of its OpenRouter providers serves.
+class _Caps(TypedDict):
+    supports_vision: bool
+    supports_tools: bool
+    json_mode: bool
+    context_tokens: int
+
+
+_QWEN_FLASH = _Caps(
+    supports_vision=True, supports_tools=True, json_mode=True, context_tokens=128_000
+)
+_HAIKU = _Caps(supports_vision=True, supports_tools=True, json_mode=True, context_tokens=200_000)
+_GLM_FLASH = _Caps(
+    supports_vision=True, supports_tools=True, json_mode=True, context_tokens=128_000
+)
 
 
 CATALOG: tuple[ChatModel, ...] = (
@@ -111,6 +149,7 @@ CATALOG: tuple[ChatModel, ...] = (
         thinking_off="none",
         thinking_on="low",
         thinking_escalate="medium",
+        **_HAIKU,
     ),
     _or(
         id="smart-chat",
@@ -125,6 +164,10 @@ CATALOG: tuple[ChatModel, ...] = (
         thinking_off="none",
         thinking_on="low",
         thinking_escalate="high",
+        # Text in, text out: DeepSeek's chat models take no images.
+        supports_tools=True,
+        json_mode=True,
+        context_tokens=128_000,
     ),
     _or(
         id="glm-5.3-flash",
@@ -140,6 +183,7 @@ CATALOG: tuple[ChatModel, ...] = (
         thinking_off="low",
         thinking_on="low",
         thinking_escalate="high",
+        **_GLM_FLASH,
     ),
     _or(
         id="glm-5.2",
@@ -153,6 +197,10 @@ CATALOG: tuple[ChatModel, ...] = (
         thinking_off="none",
         thinking_on="none",
         thinking_escalate="high",
+        # Text only (GLM's image readers are separate "V" models). JSON mode is
+        # unconfirmed across its providers, so routing does not count on it.
+        supports_tools=True,
+        context_tokens=128_000,
     ),
     _or(
         id="gpt-6-luna",
@@ -166,6 +214,10 @@ CATALOG: tuple[ChatModel, ...] = (
         thinking_off="none",
         thinking_on="low",
         thinking_escalate="medium",
+        supports_vision=True,
+        supports_tools=True,
+        json_mode=True,
+        context_tokens=128_000,
     ),
     # The free plan's everyday model: about a third of Luna's price per turn,
     # as fast and as right on everyday turns, and it reads photos. Hard and
@@ -183,6 +235,7 @@ CATALOG: tuple[ChatModel, ...] = (
         thinking_off="off",
         thinking_on="off",
         thinking_escalate="off",
+        **_QWEN_FLASH,
     ),
     # Internal aliases — not user-selectable. Priced like the selectable entry
     # on the same model: the gateway adds their calls to the global spend.
@@ -195,6 +248,7 @@ CATALOG: tuple[ChatModel, ...] = (
         output_price_per_m=0.13,
         selectable=False,
         thinking_off="off",
+        **_QWEN_FLASH,
     ),
     _or(
         id="memory-model",
@@ -205,6 +259,7 @@ CATALOG: tuple[ChatModel, ...] = (
         output_price_per_m=0.13,
         selectable=False,
         thinking_off="off",
+        **_QWEN_FLASH,
     ),
     # Fallback for background LLM jobs (memory extraction, titles,
     # summaries). If the primary memory-model provider is down or slow, retry
@@ -219,6 +274,7 @@ CATALOG: tuple[ChatModel, ...] = (
         output_price_per_m=0.50,
         selectable=False,
         thinking_off="none",
+        **_HAIKU,
     ),
     _or(
         id="embedding-model",
@@ -240,6 +296,7 @@ CATALOG: tuple[ChatModel, ...] = (
         output_price_per_m=0.13,
         selectable=False,
         thinking_off="off",
+        **_QWEN_FLASH,
     ),
     # Second photo reader for when vision-chat's provider fails: another
     # company, and its reasoning cannot be disabled.
@@ -251,6 +308,9 @@ CATALOG: tuple[ChatModel, ...] = (
         output_price_per_m=0.50,
         selectable=False,
         thinking_off="low",
+        # It can carry a photo turn's chat reply when vision-chat's provider fails.
+        stray_think_guard=True,
+        **_GLM_FLASH,
     ),
     _or(
         id="image-gen-model",
@@ -298,15 +358,6 @@ CATALOG: tuple[ChatModel, ...] = (
 
 _BY_ID: dict[str, ChatModel] = {m.id: m for m in CATALOG}
 _DEFAULT = _BY_ID["free-chat"]
-# Qwen3.7 Flash answers an everyday turn as fast as GPT-6 Luna (about 0.8s to
-# first text with thinking off) for about a third of the price. Auto's everyday
-# lane carries most turns; hard and maths turns route stronger.
-_AUTO_FAST = "qwen-3.7-flash"
-_AUTO_SMART = "smart-chat"
-# Live phone QA repeatedly saw DeepSeek R1 stream hidden reasoning and then
-# return no visible answer. GLM 5.2 produced the verified worked-math contract
-# in about two seconds, so Auto math uses this strong tier directly.
-_AUTO_MATH = "glm-5.2"
 
 
 def get(model_id: str) -> ChatModel:
@@ -340,15 +391,34 @@ def known_ids() -> frozenset[str]:
 
 
 def auto_fast_alias() -> str:
-    return _AUTO_FAST
+    return ROUTING.everyday
 
 
 def auto_smart_alias() -> str:
-    return _AUTO_SMART
+    return ROUTING.hard
 
 
 def auto_math_alias() -> str:
-    return _AUTO_MATH
+    return ROUTING.math
+
+
+def vision_alias() -> str:
+    return ROUTING.vision
+
+
+def vision_backup_alias() -> str:
+    return ROUTING.vision_backup
+
+
+def reads_images(model_id: str) -> bool:
+    """True when the alias is known and its model takes image input."""
+    model = _BY_ID.get(model_id)
+    return model is not None and model.supports_vision
+
+
+def tool_selector_aliases() -> tuple[str, ...]:
+    """The tool-selection models in order, each one able to call tools."""
+    return tuple(alias for alias in ROUTING.tool_selectors if _BY_ID[alias].supports_tools)
 
 
 def is_reasoning_alias(model_id: str) -> bool:

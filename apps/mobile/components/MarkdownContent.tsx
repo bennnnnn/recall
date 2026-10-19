@@ -246,7 +246,7 @@ export function MarkdownContent({
                 {proseShown}
               </Markdown>
             ) : null
-          ) : fencePreview === "hide" || fencePreview === "diagram" ? null : (
+          ) : fencePreview === "hide" || fencePreview === "placeholder" ? null : (
             <CodeBlock code={openRegion.body} lang={openRegion.lang} streaming />
           )
         ) : openRegion.kind === "math" ? (

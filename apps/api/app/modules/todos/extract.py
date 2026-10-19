@@ -75,4 +75,6 @@ async def extract_todo_actions(
         messages=messages,
         schema=TodoExtractionResult,
         max_tokens=512,
+        # A background job: bad JSON asks the fallback model once, not drops the turn.
+        fallback_on_invalid=True,
     )

@@ -20,6 +20,7 @@ from app.exceptions import (
     AttachmentValidationError,
     ChatBusyError,
     ChatServiceError,
+    ConsentRequiredError,
     QuotaExceededError,
     RedisUnavailableError,
     SpendCapReachedError,
@@ -326,6 +327,8 @@ def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
         return {"type": "error", "code": "unknown_model", "message": exc.message}
     if isinstance(exc, SpendCapReachedError):
         return {"type": "error", "code": "spend_cap", "message": exc.message}
+    if isinstance(exc, ConsentRequiredError):
+        return {"type": "error", "code": exc.code, "message": exc.message}
     if isinstance(exc, ChatServiceError):
         return {"type": "error", "message": exc.message}
     if isinstance(exc, ModelUnavailableError):

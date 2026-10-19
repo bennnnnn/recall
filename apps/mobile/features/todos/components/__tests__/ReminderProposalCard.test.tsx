@@ -17,6 +17,7 @@ jest.mock("@/features/todos/context/TodosContext", () => ({
   useTodosOptional: () => ({ refresh: mockRefresh }),
 }));
 jest.mock("@/lib/api", () => ({ api: { confirmReminderProposal: jest.fn() } }));
+jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "America/New_York" }));
 
 const confirm = api.confirmReminderProposal as jest.Mock;
 
@@ -105,5 +106,19 @@ describe("ReminderProposalCard", () => {
     );
     expect(view.getByText("todos.proposal_to_list:Health")).toBeTruthy();
     expect(view.getByText("todos.proposal_all")).toBeTruthy();
+  });
+
+  it("shows the time the reply named, with its zone, when the phone is elsewhere", async () => {
+    // F8.4: due 15:00Z read in Nairobi is 6:00 PM there, 11:00 AM on a New York phone.
+    const view = await render(
+      <ReminderProposalCard
+        proposal={proposal({
+          proposal_id: "tz1",
+          tz: "Africa/Nairobi",
+          items: [{ action: "add", title: "Call mom", due_at: "2026-10-15T15:00:00Z" }],
+        })}
+      />,
+    );
+    expect(view.getByText(/^Thu, Oct 15, 6:00\sPM (GMT\+3|EAT)$/)).toBeTruthy();
   });
 });

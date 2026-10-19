@@ -455,7 +455,9 @@ background, and runs the new code from the next launch.
       and its public-search backup)
 - [ ] Every account is asked once, after sign-in and before its first chat, to agree to what
       goes to outside AI services (`users.ai_data_consent_at`, migration `0112`; phone
-      `/consent`, web slice 1 too). Change that screen and the policy together
+      `/consent`, web slice 1 too). Change that screen and the policy together. The
+      server refuses chat, speech and scan reads until then (`consent_required`), so a
+      phone build without the consent screen cannot chat against this API
 
 ---
 

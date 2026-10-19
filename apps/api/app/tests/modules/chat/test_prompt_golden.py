@@ -33,6 +33,7 @@ from app.core.config import Settings
 from app.models.orm import Chat, User
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_context import _PromptContextBlocks
+from app.modules.chat.turn_prep.intents import plan_turn
 from app.tests.behavior.cases import CASES, CATEGORIES
 from app.tests.behavior.sweep import frozen_clock
 
@@ -108,6 +109,9 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
     kwargs = dict(case["kwargs"])
     omit = kwargs.pop("omit", None)
     current = kwargs.pop("current", None)
+    # "plan": the turn's separate requests, as turn prep plans them (``turn_prep.intents``).
+    if kwargs.pop("plan", False):
+        kwargs["turn_plan"] = plan_turn(kwargs["query_text"])
     user = User(id=USER_ID, **case["user"])
     settings = Settings(_env_file=None, **case["settings"])  # type: ignore[call-arg]
     out: dict[str, object] = {}
