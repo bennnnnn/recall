@@ -51,6 +51,8 @@ export type User = {
   job: string | null;
   created_at: string;
   sign_in_provider?: "google" | "apple" | "dev";
+  /** Signs in with Apple (alone or beside Google); deleting asks Apple once more. */
+  apple_linked?: boolean;
   quiet_hours_enabled?: boolean;
   quiet_hours_start_minute?: number;
   quiet_hours_end_minute?: number;

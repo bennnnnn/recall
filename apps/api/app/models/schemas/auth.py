@@ -65,6 +65,13 @@ class UserOut(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def apple_linked(self) -> bool:
+        """Signs in with Apple (alone or beside Google): deleting the account on
+        iOS asks Apple once more so the server can revoke the Apple grant."""
+        return isinstance(self.apple_sub, str) and bool(self.apple_sub)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def features(self) -> list[str]:
         """What this plan includes, so the app can show locks. The server still
         checks every request; this is display only."""
@@ -235,6 +242,12 @@ class AuthSessionListOut(BaseModel):
 
 class LogoutRequest(BaseModel):
     refresh_token: str | None = None
+
+
+class AccountDeleteRequest(BaseModel):
+    # A fresh Sign in with Apple code (Apple-linked accounts on iOS); the
+    # server trades it for the user's Apple token and revokes that.
+    apple_authorization_code: str | None = Field(default=None, max_length=2048)
 
 
 class SettingsChangeOut(BaseModel):

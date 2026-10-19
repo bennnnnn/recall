@@ -19,6 +19,7 @@ from app.core.rate_limit import allow_request_fail_closed
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.models.schemas import (
+    AccountDeleteRequest,
     AppleAuthRequest,
     AuthResponse,
     AuthSessionListOut,
@@ -462,13 +463,18 @@ async def export_me(
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_me(
+    body: AccountDeleteRequest | None = None,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> None:
+    # Older apps send no body; an Apple-linked account then keeps its Apple grant.
+    apple_code = body.apple_authorization_code if body is not None else None
     try:
-        await account_lifecycle.delete_account(session, redis, settings, user)
+        await account_lifecycle.delete_account(
+            session, redis, settings, user, apple_authorization_code=apple_code
+        )
     except account_lifecycle.SessionPurgeError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -75,6 +75,7 @@ exact production web origin and only the headers used by presigned uploads.
 | `DATABASE_URL` | yes | asyncpg URL |
 | `REDIS_URL` | yes | `rediss://` |
 | `GOOGLE_CLIENT_ID` | yes | Google Sign-In (ID-token audience) |
+| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | for App Review 5.1.1(v) | A Sign in with Apple key (Apple Developer → Keys); `APPLE_PRIVATE_KEY` is the `.p8` contents. Account delete revokes the user's Apple grant with it. Unset: delete still works, boot logs a warning |
 | `OPENROUTER_API_KEY` | yes | Chat + composer STT (`gpt-transcribe`) |
 | `OPENAI_API_KEY` | Live Talk only | WebRTC Realtime; OpenRouter has no Realtime API |
 | `CORS_ORIGINS` | yes | Explicit origins, never `*` |

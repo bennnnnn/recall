@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     # as a 503 instead of holding the sign-in (and a worker thread).
     google_auth_timeout_seconds: float = 10.0
     apple_client_id: str = "com.recall.app"
+    # Sign in with Apple key (Apple Developer → Keys): revokes the user's Apple
+    # grant when they delete their account (gateways/apple_revoke.py). The
+    # private key is the .p8 file's contents; "\n" escapes are accepted.
+    apple_team_id: str = ""
+    apple_key_id: str = ""
+    apple_private_key: str = ""
 
     jwt_secret: str = "dev-secret-change-me"
     # 60m is intentional: jti + revoked_since cover logout/reuse; lower freely
@@ -451,6 +457,14 @@ def _trusted_proxy_cidrs_ipv4_only(cidrs: str) -> bool:
     return bool(parsed) and all(parsed)
 
 
+def apple_revoke_configured(settings: Settings) -> bool:
+    """The Sign in with Apple key that signs token-revoke requests is set."""
+    return all(
+        value.strip()
+        for value in (settings.apple_team_id, settings.apple_key_id, settings.apple_private_key)
+    )
+
+
 def _warn_proxy_trust_misconfig(settings: Settings) -> None:
     if not settings.trust_x_forwarded_for:
         if settings.environment == "production":
@@ -496,6 +510,12 @@ def validate_production_settings(settings: Settings) -> None:
         return
 
     _warn_proxy_trust_misconfig(settings)
+    if not apple_revoke_configured(settings):
+        # Deleting still works; the Apple grant just outlives the account.
+        logger.warning(
+            "APPLE_TEAM_ID / APPLE_KEY_ID / APPLE_PRIVATE_KEY unset — account delete "
+            "cannot revoke Sign in with Apple tokens"
+        )
 
     errors: list[str] = []
     if settings.dev_auth_enabled:
