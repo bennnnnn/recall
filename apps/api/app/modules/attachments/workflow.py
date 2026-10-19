@@ -350,4 +350,5 @@ async def get_download(
         download_url=url,
         created_at=row.created_at,
         indexed=indexed,
+        original_filename=row.original_filename,
     )

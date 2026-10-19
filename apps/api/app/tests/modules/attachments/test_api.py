@@ -882,6 +882,7 @@ def test_download_url_local_backend():
     row.size_bytes = 128
     row.storage_key = "key"
     row.created_at = datetime(2024, 1, 1)
+    row.original_filename = "lease-notes.png"
 
     gateway = MagicMock(spec=LocalStorageGateway)
 
@@ -901,6 +902,8 @@ def test_download_url_local_backend():
     assert r.status_code == 200
     assert r.json()["download_url"] == f"/attachments/{attachment_id}/file"
     assert r.json()["indexed"] is True
+    # The phone names a reopened file from this; its message holds only the link.
+    assert r.json()["original_filename"] == "lease-notes.png"
 
 
 def test_upload_accepts_docx_bytes_matching_claimed_type():

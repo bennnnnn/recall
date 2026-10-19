@@ -53,7 +53,7 @@ export function AttachmentPdfViewer({ visible, attachmentId, localUri, path, ...
       closeLabel={t("chat.pdf_close_a11y")}
       shareLabel={t("chat.pdf_share_a11y")}
     >
-      <View style={s.body}>
+      <View style={[s.body, (preview.status !== "ready" || !WebView) && s.centered]}>
         {preview.status === "loading" ? (
           <ActivityIndicator color={theme.primary} size="large" />
         ) : preview.status !== "ready" || !WebView ? (
@@ -74,7 +74,10 @@ export function AttachmentPdfViewer({ visible, attachmentId, localUri, path, ...
 
 function makeViewerStyles(t: Theme) {
   return StyleSheet.create({
-    body: { flex: 1, alignItems: "center", justifyContent: "center" },
+    body: { flex: 1 },
+    // Only the spinner and the error are centered: centered, react-native-webview's
+    // container shrinks to its content and the pages inside it lay out 0 wide.
+    centered: { alignItems: "center", justifyContent: "center" },
     webview: { flex: 1, width: "100%", backgroundColor: t.bg },
     error: { ...Type.callout, ...Weight.regular, color: t.textSecondary, paddingHorizontal: Space.lg, textAlign: "center" },
   });
