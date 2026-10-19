@@ -54,6 +54,8 @@
   "chat.image_gen_play": "Поиграть с точками",
   "chat.image_gen_play_hint": "Запускает небольшую игру с точками, пока создаётся изображение",
   "chat.image_gen_steer_hint": "Коснитесь места, чтобы направить точки. Удерживайте, чтобы остановить.",
+  "chat.image_remote_hint": "Нажмите, чтобы загрузить",
+  "chat.image_remote_title": "Изображение с {{host}}",
   "chat.image_unavailable_a11y": "Image unavailable",
   "chat.image_view_a11y": "Просмотреть изображение",
   "chat.link_preview_loading": "Загрузка предпросмотра…",

@@ -54,6 +54,8 @@
   "chat.image_gen_play": "Gioca con i puntini",
   "chat.image_gen_play_hint": "Avvia un piccolo gioco di puntini mentre l'immagine viene creata",
   "chat.image_gen_steer_hint": "Tocca un punto per guidare i puntini. Tieni premuto per fermare.",
+  "chat.image_remote_hint": "Tocca per caricare",
+  "chat.image_remote_title": "Immagine da {{host}}",
   "chat.image_unavailable_a11y": "Image unavailable",
   "chat.image_view_a11y": "Visualizza immagine",
   "chat.link_preview_loading": "Caricamento anteprima…",

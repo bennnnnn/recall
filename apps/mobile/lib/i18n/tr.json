@@ -54,6 +54,8 @@
   "chat.image_gen_play": "Noktalarla oyna",
   "chat.image_gen_play_hint": "Görsel hazırlanırken küçük bir nokta oyunu başlatır",
   "chat.image_gen_steer_hint": "Noktaları yönlendirmek için bir yere dokunun. Durdurmak için basılı tutun.",
+  "chat.image_remote_hint": "Yüklemek için dokun",
+  "chat.image_remote_title": "{{host}} adresinden görsel",
   "chat.image_unavailable_a11y": "Image unavailable",
   "chat.image_view_a11y": "Görseli görüntüle",
   "chat.link_preview_loading": "Önizleme yükleniyor…",

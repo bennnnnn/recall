@@ -54,6 +54,8 @@
   "chat.image_gen_play": "Jouer avec les points",
   "chat.image_gen_play_hint": "Lance un petit jeu de points pendant la création de l'image",
   "chat.image_gen_steer_hint": "Touchez un endroit pour guider les points. Appui long pour arrêter.",
+  "chat.image_remote_hint": "Touchez pour charger",
+  "chat.image_remote_title": "Image de {{host}}",
   "chat.image_unavailable_a11y": "Image unavailable",
   "chat.image_view_a11y": "Voir l'image",
   "chat.link_preview_loading": "Chargement de l'aperçu…",

@@ -54,6 +54,8 @@
   "chat.image_gen_play": "በነጥቦቹ ይጫወቱ",
   "chat.image_gen_play_hint": "ምስሉ እስኪዘጋጅ ድረስ ትንሽ የነጥብ ጨዋታ ይጀምራል",
   "chat.image_gen_steer_hint": "ነጥቦቹን ለመምራት አንድ ቦታ ይንኩ። ለማቆም ተጭነው ይያዙ።",
+  "chat.image_remote_hint": "ለመጫን ይንኩ",
+  "chat.image_remote_title": "ምስል ከ{{host}}",
   "chat.image_unavailable_a11y": "Image unavailable",
   "chat.image_view_a11y": "ምስሉን ይመልከቱ",
   "chat.link_preview_loading": "ቅድመ-እይታ በመጫን ላይ…",

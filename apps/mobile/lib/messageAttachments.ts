@@ -1,5 +1,22 @@
 import { attachmentIdFromRef } from "@/lib/attachmentRef";
+import { readFenceMarker } from "@/lib/mdFenceScan";
 import { SCANNER_CAMERA_PROMPTS } from "@/lib/scanner/subjects";
+
+// resolveAttachmentUri loads no other scheme; file: and local refs never leave the phone.
+const REMOTE_REF = /^(?:https?:)?\/\//i;
+
+/**
+ * True when drawing this marker would fetch from a host other than Recall's
+ * API. The server writes only attachment refs (`/attachments/<id>/file`),
+ * which `resolveAttachmentUri` always fetches from the API by id, and the app
+ * writes local ones. A marker naming another host was written by someone else
+ * (a model told to by injected text can put the user's data in its URL), so
+ * it never loads unasked.
+ */
+export function loadsFromAnotherHost(ref: string): boolean {
+  const trimmed = ref.trim();
+  return REMOTE_REF.test(trimmed) && attachmentIdFromRef(trimmed) === null;
+}
 
 const IMAGE_MARKER = /^\[Image:\s*(.+?)\s*\]$/;
 const FILE_MARKER = /^\[File:\s*(.+?)\s*\]$/;
@@ -65,7 +82,8 @@ export function parseUserMessageContent(content: string): ParsedUserMessageConte
     }
 
     const imageMatch = trimmed.match(IMAGE_MARKER);
-    if (imageMatch) {
+    // A marker naming another host is not a picture; it stays the user's text.
+    if (imageMatch && !loadsFromAnotherHost(imageMatch[1])) {
       inFileExcerpt = false;
       const ref = imageMatch[1].trim();
       images.push({
@@ -126,25 +144,57 @@ export function parseUserMessageContent(content: string): ParsedUserMessageConte
   return { caption: visibleCaption, images, files, hasFileAttachment };
 }
 
-/** Extract inline `[Image: …]` markers from any message role. */
+/**
+ * A marker naming another host was written by the model (or text injected into
+ * it), not the server: its URL can carry the user's data. It becomes a markdown
+ * image, which waits for a tap (imageUriPolicy); anything but https is dropped.
+ */
+function remoteImageMarkdown(ref: string): string | null {
+  try {
+    const url = new URL(ref.trim());
+    return url.protocol === "https:" && !url.username && !url.password ? `![](<${url.href}>)` : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extract `[Image: …]` markers from any message role. A marker naming another
+ * host never becomes a picture; a marker inside fenced code is code and stays text.
+ */
 export function parseMessageImages(content: string): {
   images: ParsedMessageImage[];
   textWithoutImages: string;
 } {
   const images: ParsedMessageImage[] = [];
   const kept: string[] = [];
+  let fence: { char: string; len: number } | null = null;
   for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    const imageMatch = trimmed.match(IMAGE_MARKER);
-    if (imageMatch) {
-      const ref = imageMatch[1].trim();
-      images.push({
-        attachmentId: attachmentIdFromRef(ref),
-        path: ref,
-      });
+    const marker = readFenceMarker(line);
+    if (fence) {
+      if (marker && marker.char === fence.char && marker.len >= fence.len && !marker.info) {
+        fence = null;
+      }
+      kept.push(line);
       continue;
     }
-    kept.push(line);
+    if (marker && !marker.info.includes("|")) {
+      fence = { char: marker.char, len: marker.len };
+      kept.push(line);
+      continue;
+    }
+    const imageMatch = line.trim().match(IMAGE_MARKER);
+    if (!imageMatch) {
+      kept.push(line);
+      continue;
+    }
+    const ref = imageMatch[1].trim();
+    if (!loadsFromAnotherHost(ref)) {
+      images.push({ attachmentId: attachmentIdFromRef(ref), path: ref });
+      continue;
+    }
+    const remote = remoteImageMarkdown(ref);
+    if (remote) kept.push(remote);
   }
   return { images, textWithoutImages: kept.join("\n").trim() };
 }

@@ -10,6 +10,10 @@ export type LinkPreview = {
 
 const cache = new Map<string, LinkPreview>();
 
+/**
+ * The server fetches `url` for its title. Ask only for a link
+ * `lib/linkPreviewTrust.ts` allows (the user's own, or a search source).
+ */
 export async function fetchLinkPreview(url: string): Promise<LinkPreview> {
   const cached = cache.get(url);
   if (cached) return cached;

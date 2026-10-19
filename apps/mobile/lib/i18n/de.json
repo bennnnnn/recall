@@ -54,6 +54,8 @@
   "chat.image_gen_play": "Mit den Punkten spielen",
   "chat.image_gen_play_hint": "Startet ein kleines Punktespiel, während das Bild entsteht",
   "chat.image_gen_steer_hint": "Auf eine Stelle tippen, um die Punkte zu lenken. Gedrückt halten zum Beenden.",
+  "chat.image_remote_hint": "Zum Laden tippen",
+  "chat.image_remote_title": "Bild von {{host}}",
   "chat.image_unavailable_a11y": "Image unavailable",
   "chat.image_view_a11y": "Bild ansehen",
   "chat.link_preview_loading": "Vorschau wird geladen…",

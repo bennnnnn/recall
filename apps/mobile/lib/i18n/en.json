@@ -54,6 +54,8 @@
   "chat.image_gen_play": "Play with the dots",
   "chat.image_gen_play_hint": "Starts a small dot game while the image is made",
   "chat.image_gen_steer_hint": "Tap a spot to steer the dots. Long-press to stop.",
+  "chat.image_remote_hint": "Tap to load",
+  "chat.image_remote_title": "Image from {{host}}",
   "chat.image_unavailable_a11y": "Image unavailable",
   "chat.image_view_a11y": "View image",
   "chat.link_preview_loading": "Loading preview…",

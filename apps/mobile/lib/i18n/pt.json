@@ -54,6 +54,8 @@
   "chat.image_gen_play": "Brincar com os pontos",
   "chat.image_gen_play_hint": "Inicia um joguinho de pontos enquanto a imagem é criada",
   "chat.image_gen_steer_hint": "Toque em um lugar para guiar os pontos. Pressione e segure para parar.",
+  "chat.image_remote_hint": "Toque para carregar",
+  "chat.image_remote_title": "Imagem de {{host}}",
   "chat.image_unavailable_a11y": "Image unavailable",
   "chat.image_view_a11y": "Ver imagem",
   "chat.link_preview_loading": "Carregando pré-visualização…",
