@@ -61,7 +61,7 @@ type Chrome = {
   yNamePos: { px: number; py: number };
 };
 
-function buildSeriesPath(
+export function buildSeriesPath(
   row: DrawnSeries | undefined,
   b: GraphViewW,
   width: number,
@@ -91,7 +91,7 @@ function buildSeriesPath(
   return path;
 }
 
-function buildFillPath(
+export function buildFillPath(
   row: DrawnSeries | undefined,
   b: GraphViewW,
   width: number,
@@ -129,7 +129,7 @@ function buildFillPath(
   return path;
 }
 
-function buildMarkerPath(
+export function buildMarkerPath(
   drawn: DrawnSeries[],
   b: GraphViewW,
   width: number,
@@ -151,7 +151,7 @@ function buildMarkerPath(
   return path;
 }
 
-function computeChrome(
+export function computeChrome(
   b: GraphViewW,
   width: number,
   height: number,
