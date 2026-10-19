@@ -1,0 +1,57 @@
+"""Maths, physics and chemistry: SymPy bounds and pool, model extraction, scan OCR."""
+
+from pydantic import BaseModel
+
+
+class StemSettings(BaseModel):
+    math_tools_enabled: bool = True
+    chemistry_enabled: bool = True
+    math_max_expr_length: int = 256
+    # Polynomial solve shape bound — refuse before the 5s SymPy pool, not
+    # only by character length (x^40 is short and still pathological).
+    math_max_poly_degree: int = 8
+    # Dense enough for a smooth SVG polyline; larger dumps (300+) blow up
+    # chat bubbles and FallbackMarkdown when the rich renderer dies.
+    math_graph_max_points: int = 96
+    # SymPy solve/simplify/integrate run on a worker thread (they're sync, CPU-bound);
+    # this bounds how long a single pathological expression can occupy that thread
+    # before the chat turn falls back to an unverified reply.
+    math_solve_timeout_seconds: float = 5.0
+    # Isolated 1-worker process slots (not one shared N-worker pool — a
+    # timeout must SIGTERM only the runaway). Interactive slot wait is *not*
+    # the 5s solve timeout; 1+1=x must not sit 60s behind an integral.
+    sympy_max_workers: int = 3
+    sympy_queue_wait_seconds: float = 2.0
+    # math_image_extract.py's vision-chat call is a network round trip, not
+    # local synchronous SymPy work — reusing math_solve_timeout_seconds's 5s
+    # budget (sized for CPU-bound solve/integrate) cut off OCR calls that
+    # were still legitimately in flight.
+    math_image_extract_timeout_seconds: float = 20.0
+    # Gate-fired-but-regex-extract-None turns get one hidden structured
+    # extraction call on a fast alias before the honesty note (the "Couldn't
+    # verify under a correct ∫ x²" path). Only that already-failing path pays;
+    # gate-miss and regex-hit turns make no LLM call. The result is never
+    # trusted — it reaches the user only when SymPy verifies it. If the primary
+    # structured provider times out or returns invalid JSON, the configured
+    # secondary provider gets one bounded attempt before the path declines.
+    math_llm_extract_enabled: bool = True
+    math_llm_extract_timeout_seconds: float = 2.5
+    # Algebra word problems ("three times as old", "tickets cost $5 and $8"):
+    # a bounded structured call translates them into unknowns and equations,
+    # with one provider-independent retry on timeout or invalid JSON. Results
+    # reach the user only when every number is stated in the problem and SymPy
+    # finds exactly one solution in the stated domain.
+    math_word_problems_enabled: bool = True
+    math_word_problem_timeout_seconds: float = 3.0
+    # POST /math/scan/read runs OCR (Mathpix, then vision) so the student can
+    # confirm what the camera read before it is solved. Per user, per hour.
+    math_scan_read_rate_limit_per_hour: int = 60
+    # Dedicated math OCR (Mathpix). Empty keys keep the Gemini vision path.
+    # Images always send metadata.improve_mathpix=false — student homework is
+    # not opted into Mathpix QA storage.
+    mathpix_app_id: str = ""
+    mathpix_app_key: str = ""
+    mathpix_enabled: bool = True
+    mathpix_timeout_seconds: float = 8.0
+    # Below this 0..1 confidence, a Mathpix transcription still needs Gemini.
+    mathpix_confidence_min: float = 0.72

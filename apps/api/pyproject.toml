@@ -115,6 +115,7 @@ select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
 "app/modules/web_search/*.py" = ["E501", "RUF002"]
 "app/core/deps.py" = ["B008"]
 "app/core/config.py" = ["S105"]
+"app/core/settings/auth.py" = ["S105"]
 "app/models/schemas/**" = ["S105"]
 
 [tool.mypy]
