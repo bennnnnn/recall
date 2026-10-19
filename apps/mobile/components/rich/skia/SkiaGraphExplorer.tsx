@@ -23,6 +23,11 @@ import { runOnJS, useAnimatedReaction, useDerivedValue } from "react-native-rean
 
 import type { DrawnSeries } from "@/hooks/useInteractiveGraph";
 import type { GraphHoleMarker } from "@/components/rich/GraphCanvas";
+import {
+  GRAPH_TICK_FONT_SIZE,
+  INEQUALITY_REGION_OPACITY,
+  STRICT_BOUNDARY_DASH,
+} from "@/components/rich/graphPaint";
 import type { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import {
   AXIS_SLOTS,
@@ -31,7 +36,6 @@ import {
   buildSeriesPath,
   computeChrome,
   MONO_CHAR_PX,
-  TICK_FONT_SIZE,
   type Chrome,
 } from "@/components/rich/skia/graphPaths";
 import { selection } from "@/lib/haptics";
@@ -96,7 +100,7 @@ export function SkiaGraphCanvas({
   // file in sync when the katex dependency changes.
   const font = useFont(
     require("../../../assets/fonts/KaTeX_Main-Regular.ttf"),
-    TICK_FONT_SIZE,
+    GRAPH_TICK_FONT_SIZE,
   );
   const { bounds, gesture, traceActive, tracePos } = viewport;
   const clip = Skia.XYWHRect(
@@ -249,7 +253,7 @@ export function SkiaGraphCanvas({
               path={fillPaths[i]}
               color={drawn[i]?.color ?? theme.primary}
               style="fill"
-              opacity={0.16}
+              opacity={INEQUALITY_REGION_OPACITY}
             />
           ))}
           {SERIES_INDICES.map((i) => (
@@ -263,7 +267,7 @@ export function SkiaGraphCanvas({
               strokeJoin="round"
             >
               {drawn[i] && (drawn[i].cmp === "<" || drawn[i].cmp === ">") ? (
-                <DashPathEffect intervals={[6, 5]} />
+                <DashPathEffect intervals={STRICT_BOUNDARY_DASH} />
               ) : null}
             </Path>
           ))}

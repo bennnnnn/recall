@@ -7,6 +7,7 @@
 import { Skia, type SkFont } from "@shopify/react-native-skia";
 
 import type { DrawnSeries } from "@/hooks/useInteractiveGraph";
+import { GRAPH_TICK_FONT_SIZE } from "@/components/rich/graphPaint";
 import {
   axisTicksW,
   dockAxisW,
@@ -17,7 +18,6 @@ import {
 
 /** The most tick labels drawn on one axis (each is a fixed Skia text slot). */
 export const AXIS_SLOTS = 16;
-export const TICK_FONT_SIZE = 11;
 /** Conservative advance before KaTeX_Main has measured the tick (11pt). */
 export const MONO_CHAR_PX = 6.7;
 const MARKER_RADIUS = 4;
@@ -142,7 +142,7 @@ export function computeChrome(
   const yOriginInView = b.yMin <= 0 && b.yMax >= 0;
   const xTickLabelY = dockAxisW(
     origin.py + 16,
-    pad + TICK_FONT_SIZE,
+    pad + GRAPH_TICK_FONT_SIZE,
     height - pad - 4,
   );
 
@@ -193,10 +193,10 @@ export function computeChrome(
     originInView,
     xNamePos: {
       px: width - pad,
-      py: dockAxisW(origin.py - 8, pad + TICK_FONT_SIZE, height - pad - 4),
+      py: dockAxisW(origin.py - 8, pad + GRAPH_TICK_FONT_SIZE, height - pad - 4),
     },
     yNamePos: {
-      px: dockAxisW(origin.px + 8, 4, width - pad - TICK_FONT_SIZE),
+      px: dockAxisW(origin.px + 8, 4, width - pad - GRAPH_TICK_FONT_SIZE),
       py: pad + 4,
     },
   };
