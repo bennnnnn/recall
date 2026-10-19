@@ -54,6 +54,7 @@ from app.modules.chat.finalize_text import (
     sanitize_fences,
     strip_recipient_placeholders,
 )
+from app.modules.chat.json_output import check_requested_json
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -147,6 +148,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("instant_usage", record_instant_usage, FALL_BACK),
     # Layout, last, so it never interferes with fence parsing.
     FinalizePass("close_fences", close_open_fences, FALL_BACK),
+    FinalizePass("requested_json", check_requested_json, OnError(log_as="requested_json")),
     FinalizePass("recipient_placeholders", strip_recipient_placeholders, FALL_BACK),
     FinalizePass("prose", normalize_prose, FALL_BACK),
     FinalizePass("mermaid_and_places", sanitize_fences, FALL_BACK),

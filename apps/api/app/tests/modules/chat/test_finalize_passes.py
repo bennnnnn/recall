@@ -86,16 +86,19 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "search_sources",
         "instant_usage",
         "close_fences",
+        "requested_json",
         "recipient_placeholders",
         "prose",
         "mermaid_and_places",
         "presentation",
         "clock",
     ]
-    # Only the subject fence passes and the chemistry enrichment go on after a
-    # failure; every other pass falls back to the last committed text.
+    # Only the subject fence passes, the chemistry enrichment and the requested-JSON
+    # check go on after a failure; every other pass falls back to the last
+    # committed text.
     kept = {name: (log_as, rewrite is not None) for name, log_as, rewrite in order if log_as}
     assert kept == {
+        "requested_json": ("requested_json", False),
         "chemistry_fences": ("validate_math_fences", True),
         "physics_fences": ("validate_math_fences", True),
         "math_fences": ("validate_math_fences", True),
