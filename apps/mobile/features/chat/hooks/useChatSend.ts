@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 
-import type { useDraftChat } from "@/hooks/useDraftChat";
+import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import type { useChatScroll } from "@/features/chat/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
 import type { Message } from "@/lib/api";

@@ -1,7 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { useRouter } from "expo-router";
 
-import type { useDraftChat } from "@/hooks/useDraftChat";
+import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import type { Message } from "@/lib/api";
 
 /**

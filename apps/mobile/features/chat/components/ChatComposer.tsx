@@ -47,7 +47,7 @@ import {
 } from "@/contexts/ComposerDraftContext";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useComposerFieldLayout } from "@/features/chat/hooks/useComposerFieldLayout";
-import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
+import { useMathKeyboardInsert } from "@/features/chat/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,

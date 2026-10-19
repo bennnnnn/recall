@@ -32,7 +32,7 @@ import {
 } from "@/features/chat/model/draftLogic";
 import { shouldInsertDrawerRowOnLeave } from "@/features/chat/model/titleRefresh";
 import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/lib/drawer";
-import type { useDraftChat } from "@/hooks/useDraftChat";
+import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/features/chat/hooks/useChatHighlightScroll";
 import { useChatTitlePolling } from "@/features/chat/hooks/useChatTitlePolling";
 
