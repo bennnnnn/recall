@@ -7,12 +7,12 @@ import re
 from typing import Any
 
 from app.core.config import Settings
-from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
 from app.modules.math.tools.extractors.readings import read
+from app.modules.math.unit_conversion import convert_unit
 from app.services.number_text import SIGNED_DECIMAL
 from app.services.workout import Workout, math_line, render_workout
 
@@ -261,18 +261,16 @@ def _verified_block_unit(
     if exact is not None:
         lines.append(f"{quantity} {intent.unit_from} = {exact} {intent.unit_to} (exact)")
         return _finish_with_answer(lines, format_quantity(exact, intent.unit_to))
-    answer = math_school.convert_unit(intent.percent_base, intent.unit_from, intent.unit_to)
+    answer = convert_unit(intent.percent_base, intent.unit_from, intent.unit_to)
     lines.append(f"{quantity} {intent.unit_from} = {answer} {intent.unit_to}")
     if (
         intent.school_op == "temperature_twice_compare"
         and intent.temperature_compare_value is not None
         and intent.temperature_compare_unit
     ):
-        first_kelvin = float(
-            math_school.convert_unit(intent.percent_base, intent.unit_from, "kelvin")
-        )
+        first_kelvin = float(convert_unit(intent.percent_base, intent.unit_from, "kelvin"))
         second_kelvin = float(
-            math_school.convert_unit(
+            convert_unit(
                 intent.temperature_compare_value,
                 intent.temperature_compare_unit,
                 "kelvin",

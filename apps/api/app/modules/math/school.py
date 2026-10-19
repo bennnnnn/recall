@@ -10,22 +10,16 @@ from typing import Any
 
 from sympy import (
     Add,
-    Derivative,
     Eq,
-    Function,
-    Integral,
     Rational,
     S,
     Symbol,
     cos,
     diff,
-    dsolve,
-    exp,
     expand,
     expand_trig,
     factorial,
     ilcm,
-    integrate,
     latex,
     nan,
     nsimplify,
@@ -42,45 +36,9 @@ from sympy import (
 )
 
 from app.modules.math.schemas import MathExprResult
-from app.modules.math.solve import MathServiceError, _parse_expression, declines
-from app.services.units import get_unit_registry
+from app.modules.math.solve import MathServiceError, _parse_expression
 
 logger = logging.getLogger(__name__)
-
-# Aliases the old hardcoded tables accepted that Pint doesn't by default.
-# Maps user-facing unit strings → Pint-compatible strings.
-_UNIT_ALIASES = {
-    "in": "inch",
-    "inches": "inch",
-    "ft": "foot",
-    "feet": "foot",
-    "foot": "foot",
-    "yd": "yard",
-    "mi": "mile",
-    "miles": "mile",
-    "mile": "mile",
-    "lbs": "pound",
-    "lb": "pound",
-    "oz": "ounce",
-    "sec": "second",
-    "secs": "second",
-    "s": "second",
-    "mins": "minute",
-    "min": "minute",
-    "hr": "hour",
-    "hrs": "hour",
-    "h": "hour",
-    "ms": "millisecond",
-    "c": "degC",
-    "celsius": "degC",
-    "f": "degF",
-    "fahrenheit": "degF",
-    "k": "kelvin",
-    "kelvin": "kelvin",
-    "fl-oz": "fluid_ounce",
-    "floz": "fluid_ounce",
-    "fl oz": "fluid_ounce",
-}
 
 
 UNDEFINED_LATEX = r"\text{undefined}"
@@ -422,75 +380,6 @@ def evaluate_complex(expr: str) -> str:
     return str(latex(value))
 
 
-def convert_unit(value: float, src: str, dest: str) -> str:
-    """Convert a value from one unit to another using Pint dimensional analysis.
-
-    Handles length, mass, time, temperature (C/F/K), and compound units
-    (m/s, m/s², N, J, Pa, W, Hz, etc.). Raises MathServiceError on
-    unsupported conversions or dimensionality mismatches.
-    """
-    ureg = get_unit_registry()
-
-    def _candidates(unit: str) -> list[str]:
-        raw = unit.strip()
-        key = raw.lower()
-        out: list[str] = []
-
-        def add(item: str) -> None:
-            if item and item not in out:
-                out.append(item)
-
-        if key in _UNIT_ALIASES:
-            add(_UNIT_ALIASES[key])
-            return out
-        if "/" not in key and "^" not in key and len(key) > 1:
-            stripped = key.rstrip("s")
-            if stripped in _UNIT_ALIASES:
-                add(_UNIT_ALIASES[stripped])
-                return out
-        # Pint is case-sensitive (J joule, N newton). Prefer the original
-        # spelling, then lowercase, so the converter pad's ``J``/``N``/``Pa``
-        # survive. Do not lowercase first.
-        add(raw)
-        add(key)
-        return out
-
-    def _quantity(value: float, unit: str) -> Any:
-        last_exc: Exception | None = None
-        for cand in _candidates(unit):
-            try:
-                return value * ureg(cand)
-            except Exception as exc:
-                last_exc = exc
-                try:
-                    return ureg.Quantity(value, cand)
-                except Exception as inner:
-                    last_exc = inner
-                    continue
-        raise MathServiceError(f"unsupported conversion {src} to {dest}") from last_exc
-
-    try:
-        quantity = _quantity(value, src)
-        last_exc: Exception | None = None
-        for dest_cand in _candidates(dest):
-            try:
-                result = quantity.to(dest_cand)
-                mag = float(result.magnitude)
-                # Offset units (32 F → C) land at 0 ± 1e-14. Do not snap
-                # microscopic energy conversions (eV → J) to zero.
-                if abs(mag) < 1e-9 and quantity.check("[temperature]"):
-                    mag = 0.0
-                return f"{mag:.10g}"
-            except Exception as exc:
-                last_exc = exc
-                continue
-        raise MathServiceError(f"unsupported conversion {src} to {dest}") from last_exc
-    except MathServiceError:
-        raise
-    except Exception as exc:
-        raise MathServiceError(f"unsupported conversion {src} to {dest}") from exc
-
-
 def taylor_series(
     expr: str, variable: str, point: str, order: int, *, nonzero_terms: int | None = None
 ) -> MathExprResult:
@@ -519,116 +408,6 @@ def partial_derivative(expr: str, variable: str) -> MathExprResult:
     out = diff(parsed, Symbol(variable))
     tex = str(latex(out))
     return MathExprResult(result=tex, latex=tex, solved=True)
-
-
-_ODE_PLACEHOLDERS = {"y''": "Dyy", "y'": "Dy"}
-
-
-def _ode_side(side: str, variable: str):
-    """Parse one side of an ODE with y'' / y' standing in as plain symbols.
-
-    ``Derivative(y(x), x)`` is not something the free-form parser accepts, so
-    the derivative marks become ordinary symbols first and are swapped for the
-    real derivatives afterwards. Longest mark first, or ``y''`` would be eaten
-    as two ``y'``.
-    """
-    text = side
-    for mark, name in _ODE_PLACEHOLDERS.items():
-        text = text.replace(mark, name)
-    return _parse_expression(text, [variable, "y", "Dy", "Dyy"])
-
-
-def solve_ode(
-    expr: str,
-    variable: str = "x",
-    *,
-    initial_x: str | None = None,
-    initial_y: str | None = None,
-) -> MathExprResult:
-    """Linear ODE in ``y``, up to second order, with terms on either side.
-
-    Handles the bare forms (``dy/dx = 2y``, ``y' = 2y``) and the general linear
-    ones (``y'' + y = 0``, ``y'' + 3y' + 2y = 0``). Before this took the general
-    form, ``y'' + y = 0`` fell through to the algebra extractor, which dropped
-    the ``y''`` and returned a confident, verified ``y = 0``.
-    """
-    y = Function("y")
-    ivar = Symbol(variable)
-    text = expr.strip().replace("dy/dx", "y'").replace("d^2y/dx^2", "y''")
-    eq_at = text.find("=")
-    if eq_at == -1:
-        raise MathServiceError("could not solve ODE")
-    lhs_raw = text[:eq_at].strip()
-    rhs_raw = text[eq_at + 1 :].strip()
-    if "'" not in lhs_raw and "'" not in rhs_raw:
-        raise MathServiceError("could not solve ODE")
-    substitutions = {
-        Symbol("Dyy"): Derivative(y(ivar), ivar, 2),
-        Symbol("Dy"): Derivative(y(ivar), ivar),
-        Symbol("y"): y(ivar),
-    }
-    x0 = None
-    y0 = None
-    try:
-        eq = Eq(
-            _ode_side(lhs_raw, variable).subs(substitutions),
-            _ode_side(rhs_raw, variable).subs(substitutions),
-        )
-        ics = None
-        if initial_x is not None and initial_y is not None:
-            x0 = _parse_expression(initial_x, [variable])
-            y0 = _parse_expression(initial_y, [variable])
-            ics = {y(x0): y0}
-        sol = dsolve(eq, y(ivar), ics=ics)
-    except MathServiceError:
-        raise
-    except Exception as exc:
-        raise MathServiceError("could not solve ODE") from exc
-    tex = str(latex(sol))
-    steps = _first_order_separable_ode_steps(eq, y, ivar, x0=x0, y0=y0)
-    return MathExprResult(result=tex, latex=tex, solved=True, steps=steps)
-
-
-def _first_order_separable_ode_steps(
-    equation: Eq,
-    dependent: Function,
-    independent: Symbol,
-    *,
-    x0: Any | None,
-    y0: Any | None,
-) -> list[str]:
-    """Verified trace for the family ``y' = f(x)y``.
-
-    SymPy still owns the final ``dsolve`` result. This helper only emits a
-    derivation when it can prove the ODE is separable into that family; other
-    first- and second-order equations keep the verified answer without
-    invented intermediate steps.
-    """
-    y_of_x = dependent(independent)
-    derivative = Derivative(y_of_x, independent)
-    with declines.sympy_decline() as declined:
-        isolated = solve(equation, derivative)
-        if len(isolated) != 1:
-            return []
-        rate = simplify(isolated[0] / y_of_x)
-        if rate.has(y_of_x, derivative) or not rate.free_symbols <= {independent}:
-            return []
-        antiderivative = integrate(rate, independent)
-        if antiderivative.has(Integral):
-            return []
-    if declined:
-        return []
-
-    var_tex = latex(independent)
-    steps = [
-        rf"\frac{{1}}{{y}}\,dy = {latex(rate)}\,d{var_tex}",
-        rf"\ln\lvert y\rvert = {latex(antiderivative)} + C",
-        rf"y = C e^{{{latex(antiderivative)}}},\quad C\in\mathbb{{R}}",
-    ]
-    if x0 is not None and y0 is not None:
-        constant = simplify(y0 / exp(antiderivative.subs(independent, x0)))
-        steps.append(rf"y({latex(x0)})={latex(y0)}\;\Longrightarrow\;C={latex(constant)}")
-    return steps
 
 
 def critical_points(expr: str, variable: str = "x") -> MathExprResult:

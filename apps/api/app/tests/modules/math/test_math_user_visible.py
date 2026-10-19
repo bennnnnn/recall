@@ -7,9 +7,9 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat.tool_loop import turn_needs_tool_loop
 from app.modules.math import match as math_match
-from app.modules.math import school as math_school
 from app.modules.math import tools as math_tools
 from app.modules.math.tools.extract import extract_math_intent
+from app.modules.math.unit_conversion import convert_unit
 
 _SETTINGS = Settings(math_tools_enabled=True, mcp_tool_loop_enabled=True)
 
@@ -155,7 +155,7 @@ def test_convert_32_f_to_c_string_is_zero() -> None:
     intent, block = _block("convert 32 F to C")
     assert intent.kind == "unit"
     assert block.canonical_answer == r"0\ \mathrm{°C}"
-    assert math_school.convert_unit(32.0, "F", "C") == "0"
+    assert convert_unit(32.0, "F", "C") == "0"
 
 
 def test_verified_inject_is_delimited_data_only() -> None:
