@@ -323,6 +323,10 @@ def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
         return {"type": "error", "code": "attachment_rejected", "message": exc.message}
     if isinstance(exc, UnknownModelOverrideError):
         return {"type": "error", "code": "unknown_model", "message": exc.message}
+    # TODO(money-guards merge): isinstance(exc, SpendCapReachedError) once the
+    # exception lands in app/exceptions.py; matched by name until then.
+    if isinstance(exc, ChatServiceError) and type(exc).__name__ == "SpendCapReachedError":
+        return {"type": "error", "code": "spend_cap", "message": exc.message}
     if isinstance(exc, ChatServiceError):
         return {"type": "error", "message": exc.message}
     if isinstance(exc, ModelUnavailableError):

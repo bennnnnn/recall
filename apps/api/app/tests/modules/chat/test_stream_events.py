@@ -78,6 +78,16 @@ async def test_persist_finalize_if_pending_is_noop_without_task():
     await stream_events.persist_finalize_if_pending(TurnOutcome())
 
 
+def test_spend_cap_refusal_has_its_own_code():
+    from app.exceptions import ChatServiceError
+
+    class SpendCapReachedError(ChatServiceError):
+        """Stands in for the money-guards exception until it lands."""
+
+    payload = stream_events.error_payload_for_exception(SpendCapReachedError("Paused today."))
+    assert payload == {"type": "error", "code": "spend_cap", "message": "Paused today."}
+
+
 @pytest.mark.parametrize("saved", [True, False])
 def test_turn_error_payload_says_whether_the_user_message_saved(saved: bool):
     from app.exceptions import ChatBusyError

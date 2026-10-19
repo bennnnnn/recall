@@ -76,6 +76,11 @@ class TurnResources:
         self._refunded = True
         await self.deps.quota.refund_usage(self.redis, str(self.user_id), self.reserved_tokens)
 
+    def mark_settled(self) -> None:
+        """The turn's finalize now settles the reservation (actual usage, or its
+        own refund on failure); an exception escaping later must not refund it too."""
+        self._refunded = True
+
 
 async def acquire_chatprep_lock(deps: ChatTurnDeps, redis: Redis, chat_id: UUID) -> tuple[str, str]:
     lock_key = f"chatprep:{chat_id}"

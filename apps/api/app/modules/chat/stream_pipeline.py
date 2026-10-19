@@ -35,6 +35,8 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.chat.turn_resources import TurnResources
 from app.modules.images.answer_photo import AnswerPhoto
+from app.services import model_catalog
+from app.services import quota as quota_service
 
 logger = logging.getLogger(__name__)
 
@@ -122,12 +124,29 @@ async def register_and_enqueue_finalize(
         outcome.finalize_db_task = finalize_db_task
 
 
+async def _record_tool_round_spend(redis: Redis, ctx: StreamContext, usage: dict[str, int]) -> None:
+    """The tool rounds that led to a generated picture count toward the global
+    spend cap; the turn's quota is refunded and the picture is the image service's."""
+    cost = model_catalog.estimate_cost_usd(
+        ctx.model,
+        input_tokens=usage.get("input", 0),
+        output_tokens=usage.get("output", 0),
+    )
+    if not cost:
+        return
+    try:
+        await quota_service.record_global_spend(redis, cost)
+    except Exception:
+        logger.exception("record_global_spend failed for terminal-image tool rounds")
+
+
 async def finalize_terminal_image_turn(
     deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
     outcome: TurnOutcome | None,
+    usage: dict[str, int],
 ) -> None:
     try:
         ctx.assistant_message_id = UUID(ctx.terminal_image_message_id)
@@ -145,6 +164,7 @@ async def finalize_terminal_image_turn(
             await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
         except Exception:
             logger.exception("Slim finalize for terminal image failed")
+        await _record_tool_round_spend(redis, ctx, usage)
 
     task = create_background_task(slim_finalize(), name="finalize_terminal_image")
     task.add_done_callback(
@@ -201,7 +221,7 @@ async def stream_and_finalize(
                     else:
                         await deps.quota.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
                     await await_user_message_persist(ctx)
-                    await finalize_terminal_image_turn(deps, redis, settings, ctx, outcome)
+                    await finalize_terminal_image_turn(deps, redis, settings, ctx, outcome, usage)
                     return
                 if ctx.instant_reply:
                     async for token in run_instant_reply_path(
@@ -278,6 +298,9 @@ async def stream_and_finalize(
                 usage=usage,
                 outcome=outcome,
             )
+            if resources is not None:
+                # finalize_stream_turn_db settles ctx.reserved_tokens from here.
+                resources.mark_settled()
 
         # Once the model stream has ended the reply is saved, whatever cancels
         # this task: a Stop during the finalize passes (photo, SymPy, reminder

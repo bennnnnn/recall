@@ -399,6 +399,61 @@ async def test_lock_redis_errors_never_cut_the_stream_or_skip_its_save(stream_of
 
 
 @pytest.mark.asyncio
+async def test_a_turn_handed_to_finalize_is_not_refunded_on_a_later_escape(stream_offline_io):
+    """Finalize settles the reservation (actual usage, or its own refund). An
+    exception escaping turn_resources afterwards must not refund it a second time."""
+    from app.modules.chat.turn_outcome import TurnOutcome
+    from app.modules.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "reply"
+
+    refund = AsyncMock()
+    deps = turn_deps(
+        session_factory=_FakeSessionCM,
+        locks={"acquire_lock": AsyncMock(return_value="tok"), "release_lock": AsyncMock()},
+        quota={"refund_usage": refund},
+    )
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=500,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    with (
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock()),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
+        patch("app.services.model_health.record_sample", AsyncMock()),
+    ):
+        with pytest.raises(RuntimeError, match="after the save"):
+            async with turn_resources.turn_resources(
+                deps, AsyncMock(), user_id=ctx.user_id, chat_id=ctx.chat_id
+            ) as res:
+                res.reserved_tokens = 500
+                async for _ in stream_entry._stream_turn(
+                    deps,
+                    AsyncMock(),
+                    Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+                    ctx,
+                    res,
+                    should_cancel=None,
+                    outcome=TurnOutcome(),
+                    status=None,
+                    on_reasoning=None,
+                ):
+                    pass
+                raise RuntimeError("after the save")
+
+    refund.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_turn_resources_borrowed_does_not_start_refresh():
     redis = AsyncMock()
     refresh = AsyncMock()

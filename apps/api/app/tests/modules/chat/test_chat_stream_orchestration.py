@@ -662,6 +662,35 @@ async def test_failed_user_row_save_sends_no_reply(stream_offline_io):
 
 
 @pytest.mark.asyncio
+async def test_terminal_image_turn_counts_its_tool_rounds_toward_global_spend():
+    """The tool rounds before a generated picture were never recorded: the turn's
+    quota is refunded and nothing else counted their provider cost."""
+    from app.modules.chat.stream_pipeline import finalize_terminal_image_turn
+
+    spend = AsyncMock()
+    estimate = MagicMock(return_value=0.0042)
+    ctx = _turn_ctx()
+    ctx.terminal_image_message_id = str(uuid4())
+    ctx.terminal_image_content = "[Image: cat.png]"
+    outcome = TurnOutcome()
+    deps = offline_deps(chats={"touch_by_id": AsyncMock()})
+    with (
+        patch("app.modules.chat.stream_pipeline.enqueue_post_turn_jobs", AsyncMock()),
+        patch("app.modules.chat.stream_pipeline.model_catalog.estimate_cost_usd", estimate),
+        patch("app.modules.chat.stream_pipeline.quota_service.record_global_spend", spend),
+    ):
+        await finalize_terminal_image_turn(
+            deps, AsyncMock(), Settings(), ctx, outcome, {"input": 1200, "output": 80}
+        )
+        assert outcome.finalize_task is not None
+        await outcome.finalize_task
+
+    estimate.assert_called_once_with("free-chat", input_tokens=1200, output_tokens=80)
+    spend.assert_awaited_once()
+    assert spend.await_args.args[1] == 0.0042
+
+
+@pytest.mark.asyncio
 async def test_stop_after_the_last_token_still_saves_the_reply(stream_offline_io):
     """Regression: a Stop that landed during the finalize passes (answer photo up
     to 6s, SymPy, the reminder write) cancelled the save: nothing was stored or
