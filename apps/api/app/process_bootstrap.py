@@ -6,6 +6,7 @@ from app.background import (
     push_scheduler,
 )
 from app.background import handlers as job_handlers
+from app.content.legal import warn_if_no_support_email
 from app.core import jobs
 from app.core.background_tasks import drain_background_tasks
 from app.core.config import Settings, validate_production_settings
@@ -35,6 +36,7 @@ async def initialize_process(settings: Settings) -> None:
     setup_logging(json_output=settings.environment == "production")
     init_sentry(settings)
     validate_production_settings(settings)
+    warn_if_no_support_email(settings)
     role = validate_process_role(settings)
     setup_mcp_adapters(settings)
     await warmup_db_pool()
