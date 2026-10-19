@@ -16,6 +16,11 @@
  * per fence and reviewable in one table, instead of being an accident of which
  * list someone remembered to update.
  *
+ * Every other per-fence behaviour (copy and read-aloud, lifting out of lists,
+ * the open streaming tail, the crash fallback) is a field on the fence's row
+ * too, and `FenceId` is read off the table: a new fence is one row here plus
+ * its renderer.
+ *
  * `owner` classifies who may emit the fence on new turns:
  * - model: the active prompt may produce this
  * - server: Recall attaches or rewrites this after the stream
@@ -30,34 +35,6 @@
  * assistantMessageContent.ts), which also strips the retired
  * `calendar_proposal` fence that old saved replies may still carry.
  */
-
-export type FenceId =
-  | "answer"
-  | "arithmetic"
-  | "array"
-  | "callout"
-  | "chart"
-  | "chem_scene"
-  | "chemistry"
-  | "clock"
-  | "comparison"
-  | "copy"
-  | "email"
-  | "geometry"
-  | "graph"
-  | "keyvalue"
-  | "math"
-  | "mermaid"
-  | "message"
-  | "molecule"
-  | "molecule3d"
-  | "places"
-  | "quiz"
-  | "quote"
-  | "simulation"
-  | "social"
-  | "sources"
-  | "steps";
 
 type FenceOwner = "model" | "server" | "legacy";
 
@@ -81,8 +58,16 @@ type FallbackKind =
   | "places"
   | "visual";
 
-type FenceSpec = {
-  id: FenceId;
+/**
+ * What a whole-message copy and read-aloud make of the body
+ * (`lib/markdown/plain.ts`). Omitted: the body is the text.
+ * - drop: transport or control data, neither copied nor spoken.
+ * - chart / diagram: spoken as "a chart" / "a diagram", not copied.
+ */
+type FencePlainText = "drop" | "chart" | "diagram";
+
+type FenceSpecRow = {
+  id: string;
   /** Every language tag that resolves to this fence. */
   langs: readonly string[];
   /** Routed through the rich fence renderer (was `STRUCTURED_LANGS`). */
@@ -95,9 +80,15 @@ type FenceSpec = {
   body: FenceBody;
   /** How the crash-fallback renderer degrades this fence, when not plain code. */
   fallback?: FallbackKind;
+  /** How a whole-message copy and read-aloud treat the body. */
+  plainText?: FencePlainText;
+  /** Display maths or a maths diagram: a code-card fallback of it has no Copy. */
+  mathDiagram?: boolean;
+  /** Lifted out of a list item so CommonMark reads it as a real fence. */
+  liftOutOfLists?: boolean;
 };
 
-export const FENCES: readonly FenceSpec[] = [
+const FENCE_TABLE = [
   { id: "email", langs: ["email"], structured: true, neverCodeBlock: true, owner: "model", body: "prose" },
   {
     id: "quote",
@@ -157,6 +148,8 @@ export const FENCES: readonly FenceSpec[] = [
     structured: true,
     neverCodeBlock: true,
     owner: "model", body: "latex",
+    mathDiagram: true,
+    liftOutOfLists: true,
   },
   {
     id: "answer",
@@ -165,6 +158,7 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server", body: "data",
     fallback: "answer",
+    liftOutOfLists: true,
   },
   {
     id: "arithmetic",
@@ -173,6 +167,9 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server", body: "data",
     fallback: "visual",
+    plainText: "diagram",
+    mathDiagram: true,
+    liftOutOfLists: true,
   },
   {
     id: "clock",
@@ -188,6 +185,7 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: false,
     owner: "model", body: "data",
     fallback: "visual",
+    plainText: "diagram",
   },
   {
     id: "chart",
@@ -196,6 +194,7 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: false,
     owner: "model", body: "data",
     fallback: "visual",
+    plainText: "chart",
   },
   {
     id: "geometry",
@@ -204,6 +203,9 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server", body: "data",
     fallback: "geometry",
+    plainText: "diagram",
+    mathDiagram: true,
+    liftOutOfLists: true,
   },
   {
     id: "graph",
@@ -212,6 +214,9 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server", body: "data",
     fallback: "graph",
+    plainText: "diagram",
+    mathDiagram: true,
+    liftOutOfLists: true,
   },
   // Server-owned like geometry/graph: the prompt forbids it and
   // validate_math_fences replaces or strikes out anything the model invents.
@@ -222,6 +227,7 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server", body: "data",
     fallback: "visual",
+    plainText: "diagram",
   },
   {
     id: "chem_scene",
@@ -230,6 +236,7 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server", body: "data",
     fallback: "visual",
+    plainText: "diagram",
   },
   {
     id: "chemistry",
@@ -238,6 +245,7 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "model", body: "data",
     fallback: "visual",
+    plainText: "diagram",
   },
   // Display-only: the client preprocessor collapses an adjacent smiles + molecule3d pair into
   // this. Neither the model nor the server writes it — a stored reply holds only the two
@@ -249,6 +257,7 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server", body: "data",
     fallback: "visual",
+    plainText: "diagram",
   },
   {
     id: "molecule3d",
@@ -257,6 +266,7 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server", body: "data",
     fallback: "visual",
+    plainText: "diagram",
   },
   {
     id: "places",
@@ -265,6 +275,7 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "model", body: "data",
     fallback: "places",
+    plainText: "drop",
   },
   {
     id: "callout",
@@ -315,8 +326,15 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server", body: "data",
     fallback: "sources",
+    plainText: "drop",
   },
-];
+] as const satisfies readonly FenceSpecRow[];
+
+export type FenceId = (typeof FENCE_TABLE)[number]["id"];
+
+type FenceSpec = FenceSpecRow & { id: FenceId };
+
+export const FENCES: readonly FenceSpec[] = FENCE_TABLE;
 
 const BY_LANG = new Map<string, FenceSpec>();
 const BY_ID = new Map<FenceId, FenceSpec>();
@@ -362,28 +380,17 @@ export function isMathFenceLang(lang: string): boolean {
 
 /** Display math or a diagram fence — not a syntax-highlighted code card. */
 export function isMathDiagramLang(lang: string): boolean {
-  const id = fenceIdForLang(lang);
-  return id === "math" || id === "arithmetic" || id === "geometry" || id === "graph";
+  return fenceSpecForLang(lang)?.mathDiagram ?? false;
 }
 
+/** Read aloud as "a chart"; a whole-message copy leaves it out. */
 export function isChartFenceLang(lang: string): boolean {
-  return fenceIdForLang(lang) === "chart";
+  return fenceSpecForLang(lang)?.plainText === "chart";
 }
 
 /** Geometry / mermaid / chemistry visuals — not charts (those speak as "a chart"). */
 export function isVisualDiagramFenceLang(lang: string): boolean {
-  const id = fenceIdForLang(lang);
-  return (
-    id === "geometry" ||
-    id === "arithmetic" ||
-    id === "graph" ||
-    id === "mermaid" ||
-    id === "chemistry" ||
-    id === "chem_scene" ||
-    id === "molecule" ||
-    id === "molecule3d" ||
-    id === "simulation"
-  );
+  return fenceSpecForLang(lang)?.plainText === "diagram";
 }
 
 /** A card drawn from JSON or another machine format: its open fence never streams raw. */
@@ -391,29 +398,26 @@ export function isDataBodyFenceId(id: FenceId): boolean {
   return BY_ID.get(id)?.body === "data";
 }
 
+/**
+ * Prompt-control fences parsed outside this registry (assistantMessageContent.ts).
+ * `calendar_proposal` is retired (Google Calendar was removed); old saved
+ * replies may still carry it.
+ */
+const CONTROL_LANGS: ReadonlySet<string> = new Set([
+  "reminder",
+  "calendar_proposal",
+  "settings_proposal",
+  "reminder_proposal",
+  "photo",
+]);
+
 /** Prompt-control JSON plus registry transport fences — never copy or speak. */
 export function isControlFenceLang(lang: string): boolean {
-  const id = fenceIdForLang(lang);
-  if (id === "sources" || id === "places") return true;
-  const l = normalize(lang);
-  return (
-    l === "reminder" ||
-    // Retired (Google Calendar was removed); old saved replies may still carry it.
-    l === "calendar_proposal" ||
-    l === "settings_proposal" ||
-    l === "reminder_proposal" ||
-    l === "photo"
-  );
+  if (fenceSpecForLang(lang)?.plainText === "drop") return true;
+  return CONTROL_LANGS.has(normalize(lang));
 }
 
 /** Lift these out of list items so CommonMark treats them as real fences. */
 export function shouldLiftFenceOutOfList(lang: string): boolean {
-  const id = fenceIdForLang(lang);
-  return (
-    id === "math" ||
-    id === "answer" ||
-    id === "arithmetic" ||
-    id === "geometry" ||
-    id === "graph"
-  );
+  return fenceSpecForLang(lang)?.liftOutOfLists ?? false;
 }

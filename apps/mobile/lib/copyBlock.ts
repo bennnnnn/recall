@@ -402,8 +402,7 @@ export function looksLikeMathAnswer(content: string): boolean {
 
 /** Explicit ```answer / ```result fences for a final numeric / math answer. */
 export function isAnswerLang(lang: string): boolean {
-  const l = lang.trim().toLowerCase();
-  return l === "answer" || l === "result" || l === "final";
+  return fenceIdForLang(lang) === "answer";
 }
 
 /** Any non-prose fence language tag (python, js, …) → always a code block. */
