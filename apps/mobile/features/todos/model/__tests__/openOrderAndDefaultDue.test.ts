@@ -1,5 +1,6 @@
 import type { Todo } from "@/lib/api";
-import { defaultDueDate, sortOpen } from "@/features/todos/components/todoHelpers";
+import { defaultDueDate } from "@/features/todos/model/dueDate";
+import { sortOpen } from "@/features/todos/model/todoListFilter";
 
 function todo(id: string, fields: Partial<Todo> = {}): Todo {
   return {

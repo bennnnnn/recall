@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { sortOpen } from "@/features/todos/components/todoHelpers";
+import { sortOpen } from "@/features/todos/model/todoListFilter";
 import type { Todo } from "@/lib/api";
 
 export function useTodosDerivedState(todos: Todo[]) {
