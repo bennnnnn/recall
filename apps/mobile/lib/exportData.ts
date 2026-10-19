@@ -5,7 +5,7 @@ import {
 } from "expo-file-system/legacy";
 import { Share } from "react-native";
 
-import { ACCOUNT_FILE_PREFIX } from "@/lib/accountFiles";
+import { newAccountFile } from "@/lib/accountFiles";
 
 /** Pretty-print compact export JSON for sharing when the payload is small enough. */
 export function formatExportJsonForShare(raw: string): string {
@@ -27,7 +27,7 @@ export async function shareAccountExport(payload: string): Promise<void> {
     return;
   }
 
-  const fileUri = `${dir}${ACCOUNT_FILE_PREFIX.export}${Date.now()}.json`;
+  const fileUri = newAccountFile("export", "json");
   await writeAsStringAsync(fileUri, payload, { encoding: EncodingType.UTF8 });
   await Share.share({ url: fileUri, title: "recall-export.json" });
 }

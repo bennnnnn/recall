@@ -14,6 +14,11 @@ export const ACCOUNT_FILE_PREFIX = {
   speech: "recall-tts-",
 } as const;
 
+/** A new file for `kind` in the cache directory; the caller has checked the directory exists. */
+export function newAccountFile(kind: keyof typeof ACCOUNT_FILE_PREFIX, extension: string): string {
+  return `${cacheDirectory}${ACCOUNT_FILE_PREFIX[kind]}${Date.now()}.${extension}`;
+}
+
 /** expo-print writes every PDF (chat exports) here, on iOS and Android alike. */
 const PRINTED_PDF_DIRECTORY = "Print/";
 
