@@ -31,6 +31,9 @@ export type User = {
   follow_up_suggestions_enabled?: boolean;
   /** Web search and photo lookups (Settings → Data controls); on unless turned off. */
   web_search_enabled?: boolean;
+  /** When the account agreed to what goes to outside AI services; null until it does.
+   * Absent only from an older server, which the consent gate lets through. */
+  ai_data_consent_at?: string | null;
   response_tone: string;
   memory_enabled: boolean;
   memory_include_sensitive?: boolean;

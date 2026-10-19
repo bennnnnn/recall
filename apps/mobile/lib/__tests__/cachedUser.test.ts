@@ -121,6 +121,31 @@ describe("cachedUser", () => {
     expect(parsed).not.toHaveProperty("timezone");
   });
 
+  it("keeps the AI-consent time so a cold start does not ask again", async () => {
+    await writeCachedUser({ ...user, ai_data_consent_at: "2026-10-19T12:00:00Z" });
+    const written = (writeAsStringAsync as jest.Mock).mock.calls[0][1] as string;
+    expect(JSON.parse(written)).toMatchObject({ ai_data_consent_at: "2026-10-19T12:00:00Z" });
+
+    (getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
+    (readAsStringAsync as jest.Mock).mockResolvedValue(written);
+    const cached = await readCachedUser();
+    expect(cached?.ai_data_consent_at).toBe("2026-10-19T12:00:00Z");
+    expect(mergeCachedUser(cached!).ai_data_consent_at).toBe("2026-10-19T12:00:00Z");
+  });
+
+  it("reads consent as unknown (undefined) from a cache written before the field", async () => {
+    (getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
+    (readAsStringAsync as jest.Mock).mockResolvedValue(
+      JSON.stringify({ id: "u1", name: "Alex", avatar_url: null, plan: "free" }),
+    );
+    expect((await readCachedUser())?.ai_data_consent_at).toBeUndefined();
+
+    (readAsStringAsync as jest.Mock).mockResolvedValue(
+      JSON.stringify({ id: "u1", name: null, avatar_url: null, plan: "free", ai_data_consent_at: null }),
+    );
+    expect((await readCachedUser())?.ai_data_consent_at).toBeNull();
+  });
+
   it("clears the cached user", async () => {
     await clearCachedUser();
     expect(deleteAsync).toHaveBeenCalledWith("/mock-cache/cached-user.json", {

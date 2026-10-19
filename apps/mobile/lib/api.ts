@@ -17,7 +17,12 @@ export type { ProductEventName } from "@/lib/api/analytics";
 export type { ScanReading } from "@/lib/api/scan";
 export { attachmentRecordExists } from "@/features/attachments/api";
 export type { AttachmentListItem } from "@/features/attachments/types";
-export { loginWithApple, loginWithDev, loginWithGoogle } from "@/features/auth/api";
+export {
+  agreeToAiDataSharing,
+  loginWithApple,
+  loginWithDev,
+  loginWithGoogle,
+} from "@/features/auth/api";
 export { transcribeSpeech } from "@/features/speech/api";
 export { chatWebSocketUrl } from "@/lib/api/connectivity";
 export {

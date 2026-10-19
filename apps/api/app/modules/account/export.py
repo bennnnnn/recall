@@ -80,6 +80,7 @@ _PROFILE_FIELDS = (
     "follow_up_suggestions_enabled",
     "memory_include_sensitive",
     "web_search_enabled",
+    "ai_data_consent_at",
     "push_notifications_enabled",
     "push_reminders_enabled",
     "email_reminders_enabled",

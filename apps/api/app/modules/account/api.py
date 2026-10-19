@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -33,6 +34,7 @@ from app.models.schemas import (
 )
 from app.modules.account import export as export_service
 from app.modules.account import lifecycle as account_lifecycle
+from app.modules.account import profile as profile_service
 from app.modules.account import service as auth_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account import tokens as tokens_service
@@ -379,7 +381,9 @@ async def update_me(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> UserOut:
-    fields = body.model_dump(exclude_unset=True)
+    fields = profile_service.with_ai_data_consent(
+        body.model_dump(exclude_unset=True), now=datetime.now(UTC)
+    )
     try:
         updated = await account_lifecycle.update_account(session, user, settings, fields)
     except ValueError as exc:

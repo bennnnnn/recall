@@ -14,7 +14,7 @@ import {
   refreshAccessToken,
   request,
 } from "@/api/client";
-import { loginWithDev, loginWithGoogle, logoutSession } from "@/api/auth";
+import { agreeToAiDataSharing, loginWithDev, loginWithGoogle, logoutSession } from "@/api/auth";
 import type { User } from "@/api/types";
 
 type AuthContextValue = {
@@ -24,6 +24,7 @@ type AuthContextValue = {
   signInWithGoogle: (idToken: string) => Promise<void>;
   signInWithDev: (email?: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
+  agreeToAiData: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -87,9 +88,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const agreeToAiData = useCallback(async () => {
+    const token = getAccessToken() ?? (await refreshAccessToken());
+    if (!token) throw new Error("Your session ended. Sign in again.");
+    setUser(await agreeToAiDataSharing(token));
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, error, signInWithGoogle, signInWithDev, signOut }),
-    [user, loading, error, signInWithGoogle, signInWithDev, signOut],
+    () => ({ user, loading, error, signInWithGoogle, signInWithDev, signOut, agreeToAiData }),
+    [user, loading, error, signInWithGoogle, signInWithDev, signOut, agreeToAiData],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

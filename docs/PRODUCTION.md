@@ -321,7 +321,22 @@ background, and runs the new code from the next launch.
 
 - [ ] Landing page live
 - [ ] Support URL for store listings
-- [ ] Privacy policy + terms URLs (served from API `/legal/*` or static site)
+- [ ] `SUPPORT_EMAIL` (Fly secret) set to a mailbox you read. The privacy policy, terms and
+      account-deletion pages show it as the contact; production boot logs a warning while it
+      is empty
+- [ ] Privacy policy + terms URLs for both stores: `https://<api-host>/legal/privacy` and
+      `https://<api-host>/legal/terms`
+- [ ] Play Console → App content → Data safety → **Delete account URL**:
+      `https://<api-host>/legal/delete-account` (public, no sign-in: deleting in the app,
+      asking by email from the account's address, what is deleted and what is kept for how long)
+- [ ] Owner review of the legal copy in `apps/api/app/content/` (`privacy_policy.py`,
+      `terms.py`, `account_deletion.py`); bump `LEGAL_EFFECTIVE_DATE` in `legal.py` with any
+      change. App Store App Privacy and Play Data safety answers must match it, including
+      third-party AI (OpenRouter and the model providers, OpenAI for voice, Mathpix, Tavily
+      and its public-search backup)
+- [ ] Every account is asked once, after sign-in and before its first chat, to agree to what
+      goes to outside AI services (`users.ai_data_consent_at`, migration `0112`; phone
+      `/consent`, web slice 1 too). Change that screen and the policy together
 
 ---
 

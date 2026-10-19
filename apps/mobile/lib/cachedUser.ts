@@ -15,9 +15,10 @@ const cachedUserFile = cacheFile("cached-user.json");
  * the cache directory can be read by a backup tool or another app with
  * filesystem access, so we keep it to fields that are already visible to
  * anyone who sees the app on the device. Everything else is re-fetched
- * from the API on launch.
+ * from the API on launch. The AI-consent time is kept too (not PII): without
+ * it every cold start would show the consent screen until ``api.me()`` lands.
  */
-type CachedUser = Pick<User, "id" | "name" | "avatar_url" | "plan">;
+type CachedUser = Pick<User, "id" | "name" | "avatar_url" | "plan" | "ai_data_consent_at">;
 
 /** Decode only to select cached display fields, never to authenticate or grant
  * access. A cache from a previous account can survive a failed file deletion. */
@@ -35,6 +36,12 @@ export function cachedUserMatchesToken(cached: CachedUser, token: string): boole
   }
 }
 
+
+/** A cache written before the consent field existed leaves it out: undefined,
+ * not null, so an offline cold start does not ask an account that already agreed. */
+function cachedConsentAt(value: unknown): string | null | undefined {
+  return typeof value === "string" || value === null ? value : undefined;
+}
 
 /** Default values for the fields NOT in ``CachedUser`` — used to construct a
  * full ``User`` from a cached subset so the in-memory state stays typed as
@@ -92,6 +99,7 @@ export async function readCachedUser(): Promise<CachedUser | null> {
       name: parsed.name ?? null,
       avatar_url: parsed.avatar_url ?? null,
       plan: planOf(parsed),
+      ai_data_consent_at: cachedConsentAt(parsed.ai_data_consent_at),
     };
   } catch {
     return null;
@@ -111,6 +119,7 @@ export function writeCachedUser(user: User): Promise<void> {
     name: user.name,
     avatar_url: user.avatar_url,
     plan: user.plan,
+    ai_data_consent_at: user.ai_data_consent_at,
   };
   return cachedUserFile.write(JSON.stringify(cached));
 }

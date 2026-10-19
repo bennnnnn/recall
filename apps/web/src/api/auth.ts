@@ -1,5 +1,5 @@
-import { apiUrl, csrfHeaders, fetchWithTimeout, setAccessSession } from "@/api/client";
-import type { AuthResult } from "@/api/types";
+import { apiUrl, csrfHeaders, fetchWithTimeout, request, setAccessSession } from "@/api/client";
+import type { AuthResult, User } from "@/api/types";
 
 export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
   const response = await fetchWithTimeout(apiUrl("/auth/google"), {
@@ -49,4 +49,12 @@ export async function logoutSession(token: string): Promise<void> {
   } catch {
     /* best-effort */
   }
+}
+
+/** Record agreement to the outside-AI disclosure; the server stamps the time. */
+export function agreeToAiDataSharing(token: string): Promise<User> {
+  return request<User>("/auth/me", token, {
+    method: "PATCH",
+    body: JSON.stringify({ ai_data_consent: true }),
+  });
 }

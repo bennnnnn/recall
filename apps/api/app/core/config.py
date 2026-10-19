@@ -26,8 +26,7 @@ class Settings(BaseSettings):
     jwt_refresh_expire_days: int = 30
 
     openrouter_api_key: str = ""
-    # Direct OpenAI key for Live Talk WebRTC only. Composer STT uses OpenRouter.
-    # OpenRouter has no Realtime/WebRTC API, so this cannot share that hop.
+    # Direct OpenAI key for all voice: dictation, read-aloud and Live Talk WebRTC.
     openai_api_key: str = ""
     tavily_api_key: str = ""
 
@@ -432,6 +431,7 @@ class Settings(BaseSettings):
     # Optional Sentry error reporting (leave empty to disable).
     sentry_dsn: str = ""
     sentry_traces_sample_rate: float = 0.1
+    support_email: str = ""  # contact on the /legal pages; boot warns while empty
 
 
 def _trusted_proxy_cidrs_ipv4_only(cidrs: str) -> bool:

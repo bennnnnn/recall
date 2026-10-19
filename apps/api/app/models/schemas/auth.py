@@ -30,6 +30,8 @@ class UserOut(BaseModel):
     follow_up_suggestions_enabled: bool = True
     memory_include_sensitive: bool = False
     web_search_enabled: bool = True
+    # When the user agreed to what is sent to outside AI services; null until then.
+    ai_data_consent_at: datetime | None = None
     push_notifications_enabled: bool = True
     push_reminders_enabled: bool = True
     tts_voice: str | None = None
@@ -85,6 +87,9 @@ class UserUpdate(BaseModel):
     follow_up_suggestions_enabled: bool | None = None
     memory_include_sensitive: bool | None = None
     web_search_enabled: bool | None = None
+    # true records agreement to the outside-AI disclosure at the server's clock;
+    # false withdraws it. The client never sends the time itself.
+    ai_data_consent: bool | None = None
     push_notifications_enabled: bool | None = None
     push_reminders_enabled: bool | None = None
     # null puts the server default back.
