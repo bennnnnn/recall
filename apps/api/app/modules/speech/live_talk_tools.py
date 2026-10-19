@@ -55,6 +55,7 @@ async def execute_tool(
         if not await redis.set(key + ":reserved", "1", nx=True, ex=_TTL):
             return {"content": "This lookup is already running or was attempted. Do not repeat it."}
     except Exception:
+        logger.warning("Live talk tool reservation failed name=%s", name, exc_info=True)
         return {"content": "Lookup unavailable. Do not guess or claim it succeeded."}
     result: dict[str, Any]
     try:
