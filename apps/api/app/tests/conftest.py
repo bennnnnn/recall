@@ -65,6 +65,18 @@ def _isolate_rest_rate_limiter():
 
 
 @pytest.fixture(autouse=True)
+def model_spend_redis():
+    """The gateway spend meter's Redis: a fresh fake per test, never the real one.
+
+    A test whose provider fake reports token usage would otherwise add to the
+    real ``spend_musd`` counter. Tests read this fixture to see what was metered.
+    """
+    client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.gateways.llm_spend.get_redis_client", return_value=client):
+        yield client
+
+
+@pytest.fixture(autouse=True)
 def _reset_sympy_executor():
     """Use a fresh in-process math worker for ordinary unit tests.
 

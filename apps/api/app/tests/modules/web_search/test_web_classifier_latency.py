@@ -270,8 +270,8 @@ async def test_final_gate_does_not_classify_ineligible_turns(overrides):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("slow_stage", ["spend_check", "completion", "accounting"])
-async def test_classifier_budget_includes_spend_and_accounting(slow_stage):
+@pytest.mark.parametrize("slow_stage", ["spend_check", "completion"])
+async def test_classifier_budget_includes_the_spend_check(slow_stage):
     cancelled = asyncio.Event()
 
     async def slow(*_a, **_kw):
@@ -283,7 +283,6 @@ async def test_classifier_budget_includes_spend_and_accounting(slow_stage):
     stages = {
         "spend_check": AsyncMock(return_value=False),
         "completion": AsyncMock(return_value=WebSearchClassification(needs_search=True)),
-        "accounting": AsyncMock(return_value=1),
     }
     stages[slow_stage] = AsyncMock(side_effect=slow)
     with (
@@ -297,18 +296,14 @@ async def test_classifier_budget_includes_spend_and_accounting(slow_stage):
             "app.modules.web_search.classify.litellm_gateway.complete_structured",
             stages["completion"],
         ),
-        patch(
-            "app.modules.web_search.classify.quota_service.record_global_spend",
-            stages["accounting"],
-        ),
     ):
         result = await asyncio.wait_for(
             should_web_search(QUESTION, _settings(web_search_classifier_timeout_seconds=0.01)),
             timeout=1,
         )
-    # A completed positive verdict survives slow bookkeeping; otherwise the
-    # existing sync heuristic supplies the result after an incomplete call.
-    assert result is (slow_stage == "accounting")
+    # The existing sync heuristic supplies the result after an incomplete call.
+    # Spend accounting is the gateway's, on its own task, so it cannot be slow here.
+    assert result is False
     assert cancelled.is_set()
 
 

@@ -12,7 +12,7 @@ from litellm import aembedding
 
 from app.core.config import Settings
 from app.core.redis import get_redis_client
-from app.gateways import mock_llm
+from app.gateways import llm_spend, mock_llm
 from app.models.model_catalog import get as get_model
 
 logger = logging.getLogger(__name__)
@@ -53,6 +53,7 @@ async def embed_text(settings: Settings, text: str) -> list[float] | None:
             response = await aembedding(
                 model=route.model, input=[text[: settings.embedding_input_max_chars]], **kwargs
             )
+        llm_spend.meter_model_call(route.id, response)
         data = response.data[0]["embedding"]
         return list(data)
     except Exception:

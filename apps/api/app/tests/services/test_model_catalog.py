@@ -108,11 +108,36 @@ def test_estimate_cost_usd_unknown_or_unpriced():
     assert (
         model_catalog.estimate_cost_usd("no-such-model", input_tokens=10, output_tokens=10) is None
     )
-    # The embedding alias has no catalog prices today
+    # Speech is priced per call (services/quota/spend), not from tokens.
     assert (
-        model_catalog.estimate_cost_usd("embedding-model", input_tokens=10, output_tokens=10)
+        model_catalog.estimate_cost_usd("speech-stt-model", input_tokens=10, output_tokens=10)
         is None
     )
+
+
+@pytest.mark.parametrize(
+    "alias, same_model_as",
+    [
+        ("title-model", "qwen-3.7-flash"),
+        ("memory-model", "qwen-3.7-flash"),
+        ("vision-chat", "qwen-3.7-flash"),
+        ("fallback-memory-model", "free-chat"),
+        ("fallback-vision-model", "glm-5.3-flash"),
+    ],
+)
+def test_internal_aliases_cost_what_their_model_costs(alias: str, same_model_as: str) -> None:
+    """The gateway meters background calls on these aliases into the global spend."""
+    internal, selectable = model_catalog.get(alias), model_catalog.get(same_model_as)
+    assert internal.model == selectable.model
+    assert internal.input_price_per_m == selectable.input_price_per_m
+    assert internal.output_price_per_m == selectable.output_price_per_m
+
+
+def test_embedding_alias_is_priced_per_input_token() -> None:
+    cost = model_catalog.estimate_cost_usd(
+        "embedding-model", input_tokens=1_000_000, output_tokens=0
+    )
+    assert cost == pytest.approx(0.02)
 
 
 def test_get_unknown_alias_raises():

@@ -1,0 +1,292 @@
+"""A chat turn reserves today's tokens before it runs, and the global cap stops it.
+
+The real Redis quota (fakeredis) backs every test here: the old soft check only
+read ``used >= limit``, so thirty chats started at once against the same last
+thousand tokens all passed it.
+"""
+
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
+
+import pytest
+
+from app.core.config import Settings
+from app.exceptions import QuotaExceededError, SpendCapReachedError
+from app.modules.chat import stream_entry, turn_resources
+from app.modules.chat.stream_events import error_payload_for_exception
+from app.modules.chat.turn_prep import StreamContext
+from app.services import quota as quota_service
+from app.services.quota import CHAT_SPEND_CAP_MESSAGE
+from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
+
+_SETTINGS = Settings(max_output_tokens=1_000)
+_LIMIT = 10_000
+
+
+def _user() -> MagicMock:
+    user = MagicMock()
+    user.id = uuid4()
+    user.plan = "free"
+    return user
+
+
+def _wanted(content: str = "hi", model: str = "free-chat") -> int:
+    return turn_resources.weighted_reserve_tokens(
+        content=content, model=model, settings=_SETTINGS, max_output=_SETTINGS.max_output_tokens
+    )
+
+
+async def _reserve(fake_redis, user, *, settings: Settings = _SETTINGS) -> int:
+    return await turn_resources.reserve_turn_quota(
+        turn_deps(session_factory=FakeSessionCM),
+        fake_redis,
+        user=user,
+        content="hi",
+        model="free-chat",
+        settings=settings,
+        daily_limit=_LIMIT,
+        max_output=settings.max_output_tokens,
+        seed=False,
+    )
+
+
+async def _used(fake_redis, user) -> int:
+    return await quota_service.get_daily_usage(fake_redis, str(user.id))
+
+
+@pytest.mark.parametrize(
+    "used, reserved",
+    [
+        (0, "wanted"),
+        (_LIMIT - 2_000, "wanted"),
+        (_LIMIT - 50, 50),
+        (_LIMIT - 1, 1),
+    ],
+)
+async def test_reserve_turn_quota_takes_estimate_or_what_is_left(
+    fake_redis, used: int, reserved: int | str
+) -> None:
+    user = _user()
+    if used:
+        await quota_service.record_usage(fake_redis, str(user.id), used)
+    expected = _wanted() if reserved == "wanted" else reserved
+
+    got = await _reserve(fake_redis, user)
+
+    assert got == expected
+    assert await _used(fake_redis, user) == used + expected
+
+
+@pytest.mark.parametrize("used", [_LIMIT, _LIMIT + 500])
+async def test_reserve_turn_quota_refuses_at_the_limit_without_charging(
+    fake_redis, used: int
+) -> None:
+    user = _user()
+    await quota_service.record_usage(fake_redis, str(user.id), used)
+
+    with pytest.raises(QuotaExceededError):
+        await _reserve(fake_redis, user)
+
+    assert await _used(fake_redis, user) == used
+
+
+@pytest.mark.parametrize("turns", [2, 30])
+async def test_reserve_turn_quota_concurrent_turns_share_one_budget(fake_redis, turns: int) -> None:
+    user = _user()
+    left = _wanted() + 300
+    await quota_service.record_usage(fake_redis, str(user.id), _LIMIT - left)
+
+    results = await asyncio.gather(
+        *(_reserve(fake_redis, user) for _ in range(turns)), return_exceptions=True
+    )
+
+    granted = [r for r in results if isinstance(r, int)]
+    refused = [r for r in results if isinstance(r, QuotaExceededError)]
+    assert len(granted) + len(refused) == turns
+    assert sum(granted) <= left
+    assert await _used(fake_redis, user) <= _LIMIT
+    assert granted, "the first turn always starts"
+
+
+@pytest.mark.parametrize(
+    "spent_usd, cap_usd, refused",
+    [
+        (0.0, 1.0, False),
+        (0.99, 1.0, False),
+        (1.0, 1.0, True),
+        (7.5, 1.0, True),
+        (500.0, 0.0, False),  # 0 is unlimited (dev, tests)
+    ],
+)
+async def test_reserve_turn_quota_stops_at_the_global_spend_cap(
+    fake_redis, spent_usd: float, cap_usd: float, refused: bool
+) -> None:
+    user = _user()
+    await quota_service.record_global_spend(fake_redis, spent_usd)
+    settings = Settings(max_output_tokens=1_000, daily_global_spend_usd=cap_usd)
+
+    if refused:
+        with pytest.raises(SpendCapReachedError) as caught:
+            await _reserve(fake_redis, user, settings=settings)
+        assert caught.value.message == CHAT_SPEND_CAP_MESSAGE
+        assert await _used(fake_redis, user) == 0
+    else:
+        assert await _reserve(fake_redis, user, settings=settings) == _wanted()
+
+
+def test_spend_cap_error_is_a_plain_error_not_the_users_quota() -> None:
+    payload = error_payload_for_exception(SpendCapReachedError(CHAT_SPEND_CAP_MESSAGE))
+
+    # quota_exceeded opens the phone's upgrade prompt; upgrading would not help.
+    assert payload == {"type": "error", "message": CHAT_SPEND_CAP_MESSAGE}
+    for phrase in ("free limit", "daily limit", "today's limit"):
+        assert phrase not in CHAT_SPEND_CAP_MESSAGE.lower()
+
+
+def _resources(fake_redis, user, reserved: int) -> turn_resources.TurnResources:
+    return turn_resources.TurnResources(
+        deps=turn_deps(session_factory=FakeSessionCM),
+        redis=fake_redis,
+        user_id=user.id,
+        chat_id=uuid4(),
+        lock_key="chatprep:test",
+        lock_token="token",
+        reserved_tokens=reserved,
+    )
+
+
+def _ctx(user, reserved: int) -> StreamContext:
+    return StreamContext(
+        user_id=user.id,
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hello"}],
+        run_title=False,
+        user_message_content="hello",
+        reserved_tokens=reserved,
+        max_output_tokens=100,
+        user=user,
+    )
+
+
+@pytest.mark.parametrize(
+    "room_after_start, needed, reserved_after",
+    [
+        (5_000, 1_500, 1_500),  # room for the whole prompt
+        (200, 1_500, 1_200),  # only what is left
+        (0, 1_500, 1_000),  # nothing left: the turn keeps running on what it holds
+        (5_000, 600, 1_000),  # the prompt is smaller than the start estimate
+    ],
+)
+async def test_top_up_reserve_for_prompt_grows_up_to_what_is_left(
+    fake_redis, room_after_start: int, needed: int, reserved_after: int
+) -> None:
+    user = _user()
+    start = 1_000
+    await quota_service.record_usage(fake_redis, str(user.id), _LIMIT - room_after_start)
+    res = _resources(fake_redis, user, start)
+    ctx = _ctx(user, start)
+
+    with patch.object(turn_resources, "prompt_weighted_reserve_tokens", return_value=needed):
+        await turn_resources.top_up_reserve_for_prompt(
+            res, settings=_SETTINGS, ctx=ctx, daily_limit=_LIMIT
+        )
+
+    assert res.reserved_tokens == reserved_after
+    assert ctx.reserved_tokens == reserved_after
+    assert await _used(fake_redis, user) <= _LIMIT
+
+
+@pytest.mark.parametrize(
+    "used_before, actual, used_after",
+    [
+        (0, 300, 300),  # a short answer gives the rest back
+        (0, 4_000, 4_000),  # a long one is charged past its estimate
+        (_LIMIT - 500, 9_000, _LIMIT),  # never past the limit (finalize clips)
+    ],
+)
+async def test_turn_reservation_settles_to_actual_usage(
+    fake_redis, used_before: int, actual: int, used_after: int
+) -> None:
+    user = _user()
+    if used_before:
+        await quota_service.record_usage(fake_redis, str(user.id), used_before)
+    reserved = await _reserve(fake_redis, user)
+
+    # What finalize_stream_turn_db does with ctx.reserved_tokens.
+    await quota_service.adjust_usage(fake_redis, str(user.id), reserved, actual, daily_limit=_LIMIT)
+
+    assert await _used(fake_redis, user) == used_after
+
+
+@pytest.mark.parametrize("failure", [RuntimeError("provider"), asyncio.CancelledError()])
+async def test_turn_resources_refund_the_reservation_when_a_turn_fails(
+    fake_redis, failure: BaseException
+) -> None:
+    user = _user()
+    deps = turn_deps(
+        session_factory=FakeSessionCM,
+        locks={"acquire_lock": AsyncMock(return_value="tok"), "release_lock": AsyncMock()},
+    )
+
+    with pytest.raises(type(failure)):
+        async with turn_resources.turn_resources(
+            deps, fake_redis, user_id=user.id, chat_id=uuid4()
+        ) as res:
+            await res.reserve(
+                user=user,
+                content="hi",
+                model="free-chat",
+                settings=_SETTINGS,
+                daily_limit=_LIMIT,
+                max_output=_SETTINGS.max_output_tokens,
+                seed=False,
+            )
+            assert await _used(fake_redis, user) == _wanted()
+            raise failure
+
+    assert await _used(fake_redis, user) == 0
+
+
+async def test_stream_chat_response_at_spend_cap_never_prepares_the_turn(fake_redis) -> None:
+    user = _user()
+    user.default_model = "free-chat"
+    prepare = AsyncMock()
+    release = AsyncMock()
+    deps = turn_deps(
+        session_factory=FakeSessionCM,
+        plan={"resolve_user_model_override": MagicMock(return_value="free-chat")},
+        locks={"acquire_lock": AsyncMock(return_value="tok"), "release_lock": release},
+    )
+    await quota_service.record_global_spend(fake_redis, 2.0)
+    chat = MagicMock()
+    chat.summary = None
+
+    with (
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
+            AsyncMock(return_value=False),
+        ),
+        patch("app.modules.chat.stream_entry.prepare_chat_turn", prepare),
+        pytest.raises(SpendCapReachedError),
+    ):
+        async for _ in stream_entry.stream_chat_response(
+            deps,
+            fake_redis,
+            Settings(daily_global_spend_usd=1.0),
+            user_id=user.id,
+            chat_id=uuid4(),
+            content="hello there, explain entropy",
+            user=user,
+            skip_usage_seed=True,
+        ):
+            pass
+
+    prepare.assert_not_awaited()
+    release.assert_awaited_once()
+    assert await _used(fake_redis, user) == 0

@@ -8,7 +8,7 @@ from typing import cast, get_args, get_origin
 from pydantic import BaseModel
 
 from app.core.config import Settings
-from app.gateways import mock_llm
+from app.gateways import llm_spend, mock_llm
 from app.models.schemas import (
     MEMORY_REPLY_MAX_LENGTH,
     MemoryFactOp,
@@ -73,6 +73,7 @@ async def _complete_structured_once[T: BaseModel](
             **kwargs,
         )
     gateway._apply_usage_from_response(usage, response)
+    llm_spend.meter_model_call(model_alias, response)
     raw = (response.choices[0].message.content or "{}").strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]

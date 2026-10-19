@@ -166,7 +166,7 @@ def extract_text_details(
             size = 0
             char_capped = False
             for index, page in enumerate(reader.pages[:page_limit], start=1):
-                page_text = page.extract_text()
+                page_text = page.extract_text().replace("\x00", "")  # Postgres text rejects NUL
                 if page_text:
                     parts.append(f"[page {index}] {page_text.strip()}")
                     size += len(parts[-1]) + 2

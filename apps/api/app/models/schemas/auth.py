@@ -12,6 +12,7 @@ from app.core.validation import (
     validate_user_alias,
 )
 from app.models.schemas.common import ResponseStyle, ResponseTone, UserVoice
+from app.models.schemas.text import UserText
 
 
 class UserOut(BaseModel):
@@ -77,8 +78,8 @@ class UserOut(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=80)
-    avatar_url: str | None = Field(default=None, max_length=64)
+    name: UserText | None = Field(default=None, min_length=1, max_length=80)
+    avatar_url: UserText | None = Field(default=None, max_length=64)
     default_model: str | None = None
     enabled_models: list[str] | None = None
     response_style: ResponseStyle | None = None
@@ -99,14 +100,14 @@ class UserUpdate(BaseModel):
     quiet_hours_enabled: bool | None = None
     quiet_hours_start_minute: int | None = Field(default=None, ge=0, le=1439)
     quiet_hours_end_minute: int | None = Field(default=None, ge=0, le=1439)
-    locale: str | None = None
-    timezone: str | None = Field(default=None, max_length=64)
-    location: str | None = Field(default=None, max_length=128)
+    locale: UserText | None = None
+    timezone: UserText | None = Field(default=None, max_length=64)
+    location: UserText | None = Field(default=None, max_length=128)
     location_enabled: bool | None = None
-    custom_instructions: str | None = Field(default=None, max_length=1000)
+    custom_instructions: UserText | None = Field(default=None, max_length=1000)
     age: int | None = Field(default=None, ge=13, le=120)
-    country: str | None = Field(default=None, max_length=64)
-    job: str | None = Field(default=None, max_length=128)
+    country: UserText | None = Field(default=None, max_length=64)
+    job: UserText | None = Field(default=None, max_length=128)
 
     @field_validator("name")
     @classmethod
@@ -193,8 +194,8 @@ class UserUpdate(BaseModel):
 
 
 class DeviceSessionIn(BaseModel):
-    device_label: str | None = Field(default=None, max_length=80)
-    platform: str | None = Field(default=None, max_length=16)
+    device_label: UserText | None = Field(default=None, max_length=80)
+    platform: UserText | None = Field(default=None, max_length=16)
 
 
 class GoogleAuthRequest(DeviceSessionIn):
@@ -203,14 +204,14 @@ class GoogleAuthRequest(DeviceSessionIn):
 
 class AppleAuthRequest(DeviceSessionIn):
     id_token: str
-    name: str | None = None
+    name: UserText | None = None
     # The raw nonce; the app gave Apple its SHA-256, which the token carries.
     nonce: str | None = Field(default=None, max_length=256)
 
 
 class DevAuthRequest(DeviceSessionIn):
-    email: str = "dev@recall.local"
-    name: str = "bini"
+    email: UserText = "dev@recall.local"
+    name: UserText = "bini"
 
 
 class AuthResponse(BaseModel):

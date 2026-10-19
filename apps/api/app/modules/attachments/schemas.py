@@ -3,11 +3,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.schemas.text import UserText
+
 
 class AttachmentPresignIn(BaseModel):
     content_type: str = Field(min_length=3, max_length=128)
     size_bytes: int = Field(gt=0, le=10_485_760)
-    filename: str | None = Field(default=None, max_length=255)
+    filename: UserText | None = Field(default=None, max_length=255)
 
 
 class AttachmentPresignOut(BaseModel):

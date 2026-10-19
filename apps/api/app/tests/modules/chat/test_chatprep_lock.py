@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.exceptions import ChatBusyError, QuotaExceededError
+from app.exceptions import ChatBusyError
 from app.modules.chat import stream_entry, turn_resources
 from app.modules.chat.stream_events import error_payload_for_exception
 from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM
@@ -358,7 +358,8 @@ async def test_top_up_reserve_for_prompt_adds_delta():
 
 
 @pytest.mark.asyncio
-async def test_top_up_reserve_for_prompt_raises_when_over_limit():
+async def test_top_up_reserve_for_prompt_keeps_the_turn_when_no_more_fits():
+    """The turn already holds a reservation; a top-up that cannot grow never refuses."""
     user = _user()
     redis = AsyncMock()
     res = turn_resources.TurnResources(
@@ -378,10 +379,9 @@ async def test_top_up_reserve_for_prompt_raises_when_over_limit():
     ctx.reserved_tokens = 10
 
     with patch("app.modules.chat.turn_resources.prompt_weighted_reserve_tokens", return_value=40):
-        with pytest.raises(QuotaExceededError):
-            await turn_resources.top_up_reserve_for_prompt(
-                res, settings=Settings(), ctx=ctx, daily_limit=100
-            )
+        await turn_resources.top_up_reserve_for_prompt(
+            res, settings=Settings(), ctx=ctx, daily_limit=100
+        )
 
     assert res.reserved_tokens == 10
     assert ctx.reserved_tokens == 10

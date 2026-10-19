@@ -53,8 +53,19 @@ LIVE_TALK_MINUTES_USED_MESSAGE = (
     "You've used this month's live talk minutes. They renew on the 1st (UTC)."
 )
 LIVE_TALK_RATE_LIMIT_MESSAGE = "Too many live talk requests. Please wait a moment and try again."
+LIVE_TALK_SAVES_USED_MESSAGE = (
+    "This live talk call can't save more turns. Hang up and start a new call to keep going."
+)
 
 VOICE_SPEND_CAP_MESSAGE = "Voice is temporarily unavailable. Try again later."
+
+# The global spend cap, not the user's allowance: no upgrade offer, and none of
+# the phone's quota phrases ("daily limit", "today's limit"), which it reads as
+# the user's own limit.
+CHAT_SPEND_CAP_MESSAGE = (
+    "Recall is at capacity for today, so new messages are paused for everyone. "
+    "Try again after midnight UTC."
+)
 
 
 def plan_message(user: User, *, free: str, paid: str) -> str:

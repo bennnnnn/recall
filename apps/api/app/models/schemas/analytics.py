@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.models.schemas.text import UserText
+
 ProductEventName = Literal[
     "paywall_viewed",
     "purchase_started",
@@ -19,8 +21,8 @@ class ProductEventIn(BaseModel):
     name: ProductEventName
     properties: dict[str, str] = Field(default_factory=dict)
     platform: Literal["ios", "android", "web"] | None = None
-    app_version: str | None = Field(default=None, max_length=32)
-    installation_id: str | None = Field(default=None, max_length=128)
+    app_version: UserText | None = Field(default=None, max_length=32)
+    installation_id: UserText | None = Field(default=None, max_length=128)
     client_at: datetime | None = None
 
     @field_validator("properties")

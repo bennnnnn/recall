@@ -27,6 +27,7 @@ from app.modules.chat.follow_up_prompts import GENERAL_SYSTEM as _GENERAL_SYSTEM
 from app.modules.chat.follow_up_prompts import SUBJECT_SYSTEM as _SYSTEM
 from app.modules.chat.stream_events import build_related_prompts_event
 from app.services.problem_followup import message_role_content
+from app.services.quota import global_spend_exceeded
 from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
 
@@ -59,8 +60,7 @@ _MAX_QUESTION_WORDS = 12
 # A general answer this short is a quick reply or a question back to the user.
 _GENERAL_MIN_ANSWER_CHARS = 280
 _GENERAL_MIN_QUESTION_WORDS = 3
-# A follow-up ("why does that work?") belongs to the problem a few user lines
-# back. Further than this is a stale thread, not the current one.
+# A follow-up ("why?") belongs to a problem a few user lines back; further is stale.
 _THREAD_USER_TURNS = 3
 _FOLLOW_UP_LEADS = frozenset(
     {
@@ -617,6 +617,8 @@ async def _related_prompts_event(
     prior: Sequence[Any] | None = None,
     allow_general: bool = True,
 ) -> dict[str, Any] | None:
+    if await global_spend_exceeded(redis, settings):
+        return None
     prompts = await generate_related_questions(
         settings, question, answer, prior, allow_general=allow_general
     )

@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
@@ -18,6 +19,7 @@ from app.exceptions import RedisUnavailableError
 from app.gateways import openai_speech_gateway
 from app.models.orm import User
 from app.models.schemas import MessageOut
+from app.models.schemas.text import UserText
 from app.modules.billing import can_use
 from app.modules.speech import live_talk as live_talk_service
 from app.modules.speech.schemas import SpeechLiveStatusOut
@@ -59,9 +61,9 @@ class RealtimeOfferOut(BaseModel):
 class RealtimePersistIn(BaseModel):
     chat_id: UUID
     call_id: str = Field(min_length=8, max_length=128)
-    user_text: str = Field(default="", max_length=20_000)
-    assistant_text: str = Field(default="", max_length=20_000)
-    turn_id: str | None = Field(default=None, max_length=128)
+    user_text: UserText = Field(default="", max_length=20_000)
+    assistant_text: UserText = Field(default="", max_length=20_000)
+    turn_id: UserText | None = Field(default=None, max_length=128)
     return_messages: bool = False
 
 
@@ -70,7 +72,7 @@ class RealtimeToolIn(BaseModel):
     call_id: str = Field(min_length=8, max_length=128)
     turn_id: str = Field(min_length=1, max_length=128)
     name: Literal["memory_lookup", "web_search"]
-    query: str = Field(min_length=1, max_length=500)
+    query: UserText = Field(min_length=1, max_length=500)
 
 
 def _safety_identifier(user: User) -> str:
@@ -201,10 +203,10 @@ async def create_realtime_session(
     session_id = await live_talk_service.issue_realtime_session(
         redis, user.id, body.chat_id, reserved_seconds=reserved
     )
+    # Also charges the reserved minutes to the global spend; /live/end settles both.
     await quota_service.record_live_talk_reservation(
         redis, user.id, session_id, reserved_seconds=reserved
     )
-    await quota_service.record_voice_spend(redis, quota_service.LIVE_TALK_SESSION_SPEND_USD)
     return RealtimeSessionOut(
         client_secret=result.value,
         expires_at=result.expires_at,
@@ -252,6 +254,25 @@ async def create_realtime_webrtc_call(
     )
 
 
+async def _take_persist_slot_or_raise(redis: Redis, user: User, call_id: str) -> None:
+    """Bound the rows and jobs a session can write: the phone posts the turns."""
+    if not await allow_request_fail_closed(
+        redis,
+        f"live_persist_rl:{user.id}",
+        limit=quota_service.LIVE_TALK_SAVES_PER_MINUTE,
+        window_seconds=60,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
+        )
+    if not await quota_service.take_live_talk_save(redis, user.id, call_id):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=quota_service.LIVE_TALK_SAVES_USED_MESSAGE,
+        )
+
+
 @router.post("/live/persist")
 async def persist_realtime_turn(
     body: RealtimePersistIn,
@@ -285,6 +306,7 @@ async def persist_realtime_turn(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Realtime session is not active",
         )
+    await _take_persist_slot_or_raise(redis, user, body.call_id)
 
     async with SessionLocal() as session:
         loaded = await live_talk_service.load_live_talk_history(
@@ -313,7 +335,6 @@ async def persist_realtime_turn(
         redis=redis,
         enqueue_jobs=True,
     )
-    await quota_service.record_voice_spend(redis, quota_service.LIVE_TALK_TURN_SPEND_USD)
     if body.return_messages:
         return JSONResponse(
             {
