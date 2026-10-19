@@ -15,6 +15,7 @@ from app.modules.physics.extractors.common import (
     _VELOCITY_UNIT_PATTERN,
     _detect_gravity,
     _find_value_with_specific_unit,
+    labeled_value,
 )
 from app.modules.physics.schemas import PhysicsIntent
 
@@ -58,17 +59,6 @@ def extract_closed_energy(cleaned: str) -> PhysicsIntent | None:
     if re.search(r"\b(?:height|high)\b", cleaned, re.IGNORECASE):
         return _gravity(cleaned)
     return None
-
-
-def _labeled(text: str, label: str, unit: str) -> tuple[float, str] | None:
-    match = re.search(
-        rf"\b(?:{label})(?:\s+of)?\s+({_NUMBER})\s*({unit})\b",
-        text,
-        re.IGNORECASE,
-    )
-    if match is None:
-        return None
-    return float(match.group(1)), match.group(2)
 
 
 def _asked(text: str, pattern: str) -> bool:
@@ -119,8 +109,8 @@ def _work_energy(cleaned: str) -> PhysicsIntent | None:
     if _FROM_REST_RE.search(cleaned):
         params["v1"] = 0.0
         units["v1"] = "m/s"
-    initial = _labeled(cleaned, r"initial (?:speed|velocity)", _VELOCITY_UNIT_PATTERN)
-    final = _labeled(cleaned, r"final (?:speed|velocity)", _VELOCITY_UNIT_PATTERN)
+    initial = labeled_value(cleaned, r"initial (?:speed|velocity)", _VELOCITY_UNIT_PATTERN)
+    final = labeled_value(cleaned, r"final (?:speed|velocity)", _VELOCITY_UNIT_PATTERN)
     if initial is not None:
         params["v1"], units["v1"] = initial
     if final is not None:
@@ -182,7 +172,7 @@ def _gravity(cleaned: str) -> PhysicsIntent | None:
         ("h1", r"initial height", _LENGTH_UNIT_PATTERN),
         ("h2", r"final height", _LENGTH_UNIT_PATTERN),
     ):
-        found = _labeled(cleaned, label, unit)
+        found = labeled_value(cleaned, label, unit)
         if found is not None:
             params[key], units[key] = found
     asks = (
@@ -224,7 +214,7 @@ def _spring(cleaned: str) -> PhysicsIntent | None:
         ("x2", r"final (?:compression|extension|displacement)"),
     ):
         unit = _VELOCITY_UNIT_PATTERN if key.startswith("v") else _LENGTH_UNIT_PATTERN
-        found = _labeled(cleaned, label, unit)
+        found = labeled_value(cleaned, label, unit)
         if found is not None:
             params[key], units[key] = found
     if re.search(r"\bat equilibrium\b|\bequilibrium position\b", cleaned, re.IGNORECASE):

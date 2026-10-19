@@ -9,13 +9,13 @@ from app.modules.physics.extractors.common import (
     _NUMBER,
     _VELOCITY_UNIT_PATTERN,
     _find_value_with_specific_unit,
+    labeled_value,
 )
 from app.modules.physics.extractors.rotational_readings import (
     _INERTIA_PATTERN,
     _OMEGA_UNIT,
     _alpha,
     _angular_values,
-    _first,
     _inertia_value,
     _intent,
     _mass_not_inertia,
@@ -107,7 +107,7 @@ def _rolling(cleaned: str) -> PhysicsIntent | None:
         cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
     speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
-    omega = _first(cleaned, r"angular (?:velocity|speed)", _OMEGA_UNIT)
+    omega = labeled_value(cleaned, r"angular (?:velocity|speed)", _OMEGA_UNIT)
     if omega is None:
         match = re.search(rf"({_NUMBER})\s*({_OMEGA_UNIT})\b", cleaned, re.IGNORECASE)
         if match is not None and not re.search(

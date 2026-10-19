@@ -11,7 +11,7 @@ from app.modules.math.match.dimensions import (
     number_after,
     two_numbers_after,
 )
-from app.modules.math.match.types import SolidShape
+from app.modules.math.schemas.operations import SolidShape
 from app.services.number_text import DECIMAL_LITERAL
 from app.services.text_match import word_index
 

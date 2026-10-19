@@ -118,6 +118,31 @@ the element table (`elements.py`), so RDKit cannot saturate them into hydrides. 
 strings that use SMILES-only syntax (`=`, `#`, `@`, ring-closure digits such as
 `C1CCCCC1`), or strings such as `CCO`, use RDKit. `NaCl` stays a formula. Molar mass is shown to two decimals (glucose 180.16 g/mol).
 
+## Adding an operation
+
+The catalog (`catalog.py`) is the one list of operations; `ChemistryIntent` refuses anything
+it does not declare. Pick the smallest shape that fits:
+
+- **One line of arithmetic** (a molality, a Beer–Lambert absorbance): one `_law(...)` row in
+  `formula_laws.py` (or `stated_laws.py` for the later one-number laws). The row is the
+  catalog identity, the arithmetic (a `services/law_binding` expression that may name
+  `{N_A}`, `{R_J}`, `{R_atm}` and `{F}`, never their numbers) and the answer's rows;
+  `solvers/formula.py` answers every row. To read it in a question's own words, add its
+  binding to `formula_bindings.py` (or `stated_bindings.py`): the words that ask for it and
+  how each input is named.
+- **Its own working** (a titration region, an ICE table): a row in `catalog._ROWS`, the
+  solver in `solvers/<topic>.py` registered in `solvers/solver.CHEMISTRY_SOLVERS`, and a
+  reader: a labelled template in `extractors/<topic>.py`, placed in `registry.py` where its
+  order comment allows, or a law in `laws.py` for the binder.
+- **Shared pieces**: number display is `solvers/display.py` (`num`, `qty`, `fixed`, `const`)
+  and its constants `solvers/constants.py`; formula and ion spans are `species_facts.py`
+  (`formula_spans`, `without_formulas`); units go through `quantity.py` and
+  `given_units.CHEMISTRY_UNITS`. A law physics already owns (gases, Q = mcΔT, half-lives)
+  is not added here.
+- **Tests**: `test_chemistry_remaining.py` holds the catalog to the solver map, and
+  `test_chemistry_notation.py` needs a worked case (its `ALL_CASES`) for every solver
+  operation; add the question, its look-alikes and a decline to `stem_corpus/chemistry/`.
+
 ## Shared chemistry primitives
 
 Verified operations share one species model instead of one-off formula patches.

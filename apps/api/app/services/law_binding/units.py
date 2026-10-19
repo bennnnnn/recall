@@ -7,9 +7,13 @@ Pint expression of each; the dimension of an expression comes from Pint.
 
 from __future__ import annotations
 
+import logging
+import math
 import re
 from collections.abc import Callable, Mapping
 from functools import lru_cache
+
+logger = logging.getLogger(__name__)
 
 # The dimension of an angle. Pint calls degrees dimensionless, which would let
 # a 30° angle compete with a friction coefficient.
@@ -31,7 +35,7 @@ def unit_dimension(expression: str) -> tuple[str, float, float] | None:
     from app.services.units import CELSIUS_OFFSET_K, get_unit_registry
 
     if expression in _ANGLE_UNITS:
-        scale = 1.0 if expression == "radian" else 0.017453292519943295
+        scale = 1.0 if expression == "radian" else math.pi / 180
         return ANGLE, scale, 0.0
     registry = get_unit_registry()
     try:
@@ -41,7 +45,9 @@ def unit_dimension(expression: str) -> tuple[str, float, float] | None:
             # K = (°F + 459.67) * 5/9: an offset scale Pint will not multiply.
             return _canonical({"[temperature]": 1}), 5.0 / 9.0, 459.67 * 5.0 / 9.0
         quantity = registry.Quantity(1.0, expression).to_base_units()
-    except Exception:
+    except Exception as exc:
+        # A table spelling Pint cannot read has no dimension, so its value is not a given.
+        logger.debug("%r is not a Pint unit: %s", expression, type(exc).__name__)
         return None
     dimensionality = quantity.dimensionality
     powers = {str(name): float(dimensionality[name]) for name in dimensionality}

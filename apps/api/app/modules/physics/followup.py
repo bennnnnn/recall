@@ -16,20 +16,17 @@ from typing import Any
 from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES
 from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.givens import ANGLE, PHYSICS_UNITS
-from app.services.law_binding.fit import read_givens
 from app.services.law_binding.units import unit_dimension
 from app.services.problem_followup import (
     EXPLAIN_RE,
+    GivenRewriter,
     adjacent_problem,
     ask_replaced,
     asked_unit,
     followup_line,
-    given_name,
     in_unit,
     new_value,
-    replace_given,
     scaled_given,
-    scaled_value,
 )
 
 PHYSICS_FOLLOWUP_HINT = (
@@ -78,7 +75,7 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return _another_quantity(prior, about.group("ask"))
     changed = _CHANGED.fullmatch(line)
     if changed is not None:
-        return _changed_given(
+        return _GIVENS.changed(
             prior, changed.group("name"), changed.group("value"), changed.group("unit")
         )
     how = _HOW.fullmatch(line)
@@ -89,10 +86,10 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return _in_unit(prior, unit)
     scaled = scaled_given(line)
     if scaled is not None:
-        return _scaled_given(prior, *scaled)
+        return _GIVENS.scaled(prior, *scaled)
     value = new_value(written)
     if value is not None:
-        return _changed_given(prior, None, *value)
+        return _GIVENS.changed(prior, None, *value)
     return None
 
 
@@ -107,19 +104,6 @@ def _in_unit(prior: str, unit: str) -> str | None:
     return rewritten
 
 
-def _scaled_given(prior: str, name: str, factor: float) -> str | None:
-    """``what if the mass doubles``: the one given of that kind, times the factor."""
-    named_dim = _dimension_of_phrase(given_name(name))
-    if named_dim is None:
-        return None
-    matches = [given for given in read_givens(prior, PHYSICS_UNITS) if given.dimension == named_dim]
-    if len(matches) != 1:
-        return None
-    given = matches[0]
-    rewritten = replace_given(prior, given, scaled_value(given.value, factor), given.unit)
-    return rewritten if rewritten != prior and _verifies(rewritten) else None
-
-
 def _another_quantity(prior: str, ask: str) -> str | None:
     phrase = " ".join(ask.split())
     if phrase not in _QUANTITIES and phrase not in {
@@ -131,26 +115,6 @@ def _another_quantity(prior: str, ask: str) -> str | None:
     }:
         return None
     rewritten = ask_replaced(prior, phrase)
-    return rewritten if _verifies(rewritten) else None
-
-
-def _changed_given(prior: str, name: str | None, value: str, unit: str | None) -> str | None:
-    if not unit or not unit.strip():
-        return None
-    written_unit = " ".join(unit.split())
-    new_dim = _dimension_of_unit(written_unit)
-    if new_dim is None:
-        return None
-    if name:
-        named_dim = _dimension_of_phrase(given_name(name))
-        if named_dim is None or named_dim != new_dim:
-            return None
-    matches = [given for given in read_givens(prior, PHYSICS_UNITS) if given.dimension == new_dim]
-    if len(matches) != 1:
-        return None
-    rewritten = replace_given(prior, matches[0], value, written_unit)
-    if rewritten == prior:
-        return None
     return rewritten if _verifies(rewritten) else None
 
 
@@ -186,3 +150,6 @@ def _dimension_of_phrase(phrase: str) -> str | None:
         return expression
     reading = unit_dimension(expression)
     return None if reading is None else reading[0]
+
+
+_GIVENS = GivenRewriter(PHYSICS_UNITS, _dimension_of_unit, _dimension_of_phrase, _verifies)

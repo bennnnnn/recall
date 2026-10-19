@@ -9,6 +9,7 @@ from typing import Any
 from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
+from app.modules.math.ode import solve_ode
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
@@ -288,7 +289,7 @@ def apply_calculus_extension(
         lines.append(f"Partial: {out.latex}")
         return _finish_with_answer(lines, out.latex)
     if intent.operation == "dsolve" and intent.expr:
-        out = math_school.solve_ode(
+        out = solve_ode(
             intent.expr,
             intent.variable,
             initial_x=intent.initial_x,

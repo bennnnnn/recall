@@ -138,7 +138,6 @@ PHYSICS_SOLVERS = _claim_solvers()
 def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     """Dispatch on the operation. The catalog id is the only key."""
     from app.modules.physics.solvers.catalog_scenes import catalog_scene
-    from app.modules.physics.solvers.common import _params_in_si
     from app.modules.physics.working import attach_recorded_working
 
     operation = intent.physics_op or ""

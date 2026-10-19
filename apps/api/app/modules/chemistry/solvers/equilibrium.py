@@ -9,7 +9,7 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import GAS_R
 from app.modules.chemistry.solvers.display import const, given_row, inp, num, used, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.modules.chemistry.species import parse_species
+from app.modules.chemistry.species import counts_in_mass_action, parse_species
 from app.services.solving import SolveServiceError
 
 
@@ -30,12 +30,10 @@ def equilibrium_expression(
     equation = intent.equation
     if not equation:
         raise SolveServiceError("a simple reaction equation is required")
-    from app.modules.chemistry.equations import balance_equation
 
     balanced = balance_equation(equation)
     if not balanced.balanced:
         raise SolveServiceError(balanced.error or "reaction could not be balanced")
-    from app.modules.chemistry.species import counts_in_mass_action
 
     numerator = 1.0
     denominator = 1.0

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.modules.math import school as math_school
+from app.modules.math.ode import solve_ode
 
 
 def test_imaginary_unit_mapping_skips_sin_and_pi() -> None:
@@ -31,14 +32,14 @@ def test_evaluate_complex_keeps_pi() -> None:
 
 
 def test_solve_ode_builds_eq_not_parse_string() -> None:
-    out = math_school.solve_ode("dy/dx = y")
+    out = solve_ode("dy/dx = y")
     assert out.solved
     low = out.latex.lower()
     assert "e" in low or "exp" in low
 
 
 def test_solve_ode_yprime() -> None:
-    out = math_school.solve_ode("y' = -2*y")
+    out = solve_ode("y' = -2*y")
     assert out.solved
     assert "2" in out.latex or "e" in out.latex.lower()
 

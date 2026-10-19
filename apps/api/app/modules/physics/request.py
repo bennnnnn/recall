@@ -17,6 +17,8 @@ from app.modules.physics.extractors.common import (
     _MASS_UNITS,
     _NUMBER,
     _VELOCITY_UNIT_PATTERN,
+    _detect_gravity,
+    stated_gravity,
 )
 from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE, _TWO_DIMENSIONAL_RE
 from app.modules.physics.numbers import normalize_physics_numbers, normalize_physics_units
@@ -401,7 +403,6 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
     from app.modules.physics.ask import asked_dimensions, asked_phrases, asked_unit
     from app.modules.physics.bodies import SCHOOL_GRAVITY, names_body_without_school_gravity
     from app.modules.physics.catalog import formula_spec
-    from app.modules.physics.extractors.common import _detect_gravity, stated_gravity
 
     params = intent.physics_params or {}
     if intent.kind == "suvat":

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sympy import Eq, Expr, Poly, S, Symbol, expand, ilcm, latex, simplify, solve, solveset
+from sympy import Eq, Expr, Poly, S, Symbol, expand, factor, ilcm, latex, simplify, solve, solveset
 from sympy.core.relational import Ge, Gt, Le, Lt
 
 from app.modules.math.solve.declines import declines, sympy_decline
@@ -153,8 +153,6 @@ def _quadratic_inequality_steps(
     lhs: Any, rhs: Any, var: Any, comparator: str, target: Any
 ) -> list[KeyStep]:
     """``x^2 - 4x - 5 < 0``: the roots, then the sign of the parabola between them."""
-    from sympy import factor
-
     from app.modules.math.solve.inequalities import inequality_solution_latex
 
     expr = expand(lhs - rhs)

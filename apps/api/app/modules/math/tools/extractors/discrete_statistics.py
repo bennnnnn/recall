@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Literal, cast
+from typing import cast
 
 from app.modules.math.schemas import MathIntent
-
-SummaryStatsOp = Literal[
-    "mean", "median", "mode", "variance", "stdev", "sample_stdev", "sample_variance", "range"
-]
+from app.modules.math.schemas.operations import SUMMARY_STATS, SummaryStatsOp
 
 
 def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
@@ -31,7 +28,7 @@ def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
     if signal is None:
         return None
     stat_op, numbers = signal
-    from app.modules.math.match.discrete import SUMMARY_STATS, requested_summary_stats
+    from app.modules.math.match.discrete import requested_summary_stats
 
     requested = requested_summary_stats(cleaned)
     if len(requested) >= 2:

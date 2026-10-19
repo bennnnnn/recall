@@ -42,24 +42,22 @@ def verified(
     )
 
 
-def _fixed(value: float, places: int) -> str:
-    """A value to fixed decimal places, rounded half up, never a negative zero (−0.00)."""
+def fixed(value: float, places: int) -> str:
+    """A value to fixed decimal places, rounded half up, never a negative zero (−0.00).
+
+    A sum keeps the fewest places of its terms.
+    """
     if not math.isfinite(value):
         return str(value)
     text = f"{round_places(value, places):.{places}f}"
     return text.removeprefix("-") if float(text) == 0 else text
 
 
-def fixed(value: float, places: int) -> str:
-    """A value to fixed decimal places: a sum keeps the fewest places of its terms."""
-    return _fixed(value, places)
-
-
 def num(value: float) -> str:
     """A computed value, to the significant figures the question's data carry."""
     written = sig_figs.current()
     if written is not None and written.additive and written.decimals is not None:
-        return _fixed(value, written.decimals)
+        return fixed(value, written.decimals)
     if written is not None and written.figures is not None:
         return format_number(value, significant=written.figures, keep_zeros=True)
     return format_number(value)
@@ -81,7 +79,7 @@ def p_value(value: float) -> str:
     """A pH, pOH or pK: a logarithm, so its precision is decimal places (pH 3.49)."""
     written = sig_figs.current()
     if written is not None and written.decimals is not None:
-        return _fixed(value, written.decimals)
+        return fixed(value, written.decimals)
     return num(value)
 
 

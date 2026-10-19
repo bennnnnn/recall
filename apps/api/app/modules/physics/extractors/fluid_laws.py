@@ -11,7 +11,7 @@ from app.modules.physics.extractors.common import (
     _find_value_with_specific_unit,
 )
 from app.modules.physics.extractors.fluid_readings import _PRESSURE_PATTERN, FluidReading
-from app.modules.physics.givens import scan_givens
+from app.modules.physics.givens import scan_givens, unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.ask import ask_clause
 
@@ -190,8 +190,6 @@ def _hydraulic_diameters(f: FluidReading) -> PhysicsIntent | None:
 
 
 def _in_metres(length: tuple[float, str]) -> float:
-    from app.modules.physics.givens import unit_dimension, unit_expression
-
     reading = unit_dimension(unit_expression(length[1]) or "")
     return length[0] if reading is None else length[0] * reading[1]
 

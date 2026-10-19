@@ -14,6 +14,7 @@ from app.modules.chemistry.request import CHEMICAL_FORMULA
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.intent import MAX_STEPS
 from app.modules.chemistry.species import ARROWS
+from app.modules.chemistry.species_facts import without_formulas
 
 
 def _extract_gibbs(text: str) -> ChemistryIntent | None:
@@ -248,7 +249,7 @@ def _formation_list(text: str) -> ChemistryIntent | None:
         if label not in labels or label in values:
             return None
         values[label] = float(match.group(2))
-    if not values or len(re.findall(_N, _numbers_outside_formulas(outside))) != len(values):
+    if not values or len(re.findall(_N, without_formulas(outside))) != len(values):
         return None
     return ChemistryIntent(
         kind="thermochemistry",
@@ -256,12 +257,3 @@ def _formation_list(text: str) -> ChemistryIntent | None:
         equation=equation,
         species=values,
     )
-
-
-def _numbers_outside_formulas(text: str) -> str:
-    from app.modules.chemistry.species_facts import formula_spans
-
-    kept = list(text)
-    for start, end in formula_spans(text):
-        kept[start:end] = " " * (end - start)
-    return "".join(kept)

@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES, _UNKNOWN
-from app.modules.physics.givens import ANGLE, unit_at, unit_dimension
+from app.modules.physics.givens import ANGLE, unit_at, unit_dimension, unit_readings
 from app.services.law_binding.ask import ASK_VERBS
 from app.services.law_binding.ask import ask_clause as _verb_ask_clause
 
@@ -247,8 +247,6 @@ def asked_dimensions(text: str) -> tuple[str, ...]:
 
 def result_reading(unit: str) -> tuple[str, float, float] | None:
     """(dimension, scale, offset) of a solver's result unit; None when unreadable."""
-    from app.modules.physics.givens import unit_readings
-
     spelled = unit.strip()
     if not spelled or spelled == "%" or spelled.lower() in {"db", "decibel", "decibels"}:
         return _DIMENSIONLESS, 1.0, 0.0

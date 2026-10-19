@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.modules.math.schemas.operations import SolidShape
+
 
 class RectangleGeometryInput(BaseModel):
     width: float = Field(gt=0, le=1_000_000)
@@ -39,7 +41,7 @@ class SquareGeometryResult(BaseModel):
 
 
 class SolidGeometryInput(BaseModel):
-    shape: Literal["cube", "rectangular_prism", "cylinder", "cone", "sphere", "pyramid"]
+    shape: SolidShape
     width: float | None = Field(default=None, gt=0, le=1_000_000)
     height: float | None = Field(default=None, gt=0, le=1_000_000)
     depth: float | None = Field(default=None, gt=0, le=1_000_000)
@@ -49,7 +51,7 @@ class SolidGeometryInput(BaseModel):
 
 
 class SolidGeometryResult(BaseModel):
-    shape: Literal["cube", "rectangular_prism", "cylinder", "cone", "sphere", "pyramid"]
+    shape: SolidShape
     volume: float
     surface_area: float
     unit: str

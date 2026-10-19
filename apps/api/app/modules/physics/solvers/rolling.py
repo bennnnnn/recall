@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import math
 
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _latex_num
-from app.modules.physics.solvers.rotational_kinematics import _unknown
+from app.modules.physics.solvers.common import (
+    PhysicsResult,
+    QuantityResult,
+    _latex_num,
+    one_unknown,
+)
 from app.services.solving import SolveServiceError
 
 
 def _rolling_speed(params: dict[str, float]) -> PhysicsResult:
-    unknown = _unknown(params, ("v", "omega", "r"))
+    unknown = one_unknown(params, ("v", "omega", "r"))
     if unknown != "r" and params["r"] <= 0:
         raise SolveServiceError("radius must be positive")
     if unknown == "v":
@@ -52,7 +56,7 @@ def _rolling_speed(params: dict[str, float]) -> PhysicsResult:
 
 
 def _rolling_acceleration(params: dict[str, float]) -> PhysicsResult:
-    unknown = _unknown(params, ("a", "ang_alpha", "r"))
+    unknown = one_unknown(params, ("a", "ang_alpha", "r"))
     if unknown != "r" and params["r"] <= 0:
         raise SolveServiceError("radius must be positive")
     if unknown == "a":
@@ -126,7 +130,7 @@ def _rolling_energy(params: dict[str, float]) -> PhysicsResult:
 
 
 def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
-    unknown = _unknown(params, ("inertia", "inertia_cm", "m", "d"))
+    unknown = one_unknown(params, ("inertia", "inertia_cm", "m", "d"))
     if unknown != "m" and params["m"] <= 0:
         raise SolveServiceError("mass must be positive")
     if unknown == "inertia":

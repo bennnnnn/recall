@@ -13,6 +13,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.math import school as math_school
+from app.modules.math.ode import solve_ode
 from app.modules.math.tools import _build_verified_block, extract_math_intent
 from app.modules.math.tools.direct import maybe_direct_math_reply
 
@@ -80,7 +81,7 @@ def test_derivative_ask_is_not_mistaken_for_an_ode() -> None:
 
 def test_solve_ode_rejects_an_equation_with_no_derivative() -> None:
     with pytest.raises(math_school.MathServiceError):
-        math_school.solve_ode("y + 1 = 0")
+        solve_ode("y + 1 = 0")
 
 
 def test_first_order_growth_ode_uses_verified_separation_steps() -> None:

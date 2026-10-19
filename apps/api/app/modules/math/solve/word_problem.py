@@ -13,13 +13,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sympy import Add, Eq, Float, Rational, Symbol, latex, simplify, solve
+from sympy import Add, Eq, Symbol, latex, simplify, solve
 
 from app.modules.math.schemas.word_problem import WordProblemSetup
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.key_steps import KeyStep, equation_check_latex, equation_key_steps
 from app.modules.math.solve.traces import system_check_latex, system_key_steps
-from app.modules.math.solve.work_lines import student_tex
+from app.modules.math.solve.work_lines import exact, student_tex
 
 _RESERVED = frozenset("ei")
 
@@ -33,13 +33,6 @@ class WordSolution:
     check: str | None
 
 
-def _exact(expr: Any) -> Any:
-    floats = expr.atoms(Float)
-    if not floats:
-        return expr
-    return expr.xreplace({f: Rational(str(f)) for f in floats})
-
-
 def _parse(text: str, names: list[str], *, evaluate: bool = True) -> Any | None:
     from app.modules.math.solve.parse import _parse_expression
 
@@ -49,7 +42,7 @@ def _parse(text: str, names: list[str], *, evaluate: bool = True) -> Any | None:
         return None
     # xreplace rebuilds (and so evaluates) the tree; an as-written parse keeps
     # its decimals until each term is rebuilt on its own.
-    return _exact(parsed) if evaluate else parsed
+    return exact(parsed) if evaluate else parsed
 
 
 def _rebuilt(expr: Any) -> Any:
@@ -62,7 +55,7 @@ def _written_terms(expr: Any) -> set[Any]:
     """The terms as written, brackets of sums opened: ``n + (n + 1)`` → n, n, 1."""
     if isinstance(expr, Add):
         return {term for arg in expr.args for term in _written_terms(arg)}
-    return set(Add.make_args(_exact(_rebuilt(expr))))
+    return set(Add.make_args(exact(_rebuilt(expr))))
 
 
 def _needs_simplify(text: str, value: Any, names: list[str]) -> bool:

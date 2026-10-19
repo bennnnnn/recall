@@ -592,11 +592,11 @@ class SympyAdapter:
         )
 
     async def _action_dsolve(self, args: dict[str, Any]) -> ToolResult:
-        from app.modules.math import school as math_school
+        from app.modules.math.ode import solve_ode
 
         expr = str(args.get("expr") or args.get("text") or "")
         variable = str(args.get("variable") or "x")
-        result = await self._run_off_loop(math_school.solve_ode, expr, variable)
+        result = await self._run_off_loop(solve_ode, expr, variable)
         if result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         return ToolResult(

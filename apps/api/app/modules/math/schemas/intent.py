@@ -7,6 +7,14 @@ from typing import Literal
 from pydantic import BaseModel, Field, PrivateAttr
 
 from app.modules.math.schemas.geometry_request import GeometryRequest
+from app.modules.math.schemas.operations import (
+    CombinatoricsOp,
+    MatrixOp,
+    NumberTheoryOp,
+    SolidShape,
+    StatisticsOp,
+    SummaryStatsOp,
+)
 from app.modules.math.schemas.word_problem import WordProblemSetup
 
 
@@ -148,78 +156,25 @@ class MathIntent(BaseModel):
     given_diameter: bool = False
     # Statistics — one raw list for descriptive stats, or two equal-length lists
     # for correlation/covariance/simple linear regression.
-    stats_op: (
-        Literal[
-            "mean",
-            "median",
-            "mode",
-            "variance",
-            "stdev",
-            "sample_stdev",
-            "sample_variance",
-            "range",
-            "iqr",
-            "quartiles",
-            "percentile",
-            "correlation",
-            "covariance",
-            "sample_covariance",
-            "linear_regression",
-        ]
-        | None
-    ) = None
+    stats_op: StatisticsOp | None = None
     stats_numbers: list[float] | None = None
     stats_numbers_b: list[float] | None = None
     # "mean and standard deviation of …": every requested statistic of one
     # list, in the order asked. ``stats_op`` is the first of them.
-    stats_ops: (
-        list[
-            Literal[
-                "mean",
-                "median",
-                "mode",
-                "variance",
-                "stdev",
-                "sample_stdev",
-                "sample_variance",
-                "range",
-            ]
-        ]
-        | None
-    ) = None
+    stats_ops: list[SummaryStatsOp] | None = None
     # Combinatorics — factorial (k unused) / combinations / permutations.
-    combo_op: Literal["factorial", "combinations", "permutations"] | None = None
+    combo_op: CombinatoricsOp | None = None
     combo_n: int | None = None
     combo_k: int | None = None
     # Number theory — gcd/lcm/mod take a and b; factorize/is_prime take a only.
-    numtheory_op: (
-        Literal["gcd", "lcm", "factorize", "is_prime", "mod", "mod_inverse", "totient", "crt"]
-        | None
-    ) = None
+    numtheory_op: NumberTheoryOp | None = None
     numtheory_a: int | None = None
     numtheory_b: int | None = None
     # gcd/lcm of three or more numbers ("lcm of 12, 18 and 30"), in order.
     numtheory_values: list[int] | None = None
     # Matrix — small-matrix operations. Multiplication/addition use matrix_rows_b;
     # determinant/inverse/eigens/diagonalization require a square matrix.
-    matrix_op: (
-        Literal[
-            "determinant",
-            "inverse",
-            "multiply",
-            "rref",
-            "eigenvalues",
-            "eigenvectors",
-            "rank",
-            "nullspace",
-            "columnspace",
-            "rowspace",
-            "diagonalize",
-            "add",
-            "transpose",
-        ]
-        | None
-    ) = None
+    matrix_op: MatrixOp | None = None
     matrix_rows: list[list[float]] | None = None
     matrix_rows_b: list[list[float]] | None = None
     # Triangle by three side lengths (SSS) — `base`/`side` above stay
@@ -244,9 +199,7 @@ class MathIntent(BaseModel):
     graph_x_max: float | None = None
     # 3D solids — volume / surface area. Reuses width/height/side/radius;
     # depth is the third prism (or rectangular-pyramid) edge.
-    solid_shape: (
-        Literal["cube", "rectangular_prism", "cylinder", "cone", "sphere", "pyramid"] | None
-    ) = None
+    solid_shape: SolidShape | None = None
     depth: float | None = None
     wants_volume: bool = False
     wants_surface_area: bool = False
