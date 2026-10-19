@@ -175,8 +175,8 @@ New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` w
 1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
 2. Check + reserve daily quota (Redis)
 3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation. `modules/images/intent.py` reads both; the phone's composer asks it too (`POST /images/intent`)
-4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, web search, SymPy pre-solve, physics and chemistry context
-5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
+4. `turn_prep/`: the turn's plan (`intents.py`: the separate requests one message holds, deterministic, no model call; two or more get a multi-part prompt contract, a settings card under the reply and a picture drawn above it, `finalize_parts.py`), memory + recent window, attachments/RAG, chat-history RAG, web search, SymPy pre-solve, physics and chemistry context
+5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on); its search gates, classifier and forced search run per request (`tool_loop/parts.py`)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
 7. Post-stream fence finalization: math (`math/fence.py`), physics (`modules/physics/fence.py`), chemistry (`modules/chemistry/fence.py`)
 8. Persist assistant + usage in a finalize task

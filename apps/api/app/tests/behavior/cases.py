@@ -33,6 +33,7 @@ CATEGORIES = (
     "code",
     "tone and emoji",
     "personal",
+    "multi-intent",
 )
 
 
@@ -59,6 +60,10 @@ class Expect:
     # A real photo above the model's answer (it opened with ```photo). Routing can
     # only check the hint that offers it; the live replay checks the photo.
     answer_photo: bool | None = None
+    # A multi-part message's picture, drawn above the model's answer to the rest.
+    picture: bool | None = None
+    # A multi-part message's settings card, under the model's answer to the rest.
+    settings_card: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -1088,6 +1093,145 @@ CASES: tuple[Case, ...] = (
         "what can you do",
         Expect(hints=("capabilities",), search="no"),
         "A short list, including web search, photos, reminders and read-aloud.",
+    ),
+    # ── Multi-intent ────────────────────────────────────────────────────────
+    # One message, several requests: every one answered in one reply, each with its
+    # own tool, and related questions kept together (turn_prep/intents.py).
+    Case(
+        "multi-laptop-jobs",
+        "multi-intent",
+        "I need a new laptop, and I also want to find remote backend engineering jobs",
+        Expect(hints=("multi_intent",), search="yes"),
+        "One reply, two ### sections: 2-3 laptop picks with the budget or use it assumed, "
+        "then remote backend roles from the search results, with links.",
+    ),
+    Case(
+        "multi-two-questions",
+        "multi-intent",
+        "what's the capital of Australia? and how do I boil an egg?",
+        Expect(hints=("multi_intent", "steps")),
+        "### Capital of Australia: Canberra, one line. ### Boiling an egg: numbered steps.",
+    ),
+    Case(
+        "multi-weather-and-solve",
+        "multi-intent",
+        "what's the weather in Paris tomorrow and also solve 2x + 5 = 17",
+        Expect(subject="math", solved=True, search="yes", hints=("multi_intent",)),
+        "Tomorrow's Paris forecast from the results, and x = 6 from the verified solve.",
+    ),
+    Case(
+        "multi-solve-then-weather",
+        "multi-intent",
+        "solve 2x + 5 = 17 and also what's the weather in Paris tomorrow",
+        Expect(subject="math", solved=True, search="yes", hints=("multi_intent",)),
+        "x = 6 (verified), then tomorrow's Paris forecast from the results.",
+    ),
+    Case(
+        "multi-teach-and-price",
+        "multi-intent",
+        "teach me python dictionaries, and what is the current price of bitcoin?",
+        Expect(search="yes", hints=("multi_intent", "teaching")),
+        "A short lesson opener on dictionaries, then today's bitcoin price from the results.",
+    ),
+    Case(
+        "multi-code-and-score",
+        "multi-intent",
+        "write a function to reverse a list, and who won the champions league final last night",
+        Expect(search="yes", hints=("multi_intent",)),
+        "A short python function, then last night's final result from the results.",
+    ),
+    Case(
+        "multi-reminder-and-weather",
+        "multi-intent",
+        "remind me to buy milk at 5pm and what's the weather in Nairobi today?",
+        Expect(search="yes", hints=("multi_intent",)),
+        "A reminder card for 5 pm to tap, and today's Nairobi weather from the results.",
+    ),
+    Case(
+        "multi-settings-and-joke",
+        "multi-intent",
+        "switch to dark mode and tell me a joke",
+        Expect(settings_card=True, instant="", hints=("multi_intent",)),
+        "A joke, and the dark-mode card under it to tap.",
+    ),
+    Case(
+        "multi-settings-and-question",
+        "multi-intent",
+        "switch to dark mode, and also what is the capital of France?",
+        Expect(settings_card=True, instant="", hints=("multi_intent",)),
+        "Paris, and the dark-mode card under it to tap.",
+    ),
+    Case(
+        "multi-draw-and-explain",
+        "multi-intent",
+        "draw a cat wearing a hat and also explain what a black hole is",
+        Expect(image_gen=False, picture=True, hints=("multi_intent",)),
+        "The cat picture above a short black-hole explanation, or one line saying why "
+        "the picture could not be drawn.",
+        pro=True,
+    ),
+    Case(
+        "multi-compare-and-install",
+        "multi-intent",
+        "compare python and javascript, and how do I install node on mac?",
+        Expect(hints=("multi_intent", "comparison", "howto")),
+        "### A python/javascript compare table, then ### numbered install steps.",
+    ),
+    Case(
+        "multi-brief-and-detail",
+        "multi-intent",
+        "in one sentence what is DNS? Also explain in detail how TLS handshakes work",
+        Expect(hints=("multi_intent", "part1_brevity")),
+        "One sentence on DNS, then a full TLS handshake walk-through.",
+    ),
+    Case(
+        "multi-lookalike-tcp-udp",
+        "multi-intent",
+        "difference between TCP and UDP and when to use each",
+        Expect(no_hints=("multi_intent",)),
+        "One answer: a compare table and when to use each, no sections per clause.",
+    ),
+    Case(
+        "multi-lookalike-solve-and-graph",
+        "multi-intent",
+        "solve 2x+5=17 and graph it",
+        Expect(subject="math", no_hints=("multi_intent",)),
+        "x = 6 with the line drawn, one answer.",
+    ),
+    Case(
+        "multi-lookalike-which-is-faster",
+        "multi-intent",
+        "compare python and javascript and tell me which is faster",
+        Expect(hints=("comparison",), no_hints=("multi_intent",)),
+        "One compare table that ends with which is faster.",
+    ),
+    Case(
+        "search-remote-jobs",
+        "web search",
+        "find remote backend engineering jobs",
+        Expect(search="yes"),
+        "Current remote backend openings from the results, each with a link.",
+    ),
+    Case(
+        "search-jobs-today",
+        "web search",
+        "find software jobs posted today",
+        Expect(search="yes"),
+        "Today's software postings from the results, with links.",
+    ),
+    Case(
+        "search-product-price",
+        "web search",
+        "how much does the iPhone 17 Pro cost?",
+        Expect(search="yes"),
+        "The current price from the results, with the storage tier it is for.",
+    ),
+    Case(
+        "search-job-lookalike",
+        "web search",
+        "I got the job!",
+        Expect(search="no"),
+        "Congratulations, one or two warm lines.",
     ),
 )
 

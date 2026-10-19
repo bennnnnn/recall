@@ -24,10 +24,12 @@ from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
 from app.modules.chat import prompt_constants as pc
+from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.selection import _search_before_the_model
 from app.modules.chat.turn_deps import default_deps
+from app.modules.chat.turn_intercepts import reply_picture_prompt
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
     stream_context_from_bundle,
@@ -77,6 +79,10 @@ HINTS: dict[str, str] = {
     "advice": pc.ADVICE_PERSONALIZE_HINT,
     # A STEM reply the model works out itself checks its own answer first.
     "self_check": SELF_CHECK_PROMPT_RULE,
+    # Two or more separate requests: every one answered, each in its own section.
+    "multi_intent": MULTI_PART_MARKER,
+    # "In one sentence" binds only the request that said it.
+    "part1_brevity": f"For request 1 only: {pc.BREVITY_REQUEST_HINT}",
 }
 
 USER_NAME = "Bini"
@@ -102,6 +108,9 @@ class Route:
     # The verified result handed to the model when it writes the reply itself.
     verified_answer: str = ""
     verified_text: str = ""
+    # A multi-part message's picture and settings card (the server's part of its reply).
+    picture: bool = False
+    settings_card: str = ""
 
     def summary(self) -> str:
         parts = [f"search={self.search}"]
@@ -109,6 +118,10 @@ class Route:
             parts.append(f"photo={self.photo!r}")
         if self.image_gen:
             parts.append("image_gen")
+        if self.picture:
+            parts.append("picture")
+        if self.settings_card:
+            parts.append("settings_card")
         if self.subject:
             parts.append(f"subject={self.subject}{'+solved' if self.solved else ''}")
         if self.instant:
@@ -310,7 +323,10 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     loop_call = tool_rounds.await_args
     loop_ran = loop_call is not None
     web_flag = loop_call.kwargs.get("web_search") if loop_call is not None else None
-    direct = loop_ran and _search_before_the_model(text, settings, user, web_search=web_flag)
+    verified_part = bool(loop_call and loop_call.kwargs.get("has_verified_math"))
+    direct = loop_ran and _search_before_the_model(
+        text, settings, user, web_search=web_flag, has_verified_math=verified_part
+    )
     if prefetch_searched or direct or (loop_ran and needs_web_search(text)):
         search = "yes"
     elif classifier.await_count or loop_ran:
@@ -339,6 +355,14 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         if verified
         else "",
         verified_text=verified.text if verified else "",
+        picture=bool(
+            not photo
+            and not image_gen
+            and reply_picture_prompt(text, settings)
+            and settings.image_generation_enabled
+            and can_use(user, "image_generation", settings)
+        ),
+        settings_card=bundle.settings_card or "",
     )
 
 
@@ -363,6 +387,8 @@ def mismatches(expect: Expect, route: Route) -> list[str]:
             if word in words:
                 out.append(f"photo: {route.photo!r} still says {word!r}")
     check("image_gen", expect.image_gen, route.image_gen)
+    check("picture", expect.picture, route.picture)
+    check("settings_card", expect.settings_card, bool(route.settings_card))
     # An intercepted turn (photo or generated image) never reaches the rest.
     if route.photo or route.image_gen:
         return out
