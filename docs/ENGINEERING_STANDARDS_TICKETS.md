@@ -1280,12 +1280,16 @@ in this list grows logic beyond its table, it leaves the list.
 Not exceptions:
 
 - `modules/images/gen_intent.py`: since ES-02 and ES-05 the only image-intent reader (the phone
-  copy is gone). Split: `gen_intent.py` reads one message (396 lines) and
+  copy is gone). Split: `gen_intent.py` reads one message (389 lines) and
   `gen_intent_thread.py` reads it with the thread before it, follow-ups and revisions (322);
   every definition kept its AST apart from the six token helpers made public for the second file.
 - Also split since the audit: `speech/api.py` 526 → 319 (`speech/gates.py`,
-  `speech/tts_followup.py`), `notifications/transactional_email.py` 539 → 180 (the copy table is
-  `notifications/email_copy.py`).
+  `speech/tts_followup.py`), `notifications/transactional_email.py` 539 → 178 (the copy table is
+  `notifications/email_copy.py`), `todos/spoken_change.py` 685 → 556 (picking the reminder a
+  change names is `todos/spoken_target.py`) and `todos/spoken_add.py` 601 → 374 (the
+  honest-reply checks are `todos/reply_check.py`). `spoken_change.py` is still over 500: its
+  move and adjust readers (`_parse_move`, `_parse_adjust` and helpers, about 190 lines) are the
+  next cut, after the shared title helpers move to a leaf both can import.
 - `lib/markdown/calculationLayout.ts`: ES-06.
 - Every other file over 500 lines: it either has a ticket above, or it is next in line after
   them. Next in line: `services/time_context.py` 627, `chat/related_prompts.py` 670,
