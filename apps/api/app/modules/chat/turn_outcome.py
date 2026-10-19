@@ -27,6 +27,9 @@ class TurnOutcome:
     fallback_used: bool = False
     # "interrupted" or "user_stop"; None when the reply completed.
     completion: str | None = None
+    # How much of the reply the client had drawn when its user tapped Stop (a
+    # UTF-16 length, from the cancel frame); a stopped reply saves no more.
+    client_shown_chars: int | None = None
     recalled: int = 0
     memory_hints: list[str] = field(default_factory=list)
     context_summarized: int = 0

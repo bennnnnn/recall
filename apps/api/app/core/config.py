@@ -387,10 +387,10 @@ class Settings(BaseSettings):
     # profile/preference always inject; 0.35 keeps off-topic sections out.
     memory_min_similarity: float = 0.35
 
-    # Abort hung provider streams after this many seconds with no new chunk
-    # (idle timeout). A long healthy reply can exceed this as long as tokens
-    # keep arriving — the wall-clock cap below still applies.
-    chat_stream_timeout_seconds: int = 180
+    # Abort a provider stream after this many seconds with no new chunk (fly.toml
+    # sets 30). A stall mid-reply froze the bubble for 3 min; the phone says
+    # "still working" at 20 s. Reasoning chunks count, and the cap below applies.
+    chat_stream_timeout_seconds: int = 45
     # Hard cap on one provider stream (seconds). Stops a slow drip from holding
     # the chatprep lock, RAM, and the OpenRouter meter indefinitely.
     chat_stream_max_seconds: int = 600

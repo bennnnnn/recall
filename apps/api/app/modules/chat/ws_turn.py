@@ -10,6 +10,7 @@ import json
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
+from typing import Any
 from uuid import UUID
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -41,6 +42,17 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.ws_limits import FrameBudget, close_flooding_socket, safe_send_json
 
 logger = logging.getLogger(__name__)
+
+# A reply is far shorter; a larger count is not a length the client drew.
+_MAX_SHOWN_CHARS = 1_000_000
+
+
+def client_shown_chars(cancel: dict[str, Any]) -> int | None:
+    """How much of the reply the client drew before its user tapped Stop, when it says."""
+    shown = cancel.get("shown_chars")
+    if isinstance(shown, bool) or not isinstance(shown, int):
+        return None
+    return shown if 0 <= shown <= _MAX_SHOWN_CHARS else None
 
 
 async def stream_over_ws(
@@ -175,6 +187,7 @@ async def stream_over_ws(
                 if not isinstance(msg, dict):
                     continue
                 if msg.get("type") == "cancel":
+                    outcome.client_shown_chars = client_shown_chars(msg)
                     stop()
                 elif msg.get("type") != "ping":
                     await safe_send_json(

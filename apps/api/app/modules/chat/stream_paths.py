@@ -9,7 +9,7 @@ import logging
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from typing import Any
 
 from redis.asyncio import Redis
@@ -18,7 +18,9 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.modules.chat import tool_loop
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
+from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import clear_task_cancellation
+from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -44,32 +46,6 @@ async def _close_stopped_stream(close: Callable[[], Any]) -> None:
 _INCOMPLETE_FINISH_REASONS = frozenset({"length", "max_tokens", "content_filter"})
 
 
-@dataclass
-class StreamAccum:
-    parts: list[str] = field(default_factory=list)
-    was_cancelled: bool = False
-    completion: str = "complete"
-
-    def mark_user_stop(self) -> None:
-        self.was_cancelled = True
-        if self.completion == "complete":
-            self.completion = "user_stop"
-
-    def mark_interrupted(self) -> None:
-        self.was_cancelled = True
-        if self.completion == "complete":
-            self.completion = "interrupted"
-
-    def mark_truncated(self) -> None:
-        if self.completion == "complete":
-            self.completion = "interrupted"
-
-    def mark_server_stop(self) -> None:
-        """The server stopped the reply (shutdown), whatever the stop looked like."""
-        self.was_cancelled = True
-        self.completion = "interrupted"
-
-
 async def run_instant_reply_path(
     ctx: StreamContext,
     *,
@@ -83,6 +59,7 @@ async def run_instant_reply_path(
         if ctx.timing is not None:
             ctx.timing.mark_first_token()
         accum.parts.append(ctx.instant_reply)
+        accum.shown.append(ctx.instant_reply)
         yield ctx.instant_reply
     else:
         accum.mark_user_stop()
@@ -219,11 +196,16 @@ async def run_llm_token_stream(
     outcome: TurnOutcome | None,
     on_reasoning: StreamReasoningFn | None,
     accum: StreamAccum,
+    on_status: StreamStatusFn | None = None,
 ) -> AsyncIterator[str]:
     stream_meta: dict[str, str] = {}
     requested_model = ctx.model
     started = time.perf_counter()
     stream_ok = False
+    scaffold = ScaffoldFilter()
+    if on_status is not None:
+        # The model is writing now: a tool or search label must not linger.
+        await on_status("composing")
     if ctx.timing is not None:
         # Reserve top-up and the tool loop have finished. The interval from
         # here includes gateway routing/retries, not only upstream inference.
@@ -256,12 +238,19 @@ async def run_llm_token_stream(
             accum.parts.append(token)
             if ctx.answer_photo is not None and ctx.answer_photo.watching:
                 ctx.answer_photo.feed("".join(accum.parts))
-            yield token
+            visible = scaffold.feed(token)
+            if not visible:
+                continue
+            accum.shown.append(visible)
+            yield visible
             # Stop can land while we are parked on this yield. The consumer
             # resumes us so we halt before the next provider read and save.
             if should_cancel and should_cancel():
                 accum.mark_user_stop()
                 break
+        if not accum.was_cancelled and (tail := scaffold.flush()):
+            accum.shown.append(tail)
+            yield tail
         stream_ok = bool(accum.parts) or accum.was_cancelled
         finish = stream_meta.get("finish_reason")
         if finish in _INCOMPLETE_FINISH_REASONS and not accum.was_cancelled:
