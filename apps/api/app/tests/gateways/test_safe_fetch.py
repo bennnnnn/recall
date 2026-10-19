@@ -1,11 +1,14 @@
 """Tests for the shared SSRF-safe fetch helpers in app.gateways.safe_fetch."""
 
 import ipaddress
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from app.gateways import safe_fetch
+from app.tests.gateways.slow_http_server import dripping_server
 
 
 def _mock_response(status=200, headers=None):
@@ -131,7 +134,9 @@ async def test_fetch_safely_follows_redirect_and_revalidates():
     client = AsyncMock()
     client.get = AsyncMock(side_effect=[redirect_resp, final_resp])
     with patch("app.gateways.safe_fetch.resolve_external_host", resolve_mock):
-        resp = await safe_fetch.fetch_safely(client, "https://example.com/start")
+        resp = await safe_fetch.fetch_safely(
+            client, "https://example.com/start", deadline_seconds=5.0
+        )
 
     assert resp is final_resp
     assert resolve_mock.await_count == 2
@@ -145,7 +150,9 @@ async def test_fetch_safely_stops_after_max_redirects():
     client = AsyncMock()
     client.get = AsyncMock(return_value=redirect_resp)
     with patch("app.gateways.safe_fetch.resolve_external_host", resolve_mock):
-        resp = await safe_fetch.fetch_safely(client, "https://example.com/start", max_redirects=2)
+        resp = await safe_fetch.fetch_safely(
+            client, "https://example.com/start", deadline_seconds=5.0, max_redirects=2
+        )
 
     assert resp is redirect_resp
     assert client.get.await_count == 3  # initial + 2 redirect hops
@@ -167,7 +174,7 @@ async def test_fetch_safely_blocks_redirect_to_private_ip():
     client.get = AsyncMock(return_value=redirect_resp)
     with patch("app.gateways.safe_fetch.resolve_external_host", resolve_mock):
         with pytest.raises(ValueError, match="Blocked request"):
-            await safe_fetch.fetch_safely(client, "https://example.com/start")
+            await safe_fetch.fetch_safely(client, "https://example.com/start", deadline_seconds=5.0)
 
     assert client.get.await_count == 1
 
@@ -221,3 +228,57 @@ async def test_get_pinned_streams_when_max_body_bytes_set():
     client.get.assert_not_awaited()
     assert len(resp.content) == 50
     assert resp.content == b"x" * 50
+
+
+# ── overall deadline (real sockets: a local server that drips its reply) ────
+
+
+def _pin_to_loopback():
+    """The SSRF guard blocks loopback; pin the test host to the local server."""
+    return patch(
+        "app.gateways.safe_fetch.resolve_external_host",
+        AsyncMock(return_value=("slow.test", "127.0.0.1")),
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("max_body_bytes", [128 * 1024, None])
+async def test_fetch_safely_deadline_ends_a_dripping_body(max_body_bytes):
+    """One byte every 0.2s never trips a 1s read timeout; only the deadline ends it."""
+    async with dripping_server(drip_seconds=0.2) as port:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(1.0), follow_redirects=False) as client:
+            started = time.monotonic()
+            with _pin_to_loopback(), pytest.raises(TimeoutError):
+                await safe_fetch.fetch_safely(
+                    client,
+                    f"http://slow.test:{port}/",
+                    deadline_seconds=0.8,
+                    max_body_bytes=max_body_bytes,
+                )
+            elapsed = time.monotonic() - started
+    assert 0.7 <= elapsed < 2.0
+
+
+@pytest.mark.asyncio
+async def test_fetch_safely_deadline_covers_every_redirect_hop():
+    """Six slow hops, each inside the read timeout, still end at one deadline."""
+    async with dripping_server(drip_seconds=0.3, redirects=6) as port:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(1.0), follow_redirects=False) as client:
+            started = time.monotonic()
+            with _pin_to_loopback(), pytest.raises(TimeoutError):
+                await safe_fetch.fetch_safely(
+                    client, f"http://slow.test:{port}/", deadline_seconds=0.8
+                )
+            elapsed = time.monotonic() - started
+    assert elapsed < 2.0
+
+
+@pytest.mark.asyncio
+async def test_fetch_safely_returns_before_the_deadline():
+    final_resp = _mock_response(status=200)
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=final_resp)
+    resolve_mock = AsyncMock(return_value=("example.com", "93.184.216.34"))
+    with patch("app.gateways.safe_fetch.resolve_external_host", resolve_mock):
+        resp = await safe_fetch.fetch_safely(client, "https://example.com/", deadline_seconds=0.5)
+    assert resp is final_resp

@@ -9,9 +9,13 @@ re-testing fetch_safely's internals.
 
 import asyncio
 import socket
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
+
+from app.tests.gateways.slow_http_server import dripping_server
 
 _OG_HTML = """<html><head>
 <meta property="og:title" content="OG Title">
@@ -211,17 +215,166 @@ async def test_fetch_link_preview_uses_redis_cache(fake_redis):
 
     settings = Settings(link_preview_cache_ttl=3600)
     resp = _mock_response(text=_OG_HTML)
-    with (
-        patch("app.services.link_preview.get_redis_client", return_value=fake_redis),
-        _fetch_safely_patch(resp) as fetch_mock,
-    ):
-        first = await fetch_link_preview_cached(settings, "https://example.com/page")
-        second = await fetch_link_preview_cached(settings, "https://example.com/page")
+    user_id = uuid4()
+    with _fetch_safely_patch(resp) as fetch_mock:
+        first = await fetch_link_preview_cached(
+            settings, fake_redis, "https://example.com/page", user_id=user_id
+        )
+        second = await fetch_link_preview_cached(
+            settings, fake_redis, "https://example.com/page", user_id=user_id
+        )
 
     assert first["title"] == "OG Title"
     assert second == first
     # Second call hits the cache; fetch_safely is only called once.
     assert fetch_mock.await_count == 1
+    # The fetch slot was given back.
+    assert await fake_redis.zcard(f"linkpreview:inflight:{user_id}") == 0
+
+
+@pytest.mark.asyncio
+async def test_fetch_link_preview_passes_an_overall_deadline():
+    from app.services.link_preview import fetch_link_preview
+
+    with _fetch_safely_patch(_mock_response(text=_OG_HTML)) as fetch_mock:
+        await fetch_link_preview("https://example.com/page")
+    assert fetch_mock.await_args.kwargs["deadline_seconds"] == 8.0
+
+
+@pytest.mark.asyncio
+async def test_fetch_link_preview_slow_server_ends_at_the_deadline():
+    """A server sending one byte at a time used to hold the request open for minutes."""
+    from app.services import link_preview
+
+    async with dripping_server(drip_seconds=0.2) as port:
+        started = time.monotonic()
+        with (
+            patch.object(link_preview, "_LINK_PREVIEW_DEADLINE_SECONDS", 0.8),
+            patch(
+                "app.gateways.safe_fetch.resolve_external_host",
+                AsyncMock(return_value=("slow.test", "127.0.0.1")),
+            ),
+        ):
+            result = await link_preview.fetch_link_preview(f"http://slow.test:{port}/page")
+        elapsed = time.monotonic() - started
+
+    assert elapsed < 2.0
+    assert result == {
+        "url": f"http://slow.test:{port}/page",
+        "title": None,
+        "description": None,
+        "domain": f"slow.test:{port}",
+    }
+
+
+@pytest.mark.asyncio
+async def test_link_preview_caps_fetches_in_flight_per_user(fake_redis):
+    """A fourth uncached fetch while three are open is refused; others are not."""
+    from app.core.config import Settings
+    from app.services.link_preview import LinkPreviewBusyError, fetch_link_preview_cached
+
+    settings = Settings()
+    release = asyncio.Event()
+    entered: asyncio.Queue[str] = asyncio.Queue()
+
+    async def slow_fetch(url):
+        entered.put_nowait(url)
+        await release.wait()
+        return {"url": url, "title": "T", "description": None, "domain": "example.com"}
+
+    user_id, other_user = uuid4(), uuid4()
+    with patch("app.services.link_preview.fetch_link_preview", slow_fetch):
+        open_fetches = [
+            asyncio.create_task(
+                fetch_link_preview_cached(
+                    settings, fake_redis, f"https://example.com/{n}", user_id=user_id
+                )
+            )
+            for n in range(3)
+        ]
+        for _ in range(3):
+            await entered.get()
+        with pytest.raises(LinkPreviewBusyError):
+            await fetch_link_preview_cached(
+                settings, fake_redis, "https://example.com/4", user_id=user_id
+            )
+        other = asyncio.create_task(
+            fetch_link_preview_cached(
+                settings, fake_redis, "https://example.com/4", user_id=other_user
+            )
+        )
+        await entered.get()
+        release.set()
+        await asyncio.gather(*open_fetches, other)
+        # Slots are given back, so the next fetch runs.
+        result = await fetch_link_preview_cached(
+            settings, fake_redis, "https://example.com/5", user_id=user_id
+        )
+    assert result["title"] == "T"
+
+
+@pytest.mark.asyncio
+async def test_link_preview_stale_fetch_slots_age_out(fake_redis):
+    """Slots left behind by a crashed fetch do not lock the user out."""
+    from app.core.config import Settings
+    from app.services.link_preview import fetch_link_preview_cached
+
+    user_id = uuid4()
+    key = f"linkpreview:inflight:{user_id}"
+    long_ago = time.time() - 120
+    await fake_redis.zadd(key, {"a": long_ago, "b": long_ago, "c": long_ago})
+    with _fetch_safely_patch(_mock_response(text=_OG_HTML)):
+        result = await fetch_link_preview_cached(
+            Settings(), fake_redis, "https://example.com/page", user_id=user_id
+        )
+    assert result["title"] == "OG Title"
+    assert await fake_redis.zcard(key) == 0
+
+
+@pytest.mark.asyncio
+async def test_link_preview_slot_fails_closed_when_redis_errors():
+    from app.core.config import Settings
+    from app.services.link_preview import LinkPreviewBusyError, fetch_link_preview_cached
+
+    redis = MagicMock()
+    redis.get = AsyncMock(return_value=None)
+    redis.pipeline = MagicMock(side_effect=ConnectionError("redis down"))
+    with (
+        _fetch_safely_patch(_mock_response(text=_OG_HTML)) as fetch_mock,
+        pytest.raises(LinkPreviewBusyError),
+    ):
+        await fetch_link_preview_cached(
+            Settings(), redis, "https://example.com/page", user_id=uuid4()
+        )
+    fetch_mock.assert_not_awaited()
+
+
+def test_link_preview_router_answers_429_when_fetches_are_busy():
+    from fastapi.testclient import TestClient
+
+    from app.services.link_preview import LinkPreviewBusyError
+    from app.tests.test_routers import _app_with_user, _fake_user
+
+    user = _fake_user()
+    with (
+        patch("app.routers.link_preview.get_redis_client", return_value=MagicMock()),
+        patch(
+            "app.routers.link_preview.allow_request_fail_closed",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.routers.link_preview.fetch_link_preview_cached",
+            AsyncMock(side_effect=LinkPreviewBusyError()),
+        ),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get(
+            "/link-preview",
+            params={"url": "https://example.com/page"},
+            headers={"Authorization": "Bearer tok"},
+        )
+    assert r.status_code == 429
+    assert r.headers["Retry-After"] == "8"
 
 
 @pytest.mark.asyncio
