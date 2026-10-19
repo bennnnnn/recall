@@ -163,7 +163,7 @@ def probability_formula_block(intent: MathIntent, lines: list[str]) -> VerifiedM
         prior, hit, false_positive = intent.vec_a
         posterior = math_formulas.bayes_probability(prior, hit, false_positive)
         evidence = hit * prior + false_positive * (1.0 - prior)
-        request_text = getattr(intent, "_request_text", "").lower()
+        request_text = (intent._request_text or "").lower()
         medical = all(name in request_text for name in ("sensitivity", "specificity", "prevalence"))
         if medical:
             answer = f"{float(posterior) * 100:.6g}\\%"
