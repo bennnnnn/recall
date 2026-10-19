@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult
-from app.modules.physics.solvers.rotational_kinematics import _unknown
+from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, one_unknown
 from app.services.solving import SolveServiceError
 
 
 def _angular_impulse(params: dict[str, float]) -> PhysicsResult:
-    unknown = _unknown(params, ("tau", "L_i", "L_f", "t"))
+    unknown = one_unknown(params, ("tau", "L_i", "L_f", "t"))
     if unknown != "t" and params["t"] == 0:
         raise SolveServiceError("elapsed time must be nonzero")
     if unknown == "tau":
@@ -65,7 +64,7 @@ def _angular_impulse(params: dict[str, float]) -> PhysicsResult:
 
 
 def _angular_momentum(params: dict[str, float]) -> PhysicsResult:
-    unknown = _unknown(params, ("inertia_i", "omega_i", "inertia_f", "omega_f"))
+    unknown = one_unknown(params, ("inertia_i", "omega_i", "inertia_f", "omega_f"))
     for key in ("inertia_i", "inertia_f"):
         if key != unknown and params[key] <= 0:
             raise SolveServiceError("moment of inertia must be positive")
