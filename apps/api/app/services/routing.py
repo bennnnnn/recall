@@ -16,45 +16,9 @@ from typing import Any
 
 from app.core.config import Settings
 from app.services import model_catalog
+from app.services.routing_signals import SMART_TRIGGERS, needs_strong_model
 
 logger = logging.getLogger(__name__)
-
-# Hard triggers only — broad words like "why/explain" route too often to the
-# strong model. "compare" alone is too broad (it fires on "compare these two
-# files"), so comparison routing uses the explicit "X vs Y" / "versus" cues.
-_SMART_TRIGGERS = (
-    "prove ",
-    "derive ",
-    "debug ",
-    "algorithm",
-    "complexity",
-    "architecture",
-    "refactor",
-    "trade-off",
-    "tradeoff",
-    "step by step",
-    "design a system",
-    "design a distributed",
-    "optimize this",
-    "big-o",
-    "time complexity",
-    "space complexity",
-    # "X vs Y" comparisons are genuinely hard; a weak model answered them unhelped.
-    " vs ",
-    " versus ",
-    # Coding asks with no ``` fence ("write a function") need the strong model too.
-    "write a function",
-    "write a script",
-    "write a program",
-    "write a method",
-    "write a class",
-    "write a regex",
-    "write a snippet",
-    "implement a",
-    "implement the",
-    "code a",
-    "leetcode",
-)
 
 # Homework physics the verified solver does not cover (incline, momentum,
 # escape velocity, …). needs_symbolic stays the solver gate so we don't
@@ -98,7 +62,7 @@ _PHYSICS_FORMULA_CUES = (
 
 _FOLLOWUP_MAX_CHARS = 120
 # Linear phrase scan — same style as prompt_constants.routing `_OFFER_PHRASES`.
-# Do not add bare "fix" to `_SMART_TRIGGERS`; that would pin every "fix dinner"
+# Do not add bare "fix" to `SMART_TRIGGERS`; that would pin every "fix dinner"
 # ask onto the strong model.
 _FOLLOWUP_CUES = (
     "now fix",
@@ -340,7 +304,12 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
         cue in text for cue in ("create ", "show ", "give me ", "make ")
     ):
         return fast
-    if any(trigger in text for trigger in _SMART_TRIGGERS):
+    if any(trigger in text for trigger in SMART_TRIGGERS):
+        return smart
+    from app.modules.chat.prompt_constants.writing_kind import is_writing_deliverable_request
+
+    # A tweet or an email about a migration is writing, not the migration.
+    if needs_strong_model(content) and not is_writing_deliverable_request(content):
         return smart
     physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
     if physics_alias is not None:
