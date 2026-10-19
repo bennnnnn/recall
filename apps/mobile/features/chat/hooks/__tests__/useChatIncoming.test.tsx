@@ -303,6 +303,32 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
     expect(args.reportError).toHaveBeenCalledWith("Too big", "attachment_rejected");
   });
 
+  it.each([
+    // Regression: every code-less error offered Regenerate, which re-answered
+    // the previous message when this one was never saved.
+    [{ message: "Redis down" }, false, "send_rejected"],
+    [{ message: "Too many requests. Try again shortly." }, false, "send_rejected"],
+    [{ code: "unavailable", message: "Restarting" }, false, "send_rejected"],
+    [{ message: "Failed to save the response. Please retry." }, true, null],
+    [{ code: "quota_exceeded", message: "Out of quota" }, false, null],
+    [{ code: "model_unavailable", message: "Down" }, false, null],
+  ])("error %o with user_message_saved=%s queues a resend: %s", async (frame, saved, reason) => {
+    const { args, send } = await setup({ messages: [streamingBubble] });
+    const turn = pending();
+    args.pendingSendRef.current = turn;
+    args.queueUnsavedSend.mockImplementation((queued: PendingSend, why: RejectedSend["reason"]) => {
+      args.rejectedSendsRef.current.set("chat-1", [{ ...queued, reason: why }]);
+    });
+    await send({ type: "error", user_message_saved: saved, ...frame });
+    if (reason) {
+      expect(args.queueUnsavedSend).toHaveBeenCalledWith(turn, reason);
+      expect(args.reportError).toHaveBeenCalledWith(frame.message, reason);
+    } else {
+      expect(args.queueUnsavedSend).not.toHaveBeenCalled();
+      expect(args.reportError).toHaveBeenCalledWith(frame.message, frame.code);
+    }
+  });
+
   it("error keeps a partial reply as a stopped bubble", async () => {
     const { args, send, messages } = await setup({
       messages: [streamingBubble],
