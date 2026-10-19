@@ -189,18 +189,85 @@ still bounds the spend.
 - [ ] Set `EXPO_PUBLIC_API_URL=https://<api-host>`
 - [ ] Set Google client IDs (iOS + web) in EAS secrets
 - [ ] Set RevenueCat API keys per platform
-- [ ] Register the EAS **production** Android signing certificate SHA-1 with the
-      Android OAuth client in Google Cloud (the debug SHA-1 is not sufficient)
+- [ ] Register **both** Android release SHA-1s with Google Cloud, not only the EAS
+      one: see [§6](#6-google-sign-in)
 - [ ] Release builds pass the config guard for API URL, EAS project ID, Google
       client IDs, and the platform's RevenueCat SDK key
+- [ ] Optional crash reporting: `EXPO_PUBLIC_SENTRY_DSN` turns on Sentry. A
+      release build then uploads source maps and debug symbols, and Sentry's
+      Xcode and Gradle steps fail the build at its end when that upload fails. So
+      when the DSN is set, the config guard stops the build on the EAS worker
+      unless all three are set:
+  - `SENTRY_ORG` and `SENTRY_PROJECT` (the slugs; Plain text)
+  - `SENTRY_AUTH_TOKEN` (a Sentry organization auth token; **Secret**)
+
+  To ship without uploads (crash stacks stay minified), set
+  `SENTRY_DISABLE_AUTO_UPLOAD=true` instead. The check runs only on the build
+  worker (`EAS_BUILD`): EAS keeps Secret variables out of the config that
+  `eas build` and `eas update` resolve locally, and updates upload nothing.
 - [ ] Build:
   ```bash
   cd apps/mobile
   eas build --platform ios --profile production
   eas build --platform android --profile production
   ```
-- [ ] Submit to App Store / Play Console
-- [ ] On-device QA per [`docs/QA_MATRIX.md`](QA_MATRIX.md)
+- [ ] Submit to App Store / Play Console (see [Store submission](#store-submission-owner))
+- [ ] On-device QA per [`docs/QA_MATRIX.md`](QA_MATRIX.md), including the iPad
+      and store-build passes
+
+### What the store build declares
+
+`app.json` asks only for what the app uses, so review sees no unexplained
+permission. Changing any of it is a native change (bump `version`, new build).
+
+- **iOS purpose strings** live in `ios.infoPlist`, and every config plugin that
+  writes the same key carries the same text (`lib/__tests__/appStoreConfig.test.ts`
+  checks this), because the plugins' order decides which text wins. One
+  microphone string covers dictation and Live Talk; one camera string covers
+  photo attachments and the maths scanner.
+- **No background audio.** Read-aloud stops and Live Talk hangs up when the app
+  leaves the foreground, so `expo-audio` has `enableBackgroundPlayback: false`:
+  no `UIBackgroundModes` on iOS, no foreground service on Android.
+- **Not declared:** Face ID, Always location and Android media read access
+  (`READ_MEDIA_*`; saving to the gallery is write-only and the photo picker needs
+  none), plus WebRTC's `SYSTEM_ALERT_WINDOW` and `BLUETOOTH`
+  (`android.blockedPermissions`). `NSMotionUsageDescription` stays, saying the
+  app does not use motion: `expo-location` links Core Motion, and App Store
+  Connect rejects an upload whose binary uses an API without its purpose string
+  (ITMS-90683).
+- **Export compliance:** `ios.config.usesNonExemptEncryption: false` (HTTPS
+  only), so App Store Connect does not ask on every build.
+- Expo's dev launcher adds a local-network prompt to Info.plist; its own Release
+  build phase ("Strip Local Network Keys for Release") removes it from store builds.
+
+### Store submission (owner)
+
+- [ ] **Subscriptions ship with the first build.** Submit both products from
+      [§4b](#4b-plans-and-revenuecat-free-plus-pro) (Plus and Pro) for review
+      together with the first app version (App Store Connect: add them on the
+      version page under In-App Purchases and Subscriptions; Play: activate both
+      base plans). A product that is not approved does not load.
+- [ ] **RevenueCat offering first.** The current offering must hold the
+      `plus_monthly` and `pro_monthly` packages before review. Without them the
+      plan sheet's buy buttons stay disabled (`components/UpgradeSheet.tsx`),
+      and a paywall that cannot buy is rejected.
+- [ ] **App Review notes:** sign in with Apple (or Google). Chat, memory, to-dos
+      and the maths scanner work on Free. Voice input and read-aloud need Plus
+      and Live Talk needs Pro: buy them with the sandbox account (no charge)
+      to test the microphone features.
+- [ ] **After the first upload**, watch App Store Connect email for
+      **ITMS-91053** (an SDK uses a required-reason API without declaring it).
+      If it names an API category, add it with the listed reason under
+      `ios.privacyManifests.NSPrivacyAccessedAPITypes` in `app.json` and rebuild.
+- [ ] **App Privacy (App Store) and Data safety (Play)** answers include:
+      precise location; audio (voice input and Live Talk); photos and files
+      (attachments); user content (messages, chats, memory, to-dos); name,
+      email and user ID (sign-in); purchase history (RevenueCat); crash data
+      (Sentry, when the DSN is set); app interactions (metadata-only analytics).
+      None is used for tracking or sold.
+- [ ] Play Console → App content: the build declares no `READ_MEDIA_*` or
+      foreground-service permission, so the photo and video permissions and
+      foreground service declarations do not apply
 
 ### Over-the-air updates (EAS Update)
 
@@ -233,6 +300,18 @@ background, and runs the new code from the next launch.
 
 - [ ] OAuth consent screen published (sign-in scopes only: openid, email, profile)
 - [ ] Client IDs match the mobile bundle IDs and `GOOGLE_CLIENT_ID`
+- [ ] **Android: one Android OAuth client per signing certificate**, all with
+      package `com.recall.app` (the app signs in with the web client ID; these
+      clients only vouch for the certificate). Google is the only sign-in on
+      Android, so a missing one fails every sign-in with `DEVELOPER_ERROR`:
+  - **Play app signing key**: Play Console → Test and release → App integrity
+    → App signing → *App signing key certificate* SHA-1. Play re-signs the
+    bundle with this key, so every install from Play (production and testing
+    tracks) carries it. Registering only the EAS key breaks every Play user.
+  - **EAS upload key**: `eas credentials --platform android` → production
+    keystore SHA-1 (Play lists it as *Upload key certificate*). Covers preview
+    and other builds installed outside Play.
+  - **Debug key**: `./scripts/android-debug-sha1.sh`, for local dev builds only.
 - [ ] Old deployments: unset `GOOGLE_CLIENT_SECRET` and `OAUTH_TOKEN_ENCRYPTION_KEY`
       (`fly secrets unset ...`); Calendar/Gmail were removed in migration `0106`
 
@@ -248,7 +327,8 @@ background, and runs the new code from the next launch.
 
 ## 8. Observability (optional)
 
-- [ ] `SENTRY_DSN` on API and mobile EAS secrets
+- [ ] `SENTRY_DSN` on the API; mobile: `EXPO_PUBLIC_SENTRY_DSN` plus the upload
+      variables in [§5](#5-mobile-eas)
 - [ ] Fly metrics / external uptime on `/health/ready`
 - [ ] Resend (`RESEND_API_KEY`) if transactional email enabled
 
