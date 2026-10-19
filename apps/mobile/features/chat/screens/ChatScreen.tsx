@@ -4,7 +4,7 @@ import {
   View,
 } from "react-native";
 import { registerNewChat, setActiveChatIdGlobal } from "@/lib/drawer";
-import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -24,8 +24,7 @@ import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftP
 import { useAuth } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
 import { useDrawer } from "@/contexts/DrawerContext";
-import { useHome } from "@/features/home/context/HomeContext";
-import { shouldRefreshHomeOnChatFocus } from "@/lib/cache/contextRefresh";
+import { useHomeRefreshOnChatFocus } from "@/features/home/hooks/useHomeRefreshOnChatFocus";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { useChatComposerState } from "@/features/chat/hooks/useChatComposerState";
@@ -63,22 +62,7 @@ function ChatScreen() {
   const [chatId, setChatId] = useState<string | null>(null);
   const draft = useDraftChat({ token, chatId });
   const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
-  const { refresh: refreshHome, hasFetched: hasFetchedHome } = useHome();
-  useFocusEffect(
-    useCallback(() => {
-      const openThread =
-        (typeof routeChatId === "string" && routeChatId) || chatId;
-      if (
-        !shouldRefreshHomeOnChatFocus({
-          hasOpenThread: Boolean(openThread),
-          hasFetchedHome,
-        })
-      ) {
-        return;
-      }
-      void refreshHome({ silent: true });
-    }, [refreshHome, routeChatId, chatId, hasFetchedHome]),
-  );
+  useHomeRefreshOnChatFocus(routeChatId, chatId);
   const { chatError, handleChatError, handleStreamBusy, dismissChatError, handleRejectedSendChange } =
     useChatErrorHandlers(isPaid);
   const activeChatId = draft.activeChatId;
