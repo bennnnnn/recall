@@ -15,6 +15,7 @@ import {
   type SimulationVector,
   type SimulationVectorRole,
 } from "@/lib/physics/simulation/spec";
+import { isJsonRecord } from "@/lib/jsonFence";
 
 const VECTOR_ROLES: readonly SimulationVectorRole[] = ["force", "result", "measure", "motion"];
 
@@ -87,10 +88,6 @@ function optionalList(raw: unknown, max: number): unknown[] {
   if (raw === undefined) return [];
   if (!Array.isArray(raw) || raw.length > max) reject();
   return raw;
-}
-
-function isRecord(raw: unknown): raw is Record<string, unknown> {
-  return typeof raw === "object" && raw !== null && !Array.isArray(raw);
 }
 
 function isIndex(raw: unknown): raw is number {
@@ -175,13 +172,13 @@ function parseBody(raw: unknown): SimulationBody | null {
 }
 
 function parseTether(raw: unknown): SimulationTether {
-  if (!isRecord(raw) || !isIndex(raw.body)) reject();
+  if (!isJsonRecord(raw) || !isIndex(raw.body)) reject();
   return { anchor: requirePoint(raw.anchor), body: raw.body };
 }
 
 function parsePulley(raw: unknown): SimulationPulley | undefined {
   if (raw === undefined || raw === null) return undefined;
-  if (!isRecord(raw)) reject();
+  if (!isJsonRecord(raw)) reject();
   const radius = finite(raw.radius);
   if (radius === null || radius <= 0) reject();
   return { centre: requirePoint(raw.centre), radius };
@@ -189,7 +186,7 @@ function parsePulley(raw: unknown): SimulationPulley | undefined {
 
 function parsePlanet(raw: unknown): SimulationPlanet | undefined {
   if (raw === undefined || raw === null) return undefined;
-  if (!isRecord(raw)) reject();
+  if (!isJsonRecord(raw)) reject();
   const radius = finite(raw.radius);
   if (radius === null || radius <= 0) reject();
   const label = optionalLabel(raw.label);
@@ -197,7 +194,7 @@ function parsePlanet(raw: unknown): SimulationPlanet | undefined {
 }
 
 function parseAngle(raw: unknown): SimulationAngle {
-  if (!isRecord(raw)) reject();
+  if (!isJsonRecord(raw)) reject();
   const startDeg = finite(raw.start_deg);
   const endDeg = finite(raw.end_deg);
   if (startDeg === null || endDeg === null || startDeg === endDeg) reject();
@@ -221,7 +218,7 @@ function parseAngle(raw: unknown): SimulationAngle {
 }
 
 function parseSolid(raw: unknown): SimulationSolid {
-  if (!isRecord(raw) || !Array.isArray(raw.rect) || raw.rect.length !== 4) reject();
+  if (!isJsonRecord(raw) || !Array.isArray(raw.rect) || raw.rect.length !== 4) reject();
   const [xMin, yMin, xMax, yMax] = raw.rect.map(finite);
   if (xMin === null || yMin === null || xMax === null || yMax === null) reject();
   if (xMax <= xMin || yMax <= yMin) reject();
@@ -241,7 +238,7 @@ function parseArrowLabels(
   named: readonly unknown[],
 ): Partial<Record<SimulationArrow, string>> {
   if (raw === undefined) return {};
-  if (!isRecord(raw)) reject();
+  if (!isJsonRecord(raw)) reject();
   const out: Partial<Record<SimulationArrow, string>> = {};
   for (const [key, value] of Object.entries(raw)) {
     if (!ARROW_KINDS.includes(key as SimulationArrow) || !named.includes(key)) reject();

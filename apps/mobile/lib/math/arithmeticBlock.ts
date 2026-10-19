@@ -1,3 +1,5 @@
+import { isJsonRecord, parseJsonRecord } from "@/lib/jsonFence";
+
 export type ArithmeticOperation =
   | "addition"
   | "subtraction"
@@ -105,10 +107,6 @@ export type FractionWorkSpec = {
   steps: FractionStep[];
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
 function stringOperands(value: unknown): value is string[] {
   return (
     Array.isArray(value) &&
@@ -129,13 +127,8 @@ function fractionOperands(value: unknown): value is string[] {
 
 /** Parse server-owned procedure data. The client never derives the arithmetic. */
 export function parseArithmeticWork(raw: string): ArithmeticWorkSpec | null {
-  let data: unknown;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (!isRecord(data) || data.type !== "arithmetic") return null;
+  const data = parseJsonRecord(raw);
+  if (!data || data.type !== "arithmetic") return null;
   if (
     !["addition", "subtraction", "multiplication", "division"].includes(
       String(data.operation),
@@ -177,7 +170,7 @@ export function parseArithmeticWork(raw: string): ArithmeticWorkSpec | null {
       additionColumns.length > 0 &&
       additionColumns.every(
         (column) =>
-          isRecord(column) &&
+          isJsonRecord(column) &&
           typeof column.position === "number" &&
           Array.isArray(column.addends) &&
           column.addends.length === operandCount &&
@@ -187,7 +180,7 @@ export function parseArithmeticWork(raw: string): ArithmeticWorkSpec | null {
       subtractionColumns.length > 0 &&
       subtractionColumns.every(
         (column) =>
-          isRecord(column) &&
+          isJsonRecord(column) &&
           typeof column.position === "number" &&
           Array.isArray(column.regrouped_from),
       ),
@@ -195,7 +188,7 @@ export function parseArithmeticWork(raw: string): ArithmeticWorkSpec | null {
       partialProducts.length > 0 &&
       partialProducts.every(
         (product) =>
-          isRecord(product) &&
+          isJsonRecord(product) &&
           typeof product.shifted_product === "string" &&
           Array.isArray(product.columns),
       ),
@@ -204,7 +197,7 @@ export function parseArithmeticWork(raw: string): ArithmeticWorkSpec | null {
       typeof data.quotient === "string" &&
       divisionSteps.every(
         (step) =>
-          isRecord(step) &&
+          isJsonRecord(step) &&
           typeof step.column_end === "number" &&
           typeof step.product === "string" &&
           typeof step.remainder === "string",
@@ -215,13 +208,8 @@ export function parseArithmeticWork(raw: string): ArithmeticWorkSpec | null {
 }
 
 export function parseFractionWork(raw: string): FractionWorkSpec | null {
-  let data: unknown;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (!isRecord(data) || data.type !== "fraction") return null;
+  const data = parseJsonRecord(raw);
+  if (!data || data.type !== "fraction") return null;
   if (
     ![
       "simplify",
@@ -241,7 +229,7 @@ export function parseFractionWork(raw: string): FractionWorkSpec | null {
     data.steps.length === 0 ||
     !data.steps.every(
       (step) =>
-        isRecord(step) &&
+        isJsonRecord(step) &&
         typeof step.kind === "string" &&
         typeof step.explanation === "string" &&
         typeof step.expression === "string" &&
