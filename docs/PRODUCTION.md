@@ -8,7 +8,10 @@ Step-by-step guide to provision production infrastructure. Pair with [`README.md
 
 - [ ] Create Neon project (or Fly Postgres with pgvector)
 - [ ] Enable `vector` extension: `CREATE EXTENSION IF NOT EXISTS vector;`
-- [ ] Set `DATABASE_URL` as `postgresql+asyncpg://...?sslmode=require`
+- [ ] Set `DATABASE_URL` as `postgresql+asyncpg://...?sslmode=require`, the
+      project's **direct** endpoint (the app switches itself to the `-pooler`
+      host; migrations stay on the direct one). Production boot refuses a
+      `DATABASE_URL` that points at localhost, the default when it is unset.
 - [ ] Run migrations: `cd apps/api && uv run alembic upgrade head`
 - [ ] Confirm `uv run alembic current` matches `uv run alembic heads`
 
@@ -19,13 +22,54 @@ uv run alembic current
 # The same single revision should be shown by both commands.
 ```
 
+Every migration transaction runs with `lock_timeout = 5s` and
+`statement_timeout = 4min` (`MIGRATION_LOCK_TIMEOUT`,
+`MIGRATION_STATEMENT_TIMEOUT`): an `ALTER TABLE users` stuck behind a long
+query fails the release command instead of queueing every request on `users`.
+Rerun the deploy when the database is quieter. Schema changes are
+expand/contract ([ROLLBACK.md](ROLLBACK.md#schema-changes-expand-then-contract)).
+
+### Backups and restore (owner, before launch)
+
+The rollback runbook and the `0103` downgrade both assume a restorable copy of
+the database. Neon keeps one through its restore window (point-in-time restore
+from the write-ahead log); nothing in this repository takes backups.
+
+- [ ] In the Neon console, find the project's restore window (project
+      settings, "Instant restore" / "history retention"; the name depends on
+      the console version) and note how far back it reaches on your plan (it
+      differs by plan, from hours on Free to days on paid plans). Raise it to
+      at least 7 days for launch: a problem found on Monday must still be
+      restorable to Friday.
+- [ ] Rehearse one restore before launch, never onto production: create a
+      branch from a past point in time (console: Branches → create a branch
+      from past data at a chosen timestamp; `neonctl branches create` can do
+      the same, see Neon's docs for the flag), point a local API at it
+      (`DATABASE_URL=<branch URL> uv run alembic current`), check a known row,
+      then delete the branch.
+- [ ] Write down who can restore and where the connection strings live. To
+      recover production, restore to a branch at the last good time, verify
+      it, then either repoint `DATABASE_URL` (`fly secrets set`) or use
+      Neon's restore of the root branch (it keeps a backup branch of the state
+      it replaced). Both lose the writes made after that time.
+- [ ] Optional: a nightly `pg_dump` of the direct endpoint to storage outside
+      Neon, for a window longer than the plan's or an account-level disaster.
+
 ---
 
 ## 2. Redis (Upstash)
 
 - [ ] Create Upstash Redis database
-- [ ] Set `REDIS_URL=rediss://...` (TLS URL)
+- [ ] Set `REDIS_URL=rediss://...` (TLS URL). Production boot refuses a
+      `REDIS_URL` without TLS or pointing at localhost (the default when the
+      secret is missing): before this, the API booted, `/health/ready` said
+      `"redis": "degraded"` with a 200, and every signed-in request got 503.
 - [ ] Verify connectivity from Fly region (latency to Upstash region)
+- [ ] After deploy, `API_URL=https://<api> ./scripts/qa-smoke.sh --live` must show
+      readiness OK, which needs `"redis": "ok"`
+- [ ] Redis holds the job stream, quota counters, rate limits and sign-out
+      state. Nothing here backs it up; if Redis is lost or flushed, the worker
+      recreates its consumer group by itself and queued jobs are gone
 
 ---
 
@@ -50,6 +94,14 @@ Required for production attachments (`STORAGE_BACKEND=r2`).
   `attachment_orphan_grace_hours` (default 24h) — that billed window is
   intentional. Optionally add an R2 lifecycle rule
   that expires unprefixed leftovers as a last resort.
+- [ ] Recovery (owner): R2 keeps no earlier version of an object unless the
+  bucket has versioning or a bucket lock rule (check what the Cloudflare
+  dashboard offers for the bucket; the code assumes neither). A delete is final,
+  which is what account deletion needs. Decide whether that is acceptable, and
+  never add a lifecycle rule that expires `{user_id}/` objects (live
+  attachments). After a Neon restore to an earlier time (§1), rows can name
+  objects deleted since; those attachments show as missing, and objects
+  uploaded after the restore point become orphans for the reaper.
 
 Native iOS/Android uploads are not subject to browser CORS. Before enabling the
 planned web client, add an R2 bucket CORS policy that allows `PUT`/`GET` from the
@@ -62,8 +114,12 @@ exact production web origin and only the headers used by presigned uploads.
 - [ ] `fly launch` (or connect existing app to repo root; uses `apps/api/Dockerfile`)
 - [ ] Scale processes: `fly scale count app=1 worker=1` (worker is not
       covered by `min_machines_running`; pin it or jobs stop silently)
-- [ ] Confirm worker health: `fly ssh console -C 'curl -sf http://127.0.0.1:8001/health/ready'`
-  (or check worker logs show the jobs consumer started)
+- [ ] Confirm worker health:
+  `fly ssh console --process-group worker -C 'curl -sf http://127.0.0.1:8001/health/ready'`
+  (or check worker logs show the jobs consumer started). The worker retries
+  Redis forever at boot and exits non-zero (so `[[restart]]` brings it back)
+  when its jobs loop or a scheduler dies; a failing health check alone never
+  restarts a Machine on Fly.
 - [ ] Set **all** secrets (enforced by `validate_production_settings`):
 
 | Secret | Required | Notes |
@@ -72,8 +128,8 @@ exact production web origin and only the headers used by presigned uploads.
 | `DEV_AUTH_ENABLED` | yes | `false` |
 | `MOCK_LLM_ENABLED` | yes | `false` |
 | `JWT_SECRET` | yes | ≥32 random chars |
-| `DATABASE_URL` | yes | asyncpg URL |
-| `REDIS_URL` | yes | `rediss://` |
+| `DATABASE_URL` | yes | asyncpg URL, direct Neon endpoint; not localhost |
+| `REDIS_URL` | yes | `rediss://`; not localhost |
 | `GOOGLE_CLIENT_ID` | yes | Google Sign-In (ID-token audience) |
 | `OPENROUTER_API_KEY` | yes | Chat + composer STT (`gpt-transcribe`) |
 | `OPENAI_API_KEY` | Live Talk only | WebRTC Realtime; OpenRouter has no Realtime API |
@@ -86,17 +142,74 @@ exact production web origin and only the headers used by presigned uploads.
 | `TRUST_X_FORWARDED_FOR` | yes (set in `fly.toml` `[env]`) | `true` behind Fly. Unset, every per-IP rate limit keys on Fly's proxy address and becomes one global bucket; production boot logs a warning. |
 | `DAILY_GLOBAL_SPEND_USD` | yes | UTC-day OpenRouter $ cap; must be > 0 |
 | R2 vars | yes | See §3 |
+| `RESEND_API_KEY` | if email | Without it nothing is emailed (§8) |
+
+Validate the file you import before `fly secrets import`:
+`./scripts/validate-prod-env.sh apps/api/.env.production`. It reads only that
+file (not `apps/api/.env` or your shell), and fails when `ENVIRONMENT` is not
+`production`.
+
+### Deploying
+
+Deploy with GitHub **Actions → Deploy**, run on `main`. A gate job (no secrets)
+refuses any other branch and any commit whose API CI (or Mobile CI, for the
+EAS build) push run has not passed for that commit's code; then the deploy job
+runs in the GitHub environment `production`. `scripts/deploy-api.sh` is the
+break-glass path from a laptop: it refuses a dirty tree or a branch other than
+an up-to-date `main` unless `--force`.
+
+- [ ] **Owner:** Settings → Environments → `production`: add yourself (and
+      anyone else) as **required reviewers**, set **deployment branches** to
+      `main` only, and move `FLY_API_TOKEN` and `EXPO_TOKEN` there as
+      environment secrets (delete the repository-level copies) so no other
+      job can read them. `FLY_API_TOKEN` should be a deploy token for this app
+      (`fly tokens create deploy --app recall-api`), not a personal token.
+      GitHub offers environments in private repositories on Pro, Team and
+      Enterprise plans, and required reviewers there only on Enterprise; on a
+      plan without them the gate job and the main-only checks still apply,
+      but nobody has to approve.
+- [ ] **Owner:** the `preview` environment (EAS Update to the preview channel)
+      needs `EXPO_TOKEN` too, if it is moved off the repository.
+- [ ] Bumping a pinned action or CLI (`setup-flyctl` commit and flyctl
+      version, `expo-github-action` commit and eas-cli version,
+      `pnpm/action-setup` commit) is a reviewed change to the workflow.
+
+What one deploy does (`fly.toml`):
+
+1. `release_command` runs `alembic upgrade head` once, with the bounded lock
+   and statement timeouts (§1). If it fails, nothing is replaced.
+2. `strategy = "bluegreen"`: a new Machine boots next to each old one (app and
+   worker), traffic moves only after the new Machines pass their health checks,
+   then the old ones are stopped. The org needs room for one extra Machine per
+   group during the deploy. For a moment two workers run; job leases, dedupe
+   keys and scheduler locks make that safe.
+3. An old Machine gets Fly's stop signal (SIGINT), then `kill_timeout = 45`
+   seconds: uvicorn's `--timeout-graceful-shutdown 30` lets in-flight requests
+   and chat turns finish or stop and save, and lifespan shutdown drains
+   background work for up to 10s. The worker leaves unfinished jobs pending for
+   the new worker. Keep these numbers in step in `fly.toml` and
+   `apps/api/Dockerfile` (`app/tests/test_deploy_config.py` checks them).
+4. The workflow smoke-checks `https://recall-api.fly.dev` (readiness must
+   report `"redis": "ok"`). The image is labelled `git-<sha>`
+   (`fly releases --image` maps a release back to its commit).
 
 ```bash
-# Deploy
-fly deploy
-
-# Verify
-curl -s https://<your-api>/health/ready
+# Full check after a deploy (needs flyctl auth and uv): API readiness with
+# Redis, worker health, alembic current on Fly == alembic heads here.
+API_URL=https://<your-api> ./scripts/verify-production.sh --live
 ```
 
 - [ ] Health monitor: `GET /health` (liveness) and `GET /health/ready` (Postgres;
-      Redis may report `degraded` without 503)
+      Redis may report `degraded` without 503 — alert on that too, §8)
+- [ ] **Measure before launch:** `[http_service.concurrency]` is `type =
+      "requests"`, `soft_limit = 150`, `hard_limit = 200` per Machine. Whether
+      Fly's proxy counts each open chat WebSocket as one in-flight request for
+      its whole life (so 200 idle sockets would fill the Machine and queue
+      every REST call) was not confirmed from Fly's docs here. Load-test one
+      Machine with ~200 open `/ws/chat` sockets plus REST traffic and watch
+      Fly's proxy concurrency metrics and any 503s or queueing. If sockets count, use
+      `type = "connections"` with limits sized to sockets plus REST
+      connections, or scale out on `soft_limit`; do not leave it to launch day.
 - [ ] RevenueCat webhook → `https://<api>/webhooks/revenuecat` with `Authorization` header
 - [ ] Plans and store products set up per [§4b](#4b-plans-and-revenuecat-free-plus-pro)
 
