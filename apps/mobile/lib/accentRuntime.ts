@@ -1,25 +1,20 @@
 import { useSyncExternalStore } from "react";
 
 import { DEFAULT_ACCENT, type AccentPreference } from "@/lib/accent";
+import { createValueStore } from "@/lib/listenerSet";
 
-type Listener = () => void;
-
-let accent: AccentPreference = DEFAULT_ACCENT;
-const listeners = new Set<Listener>();
+const accent = createValueStore<AccentPreference>(DEFAULT_ACCENT);
 
 export function getAccentSnapshot(): AccentPreference {
-  return accent;
+  return accent.get();
 }
 
 export function setAccentSnapshot(next: AccentPreference): void {
-  if (accent === next) return;
-  accent = next;
-  listeners.forEach((listener) => listener());
+  accent.set(next);
 }
 
-export function subscribeAccent(listener: Listener): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+export function subscribeAccent(listener: () => void): () => void {
+  return accent.subscribe(listener);
 }
 
 /** The accent color the user picked (Settings → Accent color). */
@@ -29,6 +24,5 @@ export function useAccentPreference(): AccentPreference {
 
 /** Test helper — reset store between cases. */
 export function resetAccentRuntime(): void {
-  accent = DEFAULT_ACCENT;
-  listeners.clear();
+  accent.reset();
 }

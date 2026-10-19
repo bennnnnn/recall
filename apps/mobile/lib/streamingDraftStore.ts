@@ -1,4 +1,5 @@
 import type { SearchSource } from "@/lib/api";
+import { createListenerSet } from "@/lib/listenerSet";
 
 export type StreamingDraft = {
   content: string;
@@ -8,10 +9,8 @@ export type StreamingDraft = {
   statusDetail?: string;
 };
 
-type Listener = () => void;
-
 let draft: StreamingDraft | null = null;
-const listeners = new Set<Listener>();
+const listeners = createListenerSet();
 
 export function getStreamingDraft(): StreamingDraft | null {
   return draft;
@@ -23,12 +22,11 @@ export function getStreamingDraftContentLength(): number {
 
 export function publishStreamingDraft(next: StreamingDraft | null): void {
   draft = next;
-  listeners.forEach((listener) => listener());
+  listeners.emit();
 }
 
-export function subscribeStreamingDraft(listener: Listener): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+export function subscribeStreamingDraft(listener: () => void): () => void {
+  return listeners.subscribe(listener);
 }
 
 export function resetStreamingDraftStore(): void {
