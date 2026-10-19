@@ -64,6 +64,9 @@ request client and are composed into the existing `lib/api.ts` public barrel.
     status through the `app.modules.chat` package. The tool loop is `modules/chat/tool_loop/`.
     On mobile, the chat screen, its hooks, components, stream/socket model and API slice are
     `features/chat/`; `app/index.tsx` is a one-line route.
+14. Product analytics — migrated (`modules/analytics/`: `api.py` serves `/analytics`, `service.py`
+    holds the per-event property allowlist). The `product_events` repository stays shared in
+    `repositories/` because account export reads it too.
 
 Each migration is its own reviewable change: preserve behavior, establish the public seam, run
 the feature tests and architecture checks, then remove compatibility imports in a later cleanup

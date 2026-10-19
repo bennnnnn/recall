@@ -92,6 +92,15 @@ def test_search_runtime_code_has_one_owner() -> None:
     } <= {path.name for path in (APP_ROOT / "tests" / "modules" / "search").glob("*.py")}
 
 
+def test_analytics_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "analytics"
+    assert {"api.py", "service.py"} <= {path.name for path in module_root.glob("*.py")}
+    assert not (APP_ROOT / "routers" / "analytics.py").exists()
+    assert {"test_api.py", "test_service.py"} <= {
+        path.name for path in (APP_ROOT / "tests" / "modules" / "analytics").glob("*.py")
+    }
+
+
 def test_chat_runtime_code_has_one_owner() -> None:
     """History, both transports, turn prep and the stream pipeline are one module."""
     module_root = APP_ROOT / "modules" / "chat"
