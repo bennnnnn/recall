@@ -40,7 +40,6 @@ from app.modules.chat.turn_resources import (
     top_up_reserve_for_prompt,
     turn_resources,
     wrap_stream_status,
-    yield_with_chatprep_refresh,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services.thinking_effort import thinking_level
@@ -60,20 +59,18 @@ async def _stream_turn(
     status: StreamStatusFn | None,
     on_reasoning: StreamReasoningFn | None,
 ) -> AsyncIterator[str]:
-    """The prepared turn's reply, refreshing the prepare lock while it streams."""
-    async for token in yield_with_chatprep_refresh(
-        res,
-        stream_and_finalize(
-            deps,
-            redis,
-            settings,
-            ctx,
-            should_cancel=should_cancel,
-            outcome=outcome,
-            on_status=status,
-            on_reasoning=on_reasoning,
-            resources=res,
-        ),
+    """The prepared turn's reply. ``turn_resources`` keeps the prepare lock alive
+    on its own task, so a Redis blip can never cut this stream or skip its save."""
+    async for token in stream_and_finalize(
+        deps,
+        redis,
+        settings,
+        ctx,
+        should_cancel=should_cancel,
+        outcome=outcome,
+        on_status=status,
+        on_reasoning=on_reasoning,
+        resources=res,
     ):
         yield token
 

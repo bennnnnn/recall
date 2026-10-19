@@ -192,10 +192,6 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         captured["ctx"] = ctx
         yield "Regenerated answer"
 
-    async def passthrough(_res, tokens):
-        async for token in tokens:
-            yield token
-
     deps = turn_deps(
         session_factory=FakeSessionCM,
         users={"get_by_id": AsyncMock(return_value=user)},
@@ -229,7 +225,6 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         ),
         patch(f"{entry}.build_stream_prompt_context", build),
         patch(f"{entry}.top_up_reserve_for_prompt", AsyncMock()),
-        patch(f"{entry}.yield_with_chatprep_refresh", passthrough),
         patch(f"{entry}.stream_and_finalize", final_stream),
         patch(f"{entry}.restore_regenerate_backup", restore),
         patch(f"{_MODULE}.SessionLocal", FakeSessionCM),
