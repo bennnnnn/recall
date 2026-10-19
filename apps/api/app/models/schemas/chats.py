@@ -4,7 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.core.validation import normalize_stored_chat_title, validate_user_alias
+from app.core.validation import normalize_stored_chat_title
+from app.models.model_catalog import validate_user_alias
 from app.models.schemas.common import MessageFeedback, MessageRole
 from app.models.schemas.text import UserText
 

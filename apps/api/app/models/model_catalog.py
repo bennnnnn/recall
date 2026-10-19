@@ -455,9 +455,16 @@ def estimate_cost_usd(
 
 
 def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
-    from app.core.validation import validate_user_alias as _validate
+    """Raise ``ValueError`` unless ``alias`` is a catalog id (or ``auto`` when allowed).
 
-    _validate(alias, allow_auto=allow_auto)
+    The catalog is the one list of aliases: adding a model here makes it valid
+    in request schemas too.
+    """
+    if allow_auto and alias == "auto":
+        return
+    if alias in _BY_ID:
+        return
+    raise ValueError(f"Unknown model alias: {alias}")
 
 
 # BUG FIX: a flat 999.0 for every model missing catalog pricing made
