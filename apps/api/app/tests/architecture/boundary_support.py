@@ -107,6 +107,7 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.services.mcp.web_search_adapter",
     "app.services.memory",
     "app.services.notifications",
+    "app.services.office_text",
     "app.services.physics",
     "app.services.plan",
     "app.services.product_analytics",
@@ -122,6 +123,7 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.services.todos",
     "app.services.tokens",
     "app.services.tool_loop",
+    "app.services.transcript_validation",
     "app.services.web_search",
     "app.services.web_session",
 )
