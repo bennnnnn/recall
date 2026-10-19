@@ -235,6 +235,7 @@ async def list_messages_page(
                             "user_message": user_msg.content,
                             "assistant_message": asst_msg.content,
                         },
+                        dedupe_key=jobs.unique_dedupe_key(dedupe_key),
                     )
             except Exception:
                 logger.warning("Title backfill enqueue failed chat_id=%s", chat_id, exc_info=True)

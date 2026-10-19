@@ -20,7 +20,7 @@ from app.core.jobs.admin import (
     replay_dlq,
     report_queue_metrics,
 )
-from app.core.jobs.dedupe import job_done_key
+from app.core.jobs.dedupe import job_done_key, unique_dedupe_key
 from app.core.jobs.pending import MAX_JOB_DELIVERIES
 from app.core.jobs.queue import (
     JOBS_DLQ_STREAM,
@@ -49,4 +49,5 @@ __all__ = [
     "report_queue_metrics",
     "start_worker",
     "stop_worker",
+    "unique_dedupe_key",
 ]
