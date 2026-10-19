@@ -113,6 +113,43 @@ from app.services.routing import (
         ("the project has momentum now", "qwen-3.7-flash"),
         # Plain prose with no math cue stays on the fast alias.
         ("what's for dinner tonight", "qwen-3.7-flash"),
+        ("What is a Python list?", "qwen-3.7-flash"),
+        ("thanks, that helped", "qwen-3.7-flash"),
+        # Hard reasoning with no trigger word (R4.3).
+        (
+            "plan a zero-downtime migration of a monolith Postgres schema to sharded tables",
+            "smart-chat",
+        ),
+        (
+            "All cats are mammals. Some mammals are black. Does it follow that some cats "
+            "are black? Explain carefully.",
+            "smart-chat",
+        ),
+        ("plan my week", "qwen-3.7-flash"),
+        ("drive carefully, it's icy", "qwen-3.7-flash"),
+        # Code review and code writing with no fence (R4.6).
+        (
+            "can you review my function that reverses a linked list, it keeps looping forever",
+            "smart-chat",
+        ),
+        ("write a python function to reverse a string", "smart-chat"),
+        ("can you review my cover letter", "qwen-3.7-flash"),
+        ("my promo code doesn't work", "qwen-3.7-flash"),
+        # Pasted data under 800 characters (R4.8).
+        (
+            'find the duplicate ids: [{"id": 4, "name": "Ana"}, {"id": 9, "name": "Ben"}, '
+            '{"id": 4, "name": "Cy"}, {"id": 12, "name": "Di"}, {"id": 9, "name": "Ed"}, '
+            '{"id": 15, "name": "Flo"}, {"id": 21, "name": "Gus"}, {"id": 15, "name": "Hal"}]',
+            "smart-chat",
+        ),
+        ("my scores were [90, 85, 77], is that good?", "qwen-3.7-flash"),
+        # A matrix stays on the maths lane; writing about a migration stays everyday.
+        ("determinant of [[1,2,3],[0,1,4],[5,6,0]]", "glm-5.2"),
+        (
+            "write a tweet announcing that we finished migrating our whole backend to "
+            "postgres, zero downtime",
+            "qwen-3.7-flash",
+        ),
     ],
 )
 def test_route_chat_model(content: str, expected: str) -> None:

@@ -155,7 +155,7 @@ async def test_web_search_adapter_does_not_call_gateway_directly():
     ):
         result = await adapter.invoke({"query": "anything"}, tool_context())
     direct.assert_not_awaited()
-    assert result.content == "No results."
+    assert result.content.startswith("No results:")
 
 
 @pytest.mark.asyncio

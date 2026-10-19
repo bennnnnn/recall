@@ -15,6 +15,7 @@ from app.models.orm import User
 from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
 from app.modules.chat.continuation_subject import is_resume_request
+from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
     CAREER_PERSONALIZE_HINT,
@@ -312,6 +313,8 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
         lambda t: bool(t.query) and _replied(t) and is_correction(t.query),
         lambda _t: [CORRECTION_HINT],
     ),
+    # Asked-for JSON is checked at finalize (``json_output``); say the shape up front.
+    PromptSection(lambda t: is_json_request(t.query_text), lambda _t: [JSON_OUTPUT_HINT]),
 )
 
 

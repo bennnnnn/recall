@@ -8,13 +8,18 @@ replies come from the real model; without one they are the stand-in model's, and
 only routing (search, photos, solvers, instant replies) is worth reading.
 
 Each prompt gets a fresh chat on dedicated battery accounts (one free, one Pro),
-whose old chats are deleted first. The report lands in tmp/battery/.
+whose old chats are deleted first. The report lands in tmp/battery/, beside a run
+record, tmp/battery/<model>-<sha>.json: per case the routing, the model that
+answered, time to first token, reply length, tokens and estimated cost.
+scripts/battery_compare.py diffs two records and fails on a regression.
 
 Usage (the API must be running: ./scripts/dev.sh up, or ./scripts/dev.sh api):
     ./scripts/dev.sh battery                       # every prompt
     ./scripts/dev.sh battery --category teaching   # one category
     ./scripts/dev.sh battery --only map-where-is,photo-new-product
     ./scripts/dev.sh battery --pro          # every prompt as a paying (Pro) user
+    ./scripts/dev.sh battery --model smart-chat    # every prompt on one model, not Auto
+    python3 scripts/battery_compare.py tmp/battery/auto-<old>.json tmp/battery/auto-<new>.json
 """
 
 from __future__ import annotations
@@ -23,6 +28,8 @@ import argparse
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, field, replace
@@ -35,6 +42,7 @@ import httpx
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "apps" / "api"))
 
+from app.models.model_catalog import estimate_cost_usd  # noqa: E402
 from app.modules.chat.prompt_constants import lesson_step  # noqa: E402
 from app.tests.behavior.cases import CASES, CATEGORIES, Case  # noqa: E402
 
@@ -60,6 +68,17 @@ class Turn:
     error: str | None = None
     first_token_s: float | None = None
     total_s: float = 0.0
+    # The day's usage after the case (reset before it, so earlier turns included).
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+
+    @property
+    def est_cost_usd(self) -> float | None:
+        if not self.model or self.input_tokens is None or self.output_tokens is None:
+            return None
+        return estimate_cost_usd(
+            self.model, input_tokens=self.input_tokens, output_tokens=self.output_tokens
+        )
 
     @property
     def photo(self) -> bool:
@@ -99,8 +118,9 @@ class Turn:
 
 
 class Battery:
-    def __init__(self, api: str) -> None:
+    def __init__(self, api: str, model: str = "auto") -> None:
         self.api = api.rstrip("/")
+        self.model = model
         self.client = httpx.Client(base_url=self.api, timeout=30.0)
         self.tokens: dict[bool, str] = {}
         self.location: dict[bool, str | None] = {}
@@ -165,6 +185,8 @@ class Battery:
         self.last_send = time.monotonic()
         turn = Turn()
         body = {"content": content, "client_timezone": TIMEZONE, "client_location": location}
+        if self.model != "auto":
+            body["model"] = self.model
         started = time.monotonic()
         tokens: list[str] = []
         try:
@@ -219,7 +241,7 @@ class Battery:
         self._reset_quota(case.pro)
         self._set_location(case.pro, case.location)
         created = self.client.post(
-            "/chats", headers=self._headers(case.pro), json={"model": "auto"}
+            "/chats", headers=self._headers(case.pro), json={"model": self.model}
         )
         created.raise_for_status()
         chat_id = created.json()["id"]
@@ -227,7 +249,20 @@ class Battery:
         for role, text in case.history:
             if role == "user":
                 self._send(case.pro, chat_id, text, case.location)
-        return self._send(case.pro, chat_id, case.prompt, case.location)
+        turn = self._send(case.pro, chat_id, case.prompt, case.location)
+        self._read_usage(case.pro, turn)
+        return turn
+
+    def _read_usage(self, pro: bool, turn: Turn) -> None:
+        """Tokens the case used, for its cost; best-effort (None when unreadable)."""
+        try:
+            response = self.client.get("/chats/usage/today", headers=self._headers(pro))
+            response.raise_for_status()
+            usage = response.json()
+        except (httpx.HTTPError, ValueError):
+            return
+        turn.input_tokens = usage.get("input_tokens")
+        turn.output_tokens = usage.get("output_tokens")
 
 
 def check(case: Case, turn: Turn) -> list[str]:
@@ -382,6 +417,73 @@ def write_report(results: list[tuple[Case, Turn]], out_dir: Path, api: str) -> P
     return report
 
 
+def git_sha() -> str:
+    """The checkout's short commit, ``-dirty`` with uncommitted changes, ``nogit`` outside git."""
+    git = shutil.which("git")
+    if git is None:
+        return "nogit"
+
+    def run(*args: str) -> str:
+        done = subprocess.run(  # noqa: S603 - the resolved git binary and literal arguments
+            [git, *args], cwd=ROOT, capture_output=True, text=True, check=True
+        )
+        return done.stdout.strip()
+
+    try:
+        sha = run("rev-parse", "--short", "HEAD")
+        dirty = run("status", "--porcelain", "--untracked-files=no")
+    except (OSError, subprocess.CalledProcessError):
+        return "nogit"
+    return f"{sha}-dirty" if dirty else sha
+
+
+def run_record(
+    results: list[tuple[Case, Turn]], *, model: str, sha: str, api: str
+) -> dict[str, Any]:
+    """One run, as ``scripts/battery_compare.py`` reads it."""
+    return {
+        "meta": {
+            "model": model,
+            "sha": sha,
+            "api": api,
+            "date": datetime.now().isoformat(timespec="seconds"),
+            "stand_in_model": any(turn.reply.startswith(MOCK_REPLY_START) for _, turn in results),
+        },
+        "cases": {
+            case.id: {
+                "category": case.category,
+                "prompt": case.prompt,
+                "pro": case.pro,
+                "route": turn.route(),
+                "model": turn.model,
+                "misses": check(case, turn),
+                "error": turn.error,
+                "first_token_s": None
+                if turn.first_token_s is None
+                else round(turn.first_token_s, 2),
+                "total_s": round(turn.total_s, 2),
+                "reply_chars": len(turn.reply),
+                "sources": len(turn.sources),
+                "input_tokens": turn.input_tokens,
+                "output_tokens": turn.output_tokens,
+                "est_cost_usd": turn.est_cost_usd,
+            }
+            for case, turn in results
+        },
+    }
+
+
+def write_run_record(
+    results: list[tuple[Case, Turn]], out_dir: Path, *, model: str, api: str
+) -> Path:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    sha = git_sha()
+    path = out_dir / f"{model}-{sha}.json"
+    record = run_record(results, model=model, sha=sha, api=api)
+    path.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n")
+    return path
+
+
 # Each run adds about 80 KB, and nothing removed old runs.
 _KEEP_REPORTS = 20
 
@@ -406,12 +508,15 @@ def main() -> int:
     parser.add_argument(
         "--pro", action="store_true", help="every prompt as a Pro user: what a paying user sees"
     )
+    parser.add_argument(
+        "--model", default="auto", help="a model alias to answer every prompt (default: auto)"
+    )
     args = parser.parse_args()
 
     cases = _select(args)
     if args.pro:
         cases = [replace(case, pro=True) for case in cases]
-    battery = Battery(args.api)
+    battery = Battery(args.api, model=args.model)
     battery.check_api()
     for pro in sorted({case.pro for case in cases}):
         battery.login(pro)
@@ -426,8 +531,9 @@ def main() -> int:
         print(f"[{index:>2}/{len(cases)}] {mark} {case.id:<28} {turn.route()}{note}", flush=True)
 
     report = write_report(results, Path(args.out), battery.api)
+    record = write_run_record(results, Path(args.out), model=args.model, api=battery.api)
     failed = sum(1 for _, turn in results if turn.error)
-    print(f"\nReport: {report}")
+    print(f"\nReport: {report}\nRun record: {record}")
     if failed:
         print(f"{failed} prompt(s) failed; see the report.")
     return 1 if failed else 0

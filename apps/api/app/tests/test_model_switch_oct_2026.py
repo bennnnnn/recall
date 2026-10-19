@@ -82,7 +82,8 @@ def test_a_closing_tag_split_across_chunks_does_not_leak() -> None:
 
 def test_only_the_glm_5_3_models_hold_the_start_of_a_reply() -> None:
     guarded = {m.id for m in model_catalog.CATALOG if m.stray_think_guard}
-    assert guarded == {"glm-5.3-flash"}
+    # The photo lane's backup runs GLM 5.3 Flash too, and can carry a chat reply.
+    assert guarded == {"glm-5.3-flash", "fallback-vision-model"}
 
 
 # ── thinking controls ──────────────────────────────────────────────────────────

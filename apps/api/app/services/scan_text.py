@@ -13,6 +13,7 @@ import logging
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
+from app.models.model_catalog import vision_alias
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ async def read_problem_text(
         encoded = base64.standard_b64encode(data).decode("ascii")
         response = await litellm_gateway.vision_completion(
             settings=settings,
-            model_alias="vision-chat",
+            model_alias=vision_alias(),
             messages=[
                 {
                     "role": "user",

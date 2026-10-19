@@ -1,4 +1,9 @@
-"""Cached web search execution via Tavily (+ DuckDuckGo fallback)."""
+"""Cached web search execution via Tavily (+ DuckDuckGo fallback).
+
+Merged hits come back with official and reference sources first
+(``source_quality``). Each query is recorded on the turn's budget as answered or
+failed, so the turn can say "search failed right now" instead of "no results".
+"""
 
 from __future__ import annotations
 
@@ -14,8 +19,9 @@ from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.gateways import web_search_gateway
 from app.gateways.mcp.base import TavilyBudget
-from app.gateways.web_search_gateway import WebSearchHit
+from app.gateways.web_search_gateway import WebSearchHit, WebSearchUnavailableError
 from app.models.orm import User
+from app.modules.web_search.source_quality import rank_by_source
 from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
@@ -33,6 +39,10 @@ class TurnTavilyBudget:
     lock makes the check-then-reserve atomic across the gathered coroutines so
     two cache-missing queries can't both reserve. A chat turn passes one budget
     to every search it runs (its ``ToolContext.tavily_budget``).
+
+    It is also the turn's search ledger: each query that reached the providers
+    is recorded as answered (hits or none) or failed, and ``search_failed`` says
+    every one of them failed.
     """
 
     settings: Settings
@@ -40,6 +50,19 @@ class TurnTavilyBudget:
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     _decided: bool = False
     _skip_tavily: bool = False
+    _answered: int = 0
+    _failed: int = 0
+
+    def record_search(self, *, failed: bool) -> None:
+        if failed:
+            self._failed += 1
+        else:
+            self._answered += 1
+
+    @property
+    def search_failed(self) -> bool:
+        """The turn searched and every search errored: "tried and failed", not "nothing"."""
+        return self._failed > 0 and self._answered == 0
 
     async def skip_tavily(self, redis: Redis) -> bool:
         """Whether this turn must skip Tavily (daily cap, no user, or Redis fail).
@@ -132,9 +155,9 @@ async def _run_search(
             seen_urls.add(key)
             merged.append(hit)
             if len(merged) >= limit:
-                return merged, list(queries)
+                return rank_by_source(merged), list(queries)
 
-    return merged, list(queries)
+    return rank_by_source(merged), list(queries)
 
 
 def _search_cache_key(query: str, max_results: int, *, user_id: str = "anon") -> str:
@@ -177,6 +200,7 @@ async def _search_with_cache(
         if cached:
             hits = _hits_from_payload(json.loads(cached))
             if hits is not None:
+                _record(budget, failed=False)
                 return hits
     except Exception:
         logger.debug("Web search cache read failed", exc_info=True)
@@ -196,6 +220,7 @@ async def _search_with_cache(
                 if cached:
                     hits = _hits_from_payload(json.loads(cached))
                     if hits is not None:
+                        _record(budget, failed=False)
                         return hits
             except Exception:
                 logger.debug("Web search cache read failed", exc_info=True)
@@ -205,12 +230,17 @@ async def _search_with_cache(
         # that this query has missed cache and is about to hit the network.
         skip_tavily = await budget.skip_tavily(cache_redis) if budget is not None else False
 
-        hits = await web_search_gateway.search_web(
-            settings,
-            cleaned,
-            max_results=max_results,
-            skip_tavily=skip_tavily,
-        )
+        try:
+            hits = await web_search_gateway.search_web(
+                settings,
+                cleaned,
+                max_results=max_results,
+                skip_tavily=skip_tavily,
+            )
+        except WebSearchUnavailableError:
+            _record(budget, failed=True)
+            return []
+        _record(budget, failed=False)
         if hits:
             try:
                 await cache_redis.set(
@@ -227,3 +257,8 @@ async def _search_with_cache(
                 await cache_redis.delete(lock_key)
             except Exception:
                 logger.debug("Web search lock release failed", exc_info=True)
+
+
+def _record(budget: TavilyBudget | None, *, failed: bool) -> None:
+    if budget is not None:
+        budget.record_search(failed=failed)

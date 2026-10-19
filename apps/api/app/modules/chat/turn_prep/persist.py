@@ -20,7 +20,6 @@ from app.modules.attachments import rag as attachment_rag
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan as plan_service
 from app.modules.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
-from app.modules.chat.turn_prep.vision import uses_vision_model
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
@@ -56,10 +55,16 @@ class UserTurn:
     model: str | None = None
     prior_count: int | None = None
     turn_mode: _TurnMode | None = None
+    # Models whose provider is failing, as read when the turn loaded (None: not read).
+    unhealthy: frozenset[str] | None = None
 
 
 def turn_model(turn: UserTurn, user: User, settings: Settings) -> str:
-    """The model already chosen, else the user's pick for this text; photos need vision."""
+    """The model already chosen, else the user's pick for this text.
+
+    A photo sent with this message needs a model that reads it. An earlier photo
+    only counts once the prompt build sends it again (``image_model``).
+    """
     model = turn.model
     if model is None:
         prior_user, prior_model = last_user_turn(turn.recent_messages)
@@ -71,14 +76,22 @@ def turn_model(turn: UserTurn, user: User, settings: Settings) -> str:
             prior_user=prior_user,
             prior_model=prior_model,
             lesson_active=turn.lesson_active,
+            unhealthy=turn.unhealthy or frozenset(),
         )
-    if uses_vision_model(
-        settings=settings,
-        has_image_attachment=turn.has_image_attachment,
-        recent_messages=turn.recent_messages,
-    ):
-        model = "vision-chat"
+    if turn.has_image_attachment and settings.attachments_enabled:
+        model = image_model(turn, user, settings, model)
     return model
+
+
+def image_model(turn: UserTurn, user: User, settings: Settings, routed: str) -> str:
+    """The model this turn runs on once it shows the model an image."""
+    return plan_service.image_turn_model(
+        user,
+        settings,
+        routed,
+        explicit=plan_service.is_explicit_pick(turn.model_alias),
+        unhealthy=turn.unhealthy or frozenset(),
+    )
 
 
 async def persist_user_turn(

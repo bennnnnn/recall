@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.core.ids import uuid7
 from app.exceptions import ChatNotFoundError
 from app.models.orm import Chat, User
+from app.modules.billing import plan as plan_service
 from app.modules.chat.prompt_constants import active_lesson_step
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_prep.attachments import _process_attachments
@@ -29,7 +30,12 @@ from app.modules.chat.turn_prep.context import (
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import _TurnMode
-from app.modules.chat.turn_prep.persist import UserTurn, persist_user_turn, turn_model
+from app.modules.chat.turn_prep.persist import (
+    UserTurn,
+    image_model,
+    persist_user_turn,
+    turn_model,
+)
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.chat.turn_prep.vision import inject_turn_images
 from app.modules.chat.turn_timing import TurnTimingTracker
@@ -63,9 +69,11 @@ async def prepare_chat_turn(
     recent_messages: list[Any] | None = None,
     resolved_model: str | None = None,
     on_user_saved: Callable[[], None] | None = None,
+    unhealthy: frozenset[str] | None = None,
 ) -> StreamContext:
     """``on_user_saved`` runs once the user's row has committed (an error after
-    that point must not offer to resend the message)."""
+    that point must not offer to resend the message). ``unhealthy`` is the model
+    health the load read (None: read it again for the backups)."""
     attachments = await _process_attachments(
         user_id=user_id,
         user=user,
@@ -94,6 +102,7 @@ async def prepare_chat_turn(
         model=resolved_model,
         prior_count=prior_count,
         turn_mode=turn_mode,
+        unhealthy=unhealthy,
     )
     indexable: list[str] = []
     history: list[Any] | None = None
@@ -133,6 +142,7 @@ async def prepare_chat_turn(
         probe_attachment_rag=_probe_attachment_rag(turn, history, settings),
         recent_messages=history,
         current_user_message_id=turn.message_id,
+        unhealthy_models=unhealthy,
     )
     persist: asyncio.Task[list[str]] | None = None
     if history is None:
@@ -142,7 +152,15 @@ async def prepare_chat_turn(
     if await inject_turn_images(
         bundle.prompt_messages, attachments, caption=content, settings=settings, user=turn.user
     ):
-        turn.model = "vision-chat"
+        # An earlier photo went back in: the model and its backups must read it.
+        turn.model = image_model(turn, turn.user, settings, turn.model)
+        bundle.fallback_models = plan_service.chat_fallback_models(
+            turn.user,
+            settings,
+            turn.model,
+            unhealthy=turn.unhealthy or frozenset(),
+            needs_vision=True,
+        )
     return _stream_context(
         bundle,
         turn,

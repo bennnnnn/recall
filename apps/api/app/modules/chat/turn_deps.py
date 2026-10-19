@@ -109,6 +109,7 @@ class Plan(Protocol):
         prior_user: str | None = ...,
         prior_model: str | None = ...,
         lesson_active: bool = ...,
+        unhealthy: frozenset[str] = ...,
     ) -> str: ...
 
     def resolve_regenerate_model(

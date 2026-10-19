@@ -94,3 +94,16 @@ async def enrich_models_health(
     _ = settings
     snaps = await asyncio.gather(*(get_health(redis, alias) for alias in aliases))
     return dict(zip(aliases, snaps, strict=True))
+
+
+async def unhealthy_aliases(redis: Redis, settings: Settings, aliases: list[str]) -> frozenset[str]:
+    """The aliases whose provider is failing or slow; empty when health can't be read.
+
+    Best-effort: routing must never fail a turn over a health read.
+    """
+    try:
+        snaps = await enrich_models_health(redis, settings, aliases)
+    except Exception:
+        logger.debug("model health read failed during routing", exc_info=True)
+        return frozenset()
+    return frozenset(alias for alias, snap in snaps.items() if not snap.healthy)

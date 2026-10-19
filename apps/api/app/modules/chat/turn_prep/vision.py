@@ -1,8 +1,10 @@
-"""The images a new turn's prompt carries: this turn's photos, or the previous turn's.
+"""The images a new turn's prompt carries: this turn's photos, or the user's earlier ones.
 
 A photo sent now is injected from the bytes attachment processing already read. A
 follow-up about an earlier photo reads that photo again, so the model looks at it
-rather than at its marker, and is told plainly when it is gone.
+rather than at its marker, and is told plainly when it is gone. Only the user's own
+photos go back in: a picture Recall generated is the model's own work, and sending
+it again would move every later turn onto a photo model for nothing.
 """
 
 from __future__ import annotations
@@ -17,22 +19,6 @@ from app.modules.attachments import content as attachment_content
 from app.modules.attachments import markers as attachment_markers
 from app.modules.attachments import service as attachments_service
 from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult
-
-
-def uses_vision_model(
-    *,
-    settings: Settings,
-    has_image_attachment: bool,
-    recent_messages: list[Any] | None,
-) -> bool:
-    """A photo in this turn, or one still in the history, needs the vision model."""
-    if not settings.attachments_enabled:
-        return False
-    if has_image_attachment:
-        return True
-    if not recent_messages:
-        return False
-    return attachment_markers.history_has_image_marker(recent_messages)
 
 
 async def inject_turn_images(
@@ -76,7 +62,8 @@ async def _inject_prior_images(
     settings: Settings,
     user: User,
 ) -> bool:
-    prior_ids = attachment_markers.prior_image_attachment_ids(prompt_messages)
+    user_turns = [message for message in prompt_messages if message.get("role") == "user"]
+    prior_ids = attachment_markers.prior_image_attachment_ids(user_turns)
     if not prior_ids:
         return False
     rehydrate_gateway = gateway or get_storage_gateway(settings)

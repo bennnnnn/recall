@@ -97,19 +97,6 @@ def prior_image_attachment_ids(
     return ordered
 
 
-def history_has_image_marker(messages: list[Any]) -> bool:
-    """True when any history row still has an ``[Image: …]`` marker."""
-    for row in messages:
-        if isinstance(row, dict):
-            text = _content_as_text(row.get("content"))
-        else:
-            raw = getattr(row, "content", None)
-            text = raw if isinstance(raw, str) else ""
-        if image_attachment_ids_from_text(text):
-            return True
-    return False
-
-
 def append_image_unavailable_note(prompt_messages: list[dict[str, Any]]) -> None:
     """Tell the model it cannot see a prior image — do not guess from a caption."""
     for index in range(len(prompt_messages) - 1, -1, -1):

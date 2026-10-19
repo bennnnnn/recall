@@ -23,7 +23,9 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
+from app.modules.billing import plan as plan_service
 from app.modules.chat import prompt_constants as pc
+from app.modules.chat.json_output import JSON_OUTPUT_HINT
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.selection import _search_before_the_model
@@ -37,6 +39,7 @@ from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
+from app.services.routing import last_user_turn
 from app.services.subject_solving import detect_subject
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
@@ -86,6 +89,7 @@ HINTS: dict[str, str] = {
     "mixed_length": pc.MIXED_LENGTH_HINT,
     "continue": pc.CONTINUE_HINT,
     "correction": pc.CORRECTION_HINT,
+    "json_output": JSON_OUTPUT_HINT,
 }
 
 USER_NAME = "Bini"
@@ -103,6 +107,8 @@ class Route:
     solved: bool
     instant: str
     lightweight: bool
+    # The model Auto picks for the case's plan.
+    model: str = ""
     hints: set[str] = field(default_factory=set)
     # The ``programming_lesson`` contract is turn-specific text, not a constant.
     system_prompt: str = ""
@@ -124,6 +130,8 @@ class Route:
             parts.append(f"instant={self.instant}")
         if self.lightweight:
             parts.append("lightweight")
+        if self.model:
+            parts.append(f"model={self.model}")
         if self.hints:
             parts.append("hints=" + ",".join(sorted(self.hints)))
         return " ".join(parts)
@@ -227,6 +235,15 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     prior_users = [row.content for row in rows if row.role == "user"]
     last_assistant = next((row for row in reversed(rows) if row.role == "assistant"), None)
     text = case.prompt
+    prior_user, prior_model = last_user_turn(rows)
+    model = plan_service.resolve_user_model(
+        user,
+        text,
+        settings,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=pc.active_lesson_step(rows) is not None,
+    )
 
     found = extract_image_lookup_query(text) if settings.image_search_enabled else None
     photo = dated_lookup_query(found, datetime.now(UTC).year) if found else ""
@@ -288,7 +305,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
                 user_id=user.id,
                 chat_id=chat.id,
                 content=text,
-                model="free-chat",
+                model=model,
                 client_timezone=USER_TIMEZONE,
                 client_location=case.location,
                 client_latitude=None,
@@ -305,7 +322,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
             bundle,
             user_id=user.id,
             chat_id=chat.id,
-            model="free-chat",
+            model=model,
             user_message_content=text,
             reserved_tokens=100,
             user=user,
@@ -342,6 +359,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         instant=_instant_kind(bundle.instant_reply, solved=solved),
         instant_text=bundle.instant_reply or "",
         lightweight=bool(bundle.lightweight),
+        model=model,
         hints=_hints_in(system, case),
         system_prompt=system,
         verified_answer=(verified.display_answer or verified.canonical_answer or "")
@@ -380,6 +398,7 @@ def mismatches(expect: Expect, route: Route) -> list[str]:
     check("solved", expect.solved, route.solved)
     check("instant", expect.instant, route.instant)
     check("lightweight", expect.lightweight, route.lightweight)
+    check("model", expect.model, route.model)
     if expect.answer_photo and "answer_photo" not in route.hints:
         out.append("answer photo: the turn never offers one")
     for hint in expect.hints:

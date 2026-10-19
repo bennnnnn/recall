@@ -21,13 +21,18 @@ class ToolResult:
 
 
 class TavilyBudget(Protocol):
-    """One Tavily reservation for every web search in a turn.
+    """One Tavily reservation for every web search in a turn, and how they went.
 
     ``app.modules.web_search.TurnTavilyBudget`` implements it; this protocol lets
     a ``ToolContext`` carry it without the gateway importing a product module.
     """
 
     async def skip_tavily(self, redis: Redis) -> bool: ...
+
+    def record_search(self, *, failed: bool) -> None: ...
+
+    @property
+    def search_failed(self) -> bool: ...
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -91,5 +91,5 @@ async def _force_web_search_if_needed(
             block = wrap_untrusted("web search", format_search_block(hits))
             return inject_before_last_user(messages, block), hits
 
-    empty = format_search_empty_block(tried or [user_text])
+    empty = format_search_empty_block(tried or [user_text], failed=ctx.tavily_budget.search_failed)
     return inject_before_last_user(messages, empty), search_hits

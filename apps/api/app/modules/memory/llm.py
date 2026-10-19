@@ -172,6 +172,8 @@ async def revise_memory_facts(
         schema=MemoryFactUpdateResult,
         # Room for several ops; a reply cut off mid-JSON is discarded whole.
         max_tokens=2048,
+        # A background job: bad JSON asks the fallback model once, not drops the turn.
+        fallback_on_invalid=True,
     )
 
 

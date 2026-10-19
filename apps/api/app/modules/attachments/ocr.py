@@ -11,6 +11,7 @@ from typing import Any
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
+from app.models.model_catalog import vision_alias
 from app.modules.attachments.content import MAX_EXTRACT_CHARS, ExtractedText
 
 logger = logging.getLogger(__name__)
@@ -167,7 +168,7 @@ async def _ocr_one_page(
     ]
     response = await litellm_gateway.vision_completion(
         settings=settings,
-        model_alias="vision-chat",
+        model_alias=vision_alias(),
         messages=messages,
         max_tokens=2048,
         timeout_seconds=settings.attachment_ocr_page_timeout_seconds,

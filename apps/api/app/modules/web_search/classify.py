@@ -104,6 +104,8 @@ async def classify_web_search_need(
                 max_tokens=64,
                 timeout_seconds=settings.web_search_classifier_timeout_seconds,
                 allow_fallback=False,
+                # Bad JSON asks the fallback model once, inside the same deadline.
+                fallback_on_invalid=True,
             )
     except TimeoutError:
         logger.debug("Web-search classifier exceeded its foreground budget")

@@ -64,7 +64,8 @@ async def test_truncated_complete_json_never_invokes_a_tool():
         )
     invoke.assert_not_awaited()
     assert out == [*messages, rounds._tool_selection_unavailable_message()]
-    assert usage == {"input": 50, "output": 1024}
+    # The cut-off decision was asked once more, of the second selector; both bill.
+    assert usage == {"input": 100, "output": 2048}
     assert verified is terminal is None
     assert hits == []
 
@@ -96,3 +97,74 @@ async def test_cancel_after_selection_prevents_invocation_and_failure_context():
         )
     invoke.assert_not_awaited()
     assert out == messages
+
+
+def _unavailable(alias: str, *, timed_out: bool = False) -> Exception:
+    error = rounds.ModelUnavailableError("down", failed_alias=alias)
+    if timed_out:
+        error.__cause__ = TimeoutError()
+    return error
+
+
+_WEB_SEARCH_CALL = {
+    "id": "c1",
+    "type": "function",
+    "function": {"name": "web_search", "arguments": '{"query": "lisbon weather"}'},
+}
+
+
+async def _select(complete: AsyncMock) -> tuple[list[dict], AsyncMock]:
+    messages = [{"role": "user", "content": "weather in lisbon"}]
+    invoke = AsyncMock(return_value=SimpleNamespace(name="web_search", content="Sunny", data=None))
+    with (
+        patch.object(rounds.litellm_gateway, "complete_with_tools", complete),
+        patch.object(calls.mcp_registry, "invoke_validated", invoke),
+    ):
+        out, *_ = await rounds._run_rounds(
+            settings=Settings(),
+            model_alias="smart-chat",
+            messages=messages,
+            usage={},
+            tools=[{"type": "function", "function": {"name": "web_search"}}],
+            ctx=tool_context(),
+            on_status=None,
+            should_cancel=None,
+        )
+    return out, invoke
+
+
+@pytest.mark.asyncio
+async def test_a_failed_tool_selector_is_retried_once_on_the_next():
+    """V10.1: GPT-6 Luna's provider fails; the second selector picks the tool."""
+    complete = AsyncMock(
+        side_effect=[
+            _unavailable("gpt-6-luna"),
+            {"content": None, "tool_calls": [_WEB_SEARCH_CALL], "finish_reason": "tool_calls"},
+        ]
+    )
+    out, invoke = await _select(complete)
+    assert [call.kwargs["model_alias"] for call in complete.await_args_list] == [
+        "gpt-6-luna",
+        "free-chat",
+    ]
+    invoke.assert_awaited_once()
+    assert rounds._tool_selection_unavailable_message() not in out
+
+
+@pytest.mark.asyncio
+async def test_both_tool_selectors_failing_says_no_actions_were_performed():
+    complete = AsyncMock(side_effect=[_unavailable("gpt-6-luna"), RuntimeError("boom")])
+    out, invoke = await _select(complete)
+    assert complete.await_count == 2
+    invoke.assert_not_awaited()
+    assert out[-1] == rounds._tool_selection_unavailable_message()
+
+
+@pytest.mark.asyncio
+async def test_a_timed_out_tool_selector_is_not_asked_twice():
+    """A timeout spent the selection budget: the reply streams without tools."""
+    complete = AsyncMock(side_effect=[_unavailable("gpt-6-luna", timed_out=True)])
+    out, invoke = await _select(complete)
+    complete.assert_awaited_once()
+    invoke.assert_not_awaited()
+    assert out[-1] == rounds._tool_selection_unavailable_message()

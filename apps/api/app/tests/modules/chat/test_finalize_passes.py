@@ -73,6 +73,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "drop_cut_reminder_fence",
         "prepare_model_reply",
         "untrusted_media",
+        "search_links",
         "generic_closer",
         "answer_photo",
         "chemistry_fences",
@@ -87,17 +88,21 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "search_sources",
         "instant_usage",
         "close_fences",
+        "requested_json",
         "recipient_placeholders",
         "prose",
         "mermaid_and_places",
         "presentation",
         "clock",
     ]
-    # Only the subject fence passes, the chemistry enrichment and the closer strip
+    # Only the subject fence passes, the chemistry enrichment, the closer strip and
+    # the two checks that only ever narrow the reply (search links, requested JSON)
     # go on after a failure; every other pass falls back to the last committed text.
     kept = {name: (log_as, rewrite is not None) for name, log_as, rewrite in order if log_as}
     assert kept == {
         "generic_closer": ("generic_closer", False),
+        "search_links": ("search_links", False),
+        "requested_json": ("requested_json", False),
         "chemistry_fences": ("validate_math_fences", True),
         "physics_fences": ("validate_math_fences", True),
         "math_fences": ("validate_math_fences", True),
