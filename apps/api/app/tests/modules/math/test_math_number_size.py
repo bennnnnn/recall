@@ -50,4 +50,4 @@ def test_the_graph_reader_declines_a_power_tower_at_once() -> None:
     intent = extract_math_intent("graph 2y = 9^9^8 + x")
     assert time.perf_counter() - start < 0.5
     # No y = f(x) was found, so no verified graph is drawn from it.
-    assert intent is None or "9**9**8" in intent.expr or intent.expr == ""
+    assert intent is None or not intent.expr or "9**9**8" in intent.expr
