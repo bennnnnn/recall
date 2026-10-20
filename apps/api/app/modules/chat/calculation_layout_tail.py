@@ -1,4 +1,5 @@
-"""How a laid-out line ends: its note and its hard break (twin: calculationLayoutTail.ts)."""
+"""Whether a plain line is a chain to lay out, and how a laid-out line ends: its note and its
+hard break (twin: calculationLayoutTail.ts)."""
 
 from __future__ import annotations
 
@@ -22,3 +23,20 @@ def finish_inline(parts: list[str], tail: str) -> str:
 def keep_hard_break(original: str, laid: str) -> str:
     """``laid`` ends with ``original``'s hard break, if it had one."""
     return f"{laid.rstrip()}  " if original.endswith("  ") else laid
+
+
+# Subscript digits and charges are chemistry notation (C₃H₈, Fe²⁺): typeset as maths,
+# its formulas and units went italic ("n(C₃H₈) = 0.227 mol").
+_CHEMISTRY_MARKS = frozenset("₀₁₂₃₄₅₆₇₈₉⁺⁻")
+
+
+def reads_as_prose(text: str) -> bool:
+    """A plain line that stays text: a word of four letters or more, or chemistry notation."""
+    run = 0
+    for char in text:
+        if char in _CHEMISTRY_MARKS:
+            return True
+        run = run + 1 if char.isalpha() else 0
+        if run >= 4:
+            return True
+    return False

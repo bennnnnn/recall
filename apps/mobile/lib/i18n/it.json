@@ -235,7 +235,7 @@
   "chat.voice_a11y": "Voice input",
   "chat.voice_cancel_a11y": "Cancel voice input",
   "chat.voice_listening": "Listening…",
-  "chat.voice_network_failed": "Couldn't reach the server to transcribe. Check your connection (USB: run adb reverse tcp:8000 tcp:8000).",
+  "chat.voice_network_failed": "Impossibile raggiungere il server. Controlla la connessione e riprova.",
   "chat.voice_permission_body": "Allow microphone access in Settings to dictate messages.",
   "chat.voice_permission_title": "Microphone access needed",
   "chat.voice_recording_empty": "That recording was too short or empty. Hold the mic a bit longer and try again.",

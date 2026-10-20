@@ -383,11 +383,15 @@ describe("markdown render rules", () => {
     expect(queryByText(/\$|\\frac/)).toBeNull();
   });
 
-  it("indents a section's work behind a rule, Given on one row and the answer in a box", async () => {
+  it("rules only Given and Find, stacks the givens and names them, and boxes the answer", async () => {
     const content = [
       "**Given**  ",
       String.raw`$m = 5\ \text{kg}$  `,
-      String.raw`$F = 20\ \text{N}$`,
+      String.raw`$F = 20\ \text{N}$  `,
+      String.raw`where $m$ = mass, $F$ = force`,
+      "",
+      "**Find**  ",
+      String.raw`$a$`,
       "",
       "**Formula**  ",
       String.raw`$a = \frac{F}{m}$ — Newton's second law`,
@@ -395,27 +399,32 @@ describe("markdown render rules", () => {
       "**Answer**  ",
       String.raw`$a = 4\ \text{m/s}^2$`,
     ].join("\n");
-    const { getAllByTestId, getByTestId, getByText } = await render(
+    const { getAllByTestId, getByTestId, getByText, queryByTestId } = await render(
       <MarkdownContent content={content} />,
     );
-    // The headings stay at the margin; the work sits behind a thin rule.
-    // The Answer's tinted box needs no rule, and the answer is centred in it.
-    const bodies = getAllByTestId("workout-body");
-    expect(bodies).toHaveLength(3);
-    for (const body of bodies.slice(0, 2)) {
-      expect(StyleSheet.flatten(body.props.style)).toMatchObject({ borderLeftWidth: 2 });
-    }
-    expect(StyleSheet.flatten(bodies[2].props.style).borderLeftWidth).toBeUndefined();
+    // The headings stay at the margin. Given and Find sit behind a thin rule; the
+    // working has none but starts at the same edge; the Answer's box needs neither.
+    const bodies = getAllByTestId("workout-body").map((body) => StyleSheet.flatten(body.props.style));
+    expect(bodies).toHaveLength(4);
+    expect(bodies[0]).toMatchObject({ borderLeftWidth: 2 });
+    expect(bodies[1]).toMatchObject({ borderLeftWidth: 2 });
+    expect(bodies[2].borderLeftWidth).toBeUndefined();
+    expect(bodies[2].paddingLeft).toBe((bodies[0].paddingLeft as number) + 2);
+    expect(bodies[3].borderLeftWidth).toBeUndefined();
     expect(StyleSheet.flatten(getByTestId("workout-answer").props.style)).toMatchObject({
       alignItems: "center",
     });
-    // Both given values share one wrapping row.
-    const given = getByTestId("workout-given");
-    expect(StyleSheet.flatten(given.props.style)).toMatchObject({
-      flexDirection: "row",
-      flexWrap: "wrap",
-    });
-    expect(within(given).getAllByTestId("workout-line")).toHaveLength(2);
+    // Each given is its own line, then the line naming them, in secondary ink.
+    expect(queryByTestId("workout-given")).toBeNull();
+    const givenLines = within(getAllByTestId("workout-body")[0]).getAllByTestId("workout-line");
+    expect(givenLines).toHaveLength(3);
+    const naming = getByText(/= force/);
+    expect(StyleSheet.flatten(naming.props.style)).toMatchObject({ color: lightTheme.textSecondary });
+    // Each name keeps its symbol and its meaning together: "where m = mass," then "F = force".
+    const names = getAllByTestId("workout-naming");
+    expect(names).toHaveLength(2);
+    expect(StyleSheet.flatten(names[0].props.style)).toMatchObject({ flexDirection: "row" });
+    expect(names[1]).toHaveTextContent(/F\s*= force/);
     // A move's note is pushed to the right edge.
     const note = getByTestId("workout-note");
     expect(StyleSheet.flatten(note.props.style)).toMatchObject({ marginLeft: "auto" });

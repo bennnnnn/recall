@@ -217,6 +217,13 @@ def can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
     request = prepare(user_text)
     if not request:
         return False
+    from app.modules.math.tools.extract import is_graph_followup
+
+    # Follow-ups ("Plot", "graph it") reuse the verified samples from a prior
+    # message; the current line has no f(x) to string-match. A bare "Plot" has
+    # no "plot " prefix, and fell to the model, which wrote out its reasoning.
+    if is_graph_followup(user_text):
+        return True
     if request.lower().startswith("please "):
         request = request[7:].lstrip()
     for prefix in ("graph ", "plot ", "draw ", "sketch ", "visualize ", "visualise "):
@@ -226,12 +233,6 @@ def can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
             break
     else:
         return False
-    from app.modules.math.tools.extract import is_graph_followup
-
-    # Pronoun follow-ups ("graph it") reuse the verified samples from a prior
-    # equation; the current line has no f(x) to string-match.
-    if is_graph_followup(user_text):
-        return True
     request = _strip_graph_interaction_tail(request)
     domain = graph_domain(request)
     if domain is not None:

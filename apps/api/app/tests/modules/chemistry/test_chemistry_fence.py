@@ -16,6 +16,23 @@ def test_enrich_valid_smiles_canonicalizes() -> None:
     assert "OCC" not in result
 
 
+@pytest.mark.parametrize(
+    ("written", "drawn"),
+    [
+        # PubChem's caffeine: ring carbons with =O and aromatic N drew as CH₂ and HC.
+        ("Cn1c(=O)c2c(ncn2C)n(C)c1=O", "CN1C=NC2=C1C(=O)N(C)C(=O)N2C"),
+        ("c1ccncc1", "C1=CC=NC=C1"),
+        ("c1ccccc1", "C1=CC=CC=C1"),
+        ("c1cc[nH]c1", "C1=CNC=C1"),
+        ("CCO", "CCO"),
+    ],
+)
+def test_enrich_writes_the_kekule_smiles_the_phone_draws(written: str, drawn: str) -> None:
+    # smiles-drawer counts an aromatic bond as single when it adds hydrogens.
+    result = chemistry_fence.enrich_chemistry_fences(f"```smiles\n{written}\n```")
+    assert f"\n{drawn}\n```" in result
+
+
 def test_enrich_valid_smiles_with_caption() -> None:
     content = "```smiles\nEthanol\nCCO\n```"
     result = chemistry_fence.enrich_chemistry_fences(content)

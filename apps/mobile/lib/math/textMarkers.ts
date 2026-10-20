@@ -34,6 +34,14 @@ export const NATIVE_UPRIGHT_END_MARKER = String.fromCharCode(0xe007);
 // Literal set braces must survive the generic TeX-group unwrapping below.
 export const NATIVE_LITERAL_LEFT_BRACE_MARKER = String.fromCharCode(0xe008);
 export const NATIVE_LITERAL_RIGHT_BRACE_MARKER = String.fromCharCode(0xe009);
+
+/** The literal apostrophe and braces the markers above held back, put back as typed. */
+export function restoreNativeLiterals(value: string): string {
+  return value
+    .split(NATIVE_LITERAL_APOSTROPHE_MARKER).join("'")
+    .split(NATIVE_LITERAL_LEFT_BRACE_MARKER).join("{")
+    .split(NATIVE_LITERAL_RIGHT_BRACE_MARKER).join("}");
+}
 // `\textit` and `\operatorname*` belong with `\text`. Leaving them out let a
 // bare `_` keep the backslash and print the command name beside the word.
 const UPRIGHT_TEXT_COMMANDS =

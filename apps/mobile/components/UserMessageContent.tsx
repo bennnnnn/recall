@@ -7,10 +7,8 @@ import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { LinkPreviewTrust } from "@/components/markdown/LinkPreviewTrust";
-import {
-  sentMessageShowsMathPreview,
-  MathDraftPreview,
-} from "@/features/chat/components/MathDraftPreview";
+import { MathDraftPreview } from "@/features/chat/components/MathDraftPreview";
+import { sentMessageShowsMathPreview } from "@/lib/math/draftText";
 import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
 import { Message } from "@/lib/api";
 import {
@@ -48,16 +46,22 @@ export function UserMessageContent({ message }: Props) {
     message.local_file_uri &&
     isPdfContentType(message.local_file_content_type ?? "application/pdf");
   const showPdf = Boolean(pdfFile || localPdf);
+  // A reopened message links only the file; its name comes from the server's attachment row.
+  const { fileName: pdfUploadName } = useAttachmentIndexed(pdfFile?.attachmentId);
   const pdfFileName =
     message.local_file_name ??
+    pdfUploadName ??
     guessFileNameFromCaption(parsed.caption, "document.pdf");
   const nonPdfFile = parsed.files.find((file) => !isPdfContentType(file.contentType));
+  const {
+    indexed: fileIndexed,
+    failed: fileIndexFailed,
+    fileName: fileUploadName,
+  } = useAttachmentIndexed(nonPdfFile?.attachmentId);
   const nonPdfFileLabel =
     message.local_file_name ??
+    fileUploadName ??
     fileLabelFromContentType(nonPdfFile?.contentType, t("chat.attached_file"));
-  const { indexed: fileIndexed, failed: fileIndexFailed } = useAttachmentIndexed(
-    nonPdfFile?.attachmentId,
-  );
   const nonPdfFileStatus = fileIndexFailed
     ? t("chat.file_index_failed")
     : fileIndexed

@@ -4,7 +4,7 @@
  * docs/fixtures/presentation_cases.json holds both to the same output.
  */
 
-import { finishInline, keepHardBreak } from "@/lib/markdown/calculationLayoutTail";
+import { finishInline, keepHardBreak, readsAsProse } from "@/lib/markdown/calculationLayoutTail";
 import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
 import { displayMathLines, leaveProseLine, rewriteFenced } from "@/lib/markdown/markdownRegions";
 import { charAt, LETTER } from "@/lib/markdown/unicodeChars";
@@ -242,19 +242,6 @@ function soleMath(stripped: string): { delim: string; inner: string; punct: stri
   return null;
 }
 
-function hasLongWord(text: string): boolean {
-  let run = 0;
-  for (const char of text) {
-    if (LETTER.test(char)) {
-      run += 1;
-      if (run >= 4) return true;
-    } else {
-      run = 0;
-    }
-  }
-  return false;
-}
-
 function readCodeEnd(text: string, index: number): number | null {
   let length = 0;
   while (index + length < text.length && text[index + length] === "`") length += 1;
@@ -355,7 +342,7 @@ function withIndent(body: string, joined: string): string {
 }
 
 function plainChain(body: string): string | null {
-  if (hasLongWord(body)) return null;
+  if (readsAsProse(body)) return null;
   const { core, punct } = peelPunct(body.trim());
   const rows = splitMathExpression(core);
   if (!rows) return null;

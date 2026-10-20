@@ -61,5 +61,9 @@
   {"id": "L60", "area": "lookalike", "prompt": "Is 85°F weather too hot for a 5 mile run?", "expect": "not_math"},
   {"id": "L61", "area": "lookalike", "prompt": "The hotel says breakfast is free and complementary. Does that usually include coffee?", "expect": "not_math"},
   {"id": "L62", "area": "lookalike", "prompt": "Is a supplement of 1000 IU of vitamin D a day enough in winter?", "expect": "not_math"},
-  {"id": "L63", "area": "lookalike", "prompt": "What's a light lunch that's a good supplement for 35° summer days?", "expect": "not_math"}
+  {"id": "L63", "area": "lookalike", "prompt": "What's a light lunch that's a good supplement for 35° summer days?", "expect": "not_math"},
+  {"id": "L64", "area": "lookalike", "prompt": "wait 30 sec", "expect": "not_math"},
+  {"id": "L65", "area": "lookalike", "prompt": "set a timer for 10 sec", "expect": "not_math"},
+  {"id": "L66", "area": "lookalike", "prompt": "be back in a sec 2 min", "expect": "not_math"},
+  {"id": "L67", "area": "lookalike", "prompt": "the cotton costs 3 dollars", "expect": "not_math"}
 ]

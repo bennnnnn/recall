@@ -960,6 +960,18 @@
       "area": "calculation",
       "input": "a = b = c",
       "expected": "$a = b$  \n$a = c$"
+    },
+    {
+      "id": "chemistry-notation-stays-text",
+      "area": "calculation",
+      "input": "n(C₃H₈) = 10.0 / 44.097 = 0.227 mol",
+      "expected": "n(C₃H₈) = 10.0 / 44.097 = 0.227 mol"
+    },
+    {
+      "id": "plain-arithmetic-chain-still-splits",
+      "area": "calculation",
+      "input": "x = 3 × 4 = 12",
+      "expected": "$x = 3 × 4$  \n$x = 12$"
     }
   ]
 }

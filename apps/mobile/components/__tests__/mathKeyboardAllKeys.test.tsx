@@ -16,7 +16,8 @@ import {
 import { spliceMathBackspace } from "@/lib/math/draftSlots";
 import { appendConverterDigit, CONVERTER_DEFAULT_DIGITS } from "@/lib/unitConverter";
 
-const RAW = /[\\{}]|\b(?:binom|mathrm|mathbf|tfrac|dfrac|frac|sqrt|partial|nabla|infty|cdot|oint)\b/;
+// A command glued to its argument (`mathbbN`, `mathrmi`) is a leak too: no trailing \b.
+const RAW = /[\\{}]|\b(?:binom|mathrm|mathbb|mathbf|tfrac|dfrac|frac|sqrt|partial|nabla|infty|cdot|oint)/;
 
 function press(text: string, caret: number, spec: MathKeyboardSymbol) {
   const jump = tapAdvancesToNextSlot(text, caret, spec.id);

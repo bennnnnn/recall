@@ -46,6 +46,7 @@ export const attachmentsApi = {
       download_url: string;
       created_at: string;
       indexed?: boolean;
+      original_filename?: string | null;
     }>(`/attachments/${attachmentId}/url`, token),
   listAttachments: (
     token: string,

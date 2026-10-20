@@ -46,6 +46,28 @@ describe("MathText", () => {
     ]);
   });
 
+  it.each([
+    [String.raw`\tau = F d \sin\theta`, ["τ", "F", "d", "θ"]],
+    [String.raw`N = m g \cos\theta`, ["N", "m", "g", "θ"]],
+    [String.raw`F_2\sin\phi`, ["F", "φ"]],
+    // After variables with no space, as the torque law is written.
+    [String.raw`\tau = Fd\sin(\theta)`, ["τ", "Fd", "θ"]],
+  ])("keeps a function upright beside its variables: %s", async (latex, variables) => {
+    // Read as one run, "sinθ" or "Fdsin" was not a function name and went italic.
+    const { getAllByTestId } = await render(<MathText latex={latex} />);
+    const italic = getAllByTestId("math-variable").map((node) => node.props.children);
+    expect(italic).toEqual(variables);
+  });
+
+  it("draws a squared unit's ² as written, not as a caret", async () => {
+    // An upright run is drawn as typed: converted to a script there, "m/s²" showed "m/s^2".
+    const { getByTestId, queryByText } = await render(
+      <MathText latex={String.raw`g = 9.81\,\mathrm{m/s²}`} />,
+    );
+    expect(getByTestId("math-upright-run")).toHaveTextContent("m/s²");
+    expect(queryByText(/\^/)).toBeNull();
+  });
+
   it("does not paint private-use markers when a text subscript has no braces", async () => {
     const rendered = await render(<MathText latex={String.raw`t_\text{flight}`} />);
     expect(rendered.getByTestId("math-upright-run")).toHaveTextContent("flight");

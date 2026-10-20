@@ -96,6 +96,29 @@ def test_graph_it_reuses_the_functions_a_calculus_or_system_question_names(
     assert resolve_graph_followup("Graph it", [prior]) == (expected, False)
 
 
+@pytest.mark.parametrize(
+    ("prior", "expected"),
+    [
+        # The keyboard's x² key sends ``$x^{2}$``; the reply asks what to do with it.
+        ("$x^{2}$", ("graph x^2", False)),
+        ("$\\sin(x)$", ("graph sin(x)", False)),
+        ("x^3 - 2x", ("graph x^3 - 2x", False)),
+        ("$\\sqrt{x}$", ("graph sqrt(x)", False)),
+        # Not a curve in x: a number, words, another letter, two variables.
+        ("$2$", ("Plot", True)),
+        ("I have 2 apples", ("Plot", True)),
+        ("$y$", ("Plot", True)),
+        ("$x^{2}+y^{2}$", ("Plot", True)),
+        ("what is x", ("Plot", True)),
+    ],
+)
+def test_plot_after_a_bare_expression_draws_that_expression(
+    prior: str, expected: tuple[str, bool]
+) -> None:
+    """Reported from the app: "Plot" after ``$x^{2}$`` drew a chart that failed to parse."""
+    assert resolve_graph_followup("Plot", [prior]) == expected
+
+
 def test_a_curve_solved_for_y_keeps_its_natural_log() -> None:
     """``log`` is base 10, so ``e^y = x`` must plot as ``ln(x)``, not ``log(x)``."""
     intent = extract_math_intent("graph e^y = x")

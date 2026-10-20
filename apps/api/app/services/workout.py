@@ -3,7 +3,8 @@
 A worked reply has the same sections everywhere, in this order, each only when
 it has lines:
 
-- **Given**: the problem as the student wrote it, or the stated values
+- **Given**: the problem as the student wrote it, or the stated values, closed by a
+  ``where`` line naming their symbols (``where_line``)
 - **Find**: what is asked
 - **Formula**: the law or rule that governs it
 - **Substitution**: values put into that formula
@@ -121,6 +122,42 @@ def render_workout(
     if answer is None:
         return body
     return f"{body}\n\n```answer\n{answer.strip()}\n```\n"
+
+
+_IRREGULAR_PLURALS = {"index": "indices"}
+
+
+def _plural(noun: str) -> str:
+    """``mass`` → ``masses``; the last word of a phrase takes the plural."""
+    head, _, last = noun.rpartition(" ")
+    if last in _IRREGULAR_PLURALS:
+        word = _IRREGULAR_PLURALS[last]
+    elif last.endswith("y") and last[-2:-1] not in ("a", "e", "i", "o", "u"):
+        word = last[:-1] + "ies"  # velocity → velocities
+    else:
+        word = last + ("es" if last.endswith(("s", "sh", "ch", "x")) else "s")
+    return f"{head} {word}" if head else word
+
+
+def where_line(definitions: list[tuple[str, str]]) -> str | None:
+    """``where $v_0$ = initial speed; $m_1$, $m_2$ = masses`` from (symbol, meaning) pairs.
+
+    A symbol named twice is named once; symbols with the same meaning are named together,
+    and then semicolons keep one group's commas from running into the next.
+    """
+    groups: dict[str, list[str]] = {}
+    for symbol, meaning in definitions:
+        shown = groups.setdefault(meaning, [])
+        if symbol not in shown and all(symbol not in other for other in groups.values()):
+            shown.append(symbol)
+    parts = [
+        f"{', '.join(f'${symbol}$' for symbol in symbols)} = "
+        + (_plural(meaning) if len(symbols) > 1 else meaning)
+        for meaning, symbols in groups.items()
+        if symbols
+    ]
+    grouped = any(len(symbols) > 1 for symbols in groups.values())
+    return f"where {('; ' if grouped else ', ').join(parts)}" if parts else None
 
 
 def split_equality_chain(tex: str) -> list[str]:

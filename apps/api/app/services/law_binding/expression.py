@@ -147,9 +147,32 @@ def to_latex(
     values: Mapping[str, float] | None = None,
     *,
     notation: Notation,
+    degrees: frozenset[str] = frozenset(),
 ) -> str:
-    """The expression typeset: with the law's symbols, or with ``values`` plugged in."""
-    return _latex(parse(expression), symbols, values, notation)
+    """The expression typeset: with the law's symbols, or with ``values`` plugged in.
+
+    ``degrees`` names the angles whose values (radians, as the arithmetic needs) are
+    shown in degrees: ``\\sin(30^\\circ)``, never ``\\sin(0.523599)``. A result turned
+    into degrees by ``*180/pi`` is shown without the turn: the answer states its unit.
+    """
+    tree = _without_degree_turn(parse(expression))
+    return _latex(tree, symbols, values, notation, degrees)
+
+
+def _without_degree_turn(node: ast.expr) -> ast.expr:
+    """``asin(x)*180/pi`` → ``asin(x)``: the radians-to-degrees step is arithmetic, not law."""
+    if (
+        isinstance(node, ast.BinOp)
+        and isinstance(node.op, ast.Div)
+        and isinstance(node.right, ast.Name)
+        and node.right.id == _PI
+        and isinstance(node.left, ast.BinOp)
+        and isinstance(node.left.op, ast.Mult)
+        and isinstance(node.left.right, ast.Constant)
+        and _number(node.left.right) == 180
+    ):
+        return node.left.left
+    return node
 
 
 _PRECEDENCE = {ast.Add: 1, ast.Sub: 1, ast.Mult: 2, ast.Div: 2, ast.Pow: 4}
@@ -187,8 +210,9 @@ def _wrapped(
     values: Mapping[str, float] | None,
     above: int,
     notation: Notation,
+    degrees: frozenset[str],
 ) -> str:
-    text = _latex(node, symbols, values, notation)
+    text = _latex(node, symbols, values, notation, degrees)
     if _precedence(node) < above or (above >= 2 and _negative_leaf(node, values)):
         return f"({text})"
     return text
@@ -199,6 +223,7 @@ def _latex(
     symbols: Mapping[str, str],
     values: Mapping[str, float] | None,
     notation: Notation,
+    degrees: frozenset[str] = frozenset(),
 ) -> str:
     if isinstance(node, ast.Constant):
         return notation.number(_number(node))
@@ -209,13 +234,15 @@ def _latex(
             # A substitution shows a constant's value, as every solver row does; π stays π.
             return notation.number(value) if values is not None and node.id != _PI else symbol
         if values is not None:
+            if node.id in degrees:
+                return rf"{notation.number(math.degrees(values[node.id]))}^\circ"
             return notation.number(values[node.id])
         return symbols.get(node.id, node.id)
     if isinstance(node, ast.UnaryOp):
-        operand = _wrapped(node.operand, symbols, values, 3, notation)
+        operand = _wrapped(node.operand, symbols, values, 3, notation, degrees)
         return f"-{operand}" if isinstance(node.op, ast.USub) else operand
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-        inner = _latex(node.args[0], symbols, values, notation)
+        inner = _latex(node.args[0], symbols, values, notation, degrees)
         name = node.func.id
         if name == "sqrt":
             return rf"\sqrt{{{inner}}}"
@@ -225,11 +252,11 @@ def _latex(
     if not isinstance(node, ast.BinOp):
         raise ExpressionError(f"cannot typeset {type(node).__name__}")
     if isinstance(node.op, ast.Div):
-        top = _latex(node.left, symbols, values, notation)
-        bottom = _latex(node.right, symbols, values, notation)
+        top = _latex(node.left, symbols, values, notation, degrees)
+        bottom = _latex(node.right, symbols, values, notation, degrees)
         return rf"\frac{{{top}}}{{{bottom}}}"
     if isinstance(node.op, ast.Pow):
-        base = _wrapped(node.left, symbols, values, 5, notation)
+        base = _wrapped(node.left, symbols, values, 5, notation, degrees)
         # A plugged value in scientific form carries its own power: 6.371e6
         # squared is (6.371 \times 10^{6})^{2}, never 6.371 \times 10^{6}^{2}.
         if (
@@ -238,17 +265,21 @@ def _latex(
             and ("^" in base or "\\times" in base)
         ):
             base = f"({base})"
-        return f"{base}^{{{_latex(node.right, symbols, values, notation)}}}"
+        return f"{base}^{{{_latex(node.right, symbols, values, notation, degrees)}}}"
     if isinstance(node.op, ast.Mult):
-        left = _wrapped(node.left, symbols, values, 2, notation)
-        right = _wrapped(node.right, symbols, values, 2, notation)
-        # Numbers side by side need a dot; symbols are written together.
-        joined = _plugged(_rightmost(node.left), values) and _plugged(_leftmost(node.right), values)
+        left = _wrapped(node.left, symbols, values, 2, notation, degrees)
+        right = _wrapped(node.right, symbols, values, 2, notation, degrees)
+        # Numbers side by side need a dot, and so does a number before a function
+        # ("1 \\cdot \\sin(30^\\circ)"); symbols are written together.
+        follows = _leftmost(node.right)
+        joined = _plugged(_rightmost(node.left), values) and (
+            _plugged(follows, values) or (values is not None and isinstance(follows, ast.Call))
+        )
         return rf"{left} \cdot {right}" if joined else f"{left} {right}"
     operator = "+" if isinstance(node.op, ast.Add) else "-"
-    left = _latex(node.left, symbols, values, notation)
+    left = _latex(node.left, symbols, values, notation, degrees)
     # a - (b + c) keeps its brackets, and so does a negative number after a sign.
-    right = _wrapped(node.right, symbols, values, 2 if operator == "-" else 1, notation)
+    right = _wrapped(node.right, symbols, values, 2 if operator == "-" else 1, notation, degrees)
     if _negative_leaf(node.right, values):
         right = f"({right})"
     return f"{left} {operator} {right}"

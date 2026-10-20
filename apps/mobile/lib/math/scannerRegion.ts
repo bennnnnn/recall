@@ -65,9 +65,11 @@ export function defaultScanRegion(inset: ScanChromeInset = ZERO_INSET): ScanRegi
 /** Clamp a region's size, then keep it inside the inset box (or 0..1). */
 export function clampScanRegion(
   region: ScanRegion,
-  inset: ScanChromeInset = ZERO_INSET,
+  chrome?: ScanChromeInset,
 ): ScanRegion {
   "worklet";
+  // Not a default parameter: those do not carry module values to the UI thread.
+  const inset = chrome ?? ZERO_INSET;
   const availW = Math.max(0, 1 - inset.left - inset.right);
   const availH = Math.max(0, 1 - inset.top - inset.bottom);
   const minW = Math.min(MIN_REGION_RATIO, availW);
@@ -93,7 +95,7 @@ export function handleHitSize(regionWidthPx: number, regionHeightPx: number): nu
 export function scaleScanRegion(
   base: ScanRegion,
   scale: number,
-  inset: ScanChromeInset = ZERO_INSET,
+  inset?: ScanChromeInset,
 ): ScanRegion {
   "worklet";
   const cx = base.x + base.width / 2;
@@ -108,7 +110,7 @@ export function translateScanRegion(
   base: ScanRegion,
   dxRatio: number,
   dyRatio: number,
-  inset: ScanChromeInset = ZERO_INSET,
+  inset?: ScanChromeInset,
 ): ScanRegion {
   "worklet";
   return clampScanRegion({ ...base, x: base.x + dxRatio, y: base.y + dyRatio }, inset);
@@ -122,9 +124,10 @@ export function resizeScanRegionFromCorner(
   corner: ScanCorner,
   dxRatio: number,
   dyRatio: number,
-  inset: ScanChromeInset = ZERO_INSET,
+  chrome?: ScanChromeInset,
 ): ScanRegion {
   "worklet";
+  const inset = chrome ?? ZERO_INSET;
   let left = base.x;
   let top = base.y;
   let right = base.x + base.width;

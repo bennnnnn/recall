@@ -1,4 +1,5 @@
 import { act, render, waitFor } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { AttachmentPdfViewer } from "@/features/attachments/components/AttachmentPdfViewer";
 import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
@@ -93,4 +94,16 @@ it("stops the download when the viewer closes", async () => {
   expect(signal.aborted).toBe(false);
   await view.rerender(viewer(false));
   expect(signal.aborted).toBe(true);
+});
+
+it("lays the pages out across the screen: nothing above the page shrinks it", async () => {
+  const { findByTestId } = await render(viewer(true));
+  // react-native-webview's container takes its width from its parent's alignItems;
+  // centered, it shrank to its content and the page drew 0 wide.
+  let node = (await findByTestId("pdf-webview")).parent;
+  while (node) {
+    const align = StyleSheet.flatten(node.props.style)?.alignItems;
+    expect(align === undefined || align === "stretch").toBe(true);
+    node = node.parent;
+  }
 });

@@ -26,6 +26,7 @@ from app.modules.physics.catalog import (
 from app.modules.physics.claims import claim_verdict, read_claims
 from app.modules.physics.display import is_conversion_row, latex_given, latex_unit, si_symbol
 from app.modules.physics.extract import extract_physics_intent
+from app.modules.physics.glossary import given_meaning
 from app.modules.physics.parts import asks_more_than_answered
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
@@ -37,6 +38,7 @@ from app.services.workout import (
     math_line,
     render_workout,
     text_line,
+    where_line,
 )
 
 _EXTRA_REQUEST = re.compile(
@@ -150,9 +152,38 @@ def _parameter_symbol(name: str, operation: str) -> str:
     return symbol
 
 
+# A script of one character with or without braces (v^{2}, v^2), and a function of one
+# argument with or without brackets (\sin(\theta), \sin\theta; \arcsin(\frac{1}{n}),
+# \arcsin\frac{1}{n}), print the same law.
+_BRACED_SCRIPT = re.compile(r"([_^])\{(\\[A-Za-z]+|[A-Za-z0-9])\}")
+_FUNCTION_BRACKET = re.compile(r"\\(?:arcsin|arccos|arctan|sin|cos|tan|ln|log)\(")
+_ONE_ARGUMENT = re.compile(r"\\?[A-Za-z]+(?:_[A-Za-z0-9])?|\\(?:frac|sqrt)(?:\{[^{}]*\})+")
+
+
+def _unbracket_functions(text: str) -> str:
+    """Drop the brackets round a function's argument when the argument is one atom."""
+    out: list[str] = []
+    cursor = 0
+    for match in _FUNCTION_BRACKET.finditer(text):
+        if match.start() < cursor:
+            continue
+        depth, close = 1, match.end()
+        while close < len(text) and depth:
+            depth += {"(": 1, ")": -1}.get(text[close], 0)
+            close += 1
+        inner = text[match.end() : close - 1]
+        if depth == 0 and _ONE_ARGUMENT.fullmatch(inner):
+            out.append(text[cursor : match.end() - 1] + inner)
+            cursor = close
+    return "".join(out) + text[cursor:]
+
+
 def _formula_identity(formula: str) -> str:
-    """Ignore presentation-only multiplication dots when comparing laws."""
-    return formula.replace(r"\cdot", "").replace(" ", "")
+    """Ignore presentation-only differences when comparing laws: spacing,
+    multiplication dots, braces round a one-character script, brackets round a
+    one-atom argument. Torque and centripetal force were each listed twice."""
+    text = formula.replace(r"\cdot", "").replace(r"\,", "").replace(" ", "")
+    return _unbracket_functions(_BRACED_SCRIPT.sub(r"\1\2", text))
 
 
 def _formula_rows(intent: PhysicsIntent, formulas: list[str]) -> list[str]:
@@ -236,6 +267,7 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     )
     operation = intent.physics_op or ""
     given_spec = formula_spec(operation)
+    definitions: list[tuple[str, str]] = []
     for name, value in params.items():
         variable = variable_for(given_spec, name) if given_spec is not None else None
         if variable is not None and not variable.visible:
@@ -243,6 +275,13 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
         symbol = _parameter_symbol(name, operation)
         shown = _given_value(name, value, units.get(name, ""), arithmetic)
         given_rows.append(f"${symbol} = {shown}$")
+        meaning = given_meaning(operation, given_spec.kind if given_spec else "", name)
+        if meaning:
+            definitions.append((symbol, meaning))
+    # Each given on its own line, then what each symbol stands for.
+    naming = where_line(definitions)
+    if naming:
+        given_rows.append(naming)
 
     formulas = list(verified.physics_formulas)
     substitutions = list(verified.physics_substitutions)

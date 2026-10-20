@@ -1,6 +1,7 @@
 import { fireEvent, render, within } from "@testing-library/react-native";
 
-import { MathDraftPreview, sentMessageShowsMathPreview } from "@/features/chat/components/MathDraftPreview";
+import { MathDraftPreview } from "@/features/chat/components/MathDraftPreview";
+import { sentMessageShowsMathPreview } from "@/lib/math/draftText";
 import { lightTheme } from "@/lib/theme";
 
 describe("sentMessageShowsMathPreview", () => {
@@ -11,6 +12,75 @@ describe("sentMessageShowsMathPreview", () => {
 });
 
 describe("MathDraftPreview", () => {
+  it("draws the keyboard's x^{2} as a reply draws x²: italic x, a smaller 2 against it", async () => {
+    const { getByText, getByTestId } = await render(
+      <MathDraftPreview input="$x^{2}$" sent showCaret={false} />,
+    );
+    expect(getByText("x")).toHaveStyle({ fontFamily: "KaTeX_MathItalic", fontSize: 16 });
+    expect(getByText("2")).toHaveStyle({ fontSize: 11 });
+    expect(getByTestId("math-slot-sup")).toHaveStyle({ minWidth: 0 });
+  });
+
+  it("draws the keypad's set and upright letters, never their command names", async () => {
+    const { getAllByTestId, getByText, queryByText } = await render(
+      <MathDraftPreview input={String.raw`$\mathbb{N}$ $\mathbb{R}$ $\mathrm{i}$`} sent showCaret={false} />,
+    );
+    expect(getAllByTestId("math-blackboard").map((letter) => letter.props.children)).toEqual(["N", "R"]);
+    expect(getByText("i")).toBeOnTheScreen();
+    expect(queryByText(/mathbb|mathrm/)).toBeNull();
+  });
+
+  it("reads a letter after an earlier $…$ as math too", async () => {
+    const { getByText } = await render(
+      <MathDraftPreview input={String.raw`$\sqrt{2}$ $x_{2}$`} sent showCaret={false} />,
+    );
+    expect(getByText("x")).toHaveStyle({ fontFamily: "KaTeX_MathItalic" });
+  });
+
+  it("raises a script inside a fraction onto its base", async () => {
+    const { getAllByTestId } = await render(
+      <MathDraftPreview input={String.raw`$\frac{d^{2}}{dx^{2}}$`} sent showCaret={false} />,
+    );
+    expect(getAllByTestId("math-script-stack")).toHaveLength(2);
+  });
+
+  it("keeps the text before an integral or a sum, not only the operator", async () => {
+    const integral = await render(
+      <MathDraftPreview input={String.raw`$\int $ $\int_{0}^{1}$`} sent showCaret={false} />,
+    );
+    expect(integral.getAllByText("∫")).toHaveLength(2);
+    const sum = await render(<MathDraftPreview input={String.raw`$y=\sum_{n}^{3}$`} sent showCaret={false} />);
+    expect(sum.getByText("y")).toBeOnTheScreen();
+  });
+
+  it("draws a row of calculus keys, which read as prose and drew an empty bubble", async () => {
+    const row = String.raw`$\partial $ $\frac{\partial}{\partial x}$ $\nabla $ $\vec{2}$ $\cdot $ $\infty $`;
+    const { getByTestId, getByText } = await render(<MathDraftPreview input={row} sent showCaret={false} />);
+    expect(getByTestId("math-draft-preview")).toBeOnTheScreen();
+    expect(getByText("∇")).toBeOnTheScreen();
+  });
+
+  it("gives a sent bubble no caret targets, which wrapped to an empty line", async () => {
+    const sent = await render(<MathDraftPreview input="$x y 7$" sent showCaret={false} />);
+    expect(sent.queryByTestId("math-slot-before")).toBeNull();
+    expect(sent.queryByTestId("math-slot-after")).toBeNull();
+    const composer = await render(<MathDraftPreview input="$x y 7$" caret={2} />);
+    expect(composer.getByTestId("math-slot-after")).toBeOnTheScreen();
+  });
+
+  it("shrinks every script, a definite integral's limits included", async () => {
+    const { getByText } = await render(
+      <MathDraftPreview input={String.raw`$\int_{0}^{1}$`} showCaret={false} />,
+    );
+    expect(getByText("0")).toHaveStyle({ fontSize: 11 });
+    expect(getByText("1")).toHaveStyle({ fontSize: 11 });
+  });
+
+  it("keeps words outside the dollars as upright text", async () => {
+    const { getByText } = await render(<MathDraftPreview input="solve $x$" showCaret={false} />);
+    expect(getByText(/solve/)).not.toHaveStyle({ fontFamily: "KaTeX_MathItalic" });
+  });
+
   it("uses readable root degree text while preserving the full-size radicand", async () => {
     const { getByText, getByTestId } = await render(
       <MathDraftPreview input={String.raw`$\sqrt[6]{9}$`} showCaret={false} />,

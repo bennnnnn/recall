@@ -27,6 +27,8 @@ class AttachmentOut(BaseModel):
     download_url: str
     created_at: datetime
     indexed: bool = True
+    # The name it was uploaded with; the stored message only links the file.
+    original_filename: str | None = None
 
 
 class AttachmentListItemOut(BaseModel):

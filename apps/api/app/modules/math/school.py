@@ -15,6 +15,8 @@ from sympy import (
     S,
     Symbol,
     cos,
+    cot,
+    csc,
     diff,
     expand,
     expand_trig,
@@ -25,6 +27,7 @@ from sympy import (
     nsimplify,
     oo,
     pi,
+    sec,
     series,
     simplify,
     sin,
@@ -287,7 +290,7 @@ def simplify_ratio(a: float, b: float) -> str:
 
 
 def evaluate_trig_degrees(func: str, degrees: float) -> str:
-    table = {"sin": sin, "cos": cos, "tan": tan}
+    table = {"sin": sin, "cos": cos, "tan": tan, "sec": sec, "csc": csc, "cot": cot}
     if func not in table:
         raise MathServiceError(f"unsupported trig function {func}")
     return _defined_value_latex(simplify(table[func](nsimplify(degrees) * pi / 180)))

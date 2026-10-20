@@ -1,12 +1,10 @@
-import { memo, useMemo, useRef, type ReactElement } from "react";
+import { createContext, memo, useContext, useMemo, useRef, type ReactElement } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { DraftRadical } from "@/features/chat/components/DraftRadical";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathText } from "@/components/rich/MathText";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
-import { textLooksLikeMath } from "@/lib/math/composerIntent";
-import { isMostlyProsePaste } from "@/lib/math/pasteNormalize";
 import {
   caretAfterExpression,
   caretBeforeExpression,
@@ -14,97 +12,35 @@ import {
   shiftDraftNodes,
   type DraftNode,
 } from "@/lib/math/draftSlots";
+import {
+  DRAFT_TEXT_SIZE,
+  draftShowsMathPreview,
+  scriptSize,
+  splitBeforeOperator,
+  textRuns,
+} from "@/lib/math/draftText";
 import { healDroppedCommandSlash } from "@/lib/math/healMathSource";
 import { innermostSlot, type LatexGroup } from "@/lib/math/keyboardSymbols";
 import { latexNeedsTallLine, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
-import {
-  NATIVE_LITERAL_LEFT_BRACE_MARKER,
-  NATIVE_LITERAL_RIGHT_BRACE_MARKER,
-} from "@/lib/math/textMarkers";
 import { MATH_FONT, mathFace } from "@/lib/fonts";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
 export const MATH_DRAFT_PREVIEW_HEIGHT = 48;
 
-/**
- * True when the composer draft should show the live math preview.
- * Shows when the input contains `$` (explicit math delimiters) OR when it
- * looks like math content (LaTeX commands, math symbols, bare equations)
- * even without `$` — so typing `√9` or `x^2 = 4` shows the preview without
- * requiring the user to manually wrap in `$...$`.
- *
- * Note: `UserMessageContent` uses its own check (only `$`) for sent messages;
- * this broader check is for the live composer draft only.
- */
-function draftShowsMathPreview(input: string): boolean {
-  const s = input.trim();
-  if (s.length === 0) return false;
-  if (isMostlyProsePaste(s)) return false;
-  if (input.includes("$")) return true;
-  return textLooksLikeMath(input);
-}
-
-/**
- * True when a *sent* user message should render via `MathDraftPreview`.
- * Unlike the composer, sent messages only use the preview when the user
- * explicitly wrapped math in `$...$` — bare equations in sent messages
- * render through the normal markdown path (which handles implicit math).
- *
- * Multi-line / display-math pastes (`\[...\]`, `$$...$$`) must not use the
- * composer preview: wrapping them in one `$` row left a tall empty bubble.
- * A sentence that only contains an equation stays markdown, so the words
- * are not dropped and the bubble is not left as a dot.
- */
-/** Words outside `$...$`. A question around an equation is a sentence. */
-function proseOutsideMath(input: string): string {
-  let out = "";
-  let i = 0;
-  while (i < input.length) {
-    if (input[i] === "$") {
-      const close = input.indexOf("$", i + 1);
-      if (close > i) {
-        i = close + 1;
-        continue;
-      }
-    }
-    out += input[i];
-    i += 1;
-  }
-  return out;
-}
-
-export function sentMessageShowsMathPreview(input: string): boolean {
-  const s = input.trim();
-  if (!s.includes("$") || s.length === 0) return false;
-  if (s.includes("\n")) return false;
-  if (s.includes("\\[") || s.includes("\\]") || s.includes("$$")) return false;
-  if (s.length > 160) return false;
-  // The composer preview drops the words and the bubble collapses to a dot.
-  if (/[A-Za-z]{2,}/.test(proseOutsideMath(s))) return false;
-  return true;
-}
 
 type ScriptNode = Extract<DraftNode, { kind: "script" }>;
 
 /** ∑, ∏, and lim carry their scripts above and below. A definite integral is drawn separately. */
 const LIMIT_BASE = /\\(?:sum|prod|lim)\s*$/;
 
-/** Drop TeX grouping braces, but keep `\{` and `\}` as the braces the user typed. */
-function composerTextLabel(raw: string): string {
-  return raw
-    .replace(/\$/g, "")
-    .replace(/\\\{/g, NATIVE_LITERAL_LEFT_BRACE_MARKER)
-    .replace(/\\\}/g, NATIVE_LITERAL_RIGHT_BRACE_MARKER)
-    .replace(/[{}]/g, "")
-    .split(NATIVE_LITERAL_LEFT_BRACE_MARKER)
-    .join("{")
-    .split(NATIVE_LITERAL_RIGHT_BRACE_MARKER)
-    .join("}");
-}
 const INTEGRAL_BASE = /\\int\s*$/;
 const INTEGRAL_SIGN_SIZE = 32;
 const INTEGRAL_SIGN_LINE = 36;
+
+/** The formula's text size here; a script's provider makes it smaller. */
+const DraftTextSize = createContext(DRAFT_TEXT_SIZE);
+
 
 function isLimitBase(input: string, node: DraftNode): boolean {
   return node.kind === "text" && LIMIT_BASE.test(input.slice(node.start, node.end).replace(/\$/g, ""));
@@ -179,17 +115,20 @@ export const MathDraftPreview = memo(function MathDraftPreview({
   const pieceCaret = liveCaret ? viewCaret : -1;
   return (
     <View
-      style={[s.wrap, s.row, sent && s.sent, tall && { minHeight: MATH_TALL_LINE_HEIGHT }]}
+      style={[s.wrap, s.row, sent ? s.sent : tall && { minHeight: MATH_TALL_LINE_HEIGHT }]}
       testID="math-draft-preview"
     >
-      <Pressable
-        testID="math-slot-before"
-        onPress={() => onMoveCaret?.(before)}
-        style={s.edge}
-        accessibilityRole="button"
-      >
-        {showBeforeCaret ? <MathComposerCaret testID="math-slot-before-caret" /> : null}
-      </Pressable>
+      {/* A sent bubble has no caret: its targets wrapped to an empty second line. */}
+      {sent ? null : (
+        <Pressable
+          testID="math-slot-before"
+          onPress={() => onMoveCaret?.(before)}
+          style={s.edge}
+          accessibilityRole="button"
+        >
+          {showBeforeCaret ? <MathComposerCaret testID="math-slot-before-caret" /> : null}
+        </Pressable>
+      )}
       {pieces.map((piece) => (
         <DraftAtom
           key={`${piece.node.kind}-${piece.node.start}`}
@@ -201,14 +140,16 @@ export const MathDraftPreview = memo(function MathDraftPreview({
           onMoveCaret={onMoveCaret}
         />
       ))}
-      <Pressable
-        testID="math-slot-after"
-        onPress={() => onMoveCaret?.(after)}
-        style={s.edge}
-        accessibilityRole="button"
-      >
-        {showAfterCaret ? <MathComposerCaret testID="math-slot-after-caret" /> : null}
-      </Pressable>
+      {sent ? null : (
+        <Pressable
+          testID="math-slot-after"
+          onPress={() => onMoveCaret?.(after)}
+          style={s.edge}
+          accessibilityRole="button"
+        >
+          {showAfterCaret ? <MathComposerCaret testID="math-slot-after-caret" /> : null}
+        </Pressable>
+      )}
     </View>
   );
 });
@@ -234,43 +175,41 @@ function DraftAtom({
   const integral = piece.scripts.length > 0 && isIntegralBase(input, piece.node);
   const sup = piece.scripts.filter((node) => node.mark === "^");
   const sub = piece.scripts.filter((node) => node.mark === "_");
-  const base = (
-    <DraftPiece
-      node={piece.node}
-      input={input}
-      caret={caret}
-      before={before}
-      after={after}
-      onMoveCaret={onMoveCaret}
-    />
-  );
+  const kit = { input, caret, before, after, onMoveCaret };
+  // An operator's limits sit on the operator alone: the text before it stays text.
+  const split = (integral || limits) && piece.node.kind === "text" ? splitBeforeOperator(input, piece.node) : null;
+  const lead = split?.lead ? <DraftPiece node={split.lead} {...kit} /> : null;
+  const base = <DraftPiece node={split?.operator ?? piece.node} {...kit} />;
   if (integral) {
     return (
-      <View style={s.integral} testID="math-integral">
-        <Text style={s.integralSign} testID="math-integral-sign">
-          ∫
-        </Text>
-        <View style={s.integralLimits} testID="math-integral-limits">
-          <ScriptStack
-            scripts={sup}
-            input={input}
-            caret={caret}
-            before={before}
-            after={after}
-            onMoveCaret={onMoveCaret}
-            place="over"
-          />
-          <ScriptStack
-            scripts={sub}
-            input={input}
-            caret={caret}
-            before={before}
-            after={after}
-            onMoveCaret={onMoveCaret}
-            place="over"
-          />
+      <>
+        {lead}
+        <View style={s.integral} testID="math-integral">
+          <Text style={s.integralSign} testID="math-integral-sign">
+            ∫
+          </Text>
+          <View style={s.integralLimits} testID="math-integral-limits">
+            <ScriptStack
+              scripts={sup}
+              input={input}
+              caret={caret}
+              before={before}
+              after={after}
+              onMoveCaret={onMoveCaret}
+              place="over"
+            />
+            <ScriptStack
+              scripts={sub}
+              input={input}
+              caret={caret}
+              before={before}
+              after={after}
+              onMoveCaret={onMoveCaret}
+              place="over"
+            />
+          </View>
         </View>
-      </View>
+      </>
     );
   }
   if (!limits) {
@@ -291,27 +230,30 @@ function DraftAtom({
     );
   }
   return (
-    <View style={s.limitAtom}>
-      <ScriptStack
-        scripts={sup}
-        input={input}
-        caret={caret}
-        before={before}
-        after={after}
-        onMoveCaret={onMoveCaret}
-        place="over"
-      />
-      {base}
-      <ScriptStack
-        scripts={sub}
-        input={input}
-        caret={caret}
-        before={before}
-        after={after}
-        onMoveCaret={onMoveCaret}
-        place="over"
-      />
-    </View>
+    <>
+      {lead}
+      <View style={s.limitAtom}>
+        <ScriptStack
+          scripts={sup}
+          input={input}
+          caret={caret}
+          before={before}
+          after={after}
+          onMoveCaret={onMoveCaret}
+          place="over"
+        />
+        {base}
+        <ScriptStack
+          scripts={sub}
+          input={input}
+          caret={caret}
+          before={before}
+          after={after}
+          onMoveCaret={onMoveCaret}
+          place="over"
+        />
+      </View>
+    </>
   );
 }
 
@@ -340,7 +282,10 @@ function ScriptStack({
   const lift = place === "side" && sup.length > 0 && sub.length === 0;
   const drop = place === "side" && sub.length > 0 && sup.length === 0;
   return (
-    <View style={[place === "side" ? s.scriptStack : s.scriptOver, lift && s.scriptLift, drop && s.scriptDrop]}>
+    <View
+      testID="math-script-stack"
+      style={[place === "side" ? s.scriptStack : s.scriptOver, lift && s.scriptLift, drop && s.scriptDrop]}
+    >
       {[...sup, ...sub].map((node) => (
         <DraftPiece
           key={`${node.mark}-${node.start}`}
@@ -369,6 +314,8 @@ type PieceKit = PieceProps & {
   s: ReturnType<typeof makeStyles>;
   theme: Theme;
   slot: { text: string; caret: number; before: number; after: number; onMoveCaret?: (pos: number) => void };
+  /** Text size here: smaller inside a script. */
+  size: number;
 };
 
 type PieceRenderer<K extends DraftNode["kind"]> = (
@@ -377,9 +324,9 @@ type PieceRenderer<K extends DraftNode["kind"]> = (
 ) => ReactElement | null;
 
 /** A run of plain draft text; a tap near its front puts the caret there, else at its end. */
-const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, onMoveCaret, s, theme }) => {
-  const display = composerTextLabel(input.slice(node.start, node.end));
-  if (!display) return null;
+const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, onMoveCaret, s, theme, size }) => {
+  const runs = textRuns(input, node.start, node.end);
+  if (runs.length === 0) return null;
   let start = node.start;
   if (input[start] === "$") start += 1;
   let end = node.end;
@@ -398,10 +345,14 @@ const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, o
         {caret === start && start > before ? (
           <MathComposerCaret testID="math-slot-text-caret-start" />
         ) : null}
-        {/\\/.test(display) ? (
-          <MathText latex={display} textColor={theme.text} />
-        ) : (
-          <Text style={s.prose}>{display}</Text>
+        {runs.map((run, i) =>
+          run.math ? (
+            <MathText key={i} latex={run.text} textColor={theme.text} fontSize={size} />
+          ) : (
+            <Text key={i} style={[s.prose, { fontSize: size }]}>
+              {run.text}
+            </Text>
+          ),
         )}
         {caret === end && end < after ? <MathComposerCaret testID="math-slot-text-caret" /> : null}
       </View>
@@ -430,12 +381,14 @@ const sqrtPiece: PieceRenderer<"sqrt"> = (node, { theme, slot }) => (
   </DraftRadical>
 );
 
-const scriptPiece: PieceRenderer<"script"> = (node, { s, slot }) => {
+const scriptPiece: PieceRenderer<"script"> = (node, { s, slot, size }) => {
   const sub = node.mark === "_";
   return (
     <View style={s.inline} testID={sub ? "math-sub" : "math-sup"}>
       <View style={sub ? s.sub : s.sup}>
-        <EditSlot {...slot} group={node.body} testID={sub ? "math-slot-sub" : "math-slot-sup"} />
+        <DraftTextSize.Provider value={scriptSize(size)}>
+          <EditSlot {...slot} group={node.body} testID={sub ? "math-slot-sub" : "math-slot-sup"} />
+        </DraftTextSize.Provider>
       </View>
     </View>
   );
@@ -500,9 +453,10 @@ const DRAFT_PIECES: { [K in DraftNode["kind"]]: PieceRenderer<K> } = {
 function DraftPiece({ node, input, caret, before, after, onMoveCaret }: PieceProps & { node: DraftNode }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const size = useContext(DraftTextSize);
   const slot = { text: input, caret, before, after, onMoveCaret };
   const render = DRAFT_PIECES[node.kind] as PieceRenderer<DraftNode["kind"]>;
-  return render(node, { input, caret, before, after, onMoveCaret, s, theme, slot });
+  return render(node, { input, caret, before, after, onMoveCaret, s, theme, slot, size });
 }
 
 function EditSlot({
@@ -530,6 +484,7 @@ function EditSlot({
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const size = useContext(DraftTextSize);
   const widthRef = useRef(0);
   const inner = text.slice(group.open + 1, group.close);
   const empty = inner.length === 0;
@@ -555,15 +510,16 @@ function EditSlot({
         const atFront = width > 0 && e.nativeEvent.locationX < width / 2;
         onMoveCaret?.(atFront ? group.open + 1 : group.close);
       }}
-      style={[s.slot, empty && s.slotActive]}
+      // A filled script hugs its text: the tap-target width read as a gap after the base.
+      style={[s.slot, !empty && size < DRAFT_TEXT_SIZE && s.slotTight, empty && s.slotActive]}
       accessibilityRole="button"
     >
       <View style={s.slotRow}>
         {structured ? (
-          nested.map((node, i) => (
-            <DraftPiece
-              key={`${node.kind}-${node.start}-${i}`}
-              node={node}
+          clusterDraftNodes(nested).map((piece, i) => (
+            <DraftAtom
+              key={`${piece.node.kind}-${piece.node.start}-${i}`}
+              piece={piece}
               input={text}
               caret={caret}
               before={before}
@@ -575,7 +531,7 @@ function EditSlot({
           <>
             {inner && atStart ? <MathComposerCaret testID={`${testID}-caret-start`} /> : null}
             {inner ? (
-              <MathText latex={inner} textColor={theme.text} compact={compact} fontSize={fontSize} />
+              <MathText latex={inner} textColor={theme.text} compact={compact} fontSize={fontSize ?? size} />
             ) : active ? (
               <View style={s.placeholderActive}>
                 <MathComposerCaret testID={`${testID}-caret`} />
@@ -634,8 +590,10 @@ const makeStyles = (theme: Theme) =>
       marginLeft: Space.xxs,
       justifyContent: "space-between",
     },
+    // The base keeps 2pt of tap padding on its right; the script sits against
+    // the letter, as `x²` does in a reply.
     scriptStack: {
-      marginLeft: 1,
+      marginLeft: -2,
       alignItems: "flex-start",
     },
     scriptOver: {
@@ -682,6 +640,10 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: 1,
+    },
+    slotTight: {
+      minWidth: 0,
+      paddingHorizontal: 0,
     },
     slotActive: {
       backgroundColor: theme.primaryLight,

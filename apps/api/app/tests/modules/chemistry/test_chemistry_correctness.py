@@ -505,7 +505,7 @@ def test_weak_titration_past_equivalence_keeps_water() -> None:
         "Ka=1.8e-5, find pH"
     )
     assert 7.0 < _first_number(past.answer) < 7.1
-    assert any("water's ions included" in line for line in past.substitution)
+    assert any("water's own ions" in line and "where c = " in line for line in past.substitution)
 
 
 def test_a_missing_ice_reactant_is_declined() -> None:

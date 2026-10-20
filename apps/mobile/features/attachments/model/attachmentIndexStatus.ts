@@ -4,7 +4,12 @@ import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { isNetworkOffline } from "@/lib/networkStatus";
 
-export type AttachmentIndexStatus = { indexed: boolean; failed: boolean };
+export type AttachmentIndexStatus = {
+  indexed: boolean;
+  failed: boolean;
+  /** The name it was uploaded with, once the server has answered; a sent message links only the file. */
+  fileName?: string | null;
+};
 
 export const INDEX_READY: AttachmentIndexStatus = Object.freeze({ indexed: true, failed: false });
 export const INDEX_PENDING: AttachmentIndexStatus = Object.freeze({ indexed: false, failed: false });
@@ -67,8 +72,11 @@ function pause(poller: Poller): void {
 
 function publish(poller: Poller, status: AttachmentIndexStatus, settled = false): void {
   poller.settled = settled;
-  if (poller.status === status) return;
-  poller.status = status;
+  // A name once known stays with every later status.
+  const fileName = status.fileName ?? poller.status.fileName;
+  const prev = poller.status;
+  if (prev.indexed === status.indexed && prev.failed === status.failed && prev.fileName === fileName) return;
+  poller.status = fileName ? { ...status, fileName } : status;
   poller.listeners.forEach((listener) => listener());
 }
 
@@ -94,9 +102,12 @@ async function poll(poller: Poller): Promise<void> {
   try {
     const row = await api.getAttachmentUrl(poller.token, poller.id);
     if (session !== generation) return;
-    if (row.indexed !== false) publish(poller, INDEX_READY, true);
+    const fileName = row.original_filename?.trim() || null;
+    const named = (status: AttachmentIndexStatus) => (fileName ? { ...status, fileName } : status);
+    if (row.indexed !== false) publish(poller, named(INDEX_READY), true);
     // A file with no extractable text stays unindexed forever: one answer is enough.
-    else if (settledByAge(row.created_at)) publish(poller, INDEX_FAILED, true);
+    else if (settledByAge(row.created_at)) publish(poller, named(INDEX_FAILED), true);
+    else publish(poller, named(poller.status));
   } catch {
     // Still pending; the backoff spaces out the next try.
   } finally {

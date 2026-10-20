@@ -124,7 +124,7 @@ export function ChatMessagePdf({
           />
         </Pressable>
       ) : !compact && canRenderInline && !previewFailed ? (
-        <View style={s.previewWrap}>
+        <View style={[s.previewWrap, s.previewLoading]}>
           <ActivityIndicator color={theme.primary} />
         </View>
       ) : !compact && previewFailed ? (
@@ -144,6 +144,8 @@ export function ChatMessagePdf({
   );
 }
 
+const CARD_WIDTH = 280;
+
 function makeStyles(t: Theme, compact: boolean) {
   return StyleSheet.create({
     card: {
@@ -156,7 +158,9 @@ function makeStyles(t: Theme, compact: boolean) {
       backgroundColor: t.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      maxWidth: compact ? "100%" : 280,
+      // The preview below shares the card's width; sized by its content, the
+      // column (aligned to the end) left the preview 0 wide and the page unseen.
+      ...(compact ? { maxWidth: "100%" } : { width: CARD_WIDTH, maxWidth: "100%" }),
     },
     iconWrap: {
       width: 36,
@@ -170,6 +174,8 @@ function makeStyles(t: Theme, compact: boolean) {
     name: { ...Type.label, color: t.text },
     kind: { ...Type.meta, color: t.textTertiary, marginTop: 2 },
     previewWrap: {
+      width: CARD_WIDTH,
+      maxWidth: "100%",
       marginTop: Space.xs,
       height: 180,
       borderRadius: Radius.md,
@@ -177,9 +183,10 @@ function makeStyles(t: Theme, compact: boolean) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       backgroundColor: t.bg,
-      alignItems: "center",
-      justifyContent: "center",
     },
+    // Only the spinner is centered: centered, react-native-webview's container
+    // shrinks to its content and the page inside it lays out 0 wide.
+    previewLoading: { alignItems: "center", justifyContent: "center" },
     previewWeb: { flex: 1, width: "100%", backgroundColor: "transparent" },
     fallbackHint: { ...Type.meta, color: t.textTertiary, marginTop: Space.xs },
   });
