@@ -20,9 +20,10 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, opts?: { text?: string }) => {
+    t: (key: string, opts?: { text?: string; part?: string }) => {
       if (key === "rich.answer_a11y" && opts?.text != null) return `Answer: ${opts.text}`;
       if (key === "rich.answer_label") return "Answer";
+      if (key === "rich.answer_part_label") return `Answer (${opts?.part})`;
       return key;
     },
   }),
@@ -33,7 +34,7 @@ describe("AnswerBlock", () => {
     mockFormula.mockClear();
   });
 
-  it("draws the worked layout's Answer section: heading, rule, value in the accent box", async () => {
+  it("draws the worked layout's Answer section: heading, then the value in a white, bordered box", async () => {
     const { getByTestId, getByText, queryByTestId } = await render(
       <AnswerBlock content={"label: answer\nverified: true\nx = 0"} />,
     );
@@ -42,11 +43,13 @@ describe("AnswerBlock", () => {
       ...Weight.semibold,
       color: lightTheme.assistantText,
     });
-    // No side rule: the tinted box alone frames the answer, centred in it.
+    // No side rule: the bordered box alone frames the answer, centred in it.
     expect(queryByTestId("answer-rule")).toBeNull();
     const box = getByTestId("answer-box");
     expect(StyleSheet.flatten(box.props.style)).toMatchObject({
-      backgroundColor: lightTheme.accentLight,
+      backgroundColor: lightTheme.elevated,
+      borderWidth: 1,
+      borderColor: lightTheme.border,
       flexDirection: "row",
       justifyContent: "center",
     });
@@ -65,7 +68,7 @@ describe("AnswerBlock", () => {
     );
     expect(getByText("Answer")).toBeOnTheScreen();
     expect(StyleSheet.flatten(getByTestId("answer-box").props.style).backgroundColor).toBe(
-      lightTheme.accentLight,
+      lightTheme.elevated,
     );
     expect(queryByTestId("answer-success-check")).toBeNull();
   });
@@ -91,12 +94,25 @@ describe("AnswerBlock", () => {
     expect(mockFormula).not.toHaveBeenCalled();
   });
 
-  it("uses the accent tint of a written-out answer, not the chat background", async () => {
+  it("is white with a thin grey border, like a written-out answer, not a coloured fill", async () => {
     const { getByTestId } = await render(<AnswerBlock content="x = 1" />);
-    expect(
-      StyleSheet.flatten(getByTestId("answer-box").props.style).backgroundColor,
-    ).toBe(lightTheme.accentLight);
+    expect(StyleSheet.flatten(getByTestId("answer-box").props.style)).toMatchObject({
+      backgroundColor: lightTheme.elevated,
+      borderWidth: 1,
+      borderColor: lightTheme.border,
+    });
   });
+
+  it.each([["a", "Answer (a)"], ["b", "Answer (b)"]])(
+    "labels one part's card with its letter: part %s",
+    async (part, label) => {
+      const { getByTestId } = await render(
+        <AnswerBlock content={`part: ${part}\nverified: true\n2.04\\,\\mathrm{s}`} />,
+      );
+      expect(getByTestId("answer-label")).toHaveTextContent(label);
+      expect(getByTestId("answer-box")).not.toHaveTextContent(/part/);
+    },
+  );
 
   it("marks the verified final with a green success check", async () => {
     const { getByTestId } = await render(<AnswerBlock content={"verified: true\n20"} />);

@@ -1,5 +1,6 @@
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
+import { isWorkedReply, lawHeading, WORKOUT_HEADINGS } from "@/lib/markdown/workoutSection";
 import { applyOutsideFences, mapClosedFences } from "@/lib/mdFenceScan";
 
 const DETAILS_FENCE_LANGS = new Set(["details", "collapse", "summary"]);
@@ -46,6 +47,14 @@ function trimBoldLine(line: string): string {
   return out + line.slice(copied);
 }
 
+// A bold line alone, then a line of its own (not a blank one). Workout headings stay.
+const STANDALONE_BOLD_LINE = new RegExp(
+  String.raw`^(\s*\*\*(?!\d+[.)]\s)(?!(?:${WORKOUT_HEADINGS.join("|")}|Answer \([a-h]\)):?\*\*)[^*\n]+\*\*(?:[ \t]*` +
+    "`[^`\\n]+`" +
+    String.raw`)?\s*)\n(?!\n)`,
+  "gm",
+);
+
 /** Keep a bold-only teaching label, or a label and its code, on its own
  * visual row.
  *
@@ -56,15 +65,18 @@ function trimBoldLine(line: string): string {
  * structure and gives tall native fractions/radicals their own row. List
  * labels and fenced examples are deliberately untouched. A workout heading
  * (Given, Find, Formula, Substitution, Steps, Answer) keeps its lines: the
- * workout renderer gives each line its own row.
+ * workout renderer gives each line its own row. So does a law's name heading
+ * its formulas in a worked reply ("**Constant acceleration**" over `$v = u + at$`).
  */
 export function separateStandaloneBoldLines(content: string): string {
-  return applyOutsideFences(content, (prose) =>
-    prose.replace(
-      /^(\s*\*\*(?!\d+[.)]\s)(?!(?:Given|Find|Formula|Substitution|Steps|Answer):?\*\*)[^*\n]+\*\*(?:[ \t]*`[^`\n]+`)?\s*)\n(?!\n)/gm,
-      "$1\n\n",
-    ),
-  );
+  return applyOutsideFences(content, (prose) => {
+    const worked = isWorkedReply(prose);
+    return prose.replace(STANDALONE_BOLD_LINE, (line: string, head: string, offset: number) => {
+      const next = prose.slice(offset + line.length).split("\n", 1)[0] ?? "";
+      const name = head.trim().replace(/^\*\*|\*\*$/g, "");
+      return worked && lawHeading(name, next) ? line : `${head}\n\n`;
+    });
+  });
 }
 
 /** Numbered/bulleted lists and headings — never code fences. */

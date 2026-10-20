@@ -1,22 +1,48 @@
 /**
  * The one worked-solution layout the API writes for every subject:
- * **Given**, **Find**, **Formula**, **Substitution** or **Steps**, **Answer**,
+ * **Given**, **Find**, **Formula** (or the law's own name, see `lawHeading`),
+ * **Substitution** or **Steps**, **Answer** (**Answer (a)** for one part),
  * each a bold heading on its own line followed by one state per line, with
  * the move as a short note after " — " (`$2x = 8$ — subtract 3`).
  */
-const WORKOUT_HEADINGS: ReadonlySet<string> = new Set([
+export const WORKOUT_HEADINGS: readonly string[] = [
   "Given",
   "Find",
   "Formula",
   "Substitution",
   "Steps",
   "Answer",
-]);
+];
+
+const PART_ANSWER = /^Answer \([a-h]\)$/;
 
 /** A heading as written, with an optional trailing colon. */
 export function workoutHeading(text: string): string | null {
   const heading = text.trim().replace(/:$/, "");
-  return WORKOUT_HEADINGS.has(heading) ? heading : null;
+  return WORKOUT_HEADINGS.includes(heading) || PART_ANSWER.test(heading) ? heading : null;
+}
+
+/** The answer of the whole question, or of one part ("Answer (a)"). */
+export function isAnswerHeading(heading: string): boolean {
+  return heading === "Answer" || PART_ANSWER.test(heading);
+}
+
+/**
+ * A law's own name heads the section of its formulas ("**Constant acceleration**"), so it
+ * is no fixed word: in a worked reply, a short bold line alone over a line of maths.
+ */
+export function lawHeading(text: string, firstLine: string): string | null {
+  const heading = text.trim();
+  if (!heading || /[.:?!]$/.test(heading) || heading.split(/\s+/).length > 8) return null;
+  // A numbered move ("1. Subtract 4 from both sides") and a part are their own blocks.
+  if (/^\d+[.)]\s/.test(heading) || workoutPart(heading)) return null;
+  return /^\$/.test(firstLine.trim()) ? heading : null;
+}
+
+/** A reply worked in sections: it states what it is given or what it finds (a follow-up
+ * that changes one given often skips Find). */
+export function isWorkedReply(text: string): boolean {
+  return /^\*\*(?:Given|Find):?\*\*/m.test(text);
 }
 
 /** ``$2x = 8$ — subtract 3``: the state, then its move. A dash inside math is the math's. */

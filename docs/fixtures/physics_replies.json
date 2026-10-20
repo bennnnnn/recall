@@ -3,7 +3,7 @@
     "photon_energy": {
       "question": "Find the energy of a photon of wavelength 500 nm.",
       "answer": "3.97 × 10⁻¹⁹ J (2.48 eV)",
-      "reply": "**Given**  \n$\\lambda = 500\\,\\mathrm{nm}$  \n$\\lambda = 5 \\times 10^{-7}\\,\\mathrm{m}$  \nwhere $\\lambda$ = wavelength\n\n**Find**  \n$E$\n\n**Formula**  \n$E = \\frac{hc}{\\lambda}$ — Photon-energy relation\n\n**Substitution**  \n$E = \\frac{6.6261 \\times 10^{-34} \\cdot 299792458}{5 \\times 10^{-7}}$\n\n**Answer**\n\n```answer\n3.97 \\times 10^{-19}\\,\\mathrm{J}\\ (2.48\\,\\mathrm{eV})\n```\n"
+      "reply": "**Given**  \n$\\lambda = 500\\,\\mathrm{nm} = 5 \\times 10^{-7}\\,\\mathrm{m}$  \nwhere $\\lambda$ = wavelength\n\n**Find**  \n$E$\n\n**Formula**  \n$E = \\frac{hc}{\\lambda}$ — Photon-energy relation\n\n**Substitution**  \n$E = \\frac{6.6261 \\times 10^{-34} \\cdot 299792458}{5 \\times 10^{-7}}$\n\n**Answer**\n\n```answer\n3.97 \\times 10^{-19}\\,\\mathrm{J}\\ (2.48\\,\\mathrm{eV})\n```\n"
     },
     "launch_angles": {
       "question": "At what angle must a projectile be launched at 20 m/s to land 30 m away?",
@@ -23,7 +23,7 @@
     "heater_energy": {
       "question": "A 2 kW heater runs for 3 hours. How much energy does it use in kWh?",
       "answer": "6 kWh",
-      "reply": "**Given**  \n$P = 2\\,\\mathrm{kW}$  \n$P = 2000\\,\\mathrm{W}$  \n$t = 3\\,\\mathrm{h}$  \n$t = 10800\\,\\mathrm{s}$  \nwhere $P$ = power, $t$ = time\n\n**Find**  \n$E$\n\n**Formula**  \n$E = P t$ — Electrical-energy formula\n\n**Substitution**  \n$E = 2000 \\cdot 10800$  \n$E = 2.16 \\times 10^{7}\\,\\mathrm{J}$  \n$E = 6\\,\\mathrm{kWh}$\n\n**Answer**\n\n```answer\n6\\,\\mathrm{kWh}\n```\n"
+      "reply": "**Given**  \n$P = 2\\,\\mathrm{kW} = 2000\\,\\mathrm{W}$  \n$t = 3\\,\\mathrm{h} = 10800\\,\\mathrm{s}$  \nwhere $P$ = power, $t$ = time\n\n**Find**  \n$E$\n\n**Formula**  \n$E = P t$ — Electrical-energy formula\n\n**Substitution**  \n$E = 2000 \\cdot 10800$  \n$E = 2.16 \\times 10^{7}\\,\\mathrm{J} = 6\\,\\mathrm{kWh}$\n\n**Answer**\n\n```answer\n6\\,\\mathrm{kWh}\n```\n"
     },
     "machine_advantage": {
       "question": "A wheel and axle has a wheel radius of 0.20 m and an axle radius of 0.04 m. Find its mechanical advantage.",

@@ -40,3 +40,22 @@ def reads_as_prose(text: str) -> bool:
         if run >= 4:
             return True
     return False
+
+
+def converts_units(segments: list[str]) -> bool:
+    """``v = 100 km/h * 1000/3600 = 27.8 m/s``: a symbol's value in two units, one row.
+
+    Every value after the symbol carries its unit. A chain that works a value out
+    (``a = (27.8 - 0)/8 = 3.47 m/s²``) has bare numbers until its end, and splits;
+    so does one through another symbol (``F = ma = …``), or from a value
+    (``1 km = 1000 m = 100000 cm``).
+    """
+    return (
+        len(segments) > 2
+        and not _has_unit(segments[0])
+        and all(_has_unit(part) for part in segments[1:])
+    )
+
+
+def _has_unit(segment: str) -> bool:
+    return r"\mathrm{" in segment or r"\text{" in segment

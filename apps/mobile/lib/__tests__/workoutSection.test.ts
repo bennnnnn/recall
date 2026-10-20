@@ -1,4 +1,9 @@
-import { splitWorkoutNote, workoutHeading } from "@/lib/markdown/workoutSection";
+import {
+  isAnswerHeading,
+  lawHeading,
+  splitWorkoutNote,
+  workoutHeading,
+} from "@/lib/markdown/workoutSection";
 
 describe("splitWorkoutNote", () => {
   it.each([
@@ -18,7 +23,31 @@ describe("workoutHeading", () => {
     ["Substitution", "Substitution"],
     ["Diagram", null],
     ["1. Subtract 3", null],
+    ["Answer (a)", "Answer (a)"],
+    ["Answer (z)", null],
   ])("%s", (text, expected) => {
     expect(workoutHeading(text)).toBe(expected);
+  });
+
+  it("reads one part's answer as an answer", () => {
+    expect(isAnswerHeading("Answer")).toBe(true);
+    expect(isAnswerHeading("Answer (b)")).toBe(true);
+    expect(isAnswerHeading("Answers")).toBe(false);
+  });
+});
+
+describe("lawHeading", () => {
+  it.each([
+    ["Constant acceleration", "$v = u + at$", "Constant acceleration"],
+    ["Newton's second law", "$F = ma$ — net force", "Newton's second law"],
+    // Not a heading over maths: a sentence, a numbered move, a part, or no maths below.
+    ["Now solve for a.", "$a = 2$", null],
+    ["1. Subtract 4 from both sides", "$2x = 8$", null],
+    ["(a) Time in the air", "$t = 2$", null],
+    ["Constant acceleration", "The car speeds up evenly.", null],
+    ["Ideal mechanical advantage of a wheel and axle", "$\mathrm{IMA} = R/r$", "Ideal mechanical advantage of a wheel and axle"],
+    ["A heading that runs far too long to be the name of one law", "$x$", null],
+  ])("%s over %s", (text, firstLine, expected) => {
+    expect(lawHeading(text, firstLine)).toBe(expected);
   });
 });

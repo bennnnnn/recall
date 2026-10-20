@@ -79,3 +79,43 @@ describe("attachAnswerHeadingToFence: one Answer label", () => {
     expect(attachAnswerHeadingToFence(md)).toBe(md);
   });
 });
+
+describe("attachAnswerHeadingToFence: the follow-up pattern and parts", () => {
+  const card = "```answer\nverified: true\n26.3\\,\\mathrm{N·m}\n```";
+
+  it("drops a heading and its 'Answer:' line above a card", () => {
+    // A follow-up copied its history: heading, "Answer: …", then the card's own label.
+    const md = ["**Answer**", "", String.raw`Answer: 26.3\,\mathrm{N·m}`, "", card].join("\n");
+    expect(attachAnswerHeadingToFence(md)).toBe(card);
+  });
+
+  it("drops an 'Answer:' line written straight above a card", () => {
+    const md = [String.raw`Answer: 26.3\,\mathrm{N·m}`, "", card].join("\n");
+    expect(attachAnswerHeadingToFence(md)).toBe(card);
+  });
+
+  it("keeps one label with no card: the 'Answer:' line becomes its value, LaTeX as maths", () => {
+    const md = ["**Answer**", "", String.raw`Answer: 26.3\,\mathrm{N·m}`, "", "Since τ = Fd…"].join("\n");
+    expect(attachAnswerHeadingToFence(md)).toBe(
+      ["**Answer**", "", String.raw`$26.3\,\mathrm{N·m}$`, "", "Since τ = Fd…"].join("\n"),
+    );
+  });
+
+  it.each(["```result", "~~~answer", "````answer", "```Answer"])(
+    "drops the heading above every fence the card draws: %s",
+    (opener) => {
+      const closer = opener.startsWith("~") ? "~~~" : opener.match(/^`+/)?.[0] ?? "```";
+      const fence = [opener, "x = 2", closer].join("\n");
+      expect(attachAnswerHeadingToFence(["**Answer**", "", fence].join("\n"))).toBe(fence);
+    },
+  );
+
+  it("gives a part's card its letter, and drops the part's heading", () => {
+    const md = ["**Answer (b)**", "", "```answer", "verified: true", "35.3\\,\\mathrm{m}", "```"].join(
+      "\n",
+    );
+    expect(attachAnswerHeadingToFence(md)).toBe(
+      ["```answer", "part: b", "verified: true", "35.3\\,\\mathrm{m}", "```"].join("\n"),
+    );
+  });
+});

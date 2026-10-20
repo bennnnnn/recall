@@ -4,7 +4,12 @@
  * docs/fixtures/presentation_cases.json holds both to the same output.
  */
 
-import { finishInline, keepHardBreak, readsAsProse } from "@/lib/markdown/calculationLayoutTail";
+import {
+  convertsUnits,
+  finishInline,
+  keepHardBreak,
+  readsAsProse,
+} from "@/lib/markdown/calculationLayoutTail";
 import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
 import { displayMathLines, leaveProseLine, rewriteFenced } from "@/lib/markdown/markdownRegions";
 import { charAt, LETTER } from "@/lib/markdown/unicodeChars";
@@ -187,7 +192,7 @@ function equalsChain(expr: string): string[] | null {
   segments.push(expr.slice(start));
   if (segments.some((part) => !part.trim())) return null;
   if (segments.slice(1, -1).some(segmentBlocksChain)) return null;
-  if (segments.every(isSimpleNumeric)) return null;
+  if (segments.every(isSimpleNumeric) || convertsUnits(segments)) return null;
   const lhs = segments[0].trim();
   return segments.slice(1).map((rhs, index) => {
     const op = ops[index].kind === "approx" ? "\\approx" : "=";

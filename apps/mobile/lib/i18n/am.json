@@ -454,6 +454,7 @@
   "reminders.badge_accessibility": "የሚደረጉ፣ {{count}} ዛሬ የሚደርሱ ወይም ያለፉ",
   "rich.answer_a11y": "መልስ፦ {{text}}",
   "rich.answer_label": "መልስ",
+  "rich.answer_part_label": "መልስ ({{part}})",
   "rich.arc_length": "የቅስት ርዝመት፦",
   "rich.area": "ስፋት፦",
   "rich.callout_important": "አስፈላጊ",

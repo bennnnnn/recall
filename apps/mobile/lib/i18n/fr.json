@@ -454,6 +454,7 @@
   "reminders.badge_accessibility": "Tâches, {{count}} pour aujourd’hui ou en retard",
   "rich.answer_a11y": "Réponse : {{text}}",
   "rich.answer_label": "Réponse",
+  "rich.answer_part_label": "Réponse ({{part}})",
   "rich.arc_length": "Longueur de l’arc :",
   "rich.area": "Aire :",
   "rich.callout_important": "Important",
