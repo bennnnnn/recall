@@ -159,6 +159,17 @@ def test_each_caller_gets_its_own_intent() -> None:
     assert second.physics_params["h0"] == 20
 
 
+@pytest.mark.parametrize("run", [",", ", ", ". ", " = "])
+def test_punctuation_between_a_label_and_its_value_stays_linear(run: str) -> None:
+    # Each comma once doubled the label-gap fullmatch: 40 would have taken days.
+    text = "What is the net force on a body of mass" + run * 40 + "x 5 kg at 2 m/s^2?"
+    _clear_caches()
+    assert _elapsed(extract.extract_physics_intent, text) < _CALL_BUDGET_SECONDS
+    start = time.perf_counter()
+    _find_value_with_specific_unit(text, "kg", ("mass",))
+    assert time.perf_counter() - start < _PATTERN_BUDGET_SECONDS
+
+
 def test_a_long_resistor_list_still_declines() -> None:
     assert _resistor_values("three resistors of 2, 3 and 6 ohms in parallel") == [2.0, 3.0, 6.0]
     # More than the network limit: enough values come back to refuse it.

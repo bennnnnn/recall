@@ -67,12 +67,11 @@ function commandEnd(text: string, index: number): { name: string; end: number } 
   return { name: text[cursor], end: cursor + 1 };
 }
 
+// `1,500`: a digit, the comma, then exactly three digits. `10, 2x` is two equations:
+// read as one number it joined `x + y = 10, 2x - y = 5` into a chain stating `x + y = 5`.
 function thousandsSeparator(expr: string, index: number): boolean {
   const prev = index > 0 ? expr[index - 1] : "";
-  let cursor = index + 1;
-  while (cursor < expr.length && expr[cursor] === " ") cursor += 1;
-  const next = cursor < expr.length ? expr[cursor] : "";
-  return /\d/.test(prev) && /\d/.test(next);
+  return /\d/.test(prev) && /^\d{3}(?!\d)/.test(expr.slice(index + 1, index + 5));
 }
 
 function breakEnd(expr: string, index: number): number {

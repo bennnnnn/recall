@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.core.sympy_notation import use_school_log_notation
 from app.modules.math.schemas import EquationInput
 from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
+from app.modules.math.solve.number_size import reject_huge_numbers
 from app.modules.math.solve.written_names import lone_quantity, reject_unwritten_symbols
 from app.services.solving import MathServiceError
 
@@ -175,6 +176,8 @@ def _parse_expression(
     local_dict = dict(_LOCALS)
     for name in [*(variable_names or []), *lone_quantity(expr)]:
         local_dict[name] = Symbol(name, real=True) if real else Symbol(name)
+    if evaluate:
+        reject_huge_numbers(normalized, local_dict, _TRANSFORMATIONS)
     try:
         parsed = parse_expr(
             normalized,

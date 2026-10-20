@@ -102,8 +102,8 @@ _FILLER = re.compile(
 )
 # Units written as one letter (m, s, N, K, ...); any other lone letter is a variable.
 _UNIT_LETTERS = frozenset("msghLNJWVAKCFTHMΩ")
-# What may follow a final value: a unit, a degree or percent sign, a closing mark.
-_UNIT_TAIL = re.compile(r"(?:[A-Za-zµμΩ°%]+(?:\^-?\d+)?|[/·*]|\s|[()])*")
+# What may follow a final value (a unit, °, %, a closing mark); one letter per repeat, not 2^n.
+_UNIT_TAIL = re.compile(r"(?:[A-Za-zµμΩ°%](?:\^-?\d+)?|[/·*]|\s|[()])*")
 # Where a stated value ends: punctuation or a joining word ("pH = 2 for a strong
 # acid"). A comma before three digits is a thousands separator (1,500), not a list.
 _SEPARATORS = re.compile(

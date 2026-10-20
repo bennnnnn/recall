@@ -119,9 +119,11 @@ def _keyword_spans(
 
 # Words that sit between a label and the number it names: "distance of 1.50 m",
 # "image height is 6.00 cm". "and" is not one of them, so "2 cm object and 6 cm"
-# does not hand the second length to the first label.
+# does not hand the second length to the first label. One punctuation mark per
+# repeat: ``[\s,:=.]+`` inside the ``*`` could split a run of commas 2^n ways, and
+# a failed fullmatch tried them all (22 commas took 0.3 s, each one doubled it).
 _LABEL_GAP = re.compile(
-    r"(?:[\s,:=.]+|(?:of|is|are|was|were|a|an|the|height|distance|equal|to)\b)*",
+    r"(?:[\s,:=.]|(?:of|is|are|was|were|a|an|the|height|distance|equal|to)\b)*",
     re.IGNORECASE,
 )
 
