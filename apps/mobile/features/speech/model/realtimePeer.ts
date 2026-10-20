@@ -57,7 +57,7 @@ type WebRtcPeerConnection = {
   close: () => void;
 };
 
-export type NativeWebRtc = {
+type NativeWebRtc = {
   __WEBRTC_STUB__?: boolean;
   mediaDevices: {
     getUserMedia: (constraints: object) => Promise<WebRtcStream>;
@@ -66,14 +66,14 @@ export type NativeWebRtc = {
   RTCSessionDescription: new (init: { type: string; sdp: string }) => WebRtcSessionDescription;
 };
 
-export type RealtimePeerHandlers = {
+type RealtimePeerHandlers = {
   onOpen: () => void;
   onMessage: (event: Record<string, unknown>) => void;
   onPeerFailed: (message: string) => void;
   onChannelFailed: (message: string) => void;
 };
 
-export type RealtimePeer = {
+type RealtimePeer = {
   send: (payload: Record<string, unknown>) => void;
   /** The local offer, after ICE gathering off iOS. */
   createOffer: () => Promise<string>;

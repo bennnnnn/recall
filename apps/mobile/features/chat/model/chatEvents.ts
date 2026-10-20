@@ -190,7 +190,7 @@ const error: ChatEventHandler = (payload, ctx, ttftTurnId) => {
 };
 
 /** One handler per event the chat socket or SSE stream sends. */
-export const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
+const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
   start: (_payload, ctx) => {
     ctx.streamCueRef.current.activity();
     beginTurnOutcome();

@@ -77,7 +77,7 @@ export type RealtimeTurnState = {
   lastAssistantText: string;
 };
 
-export type RealtimeTurnStep = { state: RealtimeTurnState; commands: RealtimeTurnCommand[] };
+type RealtimeTurnStep = { state: RealtimeTurnState; commands: RealtimeTurnCommand[] };
 
 const PLAYBACK_UNMUTE_FALLBACK_MS = 12_000;
 const MAX_TOOL_CALLS_PER_RESPONSE = 8;

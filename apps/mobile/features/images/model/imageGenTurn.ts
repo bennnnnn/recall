@@ -7,7 +7,7 @@ import {
 type ImageGenFailure = "canceled" | "failed";
 
 /** What the server reads a composer send as. A maths, physics or chemistry turn is a send. */
-export type ImageTurnReading =
+type ImageTurnReading =
   | { kind: "send" }
   /** A real photo: the chat turn looks it up and attaches it to its reply. */
   | { kind: "lookup" }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 /** After the reply has started, this long without new text is worth saying. */
-export const STREAM_SILENCE_HINT_MS = 20_000;
+const STREAM_SILENCE_HINT_MS = 20_000;
 
 /**
  * True once a reply that is showing text has not grown for `delayMs`. A

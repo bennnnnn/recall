@@ -8,7 +8,7 @@ import type { ScanFiles } from "@/lib/scanner/scanImage";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 
 /** The subject is the one the crop was read with, not whatever is selected later. */
-export type ScanReview = { shot: PendingAttachment; subject: ReadBackSubject; state: ScanReadingState };
+type ScanReview = { shot: PendingAttachment; subject: ReadBackSubject; state: ScanReadingState };
 
 type Args = {
   visible: boolean;

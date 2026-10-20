@@ -12,7 +12,7 @@ export const MERMAID_MAX_HEIGHT = 640;
 /** Expanded cap for tall graphs; the WebView scrolls if still taller. */
 export const MERMAID_MAX_EXPANDED = 960;
 /** Ignore sub-pixel / font-settle chatter so the chat list doesn't bounce. */
-export const MERMAID_HEIGHT_EPSILON_PX = 4;
+const MERMAID_HEIGHT_EPSILON_PX = 4;
 
 export const MERMAID_PREVIEW_HEIGHT = previewHeightRules({
   min: MERMAID_MIN_HEIGHT,
