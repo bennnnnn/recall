@@ -46,6 +46,9 @@ def test_kinematics_time_to_ground() -> None:
     assert body.path[0][1] == pytest.approx(20.0 + body.radius)
     assert body.path[-1][1] == pytest.approx(body.radius)
     assert [vector.label for vector in scene.vectors] == ["h = 20 m"]
+    # It falls beside the ledge with air between them, not down the ledge's face.
+    (ledge,) = scene.solids
+    assert body.path[0][0] - body.radius - ledge.rect[2] >= body.radius
 
 
 def test_kinematics_time_to_ground_derivation_includes_initial_velocity() -> None:

@@ -7,7 +7,6 @@ import {
   bodyLabelOffset,
   clampBox,
   LABEL_ASCENT,
-  LABEL_GAP,
   placedLabel,
   polylineSegments,
   type BodyLabelSide,
@@ -84,31 +83,15 @@ export function labelObstacles(
   return { fixed, solids, planet: layoutPlanet(scene, fixed) };
 }
 
-/** The planet's name goes in the middle of it, or under it if it does not fit. */
+/** The planet, and its name where `sceneFrames` placed it. */
 function layoutPlanet(scene: SceneFrames, fixed: LabelBox[][]): PlanetLayout | null {
-  const { spec, transform, width, height, measureText, fontSize, centre } = scene;
+  const { spec, transform, centre, planetName } = scene;
   if (!spec.centralBody || !centre) return null;
   const radius = spec.centralBody.radius * transform.scale;
   let label: PlacedLabel | null = null;
-  if (spec.centralBody.label) {
-    const labelWidth = measureText(spec.centralBody.label);
-    // A labelled centripetal arrow ends near the centre, label and all, so
-    // the planet's name moves down to where its chord still holds it.
-    const drop = spec.arrowLabels.centripetal ? 0.55 : 0;
-    const chord = 2 * radius * Math.sqrt(1 - drop * drop);
-    const fits = labelWidth + 8 <= chord * 0.9 && fontSize + 4 <= radius * 2 * (1 - drop);
-    const box = clampBox(
-      {
-        x: centre.px - labelWidth / 2,
-        y: fits ? centre.py + radius * drop - fontSize / 2 : centre.py + radius + LABEL_GAP,
-        width: labelWidth,
-        height: fontSize,
-      },
-      width,
-      height,
-    );
-    for (const boxes of fixed) boxes.push(box);
-    label = placedLabel(spec.centralBody.label, box);
+  if (spec.centralBody.label && planetName) {
+    for (const boxes of fixed) boxes.push(planetName.box);
+    label = placedLabel(spec.centralBody.label, planetName.box);
   }
   return { centre, radius, label };
 }

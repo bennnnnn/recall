@@ -755,6 +755,55 @@ describe("labels", () => {
     expect(unlabelled.y + unlabelled.height / 2).toBeCloseTo(centre.py, 6);
   });
 
+  it("keeps gravity's arrow and its label off the planet's name all the way round", () => {
+    // A satellite 2000 km up: gravity points at the centre, so drawn at full length its
+    // arrow struck through "Earth" for a fifth of the orbit.
+    const spec = mustParse({
+      ...ORBIT,
+      bodies: [
+        {
+          radius: 0.3,
+          role: "primary",
+          path: Array.from({ length: 73 }, (_, i) => [
+            8.371 * Math.cos((2 * Math.PI * i) / 72),
+            8.371 * Math.sin((2 * Math.PI * i) / 72),
+          ]),
+        },
+      ],
+      x_min: -9.5,
+      x_max: 9.5,
+      y_min: -9.5,
+      y_max: 9.5,
+      arrow_labels: { velocity: "v = 6900 m/s", centripetal: "gravity" },
+    });
+    const { height, scene } = layout(spec);
+    const name = scene.planet!.label!.box;
+    const gravity = scene.arrowLabels.find((label) => label.kind === "centripetal")!;
+    let drawn = 0;
+    for (let frame = 0; frame <= 100; frame += 1) {
+      const track = scene.tracks[gravity.body];
+      const at = track[Math.round((frame / 100) * (track.length - 1))];
+      const arrow = derivedArrowGeometry("centripetal", at, scene.radii[0], {
+        tangent: { dx: 0, dy: 0 },
+        maxSpeed: scene.maxSpeed,
+        centre: scene.planet!.centre,
+        slope: null,
+        width: WIDTH,
+        height,
+        floorY: scene.floorY,
+        solids: scene.obstacles,
+      });
+      if (!arrow) continue;
+      drawn += 1;
+      const tip = { x: arrow.fromX + arrow.ux * arrow.length, y: arrow.fromY + arrow.uy * arrow.length };
+      expect(overlaps({ x: tip.x - 1, y: tip.y - 1, width: 2, height: 2 }, name)).toBe(false);
+      const origin = derivedLabelOrigin(arrow, gravity.width, FONT, scene.floorY, scene.obstacles, gravity.beside);
+      const place = placeNudgedLabel(origin.x, origin.y, gravity.width, FONT, gravity.dx, gravity.dy, WIDTH, height);
+      expect(overlaps({ x: place.x, y: place.baseline - FONT * 0.8, width: gravity.width, height: FONT }, name)).toBe(false);
+    }
+    expect(drawn).toBe(101);
+  });
+
   it("labels a solid inside its top-left corner", () => {
     const { scene } = layout(mustParse(TABLE));
     const [solid] = scene.solids;

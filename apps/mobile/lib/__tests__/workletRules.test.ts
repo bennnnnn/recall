@@ -1,5 +1,8 @@
 /**
- * Structural guard: a worklet's default parameter reads nothing from outside the function.
+ * Structural guards for worklets, the functions that run on the UI thread.
+ *
+ * A worklet's default parameter reads nothing from outside the function, and a worklet
+ * names nothing declared later in its file.
  *
  * The worklets compiler copies to the UI thread only what a worklet's body uses. A default
  * like `inset = ARROW_EDGE_INSET` is evaluated there with the constant missing, so it throws
@@ -92,6 +95,74 @@ function outsideReads(file: string): string[] {
   visit(source);
   return problems;
 }
+
+/** Module-level names a worklet uses that are declared after it in the same file. */
+function laterNames(file: string): string[] {
+  const source = ts.createSourceFile(file, ts.sys.readFile(file) ?? "", ts.ScriptTarget.Latest, true);
+  const declared = new Map<string, number>();
+  for (const statement of source.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name) {
+      declared.set(statement.name.text, statement.getStart());
+    }
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name)) declared.set(declaration.name.text, statement.getStart());
+      }
+    }
+  }
+  const problems: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isFunctionLike(node) && isWorklet(node)) {
+      const at = node.getStart();
+      const { line } = source.getLineAndCharacterOfPosition(at);
+      const named = new Set<string>();
+      const scan = (inner: ts.Node): void => {
+        if (ts.isIdentifier(inner) && (declared.get(inner.text) ?? -1) > at) {
+          const { parent } = inner;
+          const isPropertyName =
+            (ts.isPropertyAccessExpression(parent) && parent.name === inner) ||
+            (ts.isPropertyAssignment(parent) && parent.name === inner);
+          if (!isPropertyName) named.add(inner.text);
+        }
+        ts.forEachChild(inner, scan);
+      };
+      const body = (node as ts.FunctionLikeDeclaration).body;
+      if (body) scan(body);
+      named.forEach((name) => problems.push(`${file.slice(ROOT.length + 1)}:${line + 1} uses ${name}`));
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return problems;
+}
+
+describe("worklets name only what is declared before them", () => {
+  it("in every production file", () => {
+    // A worklet captures what it names when it is made; a helper declared below it is
+    // still undefined then. The label placement threw "overlapsAny is not a function".
+    expect(productionFiles().flatMap(laterNames)).toEqual([]);
+  });
+
+  it("catches a worklet that calls a helper declared after it", () => {
+    const file = `${ROOT}/lib/__tests__/__worklet_order_probe__.ts`;
+    const original = ts.sys.readFile;
+    const probe = [
+      'export function place(a: number): number { "worklet"; return clear(a) + EDGE; }',
+      'function clear(a: number): number { "worklet"; return a; }',
+      "const EDGE = 6;",
+      'export function fine(a: number): number { "worklet"; return clear(a) + EDGE; }',
+    ].join("\n");
+    ts.sys.readFile = (path, encoding) => (path === file ? probe : original(path, encoding));
+    try {
+      expect(laterNames(file)).toEqual([
+        "lib/__tests__/__worklet_order_probe__.ts:1 uses clear",
+        "lib/__tests__/__worklet_order_probe__.ts:1 uses EDGE",
+      ]);
+    } finally {
+      ts.sys.readFile = original;
+    }
+  });
+});
 
 describe("worklet default parameters", () => {
   it("read only literals and earlier parameters", () => {
