@@ -8,7 +8,7 @@ two independent equations, becomes separate rows.
 
 from __future__ import annotations
 
-from app.modules.chat.calculation_layout_tail import finish_inline, keep_hard_break
+from app.modules.chat.calculation_layout_tail import finish_inline, keep_hard_break, reads_as_prose
 from app.modules.chat.inline_code import code_span_opens_within, escaped_at, is_bare_number
 from app.modules.chat.markdown_regions import (
     display_math_lines,
@@ -261,20 +261,8 @@ def _sole_math(stripped: str) -> tuple[str, str, str] | None:
     return None
 
 
-def _has_long_word(text: str) -> bool:
-    run = 0
-    for char in text:
-        if char.isalpha():
-            run += 1
-            if run >= 4:
-                return True
-        else:
-            run = 0
-    return False
-
-
 def _plain_chain(body: str) -> str | None:
-    if _has_long_word(body):
+    if reads_as_prose(body):
         return None
     core, punct = _peel_punct(body.strip())
     rows = split_math_expression(core)

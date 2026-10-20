@@ -20,6 +20,18 @@ from app.services.solving import SolveServiceError
 # Volumes and moles are typed decimals, so equal amounts differ only by float noise.
 _TOLERANCE = 1e-9
 
+# [H+] once water's own ions are counted, from c, the strong acid left over (negative when
+# base is left over). It keeps a 1e-8 M excess near pH 7 instead of at pH 8.
+_WITH_WATER = "[H+] = (c + √(c^2 + 4Kw)) / 2"
+
+
+def _with_water_line(net: float, hydrogen: float) -> str:
+    """The step that counts water's own ions, with c named; it read as an unexplained "net"."""
+    left = (
+        f"{num(net)} mol/L of acid left over" if net >= 0 else f"{num(net)} mol/L (base left over)"
+    )
+    return f"With water's own ions, {_WITH_WATER} = {num(hydrogen)} mol/L, where c = {left}"
+
 
 def _titration_moles(intent: ChemistryIntent) -> tuple[float, float, float, float | None]:
     ma = require(intent, "ma", positive=True)
@@ -78,9 +90,7 @@ def solve_titration_strong(intent: ChemistryIntent) -> ChemistryResult:
             region = "after equivalence"
             detail = f"after equivalence: [OH-] = {num(-net)}"
             lines.append(f"[OH-] = (n(OH-) − n(H+)) / V = {num(-net)} mol/L")
-        lines.append(
-            f"[H+] = [net + √(net^2 + 4Kw)] / 2 = {num(hydrogen)} mol/L (water's ions included)"
-        )
+        lines.append(_with_water_line(net, hydrogen))
         lines.append(f"pH = −log10({num(hydrogen)}) = {ph}")
     return _done(
         intent,
@@ -230,14 +240,12 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         region = "after equivalence"
         ion = "OH-" if acid else "H+"
         detail = f"after equivalence: [{ion}] = {num(excess)}"
-        formula = "[H+] = [net + √(net^2 + 4Kw)] / 2"
+        formula = _WITH_WATER
         lines.append(
             f"[{ion}] = ({num(titrant_moles)} − {num(analyte_moles)}) / {num(total)} = "
             f"{num(excess)} mol/L"
         )
-        lines.append(
-            f"[H+] = [net + √(net^2 + 4Kw)] / 2 = {num(hydrogen)} mol/L (water's ions included)"
-        )
+        lines.append(_with_water_line(net, hydrogen))
         lines.append(f"pH = −log10({num(hydrogen)}) = {ph}")
     return _done(
         intent,
