@@ -145,6 +145,22 @@ describe("normalizeImplicitMath", () => {
     );
   });
 
+  it.each([
+    [String.raw`Answer: 26.3\,\mathrm{N·m}`, String.raw`Answer: $26.3\,\mathrm{N·m}$`],
+    [String.raw`a speed of 3\;\mathrm{m/s} today`, String.raw`a speed of $3\;\mathrm{m/s}$ today`],
+    [String.raw`Answer: 26.3\,N·m`, "Answer: 26.3 N·m"],
+  ])("keeps a spacing command out of prose, where it shows as a comma: %s", (input, expected) => {
+    // A follow-up reply wrote its answer bare, and the screen read "26.3,N·m".
+    expect(normalizeImplicitMath(input)).toBe(expected);
+  });
+
+  it.each([
+    String.raw`Great\! It works.`,
+    "Type `5\\,N` here",
+  ])("leaves an escaped mark and code as written: %s", (input) => {
+    expect(normalizeImplicitMath(input)).toBe(input);
+  });
+
   it("does not re-wrap inside existing $...$ but still wraps bare commands outside them", () => {
     // A line that already has one `$...$` used to bail out of command wrapping
     // entirely, leaving a leftover `\neq` / `\frac` raw on the same line

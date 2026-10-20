@@ -1,6 +1,6 @@
 import { readGroup } from "@/lib/math/latexGroups";
 import { preprocessLatex } from "@/lib/math/latexPreprocess";
-import { NAMED_FUNCTIONS } from "@/lib/math/latexCommands";
+import { NAMED_FUNCTIONS, pushNamedFunction } from "@/lib/math/latexCommands";
 import {
   MAX_MATH_NEST_DEPTH,
   NATIVE_LITERAL_APOSTROPHE_MARKER,
@@ -437,7 +437,7 @@ function readEscape(state: LatexState): boolean {
     while (input[argStart] === " ") argStart += 1;
     const group = input[argStart] === "{" ? readGroup(input, argStart) : null;
     const named = NAMED_FUNCTIONS.has(cmd);
-    if (named) state.out.push({ type: "upright", value: cmd });
+    if (named) pushNamedFunction(state.out, cmd, group ? null : input.slice(state.i));
     if (!group) {
       if (!named) pushText(state, cmd);
       return true;

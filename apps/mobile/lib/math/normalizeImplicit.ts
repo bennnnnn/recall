@@ -242,6 +242,11 @@ function expandMathIslandLeft(seg: string, start: number): number {
       i -= 1;
       continue;
     }
+    // `26.3\,\mathrm{N}`: a spacing command left in prose reads as a comma.
+    if (/[,;:]/.test(c) && seg[i - 2] === "\\") {
+      i -= 2;
+      continue;
+    }
     if (c === ".") {
       if (/\d/.test(seg[i] ?? "") && /\d/.test(seg[i - 2] ?? "")) {
         i -= 1;
@@ -440,7 +445,12 @@ function normalizeMathLine(line: string, format?: (expr: string) => string, whol
     },
   );
   out = wrapInlineLatexCommands(out);
-  return out;
+  return applyOutsideInlineMath(out, spaceBareUnits);
+}
+
+/** `26.3\,N` has no command to wrap: between a number and its unit, a space. */
+function spaceBareUnits(seg: string): string {
+  return seg.replace(/(\d)\\[,;:]\s*(?=[A-Za-zµΩ°%])/g, "$1 ");
 }
 
 export function normalizeImplicitMathInProse(
