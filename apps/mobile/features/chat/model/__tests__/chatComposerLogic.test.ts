@@ -3,7 +3,6 @@ import {
   COMPOSER_CONTROL_SIZE,
   COMPOSER_INPUT_LINE_HEIGHT,
   COMPOSER_INPUT_MAX_HEIGHT,
-  composerGapFadeHeight,
   composerInputFrameHeight,
   composerInputMetrics,
   composerInputTextBoxHeight,
@@ -100,11 +99,6 @@ describe("composerInputFrameHeight", () => {
     expect(composerSoftWrapLineCount("a".repeat(20), 200)).toBe(1);
     expect(composerSoftWrapLineCount("a".repeat(20), 200, 1.5)).toBe(2);
     expect(composerInputFrameHeight("a".repeat(20), 0, 200, 1.5).height).toBe(72);
-  });
-
-  it("covers the home-indicator gap under the pill", () => {
-    expect(composerGapFadeHeight(0)).toBe(0);
-    expect(composerGapFadeHeight(34)).toBeGreaterThan(34 * 2);
   });
 
   it("keeps a wrap height while the same draft changes and drops it on reset", () => {
