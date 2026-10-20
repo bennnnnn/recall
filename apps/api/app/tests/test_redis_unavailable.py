@@ -117,6 +117,7 @@ async def test_logout_leaves_a_redis_outage_to_the_503_handler():
                 request=request,
                 settings=settings,
                 redis=AsyncMock(),
+                session=AsyncMock(),
             )
 
 

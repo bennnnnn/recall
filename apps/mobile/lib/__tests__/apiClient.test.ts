@@ -4,6 +4,7 @@ import {
   authorizeNativeTransfer,
   fetchWithTimeout,
   fetchExportText,
+  logoutSession,
   request,
   requestRaw,
   requestSse,
@@ -213,6 +214,17 @@ describe("api client", () => {
         }),
       }),
     );
+  });
+
+  it("logoutSession sends the device's push token only when it has one", async () => {
+    mockFetch.mockResolvedValue({ ok: true, status: 204 } as unknown as Response);
+    await logoutSession("access", "refresh", "ExponentPushToken[phone]");
+    await logoutSession("access", "refresh");
+    const bodies = mockFetch.mock.calls.map((call) => JSON.parse(String(call[1]?.body)));
+    expect(bodies).toEqual([
+      { refresh_token: "refresh", expo_push_token: "ExponentPushToken[phone]" },
+      { refresh_token: "refresh" },
+    ]);
   });
 
   it("requestRaw omits Authorization when token is null", async () => {

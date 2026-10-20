@@ -202,7 +202,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     localCleanupRef.current = cleanup;
     if (accessToken) {
-      void refreshToken.then((refresh) => logoutSession(accessToken, refresh)).catch(() => {});
+      // The device's push token goes with the logout, or this account's reminders keep
+      // arriving on a signed-out phone. A failure to read it never holds the logout.
+      const pushToken = import("@/lib/pushNotifications")
+        .then(({ devicePushToken }) => devicePushToken())
+        .catch(() => null);
+      void Promise.all([refreshToken, pushToken])
+        .then(([refresh, push]) => logoutSession(accessToken, refresh, push))
+        .catch(() => {});
     }
     return cleanup;
   }, [setCurrentToken, setCurrentUser]);

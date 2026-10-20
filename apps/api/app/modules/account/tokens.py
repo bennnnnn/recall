@@ -300,6 +300,17 @@ async def refresh_token_pair(
     return access_token, new_refresh, user_out
 
 
+async def refresh_token_user(redis: Redis, refresh_token: str) -> UUID | None:
+    """The account a live refresh token belongs to, read without using the token up."""
+    try:
+        raw = await redis.get(_refresh_key(refresh_token))
+    except RedisError as exc:
+        raise RedisUnavailableError() from exc
+    if raw is None:
+        return None
+    return UUID(str(parse_refresh_record(raw, refresh_token)["user_id"]))
+
+
 async def revoke_access_token(redis: Redis, access_token: str, settings: Settings) -> None:
     try:
         payload = jwt.decode(access_token, settings.jwt_secret, algorithms=["HS256"])

@@ -134,7 +134,13 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
-export async function logoutSession(token: string, refreshToken: string | null): Promise<void> {
+/** `pushToken` is this device's Expo push token: the server forgets it with the session, so
+ * the signed-out account's reminders stop reaching this lock screen. */
+export async function logoutSession(
+  token: string,
+  refreshToken: string | null,
+  pushToken: string | null = null,
+): Promise<void> {
   try {
     await fetchWithTimeout(apiUrl("/auth/logout"), {
       method: "POST",
@@ -142,7 +148,10 @@ export async function logoutSession(token: string, refreshToken: string | null):
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      body: JSON.stringify({
+        refresh_token: refreshToken,
+        ...(pushToken ? { expo_push_token: pushToken } : {}),
+      }),
     });
   } catch {
     /* Server revocation is best-effort; local credential removal is independent. */

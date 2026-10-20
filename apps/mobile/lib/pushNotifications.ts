@@ -148,6 +148,14 @@ export async function registerRemotePushToken(
   return "registered";
 }
 
+/** This device's Expo push token, for sign-out to hand the server; null when this device
+ * cannot have registered one (web, Expo Go, no notification permission). */
+export async function devicePushToken(): Promise<string | null> {
+  if (Platform.OS === "web") return null;
+  if (!(await getNotificationPermissionGranted())) return null;
+  return resolveExpoPushToken();
+}
+
 /** Unregister the Expo push token from the backend.
  *
  * Called when the user disables ``push_notifications_enabled`` — without
