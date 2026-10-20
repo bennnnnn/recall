@@ -15,16 +15,12 @@ jest.mock("expo-audio", () => {
   throw new Error("Cannot find native module 'ExpoAudio'");
 });
 
-jest.mock("react-native", () => ({
-  Platform: { OS: "ios" },
-}));
-
 import { canUseVoiceInput } from "@/lib/expoRuntime";
 import {
   isVoiceInputAvailable,
   loadExpoAudio,
+  meteredRecordingOptions,
   normalizeRecordingUri,
-  recordingOptionsForFormat,
   speechUploadFromUri,
 } from "@/lib/speech/voiceAudio";
 
@@ -69,31 +65,11 @@ describe("voiceAudio", () => {
     });
   });
 
-  it("uses linear PCM wav options for live talk", () => {
-    const options = recordingOptionsForFormat(
-      {
-        extension: ".m4a",
-        ios: { outputFormat: "aac " },
-        android: { outputFormat: "mpeg4", audioEncoder: "aac" },
-      },
-      "wav",
-    );
-    expect(options.extension).toBe(".wav");
-    expect(options.ios?.outputFormat).toBe("lpcm");
-    expect(options.android?.extension).toBe(".m4a");
-    expect(recordingOptionsForFormat({ extension: ".m4a" }, "aac").extension).toBe(".m4a");
-  });
-
-  it("records m4a on Android when wav is requested", () => {
-    const { Platform } = jest.requireMock("react-native") as { Platform: { OS: string } };
-    Platform.OS = "android";
-    try {
-      const options = recordingOptionsForFormat({ extension: ".m4a" }, "wav");
-      expect(options.extension).toBe(".m4a");
-      expect(options.android?.outputFormat).toBe("mpeg4");
-      expect(options.android?.audioEncoder).toBe("aac");
-    } finally {
-      Platform.OS = "ios";
-    }
+  it("records Expo's high-quality preset with metering on", () => {
+    expect(meteredRecordingOptions({ extension: ".m4a", sampleRate: 44100 })).toEqual({
+      extension: ".m4a",
+      sampleRate: 44100,
+      isMeteringEnabled: true,
+    });
   });
 });
