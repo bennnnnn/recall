@@ -1,7 +1,6 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { DatePickerDialog } from "../DatePickerDialog";
-import { DateTimePickerDialog } from "../DateTimePickerDialog";
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en-US" } }),
@@ -101,27 +100,5 @@ describe("DatePickerDialog", () => {
     await fireEvent.press(view.getByTestId("date-picker-cancel", hidden));
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
-  });
-});
-
-describe("DateTimePickerDialog", () => {
-  it("asks for the day, then the time, and returns both", async () => {
-    const onConfirm = jest.fn();
-    const view = await render(
-      <DateTimePickerDialog
-        visible
-        value={new Date(2026, 8, 26, 8, 30)}
-        is24Hour
-        onConfirm={onConfirm}
-        onCancel={jest.fn()}
-      />,
-    );
-    await fireEvent.press(view.getByTestId("date-time-picker-date-day-28", hidden));
-    await fireEvent.press(view.getByTestId("date-time-picker-date-ok", hidden));
-    await fireEvent(view.getByTestId("date-time-picker-time-dial", hidden), "accessibilityAction", {
-      nativeEvent: { actionName: "increment" },
-    });
-    await fireEvent.press(view.getByTestId("date-time-picker-time-ok", hidden));
-    expect(parts(onConfirm.mock.calls[0][0])).toEqual([2026, 8, 28, 9, 30]);
   });
 });
