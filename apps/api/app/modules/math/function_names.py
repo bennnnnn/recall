@@ -8,6 +8,8 @@ question away first.
 
 from __future__ import annotations
 
+import re
+
 TRIG = ("sin", "cos", "tan", "cot", "sec", "csc")
 HYPERBOLIC = ("sinh", "cosh", "tanh", "coth", "sech", "csch")
 _DIRECT = TRIG + HYPERBOLIC
@@ -25,3 +27,11 @@ def names_longest_first(names: frozenset[str] | tuple[str, ...]) -> tuple[str, .
 def function_name_alternation(names: frozenset[str] | tuple[str, ...]) -> str:
     """``sinh|cosh|…|sin`` for a regex group."""
     return "|".join(names_longest_first(names))
+
+
+_NAMES_AND_CONSTANTS = re.compile(rf"(?:{function_name_alternation(MATH_FUNCTION_NAMES)}|pi|e\^)")
+
+
+def variable_letters(expr: str) -> set[str]:
+    """The letters left once function names and constants go: ``sec(x) + e^x`` has x."""
+    return {ch for ch in _NAMES_AND_CONSTANTS.sub("", expr) if ch.isalpha()}

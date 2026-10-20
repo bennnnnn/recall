@@ -7,10 +7,8 @@ import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { LinkPreviewTrust } from "@/components/markdown/LinkPreviewTrust";
-import {
-  sentMessageShowsMathPreview,
-  MathDraftPreview,
-} from "@/features/chat/components/MathDraftPreview";
+import { MathDraftPreview } from "@/features/chat/components/MathDraftPreview";
+import { sentMessageShowsMathPreview } from "@/lib/math/draftText";
 import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
 import { Message } from "@/lib/api";
 import {

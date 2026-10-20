@@ -29,5 +29,11 @@
   {"id": "n28", "area": "notation", "prompt": "sin(30) + cos(60)", "expect": "answer", "check": ["num", "1"], "note": "degrees convention per docs"},
   {"id": "n29", "area": "notation", "prompt": "solve sin(2x) = 1 for 0 ≤ x ≤ π", "expect": "answer", "check": ["num", "pi/4"]},
   {"id": "n30", "area": "notation", "prompt": "find the inverse of y = e^x", "expect": "answer", "check": ["expr", "log(x)"]},
-  {"id": "n31", "area": "notation", "prompt": "1.8·10⁻⁵ divided by 3", "expect": "answer", "check": ["num", "6*10**-6"], "note": "a power of ten with a superscript minus"}
+  {"id": "n31", "area": "notation", "prompt": "1.8·10⁻⁵ divided by 3", "expect": "answer", "check": ["num", "6*10**-6"], "note": "a power of ten with a superscript minus"},
+  {"id": "n32", "area": "notation", "prompt": "$\\sec(\\frac{\\pi}{3})$", "expect": "answer", "check": ["num", "2"], "note": "the keyboard's sec key"},
+  {"id": "n33", "area": "notation", "prompt": "$\\cot(\\frac{\\pi}{4})$", "expect": "answer", "check": ["num", "1"], "note": "the keyboard's cot key"},
+  {"id": "n34", "area": "notation", "prompt": "csc 30", "expect": "answer", "check": ["num", "2"], "note": "degrees, as sin 30 is"},
+  {"id": "n35", "area": "notation", "prompt": "$20\\%$ of 50", "expect": "answer", "check": ["num", "10"], "note": "the keyboard's percent key types \\%"},
+  {"id": "n36", "area": "notation", "prompt": "$\\ln(e)$", "expect": "answer", "check": ["num", "1"], "note": "the keypad's e is a number"},
+  {"id": "n37", "area": "notation", "prompt": "$f(x)=x^{3}$, find $f^{\\prime}(x)$", "expect": "answer", "check": ["expr", "3*x**2"], "note": "the keyboard's prime key types ^{\\prime}"}
 ]

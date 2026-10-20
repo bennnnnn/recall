@@ -29,6 +29,26 @@ def strip_inline_math_delimiters(text: str) -> str:
     )
 
 
+# Marks the math keypad types as LaTeX: ``20\\%`` is a percent, ``f^{\\prime}`` a prime.
+# Longest first, so a double prime is not read as two singles with a brace left over.
+_LATEX_MARKS = (
+    ("^{\\prime\\prime}", "''"),
+    ("^{\\prime}", "'"),
+    ("^\\prime", "'"),
+    ("\\prime", "'"),
+    ("\\%", "%"),
+)
+
+
+def fold_latex_marks(text: str) -> str:
+    """``20\\%`` → ``20%`` and ``f^{\\prime}(x)`` → ``f'(x)``, as a student would type them."""
+    if "\\" not in text:
+        return text
+    for latex, plain in _LATEX_MARKS:
+        text = text.replace(latex, plain)
+    return text
+
+
 def fold_numeric_superscripts(text: str) -> str:
     """Normalize Unicode and braced numeric powers to caret notation."""
     if "^{" not in text and not any(glyph in text for glyph in _SUP_GLYPHS):
@@ -98,7 +118,7 @@ def normalize_symbolic_request(text: str, *, limit: int = _MAX_SYMBOLIC_REQUEST)
     and no limit can exceed ``_MAX_SUBJECT_TEXT``.
     """
     ceiling = min(max(limit, 1), _MAX_SUBJECT_TEXT)
-    cleaned = collapse_ws(strip_inline_math_delimiters(text))
+    cleaned = collapse_ws(fold_latex_marks(strip_inline_math_delimiters(text)))
     if len(cleaned) > ceiling:
         return None
     return collapse_repeated_si_unit_powers(fold_numeric_superscripts(cleaned))

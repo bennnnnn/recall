@@ -193,9 +193,17 @@ def calculus_cue(cleaned: str, lower: str) -> bool:
     return "dy/dx" in lower or "day/dx" in lower or y_prime_math_cue(cleaned)
 
 
+# ``sec``, ``csc`` and ``cot`` as calls: ``sec(60°)``, ``\\cot(\\frac{\\pi}{4})``, ``sec 60``,
+# ``sec x``. Never ``4 sec`` (seconds), ``in a sec``, ``cotton`` or ``seconds``.
+_RECIPROCAL_TRIG_CALL = re.compile(
+    r"(?<![a-z])(?<!\ba )(?:sec|csc|cot)\s*(?:\(|\\|\d|π|pi\b|x\b|θ)"
+)
+
+
 def trig_cue(cleaned: str, lower: str) -> bool:
     """A trig function with an angle, or a triangle's area from two sides and an angle."""
     if "area" in lower and "triangle" in lower and "angle" in lower and "sides" in lower:
         return True
     has_trig_call = any(f"{fn}(" in lower or f"{fn} " in lower for fn in ("sin", "cos", "tan"))
+    has_trig_call = has_trig_call or _RECIPROCAL_TRIG_CALL.search(lower) is not None
     return has_trig_call and ("°" in cleaned or has_digit(cleaned))

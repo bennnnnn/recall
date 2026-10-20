@@ -294,7 +294,10 @@ def bare_arithmetic_expr(text: str) -> str | None:
     if not text or len(text) > _MAX:
         return None
     stripped, had_cue = _strip_arith_cues(text.lower())
-    if not stripped or not any(ch.isdigit() for ch in stripped):
+    # A keypad constant is a number too: ``ln(e)`` has no digit and is 1.
+    if not stripped or not (
+        any(ch.isdigit() for ch in stripped) or _NUMERIC_CONSTANT.search(stripped)
+    ):
         return None
     stripped = spoken_arithmetic(stripped)
     from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
