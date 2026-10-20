@@ -161,6 +161,21 @@ def memory_extract_user_text(content: str) -> str:
     return text_before_attachment_markers(strip_untrusted_blocks(content or "")).strip()
 
 
+def memory_extraction_due(user_text: str, *, turn_number: int, every_n_turns: int) -> bool:
+    """Whether this turn queues a memory pass, typed or spoken.
+
+    Always on the chat's first turn, every ``every_n_turns`` after it (0 turns the
+    cadence off), and whenever the line tells memory something: "remember …", or a
+    correction ("that's wrong, I'm at Stripe now") that changes a saved fact.
+    """
+    return (
+        turn_number == 1
+        or (every_n_turns > 0 and turn_number % every_n_turns == 0)
+        or is_explicit_memory_command(user_text)
+        or is_memory_correction(user_text)
+    )
+
+
 def classify_memory_sensitivity(text: str) -> str:
     haystack = strip_memory_as_of(text).lower()
     if any(contains_phrase(haystack, needle) for needle in _HIGHLY_SENSITIVE_NEEDLES):
