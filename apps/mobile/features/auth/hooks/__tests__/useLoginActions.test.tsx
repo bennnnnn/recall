@@ -106,6 +106,41 @@ it.each([
   expect(mockFeedback.error).toHaveBeenCalledWith(expected);
 });
 
+describe("in a release build", () => {
+  const devHolder = globalThis as unknown as { __DEV__?: boolean };
+  const originalDev = devHolder.__DEV__;
+  beforeEach(() => {
+    devHolder.__DEV__ = false;
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    devHolder.__DEV__ = originalDev;
+  });
+
+  it.each(["bundle_load_failed", "native_module_missing", "not_configured", "android_oauth_setup"])(
+    "shows the generic error, not setup steps, for %s",
+    async (providerError) => {
+      jest.mocked(formatGoogleSignInError).mockReturnValue(providerError);
+      mockGoogle.mockRejectedValueOnce(new Error("failed"));
+      const { result } = await renderHook(useLoginActions);
+
+      await act(async () => result.current.handleGoogle());
+
+      expect(mockFeedback.error).toHaveBeenCalledWith("login.error_generic");
+    },
+  );
+
+  it("shows the generic error when Google sign-in has no client id", async () => {
+    jest.mocked(isGoogleWebClientConfigured).mockReturnValue(false);
+    const { result } = await renderHook(useLoginActions);
+
+    await act(async () => result.current.handleGoogle());
+
+    expect(mockGoogle).not.toHaveBeenCalled();
+    expect(mockFeedback.error).toHaveBeenCalledWith("login.error_generic");
+  });
+});
+
 it("does not report a cancelled provider flow", async () => {
   jest.mocked(formatAppleSignInError).mockReturnValue("cancelled");
   mockApple.mockRejectedValueOnce(new Error("cancelled"));

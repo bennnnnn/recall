@@ -13,6 +13,19 @@ import { alertDialog } from "@/ui/overlay/dialogs";
 
 export type LoginProvider = "apple" | "google" | "dev";
 
+/** Setup problems only a developer can fix. Their copy names commands and env vars, so a
+ * release build shows the generic error instead (still logged to the console). */
+const SETUP_ERROR_KEYS: Record<string, string> = {
+  bundle_load_failed: "login.error_bundle",
+  native_module_missing: "login.error_native_module",
+  not_configured: "login.error_not_configured",
+  android_oauth_setup: "login.error_android_google",
+};
+
+function setupErrorKey(key: string): string {
+  return __DEV__ ? key : "login.error_generic";
+}
+
 export function useLoginActions() {
   const { signInWithApple, signInWithGoogle, signInWithDev } = useAuth();
   const { t } = useTranslation();
@@ -40,10 +53,11 @@ export function useLoginActions() {
           ? formatGoogleSignInError(error)
           : formatAppleSignInError(error);
       if (key === "cancelled") return null;
-      if (key === "bundle_load_failed") return t("login.error_bundle");
-      if (key === "native_module_missing") return t("login.error_native_module");
-      if (key === "not_configured") return t("login.error_not_configured");
-      if (key === "android_oauth_setup") return t("login.error_android_google");
+      const setupKey = SETUP_ERROR_KEYS[key];
+      if (setupKey) {
+        if (!__DEV__) console.warn(`[auth] ${provider} sign-in setup error: ${key}`);
+        return t(setupErrorKey(setupKey));
+      }
       if (key === "generic") return t("login.error_generic");
       return key;
     },
@@ -77,11 +91,11 @@ export function useLoginActions() {
       return;
     }
     if (!isGoogleWebClientConfigured()) {
-      showSignInError(t("login.error_not_configured"));
+      showSignInError(t(setupErrorKey("login.error_not_configured")));
       return;
     }
     if (Platform.OS === "ios" && !isGoogleSignInConfigured()) {
-      showSignInError(t("login.error_not_configured"));
+      showSignInError(t(setupErrorKey("login.error_not_configured")));
       return;
     }
     busyRef.current = true;
