@@ -224,7 +224,7 @@ export const ChatComposer = memo(function ChatComposer({
     // across the keys instead of the messages above the pill.
     const pad =
       keyboard.height.value > 0 || composerExpanded || mathBarOpen ? 0 : bottomPad;
-    // Inline the height. Calling composerGapFadeHeight here runs on the UI
+    // Inline the height. Calling an imported helper here runs on the UI
     // thread and aborts the app.
     const height = pad <= 0 ? 0 : pad * 2 + COMPOSER_GAP_FADE_OVERLAP;
     return {
