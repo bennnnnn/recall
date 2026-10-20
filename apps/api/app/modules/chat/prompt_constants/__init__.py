@@ -18,7 +18,6 @@ from app.modules.chat.prompt_constants.coding import (
     code_question_kind,
     has_code_syntax,
     is_programming_turn,
-    looks_like_pasted_code,
 )
 from app.modules.chat.prompt_constants.conversation import (
     CONTINUE_HINT,
@@ -28,14 +27,12 @@ from app.modules.chat.prompt_constants.conversation import (
 )
 from app.modules.chat.prompt_constants.format import (
     BIOLOGY_PRESENTATION_HINT,
-    CALCULATION_LAYOUT_CONTRACT,
     CALLOUT_FORMAT_HINT,
     CHART_FORMAT_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
     FORMAT_CONTRACT,
     HOWTO_FORMAT_HINT,
-    MARKDOWN_BOUNDARY_CONTRACT,
     MERMAID_FORMAT_HINT,
     QUOTE_FORMAT_HINT,
     RESPONSE_FORMAT_HINT,
@@ -146,7 +143,6 @@ from app.modules.chat.prompt_constants.writing import (
     draft_followup,
     draft_followup_hint,
     is_bare_writing_line,
-    personal_record_hint,
     writing_format_hint,
 )
 from app.modules.chat.prompt_constants.writing_kind import (
@@ -162,7 +158,6 @@ __all__ = [
     "BIOLOGY_PRESENTATION_HINT",
     "BREVITY_REQUEST_HINT",
     "BROAD_SELF_ANSWER_HINT",
-    "CALCULATION_LAYOUT_CONTRACT",
     "CALLOUT_FORMAT_HINT",
     "CAPABILITIES_FORMAT_HINT",
     "CAREER_PERSONALIZE_HINT",
@@ -190,7 +185,6 @@ __all__ = [
     "IMAGE_GEN_UNAVAILABLE_HINT",
     "LEARNING_PLAN_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
-    "MARKDOWN_BOUNDARY_CONTRACT",
     "MATH_FENCE_SAFETY_HINT",
     "MERMAID_FORMAT_HINT",
     "MIXED_LENGTH_HINT",
@@ -270,10 +264,8 @@ __all__ = [
     "learning_plan_daily_contract",
     "lesson_continue_hint",
     "lesson_step",
-    "looks_like_pasted_code",
     "needs_rich_context",
     "outline_awaits_pick",
-    "personal_record_hint",
     "prior_looks_like_offer",
     "profile_question_to_answer",
     "programming_lesson_contract",

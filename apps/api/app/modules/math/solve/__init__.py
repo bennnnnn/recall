@@ -54,7 +54,6 @@ from app.modules.math.solve.geometry import (
 )
 from app.modules.math.solve.graph import (
     build_ellipse_graph_spec,
-    expr_looks_like_inequality,
     number_line_spec_from_expr,
     parse_ellipse_relation,
     sample_ellipse,
@@ -102,7 +101,6 @@ __all__ = [
     "differentiate_expression",
     "evaluate_series_sum",
     "expand_expression",
-    "expr_looks_like_inequality",
     "factor_expression",
     "factored_key_step",
     "format_degree_label",

@@ -29,19 +29,12 @@ from app.modules.math.match.discrete import (
     stats_signal,
 )
 from app.modules.math.match.geometry import (
-    _first_positive_number as _first_positive_number,
-)
-from app.modules.math.match.geometry import (
     classify_solid_shape,
     geometry_deferred_for_algebra,
     parse_solid,
-    solid_homework_cue,
     trapezoid_dimensions,
     triangle_angles_signal,
     triangle_sides_signal,
-)
-from app.modules.math.match.graph import (
-    _parse_xy_pair as _parse_xy_pair,
 )
 from app.modules.math.match.graph import (
     bare_coord,
@@ -90,7 +83,6 @@ __all__ = [
     "parse_solid",
     "plot_point",
     "prepare",
-    "solid_homework_cue",
     "spoken_power_request",
     "stats_signal",
     "trapezoid_dimensions",

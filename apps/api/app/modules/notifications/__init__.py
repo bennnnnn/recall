@@ -11,7 +11,6 @@ from typing import Any
 _EXPORTS = {
     "enqueue_push_receipts": ("push", "enqueue_push_receipts"),
     "channel_id_for_token": ("push", "channel_id_for_token"),
-    "PUSH_SOUND": ("push", "PUSH_SOUND"),
     "enqueue_welcome_email": ("jobs", "enqueue_welcome_email"),
     "enqueue_purchase_receipt": ("jobs", "enqueue_purchase_receipt"),
 }

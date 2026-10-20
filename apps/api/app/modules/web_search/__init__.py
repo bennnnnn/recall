@@ -1,7 +1,7 @@
 """Live web search routing, query building, and prompt injection."""
 
 from app.modules.web_search.augment import augment_prompt_messages, build_search_augmentation
-from app.modules.web_search.command import SearchCommand, search_command
+from app.modules.web_search.command import search_command
 from app.modules.web_search.detection import (
     needs_web_search,
     needs_web_search_heuristic,
@@ -47,7 +47,6 @@ __all__ = [
     "GEO_DISTANCE_HINT",
     "LOCAL_PLACES_FORMAT_HINT",
     "WEB_SEARCH_HINT",
-    "SearchCommand",
     "SearchSource",
     "TurnTavilyBudget",
     "WebSearchAdapter",

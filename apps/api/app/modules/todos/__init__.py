@@ -13,7 +13,6 @@ _EXPORTS = {
     "MAX_TODO_ACTIONS_PER_TURN": ("actions", "MAX_TODO_ACTIONS_PER_TURN"),
     "REMINDER_TOPIC": ("actions", "REMINDER_TOPIC"),
     "TODO_HINT": ("prompt_hint", "TODO_HINT"),
-    "TODO_SYNC_RECENT_MESSAGES": ("sync", "TODO_SYNC_RECENT_MESSAGES"),
     "apply_todo_actions": ("actions", "apply_todo_actions"),
     "build_todo_sync_transcript": ("sync", "build_todo_sync_transcript"),
     "build_todos_system_section": ("prompt_context", "build_todos_system_section"),
