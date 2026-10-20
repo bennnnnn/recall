@@ -212,3 +212,11 @@ export const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\Uparrow(?![a-zA-Z])/g, "⇑"],
   [/\\Downarrow(?![a-zA-Z])/g, "⇓"],
 ];
+
+// A named function is one upright word wherever it stands: as text, `Fd\sin(\theta)` read
+// "Fdsin" and went italic as a product of five variables. (`\lim` and its kin keep text:
+// their limits sit under the word.)
+export const NAMED_FUNCTIONS: ReadonlySet<string> = new Set([
+  "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh", "sin", "cos", "tan", "sec", "csc", "cot",
+  "log", "ln", "exp", "det", "gcd",
+]);

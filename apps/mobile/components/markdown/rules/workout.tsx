@@ -76,6 +76,25 @@ function workoutInline(
   );
 }
 
+/**
+ * "where $v_0$ = initial speed, $g$ = …" in pieces, one per name, each ending with its comma:
+ * drawn apart, a line could break between a symbol and its meaning ("…, m" / "= mass").
+ */
+function namingPieces(line: string): string[] {
+  const pieces: string[] = [];
+  let inMath = false;
+  let start = 0;
+  for (let i = 0; i < line.length; i += 1) {
+    if (line[i] === "$") inMath = !inMath;
+    else if (!inMath && (line[i] === "," || line[i] === ";") && line[i + 1] === " ") {
+      pieces.push(line.slice(start, i + 1));
+      start = i + 2;
+    }
+  }
+  pieces.push(line.slice(start));
+  return pieces;
+}
+
 /** The last line holding maths; the last line when none does. */
 function lastMathLine(lines: string[]): number {
   for (let index = lines.length - 1; index >= 0; index -= 1) {
@@ -84,14 +103,19 @@ function lastMathLine(lines: string[]): number {
   return lines.length - 1;
 }
 
+/** Given and Find, what the question states and asks, sit behind a thin rule. */
+const RULED_SECTIONS: ReadonlySet<string> = new Set(["Given", "Find"]);
+const RULE_WIDTH = 2;
+
 /**
- * A worked-solution section. The heading stays at the margin; its lines are
- * indented behind a thin rule so each section reads as one block of work.
- * Given values share a row, a move's note sits at the right edge, and the
- * last line of maths in a written-out answer sits in a tinted box (the lines
- * before it are working, a sentence after it stays below). A card the server
- * landed is its own ```answer fence and never reaches here; this draws older
- * replies the same way.
+ * A worked-solution section. The heading stays at the margin and its lines are
+ * indented under it: Given and Find behind a thin rule, the working without one,
+ * every section's lines starting at the same edge. Each given is its own line,
+ * and a closing "where v₀ = initial speed, …" line names them in secondary ink.
+ * A move's note sits at the right edge, and the last line of maths in a
+ * written-out answer sits in a tinted box (the lines before it are working, a
+ * sentence after it stays below). A card the server landed is its own
+ * ```answer fence and never reaches here; this draws older replies the same way.
  */
 export function renderWorkoutSection(
   key: string,
@@ -107,6 +131,7 @@ export function renderWorkoutSection(
   const lines = section.lines.map((line, index) => {
     const { state, note } = splitWorkoutNote(line);
     const lineKey = `${key}-line-${index}`;
+    const naming = given && /^where\s/i.test(state);
     return (
       <View
         key={lineKey}
@@ -122,7 +147,18 @@ export function renderWorkoutSection(
         <View
           style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", flexShrink: 1 }}
         >
-          {workoutInline(state, `${lineKey}-state`, body, t.assistantText, t.success)}
+          {naming
+            ? namingPieces(state).map((piece, pieceIndex) => (
+                <View
+                  key={`${lineKey}-name-${pieceIndex}`}
+                  testID="workout-naming"
+                  // A symbol stays beside its meaning; a long meaning wraps after it.
+                  style={{ flexDirection: "row", alignItems: "center", maxWidth: "100%", marginRight: Space.xxs }}
+                >
+                  {workoutInline(piece, `${lineKey}-name-${pieceIndex}`, [noteStyle, { flexShrink: 1 }], t.textSecondary)}
+                </View>
+              ))
+            : workoutInline(state, `${lineKey}-state`, body, t.assistantText, t.success)}
         </View>
         {note ? (
           <View
@@ -153,17 +189,20 @@ export function renderWorkoutSection(
       </Text>
       <View
         testID="workout-body"
-        // Given / Find / Steps sit behind a rule; the Answer's tinted box needs none.
+        // Given and Find sit behind a rule; the working keeps its edge without one,
+        // and the Answer's tinted box needs neither.
         style={
           answer
             ? { gap: Space.xs }
-            : {
-                marginLeft: Space.xxs,
-                paddingLeft: Space.sm,
-                borderLeftWidth: 2,
-                borderLeftColor: t.separator,
-                gap: Space.xs,
-              }
+            : RULED_SECTIONS.has(section.heading)
+              ? {
+                  marginLeft: Space.xxs,
+                  paddingLeft: Space.sm,
+                  borderLeftWidth: RULE_WIDTH,
+                  borderLeftColor: t.separator,
+                  gap: Space.xs,
+                }
+              : { marginLeft: Space.xxs, paddingLeft: Space.sm + RULE_WIDTH, gap: Space.xs }
         }
       >
         {answer ? (
@@ -183,19 +222,6 @@ export function renderWorkoutSection(
             </View>
             {lines.slice(boxed + 1)}
           </>
-        ) : given ? (
-          <View
-            testID="workout-given"
-            style={{
-              flexDirection: "row",
-              flexWrap: "wrap",
-              alignItems: "center",
-              columnGap: Space.gutter,
-              rowGap: Space.xs,
-            }}
-          >
-            {lines}
-          </View>
         ) : (
           lines
         )}

@@ -101,10 +101,34 @@ function besideHeadOrigin(
   };
 }
 
+/** Whether a label box from `origin` overlaps any of the solids. Declared before its
+ * caller: a worklet captures what it names when it is made, so a later one is undefined. */
+function overlapsAny(
+  origin: { x: number; y: number },
+  labelWidth: number,
+  fontSize: number,
+  solids: readonly { x: number; y: number; width: number; height: number }[],
+): boolean {
+  "worklet";
+  for (let i = 0; i < solids.length; i += 1) {
+    const box = solids[i];
+    if (
+      origin.x < box.x + box.width &&
+      box.x < origin.x + labelWidth &&
+      origin.y < box.y + box.height &&
+      box.y < origin.y + fontSize
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Where a derived arrow's label goes this frame: just past its tip, unless
  * that is in the ground or a solid — the weight of a ball about to land, or
- * resting on a table — and then beside the head, on its right.
+ * resting on a table — and then beside the head, on its right, or on its left
+ * when a solid takes the right too.
  */
 export function derivedLabelOrigin(
   arrow: { fromX: number; fromY: number; ux: number; uy: number; length: number },
@@ -130,17 +154,12 @@ export function derivedLabelOrigin(
     );
   }
   const past = tipLabelOrigin(tipX, tipY, arrow.ux, arrow.uy, labelWidth, fontSize);
-  let blocked = floorY !== null && tipY <= floorY + 0.5 && past.y + fontSize > floorY;
-  for (let i = 0; !blocked && i < solids.length; i += 1) {
-    const box = solids[i];
-    blocked =
-      past.x < box.x + box.width &&
-      box.x < past.x + labelWidth &&
-      past.y < box.y + box.height &&
-      box.y < past.y + fontSize;
-  }
-  if (!blocked) return past;
-  return besideHeadOrigin(tipX, tipY, arrow.ux, arrow.uy, arrow.length, labelWidth, fontSize, 1);
+  const inGround = floorY !== null && tipY <= floorY + 0.5 && past.y + fontSize > floorY;
+  if (!inGround && !overlapsAny(past, labelWidth, fontSize, solids)) return past;
+  const right = besideHeadOrigin(tipX, tipY, arrow.ux, arrow.uy, arrow.length, labelWidth, fontSize, 1);
+  if (!overlapsAny(right, labelWidth, fontSize, solids)) return right;
+  const left = besideHeadOrigin(tipX, tipY, arrow.ux, arrow.uy, arrow.length, labelWidth, fontSize, -1);
+  return overlapsAny(left, labelWidth, fontSize, solids) ? right : left;
 }
 
 /** A label's box: left, top, width and height in canvas pixels. */

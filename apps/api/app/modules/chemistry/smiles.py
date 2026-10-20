@@ -145,6 +145,27 @@ def validate_smiles(smiles: str) -> MoleculeProperties:
         return MoleculeProperties.failure(cleaned, str(exc))
 
 
+def drawing_smiles(smiles: str) -> str:
+    """The SMILES the phone draws: the Kekulé form, every ring bond single or double.
+
+    smiles-drawer counts an aromatic bond as single when it adds implicit hydrogens, so an
+    aromatic heteroatom or a ring carbon with ``=O`` got hydrogens it does not have (caffeine
+    was drawn with ``CH₂`` and ``HC`` in its rings). Spelled-out bonds draw right. Falls back
+    to the input when RDKit cannot kekulize it.
+    """
+    from rdkit import Chem
+
+    mol = parse_mol(smiles)
+    if mol is None:
+        return smiles
+    try:
+        Chem.Kekulize(mol, clearAromaticFlags=True)
+        return str(Chem.MolToSmiles(mol, kekuleSmiles=True))
+    except Exception:
+        logger.info("RDKit kekulize failed for %r", smiles, exc_info=True)
+        return smiles
+
+
 def element_counts(smiles: str) -> dict[str, int] | None:
     """Atoms per element with implicit hydrogens; None for invalid or isotope-labelled SMILES."""
     from rdkit import Chem

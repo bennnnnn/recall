@@ -199,6 +199,21 @@ function unwrapSympyFunctionArguments(source: string): string {
   return out;
 }
 
+/** Unicode scripts become `^`/`_` scripts, except inside an upright run: that is drawn as
+ * written, so `\mathrm{m/s²}` showed "m/s^2". There the ² glyph stays. */
+function normalizeScriptsOutsideUpright(source: string): string {
+  let out = "";
+  let i = 0;
+  while (i < source.length) {
+    const start = source.indexOf(NATIVE_UPRIGHT_START_MARKER, i);
+    const end = start < 0 ? -1 : source.indexOf(NATIVE_UPRIGHT_END_MARKER, start);
+    if (end < 0) return out + normalizeUnicodeScripts(source.slice(i));
+    out += normalizeUnicodeScripts(source.slice(i, start)) + source.slice(start, end + 1);
+    i = end + 1;
+  }
+  return out;
+}
+
 export function preprocessLatex(latex: string): string {
   let s = repairLeakedMath(
     normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(restoreMathEscapes(latex.trim()))),
@@ -224,7 +239,7 @@ export function preprocessLatex(latex: string): string {
   s = rewriteSolutionSeparatorBars(s);
   // OCR / models often emit Unicode supers/subs (`x²`, `a₁₀`) instead of
   // caret form. Rewrite to `^`/`_` so the segment parser builds real scripts.
-  s = normalizeUnicodeScripts(s);
+  s = normalizeScriptsOutsideUpright(s);
   // Must run before every other substitution — it depends on the raw "\\"
   // row separator and "&" column separator, which later rules (e.g. the
   // \\, → " " spacing rule) would otherwise destroy.

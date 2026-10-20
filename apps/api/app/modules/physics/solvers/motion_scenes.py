@@ -159,7 +159,9 @@ def vertical_scene(
     x_min = -size * 0.3
     if h0 > 0 and ground:
         ledge = size * 0.3
-        solids.append(SimulationSolid(rect=[-ledge, 0.0, -1.5 * radius, h0]))
+        # The ball falls beside the ledge, not down its face: 1.5 radii of air, about
+        # 10 px on the phone, where half a radius read as the ball touching the edge.
+        solids.append(SimulationSolid(rect=[-ledge, 0.0, -2.5 * radius, h0]))
         vectors.append(
             SimulationVector(
                 anchor=[-ledge - gap, 0.0],

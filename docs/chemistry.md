@@ -90,7 +90,9 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    Prose whose own final value differs (`pH = 1.00` against `2.00`) gets one line above
    the card: "The verified answer is …". An unclosed model fence is closed
    first, so it cannot swallow the fences the server appends. Closed `smiles` /
-   `chemistry` fences are then validated. The server appends `molecule3d` SDF for the
+   `chemistry` fences are then validated and rewritten in Kekulé form
+   (`smiles.drawing_smiles`): smiles-drawer counts an aromatic bond as single when it
+   adds hydrogens, so `c1ccncc1` drew an NH. The server appends `molecule3d` SDF for the
    first two valid structures, at most 120 heavy atoms each, so the client never has to
    drop an oversize block.
 6. **Render** — smiles-drawer retains chemically aware 2D layout inside its sandboxed

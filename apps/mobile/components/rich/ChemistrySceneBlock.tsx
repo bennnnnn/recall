@@ -42,7 +42,9 @@ export function ChemistrySceneBlock({ content }: Props) {
   if (!scene) {
     return (
       <VisualCard label={t("rich.chemistry_diagram")} icon="flask">
-        <Text style={s.muted}>{t("rich.chemistry_scene_invalid")}</Text>
+        <View style={s.body}>
+          <Text style={s.muted}>{t("rich.chemistry_scene_invalid")}</Text>
+        </View>
       </VisualCard>
     );
   }
@@ -50,7 +52,9 @@ export function ChemistrySceneBlock({ content }: Props) {
   const label = scene.kind === "vsepr" ? scene.title : t(SCENE_LABEL[scene.kind]);
   return (
     <VisualCard label={label} icon="flask">
-      <SceneBody scene={scene} styles={s} t={t} />
+      <View style={s.body} testID="chemistry-scene-body">
+        <SceneBody scene={scene} styles={s} t={t} />
+      </View>
     </VisualCard>
   );
 }
@@ -206,6 +210,9 @@ function SceneBody({
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
+    // VisualCard leaves its content edge to edge (charts fill it); text keeps the header's inset,
+    // or it sits on the border and the rounded corner clips the last line's first letter.
+    body: { paddingHorizontal: Space.sm, paddingVertical: Space.sm },
     line: { ...Type.callout, color: t.text, marginBottom: Space.xs },
     angle: { ...Type.title, ...Weight.semibold, color: t.text, marginBottom: Space.xs },
     muted: { ...Type.caption, color: t.textSecondary },

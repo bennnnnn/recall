@@ -34,7 +34,9 @@ const UPRIGHT_MATH_WORDS = new Set([
   "otherwise", "rank", "sec", "sin", "sinh", "tan", "tanh", "where",
 ]);
 
-const MATH_LETTER_RUN = /[A-Za-zͰ-Ͽ]+/g;
+// Latin and Greek letters make separate runs: `\sin\theta` reads "sinθ", and as one run
+// the function name was drawn italic with its angle, a product of four variables.
+const MATH_LETTER_RUN = /[A-Za-z]+|[Ͱ-Ͽ]+/g;
 
 function isUprightWord(value: string): boolean {
   return UPRIGHT_MATH_WORDS.has(value.toLowerCase());

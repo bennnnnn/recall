@@ -75,7 +75,7 @@ export function vectorScreenLengths(spec: SimulationSpec, scale: number): number
 
 /**
  * The longest an arrow from (`fromX`, `fromY`) along the unit direction
- * (`ux`, `uy`) can be while its tip stays `inset` inside the canvas — at most
+ * (`ux`, `uy`) can be while its tip stays `ARROW_EDGE_INSET` inside the canvas — at most
  * `length`. An arrow that leaves the canvas loses its head, and a headless
  * line reads as nothing at all.
  */
@@ -87,9 +87,11 @@ export function fitArrowLength(
   length: number,
   width: number,
   height: number,
-  inset = ARROW_EDGE_INSET,
 ): number {
   "worklet";
+  // Read in the body: a worklet's default parameter does not carry module values to
+  // the UI thread, and `inset = ARROW_EDGE_INSET` threw there on every frame.
+  const inset = ARROW_EDGE_INSET;
   let fit = length;
   if (ux > 1e-9) fit = Math.min(fit, (width - inset - fromX) / ux);
   else if (ux < -1e-9) fit = Math.min(fit, (inset - fromX) / ux);

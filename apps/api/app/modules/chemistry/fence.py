@@ -16,6 +16,7 @@ from app.modules import chemistry as chemistry_service
 from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.chemistry.notation import typeset, typeset_json
 from app.modules.chemistry.schemas.scene import dump_scene
+from app.modules.chemistry.smiles import drawing_smiles
 from app.services.answer_check import correction_line, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
@@ -75,8 +76,9 @@ _UNRENDERABLE = "*Could not render that structure.*\n"
 
 
 def _smiles_fence(smiles: str, caption: str = "") -> str:
-    """One ```smiles fence: an optional caption line, then the SMILES."""
-    body = f"{caption}\n{smiles}" if caption else smiles
+    """One ```smiles fence: an optional caption line, then the SMILES the phone draws."""
+    drawn = drawing_smiles(smiles)
+    body = f"{caption}\n{drawn}" if caption else drawn
     return f"```smiles\n{body}\n```"
 
 
