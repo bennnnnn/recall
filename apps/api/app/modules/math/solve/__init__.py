@@ -39,7 +39,6 @@ from app.modules.math.solve.extract_eq import (
 )
 from app.modules.math.solve.geometry import (
     circle_geometry,
-    format_degree_label,
     format_geometry_decimal,
     parallelogram_geometry,
     rectangle_geometry,
@@ -55,7 +54,6 @@ from app.modules.math.solve.geometry import (
 from app.modules.math.solve.graph import (
     build_ellipse_graph_spec,
     number_line_spec_from_expr,
-    parse_ellipse_relation,
     sample_ellipse,
     sample_function,
     sample_parametric_curve,
@@ -103,7 +101,6 @@ __all__ = [
     "expand_expression",
     "factor_expression",
     "factored_key_step",
-    "format_degree_label",
     "format_geometry_decimal",
     "format_verified_latex",
     "guess_variables",
@@ -114,7 +111,6 @@ __all__ = [
     "newton_method",
     "number_line_spec_from_expr",
     "parallelogram_geometry",
-    "parse_ellipse_relation",
     "parse_equation",
     "rectangle_geometry",
     "rejected_equality_chain",

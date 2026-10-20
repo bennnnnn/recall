@@ -18,7 +18,6 @@ from app.modules.physics.schemas.simulation import (
     SimulationPulley,
     SimulationSolid,
     SimulationTether,
-    SimulationType,
     SimulationVector,
     WaveSpec,
 )
@@ -39,7 +38,6 @@ __all__ = [
     "SimulationPulley",
     "SimulationSolid",
     "SimulationTether",
-    "SimulationType",
     "SimulationVector",
     "WaveSpec",
 ]

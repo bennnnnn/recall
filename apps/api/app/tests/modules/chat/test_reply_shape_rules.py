@@ -37,7 +37,8 @@ def test_an_answer_that_rests_on_an_unstated_detail_names_its_assumption() -> No
 
 
 def test_no_hint_asks_for_a_generic_offer_line() -> None:
-    from app.modules.chat.prompt_constants import EMAIL_DRAFT_HINT, FACT_GROUNDING_HINT
+    from app.modules.chat.prompt_constants import FACT_GROUNDING_HINT
+    from app.modules.chat.prompt_constants.writing import EMAIL_DRAFT_HINT
 
     # A draft ends at its fence; a line after it only names a gap or an assumption.
     assert "offering to adjust tone or length" not in EMAIL_DRAFT_HINT

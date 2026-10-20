@@ -27,7 +27,17 @@ from app.modules.billing import plan as plan_service
 from app.modules.chat import prompt_constants as pc
 from app.modules.chat import prompt_memory
 from app.modules.chat.json_output import JSON_OUTPUT_HINT
+from app.modules.chat.prompt_constants.coding import (
+    CODE_DEBUG_HINT,
+    CODE_EXPLAIN_HINT,
+    CODE_RUN_HINT,
+)
 from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER
+from app.modules.chat.prompt_constants.writing import (
+    EMAIL_ASK_PURPOSE_HINT,
+    EMAIL_DRAFT_HINT,
+    SOCIAL_DRAFT_HINT,
+)
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.selection import _search_before_the_model
@@ -59,9 +69,9 @@ HINTS: dict[str, str] = {
     "steps": pc.STEPS_FORMAT_HINT,
     "chart": pc.CHART_FORMAT_HINT,
     "mermaid": pc.MERMAID_FORMAT_HINT,
-    "email": pc.EMAIL_DRAFT_HINT,
-    "ask_purpose": pc.EMAIL_ASK_PURPOSE_HINT,
-    "social": pc.SOCIAL_DRAFT_HINT,
+    "email": EMAIL_DRAFT_HINT,
+    "ask_purpose": EMAIL_ASK_PURPOSE_HINT,
+    "social": SOCIAL_DRAFT_HINT,
     "brevity": pc.BREVITY_REQUEST_HINT,
     "capabilities": pc.CAPABILITIES_FORMAT_HINT,
     "lightweight": pc.LIGHTWEIGHT_REPLY_HINT,
@@ -73,9 +83,9 @@ HINTS: dict[str, str] = {
     # The subject is the user's own words; its fixed part marks the hint.
     "subject_photo": "If that is something people would want to see",
     "emoji_rule": EMOJI_RULE,
-    "code_explain": pc.CODE_EXPLAIN_HINT,
-    "code_debug": pc.CODE_DEBUG_HINT,
-    "code_run": pc.CODE_RUN_HINT,
+    "code_explain": CODE_EXPLAIN_HINT,
+    "code_debug": CODE_DEBUG_HINT,
+    "code_run": CODE_RUN_HINT,
     "code_ink": pc.CODE_INK_REMINDER,
     "standing_preference": pc.STANDING_PREFERENCE_HINT,
     "personal_disclosure": pc.PERSONAL_DISCLOSURE_HINT,

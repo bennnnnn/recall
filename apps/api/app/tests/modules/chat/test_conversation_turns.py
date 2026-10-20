@@ -12,11 +12,11 @@ from app.modules.chat.continuation_subject import (
 )
 from app.modules.chat.prompt_constants import (
     is_correction,
-    is_detail_request,
     is_lightweight_chat_turn,
     is_social_opener,
     reply_length,
 )
+from app.modules.chat.prompt_constants.length import is_detail_request
 
 
 @pytest.mark.parametrize(

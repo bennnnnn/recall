@@ -10,6 +10,7 @@ from app.exceptions import RedisUnavailableError
 from app.modules.billing.entitlements import setting_name
 from app.services import quota as quota_service
 from app.services.quota import counters
+from app.services.quota import tokens as quota_tokens
 from app.services.quota.tokens import _usage_key
 
 
@@ -87,9 +88,9 @@ async def test_quota_enforced(fake_redis, settings, used, requested, allowed):
 
 @pytest.mark.asyncio
 async def test_record_usage_increments(fake_redis):
-    total = await quota_service.record_usage(fake_redis, "u1", 500)
+    total = await quota_tokens.record_usage(fake_redis, "u1", 500)
     assert total == 500
-    total = await quota_service.record_usage(fake_redis, "u1", 200)
+    total = await quota_tokens.record_usage(fake_redis, "u1", 200)
     assert total == 700
 
 
@@ -99,7 +100,7 @@ async def test_record_usage_caps_overshoot_at_daily_limit(fake_redis):
     past the limit — otherwise subsequent reserve_usage checks under-report
     remaining quota and the user keeps getting turns past the cap."""
     await fake_redis.set(_usage_key("u1", quota_service.utc_today()), 99_500)
-    total = await quota_service.record_usage(fake_redis, "u1", 2000, daily_limit=100_000)
+    total = await quota_tokens.record_usage(fake_redis, "u1", 2000, daily_limit=100_000)
     assert total == 100_000  # clipped, not 101_500
     assert await quota_service.get_daily_usage(fake_redis, "u1") == 100_000
 
@@ -119,7 +120,7 @@ async def test_record_usage_without_limit_does_not_cap(fake_redis):
     """Backward compat: callers that don't pass daily_limit get the raw total
     (no clipping) — existing callers (e.g. admin tooling) aren't affected."""
     await fake_redis.set(_usage_key("u1", quota_service.utc_today()), 99_500)
-    total = await quota_service.record_usage(fake_redis, "u1", 2000)
+    total = await quota_tokens.record_usage(fake_redis, "u1", 2000)
     assert total == 101_500
 
 
@@ -147,14 +148,14 @@ async def test_reserve_and_adjust(fake_redis, settings):
 
 @pytest.mark.asyncio
 async def test_refund_usage(fake_redis):
-    await quota_service.record_usage(fake_redis, "u1", 500)
+    await quota_tokens.record_usage(fake_redis, "u1", 500)
     await quota_service.refund_usage(fake_redis, "u1", 200)
     assert await quota_service.get_daily_usage(fake_redis, "u1") == 300
 
 
 @pytest.mark.asyncio
 async def test_refund_usage_floor_preserves_ttl(fake_redis):
-    await quota_service.record_usage(fake_redis, "u1", 50)
+    await quota_tokens.record_usage(fake_redis, "u1", 50)
     key = _usage_key("u1", quota_service.utc_today())
     ttl_before = await fake_redis.ttl(key)
     assert ttl_before > 0
@@ -768,14 +769,14 @@ async def test_reserve_usage_retries_a_failed_over_limit_rollback(
 
 @pytest.mark.asyncio
 async def test_record_usage_never_goes_below_zero(fake_redis):
-    await quota_service.record_usage(fake_redis, "u1", 50)
-    assert await quota_service.record_usage(fake_redis, "u1", -80) == 0
+    await quota_tokens.record_usage(fake_redis, "u1", 50)
+    assert await quota_tokens.record_usage(fake_redis, "u1", -80) == 0
     assert await quota_service.get_daily_usage(fake_redis, "u1") == 0
 
 
 @pytest.mark.asyncio
 async def test_reset_daily_usage_clears_todays_counter(fake_redis):
-    await quota_service.record_usage(fake_redis, "u1", 50)
+    await quota_tokens.record_usage(fake_redis, "u1", 50)
     await quota_service.reset_daily_usage(fake_redis, "u1")
     assert await quota_service.has_daily_usage_key(fake_redis, "u1") is False
 

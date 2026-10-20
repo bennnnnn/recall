@@ -150,9 +150,10 @@ async def test_daily_usage_when_nothing_used(fake_redis):
 @pytest.mark.asyncio
 async def test_record_usage_accumulates(fake_redis):
     from app.services import quota as quota_service
+    from app.services.quota import tokens as quota_tokens
 
-    await quota_service.record_usage(fake_redis, "u1", 500)
-    await quota_service.record_usage(fake_redis, "u1", 300)
+    await quota_tokens.record_usage(fake_redis, "u1", 500)
+    await quota_tokens.record_usage(fake_redis, "u1", 300)
     assert await quota_service.get_daily_usage(fake_redis, "u1") == 800
 
 

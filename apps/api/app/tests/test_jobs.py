@@ -603,7 +603,7 @@ async def test_stopped_worker_removes_its_consumer_from_the_group(
 @pytest.mark.asyncio
 async def test_collect_queue_metrics_empty(fake_redis):
     await worker._ensure_group(fake_redis)
-    metrics = await jobs.collect_queue_metrics(fake_redis)
+    metrics = await admin.collect_queue_metrics(fake_redis)
     assert metrics == {"dlq_depth": 0, "pending_entries": 0, "metrics_error": None}
 
 
@@ -612,7 +612,7 @@ async def test_collect_queue_metrics_counts_dlq_depth(fake_redis):
     await fake_redis.xadd(jobs.JOBS_DLQ_STREAM, {"type": "memory", "error": "x"})
     await fake_redis.xadd(jobs.JOBS_DLQ_STREAM, {"type": "topic", "error": "y"})
     await fake_redis.xadd(jobs.JOBS_DLQ_STREAM, {"type": "todos", "error": "z"})
-    metrics = await jobs.collect_queue_metrics(fake_redis)
+    metrics = await admin.collect_queue_metrics(fake_redis)
     assert metrics["dlq_depth"] == 3
 
 
@@ -622,7 +622,7 @@ async def test_collect_queue_metrics_redis_error_is_unknown_not_zero():
     redis = AsyncMock()
     redis.xlen = AsyncMock(side_effect=RuntimeError("redis down"))
     redis.xpending = AsyncMock(side_effect=RuntimeError("redis down"))
-    metrics = await jobs.collect_queue_metrics(redis)
+    metrics = await admin.collect_queue_metrics(redis)
     assert metrics == {"dlq_depth": None, "pending_entries": None, "metrics_error": "RuntimeError"}
 
 

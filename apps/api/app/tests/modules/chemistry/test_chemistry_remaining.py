@@ -15,7 +15,8 @@ from app.modules.chemistry.context import build_chemistry_augmentation
 from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.notation import typeset_json
-from app.modules.chemistry.schemas import ChemistryIntent, ChemistryKind
+from app.modules.chemistry.schemas import ChemistryIntent
+from app.modules.chemistry.schemas.intent import ChemistryKind
 from app.modules.chemistry.schemas.scene import (
     BalanceScene,
     CellScene,

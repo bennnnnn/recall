@@ -25,7 +25,8 @@ from app.modules.chemistry.nuclear import balance_nuclear, format_nuclear
 from app.modules.chemistry.organic import organic_facts
 from app.modules.chemistry.reactions import named_product
 from app.modules.chemistry.request import EQUATION_RE
-from app.modules.chemistry.schemas import ChemistryIntent, ChemistryKind
+from app.modules.chemistry.schemas import ChemistryIntent
+from app.modules.chemistry.schemas.intent import ChemistryKind
 from app.modules.chemistry.schemas.scene import TitrationScene
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.thermochemistry import (

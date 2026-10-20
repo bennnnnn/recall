@@ -15,6 +15,7 @@ from app.modules.math.schemas import (
     TrapezoidInput,
     TriangleSidesInput,
 )
+from app.modules.math.solve.geometry import format_degree_label
 from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
@@ -30,9 +31,9 @@ class TestTriangleSidesGeometry:
             TriangleSidesInput(a=1, b=1, c=10)
 
     def test_format_degree_label_rounds_near_integers(self):
-        assert math_solve.format_degree_label(119.9) == "120°"
-        assert math_solve.format_degree_label(90.0) == "90°"
-        assert math_solve.format_degree_label(36.87) == "36.9°"
+        assert format_degree_label(119.9) == "120°"
+        assert format_degree_label(90.0) == "90°"
+        assert format_degree_label(36.87) == "36.9°"
 
     def test_sides_from_120_40_20_round_trip_angles(self):
         a, b, c = math_solve.sides_from_interior_angles(120, 40, 20)

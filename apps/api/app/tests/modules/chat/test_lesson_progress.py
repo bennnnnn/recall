@@ -8,9 +8,9 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat.lesson_progress import lesson_progress
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
-from app.modules.chat.prompt_constants import lesson_continue_hint
 from app.modules.chat.prompt_constants.lesson_flow import (
     lesson_after_gap,
+    lesson_continue_hint,
     lesson_titles,
     teach_subject,
 )

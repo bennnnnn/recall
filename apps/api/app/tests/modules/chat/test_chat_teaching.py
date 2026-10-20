@@ -12,7 +12,6 @@ from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
     HOWTO_FORMAT_HINT,
     LEARNING_PLAN_HINT,
-    OUTLINE_PICK_HINT,
     PERSONAL_DISCLOSURE_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     TEACHING_HINT,
@@ -22,11 +21,11 @@ from app.modules.chat.prompt_constants import (
     is_lightweight_chat_turn,
     is_teaching_request,
     learning_plan_daily_contract,
-    lesson_continue_hint,
     lesson_step,
     outline_awaits_pick,
     programming_lesson_contract,
 )
+from app.modules.chat.prompt_constants.lesson_flow import OUTLINE_PICK_HINT, lesson_continue_hint
 from app.modules.chat.prompt_format import _style_format_hints
 
 LESSON_ONE = (

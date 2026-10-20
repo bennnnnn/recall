@@ -18,17 +18,19 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import (
-    CODE_DEBUG_HINT,
-    CODE_EXPLAIN_HINT,
     CODE_INK_REMINDER,
     FORMAT_CONTRACT,
     MATH_FENCE_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     TEACHING_HINT,
     WALKTHROUGH_HINT,
-    code_question_kind,
     has_code_syntax,
     is_programming_turn,
+)
+from app.modules.chat.prompt_constants.coding import (
+    CODE_DEBUG_HINT,
+    CODE_EXPLAIN_HINT,
+    code_question_kind,
 )
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.math.reply_policy import MATH_INTENT_HINT
@@ -252,7 +254,7 @@ async def test_code_ink_reminder_sits_next_to_the_question() -> None:
     ],
 )
 def test_a_request_to_run_code_says_recall_cannot(text: str) -> None:
-    from app.modules.chat.prompt_constants import CODE_RUN_HINT
+    from app.modules.chat.prompt_constants.coding import CODE_RUN_HINT
 
     assert code_question_kind(text) == "run"
     hints = _style_format_hints(query_text=text, is_day_plan=False, minimal_personal_context=False)

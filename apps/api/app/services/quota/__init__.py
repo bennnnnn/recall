@@ -9,7 +9,6 @@ sign-in, and ``spend`` the global daily spend breaker (its counter is
 
 from app.services.quota import counters
 from app.services.quota.carryover import (
-    DAILY_COUNTER_PREFIXES,
     CarriedUsage,
     apply_carried_usage,
     read_carried_usage,
@@ -36,7 +35,6 @@ from app.services.quota.messages import (
     LIVE_TALK_NOT_IN_PLAN_MESSAGE,
     LIVE_TALK_RATE_LIMIT_MESSAGE,
     LIVE_TALK_SAVES_USED_MESSAGE,
-    QUOTA_EXCEEDED_MESSAGE_FREE,
     SPEECH_NOT_IN_PLAN_MESSAGE,
     SPEECH_RATE_LIMIT_MESSAGE,
     SPEECH_TTS_NOT_IN_PLAN_MESSAGE,
@@ -63,7 +61,6 @@ from app.services.quota.tokens import (
     has_daily_usage_key,
     heal_usage_drift,
     mark_usage_needs_heal,
-    record_usage,
     refund_usage,
     reserve_usage,
     reset_daily_usage,
@@ -73,7 +70,6 @@ from app.services.quota.tokens import (
 
 __all__ = [
     "CHAT_SPEND_CAP_MESSAGE",
-    "DAILY_COUNTER_PREFIXES",
     "IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE",
     "IMAGE_GENERATION_SPEND_CAP_MESSAGE",
     "IMAGE_GEN_SPEND_USD",
@@ -85,7 +81,6 @@ __all__ = [
     "LIVE_TALK_SAVES_PER_MINUTE",
     "LIVE_TALK_SAVES_USED_MESSAGE",
     "MATH_SCAN_READ_SPEND_USD",
-    "QUOTA_EXCEEDED_MESSAGE_FREE",
     "SPEECH_NOT_IN_PLAN_MESSAGE",
     "SPEECH_RATE_LIMIT_MESSAGE",
     "SPEECH_TTS_NOT_IN_PLAN_MESSAGE",
@@ -112,7 +107,6 @@ __all__ = [
     "read_carried_usage",
     "record_global_spend",
     "record_live_talk_reservation",
-    "record_usage",
     "record_voice_spend",
     "refund_usage",
     "release_live_talk_seconds",
