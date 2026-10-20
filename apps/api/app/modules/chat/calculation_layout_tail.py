@@ -47,15 +47,19 @@ def converts_units(segments: list[str]) -> bool:
 
     Every value after the symbol carries its unit. A chain that works a value out
     (``a = (27.8 - 0)/8 = 3.47 m/s²``) has bare numbers until its end, and splits;
-    so does one through another symbol (``F = ma = …``), or from a value
-    (``1 km = 1000 m = 100000 cm``).
+    so does one through another symbol (``F = ma = …``), or from a value rather than a
+    symbol (``1 km = 1000 m = 100000 cm``).
     """
     return (
         len(segments) > 2
-        and not _has_unit(segments[0])
+        and not segments[0].strip()[:1].isdigit()
         and all(_has_unit(part) for part in segments[1:])
     )
 
 
+# How a value's unit is written: \mathrm{km/h}, \text{ m}, \Omega, 30^\circ.
+_UNIT_MARKS = (r"\mathrm{", r"\text{", r"\Omega", r"^\circ", "°")
+
+
 def _has_unit(segment: str) -> bool:
-    return r"\mathrm{" in segment or r"\text{" in segment
+    return any(mark in segment for mark in _UNIT_MARKS)

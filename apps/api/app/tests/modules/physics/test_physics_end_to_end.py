@@ -195,7 +195,7 @@ def test_force_direct_reply_uses_the_structured_verified_layout() -> None:
     assert reply is not None
     assert "**Given**" in reply
     assert "**Find**" in reply
-    assert "**Formula**" in reply
+    assert "**Newton's second law**" in reply
     assert "**Substitution**" in reply
     assert "**Answer**" in reply
     assert "```answer\n5\\,\\mathrm{m/s²}\n```" in reply

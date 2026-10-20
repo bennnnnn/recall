@@ -120,9 +120,13 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             formulas = (r"R = \frac{v_0^2 \sin(2\theta)}{g}",)
             substitutions = (rf"R = \frac{{{v0_sq} \cdot \sin({deg:.1f}^\circ \cdot 2)}}{{{g:g}}}",)
         else:
+            from app.modules.physics.display import latex_given
+
             answer_latex = rf"R = v_0 \cos(\theta)\, t \approx {r_val:.2f} \text{{ m}}"
             formulas = (r"R = v_0 \cos(\theta)\, t",)
-            substitutions = (rf"R = {v0:g}\cos({_shown_degrees(theta)}^\circ)\cdot {t_flight:.2f}",)
+            # The flight time as worked (0.403863 s): at two places, 0.4 s, it no longer gave R.
+            time = latex_given(t_flight)
+            substitutions = (rf"R = {v0:g}\cos({_shown_degrees(theta)}^\circ)\cdot {time}",)
         quantity = QuantityResult("", r_val, "m")
     elif op == "max_height":
         h_val = h0 + v0**2 * math.sin(theta) ** 2 / (2 * g)

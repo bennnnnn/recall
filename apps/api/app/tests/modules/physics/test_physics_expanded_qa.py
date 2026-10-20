@@ -6,7 +6,9 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.physics.catalog import CATALOG
+from app.modules.physics.law_titles import law_title
 from app.modules.physics.schemas import PhysicsIntent
+from app.services.workout import as_formula_heading
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,
@@ -177,15 +179,17 @@ def test_audit_prompts_are_verified_instant_structured_physics(
     assert (intent.kind, intent.physics_op) == (kind, op)
     verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
-    assert "name the governing law" in verified.text
+    assert "law's name in place of Formula" in verified.text
     assert "show its universal/base equation first" in verified.text
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert reply.count("```answer") == 1
-    assert [reply.index(heading) for heading in _HEADINGS] == sorted(
-        reply.index(heading) for heading in _HEADINGS
+    # The law's own name heads its formulas, in the Formula slot.
+    read = as_formula_heading(reply)
+    assert [read.index(heading) for heading in _HEADINGS] == sorted(
+        read.index(heading) for heading in _HEADINGS
     )
-    assert "**Formula**  \n" in reply and f" — {CATALOG[op].law_name}" in reply
+    assert f"**{law_title(CATALOG[op].law_name)}**  \n" in reply
 
 
 def test_every_supported_physics_operation_has_a_named_governing_law() -> None:
@@ -203,8 +207,7 @@ def test_named_base_law_keeps_the_equivalent_form_used_for_substitution() -> Non
     assert verified is not None
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
-    assert "— Electrical-power formula" in reply
-    assert "$P = VI$" in reply
+    assert "**Electrical power**  \n$P = VI$" in reply
     assert "— the same law for these quantities" in reply
     assert "$P = I^2 R$" in reply
     assert "**Substitution**  \n$P = 3^{2} \\cdot 4$" in reply
@@ -331,7 +334,7 @@ def test_worked_layout_names_the_requested_unknown(
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert f"**Find**  \n{find_line}" in reply
-    assert "**Formula**  \n" in reply and f" — {law_name}" in reply
+    assert f"**{law_title(law_name)}**  \n" in reply
     assert base_formula in reply
     if rearranged_formula is not None:
         assert f"— rearranged for {find_line}" in reply

@@ -16,12 +16,15 @@ from app.modules.physics.answer_checks import (
     _in_context_units,
     _in_the_asked_unit,
 )
+from app.modules.physics.catalog import formula_spec
 from app.modules.physics.display import conversion_row
+from app.modules.physics.law_titles import law_title
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult, solve_physics
 from app.modules.physics.solvers.common import QuantityResult
+from app.modules.physics.working_steps import carried_to_answer
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
-from app.services.workout import WORKOUT_PROMPT_RULE
+from app.services.workout import PHYSICS_WORKOUT_PROMPT_RULE
 
 logger = logging.getLogger(__name__)
 
@@ -146,13 +149,16 @@ def _build_physics_block(
             "Every requested constant-acceleration quantity below was solved for the same givens. "
             "Copy each verified formula; do not recalculate its numbers."
         )
+    spec = formula_spec(intent.physics_op or "")
+    law = law_title(spec.law_name) if spec is not None else None
     lines.append(
         "Required user-visible layout for this verified physics solution: "
-        f"{WORKOUT_PROMPT_RULE} Put every equation on its own line. Under Given, list the "
-        "supplied quantities with units. Under Find, name the requested quantity. Under "
-        "Formula, name the governing law, show its universal/base equation first, then any "
-        "rearrangement for the requested unknown. Under Substitution, insert the supplied "
-        "numbers. Under Answer, state the verified result exactly once."
+        f"{PHYSICS_WORKOUT_PROMPT_RULE} Put every equation on its own line. Under Given, list "
+        "the supplied quantities with units. Under Find, name the requested quantity. Head "
+        "the formulas with the verified law's name in place of Formula, show its "
+        "universal/base equation first, then any rearrangement for the requested unknown. "
+        "Under Substitution, insert the supplied numbers and copy the verified rows to the "
+        "result. Under Answer, state the verified result exactly once."
     )
     if result.simulation_specs:
         lines.append(
@@ -165,11 +171,13 @@ def _build_physics_block(
     answer, card = result.answer_value, result.answer_latex
     # The model sees the same rows the direct reply formats. The combined
     # solver chain stays on result.answer for internal checks.
+    worked = carried_to_answer(result.substitutions, card)
     verified_lines = [
+        *([f"Verified law: {law}"] if law else []),
         "Verified formula:",
         *(f"${row}$" for row in result.formulas),
         "Verified substitution:",
-        *(f"${row}$" for row in result.substitutions),
+        *(f"${row}$" for row in worked),
         f"Verified result: ${card}$",
     ]
     lines.extend(verified_lines)

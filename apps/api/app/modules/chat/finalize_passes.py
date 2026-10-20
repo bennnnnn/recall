@@ -62,6 +62,7 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.untrusted_media import neutralize_untrusted_media
+from app.services.reply_labels import one_answer_label
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +123,8 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     # Before the fence repair below can close it for the reminder pass.
     FinalizePass("drop_cut_reminder_fence", lambda s: drop_cut_reminder_fence(s.text), FALL_BACK),
     FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK),
+    # Before a subject lands its card under the reply's Answer heading.
+    FinalizePass("answer_labels", lambda s: one_answer_label(s.text), FALL_BACK),
     FinalizePass("untrusted_media", neutralize_untrusted_media, FALL_BACK),
     FinalizePass("search_links", unlink_unretrieved_links, OnError(log_as="search_links")),
     FinalizePass("generic_closer", strip_generic_closer, OnError(log_as="generic_closer")),
@@ -175,6 +178,7 @@ STOPPED_REPLY_PASSES = frozenset(
     {
         "drop_cut_reminder_fence",
         "prepare_model_reply",
+        "answer_labels",
         "untrusted_media",
         "answer_photo",
         "server_answer_cards",

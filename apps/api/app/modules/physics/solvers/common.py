@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.physics.bodies import SCHOOL_GRAVITY
@@ -218,6 +219,48 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
             )
         return float(quantity.to_base_units().magnitude)
     raise SolveServiceError(f"unsupported unit: {unit}")
+
+
+def si_factor(unit: str, *, expected_key: str | None = None) -> tuple[float, float] | None:
+    """The scale from ``unit`` to SI as (numerator, denominator): km/h is 1000/3600.
+
+    Each unit above the line scales by its own factor and each below divides by
+    its own, so a student sees where the number comes from. None for a count, an
+    offset unit (°C adds 273.15, it does not scale) or a unit Pint cannot split.
+    """
+    if not unit or unit.strip().lower() in _COUNT_UNITS:
+        return None
+    from app.modules.physics.givens import unit_readings
+    from app.services.units import get_unit_registry
+
+    ureg = get_unit_registry()
+    try:
+        whole = _to_si(1.0, unit, expected_key=expected_key)
+    except SolveServiceError:
+        return None
+    for reading in unit_readings(unit):
+        if reading in _OFFSET_UNITS:
+            return None
+        split = _split_scale(ureg, reading)
+        # The reading _to_si used: its parts multiply out to the same scale.
+        if split is not None and math.isclose(split[0] / split[1], whole, rel_tol=1e-9):
+            return split
+    return None
+
+
+def _split_scale(ureg: Any, reading: str) -> tuple[float, float] | None:
+    """Each unit's own scale, above the line and below it; None if Pint cannot read it."""
+    numerator = denominator = 1.0
+    try:
+        for name, power in ureg.parse_units(reading)._units.items():
+            scale, exponent = float((1 * ureg(name)).to_base_units().magnitude), float(power)
+            if exponent > 0:
+                numerator *= scale**exponent
+            else:
+                denominator *= scale ** (-exponent)
+    except Exception:
+        return None
+    return numerator, denominator
 
 
 def _params_in_si(intent: PhysicsIntent) -> dict[str, float]:

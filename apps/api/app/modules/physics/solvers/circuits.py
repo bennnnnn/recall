@@ -105,7 +105,7 @@ def _combined_resistance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsR
             rf"\approx {total:.2f} \,\Omega"
         )
         formula = rf"\frac{{1}}{{R_p}} = {symbols}"
-        substitution = reciprocals
+        substitution = rf"\frac{{1}}{{R_p}} = {reciprocals}"
     return PhysicsResult(
         answer=answer,
         formulas=(formula,),

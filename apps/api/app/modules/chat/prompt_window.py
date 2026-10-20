@@ -7,6 +7,7 @@ Omitted rows (a regenerated reply) are dropped by id.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Literal
 from uuid import UUID
@@ -136,8 +137,16 @@ def followup_subject(query_text: str | None, exchange: list[Any]) -> FollowupSub
 
 def _answer_line(body: str) -> str:
     value = " ".join(answer_fence_value(body).split())
+    # LaTeX stays maths: a bare "26.3\\,\\mathrm{N·m}" was copied into replies as text.
+    if re.search(r"\\[A-Za-z]", value) and "$" not in value:
+        value = f"${value}$"
     # The fence took its own line break with it; the line keeps one.
     return f"Answer: {value}\n" if value else ""
+
+
+# The card's line under its own heading needs no second label: the model copied
+# "**Answer**" then "Answer: …" into its replies, and the reply read Answer twice.
+_LABEL_UNDER_HEADING = re.compile(r"(?m)^(\*\*Answer:?\*\*:?[ \t]*\n(?:[ \t]*\n)*)Answer: ")
 
 
 def _strip_prompt_owned_fences(content: str) -> str:
@@ -145,10 +154,11 @@ def _strip_prompt_owned_fences(content: str) -> str:
 
     Persisted messages keep the fences for the client. Re-injecting ```answer /
     ```graph / ```sources / ```photo into the recent window teaches the model to copy them.
-    The answer card stays as a plain ``Answer:`` line: "in km/h?" or "just the answer"
-    then reads the verified value instead of working the problem again unchecked.
+    The answer card stays as a line, ``Answer:`` when no heading names it: "in km/h?" or
+    "just the answer" then reads the verified value instead of working the problem again
+    unchecked.
     """
-    out = map_closed_fences(content, "answer", _answer_line)
+    out = _LABEL_UNDER_HEADING.sub(r"\1", map_closed_fences(content, "answer", _answer_line))
     for lang in _PROMPT_STRIP_FENCE_LANGS:
         out = strip_closed_fences(out, lang)
     return out

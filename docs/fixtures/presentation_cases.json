@@ -466,6 +466,18 @@
       "expected": "$u = 0\\,\\mathrm{km/h} = 0\\,\\mathrm{m/s}$"
     },
     {
+      "id": "given-ohm-conversion-stays-one-row",
+      "area": "calculation",
+      "input": "$R = 10\\,\\mathrm{kΩ} \\times 1000 = 10000\\,\\Omega$",
+      "expected": "$R = 10\\,\\mathrm{kΩ} \\times 1000 = 10000\\,\\Omega$"
+    },
+    {
+      "id": "given-text-subscript-conversion-stays-one-row",
+      "area": "calculation",
+      "input": "$t_{\\text{day}} = 5\\,\\mathrm{h} \\times 3600 = 18000\\,\\mathrm{s}$",
+      "expected": "$t_{\\text{day}} = 5\\,\\mathrm{h} \\times 3600 = 18000\\,\\mathrm{s}$"
+    },
+    {
       "id": "worked-value-chain-splits",
       "area": "calculation",
       "input": "$a = \\frac{27.7778 - 0}{8} = \\frac{27.7778}{8} = 3.47\\,\\mathrm{m/s^2}$",

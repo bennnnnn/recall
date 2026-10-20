@@ -24,16 +24,25 @@ from app.modules.physics.catalog import (
     visible_assumptions,
 )
 from app.modules.physics.claims import claim_verdict, read_claims
-from app.modules.physics.display import is_conversion_row, latex_given, latex_unit, si_symbol
+from app.modules.physics.display import (
+    is_conversion_row,
+    latex_factor,
+    latex_given,
+    latex_unit,
+    si_symbol,
+)
 from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.glossary import given_meaning
+from app.modules.physics.law_titles import law_title
 from app.modules.physics.parts import asks_more_than_answered
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
-from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
+from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si, si_factor
 from app.modules.physics.working import result_symbol_for
+from app.modules.physics.working_steps import carried_to_answer
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
 from app.services.workout import (
+    FORMULA,
     Workout,
     math_line,
     render_workout,
@@ -187,24 +196,21 @@ def _formula_identity(formula: str) -> str:
 
 
 def _formula_rows(intent: PhysicsIntent, formulas: list[str]) -> list[str]:
-    """The governing law named on its base form, then any rearrangement."""
+    """The governing law's base form, then any rearrangement. The law's name is the
+    section's heading (``law_title``), so no row repeats it."""
     operation = intent.physics_op or ""
     spec = formula_spec(operation)
-    name = spec.law_name if spec is not None else "Physics formula"
     params = intent.physics_params or {}
     base: str | None = None
     lines: tuple[str, ...] = ()
     if spec is not None:
         base, lines, _assumptions = select_formula(spec, params)
     if lines:
-        return [math_line(line, name if index == 0 else None) for index, line in enumerate(lines)]
+        return [math_line(line) for line in lines]
     if base is None:
-        return [
-            math_line(formula, name if index == 0 else None)
-            for index, formula in enumerate(formulas)
-        ]
+        return [math_line(formula) for formula in formulas]
 
-    rows = [math_line(base, name)]
+    rows = [math_line(base)]
     base_lhs = base.split(" = ", 1)[0].strip()
     for formula in formulas:
         formula_lhs = formula.split(" = ", 1)[0].strip()
@@ -220,9 +226,10 @@ def _formula_rows(intent: PhysicsIntent, formulas: list[str]) -> list[str]:
 def _given_value(name: str, value: float, unit: str, substitution: str) -> str:
     """The value as written and, when that is not SI, the value the solver used.
 
-    A substitution in SI numbers needs the step that produced them first:
-    500 nm = 5 × 10⁻⁷ m. A solver that works in the written units (150 km in
-    2 h) needs none, and neither do angles or rpm, whose formula converts.
+    A substitution in SI numbers needs the step that produced them first, on the
+    given's own line with its factor: 500 nm × 10⁻⁹ = 5 × 10⁻⁷ m. A solver that
+    works in the written units (150 km in 2 h) needs none, and neither do angles or
+    rpm, whose formula converts.
     """
     written = f"{latex_given(value)}{latex_unit(unit)}"
     dimension = _PARAM_SI_DIMENSIONS.get(name)
@@ -241,7 +248,10 @@ def _given_value(name: str, value: float, unit: str, substitution: str) -> str:
     si_unit = si_symbol(dimension)
     if latex_unit(si_unit) == latex_unit(unit) and math.isclose(si_value, value):
         return written
-    return f"{written} = {latex_given(si_value)}{latex_unit(si_unit)}"
+    # The factor that makes the SI value, so the step reads as one: 100 km/h * 1000/3600.
+    factor = si_factor(unit, expected_key=name) if value else None
+    times = f" {latex_factor(*factor)}" if factor else ""
+    return f"{written}{times} = {latex_given(si_value)}{latex_unit(si_unit)}"
 
 
 def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
@@ -298,7 +308,13 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
             given=tuple(given_rows),
             find=(math_line(find_symbol),),
             formula=tuple(formula_rows),
-            substitution=tuple(math_line(substitution) for substitution in substitutions),
+            substitution=tuple(
+                math_line(row)
+                for row in carried_to_answer(
+                    substitutions, verified.display_answer or verified.canonical_answer
+                )
+            ),
+            formula_heading=law_title(spec.law_name) if spec is not None else FORMULA,
         )
     )
 
