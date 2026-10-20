@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from typing import cast
 from uuid import UUID
 
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -20,7 +23,17 @@ from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
 
-PENDING_STORAGE_DELETE_KEY = "recall:storage:pending_delete"
+# Failed R2 deletes, retried by the orphan reaper: member = storage key, score = when the
+# next attempt is due. A plain set had no bound and was read whole every cycle.
+PENDING_STORAGE_DELETE_KEY = "recall:storage:pending_delete:due"
+_PENDING_ATTEMPTS_KEY = "recall:storage:pending_delete:attempts"
+# The set before it kept order and attempts; its members move over on the next retry pass.
+_LEGACY_PENDING_KEY = "recall:storage:pending_delete"
+_PENDING_MAX = 50_000
+_PENDING_PAGE = 500
+_PENDING_MAX_ATTEMPTS = 10
+_PENDING_FIRST_RETRY_S = 3_600
+_PENDING_MAX_RETRY_S = 86_400
 
 
 async def detach_attachments_for_messages(
@@ -72,35 +85,63 @@ async def enqueue_failed_storage_deletes(keys: list[str]) -> None:
         return
     try:
         redis = get_redis_client()
-        await redis.sadd(PENDING_STORAGE_DELETE_KEY, *keys)
+        await redis.zadd(PENDING_STORAGE_DELETE_KEY, dict.fromkeys(keys, time.time()), nx=True)
+        size = int(await redis.zcard(PENDING_STORAGE_DELETE_KEY))
+        if size > _PENDING_MAX:
+            # Past the cap the latest-due keys go: those objects stay in R2 until a sweep.
+            await redis.zremrangebyrank(PENDING_STORAGE_DELETE_KEY, _PENDING_MAX, -1)
+            logger.error("Pending storage deletes over %s; dropped the latest-due", _PENDING_MAX)
     except Exception:
         logger.warning("Could not enqueue failed storage deletes", exc_info=True)
 
 
+async def _move_legacy_pending(redis: Redis) -> None:
+    raw = await redis.smembers(_LEGACY_PENDING_KEY)
+    keys = [item for item in raw if isinstance(item, str)]
+    if keys:
+        await redis.zadd(PENDING_STORAGE_DELETE_KEY, dict.fromkeys(keys, time.time()), nx=True)
+    await redis.delete(_LEGACY_PENDING_KEY)
+
+
 async def retry_pending_storage_deletes(settings: Settings) -> int:
+    """Retry the deletes that are due, a page at a time, backing off up to a day each."""
     try:
         redis = get_redis_client()
-        raw = await redis.smembers(PENDING_STORAGE_DELETE_KEY)
+        await _move_legacy_pending(redis)
+        now = time.time()
+        keys = cast(
+            list[str],
+            await redis.zrangebyscore(
+                PENDING_STORAGE_DELETE_KEY, "-inf", now, start=0, num=_PENDING_PAGE
+            ),
+        )
     except Exception:
         logger.debug("Pending storage-delete retry skipped", exc_info=True)
         return 0
-    if not isinstance(raw, set | list | tuple):
-        return 0
-    keys = [
-        item.decode() if isinstance(item, bytes) else item
-        for item in raw
-        if isinstance(item, bytes | str)
-    ]
     if not keys:
         return 0
     still_failed = set(await delete_storage_keys(settings, keys))
     succeeded = [key for key in keys if key not in still_failed]
-    if succeeded:
-        try:
-            await redis.srem(PENDING_STORAGE_DELETE_KEY, *succeeded)
-        except Exception:
-            logger.debug("Could not clear pending storage deletes", exc_info=True)
+    try:
+        if succeeded:
+            await redis.zrem(PENDING_STORAGE_DELETE_KEY, *succeeded)
+            await redis.hdel(_PENDING_ATTEMPTS_KEY, *succeeded)
+        for key in still_failed:
+            await _back_off_pending(redis, key, now)
+    except Exception:
+        logger.debug("Could not update pending storage deletes", exc_info=True)
     return len(succeeded)
+
+
+async def _back_off_pending(redis: Redis, key: str, now: float) -> None:
+    attempts = int(await redis.hincrby(_PENDING_ATTEMPTS_KEY, key, 1))
+    if attempts >= _PENDING_MAX_ATTEMPTS:
+        logger.error("Storage delete gave up after %s attempts key=%s", attempts, key)
+        await redis.zrem(PENDING_STORAGE_DELETE_KEY, key)
+        await redis.hdel(_PENDING_ATTEMPTS_KEY, key)
+        return
+    wait = min(_PENDING_MAX_RETRY_S, _PENDING_FIRST_RETRY_S * 2 ** (attempts - 1))
+    await redis.zadd(PENDING_STORAGE_DELETE_KEY, {key: now + wait})
 
 
 async def purge_attachments_for_messages(

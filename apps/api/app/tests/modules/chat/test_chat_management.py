@@ -34,8 +34,7 @@ def metadata_session():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("scoped", [False, True])
-async def test_topic_preserves_manual_rename_after_stale_read(metadata_session, scoped):
+async def test_topic_preserves_manual_rename_after_stale_read(metadata_session):
     sync_session, session = metadata_session
     owner_id = uuid4()
     chat = Chat(user_id=owner_id, model="auto", title=None)
@@ -59,15 +58,11 @@ async def test_topic_preserves_manual_rename_after_stale_read(metadata_session, 
         patch.object(
             topic.chat_titles, "generate_title", AsyncMock(return_value="Generated title")
         ),
-        patch.object(topic, "_release_topic_dedupe", AsyncMock()),
     ):
-        await topic.generate_chat_title(
-            Settings(),
-            chat_id,
-            "User question",
-            "Assistant answer",
-            user_id=owner_id if scoped else None,
+        applied = await topic.generate_chat_title(
+            Settings(), chat_id, "User question", "Assistant answer", user_id=owner_id
         )
+    assert applied is False
 
     sync_session.expire_all()
     assert sync_session.get(Chat, chat_id).title == "My chosen title"

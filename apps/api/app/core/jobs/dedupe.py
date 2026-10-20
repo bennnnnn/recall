@@ -14,11 +14,11 @@ logger = logging.getLogger("app.core.jobs")
 # Idempotency: SET NX before dispatch so reclaim/duplicate enqueue cannot
 # double-apply side effects (duplicate todos, welcome emails, …).
 # In-flight value is _DEDUPE_RUNNING with a short TTL; success overwrites with
-# _DEDUPE_DONE for 24h. A reclaim that loses NX must not xack while the key
+# _DEDUPE_DONE for the type's done TTL (``queue.done_ttl_seconds``: an hour unless
+# the type registered longer). A reclaim that loses NX must not xack while the key
 # is still running — that was a guaranteed drop: reclaim idle is 60s and the
 # running TTL is 300s, so skip+xack acknowledged the PEL entry forever.
 _JOB_DONE_PREFIX = "jobdone:"
-_JOB_DONE_TTL_SECONDS = 86_400
 # Covers a normal handler (LLM / index batch). A keepalive refreshes this
 # while the handler runs so a slow index does not expire and double-run.
 # After a crash, the key expires and the next XAUTOCLAIM can NX-succeed.
@@ -77,25 +77,18 @@ async def _dedupe_is_complete(redis: Redis, dedupe_key: str | None) -> bool:
             return True
         if value != _DEDUPE_RUNNING:
             return False
-        ttl = await redis.ttl(key)
-        # Pre-fix success only EXPIREd "1" to 24h. Treat a long TTL as done so
-        # a rolling deploy does not leave those duplicates pending for a day.
-        return isinstance(ttl, int) and ttl > _JOB_DONE_CLAIM_TTL_SECONDS
+        return False
     except Exception:
         logger.debug("job dedupe state read failed key=%s", dedupe_key, exc_info=True)
         return False
 
 
-async def _extend_dedupe(redis: Redis, dedupe_key: str | None) -> None:
-    """Mark the logical job done so later duplicates skip and ack."""
+async def _extend_dedupe(redis: Redis, dedupe_key: str | None, ttl_seconds: int) -> None:
+    """Mark the logical job done so later duplicates skip and ack, for ``ttl_seconds``."""
     if not dedupe_key:
         return
     try:
-        await redis.set(
-            job_done_key(dedupe_key),
-            _DEDUPE_DONE,
-            ex=_JOB_DONE_TTL_SECONDS,
-        )
+        await redis.set(job_done_key(dedupe_key), _DEDUPE_DONE, ex=ttl_seconds)
     except Exception:
         logger.debug("job dedupe extend failed key=%s", dedupe_key, exc_info=True)
 

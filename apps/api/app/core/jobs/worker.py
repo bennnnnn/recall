@@ -5,7 +5,6 @@ import logging
 import os
 import socket
 import time
-import traceback
 from functools import partial
 from typing import Any, Literal, cast
 
@@ -13,7 +12,12 @@ from redis.asyncio import Redis
 
 from app.core import sentry
 from app.core.config import Settings
-from app.core.jobs.admin import _METRICS_INTERVAL_S, _move_to_dlq, report_queue_metrics
+from app.core.jobs.admin import (
+    _METRICS_INTERVAL_S,
+    _move_to_dlq,
+    replay_safe_dlq_entries,
+    report_queue_metrics,
+)
 from app.core.jobs.dedupe import (
     _claim_dedupe,
     _dedupe_is_complete,
@@ -23,9 +27,20 @@ from app.core.jobs.dedupe import (
     _refresh_running_claim_loop,
     _release_dedupe,
 )
+from app.core.jobs.delayed import move_due
 from app.core.jobs.inflight import InFlight
+from app.core.jobs.outcomes import hold_unknown_type, retry_later
 from app.core.jobs.pending import _ack_trimmed_entries, _drop_poison_entries, _forget_consumer
-from app.core.jobs.queue import JOBS_GROUP, JOBS_STREAM, JobDiscardError, _dispatch
+from app.core.jobs.queue import (
+    JOBS_GROUP,
+    JOBS_STREAM,
+    JobDiscardError,
+    JobSkipped,
+    UnknownJobTypeError,
+    _dispatch,
+    done_ttl_seconds,
+    trim_jobs_stream,
+)
 from app.core.redis import get_jobs_redis_client
 
 logger = logging.getLogger("app.core.jobs")
@@ -37,11 +52,6 @@ _RECLAIM_INTERVAL_S = 30.0
 # Redis unreachable at boot: retry creating the group with this backoff, forever.
 _GROUP_RETRY_FIRST_S = 1.0
 _GROUP_RETRY_MAX_S = 30.0
-# Retry a transient failure a few times before moving to the DLQ. Background
-# jobs are not latency-sensitive, so a short backoff in-process is cheaper and
-# safer than dropping the job on the first provider/DB blip.
-_MAX_ATTEMPTS = 3
-_RETRY_BACKOFF_S = 2.0
 # How stale the worker-loop heartbeat can get before is_worker_alive() reports
 # the worker as dead even though its task hasn't crashed. The live loop never
 # waits on a job (jobs run as tasks, see ``inflight``) and touches the
@@ -126,51 +136,42 @@ async def _dispatch_with_retries(
     fields: dict[str, Any],
     dedupe_key: str | None,
 ) -> None:
-    """Run the handler, retrying a transient failure; dead-letter what cannot finish."""
+    """Run one attempt; a transient failure comes back later (``delayed``), not in this slot."""
     job_timeout = _job_timeout(settings)
-    for attempt in range(1, _MAX_ATTEMPTS + 1):
-        _touch_heartbeat()
-        await _refresh_running_claim(redis, dedupe_key)
-        deadline = asyncio.timeout(job_timeout)
-        try:
-            async with deadline:
-                await _dispatch(settings, fields)
-            # Success — overwrite the short running claim so a later
-            # duplicate enqueue skips and acks. Crash before this line
-            # leaves the running TTL; reclaim must not xack until it
-            # expires (or the keepalive dies with the worker).
-            await _extend_dedupe(redis, dedupe_key)
+    _touch_heartbeat()
+    await _refresh_running_claim(redis, dedupe_key)
+    deadline = asyncio.timeout(job_timeout)
+    try:
+        async with deadline:
+            await _dispatch(settings, fields)
+        # Success — overwrite the short running claim so a later duplicate
+        # enqueue skips and acks. Crash before this line leaves the running
+        # TTL; reclaim must not xack until it expires (or the keepalive dies
+        # with the worker).
+        await _extend_dedupe(redis, dedupe_key, done_ttl_seconds(fields.get("type")))
+    except JobSkipped:
+        # Nothing done this time: a later request for the same job must still run.
+        await _release_dedupe(redis, dedupe_key)
+    except JobDiscardError as exc:
+        logger.warning("Discarding job id=%s: %s", entry_id, exc)
+        await _dead_letter(redis, entry_id, fields, dedupe_key, str(exc))
+    except UnknownJobTypeError as exc:
+        await hold_unknown_type(redis, entry_id, fields, dedupe_key, str(exc))
+    except Exception as exc:
+        if isinstance(exc, TimeoutError) and deadline.expired():
+            # Not retried: a handler that ran out its whole deadline would
+            # likely do it again, holding its slot each time.
+            logger.error(
+                "Job id=%s type=%s exceeded %ss; moving to DLQ",
+                entry_id,
+                fields.get("type"),
+                job_timeout,
+            )
+            sentry.report_exception(f"job_timeout:{fields.get('type')}")
+            error = f"timed out after {job_timeout}s"
+            await _dead_letter(redis, entry_id, fields, dedupe_key, error)
             return
-        except JobDiscardError as exc:
-            logger.warning("Discarding job id=%s: %s", entry_id, exc)
-            await _dead_letter(redis, entry_id, fields, dedupe_key, str(exc))
-            return
-        except Exception as exc:
-            if isinstance(exc, TimeoutError) and deadline.expired():
-                # Not retried: a handler that ran out its whole deadline
-                # would likely do it again, holding its slot each time.
-                logger.error(
-                    "Job id=%s type=%s exceeded %ss; moving to DLQ",
-                    entry_id,
-                    fields.get("type"),
-                    job_timeout,
-                )
-                sentry.report_exception(f"job_timeout:{fields.get('type')}")
-                error = f"timed out after {job_timeout}s"
-                await _dead_letter(redis, entry_id, fields, dedupe_key, error)
-                return
-            if attempt < _MAX_ATTEMPTS:
-                logger.warning(
-                    "Job failed attempt=%s/%s id=%s; retrying",
-                    attempt,
-                    _MAX_ATTEMPTS,
-                    entry_id,
-                )
-                await asyncio.sleep(_RETRY_BACKOFF_S * attempt)
-            else:
-                logger.exception("Job failed after %s attempts id=%s", _MAX_ATTEMPTS, entry_id)
-                error = traceback.format_exc(limit=8)
-                await _dead_letter(redis, entry_id, fields, dedupe_key, error)
+        await retry_later(redis, entry_id, fields, dedupe_key)
 
 
 async def _dead_letter(
@@ -361,6 +362,9 @@ async def _worker_loop(settings: Settings) -> None:
             if last_reclaim_at is None or now - last_reclaim_at >= _RECLAIM_INTERVAL_S:
                 last_reclaim_at = now
                 await _reclaim_pending_jobs(redis, settings, consumer, pool)
+                await trim_jobs_stream(redis)
+                await replay_safe_dlq_entries(redis)
+            await _move_due_retries(redis)
             room = pool.room()
             if room <= 0:
                 # Every slot is busy: wait for one rather than take entries
@@ -388,6 +392,13 @@ async def _worker_loop(settings: Settings) -> None:
     finally:
         await pool.close()
         await _forget_consumer(redis, consumer)
+
+
+async def _move_due_retries(redis: Redis) -> None:
+    try:
+        await move_due(redis)
+    except Exception:
+        logger.debug("delayed jobs move failed", exc_info=True)
 
 
 async def _back_off_after_read_error(redis: Redis, exc: Exception) -> None:

@@ -20,36 +20,42 @@ from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
-from sqlalchemy import func, select
+from sqlalchemy import false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.gateways import expo_push_gateway
 from app.models.orm import PushToken, TodoItem, User
 from app.modules.todos import (
+    PUSH_REMINDERS,
     TodoScheduleSnapshot,
+    due_reminder_page,
+    is_due_now,
     is_recurrence_rule,
     next_recurring_due,
+    reminder_page_key,
+    tokenless_recurring_overdue,
     update_schedule_if_current,
 )
 from app.modules.todos import (
     crud as todos_crud,
 )
 from app.repositories import push_tokens as push_repo
-from app.services.reminder_timing import (
-    MAX_REMINDER_LEAD_MINUTES,
-    OVERDUE_MAX_HOURS,
-    in_quiet_hours,
-    reminder_title,
-    resolve_reminder_lead_minutes,
-    should_notify_todo,
-)
+from app.services.reminder_timing import OVERDUE_MAX_HOURS, reminder_title
 
 logger = logging.getLogger(__name__)
 
 RECEIPT_PENDING_ZSET = "recall:push:receipts:pending"
 RECEIPT_MIN_AGE_SECONDS = 15 * 60
 RECEIPT_MAX_AGE_SECONDS = 24 * 60 * 60
+# Receipts polled per pass, and tickets kept at most (the oldest go past it). Polling
+# every ready ticket at once made one Expo outage delay every reminder behind it.
+RECEIPT_POLL_BATCH = 1_000
+RECEIPT_PENDING_MAX = 50_000
+# Due to-dos read per page, and pages per cycle: a cycle stops at its bound and the
+# rest come next minute.
+PUSH_PAGE_ROWS = 500
+MAX_PUSH_PAGES_PER_CYCLE = 20
 
 
 @dataclass
@@ -77,50 +83,54 @@ async def enqueue_push_receipts(redis: Redis, tickets: list[tuple[str, str]]) ->
     if not tickets:
         return
     now = time.time()
-    pipe = redis.pipeline()
-    for ticket_id, token in tickets:
-        pipe.set(_receipt_token_key(ticket_id), token, ex=RECEIPT_MAX_AGE_SECONDS)
-        pipe.zadd(RECEIPT_PENDING_ZSET, {ticket_id: now})
-    await pipe.execute()
+    async with redis.pipeline(transaction=False) as pipe:
+        for ticket_id, token in tickets:
+            pipe.set(_receipt_token_key(ticket_id), token, ex=RECEIPT_MAX_AGE_SECONDS)
+            pipe.zadd(RECEIPT_PENDING_ZSET, {ticket_id: now})
+        # Bounded: past the cap the oldest tickets go; their token keys expire anyway.
+        pipe.zremrangebyrank(RECEIPT_PENDING_ZSET, 0, -RECEIPT_PENDING_MAX - 1)
+        await pipe.execute()
 
 
 async def poll_deferred_push_receipts(session: AsyncSession, redis: Redis) -> None:
-    """Poll Expo receipts old enough to be ready; prune dead tokens."""
+    """Poll a batch of Expo receipts old enough to be ready; prune dead tokens."""
     now = time.time()
-    stale_before = now - RECEIPT_MAX_AGE_SECONDS
-    stale_raw = await redis.zrangebyscore(RECEIPT_PENDING_ZSET, 0, stale_before)
-    stale_ids = _redis_str_members(list(stale_raw))
-    if stale_ids:
-        await redis.zrem(RECEIPT_PENDING_ZSET, *stale_ids)
-        for ticket_id in stale_ids:
-            await redis.delete(_receipt_token_key(ticket_id))
-
-    ready_before = now - RECEIPT_MIN_AGE_SECONDS
+    # Token keys carry the same 24 h TTL, so stale tickets only need leaving the set.
+    await redis.zremrangebyscore(RECEIPT_PENDING_ZSET, 0, now - RECEIPT_MAX_AGE_SECONDS)
     ticket_ids = _redis_str_members(
-        list(await redis.zrangebyscore(RECEIPT_PENDING_ZSET, 0, ready_before))
+        list(
+            await redis.zrangebyscore(
+                RECEIPT_PENDING_ZSET,
+                0,
+                now - RECEIPT_MIN_AGE_SECONDS,
+                start=0,
+                num=RECEIPT_POLL_BATCH,
+            )
+        )
     )
     if not ticket_ids:
         return
 
     receipt_map = await expo_push_gateway.fetch_push_receipts(ticket_ids)
+    decided = [
+        (ticket_id, receipt)
+        for ticket_id in ticket_ids
+        if (receipt := receipt_map.get(ticket_id))
+        and receipt.get("status") not in (None, "pending")
+    ]
+    if not decided:
+        return
+    async with redis.pipeline(transaction=False) as pipe:
+        for ticket_id, _receipt in decided:
+            pipe.get(_receipt_token_key(ticket_id))
+        tokens = await pipe.execute()
+    async with redis.pipeline(transaction=False) as pipe:
+        pipe.zrem(RECEIPT_PENDING_ZSET, *[ticket_id for ticket_id, _receipt in decided])
+        pipe.delete(*[_receipt_token_key(ticket_id) for ticket_id, _receipt in decided])
+        await pipe.execute()
     pruned = False
-    for ticket_id in ticket_ids:
-        receipt = receipt_map.get(ticket_id)
-        if not receipt:
-            continue
-        status = receipt.get("status")
-        if status in (None, "pending"):
-            continue
-
-        await redis.zrem(RECEIPT_PENDING_ZSET, ticket_id)
-        token_raw = await redis.get(_receipt_token_key(ticket_id))
-        await redis.delete(_receipt_token_key(ticket_id))
-        token = token_raw.decode() if isinstance(token_raw, bytes) else token_raw
-        if (
-            status == "error"
-            and token
-            and expo_push_gateway.receipt_indicates_invalid_token(receipt)
-        ):
+    for (ticket_id, receipt), token in zip(decided, tokens, strict=True):
+        if token and expo_push_gateway.receipt_indicates_invalid_token(receipt):
             try:
                 await push_repo.delete_by_token(session, token)
                 pruned = True
@@ -214,7 +224,7 @@ async def log_aged_unsent_reminders(
         .select_from(TodoItem)
         .join(User, User.id == TodoItem.user_id)
         .where(
-            TodoItem.checked.is_(False),
+            TodoItem.checked == false(),
             TodoItem.due_at.isnot(None),
             TodoItem.notification_sent_at.is_(None),
             TodoItem.due_at < cutoff,
@@ -234,69 +244,43 @@ async def log_aged_unsent_reminders(
     return count
 
 
-async def process_todo_reminders(
+@dataclass
+class PushPage:
+    """One page of due reminders as push messages, and where the next page starts."""
+
+    messages: list[OutboundPush]
+    next_after: tuple[datetime, UUID] | None
+
+
+async def collect_push_page(
     session: AsyncSession,
     *,
-    now: datetime | None = None,
-) -> list[OutboundPush]:
-    now = now or datetime.now(UTC)
-    window_end = now + timedelta(minutes=MAX_REMINDER_LEAD_MINUTES)
-    overdue_cutoff = now - timedelta(hours=OVERDUE_MAX_HOURS)
-
-    result = await session.execute(
-        select(TodoItem, User)
-        .join(User, User.id == TodoItem.user_id)
-        .where(
-            TodoItem.checked.is_(False),
-            TodoItem.due_at.isnot(None),
-            TodoItem.notification_sent_at.is_(None),
-            User.push_notifications_enabled.is_(True),
-            User.push_reminders_enabled.is_(True),
-            # Older rows can never notify (should_notify_todo); bounding the
-            # range keeps every aged row out of this per-minute scan.
-            TodoItem.due_at >= overdue_cutoff,
-            TodoItem.due_at <= window_end,
-        )
-    )
-    rows = list(result.all())
+    now: datetime,
+    after: tuple[datetime, UUID] | None = None,
+    limit: int = PUSH_PAGE_ROWS,
+) -> PushPage:
+    """Push messages for one page of due to-dos (``todos.due_reminder_page``)."""
+    rows = await due_reminder_page(session, PUSH_REMINDERS, now=now, after=after, limit=limit)
     if not rows:
-        return []
+        return PushPage(messages=[], next_after=None)
 
+    # One page names at most ``limit`` users: the token lookup's bind parameters stay
+    # bounded (asyncpg refuses more than 32,767).
     tokens = await push_repo.list_for_users(session, list({todo.user_id for todo, _ in rows}))
     tokens_by_user: dict[UUID, list[PushToken]] = {}
     for token in tokens:
         tokens_by_user.setdefault(token.user_id, []).append(token)
 
     messages: list[OutboundPush] = []
-    tokenless_overdue: list[TodoItem] = []
-    tokenless_users: set[UUID] = set()
-    timezone_by_user: dict[UUID, str | None] = {}
     for todo, user in rows:
-        if todo.due_at is None:
-            continue
-        # BUG FIX (was cycle-fatal): an unhandled exception for one todo/user
-        # used to propagate out of the loop and drop every other user's
-        # reminders for this cycle. Isolate and skip just this row.
+        # One bad row must not drop every other user's reminders this cycle.
         try:
-            if in_quiet_hours(user, now=now):
-                continue
-            lead = resolve_reminder_lead_minutes(getattr(user, "reminder_lead_minutes", None))
-            if not should_notify_todo(todo.due_at, now=now, lead_minutes=lead):
+            if todo.due_at is None or not is_due_now(todo, user, now=now):
                 continue
             user_tokens = tokens_by_user.get(todo.user_id, [])
             if not user_tokens:
-                # Common, not a fault: push is on by default, so everyone who
-                # denied the OS permission lands here every minute for 48h.
-                tokenless_users.add(todo.user_id)
-                if todo.due_at <= now and is_recurrence_rule(
-                    getattr(todo, "recurrence_rule", None)
-                ):
-                    tokenless_overdue.append(todo)
-                    tz = getattr(user, "timezone", None)
-                    timezone_by_user[todo.user_id] = tz if isinstance(tz, str) else None
                 continue
-            is_overdue = todo.due_at < now
-            title = reminder_title(is_overdue=is_overdue, locale=getattr(user, "locale", None))
+            title = reminder_title(is_overdue=todo.due_at < now, locale=user.locale)
             _append_outbound(
                 messages,
                 user_tokens,
@@ -312,18 +296,44 @@ async def process_todo_reminders(
             )
         except Exception:
             logger.exception("Todo reminder failed user_id=%s todo_id=%s", todo.user_id, todo.id)
-            continue
+    next_after = reminder_page_key(rows) if len(rows) >= limit else None
+    return PushPage(messages=messages, next_after=next_after)
 
-    if tokenless_users:
-        logger.debug("Todo reminders skipped; no push token users=%s", len(tokenless_users))
-    if tokenless_overdue:
-        by_timezone: dict[str | None, list[TodoItem]] = defaultdict(list)
-        for item in tokenless_overdue:
-            by_timezone[timezone_by_user.get(item.user_id)].append(item)
-        for timezone, items in by_timezone.items():
-            await todos_crud._advance_past_recurring(session, items, timezone=timezone, now=now)
 
+async def process_todo_reminders(
+    session: AsyncSession,
+    *,
+    now: datetime | None = None,
+) -> list[OutboundPush]:
+    """Every due reminder's messages, page after page (the scheduler sends per page)."""
+    now = now or datetime.now(UTC)
+    await advance_tokenless_recurring(session, now=now)
+    messages: list[OutboundPush] = []
+    after: tuple[datetime, UUID] | None = None
+    for _ in range(MAX_PUSH_PAGES_PER_CYCLE):
+        page = await collect_push_page(session, now=now, after=after)
+        messages.extend(page.messages)
+        if page.next_after is None:
+            break
+        after = page.next_after
     return messages
+
+
+async def advance_tokenless_recurring(session: AsyncSession, *, now: datetime) -> int:
+    """Move overdue recurring to-dos of users with no device to their next occurrence."""
+    rows = [
+        (todo, user)
+        for todo, user in await tokenless_recurring_overdue(session, now=now)
+        if is_recurrence_rule(todo.recurrence_rule) and is_due_now(todo, user, now=now)
+    ]
+    if not rows:
+        return 0
+    by_timezone: dict[str | None, list[TodoItem]] = defaultdict(list)
+    for todo, user in rows:
+        by_timezone[user.timezone if isinstance(user.timezone, str) else None].append(todo)
+    for timezone, items in by_timezone.items():
+        await todos_crud._advance_past_recurring(session, items, timezone=timezone, now=now)
+    return len(rows)
 
 
 async def _mark_todo_after_successful_push(
@@ -377,21 +387,21 @@ async def collect_push_outbound(
     *,
     now: datetime | None = None,
 ) -> list[OutboundPush]:
-    """Build outbound push payloads. Caller should release the DB session before Expo I/O."""
+    """Build outbound push payloads. Caller should release the DB session before Expo I/O.
+
+    Receipts are polled by their own loop (``push_scheduler``), never ahead of reminders.
+    """
     if not settings.push_enabled:
         return []
-
-    await poll_deferred_push_receipts(session, redis)
 
     now = now or datetime.now(UTC)
     await log_aged_unsent_reminders(session, now=now)
 
     # Server owns dated-todo alerts (local expo-notifications is skipped while
     # the user has push enabled). Set false to force device-only scheduling.
-    todo_msgs: list[OutboundPush] = []
-    if settings.server_todo_push_enabled:
-        todo_msgs = await process_todo_reminders(session, now=now)
-    return todo_msgs
+    if not settings.server_todo_push_enabled:
+        return []
+    return await process_todo_reminders(session, now=now)
 
 
 async def dispatch_expo(

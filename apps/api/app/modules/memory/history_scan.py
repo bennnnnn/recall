@@ -38,8 +38,6 @@ _RETRY_AFTER_SECONDS = 60 * 30
 _PASS_LIMIT = 3
 _STATE_TTL_SECONDS = 60 * 60 * 24 * 7
 _RETRY_STATE = "retry"
-_LOCK_RETRIES = 3
-_LOCK_RETRY_SECONDS = 2.0
 
 
 def _queued_key(user_id: UUID) -> str:
@@ -98,11 +96,11 @@ async def _recent_chat_ids(user_id: UUID) -> list[UUID]:
 
 async def _read_chat(settings: Settings, user_id: UUID, chat_id: UUID) -> bool:
     """True once the chat's lines were read, even with nothing to learn."""
-    for attempt in range(_LOCK_RETRIES):
+    for attempt in range(jobs.LOCK_RETRY_ATTEMPTS):
         outcome = await extract_history_chat(settings, user_id=user_id, chat_id=chat_id)
         if outcome != "skipped_lock":
             return outcome is None
-        await asyncio.sleep(_LOCK_RETRY_SECONDS * (attempt + 1))
+        await asyncio.sleep(jobs.LOCK_RETRY_BACKOFF_S * (attempt + 1))
     return False
 
 
@@ -118,8 +116,11 @@ async def _chats_read(redis: Redis, user_id: UUID) -> set[str]:
 async def _note_chat_read(redis: Redis, user_id: UUID, chat_id: UUID) -> None:
     key = _read_chats_key(user_id)
     try:
-        await redis.sadd(key, str(chat_id))
-        await redis.expire(key, _STATE_TTL_SECONDS)
+        # One transaction: a crash between the two left a set with no TTL.
+        async with redis.pipeline(transaction=True) as pipe:
+            pipe.sadd(key, str(chat_id))
+            pipe.expire(key, _STATE_TTL_SECONDS)
+            await pipe.execute()
     except Exception:
         logger.debug("memory history scan state write failed user_id=%s", user_id, exc_info=True)
 
@@ -128,8 +129,10 @@ async def _retry_later(redis: Redis, user_id: UUID) -> bool:
     """Hold the missed chats for a later pass. False once the passes are used up."""
     key = _missed_passes_key(user_id)
     try:
-        passes = int(await redis.incr(key))
-        await redis.expire(key, _STATE_TTL_SECONDS)
+        async with redis.pipeline(transaction=True) as pipe:
+            pipe.incr(key)
+            pipe.expire(key, _STATE_TTL_SECONDS)
+            passes = int((await pipe.execute())[0])
         if passes >= _PASS_LIMIT:
             return False
         await redis.set(_queued_key(user_id), _RETRY_STATE, ex=_RETRY_AFTER_SECONDS)

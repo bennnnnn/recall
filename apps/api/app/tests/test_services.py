@@ -686,6 +686,9 @@ async def test_extract_and_store_releases_db_before_provider_io_without_write_co
 # ── topic service ──────────────────────────────────────────────────────────────
 
 
+_OWNER = uuid4()
+
+
 @pytest.mark.asyncio
 async def test_topic_service_skips_when_title_none():
     from app.services import topic as topic_service
@@ -698,7 +701,7 @@ async def test_topic_service_skips_when_title_none():
         ),
         patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
     ):
-        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
+        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
     mock_set.assert_not_awaited()
 
 
@@ -745,9 +748,9 @@ async def test_topic_service_saves_when_title_returned():
         ),
         patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
     ):
-        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
+        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
     mock_set.assert_awaited_once()
-    assert mock_set.await_args.kwargs == {"user_id": None, "commit": False}
+    assert mock_set.await_args.kwargs == {"user_id": _OWNER, "commit": False}
     session.commit.assert_awaited_once()
 
 
@@ -763,7 +766,7 @@ async def test_topic_service_rejects_boring_title():
         ),
         patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
     ):
-        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
+        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
     mock_set.assert_not_awaited()
 
 
@@ -775,7 +778,7 @@ async def test_topic_service_skips_empty_messages():
         "app.services.topic.chat_titles.generate_title",
         AsyncMock(return_value="Valid title here"),
     ) as mock_gen:
-        await topic_service.generate_chat_title(Settings(), uuid4(), "  ", "hello")
+        await topic_service.generate_chat_title(Settings(), uuid4(), "  ", "hello", user_id=_OWNER)
     mock_gen.assert_not_awaited()
 
 
@@ -793,13 +796,14 @@ async def test_topic_service_skips_when_chat_already_titled():
             AsyncMock(return_value="Fresh title"),
         ) as mock_gen,
         patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
-        patch("app.services.topic._release_topic_dedupe", AsyncMock()) as release,
     ):
-        chat_id = uuid4()
-        await topic_service.generate_chat_title(Settings(), chat_id, "hi", "hello")
+        applied = await topic_service.generate_chat_title(
+            Settings(), uuid4(), "hi", "hello", user_id=_OWNER
+        )
     mock_gen.assert_awaited_once()
     mock_set.assert_awaited_once()
-    release.assert_awaited_once_with(chat_id)
+    # Not applied: the job handler tells the queue it is not done.
+    assert applied is False
 
 
 @pytest.mark.asyncio
@@ -837,7 +841,7 @@ async def test_topic_generate_chat_title_releases_db_before_llm():
         ),
         patch("app.services.topic.chats_repo.set_title_if_empty", AsyncMock()),
     ):
-        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
+        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
 
     assert db_open_during_generate == [False]
     assert session.commit.await_count == 1

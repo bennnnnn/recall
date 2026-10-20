@@ -143,8 +143,11 @@ async def note_failed_extract_pass(user_id: UUID, chat_id: UUID) -> bool:
     key = _failed_pass_key(user_id, chat_id)
     try:
         redis = get_redis_client()
-        failures = int(await redis.incr(key))
-        await redis.expire(key, _FAILED_PASS_TTL_SECONDS)
+        # One transaction: a crash between the two left a count that never expired.
+        async with redis.pipeline(transaction=True) as pipe:
+            pipe.incr(key)
+            pipe.expire(key, _FAILED_PASS_TTL_SECONDS)
+            failures = int((await pipe.execute())[0])
         if failures < FAILED_PASS_LIMIT:
             return False
         await redis.delete(key)
