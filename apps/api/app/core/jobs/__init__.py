@@ -11,11 +11,11 @@ and the queue metrics warn before that.
 
 ``queue`` registers handlers, enqueues and bounds the stream, ``dedupe`` keeps
 a logical job from running twice, ``delayed`` holds retries and entries of a type
-this worker cannot run yet (``outcomes`` decides which), ``worker`` consumes, ``inflight`` runs the held entries
-under the concurrency limits and leases them, ``pending`` handles trimmed and
-poison entries, and ``admin`` holds queue metrics, the DLQ (with an hourly replay of
-types safe to run twice) and the per-user purge. Every submodule logs as
-``app.core.jobs``.
+this worker cannot run yet (``outcomes`` decides which), ``worker`` consumes,
+``inflight`` runs the held entries under the concurrency limits and leases them,
+``pending`` handles trimmed and poison entries, and ``admin`` holds queue metrics,
+the DLQ (with an hourly replay of types safe to run twice) and the per-user purge.
+Every submodule logs as ``app.core.jobs``.
 """
 
 from app.core.jobs.admin import (
