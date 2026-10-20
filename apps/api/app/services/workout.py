@@ -6,7 +6,8 @@ it has lines:
 - **Given**: the problem as the student wrote it, or the stated values, closed by a
   ``where`` line naming their symbols (``where_line``)
 - **Find**: what is asked
-- **Formula**: the law or rule that governs it
+- **Formula**: the law or rule that governs it; a physics law is headed by its own
+  name instead (**Constant acceleration**, ``modules/physics/law_titles.py``)
 - **Substitution**: values put into that formula
 - **Steps**: an equation changed one move at a time
 - **Answer**: the verified result (the caller's answer fence follows)
@@ -43,6 +44,7 @@ class Workout:
     formula: tuple[str, ...] = ()
     substitution: tuple[str, ...] = ()
     steps: tuple[str, ...] = ()
+    formula_heading: str = FORMULA
 
 
 def math_line(tex: str, note: str | None = None) -> str:
@@ -108,7 +110,7 @@ def render_workout(
     for heading, lines in (
         (GIVEN, workout.given),
         (FIND, workout.find),
-        (FORMULA, workout.formula),
+        (workout.formula_heading, workout.formula),
         (SUBSTITUTION, workout.substitution),
         (STEPS, workout.steps),
     ):
@@ -122,6 +124,37 @@ def render_workout(
     if answer is None:
         return body
     return f"{body}\n\n```answer\n{answer.strip()}\n```\n"
+
+
+# Headings a worked reply names by role; any other bold line over maths after Given or Find
+# (a follow-up may skip Find) is a law.
+_ROLE_HEADINGS = frozenset(
+    {"given", "find", "formula", "substitution", "steps", "answer", "working", "check"}
+    | {"result", "final answer", "solution", "method", "calculation"}
+)
+_BOLD_LINE = re.compile(r"^\s*\*\*(?P<title>[^*\n]+?)\*\*[ \t]*$")
+
+
+def as_formula_heading(text: str) -> str:
+    """The reply with each law's own heading read as **Formula**, for a checker.
+
+    "**Constant acceleration**" over ``$v = u + at$`` heads formulas, which are inputs
+    and never the reply's result; a checker that skips **Formula** skips them too.
+    """
+    lines = text.split("\n")
+    worked = False
+    for number, line in enumerate(lines):
+        bold = _BOLD_LINE.match(line)
+        if bold is None:
+            continue
+        title = bold.group("title").strip().rstrip(":").lower()
+        if title in ("given", "find"):
+            worked = True
+            continue
+        following = next((later for later in lines[number + 1 :] if later.strip()), "")
+        if worked and title not in _ROLE_HEADINGS and following.lstrip().startswith("$"):
+            lines[number] = line.replace(f"**{bold.group('title')}**", f"**{FORMULA}**", 1)
+    return "\n".join(lines)
 
 
 _IRREGULAR_PLURALS = {"index": "indices"}
@@ -197,10 +230,18 @@ def split_equality_chain(tex: str) -> list[str]:
     return [f"{parts[0]} = {parts[1]}", *(f"= {part}" for part in parts[2:])]
 
 
-_WORKOUT_SECTIONS = (
-    "**Given** (the problem exactly as written, or the stated values), **Find** (what is "
-    "asked), **Formula** (the governing law or rule, its name after an em dash), "
-    "**Substitution** (values put into that formula)"
+def _sections(formula: str) -> str:
+    return (
+        "**Given** (the problem exactly as written, or the stated values), **Find** (what is "
+        f"asked), {formula}, **Substitution** (values put into that formula)"
+    )
+
+
+_WORKOUT_SECTIONS = _sections("**Formula** (the governing law or rule, its name after an em dash)")
+# Physics heads its formulas with the law's own name (modules/physics/law_titles.py).
+_LAW_SECTIONS = _sections(
+    "the governing law under a bold heading of its own name in place of **Formula** "
+    "(`**Constant acceleration**`, `**Newton's second law**`), its formulas under it"
 )
 _WORKOUT_SECTION_LINES = (
     "Put each heading on its own line with its lines directly under it: one state per "
@@ -222,15 +263,32 @@ _WORKOUT_ONE_EXPRESSION = (
     "a second row that repeats the left side (`$\\frac{6!}{4!} = 30$`)."
 )
 
-# What the model is told for a physics or chemistry reply it writes itself.
-WORKOUT_PROMPT_RULE = (
-    "Worked-solution layout: bold headings in this order, each only when it has something "
-    f"to show: {_WORKOUT_SECTIONS} or **Steps** (an equation changed one move at a time), "
-    f"then **Answer**. {_WORKOUT_SECTION_LINES} Write a move as a short note after its "
-    "line, e.g. `$2x = 8$ — subtract 3 from both sides`. No numbered steps, no separate "
-    f"Simplify lines, no prose between lines. {_WORKOUT_PARTS} {_WORKOUT_UNITS} "
-    f"{_WORKOUT_ONE_EXPRESSION}"
+# A learner reads each step: a converted given says how, the arithmetic reaches the
+# number, and the answer is labelled once.
+_PHYSICS_WORKING = (
+    "A given in a unit that is not SI stays one line, with the factor that converts it: "
+    "`$v = 100\\ \\text{km/h} \\times 1000/3600 = 27.78\\ \\text{m/s}$`, never the "
+    "symbol written twice. Carry **Substitution** one step at a time to the final value "
+    "with its unit: `$a = \\frac{27.78 - 0}{8}$`, `$a = \\frac{27.78}{8}$`, "
+    "`$a = 3.47\\ \\text{m/s}^2$`. Write **Answer** once, the value under it, never a "
+    "second `Answer:` line."
 )
+
+
+def _workout_rule(sections: str, working: str = "") -> str:
+    return (
+        "Worked-solution layout: bold headings in this order, each only when it has "
+        f"something to show: {sections} or **Steps** (an equation changed one move at a "
+        f"time), then **Answer**. {_WORKOUT_SECTION_LINES} Write a move as a short note "
+        "after its line, e.g. `$2x = 8$ — subtract 3 from both sides`. No numbered steps, no "
+        f"separate Simplify lines, no prose between lines. {_WORKOUT_PARTS} {_WORKOUT_UNITS} "
+        f"{working}{_WORKOUT_ONE_EXPRESSION}"
+    )
+
+
+# What the model is told for a chemistry reply it writes itself, and physics' own.
+WORKOUT_PROMPT_RULE = _workout_rule(_WORKOUT_SECTIONS)
+PHYSICS_WORKOUT_PROMPT_RULE = _workout_rule(_LAW_SECTIONS, f"{_PHYSICS_WORKING} ")
 
 # What the model is told for a maths reply it writes itself: numbered moves, as the
 # verified equation lesson renders them, so the phone draws each number as a badge.
@@ -254,6 +312,12 @@ WORKOUT_PROMPT_SHORT = (
     "Use the worked-solution layout: **Given**, **Find**, **Formula**, **Substitution** "
     "or **Steps**, **Answer**; one state per line, the move as a short note after it "
     "(`$2x = 8$ — subtract 3`); no numbered steps."
+)
+PHYSICS_WORKOUT_PROMPT_SHORT = (
+    "Use the worked-solution layout: **Given** (a converted value keeps one line, with its "
+    "factor), **Find**, the law's name as heading (`**Constant acceleration**`), "
+    "**Substitution** carried step by step to the final value, then **Answer** once; one "
+    "state per line; no numbered steps."
 )
 
 # Questions in parts and upright units, for a reply the model writes with no

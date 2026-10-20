@@ -286,6 +286,27 @@ def is_conversion_row(row: str) -> bool:
     return _CONVERSION_ROW.fullmatch(row) is not None
 
 
+_VALUE_ROW = re.compile(rf"\A[^=]+ (?:=|\\approx) {_QUANTITY}")
+_NUMBER = re.compile(r"(?P<number>-?\d[\d.]*)(?: \\times 10\^\{(?P<power>-?\d+)\})?")
+
+
+def is_value_row(row: str) -> bool:
+    """``E = 2.16 \\times 10^{7}\\,\\mathrm{J}``: a symbol and its value, no arithmetic left."""
+    return _VALUE_ROW.fullmatch(row) is not None
+
+
+def quantity_number(row: str | None) -> float | None:
+    """The first value after the symbol: 0.0492 in ``V = 0.0492\\,\\mathrm{m^3} = 49.2 L``."""
+    match = _NUMBER.match(row.split(" = ", 1)[1]) if row and " = " in row else None
+    if match is None:
+        return None
+    try:
+        value = float(match.group("number"))
+    except ValueError:
+        return None
+    return value * 10.0 ** int(match.group("power")) if match.group("power") else value
+
+
 def conversion_row(symbol: str, before: tuple[float, str], after: tuple[float, str]) -> str:
     """The step from the SI value the substitution gives to the unit the answer is shown in.
 
@@ -295,3 +316,20 @@ def conversion_row(symbol: str, before: tuple[float, str], after: tuple[float, s
         f"{symbol} = {latex_number(before[0])}{latex_unit(before[1])} "
         f"= {latex_number(after[0])}{latex_unit(after[1])}"
     )
+
+
+def latex_factor(numerator: float, denominator: float) -> str:
+    """What turns a given into SI, as a student would write it: ``\\times 1000/3600`` for km/h.
+
+    Whole numbers above and below the line stay a fraction, so the hour's 3600 s
+    shows; anything else is one factor (``\\times 0.01``, ``\\times 10^{-9}``).
+    """
+
+    def whole(value: float) -> bool:
+        return value >= 1 and math.isclose(value, round(value), rel_tol=1e-9)
+
+    if denominator != 1 and whole(numerator) and whole(denominator):
+        return rf"\times {round(numerator)}/{round(denominator)}"
+    factor = latex_given(numerator / denominator)
+    # "10^{-9}", not "1 \times 10^{-9}".
+    return rf"\times {factor.removeprefix(r'1 \times ')}"

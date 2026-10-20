@@ -30,6 +30,7 @@ _FUNCTIONS: dict[str, Callable[[float], float]] = {
     "atan": math.atan,
     "exp": math.exp,
     "log": math.log,
+    "abs": abs,
 }
 _FUNCTION_LATEX = {
     "sin": r"\sin",
@@ -248,6 +249,8 @@ def _latex(
             return rf"\sqrt{{{inner}}}"
         if name == "exp":
             return rf"e^{{{inner}}}"
+        if name == "abs":
+            return rf"\left|{inner}\right|"
         return f"{_FUNCTION_LATEX[name]}({inner})"
     if not isinstance(node, ast.BinOp):
         raise ExpressionError(f"cannot typeset {type(node).__name__}")
@@ -270,10 +273,13 @@ def _latex(
         left = _wrapped(node.left, symbols, values, 2, notation, degrees)
         right = _wrapped(node.right, symbols, values, 2, notation, degrees)
         # Numbers side by side need a dot, and so does a number before a function
-        # ("1 \\cdot \\sin(30^\\circ)"); symbols are written together.
+        # ("1 \\cdot \\sin(30^\\circ)") or a fraction ("5 \\cdot \\frac{19.62}{7}", never
+        # read as the mixed number 5 19.62/7); symbols are written together.
         follows = _leftmost(node.right)
         joined = _plugged(_rightmost(node.left), values) and (
-            _plugged(follows, values) or (values is not None and isinstance(follows, ast.Call))
+            _plugged(follows, values)
+            or (values is not None and isinstance(follows, ast.Call))
+            or (values is not None and isinstance(follows, ast.BinOp))
         )
         return rf"{left} \cdot {right}" if joined else f"{left} {right}"
     operator = "+" if isinstance(node.op, ast.Add) else "-"

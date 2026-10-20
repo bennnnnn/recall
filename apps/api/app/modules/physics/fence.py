@@ -19,6 +19,7 @@ from app.services.answer_check import asks_without_answering, correction_line, s
 from app.services.answer_fence import land_answer_card
 from app.services.md_fence_scan import close_unclosed_fences, strip_closed_fences
 from app.services.solving import VerifiedPhysicsBlock
+from app.services.workout import as_formula_heading
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +56,12 @@ def validate_physics_fences(
         return cleaned
     extras: list[str] = []
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
-    if answer and _asks_instead_of_answering(cleaned, answer):
+    # The law's own heading heads inputs, like **Formula**: its equations are no result.
+    read = as_formula_heading(cleaned)
+    if answer and _asks_instead_of_answering(read, answer):
         return cleaned
     if answer:
-        conflict = correct and stated_verdict(cleaned, answer) == "conflict"
+        conflict = correct and stated_verdict(read, answer) == "conflict"
         cleaned = land_answer_card(
             cleaned, answer, above=correction_line(answer) if conflict else None
         )

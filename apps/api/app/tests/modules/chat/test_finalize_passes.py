@@ -72,6 +72,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
     assert [name for name, *_ in order] == [
         "drop_cut_reminder_fence",
         "prepare_model_reply",
+        "answer_labels",
         "untrusted_media",
         "search_links",
         "generic_closer",

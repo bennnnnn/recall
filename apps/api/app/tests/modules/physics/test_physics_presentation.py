@@ -99,12 +99,12 @@ def test_a_value_not_in_si_shows_the_value_the_solver_used(text: str, row: str) 
         (
             "In Bragg reflection, crystal planes are 0.200 nm apart and the first-order angle "
             "is 30 degrees. Find the wavelength.",
-            r"$d = 0.2\,\mathrm{nm} = 2 \times 10^{-10}\,\mathrm{m}$",
+            r"$d = 0.2\,\mathrm{nm} \times 10^{-9} = 2 \times 10^{-10}\,\mathrm{m}$",
         ),
         (
             "X-rays of wavelength 0.154 nm strike a crystal at a Bragg angle of 30 degrees in "
             "the first order. Find the plane spacing.",
-            r"$\lambda = 0.154\,\mathrm{nm} = 1.54 \times 10^{-10}\,\mathrm{m}$",
+            r"$\lambda = 0.154\,\mathrm{nm} \times 10^{-9} = 1.54 \times 10^{-10}\,\mathrm{m}$",
         ),
     ],
 )

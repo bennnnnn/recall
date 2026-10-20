@@ -1,6 +1,6 @@
 """Physics prompt hints. A physics turn must not be told it is doing math."""
 
-from app.services.workout import WORKOUT_PROMPT_SHORT
+from app.services.workout import PHYSICS_WORKOUT_PROMPT_SHORT
 
 PHYSICS_INTENT_HINT = (
     "Physics answers:\n"
@@ -10,13 +10,13 @@ PHYSICS_INTENT_HINT = (
     "those exact numbers and units. Do not recompute. If no verified block is "
     "present, do not claim verification.\n"
     "  - Never mention a system block, SymPy, or that a diagram will be attached.\n"
-    f"  - For a concrete calculation: {WORKOUT_PROMPT_SHORT} Equations in inline `$...$`.\n"
+    f"  - For a concrete calculation: {PHYSICS_WORKOUT_PROMPT_SHORT} Equations in inline `$...$`.\n"
     "  - Do NOT emit ```answer, ```graph, ```simulation, or ```geometry.\n"
     "  - A trajectory is only for kinematics, projectile motion, or spring and "
     "pendulum motion. Every other answer is a number with units.\n"
     "  - If no verified block is present, still put the result under Answer "
-    "in inline `$...$` with units. Never end on that heading, and do not call "
-    "the result verified. If there is no unique result, say what is missing "
+    "in inline `$...$` with units. Never end on that heading. If there is no "
+    "unique result, say what is missing "
     "instead of a blank Answer.\n"
     "  - Never join several transformations into one math row."
 )
@@ -32,10 +32,10 @@ PHYSICS_SHORT_HINT = (
 
 PHYSICS_REPLY_POLICY = (
     "Physics reply policy for this request: For a concrete calculation: "
-    f"{WORKOUT_PROMPT_SHORT} Put each value "
+    f"{PHYSICS_WORKOUT_PROMPT_SHORT} Put each value "
     "or equation on its own short line. One reasoning state per row; do not "
-    "chain several equals signs. Name the governing formula before "
-    "substituting. Do not add a math lesson, tutorial bullets, or Note/Tip "
+    "chain several equals signs. Head the formulas with the governing law's "
+    "name before substituting. Do not add a math lesson, tutorial bullets, or Note/Tip "
     "cards. Copy verified numbers and units; do "
     "not recompute them. Honor SHORT by giving less, and DETAILED by showing "
     "the working. For a hint or practice, give a focused hint without the full "

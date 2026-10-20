@@ -16,6 +16,7 @@ from app.modules.physics.fence import replace_unclosed_physics_fences_safe
 from app.modules.physics.prompt import build_physics_augmentation as build_math_augmentation
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER, mark_server_answer_fences
 from app.services.solving import VerifiedPhysicsBlock
+from app.services.workout import as_formula_heading
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,
@@ -106,10 +107,12 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
     assert reply.count("```graph") == int(graph)
     assert reply.endswith("```\n")
     if verified.physics_intent is not None:
+        # The law's own name heads its formulas, in the Formula slot.
+        read = as_formula_heading(reply)
         headings = ["**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**"]
-        assert all(reply.count(heading) == 1 for heading in headings)
-        assert [reply.index(heading) for heading in headings] == sorted(
-            reply.index(heading) for heading in headings
+        assert all(read.count(heading) == 1 for heading in headings)
+        assert [read.index(heading) for heading in headings] == sorted(
+            read.index(heading) for heading in headings
         )
     assert "Explanation" not in reply
     assert "$average speed$" not in reply
@@ -210,7 +213,7 @@ def test_elastic_collision_shows_both_universal_formulas_and_substitutions() -> 
     reply = maybe_direct_physics_reply(_verified(query), query)
 
     assert reply is not None
-    formula = reply.split("**Formula**", 1)[1].split("**Substitution**", 1)[0]
+    formula = as_formula_heading(reply).split("**Formula**", 1)[1].split("**Substitution**", 1)[0]
     substitution = reply.split("**Substitution**", 1)[1].split("**Answer**", 1)[0]
     assert r"v_1' = \frac{(m_1-m_2)v_1 + 2m_2v_2}{m_1+m_2}" in formula
     assert r"v_2' = \frac{(m_2-m_1)v_2 + 2m_1v_1}{m_1+m_2}" in formula
@@ -297,7 +300,7 @@ def test_speed_law_uses_its_universal_formula_before_any_rearrangement(
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert f"**Find**  \n{find}" in reply
-    assert "**Formula**  \n$v = \\frac{d}{t}$ — Speed formula" in reply
+    assert "**Speed**  \n$v = \\frac{d}{t}$" in reply
     if rearranged is not None:
         assert rearranged in reply
     assert f"**Substitution**  \n{substitution}" in reply
@@ -335,7 +338,7 @@ def test_teaching_suffix_uses_the_same_verified_physics_working(suffix: str) -> 
     reply = maybe_direct_physics_reply(_verified(query), query + suffix)
     assert reply is not None
     assert all(
-        reply.count(heading) == 1
+        as_formula_heading(reply).count(heading) == 1
         for heading in ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**")
     )
 

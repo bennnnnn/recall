@@ -52,6 +52,7 @@ from typing import Any
 import pint
 
 from app.modules.physics.schemas.simulation import SimulationBlockSpec
+from app.services.workout import as_formula_heading
 from app.tests.behavior.harness import Case, Expect, Route, route_case
 from app.tests.behavior.stem_math_judge import judge_check
 
@@ -393,7 +394,10 @@ def _section_at(prose: str, names: tuple[str, ...]) -> int:
 def check_shape(entry: Entry, reply: str, subject: str = "physics") -> list[Problem]:
     """A worked reply's sections and notation; maths replies are checked for notation only."""
     problems: list[Problem] = []
-    prose = _prose(reply)
+    # A physics law heads its formulas by name ("**Constant acceleration**"): its Formula.
+    prose = as_formula_heading(_prose(reply))
+    if subject == "physics":
+        problems.extend(_physics_working(_prose(reply)))
     sections = _SECTIONS.get(subject, ())
     positions = [_section_at(prose, names) for names in sections]
     missing = [names[0] for names, at in zip(sections, positions, strict=True) if at < 0]
@@ -410,6 +414,34 @@ def check_shape(entry: Entry, reply: str, subject: str = "physics") -> list[Prob
     for symbol in _GIVEN_ROW.findall(given):
         if not _ZERO_WORDS.search(entry.prompt):
             problems.append(Problem("shape", f"invented a zero given: {symbol.strip()} = 0"))
+    return problems
+
+
+_ANSWER_LABEL = re.compile(r"^\*\*Answer(?: \([a-h]\))?:?\*\*", re.MULTILINE)
+_GIVEN_SYMBOL = re.compile(r"^\$([^$=]+?)\s*=", re.MULTILINE)
+_FIRST_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
+_ROW = re.compile(r"\$([^$]+)\$")
+
+
+def _physics_working(prose: str) -> list[Problem]:
+    """What a learner reads: the law by name, each given once, the arithmetic to its end,
+    one Answer label."""
+    problems: list[Problem] = []
+    if "**Formula**" in prose:
+        problems.append(Problem("shape", "Formula heading instead of the law's name"))
+    labels = len(_ANSWER_LABEL.findall(prose))
+    if labels != 1:
+        problems.append(Problem("shape", f"{labels} Answer labels"))
+    given = prose.split("**Find**")[0]
+    symbols = [symbol.strip() for symbol in _GIVEN_SYMBOL.findall(given)]
+    if repeated := sorted({symbol for symbol in symbols if symbols.count(symbol) > 1}):
+        problems.append(Problem("shape", f"given twice: {', '.join(repeated)}"))
+    substitution = prose.split("**Substitution**", 1)[-1].split("**Answer", 1)[0]
+    rows = _ROW.findall(substitution)
+    # The working ends on a value: no operation left in its last row (a unit's "/" is none).
+    last = re.sub(r"\\(?:mathrm|text)\{[^}]*\}", "", rows[-1].split("=")[-1]) if rows else ""
+    if re.search(r"\\frac|\\cdot|\\sqrt|\\sin|\\cos|\\tan|[+*/]", last):
+        problems.append(Problem("shape", f"working stops short: {rows[-1][:60]!r}"))
     return problems
 
 

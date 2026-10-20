@@ -12,6 +12,7 @@ from app.modules.physics.catalog import CATALOG, select_formula
 from app.modules.physics.direct import format_direct_physics_working
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import solve_physics
+from app.services.workout import as_formula_heading
 from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 # A constant result with no quantity to insert. Everything else must show a given.
@@ -373,7 +374,7 @@ def test_alternate_family_is_the_law_the_reply_opens_with(
     assert block is not None
     reply = format_direct_physics_working(block)
     assert reply is not None
-    formula = reply.split("**Substitution**", 1)[0].split("**Formula**", 1)[1]
+    formula = as_formula_heading(reply).split("**Substitution**", 1)[0].split("**Formula**", 1)[1]
     assert f"${law}$" in formula
     assert other not in formula
 
@@ -407,6 +408,7 @@ def test_parallel_resistance_formula_counts_each_resistor() -> None:
         )
     )
     assert two.formulas == (r"\frac{1}{R_p} = \frac{1}{R_1} + \frac{1}{R_2}",)
-    assert two.substitutions == (r"\frac{1}{2} + \frac{1}{3}",)
+    # The row names what it gives, so the working can carry it to R_p.
+    assert two.substitutions == (r"\frac{1}{R_p} = \frac{1}{2} + \frac{1}{3}",)
     assert three.formulas == (r"\frac{1}{R_p} = \frac{1}{R_1} + \frac{1}{R_2} + \frac{1}{R_3}",)
-    assert three.substitutions == (r"\frac{1}{2} + \frac{1}{3} + \frac{1}{5}",)
+    assert three.substitutions == (r"\frac{1}{R_p} = \frac{1}{2} + \frac{1}{3} + \frac{1}{5}",)
