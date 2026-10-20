@@ -9,6 +9,7 @@ import re
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.core.sympy_executor import run_sympy
 from app.gateways import pubchem_gateway
 from app.modules import chemistry as chemistry_service
 from app.modules.chemistry.block import (
@@ -26,6 +27,7 @@ from app.modules.chemistry.request import (
     extract_compound_name,
     is_chemistry_question,
 )
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.smiles import MAX_SMILES_LENGTH
 from app.services.workout import SELF_CHECK_PROMPT_RULE, WORKOUT_PROMPT_RULE
 
@@ -251,6 +253,28 @@ def append_unverified_chemistry_note(content: str) -> str:
     return without.rstrip()
 
 
+def _solve_locally(
+    content: str,
+) -> tuple[ChemistryIntent | None, VerifiedChemistry | None, str | None]:
+    """The CPU-bound part of a chemistry turn: read the question, solve it, or build
+    local context (balancing, RDKit descriptors). Runs in the SymPy pool, where a
+    pathological question is stopped at the solve timeout instead of holding the
+    event loop and every other request on it."""
+    intent = extract_chemistry_intent(content)
+    if intent is not None:
+        solved = build_verified_chemistry(intent)
+        if solved is not None:
+            return intent, solved, None
+    for local_context in (
+        _stoichiometry_ratio_hint(content),
+        _descriptor_context(content),
+        _element_context(content),
+    ):
+        if local_context is not None:
+            return intent, None, local_context
+    return intent, None, None
+
+
 async def build_chemistry_augmentation(
     content: str,
     settings: Settings,
@@ -262,7 +286,6 @@ async def build_chemistry_augmentation(
     verified replaced it. A PubChem record or element table is context, so it
     stays false.
     """
-    _ = settings
     content = read_chemistry_text(content)
     iupac_smiles = _iupac_smiles(content)
     if iupac_smiles is not None:
@@ -283,19 +306,20 @@ async def build_chemistry_augmentation(
             )
         verified = verified_iupac(iupac_smiles, name)
         return verified.prompt_text, verified, False
-    intent = extract_chemistry_intent(content)
-    if intent is not None:
-        solved = build_verified_chemistry(intent)
-        if solved is not None:
-            return solved.prompt_text, solved, False
-
-    for local_context in (
-        _stoichiometry_ratio_hint(content),
-        _descriptor_context(content),
-        _element_context(content),
-    ):
-        if local_context is not None:
-            return local_context, None, False
+    try:
+        intent, solved, local_context = await run_sympy(
+            _solve_locally, content, timeout=settings.math_solve_timeout_seconds
+        )
+    except TimeoutError:
+        logger.warning("chemistry solve timed out after %ss", settings.math_solve_timeout_seconds)
+        return unverified_chemistry_note(), None, True
+    except Exception:
+        logger.warning("chemistry solve failed", exc_info=True)
+        return unverified_chemistry_note(), None, True
+    if solved is not None:
+        return solved.prompt_text, solved, False
+    if local_context is not None:
+        return local_context, None, False
 
     if intent is not None:
         return unverified_chemistry_note(), None, True

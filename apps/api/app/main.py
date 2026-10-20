@@ -28,7 +28,6 @@ from app.modules.physics import api as physics_api
 from app.modules.search import api as search
 from app.modules.speech import api as speech
 from app.modules.speech import realtime as speech_realtime
-from app.modules.suggestions import api as suggestions
 from app.modules.todos import api as todos
 from app.routers import (
     admin,
@@ -121,7 +120,6 @@ def create_app() -> FastAPI:
     app.include_router(physics_api.router)
     app.include_router(chemistry_api.router)
     app.include_router(search.router)
-    app.include_router(suggestions.router)
     app.include_router(attachments.router)
     app.include_router(speech.router)
     app.include_router(speech_realtime.router)

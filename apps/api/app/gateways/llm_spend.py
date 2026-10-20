@@ -2,7 +2,7 @@
 
 Every completion and embedding passes through a gateway, so this is the one
 place that prices them all: catalog price x the provider's reported tokens,
-as finalize prices a chat turn. Memory jobs, titles, suggestions, compression,
+as finalize prices a chat turn. Memory jobs, titles, compression,
 follow-up questions, OCR, embeddings and the query classifiers are all metered
 here. A chat turn's own stream and tool rounds are not: finalize charges them
 with the turn's usage (``modules/chat/turn_settle``), so metering them here

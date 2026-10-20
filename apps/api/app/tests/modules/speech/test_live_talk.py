@@ -15,6 +15,15 @@ from app.modules.speech.live_talk import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _chat_message_count():
+    """The chat's rows after this turn is saved; 2 makes it the first turn."""
+    with patch(
+        "app.modules.speech.live_talk.messages_repo.count_for_chat", AsyncMock(return_value=2)
+    ) as count:
+        yield count
+
+
 @pytest.mark.asyncio
 async def test_persist_live_talk_turn_writes_both_roles_and_enqueues_topic():
     user = MagicMock()
@@ -487,7 +496,9 @@ async def test_persist_live_talk_turn_enqueues_todos_when_reminder_not_applied()
     assert "todos" in jobs
 
 
-async def _persist_voice_turn(*, user_text: str, assistant_text: str, settings, memory=False):
+async def _persist_voice_turn(
+    *, user_text: str, assistant_text: str, settings, memory=False, rows_after: int = 2
+):
     user = MagicMock()
     user.id = uuid4()
     user.memory_enabled = memory
@@ -512,6 +523,10 @@ async def _persist_voice_turn(*, user_text: str, assistant_text: str, settings, 
             AsyncMock(return_value=(assistant_text, 0)),
         ),
         patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+        patch(
+            "app.modules.speech.live_talk.messages_repo.count_for_chat",
+            AsyncMock(return_value=rows_after),
+        ),
     ):
         await persist_live_talk_turn(
             user=user,
@@ -553,6 +568,37 @@ async def test_voice_memory_job_reads_only_what_the_user_said():
     assert "Lisbon" in transcript
     assert "4321" not in transcript
     assert "Assistant" not in transcript
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "rows_after, every_n_turns, user_text, queued",
+    [
+        (2, 3, "I just moved to Lisbon", True),  # the first turn always
+        (4, 3, "I just moved to Lisbon", False),  # turn 2 of every 3rd
+        (6, 3, "I just moved to Lisbon", True),  # turn 3
+        (4, 3, "Remember that I moved to Lisbon", True),  # told to remember
+        (4, 3, "That's wrong, I'm at Stripe now", True),  # a correction
+        (4, 1, "I just moved to Lisbon", True),  # the default: every turn
+    ],
+)
+async def test_voice_memory_follows_the_typed_chat_cadence(
+    rows_after: int, every_n_turns: int, user_text: str, queued: bool
+) -> None:
+    """Voice used to queue a memory pass on every turn, whatever
+    MEMORY_EXTRACT_EVERY_N_TURNS said; it now follows the typed-chat rule."""
+    jobs = await _persist_voice_turn(
+        user_text=user_text,
+        assistant_text="Got it.",
+        settings=Settings(
+            chat_history_rag_enabled=False,
+            reminder_proposals_enabled=True,
+            memory_extract_every_n_turns=every_n_turns,
+        ),
+        memory=True,
+        rows_after=rows_after,
+    )
+    assert ("memory" in jobs) is queued
 
 
 def test_live_talk_schedule_hint_does_not_confirm_unverified_writes():

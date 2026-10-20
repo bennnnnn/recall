@@ -5,17 +5,19 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Iterator
-from unittest.mock import MagicMock
 
 import pytest
 from pydantic import ValidationError
 
+from app.core.config import Settings
 from app.modules.chemistry import context as chemistry_context
 from app.modules.chemistry import extract as chemistry_extract
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import extract_compound_name, is_chemistry_question
 from app.modules.chemistry.schemas import ChemistryIntent
+
+_SETTINGS = Settings()
 
 # The old regex needed seconds. Anything linear finishes in a few milliseconds.
 _BUDGET_SECONDS = 0.25
@@ -225,14 +227,45 @@ async def test_slow_pubchem_does_not_hold_the_turn(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(chemistry_context, "PUBCHEM_BUDGET_SECONDS", 0.05)
     start = time.perf_counter()
     result = await chemistry_context.build_chemistry_augmentation(
-        "what is the structure of aspirin?", MagicMock()
+        "what is the structure of aspirin?", _SETTINGS
     )
     assert result == (chemistry_context.unverified_chemistry_note(), None, True)
     assert time.perf_counter() - start < 1.0
 
 
+async def test_a_slow_solve_is_stopped_and_declined(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The solve runs in the SymPy pool under the solve timeout. It used to run on the
+    event loop with no limit, so one pathological question held every request."""
+
+    def slow_solve(content: str) -> object:
+        time.sleep(1.0)
+        raise AssertionError("the timeout should have given up on this solve")
+
+    monkeypatch.setattr(chemistry_context, "_solve_locally", slow_solve)
+    settings = Settings(math_solve_timeout_seconds=0.05)
+    start = time.perf_counter()
+    result = await chemistry_context.build_chemistry_augmentation(
+        "Find the molar mass of H2O", settings
+    )
+    assert result == (chemistry_context.unverified_chemistry_note(), None, True)
+    assert time.perf_counter() - start < 0.9
+
+
+async def test_a_failed_solve_declines_instead_of_failing_the_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def broken_solve(content: str) -> object:
+        raise RuntimeError("solver bug")
+
+    monkeypatch.setattr(chemistry_context, "_solve_locally", broken_solve)
+    result = await chemistry_context.build_chemistry_augmentation(
+        "Find the molar mass of H2O", _SETTINGS
+    )
+    assert result == (chemistry_context.unverified_chemistry_note(), None, True)
+
+
 async def test_a_non_chemistry_sentence_is_untouched_when_pubchem_would_fail() -> None:
-    result = await chemistry_context.build_chemistry_augmentation("what is 2 + 2?", MagicMock())
+    result = await chemistry_context.build_chemistry_augmentation("what is 2 + 2?", _SETTINGS)
     assert result == (None, None, False)
 
 

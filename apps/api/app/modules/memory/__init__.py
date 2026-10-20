@@ -34,4 +34,5 @@ __all__ = [
     "list_for_user",
     "list_range",
     "memory_extract_user_text",
+    "memory_extraction_due",
 ]

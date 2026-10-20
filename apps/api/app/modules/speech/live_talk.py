@@ -17,7 +17,7 @@ from app.models.orm import Message, User
 from app.modules import todos as todos_service
 from app.modules.billing import can_use
 from app.modules.chat import needs_generated_title, present_assistant_markdown
-from app.modules.memory import memory_extract_user_text
+from app.modules.memory import memory_extract_user_text, memory_extraction_due
 from app.modules.speech.schemas import SpeechLiveStatusOut
 from app.modules.speech.service import LIVE_TALK_ALIAS
 from app.modules.todos.service import list_owned_todos
@@ -325,6 +325,8 @@ async def persist_live_talk_turn(
     user_message: Message | None = None
     assistant_message: Message | None = None
     reminder_applied = 0
+    # This turn's place in the chat, as a typed turn counts it (None: nothing written here).
+    turn_number: int | None = None
     should_write_user = write_user and bool(user_content)
     should_write_assistant = write_assistant and bool(assistant_content)
     if should_write_user or should_write_assistant:
@@ -376,6 +378,7 @@ async def persist_live_talk_turn(
                 await session.refresh(user_message)
             if assistant_message is not None:
                 await session.refresh(assistant_message)
+            turn_number = (await messages_repo.count_for_chat(session, chat_id) + 1) // 2
 
     if enqueue_jobs:
         await _enqueue_live_talk_jobs(
@@ -388,6 +391,7 @@ async def persist_live_talk_turn(
             assistant_message_id=assistant_message.id if assistant_message is not None else None,
             untitled=untitled,
             reminder_applied=reminder_applied,
+            turn_number=turn_number,
         )
     return user_message, assistant_message
 
@@ -403,6 +407,7 @@ async def _enqueue_live_talk_jobs(
     assistant_message_id: UUID | None,
     untitled: bool,
     reminder_applied: int = 0,
+    turn_number: int | None = None,
 ) -> None:
     transcript = f"User: {user_text}\nAssistant: {assistant_text}"
     specs: list[tuple[str, dict[str, str], str | None]] = []
@@ -426,7 +431,14 @@ async def _enqueue_live_talk_jobs(
     # spoken reply may repeat a web result (the voice web_search tool), and an
     # assistant line must never become a durable fact about the user.
     memory_user_text = memory_extract_user_text(user_text)
-    if user.memory_enabled and memory_user_text:
+    # The same cadence too (MEMORY_EXTRACT_EVERY_N_TURNS); a turn whose place is
+    # unknown keeps the pass rather than risk dropping what the user said.
+    memory_due = turn_number is None or memory_extraction_due(
+        memory_user_text,
+        turn_number=turn_number,
+        every_n_turns=settings.memory_extract_every_n_turns,
+    )
+    if user.memory_enabled and memory_user_text and memory_due:
         specs.append(
             (
                 "memory",

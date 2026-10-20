@@ -109,6 +109,9 @@ from app.modules.memory.text import (
     memory_extract_user_text as memory_extract_user_text,
 )
 from app.modules.memory.text import (
+    memory_extraction_due as memory_extraction_due,
+)
+from app.modules.memory.text import (
     memory_reset_request as memory_reset_request,
 )
 from app.modules.memory.text import (

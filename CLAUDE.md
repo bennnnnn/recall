@@ -34,7 +34,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 - **model alias** — product-level model name mapped to a provider by the gateway.
 - **quota** — per-user daily token budget (free tier 100k/day).
 - **todo** — a lightweight task the user tracks; optionally linked to a chat.
-- **suggestion** — a proactive follow-up prompt generated from the user's recent activity (best-effort background job).
+- **suggestion** — retired: the old proactive prompts are no longer generated or served. Stored rows are kept only for the data export and account deletion until a later release drops the table.
 - **search** — full-text lookup across the user's chats and messages.
 - **attachment** — an uploaded image/file (R2 in production) with extracted text chunked into `attachment_chunks` for retrieval.
 - **push token** — a registered Expo device token for reminder/nudge notifications.
@@ -123,7 +123,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Memory | `modules/memory/` (HTTP `/memories`, `/memories/documents`, `/memories/instruct`) | `features/memory/`; `app/memory/` routes only (list + `[key]` page) |
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota/`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
-| Follow-up questions | `modules/chat/related_prompts.py` (after `done`; rules in `related_questions.py`; `modules/suggestions/` + `/suggestions` are legacy, no longer fed) | `features/suggestions/` (`RelatedPromptLines`) |
+| Follow-up questions | `modules/chat/related_prompts.py` (after `done`; rules in `related_questions.py`; the old `/suggestions` routes and job are removed; `modules/suggestions/` keeps only the table reads for export) | `features/suggestions/` (`RelatedPromptLines`) |
 | Todos / reminders | `modules/todos/` (HTTP `/todos`; chat changes wait for a tap: `write_log.py` + `proposals.py`, `POST /todos/proposals/{id}/confirm`; the reply above an untapped card claims nothing, `reply_claims.py`) | `features/todos/` (`ReminderProposalCard`); `app/todos.tsx` route only |
 | Home | `modules/home/` (HTTP `/home`) | `features/home/`; greeting + one overdue reminder |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
@@ -143,7 +143,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Home, Search, Suggestions, Chat history, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, Notifications push-token (`/users`), Analytics, and Link preview APIs plus the legacy health, legal, admin, and models routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
+**HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Home, Search, Chat history, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, Notifications push-token (`/users`), Analytics, and Link preview APIs plus the legacy health, legal, admin, and models routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
 
 **Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, model catalog, time context, …). New chat-loop code belongs in `modules/chat/`; new external IO belongs in a gateway, not an API surface.
 
@@ -184,7 +184,7 @@ New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` w
 
 Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job.
 
-**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `lesson_progress`, `todos`, `compress`, `suggestions`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
+**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `lesson_progress`, `todos`, `compress`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
 
 **Worker** (`worker_main.py`): consumes that stream and runs schedulers (push, email reminders, attachment orphan reaper).
 

@@ -54,8 +54,8 @@ function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight, fontScale } = useWindowDimensions();
   const drawerOpen = useDrawer().isOpen;
-  const { chatId: routeChatId, highlightMessage: routeHighlightMessage, myJobPrompt } =
-    useLocalSearchParams<{ chatId?: string; highlightMessage?: string; myJobPrompt?: string }>();
+  const { chatId: routeChatId, highlightMessage: routeHighlightMessage } =
+    useLocalSearchParams<{ chatId?: string; highlightMessage?: string }>();
 
   const [chatId, setChatId] = useState<string | null>(null);
   const draft = useDraftChat({ token, chatId });
@@ -298,10 +298,6 @@ function ChatScreen() {
     mathScannerOpen,
     setMathScannerOpen,
   } = send;
-
-  useEffect(() => {
-    if (myJobPrompt) { setInput(myJobPrompt); router.setParams({ myJobPrompt: undefined }); }
-  }, [myJobPrompt, router, setInput]);
 
   const [mathChromeExtra, setMathChromeExtra] = useState(0);
   const [composerInputExtra, setComposerInputExtra] = useState(0);

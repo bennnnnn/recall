@@ -1,17 +1,7 @@
-"""Proactive follow-up suggestions from recent chat and memory."""
+"""The retired proactive-suggestions table.
 
-from __future__ import annotations
-
-from importlib import import_module
-from typing import Any
-
-_MODULE_EXPORTS = ("repository",)
-__all__ = list(_MODULE_EXPORTS)
-
-
-def __getattr__(name: str) -> Any:
-    if name not in _MODULE_EXPORTS:
-        raise AttributeError(name)
-    value = import_module(f"app.modules.suggestions.{name}")
-    globals()[name] = value
-    return value
+Nothing writes it any more: the generator, its job and the ``/suggestions``
+routes are gone (follow-ups arrive on the reply, ``modules/chat/related_prompts``).
+Rows already stored are still exported and deleted with the account. A later
+release drops the table (expand, then contract: docs/ROLLBACK.md).
+"""

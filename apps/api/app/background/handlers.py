@@ -34,7 +34,6 @@ from app.modules.memory import extraction_workflow as memory_extraction
 from app.modules.memory import history_scan as memory_history_scan
 from app.modules.memory import learning_progress as memory_learning
 from app.modules.notifications import transactional_email as transactional_email_service
-from app.modules.suggestions import service as suggestion_generation
 from app.modules.todos import jobs as todo_jobs
 from app.repositories import users as users_repo
 from app.services import quota as quota_service
@@ -91,7 +90,7 @@ async def _reenqueue_after_memory_lock(
 async def _spend_capped(settings: Settings) -> bool:
     """Fail-closed: skip extra LLM/embed work when the global $ cap is hit.
 
-    M12: background LLM jobs (memory/topic/compress/suggestions) intentionally
+    M12: background LLM jobs (memory/topic/compress) intentionally
     bypass per-user token quota — they are operator cost, not user cost.
     The global $ cap is the guardrail that prevents runaway spend across
     all users. Per-user quota debiting would punish users for the app's
@@ -239,14 +238,6 @@ async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
     await compaction.compress_chat_history(settings, UUID(payload["chat_id"]), user_id=user_id)
 
 
-@_unless_spend_capped
-async def _handle_suggestions(settings: Settings, payload: dict[str, Any]) -> None:
-    await suggestion_generation.generate_suggestions(
-        settings,
-        UUID(payload["user_id"]),
-    )
-
-
 async def _handle_transactional_email(settings: Settings, payload: dict[str, Any]) -> None:
     """Best-effort outbound email (welcome / receipts). Re-raises transient
     failures so the worker retry loop can retry; user-not-found is a permanent
@@ -319,7 +310,6 @@ def register_all() -> None:
     )
     register("todos", _handle_todos)
     register("compress", _handle_compress)
-    register("suggestions", _handle_suggestions)
     register("transactional_email", _handle_transactional_email)
     register("attachment_index", _handle_attachment_index)
     register("message_index", _handle_message_index)

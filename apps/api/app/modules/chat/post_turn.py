@@ -23,9 +23,8 @@ from app.modules.chat.prompt_constants.lesson_flow import lesson_step
 from app.modules.chat.prompt_memory import memory_switch_on
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import (
-    is_explicit_memory_command,
-    is_memory_correction,
     memory_extract_user_text,
+    memory_extraction_due,
 )
 from app.services import quota as quota_service
 from app.services.text_normalize import cap_text_head_tail
@@ -68,16 +67,10 @@ class FinishedTurn:
 async def _memory_job(turn: FinishedTurn) -> list[PostTurnJob]:
     ctx, settings = turn.ctx, turn.settings
     memory_transcript = f"User: {turn.memory_user_text}" if turn.memory_user_text else ""
-    turn_number = (ctx.prior_count + 2) // 2
-    should_extract_memory = (
-        turn_number == 1
-        or (
-            settings.memory_extract_every_n_turns > 0
-            and turn_number % settings.memory_extract_every_n_turns == 0
-        )
-        or is_explicit_memory_command(turn.memory_user_text)
-        # "That's wrong, I'm at Stripe now": the saved fact changes on this turn.
-        or is_memory_correction(turn.memory_user_text)
+    should_extract_memory = memory_extraction_due(
+        turn.memory_user_text,
+        turn_number=(ctx.prior_count + 2) // 2,
+        every_n_turns=settings.memory_extract_every_n_turns,
     )
     if (
         turn.spend_capped
