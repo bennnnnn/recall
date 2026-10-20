@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from "react";
-import { useRouter } from "expo-router";
 
 import type { IconName } from "@/ui/icons/names";
 
@@ -16,8 +15,6 @@ import { isServerMessageId } from "@/lib/serverMessageId";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
-type Router = ReturnType<typeof useRouter>;
-
 type Options = {
   token: string | null;
   chatId: string | null;
@@ -29,8 +26,6 @@ type Options = {
   setArchived: React.Dispatch<React.SetStateAction<boolean>>;
   setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  hasMoreOlder?: boolean;
-  router: Router;
   t: (key: string, options?: Record<string, unknown>) => string;
 };
 

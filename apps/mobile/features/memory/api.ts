@@ -28,8 +28,6 @@ export const memoriesApi = {
     }),
   deleteMemory: (token: string, memoryId: string) =>
     request<void>(`/memories/${memoryId}`, token, { method: "DELETE" }),
-  deleteMemorySection: (token: string, type: string) =>
-    request<void>(`/memories/type/${type}`, token, { method: "DELETE" }),
   clearMemories: (token: string) =>
     request<void>("/memories", token, { method: "DELETE" }),
   deleteMemoryFact: async (token: string, memoryId: string, factIndex: number, factText: string) => {

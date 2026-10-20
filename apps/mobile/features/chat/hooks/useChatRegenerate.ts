@@ -9,7 +9,6 @@ import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 type Params = {
   token: string | null;
   messages: Message[];
-  user: User | null;
   updateUser: (patch: Partial<User>) => Promise<void>;
   regenerateResponse: (model?: string | null, clientGeo?: ClientGeo | null) => Promise<void>;
   /** Show typing before geo; optional guard invalidates preparation on Stop/navigation. */

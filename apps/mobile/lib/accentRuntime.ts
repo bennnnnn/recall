@@ -21,8 +21,3 @@ export function subscribeAccent(listener: () => void): () => void {
 export function useAccentPreference(): AccentPreference {
   return useSyncExternalStore(subscribeAccent, getAccentSnapshot, getAccentSnapshot);
 }
-
-/** Test helper — reset store between cases. */
-export function resetAccentRuntime(): void {
-  accent.reset();
-}

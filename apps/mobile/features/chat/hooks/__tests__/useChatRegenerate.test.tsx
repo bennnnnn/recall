@@ -3,7 +3,7 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useChatRegenerate } from "@/features/chat/hooks/useChatRegenerate";
-import type { Message, User } from "@/lib/api";
+import type { Message } from "@/lib/api";
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -16,15 +16,6 @@ jest.mock("@/lib/resolveClientGeoForQuery", () => ({
 import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 
 const resolveGeo = resolveClientGeoForQuery as jest.Mock;
-
-const user: User = {
-  id: "u1",
-  email: "test@recall.local",
-  name: null,
-  plan: "free",
-  created_at: "2026-01-01T00:00:00Z",
-  location_enabled: false,
-} as User;
 
 function msg(role: "user" | "assistant", content: string, id: string, model?: string | null): Message {
   return {
@@ -57,7 +48,6 @@ function Probe({
   const result = useChatRegenerate({
     token: "tok",
     messages,
-    user,
     updateUser: jest.fn(),
     regenerateResponse,
     beginRegenerateUi,
