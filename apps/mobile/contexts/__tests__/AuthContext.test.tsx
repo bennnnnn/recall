@@ -36,6 +36,7 @@ jest.mock("@/hooks/useBootstrapSync", () => ({ useBootstrapSync: jest.fn() }));
 jest.mock("@/lib/apple-auth", () => ({ signInWithAppleCredentials: jest.fn() }));
 jest.mock("@/lib/google-auth", () => ({ signInWithGoogleIdToken: jest.fn(), signOutGoogle: jest.fn() }));
 jest.mock("@/lib/signOutCleanup", () => ({ clearSignedOutAccount: jest.fn() }));
+jest.mock("@/lib/pushNotifications", () => ({ devicePushToken: jest.fn(async () => null) }));
 
 const userA = { id: "account-a", name: "Alice", locale: "en" } as User;
 const userB = { id: "account-b", name: "Bob", locale: "en" } as User;
@@ -326,4 +327,22 @@ it("restores an unvalidated cache flag when a failed edit rolls back after token
   await act(async () => { update.reject(new Error("offline")); await pending; me.resolve(verified); });
   expect(current.user).toEqual(userA);
   expect(useBootstrapSync.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ token: null, user: null }));
+});
+
+it("hands the server this device's push token with the logout", async () => {
+  const { devicePushToken } = jest.requireMock("@/lib/pushNotifications");
+  devicePushToken.mockResolvedValueOnce("ExponentPushToken[this-phone]");
+  await mount();
+  await act(async () => { await current.signOut(); });
+  await act(async () => { for (let i = 0; i < 10; i += 1) await Promise.resolve(); });
+  expect(logoutSession).toHaveBeenCalledWith("access-a", "refresh-a", "ExponentPushToken[this-phone]");
+});
+
+it("still logs out when the push token cannot be read", async () => {
+  const { devicePushToken } = jest.requireMock("@/lib/pushNotifications");
+  devicePushToken.mockRejectedValueOnce(new Error("expo push service down"));
+  await mount();
+  await act(async () => { await current.signOut(); });
+  await act(async () => { for (let i = 0; i < 10; i += 1) await Promise.resolve(); });
+  expect(logoutSession).toHaveBeenCalledWith("access-a", "refresh-a", null);
 });

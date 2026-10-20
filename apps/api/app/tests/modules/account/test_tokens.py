@@ -148,7 +148,7 @@ async def test_logout_removes_token_from_user_session_set(fake_redis):
 @pytest.mark.asyncio
 async def test_logout_without_refresh_purges_all_sessions(fake_redis):
     """When the client omits refresh_token, logout must kill every session."""
-    from unittest.mock import MagicMock
+    from unittest.mock import AsyncMock, MagicMock
 
     from app.models.schemas import LogoutRequest
     from app.modules.account import api as auth_router
@@ -165,6 +165,7 @@ async def test_logout_without_refresh_purges_all_sessions(fake_redis):
         request=request,
         settings=settings,
         redis=fake_redis,
+        session=AsyncMock(),
     )
 
     assert await fake_redis.get(f"refresh:{refresh1}") is None

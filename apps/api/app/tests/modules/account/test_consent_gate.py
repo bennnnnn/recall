@@ -43,7 +43,7 @@ def _client(
     async def refresh(row: Any, attribute_names: list[str] | None = None) -> None:
         row.ai_data_consent_at = stored_consent
 
-    session = SimpleNamespace(refresh=AsyncMock(side_effect=refresh))
+    session = SimpleNamespace(refresh=AsyncMock(side_effect=refresh), commit=AsyncMock())
 
     async def db() -> Any:
         yield session
@@ -101,3 +101,24 @@ async def test_an_account_that_agreed_is_not_read_again() -> None:
     session = SimpleNamespace(refresh=AsyncMock())
     assert await get_consented_user(user=user, session=session) is user  # type: ignore[arg-type]
     session.refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_the_re_read_ends_its_transaction_before_the_route_runs() -> None:
+    """A stream after the gate must not hold the re-read's connection idle in transaction."""
+    from app.modules.account.consent import get_consented_user
+
+    calls: list[str] = []
+
+    async def refresh(row: Any, attribute_names: list[str] | None = None) -> None:
+        calls.append("refresh")
+        row.ai_data_consent_at = _AGREED
+
+    async def commit() -> None:
+        calls.append("commit")
+
+    user = SimpleNamespace(id=uuid4(), ai_data_consent_at=None)
+    session = SimpleNamespace(refresh=refresh, commit=commit)
+    with patch("app.modules.account.consent.remember_user"):
+        assert await get_consented_user(user=user, session=session) is user  # type: ignore[arg-type]
+    assert calls == ["refresh", "commit"]

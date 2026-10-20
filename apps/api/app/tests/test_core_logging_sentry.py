@@ -13,7 +13,7 @@ from app.core.logging import (
     should_skip_access_log,
 )
 from app.core.request_id import request_id_context
-from app.core.sentry import before_send, init_sentry
+from app.core.sentry import before_breadcrumb, before_send, init_sentry
 
 
 def test_setup_logging_configures_root_logger_level():
@@ -220,6 +220,7 @@ def test_init_sentry_initializes_when_configured(monkeypatch):
     init_mock.assert_called_once()
     kwargs = init_mock.call_args.kwargs
     assert kwargs["before_send"] is sentry_mod.before_send
+    assert kwargs["before_breadcrumb"] is sentry_mod.before_breadcrumb
     assert kwargs["send_default_pii"] is False
     assert kwargs["include_local_variables"] is False
     assert "WebSocketDisconnect" in kwargs["ignore_errors"]
@@ -245,7 +246,7 @@ def test_sentry_error_events_carry_no_frame_locals(monkeypatch):
     options = {
         key: value
         for key, value in captured.items()
-        if key not in {"integrations", "dsn", "before_send"}
+        if key not in {"integrations", "dsn", "before_send", "before_breadcrumb"}
     }
 
     events: list[dict] = []
@@ -423,3 +424,100 @@ def test_report_helpers_never_raise_without_the_sdk(monkeypatch):
     sentry.report_breadcrumb("push.token", "rebound", level="warning", data={})
     sentry.report_message("x", level="warning")
     sentry.report_exception("y")
+
+
+def test_the_access_line_logs_the_route_template_not_the_path(caplog):
+    """A memory area's slug is made from its name: the raw path carries the user's words."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.core.request_id import RequestIdMiddleware
+
+    app = FastAPI()
+    app.add_middleware(RequestIdMiddleware)
+
+    @app.delete("/memories/documents/{topic}")
+    async def forget(topic: str) -> dict[str, str]:
+        return {}
+
+    caplog.set_level(logging.INFO, logger="app.http")
+    assert TestClient(app).delete("/memories/documents/area:my-divorce").status_code == 200
+    paths = [r.http_path for r in caplog.records if r.name == "app.http"]
+    assert paths == ["/memories/documents/{topic}"]
+
+
+def test_before_send_keeps_a_logged_errors_template_only():
+    reminder = "take sertraline at 9"
+    event = {
+        "logentry": {
+            "message": "Send failed subject=%s",
+            "formatted": f"Send failed subject={reminder}",
+            "params": [reminder],
+        },
+        "extra": {"subject": reminder},
+        "exception": {"values": [{"type": "StatementError", "value": "x" * 1_000}]},
+    }
+    kept = before_send(event, {})
+    assert kept is not None
+    assert kept["logentry"] == {
+        "message": "Send failed subject=%s",
+        "formatted": "Send failed subject=%s",
+    }
+    assert "extra" not in kept
+    assert len(kept["exception"]["values"][0]["value"]) == 301
+
+
+def test_before_breadcrumb_drops_a_log_lines_arguments():
+    reminder = "call the lawyer"
+    record = logging.LogRecord(
+        "app.todos", logging.INFO, __file__, 1, "saved title=%s", (reminder,), None
+    )
+    crumb = {
+        "message": f"saved title={reminder}",
+        "data": {"title": reminder},
+        "category": "app.todos",
+    }
+    kept = before_breadcrumb(crumb, {"log_record": record})
+    assert kept == {"message": "saved title=%s", "data": {}, "category": "app.todos"}
+
+
+def test_logged_user_text_never_reaches_sentry():
+    """Through the real SDK: an INFO line becomes a breadcrumb, an ERROR line an event."""
+    import sentry_sdk
+    from sentry_sdk.integrations.logging import LoggingIntegration
+    from sentry_sdk.transport import Transport
+
+    events: list[dict] = []
+
+    class _Capture(Transport):
+        def capture_envelope(self, envelope):  # type: ignore[no-untyped-def]
+            for item in envelope.items:
+                if item.type == "event":
+                    events.append(item.payload.json)
+
+    client = sentry_sdk.Client(
+        dsn="https://public@example.com/1",
+        transport=_Capture,
+        default_integrations=False,
+        integrations=[LoggingIntegration(level=logging.INFO, event_level=logging.ERROR)],
+        before_send=before_send,
+        before_breadcrumb=before_breadcrumb,
+    )
+    reminder = "call the clinic about the results " + uuid4().hex
+    log = logging.getLogger("app.tests.sentry_privacy")
+    previous = log.level
+    log.setLevel(logging.INFO)
+    try:
+        with sentry_sdk.isolation_scope() as scope:
+            scope.set_client(client)
+            log.info("To-do saved title=%s", reminder)
+            log.error("Reminder email failed subject=%s", reminder)
+        client.flush(timeout=2)
+    finally:
+        log.setLevel(previous)
+
+    assert events, "the logged error was not captured"
+    serialized = json.dumps(events)
+    assert "Reminder email failed subject=%s" in serialized
+    assert "To-do saved title=%s" in serialized
+    assert reminder not in serialized

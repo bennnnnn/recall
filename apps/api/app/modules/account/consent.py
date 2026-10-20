@@ -44,6 +44,7 @@ async def get_consented_user(
     if has_ai_data_consent(user):
         return user
     await session.refresh(user, attribute_names=["ai_data_consent_at"])
+    await session.commit()  # the re-read's transaction ends here, as in get_current_user
     if not has_ai_data_consent(user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=consent_required_detail())
     remember_user(user)

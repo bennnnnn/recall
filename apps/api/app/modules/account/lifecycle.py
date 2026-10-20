@@ -21,6 +21,7 @@ from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan as plan_service
 from app.modules.chat import service as chats_service
 from app.modules.home import service as home_service
+from app.repositories import push_tokens as push_tokens_repo
 from app.repositories import users as users_repo
 
 logger = logging.getLogger(__name__)
@@ -87,12 +88,23 @@ async def upgrade_to_pro_for_dev(
 
 
 async def logout(
+    session: AsyncSession,
     redis: Redis,
     settings: Settings,
     *,
     access_token: str | None,
     refresh_token: str | None,
+    expo_push_token: str | None = None,
 ) -> None:
+    """End this device's session; with ``expo_push_token``, this device stops getting the
+    account's reminders too. Signed out, a phone kept showing them on its lock screen.
+    """
+    if expo_push_token:
+        # Before the revokes: the live session proves whose token this is, so a token
+        # string alone never silences another account's device.
+        user_id = await _session_user(redis, settings, access_token, refresh_token)
+        if user_id is not None:
+            await push_tokens_repo.delete_token(session, user_id, expo_push_token)
     if access_token and refresh_token:
         await tokens_service.revoke_access_token(redis, access_token, settings)
         await tokens_service.revoke_refresh_token(redis, refresh_token)
@@ -100,8 +112,35 @@ async def logout(
         await tokens_service.revoke_refresh_token(redis, refresh_token)
     elif access_token:
         user_id = await tokens_service.verify_access_token(redis, access_token, settings)
+        await logout_everywhere(session, redis, settings, user_id, access_token=access_token)
+
+
+async def logout_everywhere(
+    session: AsyncSession,
+    redis: Redis,
+    settings: Settings,
+    user_id: UUID,
+    *,
+    access_token: str | None,
+) -> None:
+    """End every session, and forget every device's push token: no signed-out phone keeps
+    getting this account's reminders."""
+    await tokens_service.purge_user_sessions(redis, user_id, settings)
+    if access_token:
         await tokens_service.revoke_access_token(redis, access_token, settings)
-        await tokens_service.purge_user_sessions(redis, user_id, settings)
+    await push_tokens_repo.delete_for_user(session, user_id)
+
+
+async def _session_user(
+    redis: Redis, settings: Settings, access_token: str | None, refresh_token: str | None
+) -> UUID | None:
+    """The account a live access or refresh token of this device belongs to."""
+    if access_token:
+        try:
+            return await tokens_service.verify_access_token(redis, access_token, settings)
+        except GoogleAuthError:
+            pass  # expired: the refresh token still proves the session
+    return await tokens_service.refresh_token_user(redis, refresh_token) if refresh_token else None
 
 
 async def delete_account(
