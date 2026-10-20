@@ -1,0 +1,93 @@
+Unused files (7)
+lib/webrtcStub.js                  
+plugins/googleSignInPodfile.js     
+plugins/withoutAppleSignIn.js      
+scripts/check-url-dependencies.cjs 
+vendor/image-size/bin/image-size.js
+vendor/image-size/dist/detector.js 
+vendor/image-size/dist/index.js    
+Unused dependencies (2)
+expo-device                          package.json:31:6
+react-native-vision-camera-worklets  package.json:76:6
+Unused devDependencies (2)
+@babel/plugin-transform-dynamic-import  package.json:83:6
+lucide-static                           package.json:95:6
+Unlisted dependencies (2)
+expo-system-ui  app.config.ts
+expo-system-ui  app.json     
+Unused exports (38)
+composerTextLabel   function  lib/math/draftText.ts:79:17                   
+insideInlineMath    function  lib/math/draftText.ts:110:17                  
+DIAGRAM_KINDS                 lib/physics/diagramKind.ts:6:14               
+READ_BACK_SUBJECTS            lib/scanner/readBack.ts:5:14                  
+stackHeaderOptions  function  lib/stackHeader.ts:8:17                       
+BMP                           vendor/image-size/dist/types/bmp.js:3:9       
+CUR                           vendor/image-size/dist/types/cur.js:3:9       
+DDS                           vendor/image-size/dist/types/dds.js:3:9       
+GIF                           vendor/image-size/dist/types/gif.js:3:9       
+HEIF                          vendor/image-size/dist/types/heif.js:3:9      
+ICNS                          vendor/image-size/dist/types/icns.js:3:9      
+ICO                           vendor/image-size/dist/types/ico.js:3:9       
+typeHandlers                  vendor/image-size/dist/types/index.js:3:9     
+J2C                           vendor/image-size/dist/types/j2c.js:3:9       
+JP2                           vendor/image-size/dist/types/jp2.js:3:9       
+JPG                           vendor/image-size/dist/types/jpg.js:7:9       
+JXLStream                     vendor/image-size/dist/types/jxl-stream.js:3:9
+JXL                           vendor/image-size/dist/types/jxl.js:3:9       
+KTX                           vendor/image-size/dist/types/ktx.js:3:9       
+PNG                           vendor/image-size/dist/types/png.js:3:9       
+PNM                           vendor/image-size/dist/types/pnm.js:3:9       
+PSD                           vendor/image-size/dist/types/psd.js:3:9       
+SVG                           vendor/image-size/dist/types/svg.js:3:9       
+TGA                           vendor/image-size/dist/types/tga.js:3:9       
+TIFF                          vendor/image-size/dist/types/tiff.js:3:9      
+findBox                       vendor/image-size/dist/types/utils.js:3:9     
+toUTF8String                  vendor/image-size/dist/types/utils.js:6:9     
+toHexString                   vendor/image-size/dist/types/utils.js:10:9    
+readInt16LE                   vendor/image-size/dist/types/utils.js:15:9    
+readUInt16BE                  vendor/image-size/dist/types/utils.js:17:9    
+readUInt16LE                  vendor/image-size/dist/types/utils.js:19:9    
+readUInt24LE                  vendor/image-size/dist/types/utils.js:21:9    
+readInt32LE                   vendor/image-size/dist/types/utils.js:26:9    
+readUInt32BE                  vendor/image-size/dist/types/utils.js:31:9    
+readUInt32LE                  vendor/image-size/dist/types/utils.js:36:9    
+readUInt                      vendor/image-size/dist/types/utils.js:50:9    
+WEBP                          vendor/image-size/dist/types/webp.js:3:9      
+BitReader                     vendor/image-size/dist/utils/bit-reader.js:3:9
+Unused exported types (36)
+ChatErrorKind           type  features/chat/model/errorMessage.ts:3:13 
+ImageReference          type  features/chat/model/sendIntercept.ts:6:13
+HomeStarter             type  lib/api/types.ts:156:13                  
+MolBond                 type  lib/chemistry/molecule3dFence.ts:70:13   
+BalanceScene            type  lib/chemistry/scene.ts:7:13              
+StoichScene             type  lib/chemistry/scene.ts:14:13             
+VseprScene              type  lib/chemistry/scene.ts:20:13             
+TitrationScene          type  lib/chemistry/scene.ts:32:13             
+EquilibriumScene        type  lib/chemistry/scene.ts:39:13             
+CellScene               type  lib/chemistry/scene.ts:45:13             
+StableScanState         type  lib/markdown/preprocessStream.ts:166:13  
+ArithmeticOperation     type  lib/math/arithmeticBlock.ts:3:13         
+AdditionColumn          type  lib/math/arithmeticBlock.ts:9:13         
+SubtractionColumn       type  lib/math/arithmeticBlock.ts:18:13        
+PartialProduct          type  lib/math/arithmeticBlock.ts:28:13        
+DivisionStep            type  lib/math/arithmeticBlock.ts:46:13        
+FractionStep            type  lib/math/arithmeticBlock.ts:83:13        
+AngleLeader             type  lib/math/geometryAngles.ts:53:13         
+SampledGraphSpec        type  lib/math/graphSpec.ts:12:13              
+WireSegment             type  lib/physics/circuit.ts:206:13            
+PartMark                type  lib/physics/circuit.ts:207:13            
+GroupMark               type  lib/physics/circuit.ts:216:13            
+SourceMark              type  lib/physics/circuit.ts:217:13            
+CurrentMark             type  lib/physics/circuit.ts:219:13            
+WorldPoint              type  lib/physics/optics.ts:32:13              
+OpticsRay               type  lib/physics/optics.ts:37:13              
+RayElement              type  lib/physics/rayScene.ts:61:13            
+SceneRay                type  lib/physics/rayScene.ts:69:13            
+SceneAngle              type  lib/physics/rayScene.ts:71:13            
+WaveEnd                 type  lib/physics/wave.ts:16:13                
+PlanAllowance           type  lib/plan.ts:17:13                        
+SettingsProposalChange  type  lib/settingsProposal.ts:9:13             
+MeterListener           type  lib/speech/voiceAudio.ts:51:13           
+NavigationGuardRequest  type  lib/staticOnlyNavigationGuard.ts:1:13    
+DialogActionStyle       type  ui/overlay/Dialog.tsx:23:13              
+MenuItem                type  ui/overlay/Menu.tsx:28:13                

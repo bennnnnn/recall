@@ -1,0 +1,41 @@
+repository functions that always commit: 18
+  app.modules.account.lifecycle.update_account  ALWAYS_COMMITS
+  app.modules.attachments.chunks_repository.replace_chunks  ALWAYS_COMMITS
+  app.modules.attachments.repository.delete_unlinked_returning  ALWAYS_COMMITS
+  app.modules.todos.repository.delete_by_topic  ALWAYS_COMMITS
+  app.modules.todos.repository.reorder  ALWAYS_COMMITS
+  app.repositories.chats.create  ALWAYS_COMMITS
+  app.repositories.chats.set_archived  ALWAYS_COMMITS
+  app.repositories.chats.set_pinned  ALWAYS_COMMITS
+  app.repositories.chats.set_title  ALWAYS_COMMITS
+  app.repositories.message_chunks.replace_chunks  ALWAYS_COMMITS
+  app.repositories.messages.delete_message  ALWAYS_COMMITS
+  app.repositories.messages.set_feedback  ALWAYS_COMMITS
+  app.repositories.push_tokens.delete_by_token  ALWAYS_COMMITS
+  app.repositories.push_tokens.delete_token  ALWAYS_COMMITS
+  app.repositories.push_tokens.upsert  ALWAYS_COMMITS
+  app.repositories.usage.reset_for_date  ALWAYS_COMMITS
+  app.repositories.users.create  ALWAYS_COMMITS
+  app.repositories.users.delete_user  ALWAYS_COMMITS
+
+== callers composing an always-committing repository write with another write
+- modules/account/service.py:61 login_with_google()
+     line 86: users.update 
+     line 95: users.create ALWAYS-COMMITS
+     line 114: users.update 
+- modules/account/service.py:132 login_with_apple()
+     line 166: users.update 
+     line 175: users.create ALWAYS-COMMITS
+     line 194: users.update 
+- modules/account/service.py:206 login_dev()
+     line 223: users.create ALWAYS-COMMITS
+     line 237: users.update 
+- modules/attachments/rag.py:185 index_attachment()
+     line 255: chunks_repository.replace_chunks ALWAYS-COMMITS
+     line 263: repository.set_index_coverage 
+- modules/chat/service.py:273 set_message_feedback()
+     line 282: messages.set_feedback ALWAYS-COMMITS
+     line 285: messages.set_feedback ALWAYS-COMMITS
+- modules/notifications/push.py:87 poll_deferred_push_receipts()
+     line 125: push_tokens.delete_by_token ALWAYS-COMMITS
+     line 132: session.commit 

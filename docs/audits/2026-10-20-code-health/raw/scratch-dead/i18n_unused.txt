@@ -1,0 +1,5 @@
+# keys=931 base=931 unused=4
+rich.diagram_a11y_parallel
+rich.diagram_a11y_series
+rich.diagram_source_ac
+rich.diagram_source_battery

@@ -1,0 +1,26 @@
+functions: 6004 over 50: 378 over 100: 61
+218 app/modules/math/tools/direct_calculus.py:113 calculus_direct_request
+216 app/modules/physics/extractors/circuits.py:70 _extract_circuit_intent
+194 app/modules/physics/extractors/torque.py:51 _extract_torque_intent
+184 app/modules/math/tools/school/trig.py:86 _extract_trig_intent
+181 app/modules/account/export.py:252 _iter_export_json
+177 app/modules/memory/extraction_workflow.py:269 _extract_pass
+177 app/modules/math/tools/school/calculus.py:264 apply_calculus_extension
+174 app/modules/physics/extractors/kinematics.py:121 _extract_kinematics_intent
+173 app/modules/physics/extractors/waves.py:59 _extract_waves_intent
+168 app/modules/math/solve/written_division.py:114 build_long_division
+165 app/modules/math/solve/fractions.py:125 build_fraction_work
+160 app/modules/math/tools/direct.py:163 can_direct_verified_math_reply
+159 app/modules/chat/stream_api.py:80 _stream_tokens_sse
+158 app/modules/physics/solvers/projectile.py:48 solve_projectile
+152 app/modules/math/tools/prompt.py:238 build_math_augmentation
+150 app/modules/physics/extractors/friction.py:112 _extract_friction_intent
+149 app/modules/chemistry/solvers/titration.py:120 _weak_titration
+147 app/modules/physics/extractors/magnetism.py:59 _extract_magnetism_intent
+147 app/gateways/litellm_gateway.py:286 _stream_chat_once
+146 app/modules/chat/ws_turn.py:57 stream_over_ws
+145 app/modules/physics/extractors/momentum.py:180 _extract_momentum_intent
+136 app/modules/physics/block.py:107 _build_physics_block
+136 app/modules/math/match/literal_geometry.py:51 parse_named_rectangle_request
+134 app/modules/physics/solvers/circular.py:134 solve_circular
+133 app/modules/physics/solvers/oscillations.py:153 solve_spring

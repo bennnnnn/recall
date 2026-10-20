@@ -1,0 +1,4 @@
+
+> mobile@1.0.0 typecheck /home/user/recall-audit/apps/mobile
+> tsc --noEmit
+

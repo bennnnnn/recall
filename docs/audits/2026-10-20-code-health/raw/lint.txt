@@ -1,0 +1,210 @@
+
+> mobile@1.0.0 lint /home/user/recall-audit/apps/mobile
+> expo lint app components ui features hooks lib contexts
+
+
+/home/user/recall-audit/apps/mobile/components/MathEquationScanner.tsx
+  152:5  warning  React Hook useMemo has a missing dependency: 'insets'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/user/recall-audit/apps/mobile/features/attachments/model/__tests__/attachments.test.ts
+   7:1  warning  Import in body of module; reorder to top  import/first
+   8:1  warning  Import in body of module; reorder to top  import/first
+   9:1  warning  Import in body of module; reorder to top  import/first
+  10:1  warning  Import in body of module; reorder to top  import/first
+  11:1  warning  Import in body of module; reorder to top  import/first
+  12:1  warning  Import in body of module; reorder to top  import/first
+  21:1  warning  Import in body of module; reorder to top  import/first
+  22:1  warning  Import in body of module; reorder to top  import/first
+  23:1  warning  Import in body of module; reorder to top  import/first
+  24:1  warning  Import in body of module; reorder to top  import/first
+  25:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/features/chat/hooks/__tests__/useChatRegenerate.test.tsx
+  16:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/features/chat/hooks/__tests__/useChatRouteLoader.test.tsx
+  23:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/features/chat/hooks/__tests__/useChatTitlePolling.test.tsx
+  35:1  warning  Import in body of module; reorder to top  import/first
+  36:1  warning  Import in body of module; reorder to top  import/first
+  37:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/features/chat/hooks/useChatLayoutMetrics.ts
+  40:5  warning  React Hook useMemo has a missing dependency: 'options'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/user/recall-audit/apps/mobile/features/chat/hooks/useChatScreenBodyProps.tsx
+  268:5  warning  React Hook useMemo has a missing dependency: 'liveTalkSession'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/user/recall-audit/apps/mobile/features/chat/model/__tests__/chatMessageCache.test.ts
+  13:1  warning  Import in body of module; reorder to top  import/first
+  21:1  warning  Import in body of module; reorder to top  import/first
+  22:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/features/chat/model/__tests__/chatSendLogic.test.ts
+  14:1  warning  Import in body of module; reorder to top  import/first
+  15:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/features/speech/hooks/useLiveTalk.ts
+  466:6  warning  React Hook useEffect has a missing dependency: 'visible'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/user/recall-audit/apps/mobile/features/speech/model/__tests__/liveTalkSfx.test.ts
+  25:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/features/speech/model/__tests__/realtimeVoice.test.ts
+  21:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/features/speech/model/__tests__/realtimeVoiceMissingDevice.test.ts
+  18:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/features/speech/model/pronunciation.ts
+   53:20  warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+  115:10  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+  116:13  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/clockTick.test.ts
+  4:22  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/connectivity.test.ts
+  10:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/exportData.test.ts
+  18:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/haptics.test.ts
+  19:1  warning  Import in body of module; reorder to top  import/first
+  21:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/installationId.test.ts
+  16:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/markdownPlain.test.ts
+  28:18  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/mathRenderCorpus.test.ts
+   17:21  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+   96:25  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+  155:17  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/networkProbe.test.ts
+  15:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/normalizeImplicitMath.test.ts
+  206:39  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  229:39  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  238:39  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  275:39  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  289:39  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/purchases.test.ts
+   9:20  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead                                            @typescript-eslint/array-type
+  41:1   warning  Import in body of module; reorder to top                                                               import/first
+  53:1   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-var-requires')
+  54:22  warning  A `require()` style import is forbidden                                                                @typescript-eslint/no-require-imports
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/pushNotificationRouting.test.ts
+  32:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/pushNotifications.test.ts
+  49:1  warning  Import in body of module; reorder to top  import/first
+  50:1  warning  Import in body of module; reorder to top  import/first
+  52:1  warning  Import in body of module; reorder to top  import/first
+  53:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/resolveClientGeoForQuery.test.ts
+  15:1  warning  Import in body of module; reorder to top  import/first
+  17:1  warning  Import in body of module; reorder to top  import/first
+  18:1  warning  Import in body of module; reorder to top  import/first
+  19:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/share.test.ts
+  16:1  warning  Import in body of module; reorder to top  import/first
+  18:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/skiaAvailability.test.tsx
+  9:10  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/user/recall-audit/apps/mobile/lib/__tests__/stackTransitions.test.ts
+   5:1  warning  Import in body of module; reorder to top  import/first
+  11:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/lib/codeTokenize.ts
+   20:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   21:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   22:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   23:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   24:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   25:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   26:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   27:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   28:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   29:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   30:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   31:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   32:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   33:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   34:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   35:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   36:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   37:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   38:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   39:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   40:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   41:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   42:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   43:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   44:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   45:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   46:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   47:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   48:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   49:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   50:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   51:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   52:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   53:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   54:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   55:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   56:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   57:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   58:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   59:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   60:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   61:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   62:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   63:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   64:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+   65:1   warning  A `require()` style import is forbidden                      @typescript-eslint/no-require-imports
+  322:34  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+  367:4   warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+  368:16  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+
+/home/user/recall-audit/apps/mobile/lib/expoRuntime.ts
+  6:23  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/user/recall-audit/apps/mobile/lib/i18n/index.ts
+  25:11  warning  Caution: `i18n` also has a named export `changeLanguage`. Check if you meant to write `import {changeLanguage} from 'i18next'` instead  import/no-named-as-default-member
+  31:13  warning  Caution: `i18n` also has a named export `changeLanguage`. Check if you meant to write `import {changeLanguage} from 'i18next'` instead  import/no-named-as-default-member
+  38:9   warning  Caution: `i18n` also has a named export `changeLanguage`. Check if you meant to write `import {changeLanguage} from 'i18next'` instead  import/no-named-as-default-member
+  41:1   warning  Caution: `i18n` also has a named export `use`. Check if you meant to write `import {use} from 'i18next'` instead                        import/no-named-as-default-member
+
+/home/user/recall-audit/apps/mobile/lib/math/geometryLayout.ts
+  82:16  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+
+/home/user/recall-audit/apps/mobile/lib/richBlocks.ts
+  120:4   warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+  121:15  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+
+/home/user/recall-audit/apps/mobile/lib/skiaAvailability.ts
+  19:7  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/user/recall-audit/apps/mobile/lib/speech/__tests__/voiceAudio.test.ts
+  18:1  warning  Import in body of module; reorder to top  import/first
+  19:1  warning  Import in body of module; reorder to top  import/first
+
+/home/user/recall-audit/apps/mobile/lib/vendor/__tests__/vendor.test.ts
+  14:20  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+
+✖ 126 problems (0 errors, 126 warnings)
+  0 errors and 61 warnings potentially fixable with the `--fix` option.
+

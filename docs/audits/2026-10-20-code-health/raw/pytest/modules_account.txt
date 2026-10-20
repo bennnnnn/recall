@@ -1,0 +1,48 @@
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 85%]
+....................................                                     [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+app/tests/modules/account/test_account.py::test_export_returns_data
+  /usr/lib/python3.13/contextlib.py:309: RuntimeWarning: coroutine 'Connection._cancel' was never awaited
+    def asynccontextmanager(func):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+0.31s call     app/tests/modules/account/test_consent_gate.py::test_consent_given_on_another_machine_lets_the_request_through[/speech/transcribe-off0]
+0.06s call     app/tests/modules/account/test_consent_gate.py::test_a_request_without_consent_is_refused[/speech/transcribe]
+0.05s call     app/tests/modules/account/test_account.py::test_delete_account_returns_204
+0.05s call     app/tests/modules/account/test_consent_gate.py::test_a_request_without_consent_is_refused[/speech/tts/stream]
+0.05s call     app/tests/modules/account/test_consent_gate.py::test_a_request_without_consent_is_refused[/speech/live/tool]
+0.05s call     app/tests/modules/account/test_consent_gate.py::test_a_request_without_consent_is_refused[/speech/live/session]
+0.05s call     app/tests/modules/account/test_consent_gate.py::test_a_request_without_consent_is_refused[/speech/tts]
+0.04s call     app/tests/modules/account/test_consent_gate.py::test_a_request_without_consent_is_refused[/physics/scan/read]
+0.04s call     app/tests/modules/account/test_consent_gate.py::test_consent_given_on_another_machine_lets_the_request_through[/math/scan/read-off1]
+0.04s call     app/tests/modules/account/test_settings_audit.py::test_delete_all_memories
+0.04s call     app/tests/modules/account/test_consent_gate.py::test_a_request_without_consent_is_refused[/chemistry/scan/read]
+0.04s call     app/tests/modules/account/test_consent_gate.py::test_a_request_without_consent_is_refused[/math/scan/read]
+0.03s call     app/tests/modules/account/test_account.py::test_delete_account_returns_204_when_one_storage_delete_fails
+0.03s call     app/tests/modules/account/test_settings_audit.py::test_delete_all_chats
+0.03s call     app/tests/modules/account/test_settings_audit.py::test_patch_quiet_hours
+0.03s call     app/tests/modules/account/test_web_session.py::test_web_refresh_requires_csrf_when_using_cookie
+0.03s call     app/tests/modules/account/test_settings_audit.py::test_archive_all_chats
+0.03s call     app/tests/modules/account/test_voice_and_push_kinds.py::test_patch_rejects_a_voice_live_talk_cannot_speak[]
+0.03s call     app/tests/modules/account/test_voice_and_push_kinds.py::test_patch_ignores_retired_email_and_calendar_push_switches
+0.02s call     app/tests/modules/account/test_voice_and_push_kinds.py::test_patch_null_voice_puts_the_default_back
+0.02s call     app/tests/modules/account/test_settings_audit.py::test_patch_tone_keeps_stored_ids
+0.02s call     app/tests/modules/account/test_apple_revoke_on_delete.py::test_delete_me_passes_the_apple_code_through[with-code]
+0.02s call     app/tests/modules/account/test_voice_and_push_kinds.py::test_patch_rejects_a_voice_live_talk_cannot_speak[onyx]
+0.02s call     app/tests/modules/account/test_settings_audit.py::test_logout_all
+0.02s call     app/tests/modules/account/test_voice_and_push_kinds.py::test_patch_saves_a_voice
+0.02s call     app/tests/modules/account/test_voice_and_push_kinds.py::test_patch_turns_reminder_pushes_off
+0.02s call     app/tests/modules/account/test_voice_and_push_kinds.py::test_patch_rejects_a_voice_live_talk_cannot_speak[Kore]
+0.02s call     app/tests/modules/account/test_settings_audit.py::test_me_apple_sign_in_provider
+0.02s call     app/tests/modules/account/test_voice_and_push_kinds.py::test_patch_rejects_a_voice_live_talk_cannot_speak[fable]
+0.02s call     app/tests/modules/account/test_settings_audit.py::test_list_sessions
+252 passed, 2 warnings in 6.00s

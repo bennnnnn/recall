@@ -1,0 +1,58 @@
+files: 796
+counts: {"any":0,"as":213,"asConst":104,"asUnknownAs":1,"nonNull":125,"tsIgnore":0,"tsExpectError":0,"eslintDisable":29,"catches":263,"catchEmpty":61,"catchSilent":197}
+any by file:
+
+as (non-const) by file:
+  13	apps/mobile/lib/physics/simulation/parse.ts
+  11	apps/mobile/components/markdown/rules/lists.tsx
+  10	apps/mobile/lib/chartPreviewHtml.ts
+  7	apps/mobile/features/speech/model/realtimeTurnState.ts
+  6	apps/mobile/components/markdown/markdownAstHelpers.ts
+  6	apps/mobile/lib/webView.ts
+  5	apps/mobile/components/PushNotificationBootstrap.tsx
+  5	apps/mobile/features/todos/model/reminderProposal.ts
+  5	apps/mobile/lib/math/geometryParser.ts
+  4	apps/mobile/components/MarkdownTable.tsx
+  4	apps/mobile/features/todos/hooks/useTodosList.ts
+  4	apps/mobile/lib/api/client.ts
+  4	apps/mobile/lib/physics/optics.ts
+  4	apps/mobile/lib/physics/wave.ts
+  4	apps/mobile/lib/settingsProposal.ts
+  4	apps/mobile/ui/icons/Icon.tsx
+  3	apps/mobile/features/auth/api.ts
+  3	apps/mobile/features/speech/model/pronunciation.ts
+  3	apps/mobile/features/speech/model/realtimePeer.ts
+  3	apps/mobile/lib/lesson/lessonFences.ts
+  3	apps/mobile/lib/math/arithmeticBlock.ts
+  3	apps/mobile/lib/math/graphSpec.ts
+  3	apps/mobile/lib/physics/circuit.ts
+  3	apps/mobile/lib/physics/diagramKind.ts
+  2	apps/mobile/components/rich/skia/HaloText.tsx
+non-null ! by file:
+  17	apps/mobile/lib/markdown/preprocessMathFences.ts
+  9	apps/mobile/lib/markdown/preprocessMathChecks.ts
+  9	apps/mobile/lib/mdFenceScan.ts
+  8	apps/mobile/lib/math/formatInput.ts
+  7	apps/mobile/lib/math/fenceRetag.ts
+  6	apps/mobile/lib/lesson/lessonFences.ts
+  5	apps/mobile/lib/math/caretStops.ts
+  4	apps/mobile/components/rich/simulation/parts.tsx
+  4	apps/mobile/features/todos/model/homeUrgentTodos.ts
+  4	apps/mobile/lib/chemistry/molecule3dFence.ts
+  4	apps/mobile/lib/markdown/replTranscript.ts
+  4	apps/mobile/lib/math/draftSlots.ts
+  4	apps/mobile/lib/physics/simulation/parse.ts
+  3	apps/mobile/components/rich/skia/SkiaMoleculeCanvas.tsx
+  3	apps/mobile/features/chat/model/title.ts
+  3	apps/mobile/features/suggestions/model/promptMath.ts
+  3	apps/mobile/lib/chemistry/fence.ts
+  3	apps/mobile/lib/localPlacesQuery.ts
+  2	apps/mobile/components/markdown/markdownAstHelpers.ts
+  2	apps/mobile/components/rich/Molecule3DBlock.tsx
+  2	apps/mobile/lib/markdown/preprocessNormalize.ts
+  2	apps/mobile/lib/math/graphExpr.ts
+  2	apps/mobile/lib/math/keyboardCatalog.ts
+  2	apps/mobile/lib/physics/simulation/layoutLabels.ts
+  2	apps/mobile/lib/unicodeSupSub.ts
+as unknown as:
+apps/mobile/lib/markdown/parser.ts:6	const mdOptions = {

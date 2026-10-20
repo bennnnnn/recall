@@ -1,0 +1,42 @@
+........................................................................ [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 30%]
+........................................................................ [ 40%]
+........................................................................ [ 50%]
+........................................................................ [ 60%]
+........................................................................ [ 70%]
+........................................................................ [ 80%]
+........................................................................ [ 90%]
+..................................................................       [100%]
+============================= slowest 30 durations =============================
+2.50s call     app/tests/modules/web_search/test_web_search_run.py::test_search_with_cache_reuses_redis
+0.31s call     app/tests/modules/web_search/test_web_search_run.py::test_search_with_cache_single_flight_on_miss
+0.12s setup    app/tests/modules/web_search/test_asks_nothing.py::test_asks_nothing_to_look_up_statements_and_requests_to_make[Hello there how is your day going because you are doing a great job today]
+0.05s call     app/tests/modules/web_search/test_web_search_run.py::test_search_duckduckgo_timeout_is_a_failed_search
+0.05s call     app/tests/modules/web_search/test_web_classifier_latency.py::test_prefetch_overlaps_phase_b_and_preserves_negative_verdict
+0.04s call     app/tests/modules/web_search/test_web_search_run.py::test_run_search_parallelizes_queries
+0.03s call     app/tests/modules/web_search/test_web_classifier_latency.py::test_final_gate_reuses_both_prefetched_verdicts[True]
+0.01s call     app/tests/modules/web_search/test_web_classifier_latency.py::test_classifier_budget_includes_the_spend_check[spend_check]
+0.01s call     app/tests/modules/web_search/test_search_honesty.py::test_the_tool_result_says_the_search_failed_not_no_results
+0.01s call     app/tests/modules/web_search/test_web_classifier_latency.py::test_classifier_budget_includes_the_spend_check[completion]
+0.01s call     app/tests/modules/web_search/test_search_honesty.py::test_the_turn_ledger_records_a_failed_search
+0.01s call     app/tests/modules/web_search/test_turn_query.py::test_model_written_search_names_the_place[tell me about coffee-Westlands, Nairobi, Kenya-coffee shops near me]
+0.01s call     app/tests/modules/web_search/test_web_search_run.py::test_search_with_cache_honors_injected_redis
+0.01s call     app/tests/modules/web_search/test_web_search_run.py::test_augment_prompt_follow_up_look_it_up
+0.01s call     app/tests/modules/web_search/test_turn_query.py::test_forced_search_sends_the_turn_location
+0.01s call     app/tests/modules/web_search/test_web_search_chat.py::test_build_prompt_includes_web_search_hint
+0.01s call     app/tests/modules/web_search/test_turn_query.py::test_tool_loop_searches_the_topic_not_the_request
+0.01s call     app/tests/modules/web_search/test_search_honesty.py::test_the_forced_search_says_failed_when_the_search_failed
+0.01s call     app/tests/modules/web_search/test_turn_query.py::test_model_written_search_names_the_place[find a coffee shop near me-Westlands, Nairobi, Kenya-coffee shops near Westlands, Nairobi, Kenya]
+0.01s call     app/tests/modules/web_search/test_world_fact.py::test_every_answer_turn_is_told_not_to_guess_a_changing_fact
+0.01s call     app/tests/modules/web_search/test_web_classifier_latency.py::test_prefetch_skips_turns_that_cannot_benefit[show me an ear-overrides0-False-None-free]
+0.01s call     app/tests/modules/web_search/test_web_search_run.py::test_augment_prompt_injects_results_before_user
+0.01s call     app/tests/modules/web_search/test_search_capability_prompt.py::test_photo_hint_follows_the_photo_lookup_flag
+0.01s call     app/tests/modules/web_search/test_web_classifier_latency.py::test_prefetch_skips_turns_that_cannot_benefit[solve x + 2 = 4-overrides3-False-None-free]
+0.01s call     app/tests/modules/web_search/test_recency_and_indirect_weather.py::test_model_written_search_dates_a_newest_ask
+0.01s call     app/tests/modules/web_search/test_turn_query.py::test_model_written_search_names_the_place[find a coffee shop near me-None-coffee shops near me]
+0.01s setup    app/tests/modules/web_search/test_web_classifier_latency.py::test_prefetch_skips_turns_that_cannot_benefit[Who leads Acme Corporation?-overrides8-False-Already answered-free]
+0.01s call     app/tests/modules/web_search/test_web_search_run.py::test_run_cached_search_shares_the_turn_tavily_budget
+0.01s call     app/tests/modules/web_search/test_web_classifier_latency.py::test_prefetch_skips_turns_that_cannot_benefit[draw a fox-overrides1-False-None-pro]
+0.01s call     app/tests/modules/web_search/test_web_search_run.py::test_augment_prompt_injects_empty_block_when_no_hits
+714 passed in 8.59s

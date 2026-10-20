@@ -1,0 +1,96 @@
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Scanning 1070 files...
+
+[1mapp/core/body_limit.py[m[36m:[m20[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/body_limit.py[m[36m:[m21[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/body_limit.py[m[36m:[m22[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/client_ip.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/client_ip.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/request_id.py[m[36m:[m20[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/request_id.py[m[36m:[m21[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/request_id.py[m[36m:[m22[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/rest_rate_limit.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/rest_rate_limit.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/rest_rate_limit.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/security_headers.py[m[36m:[m14[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/core/settings/attachments.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/auth.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/billing.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/chat.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/edge.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/infrastructure.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/llm.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/media.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/memory.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/notifications.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/plans.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/search.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/stem.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/core/settings/worker.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/gateways/apple_revoke.py[m[36m:[m23[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/gateways/mcp/registry.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/gateways/storage_gateway.py[m[36m:[m161[36m:[m9[36m:[m [1m[31mDEP003[m 'botocore' imported but it is a transitive dependency
+[1mapp/gateways/storage_gateway.py[m[36m:[m238[36m:[m9[36m:[m [1m[31mDEP003[m 'botocore' imported but it is a transitive dependency
+[1mapp/gateways/storage_gateway.py[m[36m:[m258[36m:[m9[36m:[m [1m[31mDEP003[m 'botocore' imported but it is a transitive dependency
+[1mapp/gateways/structured_completion.py[m[36m:[m15[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/models/schemas/analytics.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/models/schemas/auth.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/models/schemas/chats.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/models/schemas/classification.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/models/schemas/common.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/models/schemas/home.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/models/schemas/push.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/models/schemas/scan.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/models/schemas/text.py[m[36m:[m14[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/models/schemas/tools.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/account/quota_carryover.py[m[36m:[m26[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/account/web_session.py[m[36m:[m14[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/modules/attachments/schemas.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/billing/api.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/chat/related_prompts.py[m[36m:[m20[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/chat/stream_events.py[m[36m:[m16[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/chat/ws_api.py[m[36m:[m16[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/chat/ws_api.py[m[36m:[m18[36m:[m1[36m:[m [1m[31mDEP003[m 'starlette' imported but it is a transitive dependency
+[1mapp/modules/chemistry/schemas/intent.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/chemistry/schemas/scene.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/images/schemas.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/fence.py[m[36m:[m33[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/image_extract.py[m[36m:[m15[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/schemas/algebra.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/schemas/arithmetic.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/schemas/discrete.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/schemas/fraction.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/schemas/geometry.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/schemas/geometry_request.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/schemas/graph.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/schemas/intent.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/schemas/teaching.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/schemas/word_problem.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/solve/calculus.py[m[36m:[m223[36m:[m12[36m:[m [1m[31mDEP003[m 'mpmath' imported but it is a transitive dependency
+[1mapp/modules/math/tools/block/geometry.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/tools/direct_arithmetic.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/tools/extractors/geometry_request.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/math/tools/llm_extract.py[m[36m:[m24[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/memory/schemas.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/physics/schemas/intent.py[m[36m:[m18[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/physics/schemas/simulation.py[m[36m:[m26[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/physics/schemas/symbolic.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/search/api.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/speech/realtime.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/speech/schemas.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/todos/api.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/todos/proposals.py[m[36m:[m19[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/todos/reminder_fence_parse.py[m[36m:[m15[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/modules/todos/schemas.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/routers/admin.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/services/places_fence.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/services/quota/carryover.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mapp/services/scan_read.py[m[36m:[m21[36m:[m1[36m:[m [1m[31mDEP003[m 'pydantic' imported but it is a transitive dependency
+[1mpyproject.toml[m[36m:[m [1m[31mDEP002[m 'asyncpg' defined as a dependency but not used in the codebase
+[1mpyproject.toml[m[36m:[m [1m[31mDEP002[m 'websockets' defined as a dependency but not used in the codebase
+[1mpyproject.toml[m[36m:[m [1m[31mDEP002[m 'defusedxml' defined as a dependency but not used in the codebase
+[1mpyproject.toml[m[36m:[m [1m[31mDEP002[m 'python-multipart' defined as a dependency but not used in the codebase
+[1mpyproject.toml[m[36m:[m [1m[31mDEP002[m 'cryptography' defined as a dependency but not used in the codebase
+[1m[31mFound 90 dependency issues.[m
+
+For more information, see the documentation: https://deptry.com/

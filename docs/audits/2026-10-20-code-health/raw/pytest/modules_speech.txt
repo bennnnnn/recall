@@ -1,0 +1,58 @@
+........................................................................ [ 58%]
+...................................................                      [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+app/tests/modules/speech/test_live_talk.py::test_load_session_context_without_chat_has_no_query
+  /usr/lib/python3.13/unittest/mock.py:2183: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    if getattr(self, "_mock_methods", None) is not None:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/speech/test_live_talk.py::test_voice_memory_follows_the_typed_chat_cadence[4-3-I just moved to Lisbon-False]
+  /usr/lib/python3.13/unittest/mock.py:2253: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/speech/test_realtime.py::test_realtime_session_uses_the_users_voice
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/pydantic/_internal/_generate_schema.py:904: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    get_schema = getattr(obj, '__get_pydantic_core_schema__', None)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+0.37s call     app/tests/modules/speech/test_api_gates.py::test_tts_provider_failure_is_502_and_gives_the_slot_back
+0.34s call     app/tests/modules/speech/test_realtime.py::test_realtime_session_uses_the_users_voice
+0.17s call     app/tests/modules/speech/test_realtime.py::test_live_talk_persist_is_bounded_per_session_and_per_user[0-20-204-None]
+0.16s call     app/tests/modules/speech/test_realtime.py::test_live_talk_persist_is_bounded_per_session_and_per_user[0-21-429-LIVE_TALK_RATE_LIMIT_MESSAGE]
+0.12s call     app/tests/modules/speech/test_realtime.py::test_live_talk_persist_is_bounded_per_session_and_per_user[3540-13-429-LIVE_TALK_SAVES_USED_MESSAGE]
+0.12s call     app/tests/modules/speech/test_realtime.py::test_live_talk_persist_is_bounded_per_session_and_per_user[3540-12-204-None]
+0.12s call     app/tests/modules/speech/test_realtime.py::test_live_talk_spend_follows_reserved_time_not_posted_turns
+0.09s call     app/tests/modules/speech/test_api_gates.py::test_speech_route_rate_limits_per_user_and_minute[/speech/tts/stream]
+0.09s call     app/tests/modules/speech/test_api_gates.py::test_speech_route_refuses_past_the_days_cap[/speech/tts-daily_speech_tts_plus-speech_tts]
+0.09s call     app/tests/modules/speech/test_api_gates.py::test_speech_route_refuses_a_plan_without_the_feature[/speech/tts]
+0.07s call     app/tests/modules/speech/test_api_gates.py::test_live_talk_mint_rate_limits_per_user_and_minute
+0.07s call     app/tests/modules/speech/test_api_gates.py::test_speech_route_refuses_a_plan_without_the_feature[/speech/tts/stream]
+0.07s call     app/tests/modules/speech/test_api_gates.py::test_speech_route_refuses_past_the_days_cap[/speech/transcribe-daily_speech_transcriptions_plus-speech_transcription]
+0.07s call     app/tests/modules/speech/test_api_gates.py::test_speech_route_rate_limits_per_user_and_minute[/speech/tts]
+0.07s call     app/tests/modules/speech/test_api_gates.py::test_speech_route_refuses_past_the_days_cap[/speech/tts/stream-daily_speech_tts_plus-speech_tts]
+0.07s call     app/tests/modules/speech/test_realtime.py::test_realtime_session_injects_schedule_snapshot
+0.07s call     app/tests/modules/speech/test_realtime.py::test_live_end_cannot_refund_a_session_it_does_not_own
+0.07s call     app/tests/modules/speech/test_api_gates.py::test_speech_route_rate_limits_per_user_and_minute[/speech/transcribe]
+0.07s call     app/tests/modules/speech/test_realtime.py::test_live_end_settles_to_the_time_used_and_closes_saving
+0.07s call     app/tests/modules/speech/test_realtime.py::test_realtime_session_mint_reserves_a_capped_session_from_the_month
+0.07s call     app/tests/modules/speech/test_realtime.py::test_realtime_session_mint_failure_gives_the_minutes_back
+0.06s call     app/tests/modules/speech/test_realtime.py::test_persist_stops_when_the_plan_no_longer_has_live_talk[free]
+0.06s call     app/tests/modules/speech/test_api_gates.py::test_live_talk_mint_refuses_while_the_spend_breaker_is_open
+0.06s call     app/tests/modules/speech/test_realtime.py::test_realtime_session_mint_gets_only_what_is_left
+0.06s call     app/tests/modules/speech/test_realtime.py::test_voice_tools_enforce_session_ownership_plan_and_read_only_allowlist[missing_chat-404]
+0.06s call     app/tests/modules/speech/test_realtime.py::test_voice_tools_enforce_session_ownership_plan_and_read_only_allowlist[plus-403]
+0.06s call     app/tests/modules/speech/test_realtime.py::test_realtime_session_mint_is_refused_without_live_talk_in_the_plan[free]
+0.06s call     app/tests/modules/speech/test_realtime.py::test_persist_rejects_when_global_spend_cap_is_hit
+0.06s call     app/tests/modules/speech/test_realtime.py::test_persist_ignores_assistant_only_phantom_turn
+0.06s call     app/tests/modules/speech/test_api_gates.py::test_speech_route_with_rate_limit_off_takes_no_rate_key[/speech/tts/stream]
+123 passed, 4 warnings in 8.87s

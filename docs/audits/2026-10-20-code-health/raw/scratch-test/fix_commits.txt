@@ -1,0 +1,400 @@
+fcc09ae6429e64fa7403c3ba3f034bbc2b353f4c Launch fixes: chemistry time limit, voice memory cadence, retire suggestions, drop My Job param (#1913)
+4d0e744db3745b87477a311a1a2a1bc275d9ba1a Live Talk: screen readers hear each phase; a denied mic says how to fix it
+6c4f5a3dcf18937d414e2385131f261e66425cbe Docs: SECURITY.md names the WebSocket refusal and the PDF excerpt fix
+ffbcba7461b9470cbe5df75ae207cc0bba799842 Battery fixes: nearby search, weekdays, "always remind me", Einstein's photo (#1880)
+243be43ec3383b31689e35e00931be809b79bba5 Tests: the lock-refresh test waits for its refreshes instead of a fixed sleep (ES-23)
+a0ed7d88bf014bfb8ee61dfc58fd8cdbcc83b2cd Code questions: explain line by line or fix, in code ink
+d5012dc3d8038584fdecd9a416d7f4cefa11f92d Fix three regressions the final STEM re-run found
+e288904c565126c34bbe507fb23c32f36640e67d Maths: regression tests, sweep look-alikes and docs for the verified-answer fixes
+8db6fb5efd3ccaac047b2df571f2120d5f5b9bfb Library and image viewer: fix sharing, deletes, paging and layout
+f68e9e2a7df8565443f46a26d7807522eadd3a56 Remove Google Calendar and Gmail; add a physics STEM sweep and fix what it found
+25f1fdf54fb190a486a864c0ce75778333d87471 Fix italic, bold in tables, and text drawn in the system font.
+016649a9764a1b9a46e04ca279d08ad791d6b4ce Accent color setting, and contrast and reply-format fixes from a UI audit.
+7f1ef909b9e418f55519330e66b4f60b515facef Remove dead physics code and fix stale references.
+83785e69d49d29448e63b3716b7064fa9ba6bddf Answer the law of reflection, and fix three wrong physics answers.
+1dbe0b8406886792862293fc5366789c0b51250f Fix what a geometry and calculus battery found.
+e5eeb2ee1b8a09a685ed4b65ab81b93a9c0f94aa Fix what a second, 70-problem maths battery found.
+9b54e4832c11fbe2e1410c960f003c62c7d3c9d5 Fix what a 68-problem maths battery found: errors, misses, bare answers.
+aca48470f8b3523ff9cd68282a3419220a6c6ac9 Record the shipped fixes and the one workout layout in the math docs.
+6bec65a315345f744865d6433e1f5bf0dda44d5f Pin the published fixes for the open dependency alerts.
+4ea3c808f3c5ca0f6a3065f2964bcb64f707cf6c Fix the citation author row and strip brackets from a details title.
+229730347c74e7e83fa06f2138c1a73064175918 fix(physics): preserve distance laws and released-from-rest inclines
+3068a43fcd356f079ef9f7f57b868ef8f71f1729 Fix My Job rollout, retries, draft refresh and transfer suspension
+e684d46f08d51cd98191982082103b5e3f315305 Port the scan-reading fixes main's API CI needs
+b7adefdc731e593aeed17858f455ffb40d16d62d Fix the physics split checks that failed after merge.
+4f656a8569bc2666fcd1cf8963f1d64d93283ef3 Decline role lists, convex mirrors and fixed-free strings it misread
+66a8f089f94c367c8d2c9d7e340af3fa1670aae4 Fix the lesson label, prose exponents, and first-of-month news dates.
+a1550c1a80727fcb6c71e700d48cbb321ecdb9cf Fix chemistry answers that were verified with the wrong number or unit
+fb69ba8694c3f4258fdcf643990541152788aa41 Fix verified physics answers and raise the physics text limit.
+4ec09004a8117b0c6db732851e9941e3444a1275 fix: render arithmetic working inline (#1501)
+f38ee6fdcd897c36670cee35bedb7dfefb2fc2d3 Fix verified teaching and live response formatting (#1498)
+1a0aa7290c3dc037c333eb0ab775f36c8de6477f Fix verified math workouts and radical layout (#1496)
+fe05fe5bcdce4dab41c097a4383f7c8aaffe99ae Fix physics API CI formatting (#1423)
+fa9f5e4705d6a67cb5f5a81e9b7499435821fe60 ui: lesson play exit audio, orb meter halo, misc screen fixes (#1364)
+cebd9dd8337d22f2d6a7b307f0afab8494558908 nav: push/deep-link routing fixes (#1363)
+8e04c2053a080766bdc32ec158542dd34baf93f8 fix: preserve physics quantities and multipart projectile requests (#1351)
+17f0aed0b493daac70fc957a40e052028849dcf6 Fix/graph quadratic equation (#1322)
+c7cd7f098640c4b607322fd9996543df4e6a39cf Fix math correctness and rendering from simulator walkthrough (#1317)
+c47a78fc1c1b1f1a6e88c773623a6716a624c31c Fix math readability, formatting, and verified answers (#1316)
+c9f9f3bd5738eb2a255ab432fc55ee510f55d817 Fix physics gate, gravity false positives, and unlabeled launch height (#1311)
+c6f1a4902538ec05bb372b7470c650b9f011c4c0 Fix math pipeline wrong-number and missing unverified label (#1308)
+81b7d28870fa61bcdca943da454b2d126740d448 Fix chemistry pipeline wrong masses, dead solvers, and fence scan (#1310)
+71f3c0307eadef14561eb37e41486ca576b908ff Fix the math scanner freeze, dead Photos picker, and JS-thread crop. (#1298)
+3ac017bc76cc5d09632e9297e56d020a5be09706 Fix math composer paste, √9 parse, and caret-on-close (#1275)
+f459fcbe99812631db6500f38e8ddc60cbe12ff0 Fix sphere false positives and Pint unit casing (#1274)
+98a603d9caf24caffe00dcea9cd8547052869d24 Fix the schedule notification dead zone after a denied OS prompt. (#1263)
+d96928edc0d5916d954e515248fc9474a2e1e2f8 Fix math-keyboard F=ma and Graph y=x² extract (#1242)
+8ee9f91244e52d548111e5f0c5a103d64a7e5ac2 Fix math extract for sentence periods and spaced systems. (#1241)
+d71f74661b0cf91edf62ccc0f8e1250f9644f8b8 Fix reminder invalid-fence miss and CO2 structure name (#1240)
+1c734fa2b935862cb07812ea08f0aea2843d3d8f Fix Learning/Memory 500s and chat reminders that never saved (#1235)
+0b58ab981a46362527ce2c2561734a67db5060c5 fix(mobile): stack fraction bars/roots for math steps, not just the final answer (#1233)
+cff41a07bb844ceab7e6fb4994082c7a8f10c394 Fix worked math pastes: no fake no-solution, no empty user bubble. (#1228)
+1651f20be8a79044962d897b7dab7fb76477c49c Fix jest config to support ES modules in react-native 0.86.0
+b2da926d4291ac0d2f8af0080887d2f5e12f83ea Fix kinematics v0 binding, downward sign, and mass-as-height. (#1206)
+94f3c65dcbcfc420a272a54babafb41ad6c00e9d Fix mobile dependency alerts and preserve Expo URL parsing (#1195)
+a6d0773e20bdc501c2ae553f87fa44349644a3d7 Restore reviewed app fixes and complete Schedule reliability (#1194)
+c9aa9191c8ac481d0ea0967009e84ac3da45e9e3 Fix attachment uploads, Library reuse, and unsent draft recovery (#1188) (#1189)
+e8b2f5292cf626bea0a3f81eba9d7e733be10679 Fix text chat cancellation, streaming, and saved history (#1185)
+a7580a9cc468634c89e8dfbb9a4dbf738bdc48ad Finish output-routing review fixes (#1184)
+cb245e8168edba2d44fa9b13d4387f0760c4e094 Fix chat persistence, file/image fidelity, and OpenAI voice reliability (#1181)
+d04ee35ee4e6f0ca2d9bf633d9c720ac3df32360 Fix Google Calendar/Gmail second-product OAuth and sibling disconnect. (#1152)
+229fbc31b1aacc3749f9014f6effee00b3381750 Hotfix Live Talk startup timeout after #1127 (#1128)
+8aafa84a1685dbbc8d33dba344799de4d4587718 Fix Live Talk turn authorization and playback lifecycle (#1127)
+cc0117fe640fa11b7e451f11b19af7a4332c4d14 Fix Live Talk feedback loop and phantom speech (#1125)
+a589b25df389d6a87e337bb5086aa27b0656d35b Fix Live Talk with direct ephemeral WebRTC
+553e9f3cc94de12cfff2f078ab5aef97999a4984 fix: let WebRTC own audio session and add live diagnostics
+4f31d2443fe581b413c8f4a49f15ee1675eddffd fix: make Live Talk WebRTC connection and remote audio reliable (#1119)
+8d4660a8213f4ed82b2a7edbaf0c27f1d6460060 Fix live talk order, crackle, and missing titles. (#1102)
+79ab216d5eafc16ca80787a6057a07d2fc20caf2 Fix duplicate messagesRef after stacked chat-loader rebase. (#1013)
+faf2d67b7d61e630c7cb86d0b9eb581dda4fdc66 Cap TTS rest follow-ups by characters and fix live-talk recording. (#972)
+5997a501c078763352a59bf629847f3c1d828557 Fix Learning class detail 500 on catalog seed. (#968)
+d35dac8a30979562a32627f6c8d968c9df53293e fix(markdown): keep bold/code spans inline within list items (#955)
+38a690ec3cfc2ccf5f0d3c75ec8108e9ce4ecf92 fix(mobile): stop treating a/b/c/d as quiz picks in normal chat (#938)
+4abd9ab98a22c5b9ffb58cbf70b8cf519f0bf947 fix(integrations): revoke a shared Google grant and drop the sibling product (#934)
+b5d67108eed0b8b2ecdac001244702f57f56e352 fix(mcp): calendar conflict checks load Google events (#933)
+7ecfe89135aaed345a560178b8b2f9fd8ac44f6c fix(attachments): skip scanned-PDF OCR on the pre-stream prepare path (#932)
+50acc24aea97cb675f01c37f37c63d934f944810 fix(attachments): cap local PUT reads instead of buffering the whole body first (#931)
+e1807d5ffdb59e63abc9f7644eeedfa1bb17dcd6 fix(reminders): cancel local todo alerts when a server push arrives (#930)
+271da438e3dd34343d71d18168fd85ad9a3f979e fix(reminders): sync local notifications when adding from the composer chip (#929)
+6d8793ef3fc8c10073605aeffa272874f9703c93 fix(calendar): fetch from local midnight so morning meetings stay visible (#928)
+fa022524a4e1577d4b3cf32e2084207b16062340 fix(gallery): search generated images by the user draw prompt (#927)
+c743245f6ed46672532f8ed49bdb1cbcffedbf8e fix(gmail): confirm suggestions as dated reminders (#925)
+99f2cddae315ed03495866c154e185946f79c163 fix(learning): open the lesson map after creating a class (#924)
+6df919d78720db1b9bc9319948e1c2ff12b48d32 fix(gallery): auth thumbs, clear load timeout, keep grid on page error (#923)
+233ac7fa364ca75c371fabd67ed416ee9560056f fix(lists): keep empty named lists across refresh (#922)
+a94b344ce684b5cbde5b88c03ac63fe6c01748b6 fix(learning): teach words in sentence context, not trivia (#921)
+28731745bd75010ab388767a5d4a60d428583fa9 fix(learning): show the full lesson tree at every level (#920)
+98053da86bff44aae4da63a21fd6153b17efd0cc fix(gallery): Generated/Uploaded tabs, Open chat, and search (#919)
+cb48c24c90267c91b86a7c26a82a486cfe6f5db0 fix(gallery): share files, drop fake search/list, paginate honestly (#916)
+2297badacb3127c1aa4ff6e46880dddffa896776 Fix learning Continue and chapter progress. (#915)
+2c5952462a82f345c20777e1b36a8a1489924a63 fix(markdown): stop list labels from stacking around $m$ and stray ### (#913)
+ddff0edec5a13cc04864e36d1ae1f574c28bc836 fix(math): graph bare y=f(x) instead of stripping the fence (#912)
+52a9971152791948183f78a24de8e68053a5d6f2 fix(stt): gate on sustained speech energy, not a single peak (#910)
+7c976c760d541aa1ea47e420960947fa1dc0525f fix(stt): match hallucination stems, not just exact phrases (#909)
+df595ec0983bbe8d8854909264173b3941f76704 fix(stt): send temperature:0 to Whisper to reduce hallucination (#908)
+552a4f5b9f40a03ce2f15bae59e914a7c57c4da2 fix(stt): filter known Whisper hallucination patterns on the backend (#907)
+2d88eae9c681cbe0204bbf58e83f32d294f0c296 fix(stt): skip silent/short recordings to prevent Whisper hallucinations (#906)
+0e1b66e7d314416181447401a0ba54a85fcf0042 fix(markdown): increase stream cadence from 20fps to 30fps (#905)
+b4c80efbd91c14c17e1bca303670658dccdb09c0 fix(markdown): eliminate chunked→single-markdown remount at settle end (#904)
+e92a635928cb28581371c4ebbb79f407ba8f0a4c fix(api): invalid fence UX — user-facing one-liners instead of raw JSON (#903)
+f0f134875fd8e65371f453fa3b40fda37b819b88 fix(api): vocab MCQ fence-only — drop redundant markdown Q/A block (#902)
+06af6c3bbe020a5f674a78fef5e00827f35513d4 fix(api): universal format baseline on all non-lightweight turns (#901)
+05d2ff5e24b011a8abbf4815e738ff08eae4b14e fix(api): post-stream prose normalizer — strip orphan colons, collapse blanks (#900)
+25a5d00e1bc3fc5080a7e56e1c7517c7c6eed18c fix(markdown): pulse streaming math/diagram placeholders (#899)
+6accff76ebffb39363b6d9848077029994f5544b fix(markdown): improve paragraph/list vertical rhythm (#898)
+7ad909c7f35ec74902fbdfc5239389cca9adbf2b fix(markdown): lighten rich fences — steps, callouts, comparisons (#897)
+289e4f40466a757eb52e4f8e00c7b20ba782a378 fix(markdown): use body font for inline math instead of monospace (#896)
+89d7d9a3c217ad98ba7c6893f39c9ed4292bcda0 fix(markdown): bump heading size ladder + add top spacing (#895)
+69ace22c216b161db4c1e62349fbeace8be147d3 fix: compact math keyboard — remove hidden last row (#894)
+e548ffec0075fe50888d2bc9ba74d62a27bcc398 Fix vocab card layout and path domain resolution (#893)
+bc79bc1314ac845070359f659e14a51292c448ea fix: send SM-2 struggle signal from retry-until-correct quizzes (#892)
+88dd9a65b046f23928a3ffdf7059b582b0328da4 fix: Learning pipeline bugs, level filtering, and lesson UI (#890)
+c0d1fc45932a0f9459f1609d436c7518d675aba7 fix: add paywall subscription terms and correct legal copy (#883)
+04f2787ee603c27e29e58c9a959456415e22b746 fix: make failed chat turns recoverable (#881)
+d0d014f1f47ca64a08cdd6a517d90f678fb8d651 fix: enforce verified physics boundaries (#873)
+705a6fd2e7954d448afe93be3453de177f60b03a fix: disambiguate physics quantities (#871)
+4c637dd178a6a52bf055658617af756b8fa5af10 fix: correct kinematics derivations and timing (#870)
+fc363a7dfb47dd29191d79fae05bd656c4b854ff fix: route supported physics through verification (#869)
+59db009218e66de3f38940ffbeefc32d475e045c fix: clean up assistant list styling (#868)
+2e74ca48e90d681ce6ae1514a54ec3869b7b5ad8 fix: recover connectivity after stale reconnect (#867)
+fe9de16f1a7b55a4278ad09b9cd981bff587074b fix: render diatomic molecules consistently (#860)
+302559f29c6a087bcd2472c7346f08382e39050b fix: Molecule3DBlock fallback UX + takeLang digit regex (#859)
+b47b0fa461d638ff4b2cc74193da73269b9d586d fix: auth + models + quota pipeline audit (H1-H2, M1-M12, L1-L9) (#854)
+0096d84edf39c18cc585ccb65483807a307ace7b fix: rich rendering pipeline — 11 fixes (dark mode, errors, prompts) (#852)
+25254e5a4d2307b3f8623c773c02a3237a722439 fix: attachments + RAG pipeline — 13 fixes (high to low) (#851)
+46b1a902f607c758bcc1b9ffa659b9b2e2821709 fix: chat loop pipeline — H1-H5 + M1-M13 (18 fixes) (#853)
+37c975da88b6b738c72041a643bc5a5d2e8c4847 feat: teach model about rich fences, polish tables, fix tz + sensitive memory (#850)
+3ea6886114a0d37ee7a8dc3908ae1e0e1cd89936 fix: remove dead New button, stack gallery header vertically (#849)
+31b9846c71b37062858339d766879d42c0774f9e fix: gallery thumbnail black square on failed/silent image load (#845)
+69978af20f2e85e2e545c31b380147ae712320a0 fix: add header + back button to gallery screen (#843)
+85719efd1478851d6402c8774c2054da26ab7e4d fix: image gen pipeline — aspect_ratio + regenerate routing (#842)
+27af6f210a3d4eb111d72d0f84ca154b5a5a9f19 fix(lang): align daily-items limit + projects_repo.update commit param (LANG-FLOW-005/012) (#840)
+bc7712034117b6be4d72598c8d83cd7b40627f56 fix(lang): low-severity batch — trivia daily goal + quiz lookback (LANG-PROMPT-005/LOOKBACK-001) (#839)
+74d323985b67b1562dc83d0d6eb63bc052f012b3 fix(lang): lock item row for SM-2 update to prevent concurrent clobber (LANG-BE-011) (#838)
+282fde535a67912172051994c4952a4337ca2543 fix(lang): filter archived projects + increase daily items page size (LANG-UI-013/008) (#837)
+e4a7aa18e471dbdc3effd9e0d30b57dad16156a5 fix(lang): history/streak consistency + miss-event log (LANG-BE-005/007) (#836)
+8f1bdad97daf9016dd325dd9b225d92dee4c047a fix(lang): gate minimal_quiz on project + tighten vocab question heuristic (LANG-STATE-002/PROMPT-002) (#835)
+077607e41a9cf9bf9c4025da4237ddf0da0749da fix(lang): ambiguous choice matching + fence shape validation (LANG-GRAD-004/BE-008/013) (#834)
+1e378dc82edda5d1c801622832f0891aa591429e fix(lang): quiz a11y labels + answer state tracking (LANG-UI-006/010/011/012/014/015) (#833)
+e5376f5fee0a572a70a1e11a97196546dfc50577 fix(lang): i18n level labels + status labels (#832)
+945479d1984da609a624b94aa507a957487133e5 fix(lang): tutor prompts inject native/target language (#831)
+0cfe6431d39b77d147f314a74ab54534989be007 fix(lang): mid-session quiz context drops failed-review nudges (#830)
+66f75a9d4189061cc465586fbd390c5fcf3b1110 fix(lang): failed items count toward daily goal + home cache invalidation (#829)
+e8fdfcc5d79684cf94c3aba906618f694823440b fix(lang): projects list stale after quiz + non-English project ID fallback (#828)
+e70ebc6ad24e5fc9df9ba6080c954ed0d58f3f07 fix(lang): batched stats skew + per-project detail truncation (#827)
+6a4a7b7e876082d5c7ce89414f19cd1dbc2b80a3 fix(lang): model re-emitted fence resets try counter (#826)
+84183d14d6ec28bd277d80800eea78ad1589941a fix(lang): guard quiz chip double-submit during in-flight turn (#825)
+5208f47a294a34fb5fe082cf499bdcfc9a785c95 fix(lang): stop leaking correct letter on hints + MCQ mastery fix (#824)
+c0cf2277c8cf83854a96cba09ac1e11fb17c449d fix(lang): verifier abstain no longer drops quiz progress (#823)
+f864227c739cf2a2c965fc8b72ddec07e64b6500 fix(math): batch of low-severity audit findings (#822)
+4f895ddea85a10b3a29970e6f23f3414a88f4aee fix(math): a11y labels for symbol keys + i18n for 8 locales (#821)
+50f73b8224c1adcadb994d32e3f1460deb6b01cc fix(math): add missing <, >, and variable keys to math keyboard (#820)
+4609cc6182266c19babe6e34e816f319947aa6cf fix(math): paste while keyboard open + preview trigger for bare equations (#819)
+1ff8aa58bd083809e660d2d6d2668f201d1f630c fix(math): generalize stranded punctuation + medium preprocessing fixes (#818)
+50b636b94e7073515f1342631cf69ad86bc220b1 fix(math): streaming stability tracks $ and \(...\) + mathFormat in stream (#817)
+36ccc71a8c70036a4b7d04fb618b3a5346f9f09d fix(math): table pipe splitting respects math + enable GFM tables (#816)
+32606484d83b79d48170ba7e3c6e6c7a6fc024f3 fix(math): attached fence fix for all langs + nested fence scanner (#815)
+a63a47700337eac5f0d7e316030c86dd844ce718 fix(math): untagged long math fences + streaming matrix jump (#814)
+0e56fb8c6c7abd5a47ac3e29eb6b2babe08f5645 fix(math): inequality 1D number line rendering (#813)
+5f57fb9cd33ae50fd71726d10564a8449509fa87 fix(math): MathBlock + table cell clipping for nested math Views (#812)
+e6fc4009315dc9a6c597c8b3e572ff6d59cc12a7 fix(math): \bigcup glyph + expand LATEX_CMD_RE for set-theory commands (#811)
+47d02c4eb87c3af08b0621ac21636d5143be342c fix(math): day-plan / quiz / lightweight turns keep math guardrails (#810)
+390f8056a19bc0e7e974c2d174471c8189b5ad6b fix(math): calculus derivation steps + wrong-answer tutoring prompt (#809)
+9fa9d051ee3f22a28c8140d8a545482a65062111 fix(math): route math/structured turns to the smart model up front (#808)
+c0942970d64b111567ce717d4df8bb2cff5a1542 fix(math): MCP inequality emits graph fence + clarify number-line prompt (#807)
+0a60fdb6c86b34d4533929cd557d6d678ce228ee fix(math): graph window parses user-named domain (#806)
+45202062b02caf562e4f3614da53581f741b7f88 fix(math): circle circumference answer + sample vs population stdev (#805)
+66e560bdd0a17f93cecfa83782e8d3cfa7e6d8f6 fix(math): solve for the user's named variable + trigger SymPy on bare equations (#804)
+65c1f98f48a4009dfccf235503b14d4e8d38ccd8 fix: graph axes use whole numbers and a y label (#803)
+ef6e1e5c2273834972205e1d14a2c08c3ff3d4b1 fix: home overdue cards are a one-shot nudge, persist dismiss (#802)
+81036a5b63b727a88cc4eba5f0c72ee1e338f5d0 fix: break attached ```graph and ```geometry fences onto their own line (#801)
+56bf15d0210638ce28a9a2fdd7241184d016395a fix: merge stranded colon lines onto the previous line (#800)
+3194c31fb1c07817cd15f586e6574f9b5d5cf2cd fix: continue pill opens original chat instead of new empty chat (#799)
+ca4bc299137c7308233b01f88ec3422791cd0063 fix(quiz): project kind is authoritative at grade, not fence quiz_type (#797)
+edbe545d4f24924e1f1018f5e9b4f84ae86391e5 fix(chat): letter on open-ended vocab prompt uses vocab-answer path (#796)
+9787cbc33ad86f44eb975b6f9e9ccb686023096b fix(chat): open-ended vocab turns skip web search + integration context (#795)
+0a8f56f43c2d08c74105c179fa28e94f02173646 fix(chat): force rich context only for document attachments (#794)
+199c209e4869b3fcc825897b305250ba2d437326 fix(calendar): tighten _SCHEDULE_CONTEXT false positives (#793)
+1e306b7b23b5e951cb8c5cb500ae7f15e4f2584a fix(chat): refund quota for instant replies (no LLM cost) (#792)
+aa4922b4f42acdcff823cc4371d67d85d91b1492 fix(math): fail closed on graph-fence validation timeout (#791)
+723e7dc190d57868b42373df165dcd55d36dde5a fix(chat): model override respects enabled_models (WS + HTTP) (#790)
+655a472325050aae17f62c2521f2633bfce90294 fix(chat): regenerate reuses the prior assistant's model on auto (#789)
+2dc2578238635605680d2a5852e62bd2bd80aab7 fix(routing): escalate comparisons and bare coding asks to smart model (#788)
+e73de8815dda8fab0e3bcfff5f2f78503cec1959 fix(mobile): drop stranded trailing colon after nested-View math (#787)
+16c29cbc95c9615fd097245ba62a6fdfc322b4f5 fix(mobile): stop clipping the radicand in the gray answer box (#786)
+ddd60473f4c1beb116ec198615d815ee46f199d9 fix(chat): remove style-based output token cap; one high ceiling (#785)
+b935790ad3aa7ff4e42db7937843432bb00e6fdc fix(math): override short-response token cap for verified graph fences (#781)
+ce435f4a60431ad703629067811d00742d51ae52 fix(math): replace truncated unclosed graph fences with canonical (#780)
+9fec7239a2d2a7a55927f683416c435b5e53dac3 fix(math): render 1-variable inequalities as a number-line diagram (#779)
+5be279f47033e0b69e47c7950c82cdd57cfb95c8 fix(math): strip $ delimiters and fix base-less superscripts in graph expr (#778)
+7cdb61dffedffe8795658e08741b8c87bb2f1b11 fix(chat): skip MCP tool loop when heuristic math already verified (#777)
+bcb98232ddccda6dd3b04e98f174a52d28365c29 fix(math): convert !function_call:graph text into a real sampled graph fence (#775)
+5b4757326fc5324b1c02b65cfa974a09c923f573 fix(chat): send final_content when math fence validation rewrites the text (#774)
+8188a225542c0789b43355ad98b0d189befde846 fix(math): graph equations like x=2y by solving for y, not as vertical x=2 (#773)
+4019d2b69c981054a4934ffbbbfc28b4182a6d84 fix(graph): infer type when the spec omits it (raw JSON fence render) (#772)
+5e36858249a60404ca6b2d2d8560ef4ba4840242 fix(graph): round axis bounds to clean integers, not 8%-pad fractions (#771)
+0820dd541f1e304ad2ddd0f80360d0920ef8a729 fix(chat): shimmer placeholder while a graph/geometry fence streams (#770)
+aa5393ebfa4dbfdeafa3178090e567589863c95c fix(math): keep MathJax vendor out of main bundle (SVG-native spike) (#769)
+57cb776b27d6d248f56d0349ce0a9a61d5b7d57f math: lock inline-math fixes with a render corpus + protect \\ row sep (#766)
+e1de8f4932c2aa4cb5887a983d92b56a20ba70b6 fix(deploy): document EAS secrets, drop dead EXPO_PUBLIC_API_URL env (#762)
+bd40a51c1837730b9b4ce024c27b7a3ee4c1172b fix(mobile): HTML preview Run tab now follows dark mode (DS-01) (#745)
+c50e8cc1bb8a6b607a73b00926fdbcb5436fb47a fix(mobile): math scanner resize, close, and visual polish (#742)
+0116e2421c401df4c81dbddf6a455b61853c2e01 Fix radical rendering and stop a link-repair from leaking inline math (#734)
+9853734f647f6837d9cff70f9b938141942dbd2e Fix RevenueCat TRANSFER so a failed target sync can retry. (#651)
+327bf6615b2a0e4aae62b84d9fe7a8d71c5b6d27 Fix home cache SCAN, search paging, and suggestion expiry deletes (#650)
+5136cf0d13446e8bf25c37c8d0b1ff8dd169889d Fix Google Calendar/Gmail disconnect, sync, and prompt failures (#649)
+2f5e98fcf7dcfd85917a0f8c261d949524a1918c fix(api): Math feature review — MCP parity, OCR layering, dedup (#647)
+89c4a019b96c8c80b4bdb854cc3e67d086973684 fix(api): Release DB session during memory embed in background jobs (#645)
+eb286d0be89a17a9cb4048ae3ada08ed3a57f19e fix(api): Shorten migration 0063 revision id to fit alembic_version varchar(32) (#646)
+b0605b7ec690f89f8624b0ee952ca53072f66e8a Backend review fixes: perf, correctness, and layering (#644)
+39caeca5215011cc546aa4b1eb53368d42c1b021 fix(api): Pass 5 attachments — purge-before-refund, bounded reaper, verified_at (#643)
+47033486f2856a753d4ec0df6a4fa0dba715737a fix(api): Pass 4 projects — verifier abstains, quiz prompt budget, crud move (#642)
+efe54513e24b4ea024a8d7918f543f3e33bc1b80 fix(api): Pass 3 todos — delete pre-reply sync, batch repo commits (#641)
+c788f5d4ef7aca5fef075f4d9a619b446b49c8d2 fix(api): Pass 2 memory — gather consolidation, drop SCAN invalidation (#640)
+180daf1a38b5d8cd51fb22e12073c43bfb4fff8b fix(api): Pass 1 chat — quiz rollback, quota reserve, stream seams (#639)
+7403ebcbbf98387f6e77d4018ae782b859d58768 fix(mobile): Pass 8 sweep — lazy PDF, attachment refresh, prefs off Keychain (#638)
+dd1c734a7c38b9b34c869c9ef49179eac35e78fc fix(mobile): Pass 7 drawer — stable FlashList style, quiet Settings hub (#637)
+1db99eda57fc759fac39f26fcb3f1cc64b54ee30 fix(mobile): Pass 6 chat — image-intent guards, queued PDF, voice isolation (#636)
+1aa5db35db1a83cfad57d144f373c98a34960f70 fix(mobile): Pass 5 fences — Run-tab nav traps, lazy HTML preview (#635)
+ad1f371f700c637edc4228885b7011bbe940437b fix(mobile): fit parallelograms and format backend graph titles (#634)
+a531a2ab42f66d18b8dd340f341b91a23196f163 fix(mobile): stop stripping fences/hrs and flatten quotes in markdown (#633)
+7f0b564acb2776e627436ab20d60d0e1fd4a9374 fix(mobile): keep stop/regenerate/title-poll correct across stream races (#632)
+1f9418cbadf2797391217cc58668d3cb64aae8f9 fix(mobile): Pass 1 chrome — accent typing disc, contrast, Gmail cache (#631)
+913c6d21463598cada15c999c0103548823c89f3 fix(math): graph inequalities as number lines (#629)
+d35efcf471e064dd8804d4ed28ff7a6e87bda9a0 fix(mobile): keep 'An **bold**' on one line in markdown lists (#630)
+22e84837ce4bc3aff890626f6d81610c3e40cdc0 fix(math): graph axes through origin, readable titles (#628)
+ad612372162581c7cf4f0985e082137b5247b0f4 fix(mobile): frontend working-review follow-ups (#627)
+dea0d8325bed52a8fa5ad6bf4df4fe4115621de4 fix(mobile): drop dead contextSummarized plumbing
+0083af9d7f4b7f693266959825803dacd8e332a9 fix(mobile): drop gray math cards and give fractions room above (#623)
+2634d5779c63750b35d6df976ec862b85141d10d fix(mobile): use a visible filled disc for markdown list bullets (#622)
+5e89c72f316f306340f64030ed9efa75187fc6dd fix(math): do not let geometry extractors steal algebra asks (#621)
+8336b9a660d10ad754235d40b301f47b6c9171f4 fix(mobile): parse unicode superscripts/subscripts in MathText (#620)
+6fe40ef6de6bc6381a746b8fcdd66e12ee5d8f1a fix(math): densify graphs only from verified canonical fences (#617)
+07279e3b3a4fe308e1801a91d6eb33d1e930d5a8 fix(math): stop overclaiming verified scope in solver prompts (#616)
+8050a9dbcb06dc74b3b45a7fe65bddd848c7960d fix(mobile): render \\lor/\\land as ∨/∧ in MathText (#614)
+2308237ebe1bdbb7e9dfc19b144a2939f859d6ce fix(math): inject honesty note when SymPy verification fails (#612)
+d5dc81de9c8b496e0c90b70f908d6079fe25cd07 fix(math): stop inventing geometry dimensions as verified (#611)
+c076f4e67e32334f5e42dc8cf0816a7b780be3d6 fix(mobile): render angle brackets and scroll wide math (#610)
+0f569f819cce7fb1464c5bcc46c0757e601da72b fix(math): stop square-root geometry hijack; expand LaTeX/MathText coverage (#601)
+8e17609e35cf52bc9cfde71fbb3506de05ed187b fix(deps): clear remaining image-size Dependabot alerts (#600)
+56ce2af59e9e15fc3fa9ca343783ebb3ac4d6100 fix(deps): pin nanoid@3 to 3.3.18 for Dependabot DoS alerts (#599)
+59f62fbac70ed0758bce082798ef1f1971646ec7 fix(deps): clear open Dependabot alerts (API + mobile) (#598)
+9d376285a30f46a7828ddd565788e5c78373a335 fix(api): stop logging web-search queries in clear text (#582)
+0f4393b4e2b7d7256ce3603a2a6a218193edfe1a fix(mobile): stop HTML preview from silently rendering near-blank (#580)
+448d508dcb3a9fbb2e8c42ca4eab40f741a492cc fix(mobile): clear sticky offline banner after reconnect (#578)
+f7aeaef4e09892cded90dea0daf84de9ef2bc137 fix(api): route MCP web_search through Tavily quota cache (#577)
+0fefb25938526a5a22adc746a27973931d14da99 fix(api): idempotent job dispatch via Redis dedupe keys (#576)
+17114faaf7ea144eb9ee4a277570a827a01f1c83 fix(api): update chat tests for parallel web/math builders (#575)
+9c36219efa3153f74bae7ce2ccf261de88da0a09 fix(api): DB pool sizing, tool-loop cancel trim, DDG timeout (#573)
+e6f98b8c3f4ea014a6d75c8d980f1ee8da32165a fix: pin Dependabot transitive DoS deps (npm + pyasn1) (#572)
+458d580a922c4ce8f59b9b81fcd61825ef1021e2 fix: harden poly-ReDoS and unbounded recursion sinks (#571)
+82b8515778a97791b2450a6cd89e8d814cea3e15 fix(mobile): override brace-expansion 5.x to 5.0.7 (#570)
+381ec9230345c14b094a33ce8fffc4223dc4c4a2 fix(api): opt-in rich context instead of greeting allowlists (#569)
+a53b6aff9a353b8bfc120a62bb1685d4fc13c61a fix(api): skip memory and status theater on lightweight greetings (#568)
+f9bd2d919ff24a494794df7cf4286b5acb8cf1a6 docs: fix production checklist alembic head and R2 env template (#566)
+17fe621b445033907e2722ff160798c653b1903a fix: harden push-token cross-user rebind with device_id (#565)
+0959818995550a1c1fb516287e5ec45622a86176 fix(api): use UUID v7 for new message ids (#564)
+aa7ebe588fdb060251cfe93e0d6dfd0b2238d46f fix: staff-review cleanup batch (SSE throttle, reserve order, micros) (#563)
+80926980bfe8ab490a95207b327797fdc631d78b fix: tighten dev-guard peer check, link-preview body cap, preview CSP (#561)
+bc9a86c101971c65e10416e71661e4b8939e6151 fix(api): harden account delete storage wipe; export attachments (#560)
+81c3cfc124eaeb0e262d2cf8f1d157d6d8844b8a fix: restore edit snapshot on WS error; ignore non-dict mid-stream (#559)
+be7dbda5ec1f581bc2df26d789cd97b3d23065c7 fix(mobile): refetch chat messages on app foreground (#558)
+977a68a90827be3573f91f30f4455dd9d1cb36fe fix(api): ignore stale RevenueCat webhook events by timestamp (#557)
+552472f311533517ecd77c89cfcbd40194761f9e fix(api): process job batches with bounded concurrency (#556)
+c0e35e5e312daa3a9fd9e318a79ad8a993370753 fix(api): bound TTFT path timeouts and release DB during embeds (#555)
+602c022158ae83b119880360f883da7b513754b7 fix(api): harden memory extraction and prompt PII hygiene (#554)
+6eb7c5cbdefbba61b424748509b8062eb9225a8f fix(api): stamp memory as-of dates; block sensitive home/suggestion surfaces (#552)
+9c1f65fb6f1d94d1cb67c176df7d51da99f7d544 fix(api): gate memory injection by relevance and char budget (#551)
+c01f3563e7f28eaa1ce6cd1c771f611b7ae361b7 fix(api): gate memory extraction rewrites on fact preservation (#550)
+6eaabd41649ba813842b154d223c8d5db3c4b5c8 fix(api): extract memory every turn by default (#549)
+ffd340450088e5a59fe7ece981361106fd54bf7b fix(api): Redis finalize marker + drain background tasks on shutdown (#548)
+976238bca4b30c77a52e8bb40d729b12ba1b8fed fix(api): no post-commit quota refund; defer attachment byte deletes (#547)
+2de6cfcbcf025d75b13fafdd6b75ea2c281ebb0e fix(api): refresh chatprep locks; token-safe memory write locks (#546)
+9cace62f5a3c74ab7f54f290b61f6c797386817f fix(api): hold chatprep lock across edit delete + re-stream (#545)
+bb3ef903dba9e319f2a5750174ab39081fa23112 fix(api): refund edit pre_reserved when stream never takes ownership (#544)
+3e1cf71dc54b8599ccd05bb88bdb1d02d1d0ca3e fix(api): keep Pro through paid period on RevenueCat cancel (#543)
+f06706c9c46fa228f9980340f05eb6b6a697f5c8 fix(api): ignore RevenueCat SANDBOX webhooks in production (#542)
+1c45de5a72097c484541e24ae20e49f70442429a fix(mobile): mock icons for math expand tests; drop pending i18n pack (#540)
+d35486931ecc583bb95d402a49a7faefe24ac1c3 fix(api): persist partial reply on hard WS/SSE cancel (#539)
+a29437b5d079496855757401f58605879c2ac58a fix(api): rewrite algebra answers via canonical ```answer fence (#538)
+06a726c8398c55568f5797eb43e35385b9e25986 fix(mobile): fullscreen expand for tall math WebViews (#537)
+0a968d2431c0a0ddc98029a3a8e7fd319b83d13d fix(api): per-chat Redis lock for prepare + stream turns (#536)
+e7e8e2c53d5d449261f1f1e5f45e65eea50e4542 fix(api): atomic claim for RevenueCat webhook dedup (#535)
+859972d4ab176ce35b5ff70171d571c7373c7a42 fix: Claude review wave 3 product correctness (#533)
+0b9d5644a341d96636be3fb463f24e4d65a3838b fix: wave 2 reliability — tokenize, downloads, quotas, rollbacks (#532)
+bc28316289476b1c03127c5728c40a8c03cbf279 fix: strip wrapping quotes from chat titles (#531)
+34b397ffcf8205f53b0da25b31765efc0416ead9 fix(api): harden account delete, export, Google email (#530)
+169d221b6aca9e9bcda24e2b7e311785a249813d fix(mobile): block https img/font/media in preview CSP (#529)
+b699913a48da8b25d4e053fd4039b0168ce332f3 fix(mobile): pin react/react-dom to Expo 57's 19.2.3 (#528)
+5b17f024f6e7a23a1006ed62a9914cbe88a55f9b fix(api): Kimi Lows w2 PR D — ops Redis jobs client, deploy, catalog (#516)
+b06a6983c85a8258ab55621c6942e859fae1780e fix(api): Kimi Lows w2 PR C — calendar proposal claim + honor push now (#515)
+e0050487043b04a4ca56239b8f9ae028b6a2e0b3 fix(api): Kimi Lows w2 PR B — API hygiene bounds, ordering, exact todos (#514)
+d79de9ad049cda5533431afe6651afaedc4c216c fix(api): Kimi Lows w2 PR A — WS token re-check + sympy cancel kill (#513)
+0ea005f11fb53686710ccb1717cc4cbafcc2e748 fix(api): Kimi Lows PR D — non-root Docker USER + fail-loud PROCESS_ROLE (#512)
+e0aed93e25e7f908967b6c40fbb67b888896812c fix(api): Kimi Lows PR C — webhook overflow, TodoUpdate bounds, email log PII (#511)
+4ac2a49f9f314e32d0a774081ec96d18e3422354 fix(api): Kimi Lows PR B — Redis 503 on refresh/logout + redact exc_text PII (#510)
+9f18a45ec9381340f0da9f7da67940c1ff3b7860 fix(api): Kimi Lows PR A — harden WS frames + fail-closed rate limits (#509)
+78bbb4d28d37dd7d1fa0170d4fe16adf638060eb fix(api): Kimi Mediums PR E — attach byte reuse + cancel aclose (#508)
+77418c0620e5ec1bf5809dab16cbb9ca6328889f fix(api): Kimi Mediums PR D — memory/RAG/push/gmail/dedup hot-path perf (#507)
+634e223b360161d9ca788c15a92f25e10fc21730 fix(api): Kimi Mediums PR C — drop dead home chips, skip pronounce HTTP (#506)
+c243959622864299503f6e16b45c7f4091c1722c fix(api): Kimi Mediums PR B — proxy trust, suggestion cap, refresh docs (#505)
+80d7aa86c739a712c252234fe11580635094b7de fix(api): Kimi Mediums PR A — scope, mathfp, wrap, dead copy, sports (#504)
+92d81285208cca9fe3952fe1439b073673ef00f0 fix(api): harden Kimi Mediums — timezone, CORS, webhook, dev-guard, worker (#503)
+7f18d36e1e7dbcd9c7bcc626bd256992bbdac328 fix(api): plug Kimi quota/usage Mediums (refund, vision tokens, upsert) (#502)
+ebb2b2dcb8e6271acbc281f79070362b3a60f7de fix(api): address Kimi High findings on finalize, fallback, bulk-shift, heartbeat (#501)
+5c78590ca0e68234c87b95ee2e92dd4ea5f38602 fix(mobile): keep active drawer title on black ink (#500)
+c56c483eefd825448cb472b69f0813fd0d190600 fix(mobile): highlight the open chat in the drawer list (#499)
+6f0a1c077afba56cf810ec284064a2428b484c93 fix(mobile): keep add actions usable while the keyboard is open (#498)
+9a395d2ba5568eaa57d67cb1e96d83e06dc14050 fix(mobile): make Learning/Lists/Reminders Add FAB solid primary (#497)
+21b8c4870b1d6560d4479ae38311ef0582c22cbd fix(mobile): use primary blue for typing-indicator R logo (#496)
+dde6da595e3387f6d60eb2ff8294f01591595321 fix(mobile): align Learning, Lists, and Reminders add + brand CTAs (#495)
+1d9b26d2b4c14ce900414665b05c53650211cf4f fix(mobile): unify chat, drawer, and attach action-sheet chrome (#494)
+87c52fcbd95d54ba1dfa04a603314cac4b7839d2 fix(mobile): ship chemistry SMILES follow-ups left off main (#493)
+4d96b137dafc48e0dc6fb8a7166ebbea4ded2974 fix(mobile): polish onboarding auth copy and cancel UX (#491)
+e229ce14002d99fb89de7c5591fb1fdd2c43b8e3 fix(mobile): polish settings consistency and error handling (#490)
+a923aa35ed631b2444071c8a211ff66eb8e8056f fix(api): clear CodeQL poly-ReDoS in image_gen_intent (#489)
+7d8f2c1fdcde5560b4d9af096763b299d9a3e7e7 fix(mobile): route image follow-ups to generate; stop 404 spinner (#486)
+9d0651cad8eb52ec00c50913378b397470c2f716 fix(mobile): instant image viewer, working download, and share (#484)
+133a02dcdf9be5e59e7f7d7f15853805b004d5b9 fix(api): fulfill Create cat on the server, not via LLM stub (#481)
+4bc233e47e0ea301dfd217ceb06e2c500d7d3d21 fix(mobile): always intercept image intent; don't trust client isPro (#480)
+157281359b3f9564c18f3c8532f94d3c270984c5 fix(mobile): treat Create cat as image gen, hide fake ```image fences (#479)
+552db61fca40eafe3548904bde9016880710408c fix(mobile): generate images from composer send, drop prompt sheet (#477)
+0a1bb6937be66de1124f4dc28d2e13715960af1d Fix raw (\frac) inline math from markdown-it stripping \( \). (#450)
+fe621ec1beac8ffa1e71860c5163688864369150 Fix \sqrt{} leaking raw \frac text when the radicand contains its own braces
+e34430dacb60c757c071d667a7a089924b3bb7f9 Fix misleading ±² rendering and improve √ radical in native math fallback (#447)
+85b4b2f75085938d8872ecfc116a8794892b0e64 Fix streaming math flicker: eagerly settle closed rich blocks (#443)
+d1f5f1d4e655edaa9bc088f275e155b983aed958 Fix math-audit findings: brittle camera OCR trigger, Short-mode guardrails, LaTeX env leaks (#441)
+f590d68b71c7340792203f3dd51dffd161501ec4 Fix ActionBanner crash from shadow→theme withAlpha import cycle. (#432)
+5e1d58b35f29a9ddb22e8535152c6091fe316635 Fix home crash from circular import on first paint. (#423)
+3e77b13097d56f6b125c3a0d2be3e52cabeb178f Fix memory write-lock race, RAG error isolation, and other audit findings (#414)
+86bd8a092af718c5fa83ebb4eedde56ffccc0f83 Fix streaming-scroll catch-up starving during fast, sustained token streams. (#413)
+1b75a68a1a35120bf9c5d4ff32a2488a0ab4949c Fix drawer Learning label washed out by chrome fade. (#412)
+19978c539ba62a997164c8c4599ba18255054021 Fix drawer menu button stolen by edge-swipe strip (#409)
+b84f107d3195df0e642f5c8c274519d0afd9c43b Fix inline math rendering: fraction overlap, dropped fence tags, escaped LaTeX spacing (#403)
+cc3742552648b06c4ad861837d4d57dbf188fa85 fix(mobile): land drawer Select-in-menu UX (was never merged) (#396)
+c984c2b3a39afd1715fca83c2c8056b8003c7571 Fix inline math rendering: fraction overlap, dropped fence tags, escaped LaTeX spacing (#369)
+8611f34b0863a72a27bb597b7d9c5f501e1d8812 Fix/attach image ux (#367)
+a83fe6630dba3e87f1f170e1af9b0b3a75e626c9 Fix camera attach: UNTRUSTED bubble, blur, sheet, math crop (#358)
+c737c32a651e865d33339ba0561ce45e6c590157 Fix list add sheet covered by keyboard (#355)
+15b65f0719c86523f92e58e2704410f812ae3b28 Fix CodeQL ReDoS in math_tools + prompt_constants (#348)
+137d75513c23cd52191917adbdbee2535015052c Fix High CodeQL alerts (sanitization + ReDoS) (#345)
+4dc6e9013f81c1e2ccf52032c152d86fe62122dc Fix SSE stream_factory callback types for mypy.
+660c316558c79ae768f595f47e797b086c09cf70 Fix raw LaTeX leaking through the no-WebView math fallback.
+679f821dee9d58c246c981a0ff8de9266c456ee1 fix(mobile): clear the offline banner when connectivity returns
+151e2be6776bd2c5dcae7ac4e2e0851f29e3f525 fix(api): implement factor/expand (was a silent keyword false-trigger)
+48dad4d91e93e38288e1e64897b6518c245ac8e0 fix(mobile): run the vendored-asset integrity tests + pin MathJax exactly
+ce3af932a7c5c91131df24904af6cd42e1d21a83 fix(mobile): math display + inline quick wins — env split, recursive frac, native commands
+739b93d305f3a1827e9b126d5b70a7805a25d45a fix(mobile): quadratic-formula rendering — raw \sqrt, mashed prose, fraction bar
+09de174fe5e3f50ca36205f1999caa377d99af6c fix(mobile): span the fraction bar across wide \frac operands
+63d1e492fdcfc63fc5271067ce19f6fdadc1f150 fix(api): security hardening — fail-closed dev paths, headers, PII, prompt-injection
+b1ff9755b3e5c1fa2e6403e0a2ea382a0385de20 fix(mobile): render final-answer box with native MathText, not a WebView
+233d124215d68eea68f7aa02353782e781314536 fix(mobile): route multi-solution final answers to AnswerBlock, not the copy box
+e5a887266f8123a1e62ed3d830e839b539a0f7f2 fix(mobile): stop final-answer box stretching into a tall pill
+18d5728603472dca267210cfbd8865c9012c3f7f fix(mobile): disambiguate duplicate MathBlock keys via stable tokenIndex
+683dd9d36b59b16fcffeb673205239b4da28d2ca fix(mobile): stop routing multi-line/long math to the MathJax CDN
+8a1406e026eb4dfea3478f2359be7b16f2b1c5a8 fix: break verification steps onto two lines, recognize any variable letter
+475a5aa2dcd9f37815f18228da8fa4cdf9c39159 fix(mobile): route bare simplified expressions to AnswerBlock, restyle to match math blocks
+9330ca972a8f5669d1539a7c27326ff2beba0df3 Fix graph fences dumping as raw JSON instead of SVG.
+867f4d883c588f0a37387a751c87ba7d3801ae25 Fix math/chart WebView flicker from remounts and height thrash.
+613fa2add763575dd29eeeca2dee9772c7c47326 Fix math preprocess stealing display equations into prose fences.
+55fd4f54377157e126fa8ebcf149704352b8cbba Fix PDF export so math matches chat KaTeX rendering.
+889c17bdb979ed27bee365a04c43e2c84d330f7f fix(mobile): guard push-notification response APIs on web
+49f8a66996a1c9332bb6523b6183fb759de4214b fix(mobile): only the tapped sign-in button shows its spinner (#317)
+720fe9f133aea122d0e837d5602886c9460d552a fix(mobile): strip scattered $...$ wraps around individual commands in math fence bodies
+d7ba882ab177fce43685f0a4b6add8379c81badf fix(mobile): stop corrupting \[...\]/$$...$$ display-math blocks with inline $ wraps
+9c670fb1944535305193a986e534e010b8504c7a fix(mobile): user messages render markdown/math; math no longer flickers while streaming
+710b632cf1295bde8d9a42b2c043ff113a35e6b4 fix(memory): track semantic-cache warm task so it can't be GC'd mid-flight (#312)
+a20f626c51edf3134fbde2663cbfd3470b3fc1f1 fix(memory): distinguish "no semantic match" from "vectors not populated" (#311)
+99fa74377d465e14dde04f4985c344605c71ed47 fix(mobile): wrap bare LaTeX commands embedded mid-sentence in \$...\$ (#310)
+d6a3f7a3446abe0e606859689f5ad3a5ab11916b fix(memory): guard memory retrieval against DB errors on the chat hot path (#309)
+09d124ec463729c3a845231b3aacc13a026cc983 fix(mobile): render \boxed{...} as math instead of a raw code fence
+757246fb712d1521dc73b40dd6125dc65c6cd1d2 fix(memory): per-user write lock around extraction/consolidation
+7aaa570f4a4069017b71b27dbcae3e1cbd026df3 test(math): Phase F coverage backfill + OCR structured round-trip fix (#306)
+f3a0f042349ff6d2822c20ed43ef366ee54ce637 feat(math): Newton's method + fix function-name variable misdetection
+b2df8f8d8472a76a9e59e1916b9b23eebdbe2dc8 feat(math): systems of equations + fix equation-extraction prose corruption
+038f72a26d9e71ecdb9799e8825a704dce55e15a fix(math): split graph samples at asymptotes instead of one continuous line
+5990144b6103dc384ccc9fafbe668fe65892e7e0 fix(mobile): MathJax offline fallback + shrink MathJax-only surface
+49f86be36ef986e2f22d0875df02978c6d719e3c fix(math): distinguish no-solution from infinite-solutions
+56b959302761bd7b75dcb72d7aed981c6b1865f2 fix(math): flag unevaluated integrals instead of asserting them as solved (#299)
+0d82184529b463568a06ecd531fc41d8628d1338 fix(math): dedup verified-math injection + dedicated OCR timeout (#298)
+3a6b37191bed9b48f5abeba6999790cb190c398c fix(math): mathText.ts rendering gaps + wire up MCP simplify/diff/integrate (#297)
+73d9d4e8bfe6fcd78825eb0f3fe1c060d27b6e55 fix(mobile): recognize arrow commands and dollar-wrapped-only fence bodies
+8eac0bd6b2f89256e378fc56c67d26a10ba96063 fix(math): detect bare-coordinate intent so the model can't invent a fake line
+427f50c3c67081b49434f7a5fd4114033adab7ce fix(mobile): recognize \pi, strip stray \$-wraps, fix SvgText label spacing
+9730ebde8451587130ed1fc4eb40db354805fda7 fix(mobile): don't gate LaTeX-command detection behind the 4-line cap
+f27a506fc20e2c5a5ce35a4ada400827df500fa0 fix(api): rename circle spec variable to fix mypy type error
+bd67d8b9dad4fd225f162433f5e36b913b43ade2 fix(api): apply ruff formatting to math_tools.py
+1fbfb299f8d4e4b78be67f6f0a5865b1db5c7af8 fix(math): rectangle diagrams only show what was asked, fix angle contradiction
+a7640fcb6b5ff876be7760702815ba6dbfa98ad9 fix(mobile): render geometry/graph diagrams even when mistagged as ```json
+e04622fcbada09726b544ba1b63223fc930a0416 fix(mobile): tighten unwrapCorruptedMathFences' price-tier-artifact check
+58b4857d2653e9c77fa3d862c285178ea5ad8d53 fix(mobile): track \[...\] block math in the streaming-stability scanner
+9b92f0510b57df53f14ed70a47fe053fb14e4c24 fix(mobile): render common LaTeX function names in the no-WebView math fallback
+fe8389645cf4aa6b1c9fc0d14ddc154326262b35 fix(math): stop silently capping graph samples at 200 points
+bcd1d6af5c4b3467e995b2ca5c4124fea2094f91 fix(math): stop trailing prose from breaking graph/calculus intent, close schema gaps
+b2b98643ee6763b810bf9392d40f90ccd7ff2557 fix(mobile): fix two math-rendering bugs breaking step-by-step solves
+3617840e52031081206707df6f4a0d0dcd30109e Fix list create crash from SecureStore on unsigned simulator.
+4637316fa0c786ac812658c40316da44d64e41cc fix(mobile): stop double "thinking" indicator during reasoning stream
+66545d2484532215c67437e5be653b804295a5ec Fix Pro users getting free-tier image-gen upsell.
+308b905e047430d195aa069e8b173a691e449aea fix(webhooks): mark RevenueCat events processed only after they succeed
+6ccbfd3863b64a8af67570f375074c100322d4e4 fix(push): chunk outbound Expo push sends over 100 messages
+8b8c454b24b2d63b2c1226e23ffc42dd9f3cad99 fix(gmail): isolate per-message fetch failures in Gmail sync

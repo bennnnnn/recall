@@ -1,0 +1,17 @@
+architecture rc=0 secs=42 :: 196 passed, 1 warning in 38.74s
+core rc=0 secs=14 :: 95 passed, 18 deselected in 12.59s
+gateways rc=0 secs=17 :: 115 passed, 3 warnings in 15.73s
+repositories rc=0 secs=7 :: 54 passed in 5.47s
+security rc=0 secs=24 :: 83 passed, 84 warnings in 21.43s
+background rc=0 secs=6 :: 32 passed in 4.61s
+services rc=0 secs=27 :: 1464 passed, 1 warning in 22.34s
+behavior rc=0 secs=124 :: 3336 passed in 121.74s (0:02:01)
+modules_account rc=0 secs=8 :: 252 passed, 2 warnings in 6.43s
+modules_analytics rc=0 secs=5 :: 16 passed, 1 warning in 3.72s
+modules_attachments rc=0 secs=14 :: 253 passed, 4 warnings in 11.92s
+modules_billing rc=0 secs=6 :: 37 passed, 1 warning in 4.17s
+modules_chat rc=0 secs=22 :: 2176 passed, 21 warnings in 20.49s
+modules_chemistry rc=1 secs=17 :: 3 failed, 2848 passed, 1 warning in 15.18s
+modules_home rc=0 secs=4 :: 13 passed in 2.52s
+modules_images rc=0 secs=16 :: 1612 passed, 1 warning in 13.74s
+modules_link_preview rc=0 secs=7 :: 30 passed, 1 warning in 5.31s

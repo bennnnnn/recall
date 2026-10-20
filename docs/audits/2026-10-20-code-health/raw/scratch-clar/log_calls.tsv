@@ -1,0 +1,500 @@
+apps/api/app/worker_main.py	81	info	%	'Recall worker started (process_role=worker)'		
+apps/api/app/worker_main.py	85	error	%	'Worker loop(s) stopped: %s; exiting so the Machine restarts'	', '.join(dead)	
+apps/api/app/modules/web_search/classify.py	40	debug	%	'Web-search classifier spend check exceeded its foreground budget'		
+apps/api/app/modules/web_search/classify.py	112	debug	%	'Web-search classifier exceeded its foreground budget'		
+apps/api/app/modules/web_search/detection.py	330	warning	%	'Web-search classifier failed; using heuristic'		
+apps/api/app/modules/web_search/search_cache.py	219	debug	%	'Web search lock acquire failed'		
+apps/api/app/modules/web_search/search_cache.py	80	warning	%	'Tavily cap: missing user; DuckDuckGo only'		
+apps/api/app/modules/web_search/search_cache.py	208	debug	%	'Web search cache read failed'		
+apps/api/app/modules/web_search/search_cache.py	96	warning	%	'Tavily reserve failed; falling back to DuckDuckGo user_id=%s'	self.user.id	self.user.id
+apps/api/app/modules/web_search/search_cache.py	252	debug	%	'Web search cache write failed'		
+apps/api/app/modules/web_search/search_cache.py	259	debug	%	'Web search lock release failed'		
+apps/api/app/modules/todos/sync.py	133	info	%	'Bulk-shifted %d todo(s) due today → tomorrow for user_id=%s'	bulk_applied;user_id	
+apps/api/app/modules/todos/sync.py	166	exception	%	'Todo action extraction failed for user_id=%s'	user_id	
+apps/api/app/modules/todos/sync.py	198	exception	%	'Todo sync failed for user_id=%s'	user_id	
+apps/api/app/modules/todos/jobs.py	25	exception	%	'Todo sync job failed for user_id=%s'	user_id	
+apps/api/app/modules/todos/actions.py	201	warning	%	'Todo delete missed: user_id=%s topic=%s content=%r'	state.user_id;action.topic;(action.content or '')[:120]	state.user_id;(action.content or '')[:120]
+apps/api/app/modules/todos/actions.py	316	info	%	'Applied %d todo action(s) for user_id=%s chat_id=%s'	applied;user_id;chat_id	
+apps/api/app/modules/todos/actions.py	170	debug	%	'add reminder raced with an existing open dated row for user_id=%s; skipping'	state.user_id	state.user_id
+apps/api/app/modules/todos/actions.py	309	exception	%	'Failed todo action %s for user_id=%s topic=%s'	prepared.action;user_id;prepared.topic	
+apps/api/app/modules/todos/proposals.py	297	exception	%	'Could not mark reminder card saved proposal_id=%s'	proposal_id	
+apps/api/app/modules/todos/proposals.py	306	exception	%	'Reminder confirm lock release failed proposal_id=%s'	proposal_id	
+apps/api/app/modules/todos/reminder_writes.py	204	info	%	'To-do fence applied: user_id=%s chat_id=%s title=%s'	state.user_id;state.chat_id;title[:80]	state.user_id;state.chat_id;title[:80]
+apps/api/app/modules/todos/reminder_fences.py	357	warning	%	'Invalid reminder fence payload for user_id=%s'	state.user_id	state.user_id
+apps/api/app/modules/math/ocr.py	221	warning	%	'mathpix ocr timed out'		
+apps/api/app/modules/math/tool_check.py	323	info	%	'tool-call match check failed'		
+apps/api/app/modules/math/school.py	257	debug	%	'Could not solve identity equality set'		
+apps/api/app/modules/math/school.py	272	debug	%	'Could not test identity counterexample'		
+apps/api/app/modules/math/image_extract.py	215	warning	%	'math image extract failed'		
+apps/api/app/modules/math/image_extract.py	209	warning	%	'math image extract returned invalid JSON alias=%s'	alias	
+apps/api/app/modules/math/tool.py	102	warning	%	'sympy MCP tool call timed out'		
+apps/api/app/modules/math/tool.py	105	warning	%	'sympy MCP tool call failed'		
+apps/api/app/modules/math/tools/llm_extract.py	164	warning	%	'llm math extract failed'		
+apps/api/app/modules/math/tools/word_problem.py	341	warning	%	'word problem extract failed on %s'	alias	
+apps/api/app/modules/math/tools/prompt.py	432	warning	%	'math_tools solve timed out after %ss for kind=%s'	settings.math_solve_timeout_seconds;intent.kind	
+apps/api/app/modules/math/tools/prompt.py	441	info	%	'math_tools skipped: %s'	exc	exc
+apps/api/app/modules/math/tools/prompt.py	446	warning	%	'math_tools solve failed for kind=%s'	intent.kind	
+apps/api/app/modules/math/tools/block/__init__.py	150	info	%	'math_tools skipped: %s'	exc	exc
+apps/api/app/modules/math/tools/block/__init__.py	153	exception	%	'math_tools failed'		
+apps/api/app/modules/math/solve/declines.py	103	debug	%	'maths decline in %s: %s: %s'	where;name;str(exc)[:_MESSAGE_CHARS]	where;name;str(exc)[:_MESSAGE_CHARS]
+apps/api/app/modules/images/generation.py	96	warning	%	'Image generation rejected: prompt length=%s'	len(cleaned)	
+apps/api/app/modules/images/generation.py	72	exception	%	'Failed to delete orphaned generated image %s'	storage_key	
+apps/api/app/modules/images/generation.py	171	exception	%	'record_global_spend failed after image generation'		
+apps/api/app/modules/images/search.py	103	warning	%	'Reference-photo candidate fetch failed'		
+apps/api/app/modules/images/search.py	304	exception	%	'record_global_spend failed after photo lookup'		
+apps/api/app/modules/images/search.py	343	exception	%	'Answer photo lookup failed'		
+apps/api/app/modules/images/search.py	355	exception	%	'record_global_spend failed after answer photo'		
+apps/api/app/modules/images/search.py	74	exception	%	'Failed to delete orphaned reference-photo bytes %s'	key	
+apps/api/app/modules/images/reply_picture.py	83	exception	%	'record_global_spend failed after a reply picture'		
+apps/api/app/modules/images/reply_picture.py	116	info	%	'Reply picture took too long; the reply goes without it'		
+apps/api/app/modules/images/reply_picture.py	121	exception	%	'Reply picture failed'		
+apps/api/app/modules/images/gen_tool.py	96	exception	%	'Image generation tool failed chat_id=%s'	chat_id	
+apps/api/app/modules/images/search_tool.py	83	exception	%	'Photo lookup tool failed chat_id=%s'	chat_id	
+apps/api/app/modules/images/answer_photo.py	106	warning	%	'Late answer photo failed'		
+apps/api/app/modules/images/answer_photo.py	80	info	%	'Answer photo took too long; sending the reply without it'		
+apps/api/app/modules/images/answer_photo.py	83	exception	%	'Answer photo failed'		
+apps/api/app/modules/chemistry/extract.py	57	exception	%	'chemistry extractor %s failed'	getattr(extractor, '__name__', extractor)	getattr(extractor, '__name__', extractor)
+apps/api/app/modules/chemistry/binding.py	305	debug	%	'%s: %s does not convert to %s: %s'	law.op;expression;variable.dimension;type(exc).__name__	expression;variable.dimension;type(exc).__name__
+apps/api/app/modules/chemistry/fence.py	96	info	%	'replacing invalid SMILES fence: %r'	smiles	
+apps/api/app/modules/chemistry/fence.py	93	info	%	'chemistry fence validation failed for %r'	smiles	
+apps/api/app/modules/chemistry/fence.py	126	info	%	'3D SDF generation failed for %r'	props.smiles	
+apps/api/app/modules/chemistry/fence.py	318	exception	%	'chemistry fence recovery failed'		
+apps/api/app/modules/chemistry/fence.py	63	info	%	'chemistry fence line validation failed for %r'	raw	raw
+apps/api/app/modules/chemistry/block.py	61	info	%	'chemistry verification skipped kind=%s op=%s reason=%s'	intent.kind;intent.chemistry_op;exc	exc
+apps/api/app/modules/chemistry/block.py	69	warning	%	'chemistry verification failed kind=%s op=%s'	intent.kind;intent.chemistry_op	
+apps/api/app/modules/chemistry/smiles.py	140	info	%	'RDKit validate failed for %r: %s'	cleaned;exc	exc
+apps/api/app/modules/chemistry/smiles.py	161	info	%	'RDKit kekulize failed for %r'	smiles	
+apps/api/app/modules/chemistry/smiles.py	225	info	%	'RDKit 3D coords failed for %r: %s'	canonical;exc	exc
+apps/api/app/modules/chemistry/context.py	340	info	%	'PubChem lookup failed for %r: %s'	name;lookup.error	name;lookup.error
+apps/api/app/modules/chemistry/context.py	124	info	%	'stoichiometry ratio hint failed'		
+apps/api/app/modules/chemistry/context.py	141	info	%	'descriptor context failed for %r'	smiles	
+apps/api/app/modules/chemistry/context.py	314	warning	%	'chemistry solve timed out after %ss'	settings.math_solve_timeout_seconds	
+apps/api/app/modules/chemistry/context.py	317	warning	%	'chemistry solve failed'		
+apps/api/app/modules/chemistry/context.py	337	info	%	'PubChem lookup timed out for %r'	name	name
+apps/api/app/modules/chemistry/context.py	297	info	%	'PubChem IUPAC lookup timed out'		
+apps/api/app/modules/link_preview/service.py	100	debug	%	'Link preview blocked internal address: %s'	url	url
+apps/api/app/modules/link_preview/service.py	103	info	%	'Link preview passed its %.0fs deadline'	_LINK_PREVIEW_DEADLINE_SECONDS	
+apps/api/app/modules/link_preview/service.py	106	debug	%	'Link preview fetch failed for %s'	url	url
+apps/api/app/modules/link_preview/service.py	113	debug	%	'Meta parse failed'		
+apps/api/app/modules/link_preview/service.py	163	warning	%	'Link preview slot check failed; denying'		
+apps/api/app/modules/link_preview/service.py	193	debug	%	'Link preview cache read failed'		
+apps/api/app/modules/link_preview/service.py	204	debug	%	'Link preview cache write failed'		
+apps/api/app/modules/link_preview/service.py	173	debug	%	'Link preview slot release failed'		
+apps/api/app/modules/account/tokens.py	219	warning	%	'Refresh token reuse detected for user_id=%s — revoking all sessions'	user_id	
+apps/api/app/modules/account/tokens.py	147	warning	%	'Token issue failed; Redis unavailable'		
+apps/api/app/modules/account/tokens.py	211	warning	%	'Session purge failed; Redis unavailable'		
+apps/api/app/modules/account/tokens.py	298	warning	%	'Refresh token Redis op failed; Redis unavailable'		
+apps/api/app/modules/account/tokens.py	316	warning	%	'Access token revoke failed; Redis unavailable'		
+apps/api/app/modules/account/tokens.py	342	warning	%	'Refresh token revoke failed; Redis unavailable'		
+apps/api/app/modules/account/tokens.py	364	warning	%	'Session list failed; Redis unavailable'		
+apps/api/app/modules/account/tokens.py	426	warning	%	'Session revoke failed; Redis unavailable'		
+apps/api/app/modules/account/export.py	231	warning	%	'Export presign failed for attachment_id=%s'	attachment.id	
+apps/api/app/modules/account/quota_carryover.py	77	warning	%	'Quota carry-over save failed user_id=%s'	user.id	user.id
+apps/api/app/modules/account/quota_carryover.py	102	warning	%	'Quota carry-over restore failed user_id=%s'	user_id	
+apps/api/app/modules/account/quota_carryover.py	97	warning	%	'Quota carry-over snapshot unreadable; dropped'		
+apps/api/app/modules/account/lifecycle.py	194	info	%	'Account Redis purge user_id=%s removed=%s'	user_id;removed	
+apps/api/app/modules/account/lifecycle.py	125	warning	%	'Session purge failed during account delete user_id=%s'	user.id	user.id
+apps/api/app/modules/account/lifecycle.py	141	warning	%	'Follow-up cache purge failed user_id=%s'	user_id	
+apps/api/app/modules/account/lifecycle.py	161	info	%	'Apple-linked account deleted without an Apple code; grant not revoked'		
+apps/api/app/modules/account/settings_proposal.py	377	exception	%	'Settings confirm lock release failed user_id=%s proposal_id=%s'	user.id;proposal_id	user.id
+apps/api/app/modules/physics/accounting.py	270	info	%	'physics solve declined: %s %s left unbound by op=%s'	given.value;given.unit;intent.physics_op	given.value
+apps/api/app/modules/physics/accounting.py	250	info	%	'physics solve declined: %s %s is of a kind op=%s never uses'	given.value;given.unit;intent.physics_op	given.value
+apps/api/app/modules/physics/fence.py	107	warning	%	'physics fence finalization failed; keeping prose only'		
+apps/api/app/modules/physics/prompt.py	48	warning	%	'physics solve timed out after %ss for kind=%s'	settings.math_solve_timeout_seconds;intent.kind	
+apps/api/app/modules/physics/prompt.py	55	warning	%	'physics solve failed for kind=%s'	intent.kind	
+apps/api/app/modules/physics/prompt.py	99	info	%	'symbolic physics model declined'		
+apps/api/app/modules/physics/block.py	134	info	%	'physics verification skipped kind=%s op=%s reason=answers a different quantity'	intent.kind;intent.physics_op	
+apps/api/app/modules/physics/block.py	115	info	%	'physics verification skipped kind=%s op=%s reason=%s'	intent.kind;intent.physics_op;exc	exc
+apps/api/app/modules/physics/block.py	123	warning	%	'physics verification failed kind=%s op=%s'	intent.kind;intent.physics_op	
+apps/api/app/modules/chat/post_turn.py	241	warning	%	'skipping background LLM jobs: global spend cap user_id=%s chat_id=%s'	ctx.user_id;ctx.chat_id	
+apps/api/app/modules/chat/post_turn.py	146	exception	%	'Failed to expand todo sync transcript; using current turn only'		
+apps/api/app/modules/chat/service.py	241	warning	%	'Title backfill enqueue failed chat_id=%s'	chat_id	
+apps/api/app/modules/chat/stream_entry.py	205	exception	%	'User message persist failed chat_id=%s'	chat_id	
+apps/api/app/modules/chat/finalize_passes.py	213	debug	%	'finalize pass %s took %.1f ms'	finalize_pass.name;elapsed_ms	finalize_pass.name
+apps/api/app/modules/chat/finalize_passes.py	225	exception	%	'Post-stream enrichment failed; persisting the last committed text'		
+apps/api/app/modules/chat/finalize_passes.py	207	warning	%	'%s timed out; keeping raw assistant text'	on_error.log_as	on_error.log_as
+apps/api/app/modules/chat/finalize_passes.py	209	exception	%	'%s failed; keeping raw assistant text'	on_error.log_as	on_error.log_as
+apps/api/app/modules/chat/ws_turn.py	228	exception	%	'Unexpected chat stream error'		
+apps/api/app/modules/chat/ws_turn.py	86	exception	%	'Chat stream failed'		
+apps/api/app/modules/chat/finalize_reminders.py	70	exception	%	'Reminder pass failed; keeping the finished reply'		
+apps/api/app/modules/chat/turn_resources.py	163	warning	%	'Chat prepare lock no longer held key=%s'	res.lock_key	
+apps/api/app/modules/chat/turn_resources.py	165	warning	%	'Chat prepare lock refresh failed key=%s'	res.lock_key	
+apps/api/app/modules/chat/prompt_memory.py	160	debug	%	'spend-cap read for the memory note failed'		
+apps/api/app/modules/chat/stream_paths.py	167	warning	%	'skipping MCP tool loop: global spend cap user_id=%s chat_id=%s'	ctx.user_id;ctx.chat_id	
+apps/api/app/modules/chat/stream_paths.py	318	debug	%	'model health sample failed'		
+apps/api/app/modules/chat/history_rag.py	182	warning	%	'Chat-history RAG chunk probe failed user_id=%s'	user_id	
+apps/api/app/modules/chat/history_rag.py	192	warning	%	'Chat-history RAG embed failed user_id=%s'	user_id	
+apps/api/app/modules/chat/history_rag.py	235	warning	%	'Chat-history RAG retrieval failed user_id=%s'	user_id	
+apps/api/app/modules/chat/history_rag.py	101	warning	%	'Chat-history RAG backfill failed message_id=%s'	row.id	
+apps/api/app/modules/chat/history_rag.py	135	warning	%	'Chat-history RAG index failed message_id=%s'	row.id	
+apps/api/app/modules/chat/compaction.py	91	exception	%	'History compression failed for chat_id=%s'	chat_id	
+apps/api/app/modules/chat/turn_load.py	139	debug	%	'Daily usage probe failed user_id=%s'	user_id	
+apps/api/app/modules/chat/quality.py	291	warning	%	'turn_quality_issue user_id=%s chat_id=%s model=%s codes=%s reply_len=%d lightweight=%s rich_context=%s instan	ctx.user_id;ctx.chat_id;ctx.model;codes;len(text);ctx.lightweight_turn;ctx.rich_context_turn;bool(ctx.instant_reply)	len(text);ctx.rich_context_turn;bool(ctx.instant_reply)
+apps/api/app/modules/chat/json_output.py	120	warning	%	'Requested JSON reply did not validate model=%s'	state.ctx.model	state.ctx.model
+apps/api/app/modules/chat/stream_events.py	84	debug	%	'Stopped chat stream raised while it finished'		
+apps/api/app/modules/chat/stream_events.py	258	warning	%	'Finalize commit still running after %ss; sending done without message_id (commit continues under shield)'	DONE_COMMIT_WAIT_SECONDS	
+apps/api/app/modules/chat/stream_events.py	265	exception	%	'Finalize commit failed before done'		
+apps/api/app/modules/chat/stream_events.py	318	warning	%	'Related prompts failed'		
+apps/api/app/modules/chat/turn_timing.py	61	info	%	'chat_stream_timing user_id=%s chat_id=%s model=%s lightweight=%s content_chars=%s prompt_ready_ms=%s first_to	user_id;chat_id;model;lightweight;content_chars;prompt_ready;first_token;post_prompt_first_token;gateway_to_first_token;{phase: round(ms, 1) for phase	content_chars;prompt_ready;first_token;post_prompt_first_token;gateway_to_first_token;{phase: round(ms, 1) for phase, ms
+apps/api/app/modules/chat/stream_api.py	215	exception	%	'SSE chat stream failed chat_id=%s'	chat_id	
+apps/api/app/modules/chat/related_prompts.py	126	warning	%	'Related questions timed out'		
+apps/api/app/modules/chat/related_prompts.py	129	warning	%	'Related questions failed'		
+apps/api/app/modules/chat/related_prompts.py	160	warning	%	'Related questions cache read failed'		
+apps/api/app/modules/chat/related_prompts.py	194	warning	%	'Related questions cache write failed'		
+apps/api/app/modules/chat/stream_pipeline.py	50	exception	%	message		
+apps/api/app/modules/chat/stream_pipeline.py	141	exception	%	'record_global_spend failed for terminal-image tool rounds'		
+apps/api/app/modules/chat/stream_pipeline.py	155	warning	%	'terminal_image_message_id not a UUID: %r'	ctx.terminal_image_message_id	ctx.terminal_image_message_id
+apps/api/app/modules/chat/stream_pipeline.py	117	exception	%	'Background job enqueue failed'		
+apps/api/app/modules/chat/stream_pipeline.py	167	exception	%	'Slim finalize for terminal image failed'		
+apps/api/app/modules/chat/stream_pipeline.py	356	exception	%	'User message persist failed chat_id=%s'	ctx.chat_id	
+apps/api/app/modules/chat/stream_pipeline.py	406	info	%	'Hard cancel with partial reply; finalizing chat_id=%s parts=%d'	ctx.chat_id;len(accum.parts)	
+apps/api/app/modules/chat/stream_pipeline.py	415	info	%	'Provider fail with partial reply; finalizing chat_id=%s parts=%d'	ctx.chat_id;len(accum.parts)	
+apps/api/app/modules/chat/ws_api.py	258	info	%	'WebSocket disconnected before authentication chat_id=%s'	chat_id	
+apps/api/app/modules/chat/ws_api.py	307	warning	%	'Chat socket cap reached user_id=%s chat_id=%s'	user_id;chat_id	
+apps/api/app/modules/chat/ws_api.py	370	info	%	'WebSocket disconnected chat_id=%s'	chat_id	
+apps/api/app/modules/chat/ws_api.py	360	warning	%	'WebSocket frame flood; closing chat_id=%s'	chat_id	
+apps/api/app/modules/chat/ws_api.py	333	info	%	'Idle WebSocket closed chat_id=%s'	chat_id	
+apps/api/app/modules/chat/ws_api.py	337	info	%	'WebSocket disconnected chat_id=%s'	chat_id	
+apps/api/app/modules/chat/ws_api.py	348	info	%	'WebSocket disconnected chat_id=%s'	chat_id	
+apps/api/app/modules/chat/turn_settle.py	121	info	%	'turn_cost user_id=%s model=%s input_tokens=%s output_tokens=%s est_cost_usd=%.6f quota_multiplier=%s'	ctx.user_id;ctx.model;charge.input_tokens;charge.output_tokens;charge.est_cost;charge.multiplier	charge.input_tokens;charge.output_tokens;charge.est_cost;charge.multiplier
+apps/api/app/modules/chat/turn_settle.py	132	info	%	'turn_cost user_id=%s model=%s input_tokens=%s output_tokens=%s est_cost_usd=unknown quota_multiplier=%s'	ctx.user_id;ctx.model;charge.input_tokens;charge.output_tokens;charge.multiplier	charge.input_tokens;charge.output_tokens;charge.multiplier
+apps/api/app/modules/chat/turn_settle.py	65	warning	%	'Usage DB-seed failed user_id=%s — quota enforcement may start from 0 if Redis was evicted'	user_id	
+apps/api/app/modules/chat/turn_settle.py	256	warning	%	'adjust_usage failed after finalize commit; Redis may drift from the DB total — heal_usage_drift on next turn 		
+apps/api/app/modules/chat/turn_settle.py	305	exception	%	'Stream-turn finalize failed; refunding reserved quota'		
+apps/api/app/modules/chat/turn_settle.py	272	exception	%	'record_global_spend failed after successful finalize'		
+apps/api/app/modules/chat/turn_settle.py	264	warning	%	'mark_usage_needs_heal failed after adjust_usage; heal may not run'		
+apps/api/app/modules/chat/turn_settle.py	309	exception	%	'refund_usage failed after finalize error'		
+apps/api/app/modules/chat/finalize_subjects.py	51	exception	%	'answer-card fallback failed; dropping marker lines'		
+apps/api/app/modules/chat/prompt_builder.py	232	debug	%	'has_chunks_for_chat probe failed for chat_id=%s'	chat_id	
+apps/api/app/modules/chat/finalize_registry.py	178	warning	%	'Pending turn finalize marker still set after wait chat_id=%s'	chat_id	
+apps/api/app/modules/chat/finalize_registry.py	109	info	%	'Stopped %d in-flight chat stream(s) for shutdown'	len(stops)	
+apps/api/app/modules/chat/finalize_registry.py	69	warning	%	timeout_log		
+apps/api/app/modules/chat/finalize_registry.py	118	debug	%	'Failed to mark pending finalize chat_id=%s'	chat_id	
+apps/api/app/modules/chat/finalize_registry.py	126	debug	%	'Failed to clear pending finalize chat_id=%s'	chat_id	
+apps/api/app/modules/chat/finalize_registry.py	174	debug	%	'Pending finalize Redis wait failed chat_id=%s'	chat_id	
+apps/api/app/modules/chat/finalize_registry.py	72	debug	%	'In-flight chat task failed'		
+apps/api/app/modules/chat/finalize_registry.py	107	exception	%	'Stopping an in-flight chat stream failed'		
+apps/api/app/modules/chat/tool_loop/rounds.py	235	info	%	'Tool loop cancelled mid-round; trimming unanswered tool_calls turn'		
+apps/api/app/modules/chat/tool_loop/rounds.py	283	warning	%	'Tool selection failed alias=%s code=%s timed_out=%s'	alias;exc.code;timed_out	exc.code
+apps/api/app/modules/chat/tool_loop/rounds.py	289	exception	%	'Tool selection failed alias=%s'	alias	
+apps/api/app/modules/chat/tool_loop/calls.py	106	info	%	'tool-call match check did not finish; result stays unverified'		
+apps/api/app/modules/chat/turn_prep/instant.py	138	warning	%	'Profile reply memory read failed user_id=%s'	user.id	user.id
+apps/api/app/modules/chat/turn_prep/vision.py	134	warning	%	'Earlier photo unreadable: storage unavailable user_id=%s'	user.id	user.id
+apps/api/app/modules/chat/turn_prep/prepare.py	218	exception	%	'User message persist failed after prompt error chat_id=%s'	turn.chat_id	
+apps/api/app/modules/chat/turn_prep/context.py	275	debug	%	'model health read failed during fallback selection'		
+apps/api/app/modules/notifications/reminder_email.py	86	exception	%	'Todo reminder email preparation failed todo_id=%s'	todo.id	
+apps/api/app/modules/notifications/reminder_email.py	110	exception	%	'Todo reminder email failed todo_id=%s'	occurrence.id	occurrence.id
+apps/api/app/modules/notifications/push.py	229	warning	%	'Aged unsent reminders count=%s older_than_hours=%s'	count;OVERDUE_MAX_HOURS	
+apps/api/app/modules/notifications/push.py	318	debug	%	'Todo reminders skipped; no push token users=%s'	len(tokenless_users)	len(tokenless_users)
+apps/api/app/modules/notifications/push.py	405	debug	%	'Skipping expo push in dev mock mode count=%s'	len(outbound)	
+apps/api/app/modules/notifications/push.py	127	info	%	'Pruned invalid push token from receipt ticket=%s'	ticket_id[:12]	
+apps/api/app/modules/notifications/push.py	314	exception	%	'Todo reminder failed user_id=%s todo_id=%s'	todo.user_id;todo.id	
+apps/api/app/modules/notifications/push.py	129	debug	%	'Failed to prune push token from receipt'		
+apps/api/app/modules/speech/live_talk.py	248	debug	%	'Live talk memory load failed'		
+apps/api/app/modules/speech/live_talk.py	264	debug	%	'Live talk schedule load failed'		
+apps/api/app/modules/speech/live_talk.py	492	exception	%	'Live talk post-turn enqueue failed chat_id=%s'	chat_id	
+apps/api/app/modules/speech/live_talk.py	336	warning	%	'Live talk persist skipped; chat missing chat_id=%s'	chat_id	
+apps/api/app/modules/speech/live_talk.py	373	exception	%	'Live talk reminder materialize failed chat_id=%s'	chat_id	
+apps/api/app/modules/speech/service.py	112	warning	%	'Speech transcription rejected: payload size=%s'	len(audio_bytes) if audio_bytes else 0	len(audio_bytes) if audio_bytes else 0
+apps/api/app/modules/speech/service.py	249	debug	%	'Cancelled in-flight rest TTS after stream close'		
+apps/api/app/modules/speech/live_talk_tools.py	58	warning	%	'Live talk tool reservation failed name=%s'	name	name
+apps/api/app/modules/speech/live_talk_tools.py	101	warning	%	'Live Talk lookup failed name=%s'	name	name
+apps/api/app/modules/speech/live_talk_tools.py	110	warning	%	'Could not cache voice lookup result'		
+apps/api/app/modules/speech/live_talk_tools.py	120	warning	%	'Live Talk sources unreadable; saving the turn without them: %s'	type(exc).__name__	type(exc).__name__
+apps/api/app/modules/billing/revenuecat.py	198	warning	%	'RevenueCat %s deferred; subscriber fetch failed app_user_id=%s'	event_type;app_user_id	event_type
+apps/api/app/modules/billing/revenuecat.py	246	info	%	'RevenueCat CANCELLATION ignored until period end app_user_id=%s'	app_user_id	
+apps/api/app/modules/billing/revenuecat.py	295	info	%	'RevenueCat sandbox webhook ignored in %s environment'	settings.environment	
+apps/api/app/modules/billing/revenuecat.py	305	info	%	'RevenueCat webhook replay ignored event_id=%s'	event_id	
+apps/api/app/modules/billing/revenuecat.py	309	info	%	'RevenueCat webhook in-flight ignored event_id=%s'	event_id	
+apps/api/app/modules/billing/revenuecat.py	335	info	%	'RevenueCat stale event ignored type=%s app_user_id=%s event_ts=%s'	event_type;app_user_id;event_timestamp_ms	event_type
+apps/api/app/modules/billing/subscription.py	90	info	%	'Updated plan from RevenueCat user=%s plan=%s'	user.id;plan	user.id
+apps/api/app/modules/billing/subscription.py	116	info	%	'RevenueCat webhook set plan=%s user=%s'	plan;user_id	
+apps/api/app/modules/billing/subscription.py	109	warning	%	'RevenueCat webhook user not found id=%s'	app_user_id	
+apps/api/app/modules/billing/subscription.py	145	warning	%	'RevenueCat TRANSFER deferred; subscriber fetch failed app_user_id=%s'	cleaned_new	
+apps/api/app/modules/billing/subscription.py	153	warning	%	'RevenueCat TRANSFER user not found id=%s'	cleaned_new	
+apps/api/app/modules/billing/subscription.py	157	info	%	'RevenueCat TRANSFER set plan=%s user=%s'	plan;user_id	
+apps/api/app/modules/billing/subscription.py	178	warning	%	'RevenueCat TRANSFER source unreadable; free app_user_id=%s'	app_user_id	
+apps/api/app/modules/billing/subscription.py	105	warning	%	'RevenueCat webhook ignored invalid app_user_id=%s'	app_user_id	
+apps/api/app/modules/billing/subscription.py	140	warning	%	'RevenueCat TRANSFER ignored invalid app_user_id=%s'	cleaned_new	
+apps/api/app/modules/home/service.py	106	warning	%	'Home cache generation unreadable; serving uncached: %s'	type(exc).__name__	type(exc).__name__
+apps/api/app/modules/home/service.py	119	debug	%	'Home cache invalidation failed'		
+apps/api/app/modules/home/service.py	141	debug	%	'Home screen cache read failed'		
+apps/api/app/modules/home/service.py	156	debug	%	'Home screen cache write failed'		
+apps/api/app/modules/attachments/ocr.py	47	warning	%	'PDF page render failed; trying embedded images'		
+apps/api/app/modules/attachments/ocr.py	51	warning	%	'PDF embedded-image extract failed'		
+apps/api/app/modules/attachments/ocr.py	217	warning	%	'Scanned-PDF OCR timed out'		
+apps/api/app/modules/attachments/ocr.py	220	warning	%	'Scanned-PDF OCR failed'		
+apps/api/app/modules/attachments/office_text.py	86	debug	%	'Office text extraction failed'		
+apps/api/app/modules/attachments/content.py	212	warning	%	'Attachment text extraction timed out for content_type=%s'	content_type	content_type
+apps/api/app/modules/attachments/content.py	148	debug	%	'PDF text extraction failed'		
+apps/api/app/modules/attachments/content.py	165	debug	%	'DOCX text extraction failed'		
+apps/api/app/modules/attachments/jobs.py	82	info	%	'Indexed attachment_id=%s chunks=%s chat_id=%s'	attachment_id;count;chat_id	
+apps/api/app/modules/attachments/jobs.py	41	warning	%	'skipping attachment index: global spend cap user_id=%s'	user_id	
+apps/api/app/modules/attachments/jobs.py	59	exception	%	'Attachment index enqueue failed chat_id=%s'	chat_id	
+apps/api/app/modules/attachments/jobs.py	72	warning	%	'attachment_index job missing ids payload=%s'	payload	payload
+apps/api/app/modules/attachments/vision_input.py	107	warning	%	'Vision image could not be decoded storage_key=%s'	storage_key	
+apps/api/app/modules/attachments/workflow.py	284	exception	%	'Failed to drop missing-file attachment row %s'	attachment_id	
+apps/api/app/modules/attachments/workflow.py	313	warning	%	'attachment blob missing on disk attachment_id=%s storage_key=%s'	attachment_id;row.storage_key	
+apps/api/app/modules/attachments/workflow.py	303	exception	%	'Thumbnail resize failed attachment_id=%s'	attachment_id	
+apps/api/app/modules/attachments/workflow.py	344	debug	%	'attachment indexed probe failed id=%s'	attachment_id	
+apps/api/app/modules/attachments/lifecycle.py	202	info	%	'Reaped %d orphan attachment(s)'	len(removed_keys)	
+apps/api/app/modules/attachments/lifecycle.py	218	info	%	'storage_sweep user_id=%s deleted=%s'	user_id;deleted	
+apps/api/app/modules/attachments/lifecycle.py	64	warning	%	'Failed to delete attachment bytes key=%s'	key	
+apps/api/app/modules/attachments/lifecycle.py	77	warning	%	'Could not enqueue failed storage deletes'		
+apps/api/app/modules/attachments/lifecycle.py	85	debug	%	'Pending storage-delete retry skipped'		
+apps/api/app/modules/attachments/lifecycle.py	102	debug	%	'Could not clear pending storage deletes'		
+apps/api/app/modules/attachments/lifecycle.py	199	debug	%	'Image quota refund failed for user %s'	row.user_id	
+apps/api/app/modules/attachments/thumbnails.py	124	warning	%	'Thumbnail store failed key=%s'	key	
+apps/api/app/modules/attachments/thumbnails.py	133	warning	%	'Thumbnail delete failed storage_key=%s'	storage_key	
+apps/api/app/modules/attachments/ocr_allowance.py	77	info	%	'Scanned-PDF OCR skipped at the daily image limit user_id=%s'	user_id	
+apps/api/app/modules/attachments/ocr_allowance.py	116	warning	%	'Could not keep OCR text attachment_id=%s'	attachment_id	
+apps/api/app/modules/attachments/ocr_allowance.py	133	warning	%	'Kept OCR text unreadable attachment_id=%s'	attachment_id	
+apps/api/app/modules/attachments/rag.py	243	warning	%	'Attachment %s: %d/%d chunk embeddings failed'	attachment_id;failed_count;len(embedded)	
+apps/api/app/modules/attachments/rag.py	297	warning	%	'Attachment RAG chunk probe failed for chat_id=%s'	chat_id	
+apps/api/app/modules/attachments/rag.py	308	warning	%	'Attachment RAG embed failed for chat_id=%s'	chat_id	
+apps/api/app/modules/attachments/rag.py	343	warning	%	'Attachment RAG retrieval failed for chat_id=%s'	chat_id	
+apps/api/app/modules/memory/consolidation_workflow.py	115	info	%	'Memory consolidation skipped: write lock held for user_id=%s'	user_id	
+apps/api/app/modules/memory/consolidation_workflow.py	198	exception	%	'Memory consolidation failed for user_id=%s'	user_id	
+apps/api/app/modules/memory/extraction_workflow.py	146	info	%	'Skipping sensitive memory persist op=%s sensitivity=%s'	op.op;sensitivity	
+apps/api/app/modules/memory/extraction_workflow.py	159	info	%	'Skipping memory name the user did not claim'		
+apps/api/app/modules/memory/extraction_workflow.py	163	info	%	'Skipping one-off reminder stored as memory'		
+apps/api/app/modules/memory/extraction_workflow.py	280	info	%	'Memory extraction skipped: write lock held for user_id=%s'	user_id	
+apps/api/app/modules/memory/extraction_workflow.py	432	info	%	'memory_extract_yield user_id=%s applied=%s skipped=%s'	user_id;len(writes);skipped	
+apps/api/app/modules/memory/extraction_workflow.py	444	exception	%	'Memory extraction failed for user_id=%s'	user_id	
+apps/api/app/modules/memory/extraction_workflow.py	320	info	%	'memory_extract_yield user_id=%s applied=0 skipped=candidate'	user_id	
+apps/api/app/modules/memory/extraction_workflow.py	341	warning	%	'memory_extract_model_failed user_id=%s chat_id=%s moving_on=%s'	user_id;chat_id;advance_cursor	
+apps/api/app/modules/memory/extraction_workflow.py	420	info	%	'memory_extract_yield user_id=%s applied=0 skipped=empty'	user_id	
+apps/api/app/modules/memory/extract_backlog.py	105	debug	%	'memory extract cursor read failed chat_id=%s'	chat_id	
+apps/api/app/modules/memory/extract_backlog.py	116	debug	%	'memory extract backlog list failed chat_id=%s'	chat_id	
+apps/api/app/modules/memory/extract_backlog.py	138	debug	%	'memory extract cursor write failed chat_id=%s'	chat_id	
+apps/api/app/modules/memory/extract_backlog.py	153	debug	%	'memory extract failure count failed chat_id=%s'	chat_id	
+apps/api/app/modules/memory/extract_backlog.py	161	debug	%	'memory extract failure reset failed chat_id=%s'	chat_id	
+apps/api/app/modules/memory/enqueue_policy.py	116	debug	%	'Failed to enqueue memory consolidation'		
+apps/api/app/modules/memory/consolidation.py	162	warning	%	'Skipping memory rewrite for %s: new text much shorter than existing'	section_type	section_type
+apps/api/app/modules/memory/consolidation.py	168	warning	%	'Skipping memory rewrite for %s: rewrite dropped prior fact anchors'	section_type	section_type
+apps/api/app/modules/memory/locks.py	26	debug	%	'Memory write lock acquire failed'		
+apps/api/app/modules/memory/locks.py	40	debug	%	'Memory write lock release failed'		
+apps/api/app/modules/memory/history_scan.py	190	info	%	'memory history scan done user_id=%s chats=%s missed=%s'	user_id;len(chat_ids);missed	
+apps/api/app/modules/memory/history_scan.py	180	warning	%	'memory history scan will retry user_id=%s missed=%s'	user_id;missed	
+apps/api/app/modules/memory/history_scan.py	67	warning	%	'memory history scan check failed user_id=%s'	user.id	user.id
+apps/api/app/modules/memory/history_scan.py	77	warning	%	'memory history scan enqueue failed user_id=%s'	user.id	user.id
+apps/api/app/modules/memory/history_scan.py	114	debug	%	'memory history scan state read failed user_id=%s'	user_id	
+apps/api/app/modules/memory/history_scan.py	124	debug	%	'memory history scan state write failed user_id=%s'	user_id	
+apps/api/app/modules/memory/history_scan.py	138	debug	%	'memory history scan retry failed user_id=%s'	user_id	
+apps/api/app/modules/memory/history_scan.py	149	debug	%	'memory history scan state clear failed user_id=%s'	user_id	
+apps/api/app/modules/memory/history_scan.py	168	warning	%	'memory history scan chat failed user_id=%s chat_id=%s'	user_id;chat_id	
+apps/api/app/modules/memory/history_scan.py	81	debug	%	'memory history scan unqueue failed user_id=%s'	user.id	user.id
+apps/api/app/modules/memory/crud.py	107	debug	%	'Memory re-embed on fact delete failed'		
+apps/api/app/modules/memory/crud.py	174	debug	%	'Memory re-embed on edit failed'		
+apps/api/app/modules/memory/cache.py	54	debug	%	'Memory query cache write failed'		
+apps/api/app/modules/memory/cache.py	70	debug	%	'Memory block cache invalidation failed'		
+apps/api/app/modules/memory/instruct.py	110	info	%	'memory_instruction user_id=%s applied=%s'	user_id;len(applied)	
+apps/api/app/modules/memory/learning_progress.py	109	exception	%	'learning progress write failed user_id=%s'	user_id	
+apps/api/app/modules/memory/retrieval.py	46	info	%	'memory_inject user_id=%s facts=%s packed_chars=%s'	user_id;block.count('\n- ');len(block)	
+apps/api/app/modules/memory/retrieval.py	340	warning	%	'Memory query embed unavailable; matching facts by words user_id=%s'	user.id	user.id
+apps/api/app/modules/memory/retrieval.py	121	warning	%	'Memory retrieval failed for user_id=%s'	user.id	user.id
+apps/api/app/modules/memory/retrieval.py	232	debug	%	'Background semantic memory warm failed'		
+apps/api/app/modules/memory/retrieval.py	300	debug	%	'Memory generation read failed'		
+apps/api/app/modules/memory/retrieval.py	314	debug	%	'Memory query cache read failed'		
+apps/api/app/modules/memory/retrieval.py	404	debug	%	'Memory block cache read failed'		
+apps/api/app/modules/memory/retrieval.py	374	debug	%	'Semantic memory warm failed'		
+apps/api/app/modules/memory/retrieval.py	414	warning	%	'Memory retrieval failed for user_id=%s'	user.id	user.id
+apps/api/app/modules/memory/retrieval.py	423	debug	%	'Memory block cache write failed'		
+apps/api/app/services/topic.py	29	warning	%	'Topic job missing user_id; falling back to unscoped title update chat_id=%s'	chat_id	
+apps/api/app/services/topic.py	54	exception	%	'Topic generation failed for chat_id=%s'	chat_id	
+apps/api/app/services/topic.py	75	debug	%	'Failed to release topic dedupe chat_id=%s'	chat_id	
+apps/api/app/services/routing.py	409	warning	%	'physics routing solve failed kind=%s op=%s'	intent.kind;intent.physics_op	
+apps/api/app/services/model_health.py	47	debug	%	'model health sample failed alias=%s'	alias	
+apps/api/app/services/model_health.py	55	debug	%	'model health read failed alias=%s'	alias	
+apps/api/app/services/model_health.py	107	debug	%	'model health read failed during routing'		
+apps/api/app/services/scan_text.py	98	warning	%	'scan text read failed'		
+apps/api/app/services/scan_text.py	105	warning	%	'scan text read had no text'		
+apps/api/app/services/conversation_reference.py	147	debug	%	'Reference resolver exceeded its budget kind=%s'	kind	
+apps/api/app/services/conversation_reference.py	150	warning	%	'Reference resolver failed kind=%s'	kind	
+apps/api/app/services/scan_read.py	106	warning	%	'%s scan read ran past %ss'	subject;settings.scan_read_deadline_seconds	subject
+apps/api/app/services/scan_read.py	109	warning	%	'%s scan read failed'	subject	subject
+apps/api/app/services/scan_read.py	115	exception	%	'record_global_spend failed after a %s scan read'	subject	subject
+apps/api/app/services/quota/live_talk.py	118	warning	%	'Live talk reserve failed; Redis unavailable user=%s'	user_id	
+apps/api/app/services/quota/live_talk.py	150	exception	%	'Live talk spend not recorded user=%s'	user_id	
+apps/api/app/services/quota/live_talk.py	202	exception	%	'Live talk spend not released user=%s'	user_id	
+apps/api/app/services/quota/tokens.py	78	warning	%	'mark_usage_needs_heal failed user_id=%s'	user_id	
+apps/api/app/services/quota/tokens.py	90	warning	%	'usage_needs_heal failed user_id=%s'	user_id	
+apps/api/app/services/quota/tokens.py	103	warning	%	'clear_usage_needs_heal failed user_id=%s'	user_id	
+apps/api/app/services/quota/tokens.py	129	warning	%	'heal_usage_drift failed user_id=%s'	user_id	
+apps/api/app/services/quota/tokens.py	167	warning	%	'Quota reserve failed; Redis unavailable user_id=%s'	user_id	
+apps/api/app/services/quota/tokens.py	160	warning	%	'Quota over-limit rollback failed; retrying user_id=%s'	user_id	
+apps/api/app/services/quota/spend.py	76	exception	%	'record_voice_spend failed'		
+apps/api/app/services/quota/counters.py	106	warning	%	'Daily slot reserve failed; Redis unavailable key=%s'	key	
+apps/api/app/services/law_binding/units.py	52	debug	%	'%r is not a Pint unit: %s'	expression;type(exc).__name__	expression;type(exc).__name__
+apps/api/app/routers/admin.py	73	warning	%	'Skipping malformed DLQ entry id=%s'	entry.get('id') if isinstance(entry, dict) else None	entry.get('id') if isinstance(entry, dict) else None
+apps/api/app/repositories/push_tokens.py	25	warning	%	'push token rebound prior_user=%s new_user=%s'	prior_user_id;new_user_id	
+apps/api/app/content/legal.py	40	warning	%	'SUPPORT_EMAIL is empty: the privacy policy, terms and account-deletion pages have no contact address. Set it 		
+apps/api/app/background/billing_reconcile_scheduler.py	67	warning	%	'Billing reconcile lock lost; stopping cycle'		
+apps/api/app/background/billing_reconcile_scheduler.py	65	info	%	'Billing reconcile set plan=%s user=%s'	plan;user_id	
+apps/api/app/background/push_scheduler.py	54	info	%	'Push cycle sent count=%s'	count	
+apps/api/app/background/push_scheduler.py	46	info	%	'Pruned invalid push token=%s'	expo_token[:20]	expo_token[:20]
+apps/api/app/background/push_scheduler.py	48	debug	%	'Failed to prune push token'		
+apps/api/app/background/handlers.py	77	warning	%	'%s'	warning	
+apps/api/app/background/handlers.py	102	warning	%	'skipping background LLM job: global spend cap'		
+apps/api/app/background/handlers.py	248	warning	%	'transactional_email: user not found id=%s'	payload.get('user_id')	payload.get('user_id')
+apps/api/app/background/handlers.py	263	warning	%	'transactional_email: unknown kind=%s'	kind	
+apps/api/app/background/handlers.py	290	warning	%	'storage_sweep invalid user_id=%r'	raw	raw
+apps/api/app/background/periodic.py	98	exception	%	'%s cycle failed'	name	name
+apps/api/app/background/periodic.py	163	exception	%	'%s loop error'	name	name
+apps/api/app/background/message_indexing.py	34	info	%	'Indexed chat-history chunks=%s chat_id=%s assistant_message_id=%s'	count;chat_id;assistant_message_id	assistant_message_id
+apps/api/app/background/message_indexing.py	24	warning	%	'message_index job missing ids payload=%s'	payload	payload
+apps/api/app/background/email_reminder_scheduler.py	52	info	%	'Email reminder scheduler not started: this process cannot send email'		
+apps/api/app/background/email_reminder_scheduler.py	36	info	%	'Email reminder cycle sent count=%s'	count	
+apps/api/app/gateways/image_gateway.py	119	warning	%	'OpenRouter image generation response missing image payload model=%s'	model	
+apps/api/app/gateways/image_gateway.py	70	warning	%	'OpenRouter image generation returned no data model=%s'	model	
+apps/api/app/gateways/image_gateway.py	122	exception	%	'Image generation failed model=%s prompt_len=%s'	model;len(prompt)	len(prompt)
+apps/api/app/gateways/image_gateway.py	60	warning	%	'OpenRouter image generation failed model=%s status=%s body=%s'	model;response.status_code;response.text[:500]	response.status_code;response.text[:500]
+apps/api/app/gateways/image_gateway.py	80	warning	%	'OpenRouter image generation returned invalid b64_json'		
+apps/api/app/gateways/image_gateway.py	89	warning	%	'OpenRouter image generation b64_json exceeds size cap model=%s bytes=%s'	model;len(raw)	len(raw)
+apps/api/app/gateways/image_gateway.py	111	warning	%	'OpenRouter image generation URL response exceeds size cap model=%s bytes=%s'	model;len(img_resp.content)	len(img_resp.content)
+apps/api/app/gateways/structured_completion.py	92	warning	%	'Structured completion: %s alias=%s schema=%s'	reason;model_alias;schema.__name__	schema.__name__
+apps/api/app/gateways/structured_completion.py	285	warning	%	'Background LLM %s returned invalid %s; retrying with fallback %s'	model_alias;schema.__name__;fallback	schema.__name__
+apps/api/app/gateways/structured_completion.py	108	debug	%	'structured invalid count not recorded field=%s'	field	
+apps/api/app/gateways/structured_completion.py	279	warning	%	'Background LLM %s unavailable; retrying with fallback %s'	model_alias;fallback	
+apps/api/app/gateways/structured_completion.py	208	debug	%	'Skipping invalid memory fact op'		
+apps/api/app/gateways/structured_completion.py	227	debug	%	'Skipping invalid memory section item'		
+apps/api/app/gateways/structured_completion.py	270	exception	%	'Background LLM fallback %s also failed'	alias	
+apps/api/app/gateways/structured_completion.py	277	exception	%	'Background LLM %s failed and no fallback configured'	model_alias	
+apps/api/app/gateways/email_gateway.py	45	warning	%	'EMAIL_ENABLED=true but RESEND_API_KEY is not set (ENVIRONMENT=%s): welcome, receipt and reminder emails are n	settings.environment	
+apps/api/app/gateways/email_gateway.py	75	debug	%	'Transactional email disabled; skipping to=%s subject=%r'	to_label;subject	subject
+apps/api/app/gateways/email_gateway.py	78	warning	%	'Transactional email skipped: empty recipient'		
+apps/api/app/gateways/email_gateway.py	92	info	%	'MOCK transactional email to=%s subject=%r chars=%d'	to_label;subject;len(text)	subject;len(text)
+apps/api/app/gateways/email_gateway.py	83	warning	%	'Transactional email not sent (RESEND_API_KEY is not set) to=%s subject=%r'	to_label;subject	subject
+apps/api/app/gateways/email_gateway.py	119	exception	%	'Transactional email send failed to=%s subject=%r'	to_label;subject	subject
+apps/api/app/gateways/litellm_gateway.py	193	info	%	'Using mock LLM stream for alias=%s'	model_alias	
+apps/api/app/gateways/litellm_gateway.py	246	warning	%	'Chat stream %s returned no content%s'	alias;f'; retrying with fallback {aliases[index + 1]}' if index < len(aliases) - 1 else ''	f'; retrying with fallback {aliases[index + 1]}' if index < len(aliases) - 1 else ''
+apps/api/app/gateways/litellm_gateway.py	406	warning	%	'LiteLLM stream timed out for alias=%s (connect=%ss idle=%ss)'	model_alias;settings.chat_stream_connect_timeout_seconds;settings.chat_stream_timeout_seconds	
+apps/api/app/gateways/litellm_gateway.py	416	exception	%	'LiteLLM streaming failed for alias=%s'	model_alias	
+apps/api/app/gateways/litellm_gateway.py	453	exception	%	'Text completion failed to parse response for %s'	model_alias	
+apps/api/app/gateways/litellm_gateway.py	95	warning	%	'Background LLM %s timed out after %ss'	alias;settings.background_llm_timeout_seconds	
+apps/api/app/gateways/litellm_gateway.py	109	exception	%	'Background LLM %s failed'	alias	
+apps/api/app/gateways/litellm_gateway.py	335	warning	%	'LiteLLM stream wall-clock timed out for alias=%s (max=%ss)'	model_alias;max_seconds	
+apps/api/app/gateways/litellm_gateway.py	88	warning	%	'Background LLM %s timed out after %ss; retrying with fallback %s'	primary_alias;settings.background_llm_timeout_seconds;fallback	
+apps/api/app/gateways/litellm_gateway.py	103	warning	%	'Background LLM %s unavailable; retrying with fallback %s'	primary_alias;fallback	
+apps/api/app/gateways/litellm_gateway.py	262	warning	%	'Chat stream %s unavailable; retrying with fallback %s'	alias;aliases[index + 1]	
+apps/api/app/gateways/litellm_gateway.py	345	warning	%	'LiteLLM stream produced no visible content for alias=%s within %ss'	model_alias;first_content_timeout_seconds	first_content_timeout_seconds
+apps/api/app/gateways/litellm_gateway.py	365	warning	%	'LiteLLM stream produced no visible content for alias=%s within %ss'	model_alias;first_content_timeout_seconds	first_content_timeout_seconds
+apps/api/app/gateways/litellm_gateway.py	371	warning	%	'LiteLLM stream wall-clock timed out for alias=%s (max=%ss)'	model_alias;max_seconds	
+apps/api/app/gateways/litellm_gateway.py	377	warning	%	'LiteLLM stream idle timed out for alias=%s (idle=%ss)'	model_alias;idle_seconds	
+apps/api/app/gateways/tool_completion.py	207	warning	%	'complete_with_tools failed alias=%s type=%s'	model_alias;type(exc).__name__	type(exc).__name__
+apps/api/app/gateways/tool_completion.py	193	info	%	'Tool choice required unsupported alias=%s; retrying auto'	model_alias	
+apps/api/app/gateways/revenuecat_gateway.py	36	exception	%	'RevenueCat subscriber fetch failed user=%s'	app_user_id	
+apps/api/app/gateways/revenuecat_gateway.py	54	warning	%	'Invalid RevenueCat %s: %s'	field;raw	raw
+apps/api/app/gateways/llm_spend.py	61	warning	%	'Model spend not recorded alias=%s usd=%.6f'	alias;cost	
+apps/api/app/gateways/google_auth.py	76	warning	%	'Google cert fetch failed: %s'	exc	exc
+apps/api/app/gateways/google_auth.py	80	warning	%	'Google ID token verification failed: %s'	exc	exc
+apps/api/app/gateways/google_auth.py	111	warning	%	'Google ID token verification timed out after %.1fs'	deadline	deadline
+apps/api/app/gateways/image_search_gateway.py	121	exception	%	'Tavily image search failed'		
+apps/api/app/gateways/pubchem_gateway.py	185	debug	%	'PubChem cache read failed'		
+apps/api/app/gateways/pubchem_gateway.py	200	debug	%	'PubChem cache write failed'		
+apps/api/app/gateways/pubchem_gateway.py	162	info	%	'PubChem GET failed url=%s: %s'	url;exc	url;exc
+apps/api/app/gateways/pubchem_gateway.py	253	debug	%	'PubChem cache read failed'		
+apps/api/app/gateways/pubchem_gateway.py	168	info	%	'PubChem returned invalid JSON url=%s'	url	url
+apps/api/app/gateways/storage_gateway.py	415	error	%	'R2 storage selected but credentials incomplete in production'		
+apps/api/app/gateways/storage_gateway.py	410	warning	%	'STORAGE_BACKEND=r2 but R2 credentials are incomplete — falling back to local storage. Set r2_* secrets before		
+apps/api/app/gateways/openai_speech_gateway.py	139	warning	%	'OpenAI Realtime client-secret failed model=%s status=%s body=%s'	model;response.status_code;response.text[:800]	response.status_code;response.text[:800]
+apps/api/app/gateways/openai_speech_gateway.py	150	warning	%	'OpenAI Realtime client-secret response missing value'		
+apps/api/app/gateways/openai_speech_gateway.py	154	exception	%	'Could not mint OpenAI Realtime client secret'		
+apps/api/app/gateways/mathpix_gateway.py	89	warning	%	'mathpix ocr error: %s'	body.get('error')	body.get('error')
+apps/api/app/gateways/mathpix_gateway.py	84	warning	%	'mathpix ocr failed'		
+apps/api/app/gateways/web_search_gateway.py	87	warning	%	'ddgs package not installed'		
+apps/api/app/gateways/web_search_gateway.py	130	exception	%	'DuckDuckGo search failed'		
+apps/api/app/gateways/web_search_gateway.py	149	warning	%	'DuckDuckGo fallback timed out/failed'		
+apps/api/app/gateways/web_search_gateway.py	170	exception	%	'Tavily web search failed'		
+apps/api/app/gateways/web_search_gateway.py	111	warning	%	'DuckDuckGo %s failed'	label	
+apps/api/app/gateways/embedding_gateway.py	78	error	%	'Embedding returned %d vectors for %d inputs'	len(vectors);len(texts)	len(texts)
+apps/api/app/gateways/embedding_gateway.py	75	exception	%	'Embedding failed'		
+apps/api/app/gateways/embedding_gateway.py	174	debug	%	'Embed cache read failed; falling back to live embed'		
+apps/api/app/gateways/embedding_gateway.py	181	debug	%	'Embed call failed'		
+apps/api/app/gateways/embedding_gateway.py	191	debug	%	'Embed cache write failed'		
+apps/api/app/gateways/vision_completion.py	92	warning	%	'Vision LLM %s timed out after %ss'	model_alias;timeout	
+apps/api/app/gateways/vision_completion.py	87	warning	%	'Vision LLM %s failed'	alias	
+apps/api/app/gateways/vision_completion.py	80	warning	%	'Vision LLM %s failed; retrying with fallback %s'	alias;aliases[index + 1]	
+apps/api/app/gateways/expo_push_gateway.py	86	critical	%	'Expo push credentials invalid (receipt) — check APNs/FCM config'		
+apps/api/app/gateways/expo_push_gateway.py	111	exception	%	'Expo push send failed offset=%s count=%s'	offset;len(chunk)	
+apps/api/app/gateways/expo_push_gateway.py	139	debug	%	'Expo response parse failed offset=%s'	offset	
+apps/api/app/gateways/expo_push_gateway.py	70	exception	%	'Expo push receipt fetch failed count=%s'	len(chunk)	
+apps/api/app/gateways/expo_push_gateway.py	133	critical	%	'Expo push credentials invalid — check APNs/FCM config'		
+apps/api/app/gateways/apple_revoke.py	145	info	%	'Apple token revoked on account delete'		
+apps/api/app/gateways/apple_revoke.py	126	warning	%	'Apple token revoke skipped: the Sign in with Apple key is not set'		
+apps/api/app/gateways/apple_revoke.py	138	warning	%	'Apple token revoke failed: %s'	type(exc).__name__	type(exc).__name__
+apps/api/app/gateways/apple_revoke.py	143	exception	%	'Apple token revoke failed unexpectedly'		
+apps/api/app/gateways/apple_revoke.py	134	warning	%	'Apple token revoke skipped: the code is for another Apple ID'		
+apps/api/app/gateways/speech_gateway.py	108	warning	%	'OpenAI transcription failed model=%s format=%s size=%s status=%s body=%s'	model;audio_format;len(audio_bytes);response.status_code;response.text[:500]	response.status_code;response.text[:500]
+apps/api/app/gateways/speech_gateway.py	120	info	%	'OpenAI transcription heard no speech model=%s format=%s size=%s'	model;audio_format;len(audio_bytes)	
+apps/api/app/gateways/speech_gateway.py	130	exception	%	'Speech transcription failed model=%s format=%s size=%s'	model;audio_format;len(audio_bytes)	
+apps/api/app/gateways/speech_gateway.py	193	warning	%	'OpenAI TTS failed model=%s status=%s body=%s'	model;response.status_code;response.text[:500]	response.status_code;response.text[:500]
+apps/api/app/gateways/speech_gateway.py	202	warning	%	'OpenAI TTS returned empty audio model=%s'	model	
+apps/api/app/gateways/speech_gateway.py	217	exception	%	'Speech TTS failed model=%s chars=%s'	model;len(text)	len(text)
+apps/api/app/gateways/speech_gateway.py	261	exception	%	'Speech TTS stream failed model=%s chars=%s'	model;len(text)	len(text)
+apps/api/app/gateways/speech_gateway.py	250	warning	%	'OpenAI TTS stream failed model=%s status=%s body=%s'	model;response.status_code;error_body	response.status_code;error_body
+apps/api/app/gateways/apple_auth.py	110	warning	%	'Apple ID token rejected: nonce missing or not from this sign-in'		
+apps/api/app/gateways/apple_auth.py	103	warning	%	'Apple ID token verification failed: %s'	exc	exc
+apps/api/app/core/unavailable.py	42	warning	%	'Dependency unavailable on %s %s: %s'	request.method;request.url.path;type(exc).__name__	request.url.path;type(exc).__name__
+apps/api/app/core/unavailable.py	58	warning	%	'Redis unavailable on %s %s'	request.method;request.url.path	request.url.path
+apps/api/app/core/rest_rate_limit.py	55	warning	%	'REST rate limit check failed; failing closed'		
+apps/api/app/core/config.py	67	warning	%	'TRUST_X_FORWARDED_FOR=true but TRUSTED_PROXY_CIDRS is empty — client IPs will not use XFF / Fly-Client-IP.'		
+apps/api/app/core/config.py	73	warning	%	'TRUST_X_FORWARDED_FOR=true with IPv4-only TRUSTED_PROXY_CIDRS — Fly 6PN peers (fdaa::/16) will not be trusted		
+apps/api/app/core/config.py	102	warning	%	'APPLE_* key unset: account delete cannot revoke Sign in with Apple tokens'		
+apps/api/app/core/config.py	59	warning	%	'TRUST_X_FORWARDED_FOR=false in production — behind Fly (or any proxy) every per-IP rate limit (sign-in, WebSo		
+apps/api/app/core/config.py	87	warning	%	'DEV_AUTH_ALLOW_REMOTE=true with dev auth enabled — /auth/dev will mint accounts for non-loopback callers. Nev		
+apps/api/app/core/config.py	93	warning	%	'DEV_ALLOW_UNAUTHED_WEBHOOKS=true — RevenueCat webhooks will be accepted with no shared secret. Local testing 		
+apps/api/app/core/redis_lock.py	53	warning	%	'Lock release failed; %s expires on its TTL: %r'	key;exc	exc
+apps/api/app/core/background_tasks.py	31	info	%	'Draining %d background task(s) (timeout=%.1fs)'	len(pending);timeout_seconds	
+apps/api/app/core/sentry.py	154	info	%	'Sentry initialized for environment=%s'	settings.environment	
+apps/api/app/core/sentry.py	104	debug	%	'Sentry %s not sent'	what	
+apps/api/app/core/sentry.py	134	warning	%	'sentry-sdk not installed; skipping Sentry init'		
+apps/api/app/core/access_tokens.py	114	warning	%	'Access token revocation check failed; Redis unavailable'		
+apps/api/app/core/shutdown.py	45	info	%	'Stop signal: ending %d in-flight hook(s)'	len(_callbacks)	
+apps/api/app/core/shutdown.py	50	exception	%	'Stop hook failed'		
+apps/api/app/core/spend_counter.py	77	warning	%	'Global spend check failed; treating as exceeded'		
+apps/api/app/core/rate_limit.py	36	warning	%	'Rate limit check failed; failing closed key=%s'	key	
+apps/api/app/core/logging.py	155	info	%	'http_request'		
+apps/api/app/core/sympy_executor.py	189	warning	%	'sympy process pool cannot start (posix semaphore limit); verified math will run in-process until restart'		
+apps/api/app/core/sympy_executor.py	479	warning	%	'sympy pool warmup failed'		
+apps/api/app/core/sympy_executor.py	222	warning	%	'sympy worker failed to warm after %.3fs'	_SPAWN_WAIT_SECONDS	
+apps/api/app/core/sympy_executor.py	262	debug	%	'pool.shutdown failed during sympy slot kill'		
+apps/api/app/core/sympy_executor.py	327	info	%	'sympy queued=%.3fs ran=%.3fs'	queue_s;time.monotonic() - t_start	time.monotonic() - t_start
+apps/api/app/core/sympy_executor.py	245	debug	%	'proc.terminate failed during sympy slot kill'		
+apps/api/app/core/sympy_executor.py	258	debug	%	'proc.join failed during sympy slot kill'		
+apps/api/app/core/sympy_executor.py	285	warning	%	'sympy queued %.3fs without a free worker slot'	time.monotonic() - t_submit	time.monotonic() - t_submit
+apps/api/app/core/sympy_executor.py	306	warning	%	'sympy worker failed to start after %.3fs'	_SPAWN_WAIT_SECONDS	
+apps/api/app/core/sympy_executor.py	317	warning	%	'sympy worker timed out after %.3fs (queued %.3fs)'	timeout;queue_s	
+apps/api/app/core/jobs/worker.py	118	info	%	'Skipping in-flight job id=%s dedupe_key=%s'	entry_id;dedupe_key	
+apps/api/app/core/jobs/worker.py	400	debug	%	'xreadgroup failed; backing off'		
+apps/api/app/core/jobs/worker.py	116	info	%	'Skipping already-processed job id=%s dedupe_key=%s'	entry_id;dedupe_key	
+apps/api/app/core/jobs/worker.py	403	warning	%	'Jobs consumer group is gone; creating it again'		
+apps/api/app/core/jobs/worker.py	188	debug	%	'xack failed id=%s'	entry_id	
+apps/api/app/core/jobs/worker.py	332	debug	%	'xautoclaim failed'		
+apps/api/app/core/jobs/worker.py	145	warning	%	'Discarding job id=%s: %s'	entry_id;exc	exc
+apps/api/app/core/jobs/worker.py	285	warning	%	'Jobs worker cannot reach Redis (attempt %s); retrying in %.0fs'	failures;delay	
+apps/api/app/core/jobs/worker.py	293	info	%	'Jobs worker reached Redis after %s failed attempt(s)'	failures	
+apps/api/app/core/jobs/worker.py	407	debug	%	'jobs consumer group re-create failed'		
+apps/api/app/core/jobs/worker.py	152	error	%	'Job id=%s type=%s exceeded %ss; moving to DLQ'	entry_id;fields.get('type');job_timeout	fields.get('type')
+apps/api/app/core/jobs/worker.py	163	warning	%	'Job failed attempt=%s/%s id=%s; retrying'	attempt;_MAX_ATTEMPTS;entry_id	
+apps/api/app/core/jobs/worker.py	171	exception	%	'Job failed after %s attempts id=%s'	_MAX_ATTEMPTS;entry_id	
+apps/api/app/core/jobs/pending.py	35	warning	%	'Job id=%s was trimmed from the stream before it ran'	entry_id	
+apps/api/app/core/jobs/pending.py	78	error	%	'Job id=%s type=%s delivered %s times without finishing; moving to DLQ'	entry_id;fields.get('type');delivered	fields.get('type')
+apps/api/app/core/jobs/pending.py	49	debug	%	'xpending_range failed id=%s'	entry_id	
+apps/api/app/core/jobs/pending.py	110	debug	%	'jobs consumer cleanup skipped consumer=%s'	consumer	
+apps/api/app/core/jobs/pending.py	39	debug	%	'xack of trimmed entry failed id=%s'	entry_id	
+apps/api/app/core/jobs/pending.py	91	debug	%	'xack of poison entry failed id=%s'	entry_id	
+apps/api/app/core/jobs/inflight.py	149	error	%	'Job id=%s runner failed'	entry_id	
+apps/api/app/core/jobs/inflight.py	112	debug	%	'job lease renewal failed count=%s'	len(entry_ids)	
+apps/api/app/core/jobs/dedupe.py	64	debug	%	'job dedupe claim failed key=%s'	dedupe_key	
+apps/api/app/core/jobs/dedupe.py	85	debug	%	'job dedupe state read failed key=%s'	dedupe_key	
+apps/api/app/core/jobs/dedupe.py	100	debug	%	'job dedupe extend failed key=%s'	dedupe_key	
+apps/api/app/core/jobs/dedupe.py	113	debug	%	'job dedupe refresh failed key=%s'	dedupe_key	
+apps/api/app/core/jobs/dedupe.py	129	debug	%	'job dedupe release failed key=%s'	dedupe_key	
+apps/api/app/core/jobs/dedupe.py	159	debug	%	'job delivery give-back failed id=%s'	entry_id	
+apps/api/app/core/jobs/queue.py	74	exception	%	'Failed to enqueue job type=%s'	job_type	job_type
+apps/api/app/core/jobs/queue.py	128	debug	%	'jobs stream trim skipped'		
+apps/api/app/core/jobs/admin.py	187	info	%	'Jobs purge user_id=%s removed=%s'	needle;removed	needle
+apps/api/app/core/jobs/admin.py	52	debug	%	'Failed to write job to DLQ id=%s'	entry_id	
+apps/api/app/core/jobs/admin.py	81	warning	%	'jobs queue metrics unreadable: %s'	metrics['metrics_error']	metrics['metrics_error']
+apps/api/app/core/jobs/admin.py	218	exception	%	'Failed to replay DLQ entry id=%s'	entry.get('id')	

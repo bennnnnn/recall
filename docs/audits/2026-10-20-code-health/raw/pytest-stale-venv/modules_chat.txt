@@ -1,0 +1,102 @@
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 13%]
+........................................................................ [ 16%]
+........................................................................ [ 19%]
+........................................................................ [ 23%]
+........................................................................ [ 26%]
+........................................................................ [ 29%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 39%]
+........................................................................ [ 43%]
+........................................................................ [ 46%]
+........................................................................ [ 49%]
+........................................................................ [ 52%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 66%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 76%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+........................................................................ [ 86%]
+........................................................................ [ 89%]
+........................................................................ [ 92%]
+........................................................................ [ 95%]
+........................................................................ [ 99%]
+................                                                         [100%]
+=============================== warnings summary ===============================
+../../../recall/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+app/tests/modules/chat/test_chat.py::test_is_comparison_question[difference between SQL and NoSQL-True]
+  /usr/lib/python3.13/inspect.py:2775: RuntimeWarning: coroutine 'Connection._cancel' was never awaited
+    def __init__(self, name, kind, *, default=_empty, annotation=_empty):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_chat.py::test_build_prompt_capabilities_overview_uses_memory_not_email_card
+  /usr/lib/python3.13/unittest/mock.py:2253: RuntimeWarning: coroutine 'Connection._cancel' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_chat_stream_orchestration.py: 13 warnings
+app/tests/modules/chat/test_stream_scaffold.py: 1 warning
+  /home/user/recall-audit/apps/api/app/modules/chat/stream_paths.py:311: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    await model_health_service.record_sample(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_chat_stream_orchestration.py::test_regenerate_keeps_assistant_when_stream_empty
+app/tests/modules/chat/test_chat_stream_orchestration.py::test_regenerate_omits_assistant_from_prompt_without_pre_delete
+app/tests/modules/chat/test_chat_stream_orchestration.py::test_regenerate_passes_client_geo_to_web_search
+  /home/user/recall/apps/api/.venv/lib/python3.13/site-packages/_pytest/stash.py:108: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    del self._storage[key]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_ws.py::test_ws_null_content_does_not_crash
+  /home/user/recall/apps/api/.venv/lib/python3.13/site-packages/pydantic/_internal/_generate_schema.py:904: RuntimeWarning: coroutine 'WebSocket.receive_json' was never awaited
+    get_schema = getattr(obj, '__get_pydantic_core_schema__', None)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+0.56s call     app/tests/modules/chat/test_turn_prep_parallel.py::test_fetches_run_concurrently_not_serially
+0.40s call     app/tests/modules/chat/test_ws_lifecycle.py::test_ws_error_frame_says_whether_the_user_message_saved[False]
+0.33s call     app/tests/modules/chat/test_ws.py::test_ws_null_content_does_not_crash
+0.31s call     app/tests/modules/chat/test_finalize_quota.py::test_adjust_usage_failure_after_commit_does_not_refund
+0.30s setup    app/tests/modules/chat/test_presentation.py::test_presentation_corpus_case[display-block-with-commands]
+0.27s call     app/tests/modules/chat/test_chat_history_rag.py::test_build_prompt_uses_gathered_history_embedding_once[embed-timeout-rich]
+0.26s call     app/tests/modules/chat/test_ws_lifecycle.py::test_ws_idle_timer_does_not_cut_a_turn
+0.21s call     app/tests/modules/chat/test_ws.py::test_ws_mid_stream_non_dict_frame_is_ignored
+0.21s call     app/tests/modules/chat/test_chat_stream_orchestration.py::test_stop_after_the_last_token_still_saves_the_reply
+0.20s call     app/tests/modules/chat/test_chat_history_rag.py::test_load_context_blocks_does_not_wait_on_history_embed_before_recent
+0.13s call     app/tests/modules/chat/test_verified_math_reply_prompt.py::test_live_inequality_injects_concise_guidance_nearest_result_and_user
+0.12s call     app/tests/modules/chat/test_chatprep_lock.py::test_turn_resources_borrowed_does_not_start_refresh
+0.10s call     app/tests/modules/chat/test_ws.py::test_ws_done_sends_persisting_when_finalize_times_out
+0.10s call     app/tests/modules/chat/test_ws_lifecycle.py::test_ws_idle_socket_closes_with_the_reconnect_code
+0.10s call     app/tests/modules/chat/test_chatprep_lock.py::test_turn_resources_refreshes_lock_while_held
+0.07s call     app/tests/modules/chat/test_turn_prep_parallel.py::test_graph_it_after_a_quadratic_reaches_the_solver
+0.07s call     app/tests/modules/chat/test_ws.py::test_ws_rejected_send_error_frame[error0-quota_exceeded]
+0.07s call     app/tests/modules/chat/test_ws.py::test_ws_connect_rate_limit_fails_closed_on_redis_error
+0.06s call     app/tests/modules/chat/test_ws_lifecycle.py::test_ws_caps_sockets_per_user_and_frees_the_slot_on_close
+0.06s call     app/tests/modules/chat/test_verified_math_reply_prompt.py::test_verified_camera_math_uses_same_result_adjacent_guidance
+0.06s call     app/tests/modules/chat/test_ws.py::test_ws_passes_client_timezone_to_stream
+0.06s call     app/tests/modules/chat/test_ws.py::test_ws_status_event_carries_detail
+0.06s call     app/tests/modules/chat/test_ws.py::test_ws_missing_token_closes
+0.06s call     app/tests/modules/chat/test_ws.py::test_ws_mid_stream_cancel
+0.06s call     app/tests/modules/chat/test_ws_frame_budget.py::test_ws_closes_a_socket_that_floods_frames[10-False]
+0.06s call     app/tests/modules/chat/test_ws.py::test_ws_regenerate
+0.06s call     app/tests/modules/chat/test_ws_lifecycle.py::test_ws_refuses_a_new_turn_once_the_server_is_stopping
+0.06s call     app/tests/modules/chat/test_ws.py::test_ws_cancel_sets_flag
+0.06s call     app/tests/modules/chat/test_chatprep_lock.py::test_lock_redis_errors_never_cut_the_stream_or_skip_its_save
+0.06s call     app/tests/modules/chat/test_ws_lifecycle.py::test_ws_rate_limited_message_is_unsaved
+2176 passed, 21 warnings in 20.49s

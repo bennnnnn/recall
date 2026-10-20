@@ -1,0 +1,61 @@
+........................................................................ [  4%]
+........................................................................ [  8%]
+........................................................................ [ 13%]
+........................................................................ [ 17%]
+........................................................................ [ 22%]
+........................................................................ [ 26%]
+........................................................................ [ 31%]
+........................................................................ [ 35%]
+........................................................................ [ 40%]
+........................................................................ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 53%]
+........................................................................ [ 58%]
+........................................................................ [ 62%]
+........................................................................ [ 66%]
+........................................................................ [ 71%]
+........................................................................ [ 75%]
+........................................................................ [ 80%]
+........................................................................ [ 84%]
+........................................................................ [ 89%]
+........................................................................ [ 93%]
+........................................................................ [ 98%]
+............................                                             [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+0.37s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['now only for orders in the last 30 days']
+0.36s call     app/tests/modules/images/test_intent_contract.py::test_intent_refuses_a_malformed_request[payload0]
+0.36s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['Image'0]
+0.26s setup    app/tests/modules/images/test_gen_intent.py::test_extract_image_gen_prompt_rejects[create a math problem]
+0.12s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['draw me a cat']
+0.10s call     app/tests/modules/images/test_intent_contract.py::test_intent_answers_a_phone_that_sends_only_text[Generate an image of a lighthouse-None-a lighthouse]
+0.10s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['show me an ear'1]
+0.08s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['Image'2]
+0.08s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['makeover ideas']
+0.07s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['send me a photo of the eiffel tower']
+0.07s call     app/tests/modules/images/test_api.py::test_generate_image_rejects_oversized_result
+0.07s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['draw ethanol']
+0.07s call     app/tests/modules/images/test_intent_contract.py::test_intent_reads_a_draft_chat_as_an_empty_thread
+0.07s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['make it blue'2]
+0.07s call     app/tests/modules/images/test_api.py::test_generate_image_success
+0.07s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['Generate an image of a lighthouse']
+0.07s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['thanks']
+0.07s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer["what's in this image?"]
+0.07s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['show it at night'1]
+0.07s call     app/tests/modules/images/test_api.py::test_generate_image_deletes_storage_when_persist_fails
+0.07s call     app/tests/modules/images/test_intent_contract.py::test_intent_looks_no_photo_up_when_image_search_is_off
+0.07s call     app/tests/modules/images/test_intent_contract.py::test_intent_reads_no_chat_but_the_users_own[nobody's]
+0.07s call     app/tests/modules/images/test_api.py::test_generate_image_refused_when_the_plan_has_none
+0.07s call     app/tests/modules/images/test_api.py::test_generate_image_stops_at_each_plans_daily_cap[free-3]
+0.07s call     app/tests/modules/images/test_generation.py::test_generate_image_openrouter_b64_json_rejects_oversized_payload
+0.06s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['please make it a bit darker and add more trees']
+0.06s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['hello']
+0.06s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['draw me a cute cartoon atom for our chemistry club poster']
+0.06s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['draw a cat']
+0.06s call     app/tests/modules/images/test_intent_contract.py::test_intent_contract_composer['\U0001f44d']
+1612 passed, 1 warning in 13.61s

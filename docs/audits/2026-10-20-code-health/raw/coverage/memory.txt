@@ -1,0 +1,73 @@
+........................................................................ [ 12%]
+........................................................................ [ 25%]
+........................................................................ [ 38%]
+........................................................................ [ 51%]
+........................................................................ [ 63%]
+........................................................................ [ 76%]
+........................................................................ [ 89%]
+............................................................             [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+app/tests/security/test_account_delete.py: 1 warning
+app/tests/security/test_account_export.py: 1 warning
+app/tests/security/test_cross_user_isolation.py: 17 warnings
+app/tests/security/test_quota_carryover.py: 12 warnings
+app/tests/security/test_ws_isolation.py: 1 warning
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+app/tests/security/test_account_delete.py: 2 warnings
+app/tests/security/test_account_export.py: 2 warnings
+app/tests/security/test_cross_user_isolation.py: 32 warnings
+app/tests/security/test_quota_carryover.py: 14 warnings
+app/tests/security/test_ws_isolation.py: 1 warning
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:370: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.13.16-final-0 _______________
+
+Name                                           Stmts   Miss  Cover   Missing
+----------------------------------------------------------------------------
+app/modules/memory/__init__.py                    11      0   100%
+app/modules/memory/api.py                        114     24    79%   72-73, 151-156, 167, 178-181, 196-205, 216-219, 232, 237-238, 240
+app/modules/memory/apply.py                       63      5    92%   41, 75, 114-116
+app/modules/memory/cache.py                       36      3    92%   17, 53-54
+app/modules/memory/commands.py                   142      5    96%   263, 277, 289, 325, 345
+app/modules/memory/consolidation.py               82     10    88%   57, 76, 79, 88, 103, 105-107, 131, 156
+app/modules/memory/consolidation_workflow.py     104      8    92%   71, 73, 174-175, 185, 197-199
+app/modules/memory/crud.py                       132     23    83%   49-51, 70, 75, 78-83, 97, 100, 132-134, 138, 157, 161, 165-169, 252
+app/modules/memory/documents.py                   47      2    96%   84-85
+app/modules/memory/enqueue_policy.py              52     21    60%   28, 42-63, 71-74, 88-89, 99-100, 115-116
+app/modules/memory/erase.py                       40      0   100%
+app/modules/memory/extract_backlog.py             87     14    84%   49-50, 102, 104-105, 115-117, 131-138, 151-153
+app/modules/memory/extraction_workflow.py        155      8    95%   280-284, 307, 407-408, 443-445
+app/modules/memory/fact_quality.py                78      3    96%   78, 97, 111
+app/modules/memory/facts.py                       80      0   100%
+app/modules/memory/forget_match.py                43      1    98%   130
+app/modules/memory/history_scan.py               121     15    88%   66-68, 80-81, 113-115, 123-124, 136-139, 148-149
+app/modules/memory/instruct.py                    48      0   100%
+app/modules/memory/learning_progress.py           48      3    94%   51, 108-109
+app/modules/memory/lexical.py                     19      0   100%
+app/modules/memory/llm.py                         39      4    90%   78, 200, 262, 264
+app/modules/memory/locks.py                       35      6    83%   25-27, 33, 39-40
+app/modules/memory/models.py                      47      0   100%
+app/modules/memory/name_claim.py                 140     10    93%   59, 66-67, 74-75, 85, 114, 138-139, 164
+app/modules/memory/ops.py                         79      9    89%   57, 66-69, 91, 103, 127, 129
+app/modules/memory/profile_reply.py               73     18    75%   50-51, 68-77, 83, 86, 95-98
+app/modules/memory/repository.py                 124     22    82%   68, 92, 95, 181, 184, 207, 214, 245, 253, 268-282
+app/modules/memory/retrieval.py                  155     26    83%   95, 198, 202, 208, 222, 231-232, 251, 299-301, 313-314, 398, 402-404, 409-416, 422-423
+app/modules/memory/schemas.py                     66      0   100%
+app/modules/memory/selection.py                   94      2    98%   48, 54
+app/modules/memory/self_facts.py                 152     10    93%   107, 116, 147, 163, 169, 196, 200, 237, 271, 287
+app/modules/memory/surface.py                     96      0   100%
+app/modules/memory/text.py                       133     10    92%   44, 171, 182, 186, 219, 227, 231, 274, 314, 317
+app/modules/memory/topics.py                      46      0   100%
+app/modules/memory/writes_repository.py          135     10    93%   82, 92, 96, 129-132, 140, 147, 225
+----------------------------------------------------------------------------
+TOTAL                                           2916    272    91%
+564 passed, 4 deselected, 84 warnings in 19.38s

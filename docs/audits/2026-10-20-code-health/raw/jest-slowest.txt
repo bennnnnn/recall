@@ -1,0 +1,35 @@
+suites: 496 sum of suite times: 307.7 s
+slowest suites:
+   14.55s features/chat/components/__tests__/StreamingChatMessageRow.test.tsx
+   13.57s components/markdown/__tests__/markdownRenderRules.test.tsx
+   12.53s lib/__tests__/markdownPreprocess.test.ts
+    9.39s lib/__tests__/mathText.test.ts
+    8.35s lib/__tests__/apiClient.test.ts
+    5.96s features/chat/components/__tests__/ChatMessageRow.test.tsx
+    5.79s components/__tests__/MathEquationScanner.test.tsx
+    5.67s features/chat/hooks/__tests__/useChatSend.test.tsx
+    5.17s features/images/model/__tests__/dotSnake.test.ts
+    4.12s components/__tests__/ChatComposer.test.tsx
+    3.43s components/__tests__/ChatComposerDraft.test.tsx
+    3.42s features/attachments/components/__tests__/AttachmentImageViewer.test.tsx
+slowest tests:
+    4.63s features/images/model/__tests__/dotSnake.test.ts :: stepDotSnake stays a valid snake over a long autopilot run
+    2.30s features/chat/hooks/__tests__/useChatSend.test.tsx :: useChatSend draws the server's prompt from the composer
+    2.23s components/__tests__/mathKeyboardAllKeys.test.tsx :: math keyboard keys presses every key, then deletes without showing raw latex
+    1.52s features/chat/hooks/__tests__/useChatSend.test.tsx :: useChatSend keeps the draft and surfaces the offline callback
+    1.18s components/__tests__/MathEquationScanner.test.tsx :: MathEquationScanner keeps the Modal mounted when visible goes false
+    1.14s lib/__tests__/workletRules.test.ts :: worklets name only what is declared before them in every production file
+    1.10s components/markdown/__tests__/markdownFenceRender.test.tsx :: renderFence geometry/graph dispatch routes an explicit ```graph fence to FunctionGraphBloc
+    1.00s components/__tests__/MathSvgView.test.tsx :: MathSvgView (real MathJax conversion) renders a fraction as theme-colored SVG
+    0.77s components/__tests__/ChatComposer.test.tsx :: ChatComposer math keyboard gives every page, the converter included, one key height of at 
+    0.72s features/attachments/components/__tests__/AttachmentImageViewer.test.tsx :: AttachmentImageViewer pages across photos from the same generation
+    0.70s components/__tests__/AnswerCardVerified.test.tsx :: answer cards untagged x = 7: no card, no check
+    0.65s components/__tests__/ChatComposer.test.tsx :: ChatComposer math keyboard sends a convert prompt on Ask, not a computed answer
+skipped: 7
+   lib/__tests__/graphExpr.test.ts :: graph expression contract sin x parity skipped, known phone gap: The server reads a function name wi
+   lib/__tests__/graphExpr.test.ts :: graph expression contract cos 2x parity skipped, known phone gap: The server reads a function name w
+   lib/__tests__/graphExpr.test.ts :: graph expression contract sqrt x parity skipped, known phone gap: The server reads a function name w
+   lib/__tests__/graphExpr.test.ts :: graph expression contract log x parity skipped, known phone gap: The server reads a function name wi
+   lib/__tests__/graphExpr.test.ts :: graph expression contract √x parity skipped, known phone gap: The server rewrites √ before parsing (
+   lib/__tests__/graphExpr.test.ts :: graph expression contract |x| parity skipped, known phone gap: The server pairs bare bars into Abs (
+   lib/__tests__/graphExpr.test.ts :: graph expression contract xe^x parity skipped, known phone gap: The server splits the glued name xe 

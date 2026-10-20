@@ -1,0 +1,27 @@
+architecture rc=0 secs=19 :: 196 passed, 1 warning in 16.60s
+core rc=0 secs=10 :: 95 passed, 18 deselected in 8.32s
+gateways rc=0 secs=12 :: 115 passed, 3 warnings in 9.91s
+repositories rc=0 secs=5 :: 54 passed in 4.15s
+security rc=0 secs=11 :: 83 passed, 1 deselected, 84 warnings in 8.00s
+background rc=0 secs=6 :: 32 passed in 4.46s
+services rc=0 secs=20 :: 1464 passed, 1 warning in 15.98s
+behavior rc=0 secs=124 :: 3336 passed in 122.31s (0:02:02)
+modules___pycache__ rc=5 secs=0 :: no tests ran in 0.07s
+modules_account rc=0 secs=8 :: 252 passed, 2 warnings in 6.00s
+modules_analytics rc=0 secs=6 :: 16 passed, 1 warning in 3.78s
+modules_attachments rc=0 secs=12 :: 253 passed, 4 warnings in 10.62s
+modules_billing rc=0 secs=6 :: 37 passed, 1 warning in 3.91s
+modules_chat rc=0 secs=22 :: 2176 passed, 22 warnings in 19.32s
+modules_chemistry rc=0 secs=16 :: 2851 passed, 1 warning in 14.40s
+modules_home rc=0 secs=4 :: 13 passed in 2.58s
+modules_images rc=0 secs=15 :: 1612 passed, 1 warning in 13.61s
+modules_link_preview rc=0 secs=7 :: 30 passed, 1 warning in 5.26s
+modules_math rc=0 secs=66 :: 5091 passed, 20 warnings in 63.06s (0:01:03)
+modules_memory rc=0 secs=10 :: 481 passed, 1 warning in 8.26s
+modules_physics rc=0 secs=55 :: 5393 passed, 1 warning in 52.52s
+modules_search rc=0 secs=6 :: 30 passed, 1 warning in 4.36s
+modules_speech rc=0 secs=10 :: 123 passed, 4 warnings in 8.87s
+modules_todos rc=0 secs=7 :: 417 passed in 5.80s
+modules_web_search rc=0 secs=10 :: 714 passed in 8.59s
+toplevel rc=0 secs=30 :: 734 passed, 3 warnings in 27.21s
+DONE

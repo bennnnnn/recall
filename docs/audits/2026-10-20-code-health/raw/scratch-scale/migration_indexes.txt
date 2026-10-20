@@ -1,0 +1,208 @@
+0001_initial_schema.py:33:        sa.UniqueConstraint("email"),
+0001_initial_schema.py:34:        sa.UniqueConstraint("google_sub"),
+0002_indexes_and_constraints.py:22:    op.create_index("ix_messages_chat_created", "messages", ["chat_id", "created_at"])
+0002_indexes_and_constraints.py:25:    op.create_index("ix_messages_chat_role", "messages", ["chat_id", "role"])
+0002_indexes_and_constraints.py:29:    op.create_index("ix_chats_user_updated", "chats", ["user_id", "updated_at"])
+0002_indexes_and_constraints.py:33:    op.create_index("ix_memories_user_updated", "memories", ["user_id", "updated_at"])
+0002_indexes_and_constraints.py:36:    op.create_unique_constraint(
+0002_indexes_and_constraints.py:48:    op.drop_index("ix_memories_user_updated", "memories")
+0002_indexes_and_constraints.py:49:    op.drop_index("ix_chats_user_updated", "chats")
+0002_indexes_and_constraints.py:50:    op.drop_index("ix_messages_chat_role", "messages")
+0002_indexes_and_constraints.py:51:    op.drop_index("ix_messages_chat_created", "messages")
+0008_create_todo_items.py:47:    op.create_index("ix_todo_user_created", "todo_items", ["user_id", "created_at"])
+0009_add_search_indexes.py:22:        "CREATE INDEX IF NOT EXISTS ix_messages_content_trgm "
+0009_add_search_indexes.py:23:        "ON messages USING gin (content gin_trgm_ops)"
+0009_add_search_indexes.py:28:    op.execute("DROP INDEX IF EXISTS ix_messages_content_trgm")
+0010_create_templates_suggestions.py:64:    op.create_index("ix_templates_user_id", "templates", ["user_id"])
+0010_create_templates_suggestions.py:65:    op.create_index("ix_suggestions_user_id", "suggestions", ["user_id"])
+0010_create_templates_suggestions.py:69:    op.drop_index("ix_suggestions_user_id")
+0010_create_templates_suggestions.py:70:    op.drop_index("ix_templates_user_id")
+0011_add_messages_user_id_index.py:20:    op.execute("CREATE INDEX IF NOT EXISTS ix_messages_user_id ON messages (user_id)")
+0011_add_messages_user_id_index.py:24:    op.execute("DROP INDEX IF EXISTS ix_messages_user_id")
+0012_add_todo_topic.py:26:    op.create_index("ix_todo_user_topic", "todo_items", ["user_id", "topic"])
+0012_add_todo_topic.py:30:    op.drop_index("ix_todo_user_topic", table_name="todo_items")
+0015_create_projects.py:39:    op.create_index("ix_projects_user_updated", "projects", ["user_id", "updated_at"])
+0015_create_projects.py:40:    op.create_index("ix_projects_user_kind", "projects", ["user_id", "kind"])
+0015_create_projects.py:44:    op.drop_index("ix_projects_user_kind", table_name="projects")
+0015_create_projects.py:45:    op.drop_index("ix_projects_user_updated", table_name="projects")
+0016_create_project_items.py:51:    op.create_index("ix_project_items_project_list", "project_items", ["project_id", "list_title"])
+0016_create_project_items.py:52:    op.create_index("ix_project_items_user_project", "project_items", ["user_id", "project_id"])
+0016_create_project_items.py:56:    op.drop_index("ix_project_items_user_project", table_name="project_items")
+0016_create_project_items.py:57:    op.drop_index("ix_project_items_project_list", table_name="project_items")
+0017_language_vocab_fields.py:57:    op.create_index(
+0017_language_vocab_fields.py:79:    op.drop_index("ix_project_items_status_review", table_name="project_items")
+0018_add_todo_sort_order.py:22:    op.create_index(
+0018_add_todo_sort_order.py:30:    op.drop_index("ix_todo_user_topic_sort", table_name="todo_items")
+0019_memory_section_per_type.py:66:    op.create_unique_constraint("uq_memories_user_type", "memories", ["user_id", "type"])
+0019_memory_section_per_type.py:71:    op.create_unique_constraint(
+0021_perf_indexes.py:22:        "CREATE INDEX IF NOT EXISTS ix_todo_user_open_due "
+0021_perf_indexes.py:27:        "CREATE INDEX IF NOT EXISTS ix_chats_title_trgm "
+0021_perf_indexes.py:28:        "ON chats USING gin (title gin_trgm_ops) "
+0021_perf_indexes.py:34:    op.execute("DROP INDEX IF EXISTS ix_chats_title_trgm")
+0021_perf_indexes.py:35:    op.execute("DROP INDEX IF EXISTS ix_todo_user_open_due")
+0024_gmail_suggested_reminders.py:64:        sa.UniqueConstraint(
+0024_gmail_suggested_reminders.py:68:    op.create_index(
+0024_gmail_suggested_reminders.py:73:    op.create_index(
+0024_gmail_suggested_reminders.py:81:    op.drop_index("ix_suggested_reminders_user_due", table_name="suggested_reminders")
+0024_gmail_suggested_reminders.py:82:    op.drop_index("ix_suggested_reminders_user_status", table_name="suggested_reminders")
+0025_push_tokens.py:35:        sa.UniqueConstraint("expo_push_token", name="uq_push_tokens_expo_token"),
+0025_push_tokens.py:37:    op.create_index("ix_push_tokens_user", "push_tokens", ["user_id"])
+0025_push_tokens.py:47:    op.drop_index("ix_push_tokens_user", table_name="push_tokens")
+0026_attachments.py:38:    op.create_index("ix_attachments_user", "attachments", ["user_id"])
+0026_attachments.py:42:    op.drop_index("ix_attachments_user", table_name="attachments")
+0028_chat_project_id.py:29:    op.create_index("ix_chats_user_project", "chats", ["user_id", "project_id"])
+0028_chat_project_id.py:33:    op.drop_index("ix_chats_user_project", table_name="chats")
+0029_chat_archived.py:23:    op.create_index("ix_chats_user_archived", "chats", ["user_id", "archived"])
+0029_chat_archived.py:27:    op.drop_index("ix_chats_user_archived", table_name="chats")
+0033_pgvector_real.py:48:        "CREATE INDEX IF NOT EXISTS ix_memories_embedding "
+0033_pgvector_real.py:49:        "ON memories USING hnsw (embedding vector_cosine_ops)"
+0033_pgvector_real.py:54:    op.execute("DROP INDEX IF EXISTS ix_memories_embedding")
+0036_builtin_template_title_unique.py:38:    op.create_index(
+0036_builtin_template_title_unique.py:42:        unique=True,
+0036_builtin_template_title_unique.py:48:    op.drop_index("ux_templates_builtin_title", table_name="templates")
+0037_drop_templates_table.py:28:    op.drop_index("ux_templates_builtin_title", table_name="templates")
+0037_drop_templates_table.py:29:    op.drop_index("ix_templates_user_id", table_name="templates")
+0037_drop_templates_table.py:60:    op.create_index("ix_templates_user_id", "templates", ["user_id"])
+0037_drop_templates_table.py:61:    op.create_index(
+0037_drop_templates_table.py:65:        unique=True,
+0038_user_apple_sub.py:21:    op.create_unique_constraint("uq_users_apple_sub", "users", ["apple_sub"])
+0041_project_quiz_questions.py:53:        sa.UniqueConstraint(
+0041_project_quiz_questions.py:59:        sa.UniqueConstraint(
+0041_project_quiz_questions.py:64:        sa.UniqueConstraint(
+0041_project_quiz_questions.py:70:    op.create_index(
+0041_project_quiz_questions.py:78:    op.drop_index("ix_project_quiz_project_date", table_name="project_quiz_questions")
+0042_trivia_quiz_topic_unique.py:21:    op.create_index(
+0042_trivia_quiz_topic_unique.py:25:        unique=True,
+0042_trivia_quiz_topic_unique.py:31:    op.drop_index("uq_project_quiz_vocab_topic", table_name="project_quiz_questions")
+0042_trivia_quiz_topic_unique.py:32:    op.create_unique_constraint(
+0043_drop_project_quiz_questions.py:68:        sa.UniqueConstraint("project_id", "quiz_date", "sequence", name="uq_project_quiz_date_seq"),
+0043_drop_project_quiz_questions.py:69:        sa.UniqueConstraint("project_id", "project_item_id", name="uq_project_quiz_item"),
+0043_drop_project_quiz_questions.py:71:    op.create_index(
+0043_drop_project_quiz_questions.py:76:    op.create_index(
+0043_drop_project_quiz_questions.py:80:        unique=True,
+0044_project_items_sm2.py:42:    op.create_index(
+0044_project_items_sm2.py:50:    op.drop_index("ix_project_items_project_due_at", table_name="project_items")
+0045_todo_project_id.py:32:    op.create_index("ix_todo_items_user_project", "todo_items", ["user_id", "project_id"])
+0045_todo_project_id.py:36:    op.drop_index("ix_todo_items_user_project", table_name="todo_items")
+0047_attachment_chunks.py:46:    op.create_index(
+0047_attachment_chunks.py:51:    op.create_index(
+0047_attachment_chunks.py:57:        "CREATE INDEX IF NOT EXISTS ix_attachment_chunks_embedding "
+0047_attachment_chunks.py:58:        "ON attachment_chunks USING hnsw (embedding vector_cosine_ops)"
+0047_attachment_chunks.py:63:    op.execute("DROP INDEX IF EXISTS ix_attachment_chunks_embedding")
+0047_attachment_chunks.py:64:    op.drop_index("ix_attachment_chunks_attachment", table_name="attachment_chunks")
+0047_attachment_chunks.py:65:    op.drop_index("ix_attachment_chunks_user_chat", table_name="attachment_chunks")
+0055_project_kind_unique_active.py:46:    op.create_index(
+0055_project_kind_unique_active.py:50:        unique=True,
+0055_project_kind_unique_active.py:56:    op.drop_index("uq_projects_user_kind_active", table_name="projects")
+0056_quiz_miss_events.py:33:    op.create_index(
+0056_quiz_miss_events.py:38:    op.create_index("ix_quiz_miss_events_user", "quiz_miss_events", ["user_id"])
+0056_quiz_miss_events.py:53:    op.drop_index("ix_quiz_miss_events_user", table_name="quiz_miss_events")
+0056_quiz_miss_events.py:54:    op.drop_index("ix_quiz_miss_events_item_occurred", table_name="quiz_miss_events")
+0063_msg_chat_created_id_idx.py:1:"""Add (chat_id, created_at, id) index for stable message pagination
+0063_msg_chat_created_id_idx.py:6:Message list/pagination queries order by (created_at DESC, id DESC) — the id
+0063_msg_chat_created_id_idx.py:11:index serves both the ORDER BY and the tuple-cursor pagination filters in
+0063_msg_chat_created_id_idx.py:14:The original revision id (``0063_messages_chat_created_id_idx``, 33 chars)
+0063_msg_chat_created_id_idx.py:33:    op.create_index(
+0063_msg_chat_created_id_idx.py:43:    op.drop_index(
+0064_message_chunks.py:42:        sa.UniqueConstraint("message_id", "chunk_index", name="uq_message_chunks_message_index"),
+0064_message_chunks.py:47:    op.create_index("ix_message_chunks_user", "message_chunks", ["user_id"])
+0064_message_chunks.py:48:    op.create_index("ix_message_chunks_user_chat", "message_chunks", ["user_id", "chat_id"])
+0064_message_chunks.py:49:    op.create_index("ix_message_chunks_message", "message_chunks", ["message_id"])
+0064_message_chunks.py:51:        "CREATE INDEX IF NOT EXISTS ix_message_chunks_embedding "
+0064_message_chunks.py:52:        "ON message_chunks USING hnsw (embedding vector_cosine_ops)"
+0064_message_chunks.py:57:    op.execute("DROP INDEX IF EXISTS ix_message_chunks_embedding")
+0064_message_chunks.py:58:    op.drop_index("ix_message_chunks_message", table_name="message_chunks")
+0064_message_chunks.py:59:    op.drop_index("ix_message_chunks_user_chat", table_name="message_chunks")
+0064_message_chunks.py:60:    op.drop_index("ix_message_chunks_user", table_name="message_chunks")
+0065_language_target_unique.py:22:    op.drop_index("uq_projects_user_kind_active", table_name="projects")
+0065_language_target_unique.py:23:    op.create_index(
+0065_language_target_unique.py:27:        unique=True,
+0065_language_target_unique.py:30:    op.create_index(
+0065_language_target_unique.py:34:        unique=True,
+0065_language_target_unique.py:40:    op.drop_index("uq_projects_user_trivia_active", table_name="projects")
+0065_language_target_unique.py:41:    op.drop_index("uq_projects_user_language_target_active", table_name="projects")
+0065_language_target_unique.py:42:    op.create_index(
+0065_language_target_unique.py:46:        unique=True,
+0066_learning_path.py:7:list_titles in first-seen order, or a beginner starter path when empty.
+0068_product_events.py:57:    op.create_index(
+0068_product_events.py:62:    op.create_index(
+0068_product_events.py:70:    op.drop_index("ix_product_events_user_recorded", table_name="product_events")
+0068_product_events.py:71:    op.drop_index("ix_product_events_name_recorded", table_name="product_events")
+0069_vocab_catalog.py:29:        sa.UniqueConstraint("target_language", "slug", name="uq_vocab_decks_lang_slug"),
+0069_vocab_catalog.py:31:    op.create_index(
+0069_vocab_catalog.py:49:        sa.UniqueConstraint("deck_id", "content", name="uq_vocab_entries_deck_content"),
+0069_vocab_catalog.py:51:    op.create_index(
+0069_vocab_catalog.py:69:    op.drop_index("ix_vocab_entries_deck_sort", table_name="vocab_entries")
+0069_vocab_catalog.py:71:    op.drop_index("ix_vocab_decks_language_sort", table_name="vocab_decks")
+0071_drop_trivia_projects.py:19:    op.drop_index("uq_projects_user_trivia_active", table_name="projects")
+0071_drop_trivia_projects.py:29:        CREATE UNIQUE INDEX uq_projects_user_trivia_active
+0073_attachment_original_filename.py:1:"""Add attachments.original_filename for gallery search.
+0073_attachment_original_filename.py:24:        sa.Column("original_filename", sa.String(length=255), nullable=True),
+0073_attachment_original_filename.py:29:    op.drop_column("attachments", "original_filename")
+0075_project_item_unique.py:41:    op.create_index(
+0075_project_item_unique.py:45:        unique=True,
+0075_project_item_unique.py:50:    op.drop_index("uq_project_items_project_list_content", table_name="project_items")
+0079_learning_practice.py:54:        sa.UniqueConstraint("user_id", "attempt_id", name="uq_learning_practice_user_attempt"),
+0079_learning_practice.py:62:    op.create_index(
+0079_learning_practice.py:67:    op.create_index(
+0079_learning_practice.py:72:    op.create_index(
+0080_retire_legacy_vocab.py:1:"""Retire the old beginner catalog and its saved Learning entries.
+0084_todo_open_due_uq.py:44:        CREATE UNIQUE INDEX uq_todo_open_content_due
+0084_todo_open_due_uq.py:49:    op.create_index("ix_todo_user_id", "todo_items", ["user_id", "id"])
+0084_todo_open_due_uq.py:53:    op.drop_index("ix_todo_user_id", table_name="todo_items")
+0084_todo_open_due_uq.py:54:    op.execute("DROP INDEX IF EXISTS uq_todo_open_content_due")
+0087_memory_facts.py:113:    op.create_index("ix_memories_user_status", "memories", ["user_id", "status"])
+0087_memory_facts.py:114:    op.create_index(
+0087_memory_facts.py:254:    op.drop_index("ix_memories_user_type_status", table_name="memories")
+0087_memory_facts.py:255:    op.drop_index("ix_memories_user_status", table_name="memories")
+0087_memory_facts.py:264:    op.create_unique_constraint("uq_memories_user_type", "memories", ["user_id", "type"])
+0089_automations.py:7:through the chat turn engine, posting into its own dedicated `chat_id`
+0089_automations.py:40:        sa.UniqueConstraint("chat_id", name="uq_automations_chat_id"),
+0089_automations.py:54:    op.create_index("ix_automations_user_id", "automations", ["user_id"])
+0089_automations.py:55:    op.create_index("ix_automations_status_next_run", "automations", ["status", "next_run_at"])
+0089_automations.py:59:    op.drop_index("ix_automations_status_next_run", table_name="automations")
+0089_automations.py:60:    op.drop_index("ix_automations_user_id", table_name="automations")
+0090_job_search.py:74:        sa.UniqueConstraint("user_id", name="uq_job_search_profiles_user"),
+0090_job_search.py:76:    op.create_index(
+0090_job_search.py:118:        sa.UniqueConstraint(
+0090_job_search.py:124:    op.create_index(
+0090_job_search.py:133:    op.drop_index("ix_job_matches_profile_status_found", table_name="job_matches")
+0090_job_search.py:135:    op.drop_index("ix_job_search_profiles_due", table_name="job_search_profiles")
+0090_job_search.py:168:        sa.UniqueConstraint("chat_id"),
+0090_job_search.py:170:    op.create_index("ix_automations_user_id", "automations", ["user_id"], unique=False)
+0090_job_search.py:171:    op.create_index(
+0097_memory_documents.py:40:    op.create_index("ix_memories_user_topic_status", "memories", ["user_id", "topic", "status"])
+0097_memory_documents.py:62:        sa.UniqueConstraint("user_id", "key", name="uq_memory_areas_user_key"),
+0097_memory_documents.py:73:    op.drop_index("ix_memories_user_topic_status", table_name="memories")
+0099_drop_learning.py:25:    op.drop_index("ix_chats_user_project", table_name="chats")
+0099_drop_learning.py:31:    op.drop_index("ix_todo_items_user_project", table_name="todo_items")
+0099_drop_learning.py:53:        sa.UniqueConstraint("target_language", "slug", name="uq_vocab_decks_lang_slug"),
+0099_drop_learning.py:56:    op.create_index(
+0099_drop_learning.py:74:        sa.UniqueConstraint("deck_id", "content", name="uq_vocab_entries_deck_content"),
+0099_drop_learning.py:76:    op.create_index("ix_vocab_entries_deck_sort", "vocab_entries", ["deck_id", "sort_order"])
+0099_drop_learning.py:100:    op.create_index("ix_projects_user_updated", "projects", ["user_id", "updated_at"])
+0099_drop_learning.py:101:    op.create_index("ix_projects_user_kind", "projects", ["user_id", "kind"])
+0099_drop_learning.py:104:        CREATE UNIQUE INDEX uq_projects_user_language_target_active
+0099_drop_learning.py:146:        sa.UniqueConstraint(
+0099_drop_learning.py:153:    op.create_index("ix_project_items_project_list", "project_items", ["project_id", "list_title"])
+0099_drop_learning.py:154:    op.create_index("ix_project_items_user_project", "project_items", ["user_id", "project_id"])
+0099_drop_learning.py:155:    op.create_index(
+0099_drop_learning.py:160:    op.create_index("ix_project_items_project_due_at", "project_items", ["project_id", "due_at"])
+0099_drop_learning.py:170:    op.create_index(
+0099_drop_learning.py:173:    op.create_index("ix_quiz_miss_events_user", "quiz_miss_events", ["user_id"])
+0099_drop_learning.py:188:        sa.UniqueConstraint("user_id", "attempt_id", name="uq_learning_practice_user_attempt"),
+0099_drop_learning.py:196:    op.create_index(
+0099_drop_learning.py:201:    op.create_index(
+0099_drop_learning.py:206:    op.create_index(
+0099_drop_learning.py:214:    op.create_index("ix_chats_user_project", "chats", ["user_id", "project_id"])
+0099_drop_learning.py:232:    op.create_index("ix_todo_items_user_project", "todo_items", ["user_id", "project_id"])
+0100_job_search_reliability.py:111:        sa.UniqueConstraint("profile_id", "request_key", name="uq_job_run_request"),
+0100_job_search_reliability.py:117:    op.create_index("ix_job_run_profile_created", "job_search_runs", ["profile_id", "created_at"])
+0100_job_search_reliability.py:118:    op.create_index("ix_job_run_recovery", "job_search_runs", ["state", "lease_until"])
+0100_job_search_reliability.py:136:        sa.UniqueConstraint("run_id", name="uq_job_notification_run"),
+0115_attachment_linked_at.py:38:        op.create_index(
+0115_attachment_linked_at.py:46:        op.create_index(
+0115_attachment_linked_at.py:54:        op.create_index(
+0115_attachment_linked_at.py:65:        op.drop_index(
+0115_attachment_linked_at.py:71:        op.drop_index(
+0115_attachment_linked_at.py:77:        op.drop_index(

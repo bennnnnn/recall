@@ -1,0 +1,1674 @@
+{
+ "attachments_enabled": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   7,
+   "True"
+  ]
+ ],
+ "attachment_extract_timeout_seconds": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   11,
+   "5.0"
+  ]
+ ],
+ "attachment_index_extract_timeout_seconds": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   13,
+   "60.0"
+  ]
+ ],
+ "attachment_ocr_enabled": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   18,
+   "True"
+  ]
+ ],
+ "attachment_ocr_max_pages": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   19,
+   "6"
+  ]
+ ],
+ "attachment_ocr_index_max_pages": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   21,
+   "20"
+  ]
+ ],
+ "attachment_ocr_timeout_seconds": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   22,
+   "30.0"
+  ]
+ ],
+ "attachment_ocr_index_timeout_seconds": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   23,
+   "120.0"
+  ]
+ ],
+ "attachment_ocr_page_timeout_seconds": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   24,
+   "12.0"
+  ]
+ ],
+ "attachment_ocr_render_scale": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   25,
+   "1.5"
+  ]
+ ],
+ "attachment_ocr_max_page_pixels": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   30,
+   "4000000"
+  ]
+ ],
+ "attachment_image_max_decode_pixels": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   35,
+   "16000000"
+  ]
+ ],
+ "attachment_thumbnail_concurrency": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   37,
+   "2"
+  ]
+ ],
+ "attachment_vision_max_edge": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   39,
+   "2048"
+  ]
+ ],
+ "attachment_vision_max_turn_bytes": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   40,
+   "20000000"
+  ]
+ ],
+ "attachment_rag_enabled": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   43,
+   "True"
+  ]
+ ],
+ "attachment_rag_chunk_limit": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   44,
+   "6"
+  ]
+ ],
+ "attachment_rag_min_similarity": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   45,
+   "0.25"
+  ]
+ ],
+ "attachment_rag_chunk_chars": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   46,
+   "900"
+  ]
+ ],
+ "attachment_rag_chunk_overlap": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   47,
+   "120"
+  ]
+ ],
+ "attachment_rag_max_chunks_per_file": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   48,
+   "256"
+  ]
+ ],
+ "image_attachment_reserve_tokens": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   52,
+   "1200"
+  ]
+ ],
+ "attachment_orphan_grace_hours": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   57,
+   "24"
+  ]
+ ],
+ "attachment_pending_orphan_hours": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   58,
+   "1"
+  ]
+ ],
+ "attachment_orphan_reaper_interval_seconds": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   59,
+   "3600"
+  ]
+ ],
+ "attachment_orphan_reap_limit": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   62,
+   "100"
+  ]
+ ],
+ "storage_backend": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   68,
+   "'local'"
+  ]
+ ],
+ "storage_local_path": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   70,
+   "'~/.recall/attachments'"
+  ]
+ ],
+ "r2_account_id": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   71,
+   "''"
+  ]
+ ],
+ "r2_access_key_id": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   72,
+   "''"
+  ]
+ ],
+ "r2_secret_access_key": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   73,
+   "''"
+  ]
+ ],
+ "r2_bucket": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   74,
+   "''"
+  ]
+ ],
+ "r2_endpoint": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   75,
+   "''"
+  ]
+ ],
+ "r2_presign_expiry_seconds": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   76,
+   "600"
+  ]
+ ],
+ "r2_presign_upload_expiry_seconds": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   79,
+   "120"
+  ]
+ ],
+ "r2_connect_timeout_seconds": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   83,
+   "5.0"
+  ]
+ ],
+ "r2_read_timeout_seconds": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   84,
+   "20.0"
+  ]
+ ],
+ "r2_max_attempts": [
+  [
+   "core/settings/attachments.py",
+   "AttachmentSettings",
+   85,
+   "3"
+  ]
+ ],
+ "google_client_id": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   7,
+   "''"
+  ]
+ ],
+ "google_auth_timeout_seconds": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   11,
+   "10.0"
+  ]
+ ],
+ "apple_client_id": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   12,
+   "'com.recall.app'"
+  ]
+ ],
+ "apple_team_id": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   14,
+   "''"
+  ]
+ ],
+ "apple_key_id": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   15,
+   "''"
+  ]
+ ],
+ "apple_private_key": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   16,
+   "''"
+  ]
+ ],
+ "jwt_secret": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   18,
+   "'dev-secret-change-me'"
+  ]
+ ],
+ "jwt_expire_minutes": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   21,
+   "60"
+  ]
+ ],
+ "jwt_refresh_expire_days": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   22,
+   "30"
+  ]
+ ],
+ "admin_user_ids": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   24,
+   "''"
+  ]
+ ],
+ "dev_auth_enabled": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   28,
+   "True"
+  ]
+ ],
+ "dev_auth_allow_remote": [
+  [
+   "core/settings/auth.py",
+   "AuthSettings",
+   34,
+   "False"
+  ]
+ ],
+ "revenuecat_secret_key": [
+  [
+   "core/settings/billing.py",
+   "BillingSettings",
+   7,
+   "''"
+  ]
+ ],
+ "revenuecat_webhook_auth": [
+  [
+   "core/settings/billing.py",
+   "BillingSettings",
+   8,
+   "''"
+  ]
+ ],
+ "revenuecat_entitlement_id": [
+  [
+   "core/settings/billing.py",
+   "BillingSettings",
+   10,
+   "'pro'"
+  ]
+ ],
+ "revenuecat_plus_entitlement_id": [
+  [
+   "core/settings/billing.py",
+   "BillingSettings",
+   11,
+   "'plus'"
+  ]
+ ],
+ "billing_reconcile_enabled": [
+  [
+   "core/settings/billing.py",
+   "BillingSettings",
+   12,
+   "True"
+  ]
+ ],
+ "billing_reconcile_interval_seconds": [
+  [
+   "core/settings/billing.py",
+   "BillingSettings",
+   13,
+   "3600"
+  ]
+ ],
+ "billing_reconcile_batch_size": [
+  [
+   "core/settings/billing.py",
+   "BillingSettings",
+   14,
+   "25"
+  ]
+ ],
+ "dev_allow_unauthed_webhooks": [
+  [
+   "core/settings/billing.py",
+   "BillingSettings",
+   19,
+   "False"
+  ]
+ ],
+ "chat_history_rag_enabled": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   10,
+   "True"
+  ]
+ ],
+ "chat_history_rag_chunk_limit": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   11,
+   "6"
+  ]
+ ],
+ "chat_history_rag_min_similarity": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   12,
+   "0.3"
+  ]
+ ],
+ "chat_history_rag_chunk_chars": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   13,
+   "900"
+  ]
+ ],
+ "chat_history_rag_chunk_overlap": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   14,
+   "120"
+  ]
+ ],
+ "chat_history_rag_max_chunks_per_message": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   15,
+   "6"
+  ]
+ ],
+ "recent_message_window": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   16,
+   "20"
+  ]
+ ],
+ "link_preview_cache_ttl": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   17,
+   "3600"
+  ]
+ ],
+ "home_cache_ttl": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   18,
+   "120"
+  ]
+ ],
+ "todo_inject_limit": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   19,
+   "100"
+  ]
+ ],
+ "reminder_proposals_enabled": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   22,
+   "True"
+  ]
+ ],
+ "todo_prompt_limit": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   23,
+   "48"
+  ]
+ ],
+ "history_compression_enabled": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   27,
+   "True"
+  ]
+ ],
+ "context_token_budget": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   28,
+   "6000"
+  ]
+ ],
+ "history_summary_batch": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   29,
+   "10"
+  ]
+ ],
+ "history_summary_urgent_pending": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   30,
+   "3"
+  ]
+ ],
+ "summary_max_tokens": [
+  [
+   "core/settings/chat.py",
+   "ChatContextSettings",
+   31,
+   "400"
+  ]
+ ],
+ "cors_origins": [
+  [
+   "core/settings/edge.py",
+   "EdgeSettings",
+   7,
+   "''"
+  ]
+ ],
+ "trust_x_forwarded_for": [
+  [
+   "core/settings/edge.py",
+   "EdgeSettings",
+   9,
+   "False"
+  ]
+ ],
+ "trusted_proxy_cidrs": [
+  [
+   "core/settings/edge.py",
+   "EdgeSettings",
+   12,
+   "'10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32,fdaa::/16'"
+  ]
+ ],
+ "rest_rate_limit_per_minute": [
+  [
+   "core/settings/edge.py",
+   "EdgeSettings",
+   15,
+   "240"
+  ]
+ ],
+ "ws_max_sockets_per_user": [
+  [
+   "core/settings/edge.py",
+   "EdgeSettings",
+   18,
+   "5"
+  ]
+ ],
+ "ws_idle_timeout_seconds": [
+  [
+   "core/settings/edge.py",
+   "EdgeSettings",
+   19,
+   "300.0"
+  ]
+ ],
+ "max_request_body_bytes": [
+  [
+   "core/settings/edge.py",
+   "EdgeSettings",
+   25,
+   "1048576"
+  ]
+ ],
+ "max_upload_request_body_bytes": [
+  [
+   "core/settings/edge.py",
+   "EdgeSettings",
+   26,
+   "12 * 1024 * 1024"
+  ]
+ ],
+ "support_email": [
+  [
+   "core/settings/edge.py",
+   "EdgeSettings",
+   27,
+   "''"
+  ]
+ ],
+ "database_url": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   7,
+   "'postgresql+asyncpg://postgres:dev@localhost:5432/recall'"
+  ]
+ ],
+ "redis_url": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   8,
+   "'redis://localhost:6379'"
+  ]
+ ],
+ "process_role": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   11,
+   "'all'"
+  ]
+ ],
+ "db_pool_size": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   17,
+   "20"
+  ]
+ ],
+ "db_max_overflow": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   18,
+   "10"
+  ]
+ ],
+ "db_pool_timeout_seconds": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   19,
+   "5.0"
+  ]
+ ],
+ "db_connect_timeout_seconds": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   24,
+   "10.0"
+  ]
+ ],
+ "db_command_timeout_seconds": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   25,
+   "120.0"
+  ]
+ ],
+ "migration_lock_timeout": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   28,
+   "'5s'"
+  ]
+ ],
+ "migration_statement_timeout": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   29,
+   "'4min'"
+  ]
+ ],
+ "context_db_concurrency": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   32,
+   "3"
+  ]
+ ],
+ "database_prefer_neon_pooler": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   35,
+   "True"
+  ]
+ ],
+ "environment": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   39,
+   "'production'"
+  ]
+ ],
+ "sentry_dsn": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   42,
+   "''"
+  ]
+ ],
+ "sentry_traces_sample_rate": [
+  [
+   "core/settings/infrastructure.py",
+   "InfrastructureSettings",
+   43,
+   "0.1"
+  ]
+ ],
+ "openrouter_api_key": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   7,
+   "''"
+  ]
+ ],
+ "openai_api_key": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   9,
+   "''"
+  ]
+ ],
+ "mcp_tool_loop_enabled": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   13,
+   "True"
+  ]
+ ],
+ "mcp_tool_loop_max_rounds": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   14,
+   "2"
+  ]
+ ],
+ "mcp_tool_loop_timeout_seconds": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   15,
+   "8.0"
+  ]
+ ],
+ "mcp_tool_loop_probe_max_tokens": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   17,
+   "1024"
+  ]
+ ],
+ "mcp_tool_loop_max_calls_per_round": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   18,
+   "4"
+  ]
+ ],
+ "mcp_tool_loop_invoke_timeout_seconds": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   19,
+   "20.0"
+  ]
+ ],
+ "memory_fallback_model_alias": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   24,
+   "'fallback-memory-model'"
+  ]
+ ],
+ "max_output_tokens": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   33,
+   "8192"
+  ]
+ ],
+ "embedding_input_max_chars": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   38,
+   "8000"
+  ]
+ ],
+ "embedding_batch_size": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   41,
+   "64"
+  ]
+ ],
+ "embedding_concurrency": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   42,
+   "8"
+  ]
+ ],
+ "chat_stream_timeout_seconds": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   47,
+   "45"
+  ]
+ ],
+ "chat_stream_max_seconds": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   50,
+   "600"
+  ]
+ ],
+ "chat_stream_connect_timeout_seconds": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   52,
+   "15"
+  ]
+ ],
+ "chat_stream_first_content_timeout_seconds": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   56,
+   "8.0"
+  ]
+ ],
+ "background_llm_timeout_seconds": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   61,
+   "60"
+  ]
+ ],
+ "mock_llm_enabled": [
+  [
+   "core/settings/llm.py",
+   "LlmSettings",
+   64,
+   "True"
+  ]
+ ],
+ "speech_transcription_enabled": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   7,
+   "True"
+  ]
+ ],
+ "speech_transcription_model": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   9,
+   "''"
+  ]
+ ],
+ "speech_rate_limit_per_minute": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   10,
+   "10"
+  ]
+ ],
+ "speech_tts_enabled": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   13,
+   "True"
+  ]
+ ],
+ "speech_tts_model": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   14,
+   "''"
+  ]
+ ],
+ "speech_tts_voice": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   15,
+   "''"
+  ]
+ ],
+ "speech_live_talk_enabled": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   18,
+   "True"
+  ]
+ ],
+ "openai_realtime_model": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   19,
+   "'gpt-realtime-2.1'"
+  ]
+ ],
+ "speech_realtime_voice_enabled": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   20,
+   "True"
+  ]
+ ],
+ "live_talk_max_session_seconds": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   23,
+   "900"
+  ]
+ ],
+ "live_talk_min_session_seconds": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   24,
+   "60"
+  ]
+ ],
+ "image_generation_enabled": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   26,
+   "True"
+  ]
+ ],
+ "image_generation_model": [
+  [
+   "core/settings/media.py",
+   "MediaSettings",
+   29,
+   "''"
+  ]
+ ],
+ "semantic_memory_enabled": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   7,
+   "True"
+  ]
+ ],
+ "memory_min_confidence": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   8,
+   "0.4"
+  ]
+ ],
+ "memory_inject_limit": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   9,
+   "15"
+  ]
+ ],
+ "memory_active_fact_cap": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   10,
+   "150"
+  ]
+ ],
+ "memory_embed_backfill_per_pass": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   14,
+   "16"
+  ]
+ ],
+ "memory_inject_max_chars": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   16,
+   "1500"
+  ]
+ ],
+ "memory_cache_ttl": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   17,
+   "300"
+  ]
+ ],
+ "memory_query_cache_ttl": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   18,
+   "120"
+  ]
+ ],
+ "memory_extract_every_n_turns": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   24,
+   "1"
+  ]
+ ],
+ "memory_query_embed_cache_ttl": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   25,
+   "3600"
+  ]
+ ],
+ "memory_query_embed_timeout_seconds": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   27,
+   "2.0"
+  ]
+ ],
+ "memory_min_similarity": [
+  [
+   "core/settings/memory.py",
+   "MemorySettings",
+   30,
+   "0.35"
+  ]
+ ],
+ "push_enabled": [
+  [
+   "core/settings/notifications.py",
+   "NotificationSettings",
+   7,
+   "True"
+  ]
+ ],
+ "server_todo_push_enabled": [
+  [
+   "core/settings/notifications.py",
+   "NotificationSettings",
+   8,
+   "True"
+  ]
+ ],
+ "email_enabled": [
+  [
+   "core/settings/notifications.py",
+   "NotificationSettings",
+   14,
+   "True"
+  ]
+ ],
+ "email_reminders_scheduler_enabled": [
+  [
+   "core/settings/notifications.py",
+   "NotificationSettings",
+   16,
+   "True"
+  ]
+ ],
+ "resend_api_key": [
+  [
+   "core/settings/notifications.py",
+   "NotificationSettings",
+   17,
+   "''"
+  ]
+ ],
+ "resend_api_url": [
+  [
+   "core/settings/notifications.py",
+   "NotificationSettings",
+   18,
+   "'https://api.resend.com/emails'"
+  ]
+ ],
+ "email_from": [
+  [
+   "core/settings/notifications.py",
+   "NotificationSettings",
+   19,
+   "'Recall <noreply@recall.app>'"
+  ]
+ ],
+ "daily_image_limit": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   17,
+   "5"
+  ]
+ ],
+ "daily_image_limit_plus": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   18,
+   "30"
+  ]
+ ],
+ "daily_image_limit_pro": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   19,
+   "30"
+  ]
+ ],
+ "daily_tavily_searches": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   21,
+   "20"
+  ]
+ ],
+ "daily_tavily_searches_plus": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   22,
+   "150"
+  ]
+ ],
+ "daily_tavily_searches_pro": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   23,
+   "150"
+  ]
+ ],
+ "daily_speech_transcriptions": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   25,
+   "0"
+  ]
+ ],
+ "daily_speech_transcriptions_plus": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   26,
+   "200"
+  ]
+ ],
+ "daily_speech_transcriptions_pro": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   27,
+   "200"
+  ]
+ ],
+ "daily_speech_tts": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   28,
+   "0"
+  ]
+ ],
+ "daily_speech_tts_plus": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   29,
+   "100"
+  ]
+ ],
+ "daily_speech_tts_pro": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   30,
+   "100"
+  ]
+ ],
+ "monthly_live_talk_minutes": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   32,
+   "0"
+  ]
+ ],
+ "monthly_live_talk_minutes_plus": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   33,
+   "0"
+  ]
+ ],
+ "monthly_live_talk_minutes_pro": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   34,
+   "60"
+  ]
+ ],
+ "daily_image_generations": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   36,
+   "3"
+  ]
+ ],
+ "daily_image_generations_plus": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   37,
+   "10"
+  ]
+ ],
+ "daily_image_generations_pro": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   38,
+   "15"
+  ]
+ ],
+ "daily_image_searches": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   39,
+   "15"
+  ]
+ ],
+ "daily_image_searches_plus": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   40,
+   "60"
+  ]
+ ],
+ "daily_image_searches_pro": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   41,
+   "60"
+  ]
+ ],
+ "daily_token_limit": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   44,
+   "100000"
+  ]
+ ],
+ "daily_token_limit_plus": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   45,
+   "500000"
+  ]
+ ],
+ "daily_token_limit_pro": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   46,
+   "500000"
+  ]
+ ],
+ "daily_global_spend_usd": [
+  [
+   "core/settings/plans.py",
+   "PlanAllowanceSettings",
+   49,
+   "0.0"
+  ]
+ ],
+ "tavily_api_key": [
+  [
+   "core/settings/search.py",
+   "SearchSettings",
+   7,
+   "''"
+  ]
+ ],
+ "web_search_enabled": [
+  [
+   "core/settings/search.py",
+   "SearchSettings",
+   9,
+   "True"
+  ]
+ ],
+ "web_search_classifier_enabled": [
+  [
+   "core/settings/search.py",
+   "SearchSettings",
+   10,
+   "True"
+  ]
+ ],
+ "web_search_classifier_timeout_seconds": [
+  [
+   "core/settings/search.py",
+   "SearchSettings",
+   12,
+   "4.0"
+  ]
+ ],
+ "web_search_fallback_enabled": [
+  [
+   "core/settings/search.py",
+   "SearchSettings",
+   13,
+   "True"
+  ]
+ ],
+ "web_search_max_results": [
+  [
+   "core/settings/search.py",
+   "SearchSettings",
+   14,
+   "5"
+  ]
+ ],
+ "web_search_cache_ttl": [
+  [
+   "core/settings/search.py",
+   "SearchSettings",
+   15,
+   "300"
+  ]
+ ],
+ "image_search_enabled": [
+  [
+   "core/settings/search.py",
+   "SearchSettings",
+   22,
+   "True"
+  ]
+ ],
+ "image_search_max_results": [
+  [
+   "core/settings/search.py",
+   "SearchSettings",
+   23,
+   "3"
+  ]
+ ],
+ "image_search_fetch_timeout_seconds": [
+  [
+   "core/settings/search.py",
+   "SearchSettings",
+   24,
+   "8.0"
+  ]
+ ],
+ "math_tools_enabled": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   7,
+   "True"
+  ]
+ ],
+ "chemistry_enabled": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   8,
+   "True"
+  ]
+ ],
+ "math_max_expr_length": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   9,
+   "256"
+  ]
+ ],
+ "math_max_poly_degree": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   12,
+   "8"
+  ]
+ ],
+ "math_graph_max_points": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   15,
+   "96"
+  ]
+ ],
+ "math_solve_timeout_seconds": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   19,
+   "5.0"
+  ]
+ ],
+ "sympy_max_workers": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   23,
+   "3"
+  ]
+ ],
+ "sympy_queue_wait_seconds": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   24,
+   "2.0"
+  ]
+ ],
+ "math_image_extract_timeout_seconds": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   29,
+   "20.0"
+  ]
+ ],
+ "math_llm_extract_enabled": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   37,
+   "True"
+  ]
+ ],
+ "math_llm_extract_timeout_seconds": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   38,
+   "2.5"
+  ]
+ ],
+ "math_word_problems_enabled": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   44,
+   "True"
+  ]
+ ],
+ "math_word_problem_timeout_seconds": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   45,
+   "3.0"
+  ]
+ ],
+ "math_scan_read_rate_limit_per_hour": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   49,
+   "60"
+  ]
+ ],
+ "scan_read_deadline_seconds": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   54,
+   "20.0"
+  ]
+ ],
+ "mathpix_app_id": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   58,
+   "''"
+  ]
+ ],
+ "mathpix_app_key": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   59,
+   "''"
+  ]
+ ],
+ "mathpix_enabled": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   60,
+   "True"
+  ]
+ ],
+ "mathpix_timeout_seconds": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   61,
+   "8.0"
+  ]
+ ],
+ "mathpix_confidence_min": [
+  [
+   "core/settings/stem.py",
+   "StemSettings",
+   63,
+   "0.72"
+  ]
+ ],
+ "jobs_worker_concurrency": [
+  [
+   "core/settings/worker.py",
+   "WorkerSettings",
+   9,
+   "8"
+  ]
+ ],
+ "jobs_stream_max_len": [
+  [
+   "core/settings/worker.py",
+   "WorkerSettings",
+   15,
+   "50000"
+  ]
+ ],
+ "job_timeout_seconds": [
+  [
+   "core/settings/worker.py",
+   "WorkerSettings",
+   20,
+   "900.0"
+  ]
+ ],
+ "worker_health_port": [
+  [
+   "core/settings/worker.py",
+   "WorkerSettings",
+   24,
+   "8001"
+  ]
+ ]
+}

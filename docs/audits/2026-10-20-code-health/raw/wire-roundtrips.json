@@ -1,0 +1,22 @@
+{
+  "warm up": {
+    "BEGIN": 10,
+    "PING": 4,
+    "ROLLBACK": 8,
+    "CHECKOUT": 6,
+    "SQL SELECT": 5,
+    "SQL INSERT": 3,
+    "COMMIT": 2,
+    "SQL UPDATE": 1
+  },
+  "measured": {
+    "BEGIN": 8,
+    "PING": 4,
+    "ROLLBACK": 6,
+    "CHECKOUT": 4,
+    "SQL SELECT": 3,
+    "SQL INSERT": 3,
+    "COMMIT": 2,
+    "SQL UPDATE": 1
+  }
+}

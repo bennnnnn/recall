@@ -1,0 +1,27 @@
+{
+  "plain turn": [
+    "SELECT messages.id, messages.chat_id, messages.user_id, messages.role, messages.content, messages.model, messages.feedback, messages.input_tokens, messages.output_tokens, messages.created_at FROM messages WHERE messages.chat_id = $1::UUID ORDER BY messages.created_at DESC, messages.id DESC LIMIT $2::INTEGER",
+    "SELECT chats.id, chats.user_id, chats.title, chats.model, chats.pinned, chats.archived, chats.summary, chats.summary_message_count, chats.created_at, chats.updated_at FROM chats WHERE chats.id = $1::UUID AND chats.user_id = $2::UUID",
+    "INSERT INTO messages (id, chat_id, user_id, role, content, model, feedback, input_tokens, output_tokens) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::INTEGER, $9::INTEGER) RETURNING messages.created_at",
+    "INSERT INTO messages (id, chat_id, user_id, role, content, model, feedback, input_tokens, output_tokens) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::INTEGER, $9::INTEGER) RETURNING messages.created_at",
+    "UPDATE chats SET updated_at=$1::TIMESTAMP WITH TIME ZONE WHERE chats.id = $2::UUID",
+    "INSERT INTO usage_daily (user_id, date, input_tokens, output_tokens, est_cost_usd) VALUES ($1::UUID, $2::DATE, $3::INTEGER, $4::INTEGER, $5::NUMERIC(14, 6)) ON CONFLICT (user_id, date) DO UPDATE SET input_tokens = (usage_daily.input_tokens + excluded.input_tokens), output_tokens = (usage_daily.output_tokens + excluded.output_tokens), est_cost_usd = (usage_daily.est_cost_usd + excluded.est_cost_usd",
+    "SELECT usage_daily.user_id, usage_daily.date, usage_daily.input_tokens, usage_daily.output_tokens, usage_daily.est_cost_usd FROM usage_daily WHERE usage_daily.user_id = $1::UUID AND usage_daily.date = $2::DATE"
+  ],
+  "regenerate": [
+    "SELECT users.id, users.google_sub, users.apple_sub, users.email, users.name, users.avatar_url, users.default_model, users.plan, users.rc_last_event_at_ms, users.enabled_models, users.response_style, users.response_tone, users.memory_enabled, users.follow_up_suggestions_enabled, users.memory_include_sensitive, users.web_search_enabled, users.memory_history_scanned_at, users.memory_edited_at, users.",
+    "SELECT chats.id, chats.user_id, chats.title, chats.model, chats.pinned, chats.archived, chats.summary, chats.summary_message_count, chats.created_at, chats.updated_at FROM chats WHERE chats.id = $1::UUID AND chats.user_id = $2::UUID",
+    "SELECT messages.id, messages.chat_id, messages.user_id, messages.role, messages.content, messages.model, messages.feedback, messages.input_tokens, messages.output_tokens, messages.created_at FROM messages WHERE messages.chat_id = $1::UUID ORDER BY messages.created_at DESC, messages.id DESC LIMIT $2::INTEGER",
+    "SELECT messages.id, messages.chat_id, messages.user_id, messages.role, messages.content, messages.model, messages.feedback, messages.input_tokens, messages.output_tokens, messages.created_at FROM messages WHERE messages.chat_id = $1::UUID AND messages.role = $2::VARCHAR ORDER BY messages.created_at DESC, messages.id DESC LIMIT $3::INTEGER",
+    "SELECT count(*) AS count_1 FROM messages WHERE messages.chat_id = $1::UUID",
+    "SELECT attachment_chunks.id FROM attachment_chunks WHERE attachment_chunks.user_id = $1::UUID AND attachment_chunks.chat_id = $2::UUID AND attachment_chunks.embedding IS NOT NULL LIMIT $3::INTEGER",
+    "SELECT messages.id, messages.chat_id, messages.user_id, messages.role, messages.content, messages.model, messages.feedback, messages.input_tokens, messages.output_tokens, messages.created_at FROM messages WHERE messages.chat_id = $1::UUID ORDER BY messages.created_at DESC, messages.id DESC LIMIT $2::INTEGER",
+    "SELECT messages.id, messages.chat_id, messages.user_id, messages.role, messages.content, messages.model, messages.feedback, messages.input_tokens, messages.output_tokens, messages.created_at FROM messages WHERE messages.id = $1::UUID AND messages.chat_id = $2::UUID",
+    "SELECT attachments.id, attachments.user_id, attachments.message_id, attachments.storage_key, attachments.content_type, attachments.size_bytes, attachments.source, attachments.original_filename, attachments.verified_at, attachments.library_visible, attachments.linked_at, attachments.index_coverage_json, attachments.created_at FROM attachments WHERE attachments.message_id IN ($1::UUID)",
+    "INSERT INTO messages (id, chat_id, user_id, role, content, model, feedback, input_tokens, output_tokens) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::INTEGER, $9::INTEGER) RETURNING messages.created_at",
+    "DELETE FROM messages WHERE messages.id = $1::UUID",
+    "UPDATE chats SET updated_at=$1::TIMESTAMP WITH TIME ZONE WHERE chats.id = $2::UUID",
+    "INSERT INTO usage_daily (user_id, date, input_tokens, output_tokens, est_cost_usd) VALUES ($1::UUID, $2::DATE, $3::INTEGER, $4::INTEGER, $5::NUMERIC(14, 6)) ON CONFLICT (user_id, date) DO UPDATE SET input_tokens = (usage_daily.input_tokens + excluded.input_tokens), output_tokens = (usage_daily.output_tokens + excluded.output_tokens), est_cost_usd = (usage_daily.est_cost_usd + excluded.est_cost_usd",
+    "SELECT usage_daily.user_id, usage_daily.date, usage_daily.input_tokens, usage_daily.output_tokens, usage_daily.est_cost_usd FROM usage_daily WHERE usage_daily.user_id = $1::UUID AND usage_daily.date = $2::DATE"
+  ]
+}

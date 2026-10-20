@@ -1,0 +1,32 @@
+[
+  {
+    "label": "cold user cache",
+    "status": 200,
+    "checked_out_before": 0,
+    "at_first_token": {
+      "checked_out": 1,
+      "status": "Pool size: 20  Connections in pool: 3 Current Overflow: -16 Current Checked out connections: 1"
+    },
+    "after": 0
+  },
+  {
+    "label": "warm user cache",
+    "status": 200,
+    "checked_out_before": 0,
+    "at_first_token": {
+      "checked_out": 0,
+      "status": "Pool size: 20  Connections in pool: 4 Current Overflow: -16 Current Checked out connections: 0"
+    },
+    "after": 0
+  },
+  {
+    "label": "cold user cache again",
+    "status": 200,
+    "checked_out_before": 0,
+    "at_first_token": {
+      "checked_out": 2,
+      "status": "Pool size: 20  Connections in pool: 2 Current Overflow: -16 Current Checked out connections: 2"
+    },
+    "after": 0
+  }
+]

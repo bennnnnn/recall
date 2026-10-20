@@ -1,0 +1,56 @@
+........................................................................ [ 86%]
+...........                                                              [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+app/tests/security/test_account_delete.py: 1 warning
+app/tests/security/test_account_export.py: 1 warning
+app/tests/security/test_cross_user_isolation.py: 17 warnings
+app/tests/security/test_quota_carryover.py: 12 warnings
+app/tests/security/test_ws_isolation.py: 1 warning
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+app/tests/security/test_account_delete.py: 2 warnings
+app/tests/security/test_account_export.py: 2 warnings
+app/tests/security/test_cross_user_isolation.py: 32 warnings
+app/tests/security/test_quota_carryover.py: 14 warnings
+app/tests/security/test_ws_isolation.py: 1 warning
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:370: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+0.39s call     app/tests/security/test_cross_user_isolation.py::test_live_talk_routes_refuse_another_users_chat
+0.25s call     app/tests/security/test_storable_text.py::test_pdf_excerpt_drops_nul_before_it_reaches_the_user_bubble[Invoice\x00 total\x00-[page 1] Invoice total]
+0.18s call     app/tests/security/test_ws_isolation.py::test_websocket_turns_on_another_users_chat_are_refused
+0.17s call     app/tests/security/test_cross_user_isolation.py::test_chat_routes_answer_404_for_another_users_chat
+0.13s call     app/tests/security/test_account_export.py::test_export_includes_profile_all_memory_and_every_owned_record
+0.12s call     app/tests/security/test_cross_user_isolation.py::test_search_home_and_export_only_show_the_callers_data
+0.10s call     app/tests/security/test_cross_user_isolation.py::test_attachment_routes_answer_404_for_another_users_file
+0.10s call     app/tests/security/test_cross_user_isolation.py::test_memory_routes_answer_404_for_another_users_memory
+0.09s call     app/tests/security/test_cross_user_isolation.py::test_sending_another_users_attachment_id_is_refused
+0.08s call     app/tests/security/test_cross_user_isolation.py::test_push_token_with_device_id_moves_only_on_the_same_device
+0.08s call     app/tests/security/test_cross_user_isolation.py::test_sse_send_and_regenerate_on_another_users_chat_fail_closed
+0.08s setup    app/tests/security/test_account_delete.py::test_delete_account_leaves_nothing_of_the_user_behind
+0.08s call     app/tests/security/test_cross_user_isolation.py::test_image_generation_into_another_users_chat_is_404
+0.08s call     app/tests/security/test_cross_user_isolation.py::test_todo_routes_never_touch_another_users_items
+0.08s call     app/tests/security/test_quota_carryover.py::test_quota_carryover_same_google_sub_keeps_todays_counts
+0.08s call     app/tests/security/test_quota_carryover.py::test_quota_carryover_different_sub_starts_fresh
+0.07s call     app/tests/security/test_quota_carryover.py::test_quota_carryover_next_day_starts_fresh
+0.07s call     app/tests/security/test_quota_carryover.py::test_quota_carryover_same_apple_sub_keeps_todays_counts
+0.07s call     app/tests/security/test_cross_user_isolation.py::test_the_retired_suggestions_routes_are_gone
+0.07s call     app/tests/security/test_account_delete.py::test_delete_account_leaves_nothing_of_the_user_behind
+0.07s call     app/tests/security/test_quota_carryover.py::test_quota_carryover_next_month_starts_live_talk_fresh
+0.05s call     app/tests/security/test_quota_carryover.py::test_quota_carryover_snapshot_holds_no_raw_sub
+0.05s setup    app/tests/security/test_quota_carryover.py::test_quota_carryover_next_day_starts_fresh
+0.05s setup    app/tests/security/test_quota_carryover.py::test_quota_carryover_same_apple_sub_keeps_todays_counts
+0.05s call     app/tests/security/test_cross_user_isolation.py::test_reminder_card_of_another_user_cannot_be_confirmed
+0.05s call     app/tests/security/test_quota_carryover.py::test_quota_carryover_failure_never_fails_delete
+0.05s setup    app/tests/security/test_cross_user_isolation.py::test_push_token_of_another_user_cannot_be_removed_or_taken
+0.04s setup    app/tests/security/test_cross_user_isolation.py::test_chat_routes_answer_404_for_another_users_chat
+0.04s setup    app/tests/security/test_quota_carryover.py::test_quota_carryover_snapshot_holds_no_raw_sub
+0.04s call     app/tests/security/test_storable_text.py::test_chat_stream_rejects_nul_with_422_before_any_turn
+83 passed, 1 deselected, 84 warnings in 8.00s

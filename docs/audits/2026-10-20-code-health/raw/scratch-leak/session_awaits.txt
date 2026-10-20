@@ -1,0 +1,94 @@
+apps/api/app/background/billing_reconcile_scheduler.py:52: users_repo.list_ids_by_plan@53
+apps/api/app/background/billing_reconcile_scheduler.py:61: subscription_service.apply_plan_for_app_user_id@62
+apps/api/app/background/email_reminder_scheduler.py:33: reminder_emails.run_email_reminder_cycle@34
+apps/api/app/background/handlers.py:171: lesson_progress.load_lesson_progress@172
+apps/api/app/background/handlers.py:245: users_repo.get_by_id@246
+apps/api/app/background/push_scheduler.py:32: push_notifications.collect_push_outbound@33
+apps/api/app/background/push_scheduler.py:41: push_repo.delete_by_token@45, push_notifications.enqueue_push_receipts@50, push_notifications.finalize_push_deliveries@51
+apps/api/app/core/db.py:47: 
+apps/api/app/modules/account/export.py:268: chats_repo.list_for_user@269
+apps/api/app/modules/account/export.py:333: memory_service.list_areas@336
+apps/api/app/modules/account/export.py:365: attachments_service.list_for_user@366
+apps/api/app/modules/account/export.py:392: suggestions_service.list_for_export@395
+apps/api/app/modules/account/export.py:402: usage_repo.list_for_user@405
+apps/api/app/modules/account/export.py:410: push_tokens_repo.list_for_user@413
+apps/api/app/modules/account/export.py:418: product_events_repo.list_for_user@419
+apps/api/app/modules/account/export.py:312: memory_service.list_range@313
+apps/api/app/modules/account/export.py:345: todos_repo.list_for_user@346
+apps/api/app/modules/account/export.py:287: messages_repo.list_range@288
+apps/api/app/modules/attachments/lifecycle.py:164: attachments_repo.list_orphans@165
+apps/api/app/modules/attachments/lifecycle.py:178: attachments_repo.delete_unlinked_returning@179
+apps/api/app/modules/attachments/ocr_allowance.py:71: users_repo.get_by_id@72
+apps/api/app/modules/attachments/rag.py:205: attachments_repo.get_by_id@206
+apps/api/app/modules/attachments/rag.py:254: chunks_repo.replace_chunks@255, attachments_repo.set_index_coverage@263
+apps/api/app/modules/attachments/rag.py:293: chunks_repo.has_chunks_for_chat@294
+apps/api/app/modules/attachments/rag.py:326: chunks_repo.search_semantic@327, attachments_repo.get_by_ids@337
+apps/api/app/modules/chat/compaction.py:37: chats_repo.get_by_id@41, session.get@43, messages_repo.count_for_chat@47, messages_repo.list_recent@48, messages_repo.list_range@69, summarize_conversation@84, session.commit@89
+apps/api/app/modules/chat/finalize_reminders.py:83: deps.todos.materialize_reminder_fences@84
+apps/api/app/modules/chat/finalize_reminders.py:79: deps.users.get_by_id@80
+apps/api/app/modules/chat/history_rag.py:61: chunks_repo.replace_chunks@62
+apps/api/app/modules/chat/history_rag.py:80: messages_repo.list_recent_for_user@81
+apps/api/app/modules/chat/history_rag.py:90: chunks_repo.indexed_message_ids@91
+apps/api/app/modules/chat/history_rag.py:119: users_repo.get_by_id@120, chunks_repo.count_for_user@123, messages_repo.get_by_id@124, messages_repo.get_last_user@125
+apps/api/app/modules/chat/history_rag.py:178: chunks_repo.has_chunks_for_user@179
+apps/api/app/modules/chat/history_rag.py:225: chunks_repo.search_semantic@226
+apps/api/app/modules/chat/post_turn.py:138: todos_service.build_todo_sync_transcript@139
+apps/api/app/modules/chat/prompt_builder.py:229: attachments_service.has_chunks_for_chat@230
+apps/api/app/modules/chat/prompt_context.py:139: messages_repo.list_recent@140
+apps/api/app/modules/chat/prompt_context.py:143: memory_service.get_memory_block@144
+apps/api/app/modules/chat/prompt_context.py:155: todos_service.build_todos_system_section@156
+apps/api/app/modules/chat/prompt_context.py:290: chats_repo.get_by_id@291
+apps/api/app/modules/chat/prompt_context.py:137: messages_repo.list_recent@138
+apps/api/app/modules/chat/prompt_context.py:334: messages_repo.count_for_chat@335, messages_repo.list_before@343
+apps/api/app/modules/chat/service.py:65: chats_repo.list_archived_for_user@66
+apps/api/app/modules/chat/stream_entry.py:70: count_image_attachments@71
+apps/api/app/modules/chat/stream_pipeline.py:163: deps.chats.touch_by_id@164
+apps/api/app/modules/chat/turn_intercepts.py:53: deps.messages.get_by_id@54, deps.attachments.purge_attachments_for_messages@56, deps.messages.delete_message@57
+apps/api/app/modules/chat/turn_intercepts.py:167: deps.messages.list_recent@168
+apps/api/app/modules/chat/turn_intercepts.py:87: deps.messages.list_recent@88
+apps/api/app/modules/chat/turn_load.py:87: deps.users.get_by_id@88
+apps/api/app/modules/chat/turn_load.py:121: deps.chats.get_by_id@122
+apps/api/app/modules/chat/turn_load.py:189: deps.messages.list_recent@191, _prior_count_for_window@192
+apps/api/app/modules/chat/turn_load.py:257: _classify_turn_mode@258
+apps/api/app/modules/chat/turn_load.py:306: deps.users.get_by_id@307, deps.chats.get_by_id@311, deps.messages.get_last@314, deps.messages.get_last_user@317, deps.messages.count_for_chat@324, _classify_turn_mode@328
+apps/api/app/modules/chat/turn_load.py:168: seed_usage_from_db@169
+apps/api/app/modules/chat/turn_prep/attachments.py:175: users_repo.get_by_id@177, attachments_service.get_by_ids@184, ensure_unlinked_copies@198
+apps/api/app/modules/chat/turn_prep/attachments.py:235: attachment_content_service.purge_invalid_upload@236
+apps/api/app/modules/chat/turn_prep/attachments.py:253: attachments_service.mark_verified@254
+apps/api/app/modules/chat/turn_prep/augment.py:261: messages_repo.recent_user_contents@262
+apps/api/app/modules/chat/turn_prep/context.py:235: users_repo.get_by_id@237, chats_repo.get_by_id@241, _classify_turn_mode@245
+apps/api/app/modules/chat/turn_prep/instant.py:130: memory_service.list_for_user@131
+apps/api/app/modules/chat/turn_prep/persist.py:107: _read_missing@108, _insert_and_link@110, session.commit@111, session.rollback@113
+apps/api/app/modules/chat/turn_prep/regenerate_vision.py:31: attachments_service.get_by_ids@32
+apps/api/app/modules/chat/turn_prep/vision.py:118: attachments_service.get_by_ids@119
+apps/api/app/modules/chat/turn_resources.py:302: seed_usage_from_db@303
+apps/api/app/modules/chat/turn_settle.py:294: _write_reply_rows@295, session.commit@301
+apps/api/app/modules/images/generation.py:198: chats_repo.get_by_id@199, messages_repo.get_last_user@203, turn_reference_ids@204
+apps/api/app/modules/images/generation.py:362: attachments_repo.create_pending@363, _create_user_message@375, messages_repo.get_last_user@384, messages_repo.create@389, attachments_repo.link_to_message@398, attachments_repo.mark_verified@408, session.commit@411
+apps/api/app/modules/images/generation.py:468: attachments_repo.get_by_ids@469
+apps/api/app/modules/images/intent.py:203: chats_repo.get_by_id@204, messages_repo.list_recent@206
+apps/api/app/modules/images/reply_picture.py:66: attachments_repo.create_pending@67, attachments_repo.mark_verified@78, session.commit@79
+apps/api/app/modules/images/search.py:218: chats_repo.get_by_id@219
+apps/api/app/modules/images/search.py:246: _store_photos@247, messages_repo.create@255, messages_repo.get_last_user@264, messages_repo.create@272, attachments_repo.link_to_message@281, _mark_verified@290, session.commit@293
+apps/api/app/modules/images/search.py:332: _store_photos@333, _mark_verified@336, session.commit@337
+apps/api/app/modules/memory/apply.py:46: memories.apply_writes@52, memories.list_for_user@63, session.commit@81, memories.note_manual_edit@62, session.rollback@83, memories.lock_memory_enabled@48
+apps/api/app/modules/memory/apply.py:107: session.commit@113, memories.update_embedding_if_current@110, session.rollback@115
+apps/api/app/modules/memory/consolidation_workflow.py:121: _load_pairs@122
+apps/api/app/modules/memory/extraction_workflow.py:286: load_memory_snapshot@287, history_chat_transcript@293, expand_memory_extract_transcript@298
+apps/api/app/modules/memory/history_scan.py:89: session.execute@90
+apps/api/app/modules/memory/history_scan.py:153: users_repo.get_by_id@154
+apps/api/app/modules/memory/history_scan.py:182: session.execute@183, session.commit@188
+apps/api/app/modules/memory/instruct.py:74: load_memory_snapshot@75
+apps/api/app/modules/memory/learning_progress.py:57: users_repo.get_by_id@58, memories_repo.list_for_user@61
+apps/api/app/modules/memory/retrieval.py:205: users_repo.get_by_id@206, seams._semantic_block_from_vec@210, redis.get@220, seams._write_query_block_cache@230
+apps/api/app/modules/speech/live_talk.py:239: memory_service.get_memory_block@240
+apps/api/app/modules/speech/live_talk.py:258: list_owned_todos@259
+apps/api/app/modules/speech/live_talk.py:283: load_live_talk_history@284
+apps/api/app/modules/speech/live_talk.py:333: chats_repo.get_by_id@334, messages_repo.create@339, messages_repo.create@348, todos_service.materialize_reminder_fences@361, session.commit@376, session.refresh@378, session.refresh@380, messages_repo.count_for_chat@381
+apps/api/app/modules/speech/live_talk_tools.py:67: memory_service.get_memory_block@68
+apps/api/app/modules/speech/realtime.py:290: live_talk_service.load_live_talk_history@291
+apps/api/app/modules/speech/realtime.py:355: chats_repo.get_by_id@356
+apps/api/app/modules/todos/sync.py:154: _load_todo_sync_snapshot@155, session.commit@156
+apps/api/app/modules/todos/sync.py:169: _apply_todo_extraction_result@170, session.commit@179
+apps/api/app/routers/health.py:34: session.execute@35
+apps/api/app/services/topic.py:44: chats_repo.set_title_if_empty@45, session.commit@48

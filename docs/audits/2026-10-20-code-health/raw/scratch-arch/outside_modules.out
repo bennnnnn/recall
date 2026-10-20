@@ -1,0 +1,112 @@
+== edges from outside modules/ into app.modules (per import binding)
+  services                 total=  61 violating=27
+  models                   total=  27 violating=7
+  main                     total=  19 violating=3
+  background               total=  17 violating=11
+  process_bootstrap        total=   3 violating=3
+  TOTAL bindings=127 violating=51
+== files per layer importing modules:
+  background               5
+  main                     1
+  models                   4
+  process_bootstrap        1
+  services                 9
+== violations
+  background/email_reminder_scheduler.py:17 [load] app.modules.notifications import reminder_email -> PRIVATE_PKG_NAME:reminder_email
+  background/handlers.py:28 [load] app.modules.account import lifecycle -> PRIVATE_PKG_NAME:lifecycle
+  background/handlers.py:29 [load] app.modules.attachments import jobs -> PRIVATE_PKG_NAME:jobs
+  background/handlers.py:31 [load] app.modules.chat import lesson_progress -> PRIVATE_PKG_NAME:lesson_progress
+  background/handlers.py:32 [load] app.modules.memory import consolidation_workflow -> PRIVATE_PKG_NAME:consolidation_workflow
+  background/handlers.py:33 [load] app.modules.memory import extraction_workflow -> PRIVATE_PKG_NAME:extraction_workflow
+  background/handlers.py:34 [load] app.modules.memory import history_scan -> PRIVATE_PKG_NAME:history_scan
+  background/handlers.py:35 [load] app.modules.memory import learning_progress -> PRIVATE_PKG_NAME:learning_progress
+  background/handlers.py:36 [load] app.modules.notifications import transactional_email -> PRIVATE_PKG_NAME:transactional_email
+  background/handlers.py:37 [load] app.modules.todos import jobs -> PRIVATE_PKG_NAME:jobs
+  background/push_scheduler.py:17 [load] app.modules.notifications import push -> PRIVATE_PKG_NAME:push
+  main.py:18 [load] app.modules.chat import stream_api -> PRIVATE_PKG_NAME:stream_api
+  main.py:19 [load] app.modules.chat import ws_api -> PRIVATE_PKG_NAME:ws_api
+  main.py:30 [load] app.modules.speech import realtime -> PRIVATE_PKG_NAME:realtime
+  models/orm/__init__.py:11 [load] app.modules.attachments.models import Attachment -> INTERNAL
+  models/orm/__init__.py:11 [load] app.modules.attachments.models import AttachmentChunk -> INTERNAL
+  models/orm/__init__.py:12 [load] app.modules.memory.models import Memory -> INTERNAL
+  models/orm/__init__.py:12 [load] app.modules.memory.models import MemoryArea -> INTERNAL
+  models/orm/__init__.py:13 [load] app.modules.suggestions.models import Suggestion -> INTERNAL
+  models/orm/__init__.py:14 [load] app.modules.todos.models import TodoItem -> INTERNAL
+  models/orm/user.py:24 [type_checking] app.modules.memory.models import Memory -> INTERNAL
+  process_bootstrap.py:23 [load] app.modules.attachments import reaper -> PRIVATE_PKG_NAME:reaper
+  process_bootstrap.py:24 [load] app.modules.chat.finalize_registry import stop_inflight_streams -> INTERNAL
+  process_bootstrap.py:25 [load] app.modules.math.sympy_warmup import warm_math_worker -> INTERNAL
+  services/mcp/__init__.py:5 [load] app.modules.images.gen_tool import ImageGenAdapter -> INTERNAL
+  services/mcp/__init__.py:6 [load] app.modules.images.search_tool import ImageSearchAdapter -> INTERNAL
+  services/mcp/__init__.py:7 [load] app.modules.math.tool import SympyAdapter -> INTERNAL
+  services/routing.py:219 [deferred] app.modules.chat.continuation_subject import is_pure_continuation -> INTERNAL
+  services/routing.py:220 [deferred] app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn -> INTERNAL
+  services/routing.py:220 [deferred] app.modules.chat.prompt_constants.routing import is_personal_advice_question -> INTERNAL
+  services/routing.py:220 [deferred] app.modules.chat.prompt_constants.routing import is_short_confirmation -> INTERNAL
+  services/routing.py:225 [deferred] app.modules.chat.prompt_constants.writing_kind import is_writing_deliverable_request -> INTERNAL
+  services/routing.py:292 [deferred] app.modules.chat.prompt_constants.teaching import is_learning_plan_request -> INTERNAL
+  services/routing.py:292 [deferred] app.modules.chat.prompt_constants.teaching import is_teaching_request -> INTERNAL
+  services/routing.py:309 [deferred] app.modules.chat.prompt_constants.writing_kind import is_writing_deliverable_request -> INTERNAL
+  services/routing.py:448 [deferred] app.modules.math.match.arithmetic import bare_arithmetic_expr -> INTERNAL
+  services/routing.py:449 [deferred] app.modules.math.match.discrete import combinatorics_signal -> INTERNAL
+  services/routing.py:450 [deferred] app.modules.math.match.scan import prepare -> INTERNAL
+  services/routing.py:451 [deferred] app.modules.math.match.written import written_arithmetic_request -> INTERNAL
+  services/routing.py:510 [deferred] app.modules.chat.json_output import is_json_request -> INTERNAL
+  services/solving.py:27 [type_checking] app.modules.math.response_intent import MathResponseIntent -> INTERNAL
+  services/solving.py:29 [type_checking] app.modules.math.solve.key_steps import KeyStep -> INTERNAL
+  services/subject_solving.py:53 [deferred] app.modules.chemistry.extract import extract_chemistry_intent -> INTERNAL
+  services/subject_solving.py:77 [deferred] app.modules.chemistry.input_text import read_chemistry_text -> INTERNAL
+  services/subject_solving.py:93 [deferred] app.modules.chemistry.species import parse_reaction -> INTERNAL
+  services/subject_solving.py:99 [deferred] app.modules.math.tools.school.curve_points import extract_curve_point_intent -> INTERNAL
+  services/subject_solving.py:281 [deferred] app.modules.math.tools.direct import maybe_direct_math_reply -> INTERNAL
+  services/subject_solving.py:312 [deferred] app.modules.chat.prompt_constants.visuals import attach_chemistry_fence_hint -> INTERNAL
+  services/subject_solving.py:314 [deferred] app.modules.chemistry.reading import chemistry_text_for_solve -> INTERNAL
+  services/subject_solving.py:338 [deferred] app.modules.chemistry.block import VerifiedChemistry -> INTERNAL
+  services/subject_solving.py:339 [deferred] app.modules.chemistry.direct import maybe_direct_chemistry_reply -> INTERNAL
+== target module internals reached (violations), by target
+    4 app.modules.memory
+    3 app.modules.notifications
+    3 app.modules.chat
+    3 app.modules.memory.models
+    3 app.modules.chat.prompt_constants.routing
+    2 app.modules.attachments
+    2 app.modules.attachments.models
+    2 app.modules.chat.prompt_constants.writing_kind
+    2 app.modules.chat.prompt_constants.teaching
+    1 app.modules.account
+    1 app.modules.todos
+    1 app.modules.speech
+    1 app.modules.suggestions.models
+    1 app.modules.todos.models
+    1 app.modules.chat.finalize_registry
+    1 app.modules.math.sympy_warmup
+    1 app.modules.images.gen_tool
+    1 app.modules.images.search_tool
+    1 app.modules.math.tool
+    1 app.modules.chat.continuation_subject
+    1 app.modules.math.match.arithmetic
+    1 app.modules.math.match.discrete
+    1 app.modules.math.match.scan
+    1 app.modules.math.match.written
+    1 app.modules.chat.json_output
+    1 app.modules.math.response_intent
+    1 app.modules.math.solve.key_steps
+    1 app.modules.chemistry.extract
+    1 app.modules.chemistry.input_text
+    1 app.modules.chemistry.species
+    1 app.modules.math.tools.school.curve_points
+    1 app.modules.math.tools.direct
+    1 app.modules.chat.prompt_constants.visuals
+    1 app.modules.chemistry.reading
+    1 app.modules.chemistry.block
+    1 app.modules.chemistry.direct
+== services/ -> modules edges (all, incl ok) by file
+  services/mcp/__init__.py: 4 -> app.modules.images.gen_tool:ImageGenAdapter, app.modules.images.search_tool:ImageSearchAdapter, app.modules.math.tool:SympyAdapter, app.modules.web_search:WebSearchAdapter
+  services/quota/counters.py: 2 -> app.modules.billing.entitlements:Allowance, app.modules.billing.entitlements:allowance
+  services/quota/live_talk.py: 1 -> app.modules.billing.entitlements:allowance
+  services/quota/messages.py: 1 -> app.modules.billing.entitlements:is_paid
+  services/quota/tokens.py: 1 -> app.modules.billing.entitlements:allowance
+  services/routing.py: 18 -> app.modules.chat.continuation_subject:is_pure_continuation, app.modules.chat.json_output:is_json_request, app.modules.chat.prompt_constants.routing:is_lightweight_chat_turn, app.modules.chat.prompt_constants.routing:is_personal_advice_question, app.modules.chat.prompt_constants.routing:is_short_confirmation, app.modules.chat.prompt_constants.teaching:is_learning_plan_request, app.modules.chat.prompt_constants.teaching:is_teaching_request, app.modules.chat.prompt_constants.writing_kind:is_writing_deliverable_request, app.modules.math.match.arithmetic:bare_arithmetic_expr, app.modules.math.match.discrete:combinatorics_signal, app.modules.math.match.scan:prepare, app.modules.math.match.written:written_arithmetic_request, app.modules.math.match:needs_symbolic, app.modules.physics:extract_physics_intent, app.modules.physics:needs_physics, app.modules.physics:solve_physics
+  services/solving.py: 7 -> app.modules.math.response_intent:MathResponseIntent, app.modules.math.schemas:GeometryRequest, app.modules.math.schemas:NewtonMethodInput, app.modules.math.schemas:NewtonMethodResult, app.modules.math.solve.key_steps:KeyStep, app.modules.physics.schemas.symbolic:SymbolicPhysicsRequest, app.modules.physics.schemas:PhysicsIntent
+  services/subject_solving.py: 25 -> app.modules.chat.prompt_constants.visuals:attach_chemistry_fence_hint, app.modules.chat:has_code_syntax, app.modules.chemistry.block:VerifiedChemistry, app.modules.chemistry.context:build_chemistry_augmentation, app.modules.chemistry.direct:maybe_direct_chemistry_reply, app.modules.chemistry.extract:extract_chemistry_intent, app.modules.chemistry.input_text:read_chemistry_text, app.modules.chemistry.reading:chemistry_text_for_solve, app.modules.chemistry.request:EQUATION_RE, app.modules.chemistry.request:is_chemistry_question, app.modules.chemistry.request:names_compound, app.modules.chemistry.species:parse_reaction, app.modules.math.schemas:MathImageExtract, app.modules.math.tools.direct:maybe_direct_math_reply, app.modules.math.tools.prompt:NOTHING_TO_GRAPH, app.modules.math.tools.prompt:build_math_augmentation, app.modules.math.tools.prompt:needs_symbolic_math, app.modules.math.tools.school.curve_points:extract_curve_point_intent, app.modules.physics.direct:maybe_direct_physics_reply, app.modules.physics.extract:extract_physics_intent, app.modules.physics.extract:needs_physics, app.modules.physics.prompt:build_physics_augmentation, app.modules.physics:is_symbol_givens_request
+  services/topic.py: 2 -> app.modules.chat.titles:normalize_chat_title, app.modules.chat:titles

@@ -1,0 +1,34 @@
+writer functions (commit=True default): 27
+  app.modules.attachments.lifecycle: ['detach_attachments_for_messages']
+  app.modules.attachments.repository: ['create_pending', 'delete_rows', 'link_to_message', 'mark_verified', 'set_index_coverage']
+  app.modules.memory.repository: ['apply_writes', 'delete_all_for_user', 'delete_by_id', 'delete_by_type', 'delete_topic', 'update_status', 'update_text', 'update_text_and_embedding']
+  app.modules.memory.writes_repository: ['update_embedding_if_current']
+  app.modules.todos.repository: ['create', 'delete_by_id', 'update']
+  app.repositories.chats: ['archive_all_for_user', 'delete_all_for_user', 'set_title_if_empty', 'touch_by_id']
+  app.repositories.messages: ['create', 'update_content']
+  app.repositories.product_events: ['create_batch']
+  app.repositories.usage: ['add_tokens']
+  app.repositories.users: ['update']
+
+== functions with a committing write followed by another write, or mixed with own commit
+- modules/account/service.py:132 login_with_apple()
+     line 166: users.update  commit=default(True)
+     line 194: users.update  commit=True
+- modules/account/service.py:61 login_with_google()
+     line 86: users.update  commit=default(True)
+     line 114: users.update  commit=default(True)
+- modules/todos/crud.py:77 create_todo()
+     line 97: repository.create  commit=default(True)
+     line 109: session.rollback()
+- modules/todos/reminder_writes.py:145 create_one()
+     line 156: repository.update  commit=default(True)
+     line 163: repository.update  commit=default(True)
+     line 165: repository.update  commit=default(True)
+     line 176: repository.create  commit=default(True)
+     line 188: session.rollback()
+
+== .commit()/.rollback() call counts by top dir
+  ('modules', 'commit'): 51
+  ('modules', 'rollback'): 19
+  ('repositories', 'commit'): 22
+  ('services', 'commit'): 1

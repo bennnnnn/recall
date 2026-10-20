@@ -1,0 +1,7 @@
+ruff exit=0 secs=1
+ruff-format exit=0 secs=0
+mypy exit=0 secs=42
+file-sizes exit=0 secs=0
+typecheck exit=0 secs=31
+lint exit=0 secs=56
+DONE

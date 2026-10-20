@@ -1,0 +1,166 @@
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 60%]
+........................................................................ [ 62%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 73%]
+........................................................................ [ 74%]
+........................................................................ [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 83%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+........................................................................ [ 91%]
+........................................................................ [ 93%]
+........................................................................ [ 94%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+...................................................                      [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['sqrt(x)']
+  <lambdifygenerated-407>:2: RuntimeWarning: invalid value encountered in sqrt
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['sqrt(x)']
+  <lambdifygenerated-408>:2: RuntimeWarning: invalid value encountered in sqrt
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['x**(1/3)']
+  <lambdifygenerated-423>:2: RuntimeWarning: invalid value encountered in power
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['x**(1/3)']
+  <lambdifygenerated-424>:2: RuntimeWarning: invalid value encountered in power
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['log(x)']
+  <lambdifygenerated-447>:2: RuntimeWarning: invalid value encountered in log
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['log(x)']
+  <lambdifygenerated-448>:2: RuntimeWarning: invalid value encountered in log
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['ln(x)']
+  <lambdifygenerated-449>:2: RuntimeWarning: invalid value encountered in log
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['ln(x)']
+  <lambdifygenerated-450>:2: RuntimeWarning: invalid value encountered in log
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['sqrt(4-x^2)']
+  <lambdifygenerated-451>:2: RuntimeWarning: invalid value encountered in sqrt
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['sqrt(4-x^2)']
+  <lambdifygenerated-452>:2: RuntimeWarning: invalid value encountered in sqrt
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['log(x)^2']
+  <lambdifygenerated-463>:2: RuntimeWarning: invalid value encountered in log
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['log(x)^2']
+  <lambdifygenerated-464>:2: RuntimeWarning: invalid value encountered in log
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['sqrt x']
+  <lambdifygenerated-477>:2: RuntimeWarning: invalid value encountered in sqrt
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['sqrt x']
+  <lambdifygenerated-478>:2: RuntimeWarning: invalid value encountered in sqrt
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['log x']
+  <lambdifygenerated-479>:2: RuntimeWarning: invalid value encountered in log
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['log x']
+  <lambdifygenerated-480>:2: RuntimeWarning: invalid value encountered in log
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['\u221ax']
+  <lambdifygenerated-481>:2: RuntimeWarning: invalid value encountered in sqrt
+
+app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_fence_carries_the_servers_reading['\u221ax']
+  <lambdifygenerated-482>:2: RuntimeWarning: invalid value encountered in sqrt
+
+app/tests/modules/math/test_math_stress_contract.py::test_graphs_keep_holes_domains_and_asymptote_segments
+  <lambdifygenerated-655>:2: RuntimeWarning: invalid value encountered in sqrt
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+1.16s call     app/tests/modules/math/test_math_direct_calculus.py::test_a_value_sympy_did_not_establish_is_not_verified[average value of sin(1/x) on [-1, 1]]
+0.82s call     app/tests/modules/math/test_math_definite_integral_check.py::test_definite_integral_is_right_under_every_hash_seed[11]
+0.81s call     app/tests/modules/math/test_math_definite_integral_check.py::test_definite_integral_is_right_under_every_hash_seed[3]
+0.79s call     app/tests/modules/math/test_math_definite_integral_check.py::test_definite_integral_is_right_under_every_hash_seed[6]
+0.74s call     app/tests/modules/math/test_math_definite_integral_check.py::test_definite_integral_is_right_under_every_hash_seed[8]
+0.62s call     app/tests/modules/math/test_math_review_regressions.py::test_bare_log_equations_are_base_ten[solve 10^x = 50-x = \\log_{10} 50]
+0.57s call     app/tests/modules/math/test_math_triangle_laws.py::test_the_laws_agree_on_one_triangle
+0.57s call     app/tests/modules/math/test_math_user_visible.py::test_sin_1_5_answer_is_short_decimal
+0.37s call     app/tests/modules/math/test_math_properties.py::test_extract_never_raises_and_stays_schema_valid
+0.37s call     app/tests/modules/math/test_math_tools.py::test_augment_prompt_rectangle_area_query_does_not_force_diagonal_and_angle
+0.37s setup    app/tests/modules/math/test_math_graph_expr_contract.py::test_graph_expr_contract_matches_sympy['\u221ax']
+0.31s setup    app/tests/modules/math/test_math_direct.py::test_prime_factorization_keeps_steps_hints_and_extra_requests_on_model_path[Give me a hint for the prime factorization of 60]
+0.26s call     app/tests/modules/math/test_math_calculus_applications.py::test_unclosable_regions_are_refused[arc length of sin(x) from 0 to 1]
+0.24s setup    app/tests/modules/math/test_math_advanced.py::TestComputeStatistics::test_single_value_has_no_sample_stdev
+0.23s call     app/tests/modules/math/test_math_phone_regressions.py::test_rational_inequalities_show_clean_interval_notation
+0.22s call     app/tests/modules/math/test_math_wrong_verified_answers.py::test_a_defined_e_and_e_notation_read_as_written[solve for x: x^2 / (0.10 - x) = 1.8e-5-x = -0.00135067097307797 \\text{ or } x = 0.00133267097307797]
+0.21s call     app/tests/modules/math/test_math_answer_card.py::test_a_follow_up_that_states_the_answer_lands_the_card_in_its_answer_section
+0.21s call     app/tests/modules/math/test_math_image_extract.py::test_extract_equation_uses_dedicated_ocr_timeout_not_solve_timeout
+0.20s call     app/tests/modules/math/test_math_phone_regressions.py::test_exponential_equation_returns_exact_and_decimal_forms_directly
+0.19s call     app/tests/modules/math/test_math_stress_contract.py::test_series_ode_and_dependent_system_preserve_all_requested_structure
+0.19s call     app/tests/modules/math/test_math_key_step.py::test_complex_quadratic_final_step_uses_the_canonical_conjugate_pair
+0.18s call     app/tests/modules/math/test_math_properties.py::test_generated_linear_equation_extracts_equivalent_sides
+0.17s call     app/tests/modules/math/test_math_response_intent.py::test_equivalent_equation_prompts_follow_the_requested_presentation
+0.16s call     app/tests/modules/math/test_math_key_step.py::test_detailed_irreducible_quadratic_uses_the_formula
+0.16s call     app/tests/modules/math/test_math_wrong_verified_answers.py::test_a_defined_e_and_e_notation_read_as_written[E = 6.6261 \\times 10^{-34} \\cdot f-f = 1.50918338087261 \\cdot 10^{33} E]
+0.16s call     app/tests/modules/math/test_math_user_visible.py::test_quadratic_discriminant_parenthesizes_negative_b
+0.15s call     app/tests/modules/math/test_math_scan_api.py::test_scan_read_rejects_an_oversized_image
+0.15s call     app/tests/modules/math/test_math_direct_newton.py::test_an_exact_answer_card_carries_no_approximation
+0.15s call     app/tests/modules/math/test_math_service.py::test_solve_quadratic_negative_b_and_c_no_false_precedence
+0.14s call     app/tests/modules/math/test_math_key_step.py::test_negative_rational_root_matches_the_chip
+5091 passed, 20 warnings in 63.06s (0:01:03)

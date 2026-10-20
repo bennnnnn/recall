@@ -1,0 +1,16 @@
+................................                                         [100%]
+============================= slowest 30 durations =============================
+0.43s call     app/tests/background/test_periodic_progress.py::test_cycle_progress_keeps_the_loop_alive[True-True]
+0.43s call     app/tests/background/test_periodic_progress.py::test_cycle_progress_keeps_the_loop_alive[False-False]
+0.30s setup    app/tests/background/test_billing_reconcile_scheduler.py::test_billing_cycle_downgrades_pro_user_without_entitlement
+0.14s call     app/tests/background/test_message_indexing.py::test_enqueue_post_turn_jobs_includes_message_index
+0.01s call     app/tests/background/test_message_indexing.py::test_index_message_job_skips_when_disabled_or_bad_payload
+0.01s call     app/tests/background/test_billing_reconcile_scheduler.py::test_billing_scheduler_disabled_without_secret
+0.01s call     app/tests/background/test_job_spend_cap.py::test_a_model_job_runs_below_the_spend_cap[memory_consolidate-app.background.handlers.memory_consolidation.consolidate_user_memory_sections]
+0.01s call     app/tests/background/test_billing_reconcile_scheduler.py::test_billing_cycle_downgrades_pro_user_without_entitlement
+0.01s call     app/tests/background/test_billing_reconcile_scheduler.py::test_billing_cycle_leaves_matching_plans_alone
+0.01s call     app/tests/background/test_billing_reconcile_scheduler.py::test_billing_cycle_checks_plus_rows_too
+0.01s call     app/tests/background/test_job_spend_cap.py::test_a_model_job_does_nothing_once_the_spend_cap_is_reached[memory_history_scan-app.background.handlers.memory_history_scan.scan_recent_chats]
+
+(19 durations < 0.005s hidden.  Use -vv to show these durations.)
+32 passed in 4.61s

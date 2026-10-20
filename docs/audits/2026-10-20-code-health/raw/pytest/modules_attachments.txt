@@ -1,0 +1,55 @@
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 85%]
+.....................................                                    [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+app/tests/modules/attachments/test_repository.py::test_create_pending_attachment
+app/tests/modules/attachments/test_repository.py::test_create_pending_can_hide_from_library
+  /home/user/recall-audit/apps/api/app/modules/attachments/repository.py:80: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    session.add(row)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/attachments/test_repository.py::test_insert_verified_clone_hides_from_library
+  /home/user/recall-audit/apps/api/app/modules/attachments/repository.py:109: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    session.add(row)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+0.46s teardown app/tests/modules/attachments/test_ocr.py::test_extract_async_timeout_does_not_ocr
+0.45s teardown app/tests/modules/attachments/test_content.py::test_extract_text_details_async_times_out_gracefully
+0.34s call     app/tests/modules/attachments/test_api.py::test_list_attachments_omits_local_rows_whose_blob_is_gone
+0.32s call     app/tests/modules/attachments/test_api.py::test_upload_rejects_bytes_not_matching_claimed_content_type
+0.22s call     app/tests/modules/attachments/test_decode_limits.py::test_thumbnail_refuses_images_that_decode_past_the_budget[WEBP-2000-1000000-True]
+0.18s call     app/tests/modules/attachments/test_office_text.py::test_spreadsheet_values_coordinates_and_formulas
+0.18s call     app/tests/modules/attachments/test_vision_input.py::test_a_large_photo_is_shrunk_to_the_long_edge
+0.15s call     app/tests/modules/attachments/test_office_text.py::test_slide_text_table_and_notes
+0.12s call     app/tests/modules/attachments/test_content.py::test_extract_text_from_docx_bytes
+0.07s call     app/tests/modules/attachments/test_decode_limits.py::test_thumbnail_refuses_images_that_decode_past_the_budget[PNG-2000-0-False]
+0.07s call     app/tests/modules/attachments/test_api.py::test_list_attachments_local_backend
+0.06s call     app/tests/modules/attachments/test_api.py::test_presign_upload_success
+0.06s call     app/tests/modules/attachments/test_api.py::test_presign_upload_rejects_bad_content_type
+0.06s call     app/tests/modules/attachments/test_api.py::test_presign_upload_refunds_image_quota_when_create_pending_fails
+0.06s call     app/tests/modules/attachments/test_api.py::test_confirm_upload_rejects_spoofed_r2_bytes
+0.06s call     app/tests/modules/attachments/test_api.py::test_serve_file_local_backend_sets_nosniff_header
+0.06s call     app/tests/modules/attachments/test_api.py::test_upload_rejects_body_larger_than_declared_size_without_writing
+0.06s call     app/tests/modules/attachments/test_api.py::test_presign_upload_rejects_image_over_daily_limit
+0.06s call     app/tests/modules/attachments/test_api.py::test_list_attachments_category_filter
+0.06s call     app/tests/modules/attachments/test_api.py::test_cancel_pending_upload_refunds_image_quota
+0.06s call     app/tests/modules/attachments/test_api.py::test_serve_file_r2_redirect_sets_nosniff_header
+0.06s call     app/tests/modules/attachments/test_api.py::test_put_upload_empty_body_purges_row_and_refunds_quota
+0.06s call     app/tests/modules/attachments/test_api.py::test_upload_accepts_docx_bytes_matching_claimed_type
+0.06s call     app/tests/modules/attachments/test_api.py::test_download_url_rejects_spoofed_r2_bytes
+0.06s call     app/tests/modules/attachments/test_api.py::test_list_attachments_returns_images
+0.06s call     app/tests/modules/attachments/test_vision_input.py::test_injects_photos_into_the_last_user_message_and_frees_their_bytes
+0.06s call     app/tests/modules/attachments/test_api.py::test_confirm_upload_noop_for_local_backend
+0.06s call     app/tests/modules/attachments/test_decode_limits.py::test_thumbnail_refuses_images_that_decode_past_the_budget[PNG-2000-1000000-True]
+0.06s call     app/tests/modules/attachments/test_api.py::test_confirm_rejected_when_attachments_disabled
+0.06s call     app/tests/modules/attachments/test_api.py::test_list_attachments_source_filter
+253 passed, 4 warnings in 10.62s

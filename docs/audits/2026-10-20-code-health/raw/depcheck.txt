@@ -1,0 +1,14 @@
+{
+  "dependencies": [
+    "@config-plugins/react-native-webrtc",
+    "expo-device",
+    "react-native-vision-camera-worklets"
+  ],
+  "devDependencies": [
+    "@babel/plugin-transform-dynamic-import",
+    "@react-native/metro-config",
+    "@types/jest",
+    "lucide-static"
+  ],
+  "missing": {}
+}

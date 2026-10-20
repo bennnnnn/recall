@@ -1,0 +1,46 @@
+deferred app-internal import sites: 640
+by source top dir: {'modules': 586, 'services': 40, 'gateways': 8, 'models': 4, 'core': 2}
+deferred sites that hide a load-time cycle (dst reaches src at load time): 24
+    3 modules/math/tools/prompt.py
+    2 gateways/tool_completion.py
+    2 modules/math/solve/discrete.py
+    2 modules/math/tools/block/calculus.py
+    2 modules/math/tools/block/derivatives.py
+    1 services/routing.py
+    1 gateways/structured_completion.py
+    1 gateways/vision_completion.py
+    1 core/request_id.py
+    1 modules/web_search/subject.py
+    1 modules/math/image_extract.py
+    1 modules/chemistry/request.py
+    1 modules/attachments/content.py
+    1 modules/math/match/needs.py
+    1 modules/math/tools/graph_followup.py
+    1 modules/math/solve/key_steps.py
+    1 modules/math/tools/extractors/algebra.py
+    1 modules/math/tools/block/__init__.py
+== sample sites
+  core/request_id.py:61 app.core.request_id -> app.core.logging
+  gateways/structured_completion.py:147 app.gateways.structured_completion -> app.gateways.litellm_gateway
+  gateways/tool_completion.py:96 app.gateways.tool_completion -> app.gateways.litellm_gateway
+  gateways/tool_completion.py:157 app.gateways.tool_completion -> app.gateways.litellm_gateway
+  gateways/vision_completion.py:50 app.gateways.vision_completion -> app.gateways.litellm_gateway
+  modules/attachments/content.py:222 app.modules.attachments.content -> app.modules.attachments.ocr
+  modules/chemistry/request.py:552 app.modules.chemistry.request -> app.modules.chemistry.binding
+  modules/math/image_extract.py:249 app.modules.math.image_extract -> app.modules.math.ocr
+  modules/math/match/needs.py:60 app.modules.math.match.needs -> app.modules.math.tools.extractors.detection
+  modules/math/solve/discrete.py:195 app.modules.math.solve.discrete -> app.modules.math.formulas
+  modules/math/solve/discrete.py:209 app.modules.math.solve.discrete -> app.modules.math.formulas
+  modules/math/solve/key_steps.py:106 app.modules.math.solve.key_steps -> app.modules.math.solve.key_steps_special
+  modules/math/tools/block/__init__.py:122 app.modules.math.tools.block -> app.modules.math.tools.school
+  modules/math/tools/block/calculus.py:66 app.modules.math.tools.block.calculus -> app.modules.math.tools.school.curve_points
+  modules/math/tools/block/calculus.py:70 app.modules.math.tools.block.calculus -> app.modules.math.tools.school
+  modules/math/tools/block/derivatives.py:39 app.modules.math.tools.block.derivatives -> app.modules.math.tools.school.function_value
+  modules/math/tools/block/derivatives.py:68 app.modules.math.tools.block.derivatives -> app.modules.math.tools.school.function_value
+  modules/math/tools/extractors/algebra.py:253 app.modules.math.tools.extractors.algebra -> app.modules.math.tools.direct_newton
+  modules/math/tools/graph_followup.py:136 app.modules.math.tools.graph_followup -> app.modules.math.tools.extract
+  modules/math/tools/prompt.py:271 app.modules.math.tools.prompt -> app.modules.math.followup
+  modules/math/tools/prompt.py:360 app.modules.math.tools.prompt -> app.modules.math.tools
+  modules/math/tools/prompt.py:422 app.modules.math.tools.prompt -> app.modules.math.tools
+  modules/web_search/subject.py:96 app.modules.web_search.subject -> app.modules.web_search.detection
+  services/routing.py:343 app.services.routing -> app.services.thinking_effort

@@ -1,0 +1,6 @@
+app/core/sympy_executor.py:373	ClassDef	ThreadSympyExecutor	lines=45	test_files=3
+app/core/sympy_executor.py:455	FunctionDef	reset_sympy_executor	lines=5	test_files=1
+app/gateways/storage_gateway.py:377	FunctionDef	reset_storage_gateway_cache	lines=3	test_files=2
+app/modules/chat/finalize_registry.py:183	FunctionDef	pending_finalize_count	lines=3	test_files=1
+app/modules/chat/finalize_registry.py:188	FunctionDef	inflight_stream_count	lines=3	test_files=1
+app/services/workout.py:311	Assign	WORKOUT_PROMPT_SHORT	lines=5	test_files=0

@@ -1,0 +1,70 @@
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 39%]
+........................................................................ [ 53%]
+........................................................................ [ 66%]
+........................................................................ [ 79%]
+........................................................................ [ 93%]
+.....................................                                    [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+app/tests/modules/account/test_account.py::test_export_returns_data
+  /usr/lib/python3.13/unittest/mock.py:2253: RuntimeWarning: coroutine 'Connection._cancel' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/security/test_account_delete.py: 1 warning
+app/tests/security/test_account_export.py: 1 warning
+app/tests/security/test_cross_user_isolation.py: 17 warnings
+app/tests/security/test_quota_carryover.py: 12 warnings
+app/tests/security/test_ws_isolation.py: 1 warning
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+app/tests/security/test_account_delete.py: 2 warnings
+app/tests/security/test_account_export.py: 2 warnings
+app/tests/security/test_cross_user_isolation.py: 32 warnings
+app/tests/security/test_quota_carryover.py: 14 warnings
+app/tests/security/test_ws_isolation.py: 1 warning
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:370: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+app/tests/core/test_unavailable_handlers.py::test_database_unavailable_maps_to_503[<lambda>-503_0]
+  /usr/lib/python3.13/functools.py:53: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f6ca99e6c50>
+    value = getattr(wrapped, attr)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/test_routers.py::test_speech_transcribe_6mb_is_413_before_quota
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/routing.py:360: StarletteDeprecationWarning: 'HTTP_413_REQUEST_ENTITY_TOO_LARGE' is deprecated. Use 'HTTP_413_CONTENT_TOO_LARGE' instead.
+    return await dependant.call(**values)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.13.16-final-0 _______________
+
+Name                                       Stmts   Miss  Cover   Missing
+------------------------------------------------------------------------
+app/core/access_tokens.py                     70      6    91%   86, 97-98, 111-115
+app/core/deps.py                              39      7    82%   22, 46, 56, 59-62
+app/core/user_cache.py                        39     11    72%   60-75
+app/modules/account/__init__.py                1      0   100%
+app/modules/account/api.py                   180     28    84%   108, 116, 180, 206, 214, 220, 234-235, 257-262, 274-275, 278, 287, 366, 382-383, 401, 417-419, 429-435, 462-463
+app/modules/account/consent.py                22      0   100%
+app/modules/account/email_authority.py        38      0   100%
+app/modules/account/export.py                189      9    95%   104, 106, 108, 110, 230-231, 279, 357, 429
+app/modules/account/lifecycle.py             105     12    89%   40, 50, 68, 86, 97-98, 100, 124-130, 189-190
+app/modules/account/profile.py                43      0   100%
+app/modules/account/quota_carryover.py        56      4    93%   96-97, 101-102
+app/modules/account/service.py                90     17    81%   91, 155, 170-182, 216-239
+app/modules/account/settings_intent.py       203     12    94%   183, 329, 342-346, 361-364, 393, 410, 479
+app/modules/account/settings_proposal.py     213     54    75%   94, 98, 101, 115-123, 128, 146, 152-157, 160, 167-173, 183, 195-196, 242-243, 245, 249, 265, 285-286, 292-300, 316, 321, 325, 327, 342-344, 348-349, 376-377
+app/modules/account/tokens.py                237     20    92%   73, 194, 247-248, 296, 306-307, 311, 315-317, 322, 340, 363-365, 371, 425-427
+app/modules/account/web_session.py            53      3    94%   80-84
+------------------------------------------------------------------------
+TOTAL                                       1578    183    88%
+541 passed, 22 deselected, 87 warnings in 32.17s

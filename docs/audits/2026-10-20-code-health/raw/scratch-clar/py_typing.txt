@@ -1,0 +1,83 @@
+Any references: 1161 in 185 files
+  98	api/app/modules/math/solve/traces.py
+  80	api/app/modules/math/solve/key_steps.py
+  51	api/app/modules/math/solve/work_slips.py
+  44	api/app/modules/math/solve/integral_steps.py
+  30	api/app/modules/math/solve/work_lines.py
+  28	api/app/modules/math/solve/key_steps_special.py
+  25	api/app/modules/math/tools/block/calculus_applications.py
+  23	api/app/modules/math/tools/school/equation_features/forms.py
+  21	api/app/modules/chat/stream_events.py
+  20	api/app/modules/math/solve/calculus.py
+  20	api/app/modules/math/solve/equations.py
+  19	api/app/modules/math/tool.py
+  18	api/app/modules/account/export.py
+  18	api/app/modules/billing/revenuecat.py
+  18	api/app/modules/math/solve/word_problem.py
+  16	api/app/modules/math/solve/derivative_steps.py
+  16	api/app/modules/math/tool_check.py
+  15	api/app/background/handlers.py
+  15	api/app/core/sympy_notation.py
+  15	api/app/modules/chat/tool_loop/rounds.py
+  14	api/app/modules/math/solve/graph_expr_text.py
+  14	api/app/modules/math/tools/school/function_value.py
+  12	api/app/modules/math/tools/school/curve_points.py
+  11	api/app/gateways/tool_completion.py
+  11	api/app/modules/math/followup.py
+  11	api/app/modules/physics/schemas/simulation.py
+  10	api/app/modules/chat/prompt_context.py
+  10	api/app/modules/math/solve/equation_conditions.py
+  10	api/app/modules/math/solve/graph.py
+  9	api/app/modules/memory/crud.py
+cast() calls: 49 in 24 files
+  10	api/app/modules/memory/retrieval.py
+  4	api/app/core/jobs/admin.py
+  3	api/app/modules/memory/repository.py
+  3	api/app/modules/todos/repository.py
+  3	api/app/repositories/chats.py
+  3	api/app/repositories/push_tokens.py
+  2	api/app/core/jobs/queue.py
+  2	api/app/core/jobs/worker.py
+  2	api/app/gateways/structured_completion.py
+  2	api/app/modules/attachments/repository.py
+  2	api/app/modules/math/tools/prompt.py
+  1	api/app/core/jobs/dedupe.py
+  1	api/app/gateways/mock_llm.py
+  1	api/app/modules/images/generation.py
+  1	api/app/modules/math/match/written.py
+  1	api/app/modules/math/solve/fractions.py
+  1	api/app/modules/math/solve/inequality_graph.py
+  1	api/app/modules/math/solve/written_division.py
+  1	api/app/modules/math/tools/extractors/discrete_statistics.py
+  1	api/app/modules/physics/symbolic/request.py
+type: ignore comments: 30
+  api/app/core/sympy_notation.py:89	# type: ignore[attr-defined]	|| _print_mul.school_log_notation = True  # type: ignore[attr-defined]
+  api/app/gateways/apple_auth.py:41	# type: ignore[return-value]	|| return _jwks_cache  # type: ignore[return-value]
+  api/app/gateways/apple_auth.py:47	# type: ignore[return-value]	|| return _jwks_cache  # type: ignore[return-value]
+  api/app/gateways/google_auth.py:72	# type: ignore[arg-type]	|| request,  # type: ignore[arg-type]
+  api/app/models/schemas/auth.py:56	# type: ignore[prop-decorator]	|| @computed_field  # type: ignore[prop-decorator]
+  api/app/models/schemas/auth.py:69	# type: ignore[prop-decorator]	|| @computed_field  # type: ignore[prop-decorator]
+  api/app/models/schemas/auth.py:76	# type: ignore[prop-decorator]	|| @computed_field  # type: ignore[prop-decorator]
+  api/app/models/schemas/auth.py:86	# type: ignore[prop-decorator]	|| @computed_field  # type: ignore[prop-decorator]
+  api/app/modules/chemistry/binding.py:391	# type: ignore[arg-type]	|| kind=law.kind,  # type: ignore[arg-type]
+  api/app/modules/chemistry/binding.py:392	# type: ignore[arg-type]	|| chemistry_op=law.op,  # type: ignore[arg-type]
+  api/app/modules/chemistry/reactions.py:152	# type: ignore[attr-defined]	|| reaction = AllChem.ReactionFromSmarts(  # type: ignore[attr-defined]
+  api/app/modules/math/tools/work_request.py:337	# type: ignore[index]	|| names = {_EQUALS_VALUE.match(part)["var"] for part in values}  # type: ignore[index]
+  api/app/modules/physics/binding.py:109	# type: ignore[arg-type]	|| kind=chosen.spec.kind,  # type: ignore[arg-type]
+  api/app/modules/physics/extractors/circuits.py:278	# type: ignore[assignment]	|| }[missing]  # type: ignore[assignment]
+  api/app/modules/physics/extractors/energy_conservation.py:88	# type: ignore[arg-type]	|| physics_op=operation,  # type: ignore[arg-type]
+  api/app/modules/physics/extractors/projectile.py:196	# type: ignore[arg-type]	|| physics_op=op,  # type: ignore[arg-type]
+  api/app/modules/physics/extractors/projectile.py:227	# type: ignore[arg-type]	|| physics_op=op,  # type: ignore[arg-type]
+  api/app/modules/physics/extractors/rotation.py:128	# type: ignore[arg-type]	|| physics_op=op,  # type: ignore[arg-type]
+  api/app/modules/physics/extractors/rotational_readings.py:24	# type: ignore[arg-type]	|| physics_op=operation,  # type: ignore[arg-type]
+  api/app/modules/physics/extractors/school_common.py:32	# type: ignore[arg-type]	|| kind=kind,  # type: ignore[arg-type]
+  api/app/modules/physics/extractors/school_common.py:33	# type: ignore[arg-type]	|| physics_op=operation,  # type: ignore[arg-type]
+  api/app/modules/physics/extractors/suvat.py:264	# type: ignore[arg-type]	|| physics_op=listed[0],  # type: ignore[arg-type]
+  api/app/modules/physics/extractors/suvat.py:268	# type: ignore[arg-type]	|| requested_ops=listed,  # type: ignore[arg-type]
+  api/app/modules/physics/extractors/suvat.py:279	# type: ignore[arg-type]	|| physics_op=unknown,  # type: ignore[arg-type]
+  api/app/modules/physics/extractors/waves.py:227	# type: ignore[arg-type]	|| physics_op=op,  # type: ignore[arg-type]
+  api/app/modules/physics/solvers/circular.py:62	# type: ignore[arg-type]	|| arrow_labels=arrow_labels or {},  # type: ignore[arg-type]
+  api/app/modules/physics/solvers/force_scenes.py:56	# type: ignore[arg-type]	|| shape=shape,  # type: ignore[arg-type]
+  api/app/modules/physics/solvers/friction.py:368	# type: ignore[arg-type]	|| arrows=arrows,  # type: ignore[arg-type]
+  api/app/modules/physics/solvers/friction.py:369	# type: ignore[misc]	|| arrow_labels={name: labels[name] for name in arrows},  # type: ignore[misc]
+  api/app/modules/speech/api.py:255	# type: ignore[union-attr]	|| data = await upload.read()  # type: ignore[union-attr]

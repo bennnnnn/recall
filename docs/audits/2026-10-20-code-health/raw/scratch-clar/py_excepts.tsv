@@ -1,0 +1,338 @@
+api/app/background/periodic.py	97	Exception	log	logger.exception('%s cycle failed', name)
+api/app/background/periodic.py	162	Exception	log	logger.exception('%s loop error', name)
+api/app/background/push_scheduler.py	47	Exception	log	logger.debug('Failed to prune push token', exc_info=True)
+api/app/core/jobs/admin.py	51	Exception	log	logger.debug('Failed to write job to DLQ id=%s', entry_id, exc_info=True)
+api/app/core/jobs/admin.py	79	Exception	log	metrics['metrics_error'] = type(exc).__name__
+api/app/core/jobs/admin.py	217	Exception	log	logger.exception('Failed to replay DLQ entry id=%s', entry.get('id'))
+api/app/core/jobs/dedupe.py	62	Exception	log	logger.debug('job dedupe claim failed key=%s', dedupe_key, exc_info=True)
+api/app/core/jobs/dedupe.py	84	Exception	log	logger.debug('job dedupe state read failed key=%s', dedupe_key, exc_info=True)
+api/app/core/jobs/dedupe.py	99	Exception	log	logger.debug('job dedupe extend failed key=%s', dedupe_key, exc_info=True)
+api/app/core/jobs/dedupe.py	112	Exception	log	logger.debug('job dedupe refresh failed key=%s', dedupe_key, exc_info=True)
+api/app/core/jobs/dedupe.py	128	Exception	log	logger.debug('job dedupe release failed key=%s', dedupe_key, exc_info=True)
+api/app/core/jobs/dedupe.py	158	Exception	log	logger.debug('job delivery give-back failed id=%s', entry_id, exc_info=True)
+api/app/core/jobs/inflight.py	111	Exception	log	logger.debug('job lease renewal failed count=%s', len(entry_ids), exc_info=True)
+api/app/core/jobs/pending.py	38	Exception	log	logger.debug('xack of trimmed entry failed id=%s', entry_id, exc_info=True)
+api/app/core/jobs/pending.py	48	Exception	log	logger.debug('xpending_range failed id=%s', entry_id, exc_info=True)
+api/app/core/jobs/pending.py	90	Exception	log	logger.debug('xack of poison entry failed id=%s', entry_id, exc_info=True)
+api/app/core/jobs/pending.py	109	Exception	log	logger.debug('jobs consumer cleanup skipped consumer=%s', consumer, exc_info=True)
+api/app/core/jobs/queue.py	73	Exception	log	logger.exception('Failed to enqueue job type=%s', job_type)
+api/app/core/jobs/queue.py	127	Exception	log	logger.debug('jobs stream trim skipped', exc_info=True)
+api/app/core/jobs/worker.py	148	Exception	log	if isinstance(exc, TimeoutError) and deadline.expired():
+api/app/core/jobs/worker.py	187	Exception	log	logger.debug('xack failed id=%s', entry_id, exc_info=True)
+api/app/core/jobs/worker.py	265	Exception	raise	if 'BUSYGROUP' not in str(exc):
+api/app/core/jobs/worker.py	283	Exception	log	failures += 1
+api/app/core/jobs/worker.py	331	Exception	log	logger.debug('xautoclaim failed', exc_info=True)
+api/app/core/jobs/worker.py	383	Exception	uses_exc	await _back_off_after_read_error(redis, exc)
+api/app/core/jobs/worker.py	406	Exception	log	logger.debug('jobs consumer group re-create failed', exc_info=True)
+api/app/core/rate_limit.py	35	Exception	log	logger.warning('Rate limit check failed; failing closed key=%s', key, exc_info=True)
+api/app/core/rest_rate_limit.py	49	Exception	log	logger.warning('REST rate limit check failed; failing closed', exc_info=True)
+api/app/core/sentry.py	103	Exception	log	logger.debug('Sentry %s not sent', what, exc_info=True)
+api/app/core/shutdown.py	49	Exception	log	logger.exception('Stop hook failed')
+api/app/core/sympy_executor.py	244	Exception	log	logger.debug('proc.terminate failed during sympy slot kill', exc_info=True)
+api/app/core/sympy_executor.py	257	Exception	log	logger.debug('proc.join failed during sympy slot kill', exc_info=True)
+api/app/core/sympy_executor.py	261	Exception	log	logger.debug('pool.shutdown failed during sympy slot kill', exc_info=True)
+api/app/core/sympy_executor.py	333	BaseException	raise	if slot is not None:
+api/app/core/sympy_executor.py	478	Exception	log	logger.warning('sympy pool warmup failed', exc_info=True)
+api/app/gateways/apple_revoke.py	140	Exception	log	logger.exception('Apple token revoke failed unexpectedly')
+api/app/gateways/email_gateway.py	118	Exception	log	logger.exception('Transactional email send failed to=%s subject=%r', to_label, subject)
+api/app/gateways/embedding_gateway.py	74	Exception	log	logger.exception('Embedding failed')
+api/app/gateways/embedding_gateway.py	173	Exception	log	logger.debug('Embed cache read failed; falling back to live embed', exc_info=True)
+api/app/gateways/embedding_gateway.py	180	Exception	log	logger.debug('Embed call failed', exc_info=True)
+api/app/gateways/embedding_gateway.py	190	Exception	log	logger.debug('Embed cache write failed', exc_info=True)
+api/app/gateways/expo_push_gateway.py	69	Exception	log	logger.exception('Expo push receipt fetch failed count=%s', len(chunk))
+api/app/gateways/expo_push_gateway.py	110	Exception	log	logger.exception('Expo push send failed offset=%s count=%s', offset, len(chunk))
+api/app/gateways/expo_push_gateway.py	138	Exception	log	logger.debug('Expo response parse failed offset=%s', offset, exc_info=True)
+api/app/gateways/image_gateway.py	121	Exception	log	logger.exception('Image generation failed model=%s prompt_len=%s', model, len(prompt))
+api/app/gateways/image_search_gateway.py	118	Exception	log	logger.exception('Tavily image search failed')
+api/app/gateways/litellm_gateway.py	101	Exception	log	if alias == primary_alias and fallback is not None:
+api/app/gateways/litellm_gateway.py	415	Exception	raise	logger.exception('LiteLLM streaming failed for alias=%s', model_alias)
+api/app/gateways/litellm_gateway.py	452	Exception	log	logger.exception('Text completion failed to parse response for %s', model_alias)
+api/app/gateways/llm_spend.py	60	Exception	log	logger.warning('Model spend not recorded alias=%s usd=%.6f', alias, cost, exc_info=True)
+api/app/gateways/mathpix_gateway.py	83	Exception	log	logger.warning('mathpix ocr failed', exc_info=True)
+api/app/gateways/openai_speech_gateway.py	153	Exception	log	logger.exception('Could not mint OpenAI Realtime client secret')
+api/app/gateways/pubchem_gateway.py	161	Exception	log	logger.info('PubChem GET failed url=%s: %s', url, exc)
+api/app/gateways/pubchem_gateway.py	184	Exception	log	logger.debug('PubChem cache read failed', exc_info=True)
+api/app/gateways/pubchem_gateway.py	199	Exception	log	logger.debug('PubChem cache write failed', exc_info=True)
+api/app/gateways/pubchem_gateway.py	252	Exception	log	logger.debug('PubChem cache read failed', exc_info=True)
+api/app/gateways/revenuecat_gateway.py	35	Exception	log	logger.exception('RevenueCat subscriber fetch failed user=%s', app_user_id)
+api/app/gateways/safe_fetch.py	47	Exception	silent	return True
+api/app/gateways/speech_gateway.py	129	Exception	log	logger.exception('Speech transcription failed model=%s format=%s size=%s', model, audio_format, len(audio_bytes))
+api/app/gateways/speech_gateway.py	216	Exception	log	logger.exception('Speech TTS failed model=%s chars=%s', model, len(text))
+api/app/gateways/speech_gateway.py	260	Exception	log	logger.exception('Speech TTS stream failed model=%s chars=%s', model, len(text))
+api/app/gateways/storage_gateway.py	232	Exception	raise	raise StorageUnavailableError(_R2_UNAVAILABLE) from exc
+api/app/gateways/storage_gateway.py	251	Exception	raise	raise StorageUnavailableError('Attachment storage is temporarily unavailable') from exc
+api/app/gateways/storage_gateway.py	273	Exception	raise	raise StorageUnavailableError(_R2_UNAVAILABLE) from exc
+api/app/gateways/storage_gateway.py	281	Exception	raise	raise StorageUnavailableError(_R2_UNAVAILABLE) from exc
+api/app/gateways/structured_completion.py	107	Exception	log	logger.debug('structured invalid count not recorded field=%s', field, exc_info=True)
+api/app/gateways/structured_completion.py	184	Exception	silent	if schema is MemoryFactUpdateResult and isinstance(data, dict):
+api/app/gateways/structured_completion.py	207	Exception	log	logger.debug('Skipping invalid memory fact op', exc_info=True)
+api/app/gateways/structured_completion.py	226	Exception	log	logger.debug('Skipping invalid memory section item', exc_info=True)
+api/app/gateways/structured_completion.py	269	Exception	log	logger.exception('Background LLM fallback %s also failed', alias)
+api/app/gateways/structured_completion.py	275	Exception	log	if fallback is None or not allow_fallback:
+api/app/gateways/tool_completion.py	191	Exception	raise	if tool_choice == 'required' and _tool_choice_unsupported(exc):
+api/app/gateways/tool_completion.py	206	Exception	raise	logger.warning('complete_with_tools failed alias=%s type=%s', model_alias, type(exc).__name__)
+api/app/gateways/vision_completion.py	78	Exception	log	if index < len(aliases) - 1:
+api/app/gateways/web_search_gateway.py	109	Exception	log	calls['failed'] += 1
+api/app/gateways/web_search_gateway.py	129	Exception	raise	logger.exception('DuckDuckGo search failed')
+api/app/gateways/web_search_gateway.py	145	Exception	raise	logger.warning('DuckDuckGo fallback timed out/failed')
+api/app/gateways/web_search_gateway.py	167	Exception	raise	logger.exception('Tavily web search failed')
+api/app/modules/account/export.py	230	Exception	log	logger.warning('Export presign failed for attachment_id=%s', attachment.id, exc_info=True)
+api/app/modules/account/lifecycle.py	69	BaseException	raise	await session.rollback()
+api/app/modules/account/lifecycle.py	124	Exception	raise	logger.warning('Session purge failed during account delete user_id=%s', user.id, exc_info=True)
+api/app/modules/account/lifecycle.py	140	Exception	log	logger.warning('Follow-up cache purge failed user_id=%s', user_id, exc_info=True)
+api/app/modules/account/quota_carryover.py	76	Exception	log	logger.warning('Quota carry-over save failed user_id=%s', user.id, exc_info=True)
+api/app/modules/account/quota_carryover.py	101	Exception	log	logger.warning('Quota carry-over restore failed user_id=%s', user_id, exc_info=True)
+api/app/modules/account/settings_proposal.py	376	Exception	log	logger.exception('Settings confirm lock release failed user_id=%s proposal_id=%s', user.id, proposal_id)
+api/app/modules/analytics/service.py	102	Exception	raise	await session.rollback()
+api/app/modules/attachments/content.py	147	Exception	log	logger.debug('PDF text extraction failed', exc_info=True)
+api/app/modules/attachments/content.py	164	Exception	log	logger.debug('DOCX text extraction failed', exc_info=True)
+api/app/modules/attachments/content.py	295	Exception	silent	from app.modules.attachments.lifecycle import enqueue_failed_storage_deletes
+api/app/modules/attachments/jobs.py	58	Exception	log	logger.exception('Attachment index enqueue failed chat_id=%s', chat_id)
+api/app/modules/attachments/lifecycle.py	76	Exception	log	logger.warning('Could not enqueue failed storage deletes', exc_info=True)
+api/app/modules/attachments/lifecycle.py	84	Exception	log	logger.debug('Pending storage-delete retry skipped', exc_info=True)
+api/app/modules/attachments/lifecycle.py	101	Exception	log	logger.debug('Could not clear pending storage deletes', exc_info=True)
+api/app/modules/attachments/lifecycle.py	198	Exception	log	logger.debug('Image quota refund failed for user %s', row.user_id, exc_info=True)
+api/app/modules/attachments/ocr.py	46	Exception	log	logger.warning('PDF page render failed; trying embedded images', exc_info=True)
+api/app/modules/attachments/ocr.py	50	Exception	log	logger.warning('PDF embedded-image extract failed', exc_info=True)
+api/app/modules/attachments/ocr.py	136	Exception	silent	return None
+api/app/modules/attachments/ocr.py	219	Exception	log	logger.warning('Scanned-PDF OCR failed', exc_info=True)
+api/app/modules/attachments/ocr_allowance.py	115	Exception	log	logger.warning('Could not keep OCR text attachment_id=%s', attachment_id, exc_info=True)
+api/app/modules/attachments/ocr_allowance.py	132	Exception	log	logger.warning('Kept OCR text unreadable attachment_id=%s', attachment_id, exc_info=True)
+api/app/modules/attachments/office_text.py	85	Exception	log	logger.debug('Office text extraction failed', exc_info=True)
+api/app/modules/attachments/rag.py	296	Exception	log	logger.warning('Attachment RAG chunk probe failed for chat_id=%s', chat_id, exc_info=True)
+api/app/modules/attachments/rag.py	307	Exception	log	logger.warning('Attachment RAG embed failed for chat_id=%s', chat_id, exc_info=True)
+api/app/modules/attachments/rag.py	342	Exception	log	logger.warning('Attachment RAG retrieval failed for chat_id=%s', chat_id, exc_info=True)
+api/app/modules/attachments/reuse.py	55	BaseException	raise	try:
+api/app/modules/attachments/thumbnails.py	123	Exception	log	logger.warning('Thumbnail store failed key=%s', key, exc_info=True)
+api/app/modules/attachments/thumbnails.py	132	Exception	log	logger.warning('Thumbnail delete failed storage_key=%s', storage_key, exc_info=True)
+api/app/modules/attachments/upload.py	98	Exception	raise	if reserved_day:
+api/app/modules/attachments/vision_input.py	106	Exception	log	logger.warning('Vision image could not be decoded storage_key=%s', storage_key)
+api/app/modules/attachments/workflow.py	283	Exception	log	logger.exception('Failed to drop missing-file attachment row %s', attachment_id)
+api/app/modules/attachments/workflow.py	302	Exception	raise	logger.exception('Thumbnail resize failed attachment_id=%s', attachment_id)
+api/app/modules/attachments/workflow.py	343	Exception	log	logger.debug('attachment indexed probe failed id=%s', attachment_id, exc_info=True)
+api/app/modules/chat/compaction.py	90	Exception	raise	logger.exception('History compression failed for chat_id=%s', chat_id)
+api/app/modules/chat/finalize_passes.py	203	Exception	raise	if on_error.log_as is None:
+api/app/modules/chat/finalize_passes.py	224	Exception	log	logger.exception('Post-stream enrichment failed; persisting the last committed text')
+api/app/modules/chat/finalize_registry.py	70	Exception	log	with contextlib.suppress(Exception):
+api/app/modules/chat/finalize_registry.py	106	Exception	log	logger.exception('Stopping an in-flight chat stream failed')
+api/app/modules/chat/finalize_registry.py	117	Exception	log	logger.debug('Failed to mark pending finalize chat_id=%s', chat_id, exc_info=True)
+api/app/modules/chat/finalize_registry.py	125	Exception	log	logger.debug('Failed to clear pending finalize chat_id=%s', chat_id, exc_info=True)
+api/app/modules/chat/finalize_registry.py	173	Exception	raise	logger.debug('Pending finalize Redis wait failed chat_id=%s', chat_id, exc_info=True)
+api/app/modules/chat/finalize_reminders.py	69	Exception	log	logger.exception('Reminder pass failed; keeping the finished reply')
+api/app/modules/chat/finalize_subjects.py	50	Exception	log	logger.exception('answer-card fallback failed; dropping marker lines')
+api/app/modules/chat/history_rag.py	100	Exception	log	logger.warning('Chat-history RAG backfill failed message_id=%s', row.id, exc_info=True)
+api/app/modules/chat/history_rag.py	134	Exception	log	logger.warning('Chat-history RAG index failed message_id=%s', row.id, exc_info=True)
+api/app/modules/chat/history_rag.py	181	Exception	log	logger.warning('Chat-history RAG chunk probe failed user_id=%s', user_id, exc_info=True)
+api/app/modules/chat/history_rag.py	191	Exception	log	logger.warning('Chat-history RAG embed failed user_id=%s', user_id, exc_info=True)
+api/app/modules/chat/history_rag.py	234	Exception	log	logger.warning('Chat-history RAG retrieval failed user_id=%s', user_id, exc_info=True)
+api/app/modules/chat/post_turn.py	145	Exception	log	logger.exception('Failed to expand todo sync transcript; using current turn only')
+api/app/modules/chat/prompt_builder.py	231	Exception	log	logger.debug('has_chunks_for_chat probe failed for chat_id=%s', chat_id, exc_info=True)
+api/app/modules/chat/prompt_memory.py	159	Exception	log	logger.debug('spend-cap read for the memory note failed', exc_info=True)
+api/app/modules/chat/related_prompts.py	128	Exception	log	logger.warning('Related questions failed', exc_info=True)
+api/app/modules/chat/related_prompts.py	159	Exception	log	logger.warning('Related questions cache read failed', exc_info=True)
+api/app/modules/chat/related_prompts.py	193	Exception	log	logger.warning('Related questions cache write failed', exc_info=True)
+api/app/modules/chat/service.py	124	Exception	raise	await session.rollback()
+api/app/modules/chat/service.py	141	Exception	raise	await session.rollback()
+api/app/modules/chat/service.py	240	Exception	log	logger.warning('Title backfill enqueue failed chat_id=%s', chat_id, exc_info=True)
+api/app/modules/chat/stream_api.py	213	Exception	log	if not isinstance(exc, EXPECTED_TURN_ERRORS):
+api/app/modules/chat/stream_entry.py	204	Exception	log	logger.exception('User message persist failed chat_id=%s', chat_id)
+api/app/modules/chat/stream_events.py	82	Exception	log	logger.debug('Stopped chat stream raised while it finished', exc_info=True)
+api/app/modules/chat/stream_events.py	264	Exception	log	logger.exception('Finalize commit failed before done')
+api/app/modules/chat/stream_events.py	317	Exception	log	logger.warning('Related prompts failed', exc_info=True)
+api/app/modules/chat/stream_paths.py	317	Exception	log	logger.debug('model health sample failed', exc_info=True)
+api/app/modules/chat/stream_pipeline.py	116	Exception	log	logger.exception('Background job enqueue failed')
+api/app/modules/chat/stream_pipeline.py	140	Exception	log	logger.exception('record_global_spend failed for terminal-image tool rounds')
+api/app/modules/chat/stream_pipeline.py	166	Exception	log	logger.exception('Slim finalize for terminal image failed')
+api/app/modules/chat/stream_pipeline.py	355	Exception	log	logger.exception('User message persist failed chat_id=%s', ctx.chat_id)
+api/app/modules/chat/tool_loop/calls.py	105	Exception	log	logger.info('tool-call match check did not finish; result stays unverified', exc_info=True)
+api/app/modules/chat/tool_loop/rounds.py	288	Exception	log	logger.exception('Tool selection failed alias=%s', alias)
+api/app/modules/chat/turn_load.py	137	Exception	log	logger.debug('Daily usage probe failed user_id=%s', user_id, exc_info=True)
+api/app/modules/chat/turn_prep/augment.py	269	BaseException	raise	for task in tasks:
+api/app/modules/chat/turn_prep/context.py	274	Exception	log	logger.debug('model health read failed during fallback selection', exc_info=True)
+api/app/modules/chat/turn_prep/instant.py	137	Exception	log	logger.warning('Profile reply memory read failed user_id=%s', user.id, exc_info=True)
+api/app/modules/chat/turn_prep/persist.py	112	Exception	raise	await session.rollback()
+api/app/modules/chat/turn_prep/prepare.py	214	BaseException	raise	try:
+api/app/modules/chat/turn_prep/prepare.py	217	Exception	log	logger.exception('User message persist failed after prompt error chat_id=%s', turn.chat_id)
+api/app/modules/chat/turn_resources.py	133	BaseException	raise	await resources.refund()
+api/app/modules/chat/turn_resources.py	164	Exception	log	logger.warning('Chat prepare lock refresh failed key=%s', res.lock_key, exc_info=True)
+api/app/modules/chat/turn_settle.py	64	Exception	log	logger.warning('Usage DB-seed failed user_id=%s — quota enforcement may start from 0 if Redis was evicted', user_id, exc
+api/app/modules/chat/turn_settle.py	251	Exception	raise	if _attempt == 2:
+api/app/modules/chat/turn_settle.py	255	Exception	log	logger.warning('adjust_usage failed after finalize commit; Redis may drift from the DB total — heal_usage_drift on next 
+api/app/modules/chat/turn_settle.py	263	Exception	log	logger.warning('mark_usage_needs_heal failed after adjust_usage; heal may not run', exc_info=True)
+api/app/modules/chat/turn_settle.py	271	Exception	log	logger.exception('record_global_spend failed after successful finalize')
+api/app/modules/chat/turn_settle.py	304	Exception	raise	logger.exception('Stream-turn finalize failed; refunding reserved quota')
+api/app/modules/chat/turn_settle.py	308	Exception	log	logger.exception('refund_usage failed after finalize error')
+api/app/modules/chat/ws_turn.py	84	Exception	log	if not isinstance(exc, QuotaExceededError | ChatServiceError | ModelUnavailableError):
+api/app/modules/chat/ws_turn.py	226	Exception	log	if not isinstance(exc, EXPECTED_TURN_ERRORS):
+api/app/modules/chemistry/binding.py	303	Exception	log	logger.debug('%s: %s does not convert to %s: %s', law.op, expression, variable.dimension, type(exc).__name__)
+api/app/modules/chemistry/block.py	68	Exception	log	logger.warning('chemistry verification failed kind=%s op=%s', intent.kind, intent.chemistry_op, exc_info=True)
+api/app/modules/chemistry/context.py	123	Exception	log	logger.info('stoichiometry ratio hint failed', exc_info=True)
+api/app/modules/chemistry/context.py	140	Exception	log	logger.info('descriptor context failed for %r', smiles, exc_info=True)
+api/app/modules/chemistry/context.py	316	Exception	log	logger.warning('chemistry solve failed', exc_info=True)
+api/app/modules/chemistry/extract.py	54	Exception	log	logger.exception('chemistry extractor %s failed', getattr(extractor, '__name__', extractor))
+api/app/modules/chemistry/fence.py	62	Exception	log	logger.info('chemistry fence line validation failed for %r', raw, exc_info=True)
+api/app/modules/chemistry/fence.py	92	Exception	log	logger.info('chemistry fence validation failed for %r', smiles, exc_info=True)
+api/app/modules/chemistry/fence.py	125	Exception	log	logger.info('3D SDF generation failed for %r', props.smiles, exc_info=True)
+api/app/modules/chemistry/fence.py	317	Exception	log	logger.exception('chemistry fence recovery failed')
+api/app/modules/chemistry/smiles.py	139	Exception	log	logger.info('RDKit validate failed for %r: %s', cleaned, exc)
+api/app/modules/chemistry/smiles.py	160	Exception	log	logger.info('RDKit kekulize failed for %r', smiles, exc_info=True)
+api/app/modules/chemistry/smiles.py	224	Exception	log	logger.info('RDKit 3D coords failed for %r: %s', canonical, exc)
+api/app/modules/chemistry/smiles.py	255	Exception	uses_exc	return MolecularDescriptors.failure(cleaned, str(exc))
+api/app/modules/home/service.py	105	Exception	log	logger.warning('Home cache generation unreadable; serving uncached: %s', type(exc).__name__)
+api/app/modules/home/service.py	118	Exception	log	logger.debug('Home cache invalidation failed', exc_info=True)
+api/app/modules/home/service.py	140	Exception	log	logger.debug('Home screen cache read failed', exc_info=True)
+api/app/modules/home/service.py	155	Exception	log	logger.debug('Home screen cache write failed', exc_info=True)
+api/app/modules/images/answer_photo.py	82	Exception	log	logger.exception('Answer photo failed')
+api/app/modules/images/gen_tool.py	95	Exception	log	logger.exception('Image generation tool failed chat_id=%s', chat_id)
+api/app/modules/images/generation.py	71	Exception	log	logger.exception('Failed to delete orphaned generated image %s', storage_key)
+api/app/modules/images/generation.py	170	Exception	log	logger.exception('record_global_spend failed after image generation')
+api/app/modules/images/reply_picture.py	82	Exception	log	logger.exception('record_global_spend failed after a reply picture')
+api/app/modules/images/reply_picture.py	120	Exception	log	logger.exception('Reply picture failed')
+api/app/modules/images/search.py	73	Exception	log	logger.exception('Failed to delete orphaned reference-photo bytes %s', key)
+api/app/modules/images/search.py	102	Exception	log	logger.warning('Reference-photo candidate fetch failed', exc_info=True)
+api/app/modules/images/search.py	294	BaseException	raise	await _rollback_written_bytes(gateway, written_keys)
+api/app/modules/images/search.py	303	Exception	log	logger.exception('record_global_spend failed after photo lookup')
+api/app/modules/images/search.py	342	Exception	log	logger.exception('Answer photo lookup failed')
+api/app/modules/images/search.py	347	BaseException	raise	await _rollback_written_bytes(gateway, written_keys)
+api/app/modules/images/search.py	354	Exception	log	logger.exception('record_global_spend failed after answer photo')
+api/app/modules/images/search_tool.py	82	Exception	log	logger.exception('Photo lookup tool failed chat_id=%s', chat_id)
+api/app/modules/link_preview/service.py	105	Exception	log	logger.debug('Link preview fetch failed for %s', url, exc_info=True)
+api/app/modules/link_preview/service.py	112	Exception	log	logger.debug('Meta parse failed', exc_info=True)
+api/app/modules/link_preview/service.py	162	Exception	raise	logger.warning('Link preview slot check failed; denying', exc_info=True)
+api/app/modules/link_preview/service.py	172	Exception	log	logger.debug('Link preview slot release failed', exc_info=True)
+api/app/modules/link_preview/service.py	192	Exception	log	logger.debug('Link preview cache read failed', exc_info=True)
+api/app/modules/link_preview/service.py	203	Exception	log	logger.debug('Link preview cache write failed', exc_info=True)
+api/app/modules/math/calculus_applications.py	40	Exception	raise	raise MathServiceError('could not parse the expression') from exc
+api/app/modules/math/formulas.py	355	Exception	raise	raise MathServiceError('could not implicitly differentiate') from exc
+api/app/modules/math/function_analysis.py	25	Exception	raise	raise MathServiceError('could not parse function expression') from exc
+api/app/modules/math/function_analysis.py	39	Exception	raise	raise MathServiceError('could not determine the real domain') from exc
+api/app/modules/math/function_analysis.py	51	Exception	raise	raise MathServiceError('could not determine the real range') from exc
+api/app/modules/math/function_analysis.py	89	Exception	raise	raise MathServiceError('could not determine an inverse function') from exc
+api/app/modules/math/function_analysis.py	102	Exception	raise	raise MathServiceError('could not verify the inverse function') from exc
+api/app/modules/math/function_analysis.py	115	Exception	raise	raise MathServiceError('could not compose the functions') from exc
+api/app/modules/math/image_extract.py	211	Exception	log	logger.warning('math image extract failed', exc_info=True)
+api/app/modules/math/ode.py	85	Exception	raise	raise MathServiceError('could not solve ODE') from exc
+api/app/modules/math/school.py	256	Exception	log	logger.debug('Could not solve identity equality set', exc_info=exc)
+api/app/modules/math/school.py	271	Exception	log	logger.debug('Could not test identity counterexample', exc_info=exc)
+api/app/modules/math/school.py	425	Exception	raise	raise MathServiceError('could not find critical points') from exc
+api/app/modules/math/solve/calculus.py	145	Exception	raise	raise MathServiceError('Could not evaluate derivative at the requested point') from exc
+api/app/modules/math/solve/calculus.py	261	Exception	raise	raise MathServiceError(f'Could not compute definite integral of: {expr}') from exc
+api/app/modules/math/solve/calculus.py	288	Exception	raise	raise MathServiceError(f'Could not compute double integral of: {expr}') from exc
+api/app/modules/math/solve/calculus.py	321	Exception	raise	raise MathServiceError(f'Could not compute triple integral of: {expr}') from exc
+api/app/modules/math/solve/calculus.py	374	Exception	raise	raise MathServiceError(f'Could not compute limit of: {expr}') from side_exc
+api/app/modules/math/solve/calculus.py	380	Exception	raise	raise MathServiceError(f'Could not compute limit of: {expr}') from exc
+api/app/modules/math/solve/calculus.py	413	Exception	raise	raise MathServiceError(f'Could not evaluate series: {expr}') from exc
+api/app/modules/math/solve/declines.py	173	Exception	raise	if not _declined(where, exc):
+api/app/modules/math/solve/discrete.py	349	Exception	raise	raise MathServiceError('matrix is not diagonalizable') from exc
+api/app/modules/math/solve/equations.py	145	Exception	raise	raise MathServiceError('Could not solve equation') from exc
+api/app/modules/math/solve/graph.py	246	Exception	raise	raise MathServiceError(f'Could not sample function: {data.expr}') from exc
+api/app/modules/math/solve/graph.py	298	Exception	raise	raise MathServiceError(f'Could not sample polar curve: {expr}') from exc
+api/app/modules/math/solve/graph.py	337	Exception	raise	raise MathServiceError(f'Could not sample parametric curve: {x_expr}, {y_expr}') from exc
+api/app/modules/math/solve/inequalities.py	67	Exception	raise	raise MathServiceError(f'Could not solve compound inequality: {low} {low_op} {mid} {high_op} {high}') from exc
+api/app/modules/math/solve/inequalities.py	156	Exception	raise	raise MathServiceError(f'Could not solve inequality: {lhs} {comparator} {rhs}') from exc
+api/app/modules/math/solve/numeric.py	35	Exception	raise	raise MathServiceError(f'Could not evaluate function at x={x_n}') from exc
+api/app/modules/math/solve/numeric.py	43	Exception	raise	raise MathServiceError(f'Could not evaluate derivative at x={x_n}') from exc
+api/app/modules/math/solve/parse.py	185	Exception	raise	raise MathServiceError(f'Could not parse expression: {expr}') from exc
+api/app/modules/math/solve/systems.py	44	Exception	raise	raise MathServiceError('Could not solve system of equations') from exc
+api/app/modules/math/solve/trig_equations.py	64	Exception	raise	raise MathServiceError('Could not determine all real trigonometric solutions') from exc
+api/app/modules/math/tool.py	104	Exception	log	logger.warning('sympy MCP tool call failed', exc_info=True)
+api/app/modules/math/tool.py	629	Exception	uses_exc	return ToolResult(name=self.name, content=f'Math error: {exc}')
+api/app/modules/math/tool_check.py	322	Exception	log	logger.info('tool-call match check failed', exc_info=True)
+api/app/modules/math/tools/block/__init__.py	152	Exception	log	logger.exception('math_tools failed')
+api/app/modules/math/tools/llm_extract.py	161	Exception	log	logger.warning('llm math extract failed', exc_info=True)
+api/app/modules/math/tools/prompt.py	443	Exception	log	logger.warning('math_tools solve failed for kind=%s', intent.kind, exc_info=True)
+api/app/modules/math/tools/word_problem.py	340	Exception	log	logger.warning('word problem extract failed on %s', alias, exc_info=True)
+api/app/modules/math/unit_conversion.py	84	Exception	uses_exc	last_exc = exc
+api/app/modules/math/unit_conversion.py	88	Exception	uses_exc	last_exc = inner
+api/app/modules/math/unit_conversion.py	105	Exception	uses_exc	last_exc = exc
+api/app/modules/math/unit_conversion.py	111	Exception	raise	raise MathServiceError(f'unsupported conversion {src} to {dest}') from exc
+api/app/modules/memory/apply.py	82	Exception	raise	await session.rollback()
+api/app/modules/memory/apply.py	114	Exception	raise	await session.rollback()
+api/app/modules/memory/cache.py	53	Exception	log	logger.debug('Memory query cache write failed', exc_info=True)
+api/app/modules/memory/cache.py	69	Exception	log	logger.debug('Memory block cache invalidation failed', exc_info=True)
+api/app/modules/memory/consolidation_workflow.py	197	Exception	raise	logger.exception('Memory consolidation failed for user_id=%s', user_id)
+api/app/modules/memory/crud.py	49	Exception	raise	await session.rollback()
+api/app/modules/memory/crud.py	106	Exception	log	logger.debug('Memory re-embed on fact delete failed', exc_info=True)
+api/app/modules/memory/crud.py	132	Exception	raise	await session.rollback()
+api/app/modules/memory/crud.py	173	Exception	log	logger.debug('Memory re-embed on edit failed', exc_info=True)
+api/app/modules/memory/crud.py	199	Exception	raise	await session.rollback()
+api/app/modules/memory/enqueue_policy.py	115	Exception	log	logger.debug('Failed to enqueue memory consolidation', exc_info=True)
+api/app/modules/memory/extract_backlog.py	104	Exception	log	logger.debug('memory extract cursor read failed chat_id=%s', chat_id, exc_info=True)
+api/app/modules/memory/extract_backlog.py	115	Exception	log	logger.debug('memory extract backlog list failed chat_id=%s', chat_id, exc_info=True)
+api/app/modules/memory/extract_backlog.py	137	Exception	log	logger.debug('memory extract cursor write failed chat_id=%s', chat_id, exc_info=True)
+api/app/modules/memory/extract_backlog.py	151	Exception	log	logger.debug('memory extract failure count failed chat_id=%s', chat_id, exc_info=True)
+api/app/modules/memory/extract_backlog.py	160	Exception	log	logger.debug('memory extract failure reset failed chat_id=%s', chat_id, exc_info=True)
+api/app/modules/memory/extraction_workflow.py	443	Exception	raise	logger.exception('Memory extraction failed for user_id=%s', user_id)
+api/app/modules/memory/history_scan.py	66	Exception	log	logger.warning('memory history scan check failed user_id=%s', user.id, exc_info=True)
+api/app/modules/memory/history_scan.py	76	Exception	log	logger.warning('memory history scan enqueue failed user_id=%s', user.id, exc_info=True)
+api/app/modules/memory/history_scan.py	80	Exception	log	logger.debug('memory history scan unqueue failed user_id=%s', user.id, exc_info=True)
+api/app/modules/memory/history_scan.py	113	Exception	log	logger.debug('memory history scan state read failed user_id=%s', user_id, exc_info=True)
+api/app/modules/memory/history_scan.py	123	Exception	log	logger.debug('memory history scan state write failed user_id=%s', user_id, exc_info=True)
+api/app/modules/memory/history_scan.py	136	Exception	log	logger.debug('memory history scan retry failed user_id=%s', user_id, exc_info=True)
+api/app/modules/memory/history_scan.py	148	Exception	log	logger.debug('memory history scan state clear failed user_id=%s', user_id, exc_info=True)
+api/app/modules/memory/history_scan.py	166	Exception	log	logger.warning('memory history scan chat failed user_id=%s chat_id=%s', user_id, chat_id, exc_info=True)
+api/app/modules/memory/learning_progress.py	108	Exception	log	logger.exception('learning progress write failed user_id=%s', user_id)
+api/app/modules/memory/locks.py	25	Exception	log	logger.debug('Memory write lock acquire failed', exc_info=True)
+api/app/modules/memory/locks.py	39	Exception	log	logger.debug('Memory write lock release failed', exc_info=True)
+api/app/modules/memory/ops.py	68	Exception	silent	return None
+api/app/modules/memory/retrieval.py	120	Exception	log	logger.warning('Memory retrieval failed for user_id=%s', user.id, exc_info=True)
+api/app/modules/memory/retrieval.py	231	Exception	log	logger.debug('Background semantic memory warm failed', exc_info=True)
+api/app/modules/memory/retrieval.py	299	Exception	log	logger.debug('Memory generation read failed', exc_info=True)
+api/app/modules/memory/retrieval.py	313	Exception	log	logger.debug('Memory query cache read failed', exc_info=True)
+api/app/modules/memory/retrieval.py	403	Exception	log	logger.debug('Memory block cache read failed', exc_info=True)
+api/app/modules/memory/retrieval.py	413	Exception	log	logger.warning('Memory retrieval failed for user_id=%s', user.id, exc_info=True)
+api/app/modules/memory/retrieval.py	422	Exception	log	logger.debug('Memory block cache write failed', exc_info=True)
+api/app/modules/notifications/push.py	128	Exception	log	logger.debug('Failed to prune push token from receipt', exc_info=True)
+api/app/modules/notifications/push.py	313	Exception	log	logger.exception('Todo reminder failed user_id=%s todo_id=%s', todo.user_id, todo.id)
+api/app/modules/notifications/reminder_email.py	85	Exception	log	logger.exception('Todo reminder email preparation failed todo_id=%s', todo.id)
+api/app/modules/notifications/reminder_email.py	108	Exception	log	await session.rollback()
+api/app/modules/physics/block.py	122	Exception	log	logger.warning('physics verification failed kind=%s op=%s', intent.kind, intent.physics_op, exc_info=True)
+api/app/modules/physics/fence.py	106	Exception	log	logger.warning('physics fence finalization failed; keeping prose only', exc_info=True)
+api/app/modules/physics/prompt.py	54	Exception	log	logger.warning('physics solve failed for kind=%s', intent.kind, exc_info=True)
+api/app/modules/physics/prompt.py	98	Exception	log	logger.info('symbolic physics model declined', exc_info=True)
+api/app/modules/physics/solvers/common.py	209	Exception	raise	if index + 1 < len(readings):
+api/app/modules/physics/solvers/common.py	261	Exception	silent	return None
+api/app/modules/physics/solvers/rates.py	30	Exception	raise	raise SolveServiceError(f'cannot convert {unit} to {si}') from exc
+api/app/modules/physics/working_steps.py	95	Exception	silent	return None
+api/app/modules/speech/live_talk.py	247	Exception	log	logger.debug('Live talk memory load failed', exc_info=True)
+api/app/modules/speech/live_talk.py	263	Exception	log	logger.debug('Live talk schedule load failed', exc_info=True)
+api/app/modules/speech/live_talk.py	372	Exception	log	logger.exception('Live talk reminder materialize failed chat_id=%s', chat_id)
+api/app/modules/speech/live_talk.py	491	Exception	log	logger.exception('Live talk post-turn enqueue failed chat_id=%s', chat_id)
+api/app/modules/speech/live_talk_tools.py	57	Exception	log	logger.warning('Live talk tool reservation failed name=%s', name, exc_info=True)
+api/app/modules/speech/live_talk_tools.py	100	Exception	log	logger.warning('Live Talk lookup failed name=%s', name, exc_info=True)
+api/app/modules/speech/live_talk_tools.py	109	Exception	log	logger.warning('Could not cache voice lookup result')
+api/app/modules/speech/live_talk_tools.py	119	Exception	log	logger.warning('Live Talk sources unreadable; saving the turn without them: %s', type(exc).__name__)
+api/app/modules/speech/realtime.py	179	BaseException	raise	await quota_service.release_live_talk_seconds(redis, user.id, seconds=reserved)
+api/app/modules/todos/actions.py	308	Exception	log	logger.exception('Failed todo action %s for user_id=%s topic=%s', prepared.action, user_id, prepared.topic)
+api/app/modules/todos/crud.py	186	Exception	raise	await session.rollback()
+api/app/modules/todos/jobs.py	24	Exception	raise	logger.exception('Todo sync job failed for user_id=%s', user_id)
+api/app/modules/todos/proposals.py	286	Exception	raise	await session.rollback()
+api/app/modules/todos/proposals.py	295	Exception	log	await session.rollback()
+api/app/modules/todos/proposals.py	305	Exception	log	logger.exception('Reminder confirm lock release failed proposal_id=%s', proposal_id)
+api/app/modules/todos/recurrence.py	26	Exception	silent	return ZoneInfo('UTC')
+api/app/modules/todos/sync.py	165	Exception	log	logger.exception('Todo action extraction failed for user_id=%s', user_id)
+api/app/modules/todos/sync.py	197	Exception	log	logger.exception('Todo sync failed for user_id=%s', user_id)
+api/app/modules/web_search/detection.py	329	Exception	log	logger.warning('Web-search classifier failed; using heuristic', exc_info=True)
+api/app/modules/web_search/search_cache.py	95	Exception	log	logger.warning('Tavily reserve failed; falling back to DuckDuckGo user_id=%s', self.user.id, exc_info=True)
+api/app/modules/web_search/search_cache.py	207	Exception	log	logger.debug('Web search cache read failed', exc_info=True)
+api/app/modules/web_search/search_cache.py	218	Exception	log	logger.debug('Web search lock acquire failed', exc_info=True)
+api/app/modules/web_search/search_cache.py	251	Exception	log	logger.debug('Web search cache write failed', exc_info=True)
+api/app/modules/web_search/search_cache.py	258	Exception	log	logger.debug('Web search lock release failed', exc_info=True)
+api/app/routers/health.py	36	Exception	raise	raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail='Dependency check failed') from None
+api/app/routers/health.py	47	Exception	silent	redis_status = 'degraded'
+api/app/services/conversation_reference.py	149	Exception	log	logger.warning('Reference resolver failed kind=%s', kind, exc_info=True)
+api/app/services/law_binding/units.py	50	Exception	log	logger.debug('%r is not a Pint unit: %s', expression, type(exc).__name__)
+api/app/services/model_health.py	46	Exception	log	logger.debug('model health sample failed alias=%s', alias, exc_info=True)
+api/app/services/model_health.py	54	Exception	log	logger.debug('model health read failed alias=%s', alias, exc_info=True)
+api/app/services/model_health.py	106	Exception	log	logger.debug('model health read failed during routing', exc_info=True)
+api/app/services/quota/live_talk.py	149	Exception	log	logger.exception('Live talk spend not recorded user=%s', user_id)
+api/app/services/quota/live_talk.py	201	Exception	log	logger.exception('Live talk spend not released user=%s', user_id)
+api/app/services/quota/spend.py	75	Exception	log	logger.exception('record_voice_spend failed')
+api/app/services/routing.py	408	Exception	log	logger.warning('physics routing solve failed kind=%s op=%s', intent.kind, intent.physics_op, exc_info=True)
+api/app/services/scan_read.py	108	Exception	log	logger.warning('%s scan read failed', subject, exc_info=True)
+api/app/services/scan_read.py	114	Exception	log	logger.exception('record_global_spend failed after a %s scan read', subject)
+api/app/services/scan_text.py	97	Exception	log	logger.warning('scan text read failed', exc_info=True)
+api/app/services/scan_text.py	104	Exception	log	logger.warning('scan text read had no text', exc_info=True)
+api/app/services/topic.py	53	Exception	raise	logger.exception('Topic generation failed for chat_id=%s', chat_id)
+api/app/services/topic.py	74	Exception	log	logger.debug('Failed to release topic dedupe chat_id=%s', chat_id, exc_info=True)
+api/app/worker_health.py	51	Exception	raise	raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail='Dependency check failed') from None

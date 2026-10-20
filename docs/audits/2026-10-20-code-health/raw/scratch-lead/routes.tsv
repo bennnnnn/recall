@@ -1,0 +1,87 @@
+modules/account/api.py	POST	/google	google_login	get_db,get_redis,get_settings_dep
+modules/account/api.py	POST	/apple	apple_login	get_db,get_redis,get_settings_dep
+modules/account/api.py	POST	/dev	dev_login	get_db,get_redis,get_settings_dep
+modules/account/api.py	GET	/me	me	get_current_user
+modules/account/api.py	POST	/refresh	refresh_session	get_db,get_redis,get_settings_dep
+modules/account/api.py	POST	/logout	logout	get_redis,get_settings_dep
+modules/account/api.py	GET	/sessions	list_sessions	get_current_user,get_redis,get_settings_dep
+modules/account/api.py	DELETE	/sessions/{session_id}	revoke_session	get_current_user,get_redis,get_settings_dep
+modules/account/api.py	POST	/logout-all	logout_all	get_current_user,get_redis,get_settings_dep
+modules/account/api.py	PATCH	/me	update_me	get_current_user,get_db,get_settings_dep
+modules/account/api.py	POST	/me/settings-proposals/{proposal_id}/confirm	confirm_settings_proposal	get_current_user,get_db,get_redis,get_settings_dep
+modules/account/api.py	POST	/me/pro-dev	dev_upgrade_pro	get_current_user,get_db,get_settings_dep
+modules/account/api.py	POST	/me/sync-subscription	sync_subscription	get_current_user,get_db,get_settings_dep
+modules/account/api.py	GET	/me/export	export_me	get_current_user
+modules/account/api.py	DELETE	/me	delete_me	get_current_user,get_db,get_redis,get_settings_dep
+modules/analytics/api.py	POST	/events	record_product_events	get_current_user,get_db
+modules/attachments/api.py	GET		list_attachments	get_current_user,get_db,get_settings_dep
+modules/attachments/api.py	POST	/presign	presign_upload	get_current_user,get_db,get_settings_dep,require_attachments_enabled
+modules/attachments/api.py	PUT	/{attachment_id}/upload	upload_attachment_bytes	get_current_user,get_db,get_settings_dep,require_attachments_enabled
+modules/attachments/api.py	DELETE	/{attachment_id}	delete_attachment	get_current_user,get_db,get_settings_dep
+modules/attachments/api.py	POST	/{attachment_id}/confirm	confirm_upload	get_current_user,get_db,get_settings_dep,require_attachments_enabled
+modules/attachments/api.py	GET	/{attachment_id}/file	serve_attachment_file	get_current_user,get_db,get_settings_dep
+modules/attachments/api.py	GET	/{attachment_id}/url	download_url	get_current_user,get_db,get_settings_dep
+modules/billing/api.py	GET	/plans	list_plans	get_current_user,get_settings_dep
+modules/billing/api.py	POST	/revenuecat	revenuecat_webhook	get_db,get_redis,get_settings
+modules/chat/api.py	POST		create_chat	get_current_user,get_db
+modules/chat/api.py	GET		list_chats	get_current_user,get_db
+modules/chat/api.py	POST	/archive-all	archive_all_chats	get_current_user,get_db
+modules/chat/api.py	DELETE		delete_all_chats	get_current_user,get_db,get_settings_dep
+modules/chat/api.py	PATCH	/{chat_id}	rename_chat	get_current_user,get_db
+modules/chat/api.py	PATCH	/{chat_id}/pin	pin_chat	get_current_user,get_db
+modules/chat/api.py	PATCH	/{chat_id}/archive	archive_chat	get_current_user,get_db
+modules/chat/api.py	DELETE	/{chat_id}	delete_chat	get_current_user,get_db,get_settings_dep
+modules/chat/api.py	GET	/usage/today	today_usage	get_current_user,get_db,get_redis,get_settings_dep
+modules/chat/api.py	POST	/usage/today/reset	reset_today_usage	get_current_user,get_db,get_redis,get_settings_dep
+modules/chat/api.py	GET	/{chat_id}	get_chat	get_current_user,get_db
+modules/chat/api.py	GET	/{chat_id}/messages	list_messages	get_current_user,get_db,get_redis
+modules/chat/api.py	PATCH	/{chat_id}/messages/{message_id}/feedback	set_message_feedback	get_current_user,get_db,get_redis
+modules/chat/api.py	PATCH	/{chat_id}/messages/{message_id}/email	update_message_email	get_current_user,get_db,get_redis
+modules/chat/stream_api.py	POST	/{chat_id}/messages/stream	stream_message_sse	get_current_user,get_settings,require_chat_rate_limit
+modules/chat/stream_api.py	POST	/{chat_id}/regenerate/stream	stream_regenerate_sse	get_current_user,get_settings,require_chat_rate_limit
+modules/chat/ws_api.py	WEBSOCKET	/ws/chats/{chat_id}	chat_websocket	-
+modules/chemistry/api.py	POST	/scan/read	read_chemistry_scan	get_consented_user,get_settings_dep
+modules/home/api.py	GET		get_home_screen	get_current_user,get_db,get_settings_dep
+modules/images/api.py	POST	/generate	generate_image	get_current_user,get_settings_dep
+modules/images/api.py	POST	/intent	image_intent	get_current_user,get_settings_dep
+modules/link_preview/api.py	GET	/link-preview	link_preview	get_current_user,get_settings_dep
+modules/math/api.py	POST	/scan/read	read_math_scan	get_consented_user,get_settings_dep
+modules/memory/api.py	GET		list_memories	get_current_user,get_db
+modules/memory/api.py	GET	/documents	list_memory_documents	get_current_user,get_db
+modules/memory/api.py	DELETE	/documents/{topic}	delete_memory_document	get_current_user,get_db
+modules/memory/api.py	POST	/instruct	instruct_memory	get_current_user,get_db,get_settings_dep
+modules/memory/api.py	POST	/consolidate	consolidate_memories	get_current_user,get_db
+modules/memory/api.py	DELETE		delete_all_memories	get_current_user,get_db
+modules/memory/api.py	DELETE	/type/{memory_type}	delete_memory_section	get_current_user,get_db
+modules/memory/api.py	PATCH	/{memory_id}	update_memory	get_current_user,get_db,get_settings_dep
+modules/memory/api.py	DELETE	/{memory_id}	delete_memory	get_current_user,get_db
+modules/memory/api.py	DELETE	/{memory_id}/facts/{fact_index}	delete_memory_fact	get_current_user,get_db,get_settings_dep
+modules/notifications/api.py	POST	/push-token	register_push_token	get_current_user,get_db
+modules/notifications/api.py	DELETE	/push-token	unregister_push_token	get_current_user,get_db
+modules/physics/api.py	POST	/scan/read	read_physics_scan	get_consented_user,get_settings_dep
+modules/search/api.py	GET		search	get_current_user,get_db
+modules/speech/api.py	POST	/tts	synthesize_speech	get_consented_user,get_settings_dep
+modules/speech/api.py	POST	/tts/stream	stream_speech	get_consented_user,get_settings_dep
+modules/speech/api.py	POST	/transcribe	transcribe_speech	get_consented_user,get_settings_dep
+modules/speech/api.py	GET	/live	live_talk_status	get_current_user,get_settings_dep
+modules/speech/api.py	POST	/live/turn	live_talk_turn	get_current_user,get_settings_dep
+modules/speech/api.py	POST	/live/refund	live_talk_refund	get_current_user,get_settings_dep
+modules/speech/api.py	POST	/live/commit	live_talk_commit	get_current_user,get_settings_dep
+modules/speech/api.py	POST	/live/speak	live_talk_speak	get_current_user,get_settings_dep
+modules/todos/api.py	GET		list_todos	get_current_user,get_db
+modules/todos/api.py	GET	/page	list_todos_page	get_current_user,get_db
+modules/todos/api.py	GET	/topics	list_todo_topics	get_current_user,get_db
+modules/todos/api.py	POST		create_todo	get_current_user,get_db
+modules/todos/api.py	POST	/reorder	reorder_todos	get_current_user,get_db
+modules/todos/api.py	POST	/proposals/{proposal_id}/confirm	confirm_reminder_proposal	get_current_user,get_db,get_redis
+modules/todos/api.py	PATCH	/{todo_id}	update_todo	get_current_user,get_db
+modules/todos/api.py	DELETE	/{todo_id}	delete_todo	get_current_user,get_db
+modules/todos/api.py	DELETE	/topic/{topic}	delete_todo_topic	get_current_user,get_db
+routers/admin.py	GET	/dlq	list_dlq	get_current_user,get_redis,get_settings_dep
+routers/admin.py	POST	/dlq/replay	replay_dlq	get_current_user,get_redis,get_settings_dep
+routers/health.py	GET	/health	health	-
+routers/health.py	GET	/health/ready	ready	-
+routers/legal.py	GET	/privacy	privacy_policy	get_settings_dep
+routers/legal.py	GET	/terms	terms_of_service	get_settings_dep
+routers/legal.py	GET	/delete-account	delete_account	get_settings_dep
+routers/models.py	GET		list_models	get_current_user,get_redis_dep,get_settings_dep

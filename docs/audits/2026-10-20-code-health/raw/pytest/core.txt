@@ -1,0 +1,34 @@
+........................................................................ [ 75%]
+.......................                                                  [100%]
+============================= slowest 30 durations =============================
+0.61s call     app/tests/core/test_jobs_deadline.py::test_heartbeat_stays_fresh_while_a_long_job_runs
+0.53s call     app/tests/core/test_db_timeouts.py::test_command_timeout_cancels_a_slow_statement
+0.44s call     app/tests/core/test_jobs_inflight.py::test_a_long_job_keeps_its_lease_so_no_peer_runs_it_again
+0.29s call     app/tests/core/test_unavailable_handlers.py::test_database_unavailable_maps_to_503[<lambda>-503_5]
+0.25s call     app/tests/core/test_migration_session.py::test_an_alter_behind_a_held_lock_fails_fast
+0.24s call     app/tests/core/test_jobs_inflight.py::test_running_jobs_stay_within_the_limit
+0.20s call     app/tests/core/test_jobs_backlog.py::test_queue_metrics_count_a_real_pending_backlog
+0.20s call     app/tests/core/test_jobs_backlog.py::test_jobs_stream_stays_bounded_with_a_stale_pending_entry[True-1000-300]
+0.19s call     app/tests/core/test_jobs_backlog.py::test_jobs_stream_stays_bounded_with_a_stale_pending_entry[False-1000-100]
+0.17s call     app/tests/core/test_jobs_inflight.py::test_a_burst_of_a_capped_type_leaves_slots_for_the_rest
+0.13s call     app/tests/core/test_jobs_inflight.py::test_a_slow_job_does_not_hold_back_the_next_one
+0.11s call     app/tests/core/test_jobs_deadline.py::test_job_deadline_moves_a_hung_job_to_the_dlq[hangs-1-1]
+0.11s call     app/tests/core/test_jobs_inflight.py::test_without_a_lease_a_peer_takes_the_idle_entry
+0.06s call     app/tests/core/test_unavailable_handlers.py::test_database_unavailable_maps_to_503[<lambda>-503_0]
+0.06s call     app/tests/core/test_unavailable_handlers.py::test_database_unavailable_maps_to_503[_interface-503]
+0.06s call     app/tests/core/test_unavailable_handlers.py::test_database_unavailable_maps_to_503[<lambda>-503_1]
+0.06s call     app/tests/core/test_unavailable_handlers.py::test_database_unavailable_maps_to_503[<lambda>-503_3]
+0.05s call     app/tests/core/test_unavailable_handlers.py::test_a_redis_unavailable_message_reaches_the_client
+0.05s call     app/tests/core/test_unavailable_handlers.py::test_database_unavailable_maps_to_503[_operational-503]
+0.05s call     app/tests/core/test_unavailable_handlers.py::test_database_unavailable_maps_to_503[<lambda>-503_2]
+0.05s call     app/tests/core/test_background_tasks.py::test_drain_background_tasks_cancels_on_timeout
+0.05s call     app/tests/core/test_unavailable_handlers.py::test_database_unavailable_maps_to_503[<lambda>-503_4]
+0.05s call     app/tests/core/test_unavailable_handlers.py::test_database_unavailable_maps_to_503[<lambda>-500]
+0.04s call     app/tests/core/test_jobs_backlog.py::test_replay_dlq_does_not_trim_the_backlog_to_the_soft_cap
+0.03s call     app/tests/core/test_jobs_deadline.py::test_reclaim_leaves_an_entry_pending_while_its_job_runs[2]
+0.03s call     app/tests/core/test_jobs_deadline.py::test_in_flight_skips_do_not_count_toward_the_poison_limit[4-1-0]
+0.03s call     app/tests/core/test_jobs_deadline.py::test_reclaim_leaves_an_entry_pending_while_its_job_runs[1]
+0.03s call     app/tests/core/test_jobs_deadline.py::test_in_flight_skips_do_not_count_toward_the_poison_limit[1-1-0]
+0.03s call     app/tests/core/test_jobs_deadline.py::test_in_flight_skips_do_not_count_toward_the_poison_limit[5-0-1]
+0.02s call     app/tests/core/test_migration_session.py::test_other_databases_are_left_alone
+95 passed, 18 deselected in 8.32s

@@ -1,0 +1,373 @@
+{
+  "GET /auth/me (cold user cache)": {
+    "status": 200,
+    "sql_total": 1,
+    "sql": {
+      "SELECT users": 1
+    },
+    "redis_total": 4,
+    "redis": {
+      "PIPELINE[INCRBY,EXPIRE]": 1,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1
+    },
+    "events": []
+  },
+  "GET /auth/me (warm)": {
+    "status": 200,
+    "sql_total": 0,
+    "sql": {},
+    "redis_total": 4,
+    "redis": {
+      "PIPELINE[INCRBY,EXPIRE]": 1,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1
+    },
+    "events": []
+  },
+  "GET /chats": {
+    "status": 200,
+    "sql_total": 2,
+    "sql": {
+      "SELECT chats/messages": 2
+    },
+    "redis_total": 4,
+    "redis": {
+      "PIPELINE[INCRBY,EXPIRE]": 1,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1
+    },
+    "events": []
+  },
+  "GET /chats/{id}/messages": {
+    "status": 200,
+    "sql_total": 2,
+    "sql": {
+      "SELECT chats": 1,
+      "SELECT messages": 1
+    },
+    "redis_total": 6,
+    "redis": {
+      "PIPELINE[INCRBY,EXPIRE]": 1,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1,
+      "EXISTS chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1,
+      "GET related_prompts:01a15aba-883e-7000-ab40-": 1
+    },
+    "events": []
+  },
+  "GET /home": {
+    "status": 200,
+    "sql_total": 1,
+    "sql": {
+      "SELECT todo_items": 1
+    },
+    "redis_total": 7,
+    "redis": {
+      "PIPELINE[INCRBY,EXPIRE]": 1,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1,
+      "GET homegen:fc63ab4d-042b-48f3-9325-6dbcfe86": 1,
+      "GET home:fc63ab4d-042b-48f3-9325-6dbcfe86101": 1,
+      "SET home:fc63ab4d-042b-48f3-9325-6dbcfe86101": 1
+    },
+    "events": []
+  },
+  "GET /models": {
+    "status": 200,
+    "sql_total": 0,
+    "sql": {},
+    "redis_total": 10,
+    "redis": {
+      "PIPELINE[INCRBY,EXPIRE]": 1,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1,
+      "ZRANGE recall:model_health:samples:free-chat": 1,
+      "ZRANGE recall:model_health:samples:smart-chat": 1,
+      "ZRANGE recall:model_health:samples:glm-5.3-flas": 1,
+      "ZRANGE recall:model_health:samples:glm-5.2": 1,
+      "ZRANGE recall:model_health:samples:gpt-6-luna": 1,
+      "ZRANGE recall:model_health:samples:qwen-3.7-fla": 1
+    },
+    "events": []
+  },
+  "GET /memories": {
+    "status": 200,
+    "sql_total": 1,
+    "sql": {
+      "SELECT memories": 1
+    },
+    "redis_total": 5,
+    "redis": {
+      "PIPELINE[INCRBY,EXPIRE]": 1,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1,
+      "EXISTS memconsolidate:fc63ab4d-042b-48f3-9325-6": 1
+    },
+    "events": []
+  },
+  "GET /memories/documents": {
+    "status": 200,
+    "sql_total": 2,
+    "sql": {
+      "SELECT memories": 1,
+      "SELECT memory_areas": 1
+    },
+    "redis_total": 7,
+    "redis": {
+      "PIPELINE[INCRBY,EXPIRE]": 1,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1,
+      "SET memory:history_scan:fc63ab4d-042b-48f3-9": 1,
+      "XADD recall:jobs": 1,
+      "XPENDING recall:jobs": 1
+    },
+    "events": []
+  },
+  "GET /todos": {
+    "status": 200,
+    "sql_total": 1,
+    "sql": {
+      "SELECT todo_items": 1
+    },
+    "redis_total": 4,
+    "redis": {
+      "PIPELINE[INCRBY,EXPIRE]": 1,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1
+    },
+    "events": []
+  },
+  "GET /billing/plans": {
+    "status": 200,
+    "sql_total": 0,
+    "sql": {},
+    "redis_total": 4,
+    "redis": {
+      "PIPELINE[INCRBY,EXPIRE]": 1,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1
+    },
+    "events": []
+  },
+  "GET /attachments": {
+    "status": 200,
+    "sql_total": 2,
+    "sql": {
+      "SELECT attachments": 1,
+      "SELECT messages/chats": 1
+    },
+    "redis_total": 4,
+    "redis": {
+      "PIPELINE[INCRBY,EXPIRE]": 1,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1
+    },
+    "events": []
+  },
+  "SSE turn 1: plain text": {
+    "status": 200,
+    "sql_total": 10,
+    "sql": {
+      "SELECT usage_daily": 2,
+      "INSERT messages": 2,
+      "SELECT messages": 1,
+      "SELECT chats": 1,
+      "SELECT memories": 1,
+      "SELECT message_chunks": 1,
+      "UPDATE chats": 1,
+      "INSERT usage_daily/set": 1
+    },
+    "redis_total": 40,
+    "redis": {
+      "INCRBY usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 3,
+      "XADD recall:jobs": 3,
+      "XPENDING recall:jobs": 3,
+      "PIPELINE[INCRBY,EXPIRE]": 2,
+      "EXISTS usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 2,
+      "GET usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 2,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1,
+      "SET chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "EXISTS chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1,
+      "ZRANGE recall:model_health:samples:free-chat": 1,
+      "ZRANGE recall:model_health:samples:smart-chat": 1,
+      "ZRANGE recall:model_health:samples:glm-5.3-flas": 1,
+      "ZRANGE recall:model_health:samples:glm-5.2": 1,
+      "ZRANGE recall:model_health:samples:gpt-6-luna": 1,
+      "ZRANGE recall:model_health:samples:qwen-3.7-fla": 1,
+      "EXPIRE usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 1,
+      "GET memgen:fc63ab4d-042b-48f3-9325-6dbcfe861": 1,
+      "GET memquery:fc63ab4d-042b-48f3-9325-6dbcfe8": 1,
+      "GET memembed:fc63ab4d-042b-48f3-9325-6dbcfe8": 1,
+      "SET memembed:fc63ab4d-042b-48f3-9325-6dbcfe8": 1,
+      "SET memquery:fc63ab4d-042b-48f3-9325-6dbcfe8": 1,
+      "PIPELINE[ZADD,ZREMRANGEBYRANK,EXPIRE]": 1,
+      "SET chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1,
+      "EVAL \nif redis.call('get', KEYS[1]) == ARGV[1": 1,
+      "GET chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "DEL chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "INCRBY spend_musd:2026-10-20": 1,
+      "EXPIRE spend_musd:2026-10-20": 1,
+      "DEL chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1
+    },
+    "events": [
+      "token",
+      "token",
+      "stream_end",
+      "done"
+    ]
+  },
+  "SSE turn 2: plain text (warm)": {
+    "status": 200,
+    "sql_total": 9,
+    "sql": {
+      "INSERT messages": 2,
+      "SELECT messages": 1,
+      "SELECT chats": 1,
+      "SELECT memories": 1,
+      "SELECT message_chunks": 1,
+      "UPDATE chats": 1,
+      "INSERT usage_daily/set": 1,
+      "SELECT usage_daily": 1
+    },
+    "redis_total": 37,
+    "redis": {
+      "INCRBY usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 3,
+      "XADD recall:jobs": 3,
+      "XPENDING recall:jobs": 3,
+      "PIPELINE[INCRBY,EXPIRE]": 2,
+      "GET usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 2,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1,
+      "SET chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "EXISTS chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1,
+      "EXISTS usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 1,
+      "ZRANGE recall:model_health:samples:free-chat": 1,
+      "ZRANGE recall:model_health:samples:smart-chat": 1,
+      "ZRANGE recall:model_health:samples:glm-5.3-flas": 1,
+      "ZRANGE recall:model_health:samples:glm-5.2": 1,
+      "ZRANGE recall:model_health:samples:gpt-6-luna": 1,
+      "ZRANGE recall:model_health:samples:qwen-3.7-fla": 1,
+      "GET memgen:fc63ab4d-042b-48f3-9325-6dbcfe861": 1,
+      "GET memquery:fc63ab4d-042b-48f3-9325-6dbcfe8": 1,
+      "GET memembed:fc63ab4d-042b-48f3-9325-6dbcfe8": 1,
+      "SET memembed:fc63ab4d-042b-48f3-9325-6dbcfe8": 1,
+      "SET memquery:fc63ab4d-042b-48f3-9325-6dbcfe8": 1,
+      "PIPELINE[ZADD,ZREMRANGEBYRANK,EXPIRE]": 1,
+      "SET chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1,
+      "EVAL \nif redis.call('get', KEYS[1]) == ARGV[1": 1,
+      "GET chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "DEL chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "INCRBY spend_musd:2026-10-20": 1,
+      "DEL chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1
+    },
+    "events": [
+      "token",
+      "token",
+      "stream_end",
+      "done"
+    ]
+  },
+  "SSE turn 3: maths": {
+    "status": 200,
+    "sql_total": 8,
+    "sql": {
+      "SELECT messages": 2,
+      "INSERT messages": 2,
+      "SELECT chats": 1,
+      "UPDATE chats": 1,
+      "INSERT usage_daily/set": 1,
+      "SELECT usage_daily": 1
+    },
+    "redis_total": 30,
+    "redis": {
+      "INCRBY usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 3,
+      "XADD recall:jobs": 3,
+      "XPENDING recall:jobs": 3,
+      "PIPELINE[INCRBY,EXPIRE]": 2,
+      "GET usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 2,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1,
+      "SET chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "EXISTS chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1,
+      "EXISTS usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 1,
+      "ZRANGE recall:model_health:samples:free-chat": 1,
+      "ZRANGE recall:model_health:samples:smart-chat": 1,
+      "ZRANGE recall:model_health:samples:glm-5.3-flas": 1,
+      "ZRANGE recall:model_health:samples:glm-5.2": 1,
+      "ZRANGE recall:model_health:samples:gpt-6-luna": 1,
+      "ZRANGE recall:model_health:samples:qwen-3.7-fla": 1,
+      "SET chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1,
+      "EVAL \nif redis.call('get', KEYS[1]) == ARGV[1": 1,
+      "GET chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "DEL chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "DEL chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1
+    },
+    "events": [
+      "status",
+      "token",
+      "stream_end",
+      "done"
+    ]
+  },
+  "SSE regenerate": {
+    "status": 200,
+    "sql_total": 15,
+    "sql": {
+      "SELECT messages": 6,
+      "SELECT users": 1,
+      "SELECT chats": 1,
+      "SELECT attachment_chunks": 1,
+      "SELECT attachments": 1,
+      "INSERT messages": 1,
+      "DELETE messages": 1,
+      "UPDATE chats": 1,
+      "INSERT usage_daily/set": 1,
+      "SELECT usage_daily": 1
+    },
+    "redis_total": 28,
+    "redis": {
+      "INCRBY usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 3,
+      "XADD recall:jobs": 3,
+      "XPENDING recall:jobs": 3,
+      "PIPELINE[INCRBY,EXPIRE]": 2,
+      "GET usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 2,
+      "GET revoked:jti:-YoTiYCiIZ4II3ScEFGpmw": 1,
+      "GET revoked:sid:ed88f650-c13d-41ca-808c-e5fa": 1,
+      "GET revoked_since:fc63ab4d-042b-48f3-9325-6d": 1,
+      "SET chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "EXISTS chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1,
+      "EXISTS usage:fc63ab4d-042b-48f3-9325-6dbcfe8610": 1,
+      "EXISTS usage:heal:fc63ab4d-042b-48f3-9325-6dbcf": 1,
+      "ZRANGE recall:model_health:samples:free-chat": 1,
+      "ZRANGE recall:model_health:samples:qwen-3.7-fla": 1,
+      "ZRANGE recall:model_health:samples:glm-5.3-flas": 1,
+      "SET chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1,
+      "EVAL \nif redis.call('get', KEYS[1]) == ARGV[1": 1,
+      "GET chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "DEL chatprep:ee142e89-7c91-4c2e-ad18-e667b0a": 1,
+      "DEL chatfinal:ee142e89-7c91-4c2e-ad18-e667b0": 1
+    },
+    "events": [
+      "status",
+      "token",
+      "stream_end",
+      "done"
+    ]
+  }
+}

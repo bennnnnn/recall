@@ -1,0 +1,104 @@
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Downloading isort (1.6MiB)
+ Downloaded isort
+Installed 8 packages in 246ms
+************* Module app.modules.memory.retrieval
+app/modules/memory/retrieval.py:1:0: R0801: Similar lines in 2 files
+==app.modules.math.solve.graph:[522:535]
+==app.modules.math.solve.inequalities:[42:57]
+    sym = Symbol(variable, real=True)
+    low_e = _parse_expression(low, [variable], real=True)
+    mid_e = _parse_expression(mid, [variable], real=True)
+    high_e = _parse_expression(high, [variable], real=True)
+
+    ascending = low_op in ("<", "<=") and high_op in ("<", "<=")
+    descending = low_op in (">", ">=") and high_op in (">", ">=")
+    if ascending:
+        lower_rel = Gt(mid_e, low_e) if low_op == "<" else Ge(mid_e, low_e)
+        upper_rel = Lt(mid_e, high_e) if high_op == "<" else Le(mid_e, high_e)
+    elif descending:
+        # ``5 > x > 1`` → x < 5 and x > 1
+        lower_rel = Lt(mid_e, low_e) if low_op == ">" else Le(mid_e, low_e)
+        upper_rel = Gt(mid_e, high_e) if high_op == ">" else Ge(mid_e, high_e)
+    else: (duplicate-code)
+app/modules/memory/retrieval.py:1:0: R0801: Similar lines in 2 files
+==app.modules.chat.prompt_constants.visuals:[124:136]
+==app.modules.images.gen_intent_words:[16:28]
+        "image",
+        "images",
+        "picture",
+        "pictures",
+        "pic",
+        "pics",
+        "photo",
+        "photos",
+        "illustration",
+        "illustrations",
+        "artwork",
+        "artworks", (duplicate-code)
+app/modules/memory/retrieval.py:1:0: R0801: Similar lines in 2 files
+==app.modules.math.match.arithmetic:[48:58]
+==app.modules.math.solve.unicode_normalize:[9:19]
+    ("\u00d7", "*"),
+    ("\u22c5", "*"),
+    ("\u00b7", "*"),
+    ("\u2217", "*"),
+    ("\u00f7", "/"),
+    ("\u2215", "/"),
+    ("\u2044", "/"),
+    ("\u2212", "-"),
+    ("\u2013", "-"),
+    ("\u2014", "-"), (duplicate-code)
+app/modules/memory/retrieval.py:1:0: R0801: Similar lines in 2 files
+==app.modules.math.schemas.geometry_request:[12:21]
+==app.modules.math.tools.direct:[383:392]
+    "rectangle",
+    "square",
+    "triangle",
+    "right_triangle",
+    "triangle_sides",
+    "parallelogram",
+    "trapezoid",
+    "circle",
+    "sector", (duplicate-code)
+app/modules/memory/retrieval.py:1:0: R0801: Similar lines in 2 files
+==app.modules.physics.bodies:[146:155]
+==app.modules.physics.catalog.heat:[189:198]
+    "copper",
+    "iron",
+    "aluminium",
+    "aluminum",
+    "steel",
+    "lead",
+    "brass",
+    "glass",
+    "metal", (duplicate-code)
+app/modules/memory/retrieval.py:1:0: R0801: Similar lines in 2 files
+==app.modules.chat.continuation_subject:[144:153]
+==app.modules.chat.related_questions:[78:87]
+_BIOLOGY_CUES = (
+    "dilution",
+    "punnett",
+    "hardy-weinberg",
+    "hardy weinberg",
+    "allele",
+    "enzyme kinetics",
+    "michaelis",
+    "population growth", (duplicate-code)
+app/modules/memory/retrieval.py:1:0: R0801: Similar lines in 2 files
+==app.modules.notifications.push:[241:251]
+==app.modules.notifications.reminder_email:[47:57]
+    now = now or datetime.now(UTC)
+    window_end = now + timedelta(minutes=MAX_REMINDER_LEAD_MINUTES)
+    overdue_cutoff = now - timedelta(hours=OVERDUE_MAX_HOURS)
+
+    result = await session.execute(
+        select(TodoItem, User)
+        .join(User, User.id == TodoItem.user_id)
+        .where(
+            TodoItem.checked.is_(False),
+            TodoItem.due_at.isnot(None), (duplicate-code)
+
+------------------------------------
+Your code has been rated at 10.00/10
+

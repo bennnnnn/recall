@@ -1,0 +1,59 @@
+........................................................................ [  9%]
+........................................................................ [ 19%]
+........................................................................ [ 29%]
+........................................................................ [ 39%]
+........................................................................ [ 49%]
+........................................................................ [ 58%]
+........................................................................ [ 68%]
+........................................................................ [ 78%]
+........................................................................ [ 88%]
+........................................................................ [ 98%]
+..............                                                           [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+app/tests/test_rest_rate_limit.py::test_middleware_fails_closed_when_redis_check_fails
+  /home/user/recall-audit/apps/api/app/core/rate_limit.py:18: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    async with redis.pipeline(transaction=True) as pipe:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/test_routers.py::test_speech_transcribe_6mb_is_413_before_quota
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/routing.py:360: StarletteDeprecationWarning: 'HTTP_413_REQUEST_ENTITY_TOO_LARGE' is deprecated. Use 'HTTP_413_CONTENT_TOO_LARGE' instead.
+    return await dependant.call(**values)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+2.01s call     app/tests/test_gateways.py::test_complete_structured_times_out_hung_provider
+2.01s call     app/tests/test_gateways.py::test_acompletion_with_fallback_times_out_hung_provider
+1.21s call     app/tests/test_gateways.py::test_stream_chat_once_idle_timeout_allows_long_active_stream
+1.01s call     app/tests/test_gateways.py::test_stream_chat_once_times_out_hung_provider
+1.01s call     app/tests/test_gateways.py::test_stream_chat_once_wall_clock_stops_slow_drip
+1.00s call     app/tests/test_model_switch_oct_2026.py::test_the_photo_fallback_shares_the_budget_instead_of_a_fresh_one
+1.00s call     app/tests/test_model_switch_oct_2026.py::test_a_timed_out_photo_read_does_not_retry
+0.76s call     app/tests/test_jobs.py::test_process_entries_parallel_drain_faster_than_serial
+0.58s call     app/tests/test_services.py::test_stream_chat_completion_mock
+0.39s call     app/tests/test_routers.py::test_speech_tts_stream_empty_refunds
+0.34s call     app/tests/test_routers.py::test_revenuecat_webhook_cancellation_with_future_expiry_keeps_pro
+0.33s call     app/tests/test_new_features.py::test_update_todo_can_clear_due_at_and_repeat
+0.27s call     app/tests/test_main_lifespan.py::test_lifespan_starts_and_stops_workers
+0.23s call     app/tests/test_rest_rate_limit.py::test_middleware_skips_when_limit_disabled
+0.18s call     app/tests/test_mcp.py::test_sympy_adapter_expr_op_unclosed_integral_emits_honesty_note
+0.11s call     app/tests/test_routers.py::test_speech_transcribe_6mb_is_413_before_quota
+0.11s call     app/tests/test_gateways.py::test_stream_chat_once_times_out_reasoning_without_visible_content
+0.10s call     app/tests/test_tool_selection.py::test_selector_cancellation_stops_provider_and_propagates[True]
+0.10s call     app/tests/test_mcp.py::test_sympy_adapter_dispatches_simplify_diff_integrate[simplify-x + x-x]
+0.10s call     app/tests/test_routers.py::test_speech_tts_lead_allows_multiple_rest_followups
+0.08s call     app/tests/test_apple_auth.py::test_verify_apple_id_token_rejects_a_token_not_bound_to_this_sign_in[raw-nonce-from-the-app-raw-nonce-from-the-app]
+0.08s call     app/tests/test_routers.py::test_speech_tts_ok
+0.08s call     app/tests/test_routers.py::test_speech_tts_rest_wrong_lead_hash_is_billed
+0.07s call     app/tests/test_apple_auth.py::test_verify_apple_id_token_rejects_missing_or_past_expiry[None]
+0.07s call     app/tests/test_mcp.py::test_sympy_adapter_inequality_includes_canonical_fence
+0.07s call     app/tests/test_services.py::test_stream_chat_response_quota_exceeded[at-limit]
+0.07s call     app/tests/test_routers.py::test_speech_tts_rest_over_char_budget_is_billed
+0.07s call     app/tests/test_routers.py::test_speech_transcribe_daily_cap
+0.07s call     app/tests/test_jobs.py::test_stopped_worker_removes_its_consumer_from_the_group[False-0]
+0.07s call     app/tests/test_jobs.py::test_stopped_worker_removes_its_consumer_from_the_group[True-1]
+734 passed, 3 warnings in 27.21s

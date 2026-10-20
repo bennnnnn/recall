@@ -1,0 +1,6 @@
+quota rc=0 :: TOTAL                               425      5    99%
+auth rc=0 :: TOTAL                                       1578    183    88%
+memory rc=0 :: TOTAL                                           2916    272    91%
+billing rc=0 :: TOTAL                                   585    251    57%
+stream rc=0 :: TOTAL                                                  8626    958    89%
+DONE

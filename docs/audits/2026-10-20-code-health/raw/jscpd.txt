@@ -1,0 +1,338 @@
+Clone found (tsx):
+ - apps/mobile/ui/icons/custom.tsx [77:53 - 88:7] (11 lines, 71 tokens)
+   apps/mobile/ui/icons/custom.tsx [52:36 - 63:24]
+
+Clone found (tsx):
+ - apps/mobile/ui/feedback/ActionShimmer.tsx [40:15 - 68:8] (28 lines, 181 tokens)
+   apps/mobile/ui/feedback/ActionShimmerMotion.tsx [114:11 - 142:9]
+
+Clone found (typescript):
+ - apps/mobile/lib/physics/optics.ts [290:37 - 303:4] (13 lines, 116 tokens)
+   apps/mobile/lib/physics/simulation/labelSearch.ts [16:47 - 25:66]
+
+Clone found (typescript):
+ - apps/mobile/lib/physics/circuit.ts [73:20 - 85:4] (12 lines, 79 tokens)
+   apps/mobile/lib/physics/optics.ts [90:51 - 98:9]
+
+Clone found (typescript):
+ - apps/mobile/lib/math/graphBlock.ts [495:3 - 506:36] (11 lines, 155 tokens)
+   apps/mobile/lib/math/graphWorklets.ts [109:3 - 116:28]
+
+Clone found (typescript):
+ - apps/mobile/lib/math/formatInput.ts [154:21 - 165:10] (11 lines, 124 tokens)
+   apps/mobile/lib/math/formatInput.ts [114:24 - 125:10]
+
+Clone found (typescript):
+ - apps/mobile/lib/math/formatInput.ts [338:28 - 356:35] (18 lines, 238 tokens)
+   apps/mobile/lib/math/formatInput.ts [114:24 - 172:33]
+
+Clone found (typescript):
+ - apps/mobile/lib/math/composerChange.ts [8:20 - 18:9] (10 lines, 158 tokens)
+   apps/mobile/lib/math/pasteNormalize.ts [233:33 - 243:8]
+
+Clone found (tsx):
+ - apps/mobile/features/speech/components/LiveTalkButton.tsx [53:7 - 73:2] (20 lines, 125 tokens)
+   apps/mobile/features/speech/components/VoiceMicButton.tsx [50:7 - 70:11]
+
+Clone found (javascript):
+ - apps/mobile/features/memory/screens/MemoryDocumentScreen.tsx [44:30 - 165:28] (121 lines, 1565 tokens)
+   apps/mobile/features/memory/screens/MemoryScreen.tsx [36:28 - 108:24]
+
+Clone found (tsx):
+ - apps/mobile/features/memory/screens/MemoryDocumentScreen.tsx [307:7 - 322:59] (15 lines, 131 tokens)
+   apps/mobile/features/memory/screens/MemoryScreen.tsx [173:88 - 188:60]
+
+Clone found (tsx):
+ - apps/mobile/features/chat/hooks/useChatScreenBodyProps.tsx [141:14 - 181:23] (40 lines, 164 tokens)
+   apps/mobile/features/chat/screens/ChatScreen.tsx [444:28 - 484:25]
+
+Clone found (javascript):
+ - apps/mobile/features/chat/components/MathDraftPreview.tsx [235:31 - 287:15] (52 lines, 431 tokens)
+   apps/mobile/features/chat/components/MathDraftPreview.tsx [191:40 - 217:21]
+
+Clone found (tsx):
+ - apps/mobile/features/chat/components/ChatMessageRow.tsx [18:21 - 29:28] (11 lines, 120 tokens)
+   apps/mobile/features/chat/components/StreamingChatMessageRow.tsx [18:19 - 29:37]
+
+Clone found (javascript):
+ - apps/mobile/components/rich/geometry/RightTriangleDiagram.tsx [74:85 - 90:23] (16 lines, 117 tokens)
+   apps/mobile/components/rich/geometry/TriangleDiagram.tsx [59:28 - 75:23]
+
+Clone found (tsx):
+ - apps/mobile/components/rich/geometry/RightTriangleDiagram.tsx [74:86 - 95:13] (21 lines, 170 tokens)
+   apps/mobile/components/rich/geometry/TriangleDiagram.tsx [59:29 - 80:11]
+
+Clone found (tsx):
+ - apps/mobile/components/rich/geometry/ParallelogramDiagram.tsx [39:4 - 54:12] (15 lines, 151 tokens)
+   apps/mobile/components/rich/geometry/TrapezoidDiagram.tsx [42:32 - 57:11]
+
+Clone found (tsx):
+ - apps/mobile/components/rich/diagrams/RayDiagram.tsx [107:61 - 117:15] (10 lines, 143 tokens)
+   apps/mobile/components/rich/diagrams/WaveDiagram.tsx [61:89 - 70:38]
+
+Clone found (tsx):
+ - apps/mobile/components/rich/diagrams/RayDiagram.tsx [242:11 - 258:2] (16 lines, 107 tokens)
+   apps/mobile/components/rich/diagrams/WaveDiagram.tsx [184:12 - 200:2]
+
+Clone found (tsx):
+ - apps/mobile/components/markdown/rules/lesson.tsx [1:1 - 13:16] (12 lines, 105 tokens)
+   apps/mobile/components/markdown/rules/workout.tsx [1:1 - 13:24]
+
+Clone found (javascript):
+ - apps/mobile/components/rich/TeachingCard.tsx [26:42 - 60:33] (34 lines, 407 tokens)
+   apps/mobile/components/rich/TeachingCard.tsx [25:95 - 45:57]
+
+Clone found (javascript):
+ - apps/mobile/components/rich/RichFence.tsx [119:32 - 131:61] (12 lines, 167 tokens)
+   apps/mobile/components/rich/RichFence.tsx [83:63 - 96:78]
+
+Clone found (javascript):
+ - apps/mobile/components/rich/RichFence.tsx [119:50 - 155:47] (36 lines, 374 tokens)
+   apps/mobile/components/rich/RichFence.tsx [116:46 - 131:43]
+
+Clone found (tsx):
+ - apps/mobile/components/rich/MoleculeChrome.tsx [20:29 - 30:9] (10 lines, 107 tokens)
+   apps/mobile/components/rich/MoleculeChrome.tsx [9:32 - 19:74]
+
+Clone found (javascript):
+ - apps/mobile/components/rich/Molecule3DBlock.tsx [90:26 - 104:26] (14 lines, 174 tokens)
+   apps/mobile/components/rich/skia/SkiaMoleculeCanvas.tsx [73:39 - 88:27]
+
+Clone found (tsx):
+ - apps/mobile/components/rich/MessagePreview.tsx [26:54 - 39:2] (13 lines, 88 tokens)
+   apps/mobile/components/rich/SocialPostCard.tsx [41:21 - 54:2]
+
+Clone found (javascript):
+ - apps/mobile/components/rich/GeometryBlock.tsx [44:81 - 58:78] (14 lines, 277 tokens)
+   apps/mobile/components/rich/GeometryBlock.tsx [41:51 - 52:82]
+
+Clone found (tsx):
+ - apps/mobile/components/rich/ChipText.tsx [40:9 - 54:15] (14 lines, 116 tokens)
+   apps/mobile/components/rich/RichBodyText.tsx [32:9 - 46:11]
+
+Clone found (tsx):
+ - apps/mobile/components/rich/ChemistryBlock.tsx [121:14 - 137:23] (16 lines, 132 tokens)
+   apps/mobile/components/rich/Molecule3DBlock.tsx [228:23 - 249:22]
+
+Clone found (javascript):
+ - apps/mobile/components/rich/ChartBlock.tsx [89:70 - 108:29] (19 lines, 129 tokens)
+   apps/mobile/components/rich/MermaidBlock.tsx [136:38 - 152:38]
+
+Clone found (tsx):
+ - apps/mobile/components/rich/ChartBlock.tsx [5:1 - 16:23] (11 lines, 153 tokens)
+   apps/mobile/components/rich/MermaidBlock.tsx [4:1 - 15:19]
+
+Clone found (tsx):
+ - apps/mobile/components/rich/CardShell.tsx [5:53 - 16:11] (11 lines, 118 tokens)
+   apps/mobile/components/rich/VisualCard.tsx [4:39 - 15:7]
+
+Clone found (javascript):
+ - apps/mobile/components/mathScanner/ScannerSubjectGuide.tsx [72:91 - 93:39] (21 lines, 131 tokens)
+   apps/mobile/components/mathScanner/ScannerSubjectGuide.tsx [71:33 - 86:17]
+
+Clone found (tsx):
+ - apps/mobile/components/mathScanner/MathScannerCropOverlay.tsx [152:7 - 162:7] (10 lines, 125 tokens)
+   apps/mobile/components/mathScanner/MathScannerCropOverlay.tsx [149:7 - 159:8]
+
+Clone found (tsx):
+ - apps/mobile/components/PlacesListBlock.tsx [98:17 - 112:12] (14 lines, 152 tokens)
+   apps/mobile/components/PlacesListBlock.tsx [42:26 - 56:15]
+
+Clone found (tsx):
+ - apps/mobile/components/MarkdownTable.tsx [286:19 - 297:8] (11 lines, 90 tokens)
+   apps/mobile/components/MarkdownTable.tsx [268:33 - 279:9]
+
+Clone found (tsx):
+ - apps/mobile/components/CopyBlock.tsx [1:1 - 12:65] (11 lines, 115 tokens)
+   apps/mobile/components/rich/MessagePreview.tsx [1:1 - 10:35]
+
+Clone found (tsx):
+ - apps/mobile/app/memory/_layout.tsx [9:37 - 23:8] (14 lines, 117 tokens)
+   apps/mobile/app/settings/_layout.tsx [41:39 - 55:8]
+
+Clone found (python):
+ - apps/api/app/modules/math/tools/school/percentages.py [274:73 - 284:39] (10 lines, 136 tokens)
+   apps/api/app/modules/math/tools/school/percentages.py [122:14 - 132:41]
+
+Clone found (python):
+ - apps/api/app/modules/math/tools/school/percentages.py [304:66 - 322:37] (18 lines, 203 tokens)
+   apps/api/app/modules/math/tools/school/percentages.py [274:71 - 292:29]
+
+Clone found (python):
+ - apps/api/app/modules/math/tools/school/coordinate.py [3:1 - 13:17] (10 lines, 103 tokens)
+   apps/api/app/modules/math/tools/school/vectors.py [3:1 - 13:18]
+
+Clone found (python):
+ - apps/api/app/modules/math/tools/direct_geometry_working/solids.py [106:9 - 116:34] (10 lines, 113 tokens)
+   apps/api/app/modules/math/tools/direct_geometry_working/solids.py [83:13 - 93:38]
+
+Clone found (python):
+ - apps/api/app/modules/math/tools/direct_geometry_working/circles.py [5:1 - 19:12] (14 lines, 82 tokens)
+   apps/api/app/modules/math/tools/direct_geometry_working/solids.py [9:1 - 23:9]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/rotation.py [421:39 - 431:31] (10 lines, 91 tokens)
+   apps/api/app/modules/physics/catalog/rotation.py [400:40 - 410:28]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/optics.py [383:61 - 399:16] (16 lines, 104 tokens)
+   apps/api/app/modules/physics/catalog/optics.py [350:86 - 366:10]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/optics.py [389:33 - 399:73] (10 lines, 87 tokens)
+   apps/api/app/modules/physics/catalog/optics.py [277:33 - 287:80]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/optics.py [438:50 - 448:32] (10 lines, 142 tokens)
+   apps/api/app/modules/physics/catalog/optics.py [416:56 - 426:33]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/machines.py [242:13 - 258:31] (16 lines, 91 tokens)
+   apps/api/app/modules/physics/catalog/machines.py [210:13 - 226:34]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/gravitation.py [294:13 - 307:47] (13 lines, 79 tokens)
+   apps/api/app/modules/physics/catalog/gravitation.py [261:59 - 274:50]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/gravitation.py [323:56 - 341:19] (18 lines, 97 tokens)
+   apps/api/app/modules/physics/catalog/gravitation.py [287:59 - 305:31]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/friction.py [31:12 - 41:31] (10 lines, 83 tokens)
+   apps/api/app/modules/physics/catalog/friction.py [18:12 - 28:23]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/friction.py [44:12 - 54:26] (10 lines, 83 tokens)
+   apps/api/app/modules/physics/catalog/friction.py [18:12 - 28:23]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/friction.py [215:62 - 225:50] (10 lines, 98 tokens)
+   apps/api/app/modules/physics/catalog/friction.py [156:10 - 162:83]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/condensed_matter.py [142:77 - 158:25] (16 lines, 151 tokens)
+   apps/api/app/modules/physics/catalog/condensed_matter.py [114:77 - 130:32]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/capacitors.py [111:29 - 122:29] (11 lines, 92 tokens)
+   apps/api/app/modules/physics/catalog/capacitors.py [89:37 - 100:27]
+
+Clone found (python):
+ - apps/api/app/modules/physics/catalog/capacitors.py [159:54 - 173:29] (14 lines, 93 tokens)
+   apps/api/app/modules/physics/catalog/capacitors.py [135:60 - 149:29]
+
+Clone found (python):
+ - apps/api/app/modules/math/tools/direct_geometry.py [115:49 - 125:13] (10 lines, 91 tokens)
+   apps/api/app/modules/math/tools/direct_geometry.py [75:50 - 83:11]
+
+Clone found (python):
+ - apps/api/app/modules/math/solve/graph.py [523:9 - 533:22] (10 lines, 207 tokens)
+   apps/api/app/modules/math/solve/inequalities.py [43:5 - 54:42]
+
+Clone found (python):
+ - apps/api/app/modules/math/match/dimensions.py [114:5 - 130:13] (16 lines, 142 tokens)
+   apps/api/app/modules/math/match/dimensions.py [74:5 - 90:16]
+
+Clone found (python):
+ - apps/api/app/modules/chemistry/solvers/solutions.py [162:90 - 173:86] (11 lines, 113 tokens)
+   apps/api/app/modules/chemistry/solvers/solutions.py [51:94 - 61:78]
+
+Clone found (python):
+ - apps/api/app/modules/chemistry/solvers/amounts.py [19:14 - 30:54] (11 lines, 77 tokens)
+   apps/api/app/modules/chemistry/solvers/empirical.py [13:8 - 25:4]
+
+Clone found (python):
+ - apps/api/app/modules/physics/block.py [224:17 - 237:71] (13 lines, 95 tokens)
+   apps/api/app/modules/physics/block.py [192:16 - 205:7]
+
+Clone found (python):
+ - apps/api/app/modules/notifications/push.py [241:24 - 252:42] (11 lines, 120 tokens)
+   apps/api/app/modules/notifications/reminder_email.py [47:9 - 58:35]
+
+Clone found (python):
+ - apps/api/app/modules/notifications/__init__.py [14:68 - 24:77] (10 lines, 82 tokens)
+   apps/api/app/modules/physics/__init__.py [31:48 - 42:71]
+
+Clone found (python):
+ - apps/api/app/modules/memory/writes_repository.py [153:89 - 163:36] (10 lines, 74 tokens)
+   apps/api/app/modules/memory/writes_repository.py [105:41 - 115:28]
+
+Clone found (python):
+ - apps/api/app/modules/memory/retrieval.py [83:5 - 93:90] (10 lines, 106 tokens)
+   apps/api/app/modules/memory/surface.py [190:5 - 200:11]
+
+Clone found (python):
+ - apps/api/app/modules/memory/retrieval.py [152:5 - 162:13] (10 lines, 91 tokens)
+   apps/api/app/modules/memory/surface.py [214:5 - 224:11]
+
+Clone found (python):
+ - apps/api/app/modules/chemistry/stated_bindings.py [447:25 - 469:35] (22 lines, 135 tokens)
+   apps/api/app/modules/chemistry/stated_bindings.py [423:26 - 445:21]
+
+Clone found (python):
+ - apps/api/app/modules/chat/ws_api.py [161:26 - 179:31] (18 lines, 142 tokens)
+   apps/api/app/modules/chat/ws_api.py [117:29 - 134:36]
+
+Clone found (python):
+ - apps/api/app/modules/chat/turn_resources.py [274:17 - 298:8] (24 lines, 95 tokens)
+   apps/api/app/modules/chat/turn_resources.py [60:13 - 71:13]
+
+Clone found (python):
+ - apps/api/app/modules/chat/stream_pipeline.py [278:24 - 288:14] (10 lines, 84 tokens)
+   apps/api/app/modules/chat/stream_pipeline.py [198:25 - 208:14]
+
+Clone found (python):
+ - apps/api/app/modules/chat/stream_api.py [298:32 - 311:56] (13 lines, 117 tokens)
+   apps/api/app/modules/chat/stream_api.py [263:29 - 276:50]
+
+Clone found (python):
+ - apps/api/app/modules/attachments/workflow.py [265:5 - 279:6] (14 lines, 89 tokens)
+   apps/api/app/modules/attachments/workflow.py [75:9 - 87:11]
+
+Clone found (python):
+ - apps/api/app/modules/attachments/models.py [7:1 - 25:17] (18 lines, 92 tokens)
+   apps/api/app/modules/todos/models.py [4:1 - 22:15]
+
+Clone found (python):
+ - apps/api/app/services/subject_solving.py [241:24 - 252:21] (11 lines, 92 tokens)
+   apps/api/app/services/subject_solving.py [186:27 - 197:10]
+
+Clone found (python):
+ - apps/api/app/services/subject_solving.py [292:29 - 309:6] (17 lines, 115 tokens)
+   apps/api/app/services/subject_solving.py [186:27 - 203:14]
+
+Clone found (python):
+ - apps/api/app/services/recurring_pay.py [51:15 - 64:15] (13 lines, 89 tokens)
+   apps/api/app/modules/math/tools/school/probability.py [41:14 - 44:2]
+
+Clone found (python):
+ - apps/api/app/repositories/chats.py [246:57 - 264:42] (18 lines, 121 tokens)
+   apps/api/app/modules/memory/repository.py [142:87 - 160:44]
+
+┌────────────┬────────────────┬─────────────┬──────────────┬──────────────┬──────────────────┬───────────────────┐
+│ Format     │ Files analyzed │ Total lines │ Total tokens │ Clones found │ Duplicated lines │ Duplicated tokens │
+├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤
+│ typescript │ 471            │ 59080       │ 588804       │ 6            │ 75 (0.13%)       │ 870 (0.15%)       │
+├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤
+│ tsx        │ 286            │ 45308       │ 407801       │ 22           │ 334 (0.74%)      │ 2781 (0.68%)      │
+├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤
+│ javascript │ 279            │ 18640       │ 169434       │ 10           │ 339 (1.82%)      │ 3772 (2.23%)      │
+├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤
+│ json       │ 10             │ 8509        │ 59428        │ 0            │ 0 (0%)           │ 0 (0%)            │
+├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤
+│ markdown   │ 2              │ 126         │ 2506         │ 0            │ 0 (0%)           │ 0 (0%)            │
+├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤
+│ css        │ 17             │ 834         │ 8146         │ 0            │ 0 (0%)           │ 0 (0%)            │
+├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤
+│ python     │ 936            │ 183313      │ 1519754      │ 40           │ 526 (0.29%)      │ 4297 (0.28%)      │
+├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤
+│ Total:     │ 2001           │ 315810      │ 2755873      │ 78           │ 1274 (0.4%)      │ 11720 (0.43%)     │
+└────────────┴────────────────┴─────────────┴──────────────┴──────────────┴──────────────────┴───────────────────┘
+Found 78 clones.
+JSON report saved to /home/user/recall/tmp/code-audit/raw/jscpd/jscpd-report.json
+time: 16.519s
+
+💡 Auto-refactor with AI: npx skills add kucherenko/jscpd
+🎩 New: Gangsta Agents — discipline your AI coding → gangsta.page
+💖 Support jscpd project → https://opencollective.com/jscpd

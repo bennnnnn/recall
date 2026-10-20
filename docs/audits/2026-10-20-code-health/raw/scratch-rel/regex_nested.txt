@@ -1,0 +1,18 @@
+apps/api/app/modules/chat/continuation_subject.py:127: '(?:(?:no|i said|i asked for|i want|give me|show me|do|try)\\s+)*(?:another|one more|a new|a different|new|different|next)(?:\\s+(?:harder|easier|trickier|similar|practice))?(?:\\s+(?:one|example|problem|question|exercise|exercises|examples|problems|questions))?'
+apps/api/app/modules/chat/prompt_constants/lesson_flow.py:175: '^(?:\\s*(?:me|us|you|teach|learn|learning|study|to|about|on|in|more|some|a\\s+(?:bit|little)\\s+(?:about|of)|the\\s+basics\\s+of|basics\\s+of)\\b)+'
+apps/api/app/modules/chat/prompt_constants/writing_kind.py:160: ':\\s*\\S+(?:\\s+\\S+){2,}|\\n\\s*\\S|[\\"\\u201c]'
+apps/api/app/modules/chat/prompt_window.py:149: '(?m)^(\\*\\*Answer:?\\*\\*:?[ \\t]*\\n(?:[ \\t]*\\n)*)Answer: '
+apps/api/app/modules/chat/turn_prep/clauses.py:134: '[\\w^.()]+ ?(?:[-+*/^=<>] ?[\\w^.()]+)+'
+apps/api/app/modules/chemistry/context.py:110: '^(?:Cl|Br|[BCNOPSFI]|[bcnops]|\\[[^\\]\\s]+\\]|[=#$/\\\\()@+\\-.%:]|\\d)+$'
+apps/api/app/modules/chemistry/species_facts.py:118: '(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*(?:\\u00b7\\d{0,2}[A-Z][A-Za-z0-9()]*)*)(?![A-Za-z0-9(\\u00b7])'
+apps/api/app/modules/images/answer_photo.py:23: '^[ \\t]*```photo[ \\t]*\\n(?P<query>[^\\n`]{1,120})\\n[ \\t]*```[ \\t]*(?:\\n(?:[ \\t]*\\n)*|$)'
+apps/api/app/modules/math/followup.py:226: '^(?:(?:and|ok(?:ay)?|so|now|then)[ ,]+)*(?:what if (?:it|this|that|the equation|the question) (?:was|were|is)|what about|how about|(?:now )?(?:try|do)|and)[ ,:]+'
+apps/api/app/modules/math/followup.py:378: "^(?:(?:ok(?:ay)?|so|and|then|now|please|can\\s+you|could\\s+you|pls)[,\\s]+)*(?:(?P<verb>simplify|factori[sz]e|factor|expand|differentiate|derive|integrate)\\s+|(?:find\\s+|what(?:'s|\\s+is)\\s+)?the\\s+(?P<noun>derivative|integral)\\s+of\\s+)(?:it|this|that|this\\s+expression|that\\s+expression|the\\s+expression|the\\s+result)(?P<wrt>\\s+(?:with\\s+respect\\s+to|wrt)\\s+[a-z])?(?:[,\\s]+(?:now|please|pls|too|again))*\\s*[?.!]*$"
+apps/api/app/modules/math/text_plot.py:23: '^\\s*\\|?\\s*:?-{3,}:?\\s*(?:\\|\\s*:?-{3,}:?\\s*)+\\|?\\s*$'
+apps/api/app/modules/physics/direct.py:169: '\\\\?[A-Za-z]+(?:_[A-Za-z0-9])?|\\\\(?:frac|sqrt)(?:\\{[^{}]*\\})+'
+apps/api/app/modules/physics/extract.py:65: "^\\s*(?:(?:please|hey|ok|okay|can\\s+you|could\\s+you)[\\s,]+)*(?:remind\\s+me\\s+(?:to|at|on|in|tomorrow|tonight|about|later|every|this|next)\\b|set\\s+(?:a|an|me\\s+a)\\s+(?:reminder|alarm|timer)\\b|add\\b[^.?!\\n]{0,80}\\bto\\s+(?:my\\s+)?(?:(?:to-?do|todo|shopping|grocery)\\s*)?list\\b|(?:don'?t|do\\s+not)\\s+let\\s+me\\s+forget\\b)"
+apps/api/app/modules/physics/extractors/common.py:123: '(?:[\\s,:=.]+|(?:of|is|are|was|were|a|an|the|height|distance|equal|to)\\b)*'
+apps/api/app/modules/physics/law_titles.py:28: '^(?P<what>.*\\b[A-Za-z]+(?:-[a-z]+)+) (?:equation|relation)$'
+apps/api/app/services/answer_check.py:106: '(?:[A-Za-zµμΩ°%]+(?:\\^-?\\d+)?|[/·*]|\\s|[()])*'
+apps/api/app/services/answer_check.py:157: '[\\sA-Za-zµμΩ°%/·*()]*(?:\\^-?\\d+[\\sA-Za-zµμΩ°%/·*()]*)*'
+apps/api/app/services/working_check.py:39: '\\\\text\\s*\\{\\s*[A-Za-z]{2,}(?:\\s+[A-Za-z]+)*\\s*\\}'

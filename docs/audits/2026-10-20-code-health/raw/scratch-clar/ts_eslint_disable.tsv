@@ -1,0 +1,29 @@
+apps/mobile/components/ChatMessageImage.tsx:90	// eslint-disable-next-line react-hooks/immutability
+apps/mobile/components/DrawerShell.tsx:11	/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
+apps/mobile/components/MathEquationScanner.tsx:215	// eslint-disable-next-line react-hooks/exhaustive-deps -- open-only reset
+apps/mobile/components/mathScanner/MathScannerChrome.tsx:1	/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
+apps/mobile/components/mathScanner/ScannerSubjectSwitcher.tsx:1	/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
+apps/mobile/components/rich/skia/SkiaGraphExplorer.tsx:116	// eslint-disable-next-line react-hooks/rules-of-hooks -- fixed-length loop
+apps/mobile/components/rich/skia/SkiaGraphExplorer.tsx:123	// eslint-disable-next-line react-hooks/rules-of-hooks -- fixed-length loop
+apps/mobile/components/rich/skia/SkiaGraphExplorer.tsx:134	// eslint-disable-next-line react-hooks/rules-of-hooks -- fixed-length loop
+apps/mobile/components/rich/skia/SkiaGraphExplorer.tsx:142	// eslint-disable-next-line react-hooks/rules-of-hooks -- fixed-length loop
+apps/mobile/components/rich/usePlayback.ts:1	/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
+apps/mobile/features/attachments/components/AttachmentImageStage.tsx:1	/* eslint-disable react-hooks/immutability -- Reanimated shared values mutate `.value` in gestures and effects. */
+apps/mobile/features/attachments/components/AttachmentImageViewer.tsx:171	/* eslint-disable react-hooks/immutability -- Reanimated shared values are set from effects. */
+apps/mobile/features/chat/hooks/useChatRouteLoader.ts:440	// eslint-disable-next-line react-hooks/exhaustive-deps
+apps/mobile/features/images/components/dotField.ts:107	// eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberate lazy probe
+apps/mobile/features/speech/model/realtimePeer.ts:115	// eslint-disable-next-line @typescript-eslint/no-require-imports
+apps/mobile/hooks/useMathScannerCrop.ts:1	/* eslint-disable react-hooks/immutability -- Reanimated shared values mutate `.value` in gestures. */
+apps/mobile/hooks/useSkiaGraphViewport.ts:1	/* eslint-disable react-hooks/immutability -- Reanimated shared values mutate `.value` in gestures. */
+apps/mobile/hooks/useSkiaGraphViewport.ts:48	// eslint-disable-next-line react-hooks/exhaustive-deps
+apps/mobile/lib/deviceSession.ts:15	// eslint-disable-next-line @typescript-eslint/no-require-imports
+apps/mobile/lib/deviceSession.ts:23	// eslint-disable-next-line @typescript-eslint/no-require-imports
+apps/mobile/lib/expoRuntime.ts:38	// eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy, like expo-dev-client above: plain-Node tests import this file
+apps/mobile/lib/shareFile.ts:19	// eslint-disable-next-line @typescript-eslint/no-require-imports
+apps/mobile/lib/shareFile.ts:22	// eslint-disable-next-line @typescript-eslint/no-require-imports
+apps/mobile/lib/speech/voiceAudio.ts:38	// eslint-disable-next-line @typescript-eslint/no-require-imports
+apps/mobile/lib/webView.ts:41	// eslint-disable-next-line @typescript-eslint/no-require-imports
+apps/mobile/lib/webView.ts:53	// eslint-disable-next-line @typescript-eslint/no-require-imports
+apps/mobile/ui/overlay/useSheetPanDismiss.ts:1	/* eslint-disable react-hooks/immutability -- Reanimated shared values mutate `.value` in gestures. */
+apps/mobile/ui/pickers/DatePickerDialog.tsx:104	// eslint-disable-next-line react-hooks/exhaustive-deps
+apps/mobile/ui/pickers/TimePickerDialog.tsx:93	// eslint-disable-next-line react-hooks/exhaustive-deps

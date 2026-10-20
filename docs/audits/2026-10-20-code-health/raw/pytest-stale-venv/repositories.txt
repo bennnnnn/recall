@@ -1,0 +1,33 @@
+......................................................                   [100%]
+============================= slowest 30 durations =============================
+0.43s call     app/tests/repositories/test_profile_photo_db.py::test_saved_photo_is_private_persistent_and_not_a_chat_attachment
+0.40s call     app/tests/repositories/test_profile_photo_db.py::test_replaced_photo_can_be_reaped_without_deleting_current_photo
+0.30s setup    app/tests/repositories/test_chats.py::test_create_chat
+0.29s call     app/tests/repositories/test_chats_db.py::test_get_by_id_returns_none_for_a_different_users_chat
+0.14s call     app/tests/repositories/test_usage_db.py::test_add_tokens_accumulates_across_multiple_calls
+0.12s call     app/tests/repositories/test_chats_db.py::test_generated_title_preserves_rename_and_owner_scope
+0.08s call     app/tests/repositories/test_chats_db.py::test_list_for_user_only_returns_calling_users_chats
+0.05s call     app/tests/repositories/test_chats.py::test_group_by_recency_uses_user_timezone
+0.04s call     app/tests/repositories/test_chats_db.py::test_list_for_user_archived_filtering_happens_in_sql
+0.02s call     app/tests/repositories/test_usage_db.py::test_get_total_for_date_scoped_by_user_and_date
+0.02s call     app/tests/repositories/test_messages_db.py::test_get_by_id_scoped_by_chat_does_not_leak_across_chats
+0.02s setup    app/tests/repositories/test_chats_db.py::test_get_by_id_returns_none_for_a_different_users_chat
+0.02s call     app/tests/repositories/test_profile_photo_db.py::test_provider_login_refreshes_profile_saved_after_identity_lookup[google]
+0.02s call     app/tests/repositories/test_chats_db.py::test_list_for_user_excludes_chats_with_no_messages
+0.02s call     app/tests/repositories/test_chats_db.py::test_pin_archive_races_preserve_archived_unpinned_state
+0.02s call     app/tests/repositories/test_profile_photo_db.py::test_profile_rejects_another_users_photo_without_partial_name_save
+0.02s call     app/tests/repositories/test_messages_db.py::test_list_range_is_stable_across_created_at_ties
+0.02s call     app/tests/repositories/test_profile_photo_db.py::test_provider_login_refreshes_profile_saved_after_identity_lookup[apple]
+0.02s call     app/tests/repositories/test_messages_db.py::test_get_last_uses_id_tiebreaker_when_created_at_ties
+0.01s call     app/tests/repositories/test_messages_db.py::test_list_recent_returns_correct_order_and_respects_limit
+0.01s setup    app/tests/repositories/test_profile_photo_db.py::test_provider_login_refreshes_profile_saved_after_identity_lookup[google]
+0.01s setup    app/tests/repositories/test_chats_db.py::test_list_for_user_excludes_chats_with_no_messages
+0.01s call     app/tests/repositories/test_chats.py::test_create_chat
+0.01s setup    app/tests/repositories/test_profile_photo_db.py::test_replaced_photo_can_be_reaped_without_deleting_current_photo
+0.01s setup    app/tests/repositories/test_messages_db.py::test_get_by_id_scoped_by_chat_does_not_leak_across_chats
+0.01s setup    app/tests/repositories/test_messages_db.py::test_get_last_uses_id_tiebreaker_when_created_at_ties
+0.01s setup    app/tests/repositories/test_profile_photo_db.py::test_provider_login_refreshes_profile_saved_after_identity_lookup[apple]
+0.01s setup    app/tests/repositories/test_chats_db.py::test_pin_archive_races_preserve_archived_unpinned_state
+0.01s setup    app/tests/repositories/test_messages_db.py::test_list_recent_returns_correct_order_and_respects_limit
+0.01s setup    app/tests/repositories/test_usage_db.py::test_add_tokens_accumulates_across_multiple_calls
+54 passed in 5.47s

@@ -1,0 +1,61 @@
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+........................................................................ [ 29%]
+........................................................................ [ 34%]
+........................................................................ [ 39%]
+........................................................................ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 54%]
+........................................................................ [ 59%]
+........................................................................ [ 63%]
+........................................................................ [ 68%]
+........................................................................ [ 73%]
+........................................................................ [ 78%]
+........................................................................ [ 83%]
+........................................................................ [ 88%]
+........................................................................ [ 93%]
+........................................................................ [ 98%]
+........................                                                 [100%]
+=============================== warnings summary ===============================
+app/tests/services/test_push_delivery.py::test_upsert_allows_cross_user_rebind_with_matching_device
+  /home/user/recall-audit/apps/api/app/repositories/push_tokens.py:94: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    session.add(row)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+3.86s call     app/tests/services/test_subject_registry.py::test_chemistry_decline_is_flagged_and_element_context_is_not
+2.55s call     app/tests/services/test_domain_package_seams.py::test_physics_modules_import_cold_in_isolation
+1.11s call     app/tests/services/test_subject_separation_seams.py::test_subject_and_neutral_modules_import_cold[app.services.subject_solving]
+0.92s call     app/tests/services/test_subject_separation_seams.py::test_subject_and_neutral_modules_import_cold[app.modules.math.tools.extract]
+0.66s call     app/tests/services/test_subject_separation_seams.py::test_math_package_has_no_physics_dependency
+0.62s call     app/tests/services/test_subject_separation_seams.py::test_subject_and_neutral_modules_import_cold[app.modules.physics.extract]
+0.54s call     app/tests/services/test_subject_registry.py::test_symbolic_drag_fall_is_verified_not_a_failed_check
+0.47s call     app/tests/services/test_subject_separation_seams.py::test_physics_imports_only_the_shared_graph_transport_from_math
+0.31s setup    app/tests/services/test_recurring_pay.py::test_declines_requests_without_amount_cadence_income_and_end_date[I make 3400 every 2 weeks. What is that annually?]
+0.27s setup    app/tests/services/test_subscription.py::test_handle_revenuecat_transfer_does_not_downgrade_when_fetch_fails
+0.25s call     app/tests/services/test_pubchem_gateway.py::test_lookup_by_name_network_error
+0.21s call     app/tests/services/test_global_spend_precision.py::test_global_spend_counts_sub_cent_turns[0.0004-2500-0.9-True]
+0.20s call     app/tests/services/test_subject_separation_seams.py::test_subject_and_neutral_modules_import_cold[app.modules.math.schemas]
+0.19s call     app/tests/services/test_global_spend_precision.py::test_global_spend_counts_sub_cent_turns[0.0004-2500-1.1-False]
+0.15s call     app/tests/services/test_answer_fence.py::test_a_marker_line_inside_code_the_user_asked_for_stays[```yaml\nverified: true\n```]
+0.13s call     app/tests/services/test_subject_separation_seams.py::test_subject_and_neutral_modules_import_cold[app.modules.physics.schemas]
+0.12s setup    app/tests/services/test_answer_check.py::test_stated_verdict[x = 6-**1. Subtract 5 from both sides**\n$2x + 5 - 5 = 17 - 5$\n$2x = 14$\n\n**2. Divide both sides by 2**\n$x = 7$\n\nEach move keeps both sides equal.-conflict]
+0.08s call     app/tests/services/test_subject_registry.py::test_two_problems_joined_by_and_also_are_both_verified
+0.07s call     app/tests/services/test_law_binding_reduction.py::test_reduce_substitution[\\theta-\\tfrac{1}{2} \\arcsin\\!\\left(\\frac{30 \\cdot 9.81}{20^{2}}\\right)-rows2-23.6853]
+0.06s call     app/tests/services/test_tool_loop_trig_domains.py::test_restricted_trig_request_preserves_other_computations_and_tools
+0.05s call     app/tests/services/test_rate_problems.py::test_one_step_and_errand_turns_keep_thinking_off[John drove 20 km in 2 hours. What is his speed?]
+0.05s call     app/tests/services/test_enrich_final_content.py::test_a_failed_text_pass_keeps_the_reminder_change[passes ok-card offered]
+0.05s call     app/tests/services/test_tool_loop_user_match.py::test_tool_call_matches_only_the_users_problem[args18-solve x + y = 5, x - y = 1-False]
+0.05s call     app/tests/services/test_compact_output_format.py::test_compact_turn_skips_rich_format_pack
+0.05s call     app/tests/services/test_routing_signals.py::test_signals_stay_linear_on_adversarial_input
+0.04s call     app/tests/services/test_push_delivery.py::test_upsert_allows_cross_user_rebind_with_matching_device
+0.04s call     app/tests/services/test_number_text.py::test_a_failed_search_stays_linear_on_a_pasted_digit_run[[+-]?(?:[0-9]{1,24}(?:\\.[0-9]{1,24})?|\\.[0-9]{1,24})]
+0.04s call     app/tests/services/test_push_scan.py::test_aged_unsent_counts_only_push_eligible_rows_that_just_aged_out
+0.03s call     app/tests/services/test_subject_separation_seams.py::test_subject_and_neutral_modules_import_cold[app.services.solving]
+0.03s call     app/tests/services/test_tool_loop_user_match.py::test_tool_call_matches_only_the_users_problem[args3-graph y = 2x + 5 and solve 2x + 5 = 17-False]
+1464 passed, 1 warning in 22.34s

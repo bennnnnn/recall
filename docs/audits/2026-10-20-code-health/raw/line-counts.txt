@@ -1,0 +1,65 @@
+== api: 955 production files, 183369 lines; over 300: 200; over 500: 39
+   862  apps/api/app/modules/physics/catalog/optics.py
+   754  apps/api/app/modules/chemistry/formula_laws.py
+   699  apps/api/app/modules/chemistry/formula_bindings.py
+   670  apps/api/app/modules/physics/catalog/thermal.py
+   662  apps/api/app/modules/chat/prompt_constants/routing.py
+   661  apps/api/app/modules/math/solve/key_steps.py
+   660  apps/api/app/modules/math/solve/work_slips.py
+   650  apps/api/app/modules/math/tool.py
+   642  apps/api/app/modules/math/fence.py
+   636  apps/api/app/modules/math/match/graph.py
+   630  apps/api/app/modules/math/solve/traces.py
+   629  apps/api/app/modules/chemistry/extractors/amounts.py
+   620  apps/api/app/modules/chat/prompt_constants/teaching.py
+   610  apps/api/app/services/time_context.py
+   607  apps/api/app/modules/physics/catalog/magnetism.py
+   603  apps/api/app/modules/physics/catalog/waves.py
+   603  apps/api/app/modules/math/tools/extractors/geometry.py
+   601  apps/api/app/modules/math/match/calculus.py
+   600  apps/api/app/modules/physics/schemas/simulation.py
+   597  apps/api/app/services/answer_check.py
+   594  apps/api/app/modules/chat/prompt_constants/format.py
+   593  apps/api/app/modules/chemistry/request.py
+   587  apps/api/app/modules/physics/catalog/energy.py
+   584  apps/api/app/modules/math/solve/graph.py
+   582  apps/api/app/services/routing.py
+   573  apps/api/app/modules/math/match/discrete.py
+   572  apps/api/app/services/answer_fence.py
+   569  apps/api/app/modules/physics/catalog/quantum.py
+   568  apps/api/app/modules/math/tools/school/curve_points.py
+   566  apps/api/app/modules/chemistry/stated_bindings.py
+== mobile: 795 production files, 104479 lines; over 300: 84; over 500: 16
+   677  apps/mobile/features/chat/components/MathDraftPreview.tsx
+   649  apps/mobile/lib/physics/optics.ts
+   581  apps/mobile/features/chat/hooks/useChat.ts
+   571  apps/mobile/features/chat/screens/ChatScreen.tsx
+   564  apps/mobile/components/MathEquationScanner.tsx
+   559  apps/mobile/lib/math/draftSlots.ts
+   556  apps/mobile/features/chat/components/ChatComposer.tsx
+   545  apps/mobile/lib/math/keyboardCatalog.ts
+   533  apps/mobile/features/chat/hooks/useChatRouteLoader.ts
+   533  apps/mobile/lib/math/layout.ts
+   524  apps/mobile/lib/markdown/calculationLayout.ts
+   522  apps/mobile/lib/math/graphBlock.ts
+   517  apps/mobile/lib/codeTokenize.ts
+   511  apps/mobile/features/chat/hooks/useChatSend.ts
+   511  apps/mobile/lib/physics/circuit.ts
+   508  apps/mobile/lib/math/latexParse.ts
+   500  apps/mobile/features/speech/model/pronunciation.ts
+   500  apps/mobile/lib/math/normalizeImplicit.ts
+   496  apps/mobile/features/chat/hooks/useChatScreenBodyProps.tsx
+   487  apps/mobile/components/HtmlPreviewModal.tsx
+   481  apps/mobile/features/speech/hooks/useLiveTalk.ts
+   469  apps/mobile/lib/copyBlock.ts
+   462  apps/mobile/lib/markdown/plain.ts
+   452  apps/mobile/components/rich/ArithmeticWorkBlock.tsx
+   445  apps/mobile/lib/math/graphExpr.ts
+   439  apps/mobile/lib/physics/simulation/parse.ts
+   434  apps/mobile/components/rich/mathText/render.tsx
+   430  apps/mobile/features/speech/model/realtimeTurnState.ts
+   423  apps/mobile/lib/fenceRegistry.ts
+   422  apps/mobile/features/chat/hooks/useChatIncoming.ts
+api tests: (596, 143644)
+mobile tests: (501, 67456)
+mobile vendor: (63, 1589)

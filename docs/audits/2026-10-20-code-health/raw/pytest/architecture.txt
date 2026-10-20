@@ -1,0 +1,30 @@
+........................................................................ [ 36%]
+........................................................................ [ 73%]
+....................................................                     [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+2.27s call     app/tests/architecture/test_legacy_paths_removed.py::test_no_package_import_reaches_a_retired_module
+1.47s call     app/tests/architecture/test_pure_solvers.py::test_infrastructure_check_finds_the_chemistry_cache_and_gateway_edge
+1.37s call     app/tests/architecture/test_constant_sources.py::test_no_module_types_a_constant_that_has_a_home
+1.35s call     app/tests/architecture/test_product_module_boundaries.py::test_modules_import_other_modules_only_through_public_files
+0.97s call     app/tests/architecture/test_sympy_worker_imports.py::test_sympy_worker_does_not_import_the_model_client_or_web_stack
+0.77s call     app/tests/architecture/test_import_cycles.py::test_production_code_has_no_import_cycles
+0.31s call     app/tests/architecture/test_legacy_paths_removed.py::test_no_code_or_test_names_a_retired_path
+0.21s setup    app/tests/architecture/test_legacy_paths_removed.py::test_retired_module_cannot_be_imported[app.modules.math.sympy_executor]
+0.11s call     app/tests/architecture/test_schema_matches_migrations.py::test_models_match_the_migrated_schema
+0.06s call     app/tests/architecture/test_google_integrations_removed.py::test_integration_http_routes_are_absent
+0.06s call     app/tests/architecture/test_module_boundaries.py::test_infrastructure_does_not_depend_on_product_modules
+0.05s call     app/tests/architecture/test_google_integrations_removed.py::test_no_runtime_code_points_users_to_connect_google
+0.01s call     app/tests/architecture/test_migration_safety.py::test_migrations_have_one_head
+0.01s call     app/tests/architecture/test_module_boundaries.py::test_the_law_engine_does_not_depend_on_a_subject
+0.01s call     app/tests/architecture/test_pure_solvers.py::test_pure_calculation_packages_reach_no_infrastructure
+0.01s call     app/tests/architecture/test_learning_removed.py::test_projects_http_routes_are_absent
+0.01s call     app/tests/architecture/test_job_search_removed.py::test_job_search_http_routes_are_absent
+
+(13 durations < 0.005s hidden.  Use -vv to show these durations.)
+196 passed, 1 warning in 16.60s

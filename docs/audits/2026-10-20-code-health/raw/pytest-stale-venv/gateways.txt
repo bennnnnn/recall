@@ -1,0 +1,51 @@
+........................................................................ [ 62%]
+...........................................                              [100%]
+=============================== warnings summary ===============================
+app/tests/gateways/test_external_timeouts.py::test_google_cert_fetch_uses_a_short_timeout[3.0-3.0]
+app/tests/gateways/test_external_timeouts.py::test_google_verify_gives_up_when_the_fetch_thread_stalls
+app/tests/gateways/test_external_timeouts.py::test_google_sign_in_maps_provider_outage_to_503[error0-401]
+  /home/user/recall/apps/api/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:67: PytestUnraisableExceptionWarning: Exception ignored in: <function Request.__del__ at 0x7f32cfee93a0>
+  
+  Traceback (most recent call last):
+    File "/home/user/recall/apps/api/.venv/lib/python3.13/site-packages/google/auth/transport/requests.py", line 169, in __del__
+      self.session.close()
+      ^^^^^^^^^^^^^^^^^^
+  AttributeError: '_RecordingSession' object has no attribute 'close'
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnraisableExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+6.24s call     app/tests/gateways/test_external_timeouts.py::test_r2_client_has_bounded_timeouts_and_retries[overrides0-5.0-20.0-3]
+1.81s call     app/tests/gateways/test_external_timeouts.py::test_google_verify_gives_up_when_the_fetch_thread_stalls
+1.17s call     app/tests/gateways/test_external_timeouts.py::test_google_sign_in_maps_provider_outage_to_503[error0-401]
+1.04s call     app/tests/gateways/test_safe_fetch.py::test_fetch_safely_deadline_ends_a_dripping_body[None]
+1.04s call     app/tests/gateways/test_safe_fetch.py::test_fetch_safely_deadline_ends_a_dripping_body[131072]
+0.94s call     app/tests/gateways/test_safe_fetch.py::test_fetch_safely_deadline_covers_every_redirect_hop
+0.20s call     app/tests/gateways/test_apple_revoke.py::test_a_slow_apple_ends_at_the_deadline
+0.10s setup    app/tests/gateways/test_apple_revoke.py::test_client_secret_is_an_es256_jwt_apple_accepts
+0.03s call     app/tests/gateways/test_http_client.py::test_get_pooled_client_reuses_same_instance_for_same_timeout
+0.03s call     app/tests/gateways/test_apple_revoke.py::test_client_secret_is_an_es256_jwt_apple_accepts
+0.03s call     app/tests/gateways/test_embedding_gateway.py::test_embed_many_caps_requests_in_flight[1-5]
+0.03s teardown app/tests/gateways/test_external_timeouts.py::test_google_cert_fetch_uses_a_short_timeout[None-10.0]
+0.03s call     app/tests/gateways/test_http_client.py::test_aclose_pooled_clients_closes_and_clears
+0.03s call     app/tests/gateways/test_http_client.py::test_get_pooled_client_creates_separate_instances_per_timeout
+0.03s call     app/tests/gateways/test_embedding_gateway.py::test_embed_many_caps_requests_in_flight[3-12]
+0.02s call     app/tests/gateways/test_embedding_gateway.py::test_embed_many_caps_requests_in_flight[-3-3]
+0.02s call     app/tests/gateways/test_embedding_gateway.py::test_embed_many_caps_requests_in_flight[0-3]
+0.01s call     app/tests/gateways/test_external_timeouts.py::test_google_sign_in_maps_provider_outage_to_503[unavailable-503]
+0.01s call     app/tests/gateways/test_http_client.py::test_get_pooled_client_recreates_after_close
+0.01s call     app/tests/gateways/test_embedding_gateway.py::test_embed_many_caps_requests_in_flight[8-4]
+0.01s call     app/tests/gateways/test_apple_revoke.py::test_revoke_is_configured_only_with_the_whole_key[apple_private_key]
+0.01s call     app/tests/gateways/test_external_timeouts.py::test_r2_client_has_bounded_timeouts_and_retries[overrides1-2.0-9.0-2]
+0.01s call     app/tests/gateways/test_apple_revoke.py::test_revoke_exchanges_the_code_then_revokes_the_refresh_token
+0.01s call     app/tests/gateways/test_apple_revoke.py::test_revoke_is_configured_only_with_the_whole_key[apple_key_id]
+0.01s call     app/tests/gateways/test_apple_revoke.py::test_revoke_is_configured_only_with_the_whole_key[apple_team_id]
+0.01s call     app/tests/gateways/test_external_timeouts.py::test_google_cert_fetch_uses_a_short_timeout[None-10.0]
+0.01s call     app/tests/gateways/test_safe_fetch.py::test_fetch_safely_returns_before_the_deadline
+0.01s setup    app/tests/gateways/test_email_availability.py::test_can_send[staging--True-False]
+
+(2 durations < 0.005s hidden.  Use -vv to show these durations.)
+115 passed, 3 warnings in 15.73s

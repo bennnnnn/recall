@@ -1,0 +1,9 @@
+pylint-dup exit=8 secs=14
+vulture exit=3 secs=6
+radon-cc exit=0 secs=3
+radon-mi exit=0 secs=18
+deptry exit=1 secs=1
+jscpd exit=0 secs=18
+knip exit=1 secs=14
+depcheck exit=255 secs=17
+DONE

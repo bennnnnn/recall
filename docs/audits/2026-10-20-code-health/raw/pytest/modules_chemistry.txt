@@ -1,0 +1,78 @@
+........................................................................ [  2%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [ 10%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 68%]
+........................................................................ [ 70%]
+........................................................................ [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 83%]
+........................................................................ [ 85%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 98%]
+...........................................                              [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+0.22s setup    app/tests/modules/chemistry/test_chemistry_correctness.py::test_coordination_names_use_the_final_charge_and_latin_ate_stems[[Co(NH3)6]Cl3-hexaamminecobalt(III) chloride]
+0.07s call     app/tests/modules/chemistry/test_chemistry_scan_api.py::test_scan_read_returns_the_written_problem
+0.05s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_a_slow_solve_is_stopped_and_declined
+0.05s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_hostile_input_returns_quickly[superscript-run]
+0.05s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_slow_pubchem_does_not_hold_the_turn
+0.05s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_hostile_input_returns_quickly[long-term-list]
+0.04s call     app/tests/modules/chemistry/test_chemistry_binding.py::test_every_law_promises_inputs_its_solver_answers[mass_to_moles]
+0.04s call     app/tests/modules/chemistry/test_chemistry_correctness.py::test_esterification_needs_an_alcohol_partner_not_an_acid
+0.04s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_hostile_input_returns_quickly[equals-term-list]
+0.04s call     app/tests/modules/chemistry/test_chemistry_corpus.py::test_coverage_never_drops
+0.04s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_hostile_input_returns_quickly[decimal-run]
+0.03s call     app/tests/modules/chemistry/test_chemistry_corpus.py::test_a_verified_answer_is_never_wrong[How many liters of CO2 at STP are produced by burning 1 mol ]
+0.03s call     app/tests/modules/chemistry/test_chemistry_corpus.py::test_an_ambiguous_question_declines[What is the LOD?]
+0.02s call     app/tests/modules/chemistry/test_chemistry_corpus.py::test_a_verified_answer_is_never_wrong[For H2 + I2 \u21cc 2HI, Kc = 50 and the initial [H2] = [I2] = 1.0]
+0.02s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_hostile_input_returns_quickly[digit-run]
+0.02s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_a_value_the_schema_refuses_declines_instead_of_raising[equation]
+0.02s call     app/tests/modules/chemistry/test_chemistry_corpus.py::test_a_verified_answer_is_never_wrong[What volume does 2 mol of gas occupy at 300 K and 1 atm?]
+0.02s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_hostile_input_returns_quickly[repeated-cue]
+0.02s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_hostile_input_returns_quickly[hydrate-dot-run]
+0.02s call     app/tests/modules/chemistry/test_chemistry_fence.py::test_enrich_valid_smiles_canonicalizes
+0.02s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_hostile_input_returns_quickly[uppercase-run]
+0.02s call     app/tests/modules/chemistry/test_chemistry_input_safety.py::test_hostile_input_returns_quickly[equation-letter-run]
+0.01s call     app/tests/modules/chemistry/test_chemistry_service.py::test_three_d_coordinates_are_reproducible
+0.01s call     app/tests/modules/chemistry/test_chemistry_corpus.py::test_a_verified_answer_is_never_wrong[A 50 g piece of metal at 100 \xb0C is dropped into 100 g of wat]
+0.01s call     app/tests/modules/chemistry/test_chemistry_shared_laws.py::test_a_shared_law_is_physics_and_answers_in_the_questions_units[Use the combined gas law: P1 = 1 atm, V1 = 2 L, T1 = 27 \xb0C, P2 = 202.65 kPa, T2 = 327 \xb0C, find V2-2 L]
+0.01s call     app/tests/modules/chemistry/test_chemistry_corpus.py::test_a_verified_answer_is_never_wrong[How much heat is released when 2 mol of CH4 burns? \u0394H = -890]
+0.01s call     app/tests/modules/chemistry/test_chemistry_shared_laws.py::test_a_specific_heat_is_per_gram_only_when_the_data_are[A 0.2 kg block of copper at 90 \xb0C is placed in 0.5 kg of water at 20 \xb0C. The equilibrium temperature is 22.4 \xb0C. Find the specific heat capacity of copper.-372 J/(kg\xb7K)]
+0.01s call     app/tests/modules/chemistry/test_chemistry_corpus.py::test_a_verified_answer_is_never_wrong[A gas at 2 atm occupies 4 L. What is its volume at 1 atm at ]
+0.01s call     app/tests/modules/chemistry/test_chemistry_shared_laws.py::test_a_shared_law_is_physics_and_answers_in_the_questions_units[Use the combined gas law: P1=1 atm, V1=2 L, T1=300 K, V2=4 L, T2=300 K, find P2-0.5 atm]
+0.01s call     app/tests/modules/chemistry/test_chemistry_context.py::test_descriptor_context_finds_the_smiles_not_the_first_capitalised_word[Calculate the logP of CCO please-CCO]
+2851 passed, 1 warning in 14.40s

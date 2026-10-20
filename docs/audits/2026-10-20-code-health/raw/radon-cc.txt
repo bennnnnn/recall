@@ -1,0 +1,1474 @@
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Installed 4 packages in 106ms
+app/modules/web_search/subject.py
+    F 67:0 resolve_search_subject - C (14)
+    F 46:0 _prior_searchable_topic - C (11)
+app/modules/web_search/classify.py
+    F 17:0 classify_web_search_need - C (12)
+app/modules/web_search/detection.py
+    F 188:0 web_search_fast_yes - D (28)
+    F 95:0 web_search_skip - D (25)
+    F 267:0 needs_web_search_heuristic - C (17)
+app/modules/web_search/patterns.py
+    F 94:0 has_recency - C (12)
+app/modules/web_search/formatting.py
+    F 259:0 _parse_sources_json - C (12)
+app/modules/web_search/source_quality.py
+    F 82:0 source_tier - C (11)
+app/modules/web_search/geo_intent.py
+    F 91:0 is_distance_query - C (11)
+app/modules/web_search/search_cache.py
+    F 168:0 _search_with_cache - C (16)
+app/modules/web_search/query_builders.py
+    F 271:0 build_search_queries - C (20)
+    F 237:0 _geo_located_queries - C (12)
+    F 158:0 _extract_team_subject - C (11)
+app/modules/web_search/command.py
+    F 383:0 search_command - C (17)
+    F 170:0 _one_edit_apart - C (15)
+    F 350:0 _match_check_online - C (13)
+    F 302:0 _match_search - C (12)
+app/modules/web_search/turn_query.py
+    F 73:0 search_queries_for_turn - C (12)
+app/modules/web_search/tool.py
+    M 87:4 WebSearchAdapter.invoke - C (16)
+app/modules/web_search/augment.py
+    F 45:0 build_search_augmentation - D (26)
+app/modules/todos/classification.py
+    F 171:0 transcript_implies_todo_sync - C (13)
+app/modules/todos/reply_check.py
+    F 133:0 reply_when_nothing_saved - D (21)
+app/modules/todos/reminder_fence_parse.py
+    F 183:0 parse_spoken_remind - C (16)
+app/modules/todos/repository.py
+    F 245:0 reorder - C (12)
+    F 186:0 update - C (11)
+app/modules/todos/spoken_clauses.py
+    F 63:0 pending_add - C (12)
+app/modules/todos/spoken_add.py
+    F 189:0 parse_spoken_add - C (14)
+    F 346:0 _title_before - C (11)
+app/modules/todos/spoken_apply.py
+    F 29:0 apply_spoken_change - E (34)
+    F 141:0 _apply_saved_fields - C (15)
+    F 246:0 format_reminder_reading - C (15)
+app/modules/todos/spoken_change.py
+    F 209:0 _parse_move - C (15)
+    F 373:0 _parse_adjust - C (15)
+    F 155:0 _parse_change - C (13)
+    F 275:0 _prepare - C (12)
+    F 446:0 _subject - C (12)
+app/modules/todos/proposals.py
+    F 258:0 confirm_proposal - C (11)
+app/modules/todos/prompt_context.py
+    F 141:0 format_todos_block - D (22)
+    F 86:0 _todo_priority - C (12)
+app/modules/todos/reminder_writes.py
+    F 145:0 create_one - C (18)
+    F 112:0 _existing_open_match - C (12)
+    F 137:0 _existing_mutation_match - C (11)
+app/modules/todos/crud.py
+    F 77:0 create_todo - C (11)
+app/modules/todos/spoken_when.py
+    F 144:0 _find_clock - C (14)
+    F 115:0 _find_day - C (13)
+app/modules/todos/reminder_fences.py
+    F 237:0 _match_spoken_add - C (13)
+    F 324:0 _apply_fences - C (11)
+app/modules/math/ocr.py
+    F 182:0 extract_math_from_image - E (34)
+app/modules/math/followup.py
+    F 36:0 _referenced_math_problem - C (18)
+    F 404:0 _expression_in - C (17)
+    F 186:0 offered_equation_problem - C (15)
+    F 434:0 pronoun_math_problem - C (15)
+    F 234:0 restated_math_problem - C (13)
+    F 323:0 answer_claim_problem - C (12)
+app/modules/math/tool_check.py
+    F 253:0 _matches - F (42)
+    F 81:0 _math_runs - C (14)
+    M 136:4 _UserMath.__init__ - C (11)
+app/modules/math/request_consumption.py
+    F 185:0 audit_math_request - D (23)
+app/modules/math/image_extract.py
+    F 89:0 camera_math_display_text - E (32)
+app/modules/math/fence.py
+    F 336:0 _append_missing_canonical_fences - E (40)
+    F 487:0 validate_math_fences - D (25)
+    F 261:0 _canonical_answer_body - C (18)
+    F 90:0 _canonical_replacement - C (16)
+    F 442:0 convert_function_call_text - C (13)
+    F 147:0 _replace_unclosed_graph_fence - C (12)
+    F 291:0 _spec_fence_kind - C (11)
+app/modules/math/calculus_applications.py
+    F 84:0 _integrate_absolute - C (20)
+app/modules/math/text_plot.py
+    F 42:0 strip_text_plots - C (11)
+app/modules/math/response_intent.py
+    F 239:0 classify_math_response_intent - F (58)
+    F 164:0 _requested_method - C (11)
+    F 191:0 _withhold_answer - C (11)
+app/modules/math/fence_graph.py
+    F 112:0 densify_sparse_graph - C (15)
+app/modules/math/followup_what_if.py
+    F 43:0 changed_part_equation - C (15)
+app/modules/math/tool.py
+    M 483:4 SympyAdapter._action_graph - D (29)
+    M 128:4 SympyAdapter._action_expr_op - D (23)
+    M 208:4 SympyAdapter._action_inequality - C (12)
+    M 302:4 SympyAdapter._action_series - C (12)
+app/modules/math/fence_answer.py
+    F 67:0 _contains_value - C (11)
+    F 114:0 prose_already_states_answer - C (11)
+app/modules/math/schemas/algebra.py
+    M 110:4 MathImageExtract.normalize_kind - F (58)
+    C 42:0 MathImageExtract - E (31)
+app/modules/math/schemas/discrete.py
+    M 119:4 MatrixInput.square_when_required - C (11)
+app/modules/math/schemas/graph.py
+    C 56:0 GraphBlockSpec - F (42)
+    M 116:4 GraphBlockSpec.vertical_or_function_shape - F (41)
+app/modules/math/match/units.py
+    F 49:0 solid_length_unit - C (14)
+app/modules/math/match/arithmetic.py
+    F 280:0 bare_arithmetic_expr - E (39)
+    F 168:0 _looks_like_date_or_phone - E (32)
+    F 218:0 _unambiguous_single_slash - C (16)
+    F 112:0 _factorials_ok - C (11)
+app/modules/math/match/geometry.py
+    F 132:0 parse_solid - F (42)
+    F 276:0 triangle_angles_signal - D (22)
+    F 114:0 _solid_complete - C (12)
+    F 67:0 classify_solid_shape - C (11)
+app/modules/math/match/coordinate_vector.py
+    F 39:0 _take_tuple - C (11)
+app/modules/math/match/calculus.py
+    F 493:0 parse_series - E (35)
+    F 382:0 _parse_prose_limit - C (18)
+    F 207:0 calc_object - C (13)
+    F 449:0 _parse_latex_series - C (13)
+    F 15:0 _skip_optional_paren_var - C (11)
+app/modules/math/match/need_signals.py
+    F 91:0 shape_with_measures - D (29)
+app/modules/math/match/needs.py
+    F 41:0 needs_symbolic - C (11)
+app/modules/math/match/dimensions.py
+    F 112:0 first_dim_triple - C (14)
+    F 29:0 _parse_unsigned_number - C (12)
+app/modules/math/match/discrete.py
+    F 363:0 number_theory_signal - E (33)
+    F 509:0 _matrix_op_from_text - E (32)
+    F 275:0 counting_word_signal - C (19)
+    F 468:0 _rows_from_brackets - C (15)
+    F 50:0 numeric_data_values - C (12)
+    F 195:0 _ncr_npr_signal - C (12)
+    F 107:0 stats_signal - C (11)
+app/modules/math/match/graph.py
+    F 412:0 _expr_from_looks_like_ask - C (14)
+    F 443:0 graph_expr - C (14)
+    F 578:0 vertical_line_x - C (13)
+    F 89:0 _parse_bound - C (12)
+    F 618:0 _standalone_equals - C (11)
+app/modules/math/match/written.py
+    F 254:0 written_arithmetic_request - D (27)
+    F 167:0 spoken_power_request - D (23)
+    F 113:0 _school_number - C (18)
+    F 210:0 written_addition_request - C (13)
+app/modules/math/match/homework_cues.py
+    F 71:0 everyday_cue - C (18)
+    F 50:0 percent_cue - C (16)
+    F 89:0 sequence_cue - C (14)
+    F 130:0 coordinate_cue - C (14)
+    F 146:0 probability_cue - C (13)
+    F 162:0 structure_cue - C (13)
+    F 27:0 _has_ordinal_term_cue - C (11)
+app/modules/math/match/scan.py
+    F 47:0 _leibniz_op_end - D (22)
+    F 144:0 bare_equation_system - C (12)
+app/modules/math/match/literal_geometry.py
+    F 51:0 parse_named_rectangle_request - F (47)
+    F 251:0 measurement_request - C (16)
+app/modules/math/match/letter_runs.py
+    F 67:0 peel_edge_english - C (11)
+app/modules/math/tools/direct_shape_questions.py
+    F 162:0 _plain_geometry_description - D (23)
+    F 197:0 nonmeasurement_geometry_reply - D (23)
+app/modules/math/tools/keyboard_notation.py
+    F 56:0 _times_beside_fractions - C (12)
+app/modules/math/tools/extract.py
+    F 177:0 _extract_math_intent_any - D (21)
+    F 304:0 _extract_math_intent - D (21)
+app/modules/math/tools/direct_graph.py
+    F 190:0 can_direct_graph - F (47)
+    F 161:0 _literal_vertical - C (15)
+    F 294:0 can_direct_number_line - C (14)
+    F 98:0 _strip_graph_interaction_tail - C (12)
+    F 142:0 _literal_point - C (12)
+app/modules/math/tools/graph_followup.py
+    F 135:0 _plottable_graph_source - D (30)
+app/modules/math/tools/lesson.py
+    F 211:0 _given_and_find - C (18)
+    F 298:0 _numbered_blocks - C (18)
+    F 239:0 _collect_formula - C (16)
+    F 90:0 should_render_equation_lesson - C (12)
+app/modules/math/tools/function_def.py
+    F 54:0 substituted_eval_expr - E (38)
+app/modules/math/tools/direct_statistics.py
+    F 18:0 _complete_data - D (22)
+app/modules/math/tools/word_templates.py
+    F 78:0 _consecutive - D (22)
+    F 388:0 _proportion - C (13)
+    F 154:0 _ages - C (12)
+app/modules/math/tools/direct_arithmetic.py
+    F 138:0 _arithmetic_tokens - C (16)
+app/modules/math/tools/llm_extract.py
+    F 79:0 to_math_intent - D (22)
+app/modules/math/tools/direct_newton.py
+    F 139:0 can_direct_newton - D (29)
+    F 112:0 _request_parameters - C (16)
+app/modules/math/tools/word_problem.py
+    F 220:0 word_problem_candidate - C (19)
+    F 305:0 word_problem_intent - C (13)
+app/modules/math/tools/direct_geometry.py
+    F 34:0 can_direct_rectangle - F (47)
+    F 146:0 can_direct_curved_or_slanted_geometry - F (45)
+    F 268:0 can_direct_square_or_triangle - E (33)
+    F 233:0 can_direct_triangle_angles - C (17)
+app/modules/math/tools/request_text.py
+    F 185:0 _calc_expr_tail - C (15)
+app/modules/math/tools/direct_units.py
+    F 16:0 unit_direct_request - C (14)
+app/modules/math/tools/direct.py
+    F 163:0 can_direct_verified_math_reply - F (71)
+    F 432:0 maybe_direct_math_reply - D (25)
+    F 128:0 _closed_school_request - C (12)
+    F 362:0 _format_direct_math_body - C (12)
+app/modules/math/tools/expr_rewrite.py
+    F 60:0 rewrite_english_powers - C (11)
+app/modules/math/tools/prompt.py
+    F 238:0 build_math_augmentation - E (38)
+    F 140:0 _intent_from_image_extract - D (29)
+app/modules/math/tools/direct_solids.py
+    F 25:0 solid_direct_request - D (25)
+app/modules/math/tools/direct_calculus.py
+    F 113:0 calculus_direct_request - F (95)
+    F 58:0 _expression - C (12)
+app/modules/math/tools/work_request.py
+    F 181:0 parse_work_request - D (25)
+    F 343:0 _math_line - C (15)
+    F 228:0 _claimed_roots_request - C (14)
+app/modules/math/tools/school/complex.py
+    F 32:0 _extract_complex_intent - C (17)
+app/modules/math/tools/school/percentages.py
+    F 147:0 _extract_percent_is - D (22)
+    F 48:0 _extract_percent_of - C (17)
+    F 236:0 extract_original_before_percent - C (15)
+    F 114:0 _extract_percent_change - C (13)
+    F 299:0 extract_with_percent_total - C (13)
+    F 269:0 extract_discount - C (11)
+app/modules/math/tools/school/trig.py
+    F 86:0 _extract_trig_intent - F (64)
+    F 306:0 _angle_value_block - C (14)
+    F 272:0 _verified_block_trig - C (13)
+    F 337:0 _angle_sum_identity - C (11)
+app/modules/math/tools/school/_parse.py
+    F 43:0 _colon_ratio_parts - C (20)
+app/modules/math/tools/school/probability_formulas.py
+    F 64:0 extract_probability_formulas - D (24)
+    F 139:0 probability_formula_block - C (15)
+app/modules/math/tools/school/probability.py
+    F 357:0 _verified_block_probability - E (37)
+    F 207:0 _extract_probability_intent - E (31)
+    F 174:0 _trials_intent - C (15)
+app/modules/math/tools/school/curve_points.py
+    F 147:0 _other_curve_intents - D (21)
+    F 97:0 extract_curve_point_intent - C (16)
+    F 479:0 _extreme_value_block - C (14)
+    F 400:0 _inflection_block - C (11)
+app/modules/math/tools/school/units.py
+    F 188:0 _extract_unit_intent - D (24)
+    F 82:0 _exact_angle - C (12)
+app/modules/math/tools/school/rates.py
+    F 67:0 _extract_twice_as_many_intent - C (13)
+app/modules/math/tools/school/bag_draws.py
+    F 94:0 extract_bag_draws_intent - D (22)
+    F 156:0 bag_draws_block - C (11)
+app/modules/math/tools/school/arithmetic.py
+    F 104:0 _extract_arithmetic_intent - D (26)
+    F 267:0 _verified_block_arithmetic - C (11)
+app/modules/math/tools/school/arithmetic_expression.py
+    F 19:0 expression_block - C (12)
+app/modules/math/tools/school/calculus.py
+    F 264:0 apply_calculus_extension - F (49)
+    F 50:0 _extract_taylor_or_ode - E (37)
+    F 211:0 _direct_integration_working - C (11)
+app/modules/math/tools/school/trig_equations.py
+    F 35:0 bounded_equation_block - C (20)
+    F 144:0 _periodic_steps - C (13)
+app/modules/math/tools/school/interest.py
+    F 57:0 _extract_interest_intent - E (39)
+    F 127:0 extract_present_value - C (18)
+app/modules/math/tools/school/function_value.py
+    F 323:0 _block_function_value - D (21)
+    F 101:0 extract_function_value_intent - C (14)
+app/modules/math/tools/school/algebra_facts.py
+    F 220:0 _cosine_rule - C (12)
+    F 175:0 _complete_square - C (11)
+app/modules/math/tools/school/vectors.py
+    F 20:0 extract_vector_formulas - C (15)
+    F 116:0 _verified_block_vector - C (13)
+    F 56:0 _extract_vector_intent - C (12)
+app/modules/math/tools/school/coordinate.py
+    F 168:0 _verified_block_coord - C (16)
+    F 42:0 extract_coord_formulas - C (15)
+    F 120:0 extract_sas_area - C (14)
+    F 204:0 _coordinate_working - C (13)
+    F 79:0 _extract_coord_intent - C (11)
+app/modules/math/tools/school/number_facts.py
+    F 75:0 extract_number_fact_intent - C (15)
+    F 149:0 _root - C (15)
+app/modules/math/tools/school/ratios.py
+    F 21:0 _extract_ratio_split - C (12)
+app/modules/math/tools/school/single_draw.py
+    F 36:0 _die_face_count - C (17)
+    F 88:0 extract_single_draw_intent - C (17)
+    F 67:0 _card_count - C (14)
+app/modules/math/tools/school/sequences.py
+    F 98:0 _extract_sequence_intent - C (14)
+    F 34:0 _ordinal_term_n - C (12)
+app/modules/math/tools/school/shopping.py
+    F 51:0 extract_change_intent - C (12)
+app/modules/math/tools/school/equation_features/extract.py
+    F 158:0 extract_equation_feature_intent - D (28)
+app/modules/math/tools/school/equation_features/sinusoids.py
+    F 12:0 _sinusoid - C (11)
+app/modules/math/tools/school/equation_features/lines.py
+    F 54:0 _x_intercepts - C (11)
+app/modules/math/tools/school/equation_features/quadratics.py
+    F 161:0 _solution_count - C (20)
+    F 107:0 _parameter - C (13)
+app/modules/math/tools/school/geometry_measures/__init__.py
+    F 104:0 geometry_measure_block - C (12)
+app/modules/math/tools/school/geometry_measures/coordinates.py
+    F 32:0 _circle_centre_radius - C (13)
+app/modules/math/tools/extractors/functions.py
+    F 106:0 _single_function_intent - D (24)
+app/modules/math/tools/extractors/discrete_statistics.py
+    F 11:0 _extract_statistics_intent - C (16)
+app/modules/math/tools/extractors/detection.py
+    F 66:0 an_extractor_reads - C (16)
+app/modules/math/tools/extractors/teaching.py
+    F 133:0 _match - D (30)
+app/modules/math/tools/extractors/geometry.py
+    F 72:0 _extract_rectangle_intent - D (21)
+    F 479:0 _extract_sector_intent - C (20)
+    F 217:0 _extract_circle_intent - C (18)
+    F 141:0 _extract_square_intent - C (13)
+    F 561:0 _extract_triangle_intent - C (13)
+    F 432:0 _extract_parallelogram_intent - C (12)
+app/modules/math/tools/extractors/calculus.py
+    F 267:0 _extract_calculus_intent - F (43)
+    F 155:0 _extract_identity_intent - C (18)
+    F 228:0 _leading_integral_bounds - C (18)
+    F 407:0 _extract_series_intent - C (13)
+app/modules/math/tools/extractors/algebra.py
+    F 358:0 _extract_equation_intent - D (24)
+    F 322:0 _extract_system_intent - C (13)
+    F 226:0 _requested_variable - C (12)
+app/modules/math/tools/extractors/calculus_applications.py
+    F 76:0 _extract_area_between_intent - C (12)
+app/modules/math/tools/extractors/calculus_methods.py
+    F 108:0 extract_average_value_intent - C (17)
+app/modules/math/tools/extractors/graph.py
+    F 70:0 _extract_polar_or_parametric_intent - C (18)
+    F 165:0 _solve_for_y_as_function_of_x - C (18)
+    F 218:0 _equation_as_function_of_x - C (17)
+    F 37:0 _rhs_after_letter_eq - C (15)
+    F 291:0 _extract_graph_intent - C (11)
+app/modules/math/tools/extractors/fractions.py
+    F 84:0 extract_fraction_intent - C (11)
+app/modules/math/tools/block/limits.py
+    F 42:0 _limit_working - C (18)
+app/modules/math/tools/block/__init__.py
+    F 116:0 _build_verified_block - C (13)
+app/modules/math/tools/block/work.py
+    F 84:0 format_work_check_reply - C (11)
+app/modules/math/tools/block/geometry.py
+    F 345:0 _verified_block_triangle_sides - D (28)
+    F 39:0 _finish_geometry - C (15)
+    F 66:0 _verified_block_rectangle - C (15)
+app/modules/math/tools/block/statistics.py
+    F 45:0 _verified_block_statistics - D (21)
+app/modules/math/tools/block/series.py
+    F 13:0 _verified_block_series - C (12)
+app/modules/math/tools/block/calculus.py
+    F 197:0 _simplification_direct_reply - D (24)
+app/modules/math/tools/block/algebra.py
+    F 155:0 _verified_block_equation - D (30)
+    F 98:0 _written_given - C (16)
+    F 268:0 _verified_block_inequality - C (13)
+app/modules/math/tools/block/calculus_applications.py
+    F 95:0 _curve_order - C (12)
+app/modules/math/tools/block/matrix.py
+    F 12:0 _verified_block_matrix - C (12)
+app/modules/math/tools/block/graph.py
+    F 57:0 _verified_block_graph - C (19)
+app/modules/math/tools/block/integrals.py
+    F 18:0 _integral - C (16)
+    F 153:0 _fundamental_theorem_working - C (12)
+app/modules/math/solve/inequalities.py
+    F 88:0 inequality_solution_latex - C (19)
+app/modules/math/solve/written_arithmetic_common.py
+    F 43:0 scaled_number_parts - C (16)
+app/modules/math/solve/unicode_normalize.py
+    F 119:0 _rewrite_unicode_sqrts - D (22)
+    F 80:0 _rewrite_unicode_higher_roots - C (14)
+app/modules/math/solve/extract_eq.py
+    F 210:0 _equation_spans - D (30)
+    F 132:0 _strip_leading_prefixes - C (18)
+    F 409:0 try_extract_compound_inequality_from_text - C (14)
+    F 446:0 try_extract_inequality_from_text - C (13)
+    F 101:0 _is_equation_side - C (11)
+app/modules/math/solve/parse.py
+    F 72:0 _lift_glued_exponents - C (15)
+app/modules/math/solve/work_slips.py
+    F 238:0 _scaling - C (19)
+    F 471:0 _divide_every_term - C (16)
+    F 334:0 _bracket - C (15)
+    F 154:0 _direction - C (12)
+    F 420:0 _moved_term - C (12)
+    F 573:0 _solution_count - C (11)
+app/modules/math/solve/teaching.py
+    F 32:0 build_teaching - F (46)
+app/modules/math/solve/teaching_data.py
+    F 28:0 _numbers - C (13)
+app/modules/math/solve/teaching_elementary.py
+    F 66:0 place_value_spec - C (15)
+    F 204:0 number_line_for_expr - C (13)
+    F 291:0 decimal_compare_spec - C (13)
+    F 45:0 _split_number - C (12)
+    F 243:0 fraction_bar_spec - C (12)
+app/modules/math/solve/inequality_graph.py
+    F 17:0 affine_inequality_graph_spec - C (17)
+app/modules/math/solve/geometry.py
+    F 114:0 solid_geometry - D (22)
+app/modules/math/solve/statistics.py
+    F 29:0 compute_bivariate_statistics - C (14)
+app/modules/math/solve/traces.py
+    F 460:0 _elimination_steps - D (29)
+    F 68:0 inequality_key_steps - D (23)
+    F 373:0 _substitution_steps - C (19)
+    F 200:0 compound_inequality_key_steps - C (16)
+    F 338:0 system_key_steps - C (16)
+    F 610:0 system_trace - C (13)
+app/modules/math/solve/calculus.py
+    F 45:0 _term_derivative_step - C (14)
+    F 359:0 compute_limit - C (12)
+app/modules/math/solve/integral_steps.py
+    F 232:0 _parts_split - C (18)
+    F 328:0 integral_key_steps - C (18)
+    F 102:0 _power_step - C (11)
+app/modules/math/solve/trig_equations.py
+    F 28:0 _complete_solution_latex - C (12)
+app/modules/math/solve/written_division.py
+    F 114:0 build_long_division - D (30)
+app/modules/math/solve/key_steps_special.py
+    F 368:0 absolute_value_key_steps - D (24)
+    F 286:0 rational_equation_key_steps - D (23)
+    F 174:0 logarithm_key_steps - D (21)
+    F 91:0 _two_radical_equation_key_steps - C (20)
+    F 234:0 exponential_key_steps - C (20)
+    F 46:0 radical_equation_key_steps - C (12)
+app/modules/math/solve/equation_conditions.py
+    F 47:0 _parameter_solution_conditions - C (16)
+app/modules/math/solve/work_check.py
+    F 53:0 check_work - C (19)
+app/modules/math/solve/display.py
+    F 10:0 derivative_latex - C (11)
+app/modules/math/solve/derivative_steps.py
+    F 90:0 _term_step - E (38)
+    F 220:0 derivative_key_steps - C (16)
+app/modules/math/solve/word_problem.py
+    F 75:0 solve_word_problem - E (39)
+app/modules/math/solve/latex_normalize.py
+    F 128:0 _rewrite_latex_sqrts - D (22)
+    F 275:0 _rewrite_log_bases_once - C (18)
+    F 212:0 _rewrite_latex_braced_scripts_once - C (16)
+app/modules/math/solve/discrete.py
+    F 246:0 compute_matrix - D (24)
+    F 168:0 compute_number_theory - C (17)
+app/modules/math/solve/written_arithmetic.py
+    F 241:0 build_written_arithmetic_operands - C (16)
+    F 54:0 _addition - C (11)
+    F 167:0 _multiplication - C (11)
+app/modules/math/solve/graph.py
+    F 365:0 parse_ellipse_relation - C (13)
+    F 480:0 _collect_number_line_intervals - C (13)
+    F 518:0 _inequality_solution_set - C (12)
+    F 49:0 _split_into_segments - C (11)
+app/modules/math/solve/fractions.py
+    F 125:0 build_fraction_work - D (29)
+    F 317:0 fraction_working - C (16)
+    F 49:0 _binary - C (13)
+app/modules/math/solve/systems.py
+    F 29:0 solve_system - C (15)
+app/modules/math/solve/root_latex.py
+    F 49:0 compact_root_answer_lines - D (29)
+app/modules/math/solve/key_steps.py
+    F 437:0 _pure_power_key_steps - C (16)
+    F 345:0 _linear_key_steps - C (15)
+    F 549:0 _factor_trace - C (15)
+    F 531:0 _ordered_factored_tex - C (13)
+    F 96:0 equation_key_steps - C (12)
+    F 162:0 equation_check_latex - C (11)
+app/modules/math/solve/step_rules.py
+    F 117:0 evaluate_powers - C (12)
+    F 170:0 substitution_check - C (11)
+app/modules/math/solve/teaching_algebra.py
+    F 275:0 _map_point - C (20)
+    F 68:0 polynomial_division - C (18)
+    F 226:0 transformation_spec - C (13)
+    F 43:0 _polynomial - C (12)
+    F 253:0 _rule_text - C (12)
+app/modules/math/solve/graph_expr_text.py
+    M 110:4 _Printer._product - C (18)
+    M 78:4 _Printer.text - C (12)
+app/modules/math/solve/equations.py
+    F 122:0 solve_equation - D (29)
+    F 75:0 _real_fractional_power_solutions - C (12)
+app/modules/images/gen_intent_thread.py
+    F 241:0 extract_image_revision_prompt - C (16)
+    F 48:0 _thread_subject_from_user - C (14)
+    F 293:0 image_gen_revision_context - C (14)
+    F 207:0 _strip_revision_lead_in - C (13)
+    F 172:0 _is_show_image_revision - C (12)
+app/modules/images/search.py
+    F 191:0 search_and_attach_for_chat - C (16)
+    F 309:0 photos_for_answer - C (11)
+app/modules/images/gen_intent.py
+    F 131:0 _match_verb_then_image - D (22)
+    F 261:0 _match_image_noun_message - D (22)
+    F 221:0 _match_short_create - C (20)
+    F 299:0 extract_image_gen_prompt - C (13)
+    F 174:0 _match_verb_subject_image - C (12)
+    F 366:0 is_image_noun_only_message - C (11)
+app/modules/images/gen_tool.py
+    M 51:4 ImageGenAdapter.invoke - C (12)
+app/modules/images/lookup_intent.py
+    F 152:0 _clean_subject - D (26)
+    F 251:0 _match_fetch_photo - C (11)
+app/modules/chemistry/lewis.py
+    F 142:0 lewis_structure - F (45)
+    F 85:0 _central_atom - D (30)
+app/modules/chemistry/nomenclature.py
+    F 139:0 salt_from_name - C (13)
+    F 162:0 salt_from_formula - C (12)
+app/modules/chemistry/structure.py
+    F 43:0 oxidation_states - E (36)
+    F 111:0 _polyatomic_oxidation - C (13)
+app/modules/chemistry/formula.py
+    F 41:0 _parse_formula_body - D (28)
+    F 105:0 parse_formula - C (11)
+app/modules/chemistry/species.py
+    F 108:0 _strip_charge - C (15)
+    F 163:0 parse_species - C (12)
+app/modules/chemistry/sig_figs.py
+    F 145:0 written_numbers - D (23)
+    F 121:0 _reading - C (12)
+app/modules/chemistry/nuclear.py
+    F 190:0 balance_nuclear - C (17)
+    F 115:0 parse_nuclide - C (15)
+app/modules/chemistry/stoichiometry.py
+    F 103:0 _prefer_smiles - C (12)
+    F 208:0 limiting_reagent - C (12)
+app/modules/chemistry/binding.py
+    F 244:0 _fallback - D (21)
+    F 356:0 _bind - C (16)
+    F 218:0 _formula_for - C (11)
+    F 281:0 _converted - C (11)
+app/modules/chemistry/reactions.py
+    F 84:0 _add_across_alkene - C (11)
+app/modules/chemistry/species_facts.py
+    F 228:0 dissolution_equation - C (12)
+app/modules/chemistry/request.py
+    F 504:0 is_chemistry_question - E (39)
+app/modules/chemistry/context.py
+    F 278:0 build_chemistry_augmentation - C (17)
+app/modules/chemistry/coordination.py
+    F 167:0 _analyze - D (25)
+app/modules/chemistry/equations.py
+    F 73:0 balance_equation - E (33)
+app/modules/chemistry/schemas/intent.py
+    C 51:0 ChemistryIntent - C (13)
+    M 88:4 ChemistryIntent.finite_values - C (12)
+app/modules/chemistry/solvers/ice_table.py
+    F 19:0 solve_ice - D (29)
+    F 169:0 _polynomial_text - C (13)
+app/modules/chemistry/solvers/empirical.py
+    F 41:0 _empirical_counts - C (11)
+app/modules/chemistry/solvers/solutions.py
+    F 107:0 solve_solution - C (19)
+    F 289:0 _colligative - C (13)
+app/modules/chemistry/solvers/spectroscopy.py
+    F 24:0 solve_beer_lambert - C (16)
+app/modules/chemistry/solvers/structure.py
+    F 195:0 solve_crystal_field - C (11)
+    F 310:0 solve_valence_electrons - C (11)
+app/modules/chemistry/solvers/acid_equilibria.py
+    F 137:0 solve_buffer_addition - C (13)
+    F 198:0 solve_amphiprotic - C (11)
+app/modules/chemistry/solvers/formula.py
+    F 150:0 solve_formula_law - F (42)
+app/modules/chemistry/solvers/thermochemistry.py
+    F 121:0 _multipliers - C (17)
+    F 153:0 _solve_hess_steps - C (13)
+app/modules/chemistry/solvers/solubility.py
+    F 118:0 solve_common_ion - C (16)
+app/modules/chemistry/solvers/electrochemistry.py
+    F 224:0 solve_galvanic_nernst - C (14)
+app/modules/chemistry/solvers/stoichiometry.py
+    F 129:0 solve_stoichiometry - C (15)
+    F 28:0 _tally_lines - C (13)
+app/modules/chemistry/solvers/titration.py
+    F 120:0 _weak_titration - D (29)
+app/modules/chemistry/solvers/amounts.py
+    F 90:0 solve_amount - C (13)
+    F 214:0 solve_atom_economy - C (13)
+app/modules/chemistry/solvers/kinetics.py
+    F 39:0 solve_kinetics - C (17)
+app/modules/chemistry/solvers/mass_stoichiometry.py
+    F 179:0 solve_limiting_amounts - D (21)
+app/modules/chemistry/solvers/rate_laws.py
+    F 125:0 solve_michaelis_menten - E (31)
+    F 29:0 solve_rate_law - C (18)
+app/modules/chemistry/solvers/relation.py
+    F 22:0 solve_paired - C (18)
+app/modules/chemistry/solvers/acid_base.py
+    F 252:0 solve_ka_kb - C (13)
+app/modules/chemistry/extractors/solutions.py
+    F 163:0 _extract_solutions - D (27)
+    F 252:0 _extract_percent_solute - C (11)
+app/modules/chemistry/extractors/spectroscopy.py
+    F 40:0 _extract_spectrum - C (14)
+app/modules/chemistry/extractors/gases.py
+    F 62:0 _extract_gas_laws - D (23)
+    F 255:0 _gas_pressures - C (11)
+app/modules/chemistry/extractors/thermochemistry.py
+    F 62:0 _extract_enthalpy - D (26)
+    F 154:0 _hess_from_equations - D (21)
+    F 222:0 _formation_list - C (11)
+app/modules/chemistry/extractors/electrochemistry.py
+    F 20:0 _extract_electrochem - C (17)
+    F 130:0 _cell_at_concentrations - C (16)
+    F 172:0 _extract_cells - C (12)
+app/modules/chemistry/extractors/analytical.py
+    F 119:0 _extract_column - D (21)
+    F 53:0 _extract_statistics - C (13)
+app/modules/chemistry/extractors/parsing.py
+    F 189:0 _target - C (11)
+app/modules/chemistry/extractors/stoichiometry.py
+    F 18:0 _extract_mass_chain - D (24)
+    F 206:0 _extract_reaction_yield - C (14)
+app/modules/chemistry/extractors/equilibrium.py
+    F 24:0 _extract_equilibrium - E (34)
+    F 202:0 _salt_solubility - C (13)
+app/modules/chemistry/extractors/titration.py
+    F 119:0 _titration_in_words - E (40)
+    F 26:0 _extract_titration - C (11)
+    F 199:0 _unknown_concentration - C (11)
+app/modules/chemistry/extractors/amounts.py
+    F 191:0 _extract_amounts - C (12)
+    F 518:0 _extract_average_atomic_mass - C (12)
+    F 397:0 _empirical_from_masses - C (11)
+    F 577:0 _extract_combustion - C (11)
+app/modules/chemistry/extractors/kinetics.py
+    F 35:0 _extract_first_order - D (22)
+    F 186:0 _extract_michaelis - D (21)
+    F 105:0 _extract_rate_laws - C (16)
+    F 243:0 _first_order_time - C (11)
+app/modules/chemistry/extractors/acid_base.py
+    F 121:0 _extract_acid_solution - D (30)
+    F 17:0 _extract_ph - C (14)
+app/modules/chemistry/extractors/equations.py
+    F 39:0 _extract_equations - D (28)
+app/modules/link_preview/service.py
+    F 76:0 fetch_link_preview - C (18)
+app/modules/account/tokens.py
+    F 226:0 refresh_token_pair - C (13)
+    F 354:0 list_sessions - C (11)
+app/modules/account/service.py
+    F 61:0 login_with_google - C (15)
+    F 132:0 login_with_apple - C (15)
+app/modules/account/export.py
+    F 252:0 _iter_export_json - E (32)
+app/modules/account/lifecycle.py
+    F 33:0 update_account - C (13)
+app/modules/account/settings_proposal.py
+    F 132:0 validate_changes - C (19)
+    F 303:0 confirm_proposal - C (18)
+    F 186:0 format_proposal_reply - C (11)
+app/modules/account/settings_intent.py
+    F 327:0 _extract_appearance - D (21)
+    F 387:0 _extract_locale - C (17)
+    F 368:0 _extract_tone - C (14)
+    F 441:0 _changes_in - C (13)
+    F 279:0 _revises_prior_draft - C (12)
+    F 350:0 _extract_model - C (12)
+app/modules/physics/extract.py
+    F 192:0 _extract_physics_intent - C (16)
+    F 107:0 needs_physics - C (13)
+app/modules/physics/accounting.py
+    F 148:0 _derived - D (30)
+    F 234:0 competing_given - C (20)
+app/modules/physics/followup.py
+    F 62:0 physics_followup_problem - C (11)
+app/modules/physics/binding.py
+    F 63:0 bind_physics_intent - C (14)
+app/modules/physics/claims.py
+    F 142:0 read_claims - C (17)
+    F 204:0 question_without_claims - C (15)
+    F 253:0 claim_verdict - C (11)
+app/modules/physics/fence.py
+    F 35:0 validate_physics_fences - C (18)
+app/modules/physics/working_steps.py
+    F 138:0 carried_to_answer - C (17)
+    F 99:0 _closing - C (11)
+app/modules/physics/numbers.py
+    F 115:0 normalize_physics_numbers - C (20)
+app/modules/physics/direct.py
+    F 101:0 can_direct_physics - E (31)
+    F 257:0 format_direct_physics_working - D (24)
+    F 349:0 maybe_direct_physics_reply - D (23)
+    F 198:0 _formula_rows - C (11)
+app/modules/physics/symbol_givens.py
+    F 98:0 _read - D (21)
+app/modules/physics/binding_values.py
+    F 26:0 fallback_value - C (15)
+app/modules/physics/block.py
+    F 107:0 _build_physics_block - C (18)
+    F 48:0 _solve_requested_quantities - C (15)
+app/modules/physics/answer_checks.py
+    F 162:0 _kwh_of_givens - C (18)
+    F 131:0 _per_time_of_givens - C (17)
+    F 17:0 _in_the_asked_unit - C (16)
+    F 104:0 _per_gram_of_givens - C (14)
+    F 65:0 _in_context_units - C (12)
+app/modules/physics/request.py
+    F 144:0 _collision_intent - F (41)
+    F 260:0 _projectile_parts - D (27)
+    F 395:0 complete_physics_intent - D (21)
+    F 374:0 _selection_uses_gravity - C (11)
+app/modules/physics/ask.py
+    F 289:0 asked_unit - C (12)
+    F 215:0 asked_phrases - C (11)
+app/modules/physics/schemas/simulation.py
+    M 506:4 SimulationBlockSpec.coherent_scene - F (59)
+    C 439:0 SimulationBlockSpec - E (31)
+app/modules/physics/solvers/common.py
+    F 180:0 _to_si - C (14)
+app/modules/physics/solvers/wave_scenes.py
+    F 70:0 standing_scene - C (19)
+app/modules/physics/solvers/optics_scenes.py
+    F 213:0 optics_scene - C (11)
+app/modules/physics/solvers/forces.py
+    F 246:0 _newton_second_law - C (13)
+app/modules/physics/solvers/energy.py
+    F 20:0 solve_energy - C (18)
+app/modules/physics/solvers/oscillations.py
+    F 153:0 solve_spring - C (18)
+app/modules/physics/solvers/rates.py
+    F 64:0 _solve_distance_speed_time - D (28)
+app/modules/physics/solvers/rotational_dynamics.py
+    F 26:0 solve_rotational_dynamics - C (12)
+app/modules/physics/solvers/angular_momentum.py
+    F 66:0 _angular_momentum - C (13)
+app/modules/physics/solvers/circular.py
+    F 134:0 solve_circular - D (23)
+    F 70:0 _road_result - C (12)
+app/modules/physics/solvers/average_speed.py
+    F 42:0 _two_legs - C (18)
+app/modules/physics/solvers/circuits.py
+    F 82:0 _combined_resistance - C (12)
+app/modules/physics/solvers/stopping.py
+    F 12:0 _solve_stopping_distance - C (13)
+app/modules/physics/solvers/friction.py
+    F 277:0 _incline_scene - C (19)
+    F 171:0 _incline_acceleration - C (14)
+app/modules/physics/solvers/rolling.py
+    F 100:0 _rolling_energy - C (13)
+app/modules/physics/solvers/motion_scenes.py
+    F 133:0 vertical_scene - C (18)
+    F 35:0 projectile_scene - C (11)
+app/modules/physics/solvers/momentum.py
+    F 37:0 solve_momentum - C (17)
+app/modules/physics/solvers/circuit_scenes.py
+    F 55:0 circuit_scene - C (13)
+app/modules/physics/solvers/two_stage.py
+    F 24:0 solve_two_stage - D (23)
+app/modules/physics/solvers/relation.py
+    F 30:0 solve_expression - E (32)
+    F 108:0 _in_the_givens_unit - C (14)
+app/modules/physics/solvers/projectile.py
+    F 48:0 solve_projectile - D (22)
+app/modules/physics/solvers/kinematics.py
+    F 77:0 _read_fall - C (16)
+app/modules/physics/solvers/suvat.py
+    F 291:0 solve_suvat - E (39)
+    F 57:0 _suvat_distance - D (30)
+    F 216:0 _suvat_graph - C (18)
+    F 133:0 _suvat_time - C (15)
+    F 170:0 _suvat_acceleration - C (13)
+    F 28:0 _suvat_velocity - C (12)
+app/modules/physics/symbolic/parse.py
+    M 80:4 ModelParser._value - E (36)
+app/modules/physics/symbolic/solver.py
+    F 37:0 _solve - E (33)
+    F 97:0 _ode - C (19)
+    F 216:0 build_symbolic_physics_block - C (14)
+    F 162:0 _matrix - C (12)
+    F 188:0 _calculate - C (12)
+app/modules/physics/symbolic/request.py
+    F 30:0 parse_symbolic_physics_request - D (30)
+app/modules/physics/extractors/common.py
+    F 129:0 _value_the_keyword_names - C (13)
+app/modules/physics/extractors/gravitation.py
+    F 49:0 _extract_gravitation_intent - E (32)
+app/modules/physics/extractors/drag.py
+    F 181:0 _linear_intent - E (32)
+    F 249:0 _quadratic_intent - D (21)
+    F 296:0 _stokes_terminal - C (12)
+app/modules/physics/extractors/optics.py
+    F 76:0 _reflection_intent - C (20)
+    F 140:0 _extract_optics_intent - C (11)
+app/modules/physics/extractors/forces.py
+    F 73:0 _extract_force_intent - C (19)
+app/modules/physics/extractors/electrostatics.py
+    F 47:0 _extract_electrostatics_intent - D (30)
+app/modules/physics/extractors/energy.py
+    F 231:0 _choose_energy_op - D (29)
+    F 270:0 _energy_params - D (27)
+app/modules/physics/extractors/oscillations.py
+    F 159:0 _extract_spring_intent - D (25)
+app/modules/physics/extractors/rates.py
+    F 32:0 extract_rate_intent - F (49)
+app/modules/physics/extractors/school_ac.py
+    F 41:0 extract_ac - F (46)
+app/modules/physics/extractors/modern_laws.py
+    F 38:0 _relativity - C (11)
+app/modules/physics/extractors/thermal.py
+    F 136:0 _heat_energy - C (16)
+    F 84:0 _extract_thermal_intent - C (11)
+app/modules/physics/extractors/rotational_dynamics.py
+    F 83:0 _kinematics - D (29)
+    F 51:0 extract_rotational_dynamics - D (22)
+app/modules/physics/extractors/thermal_readings.py
+    F 81:0 _reservoir_temperatures - C (14)
+    F 161:0 _efficiency_intent - C (14)
+app/modules/physics/extractors/magnetism.py
+    F 59:0 _extract_magnetism_intent - F (51)
+app/modules/physics/extractors/circular.py
+    F 224:0 _extract_circular_intent - D (26)
+    F 160:0 _road_intent - D (21)
+app/modules/physics/extractors/doppler.py
+    F 56:0 doppler_intent - C (11)
+app/modules/physics/extractors/school_fields.py
+    F 24:0 extract_gauss - E (36)
+    F 98:0 extract_faraday - C (17)
+app/modules/physics/extractors/circuits.py
+    F 70:0 _extract_circuit_intent - F (67)
+app/modules/physics/extractors/kinematics_asks.py
+    F 128:0 _velocity_is_downward - C (13)
+app/modules/physics/extractors/stopping.py
+    F 92:0 extract_stopping_distance - C (18)
+app/modules/physics/extractors/tension.py
+    F 75:0 _extract_tension_intent - C (20)
+    F 168:0 _extract_vector_force_intent - C (11)
+app/modules/physics/extractors/torque.py
+    F 51:0 _extract_torque_intent - F (75)
+app/modules/physics/extractors/friction.py
+    F 112:0 _extract_friction_intent - F (61)
+app/modules/physics/extractors/waves.py
+    F 59:0 _extract_waves_intent - F (48)
+app/modules/physics/extractors/rotation.py
+    F 61:0 _extract_rotation_intent - D (29)
+app/modules/physics/extractors/momentum.py
+    F 180:0 _extract_momentum_intent - F (51)
+    F 118:0 _explosion_intent - F (42)
+app/modules/physics/extractors/energy_conservation.py
+    F 95:0 _work_energy - C (14)
+    F 200:0 _spring - C (11)
+app/modules/physics/extractors/relative_motion.py
+    F 41:0 extract_chase_intent - C (15)
+    F 91:0 extract_legs_intent - C (13)
+app/modules/physics/extractors/school_circuits.py
+    F 91:0 extract_rl - C (19)
+    F 56:0 extract_inductor - C (14)
+app/modules/physics/extractors/materials.py
+    F 41:0 _extract_materials_intent - D (22)
+app/modules/physics/extractors/two_stage.py
+    F 103:0 extract_two_stage_intent - F (41)
+app/modules/physics/extractors/fluids.py
+    F 96:0 _general_law - E (35)
+app/modules/physics/extractors/rotational_laws.py
+    F 104:0 _rolling - E (34)
+    F 63:0 _angular_momentum - C (11)
+app/modules/physics/extractors/fluid_laws.py
+    F 305:0 pipe_sections - D (25)
+    F 223:0 _bernoulli - C (20)
+app/modules/physics/extractors/projectile.py
+    F 106:0 _extract_projectile_intent - D (29)
+app/modules/physics/extractors/school_matter.py
+    F 50:0 extract_gravitation - C (17)
+    F 96:0 extract_thermal - C (16)
+    F 186:0 _ideal_gas - C (16)
+    F 132:0 _adiabatic - C (12)
+app/modules/physics/extractors/kinematics.py
+    F 121:0 _extract_kinematics_intent - F (53)
+app/modules/physics/extractors/suvat.py
+    F 170:0 _extract_suvat_intent - E (37)
+app/modules/chat/prompt_profile.py
+    F 48:0 format_user_profile_block - C (17)
+app/modules/chat/notation_spans.py
+    F 33:0 is_notation - C (14)
+app/modules/chat/prompt_window.py
+    F 53:0 load_prompt_window - C (13)
+    F 98:0 _completed_exchange - C (11)
+app/modules/chat/generic_closer.py
+    F 89:0 _without_last_closer - C (13)
+app/modules/chat/untrusted_media.py
+    F 229:0 _rewrite_images - C (15)
+    F 164:0 _destination - C (11)
+app/modules/chat/service.py
+    F 207:0 list_messages_page - C (14)
+    F 58:0 list_chats_grouped - C (12)
+app/modules/chat/continuation_subject.py
+    F 247:0 effective_presentation_subject - C (11)
+app/modules/chat/prompt_format.py
+    F 206:0 _style_turn - D (23)
+    F 121:0 _layout_format_hint - C (17)
+    F 311:0 _offers_answer_photo - C (17)
+app/modules/chat/related_questions.py
+    F 155:0 _space_math_span - C (19)
+    F 311:0 _keep_question - C (12)
+app/modules/chat/search_links.py
+    F 116:0 _rewrite_links - C (12)
+    F 85:0 _link_at - C (11)
+app/modules/chat/lesson_progress.py
+    F 36:0 lesson_progress - C (18)
+app/modules/chat/finalize_text.py
+    F 52:0 add_search_sources - C (12)
+app/modules/chat/ws_turn.py
+    F 57:0 stream_over_ws - C (18)
+app/modules/chat/markdown_regions.py
+    F 42:0 rewrite_fenced - C (12)
+    F 155:0 _display_closer - C (12)
+app/modules/chat/inline_boundaries.py
+    F 108:0 _read_math - D (22)
+    F 150:0 _read_link - C (16)
+    F 209:0 _repair_line - C (14)
+    F 185:0 _read_emphasis - C (12)
+app/modules/chat/prompt_sections.py
+    F 159:0 _style_hints - C (12)
+app/modules/chat/stream_paths.py
+    F 223:0 run_llm_token_stream - D (28)
+app/modules/chat/history_rag.py
+    F 196:0 retrieve_for_prompt - C (16)
+app/modules/chat/prompt_context.py
+    F 37:0 _cap_slim_memory_block - C (11)
+    F 304:0 _load_unsummarized_gap - C (11)
+app/modules/chat/inline_code.py
+    F 36:0 read_inline_code_span - C (12)
+app/modules/chat/quality.py
+    F 173:0 _collect_format_signals - D (25)
+    F 245:0 detect_quality_issues - C (13)
+app/modules/chat/stream_events.py
+    M 192:4 DoneEvent._wire - C (12)
+app/modules/chat/prose_normalizer.py
+    F 39:0 strip_unrequested_recipient_placeholders - C (15)
+app/modules/chat/stream_api.py
+    F 80:0 _stream_tokens_sse - C (18)
+app/modules/chat/related_prompts.py
+    F 56:0 generate_related_questions - C (13)
+app/modules/chat/stream_pipeline.py
+    F 198:0 _produce_reply - C (11)
+app/modules/chat/calculation_layout.py
+    F 81:0 _tokenize - C (18)
+    F 291:0 _read_math_span - C (17)
+    F 164:0 _equals_chain - C (15)
+    F 371:0 _layout_body - C (13)
+    F 466:0 _fold_closed_paren_math - C (13)
+    F 250:0 _sole_math - C (12)
+    F 145:0 _independent_pieces - C (11)
+    F 322:0 _layout_inline - C (11)
+app/modules/chat/ws_api.py
+    F 325:0 _serve_frames - C (13)
+app/modules/chat/turn_settle.py
+    F 143:0 _write_reply_rows - C (11)
+app/modules/chat/prompt_builder.py
+    F 211:0 _context_plan - C (20)
+    F 69:0 fetch_web_and_tools - C (15)
+app/modules/chat/finalize_registry.py
+    F 140:0 wait_for_pending_finalize - C (11)
+app/modules/chat/tool_loop/text_calls.py
+    F 9:0 _tool_calls_from_text - C (18)
+app/modules/chat/tool_loop/selection.py
+    F 138:0 _needs_non_web_tool - C (16)
+    F 75:0 turn_needs_tool_loop - C (14)
+    F 196:0 _tools_for_user - C (13)
+    F 28:0 _user_texts - C (11)
+app/modules/chat/tool_loop/forced_search.py
+    F 37:0 _force_web_search_if_needed - C (15)
+app/modules/chat/tool_loop/calls.py
+    F 125:0 _execute_calls - C (13)
+app/modules/chat/turn_prep/mode.py
+    F 171:0 _classify_turn_mode - C (15)
+app/modules/chat/turn_prep/clauses.py
+    F 265:0 request_clauses - C (15)
+app/modules/chat/turn_prep/regenerate_vision.py
+    F 15:0 inject_regenerated_image_content - C (18)
+app/modules/chat/turn_prep/camera_math.py
+    F 15:0 camera_math_extract - C (16)
+app/modules/chat/turn_prep/attachments.py
+    F 203:0 _verify_turn_attachments - C (12)
+app/modules/chat/turn_prep/vision.py
+    F 105:0 _inject_prior_images - C (14)
+app/modules/chat/turn_prep/prepare.py
+    F 49:0 prepare_chat_turn - C (12)
+app/modules/chat/turn_prep/context.py
+    F 227:0 _load_turn_identity - C (11)
+    F 312:0 build_stream_prompt_context - C (11)
+app/modules/chat/turn_prep/augment.py
+    F 157:0 _turn_needs - C (12)
+app/modules/chat/turn_prep/followups.py
+    F 42:0 resolve_subject_followup - C (11)
+app/modules/chat/prompt_constants/writing.py
+    F 131:0 writing_format_hint - C (11)
+app/modules/chat/prompt_constants/teaching.py
+    F 277:0 is_learning_plan_request - C (15)
+    F 571:0 is_standing_preference - C (12)
+app/modules/chat/prompt_constants/writing_kind.py
+    F 231:0 _next_sentence_tail - E (38)
+    F 330:0 writing_request_kind - C (14)
+    F 210:0 _has_later_closing_single_quote - C (11)
+app/modules/chat/prompt_constants/lesson_flow.py
+    F 112:0 outline_awaits_pick - C (12)
+app/modules/notifications/reminder_email.py
+    F 42:0 process_todo_reminder_emails - C (11)
+app/modules/notifications/push.py
+    F 237:0 process_todo_reminders - C (18)
+    F 87:0 poll_deferred_push_receipts - C (13)
+app/modules/speech/live_talk.py
+    F 301:0 persist_live_talk_turn - D (21)
+    F 399:0 _enqueue_live_talk_jobs - C (18)
+app/modules/speech/service.py
+    F 191:0 iter_tts_pcm - C (17)
+    F 46:0 split_tts_lead - C (12)
+app/modules/speech/live_talk_tools.py
+    F 33:0 execute_tool - C (16)
+app/modules/speech/realtime.py
+    F 260:0 persist_realtime_turn - C (13)
+app/modules/billing/revenuecat.py
+    F 282:0 process_event - D (23)
+    F 232:0 _dispatch_event - C (11)
+app/modules/billing/plan.py
+    F 234:0 chat_fallback_models - D (22)
+    F 74:0 model_pool - C (11)
+    F 170:0 image_turn_model - C (11)
+    F 305:0 validate_enabled_models_for_update - C (11)
+app/modules/attachments/ocr.py
+    F 181:0 ocr_scanned_pdf - C (15)
+app/modules/attachments/content_types.py
+    F 105:0 _sniff_signature - C (16)
+app/modules/attachments/office_text.py
+    F 13:0 _spreadsheet_lines - C (13)
+app/modules/attachments/content.py
+    F 102:0 extract_text_details - D (21)
+    F 183:0 extract_text_details_async - C (13)
+app/modules/attachments/vision_input.py
+    F 40:0 vision_prompt_text - C (12)
+app/modules/attachments/chunks_repository.py
+    F 51:0 replace_chunks - C (11)
+app/modules/attachments/workflow.py
+    F 202:0 store_local_upload - C (15)
+app/modules/attachments/lifecycle.py
+    F 80:0 retry_pending_storage_deletes - C (11)
+    F 147:0 reap_orphan_attachments - C (11)
+app/modules/attachments/rag.py
+    F 272:0 retrieve_for_prompt - D (24)
+    F 185:0 index_attachment - C (15)
+app/modules/memory/consolidation_workflow.py
+    F 40:0 _duplicate_pairs - C (18)
+    F 106:0 consolidate_user_memory_sections - C (12)
+app/modules/memory/apply.py
+    F 21:0 apply_memory_facts - D (22)
+app/modules/memory/extraction_workflow.py
+    F 269:0 _extract_pass - F (48)
+    F 121:0 writes_from_ops - D (22)
+app/modules/memory/name_claim.py
+    F 48:0 _user_speech - C (13)
+app/modules/memory/documents.py
+    F 46:0 build_documents - C (13)
+app/modules/memory/writes_repository.py
+    F 66:0 apply_fact_ops - D (23)
+app/modules/memory/consolidation.py
+    F 61:0 facts_need_consolidation - C (16)
+    F 137:0 accept_memory_section_rewrite - C (11)
+app/modules/memory/commands.py
+    F 315:0 _named_after - C (17)
+    F 340:0 memory_reset_request - C (15)
+    F 398:0 _is_command_at - C (13)
+    F 285:0 is_explicit_mute_command - C (12)
+app/modules/memory/selection.py
+    F 142:0 select_work_memories - C (13)
+    F 76:0 select_memories_semantic - C (11)
+app/modules/memory/text.py
+    F 194:0 is_memory_candidate - C (16)
+    F 179:0 classify_memory_sensitivity - C (11)
+app/modules/memory/self_facts.py
+    F 156:0 _match_prefix - C (13)
+    F 204:0 stated_fact_writes - C (11)
+    F 261:0 _model_sensitivity - C (11)
+app/modules/memory/fact_quality.py
+    F 118:0 _exclusive_drops - C (19)
+app/modules/memory/crud.py
+    F 57:0 delete_memory_fact - C (20)
+    F 141:0 update_memory - C (14)
+app/modules/memory/ops.py
+    F 83:0 match_fact - C (12)
+    F 107:0 evict_for_cap - C (11)
+app/modules/memory/learning_progress.py
+    F 36:0 record_learning_progress - C (15)
+app/services/routing.py
+    F 277:0 _route_current_line - C (16)
+    F 217:0 _looks_like_smart_continuation - C (14)
+app/services/answer_fence.py
+    F 408:0 land_answer_card - E (32)
+    F 335:0 _answer_values - D (21)
+    F 181:0 normalize_owned_fences - C (14)
+    F 483:0 map_outside_fences - C (11)
+app/services/recurring_pay.py
+    F 155:0 _parse_interval_days - C (14)
+    F 219:0 parse_recurring_pay_request - C (13)
+app/services/context_window.py
+    F 35:0 estimate_tokens - C (16)
+app/services/time_context.py
+    F 582:0 describe_due_at - C (12)
+app/services/calendar_facts.py
+    F 115:0 named_dates - C (16)
+app/services/md_fence_scan.py
+    F 168:0 strip_gfm_pipe_tables - C (17)
+    F 248:0 strip_hand_sketch_filler - C (15)
+    F 140:0 _is_gfm_sep_row - C (11)
+app/services/mermaid_sanitize.py
+    F 12:0 sanitize_mermaid_node_labels - C (14)
+app/services/model_health.py
+    F 50:0 get_health - C (14)
+app/services/symbolic_text.py
+    F 80:0 collapse_repeated_si_unit_powers - C (16)
+    F 52:0 fold_numeric_superscripts - C (15)
+app/services/workout.py
+    F 196:0 split_equality_chain - C (13)
+    F 175:0 where_line - C (12)
+app/services/scan_text.py
+    F 24:0 reading_from_vision - C (16)
+app/services/working_check.py
+    F 173:0 _walk - D (25)
+    F 273:0 _shown_like - C (12)
+    F 246:0 wrong_steps - C (11)
+app/services/answer_check.py
+    F 125:0 _read_value - D (24)
+    F 430:0 _stated_values - C (14)
+    F 189:0 read_verified_value - C (13)
+    F 513:0 _closeness - C (13)
+    F 392:0 _sections - C (12)
+app/services/subject_solving.py
+    F 104:0 detect_subject - C (17)
+app/services/reply_labels.py
+    F 42:0 one_answer_label - C (13)
+app/services/law_binding/givens.py
+    F 44:0 scan_givens - C (11)
+app/services/law_binding/units.py
+    F 35:0 unit_dimension - C (11)
+app/services/law_binding/fit.py
+    F 211:0 fit - D (26)
+    F 85:0 read_givens - C (13)
+app/services/law_binding/words.py
+    F 149:0 _pick - D (24)
+app/services/law_binding/reduction.py
+    F 336:0 _layer - C (19)
+    F 281:0 _worked - C (14)
+    M 204:4 _Parser._atom - C (11)
+app/services/law_binding/expression.py
+    F 222:0 _latex - E (32)
+    F 115:0 _value - C (15)
+    F 82:0 _check - C (14)
+app/content/legal.py
+    F 52:0 markdown_to_html - C (12)
+app/tests/test_routers.py
+    F 80:0 test_list_models_omits_provider_field - C (13)
+app/tests/test_request_id.py
+    F 12:0 test_access_log_emitted_for_legal_not_health - C (11)
+app/tests/test_tool_selection.py
+    F 51:0 test_selector_requires_explicit_no_tool_decision_and_retains_usage - C (11)
+app/tests/test_mcp.py
+    F 333:0 test_sympy_adapter_dispatches_parity_actions - C (19)
+app/tests/test_architecture_boundaries.py
+    F 12:0 _service_imports - C (20)
+app/tests/modules/web_search/test_web_search.py
+    F 70:0 test_is_local_places_query - D (27)
+app/tests/modules/todos/test_service.py
+    F 628:0 test_query_implies_todos - C (13)
+    F 834:0 test_materialize_reminder_fences_creates_todo - C (11)
+app/tests/modules/todos/test_reminder_lookalikes.py
+    F 395:0 test_next_weekday_and_dates - C (13)
+app/tests/modules/todos/test_schedule_repository.py
+    F 43:0 test_delayed_delivery_only_updates_owned_unchanged_occurrence - C (16)
+app/tests/modules/todos/test_email_repository.py
+    F 19:0 test_email_finalization_only_stamps_owned_unchanged_occurrence - D (21)
+app/tests/modules/math/test_math_integral_nonresult.py
+    F 118:0 test_tool_loop_uses_the_same_integral_outcome_contract - C (12)
+app/tests/modules/math/test_math_declines.py
+    F 179:0 test_declines_counts_and_logs_each_decline - C (15)
+app/tests/modules/math/test_math_newton_leading_decimal.py
+    F 17:0 test_signed_leading_decimal_is_one_complete_newton_guess - C (14)
+app/tests/modules/math/test_math_direct_underdetermined_triangle.py
+    F 33:0 test_complete_aaa_measurement_gives_missing_scale_without_numeric_answer - C (11)
+app/tests/modules/math/test_math_followup_turn_prep.py
+    F 38:0 test_actual_c12_how_through_prepare_context_and_prompt_builder - C (12)
+app/tests/modules/math/test_math_key_step.py
+    F 69:0 test_linear_lesson_shows_each_move_on_both_sides - C (16)
+    F 359:0 test_linear_lesson_numbers_the_move_and_its_result - C (15)
+    F 400:0 test_glued_plain_power_is_an_exponent - C (15)
+    F 155:0 test_detailed_pure_power_takes_the_square_root - C (14)
+    F 91:0 test_show_steps_linear_lesson_overrides_short - C (11)
+app/tests/modules/math/test_math_geometry_advanced.py
+    M 152:4 TestAugmentPromptMessagesForNewShapes.test_angle_only_triangle_uses_relative_units_not_cm - C (13)
+app/tests/modules/math/test_math_direct_simple_geometry.py
+    F 49:0 test_complete_geometry_reaches_first_token_without_model - C (12)
+app/tests/modules/math/test_math_direct_curved_geometry.py
+    F 63:0 test_complete_shape_measurement_emits_without_model - C (12)
+app/tests/modules/math/test_math_coverage_expansion.py
+    F 47:0 test_function_analysis_intents_do_not_steal_other_math_families - C (16)
+app/tests/modules/math/test_math_tools.py
+    F 2221:0 test_vertical_line_graph_builds_canonical_fence - C (15)
+    F 469:0 test_worked_quadratic_paste_is_not_a_no_solution_system - C (13)
+    F 684:0 test_augment_prompt_injects_newton_iteration_table - C (11)
+    F 2246:0 test_glued_graph_command_injects_vertical_fence_not_chart - C (11)
+app/tests/modules/math/test_math_school.py
+    F 82:0 test_formula_helpers - D (23)
+app/tests/modules/math/test_math_direct_newton.py
+    F 29:0 test_exact_c17_displays_verified_recurrence_every_iterate_and_root_without_model - C (13)
+app/tests/modules/math/test_math_work_check.py
+    F 238:0 test_reply_marks_lines_explains_and_fixes - C (11)
+app/tests/modules/math/test_math_service.py
+    F 63:0 test_normalize_unicode_scripts_and_glyphs - C (12)
+app/tests/modules/math/test_unit_converter_pint.py
+    F 96:0 _pad_units - C (14)
+app/tests/modules/math/test_math_relative_triangle.py
+    F 15:0 test_angles_only_draw_uses_relative_diagram_without_area - C (15)
+app/tests/modules/math/test_math_direct_rectangle.py
+    F 35:0 test_rectangle_streams_one_answer_and_exact_diagram_without_model - C (15)
+app/tests/modules/math/test_math_stress_contract.py
+    F 104:0 test_graphs_keep_holes_domains_and_asymptote_segments - C (12)
+    F 149:0 test_named_medical_bayes_maps_specificity_to_the_false_positive_rate - C (11)
+app/tests/modules/math/test_math_direct_solids.py
+    F 43:0 test_each_closed_solid_emits_one_exact_answer_without_model - C (12)
+app/tests/modules/math/test_math_written_arithmetic.py
+    F 230:0 test_direct_reply_separates_division_answer_mode_from_working_visibility - C (11)
+app/tests/modules/images/test_generate_for_chat.py
+    F 214:0 _close_gate - C (13)
+app/tests/modules/images/test_reference_persistence.py
+    F 16:0 test_image_reference_persistence_is_atomic_and_regeneration_reuses_input - C (12)
+app/tests/modules/chemistry/test_chemistry_remaining.py
+    F 110:0 test_titration_scene_uses_labeled_anchors - C (12)
+app/tests/modules/chemistry/test_chemistry_solver_expanded.py
+    F 550:0 test_direct_reply_has_scan_friendly_heading_order - C (12)
+    F 533:0 test_text_pipeline_matrix - C (11)
+app/tests/modules/chemistry/test_chemistry_new_laws.py
+    F 222:0 test_diprotic_steps_past_the_first_dissociation - C (15)
+app/tests/modules/chemistry/test_chemistry_correctness.py
+    F 290:0 test_polyatomic_ion_charge_needs_a_caret_when_a_digit_precedes_the_sign - C (11)
+app/tests/modules/chemistry/test_chemistry_primitives.py
+    F 189:0 test_hcn_is_carbon_centered_and_resonance_is_counted - D (28)
+    F 235:0 test_organic_facts_and_coordination_names - C (12)
+    F 54:0 test_redox_balance_checks_atoms_and_charge - C (11)
+    F 135:0 test_vsepr_for_a_unique_central_atom - C (11)
+app/tests/modules/account/test_account.py
+    F 201:0 test_build_export_structure - C (19)
+app/tests/modules/physics/test_physics_direct.py
+    F 96:0 test_complete_physics_request_streams_existing_answer_without_provider_or_tools - C (19)
+app/tests/modules/physics/test_physics_stopping_distance.py
+    F 42:0 test_reaction_braking_stop_is_verified - C (11)
+app/tests/modules/physics/test_physics_catalog_phase2.py
+    F 181:0 test_phase2_catalog_is_verified_and_uses_structured_working - C (14)
+app/tests/modules/physics/test_physics_phrasing.py
+    F 312:0 test_physics_accepts_1500_characters_and_math_does_not - C (14)
+app/tests/modules/physics/test_physics_binding.py
+    F 369:0 test_the_initial_velocity_satisfies_every_suvat_equation - C (14)
+app/tests/modules/physics/test_physics_friction.py
+    F 186:0 test_sliding_threshold_uses_static_friction - C (14)
+app/tests/modules/physics/test_physics_expanded_qa.py
+    F 345:0 test_impact_speed_uses_height_formula_and_scientific_givens_stay_readable - C (12)
+    F 322:0 test_worked_layout_names_the_requested_unknown - C (11)
+app/tests/modules/physics/test_physics_extractors.py
+    F 110:0 test_kinematics_free_fall_distance_without_from_keyword - C (16)
+app/tests/modules/physics/test_physics_catalog_contract.py
+    F 137:0 test_each_solver_branch_is_in_the_catalog_and_substitutes - C (18)
+app/tests/modules/physics/test_physics_catalog_phase1.py
+    F 123:0 test_new_catalog_problem_is_verified_and_explained - C (15)
+app/tests/modules/physics/test_physics_reply_voice.py
+    F 37:0 test_verified_physics_block_is_not_wrapped_as_math - C (11)
+app/tests/modules/physics/test_physics_end_to_end.py
+    F 187:0 test_force_direct_reply_uses_the_structured_verified_layout - C (11)
+app/tests/modules/physics/test_physics_springs.py
+    F 108:0 test_an_shm_period_emits_an_animatable_trajectory - C (14)
+app/tests/modules/chat/test_prompt_builder_style_hints.py
+    F 84:0 test_closed_form_math_prompt_is_instance_first_not_a_lecture - C (11)
+app/tests/modules/chat/test_verified_math_reply_prompt.py
+    F 20:0 test_live_inequality_injects_concise_guidance_nearest_result_and_user - C (12)
+app/tests/modules/chat/test_chat_teaching.py
+    F 261:0 test_lesson_hints_follow_the_chatgpt_lesson_shape - C (13)
+    F 237:0 test_70_day_learning_plan_gets_complete_roadmap_policy - C (11)
+app/tests/modules/chat/test_regenerate_image_input.py
+    F 157:0 test_regenerate_actual_entry_retains_image_routing_reserve_and_backup - C (16)
+app/tests/modules/chat/test_prompt_golden.py
+    F 157:0 prompt_copy - C (13)
+    F 101:0 render - C (11)
+app/tests/modules/chat/test_chat.py
+    F 407:0 test_format_contract_is_markdown_not_ui_fences - E (34)
+    F 461:0 test_math_formula_shape_rule_is_unified - D (23)
+    F 924:0 test_short_confirmation_after_offer_is_not_lightweight - C (18)
+    F 384:0 test_universal_format_baseline_pins_answer_first_and_no_decoration - C (13)
+    F 491:0 test_math_solver_hint_does_not_overclaim_unverified_scope - C (11)
+    F 673:0 test_build_prompt_includes_memory_and_ignores_a_stored_style - C (11)
+app/tests/modules/chat/test_continuation_subject.py
+    F 41:0 test_another_is_not_itself_a_subject - C (13)
+    F 56:0 test_physics_continuation_keeps_physics_and_a_new_topic_does_not - C (12)
+    F 96:0 test_style_hints_follow_the_continuation_subject - C (11)
+app/tests/modules/chat/test_stream_scaffold.py
+    F 115:0 test_live_tokens_carry_no_scaffolding_while_finalize_still_reads_it - C (11)
+app/tests/modules/chat/test_turn_prep_parallel.py
+    F 510:0 test_verified_closed_math_sets_instant_reply - C (13)
+app/tests/modules/chat/test_chat_management.py
+    F 100:0 test_generated_title_write_respects_current_row - C (13)
+app/tests/modules/speech/test_service.py
+    F 259:0 test_synthesize_openai_omits_language_field - C (12)
+app/tests/modules/speech/test_realtime.py
+    F 82:0 test_realtime_client_secret_binds_session_config_and_retries_connects - C (11)
+app/tests/modules/memory/test_memory.py
+    F 230:0 test_exclude_sensitive_for_query_injects_only_on_matching_asks - C (14)
+    F 561:0 test_is_memory_candidate_skips_small_talk - C (13)
+app/tests/modules/memory/test_memory_horizon.py
+    F 33:0 _apply - C (20)
+app/tests/modules/memory/test_writes_repository_db.py
+    F 25:0 test_background_snapshot_preserves_manual_changes_and_ownership - C (11)
+app/tests/services/test_subject_separation_seams.py
+    F 26:0 _imports_below - C (11)
+app/tests/services/test_turn_timing.py
+    F 6:0 test_turn_timing_tracker_records_phases_and_logs - C (11)
+app/tests/services/test_model_catalog.py
+    F 9:0 test_selectable_models_count - D (26)
+    F 286:0 test_routing_lanes_point_at_models_that_can_do_their_job - C (12)
+    F 270:0 test_capability_flags_are_honest_about_what_is_known - C (11)
+app/tests/services/test_compact_output_format.py
+    F 213:0 test_clarification_hint_asks_once_when_purpose_or_data_missing - C (15)
+    F 166:0 test_fragment_gets_writing_line_hint - C (13)
+    F 50:0 test_compact_chart_turn_uses_vega_fence_not_plain_prose - C (11)
+app/tests/services/test_enrich_final_content.py
+    F 707:0 test_a_failed_text_pass_keeps_the_reminder_change - C (15)
+app/tests/services/test_day_planning.py
+    F 67:0 test_day_planning_answer_hint_uses_plain_markdown_not_callout_cards - C (11)
+app/tests/services/test_recurring_pay.py
+    F 15:0 test_reported_biweekly_question_uses_local_today_and_shows_assumptions - C (18)
+    F 41:0 test_weekly_question_without_space_before_article_is_calculated - C (14)
+app/tests/services/test_time_context.py
+    F 190:0 test_format_now_awareness_includes_year_month_and_time - C (20)
+    F 281:0 test_is_location_question - C (15)
+app/tests/architecture/boundary_support.py
+    F 325:0 _package_public_names - C (16)
+    F 355:0 _foreign_module_import_violations - C (16)
+    F 186:0 _module_imports - C (13)
+    F 223:0 _import_cycles - C (12)
+    F 290:0 _infrastructure_reached - C (12)
+app/tests/architecture/test_module_boundaries.py
+    F 103:0 test_mobile_memory_has_one_feature_home_and_thin_routes - D (21)
+    F 64:0 test_mobile_todos_has_one_feature_home_and_thin_route - C (18)
+    F 152:0 test_mobile_attachments_has_one_feature_home_and_thin_routes - C (15)
+    F 211:0 test_mobile_images_has_one_feature_home - C (11)
+    F 262:0 test_mobile_speech_has_one_feature_home - C (11)
+app/tests/architecture/test_pure_solvers.py
+    F 42:0 test_subjects_import_one_another_only_through_public_files - C (11)
+app/tests/architecture/test_product_module_boundaries.py
+    F 230:0 test_mobile_chat_has_one_feature_home_and_thin_route - C (18)
+    F 175:0 test_mobile_account_and_auth_have_feature_homes - C (14)
+    F 256:0 test_mobile_home_has_one_feature_home - C (13)
+    F 295:0 test_mobile_suggestions_has_one_feature_home - C (13)
+    F 276:0 test_mobile_search_has_one_feature_home - C (12)
+app/tests/core/test_sympy_executor.py
+    F 369:0 test_workers_exit_when_the_parent_dies_without_cleanup - C (12)
+app/tests/security/test_account_export.py
+    F 16:0 test_export_includes_profile_all_memory_and_every_owned_record - D (27)
+app/tests/security/test_cross_user_isolation.py
+    F 58:0 test_chat_routes_answer_404_for_another_users_chat - C (14)
+    F 184:0 test_todo_routes_never_touch_another_users_items - C (11)
+app/tests/security/test_account_delete.py
+    F 56:0 test_delete_account_leaves_nothing_of_the_user_behind - C (12)
+app/tests/security/test_quota_carryover.py
+    F 57:0 _use_quota - C (13)
+app/tests/behavior/stem_math_judge.py
+    F 195:0 judge_check - D (28)
+app/tests/behavior/harness.py
+    F 253:0 route_case - E (38)
+    F 424:0 mismatches - C (18)
+    C 120:0 Route - C (14)
+    M 148:4 Route.summary - C (13)
+app/tests/behavior/stem_sweep.py
+    F 510:0 judge - D (21)
+    F 456:0 check_visuals - C (20)
+    F 313:0 check_answer - C (19)
+    F 250:0 same_quantity - C (16)
+    F 601:0 report - C (16)
+    F 394:0 check_shape - C (12)
+app/tests/behavior/sweep.py
+    F 409:0 _judge_expect - F (58)
+    F 141:0 load - C (13)
+app/gateways/image_gateway.py
+    F 24:0 generate_via_openrouter - C (20)
+app/gateways/structured_completion.py
+    F 134:0 _complete_structured_once - C (15)
+    F 50:0 _escape_latex_in_json - C (14)
+app/gateways/litellm_gateway.py
+    F 286:0 _stream_chat_once - E (32)
+    F 180:0 stream_chat_completion - D (22)
+app/gateways/tool_completion.py
+    F 92:0 _tool_selection_result - D (22)
+    F 145:0 complete_with_tools - C (12)
+app/gateways/image_search_gateway.py
+    F 78:0 search_images - C (11)
+app/gateways/pubchem_gateway.py
+    F 239:0 lookup_iupac_name - C (11)
+app/gateways/storage_gateway.py
+    M 284:4 R2StorageGateway.delete_prefix - C (18)
+app/gateways/web_search_gateway.py
+    F 192:0 search_web - C (17)
+    F 153:0 _search_tavily - C (13)
+    F 69:0 _ddg_item_to_hit - C (11)
+    F 82:0 _search_duckduckgo_sync - C (11)
+app/gateways/think_stripper.py
+    M 45:4 ThinkStripper.feed - C (13)
+app/gateways/mock_llm.py
+    F 164:0 mock_todo_actions - C (14)
+app/gateways/safe_fetch.py
+    F 71:0 resolve_external_host - C (13)
+app/gateways/expo_push_gateway.py
+    F 94:0 _send_chunk - C (15)
+app/gateways/speech_gateway.py
+    F 165:0 synthesize_via_openai - C (11)
+app/core/config.py
+    F 80:0 validate_production_settings - D (22)
+app/core/sympy_executor.py
+    M 269:4 ProcessPoolSympyExecutor.run - C (16)
+app/core/jobs/worker.py
+    F 56:0 _process_one_entry - C (12)
+app/core/jobs/admin.py
+    F 149:0 purge_user_jobs - C (11)

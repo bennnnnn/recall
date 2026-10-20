@@ -1,0 +1,5 @@
+File sizes: 284 production files over the 300-line target.
+Smaller than recorded; run scripts/check_file_sizes.py --update to lock it in:
+  apps/api/app/modules/chat/calculation_layout.py: 549 -> 542
+  apps/mobile/lib/markdown/calculationLayout.ts: 532 -> 524
+  apps/mobile/lib/math/latexParse.ts: 510 -> 508

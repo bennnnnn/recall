@@ -1,0 +1,45 @@
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+........................................................................ [ 44%]
+........................................................................ [ 59%]
+........................................................................ [ 74%]
+........................................................................ [ 89%]
+.................................................                        [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+0.24s setup    app/tests/modules/memory/test_repository.py::test_upsert_sections_executes_and_commits
+0.19s call     app/tests/modules/memory/test_erase_db.py::test_deleting_a_fact_deletes_its_history_and_the_snippets_repeating_it
+0.06s call     app/tests/modules/memory/test_extraction_job.py::test_extraction_and_consolidation_do_not_race_the_same_user
+0.05s call     app/tests/modules/memory/test_memory_facts_migration.py::test_keep_source_embedding_only_when_row_does_not_split
+0.05s call     app/tests/modules/memory/test_learning_progress.py::test_adds_one_line_then_rewrites_it_in_place
+0.04s call     app/tests/modules/memory/test_history_scan.py::test_history_pass_cannot_bring_back_a_fact_the_user_deleted
+0.04s call     app/tests/modules/memory/test_topics_db.py::test_delete_topic_removes_the_document_and_its_area
+0.04s call     app/tests/modules/memory/test_learning_progress.py::test_a_muted_line_stays_as_the_user_left_it
+0.04s call     app/tests/modules/memory/test_erase_db.py::test_a_mute_keeps_the_fact_but_stops_its_recall
+0.03s call     app/tests/modules/memory/test_topics_db.py::test_clearing_all_memory_removes_area_titles
+0.03s call     app/tests/modules/memory/test_history_scan.py::test_scan_counts_as_done_after_three_passes_that_miss_chats
+0.03s call     app/tests/modules/memory/test_history_scan.py::test_scan_reads_recent_chats_with_user_lines_once
+0.03s call     app/tests/modules/memory/test_erase_db.py::test_clearing_all_memory_empties_past_chat_recall
+0.03s call     app/tests/modules/memory/test_history_scan.py::test_scan_tries_only_the_missed_chat_again[miss0]
+0.03s call     app/tests/modules/memory/test_history_scan.py::test_scan_tries_only_the_missed_chat_again[model_failed]
+0.03s call     app/tests/modules/memory/test_documents_api.py::test_documents_endpoint_lists_documents_and_starts_the_history_scan
+0.02s call     app/tests/modules/memory/test_history_scan.py::test_scan_tries_only_the_missed_chat_again[skipped_lock]
+0.02s call     app/tests/modules/memory/test_erase_db.py::test_the_fact_cap_never_evicts_what_the_user_asked_to_keep
+0.02s call     app/tests/modules/memory/test_api.py::test_delete_fact_preserves_valid_long_selector_and_rejects_oversize[2001]
+0.02s call     app/tests/modules/memory/test_repository_db.py::test_delete_by_type_only_deletes_matching_user_and_type
+0.02s call     app/tests/modules/memory/test_topics_db.py::test_an_add_of_the_same_text_under_another_type_is_not_a_copy
+0.02s call     app/tests/modules/memory/test_learning_progress.py::test_a_hand_edit_after_the_lessons_began_keeps_it_out
+0.02s call     app/tests/modules/memory/test_topics_db.py::test_a_superseding_fact_keeps_type_and_document_together[fact-expected0]
+0.02s call     app/tests/modules/memory/test_writes_repository_db.py::test_background_snapshot_preserves_manual_changes_and_ownership[new_text]
+0.02s call     app/tests/modules/memory/test_topics_db.py::test_writes_store_topics_and_create_area_rows
+0.02s call     app/tests/modules/memory/test_topics_db.py::test_an_update_moves_a_fact_to_another_document_without_a_copy
+0.02s call     app/tests/modules/memory/test_api.py::test_delete_fact_preserves_valid_long_selector_and_rejects_oversize[4018]
+0.02s call     app/tests/modules/memory/test_api.py::test_delete_fact_preserves_valid_long_selector_and_rejects_oversize[4019]
+0.02s call     app/tests/modules/memory/test_erase_db.py::test_a_short_add_never_overwrites_a_richer_fact
+0.02s call     app/tests/modules/memory/test_writes_repository_db.py::test_background_snapshot_preserves_manual_changes_and_ownership[same]
+481 passed, 1 warning in 8.26s

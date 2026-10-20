@@ -1,0 +1,143 @@
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 18%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 24%]
+........................................................................ [ 26%]
+........................................................................ [ 28%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 62%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 71%]
+........................................................................ [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 94%]
+........................................................................ [ 96%]
+........................................................................ [ 98%]
+........................................................................ [ 99%]
+..                                                                       [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+app/tests/services/test_push_delivery.py::test_upsert_allows_cross_user_rebind_with_matching_device
+  /home/user/recall-audit/apps/api/app/repositories/push_tokens.py:94: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    session.add(row)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/security/test_account_delete.py: 1 warning
+app/tests/security/test_account_export.py: 1 warning
+app/tests/security/test_cross_user_isolation.py: 17 warnings
+app/tests/security/test_quota_carryover.py: 12 warnings
+app/tests/security/test_ws_isolation.py: 1 warning
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+app/tests/security/test_account_delete.py: 2 warnings
+app/tests/security/test_account_export.py: 2 warnings
+app/tests/security/test_cross_user_isolation.py: 32 warnings
+app/tests/security/test_quota_carryover.py: 14 warnings
+app/tests/security/test_ws_isolation.py: 1 warning
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:370: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+app/tests/modules/chat/test_chat.py::test_build_prompt_includes_mermaid_layout_hint
+  /usr/lib/python3.13/unittest/mock.py:2199: RuntimeWarning: coroutine 'Connection._cancel' was never awaited
+    setattr(_type, entry, MagicProxy(entry, self))
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_chat.py::test_build_prompt_capabilities_overview_uses_memory_not_email_card
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/redis/utils.py:202: RuntimeWarning: coroutine 'Connection._cancel' was never awaited
+    filterable_args = dict(zip(arg_names, args))
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_chat_stream_orchestration.py: 13 warnings
+app/tests/modules/chat/test_stream_scaffold.py: 1 warning
+  /home/user/recall-audit/apps/api/app/modules/chat/stream_paths.py:311: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    await model_health_service.record_sample(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_chat_stream_orchestration.py::test_regenerate_keeps_assistant_when_stream_empty
+app/tests/modules/chat/test_chat_stream_orchestration.py::test_regenerate_omits_assistant_from_prompt_without_pre_delete
+app/tests/modules/chat/test_chat_stream_orchestration.py::test_regenerate_passes_client_geo_to_web_search
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/_pytest/stash.py:108: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    del self._storage[key]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_email_fence.py::test_update_message_email_requires_email_fence
+  /usr/lib/python3.13/unittest/mock.py:458: RuntimeWarning: coroutine 'Connection._cancel' was never awaited
+    new = type(cls.__name__, bases, {'__doc__': cls.__doc__})
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_ws.py::test_ws_non_dict_frame_does_not_crash
+  /usr/lib/python3.13/inspect.py:1848: RuntimeWarning: coroutine 'WebSocket.receive_json' was never awaited
+    if type not in _static_getmro(objtype):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/core/test_request_limits.py::test_reject_oversized_refuses_a_declared_or_read_body_over_the_cap[None--False]
+  /usr/lib/python3.13/inspect.py:794: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f392115ac50>
+    memo = {id(f): f}
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.13.16-final-0 _______________
+
+Name                              Stmts   Miss  Cover   Missing
+---------------------------------------------------------------
+app/core/spend_counter.py            40      0   100%
+app/services/quota/__init__.py        8      0   100%
+app/services/quota/carryover.py      35      0   100%
+app/services/quota/counters.py       83      0   100%
+app/services/quota/live_talk.py     111      4    96%   149-150, 201-202
+app/services/quota/messages.py       29      0   100%
+app/services/quota/spend.py          25      0   100%
+app/services/quota/tokens.py         94      1    99%   187
+---------------------------------------------------------------
+TOTAL                               425      5    99%
+3818 passed, 22 deselected, 107 warnings in 65.13s (0:01:05)

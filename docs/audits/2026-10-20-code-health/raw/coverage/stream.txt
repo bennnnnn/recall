@@ -1,0 +1,200 @@
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 35%]
+........................................................................ [ 38%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 47%]
+........................................................................ [ 50%]
+........................................................................ [ 54%]
+........................................................................ [ 57%]
+........................................................................ [ 60%]
+........................................................................ [ 63%]
+........................................................................ [ 66%]
+........................................................................ [ 70%]
+........................................................................ [ 73%]
+........................................................................ [ 76%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+........................................................................ [ 86%]
+........................................................................ [ 89%]
+........................................................................ [ 92%]
+........................................................................ [ 95%]
+........................................................................ [ 98%]
+...........................                                              [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+app/tests/modules/chat/test_chat.py::test_is_comparison_question[tell me about Python-False]
+  /usr/lib/python3.13/unittest/mock.py:2199: RuntimeWarning: coroutine 'Connection._cancel' was never awaited
+    setattr(_type, entry, MagicProxy(entry, self))
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_chat.py::test_build_prompt_capabilities_overview_uses_memory_not_email_card
+  /usr/lib/python3.13/unittest/mock.py:2253: RuntimeWarning: coroutine 'Connection._cancel' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_chat_stream_orchestration.py: 13 warnings
+app/tests/modules/chat/test_stream_scaffold.py: 1 warning
+  /home/user/recall-audit/apps/api/app/modules/chat/stream_paths.py:311: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    await model_health_service.record_sample(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_chat_stream_orchestration.py::test_regenerate_keeps_assistant_when_stream_empty
+app/tests/modules/chat/test_chat_stream_orchestration.py::test_regenerate_omits_assistant_from_prompt_without_pre_delete
+app/tests/modules/chat/test_chat_stream_orchestration.py::test_regenerate_passes_client_geo_to_web_search
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/_pytest/stash.py:108: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    del self._storage[key]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/modules/chat/test_ws.py::test_ws_non_dict_frame_does_not_crash
+  /usr/lib/python3.13/inspect.py:1848: RuntimeWarning: coroutine 'WebSocket.receive_json' was never awaited
+    if type not in _static_getmro(objtype):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+app/tests/security/test_account_delete.py: 1 warning
+app/tests/security/test_account_export.py: 1 warning
+app/tests/security/test_cross_user_isolation.py: 17 warnings
+app/tests/security/test_quota_carryover.py: 12 warnings
+app/tests/security/test_ws_isolation.py: 1 warning
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+app/tests/security/test_account_delete.py: 2 warnings
+app/tests/security/test_account_export.py: 2 warnings
+app/tests/security/test_cross_user_isolation.py: 32 warnings
+app/tests/security/test_quota_carryover.py: 14 warnings
+app/tests/security/test_ws_isolation.py: 1 warning
+  /home/user/recall-audit/apps/api/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:370: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.13.16-final-0 _______________
+
+Name                                                  Stmts   Miss  Cover   Missing
+-----------------------------------------------------------------------------------
+app/modules/chat/__init__.py                             16      0   100%
+app/modules/chat/api.py                                 100     37    63%   40-48, 71-72, 83-84, 96-98, 110-112, 124-126, 138-139, 149, 160-164, 175-177, 193-194, 210-212, 235-237
+app/modules/chat/calculation_layout.py                  424     28    93%   64, 109, 111, 175, 235, 284, 287, 295, 297, 305, 312, 337-338, 390, 431, 436, 439, 456-459, 479-483, 497, 529
+app/modules/chat/calculation_layout_tail.py              26      0   100%
+app/modules/chat/compaction.py                           47      7    85%   39-41, 76, 86, 90-92
+app/modules/chat/continuation_subject.py                140      5    96%   190, 202, 241, 299, 328
+app/modules/chat/email_fence.py                          13      0   100%
+app/modules/chat/finalize_parts.py                       26      0   100%
+app/modules/chat/finalize_passes.py                      89      0   100%
+app/modules/chat/finalize_registry.py                    91      7    92%   70-72, 117-118, 125-126
+app/modules/chat/finalize_reminders.py                   51      2    96%   105-106
+app/modules/chat/finalize_subjects.py                   102     12    88%   48, 50-53, 87, 93, 113, 157, 173, 190, 217
+app/modules/chat/finalize_text.py                        66      8    88%   66-71, 118-119
+app/modules/chat/follow_up_prompts.py                     4      0   100%
+app/modules/chat/generic_closer.py                       81      0   100%
+app/modules/chat/history_rag.py                         146     20    86%   46, 49, 56, 97, 100-101, 117, 131, 134-136, 155, 157, 173, 176, 191-193, 243, 251
+app/modules/chat/inline_boundaries.py                   172     13    92%   82, 104, 110, 116, 129, 136, 147, 158, 162, 167, 181, 189, 195
+app/modules/chat/inline_code.py                          50      4    92%   29, 31, 41, 64
+app/modules/chat/json_output.py                          67      0   100%
+app/modules/chat/lesson_progress.py                      50      6    88%   45, 71-75
+app/modules/chat/markdown_regions.py                    125      2    98%   53, 100
+app/modules/chat/notation_spans.py                       36      0   100%
+app/modules/chat/post_turn.py                            77      2    97%   145-146
+app/modules/chat/presentation.py                         27      2    93%   41, 51
+app/modules/chat/prompt_builder.py                      114      6    95%   100-101, 103-104, 113, 119
+app/modules/chat/prompt_constants/__init__.py            17      0   100%
+app/modules/chat/prompt_constants/answer_subject.py      15      0   100%
+app/modules/chat/prompt_constants/capabilities.py        57     20    65%   179-190, 194-197, 204, 216-218
+app/modules/chat/prompt_constants/coding.py              56      2    96%   140, 170
+app/modules/chat/prompt_constants/conversation.py        39      0   100%
+app/modules/chat/prompt_constants/format.py             127      7    94%   80, 166, 171, 190, 359, 395, 397
+app/modules/chat/prompt_constants/grounding.py            2      0   100%
+app/modules/chat/prompt_constants/length.py              26      0   100%
+app/modules/chat/prompt_constants/lesson_flow.py         76      2    97%   156, 162
+app/modules/chat/prompt_constants/locale_cues.py         25      4    84%   203, 211, 229, 237
+app/modules/chat/prompt_constants/math.py                 2      0   100%
+app/modules/chat/prompt_constants/multi_part.py          22      1    95%   63
+app/modules/chat/prompt_constants/privacy.py              8      0   100%
+app/modules/chat/prompt_constants/routing.py            201     27    87%   98, 122, 154, 158, 250, 257, 281, 283, 456, 481-492, 498, 501, 509-510, 517, 528
+app/modules/chat/prompt_constants/solving.py              1      0   100%
+app/modules/chat/prompt_constants/teaching.py           131      2    98%   228, 418
+app/modules/chat/prompt_constants/unclear.py              1      0   100%
+app/modules/chat/prompt_constants/visuals.py             52      2    96%   162, 164
+app/modules/chat/prompt_constants/writing.py            107      5    95%   229, 234, 266, 296, 347
+app/modules/chat/prompt_constants/writing_kind.py       171     68    60%   190, 194-204, 212-222, 226-228, 247-267, 271-277, 279-280, 282-283, 285, 290, 292, 294-304, 322-327, 334, 346-349, 478
+app/modules/chat/prompt_context.py                      147      2    99%   43, 59
+app/modules/chat/prompt_format.py                       156      0   100%
+app/modules/chat/prompt_memory.py                        73      3    96%   159-161
+app/modules/chat/prompt_profile.py                       52      0   100%
+app/modules/chat/prompt_sections.py                     156      4    97%   327, 330, 340, 384
+app/modules/chat/prompt_subjects.py                      22      0   100%
+app/modules/chat/prompt_window.py                        83      0   100%
+app/modules/chat/prose_normalizer.py                     99      1    99%   89
+app/modules/chat/quality.py                             114      5    96%   119, 137-146, 197, 230
+app/modules/chat/related_prompts.py                     110     15    86%   71, 125-130, 159-161, 166-167, 169, 193-194
+app/modules/chat/related_questions.py                   220     24    89%   97, 139, 171-184, 321, 324, 326, 328, 334, 364, 439, 441
+app/modules/chat/repl_transcript.py                      23      0   100%
+app/modules/chat/search_links.py                         87      6    93%   38-39, 58, 89, 101, 104
+app/modules/chat/service.py                             160     48    70%   51, 93, 99-102, 112, 117, 123-127, 140-144, 156-163, 172-180, 198-204, 258, 266, 282-288, 316
+app/modules/chat/stream_accum.py                         35      0   100%
+app/modules/chat/stream_api.py                          145     12    92%   101, 104, 114, 174, 176, 189-196, 201, 203, 209, 212, 215
+app/modules/chat/stream_entry.py                         86      5    94%   67, 201, 237, 248, 333
+app/modules/chat/stream_events.py                       181     17    91%   45, 63-64, 76-84, 317-319, 352, 358, 366
+app/modules/chat/stream_paths.py                        162     30    81%   61, 69, 128, 144, 146-148, 150, 205-220, 262-263, 287-288, 317-318, 321, 323
+app/modules/chat/stream_pipeline.py                     183     29    84%   50, 60, 117, 137, 140-141, 154-155, 166-167, 185, 236, 238-240, 269-275, 353-356, 413, 421-424
+app/modules/chat/stream_scaffold.py                      96      3    97%   115-117
+app/modules/chat/stream_status.py                        18      0   100%
+app/modules/chat/summarize.py                            15      1    93%   16
+app/modules/chat/titles.py                               31      7    77%   80-109
+app/modules/chat/tool_gate.py                             8      1    88%   23
+app/modules/chat/tool_loop/__init__.py                    3      0   100%
+app/modules/chat/tool_loop/calls.py                     109     76    30%   58, 62-72, 77-90, 95-108, 112-120, 132-156, 163-177, 182-196
+app/modules/chat/tool_loop/forced_search.py              71     17    76%   28-33, 58, 60, 62, 65, 74, 80, 88-89, 118-119, 150
+app/modules/chat/tool_loop/parts.py                      24      0   100%
+app/modules/chat/tool_loop/results.py                    84     60    29%   30-34, 38-42, 46-61, 65-76, 84-90, 108-119, 123-126
+app/modules/chat/tool_loop/rounds.py                    112     67    40%   85, 92, 130-151, 171-193, 206-222, 233-249, 264-292, 296, 308-317
+app/modules/chat/tool_loop/selection.py                 104     28    73%   25, 30-41, 56, 69, 71, 99, 104, 110, 129-131, 144, 150-155, 162, 171, 185, 188, 190, 192, 215
+app/modules/chat/tool_loop/text_calls.py                 35     31    11%   20-55
+app/modules/chat/turn_deps.py                            60      0   100%
+app/modules/chat/turn_intercepts.py                     129      9    93%   113, 138, 141, 261, 318-320, 336-346
+app/modules/chat/turn_load.py                           151      9    94%   90, 115-116, 137-140, 309, 316, 319
+app/modules/chat/turn_outcome.py                         25      0   100%
+app/modules/chat/turn_plan.py                            22      0   100%
+app/modules/chat/turn_prep/__init__.py                    6      0   100%
+app/modules/chat/turn_prep/attachments.py               116      1    99%   79
+app/modules/chat/turn_prep/augment.py                    85      6    93%   61, 269-275
+app/modules/chat/turn_prep/camera_math.py                37      0   100%
+app/modules/chat/turn_prep/clauses.py                   139      2    99%   221, 240
+app/modules/chat/turn_prep/context.py                   167     17    90%   235-245, 247, 274-275, 323-325
+app/modules/chat/turn_prep/followups.py                  31      2    94%   69, 74
+app/modules/chat/turn_prep/instant.py                    82     14    83%   73, 80, 84, 93, 126-140
+app/modules/chat/turn_prep/intents.py                    60      1    98%   53
+app/modules/chat/turn_prep/mode.py                       78      1    99%   147
+app/modules/chat/turn_prep/persist.py                    92      3    97%   127, 133, 171
+app/modules/chat/turn_prep/prepare.py                    76      9    88%   123, 184, 214-221, 236
+app/modules/chat/turn_prep/regenerate_vision.py          30      0   100%
+app/modules/chat/turn_prep/request.py                    71      1    99%   107
+app/modules/chat/turn_prep/vision.py                     46      0   100%
+app/modules/chat/turn_resources.py                      130      2    98%   177, 183
+app/modules/chat/turn_settle.py                         120     14    88%   56-61, 132, 263-264, 271-272, 308-309, 314
+app/modules/chat/turn_timing.py                          27      0   100%
+app/modules/chat/untrusted_media.py                     191     18    91%   127-128, 139-140, 142, 150, 157-159, 169, 179, 181, 185, 194, 204, 212, 221, 270
+app/modules/chat/ws_api.py                              198     22    89%   99, 133-135, 244-246, 256, 265-271, 351-357, 370, 381, 395-400
+app/modules/chat/ws_limits.py                            53      2    96%   53-54
+app/modules/chat/ws_turn.py                             124     32    74%   70, 76, 106-110, 156, 162-163, 167-168, 176-177, 191-198, 215, 226-229, 240-245
+-----------------------------------------------------------------------------------
+TOTAL                                                  8626    958    89%
+2259 passed, 4 deselected, 104 warnings in 40.09s

@@ -1,0 +1,26 @@
+== only features/account imports (3):
+   lib/accountDelete.ts
+   lib/exportData.ts
+   lib/responseTone.ts
+== only features/attachments imports (3):
+   components/MediaLoadRetry.tsx
+   lib/fitImageToStage.ts
+   lib/pdfPreviewHtml.ts
+== only features/auth imports (2):
+   components/AuthScrollLayout.tsx
+   lib/graphic.ts
+== only features/chat imports (11):
+   components/DrawerShell.tsx
+   components/MathEquationScanner.tsx
+   components/MessageBubble.tsx
+   contexts/StreamingDraftContext.tsx
+   hooks/useKeyboardInset.ts
+   lib/clipboard.ts
+   lib/exportPdf.ts
+   lib/printDocument.ts
+   lib/resolveClientGeoForQuery.ts
+   lib/scheduleTimeout.ts
+   lib/unitConverter.ts
+TOTAL shared files used by exactly one feature and nothing else: 19
+shared files with no production importer: 1
+    lib/easBuildConfig.d.ts

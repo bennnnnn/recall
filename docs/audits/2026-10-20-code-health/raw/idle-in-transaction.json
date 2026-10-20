@@ -1,0 +1,9 @@
+{
+  "cold": [
+    {
+      "state": "idle in transaction",
+      "q": "SELECT users.id, users.google_sub, users.apple_sub, users.email, users.name, use"
+    }
+  ],
+  "warm": []
+}

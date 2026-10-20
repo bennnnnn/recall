@@ -1,0 +1,36 @@
+..............................                                           [100%]
+=============================== warnings summary ===============================
+../../../recall/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/recall/apps/api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 30 durations =============================
+1.04s call     app/tests/modules/link_preview/test_service.py::test_fetch_link_preview_slow_server_ends_at_the_deadline
+0.08s call     app/tests/modules/link_preview/test_service.py::test_link_preview_stale_fetch_slots_age_out
+0.07s call     app/tests/modules/link_preview/test_service.py::test_fetch_link_preview_returns_og_tags
+0.04s call     app/tests/modules/link_preview/test_service.py::test_link_preview_router_answers_429_when_fetches_are_busy
+0.04s call     app/tests/modules/link_preview/test_service.py::test_fetch_link_preview_fallback_to_title
+0.04s call     app/tests/modules/link_preview/test_service.py::test_fetch_link_preview_handles_http_error
+0.04s call     app/tests/modules/link_preview/test_service.py::test_fetch_link_preview_no_meta
+0.03s call     app/tests/modules/link_preview/test_service.py::test_fetch_link_preview_uses_redis_cache
+0.03s call     app/tests/modules/link_preview/test_service.py::test_link_preview_router_rate_limit_fails_closed
+0.03s call     app/tests/modules/link_preview/test_service.py::test_fetch_link_preview_passes_an_overall_deadline
+0.03s call     app/tests/modules/link_preview/test_service.py::test_fetch_link_preview_follows_redirect
+0.03s call     app/tests/modules/link_preview/test_service.py::test_fetch_link_preview_blocks_internal_address
+0.03s call     app/tests/modules/link_preview/test_api.py::test_link_preview_rejects_a_non_http_url[ftp://example.com/a]
+0.02s call     app/tests/modules/link_preview/test_api.py::test_link_preview_rejects_a_non_http_url[file:///etc/hosts]
+0.02s call     app/tests/modules/link_preview/test_api.py::test_link_preview_rejects_a_non_http_url[javascript:alert(1)]
+0.02s call     app/tests/modules/link_preview/test_api.py::test_link_preview_rejects_a_url_outside_its_length_bounds[xxxxxxx]
+0.02s call     app/tests/modules/link_preview/test_api.py::test_link_preview_returns_the_card_under_the_users_rate_key
+0.02s call     app/tests/modules/link_preview/test_api.py::test_link_preview_rate_limited_is_429_without_a_fetch
+0.02s call     app/tests/modules/link_preview/test_api.py::test_link_preview_busy_is_429_with_retry_after
+0.02s call     app/tests/modules/link_preview/test_api.py::test_link_preview_rejects_a_url_outside_its_length_bounds[https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]
+0.01s setup    app/tests/modules/link_preview/test_service.py::test_fetch_link_preview_uses_redis_cache
+0.01s call     app/tests/modules/link_preview/test_service.py::test_link_preview_caps_fetches_in_flight_per_user
+0.01s setup    app/tests/modules/link_preview/test_service.py::test_fetch_link_preview_no_meta
+0.01s call     app/tests/modules/link_preview/test_service.py::test_link_preview_slot_fails_closed_when_redis_errors
+0.01s setup    app/tests/modules/link_preview/test_service.py::test_link_preview_caps_fetches_in_flight_per_user
+
+(5 durations < 0.005s hidden.  Use -vv to show these durations.)
+30 passed, 1 warning in 5.31s

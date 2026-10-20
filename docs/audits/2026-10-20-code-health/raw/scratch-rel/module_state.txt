@@ -1,0 +1,66 @@
+apps/api/app/background/periodic.py:31: _tasks = empty-dict-literal
+apps/api/app/background/periodic.py:32: _heartbeats = empty-dict-literal
+apps/api/app/background/periodic.py:35: _current_loop = call:ContextVar
+apps/api/app/core/background_tasks.py:12: _background_tasks = call:set
+apps/api/app/core/config.py:181: @lru_cache get_settings async=False
+apps/api/app/core/ids.py:16: _lock = call:Lock
+apps/api/app/core/ids.py:27: global _last_ms,_seq in uuid7
+apps/api/app/core/jobs/queue.py:27: _HANDLERS = empty-dict-literal
+apps/api/app/core/jobs/queue.py:29: _RUNNING_LIMITS = empty-dict-literal
+apps/api/app/core/jobs/worker.py:300: global _last_heartbeat in _touch_heartbeat
+apps/api/app/core/jobs/worker.py:435: global _worker_task in start_worker
+apps/api/app/core/jobs/worker.py:442: global _worker_task,_last_heartbeat in stop_worker
+apps/api/app/core/redis.py:32: @lru_cache get_redis_client async=False
+apps/api/app/core/redis.py:37: @lru_cache get_jobs_redis_client async=False
+apps/api/app/core/request_id.py:35: request_id_context = call:ContextVar
+apps/api/app/core/sentry.py:126: global _initialized in init_sentry
+apps/api/app/core/shutdown.py:24: _callbacks = empty-list-literal
+apps/api/app/core/shutdown.py:41: global _stopping in begin_stop
+apps/api/app/core/sympy_executor.py:424: global _executor in get_sympy_executor
+apps/api/app/core/sympy_executor.py:439: global _executor in set_sympy_executor
+apps/api/app/core/user_cache.py:27: _user_cache = call:TtlCache
+apps/api/app/gateways/apple_auth.py:31: _jwks_lock = call:Lock
+apps/api/app/gateways/apple_auth.py:39: global _jwks_cache,_jwks_fetched_at in _fetch_apple_jwks
+apps/api/app/gateways/google_auth.py:23: global _google_request in _shared_google_request
+apps/api/app/gateways/http_client.py:19: _clients = empty-dict-literal
+apps/api/app/gateways/mcp/registry.py:15: _REGISTRY = empty-dict-literal
+apps/api/app/gateways/storage_gateway.py:378: global _gateway_cache in reset_storage_gateway_cache
+apps/api/app/gateways/storage_gateway.py:383: global _gateway_cache in get_storage_gateway
+apps/api/app/modules/attachments/thumbnails.py:35: _limiters = call:WeakKeyDictionary
+apps/api/app/modules/chat/calculation_layout.py:43: _TRAILING_PUNCT = call:set
+apps/api/app/modules/chat/finalize_registry.py:46: _pending = empty-dict-literal
+apps/api/app/modules/chat/finalize_registry.py:47: _inflight = empty-dict-literal
+apps/api/app/modules/chat/finalize_registry.py:48: _stops = empty-dict-literal
+apps/api/app/modules/chat/inline_boundaries.py:18: _OPEN_PUNCT = call:set
+apps/api/app/modules/chat/inline_boundaries.py:19: _CLOSE_PUNCT = call:set
+apps/api/app/modules/chat/turn_prep/intents.py:84: @lru_cache plan_turn async=False
+apps/api/app/modules/chat/ws_limits.py:40: _open_sockets = empty-dict-literal
+apps/api/app/modules/chemistry/binding.py:356: @lru_cache _bind async=False
+apps/api/app/modules/chemistry/catalog.py:499: CATALOG = empty-dict-literal
+apps/api/app/modules/chemistry/extract.py:45: @lru_cache _extract_chemistry_intent async=False
+apps/api/app/modules/chemistry/organic.py:65: @cache _queries async=False
+apps/api/app/modules/chemistry/sig_figs.py:214: _CURRENT = call:ContextVar
+apps/api/app/modules/chemistry/sig_figs.py:90: @lru_cache _unit_factors async=False
+apps/api/app/modules/chemistry/smiles.py:45: @cache _load_rdkit async=False
+apps/api/app/modules/chemistry/smiles.py:119: @lru_cache validate_smiles async=False
+apps/api/app/modules/chemistry/species_facts.py:127: @lru_cache _name_pattern async=False
+apps/api/app/modules/math/__init__.py:29: __all__ = call:list
+apps/api/app/modules/math/solve/teaching_algebra.py:40: _ALLOWED_POLY = call:set
+apps/api/app/modules/math/tools/extractors/readings.py:30: @lru_cache _read async=False
+apps/api/app/modules/notifications/__init__.py:16: __all__ = call:list
+apps/api/app/modules/physics/__init__.py:34: __all__ = call:list
+apps/api/app/modules/physics/binding.py:119: @lru_cache _bindable async=False
+apps/api/app/modules/physics/extract.py:107: @lru_cache needs_physics async=False
+apps/api/app/modules/physics/extract.py:192: @lru_cache _extract_physics_intent async=False
+apps/api/app/modules/physics/solvers/drag.py:28: @lru_cache _drag_identities_hold async=False
+apps/api/app/modules/physics/symbol_givens.py:73: @lru_cache _si_dimension async=False
+apps/api/app/modules/todos/write_log.py:63: _planned = call:ContextVar
+apps/api/app/repositories/chats.py:18: _chat_cache = call:TtlCache
+apps/api/app/services/law_binding/expression.py:71: @lru_cache parse async=False
+apps/api/app/services/law_binding/units.py:35: @lru_cache unit_dimension async=False
+apps/api/app/services/law_binding/units.py:78: @lru_cache dimension_of async=False
+apps/api/app/services/law_binding/words.py:36: @lru_cache word_pattern async=False
+apps/api/app/services/law_binding/words.py:72: @lru_cache _asked_pattern async=False
+apps/api/app/services/law_binding/words.py:117: @lru_cache _result_kinds async=False
+apps/api/app/services/routing.py:391: @lru_cache _physics_solves async=False
+apps/api/app/services/units.py:14: global _unit_registry in get_unit_registry

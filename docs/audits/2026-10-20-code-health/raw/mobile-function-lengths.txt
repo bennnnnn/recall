@@ -1,0 +1,26 @@
+functions: 3427 over 50: 330 over 100: 104
+550 features/chat/hooks/useChat.ts:32 useChat
+514 features/chat/screens/ChatScreen.tsx:48 ChatScreen
+473 features/chat/hooks/useChatRouteLoader.ts:61 useChatRouteLoader
+436 features/speech/hooks/useLiveTalk.ts:46 useLiveTalk
+425 components/MathEquationScanner.tsx:99 MathEquationScanner
+417 features/chat/hooks/useChatSend.ts:95 useChatSend
+395 features/chat/hooks/useChatIncoming.ts:28 useChatIncomingEvents
+373 components/ConversationList.tsx:43 ConversationList
+366 features/chat/hooks/useChatScreenBodyProps.tsx:131 useChatScreenBodyProps
+352 features/todos/screens/TodosScreen.tsx:33 TodosContent
+326 features/attachments/components/AttachmentImageStage.tsx:61 AttachmentImageStage
+312 hooks/useMathScannerCrop.ts:43 useMathScannerCrop
+292 features/chat/hooks/useChatScroll.ts:40 useChatScroll
+291 components/rich/skia/SkiaGraphExplorer.tsx:70 SkiaGraphCanvas
+286 features/chat/hooks/useMathKeyboardInsert.ts:51 useMathKeyboardInsert
+277 contexts/AuthContext.tsx:67 AuthProvider
+264 features/memory/screens/MemoryDocumentScreen.tsx:47 DocumentContent
+262 components/rich/SimulationBlock.tsx:31 SimulationBlock
+253 features/attachments/screens/GalleryScreen.tsx:54 GalleryScreen
+248 features/attachments/components/AttachmentImageViewer.tsx:120 ViewerContent
+247 features/attachments/hooks/useGalleryLibrary.ts:33 useGalleryLibrary
+243 components/DrawerShell.tsx:56 DrawerShell
+243 features/todos/hooks/useTodosActions.ts:26 useTodosActions
+241 features/account/screens/NotificationsSettingsScreen.tsx:46 NotificationsSettingsContent
+229 features/account/screens/DataControlsScreen.tsx:27 DataControlsScreen
