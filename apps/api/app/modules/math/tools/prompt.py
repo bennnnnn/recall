@@ -438,7 +438,8 @@ async def _build_verified_block_async(
     except math_solve.MathServiceError as exc:
         # Sync builder also catches this; keep the async boundary honest if a
         # patched/edge path raises through the executor.
-        logger.info("math_tools skipped: %s", exc)
+        # The class only: a MathServiceError's message quotes the user's expression.
+        logger.info("math_tools skipped: %s", type(exc).__name__)
         return None
     except Exception:
         # BrokenProcessPool / cancelled sibling futures after another caller's

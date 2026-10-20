@@ -147,7 +147,8 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             ),
         )
     except math_solve.MathServiceError as exc:
-        logger.info("math_tools skipped: %s", exc)
+        # The class only: a MathServiceError's message quotes the user's expression.
+        logger.info("math_tools skipped: %s", type(exc).__name__)
         return None
     except Exception:
         logger.exception("math_tools failed")

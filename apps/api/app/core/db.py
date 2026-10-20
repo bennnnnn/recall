@@ -33,6 +33,9 @@ engine = create_async_engine(
     # should surface as a fast error/retry, not a 30s TTFT hang.
     pool_timeout=settings.db_pool_timeout_seconds,
     pool_recycle=pool_recycle_seconds_for_url(_db_url),
+    # A failed statement's error otherwise quotes its parameters: a message's or a
+    # memory's text in the log line and the Sentry event.
+    hide_parameters=True,
 )
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

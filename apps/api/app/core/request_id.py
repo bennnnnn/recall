@@ -37,6 +37,15 @@ request_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 )
 
 
+def route_path(request: Request) -> str:
+    """The matched route's template (``/memories/documents/{topic}``), else the raw path.
+
+    The raw path can carry the user's own words: a memory area's slug is made from its name.
+    """
+    template = getattr(request.scope.get("route"), "path", None)
+    return template if isinstance(template, str) else request.url.path
+
+
 def _normalize_request_id(raw: str | None) -> str:
     """Return a valid request ID, generating one if *raw* is missing/invalid."""
     if raw and _CLIENT_REQUEST_ID_RE.fullmatch(raw):
@@ -62,7 +71,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 
             log_http_request(
                 method=request.method,
-                path=request.url.path,
+                path=route_path(request),
                 status=status_code,
                 duration_ms=round((time.perf_counter() - started) * 1000, 1),
             )
