@@ -33,6 +33,56 @@ _INVALID_COUNT_TTL_SECONDS = 60 * 60 * 48
 _INVALID_COUNT_TIMEOUT_SECONDS = 2.0
 
 
+# LaTeX commands that begin with a JSON escape letter: `\text` must not decode as a tab.
+_LATEX_ON_JSON_ESCAPES = frozenset(
+    {
+        *("bar", "begin", "beta", "binom", "bmod", "boxed"),
+        *("forall", "frac"),
+        *("nabla", "neg", "neq", "not", "nu"),
+        *("rangle", "rceil", "rfloor", "rho", "right", "rightarrow"),
+        *("tan", "tanh", "tau", "text", "textbf", "textit", "textrm", "tfrac", "theta"),
+        *("tilde", "times", "triangle"),
+    }
+)
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+
+
+def _escape_latex_in_json(raw: str) -> str:
+    """Double the backslash of a LaTeX command a model wrote unescaped in a JSON string.
+
+    Written with one backslash, `$15\\text{ cm}$` decoded `\\t` as a tab (a follow-up read
+    "15 ext{ cm}"), `\\frac` as a form feed, and `\\alpha` is no JSON escape at all, so the
+    whole output failed to parse. A real escape (`\\n`, `\\"`, `\\\\`, `\\u00e9`) is kept.
+    """
+    out: list[str] = []
+    i = 0
+    while i < len(raw):
+        if raw[i] != "\\" or i + 1 == len(raw):
+            out.append(raw[i])
+            i += 1
+            continue
+        after = raw[i + 1]
+        if after in '"\\/':
+            out.append(raw[i : i + 2])
+            i += 2
+            continue
+        if after == "u" and i + 6 <= len(raw) and all(c in _HEX_DIGITS for c in raw[i + 2 : i + 6]):
+            out.append(raw[i : i + 6])
+            i += 6
+            continue
+        if after in "bfnrt":
+            end = i + 1
+            while end < len(raw) and raw[end].isascii() and raw[end].isalpha():
+                end += 1
+            if raw[i + 1 : end] not in _LATEX_ON_JSON_ESCAPES:
+                out.append(raw[i : i + 2])
+                i += 2
+                continue
+        out.append("\\\\")  # a LaTeX command, or a backslash JSON has no escape for
+        i += 1
+    return "".join(out)
+
+
 def invalid_output_key(day: datetime | None = None) -> str:
     return f"structured_invalid:{(day or datetime.now(UTC)).date().isoformat()}"
 
@@ -118,7 +168,7 @@ async def _complete_structured_once[T: BaseModel](
         if raw.startswith("json"):
             raw = raw[4:]
     try:
-        data = json.loads(raw.strip())
+        data = json.loads(_escape_latex_in_json(raw.strip()))
     except json.JSONDecodeError:
         _invalid_output(model_alias, schema, "bad JSON")
         return None  # the call succeeded; only fallback_on_invalid asks again
