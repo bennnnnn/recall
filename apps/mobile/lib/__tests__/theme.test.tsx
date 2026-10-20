@@ -1,8 +1,8 @@
 import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
 describe("surface hierarchy", () => {
-  it("uses a white page, indigo accent, and tinted user chip", () => {
-    expect(lightTheme.bg).toBe("#FFFFFF");
+  it("uses a near-white page, a white composer, indigo accent, and tinted user chip", () => {
+    expect(lightTheme.bg).toBe("#FCFCFC");
     expect(lightTheme.surface).toBe("#F7F7F8");
     expect(lightTheme.surfaceAlt).toBe("#EBEBED");
     expect(lightTheme.inputBg).toBe("#F7F7F8");
@@ -14,10 +14,13 @@ describe("surface hierarchy", () => {
     expect(lightTheme.success).toBe("#16845B");
     expect(lightTheme.accent).toBe(lightTheme.primary);
     expect(lightTheme.text).toBe("#111113");
-    expect(lightTheme.bg).toBe(lightTheme.composerBg);
+    // The composer is pure white, a step above the near-white page.
+    expect(lightTheme.composerBg).toBe("#FFFFFF");
+    expect(lightTheme.composerBg).not.toBe(lightTheme.bg);
     expect(darkTheme.border).toBe("#3A3A42");
     expect(darkTheme.bg).not.toBe(darkTheme.surface);
-    expect(darkTheme.composerBg).toBe(darkTheme.bg);
+    // In dark mode the composer keeps the control grey it always had.
+    expect(darkTheme.composerBg).toBe(darkTheme.control);
     expect(darkTheme.inputBg).toBe(darkTheme.surfaceAlt);
     expect(darkTheme.primary).toBe(darkTheme.accent);
     expect(darkTheme.userBubble).toBe("#2A2D6A");

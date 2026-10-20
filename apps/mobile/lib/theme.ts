@@ -66,6 +66,7 @@ export type Theme = {
   assistantText: string;
 
   // Composer
+  /** The chat composer's pill: pure white on the light page, the control grey in dark. */
   composerBg: string;
   composerBorder: string;
   inputBg: string;
@@ -138,7 +139,7 @@ export const lightTheme: Theme = {
   accentLight: "#EAEBFF",
   accentDark: "#3E45C9",
 
-  bg: "#FFFFFF",
+  bg: "#FCFCFC",
   surface: "#F7F7F8",
   settingsSurface: "#F3F3F3",
   surfaceAlt: "#EBEBED",
@@ -155,7 +156,7 @@ export const lightTheme: Theme = {
 
   userBubble: "#F0F1FF",
   userText: "#111113",
-  assistantBubble: "#FFFFFF",
+  assistantBubble: "#FCFCFC",
   assistantText: "#111113",
 
   composerBg: "#FFFFFF",
@@ -220,7 +221,7 @@ export const darkTheme: Theme = {
   assistantBubble: "#0F0F10",
   assistantText: "#F5F5F6",
 
-  composerBg: "#0F0F10",
+  composerBg: "#323238",
   composerBorder: "#3A3A42",
   inputBg: "#171719",
 

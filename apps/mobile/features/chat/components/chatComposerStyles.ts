@@ -55,7 +55,7 @@ export function makeChatComposerStyles(theme: Theme) {
     },
     inputWrap: {
       // Attachments and the input row live inside the same rounded card.
-      backgroundColor: theme.control,
+      backgroundColor: theme.composerBg,
       borderRadius: Radius.composer,
       paddingHorizontal: Space.md,
       paddingTop: Space.xxs,
