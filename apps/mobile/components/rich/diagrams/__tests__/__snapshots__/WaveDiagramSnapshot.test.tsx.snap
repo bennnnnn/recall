@@ -20,29 +20,29 @@ View rich.diagram_a11y_standing_wave. rich.diagram_a11y_nodes. rich.diagram_a11y
    Circle cx=129.5 cy=60 r=3 color=#111113
    Circle cx=230.5 cy=60 r=3 color=#111113
    Circle cx=331.4 cy=60 r=3 color=#111113
-  HaloText x=32.6 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FFFFFF
-   Text x=32.6 y=50 text=rich.diagram_mark_node color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=32.6 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FCFCFC
+   Text x=32.6 y=50 text=rich.diagram_mark_node color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=32.6 y=50 text=rich.diagram_mark_node color=#5C5C64
-  HaloText x=65.7 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FFFFFF
-   Text x=65.7 y=50 text=rich.diagram_mark_node color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=65.7 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FCFCFC
+   Text x=65.7 y=50 text=rich.diagram_mark_node color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=65.7 y=50 text=rich.diagram_mark_node color=#5C5C64
-  HaloText x=166.6 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FFFFFF
-   Text x=166.6 y=50 text=rich.diagram_mark_node color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=166.6 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FCFCFC
+   Text x=166.6 y=50 text=rich.diagram_mark_node color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=166.6 y=50 text=rich.diagram_mark_node color=#5C5C64
-  HaloText x=228.2 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FFFFFF
-   Text x=228.2 y=50 text=rich.diagram_mark_node color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=228.2 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FCFCFC
+   Text x=228.2 y=50 text=rich.diagram_mark_node color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=228.2 y=50 text=rich.diagram_mark_node color=#5C5C64
-  HaloText x=5.4 y=31.4 text=rich.diagram_mark_antinode color=#67676F halo=#FFFFFF
-   Text x=5.4 y=31.4 text=rich.diagram_mark_antinode color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=5.4 y=31.4 text=rich.diagram_mark_antinode color=#67676F halo=#FCFCFC
+   Text x=5.4 y=31.4 text=rich.diagram_mark_antinode color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=5.4 y=31.4 text=rich.diagram_mark_antinode color=#67676F
-  HaloText x=106.3 y=37.4 text=rich.diagram_mark_antinode color=#67676F halo=#FFFFFF
-   Text x=106.3 y=37.4 text=rich.diagram_mark_antinode color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=106.3 y=37.4 text=rich.diagram_mark_antinode color=#67676F halo=#FCFCFC
+   Text x=106.3 y=37.4 text=rich.diagram_mark_antinode color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=106.3 y=37.4 text=rich.diagram_mark_antinode color=#67676F
-  HaloText x=207.2 y=37.5 text=rich.diagram_mark_antinode color=#67676F halo=#FFFFFF
-   Text x=207.2 y=37.5 text=rich.diagram_mark_antinode color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=207.2 y=37.5 text=rich.diagram_mark_antinode color=#67676F halo=#FCFCFC
+   Text x=207.2 y=37.5 text=rich.diagram_mark_antinode color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=207.2 y=37.5 text=rich.diagram_mark_antinode color=#67676F
-  HaloText x=107.6 y=96.7 text=λ = 0.8 m color=#5C5C64 halo=#FFFFFF
-   Text x=107.6 y=96.7 text=λ = 0.8 m color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=107.6 y=96.7 text=λ = 0.8 m color=#5C5C64 halo=#FCFCFC
+   Text x=107.6 y=96.7 text=λ = 0.8 m color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=107.6 y=96.7 text=λ = 0.8 m color=#5C5C64
  marker diagram-wave
  marker diagram-node
@@ -80,29 +80,29 @@ View rich.diagram_a11y_standing_wave. rich.diagram_a11y_nodes. rich.diagram_a11y
    Circle cx=129.5 cy=60 r=3 color=#111113
    Circle cx=230.5 cy=60 r=3 color=#111113
    Circle cx=331.4 cy=60 r=3 color=#111113
-  HaloText x=32.6 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FFFFFF
-   Text x=32.6 y=50 text=rich.diagram_mark_node color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=32.6 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FCFCFC
+   Text x=32.6 y=50 text=rich.diagram_mark_node color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=32.6 y=50 text=rich.diagram_mark_node color=#5C5C64
-  HaloText x=65.7 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FFFFFF
-   Text x=65.7 y=50 text=rich.diagram_mark_node color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=65.7 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FCFCFC
+   Text x=65.7 y=50 text=rich.diagram_mark_node color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=65.7 y=50 text=rich.diagram_mark_node color=#5C5C64
-  HaloText x=166.6 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FFFFFF
-   Text x=166.6 y=50 text=rich.diagram_mark_node color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=166.6 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FCFCFC
+   Text x=166.6 y=50 text=rich.diagram_mark_node color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=166.6 y=50 text=rich.diagram_mark_node color=#5C5C64
-  HaloText x=199.6 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FFFFFF
-   Text x=199.6 y=50 text=rich.diagram_mark_node color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=199.6 y=50 text=rich.diagram_mark_node color=#5C5C64 halo=#FCFCFC
+   Text x=199.6 y=50 text=rich.diagram_mark_node color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=199.6 y=50 text=rich.diagram_mark_node color=#5C5C64
-  HaloText x=5.4 y=37.5 text=rich.diagram_mark_antinode color=#67676F halo=#FFFFFF
-   Text x=5.4 y=37.5 text=rich.diagram_mark_antinode color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=5.4 y=37.5 text=rich.diagram_mark_antinode color=#67676F halo=#FCFCFC
+   Text x=5.4 y=37.5 text=rich.diagram_mark_antinode color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=5.4 y=37.5 text=rich.diagram_mark_antinode color=#67676F
-  HaloText x=106.3 y=37.4 text=rich.diagram_mark_antinode color=#67676F halo=#FFFFFF
-   Text x=106.3 y=37.4 text=rich.diagram_mark_antinode color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=106.3 y=37.4 text=rich.diagram_mark_antinode color=#67676F halo=#FCFCFC
+   Text x=106.3 y=37.4 text=rich.diagram_mark_antinode color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=106.3 y=37.4 text=rich.diagram_mark_antinode color=#67676F
-  HaloText x=207.2 y=37.5 text=rich.diagram_mark_antinode color=#67676F halo=#FFFFFF
-   Text x=207.2 y=37.5 text=rich.diagram_mark_antinode color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=207.2 y=37.5 text=rich.diagram_mark_antinode color=#67676F halo=#FCFCFC
+   Text x=207.2 y=37.5 text=rich.diagram_mark_antinode color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=207.2 y=37.5 text=rich.diagram_mark_antinode color=#67676F
-  HaloText x=107.6 y=96.7 text=λ = 0.8 m color=#5C5C64 halo=#FFFFFF
-   Text x=107.6 y=96.7 text=λ = 0.8 m color=#FFFFFF style=stroke strokeWidth=3 strokeJoin=round
+  HaloText x=107.6 y=96.7 text=λ = 0.8 m color=#5C5C64 halo=#FCFCFC
+   Text x=107.6 y=96.7 text=λ = 0.8 m color=#FCFCFC style=stroke strokeWidth=3 strokeJoin=round
    Text x=107.6 y=96.7 text=λ = 0.8 m color=#5C5C64
  marker diagram-wave
  marker diagram-node

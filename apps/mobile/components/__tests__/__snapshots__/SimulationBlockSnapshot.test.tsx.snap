@@ -9,14 +9,14 @@ View accessible=true role=image label=rich.simulation_title. 2 kg, 1 kg. rich.si
   Path M1L1[12,91 348,91] #5C5C64 stroke w=1.5
   Path M2L3[68,75 116,83] #4F56E5 stroke w=1.5 join=round cap=round
   Group opacity=1
-   Circle c={x:55,y:79} r=14 #FFFFFF
+   Circle c={x:55,y:79} r=14 #FCFCFC
    Circle c={x:55,y:79} r=12 #4F56E5
   Path empty #16845B stroke w=1.5 join=round cap=round
   Group opacity=1
-   Circle c={x:202,y:82} r=11 #FFFFFF
+   Circle c={x:202,y:82} r=11 #FCFCFC
    Circle c={x:202,y:82} r=9 #16845B
-  HaloText x=42 y=60 2 kg #5C5C64 halo=#FFFFFF
-  HaloText x=189 y=106 1 kg #5C5C64 halo=#FFFFFF
+  HaloText x=42 y=60 2 kg #5C5C64 halo=#FCFCFC
+  HaloText x=189 y=106 1 kg #5C5C64 halo=#FCFCFC
 PlaybackButton testID=simulation isPlaying=false playLabel=rich.simulation_play_a11y pauseLabel=rich.simulation_pause_a11y
 markers: ground static body body-label arrow-velocity body body-label arrow-velocity"
 `;
@@ -28,7 +28,7 @@ View accessible=true role=image label=rich.simulation_title. 5 kg, 3 kg. T, T, a
   Path M1L3[161,139 161,185] #67676F stroke w=1.5 DashPathEffect=[4,4]
   Path M1L3[199,112 199,158] #67676F stroke w=1.5 DashPathEffect=[4,4]
   Path M1L1[180,0 180,62] #5C5C64 stroke w=2
-  Circle cx=180 cy=62 r=19 #FFFFFF
+  Circle cx=180 cy=62 r=19 #FCFCFC
   Circle cx=180 cy=62 r=19 #5C5C64 stroke w=1.5
   Circle cx=180 cy=62 r=3 #5C5C64
   Path M1L30[161,43 199,62] #5C5C64 stroke w=2.25 cap=round
@@ -41,19 +41,19 @@ View accessible=true role=image label=rich.simulation_title. 5 kg, 3 kg. T, T, a
   Path M1L1[161,62 161,128] #5C5C64 stroke w=1.5 cap=round
   Path M1L1[199,62 199,149] #5C5C64 stroke w=1.5 cap=round
   Group opacity=1
-   Path M1L3Z1[149,128 172,151] #FFFFFF stroke w=3 join=round
+   Path M1L3Z1[149,128 172,151] #FCFCFC stroke w=3 join=round
    Path ^ #4F56E5
   Group opacity=1
-   Path M1L3Z1[190,149 209,168] #FFFFFF stroke w=3 join=round
+   Path M1L3Z1[190,149 209,168] #FCFCFC stroke w=3 join=round
    Path ^ #16845B
   Group opacity=1
-   HaloText x=150 y=71 T #5C5C64 halo=#FFFFFF
+   HaloText x=150 y=71 T #5C5C64 halo=#FCFCFC
   Group opacity=1
-   HaloText x=204 y=93 T #5C5C64 halo=#FFFFFF
+   HaloText x=204 y=93 T #5C5C64 halo=#FCFCFC
   Group opacity=1
-   HaloText x=142 y=202 a #4F56E5 halo=#FFFFFF
-  HaloText x=123 y=125 5 kg #5C5C64 halo=#FFFFFF
-  HaloText x=215 y=162 3 kg #5C5C64 halo=#FFFFFF
+   HaloText x=142 y=202 a #4F56E5 halo=#FCFCFC
+  HaloText x=123 y=125 5 kg #5C5C64 halo=#FCFCFC
+  HaloText x=215 y=162 3 kg #5C5C64 halo=#FCFCFC
 PlaybackButton testID=simulation isPlaying=false playLabel=rich.simulation_play_a11y pauseLabel=rich.simulation_pause_a11y
 markers: static pulley tether tether body body-box body-label body body-box body-label vector-force vector-label vector-attached vector-force vector-label vector-attached vector-motion vector-label vector-attached"
 `;
@@ -74,14 +74,14 @@ View accessible=true role=image label=rich.simulation_title. 2 kg. rich.simulati
   Path M2L3Z1[37,61 78,85] #5C5C64 stroke w=1.5 join=round cap=round
   Path ^ #5C5C64 fill
   Group opacity=1
-   Path M1L3Z1[70,70 117,117] #FFFFFF stroke w=3 join=round
+   Path M1L3Z1[70,70 117,117] #FCFCFC stroke w=3 join=round
    Path ^ #4F56E5
-  HaloText x=187 y=211 30° #5C5C64 halo=#FFFFFF
+  HaloText x=187 y=211 30° #5C5C64 halo=#FCFCFC
   Group opacity=1
-   HaloText x=129 y=29 N #5C5C64 halo=#FFFFFF
+   HaloText x=129 y=29 N #5C5C64 halo=#FCFCFC
   Group opacity=1
-   HaloText x=24 y=59 f #5C5C64 halo=#FFFFFF
-  HaloText x=123 y=97 2 kg #5C5C64 halo=#FFFFFF
+   HaloText x=24 y=59 f #5C5C64 halo=#FCFCFC
+  HaloText x=123 y=97 2 kg #5C5C64 halo=#FCFCFC
 PlaybackButton testID=simulation isPlaying=false playLabel=rich.simulation_play_a11y pauseLabel=rich.simulation_pause_a11y
 markers: slope ground static angle-given angle-label arrow-label-normal arrow-label-friction body body-box body-label arrow-gravity arrow-normal arrow-friction"
 `;
@@ -99,9 +99,9 @@ View accessible=true role=image label=rich.simulation_title. 20 N, 30 N, M. 360x
   Path ^ #5C5C64 fill
   Path M2L3Z1[238,118 247,166] #4F56E5 stroke w=2.5 join=round cap=round
   Path ^ #4F56E5 fill
-  HaloText x=177 y=83 M #5C5C64 halo=#FFFFFF
-  HaloText x=73 y=164 20 N #5C5C64 halo=#FFFFFF
-  HaloText x=229 y=180 30 N #4F56E5 halo=#FFFFFF
+  HaloText x=177 y=83 M #5C5C64 halo=#FCFCFC
+  HaloText x=73 y=164 20 N #5C5C64 halo=#FCFCFC
+  HaloText x=229 y=180 30 N #4F56E5 halo=#FCFCFC
 markers: beam pivot static angle-given angle-arrow angle-label vector-force vector-label vector-result vector-label"
 `;
 
@@ -109,18 +109,18 @@ exports[`SimulationBlock render draws a orbit scene as before 1`] = `
 "Text "rich.simulation_title"
 View accessible=true role=image label=rich.simulation_title. rich.simulation_a11y_body. rich.simulation_a11y_arrows. 360x240
  View testID=simulation-canvas 360x240
-  Circle cx=180 cy=120 r=24 rgb(225, 225, 226)
+  Circle cx=180 cy=120 r=24 rgb(222, 222, 224)
   Circle cx=180 cy=120 r=24 rgba(103, 103, 111, 0.55) stroke w=1
   Path M1L8[108,48 252,192] #67676F stroke w=1.5 DashPathEffect=[4,4]
   Path M2L3[248,67 256,115] #4F56E5 stroke w=1.5 join=round cap=round
   Path M2L3Z1[199,116 247,124] #5C5C64 stroke w=1.5 join=round cap=round
   Path ^ #5C5C64 fill
   Group opacity=1
-   Circle c={x:252,y:120} r=6 #FFFFFF
+   Circle c={x:252,y:120} r=6 #FCFCFC
    Circle c={x:252,y:120} r=5 #4F56E5
-  HaloText x=164 y=159 Earth #5C5C64 halo=#FFFFFF
+  HaloText x=164 y=159 Earth #5C5C64 halo=#FCFCFC
   Group opacity=1
-   HaloText x=187 y=123 F #5C5C64 halo=#FFFFFF
+   HaloText x=187 y=123 F #5C5C64 halo=#FCFCFC
 PlaybackButton testID=simulation isPlaying=false playLabel=rich.simulation_play_a11y pauseLabel=rich.simulation_pause_a11y
 markers: centre static planet arrow-label-centripetal body arrow-velocity arrow-centripetal"
 `;
@@ -145,12 +145,12 @@ View accessible=true role=image label=rich.simulation_title. bob. rich.simulatio
   Path M2L3Z1[226,187 234,234] #5C5C64 stroke w=1.5 join=round cap=round
   Path ^ #5C5C64 fill
   Group opacity=1
-   Circle c={x:230,y:174} r=14 #FFFFFF
+   Circle c={x:230,y:174} r=14 #FCFCFC
    Circle c={x:230,y:174} r=13 #4F56E5
-  HaloText x=208 y=105 θ #5C5C64 halo=#FFFFFF
+  HaloText x=208 y=105 θ #5C5C64 halo=#FCFCFC
   Group opacity=1
-   HaloText x=235 y=234 mg #5C5C64 halo=#FFFFFF
-  HaloText x=242 y=195 bob #5C5C64 halo=#FFFFFF
+   HaloText x=235 y=234 mg #5C5C64 halo=#FCFCFC
+  HaloText x=242 y=195 bob #5C5C64 halo=#FCFCFC
 PlaybackButton testID=simulation isPlaying=false playLabel=rich.simulation_play_a11y pauseLabel=rich.simulation_pause_a11y
 markers: static tether support angle-given angle-label arrow-label-gravity body body-label strobe strobe strobe arrow-velocity arrow-gravity"
 `;
@@ -177,15 +177,15 @@ View accessible=true role=image label=rich.simulation_title. ball. rich.simulati
   Path empty #5C5C64 stroke w=1.5 join=round cap=round
   Path ^ #5C5C64 fill
   Group opacity=1
-   Circle c={x:50,y:89} r=6 #FFFFFF
+   Circle c={x:50,y:89} r=6 #FCFCFC
    Circle c={x:50,y:89} r=4 #4F56E5
-  HaloText x=28 y=106 table #5C5C64 halo=#FFFFFF
-  HaloText x=4 y=150 h = 5 m #5C5C64 halo=#FFFFFF
+  HaloText x=28 y=106 table #5C5C64 halo=#FCFCFC
+  HaloText x=4 y=150 h = 5 m #5C5C64 halo=#FCFCFC
   Group opacity=1
-   HaloText x=93 y=59 v #4F56E5 halo=#FFFFFF
+   HaloText x=93 y=59 v #4F56E5 halo=#FCFCFC
   Group opacity=0
-   HaloText x=0 y=0 mg #5C5C64 halo=#FFFFFF
-  HaloText x=57 y=80 ball #5C5C64 halo=#FFFFFF
+   HaloText x=0 y=0 mg #5C5C64 halo=#FCFCFC
+  HaloText x=57 y=80 ball #5C5C64 halo=#FCFCFC
 PlaybackButton testID=simulation isPlaying=false playLabel=rich.simulation_play_a11y pauseLabel=rich.simulation_pause_a11y
 markers: ground static solid-solid arrow-label-velocity arrow-label-gravity body body-label strobe strobe strobe strobe arrow-velocity arrow-gravity vector-measure vector-label"
 `;
@@ -198,7 +198,7 @@ View accessible=true role=image label=rich.simulation_title. rich.simulation_a11
   Path M1L1[59,91 59,123] #5C5C64 stroke w=2
   Path M1L16[59,99 267,115] #5C5C64 stroke w=1.5
   Group opacity=1
-   Path M1L3Z1[246,86 287,128] #FFFFFF stroke w=3 join=round
+   Path M1L3Z1[246,86 287,128] #FCFCFC stroke w=3 join=round
    Path ^ #4F56E5
 PlaybackButton testID=simulation isPlaying=false playLabel=rich.simulation_play_a11y pauseLabel=rich.simulation_pause_a11y
 markers: ground spring static body body-box"
@@ -215,10 +215,10 @@ View accessible=true role=image label=rich.simulation_title. 3 N, 4 N, 5 N, 53.1
   Path ^ #5C5C64 fill
   Path M2L3Z1[116,56 212,184] #4F56E5 stroke w=2.5 join=round cap=round
   Path ^ #4F56E5 fill
-  HaloText x=144 y=167 53.1° #4F56E5 halo=#FFFFFF
-  HaloText x=154 y=199 3 N #5C5C64 halo=#FFFFFF
-  HaloText x=218 y=123 4 N #5C5C64 halo=#FFFFFF
-  HaloText x=211 y=48 5 N #4F56E5 halo=#FFFFFF
+  HaloText x=144 y=167 53.1° #4F56E5 halo=#FCFCFC
+  HaloText x=154 y=199 3 N #5C5C64 halo=#FCFCFC
+  HaloText x=218 y=123 4 N #5C5C64 halo=#FCFCFC
+  HaloText x=211 y=48 5 N #4F56E5 halo=#FCFCFC
 markers: static angle-result angle-label vector-force vector-label vector-force vector-label vector-result vector-label"
 `;
 
