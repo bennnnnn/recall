@@ -55,6 +55,12 @@ const STANDALONE_BOLD_LINE = new RegExp(
   "gm",
 );
 
+// A workout heading alone on its line with a line of its own under it (no blank line).
+const WORKOUT_HEADING_LINE = new RegExp(
+  String.raw`^(\s*\*\*(?:${WORKOUT_HEADINGS.join("|")}|Answer \([a-h]\)):?\*\*)[ \t]*\n(?=\S)`,
+  "gm",
+);
+
 /** Keep a bold-only teaching label, or a label and its code, on its own
  * visual row.
  *
@@ -71,10 +77,13 @@ const STANDALONE_BOLD_LINE = new RegExp(
 export function separateStandaloneBoldLines(content: string): string {
   return applyOutsideFences(content, (prose) => {
     const worked = isWorkedReply(prose);
-    return prose.replace(STANDALONE_BOLD_LINE, (line: string, head: string, offset: number) => {
-      const next = prose.slice(offset + line.length).split("\n", 1)[0] ?? "";
+    // A heading's lines start on the next row: written with a plain line break (as a
+    // model does), "**Substitution**" and its first line ran together on one row.
+    const headed = prose.replace(WORKOUT_HEADING_LINE, "$1  \n");
+    return headed.replace(STANDALONE_BOLD_LINE, (line: string, head: string, offset: number) => {
+      const next = headed.slice(offset + line.length).split("\n", 1)[0] ?? "";
       const name = head.trim().replace(/^\*\*|\*\*$/g, "");
-      return worked && lawHeading(name, next) ? line : `${head}\n\n`;
+      return worked && lawHeading(name, next) ? `${head.trimEnd()}  \n` : `${head}\n\n`;
     });
   });
 }

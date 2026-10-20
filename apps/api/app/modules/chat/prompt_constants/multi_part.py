@@ -39,7 +39,9 @@ _NO_SECTION_KINDS: frozenset[PartKind] = frozenset({"settings", "image", "photo"
 
 _SECTIONS = (
     "Put each request that needs a written answer under its own `###` heading of a few "
-    "words naming it, in the order asked, with no intro before the first heading."
+    "words naming it, in the order asked, with no intro before the first heading, and a "
+    "line `---` between two sections. A calculation keeps its own working and its own "
+    "Answer inside its section."
 )
 _ONE_ANSWER = "Only one of them needs a written answer: answer it directly, with no heading."
 _RULES = (

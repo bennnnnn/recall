@@ -26,7 +26,11 @@ from dataclasses import dataclass
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.modules.chat.finalize_parts import add_settings_card, attach_reply_picture
+from app.modules.chat.finalize_parts import (
+    add_settings_card,
+    attach_reply_picture,
+    divide_request_sections,
+)
 from app.modules.chat.finalize_reminders import apply_reminder_pass, drop_cut_reminder_fence
 from app.modules.chat.finalize_subjects import (
     append_unverified_notes,
@@ -156,6 +160,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         OnError(log_as="enrich_chemistry_fences"),
     ),
     FinalizePass("settings_card", add_settings_card, FALL_BACK),
+    FinalizePass("request_sections", divide_request_sections, FALL_BACK),
     FinalizePass("search_sources", add_search_sources, FALL_BACK),
     FinalizePass("instant_usage", record_instant_usage, FALL_BACK),
     # Layout, last, so it never interferes with fence parsing.
@@ -189,6 +194,7 @@ STOPPED_REPLY_PASSES = frozenset(
         "recipient_placeholders",
         "prose",
         "mermaid_and_places",
+        "request_sections",
         "presentation",
     }
 )

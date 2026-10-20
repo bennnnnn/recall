@@ -421,7 +421,8 @@ async def _paired_direct_reply(
         if reply is None:
             return None
         replies.append(reply.strip())
-    return "\n\n".join(replies)
+    # Each question worked and answered on its own, a hairline between them.
+    return "\n\n---\n\n".join(replies)
 
 
 def maybe_direct_subject_reply(

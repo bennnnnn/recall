@@ -119,6 +119,20 @@ class VerifiedMathBlock(VerifiedSolveBlock):
 
 
 @dataclass(frozen=True)
+class PhysicsPartWorking:
+    """One part of a physics question in parts, worked and answered on its own."""
+
+    op: str
+    symbol: str
+    title: str
+    formulas: tuple[str, ...]
+    substitutions: tuple[str, ...]
+    # Its own card: the value alone, as plain text and as LaTeX.
+    answer: str
+    display_answer: str
+
+
+@dataclass(frozen=True)
 class VerifiedPhysicsBlock(VerifiedSolveBlock):
     """Physics-only verified state used by physics presentation guards."""
 
@@ -127,6 +141,8 @@ class VerifiedPhysicsBlock(VerifiedSolveBlock):
     physics_working: str | None = None
     physics_formulas: tuple[str, ...] = ()
     physics_substitutions: tuple[str, ...] = ()
+    # A question in parts: each part's working and card, in the order asked.
+    physics_parts: tuple[PhysicsPartWorking, ...] = ()
     symbolic_request: SymbolicPhysicsRequest | None = None
 
 

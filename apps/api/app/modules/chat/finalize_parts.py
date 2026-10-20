@@ -4,14 +4,17 @@
 card goes under it. "Draw a cat wearing a hat and also explain black holes": the
 picture drawn beside the answer goes above it, or a line says why it could not.
 ``chat/finalize_passes.py`` lists them in order. Both commit the text: ``done``
-carries what they added, so a later pass's failure keeps it.
+carries what they added, so a later pass's failure keeps it. Each request the model
+answered in its own section is set off from the next by a hairline.
 """
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from app.modules.chat.finalize_subjects import fallback_text
+from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.images.reply_picture import ReplyPicture
 from app.services.md_fence_scan import strip_closed_fences
 
@@ -46,3 +49,33 @@ def add_settings_card(state: FinalizeState) -> str:
     text = f"{text}\n\n{card}" if text else card
     state.committed = fallback_text(text, server_text=state.server_text)
     return text
+
+
+# "### Weather in Paris": one request's section. "---": the hairline between two.
+_SECTION = re.compile(r"^#{2,3}\s+\S")
+_RULE = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,})\s*$")
+_FENCE = re.compile(r"^\s*(?:`{3,}|~{3,})")
+
+
+def divide_request_sections(state: FinalizeState) -> str:
+    """A message that asks several things: a hairline between the requests' sections."""
+    settings = state.settings
+    plan = plan_turn(state.ctx.user_message_content, chemistry_enabled=settings.chemistry_enabled)
+    return divide_sections(state.text) if plan.multi else state.text
+
+
+def divide_sections(text: str) -> str:
+    """``---`` before every section heading but the first, unless one is there already."""
+    out: list[str] = []
+    fenced = seen = False
+    for line in text.split("\n"):
+        if _FENCE.match(line):
+            fenced = not fenced
+        elif not fenced and _SECTION.match(line):
+            previous = next((kept for kept in reversed(out) if kept.strip()), "")
+            if seen and not _RULE.match(previous):
+                # A blank line first: "text" then "---" is a heading in markdown.
+                out.extend(["", "---", ""] if out and out[-1].strip() else ["---", ""])
+            seen = True
+        out.append(line)
+    return "\n".join(out)

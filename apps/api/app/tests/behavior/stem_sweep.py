@@ -181,10 +181,11 @@ def card_values(reply: str) -> list[tuple[float, str, str]]:
     """Each value, unit and shown digits on the reply's answer card.
 
     One card can hold several results: "2.45 m/s² and 36.8 N",
-    "50.0 N at 53.1°", "0 m/s and 4 m/s".
+    "50.0 N at 53.1°", "0 m/s and 4 m/s"; a question in parts has a card per part.
     """
     found: list[tuple[float, str, str]] = []
-    for line in answer_card(reply).splitlines():
+    cards = [text for lang, text in fences(reply) if lang == "answer"]
+    for line in (line for card in cards for line in card.splitlines()):
         plain = latex_to_plain(line.replace("\u2212", "-"))
         for part in re.split(r"\s+(?:and|at)\s+|;|,\s+(?=[a-zA-Z\\]*\s*=)|\s+/\s+", plain):
             part = re.sub(r"^[^\d-]*=\s*", "", part.strip())  # "R = 62.7 m"
@@ -363,7 +364,7 @@ def check_answer(
 
 # The sections a verified reply carries, in order; a slot may take several names.
 _SECTIONS: dict[str, tuple[tuple[str, ...], ...]] = {
-    "physics": (("Given",), ("Find",), ("Formula",), ("Substitution",), ("Answer",)),
+    "physics": (("Given",), ("Find",), ("Formula",), ("Substitution",), ("Answer", "Answer (a)")),
     # A balanced equation or an empirical formula works in Steps, not a substitution.
     "chemistry": (
         ("Given",),
@@ -429,19 +430,24 @@ def _physics_working(prose: str) -> list[Problem]:
     problems: list[Problem] = []
     if "**Formula**" in prose:
         problems.append(Problem("shape", "Formula heading instead of the law's name"))
-    labels = len(_ANSWER_LABEL.findall(prose))
-    if labels != 1:
-        problems.append(Problem("shape", f"{labels} Answer labels"))
+    labels = _ANSWER_LABEL.findall(prose)
+    parts = re.findall(r"^\*\*Answer \(([a-h])\)\*\*", prose, re.MULTILINE)
+    # One label, or in a question in parts one per part, lettered in order.
+    if parts and (len(parts) != len(labels) or parts != list("abcdefgh"[: len(parts)])):
+        problems.append(Problem("shape", f"part answers {parts} among {len(labels)} labels"))
+    elif not parts and len(labels) != 1:
+        problems.append(Problem("shape", f"{len(labels)} Answer labels"))
     given = prose.split("**Find**")[0]
     symbols = [symbol.strip() for symbol in _GIVEN_SYMBOL.findall(given)]
     if repeated := sorted({symbol for symbol in symbols if symbols.count(symbol) > 1}):
         problems.append(Problem("shape", f"given twice: {', '.join(repeated)}"))
-    substitution = prose.split("**Substitution**", 1)[-1].split("**Answer", 1)[0]
-    rows = _ROW.findall(substitution)
-    # The working ends on a value: no operation left in its last row (a unit's "/" is none).
-    last = re.sub(r"\\(?:mathrm|text)\{[^}]*\}", "", rows[-1].split("=")[-1]) if rows else ""
-    if re.search(r"\\frac|\\cdot|\\sqrt|\\sin|\\cos|\\tan|[+*/]", last):
-        problems.append(Problem("shape", f"working stops short: {rows[-1][:60]!r}"))
+    # Each part's working ends on a value: no operation left in its last row (a unit's "/"
+    # is none).
+    for substitution in prose.split("**Substitution**")[1:]:
+        rows = _ROW.findall(substitution.split("**Answer", 1)[0])
+        last = re.sub(r"\\(?:mathrm|text)\{[^}]*\}", "", rows[-1].split("=")[-1]) if rows else ""
+        if re.search(r"\\frac|\\cdot|\\sqrt|\\sin|\\cos|\\tan|[+*/]", last):
+            problems.append(Problem("shape", f"working stops short: {rows[-1][:60]!r}"))
     return problems
 
 

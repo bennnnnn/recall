@@ -18,6 +18,7 @@ from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.services.answer_check import asks_without_answering, correction_line, stated_verdict
 from app.services.answer_fence import land_answer_card
 from app.services.md_fence_scan import close_unclosed_fences, strip_closed_fences
+from app.services.part_answers import land_part_cards
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.workout import as_formula_heading
 
@@ -56,6 +57,10 @@ def validate_physics_fences(
         return cleaned
     extras: list[str] = []
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
+    # A question in parts: each part's card under its own Answer heading.
+    by_part = land_part_cards(cleaned, [part.display_answer for part in verified.physics_parts])
+    if by_part is not None:
+        cleaned, answer = by_part, ""
     # The law's own heading heads inputs, like **Formula**: its equations are no result.
     read = as_formula_heading(cleaned)
     if answer and _asks_instead_of_answering(read, answer):
@@ -71,7 +76,23 @@ def validate_physics_fences(
             continue
         language = "simulation" if spec_type in SIMULATION_SPEC_TYPES else "graph"
         extras.append(f"```{language}\n{json.dumps(spec, separators=(',', ':'))}\n```")
-    return "\n\n".join(part for part in (cleaned, *extras) if part).strip()
+    return _with_pictures(cleaned, extras)
+
+
+# "### Joke": a later request's section, after the one the solve answered.
+_LATER_SECTION = re.compile(r"^#{2,3}\s+\S", re.MULTILINE)
+
+
+def _with_pictures(text: str, pictures: list[str]) -> str:
+    """The solve's pictures under its last answer card when another request's section
+    follows it ("…, and also tell me a joke": the graph under the joke read as the
+    joke's); otherwise at the end, as ever."""
+    card = text.rfind("```answer")
+    closer = text.find("\n```", card + 3) if card >= 0 else -1
+    if pictures and closer >= 0 and _LATER_SECTION.search(text, closer):
+        end = closer + len("\n```")
+        return f"{text[:end]}\n\n" + "\n\n".join(pictures) + text[end:]
+    return "\n\n".join(part for part in (text, *pictures) if part).strip()
 
 
 def _asks_instead_of_answering(content: str, answer: str) -> bool:

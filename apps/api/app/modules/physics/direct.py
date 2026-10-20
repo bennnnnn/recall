@@ -42,6 +42,7 @@ from app.modules.physics.working import result_symbol_for
 from app.modules.physics.working_steps import carried_to_answer
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
 from app.services.workout import (
+    ANSWER,
     FORMULA,
     Workout,
     math_line,
@@ -195,10 +196,13 @@ def _formula_identity(formula: str) -> str:
     return _unbracket_functions(_BRACED_SCRIPT.sub(r"\1\2", text))
 
 
-def _formula_rows(intent: PhysicsIntent, formulas: list[str]) -> list[str]:
+def _formula_rows(
+    intent: PhysicsIntent, formulas: list[str], operation: str | None = None
+) -> list[str]:
     """The governing law's base form, then any rearrangement. The law's name is the
-    section's heading (``law_title``), so no row repeats it."""
-    operation = intent.physics_op or ""
+    section's heading (``law_title``), so no row repeats it. ``operation`` is one part's,
+    in a question in parts."""
+    operation = operation or intent.physics_op or ""
     spec = formula_spec(operation)
     params = intent.physics_params or {}
     base: str | None = None
@@ -293,6 +297,8 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     if naming:
         given_rows.append(naming)
 
+    if len(verified.physics_parts) > 1:
+        return _format_parts(verified, intent, given_rows)
     formulas = list(verified.physics_formulas)
     substitutions = list(verified.physics_substitutions)
     result_symbol = result_symbol_for(intent)
@@ -346,6 +352,39 @@ def _solver_fences(verified: VerifiedPhysicsBlock) -> list[dict[str, Any]]:
     return fences
 
 
+def _format_parts(
+    verified: VerifiedPhysicsBlock, intent: PhysicsIntent, given_rows: list[str]
+) -> str:
+    """A question in parts: the givens and what is asked once, then each part worked on
+    its own, closed by its own answer card, a hairline between parts."""
+    parts = verified.physics_parts
+    opening = render_workout(
+        Workout(given=tuple(given_rows), find=tuple(math_line(part.symbol) for part in parts)),
+        answer_heading=None,
+    )
+    sections: list[str] = []
+    for letter, part in zip("abcdefgh", parts, strict=False):
+        spec = formula_spec(part.op)
+        rows = _formula_rows(intent, list(part.formulas), part.op)
+        if spec is not None:
+            params = intent.physics_params or {}
+            rows.extend(text_line(f"Assumes {item}.") for item in visible_assumptions(spec, params))
+        worked = render_workout(
+            Workout(
+                formula=tuple(rows),
+                substitution=tuple(
+                    math_line(row)
+                    for row in carried_to_answer(part.substitutions, part.display_answer)
+                ),
+                formula_heading=law_title(spec.law_name) if spec is not None else FORMULA,
+            ),
+            part.display_answer,
+            answer_heading=f"{ANSWER} ({letter})",
+        )
+        sections.append(f"**({letter}) {part.title}**\n\n{worked.strip()}")
+    return f"{opening}\n\n" + "\n\n---\n\n".join(sections)
+
+
 def maybe_direct_physics_reply(
     verified: VerifiedPhysicsBlock | None,
     user_text: str,
@@ -378,7 +417,8 @@ def maybe_direct_physics_reply(
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
     if not answer:
         return None
-    parts = [working, f"```answer\n{answer}\n```"]
+    # A question in parts carries a card per part already.
+    parts = [working] if len(verified.physics_parts) > 1 else [working, f"```answer\n{answer}\n```"]
     for fence in fences:
         fence_type = fence.get("type")
         if fence_type == "answer":
