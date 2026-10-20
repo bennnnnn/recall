@@ -35,13 +35,11 @@ let currentRegenerating = false;
 function Probe({
   messages,
   regenerateResponse,
-  regenerateImage,
   beginRegenerateUi,
   cancelRegenerateUi,
 }: {
   messages: Message[];
   regenerateResponse: jest.Mock;
-  regenerateImage?: jest.Mock;
   beginRegenerateUi?: jest.Mock;
   cancelRegenerateUi?: jest.Mock;
 }) {
@@ -52,7 +50,6 @@ function Probe({
     regenerateResponse,
     beginRegenerateUi,
     cancelRegenerateUi,
-    regenerateImage,
   });
   React.useLayoutEffect(() => {
     currentRegenerate = result.regenerate;
@@ -87,46 +84,18 @@ describe("useChatRegenerate", () => {
     expect(cancelRegenerateUi).not.toHaveBeenCalled();
   });
 
-  it("routes to regenerateImage when last assistant is an image-only reply", async () => {
-    const messages: Message[] = [
-      msg("user", "Generate image: a cat", "u1"),
-      msg("assistant", "[Image: cat.png]", "a1"),
-    ];
-    const regenerateResponse = jest.fn();
-    const regenerateImage = jest.fn();
-
-    await act(async () => {
-      render(
-        <Probe
-          messages={messages}
-          regenerateResponse={regenerateResponse}
-          regenerateImage={regenerateImage}
-        />,
-      );
-    });
-
-    await act(async () => {
-      await currentRegenerate("free-chat");
-    });
-
-    expect(regenerateImage).toHaveBeenCalledWith("Generate image: a cat");
-    expect(regenerateResponse).not.toHaveBeenCalled();
-  });
-
-  it("does not route lookup photos through image-gen regenerate", async () => {
+  it("regenerates a lookup photo through the stream", async () => {
     const messages: Message[] = [
       msg("user", "Show me a car.", "u1"),
       msg("assistant", "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]", "a1", "image-search-model"),
     ];
     const regenerateResponse = jest.fn();
-    const regenerateImage = jest.fn();
 
     await act(async () => {
       render(
         <Probe
           messages={messages}
           regenerateResponse={regenerateResponse}
-          regenerateImage={regenerateImage}
         />,
       );
     });
@@ -135,7 +104,6 @@ describe("useChatRegenerate", () => {
       await currentRegenerate("free-chat");
     });
 
-    expect(regenerateImage).not.toHaveBeenCalled();
     expect(regenerateResponse).toHaveBeenCalled();
   });
 
@@ -145,14 +113,12 @@ describe("useChatRegenerate", () => {
       msg("assistant", "Hi there!", "a1"),
     ];
     const regenerateResponse = jest.fn();
-    const regenerateImage = jest.fn();
 
     await act(async () => {
       render(
         <Probe
           messages={messages}
           regenerateResponse={regenerateResponse}
-          regenerateImage={regenerateImage}
         />,
       );
     });
@@ -162,7 +128,6 @@ describe("useChatRegenerate", () => {
     });
 
     expect(regenerateResponse).toHaveBeenCalled();
-    expect(regenerateImage).not.toHaveBeenCalled();
   });
 
   it("retries a user-only failed turn without adding another user message", async () => {
@@ -182,7 +147,7 @@ describe("useChatRegenerate", () => {
     expect(messages[0]).toMatchObject({ role: "user", content: "My first question" });
   });
 
-  it("does not route to image path when regenerateImage is not provided", async () => {
+  it("regenerates an image-only reply through the stream (the server makes the new picture)", async () => {
     const messages: Message[] = [
       msg("user", "Generate image: a cat", "u1"),
       msg("assistant", "[Image: cat.png]", "a1"),

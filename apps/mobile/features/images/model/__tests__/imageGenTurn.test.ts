@@ -1,7 +1,6 @@
 import {
   IMAGE_GEN_FAILED_ASSISTANT_ID,
   IMAGE_GEN_PENDING_ASSISTANT_ID,
-  isImageOnlyAssistantContent,
 } from "@/features/images/model/imageGenMessages";
 import {
   applyImageGenFailure,
@@ -76,14 +75,6 @@ describe("image gen failure card", () => {
     expect(next[0]?.content).toBe("create a cat image");
     expect(next[1]?.id).toBe(IMAGE_GEN_PENDING_ASSISTANT_ID);
     expect(next[1]?.image_gen_failure).toBeUndefined();
-  });
-});
-
-describe("isImageOnlyAssistantContent", () => {
-  it("is true only for a bubble that is nothing but pictures", () => {
-    expect(isImageOnlyAssistantContent(`[Image: /attachments/${IMAGE_ID}/file]`)).toBe(true);
-    expect(isImageOnlyAssistantContent(`Here you go\n[Image: /attachments/${IMAGE_ID}/file]`)).toBe(false);
-    expect(isImageOnlyAssistantContent("Here you go")).toBe(false);
   });
 });
 
