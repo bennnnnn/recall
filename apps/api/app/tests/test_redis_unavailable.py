@@ -19,11 +19,13 @@ from app.services import quota as quota_service
 
 
 @pytest.mark.asyncio
-async def test_reserve_usage_raises_when_redis_down():
-    redis = AsyncMock()
-    redis.incrby = AsyncMock(side_effect=RedisConnectionError("down"))
-    with pytest.raises(RedisUnavailableError):
-        await quota_service.reserve_usage(redis, "u1", 100, daily_limit=1000)
+async def test_reserve_usage_raises_when_redis_down(fake_redis):
+    # The reserve's INCRBY + EXPIRE run in one MULTI; Redis is down when it executes.
+    with (
+        patch.object(fake_redis, "pipeline", side_effect=RedisConnectionError("down")),
+        pytest.raises(RedisUnavailableError),
+    ):
+        await quota_service.reserve_usage(fake_redis, "u1", 100, daily_limit=1000)
 
 
 @pytest.mark.asyncio
