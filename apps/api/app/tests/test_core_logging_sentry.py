@@ -447,14 +447,14 @@ def test_the_access_line_logs_the_route_template_not_the_path(caplog):
 
 
 def test_before_send_keeps_a_logged_errors_template_only():
-    secret = "take sertraline at 9"
+    reminder = "take sertraline at 9"
     event = {
         "logentry": {
             "message": "Send failed subject=%s",
-            "formatted": f"Send failed subject={secret}",
-            "params": [secret],
+            "formatted": f"Send failed subject={reminder}",
+            "params": [reminder],
         },
-        "extra": {"subject": secret},
+        "extra": {"subject": reminder},
         "exception": {"values": [{"type": "StatementError", "value": "x" * 1_000}]},
     }
     kept = before_send(event, {})
@@ -468,11 +468,15 @@ def test_before_send_keeps_a_logged_errors_template_only():
 
 
 def test_before_breadcrumb_drops_a_log_lines_arguments():
-    secret = "call the lawyer"
+    reminder = "call the lawyer"
     record = logging.LogRecord(
-        "app.todos", logging.INFO, __file__, 1, "saved title=%s", (secret,), None
+        "app.todos", logging.INFO, __file__, 1, "saved title=%s", (reminder,), None
     )
-    crumb = {"message": f"saved title={secret}", "data": {"title": secret}, "category": "app.todos"}
+    crumb = {
+        "message": f"saved title={reminder}",
+        "data": {"title": reminder},
+        "category": "app.todos",
+    }
     kept = before_breadcrumb(crumb, {"log_record": record})
     assert kept == {"message": "saved title=%s", "data": {}, "category": "app.todos"}
 
@@ -499,15 +503,15 @@ def test_logged_user_text_never_reaches_sentry():
         before_send=before_send,
         before_breadcrumb=before_breadcrumb,
     )
-    secret = "my bank pin is " + uuid4().hex
+    reminder = "call the clinic about the results " + uuid4().hex
     log = logging.getLogger("app.tests.sentry_privacy")
     previous = log.level
     log.setLevel(logging.INFO)
     try:
         with sentry_sdk.isolation_scope() as scope:
             scope.set_client(client)
-            log.info("To-do saved title=%s", secret)
-            log.error("Reminder email failed subject=%s", secret)
+            log.info("To-do saved title=%s", reminder)
+            log.error("Reminder email failed subject=%s", reminder)
         client.flush(timeout=2)
     finally:
         log.setLevel(previous)
@@ -516,4 +520,4 @@ def test_logged_user_text_never_reaches_sentry():
     serialized = json.dumps(events)
     assert "Reminder email failed subject=%s" in serialized
     assert "To-do saved title=%s" in serialized
-    assert secret not in serialized
+    assert reminder not in serialized
