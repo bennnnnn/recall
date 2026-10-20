@@ -44,7 +44,7 @@ jest.mock("@/ui/pickers/TimePickerDialog", () => ({
 }));
 jest.mock("@/features/todos/model/reminderPrefs", () => ({
   DEFAULT_REMINDER_LEAD_MINUTES: 10, REMINDER_LEAD_OPTIONS: [0, 10, 30],
-  getReminderLeadMinutes: jest.fn(async () => 10), setReminderLeadMinutes: jest.fn(async () => undefined),
+  getReminderLeadMinutes: jest.fn(async () => 10),
   syncReminderLeadFromServer: jest.fn(async () => 10),
 }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn(), syncTodoReminders: jest.fn() }));
