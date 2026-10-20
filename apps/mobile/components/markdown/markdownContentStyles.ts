@@ -224,8 +224,14 @@ export function makeMdStyles(t: Theme) {
     // Text of an ordinary blockquote (not a quote card): quieter than the
     // reply, same size, so the aside reads as an aside.
     quoteText: { color: t.textSecondary },
-    // Same space above (the previous block's gap) and below.
-    hr: { backgroundColor: t.border, height: 1, marginTop: 0, marginBottom: PARAGRAPH_GAP },
+    // A hairline (between the parts of a question, or the requests of a message), with
+    // the same space above (the previous block's gap) and below.
+    hr: {
+      backgroundColor: t.border,
+      height: StyleSheet.hairlineWidth,
+      marginTop: 0,
+      marginBottom: PARAGRAPH_GAP,
+    },
     // Underlined, so a link never depends on color alone (WCAG 1.4.1): in dark
     // mode the accent is only ~1.8:1 against body text, and Graphite is grey.
     link: { color: t.primary, textDecorationLine: "underline" },

@@ -482,6 +482,62 @@ describe("markdown render rules", () => {
     ]);
   });
 
+  it("sets the parts of a question apart with a hairline, each with its own answer", async () => {
+    const content = [
+      "**(a) Final velocity**",
+      "",
+      "**Answer (a)**",
+      "",
+      "```answer",
+      "verified: true",
+      String.raw`10\,\mathrm{m/s}`,
+      "```",
+      "",
+      "---",
+      "",
+      "**(b) Distance**",
+      "",
+      "**Answer (b)**",
+      "",
+      "```answer",
+      "verified: true",
+      String.raw`25\,\mathrm{m}`,
+      "```",
+    ].join("\n");
+    const { toJSON, getAllByTestId } = await render(<MarkdownContent content={content} />);
+    expect(getAllByTestId("workout-part")).toHaveLength(2);
+    type Node = { props?: { style?: unknown }; children?: unknown[] | null };
+    const hairlines = (node: unknown): number => {
+      if (!node || typeof node !== "object") return 0;
+      const { props, children } = node as Node;
+      const own = StyleSheet.flatten(props?.style as never)?.height === StyleSheet.hairlineWidth;
+      return (own ? 1 : 0) + (children ?? []).reduce<number>((sum, child) => sum + hairlines(child), 0);
+    };
+    expect(hairlines(toJSON())).toBe(1);
+  });
+
+  it("lays out a model's sections written with plain line breaks", async () => {
+    // A model wrote one newline after each heading; its first line ran onto the heading.
+    const content = [
+      "**Given**",
+      String.raw`$u = 0\ \text{m/s}$`,
+      "",
+      "**Constant acceleration**",
+      String.raw`$a = \frac{v - u}{t}$`,
+      "",
+      "**Substitution**",
+      String.raw`$a = \frac{27.78 - 0}{8}$`,
+      String.raw`$a = 3.47\ \text{m/s}^2$`,
+    ].join("\n");
+    const { getAllByTestId } = await render(<MarkdownContent content={content} />);
+    expect(getAllByTestId("workout-heading").map((node) => node.props.children)).toEqual([
+      "Given",
+      "Constant acceleration",
+      "Substitution",
+    ]);
+    expect(within(getAllByTestId("workout-body")[2]!).getAllByTestId("workout-line")).toHaveLength(2);
+  });
+
   it("leaves a bold line over maths alone outside a worked reply", async () => {
     const content = ["**Constant acceleration**", "$v = u + at$"].join("\n");
     const { queryAllByTestId } = await render(<MarkdownContent content={content} />);

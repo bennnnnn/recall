@@ -100,11 +100,14 @@ def render_workout(
     answer: str | None = None,
     *,
     before_answer: str | None = None,
+    answer_heading: str | None = ANSWER,
 ) -> str:
     """The sections in order; with ``answer``, the answer fence closes it.
 
     ``before_answer`` is already-rendered markdown (numbered equation steps)
-    placed after the sections and before **Answer**.
+    placed after the sections and before **Answer**. ``answer_heading`` names a
+    part's answer (``Answer (a)``); None leaves it out, for the Given and Find a
+    question in parts opens with.
     """
     sections: list[str] = []
     for heading, lines in (
@@ -119,7 +122,8 @@ def render_workout(
             sections.append(f"**{heading}**{_HARD_BREAK}" + _HARD_BREAK.join(kept))
     if before_answer and before_answer.strip():
         sections.append(before_answer.strip())
-    sections.append(f"**{ANSWER}**")
+    if answer_heading is not None:
+        sections.append(f"**{answer_heading}**")
     body = "\n\n".join(sections)
     if answer is None:
         return body
@@ -253,6 +257,14 @@ _WORKOUT_PARTS = (
     "followed by that part's **Formula**, **Substitution** and **Answer**, with no **Find** "
     "under a part; a later part may use an earlier part's answer as a given."
 )
+# Physics answers each part in its own card ("Answer (a)"), a hairline between parts.
+_PHYSICS_PARTS = (
+    "A question in parts: one **Given** and one **Find** naming every quantity asked, then "
+    "for each part a bold label alone on its line naming its letter and what it finds "
+    "(`**(a) Acceleration**`), followed by that part's own law heading, **Substitution** "
+    "carried to its value, and its answer under **Answer (a)** (its own letter), with a "
+    "line `---` between two parts; a later part may use an earlier part's answer as a given."
+)
 _WORKOUT_UNITS = (
     "Write units upright inside math (`$m = 5\\ \\text{kg}$`), never as italic letters "
     "(`$m = 5 kg$`)."
@@ -275,20 +287,20 @@ _PHYSICS_WORKING = (
 )
 
 
-def _workout_rule(sections: str, working: str = "") -> str:
+def _workout_rule(sections: str, working: str = "", parts: str = _WORKOUT_PARTS) -> str:
     return (
         "Worked-solution layout: bold headings in this order, each only when it has "
         f"something to show: {sections} or **Steps** (an equation changed one move at a "
         f"time), then **Answer**. {_WORKOUT_SECTION_LINES} Write a move as a short note "
         "after its line, e.g. `$2x = 8$ — subtract 3 from both sides`. No numbered steps, no "
-        f"separate Simplify lines, no prose between lines. {_WORKOUT_PARTS} {_WORKOUT_UNITS} "
+        f"separate Simplify lines, no prose between lines. {parts} {_WORKOUT_UNITS} "
         f"{working}{_WORKOUT_ONE_EXPRESSION}"
     )
 
 
 # What the model is told for a chemistry reply it writes itself, and physics' own.
 WORKOUT_PROMPT_RULE = _workout_rule(_WORKOUT_SECTIONS)
-PHYSICS_WORKOUT_PROMPT_RULE = _workout_rule(_LAW_SECTIONS, f"{_PHYSICS_WORKING} ")
+PHYSICS_WORKOUT_PROMPT_RULE = _workout_rule(_LAW_SECTIONS, f"{_PHYSICS_WORKING} ", _PHYSICS_PARTS)
 
 # What the model is told for a maths reply it writes itself: numbered moves, as the
 # verified equation lesson renders them, so the phone draws each number as a badge.
@@ -323,6 +335,7 @@ PHYSICS_WORKOUT_PROMPT_SHORT = (
 # Questions in parts and upright units, for a reply the model writes with no
 # verified block to copy (the short rule above has no room for them).
 WORKOUT_PARTS_PROMPT = f"{_WORKOUT_PARTS} {_WORKOUT_UNITS}"
+PHYSICS_WORKOUT_PARTS_PROMPT = f"{_PHYSICS_PARTS} {_WORKOUT_UNITS}"
 
 # A reply the model works out itself has no server check behind it, so it checks
 # its own answer before writing it, and shows that check when one line can.

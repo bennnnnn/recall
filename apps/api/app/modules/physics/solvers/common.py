@@ -48,6 +48,8 @@ class PhysicsResult:
     # A scene of moving bodies, where the graph is a plot of one. A solve may
     # emit both: the projectile's parabola *and* the ball flying along it.
     simulation_specs: list[SimulationBlockSpec] = field(default_factory=list)
+    # A question in parts: each requested quantity with the working that gives it.
+    parts: tuple[PartResult, ...] = ()
 
     def __post_init__(self) -> None:
         if self.quantities:
@@ -55,6 +57,15 @@ class PhysicsResult:
             object.__setattr__(
                 self, "answer_latex", render_chip_latex(self.quantities, self.joiner)
             )
+
+
+@dataclass(frozen=True)
+class PartResult:
+    """One quantity of a question in parts: its operation, its labelled value, its working."""
+
+    op: str
+    quantity: QuantityResult
+    result: PhysicsResult
 
 
 def solved(

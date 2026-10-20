@@ -21,9 +21,15 @@ from app.modules.physics.display import conversion_row
 from app.modules.physics.law_titles import law_title
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult, solve_physics
-from app.modules.physics.solvers.common import QuantityResult
+from app.modules.physics.solvers.chip import render_quantity, render_quantity_latex
+from app.modules.physics.solvers.common import PartResult, QuantityResult
 from app.modules.physics.working_steps import carried_to_answer
-from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
+from app.services.solving import (
+    PhysicsPartWorking,
+    SolveServiceError,
+    VerifiedPhysicsBlock,
+    wrap_verified_physics,
+)
 from app.services.workout import PHYSICS_WORKOUT_PROMPT_RULE
 
 logger = logging.getLogger(__name__)
@@ -40,6 +46,17 @@ _SUVAT_LABELS = {
     "suvat_distance": "s",
     "suvat_time": "t",
     "suvat_acceleration": "a",
+}
+# What each part of a question in parts finds, as its label reads: "(a) Time of flight".
+_PART_TITLES = {
+    "time_of_flight": "Time of flight",
+    "max_height": "Maximum height",
+    "range": "Range",
+    "impact_speed": "Impact speed",
+    "suvat_velocity": "Final velocity",
+    "suvat_distance": "Distance",
+    "suvat_time": "Time",
+    "suvat_acceleration": "Acceleration",
 }
 _PROJECTILE_UNITS = {"s", "m", "m/s"}
 _SUVAT_UNITS = {"s", "m", "m/s", "m/s^2", "m/s²"}
@@ -82,6 +99,26 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
         joiner="projectile",
         graph_specs=[] if suvat else first.graph_specs,
         simulation_specs=[] if suvat else first.simulation_specs,
+        parts=tuple(
+            PartResult(op, quantity, part)
+            for op, quantity, part in zip(intent.requested_ops, labeled, results, strict=True)
+        ),
+    )
+
+
+def _part_workings(result: PhysicsResult) -> tuple[PhysicsPartWorking, ...]:
+    """Each part of a question in parts, with its own working and its own card."""
+    return tuple(
+        PhysicsPartWorking(
+            op=part.op,
+            symbol=part.quantity.symbol,
+            title=_PART_TITLES.get(part.op, part.quantity.symbol),
+            formulas=part.result.formulas,
+            substitutions=part.result.substitutions,
+            answer=render_quantity(replace(part.quantity, symbol="")),
+            display_answer=render_quantity_latex(replace(part.quantity, symbol="")),
+        )
+        for part in result.parts
     )
 
 
@@ -172,6 +209,7 @@ def _build_physics_block(
     # The model sees the same rows the direct reply formats. The combined
     # solver chain stays on result.answer for internal checks.
     worked = carried_to_answer(result.substitutions, card)
+    parts = _part_workings(result)
     verified_lines = [
         *([f"Verified law: {law}"] if law else []),
         "Verified formula:",
@@ -200,6 +238,7 @@ def _build_physics_block(
             physics_working=structured_working,
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
+            physics_parts=parts,
         )
 
     if result.graph_specs:
@@ -215,6 +254,7 @@ def _build_physics_block(
             physics_working=structured_working,
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
+            physics_parts=parts,
         )
     else:
         # A scene attached to a scalar answer is decoration, not a second
@@ -232,6 +272,7 @@ def _build_physics_block(
             physics_working=structured_working,
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
+            physics_parts=parts,
         )
 
     # Extras only. Every reader of `canonical_fences` already prepends
