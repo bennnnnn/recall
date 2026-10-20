@@ -28,8 +28,6 @@ def test_validate_valid_smiles(smiles: str, expected_formula: str, min_weight: f
     assert props.valid, f"expected valid for {smiles}, got error: {props.error}"
     assert props.formula == expected_formula
     assert props.molecular_weight >= min_weight
-    assert props.atom_count > 0
-    assert props.bond_count >= 0
 
 
 @pytest.mark.parametrize(

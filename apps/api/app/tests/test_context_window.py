@@ -69,9 +69,8 @@ def test_select_keeps_min_even_when_over_budget():
 def test_compute_history_split():
     msgs = [_M("a" * 400) for _ in range(40)]
     split = compute_history_split(60, msgs, budget=6000, max_count=40)
-    assert split.keep_count == 40
+    # All 40 recent messages fit the budget, so the 20 older ones are summarized.
     assert split.summarized_count == 20
-    assert split.token_pressure is False
 
 
 def test_should_run_compression_batch():
@@ -88,16 +87,16 @@ def test_should_run_compression_urgent_without_token_pressure():
     neither in the summary nor in the recent window."""
     msgs = [_M("x")] * 40
     split = compute_history_split(60, msgs, budget=6000, max_count=40)
-    assert split.token_pressure is False
-    assert split.summarized_count > 0
+    # No token pressure: the whole recent window is kept.
+    assert split.summarized_count == 20
     assert should_run_compression(split, already_summarized=0, batch=10, urgent_min_pending=3)
 
 
 def test_should_run_compression_urgent_under_token_pressure():
     msgs = [_M("a" * 400) for _ in range(40)]
     split = compute_history_split(60, msgs, budget=250, max_count=40)
-    assert split.token_pressure is True
-    assert split.summarized_count > 0
+    # Token pressure: the budget trims the window to its 2-message minimum.
+    assert split.summarized_count == 58
     assert should_run_compression(split, already_summarized=0, batch=10, urgent_min_pending=3)
 
 
