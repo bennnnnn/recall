@@ -1,8 +1,7 @@
 /**
- * Checks over a native math layout tree: the nodes of one kind, and the
+ * Test helpers over a native math layout tree: the nodes of one kind, and the
  * appearance rules (a bar that outgrows its radicand, a fraction that
- * overlaps, a script left on the baseline) that tests and any future debug
- * overlay read without a device screenshot.
+ * overlaps, a script left on the baseline) checked without a device screenshot.
  */
 
 import type { MathLayout } from "@/lib/math/layout";
