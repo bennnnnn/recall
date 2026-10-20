@@ -34,15 +34,6 @@ export function listUrgentReminderIds(
   return listUrgentReminders(todos, now, leadMinutes).map((todo) => todo.id);
 }
 
-/** Open reminders that are overdue or due within the lead window. */
-export function countUrgentReminders(
-  todos: Todo[],
-  now = new Date(),
-  leadMinutes: number = DEFAULT_HOME_URGENT_LEAD,
-): number {
-  return listUrgentReminders(todos, now, leadMinutes).length;
-}
-
 export function countUnseenUrgentReminders(
   todos: Todo[],
   seenIds: Set<string>,

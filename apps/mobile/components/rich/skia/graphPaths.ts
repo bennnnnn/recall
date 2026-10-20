@@ -1,7 +1,7 @@
 /**
  * The graph explorer's paths and chrome, as worklets: each series' curve, an
  * inequality's shaded side, a scatter's markers, and the grid, axes and tick
- * labels for the current bounds. `SkiaGraphExplorer` derives them on the UI
+ * labels for the current bounds. `SkiaGraphCanvas` derives them on the UI
  * thread every frame.
  */
 import { Skia, type SkFont } from "@shopify/react-native-skia";

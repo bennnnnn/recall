@@ -415,13 +415,6 @@ function mathCaretStops(text: string): number[] {
   return [...stops].filter((p) => p >= 0 && p <= text.length).sort((a, b) => a - b);
 }
 
-export function stepMathCaret(text: string, caret: number, dir: -1 | 1): number {
-  const stops = mathCaretStops(text);
-  if (stops.length === 0) return caret;
-  if (dir > 0) return stops.find((s) => s > caret) ?? stops[stops.length - 1]!;
-  return [...stops].reverse().find((s) => s < caret) ?? stops[0]!;
-}
-
 function collapseEmptyMath(
   text: string,
   caret: number,

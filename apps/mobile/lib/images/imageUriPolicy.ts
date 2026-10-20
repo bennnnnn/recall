@@ -19,7 +19,7 @@
  */
 import { getApiUrl } from "@/lib/config";
 
-export type ImageLoadPolicy = "load" | "ask" | "block";
+type ImageLoadPolicy = "load" | "ask" | "block";
 
 const INLINE_RASTER = /^data:image\/(?:png|jpe?g|gif|webp|avif|heic|bmp);/i;
 

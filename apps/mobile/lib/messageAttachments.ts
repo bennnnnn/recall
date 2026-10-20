@@ -13,7 +13,7 @@ const REMOTE_REF = /^(?:https?:)?\/\//i;
  * (a model told to by injected text can put the user's data in its URL), so
  * it never loads unasked.
  */
-export function loadsFromAnotherHost(ref: string): boolean {
+function loadsFromAnotherHost(ref: string): boolean {
   const trimmed = ref.trim();
   return REMOTE_REF.test(trimmed) && attachmentIdFromRef(trimmed) === null;
 }

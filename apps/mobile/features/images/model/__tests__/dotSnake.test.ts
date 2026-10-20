@@ -3,7 +3,6 @@ import {
   type Direction,
   type DotSnake,
   nextDotSnakeMove,
-  OPPOSITE,
   placeFood,
   resetDotSnake,
   sameCell,
@@ -11,6 +10,8 @@ import {
   stepDotSnake,
 } from "@/features/images/model/dotSnake";
 import type { Cell } from "@/features/images/model/dotGrid";
+
+const OPPOSITE: Record<Direction, Direction> = { up: "down", down: "up", left: "right", right: "left" };
 
 /** Deterministic random in [0, 1) (mulberry32). */
 function seeded(seed: number): () => number {

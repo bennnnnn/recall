@@ -3,7 +3,6 @@
 import type { PermissionResponse } from "expo-audio";
 import { requireOptionalNativeModule } from "expo-modules-core";
 import { getInfoAsync, readAsStringAsync } from "expo-file-system/legacy";
-import { Platform } from "react-native";
 
 import { canUseVoiceInput } from "@/lib/expoRuntime";
 
@@ -125,8 +124,6 @@ export async function preparePlaybackAudioMode(): Promise<void> {
   }
 }
 
-export type VoiceRecordingFormat = "aac" | "wav";
-
 /** Composer and live talk both stop the mic before the 5MB upload cap. */
 export const VOICE_MAX_RECORDING_MS = 45_000;
 
@@ -141,50 +138,9 @@ type RecordingPreset = {
   web?: Record<string, unknown>;
 };
 
-/** Live talk needs wav/mp3 — OpenAI gpt-audio rejects Expo's default m4a. */
-export function recordingOptionsForFormat(
-  highQuality: RecordingPreset,
-  format: VoiceRecordingFormat,
-): RecordingPreset {
-  const metered: RecordingPreset = { ...highQuality, isMeteringEnabled: true };
-  if (format !== "wav") return metered;
-  const androidAac: RecordingPreset["android"] = {
-    ...(highQuality.android ?? {}),
-    extension: ".m4a",
-    outputFormat: "mpeg4",
-    audioEncoder: "aac",
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    bitRate: 128000,
-  };
-  if (Platform.OS === "android") {
-    return {
-      ...metered,
-      extension: ".m4a",
-      sampleRate: 16000,
-      numberOfChannels: 1,
-      bitRate: 128000,
-      android: androidAac,
-    };
-  }
-  return {
-    ...metered,
-    extension: ".wav",
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    bitRate: 256000,
-    ios: {
-      ...(highQuality.ios ?? {}),
-      outputFormat: "lpcm",
-      audioQuality: 0x7f,
-      sampleRate: 16000,
-      numberOfChannels: 1,
-      linearPCMBitDepth: 16,
-      linearPCMIsBigEndian: false,
-      linearPCMIsFloat: false,
-    },
-    android: androidAac,
-  };
+/** Expo's high-quality preset with metering on, so the mic level drives the waveform. */
+export function meteredRecordingOptions(highQuality: RecordingPreset): RecordingPreset {
+  return { ...highQuality, isMeteringEnabled: true };
 }
 
 let exclusiveMicStop: (() => Promise<void>) | null = null;
@@ -203,9 +159,7 @@ export async function yieldMicToWebRtc(): Promise<void> {
   }
 }
 
-export async function startVoiceRecording(
-  format: VoiceRecordingFormat = "aac",
-): Promise<VoiceRecorder | null> {
+export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
   const mod = loadExpoAudio();
   if (!mod) return null;
 
@@ -215,7 +169,7 @@ export async function startVoiceRecording(
   });
 
   const recorder = new mod.AudioModule.AudioRecorder({});
-  const preset = recordingOptionsForFormat(mod.RecordingPresets.HIGH_QUALITY, format);
+  const preset = meteredRecordingOptions(mod.RecordingPresets.HIGH_QUALITY);
   await recorder.prepareToRecordAsync(
     preset as Parameters<typeof recorder.prepareToRecordAsync>[0],
   );

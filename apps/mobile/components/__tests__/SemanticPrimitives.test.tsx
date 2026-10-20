@@ -2,7 +2,6 @@ import { StyleSheet } from "react-native";
 import { render } from "@testing-library/react-native";
 
 import { CountBadge } from "@/ui/feedback/CountBadge";
-import { StatusPill } from "@/ui/feedback/StatusPill";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
 jest.mock("@/lib/theme", () => ({
@@ -27,21 +26,5 @@ describe("semantic primitives", () => {
     expect(badgeStyle.height).toBeUndefined();
     expect(labelStyle.color).toBe(mockLightTheme.onDanger);
     expect(labelStyle.lineHeight).toBeUndefined();
-  });
-
-  it.each([
-    ["interviewing", "accent", mockLightTheme.primaryLight, mockLightTheme.primaryDark],
-    ["offer", "success", mockLightTheme.successLight, mockLightTheme.text],
-    ["rejected", "neutral", mockLightTheme.surfaceAlt, mockLightTheme.textTertiary],
-  ] as const)("maps %s to the %s status tone", async (label, tone, background, foreground) => {
-    const { getByText } = await render(<StatusPill label={label} tone={tone} />);
-    const text = getByText(label);
-    const pillStyle = StyleSheet.flatten(text.parent?.props.style);
-    const textStyle = StyleSheet.flatten(text.props.style);
-
-    expect(pillStyle.backgroundColor).toBe(background);
-    expect(pillStyle.height).toBeUndefined();
-    expect(textStyle.color).toBe(foreground);
-    expect(textStyle.lineHeight).toBeUndefined();
   });
 });

@@ -162,11 +162,11 @@
       "why": "Over 500 before the standards; tracked in ES-04"
     },
     "apps/mobile/components/MathEquationScanner.tsx": {
-      "lines": 638,
+      "lines": 564,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/features/chat/components/ChatComposer.tsx": {
-      "lines": 565,
+      "lines": 556,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/features/chat/components/MathDraftPreview.tsx": {
@@ -182,11 +182,11 @@
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/features/chat/hooks/useChatSend.ts": {
-      "lines": 531,
+      "lines": 511,
       "why": "Over 500 before the standards; tracked in ES-05"
     },
     "apps/mobile/features/chat/screens/ChatScreen.tsx": {
-      "lines": 578,
+      "lines": 571,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/lib/codeTokenize.ts": {
@@ -198,7 +198,7 @@
       "why": "Over 500 before the standards; one algorithm, held to its twin by docs/fixtures/presentation_cases.json (ES-06); split by responsibility after the ticketed files"
     },
     "apps/mobile/lib/math/draftSlots.ts": {
-      "lines": 566,
+      "lines": 559,
       "why": "Exception: One draft-node parser and editor"
     },
     "apps/mobile/lib/math/graphBlock.ts": {
@@ -206,7 +206,7 @@
       "why": "Over 500 before the standards; tracked in ES-40"
     },
     "apps/mobile/lib/math/keyboardCatalog.ts": {
-      "lines": 553,
+      "lines": 545,
       "why": "Exception: Key and accessibility tables (321 lines of data)"
     },
     "apps/mobile/lib/math/latexParse.ts": {

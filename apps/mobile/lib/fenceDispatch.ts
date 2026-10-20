@@ -171,14 +171,6 @@ export function classifyOpenFencePreview(lang: string, body: string): OpenFenceP
   return "code";
 }
 
-export function shouldPreviewOpenFenceAsAnswer(lang: string, body: string): boolean {
-  return classifyOpenFencePreview(lang, body) === "answer";
-}
-
-export function shouldPreviewOpenFenceAsMath(lang: string, body: string): boolean {
-  return classifyOpenFencePreview(lang, body) === "math";
-}
-
 export function looksLikeMathMeta(content: string): boolean {
   return /^(Could not render that diagram\.?|Invalid (graph|geometry) block)/i.test(
     content.trim(),

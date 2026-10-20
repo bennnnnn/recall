@@ -12,7 +12,7 @@ export type ResourceUpdate<T> = (current: T) => T;
 /** Shows the user a failed read that would otherwise go unseen. */
 export type FailureReporter = (error: Error) => void;
 
-export type ResourceFetchOptions = {
+type ResourceFetchOptions = {
   /** Skip the freshness window. A read already running is still joined. */
   force?: boolean;
   /** Let the running read (and the edits replayed over it) land, then read again. */

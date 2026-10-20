@@ -149,10 +149,6 @@ export function parsePlacesJson(raw: string): PlaceItem[] {
   }
 }
 
-export function parsePlacesFence(content: string): PlaceItem[] {
-  return parseAllPlacesFences(content);
-}
-
 /** Fix model output where markdown links use $url$ instead of (url).
  * Only fires when the delimited content looks like a URL — otherwise adjacent
  * inline math spans merge: `$x \in [0,2]$ \times $y \in [1,3]$` would turn

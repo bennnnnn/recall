@@ -20,7 +20,7 @@ type Loaded =
   | { key: string; kind: "file"; viewer: string; pdf: string }
   | { key: string; kind: "html"; base64: string };
 
-export type PdfPreview =
+type PdfPreview =
   | { status: "idle" | "loading" | "failed" }
   | { status: "ready"; webViewKey: string; webViewProps: Record<string, unknown> };
 

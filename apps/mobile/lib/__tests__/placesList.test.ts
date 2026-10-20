@@ -1,7 +1,6 @@
 import {
   googleMapsSearchUrl,
   isGenericSearchUrl,
-  parsePlacesFence,
   parsePlacesJson,
   repairBrokenMarkdownLinks,
   resolvePlaceLinkUrl,
@@ -16,7 +15,7 @@ describe("placesList", () => {
 \`\`\`places
 [{"name":"CODE Salon","url":"https://example.com/code","note":"4.7 stars","price":"$$"}]
 \`\`\``;
-    expect(parsePlacesFence(content)).toEqual([
+    expect(resolvePlaces(content)).toEqual([
       {
         name: "CODE Salon",
         url: "https://example.com/code",

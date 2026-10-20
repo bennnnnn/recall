@@ -20,9 +20,9 @@ const WS_TURN_EVENT_TYPES = new Set([
 const WS_OPEN_STATE = 1;
 
 /** The server closed a socket idle between turns (`ws_limits.WS_IDLE_CLOSE_CODE`). */
-export const WS_IDLE_CLOSE_CODE = 4408;
+const WS_IDLE_CLOSE_CODE = 4408;
 /** Over the per-user socket cap (`ws_limits.WS_TOO_MANY_SOCKETS_CLOSE_CODE`): use SSE. */
-export const WS_TOO_MANY_SOCKETS_CLOSE_CODE = 4429;
+const WS_TOO_MANY_SOCKETS_CLOSE_CODE = 4429;
 const WS_GOING_AWAY_CLOSE_CODE = 1001;
 /** uvicorn's close when the server restarts (deploy): the next socket reaches the new machine. */
 const WS_SERVICE_RESTART_CLOSE_CODE = 1012;

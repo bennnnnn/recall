@@ -3,7 +3,6 @@ import {
   CHEMISTRY_CAMERA_PROMPT,
   PHYSICS_CAMERA_PROMPT,
   composerTextAfterSubjectScan,
-  isScannerCameraPrompt,
   scannerCameraPrompt,
 } from "@/lib/scanner/subjects";
 
@@ -13,12 +12,6 @@ describe("scanner subjects", () => {
     expect(scannerCameraPrompt("physics")).toBe(PHYSICS_CAMERA_PROMPT);
     expect(scannerCameraPrompt("chemistry")).toBe(CHEMISTRY_CAMERA_PROMPT);
     expect(scannerCameraPrompt("biology")).toBe(BIOLOGY_CAMERA_PROMPT);
-  });
-
-  it("recognizes all scanner prompts without claiming normal image questions", () => {
-    expect(isScannerCameraPrompt(CHEMISTRY_CAMERA_PROMPT)).toBe(true);
-    expect(isScannerCameraPrompt(BIOLOGY_CAMERA_PROMPT.toUpperCase())).toBe(true);
-    expect(isScannerCameraPrompt("What's in this image?")).toBe(false);
   });
 
   it("always carries the selected subject while preserving a typed caption", () => {

@@ -1,4 +1,4 @@
-export type SignInProvider = "google" | "apple";
+type SignInProvider = "google" | "apple";
 
 /**
  * The email already has an account this sign-in may not join (the provider is

@@ -52,8 +52,6 @@ type Props = {
   shareTitle?: string;
   /** Adds a PDF button. Rejecting with a share cancel is not a failure. */
   onExportPdf?: () => Promise<void>;
-  /** Present the OS share menu on top as soon as the sheet is up. */
-  autoShare?: boolean;
   labels: {
     share: string;
     copy: string;
@@ -83,7 +81,6 @@ export function ShareSheet({
   load,
   shareTitle,
   onExportPdf,
-  autoShare = true,
   labels,
   testID = "share-sheet",
 }: Props) {
@@ -195,8 +192,9 @@ export function ShareSheet({
     <Sheet
       visible={visible}
       onClose={onClose}
+      // Present the OS share menu on top as soon as the sheet is up.
       onShow={() => {
-        if (autoShare) void share();
+        void share();
       }}
       withHandle
       contentContainerStyle={s.panel}

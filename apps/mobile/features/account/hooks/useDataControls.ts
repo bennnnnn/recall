@@ -10,7 +10,7 @@ import { formatExportJsonForShare, shareAccountExport } from "@/lib/exportData";
 type DataControlsProgress = "idle" | "exporting" | "deleting";
 
 /** "cancelled": the user closed the Sign in with Apple sheet, so nothing was deleted. */
-export type AccountDeleteOutcome = "deleted" | "cancelled" | "failed";
+type AccountDeleteOutcome = "deleted" | "cancelled" | "failed";
 
 export function useDataControls() {
   const { token, user, signOut, setIgnoreUnauthorized } = useAuth();

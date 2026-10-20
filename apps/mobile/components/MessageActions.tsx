@@ -198,7 +198,6 @@ export function AssistantActions({
   onRegenerate,
   regenerating = false,
   theme,
-  hidden = false,
   thumbsOnly = false,
 }: {
   messageId: string;
@@ -208,7 +207,6 @@ export function AssistantActions({
   onRegenerate?: () => void;
   regenerating?: boolean;
   theme: Theme;
-  hidden?: boolean;
   /** Image-only replies: thumbs only (no copy / speak / regenerate). */
   thumbsOnly?: boolean;
 }) {
@@ -226,12 +224,7 @@ export function AssistantActions({
   };
 
   return (
-    <View
-      style={[a.row, hidden && a.rowHidden]}
-      pointerEvents={hidden ? "none" : "auto"}
-      accessibilityElementsHidden={hidden}
-      importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
-    >
+    <View style={a.row}>
       {!thumbsOnly ? (
         <>
           <CopyButton
@@ -309,9 +302,6 @@ const a = StyleSheet.create({
     gap: 2,
     marginTop: Space.xxs,
     marginRight: 2,
-  },
-  rowHidden: {
-    opacity: 0,
   },
   btn: {
     width: ACTION_SIZE,

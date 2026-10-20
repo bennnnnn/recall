@@ -1,7 +1,7 @@
 import { shouldBlockSend } from "@/features/chat/model/sendLogic";
 
 /** "offline" and "streaming" tell the user why; "blocked" is silent. */
-export type SendGuardVerdict = "send" | "blocked" | "offline" | "streaming";
+type SendGuardVerdict = "send" | "blocked" | "offline" | "streaming";
 
 /** Whether a tap on Send may start a turn. */
 export function canSend(input: {

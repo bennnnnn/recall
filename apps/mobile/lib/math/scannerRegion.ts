@@ -167,13 +167,6 @@ export function regionsClose(a: ScanRegion, b: ScanRegion, epsilon = 1e-3): bool
   );
 }
 
-export function regionIsDefault(
-  region: ScanRegion,
-  inset: ScanChromeInset = ZERO_INSET,
-): boolean {
-  return regionsClose(clampScanRegion(region, inset), clampScanRegion(defaultScanRegion(inset), inset));
-}
-
 /** CameraView zoom is 0..1 (fraction of device max). */
 export function clampCameraZoom(zoom: number): number {
   "worklet";

@@ -42,7 +42,7 @@ const GUIDE_OVERHANG = 4;
 const MARK_GAP = 4;
 
 /** What the diagram fence carries for a wave. */
-export type WaveSceneSpec = {
+type WaveSceneSpec = {
   bounds: WorldBounds;
   wave: WaveSpec;
   measures: MeasureVector[];

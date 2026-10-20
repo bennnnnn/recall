@@ -7,8 +7,8 @@ import {
   clampScanRegion,
   defaultScanRegion,
   handleHitSize,
-  regionIsDefault,
   regionToImageCrop,
+  regionsClose,
   resizeScanRegionFromCorner,
   scaleScanRegion,
   scanChromeInset,
@@ -124,10 +124,10 @@ describe("resizeScanRegionFromCorner", () => {
   });
 });
 
-describe("regionIsDefault", () => {
-  it("is true for the default region and false after a move", () => {
-    expect(regionIsDefault(defaultScanRegion())).toBe(true);
-    expect(regionIsDefault(translateScanRegion(defaultScanRegion(), 0.1, 0))).toBe(false);
+describe("regionsClose", () => {
+  it("is true for the same region and false after a move", () => {
+    expect(regionsClose(defaultScanRegion(), defaultScanRegion())).toBe(true);
+    expect(regionsClose(translateScanRegion(defaultScanRegion(), 0.1, 0), defaultScanRegion())).toBe(false);
   });
 });
 

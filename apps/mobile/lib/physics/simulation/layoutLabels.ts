@@ -46,7 +46,7 @@ export function labelObstacles(
   const { spec, width, height, measureText, fontSize, extents, solidBoxes } = scene;
   const { progresses, positions } = scene;
   const fixed: LabelBox[][] = progresses.map(() => []);
-  spec.bodies.forEach((body, index) => {
+  spec.bodies.forEach((_body, index) => {
     const extent = extents[index];
     positions[index].forEach((point, frame) => {
       fixed[frame].push({

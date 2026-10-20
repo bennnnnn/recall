@@ -21,7 +21,6 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | A full-screen viewer (photo, PDF, scanner) | `overlay/FullScreenModal` | a raw `Modal` |
 | A time | `pickers/TimePickerDialog` (Android clock: dial, AM/PM, keyboard entry) | `@react-native-community/datetimepicker` |
 | A date (month grid, year list, min/max) | `pickers/DatePickerDialog` | the native picker |
-| A date then a time | `pickers/DateTimePickerDialog` | chaining native dialogs |
 | Share a chat or a summary | `share/ShareSheet` (preview card, Share / Copy / PDF) | `Share.share` straight from a menu |
 | Back, close, menu, ⋮ in a header | `controls/HeaderButton` (`plate`, `plain` in a `HeaderButtonGroup`, `media` over photos); `StackBackButton` in stacks | a hand-styled circle |
 | A labelled action | `controls/Button` (pill; `sm` 36 / `md` 44 / `lg` 52; optional icon; `media` is the white pill over a photo, like the viewer's Share) | a `Pressable` styled as a button |
@@ -32,7 +31,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | Searching a list | `controls/SearchField` | |
 | Icons and logos | `icons/Icon` (Lucide line icons; `IconSize` ladder) and `icons/brand` `BrandMark` | `@expo/vector-icons`, PNG icons |
 | Loading, empty, error | `feedback/StateView`, `feedback/SkeletonLoader` (`SkeletonList` for rows, `SkeletonGrid` for tiles) | |
-| Small counts and labels | `feedback/CountBadge`, `feedback/StatusPill` | |
+| Small counts | `feedback/CountBadge` | |
 
 ## Folders
 
@@ -42,12 +41,11 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 - `list/`: ListRow, ListGroup, ListSeparator.
 - `overlay/`: Overlay (the one floating layer), Menu, SelectMenu, Dialog + DialogHost +
   `dialogs.ts`, Sheet, SheetFormHeader, FullScreenModal.
-- `pickers/`: ClockDial, TimePickerDialog, DatePickerDialog, DateTimePickerDialog. The
+- `pickers/`: ClockDial, TimePickerDialog, DatePickerDialog. The
   geometry and calendar rules live in `lib/datetime/clockDial.ts` and `calendarGrid.ts`.
 - `share/`: ShareSheet.
 - `icons/`: Icon, BrandMark, the icon manifest and generated glyphs, IconSize.
-- `feedback/`: ActionBanner (the toast), StateView, SkeletonLoader, CountBadge, StatusPill,
-  ActionShimmer.
+- `feedback/`: ActionBanner (the toast), StateView, SkeletonLoader, CountBadge, ActionShimmer.
 - `hooks/`: useKeyboardHeight.
 
 ## Tokens

@@ -21,7 +21,7 @@ export type PickedAsset = {
   height?: number;
 };
 
-export type PreparedAttachment = {
+type PreparedAttachment = {
   localUri: string;
   contentType: string;
   fileName: string;

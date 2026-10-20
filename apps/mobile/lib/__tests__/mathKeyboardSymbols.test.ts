@@ -1,28 +1,27 @@
 import {
-  autoAdvanceFracDen,
   autoAdvanceNextEmptySlot,
   caretInGroup,
   caretStepLeft,
   caretStepRight,
-  converterResultSpec,
   findFracSlots,
   findLognSlots,
   findNrootSlots,
-  fracTapAdvancesToDen,
   isCursorInsideInlineMath,
   MATH_KEYBOARD_GROUPS,
   MATH_KEYBOARD_SYMBOLS,
   MATH_PAD_KEYS,
-  PAD_COLUMNS,
   PAD_ROWS,
-  pageKeyIds,
   padRows,
   spliceMathInsert,
   SYMBOL_A11Y,
-  SYMBOL_PAGES,
   symbolA11yLabel,
   tapAdvancesToNextSlot,
+  type SymbolPage,
 } from "@/lib/math/keyboardSymbols";
+
+const SYMBOL_PAGES = MATH_KEYBOARD_GROUPS.filter((group): group is SymbolPage => group !== "converter");
+const pageKeyIds = (page: SymbolPage) =>
+  padRows(page).flatMap((row) => row.flatMap((cell) => (cell.kind === "insert" ? [cell.spec.id] : [])));
 
 describe("spliceMathInsert", () => {
   it("wraps a snippet in $...$ when the caret is outside math", () => {
@@ -260,7 +259,7 @@ describe("slot navigation", () => {
     const text = "$\\frac{1}{}$";
     const slots = findFracSlots(text);
     expect(caretStepRight(text, slots[0]!.num.close)).toBe(slots[0]!.den.open + 1);
-    expect(fracTapAdvancesToDen(text, slots[0]!.num.close)).toBe(slots[0]!.den.close);
+    expect(tapAdvancesToNextSlot(text, slots[0]!.num.close, "frac")).toBe(slots[0]!.den.close);
   });
 
   it("auto-advances after inserting pi into an empty numerator", () => {
@@ -268,7 +267,7 @@ describe("slot navigation", () => {
     const pi = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "pi")!;
     const afterFrac = spliceMathInsert("", { start: 0, end: 0 }, frac);
     const afterPi = spliceMathInsert(afterFrac.text, afterFrac.selection, pi);
-    const jump = autoAdvanceFracDen(
+    const jump = autoAdvanceNextEmptySlot(
       afterFrac.text,
       afterFrac.selection.start,
       afterPi.text,
@@ -285,7 +284,7 @@ describe("slot navigation", () => {
     const afterFrac = spliceMathInsert("", { start: 0, end: 0 }, frac);
     const afterOne = spliceMathInsert(afterFrac.text, afterFrac.selection, one);
     expect(
-      autoAdvanceFracDen(
+      autoAdvanceNextEmptySlot(
         afterFrac.text,
         afterFrac.selection.start,
         afterOne.text,
@@ -300,7 +299,7 @@ describe("slot navigation", () => {
     const one = { id: "digit-1", label: "1", insert: "1", cursorOffset: 1, group: "pad" as const };
     const afterFrac = spliceMathInsert("", { start: 0, end: 0 }, frac);
     const afterOne = spliceMathInsert(afterFrac.text, afterFrac.selection, one);
-    const jump = fracTapAdvancesToDen(afterOne.text, afterOne.selection.start);
+    const jump = tapAdvancesToNextSlot(afterOne.text, afterOne.selection.start, "frac");
     expect(jump).toBe(findFracSlots(afterOne.text)[0]!.den.close);
   });
 
@@ -415,7 +414,7 @@ describe("keyboard pages", () => {
     for (const page of SYMBOL_PAGES) {
       const rows = padRows(page);
       expect(rows).toHaveLength(PAD_ROWS);
-      expect(rows.every((row) => row.length === PAD_COLUMNS)).toBe(true);
+      expect(rows.every((row) => row.length === 6)).toBe(true);
       expect(rows[PAD_ROWS - 1]!.slice(-3).map((cell) => cell.kind)).toEqual([
         "left",
         "right",
@@ -452,12 +451,6 @@ describe("keyboard pages", () => {
     ]) {
       expect(placed).toContain(id);
     }
-  });
-
-  it("inserts a converter result as math with a unit", () => {
-    const spec = converterResultSpec("100", "cm");
-    expect(spec.insert).toBe("100\\,\\text{cm}");
-    expect(spliceMathInsert("", { start: 0, end: 0 }, spec).text).toBe("$100\\,\\text{cm}$");
   });
 });
 

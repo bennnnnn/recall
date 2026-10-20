@@ -9,8 +9,8 @@ import { ImageManipulator, type ImageRef, SaveFormat } from "expo-image-manipula
 export const SCAN_MAX_EDGE = 2048;
 export const SCAN_JPEG_QUALITY = 0.8;
 
-export type ImageSize = { width: number; height: number };
-export type PixelCrop = { originX: number; originY: number; width: number; height: number };
+type ImageSize = { width: number; height: number };
+type PixelCrop = { originX: number; originY: number; width: number; height: number };
 
 /** The downscale that brings a crop's long edge to `maxEdge`; null when it already fits. */
 export function scanResize(
@@ -72,7 +72,7 @@ export async function cropScanImage(
 }
 
 /** Delete a scan file from the cache. Idempotent; a failed delete never blocks the scanner. */
-export function discardScanFile(uri: string): void {
+function discardScanFile(uri: string): void {
   void deleteAsync(uri, { idempotent: true }).catch(() => undefined);
 }
 

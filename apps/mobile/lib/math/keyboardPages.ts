@@ -12,7 +12,6 @@ export type PadCell =
   | { kind: "backspace" };
 
 /** Every page is the same 6 × 6 grid, so every key is the same size. */
-export const PAD_COLUMNS = 6;
 export const PAD_ROWS = 6;
 
 export type SymbolPage = Exclude<MathKeyboardGroup, "converter" | "pad">;
@@ -88,10 +87,3 @@ export function padRows(page: SymbolPage): PadCell[][] {
     return r === rows.length - 1 ? [...cells, ...CONTROLS] : cells;
   });
 }
-
-/** Key ids on a page, in reading order. */
-export function pageKeyIds(page: SymbolPage): string[] {
-  return PAGES[page].flat();
-}
-
-export const SYMBOL_PAGES = Object.keys(PAGES) as SymbolPage[];

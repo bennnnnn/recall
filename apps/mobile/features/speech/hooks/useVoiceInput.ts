@@ -10,19 +10,13 @@ import {
   startVoiceRecording,
   VOICE_MAX_RECORDING_MS,
   type VoiceRecorder,
-  type VoiceRecordingFormat,
 } from "@/lib/speech/voiceAudio";
 import { alertDialog } from "@/ui/overlay/dialogs";
-
-type TranscribeFail = "empty" | "network" | "failed";
 
 type Options = {
   token: string | null;
   onTranscript: (text: string) => void;
   t: (key: string) => string;
-  recordingFormat?: VoiceRecordingFormat;
-  /** When set, skip default alerts so the caller can refund / show live-talk copy. */
-  onTranscribeError?: (reason: TranscribeFail) => void;
   /** The server said the plan has no voice input (HTTP 403): show the plans. */
   onPlanRequired?: () => void;
 };
@@ -40,8 +34,6 @@ export function useVoiceInput({
   token,
   onTranscript,
   t,
-  recordingFormat = "aac",
-  onTranscribeError,
   onPlanRequired,
 }: Options) {
   const feedback = useActionFeedbackOptional();
@@ -109,7 +101,7 @@ export function useVoiceInput({
         });
         return false;
       }
-      const next = await startVoiceRecording(recordingFormat);
+      const next = await startVoiceRecording();
       if (gen !== captureGenRef.current) {
         if (next) void next.stop().catch(() => undefined);
         return false;
@@ -128,7 +120,6 @@ export function useVoiceInput({
       setRecording(true);
       if (maxTimerRef.current != null) clearTimeout(maxTimerRef.current);
       maxTimerRef.current = setTimeout(() => {
-        if (onTranscribeError) return;
         void finishRecordingRef.current();
       }, VOICE_MAX_RECORDING_MS);
       return true;
@@ -140,7 +131,7 @@ export function useVoiceInput({
     } finally {
       startingRef.current = false;
     }
-  }, [token, recording, transcribing, t, showUnavailable, recordingFormat, onTranscribeError, feedback]);
+  }, [token, recording, transcribing, t, showUnavailable, feedback]);
 
   const finishRecording = useCallback(async (): Promise<string | null> => {
     if (!token) return null;
@@ -151,10 +142,7 @@ export function useVoiceInput({
     if (gen !== captureGenRef.current) return null;
     if (!uri || !heardSpeech) {
       setTranscribing(false);
-      onTranscribeError?.("empty");
-      if (!onTranscribeError) {
-        reportRecoverableError(feedback, t("chat.voice_recording_empty"));
-      }
+      reportRecoverableError(feedback, t("chat.voice_recording_empty"));
       return null;
     }
     const controller = new AbortController();
@@ -171,32 +159,21 @@ export function useVoiceInput({
         return null;
       }
       const message = error instanceof Error ? error.message : "";
-      const reason: TranscribeFail =
-        /network request failed|failed to fetch|timeout|timed out|could not reach/i.test(
-          message,
-        )
-        ? "network"
-        : message.includes("recording_empty") || message.includes("transcribe_empty")
-          ? "empty"
-          : "failed";
-      onTranscribeError?.(reason);
-      if (!onTranscribeError) {
-        if (reason === "network") {
-          reportRecoverableError(feedback, t("chat.voice_network_failed"));
-        } else if (message.includes("recording_empty")) {
-          reportRecoverableError(feedback, t("chat.voice_recording_empty"));
-        } else if (message.includes("transcribe_empty")) {
-          reportRecoverableError(feedback, t("chat.voice_transcribe_empty"));
-        } else {
-          reportRecoverableError(feedback, t("chat.voice_transcribe_failed"));
-        }
+      if (/network request failed|failed to fetch|timeout|timed out|could not reach/i.test(message)) {
+        reportRecoverableError(feedback, t("chat.voice_network_failed"));
+      } else if (message.includes("recording_empty")) {
+        reportRecoverableError(feedback, t("chat.voice_recording_empty"));
+      } else if (message.includes("transcribe_empty")) {
+        reportRecoverableError(feedback, t("chat.voice_transcribe_empty"));
+      } else {
+        reportRecoverableError(feedback, t("chat.voice_transcribe_failed"));
       }
       return null;
     } finally {
       if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null;
       if (gen === captureGenRef.current) setTranscribing(false);
     }
-  }, [token, stopRecording, onTranscript, onTranscribeError, onPlanRequired, feedback, t]);
+  }, [token, stopRecording, onTranscript, onPlanRequired, feedback, t]);
 
   finishRecordingRef.current = finishRecording;
 

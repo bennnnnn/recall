@@ -79,7 +79,6 @@ type Options = {
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;
   isOffline: boolean;
-  onBeforeSend?: (text: string) => boolean | void;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
   onGenerateImage?: (
     prompt: string,
@@ -113,7 +112,6 @@ export function useChatSend({
   onStreamBusy,
   onOfflineBlocked,
   isOffline,
-  onBeforeSend,
   onGenerateImage,
   imageGenerating = false,
 }: Options) {
@@ -342,7 +340,6 @@ export function useChatSend({
       if (verdict === "streaming") onStreamBusy?.();
       if (verdict !== "send") return;
       tap();
-      if (onBeforeSend?.(text) === true) return;
       const isCurrentSession = () => session === getSessionGeneration();
       const turn: SendTurn = {
         text,
@@ -453,7 +450,7 @@ export function useChatSend({
     },
     [
       session, inputRef, chatLoading, chatId, routeChatId, isOffline, streaming, pendingAttachmentRef,
-      token, creatingRef, attachPickInFlightRef, onOfflineBlocked, onStreamBusy, onBeforeSend, getThreadKey,
+      token, creatingRef, attachPickInFlightRef, onOfflineBlocked, onStreamBusy, getThreadKey,
       messages, onGenerateImage, imageGenerating, generateFromComposer, t, updateUser, paintUserTurn,
       restoreFailedSend, feedback, selectedModel, sendMessage, ensureChatId, discardEmptyChat,
       adoptComposerThread,
