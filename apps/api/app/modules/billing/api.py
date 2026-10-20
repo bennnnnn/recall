@@ -24,7 +24,6 @@ from app.modules.notifications import enqueue_purchase_receipt
 subscription_service = webhook_service.subscription_service
 _already_processed = webhook_service._already_processed
 _try_claim = webhook_service._try_claim
-_expiration = webhook_service._expiration
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 plans_router = APIRouter(prefix="/billing", tags=["billing"])

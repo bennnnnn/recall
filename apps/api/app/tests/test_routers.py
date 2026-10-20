@@ -1534,7 +1534,7 @@ def test_revenuecat_webhook_newer_expiration_still_applies_after_purchase():
 
 def test_expiration_overflow_ms_returns_none():
     """Huge expiration_at_ms must not raise (webhook 500 / retry storm)."""
-    from app.modules.billing.api import _expiration
+    from app.modules.billing.revenuecat import _expiration
 
     assert _expiration({"event": {"expiration_at_ms": 10**20}}) is None
     assert _expiration({"event": {"expiration_at_ms": -(10**20)}}) is None

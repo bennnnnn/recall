@@ -1,7 +1,6 @@
 """Chat-history message chunks.
 
-Attachment rows live in the attachments module and are re-exported here so older
-imports keep working.
+Attachment rows live in the attachments module (``app.modules.attachments.models``).
 """
 
 import uuid
@@ -22,8 +21,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
-from app.modules.attachments.models import Attachment as Attachment
-from app.modules.attachments.models import AttachmentChunk as AttachmentChunk
 
 
 class MessageChunk(Base):

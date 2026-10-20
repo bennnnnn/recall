@@ -6,8 +6,6 @@ chemistry unit goes through this alias table before Pint sees it.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from app.services.units import get_unit_registry
 
 _ALIASES = {
@@ -30,14 +28,6 @@ _ALIASES = {
     "degc": "degC",
     "celsius": "degC",
 }
-
-
-@dataclass(frozen=True)
-class Quantity:
-    """A numeric chemistry measurement before it is converted."""
-
-    value: float
-    unit: str
 
 
 def _pint_unit(unit: str) -> str:
