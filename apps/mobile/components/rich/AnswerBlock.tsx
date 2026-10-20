@@ -50,7 +50,8 @@ function answerNeedsDisplayMath(text: string): boolean {
 
 /**
  * The final answer, drawn like the worked layout's Answer section: the
- * "Answer" heading, a thin rule, and the value alone in an accent-tinted box.
+ * "Answer" heading ("Answer (a)" for one part), and the value alone in a white,
+ * bordered box.
  * Every ```answer fence lands here; the green check after the value is the
  * server's (a body that opens with `verified: true`, see lib/answerNotation.ts)
  * and needs the reply to have settled.
@@ -82,7 +83,9 @@ export function AnswerBlock({ content, settled = true }: Props) {
       accessibilityLabel={t("rich.answer_a11y", { text: spoken })}
     >
       <Text testID="answer-label" style={s.label}>
-        {t("rich.answer_label")}
+        {parsed.part
+          ? t("rich.answer_part_label", { part: parsed.part })
+          : t("rich.answer_label")}
       </Text>
       <View testID="answer-box" style={s.box}>
         {value}
@@ -224,14 +227,15 @@ const makeStyles = (t: Theme) =>
       ...Weight.semibold,
       color: t.assistantText,
     },
-    // The same tinted box as a written-out answer (workout-answer), so it
-    // follows the accent colour.
+    // The same white, bordered box as a written-out answer (workout-answer).
     // The answer sits centred in the box; the box itself needs no side rule.
     box: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: t.accentLight,
+      backgroundColor: t.elevated,
+      borderWidth: 1,
+      borderColor: t.border,
       borderRadius: Radius.md,
       paddingVertical: Space.sm,
       paddingHorizontal: Space.md,

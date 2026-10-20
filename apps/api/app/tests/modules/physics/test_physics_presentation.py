@@ -94,16 +94,17 @@ def test_a_value_not_in_si_shows_the_value_the_solver_used(text: str, row: str) 
     ("text", "row"),
     [
         # The answer equals a given (λ = d at 30°): the answer's own conversion row
-        # "λ = 2e-10 m = 0.2 nm" is not the given written into the arithmetic.
+        # "λ = 2e-10 m = 0.2 nm" is not the given written into the arithmetic. The SI
+        # value shares the given's row: on a row of its own it read as a second given.
         (
             "In Bragg reflection, crystal planes are 0.200 nm apart and the first-order angle "
             "is 30 degrees. Find the wavelength.",
-            r"$d = 2 \times 10^{-10}\,\mathrm{m}$",
+            r"$d = 0.2\,\mathrm{nm} = 2 \times 10^{-10}\,\mathrm{m}$",
         ),
         (
             "X-rays of wavelength 0.154 nm strike a crystal at a Bragg angle of 30 degrees in "
             "the first order. Find the plane spacing.",
-            r"$\lambda = 1.54 \times 10^{-10}\,\mathrm{m}$",
+            r"$\lambda = 0.154\,\mathrm{nm} = 1.54 \times 10^{-10}\,\mathrm{m}$",
         ),
     ],
 )

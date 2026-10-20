@@ -433,6 +433,61 @@ describe("markdown render rules", () => {
     expect(within(getByTestId("workout-answer")).getAllByTestId("workout-line")).toHaveLength(1);
   });
 
+  it("heads the formulas with the law's own name in a worked reply", async () => {
+    const content = [
+      "**Given**  ",
+      String.raw`$u = 0\,\mathrm{km/h} = 0\,\mathrm{m/s}$  `,
+      String.raw`$t = 8\,\mathrm{s}$`,
+      "",
+      "**Find**  ",
+      "$a$",
+      "",
+      "**Constant acceleration**  ",
+      "$v = u + at$  ",
+      String.raw`$a = \frac{v - u}{t}$ — rearranged for $a$`,
+      "",
+      "**Substitution**  ",
+      String.raw`$a = \frac{27.7778}{8}$`,
+    ].join("\n");
+    const { getAllByTestId } = await render(<MarkdownContent content={content} />);
+    expect(getAllByTestId("workout-heading").map((node) => node.props.children)).toEqual([
+      "Given",
+      "Find",
+      "Constant acceleration",
+      "Substitution",
+    ]);
+    // Laid out like Formula: one row per law, the move as a note on the right, no rule.
+    const law = getAllByTestId("workout-body")[2]!;
+    expect(within(law).getAllByTestId("workout-line")).toHaveLength(2);
+    expect(within(within(law).getByTestId("workout-note")).getByText(/rearranged for/)).toBeOnTheScreen();
+    expect(StyleSheet.flatten(law.props.style).borderLeftWidth).toBeUndefined();
+  });
+
+  it("heads the formulas with the law's name in a follow-up that skips Find", async () => {
+    const content = [
+      "**Given**  ",
+      String.raw`$F = 70\,\mathrm{N}$`,
+      "",
+      "**Torque**  ",
+      String.raw`$\tau = Fd\sin(\theta)$`,
+      "",
+      "**Substitution**  ",
+      String.raw`$\tau = 70 \cdot 0.4 \cdot \sin(70^\circ)$`,
+    ].join("\n");
+    const { getAllByTestId } = await render(<MarkdownContent content={content} />);
+    expect(getAllByTestId("workout-heading").map((node) => node.props.children)).toEqual([
+      "Given",
+      "Torque",
+      "Substitution",
+    ]);
+  });
+
+  it("leaves a bold line over maths alone outside a worked reply", async () => {
+    const content = ["**Constant acceleration**", "$v = u + at$"].join("\n");
+    const { queryAllByTestId } = await render(<MarkdownContent content={content} />);
+    expect(queryAllByTestId("workout-section")).toHaveLength(0);
+  });
+
   it("puts only the last line of a written-out answer in the box; the lines above are working", async () => {
     const content = [
       "**Answer**  ",
@@ -445,7 +500,9 @@ describe("markdown render rules", () => {
     expect(within(body).getAllByTestId("workout-line")).toHaveLength(3);
     const box = getByTestId("workout-answer");
     expect(StyleSheet.flatten(box.props.style)).toMatchObject({
-      backgroundColor: lightTheme.accentLight,
+      backgroundColor: lightTheme.elevated,
+      borderWidth: 1,
+      borderColor: lightTheme.border,
     });
     const boxed = within(box).getAllByTestId("workout-line");
     expect(boxed).toHaveLength(1);

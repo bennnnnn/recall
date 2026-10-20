@@ -8,7 +8,12 @@ two independent equations, becomes separate rows.
 
 from __future__ import annotations
 
-from app.modules.chat.calculation_layout_tail import finish_inline, keep_hard_break, reads_as_prose
+from app.modules.chat.calculation_layout_tail import (
+    converts_units,
+    finish_inline,
+    keep_hard_break,
+    reads_as_prose,
+)
 from app.modules.chat.inline_code import code_span_opens_within, escaped_at, is_bare_number
 from app.modules.chat.markdown_regions import (
     display_math_lines,
@@ -170,7 +175,7 @@ def _equals_chain(expr: str) -> list[str] | None:
         return None
     if any(_segment_blocks_chain(part) for part in segments[1:-1]):
         return None
-    if all(_is_simple_numeric(part) for part in segments):
+    if all(_is_simple_numeric(part) for part in segments) or converts_units(segments):
         return None
     lhs = segments[0].strip()
     rows: list[str] = []

@@ -43,3 +43,17 @@ export function readsAsProse(text: string): boolean {
   }
   return false;
 }
+
+const hasUnit = (segment: string) => segment.includes("\\mathrm{") || segment.includes("\\text{");
+
+/**
+ * `v = 100 km/h × 1000/3600 = 27.8 m/s`: a symbol's value in two units, one row.
+ *
+ * Every value after the symbol carries its unit. A chain that works a value out
+ * (`a = (27.8 − 0)/8 = 3.47 m/s²`) has bare numbers until its end, and splits;
+ * so does one through another symbol (`F = ma = …`), or from a value
+ * (`1 km = 1000 m = 100000 cm`).
+ */
+export function convertsUnits(segments: string[]): boolean {
+  return segments.length > 2 && !hasUnit(segments[0] ?? "") && segments.slice(1).every(hasUnit);
+}

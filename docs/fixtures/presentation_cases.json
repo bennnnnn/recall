@@ -454,6 +454,24 @@
       "expected": "$1\\text{ km} = 1000\\text{ m}$  \n$1\\text{ km} = 100000\\text{ cm}$"
     },
     {
+      "id": "given-conversion-stays-one-row",
+      "area": "calculation",
+      "input": "$v = 100\\,\\mathrm{km/h} \\times \\frac{1000}{3600} = 27.7778\\,\\mathrm{m/s}$",
+      "expected": "$v = 100\\,\\mathrm{km/h} \\times \\frac{1000}{3600} = 27.7778\\,\\mathrm{m/s}$"
+    },
+    {
+      "id": "given-zero-conversion-stays-one-row",
+      "area": "calculation",
+      "input": "$u = 0\\,\\mathrm{km/h} = 0\\,\\mathrm{m/s}$",
+      "expected": "$u = 0\\,\\mathrm{km/h} = 0\\,\\mathrm{m/s}$"
+    },
+    {
+      "id": "worked-value-chain-splits",
+      "area": "calculation",
+      "input": "$a = \\frac{27.7778 - 0}{8} = \\frac{27.7778}{8} = 3.47\\,\\mathrm{m/s^2}$",
+      "expected": "$a = \\frac{27.7778 - 0}{8}$  \n$a = \\frac{27.7778}{8}$  \n$a = 3.47\\,\\mathrm{m/s^2}$"
+    },
+    {
       "id": "molar-amount-chain",
       "area": "calculation",
       "input": "$n = \\frac{m}{M} = \\frac{10}{18}$",

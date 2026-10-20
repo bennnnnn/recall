@@ -148,7 +148,7 @@ def test_a_given_keeps_its_si_step_when_an_answer_ends_in_the_same_digits() -> N
     question = "Find the total capacitance of a 4 µF and a 6 µF capacitor in series."
     reply = maybe_direct_physics_reply(_physics_block(question), question)
     assert reply is not None
-    assert r"$C_1 = 4\,\mathrm{µF}$  " + "\n" + r"$C_1 = 4 \times 10^{-6}\,\mathrm{F}$" in reply
+    assert r"$C_1 = 4\,\mathrm{µF} = 4 \times 10^{-6}\,\mathrm{F}$" in reply
 
 
 @pytest.mark.parametrize(

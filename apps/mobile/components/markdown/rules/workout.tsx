@@ -15,7 +15,13 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
-import { splitWorkoutNote, workoutHeading, workoutPart } from "@/lib/markdown/workoutSection";
+import {
+  isAnswerHeading,
+  lawHeading,
+  splitWorkoutNote,
+  workoutHeading,
+  workoutPart,
+} from "@/lib/markdown/workoutSection";
 import type { Theme } from "@/lib/theme";
 
 const WORKOUT_LINE_KIDS = new Set(["text", "softbreak", "hardbreak"]);
@@ -35,8 +41,6 @@ export function workoutSectionParts(node: AstNode): { heading: string; lines: st
   const kids = unwrapSingle(node).children ?? [];
   const strong = openingStrong(kids[0]);
   if (!strong) return null;
-  const heading = workoutHeading(astText(strong));
-  if (!heading) return null;
   const rest = kids.slice(1);
   if (!rest.length || !rest.every(plainInline)) return null;
   const tail = rest.map((kid) => astTextWithBreaks(kid)).join("");
@@ -45,7 +49,11 @@ export function workoutSectionParts(node: AstNode): { heading: string; lines: st
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  return lines.length ? { heading, lines } : null;
+  if (!lines.length) return null;
+  // A law's own name over its formulas reaches here as one paragraph only in a
+  // worked reply: elsewhere a bold line gets a paragraph of its own.
+  const heading = workoutHeading(astText(strong)) ?? lawHeading(astText(strong), lines[0] ?? "");
+  return heading ? { heading, lines } : null;
 }
 
 /** A part label alone on its line in bold: ``**(a) Acceleration**``. */
@@ -113,7 +121,7 @@ const RULE_WIDTH = 2;
  * every section's lines starting at the same edge. Each given is its own line,
  * and a closing "where v₀ = initial speed, …" line names them in secondary ink.
  * A move's note sits at the right edge, and the last line of maths in a
- * written-out answer sits in a tinted box (the lines before it are working, a
+ * written-out answer sits in a white, bordered box (the lines before it are working, a
  * sentence after it stays below). A card the server landed is its own
  * ```answer fence and never reaches here; this draws older replies the same way.
  */
@@ -126,7 +134,7 @@ export function renderWorkoutSection(
   const body = [styles.body, styles.text, { color: t.assistantText }];
   const noteStyle = [styles.text, { ...Type.secondary, color: t.textSecondary }];
   const given = section.heading === "Given";
-  const answer = section.heading === "Answer";
+  const answer = isAnswerHeading(section.heading);
   const boxed = answer ? lastMathLine(section.lines) : -1;
   const lines = section.lines.map((line, index) => {
     const { state, note } = splitWorkoutNote(line);
@@ -190,7 +198,7 @@ export function renderWorkoutSection(
       <View
         testID="workout-body"
         // Given and Find sit behind a rule; the working keeps its edge without one,
-        // and the Answer's tinted box needs neither.
+        // and the Answer's box needs neither.
         style={
           answer
             ? { gap: Space.xs }
@@ -212,7 +220,9 @@ export function renderWorkoutSection(
               testID="workout-answer"
               style={{
                 alignItems: "center",
-                backgroundColor: t.accentLight,
+                backgroundColor: t.elevated,
+                borderWidth: 1,
+                borderColor: t.border,
                 borderRadius: Radius.md,
                 paddingVertical: Space.sm,
                 paddingHorizontal: Space.md,

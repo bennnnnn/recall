@@ -9,6 +9,9 @@
  *   body as algebra rewrites a correct result.
  * - `label: answer` — older replies carry it; every card draws "Answer" now, so it is
  *   read as a header and dropped.
+ * - `part: a` — the card answers one part of a question in parts; it draws "Answer (a)".
+ *   The phone writes it from the "**Answer (a)**" heading above the card
+ *   (lib/markdown/attachAnswerHeading.ts).
  */
 
 type AnswerNotation = "math" | "chemistry";
@@ -16,12 +19,14 @@ type AnswerNotation = "math" | "chemistry";
 export const CHEMISTRY_ANSWER_NOTATION = "notation: chemistry";
 const ANSWER_LABEL_LINE = "label: answer";
 const VERIFIED_ANSWER_MARKER = "verified: true";
+const PART_LINE = /^part: ([a-h])$/;
 
 function headerLine(line: string): string | null {
   // The marker must be exactly the server's line: no case, spacing, or invisible
   // characters a forged copy could hide behind.
   if (line === VERIFIED_ANSWER_MARKER) return line;
   const trimmed = line.trim();
+  if (PART_LINE.test(trimmed)) return trimmed;
   return trimmed === CHEMISTRY_ANSWER_NOTATION || trimmed === ANSWER_LABEL_LINE ? trimmed : null;
 }
 
@@ -29,6 +34,7 @@ export function splitAnswerNotation(raw: string): {
   notation: AnswerNotation;
   body: string;
   verified: boolean;
+  part?: string;
 } {
   const lines = raw.replace(/\r\n/g, "\n").trim().split("\n");
   const headers = new Set<string>();
@@ -40,9 +46,11 @@ export function splitAnswerNotation(raw: string): {
     headers.add(header);
     lines.shift();
   }
+  const part = [...headers].map((header) => PART_LINE.exec(header)?.[1]).find(Boolean);
   return {
     notation: headers.has(CHEMISTRY_ANSWER_NOTATION) ? "chemistry" : "math",
     body: lines.join("\n").trim(),
     verified: headers.has(VERIFIED_ANSWER_MARKER),
+    ...(part ? { part } : {}),
   };
 }
