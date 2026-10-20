@@ -3,7 +3,6 @@ export {
   MATH_KEYBOARD_SYMBOLS,
   MATH_PAD_KEYS,
   SYMBOL_A11Y,
-  converterResultSpec,
   isCursorInsideInlineMath,
   spliceMathInsert,
   symbolA11yLabel,

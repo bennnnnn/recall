@@ -4,7 +4,6 @@ import {
   caretInGroup,
   caretStepLeft,
   caretStepRight,
-  converterResultSpec,
   findFracSlots,
   findLognSlots,
   findNrootSlots,
@@ -452,12 +451,6 @@ describe("keyboard pages", () => {
     ]) {
       expect(placed).toContain(id);
     }
-  });
-
-  it("inserts a converter result as math with a unit", () => {
-    const spec = converterResultSpec("100", "cm");
-    expect(spec.insert).toBe("100\\,\\text{cm}");
-    expect(spliceMathInsert("", { start: 0, end: 0 }, spec).text).toBe("$100\\,\\text{cm}$");
   });
 });
 
