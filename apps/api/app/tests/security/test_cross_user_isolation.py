@@ -275,11 +275,13 @@ async def test_attachment_routes_answer_404_for_another_users_file(world: World)
 
 
 @pytest.mark.asyncio
-async def test_suggestion_of_another_user_cannot_be_dismissed(world: World) -> None:
+async def test_the_retired_suggestions_routes_are_gone(world: World) -> None:
+    """No route reads or dismisses suggestions any more; stored rows stay only for
+    the data export and account deletion until the table is dropped."""
     c, b, data = world.client, world.b, world.a_data
+    assert (await c.get("/suggestions", headers=b.headers)).status_code == 404
     response = await c.post(f"/suggestions/{data.suggestion_id}/dismiss", headers=b.headers)
     assert response.status_code == 404
-    assert data.secret_word not in (await c.get("/suggestions", headers=b.headers)).text
     row = await _get(Suggestion, data.suggestion_id)
     assert row is not None and row.dismissed is False
 

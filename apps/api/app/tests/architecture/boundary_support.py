@@ -54,6 +54,7 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.modules.math.tools.helpers",
     "app.modules.notifications.legacy_alias",
     "app.modules.physics.legacy_alias",
+    "app.modules.suggestions.api",
     "app.modules.web_search.legacy_alias",
     "app.repositories.attachment_chunks",
     "app.repositories.attachments",

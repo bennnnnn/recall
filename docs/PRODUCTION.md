@@ -555,7 +555,7 @@ UTC day (Redis `spend_musd:<date>`, `core/spend_counter.py`). What adds to it:
 - a chat turn: catalog price x its tokens, at finalize (`modules/chat/turn_settle.py`);
 - every other model call, priced from its tokens by the gateway that makes it
   (`gateways/llm_spend.py`): memory extraction and consolidation, titles,
-  suggestions, compression, follow-up questions, attachment OCR, embeddings,
+  compression, follow-up questions, attachment OCR, embeddings,
   the web-search classifier, the reference resolver, maths extraction;
 - a fixed price per call for images, photo lookup, scan reads, voice input and
   read-aloud (`services/quota/spend.py`);

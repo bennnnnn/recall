@@ -48,9 +48,6 @@ from app.models.schemas.home import (
     HomeScreenOut,
     HomeStarter,
     HomeUrgentTodo,
-    SuggestionGenerationResult,
-    SuggestionItem,
-    SuggestionOut,
 )
 from app.models.schemas.push import PushTokenIn
 from app.modules.attachments.schemas import (
@@ -136,9 +133,6 @@ __all__ = [
     "SearchResults",
     "SettingsChangeOut",
     "SettingsConfirmOut",
-    "SuggestionGenerationResult",
-    "SuggestionItem",
-    "SuggestionOut",
     "TodoActionItem",
     "TodoCreate",
     "TodoExtractionResult",

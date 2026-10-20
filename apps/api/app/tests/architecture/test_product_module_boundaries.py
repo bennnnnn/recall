@@ -76,10 +76,20 @@ def test_home_runtime_code_has_one_owner() -> None:
     assert (APP_ROOT / "tests" / "modules" / "home" / "test_service.py").is_file()
 
 
-def test_suggestions_runtime_code_has_one_owner() -> None:
+def test_suggestions_keeps_only_the_table_reads() -> None:
+    """The proactive suggestions are retired: no route, no generator, no job.
+    The table stays for the data export and account deletion until it is dropped."""
     module_root = APP_ROOT / "modules" / "suggestions"
-    expected = {"api.py", "models.py", "repository.py", "service.py"}
-    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert {path.name for path in module_root.glob("*.py")} == {
+        "__init__.py",
+        "models.py",
+        "repository.py",
+        "service.py",
+    }
+    assert "def " not in (module_root / "__init__.py").read_text()
+    handlers = (APP_ROOT / "background" / "handlers.py").read_text()
+    assert '"suggestions"' not in handlers
+    assert "modules.suggestions" not in (APP_ROOT / "main.py").read_text()
 
 
 def test_search_runtime_code_has_one_owner() -> None:

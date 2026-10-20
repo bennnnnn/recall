@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 
 class HomeUrgentTodo(BaseModel):
@@ -29,22 +29,3 @@ class HomeScreenOut(BaseModel):
     subtitle: str | None = None
     urgent_todos: list[HomeUrgentTodo] = Field(default_factory=list)
     starters: list[HomeStarter] = Field(default_factory=list)
-
-
-class SuggestionOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    text: str
-    category: str
-    source: str
-    created_at: datetime
-
-
-class SuggestionItem(BaseModel):
-    text: str = Field(min_length=3, max_length=200)
-    category: str = "general"
-
-
-class SuggestionGenerationResult(BaseModel):
-    items: list[SuggestionItem] = Field(default_factory=list)

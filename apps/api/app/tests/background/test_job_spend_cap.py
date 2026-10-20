@@ -26,7 +26,6 @@ _CAPPED = {
     ),
     "todos": "app.background.handlers.todo_jobs.sync_todos_from_chat",
     "compress": "app.background.handlers.compaction.compress_chat_history",
-    "suggestions": "app.background.handlers.suggestion_generation.generate_suggestions",
     "topic": "app.background.handlers.topic_service.generate_chat_title",
     "attachment_index": "app.background.handlers.attachment_indexing.index_attachment_job",
     "message_index": "app.background.handlers.message_indexing.index_message_job",
