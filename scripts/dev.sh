@@ -8,11 +8,12 @@ kill_metro() {
 }
 
 # The API processes: whatever listens on :8000 (the reloader and its server
-# with --reload), and uv/uvicorn running app.main.
+# with --reload), and uv/uvicorn running app.main. Finding none is not an
+# error: under `set -euo pipefail` it made `up` exit when no API was running.
 api_pids() {
   {
-    lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null
-    pgrep -f "uvicorn app.main" 2>/dev/null
+    lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null || true
+    pgrep -f "uvicorn app.main" 2>/dev/null || true
   } | sort -u
 }
 
