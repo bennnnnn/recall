@@ -21,7 +21,6 @@ from app.modules.billing import entitlements
 from app.modules.billing import revenuecat as webhook_service
 from app.modules.notifications import enqueue_purchase_receipt
 
-subscription_service = webhook_service.subscription_service
 _already_processed = webhook_service._already_processed
 _try_claim = webhook_service._try_claim
 

@@ -99,23 +99,6 @@ def _check(node: ast.AST, expression: str) -> None:
     raise ExpressionError(f"{type(node).__name__} not allowed in {expression}")
 
 
-def names(expression: str, notation: Notation) -> frozenset[str]:
-    """The variable names an expression reads; functions and constants excluded."""
-    tree = parse(expression)
-    called = {
-        node.func.id
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-    }
-    return frozenset(
-        node.id
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Name)
-        and node.id not in called
-        and notation.constant(node.id) is None
-    )
-
-
 def _number(node: ast.Constant) -> float:
     """A literal ``parse`` already checked is an int or a float."""
     if not isinstance(node.value, int | float) or isinstance(node.value, bool):

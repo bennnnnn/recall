@@ -213,11 +213,6 @@ async def record_usage(
     return new_total
 
 
-async def remaining(redis: Redis, user_id: str, *, daily_limit: int) -> int:
-    used = await get_daily_usage(redis, user_id)
-    return max(0, daily_limit - used)
-
-
 async def reset_daily_usage(redis: Redis, user_id: str, day: date | None = None) -> None:
     """Clear Redis quota counter for a user/day (dev support)."""
     await redis.delete(_usage_key(user_id, day or utc_today()))

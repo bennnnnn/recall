@@ -1,6 +1,5 @@
 """Chemistry service package and stable public API."""
 
-from app.modules.chemistry.elements import get_element_info
 from app.modules.chemistry.equations import (
     balance_equation,
 )
@@ -23,7 +22,6 @@ __all__ = [
     "balance_equation",
     "compute_descriptors",
     "generate_3d_coordinates",
-    "get_element_info",
     "limiting_reagent",
     "molar_mass",
     "solve_chemistry",

@@ -357,23 +357,17 @@ CATALOG: tuple[ChatModel, ...] = (
 )
 
 _BY_ID: dict[str, ChatModel] = {m.id: m for m in CATALOG}
-_DEFAULT = _BY_ID["free-chat"]
 
 
 def get(model_id: str) -> ChatModel:
     """Resolve a known product alias. Unknown ids raise — never silent fallback.
 
-    Callers that intentionally want the default should use ``default_model()``
-    or validate via ``known_ids()`` / ``validate_user_alias`` first.
+    Callers validate via ``known_ids()`` / ``validate_user_alias`` first.
     """
     try:
         return _BY_ID[model_id]
     except KeyError as exc:
         raise KeyError(f"Unknown model alias: {model_id!r}") from exc
-
-
-def default_model() -> ChatModel:
-    return _DEFAULT
 
 
 def openrouter_slug(model_id: str) -> str:

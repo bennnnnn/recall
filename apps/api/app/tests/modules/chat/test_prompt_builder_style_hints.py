@@ -32,7 +32,7 @@ def _day_plan_hints() -> list[str]:
 
 def test_day_plan_keeps_math_safety_guardrails():
     """BUG FIX (MATH-BE-033): day-plan turns used to get only
-    RESPONSE_FORMAT_HINT, so a math question that landed in day-plan mode
+    FORMAT_CONTRACT, so a math question that landed in day-plan mode
     lost every guardrail against raw ```latex/```copy fences. The compact
     math safety hint now ships on day-plan turns too."""
     parts = _day_plan_hints()

@@ -89,38 +89,6 @@ async def test_upsert_sections_empty_is_noop():
     session.commit.assert_not_awaited()
 
 
-# ── chats.delete_by_id — correct cascade order ────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_delete_chat_cascades_then_deletes():
-    """delete_by_id relies on DB ON DELETE CASCADE for messages."""
-    from app.repositories import chats as chats_repo
-
-    chat = MagicMock()
-    session = AsyncMock()
-
-    with patch.object(chats_repo, "get_by_id", AsyncMock(return_value=chat)):
-        result = await chats_repo.delete_by_id(session, uuid4(), uuid4())
-
-    assert result is True
-    session.execute.assert_not_awaited()
-    session.delete.assert_called_once_with(chat)
-    session.commit.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_delete_chat_not_found_returns_false():
-    from app.repositories import chats as chats_repo
-
-    session = AsyncMock()
-    with patch.object(chats_repo, "get_by_id", AsyncMock(return_value=None)):
-        result = await chats_repo.delete_by_id(session, uuid4(), uuid4())
-
-    assert result is False
-    session.execute.assert_not_awaited()
-
-
 # ── delete_chat router ────────────────────────────────────────────────────────
 
 

@@ -35,7 +35,7 @@ from app.modules.web_search.geo_intent import (
     is_short_letter_answer,
     names_its_place,
 )
-from app.modules.web_search.query_builders import build_search_queries, build_search_query
+from app.modules.web_search.query_builders import build_search_queries
 from app.modules.web_search.search_cache import TurnTavilyBudget, run_cached_search
 from app.modules.web_search.subject import resolve_search_subject
 from app.modules.web_search.tool import WebSearchAdapter
@@ -53,7 +53,6 @@ __all__ = [
     "augment_prompt_messages",
     "build_search_augmentation",
     "build_search_queries",
-    "build_search_query",
     "format_location_not_set_answer",
     "format_places_fence",
     "format_search_block",

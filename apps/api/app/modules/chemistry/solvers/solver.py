@@ -293,11 +293,6 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
 }
 
 
-def supported_operations() -> frozenset[str]:
-    """Every operation ``solve_chemistry`` can dispatch."""
-    return frozenset(CHEMISTRY_SOLVERS)
-
-
 def solve_chemistry(intent: ChemistryIntent) -> ChemistryResult:
     """Dispatch a validated intent to its subject-grouped pure solver."""
     with numbers_as_written(intent):

@@ -141,12 +141,10 @@ async def test_delete_memory_delegates():
 
 
 @pytest.mark.asyncio
-async def test_remaining_when_nothing_used(fake_redis):
+async def test_daily_usage_when_nothing_used(fake_redis):
     from app.services import quota as quota_service
 
-    settings = Settings(daily_token_limit=30_000)
-    rem = await quota_service.remaining(fake_redis, "u1", daily_limit=settings.daily_token_limit)
-    assert rem == 30_000
+    assert await quota_service.get_daily_usage(fake_redis, "u1") == 0
 
 
 @pytest.mark.asyncio
@@ -155,9 +153,7 @@ async def test_record_usage_accumulates(fake_redis):
 
     await quota_service.record_usage(fake_redis, "u1", 500)
     await quota_service.record_usage(fake_redis, "u1", 300)
-    settings = Settings(daily_token_limit=30_000)
-    rem = await quota_service.remaining(fake_redis, "u1", daily_limit=settings.daily_token_limit)
-    assert rem == 30_000 - 800
+    assert await quota_service.get_daily_usage(fake_redis, "u1") == 800
 
 
 # ── litellm gateway (mock path) ────────────────────────────────────────────────
@@ -1011,12 +1007,3 @@ async def test_login_dev_updates_name_for_existing_user():
         )
     mock_update.assert_awaited_once()
     assert result.user.name == "bini"
-
-
-@pytest.mark.asyncio
-async def test_get_current_user_returns_none_for_unknown():
-    from app.modules.account import service as auth_service
-
-    with patch("app.modules.account.service.users_repo.get_by_id", AsyncMock(return_value=None)):
-        user = await auth_service.get_current_user(AsyncMock(), uuid4())
-    assert user is None

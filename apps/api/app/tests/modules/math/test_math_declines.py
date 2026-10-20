@@ -5,28 +5,37 @@ from __future__ import annotations
 import asyncio
 import fractions
 import logging
+from collections import Counter
+from collections.abc import Callable
 
 import pytest
 from sympy import Poly, Symbol, lambdify, sqrt, sympify
 from sympy.polys.polyerrors import CoercionFailed, PolynomialError
 
 from app.modules.math.solve.declines import (
-    decline_counts,
     declines,
     is_programming_error,
-    reset_decline_counts,
     strict_declines,
     sympy_decline,
 )
 
 X = Symbol("x")
+_LOGGER = "app.modules.math.solve.declines"
 
 
-@pytest.fixture(autouse=True)
-def _fresh_counts():
-    reset_decline_counts()
-    yield
-    reset_decline_counts()
+@pytest.fixture
+def decline_counts(caplog) -> Callable[[], Counter[tuple[str, str]]]:
+    """Every decline logs once at DEBUG with (where, exception type): count them back."""
+    caplog.set_level(logging.DEBUG, logger=_LOGGER)
+
+    def counts() -> Counter[tuple[str, str]]:
+        return Counter(
+            (str(record.args[0]), str(record.args[1]))
+            for record in caplog.records
+            if record.name == _LOGGER and isinstance(record.args, tuple)
+        )
+
+    return counts
 
 
 @pytest.fixture(params=[True, False], ids=["strict", "production"])
@@ -89,7 +98,9 @@ PASS_THROUGH = [
 
 
 @pytest.mark.parametrize(("attempt", "error"), PROGRAMMING)
-def test_declines_programming_error_raises_only_in_strict_mode(strict, attempt, error) -> None:
+def test_declines_programming_error_raises_only_in_strict_mode(
+    strict, attempt, error, decline_counts
+) -> None:
     @declines(None)
     def wrapped() -> object:
         return attempt()
@@ -109,7 +120,9 @@ def test_declines_programming_error_raises_only_in_strict_mode(strict, attempt, 
 
 
 @pytest.mark.parametrize(("attempt", "error"), MATHS)
-def test_declines_maths_failure_declines_in_both_modes(strict, attempt, error) -> None:
+def test_declines_maths_failure_declines_in_both_modes(
+    strict, attempt, error, decline_counts
+) -> None:
     @declines(False)
     def wrapped() -> object:
         return attempt()
@@ -124,7 +137,9 @@ def test_declines_maths_failure_declines_in_both_modes(strict, attempt, error) -
 
 
 @pytest.mark.parametrize("error", PASS_THROUGH)
-def test_declines_base_exception_and_pool_timeout_pass_through(strict, error) -> None:
+def test_declines_base_exception_and_pool_timeout_pass_through(
+    strict, error, decline_counts
+) -> None:
     @declines(None)
     def wrapped() -> None:
         raise error
@@ -161,7 +176,7 @@ def test_declines_is_programming_error_classifies_by_raising_frame() -> None:
     assert not is_programming_error(caught(lambda: Poly(1 / X, X)))
 
 
-def test_declines_counts_and_logs_each_decline(monkeypatch, caplog) -> None:
+def test_declines_counts_and_logs_each_decline(monkeypatch, caplog, decline_counts) -> None:
     monkeypatch.setenv("RECALL_STRICT_DECLINES", "1")
 
     @declines(None)
@@ -216,7 +231,7 @@ def test_declines_log_message_is_short(caplog) -> None:
     assert record.getMessage() == "maths decline in long: ValueError: " + "y" * 120
 
 
-def test_declines_success_is_not_a_decline() -> None:
+def test_declines_success_is_not_a_decline(decline_counts) -> None:
     @declines(None)
     def double(value: int) -> int:
         """Doubles."""

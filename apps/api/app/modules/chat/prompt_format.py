@@ -293,7 +293,7 @@ def _format_pack(turn: StyleTurn) -> list[str]:
         # a day outline can use headings.
         return [UNIVERSAL_FORMAT_BASELINE, turn.writing or FORMAT_CONTRACT]
     if turn.compact:
-        # Slim/casual used to still get RESPONSE_FORMAT_HINT (tips/headings/
+        # Slim/casual used to still get FORMAT_CONTRACT (tips/headings/
         # tables), so a pasted phrase became a funny essay with a clipped
         # table. ChatGPT-shaped: answer first, no invented chrome.
         # Compact "plain prose" turns chart/flowchart/compare asks into a

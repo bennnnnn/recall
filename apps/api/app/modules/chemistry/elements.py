@@ -192,38 +192,6 @@ BY_SYMBOL: dict[str, Element] = {element.symbol: element for element in ELEMENTS
 BY_NUMBER: dict[int, Element] = {element.number: element for element in ELEMENTS}
 
 
-def _info(element: Element) -> dict[str, float | int | str]:
-    data: dict[str, float | int | str] = {
-        "number": element.number,
-        "mass": element.mass,
-        "period": element.period,
-        "name": element.name,
-        "configuration": element.configuration,
-    }
-    if element.group is not None:
-        data["group"] = element.group
-    if element.electronegativity is not None:
-        data["electronegativity"] = element.electronegativity
-    if element.oxidation_states:
-        data["oxidation_states"] = ",".join(str(state) for state in element.oxidation_states)
-    if element.mass_is_isotope:
-        data["mass_note"] = "mass number of a long-lived isotope"
-    return data
-
-
-PERIODIC_TABLE: dict[str, dict[str, float | int | str]] = {
-    element.symbol: _info(element) for element in ELEMENTS
-}
-
-
-def get_element_info(symbol: str) -> dict[str, float | int | str] | None:
-    """Compat lookup. Missing electronegativity is omitted, never stored as zero."""
-    element = BY_SYMBOL.get(symbol)
-    if element is None:
-        return None
-    return PERIODIC_TABLE[element.symbol]
-
-
 def valence_electrons(symbol: str) -> int | None:
     """Main-group valence count. Transition and f-block elements return None."""
     element = BY_SYMBOL.get(symbol)

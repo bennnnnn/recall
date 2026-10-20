@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -100,33 +100,6 @@ async def list_range(
         .offset(offset)
         .limit(limit)
     )
-    return list(result.scalars().all())
-
-
-async def search_semantic(
-    session: AsyncSession,
-    user_id: UUID,
-    query_embedding: list[float],
-    *,
-    min_confidence: float,
-    limit: int,
-    max_distance: float | None = None,
-) -> list[Memory]:
-    filters = [
-        Memory.user_id == user_id,
-        Memory.status == ACTIVE_STATUS,
-        Memory.embedding.isnot(None),
-        or_(Memory.confidence.is_(None), Memory.confidence >= min_confidence),
-    ]
-    if max_distance is not None:
-        filters.append(Memory.embedding.cosine_distance(query_embedding) <= max_distance)
-    stmt = (
-        select(Memory)
-        .where(*filters)
-        .order_by(Memory.embedding.cosine_distance(query_embedding))
-        .limit(limit)
-    )
-    result = await session.execute(stmt)
     return list(result.scalars().all())
 
 

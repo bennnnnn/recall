@@ -1046,11 +1046,11 @@ def test_revenuecat_webhook_enqueues_receipt_on_purchase():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ),
         patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
@@ -1087,11 +1087,11 @@ def test_revenuecat_webhook_skips_receipt_when_plan_not_applied():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=False),
         ),
         patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
@@ -1123,11 +1123,11 @@ def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ),
         patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
@@ -1166,7 +1166,7 @@ def test_revenuecat_webhook_cancellation_with_future_expiry_keeps_pro():
     }
 
     with patch(
-        "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+        "app.modules.billing.subscription.apply_plan_for_app_user_id",
         AsyncMock(return_value=True),
     ) as apply_plan:
         client = TestClient(app)
@@ -1202,11 +1202,11 @@ def test_revenuecat_webhook_cancellation_with_past_expiry_downgrades():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="free"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
     ):
@@ -1239,11 +1239,11 @@ def test_revenuecat_webhook_subscriber_fetch_failure_returns_503():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
     ):
@@ -1282,11 +1282,11 @@ def test_revenuecat_webhook_customer_support_refund_rechecks_entitlement():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="free"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
     ):
@@ -1325,11 +1325,11 @@ def test_revenuecat_webhook_customer_support_keeps_pro_when_entitlement_active()
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=False),
         ) as apply_plan,
     ):
@@ -1361,7 +1361,7 @@ def test_revenuecat_webhook_billing_issue_does_not_downgrade():
     payload = {"event": {"type": "BILLING_ISSUE", "app_user_id": str(uid)}}
 
     with patch(
-        "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+        "app.modules.billing.subscription.apply_plan_for_app_user_id",
         AsyncMock(return_value=True),
     ) as apply_plan:
         client = TestClient(app)
@@ -1391,11 +1391,11 @@ def test_revenuecat_webhook_expiration_still_downgrades():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="free"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
     ):
@@ -1444,19 +1444,19 @@ def test_revenuecat_webhook_ignores_stale_expiration_after_purchase():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
         patch(
-            "app.modules.billing.api.subscription_service.is_stale_rc_event",
+            "app.modules.billing.subscription.is_stale_rc_event",
             AsyncMock(side_effect=[False, True]),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.advance_rc_event_watermark",
+            "app.modules.billing.subscription.advance_rc_event_watermark",
             AsyncMock(),
         ) as advance,
     ):
@@ -1506,19 +1506,19 @@ def test_revenuecat_webhook_newer_expiration_still_applies_after_purchase():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(side_effect=["pro", "free"]),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
         patch(
-            "app.modules.billing.api.subscription_service.is_stale_rc_event",
+            "app.modules.billing.subscription.is_stale_rc_event",
             AsyncMock(return_value=False),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.advance_rc_event_watermark",
+            "app.modules.billing.subscription.advance_rc_event_watermark",
             AsyncMock(),
         ) as advance,
     ):
@@ -1566,11 +1566,11 @@ def test_revenuecat_webhook_huge_expiration_still_succeeds():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ),
         patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
@@ -1608,11 +1608,11 @@ def test_revenuecat_webhook_dedups_replay_by_event_id():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
         patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()),
@@ -1651,11 +1651,11 @@ def test_revenuecat_webhook_missing_event_id_hashes_payload_for_dedupe():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
         patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()),
@@ -1695,11 +1695,11 @@ def test_revenuecat_webhook_pro_event_defers_when_entitlement_unresolved():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
     ):
@@ -1747,11 +1747,11 @@ def test_revenuecat_webhook_concurrent_claim_only_processes_once():
         patch.object(webhooks_mod, "_try_claim", side_effect=claim_side_effect),
         patch.object(webhooks_mod, "_already_processed", AsyncMock(return_value=False)),
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
         patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
@@ -1797,11 +1797,11 @@ def test_revenuecat_webhook_failed_processing_does_not_burn_dedup_key():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(side_effect=[RuntimeError("boom"), True]),
         ) as apply_mock,
     ):
@@ -1836,11 +1836,11 @@ def test_revenuecat_webhook_requires_auth_in_production():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
         patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()),
@@ -1885,11 +1885,11 @@ def test_revenuecat_webhook_ignores_sandbox_in_production():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
         patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
@@ -1934,11 +1934,11 @@ def test_revenuecat_webhook_processes_sandbox_in_development():
 
     with (
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
         patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()),
@@ -1976,7 +1976,7 @@ def test_revenuecat_webhook_transfer_downgrades_old_and_syncs_new():
     }
 
     with patch(
-        "app.modules.billing.api.subscription_service.handle_revenuecat_transfer",
+        "app.modules.billing.subscription.handle_revenuecat_transfer",
         AsyncMock(),
     ) as transfer_mock:
         client = TestClient(app)
@@ -2016,7 +2016,7 @@ def test_revenuecat_webhook_transfer_failure_does_not_dedup():
     }
 
     with patch(
-        "app.modules.billing.api.subscription_service.handle_revenuecat_transfer",
+        "app.modules.billing.subscription.handle_revenuecat_transfer",
         AsyncMock(return_value=False),
     ) as transfer_mock:
         client = TestClient(app)
@@ -2056,7 +2056,7 @@ def test_revenuecat_webhook_malformed_transfer_is_not_deduped():
     payload["event"]["app_user_id"] = "   "
 
     with patch(
-        "app.modules.billing.api.subscription_service.handle_revenuecat_transfer",
+        "app.modules.billing.subscription.handle_revenuecat_transfer",
         AsyncMock(),
     ) as transfer_mock:
         client = TestClient(app)
@@ -2107,11 +2107,11 @@ def test_revenuecat_webhook_subscriber_lock_busy_returns_503():
     with (
         patch.object(webhooks_mod, "acquire_lock", AsyncMock(return_value=None)),
         patch(
-            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
     ):

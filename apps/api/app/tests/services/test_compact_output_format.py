@@ -4,8 +4,8 @@ import pytest
 
 from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
+    FORMAT_CONTRACT,
     MATH_FENCE_SAFETY_HINT,
-    RESPONSE_FORMAT_HINT,
     TONE_FORMAT_GUARD,
     UNIVERSAL_FORMAT_BASELINE,
     WRITING_LINE_HINT,
@@ -22,7 +22,7 @@ def test_compact_turn_skips_rich_format_pack():
         compact=True,
     )
     assert COMPACT_RESPONSE_FORMAT_HINT in parts
-    assert RESPONSE_FORMAT_HINT not in parts
+    assert FORMAT_CONTRACT not in parts
     assert MATH_FENCE_SAFETY_HINT in parts
     joined = "\n".join(parts)
     assert "Make answers visually clear" not in joined
@@ -159,7 +159,7 @@ def test_day_plan_still_uses_richer_format_hint():
         is_day_plan=True,
         minimal_personal_context=False,
     )
-    assert RESPONSE_FORMAT_HINT in parts
+    assert FORMAT_CONTRACT in parts
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
 
 
@@ -404,9 +404,7 @@ def _writing_style_parts(query: str, *, compact: bool = False) -> list[str]:
 def test_writing_kinds_displace_competing_format_contracts():
     from app.modules.chat.prompt_constants import (
         EMAIL_DRAFT_HINT,
-        FORMAT_CONTRACT,
         PROSE_WRITING_HINT,
-        RESPONSE_FORMAT_HINT,
         SHORT_RESPONSE_FORMAT_HINT,
         SOCIAL_DRAFT_HINT,
         TRANSLATION_FORMAT_HINT,
@@ -422,7 +420,6 @@ def test_writing_kinds_displace_competing_format_contracts():
     competing = {
         COMPACT_RESPONSE_FORMAT_HINT,
         FORMAT_CONTRACT,
-        RESPONSE_FORMAT_HINT,
         SHORT_RESPONSE_FORMAT_HINT,
     }
     for query, expected, skip_copy_fence in cases:

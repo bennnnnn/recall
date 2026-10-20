@@ -59,21 +59,6 @@ async def test_list_for_user_returns_chats(fake_session):
 
 
 @pytest.mark.asyncio
-async def test_delete_by_id_returns_false_when_not_found(fake_session):
-    """delete_by_id should return False when chat does not exist."""
-    from app.repositories.chats import delete_by_id
-
-    # get_by_id returns None
-    mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = None
-    fake_session.execute.return_value = mock_result
-
-    result = await delete_by_id(fake_session, uuid4(), uuid4())
-
-    assert result is False
-
-
-@pytest.mark.asyncio
 async def test_set_title(fake_session):
     """set_title should update title, commit, and refresh."""
     from app.repositories.chats import set_title

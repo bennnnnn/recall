@@ -294,36 +294,6 @@ def test_compute_descriptors_invalid() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Periodic table
-# ---------------------------------------------------------------------------
-
-
-def test_get_element_info_carbon() -> None:
-    info = chemistry_service.get_element_info("C")
-    assert info is not None
-    assert info["name"] == "Carbon"
-    assert info["mass"] == pytest.approx(12.011)
-    assert info["electronegativity"] == pytest.approx(2.55)
-
-
-def test_get_element_info_unknown() -> None:
-    info = chemistry_service.get_element_info("Xx")
-    assert info is None
-
-
-def test_get_element_info_helium_has_no_zero_electronegativity() -> None:
-    info = chemistry_service.get_element_info("He")
-    assert info is not None
-    assert "electronegativity" not in info
-
-
-def test_get_element_info_covers_extended_symbols() -> None:
-    assert chemistry_service.get_element_info("Ba") is not None
-    assert chemistry_service.get_element_info("Hg") is not None
-    assert chemistry_service.get_element_info("U") is not None
-
-
-# ---------------------------------------------------------------------------
 # Limiting reagent
 # ---------------------------------------------------------------------------
 

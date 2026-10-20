@@ -6,7 +6,7 @@ import pytest
 
 from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.coordination import parse_complex_formula
-from app.modules.chemistry.elements import BY_NUMBER, BY_SYMBOL, ELEMENTS, get_element_info
+from app.modules.chemistry.elements import BY_NUMBER, BY_SYMBOL, ELEMENTS
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.nuclear import balance_nuclear, format_nuclear
@@ -27,37 +27,28 @@ def test_periodic_table_has_every_element() -> None:
 
 
 def test_legacy_masses_and_names_stay_exact() -> None:
-    carbon = get_element_info("C")
-    assert carbon is not None
-    assert carbon["mass"] == 12.011
-    assert carbon["name"] == "Carbon"
-    assert carbon["electronegativity"] == 2.55
-    iron = get_element_info("Fe")
-    helium = get_element_info("He")
-    aluminum = get_element_info("Al")
-    cesium = get_element_info("Cs")
-    assert iron is not None and iron["mass"] == 55.845
-    assert helium is not None and helium["mass"] == 4.003
-    assert aluminum is not None and aluminum["name"] == "Aluminum"
-    assert cesium is not None and cesium["name"] == "Cesium"
+    carbon = BY_SYMBOL["C"]
+    assert carbon.mass == 12.011
+    assert carbon.name == "Carbon"
+    assert carbon.electronegativity == 2.55
+    assert BY_SYMBOL["Fe"].mass == 55.845
+    assert BY_SYMBOL["He"].mass == 4.003
+    assert BY_SYMBOL["Al"].name == "Aluminum"
+    assert BY_SYMBOL["Cs"].name == "Cesium"
+    assert "Xx" not in BY_SYMBOL
 
 
-def test_helium_omits_electronegativity_and_f_block_omits_group() -> None:
-    helium = get_element_info("He")
-    assert helium is not None
-    assert "electronegativity" not in helium
-    uranium = get_element_info("U")
-    lanthanum = get_element_info("La")
-    actinium = get_element_info("Ac")
-    assert uranium is not None and "group" not in uranium
-    assert lanthanum is not None and lanthanum["group"] == 3
-    assert actinium is not None and actinium["group"] == 3
-    oganesson = get_element_info("Og")
-    assert oganesson is not None
-    assert oganesson["mass"] == 294.0
-    assert oganesson["mass_note"] == "mass number of a long-lived isotope"
-    assert "configuration" in helium
-    assert helium["number"] == 2
+def test_helium_has_no_electronegativity_and_f_block_has_no_group() -> None:
+    helium = BY_SYMBOL["He"]
+    assert helium.electronegativity is None
+    assert BY_SYMBOL["U"].group is None
+    assert BY_SYMBOL["La"].group == 3
+    assert BY_SYMBOL["Ac"].group == 3
+    oganesson = BY_SYMBOL["Og"]
+    assert oganesson.mass == 294.0
+    assert oganesson.mass_is_isotope
+    assert helium.configuration
+    assert helium.number == 2
 
 
 def test_redox_balance_checks_atoms_and_charge() -> None:

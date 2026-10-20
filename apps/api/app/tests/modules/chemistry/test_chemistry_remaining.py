@@ -25,14 +25,14 @@ from app.modules.chemistry.schemas.scene import (
     VseprScene,
     dump_scene,
 )
-from app.modules.chemistry.solvers.solver import solve_chemistry, supported_operations
+from app.modules.chemistry.solvers.solver import CHEMISTRY_SOLVERS, solve_chemistry
 from app.modules.physics.extract import needs_physics
 from app.services.solving import SolveServiceError
 
 
 def test_catalog_matches_operations_and_solvers() -> None:
     kinds = set(get_args(ChemistryKind))
-    assert set(CATALOG) == supported_operations()
+    assert set(CATALOG) == set(CHEMISTRY_SOLVERS)
     assert all(spec.kind in kinds for spec in CATALOG.values())
     assert all(spec.law_name and spec.base_formula for spec in CATALOG.values())
 

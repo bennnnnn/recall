@@ -585,8 +585,7 @@ def test_facts_need_consolidation_detects_exact_and_near_duplicates():
 
 @pytest.mark.asyncio
 async def test_load_relevant_memories_ranks_in_process_from_list():
-    """Semantic recall ranks the ≤5 list_for_user rows in-process. pgvector
-    search_semantic is not on this path (the column/index stay for later)."""
+    """Semantic recall ranks the ≤5 list_for_user rows in-process."""
     from app.modules.memory import load_relevant_memories
 
     user = AsyncMock()
@@ -600,7 +599,6 @@ async def test_load_relevant_memories_ranks_in_process_from_list():
 
     with (
         patch("app.modules.memory.repository.list_for_user", AsyncMock(return_value=[db_hit])),
-        patch("app.modules.memory.repository.search_semantic", AsyncMock()) as db_search,
         patch(
             "app.gateways.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.1, 0.2, 0.3]),
@@ -609,7 +607,6 @@ async def test_load_relevant_memories_ranks_in_process_from_list():
         result = await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
 
     assert result == [db_hit]
-    db_search.assert_not_awaited()
     embed_mock.assert_not_awaited()
 
 
@@ -640,11 +637,9 @@ async def test_load_relevant_memories_applies_similarity_cutoff_in_process():
             "app.modules.memory.repository.list_for_user",
             AsyncMock(return_value=[unembedded_profile, unembedded_fact]),
         ),
-        patch("app.modules.memory.repository.search_semantic", AsyncMock()) as db_search,
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
 
-    db_search.assert_not_awaited()
     # The name is always in; a fact with no vector and no question is not.
     assert result == [unembedded_profile]
 
@@ -670,11 +665,9 @@ async def test_load_relevant_memories_includes_low_score_when_cutoff_disabled():
 
     with (
         patch("app.modules.memory.repository.list_for_user", AsyncMock(return_value=[fact])),
-        patch("app.modules.memory.repository.search_semantic", AsyncMock()) as db_search,
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.0, 1.0, 0.0])
 
-    db_search.assert_not_awaited()
     assert result == [fact]
 
 
@@ -700,12 +693,10 @@ async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
             "app.modules.memory.repository.list_for_user",
             AsyncMock(return_value=[in_memory_hit]),
         ),
-        patch("app.modules.memory.repository.search_semantic", AsyncMock()) as db_search,
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.95, 0.05, 0.0])
 
     assert result == [in_memory_hit]
-    db_search.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -729,13 +720,11 @@ async def test_load_relevant_memories_keeps_profile_when_vectors_populated_but_n
     list_mock = AsyncMock(return_value=[profile, fact])
     with (
         patch("app.modules.memory.repository.list_for_user", list_mock),
-        patch("app.modules.memory.repository.search_semantic", AsyncMock()) as db_search,
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.0, 1.0, 0.0])
 
     assert result == [profile]
     list_mock.assert_awaited()
-    db_search.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -758,13 +747,11 @@ async def test_load_relevant_memories_priority_fallback_when_no_query():
             "app.modules.memory.repository.list_for_user",
             AsyncMock(return_value=[fact, profile]),
         ),
-        patch("app.modules.memory.repository.search_semantic", AsyncMock()) as db_search,
     ):
         result = await load_relevant_memories(session, user, settings, query_text=None)
 
-    # No query → type-priority fallback (includes fact/project/focus); DB search never called.
+    # No query → type-priority fallback (includes fact/project/focus).
     assert [m.type for m in result] == ["profile", "fact"]
-    db_search.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -786,10 +773,6 @@ async def test_load_relevant_memories_returns_empty_on_db_exception(query_vec):
     with (
         patch(
             "app.modules.memory.repository.list_for_user",
-            AsyncMock(side_effect=RuntimeError("db unavailable")),
-        ),
-        patch(
-            "app.modules.memory.repository.search_semantic",
             AsyncMock(side_effect=RuntimeError("db unavailable")),
         ),
     ):
@@ -822,20 +805,6 @@ async def test_get_memory_block_degrades_to_empty_on_db_exception(fake_redis):
         block = await get_memory_block(session, user, settings)
 
     assert block == ""
-
-
-@pytest.mark.asyncio
-async def test_search_semantic_repo_returns_ranked_rows():
-    from app.modules.memory.repository import search_semantic
-
-    session = AsyncMock()
-    hit = _memory("fact", "Hikes every weekend", 0.9)
-    result_mock = MagicMock()
-    result_mock.scalars.return_value.all.return_value = [hit]
-    session.execute = AsyncMock(return_value=result_mock)
-
-    rows = await search_semantic(session, uuid4(), [0.1, 0.2, 0.3], min_confidence=0.4, limit=5)
-    assert rows == [hit]
 
 
 @pytest.mark.asyncio
