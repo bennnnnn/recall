@@ -13,9 +13,12 @@ import type { Message } from "@/lib/api/types";
 jest.mock("@/components/ChatMessageImage", () => ({
   ChatMessageImage: "ChatMessageImage",
 }));
-jest.mock("@/components/ChatMessagePdf", () => ({
-  ChatMessagePdf: "ChatMessagePdf",
-}));
+jest.mock("@/components/ChatMessagePdf", () => {
+  const { Text: RNText } = jest.requireActual("react-native");
+  return {
+    ChatMessagePdf: ({ fileName }: { fileName: string }) => <RNText>{`pdf:${fileName}`}</RNText>,
+  };
+});
 jest.mock("@/components/CollapsibleMessageBody", () => {
   const { View } = jest.requireActual("react-native");
   return {
@@ -30,8 +33,12 @@ jest.mock("@/components/CollapsibleMessageBody", () => {
 jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",
 }));
+type MockIndexStatus = { indexed: boolean; failed: boolean; fileName?: string | null };
+const mockIndexStatus = jest.fn(
+  (_attachmentId?: string | null): MockIndexStatus => ({ indexed: true, failed: false }),
+);
 jest.mock("@/features/attachments/hooks/useAttachmentIndexed", () => ({
-  useAttachmentIndexed: () => ({ indexed: true, failed: false }),
+  useAttachmentIndexed: (attachmentId?: string | null) => mockIndexStatus(attachmentId),
 }));
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
@@ -180,5 +187,46 @@ describe("sent math bubble", () => {
     const style = StyleSheet.flatten(getByTestId("math-draft-preview").props.style);
     expect(style.minHeight).toBe(0);
     expect(style.marginBottom).toBe(0);
+  });
+});
+
+describe("UserMessageContent attachments", () => {
+  const LEASE = "ab2a7d57-f8ec-4e12-8a5d-3748cd246d73";
+  const NOTES = "5c1e0f3a-9b7d-4e2a-8c6f-1d2e3f4a5b6c";
+  // A sent message stores only the file's link and its text; the name is on the server's row.
+  const names: Record<string, string> = { [LEASE]: "lease-notes.pdf", [NOTES]: "minutes.docx" };
+  const named = (attachmentId?: string | null): MockIndexStatus => ({
+    indexed: true,
+    failed: false,
+    fileName: attachmentId ? names[attachmentId] : undefined,
+  });
+
+  afterEach(() => {
+    mockIndexStatus.mockImplementation(() => ({ indexed: true, failed: false }));
+  });
+
+  it("names a reopened PDF from the server, not document.pdf", async () => {
+    mockIndexStatus.mockImplementation(named);
+    const content = `What is the code?\n\n[File: /attachments/${LEASE}/file]\n[File (application/pdf)]\n[page 1] The code is LIME.`;
+    const { findByText, queryByText } = await render(<UserMessageContent message={userMessage(content)} />);
+    expect(await findByText("pdf:lease-notes.pdf")).toBeOnTheScreen();
+    expect(queryByText("pdf:document.pdf")).toBeNull();
+    expect(queryByText(/The code is LIME/)).toBeNull();
+  });
+
+  it("names a reopened document from the server, not its kind", async () => {
+    mockIndexStatus.mockImplementation(named);
+    const docx = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    const content = `[File: /attachments/${NOTES}/file]\n[File (${docx})]\nMinutes of the meeting.`;
+    const { getByText } = await render(<UserMessageContent message={userMessage(content)} />);
+    expect(getByText("minutes.docx")).toBeOnTheScreen();
+  });
+
+  it("keeps the name the phone sent it with", async () => {
+    mockIndexStatus.mockImplementation(named);
+    const content = `[File: /attachments/${LEASE}/file]\n[File (application/pdf)]\nText.`;
+    const message = { ...userMessage(content), local_file_name: "Lease 2026.pdf" };
+    const { findByText } = await render(<UserMessageContent message={message} />);
+    expect(await findByText("pdf:Lease 2026.pdf")).toBeOnTheScreen();
   });
 });

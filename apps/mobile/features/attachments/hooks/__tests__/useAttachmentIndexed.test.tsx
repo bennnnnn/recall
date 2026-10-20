@@ -46,12 +46,14 @@ beforeEach(() => {
 
 let indexed = false;
 let failed = false;
+let fileName: string | null | undefined;
 
 function Probe({ attachmentId }: { attachmentId?: string }) {
   const result = useAttachmentIndexed(attachmentId);
   React.useLayoutEffect(() => {
     indexed = result.indexed;
     failed = result.failed;
+    fileName = result.fileName;
   }, [result]);
   return <Text>{result.failed ? "failed" : result.indexed ? "ready" : "indexing"}</Text>;
 }
@@ -183,6 +185,32 @@ it("shares one poller between rows showing the same attachment and remembers a s
   await render(<Probe attachmentId="shared" />);
   expect(indexed).toBe(true);
   expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1);
+});
+
+it("names the file from the server, before it is indexed and after", async () => {
+  // A reopened message links only the file; without this its card said "document.pdf".
+  jest.useFakeTimers();
+  fileName = undefined;
+  mockGetAttachmentUrl.mockResolvedValue({
+    indexed: false,
+    created_at: new Date().toISOString(),
+    original_filename: "lease-notes.pdf",
+  });
+  try {
+    await act(async () => {
+      render(<Probe attachmentId="named" />);
+    });
+    expect(fileName).toBe("lease-notes.pdf");
+    expect(indexed).toBe(false);
+    mockGetAttachmentUrl.mockResolvedValue({ indexed: true });
+    await act(async () => {
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(indexed).toBe(true);
+    expect(fileName).toBe("lease-notes.pdf");
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it("backs off between polls", async () => {
