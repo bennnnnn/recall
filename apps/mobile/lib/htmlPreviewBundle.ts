@@ -217,14 +217,6 @@ function collectPreviewFilesInto(
 }
 
 /**
- * Collect html/css/js fences from a markdown message. Linear scan — no
- * regex on the body (CodeQL).
- */
-export function collectPreviewFiles(markdown: string): PreviewFile[] {
-  return collectPreviewFilesInto(markdown, [], new Set()).files;
-}
-
-/**
  * Advance an incremental scan for grown `markdown`. Append-only growth
  * rescans only the suffix; a non-extending change (new stream, rewrite)
  * resets and scans from scratch.

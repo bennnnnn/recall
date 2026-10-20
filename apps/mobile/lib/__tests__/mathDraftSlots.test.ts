@@ -1,9 +1,7 @@
 import {
   caretAfterExpression,
-  caretBeforeExpression,
   findDraftNodes,
   spliceMathBackspace,
-  stepMathCaret,
 } from "@/lib/math/draftSlots";
 import { MATH_KEYBOARD_SYMBOLS, spliceMathInsert } from "@/lib/math/keyboardSymbols";
 
@@ -39,22 +37,6 @@ describe("findDraftNodes", () => {
 
   it("keeps the continue caret inside the closing dollar", () => {
     expect(caretAfterExpression("$\\frac{8}{8}$")).toBe("$\\frac{8}{8}$".length - 1);
-  });
-
-  it("steps the caret from the front of a fraction to the numerator", () => {
-    const text = "$\\frac{8}{8}$";
-    const front = caretBeforeExpression(text);
-    const next = stepMathCaret(text, front, 1);
-    expect(next).toBeGreaterThan(front);
-    const back = stepMathCaret(text, next, -1);
-    expect(back).toBe(front);
-  });
-
-  it("steps left from after the expression into the last box", () => {
-    const text = "$\\frac{8}{8}$";
-    const after = caretAfterExpression(text);
-    const back = stepMathCaret(text, after, -1);
-    expect(back).toBeLessThan(after);
   });
 });
 

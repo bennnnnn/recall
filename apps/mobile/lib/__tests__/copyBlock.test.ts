@@ -10,11 +10,10 @@ import {
   shouldRenderAsCopyBlock,
   shouldRenderAsCodeBlock,
 } from "@/lib/copyBlock";
-import {
-  classifyOpenFencePreview,
-  shouldPreviewOpenFenceAsAnswer,
-  shouldPreviewOpenFenceAsMath,
-} from "@/lib/fenceDispatch";
+import { classifyOpenFencePreview } from "@/lib/fenceDispatch";
+
+const previewsAsAnswer = (lang: string, body: string) => classifyOpenFencePreview(lang, body) === "answer";
+const previewsAsMath = (lang: string, body: string) => classifyOpenFencePreview(lang, body) === "math";
 
 describe("copyBlock heuristics", () => {
   it("recognizes copy fence languages", () => {
@@ -141,18 +140,18 @@ describe("copyBlock heuristics", () => {
     // previews as the card (the check waits for the server's mark and the
     // settled reply); a soft fence that looks like an answer previews as math.
     const roots = String.raw`x = -2 \quad \text{or} \quad x = 2`;
-    expect(shouldPreviewOpenFenceAsAnswer("answer", `verified: true\n${roots}`)).toBe(true);
-    expect(shouldPreviewOpenFenceAsAnswer("answer", roots)).toBe(true);
-    expect(shouldPreviewOpenFenceAsAnswer("python", "print(1)")).toBe(false);
-    expect(shouldPreviewOpenFenceAsAnswer("python", "x = 2")).toBe(false);
-    expect(shouldPreviewOpenFenceAsAnswer("", "x = 2 or x = -2")).toBe(false);
-    expect(shouldPreviewOpenFenceAsMath("", "x = 2 or x = -2")).toBe(true);
+    expect(previewsAsAnswer("answer", `verified: true\n${roots}`)).toBe(true);
+    expect(previewsAsAnswer("answer", roots)).toBe(true);
+    expect(previewsAsAnswer("python", "print(1)")).toBe(false);
+    expect(previewsAsAnswer("python", "x = 2")).toBe(false);
+    expect(previewsAsAnswer("", "x = 2 or x = -2")).toBe(false);
+    expect(previewsAsMath("", "x = 2 or x = -2")).toBe(true);
   });
 
   it("BUG FIX regression: open ```math fences preview as math, not a code card", () => {
-    expect(shouldPreviewOpenFenceAsMath("math", String.raw`\frac{1}{2}`)).toBe(true);
-    expect(shouldPreviewOpenFenceAsMath("python", "print(1)")).toBe(false);
-    expect(shouldPreviewOpenFenceAsMath("", String.raw`x^2 = 4`)).toBe(true);
+    expect(previewsAsMath("math", String.raw`\frac{1}{2}`)).toBe(true);
+    expect(previewsAsMath("python", "print(1)")).toBe(false);
+    expect(previewsAsMath("", String.raw`x^2 = 4`)).toBe(true);
   });
 
   it("BUG FIX regression: open ```math is never previewed as AnswerBlock mid-stream", () => {
@@ -163,14 +162,14 @@ describe("copyBlock heuristics", () => {
       classifyOpenFencePreview("math", String.raw`\frac{x^2}{2}`),
     ).toBe("math");
     expect(
-      shouldPreviewOpenFenceAsAnswer("math", String.raw`\frac{x^2}{2}`),
+      previewsAsAnswer("math", String.raw`\frac{x^2}{2}`),
     ).toBe(false);
   });
 
   it("BUG FIX regression: open ```latex/```tex preview as math, not a code card", () => {
     expect(classifyOpenFencePreview("latex", String.raw`\frac{x^2}{2}`)).toBe("math");
     expect(classifyOpenFencePreview("tex", "x^2 = 8")).toBe("math");
-    expect(shouldPreviewOpenFenceAsMath("latex", String.raw`\frac{x^2}{2}`)).toBe(true);
+    expect(previewsAsMath("latex", String.raw`\frac{x^2}{2}`)).toBe(true);
   });
 
   it("BUG FIX regression: open ```geometry/```graph preview as diagram, not JSON CodeBlock", () => {
