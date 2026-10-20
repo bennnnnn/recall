@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react-native";
 
-import { SkiaGraphExplorer } from "@/components/rich/skia/SkiaGraphExplorer";
+import { SkiaGraphCanvas } from "@/components/rich/skia/SkiaGraphExplorer";
 import type { DrawnSeries } from "@/hooks/useInteractiveGraph";
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { lightTheme } from "@/lib/theme";
@@ -40,7 +40,7 @@ function Harness({
     onCommit: () => {},
   });
   return (
-    <SkiaGraphExplorer
+    <SkiaGraphCanvas
       drawn={drawn}
       verticalX={verticalX}
       width={320}
@@ -52,7 +52,7 @@ function Harness({
   );
 }
 
-describe("SkiaGraphExplorer", () => {
+describe("SkiaGraphCanvas", () => {
   it("renders the canvas for a function series", async () => {
     const { getByTestId } = await render(<Harness drawn={[series({})]} />);
     expect(getByTestId("skia-graph-canvas")).toBeTruthy();
@@ -81,7 +81,7 @@ describe("SkiaGraphExplorer", () => {
       tracePos: { value: { px: 160, py: 120 } },
     } as unknown as ReturnType<typeof useSkiaGraphViewport>;
     const { getByTestId } = await render(
-      <SkiaGraphExplorer
+      <SkiaGraphCanvas
         drawn={[series({ points: [[1, 1], [2, 4]] as [number, number][] })]}
         width={320}
         height={240}

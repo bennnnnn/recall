@@ -5,7 +5,6 @@
  * Loaded lazily and only when isSkiaAvailable() — the SVG explorer stays the
  * fallback for Expo Go and stale dev clients.
  */
-import { GestureDetector } from "react-native-gesture-handler";
 import { StyleSheet } from "react-native";
 import {
   Canvas,
@@ -79,7 +78,6 @@ export function SkiaGraphCanvas({
   pad,
   theme,
   viewport,
-  interactive = false,
   testID = "skia-graph-canvas",
 }: {
   drawn: DrawnSeries[];
@@ -92,7 +90,6 @@ export function SkiaGraphCanvas({
   pad: number;
   theme: Theme;
   viewport: Viewport;
-  interactive?: boolean;
   testID?: string;
 }) {
   // Project copy of katex/dist/fonts/KaTeX_Main-Regular.ttf. Skia reads a
@@ -102,7 +99,7 @@ export function SkiaGraphCanvas({
     require("../../../assets/fonts/KaTeX_Main-Regular.ttf"),
     GRAPH_TICK_FONT_SIZE,
   );
-  const { bounds, gesture, traceActive, tracePos } = viewport;
+  const { bounds, traceActive, tracePos } = viewport;
   const clip = Skia.XYWHRect(
     pad,
     pad,
@@ -359,11 +356,5 @@ export function SkiaGraphCanvas({
         ) : null}
       </Canvas>
   );
-  return interactive ? <GestureDetector gesture={gesture}>{canvas}</GestureDetector> : canvas;
-}
-
-export function SkiaGraphExplorer(
-  props: Omit<Parameters<typeof SkiaGraphCanvas>[0], "interactive">,
-) {
-  return <SkiaGraphCanvas {...props} interactive />;
+  return canvas;
 }
