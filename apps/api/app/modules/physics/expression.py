@@ -68,5 +68,10 @@ def to_latex(
     symbols: Mapping[str, str],
     values: Mapping[str, float] | None = None,
 ) -> str:
-    """A physics expression typeset: with the law's symbols, or with ``values`` plugged in."""
-    return _shared.to_latex(expression, symbols, values, notation=PHYSICS_NOTATION)
+    """A physics expression typeset: with the law's symbols, or with ``values`` plugged in.
+
+    An angle (a name that starts with ``angle``) is in radians for the arithmetic and is
+    shown in degrees, as the student wrote it.
+    """
+    angles = frozenset(name for name in values or () if name.startswith("angle"))
+    return _shared.to_latex(expression, symbols, values, notation=PHYSICS_NOTATION, degrees=angles)

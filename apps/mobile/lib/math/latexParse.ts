@@ -1,5 +1,6 @@
 import { readGroup } from "@/lib/math/latexGroups";
 import { preprocessLatex } from "@/lib/math/latexPreprocess";
+import { NAMED_FUNCTIONS } from "@/lib/math/latexCommands";
 import {
   MAX_MATH_NEST_DEPTH,
   NATIVE_LITERAL_APOSTROPHE_MARKER,
@@ -7,6 +8,7 @@ import {
   NATIVE_LITERAL_RIGHT_BRACE_MARKER,
   NATIVE_UPRIGHT_END_MARKER,
   NATIVE_UPRIGHT_START_MARKER,
+  restoreNativeLiterals,
   TEXT_STYLE_COMMANDS,
 } from "@/lib/math/textMarkers";
 import type { MathAccentKind, MathSegment } from "@/lib/math/textTypes";
@@ -337,13 +339,6 @@ function readBareScript(input: string, i: number): { value: string; next: number
 /** The parse of one LaTeX string: where it has read to, and what it has built. */
 type LatexState = { input: string; depth: number; i: number; out: MathSegment[] };
 
-function restoreNativeLiterals(value: string): string {
-  return value
-    .split(NATIVE_LITERAL_APOSTROPHE_MARKER).join("'")
-    .split(NATIVE_LITERAL_LEFT_BRACE_MARKER).join("{")
-    .split(NATIVE_LITERAL_RIGHT_BRACE_MARKER).join("}");
-}
-
 function pushText(state: LatexState, raw: string): void {
   const value = restoreNativeLiterals(raw)
     .split(NATIVE_UPRIGHT_START_MARKER).join("")
@@ -441,11 +436,14 @@ function readEscape(state: LatexState): boolean {
     let argStart = state.i;
     while (input[argStart] === " ") argStart += 1;
     const group = input[argStart] === "{" ? readGroup(input, argStart) : null;
+    const named = NAMED_FUNCTIONS.has(cmd);
+    if (named) state.out.push({ type: "upright", value: cmd });
     if (!group) {
-      pushText(state, cmd);
+      if (!named) pushText(state, cmd);
       return true;
     }
-    if (!TEXT_STYLE_COMMANDS.has(cmd)) pushText(state, `${cmd}(`);
+    if (named) pushText(state, "(");
+    else if (!TEXT_STYLE_COMMANDS.has(cmd)) pushText(state, `${cmd}(`);
     pushParsed(state, parseSimpleLatex(group.value, state.depth + 1));
     if (!TEXT_STYLE_COMMANDS.has(cmd)) pushText(state, ")");
     state.i = group.next;
