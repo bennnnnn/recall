@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from app.modules.physics.schemas.intent import PhysicsIntent
 from app.modules.physics.schemas.simulation import (
-    SIMULATION_SPEC_TYPES,
     CircuitNode,
     CircuitSource,
     CircuitSpec,
@@ -23,7 +22,6 @@ from app.modules.physics.schemas.simulation import (
 )
 
 __all__ = [
-    "SIMULATION_SPEC_TYPES",
     "CircuitNode",
     "CircuitSource",
     "CircuitSpec",

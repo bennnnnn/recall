@@ -32,15 +32,8 @@ from app.models.schemas.chats import (
 )
 from app.models.schemas.classification import ConversationReference, WebSearchClassification
 from app.models.schemas.common import (
-    MemoryOpKind,
-    MemorySensitivity,
-    MemoryStatus,
     MemoryType,
-    MessageFeedback,
-    MessageRole,
     ModelInfo,
-    ResponseStyle,
-    ResponseTone,
     UsageOut,
 )
 from app.models.schemas.home import (
@@ -65,7 +58,6 @@ from app.modules.memory.schemas import (
     MemoryUpdate,
 )
 from app.modules.todos.schemas import (
-    RecurrenceRule,
     TodoActionItem,
     TodoCreate,
     TodoExtractionResult,
@@ -103,27 +95,19 @@ __all__ = [
     "LogoutRequest",
     "MemoryFactOp",
     "MemoryFactUpdateResult",
-    "MemoryOpKind",
     "MemoryOut",
     "MemorySectionItem",
     "MemorySectionUpdateResult",
-    "MemorySensitivity",
-    "MemoryStatus",
     "MemoryType",
     "MemoryUpdate",
-    "MessageFeedback",
     "MessageOut",
     "MessagePageOut",
-    "MessageRole",
     "ModelInfo",
     "PinUpdate",
     "ProductEventBatchIn",
     "ProductEventIn",
     "PushTokenIn",
-    "RecurrenceRule",
     "RefreshRequest",
-    "ResponseStyle",
-    "ResponseTone",
     "SearchResultItem",
     "SearchResults",
     "SettingsConfirmOut",

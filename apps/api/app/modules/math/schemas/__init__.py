@@ -73,10 +73,7 @@ from app.modules.math.schemas.graph import (
 )
 from app.modules.math.schemas.intent import MathIntent
 from app.modules.math.schemas.word_problem import (
-    WordEquation,
     WordProblemSetup,
-    WordTarget,
-    WordUnknown,
 )
 
 __all__ = [
@@ -141,8 +138,5 @@ __all__ = [
     "TriangleSidesGeometryBlockSpec",
     "TriangleSidesInput",
     "TriangleSidesResult",
-    "WordEquation",
     "WordProblemSetup",
-    "WordTarget",
-    "WordUnknown",
 ]

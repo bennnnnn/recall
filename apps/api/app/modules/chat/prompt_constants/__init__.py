@@ -115,8 +115,6 @@ from app.modules.chat.prompt_constants.visuals import (
     VISUALIZATION_HINTS,
     WHERE_IS_PHOTO_HINT,
     attach_chemistry_fence_hint,
-    is_html_ui_question,
-    is_image_generation_mention,
     where_is_place,
 )
 from app.modules.chat.prompt_constants.writing import (
@@ -208,8 +206,6 @@ __all__ = [
     "is_correction",
     "is_email_or_message_request",
     "is_howto_question",
-    "is_html_ui_question",
-    "is_image_generation_mention",
     "is_learning_plan_request",
     "is_lightweight_chat_turn",
     "is_mermaid_question",

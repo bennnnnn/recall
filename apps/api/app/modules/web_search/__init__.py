@@ -1,10 +1,8 @@
 """Live web search routing, query building, and prompt injection."""
 
 from app.modules.web_search.augment import build_search_augmentation
-from app.modules.web_search.command import search_command
 from app.modules.web_search.detection import (
     needs_web_search,
-    needs_web_search_heuristic,
     should_web_search,
     web_search_fast_yes,
     web_search_skip,
@@ -62,10 +60,8 @@ __all__ = [
     "is_short_letter_answer",
     "names_its_place",
     "needs_web_search",
-    "needs_web_search_heuristic",
     "resolve_search_subject",
     "run_cached_search",
-    "search_command",
     "search_queries_for_turn",
     "should_web_search",
     "sources_payload",

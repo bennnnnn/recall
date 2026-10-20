@@ -23,7 +23,6 @@ from app.modules.math.match.dimensions import (
 )
 from app.modules.math.match.discrete import (
     combinatorics_signal,
-    crt_signal,
     matrix_signal,
     number_theory_signal,
     stats_signal,
@@ -60,7 +59,6 @@ __all__ = [
     "calc_op",
     "classify_solid_shape",
     "combinatorics_signal",
-    "crt_signal",
     "division_answer_mode",
     "first_dim_pair",
     "first_dim_triple",

@@ -14,8 +14,7 @@ chunk, and we do not throw it away and call the model a third time.
 - ``forced_search`` — the live search the model skipped
 """
 
-from app.modules.chat.tool_loop.results import TerminalImageResult
 from app.modules.chat.tool_loop.rounds import run_tool_rounds
 from app.modules.chat.tool_loop.selection import turn_needs_tool_loop
 
-__all__ = ["TerminalImageResult", "run_tool_rounds", "turn_needs_tool_loop"]
+__all__ = ["run_tool_rounds", "turn_needs_tool_loop"]

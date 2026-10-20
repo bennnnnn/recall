@@ -70,9 +70,6 @@ from app.modules.math.solve.parse import (
 from app.modules.math.solve.parse import (
     _parse_expression as _parse_expression,
 )
-from app.modules.math.solve.parse import (
-    parse_equation as parse_equation,
-)
 from app.modules.math.solve.statistics import compute_bivariate_statistics
 from app.modules.math.solve.systems import solve_system
 from app.modules.math.solve.written_names import defined_variable
@@ -111,7 +108,6 @@ __all__ = [
     "newton_method",
     "number_line_spec_from_expr",
     "parallelogram_geometry",
-    "parse_equation",
     "rectangle_geometry",
     "rejected_equality_chain",
     "right_triangle_geometry",

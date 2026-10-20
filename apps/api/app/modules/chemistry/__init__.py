@@ -9,7 +9,7 @@ from app.modules.chemistry.smiles import (
     generate_3d_coordinates,
     validate_smiles,
 )
-from app.modules.chemistry.solvers import ChemistryResult, solve_chemistry
+from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.stoichiometry import (
     limiting_reagent,
     molar_mass,
@@ -17,7 +17,6 @@ from app.modules.chemistry.stoichiometry import (
 )
 
 __all__ = [
-    "ChemistryResult",
     "MoleculeProperties",
     "balance_equation",
     "compute_descriptors",

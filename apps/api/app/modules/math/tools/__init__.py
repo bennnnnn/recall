@@ -7,8 +7,6 @@ from app.modules.math.tools.block import (
     VerifiedMathBlock,
     _answer_canonical,
     _build_verified_block,
-    _diagram_block,
-    _finish_with_answer,
     _format_equation_answer,
     _format_system_answer,
 )
@@ -28,8 +26,6 @@ __all__ = [
     "_answer_canonical",
     "_build_verified_block",
     "_build_verified_block_async",
-    "_diagram_block",
-    "_finish_with_answer",
     "_format_equation_answer",
     "_format_system_answer",
     "build_math_augmentation",
