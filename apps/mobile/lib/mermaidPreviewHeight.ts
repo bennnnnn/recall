@@ -20,13 +20,3 @@ export const MERMAID_PREVIEW_HEIGHT = previewHeightRules({
   maxExpanded: MERMAID_MAX_EXPANDED,
   epsilon: MERMAID_HEIGHT_EPSILON_PX,
 });
-
-export const {
-  clamp: clampMermaidPreviewHeight,
-  /**
-   * Next preview height given a freshly reported SVG height.
-   * Grow-only: shrinking after first paint makes the assistant bubble jump.
-   * Returns `null` when the height should not change.
-   */
-  next: nextMermaidPreviewHeight,
-} = MERMAID_PREVIEW_HEIGHT;

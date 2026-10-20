@@ -21,8 +21,6 @@ type Args = {
   initialView: GraphView;
   /** Called once per gesture end so the JS side can resample for the new window. */
   onCommit: (bounds: GraphView) => void;
-  /** Fired when trace mode turns on/off or the snapped sample changes. */
-  onTraceTick?: () => void;
 };
 
 /**
@@ -36,7 +34,6 @@ export function useSkiaGraphViewport({
   pad,
   initialView,
   onCommit,
-  onTraceTick,
 }: Args) {
   const bounds = useSharedValue<GraphViewW>(initialView);
   const gestureStart = useSharedValue<GraphViewW>(initialView);
@@ -54,10 +51,6 @@ export function useSkiaGraphViewport({
   const commit = (next: GraphViewW) => {
     "worklet";
     runOnJS(onCommit)(next);
-  };
-  const traceTick = () => {
-    "worklet";
-    if (onTraceTick) runOnJS(onTraceTick)();
   };
 
   const pinch = Gesture.Pinch()
@@ -82,7 +75,6 @@ export function useSkiaGraphViewport({
       "worklet";
       traceActive.value = true;
       tracePos.value = { px: e.x, py: e.y };
-      traceTick();
     })
     .onUpdate((e) => {
       "worklet";

@@ -2,11 +2,15 @@ import {
   CHART_MAX_EXPANDED,
   CHART_MAX_HEIGHT,
   CHART_MIN_HEIGHT,
-  chartPreviewIsClipped,
-  chartTogglePreviewHeight,
-  clampChartPreviewHeight,
-  nextChartPreviewHeight,
+  CHART_PREVIEW_HEIGHT,
 } from "@/lib/chartPreviewHeight";
+
+const {
+  clamp: clampChartPreviewHeight,
+  next: nextChartPreviewHeight,
+  isClipped: chartPreviewIsClipped,
+  toggled: chartTogglePreviewHeight,
+} = CHART_PREVIEW_HEIGHT;
 
 describe("clampChartPreviewHeight", () => {
   it("floors empty reports at the min placeholder", () => {

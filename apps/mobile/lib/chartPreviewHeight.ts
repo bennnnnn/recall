@@ -17,10 +17,3 @@ export const CHART_PREVIEW_HEIGHT = previewHeightRules({
   maxExpanded: CHART_MAX_EXPANDED,
   epsilon: CHART_HEIGHT_EPSILON_PX,
 });
-
-export const {
-  clamp: clampChartPreviewHeight,
-  next: nextChartPreviewHeight,
-  isClipped: chartPreviewIsClipped,
-  toggled: chartTogglePreviewHeight,
-} = CHART_PREVIEW_HEIGHT;

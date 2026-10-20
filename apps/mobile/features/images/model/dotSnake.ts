@@ -58,13 +58,6 @@ const TURN_RIGHT: Record<Direction, Direction> = {
   left: "up",
 };
 
-export const OPPOSITE: Record<Direction, Direction> = {
-  up: "down",
-  down: "up",
-  left: "right",
-  right: "left",
-};
-
 /** Unit vector of a direction, for drawing (e.g. which way the head looks). */
 export function directionVector(direction: Direction): Cell {
   return STEP[direction];

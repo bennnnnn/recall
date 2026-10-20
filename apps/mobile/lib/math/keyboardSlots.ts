@@ -266,11 +266,6 @@ export function tapAdvancesToNextSlot(text: string, caret: number, specId: strin
   return tapAdvancesPair(text, caret, find);
 }
 
-/** Second tap on fraction: jump num → empty den instead of inserting another \\frac. */
-export function fracTapAdvancesToDen(text: string, caret: number): number | null {
-  return tapAdvancesToNextSlot(text, caret, "frac");
-}
-
 function autoAdvancePair(
   before: string,
   beforeCaret: number,
@@ -299,16 +294,4 @@ export function autoAdvanceNextEmptySlot(
     autoAdvancePair(before, beforeCaret, after, afterCaret, nrootPairs) ??
     autoAdvancePair(before, beforeCaret, after, afterCaret, lognPairs)
   );
-}
-
-/** After filling an empty frac numerator with a non-digit atom, land in the den. */
-export function autoAdvanceFracDen(
-  before: string,
-  beforeCaret: number,
-  after: string,
-  afterCaret: number,
-  spec: MathKeyboardSymbol,
-): number | null {
-  if (STAY_IN_SLOT.test(spec.id)) return null;
-  return autoAdvancePair(before, beforeCaret, after, afterCaret, fracPairs);
 }
