@@ -30,6 +30,8 @@ class MessageChunk(Base):
         Index("ix_message_chunks_user", "user_id"),
         Index("ix_message_chunks_user_chat", "user_id", "chat_id"),
         Index("ix_message_chunks_message", "message_id"),
+        # A chat delete (FK CASCADE), migration 0116.
+        Index("ix_message_chunks_chat", "chat_id"),
         # DB index (migration 0064) is actually:
         #   CREATE INDEX ix_message_chunks_embedding ON message_chunks
         #   USING hnsw (embedding vector_cosine_ops)

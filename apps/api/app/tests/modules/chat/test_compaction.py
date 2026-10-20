@@ -1,5 +1,6 @@
 """Tests for token-budget history compression."""
 
+from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -144,6 +145,82 @@ async def test_compress_runs_under_token_pressure_before_full_batch():
     assert chat.summary == "PARTIAL"
     assert chat.summary_message_count > 0
     session.commit.assert_awaited()
+
+
+def _over_window_patches(session, summarize):
+    return (
+        patch("app.modules.chat.compaction.get_redis_client", return_value=_fake_redis()),
+        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch(
+            "app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=60)
+        ),
+        patch(
+            "app.modules.chat.compaction.messages_repo.list_recent",
+            AsyncMock(return_value=[_msg() for _ in range(40)]),
+        ),
+        patch(
+            "app.modules.chat.compaction.messages_repo.list_range",
+            AsyncMock(return_value=[_msg("a"), _msg("b")]),
+        ),
+        patch("app.modules.chat.compaction.summarize_conversation", summarize),
+    )
+
+
+_OVER_WINDOW = Settings(
+    recent_message_window=40, context_token_budget=6000, history_summary_batch=10
+)
+
+
+class _TrackedSessionCM(_SessionCM):
+    open = 0
+
+    async def __aenter__(self):
+        type(self).open += 1
+        return await super().__aenter__()
+
+    async def __aexit__(self, *args):
+        type(self).open -= 1
+        return False
+
+
+@pytest.mark.asyncio
+async def test_the_summary_model_runs_with_no_session_open():
+    session = AsyncMock()
+    chat = MagicMock(summary=None, summary_message_count=0)
+    session.get = AsyncMock(return_value=chat)
+    open_during_model: list[int] = []
+
+    async def summarize(*_args):
+        open_during_model.append(_TrackedSessionCM.open)
+        return "SUMMARY"
+
+    with ExitStack() as stack:
+        for each in _over_window_patches(session, summarize):
+            stack.enter_context(each)
+        stack.enter_context(
+            patch("app.modules.chat.compaction.SessionLocal", lambda: _TrackedSessionCM(session))
+        )
+        await compaction.compress_chat_history(_OVER_WINDOW, uuid4())
+    assert open_during_model == [0]
+    assert chat.summary == "SUMMARY"
+
+
+@pytest.mark.asyncio
+async def test_a_summary_folded_elsewhere_meanwhile_is_not_overwritten():
+    session = AsyncMock()
+    chat = MagicMock(summary=None, summary_message_count=0)
+    session.get = AsyncMock(return_value=chat)
+
+    async def summarize(*_args):
+        chat.summary, chat.summary_message_count = "NEWER", 20  # another run saved first
+        return "STALE"
+
+    with ExitStack() as stack:
+        for each in _over_window_patches(session, summarize):
+            stack.enter_context(each)
+        await compaction.compress_chat_history(_OVER_WINDOW, uuid4())
+    assert chat.summary == "NEWER"
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
