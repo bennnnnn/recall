@@ -176,11 +176,11 @@ async def _topic_job(turn: FinishedTurn) -> list[PostTurnJob]:
 
 
 async def _compress_job(turn: FinishedTurn) -> list[PostTurnJob]:
-    """Dedupe by chat: rapid successive turns on one chat coalesce.
-
-    The worker skips a duplicate enqueue, and the one job that runs compresses
-    whatever is pending then (the later turn's messages too), instead of a no-op
-    compress job on every turn.
+    """One key per enqueue: a fixed ``compress:{chat}`` key was marked done for 24 h by
+    turn 1's no-op run, so the chat was never compressed again that day and the middle
+    of a long chat fell out of the prompt. Runs on one chat still coalesce: the
+    ``chatcompress:`` lock serializes them and a run with too little pending returns
+    before reading the transcript.
     """
     ctx = turn.ctx
     if turn.spend_capped or not turn.settings.history_compression_enabled:
@@ -189,7 +189,7 @@ async def _compress_job(turn: FinishedTurn) -> list[PostTurnJob]:
         PostTurnJob(
             "compress",
             {"chat_id": str(ctx.chat_id), "user_id": str(ctx.user_id)},
-            f"compress:{ctx.chat_id}",
+            jobs.unique_dedupe_key(f"compress:{ctx.chat_id}"),
         )
     ]
 
