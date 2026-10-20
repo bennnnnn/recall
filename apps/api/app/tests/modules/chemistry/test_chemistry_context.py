@@ -68,11 +68,11 @@ def test_extract_compound_name(text: str, expected: str | None) -> None:
 
 
 # ---------------------------------------------------------------------------
-# build_chemistry_context — PubChem lookup
+# build_chemistry_augmentation — PubChem lookup
 # ---------------------------------------------------------------------------
 
 
-async def test_build_chemistry_context_pubchem_success() -> None:
+async def test_build_chemistry_augmentation_pubchem_success() -> None:
     """When PubChem returns a compound, the context block includes SMILES + formula."""
     fake_compound = MagicMock()
     fake_compound.smiles = "CC(=O)Oc1ccccc1C(=O)O"
@@ -87,14 +87,16 @@ async def test_build_chemistry_context_pubchem_success() -> None:
         chemistry_context.pubchem_gateway, "lookup_by_name", new_callable=AsyncMock
     ) as mock_lookup:
         mock_lookup.return_value = fake_result
-        block = await chemistry_context.build_chemistry_context("what is aspirin?", _SETTINGS)
+        block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+            "what is aspirin?", _SETTINGS
+        )
     assert block is not None
     assert "Canonical SMILES: CC(=O)Oc1ccccc1C(=O)O" in block
     assert "Molecular formula: C9H8O4" in block
     assert "PubChem CID: 2244" in block
 
 
-async def test_build_chemistry_context_does_not_teach_molecule3d() -> None:
+async def test_build_chemistry_augmentation_does_not_teach_molecule3d() -> None:
     """PubChem 3D SDF in the prompt taught a second ```molecule3d fence on top
     of the server-appended one — two molecule cards, one of them empty."""
     fake_compound = MagicMock()
@@ -112,7 +114,7 @@ async def test_build_chemistry_context_does_not_teach_molecule3d() -> None:
         new_callable=AsyncMock,
     ) as mock_lookup:
         mock_lookup.return_value = fake_result
-        block = await chemistry_context.build_chemistry_context(
+        block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
             "Show the molecular structure of ethanol. Include 2D and 3D.",
             _SETTINGS,
         )
@@ -121,7 +123,7 @@ async def test_build_chemistry_context_does_not_teach_molecule3d() -> None:
     assert "3D SDF" not in block
 
 
-async def test_build_chemistry_context_pubchem_not_found() -> None:
+async def test_build_chemistry_augmentation_pubchem_not_found() -> None:
     """A named lookup that errors declines with the chemistry note."""
     fake_result = MagicMock()
     fake_result.error = "not found"
@@ -138,20 +140,22 @@ async def test_build_chemistry_context_pubchem_not_found() -> None:
     assert block == chemistry_context.unverified_chemistry_note()
 
 
-async def test_build_chemistry_context_non_chemistry() -> None:
+async def test_build_chemistry_augmentation_non_chemistry() -> None:
     """Non-chemistry questions return None."""
-    block = await chemistry_context.build_chemistry_context("what is 2 + 2?", _SETTINGS)
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+        "what is 2 + 2?", _SETTINGS
+    )
     assert block is None
 
 
 # ---------------------------------------------------------------------------
-# build_chemistry_context — equation balancing
+# build_chemistry_augmentation — equation balancing
 # ---------------------------------------------------------------------------
 
 
-async def test_build_chemistry_context_balance_equation() -> None:
+async def test_build_chemistry_augmentation_balance_equation() -> None:
     """When the user asks to balance an equation, the context block includes the balanced form."""
-    block = await chemistry_context.build_chemistry_context(
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "balance the equation H2 + O2 -> H2O", _SETTINGS
     )
     assert block is not None
@@ -161,13 +165,13 @@ async def test_build_chemistry_context_balance_equation() -> None:
 
 
 # ---------------------------------------------------------------------------
-# build_chemistry_context — molar mass
+# build_chemistry_augmentation — molar mass
 # ---------------------------------------------------------------------------
 
 
-async def test_build_chemistry_context_molar_mass() -> None:
+async def test_build_chemistry_augmentation_molar_mass() -> None:
     """When the user asks for molar mass, the context block includes the verified mass."""
-    block = await chemistry_context.build_chemistry_context(
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "what is the molar mass of H2O?", _SETTINGS
     )
     assert block is not None
@@ -176,13 +180,13 @@ async def test_build_chemistry_context_molar_mass() -> None:
 
 
 # ---------------------------------------------------------------------------
-# build_chemistry_context — stoichiometry
+# build_chemistry_augmentation — stoichiometry
 # ---------------------------------------------------------------------------
 
 
-async def test_build_chemistry_context_stoichiometry() -> None:
+async def test_build_chemistry_augmentation_stoichiometry() -> None:
     """When the user asks 'how much product' with an equation, stoichiometry context is injected."""
-    block = await chemistry_context.build_chemistry_context(
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "how much H2O is produced from H2 + O2 -> H2O?",
         _SETTINGS,
     )
@@ -191,8 +195,8 @@ async def test_build_chemistry_context_stoichiometry() -> None:
     assert "Balanced equation" in block
 
 
-async def test_build_chemistry_context_stoichiometry_with_amount() -> None:
-    block = await chemistry_context.build_chemistry_context(
+async def test_build_chemistry_augmentation_stoichiometry_with_amount() -> None:
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "How many moles of H2O from 4 mol H2 in H2 + O2 -> H2O?",
         _SETTINGS,
     )
@@ -202,8 +206,8 @@ async def test_build_chemistry_context_stoichiometry_with_amount() -> None:
     assert "H2O" in block
 
 
-async def test_build_chemistry_context_limiting_reagent() -> None:
-    block = await chemistry_context.build_chemistry_context(
+async def test_build_chemistry_augmentation_limiting_reagent() -> None:
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "limiting reagent: 1 mol H2 and 1 mol O2 in H2 + O2 -> H2O",
         _SETTINGS,
     )
@@ -213,13 +217,13 @@ async def test_build_chemistry_context_limiting_reagent() -> None:
 
 
 # ---------------------------------------------------------------------------
-# build_chemistry_context — pH
+# build_chemistry_augmentation — pH
 # ---------------------------------------------------------------------------
 
 
-async def test_build_chemistry_context_ph() -> None:
+async def test_build_chemistry_augmentation_ph() -> None:
     """When the user asks about pH with [H+], the verified pH is injected."""
-    block = await chemistry_context.build_chemistry_context(
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "what is the pH if [H+] = 0.001?",
         _SETTINGS,
     )
@@ -230,20 +234,20 @@ async def test_build_chemistry_context_ph() -> None:
 
 
 # ---------------------------------------------------------------------------
-# build_chemistry_context — gas law
+# build_chemistry_augmentation — gas law
 # ---------------------------------------------------------------------------
 
 
-async def test_build_chemistry_context_gas_law() -> None:
+async def test_build_chemistry_augmentation_gas_law() -> None:
     """Gas-law questions without enough numbers do not fake a verified block."""
-    block = await chemistry_context.build_chemistry_context(
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "use PV=nRT to find the pressure of an ideal gas",
         _SETTINGS,
     )
     assert block is None
 
 
-async def test_build_chemistry_context_gas_law_does_not_steal_pubchem() -> None:
+async def test_build_chemistry_augmentation_gas_law_does_not_steal_pubchem() -> None:
     fake_compound = MagicMock()
     fake_compound.smiles = "CC(=O)Oc1ccccc1C(=O)O"
     fake_compound.molecular_formula = "C9H8O4"
@@ -256,7 +260,7 @@ async def test_build_chemistry_context_gas_law_does_not_steal_pubchem() -> None:
         chemistry_context.pubchem_gateway, "lookup_by_name", new_callable=AsyncMock
     ) as mock_lookup:
         mock_lookup.return_value = fake_result
-        block = await chemistry_context.build_chemistry_context(
+        block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
             "what is aspirin? the pressure and volume of the bottle are unknown",
             _SETTINGS,
         )
@@ -267,21 +271,21 @@ async def test_build_chemistry_context_gas_law_does_not_steal_pubchem() -> None:
 
 
 # ---------------------------------------------------------------------------
-# build_chemistry_context — solution chemistry
+# build_chemistry_augmentation — solution chemistry
 # ---------------------------------------------------------------------------
 
 
-async def test_build_chemistry_context_solution() -> None:
+async def test_build_chemistry_augmentation_solution() -> None:
     """Molarity without numbers does not fake a verified block."""
-    block = await chemistry_context.build_chemistry_context(
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "calculate the molarity of the solution",
         _SETTINGS,
     )
     assert block is None
 
 
-async def test_build_chemistry_context_molarity_verified() -> None:
-    block = await chemistry_context.build_chemistry_context(
+async def test_build_chemistry_augmentation_molarity_verified() -> None:
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "Calculate the molarity of 0.5 mol in 2 L",
         _SETTINGS,
     )
@@ -290,8 +294,8 @@ async def test_build_chemistry_context_molarity_verified() -> None:
     assert "0.2500" in block or "0.25" in block
 
 
-async def test_build_chemistry_context_poh() -> None:
-    block = await chemistry_context.build_chemistry_context(
+async def test_build_chemistry_augmentation_poh() -> None:
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "what is the pH when pOH = 4?",
         _SETTINGS,
     )
@@ -300,8 +304,8 @@ async def test_build_chemistry_context_poh() -> None:
     assert "10.00" in block or "10" in block
 
 
-async def test_build_chemistry_context_element() -> None:
-    block = await chemistry_context.build_chemistry_context(
+async def test_build_chemistry_augmentation_element() -> None:
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "what is the atomic mass of Fe?",
         _SETTINGS,
     )
@@ -313,8 +317,8 @@ async def test_build_chemistry_context_element() -> None:
     assert "Verified molar mass" not in block
 
 
-async def test_build_chemistry_context_h_from_ph() -> None:
-    block = await chemistry_context.build_chemistry_context(
+async def test_build_chemistry_augmentation_h_from_ph() -> None:
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "what is [H+] when pH = 3?",
         _SETTINGS,
     )
@@ -323,8 +327,8 @@ async def test_build_chemistry_context_h_from_ph() -> None:
     assert "e-03" in block or "0.001" in block
 
 
-async def test_build_chemistry_context_dilution() -> None:
-    block = await chemistry_context.build_chemistry_context(
+async def test_build_chemistry_augmentation_dilution() -> None:
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "dilute a solution: M1=2 V1=1 M2=1",
         _SETTINGS,
     )
@@ -333,9 +337,9 @@ async def test_build_chemistry_context_dilution() -> None:
     assert "2.0000" in block or "2" in block
 
 
-async def test_build_chemistry_context_stoich_named_product_not_first_rhs() -> None:
+async def test_build_chemistry_augmentation_stoich_named_product_not_first_rhs() -> None:
     """'how much H2O' must not verify CO2 just because it appears first in the equation."""
-    block = await chemistry_context.build_chemistry_context(
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "how much H2O from 2 mol C2H6 in C2H6 + O2 -> CO2 + H2O",
         _SETTINGS,
     )
@@ -345,8 +349,8 @@ async def test_build_chemistry_context_stoich_named_product_not_first_rhs() -> N
     assert "mol CO2" not in block
 
 
-async def test_build_chemistry_context_element_as_is_not_arsenic() -> None:
-    block = await chemistry_context.build_chemistry_context(
+async def test_build_chemistry_augmentation_element_as_is_not_arsenic() -> None:
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "Which element is used as a semiconductor?",
         _SETTINGS,
     )
@@ -355,8 +359,8 @@ async def test_build_chemistry_context_element_as_is_not_arsenic() -> None:
         assert "Verified element data" not in block
 
 
-async def test_build_chemistry_context_dilution_ml_keeps_ml() -> None:
-    block = await chemistry_context.build_chemistry_context(
+async def test_build_chemistry_augmentation_dilution_ml_keeps_ml() -> None:
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "dilute a solution: M1=1 V1=100 mL M2=0.5",
         _SETTINGS,
     )
@@ -368,8 +372,8 @@ async def test_build_chemistry_context_dilution_ml_keeps_ml() -> None:
     assert "100.0000 L" not in block
 
 
-async def test_build_chemistry_context_gas_law_zero_pressure_does_not_crash() -> None:
-    block = await chemistry_context.build_chemistry_context(
+async def test_build_chemistry_augmentation_gas_law_zero_pressure_does_not_crash() -> None:
+    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
         "PV=nRT find the volume of 1 mol at 0 atm and 273 K",
         _SETTINGS,
     )
@@ -453,7 +457,9 @@ async def test_logp_of_a_named_compound_uses_the_pubchem_smiles() -> None:
         chemistry_context.pubchem_gateway, "lookup_by_name", new_callable=AsyncMock
     ) as mock_lookup:
         mock_lookup.return_value = result
-        block = await chemistry_context.build_chemistry_context("logP of aspirin", _SETTINGS)
+        block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+            "logP of aspirin", _SETTINGS
+        )
     assert block is not None
     assert "Canonical SMILES: CC(=O)Oc1ccccc1C(=O)O" in block
     assert "LogP: 1.31" in block

@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.attachments.content import extract_text_from_bytes
+from app.modules.attachments.content import extract_text_details
 from app.modules.attachments.content_types import ALLOWED_CONTENT_TYPES, is_image_content_type
 from app.modules.attachments.markers import strip_attachment_from_content
 
@@ -31,13 +31,13 @@ def test_allowed_content_types_include_images_and_documents():
     assert "application/msword" not in ALLOWED_CONTENT_TYPES
 
 
-def test_extract_text_from_bytes_respects_max_chars():
+def test_extract_text_details_respects_max_chars():
     """The max_chars parameter caps extracted text — the indexing path uses a
     higher cap than the inline excerpt path."""
     long_text = "x" * 5000
-    result = extract_text_from_bytes("text/plain", long_text.encode(), max_chars=100)
+    result = extract_text_details("text/plain", long_text.encode(), max_chars=100)
     assert result is not None
-    assert len(result) == 100
+    assert len(result.text) == 100
 
 
 def test_normalize_content_type():
@@ -55,8 +55,9 @@ def test_is_image_content_type():
 
 
 def test_extract_text_from_plain_text():
-    text = extract_text_from_bytes("text/plain", b"Hello, Recall.")
-    assert text == "Hello, Recall."
+    details = extract_text_details("text/plain", b"Hello, Recall.")
+    assert details is not None
+    assert details.text == "Hello, Recall."
 
 
 def test_bytes_match_claimed_accepts_word_documents():
@@ -96,7 +97,7 @@ def test_bytes_match_claimed_handles_corrupt_zip_gracefully():
 def test_docx_zip_bomb_rejected():
     """An entry larger than MAX_ATTACHMENT_SIZE is treated as a zip bomb —
     not a DOCX match, and text extraction returns None without parsing."""
-    from app.modules.attachments.content import MAX_ATTACHMENT_SIZE, extract_text_from_bytes
+    from app.modules.attachments.content import MAX_ATTACHMENT_SIZE
     from app.modules.attachments.content_types import _docx_zip_bomb, bytes_match_claimed
 
     buf = io.BytesIO()
@@ -108,7 +109,7 @@ def test_docx_zip_bomb_rejected():
 
     assert _docx_zip_bomb(bomb_bytes) is True
     assert bytes_match_claimed(_DOCX_CONTENT_TYPE, bomb_bytes) is False
-    assert extract_text_from_bytes(_DOCX_CONTENT_TYPE, bomb_bytes) is None
+    assert extract_text_details(_DOCX_CONTENT_TYPE, bomb_bytes) is None
 
 
 def test_bytes_match_claimed_rejects_spoofed_image():
@@ -133,8 +134,8 @@ def test_extract_text_from_pdf_bytes():
         b"5 0 obj<< /Type /Page /Parent 4 0 R /MediaBox [0 0 3 3]>>endobj\n"
         b"xref\n0 6\n0000000000 65535 f \ntrailer<< /Root 3 0 R /Size 6>>\nstartxref\n0\n%%EOF"
     )
-    result = extract_text_from_bytes("application/pdf", minimal_pdf)
-    assert result is None or isinstance(result, str)
+    result = extract_text_details("application/pdf", minimal_pdf)
+    assert result is None or isinstance(result.text, str)
 
 
 def test_extract_text_from_docx_bytes():
@@ -147,24 +148,25 @@ def test_extract_text_from_docx_bytes():
     buf = io.BytesIO()
     document.save(buf)
 
-    result = extract_text_from_bytes(
+    result = extract_text_details(
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         buf.getvalue(),
     )
-    assert result == "Hello from a Word document."
+    assert result is not None
+    assert result.text == "Hello from a Word document."
 
 
 def test_extract_text_from_legacy_doc_returns_none():
     # No pure-Python parser for legacy .doc — must return None, not raise.
     doc_bytes = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32
-    assert extract_text_from_bytes("application/msword", doc_bytes) is None
+    assert extract_text_details("application/msword", doc_bytes) is None
 
 
 @pytest.mark.asyncio
-async def test_extract_text_from_bytes_async_offloads_to_thread(monkeypatch):
+async def test_extract_text_details_async_offloads_to_thread(monkeypatch):
     import threading
 
-    from app.modules.attachments.content import ExtractedText, extract_text_from_bytes_async
+    from app.modules.attachments.content import ExtractedText, extract_text_details_async
 
     caller_thread = threading.current_thread()
     seen_thread: dict[str, threading.Thread] = {}
@@ -175,14 +177,15 @@ async def test_extract_text_from_bytes_async_offloads_to_thread(monkeypatch):
 
     monkeypatch.setattr("app.modules.attachments.content.extract_text_details", spy)
 
-    result = await extract_text_from_bytes_async("text/plain", b"hi", Settings())
+    result = await extract_text_details_async("text/plain", b"hi", Settings())
 
-    assert result == "extracted"
+    assert result is not None
+    assert result.text == "extracted"
     assert seen_thread["thread"] is not caller_thread
 
 
 @pytest.mark.asyncio
-async def test_extract_text_from_bytes_async_times_out_gracefully(monkeypatch):
+async def test_extract_text_details_async_times_out_gracefully(monkeypatch):
     import time
 
     def slow_extract(content_type: str, data: bytes, **kwargs: object) -> str | None:
@@ -191,10 +194,10 @@ async def test_extract_text_from_bytes_async_times_out_gracefully(monkeypatch):
 
     monkeypatch.setattr("app.modules.attachments.content.extract_text_details", slow_extract)
 
-    from app.modules.attachments.content import extract_text_from_bytes_async
+    from app.modules.attachments.content import extract_text_details_async
 
     settings = Settings(attachment_extract_timeout_seconds=0.05)
-    result = await extract_text_from_bytes_async("application/pdf", b"x", settings)
+    result = await extract_text_details_async("application/pdf", b"x", settings)
 
     assert result is None
 
@@ -479,8 +482,6 @@ def test_extract_text_details_flags_char_cap():
 def test_docx_tables_keep_row_alignment():
     from docx import Document
 
-    from app.modules.attachments.content import extract_text_from_bytes
-
     document = Document()
     table = document.add_table(rows=2, cols=2)
     table.cell(0, 0).text = "Name"
@@ -489,10 +490,10 @@ def test_docx_tables_keep_row_alignment():
     table.cell(1, 1).text = "12"
     buf = io.BytesIO()
     document.save(buf)
-    result = extract_text_from_bytes(_DOCX_CONTENT_TYPE, buf.getvalue())
+    result = extract_text_details(_DOCX_CONTENT_TYPE, buf.getvalue())
     assert result is not None
-    assert "| Name | Score |" in result
-    assert "| Ada | 12 |" in result
+    assert "| Name | Score |" in result.text
+    assert "| Ada | 12 |" in result.text
 
 
 def test_prior_image_attachment_ids_skips_current_user_turn():

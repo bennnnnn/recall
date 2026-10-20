@@ -124,7 +124,7 @@ async def test_ocr_scanned_pdf_skips_when_disabled_or_mock():
 
 @pytest.mark.asyncio
 async def test_extract_async_uses_ocr_when_text_layer_empty(monkeypatch):
-    from app.modules.attachments.content import extract_text_from_bytes_async
+    from app.modules.attachments.content import extract_text_details_async
 
     monkeypatch.setattr(
         "app.modules.attachments.content.extract_text_details",
@@ -135,13 +135,14 @@ async def test_extract_async_uses_ocr_when_text_layer_empty(monkeypatch):
         AsyncMock(return_value="scanned homework"),
     )
     settings = Settings(attachment_ocr_enabled=True)
-    result = await extract_text_from_bytes_async("application/pdf", b"%PDF", settings)
-    assert result == "scanned homework"
+    result = await extract_text_details_async("application/pdf", b"%PDF", settings)
+    assert result is not None
+    assert result.text == "scanned homework"
 
 
 @pytest.mark.asyncio
 async def test_extract_async_skips_ocr_when_disallowed(monkeypatch):
-    from app.modules.attachments.content import extract_text_from_bytes_async
+    from app.modules.attachments.content import extract_text_details_async
 
     monkeypatch.setattr(
         "app.modules.attachments.content.extract_text_details",
@@ -150,16 +151,14 @@ async def test_extract_async_skips_ocr_when_disallowed(monkeypatch):
     ocr_mock = AsyncMock(return_value="should-not-run")
     monkeypatch.setattr("app.modules.attachments.ocr.ocr_scanned_pdf", ocr_mock)
     settings = Settings(attachment_ocr_enabled=True)
-    result = await extract_text_from_bytes_async(
-        "application/pdf", b"%PDF", settings, allow_ocr=False
-    )
+    result = await extract_text_details_async("application/pdf", b"%PDF", settings, allow_ocr=False)
     assert result is None
     ocr_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_extract_async_does_not_ocr_when_text_layer_present(monkeypatch):
-    from app.modules.attachments.content import ExtractedText, extract_text_from_bytes_async
+    from app.modules.attachments.content import ExtractedText, extract_text_details_async
 
     monkeypatch.setattr(
         "app.modules.attachments.content.extract_text_details",
@@ -167,10 +166,11 @@ async def test_extract_async_does_not_ocr_when_text_layer_present(monkeypatch):
     )
     ocr_mock = AsyncMock(return_value="should-not-run")
     monkeypatch.setattr("app.modules.attachments.ocr.ocr_scanned_pdf", ocr_mock)
-    result = await extract_text_from_bytes_async(
+    result = await extract_text_details_async(
         "application/pdf", b"%PDF", Settings(attachment_ocr_enabled=True)
     )
-    assert result == "selectable text"
+    assert result is not None
+    assert result.text == "selectable text"
     ocr_mock.assert_not_awaited()
 
 
@@ -178,7 +178,7 @@ async def test_extract_async_does_not_ocr_when_text_layer_present(monkeypatch):
 async def test_extract_async_timeout_does_not_ocr(monkeypatch):
     import time
 
-    from app.modules.attachments.content import extract_text_from_bytes_async
+    from app.modules.attachments.content import extract_text_details_async
 
     def _slow(*_a: object, **_k: object) -> str | None:
         time.sleep(0.5)
@@ -188,7 +188,7 @@ async def test_extract_async_timeout_does_not_ocr(monkeypatch):
     ocr_mock = AsyncMock(return_value="should-not-run")
     monkeypatch.setattr("app.modules.attachments.ocr.ocr_scanned_pdf", ocr_mock)
     settings = Settings(attachment_extract_timeout_seconds=0.05, attachment_ocr_enabled=True)
-    result = await extract_text_from_bytes_async("application/pdf", b"%PDF", settings)
+    result = await extract_text_details_async("application/pdf", b"%PDF", settings)
     assert result is None
     ocr_mock.assert_not_awaited()
 
@@ -228,7 +228,7 @@ async def test_extract_async_ocr_index_uses_index_caps(monkeypatch):
     from app.modules.attachments.content import (
         MAX_EXTRACT_CHARS,
         MAX_INDEX_EXTRACT_CHARS,
-        extract_text_from_bytes_async,
+        extract_text_details_async,
     )
 
     monkeypatch.setattr(
@@ -246,14 +246,15 @@ async def test_extract_async_ocr_index_uses_index_caps(monkeypatch):
 
     monkeypatch.setattr("app.modules.attachments.ocr.ocr_scanned_pdf", _ocr)
     settings = Settings(attachment_ocr_enabled=True, attachment_ocr_index_max_pages=20)
-    result = await extract_text_from_bytes_async(
+    result = await extract_text_details_async(
         "application/pdf",
         b"%PDF",
         settings,
         max_chars=MAX_INDEX_EXTRACT_CHARS,
         ocr_max_pages=settings.attachment_ocr_index_max_pages,
     )
-    assert result == "scanned"
+    assert result is not None
+    assert result.text == "scanned"
     assert captured["max_chars"] == MAX_INDEX_EXTRACT_CHARS
     assert captured["max_pages"] == 20
     assert captured["max_chars"] != MAX_EXTRACT_CHARS

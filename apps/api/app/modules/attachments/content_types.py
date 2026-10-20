@@ -173,7 +173,7 @@ def is_image_content_type(content_type: str) -> bool:
 
 _DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
-# Types extract_text_from_bytes actually knows how to parse. Used to tell a
+# Types extract_text_details actually knows how to parse. Used to tell a
 # genuinely unsupported type (e.g. legacy .doc, which has no good pure-Python
 # parser) apart from a supported type that just yielded no text (e.g. a
 # scanned image-only PDF) — the two deserve different user-facing messages.

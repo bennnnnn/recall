@@ -368,19 +368,8 @@ def _iupac_smiles(content: str) -> str | None:
     return token or None
 
 
-async def build_chemistry_context(
-    content: str,
-    settings: Settings,
-    redis: Redis | None = None,
-) -> str | None:
-    """Backward-compatible context-only facade."""
-    block, _verified, _declined = await build_chemistry_augmentation(content, settings, redis=redis)
-    return block
-
-
 __all__ = [
     "build_chemistry_augmentation",
-    "build_chemistry_context",
     "extract_compound_name",
     "is_chemistry_question",
 ]

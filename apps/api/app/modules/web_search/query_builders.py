@@ -340,4 +340,3 @@ def build_search_queries(
     if fallback and is_current_news_request(current):
         fallback = anchor_news_query_to_today(fallback, user_timezone)
     return [fallback] if fallback else []
-
