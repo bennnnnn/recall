@@ -22,7 +22,6 @@ from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import (
     _build_verified_block_async,
     _intent_from_image_extract,
-    augment_prompt_messages,
     build_math_augmentation,
     needs_symbolic_math,
 )
@@ -37,7 +36,6 @@ __all__ = [
     "_format_equation_answer",
     "_format_system_answer",
     "_intent_from_image_extract",
-    "augment_prompt_messages",
     "build_math_augmentation",
     "can_direct_verified_math_reply",
     "extract_math_intent",

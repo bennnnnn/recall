@@ -36,7 +36,6 @@ from app.modules.web_search.subject import (
     last_assistant_content,
     resolve_search_subject,
 )
-from app.services.prompt_inject import inject_before_last_user
 from app.services.prompt_safety import wrap_untrusted
 
 if TYPE_CHECKING:
@@ -156,35 +155,3 @@ async def build_search_augmentation(
             tried, local_places=local_places, failed=budget.search_failed
         )
     return block, hits
-
-
-async def augment_prompt_messages(
-    messages: list[dict[str, str]],
-    user_content: str,
-    settings: Settings,
-    *,
-    user_timezone: str | None = None,
-    user_location: str | None = None,
-    latitude: float | None = None,
-    longitude: float | None = None,
-    prior_user_messages: list[str] | None = None,
-    on_status: StreamStatusFn | None = None,
-    user: User | None = None,
-    redis: Redis | None = None,
-) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
-    block, hits = await build_search_augmentation(
-        user_content,
-        settings,
-        messages=messages,
-        user_timezone=user_timezone,
-        user_location=user_location,
-        latitude=latitude,
-        longitude=longitude,
-        prior_user_messages=prior_user_messages,
-        on_status=on_status,
-        user=user,
-        redis=redis,
-    )
-    if block is None:
-        return messages, []
-    return inject_before_last_user(messages, block), hits

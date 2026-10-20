@@ -12,6 +12,7 @@ from app.modules.math import tools as math_tools
 from app.modules.math.schemas import MathImageExtract, MathIntent
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.prompt import build_physics_augmentation
+from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
 def test_math_intent_has_no_dead_expression_kind() -> None:
@@ -502,7 +503,7 @@ def test_two_real_roots_format_with_or_not_aligned_stack() -> None:
 async def test_augment_prompt_injects_system_solve_block() -> None:
     settings = Settings(math_tools_enabled=True)
     text = "solve x+y=5, x-y=1"
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -584,7 +585,7 @@ async def test_augment_prompt_no_intent_forbids_invented_geometry(
 async def test_augment_prompt_system_flags_inconsistent_equations() -> None:
     settings = Settings(math_tools_enabled=True)
     text = "solve x+y=5, x+y=10"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -683,7 +684,7 @@ def test_extract_numerical_method_intent_defaults_guess_when_absent() -> None:
 async def test_augment_prompt_injects_newton_iteration_table() -> None:
     settings = Settings(math_tools_enabled=True)
     text = "use newton's method to find the root of x^3 - 2x - 5 = 0 starting at x0 = 2"
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -1422,7 +1423,7 @@ def test_extract_bare_y_equals_stays_equation_when_solving() -> None:
 @pytest.mark.asyncio
 async def test_augment_bare_y_equals_injects_graph_fence() -> None:
     settings = Settings(math_tools_enabled=True)
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "$y=3x+4$"}],
         "$y=3x+4$",
         settings,
@@ -1646,7 +1647,7 @@ def test_extract_series_intent(
 async def test_augment_prompt_injects_limit_block() -> None:
     settings = Settings(math_tools_enabled=True)
     text = "find the limit of x^2 as x approaches 3"
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -1661,7 +1662,7 @@ async def test_augment_prompt_injects_limit_block() -> None:
 async def test_augment_prompt_calculus_attaches_answer_fence() -> None:
     settings = Settings(math_tools_enabled=True)
     text = "differentiate x^2"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -1690,7 +1691,7 @@ async def test_english_calculus_verifies_via_llm_extract_fallback(
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake_extract)
     settings = Settings(math_tools_enabled=True)
     text = "what's the derivative of x squared plus 3x"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -1712,7 +1713,7 @@ async def test_english_calculus_stays_unverified_when_llm_extract_finds_nothing(
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake_extract)
     settings = Settings(math_tools_enabled=True)
     text = "what's the derivative of x squared plus 3x"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is None
@@ -1722,7 +1723,7 @@ async def test_english_calculus_stays_unverified_when_llm_extract_finds_nothing(
 async def test_ddx_calculus_still_produces_verified_block() -> None:
     settings = Settings(math_tools_enabled=True)
     text = "d/dx x**2 + 3x"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -1735,7 +1736,7 @@ async def test_ddx_calculus_still_produces_verified_block() -> None:
 async def test_english_roots_does_not_produce_verified_block() -> None:
     settings = Settings(math_tools_enabled=True)
     text = "roots of my hair are 2 inches long"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is None
@@ -1749,7 +1750,7 @@ async def test_augment_prompt_calculus_includes_derivation_steps() -> None:
     are injected so the model can follow verified steps."""
     settings = Settings(math_tools_enabled=True)
     text = "differentiate x^3 + 2x"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -1866,7 +1867,7 @@ def test_maclaurin_aliases_taylor_at_zero() -> None:
 @pytest.mark.asyncio
 async def test_augment_prompt_unsolved_integral_has_no_answer_fence() -> None:
     settings = Settings(math_tools_enabled=True)
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "integrate x**x"}], "integrate x**x", settings
     )
     assert verified is not None
@@ -1879,7 +1880,7 @@ async def test_augment_prompt_distinguishes_nonexistent_two_sided_limit() -> Non
     """Opposite one-sided infinities are not a positive-infinity answer."""
     settings = Settings(math_tools_enabled=True)
     text = "what is the limit of 1/x as x approaches 0"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -1891,7 +1892,7 @@ async def test_augment_prompt_distinguishes_nonexistent_two_sided_limit() -> Non
 async def test_augment_prompt_injects_series_block_with_convergence() -> None:
     settings = Settings(math_tools_enabled=True)
     text = r"\sum_{n=1}^{\infty} 1/n^2"
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -1906,7 +1907,7 @@ async def test_augment_prompt_flags_divergent_series() -> None:
     number it would otherwise be tempted to invent."""
     settings = Settings(math_tools_enabled=True)
     text = "does the series sum of 1/n from n=1 to infinity converge"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -1918,7 +1919,7 @@ async def test_augment_prompt_flags_divergent_series() -> None:
 async def test_augment_prompt_injects_geometry_block() -> None:
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "rectangle 8 x 5 cm diagonal angle"}]
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         messages,
         "rectangle 8 x 5 cm diagonal angle",
         settings,
@@ -1940,7 +1941,7 @@ async def test_augment_prompt_rectangle_area_query_does_not_force_diagonal_and_a
     (always 90°) corner. The diagram should only annotate what was asked."""
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "What about rectangle area with 4 by 5"}]
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         messages,
         "What about rectangle area with 4 by 5",
         settings,
@@ -1963,7 +1964,7 @@ async def test_augment_prompt_injects_circle_geometry_block() -> None:
     verified-computation treatment as every other shape."""
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "circle radius 4 area circumference"}]
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         messages,
         "circle radius 4 area circumference",
         settings,
@@ -1985,7 +1986,7 @@ async def test_augment_circle_circumference_answer_not_area() -> None:
     the circumference (≈25.13)."""
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "circumference of circle radius 4"}]
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         messages,
         "circumference of circle radius 4",
         settings,
@@ -2002,7 +2003,7 @@ async def test_augment_circle_area_answer_when_only_area_requested() -> None:
     default area path."""
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "area of circle radius 4"}]
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         messages,
         "area of circle radius 4",
         settings,
@@ -2023,7 +2024,7 @@ async def test_augment_stats_sample_stdev_uses_sample_divisor() -> None:
     data = [1, 2, 3, 4, 5]
     content = "sample standard deviation of 1, 2, 3, 4, 5"
     messages = [{"role": "user", "content": content}]
-    _out, verified = await math_tools.augment_prompt_messages(messages, content, settings)
+    _out, verified = await augment_prompt_messages(messages, content, settings)
     assert verified is not None
     assert verified.canonical_answer is not None
     expected = f"{_stats.stdev(data):.4f}"
@@ -2043,7 +2044,7 @@ async def test_augment_stats_population_stdev_still_default() -> None:
     data = [1, 2, 3, 4, 5]
     content = "standard deviation of 1, 2, 3, 4, 5"
     messages = [{"role": "user", "content": content}]
-    _out, verified = await math_tools.augment_prompt_messages(messages, content, settings)
+    _out, verified = await augment_prompt_messages(messages, content, settings)
     assert verified is not None
     assert verified.canonical_answer is not None
     assert verified.canonical_answer == f"{_stats.pstdev(data):.4f}"
@@ -2057,7 +2058,7 @@ async def test_augment_prompt_injects_single_point_graph_block() -> None:
     Now it gets a verified single-point ```graph fence with an explicit
     instruction not to invent a function through it."""
     settings = Settings(math_tools_enabled=True)
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "(2,3)"}],
         "(2,3)",
         settings,
@@ -2074,7 +2075,7 @@ async def test_augment_prompt_injects_single_point_graph_block() -> None:
 async def test_augment_prompt_injects_graph_block() -> None:
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "Graph y = x^2"}]
-    out, verified = await math_tools.augment_prompt_messages(messages, "Graph y = x^2", settings)
+    out, verified = await augment_prompt_messages(messages, "Graph y = x^2", settings)
     assert len(out) == 2
     assert "```graph\n" not in out[0]["content"]
     assert "points" in out[0]["content"]
@@ -2091,7 +2092,7 @@ async def test_augment_graph_uses_user_named_domain() -> None:
     the rendered curve spans the requested range."""
     settings = Settings(math_tools_enabled=True)
     text = "graph y = x^2 from 0 to 100"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -2138,7 +2139,7 @@ def test_graph_domain_none_when_no_clause() -> None:
 async def test_augment_prompt_injects_unit_circle_relation_graph() -> None:
     settings = Settings(math_tools_enabled=True)
     text = "graph x^2 + y^2 = 1"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -2154,7 +2155,7 @@ async def test_augment_prompt_injects_unit_circle_relation_graph() -> None:
 async def test_augment_prompt_injects_ellipse_relation_graph() -> None:
     settings = Settings(math_tools_enabled=True)
     text = "plot x^2/9 + y^2/4 = 1"
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
@@ -2172,7 +2173,7 @@ async def test_augment_prompt_attaches_segments_and_warns_on_discontinuous_graph
     carry the split segments, and the model must be told not to describe it
     as one continuous curve."""
     settings = Settings(math_tools_enabled=True)
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "Graph tan(x)"}], "Graph tan(x)", settings
     )
     assert verified is not None
@@ -2187,7 +2188,7 @@ async def test_augment_prompt_omits_segments_for_a_continuous_graph() -> None:
     """The overwhelmingly common case (no discontinuity) must not carry a
     redundant segments field duplicating every point."""
     settings = Settings(math_tools_enabled=True)
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "Graph x^2"}], "Graph x^2", settings
     )
     assert verified is not None
@@ -2205,7 +2206,7 @@ async def test_augment_prompt_flags_unsolved_integral_instead_of_asserting_it() 
     model must be told SymPy found no closed form instead."""
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "integrate x**x"}]
-    out, verified = await math_tools.augment_prompt_messages(messages, "integrate x**x", settings)
+    out, verified = await augment_prompt_messages(messages, "integrate x**x", settings)
     assert verified is not None
     assert "Do NOT recompute" not in verified.text
     assert "closed-form" in verified.text.lower() or "no closed form" in verified.text.lower()
@@ -2219,7 +2220,7 @@ async def test_augment_prompt_flags_unsolved_integral_instead_of_asserting_it() 
 @pytest.mark.asyncio
 async def test_vertical_line_graph_builds_canonical_fence() -> None:
     settings = Settings(math_tools_enabled=True)
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "Graph x = 4"}],
         "Graph x = 4",
         settings,
@@ -2245,7 +2246,7 @@ async def test_vertical_line_graph_builds_canonical_fence() -> None:
 async def test_glued_graph_command_injects_vertical_fence_not_chart() -> None:
     """``X=6graph`` is graph-the-line x=6 (```graph), not Vega ```chart."""
     settings = Settings(math_tools_enabled=True)
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "X=6graph"}],
         "X=6graph",
         settings,
@@ -2265,7 +2266,7 @@ async def test_glued_graph_command_injects_vertical_fence_not_chart() -> None:
 @pytest.mark.asyncio
 async def test_composer_dollar_wrap_injects_vertical_fence() -> None:
     settings = Settings(math_tools_enabled=True)
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "X=$6$graph"}],
         "X=$6$graph",
         settings,
@@ -2287,7 +2288,7 @@ async def test_composer_dollar_wrap_injects_vertical_fence() -> None:
 @pytest.mark.asyncio
 async def test_graph_inequality_builds_number_line_fence() -> None:
     settings = Settings(math_tools_enabled=True)
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "graph x > 3"}],
         "graph x > 3",
         settings,
@@ -2314,7 +2315,7 @@ async def test_bare_inequality_builds_number_line_fence() -> None:
     a number_line canonical_fence so validate_math_fences can replace the
     model's malformed graph attempt."""
     settings = Settings(math_tools_enabled=True)
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "X>4"}],
         "X>4",
         settings,
@@ -2336,7 +2337,7 @@ async def test_graph_sample_respects_math_graph_max_points_above_200() -> None:
     graph at 200 points regardless of math_graph_max_points, so raising
     the setting above 200 had no effect."""
     settings = Settings(math_tools_enabled=True, math_graph_max_points=220)
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "Graph y = x^2"}],
         "Graph y = x^2",
         settings,
@@ -2355,7 +2356,7 @@ async def test_default_graph_sample_stays_compact_for_chat_bubbles() -> None:
     """Default budget (~96) keeps densified fences SVG-friendly instead of
     dumping hundreds of points into the message (and FallbackMarkdown)."""
     settings = Settings(math_tools_enabled=True)
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "Graph y = x^4 - 4x^2"}],
         "Graph y = x^4 - 4x^2",
         settings,
@@ -2369,7 +2370,7 @@ async def test_default_graph_sample_stays_compact_for_chat_bubbles() -> None:
 @pytest.mark.asyncio
 async def test_wide_sine_graph_zooms_instead_of_aliasing() -> None:
     settings = Settings(math_tools_enabled=True)
-    _out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "Graph y = sin(x) from -1000 to 1000"}],
         "Graph y = sin(x) from -1000 to 1000",
         settings,
@@ -2391,7 +2392,7 @@ async def test_augment_prompt_injects_sympy_block() -> None:
         {"role": "system", "content": "sys"},
         {"role": "user", "content": "Solve x^2 + 2 = 6"},
     ]
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         messages,
         "Solve x^2 + 2 = 6",
         settings,
@@ -2433,7 +2434,7 @@ async def test_sympy_solve_runs_off_event_loop(
 
     monkeypatch.setattr(math_tools, "_build_verified_block", spy)
 
-    out, _verified = await math_tools.augment_prompt_messages(
+    out, _verified = await augment_prompt_messages(
         [{"role": "user", "content": "Solve x^2 + 2 = 6"}],
         "Solve x^2 + 2 = 6",
         settings,
@@ -2466,7 +2467,7 @@ async def test_augment_prompt_times_out_gracefully(
     monkeypatch.setattr(math_tools, "_build_verified_block", slow_build)
 
     messages = [{"role": "user", "content": "Solve x^2 + 2 = 6"}]
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         messages,
         "Solve x^2 + 2 = 6",
         settings,
@@ -2494,7 +2495,7 @@ async def test_augment_prompt_math_service_error_injects_unverified_note(
     monkeypatch.setattr(math_tools, "_build_verified_block", boom)
 
     messages = [{"role": "user", "content": "Solve x^2 + 2 = 6"}]
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         messages,
         "Solve x^2 + 2 = 6",
         settings,
@@ -2521,7 +2522,7 @@ async def test_augment_prompt_broken_pool_injects_unverified_note(
 
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "Solve x^2 + 2 = 6"}]
-    out, verified = await math_tools.augment_prompt_messages(
+    out, verified = await augment_prompt_messages(
         messages,
         "Solve x^2 + 2 = 6",
         settings,

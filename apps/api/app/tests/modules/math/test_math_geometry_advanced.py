@@ -9,13 +9,13 @@ import pytest
 from app.core.config import Settings
 from app.modules.math import match as math_match
 from app.modules.math import solve as math_solve
-from app.modules.math import tools as math_tools
 from app.modules.math.schemas import (
     ParallelogramInput,
     SectorInput,
     TrapezoidInput,
     TriangleSidesInput,
 )
+from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
 class TestTriangleSidesGeometry:
@@ -128,7 +128,7 @@ class TestAugmentPromptMessagesForNewShapes:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "sector of a circle with radius 5 and angle 90"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert verified.canonical_fence is not None
         assert verified.canonical_fence["type"] == "sector"
@@ -138,7 +138,7 @@ class TestAugmentPromptMessagesForNewShapes:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "triangle with sides 3, 4, 5"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert verified.canonical_fence is not None
         assert verified.canonical_fence["type"] == "triangle_sides"
@@ -152,7 +152,7 @@ class TestAugmentPromptMessagesForNewShapes:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "A triangle with angles 120, 40, 20"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        out, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        out, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert verified.canonical_fence is not None
         assert verified.canonical_fence["type"] == "triangle_sides"
@@ -171,7 +171,7 @@ class TestAugmentPromptMessagesForNewShapes:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "triangle with sides 5, 5, 6"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert verified.canonical_fence is not None
         assert verified.canonical_fence["type"] == "triangle_sides"
@@ -182,6 +182,6 @@ class TestAugmentPromptMessagesForNewShapes:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "circle with radius 4"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert verified.canonical_fence["type"] == "circle"

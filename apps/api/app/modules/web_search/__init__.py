@@ -1,6 +1,6 @@
 """Live web search routing, query building, and prompt injection."""
 
-from app.modules.web_search.augment import augment_prompt_messages, build_search_augmentation
+from app.modules.web_search.augment import build_search_augmentation
 from app.modules.web_search.command import search_command
 from app.modules.web_search.detection import (
     needs_web_search,
@@ -50,7 +50,6 @@ __all__ = [
     "SearchSource",
     "TurnTavilyBudget",
     "WebSearchAdapter",
-    "augment_prompt_messages",
     "build_search_augmentation",
     "build_search_queries",
     "format_location_not_set_answer",

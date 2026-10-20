@@ -4,7 +4,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit, search_web
-from app.modules.web_search import augment_prompt_messages
+from app.tests.modules.web_search.augment_support import augment_prompt_messages
 
 
 @pytest.mark.asyncio

@@ -223,7 +223,7 @@ def test_mcp_registry_sympy_absent_when_math_tools_disabled():
     """PR 5: math_tools_enabled=False must unregister the model-callable
     "sympy" MCP tool — without this gate, the model could still reach SymPy
     via the tool even when the operator disabled math_tools_enabled (which
-    otherwise gates only the pre-stream augment_prompt_messages path)."""
+    otherwise gates only the pre-stream build_math_augmentation path)."""
     from app.gateways.mcp.registry import clear
 
     clear()

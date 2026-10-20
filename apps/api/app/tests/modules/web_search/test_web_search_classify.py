@@ -5,7 +5,8 @@ import pytest
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.schemas import WebSearchClassification
-from app.modules.web_search import augment_prompt_messages, should_web_search, web_search_skip
+from app.modules.web_search import should_web_search, web_search_skip
+from app.tests.modules.web_search.augment_support import augment_prompt_messages
 
 
 @pytest.mark.asyncio

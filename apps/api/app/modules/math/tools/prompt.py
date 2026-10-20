@@ -28,7 +28,6 @@ from app.modules.math.tools.extract import (
 )
 from app.modules.math.tools.function_def import has_assignment_evaluation_request
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
-from app.services.prompt_inject import inject_before_last_user
 from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 
@@ -404,27 +403,6 @@ def _unverified_math_note(kind: str) -> str:
         f"{GRAPH_NO_SUBSTITUTE_CLAUSE}\n\n"
         f"{MATH_REPLY_POLICY} {SELF_CHECK_PROMPT_RULE}"
     )
-
-
-async def augment_prompt_messages(
-    messages: list[dict[str, str]],
-    user_content: str,
-    settings: Settings,
-    *,
-    has_image_attachment: bool = False,
-    image_math_extract: MathImageExtract | None = None,
-    prior_user_messages: list[str] | None = None,
-) -> tuple[list[dict[str, str]], VerifiedMathBlock | None]:
-    block, verified = await build_math_augmentation(
-        user_content,
-        settings,
-        has_image_attachment=has_image_attachment,
-        image_math_extract=image_math_extract,
-        prior_user_messages=prior_user_messages,
-    )
-    if block is None:
-        return messages, None
-    return inject_before_last_user(messages, block), verified
 
 
 async def _build_verified_block_async(

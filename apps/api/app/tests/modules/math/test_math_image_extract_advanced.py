@@ -11,8 +11,8 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.math import tools as math_tools
 from app.modules.math.schemas import MathImageExtract
+from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
 class TestMathImageExtractSchema:
@@ -140,7 +140,7 @@ class TestAugmentPromptMessagesFromImageExtract:
         )
         text = "Solve the math problem in this image step by step."
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _, verified = await math_tools.augment_prompt_messages(
+        _, verified = await augment_prompt_messages(
             messages, text, settings, has_image_attachment=True, image_math_extract=extract
         )
         assert verified is not None
@@ -155,7 +155,7 @@ class TestAugmentPromptMessagesFromImageExtract:
         )
         text = "Solve the math problem in this image step by step."
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _, verified = await math_tools.augment_prompt_messages(
+        _, verified = await augment_prompt_messages(
             messages, text, settings, has_image_attachment=True, image_math_extract=extract
         )
         assert verified is not None
@@ -169,7 +169,7 @@ class TestAugmentPromptMessagesFromImageExtract:
         extract = MathImageExtract(lhs="2*x+3", rhs="7", variables=["x"])
         text = "Solve the math problem in this image step by step."
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _, verified = await math_tools.augment_prompt_messages(
+        _, verified = await augment_prompt_messages(
             messages, text, settings, has_image_attachment=True, image_math_extract=extract
         )
         assert verified is not None
@@ -186,7 +186,7 @@ class TestAugmentPromptMessagesFromImageExtract:
         )
         text = "Solve the math problem in this image step by step."
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _, verified = await math_tools.augment_prompt_messages(
+        _, verified = await augment_prompt_messages(
             messages, text, settings, has_image_attachment=True, image_math_extract=extract
         )
         assert verified is not None
@@ -204,7 +204,7 @@ class TestAugmentPromptMessagesFromImageExtract:
             variables=["x"],
         )
         text = "Solve the math problem in this image step by step."
-        _, verified = await math_tools.augment_prompt_messages(
+        _, verified = await augment_prompt_messages(
             [{"role": "user", "content": text}],
             text,
             settings,
@@ -220,7 +220,7 @@ class TestAugmentPromptMessagesFromImageExtract:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(lhs="2\u00d7x+3", rhs="7", variables=["x"])
         text = "Solve the math problem in this image step by step."
-        _, verified = await math_tools.augment_prompt_messages(
+        _, verified = await augment_prompt_messages(
             [{"role": "user", "content": text}],
             text,
             settings,
@@ -236,7 +236,7 @@ class TestAugmentPromptMessagesFromImageExtract:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(kind="rectangle", width=8, height=5, unit="cm")
         text = "Solve the math problem in this image step by step."
-        _, verified = await math_tools.augment_prompt_messages(
+        _, verified = await augment_prompt_messages(
             [{"role": "user", "content": text}],
             text,
             settings,
@@ -259,7 +259,7 @@ class TestAugmentPromptMessagesFromImageExtract:
             variables=["x"],
         )
         text = "Solve the math problem in this image step by step."
-        _, verified = await math_tools.augment_prompt_messages(
+        _, verified = await augment_prompt_messages(
             [{"role": "user", "content": text}],
             text,
             settings,
@@ -278,7 +278,7 @@ class TestAugmentPromptMessagesFromImageExtract:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(kind="triangle_sides", tri_a=3, tri_b=4, tri_c=5, unit="cm")
         text = "Solve the math problem in this image step by step."
-        _, verified = await math_tools.augment_prompt_messages(
+        _, verified = await augment_prompt_messages(
             [{"role": "user", "content": text}],
             text,
             settings,
@@ -294,7 +294,7 @@ class TestAugmentPromptMessagesFromImageExtract:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(kind="statistics", stats_op="mean", stats_numbers=[1, 3, 5, 7])
         text = "Solve the math problem in this image step by step."
-        _, verified = await math_tools.augment_prompt_messages(
+        _, verified = await augment_prompt_messages(
             [{"role": "user", "content": text}],
             text,
             settings,

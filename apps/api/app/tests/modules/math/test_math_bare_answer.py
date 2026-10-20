@@ -13,7 +13,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.math.tools.bare_answer import BARE_ANSWER_NOTE, bare_answer
-from app.modules.math.tools.prompt import augment_prompt_messages
+from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
 @pytest.mark.parametrize(
