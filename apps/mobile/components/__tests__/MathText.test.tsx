@@ -59,6 +59,19 @@ describe("MathText", () => {
     expect(italic).toEqual(variables);
   });
 
+  it.each([
+    [String.raw`\tau = Fd\sin(\theta)`, "τ = Fd sin(θ)"],
+    [String.raw`\tau = F\sin\theta`, "τ = F sin θ"],
+    [String.raw`\sin x\cos x`, "sin x cos x"],
+    [String.raw`3\ln 2`, "3 ln 2"],
+    [String.raw`2 + \sin(x)`, "2 + sin(x)"],
+    [String.raw`(\sin x)`, "(sin x)"],
+  ])("spaces a function name from a symbol, not from an operator: %s", async (latex, text) => {
+    // Upright but unspaced, the torque law still read "Fdsin(θ)".
+    const { getByText } = await render(<MathText latex={latex} />);
+    expect(getByText(text)).toBeOnTheScreen();
+  });
+
   it("draws a squared unit's ² as written, not as a caret", async () => {
     // An upright run is drawn as typed: converted to a script there, "m/s²" showed "m/s^2".
     const { getByTestId, queryByText } = await render(

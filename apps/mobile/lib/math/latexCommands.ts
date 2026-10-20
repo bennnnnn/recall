@@ -1,5 +1,7 @@
 /** Command → glyph table applied before the segment parser runs. */
 
+import type { MathSegment } from "@/lib/math/textTypes";
+
 export const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\prime(?![a-zA-Z])/g, "′"],
   [/\\pm(?![a-zA-Z])/g, "±"],
@@ -220,3 +222,17 @@ export const NAMED_FUNCTIONS: ReadonlySet<string> = new Set([
   "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh", "sin", "cos", "tan", "sec", "csc", "cot",
   "log", "ln", "exp", "det", "gcd",
 ]);
+
+/** Push a named function, spaced as TeX spaces it: from a symbol on either side ("Fd sin θ",
+ * "sin x cos x"), not from an operator or a bracket ("2 + sin(θ)"). `after` is the source that
+ * follows the name, or null when it takes a braced argument. */
+export function pushNamedFunction(out: MathSegment[], name: string, after: string | null): void {
+  const last = out[out.length - 1];
+  if (last?.type === "text" && /[\p{L}\p{N})\]}'′°|]$/u.test(last.value)) last.value += " ";
+  else if (last && last.type !== "text") out.push({ type: "text", value: " " });
+  out.push({ type: "upright", value: name });
+  const cmd = after?.[0] === "\\" ? after.slice(1).match(/^[a-zA-Z]+/)?.[0] : undefined;
+  if (/^[\p{L}\p{N}]/u.test(after ?? "") || (cmd != null && cmd !== "left" && cmd !== "right")) {
+    out.push({ type: "text", value: " " });
+  }
+}
