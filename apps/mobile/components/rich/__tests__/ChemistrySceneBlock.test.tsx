@@ -1,6 +1,8 @@
 import { render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { ChemistrySceneBlock } from "@/components/rich/ChemistrySceneBlock";
+import { Space } from "@/lib/space";
 
 // The real English strings, so a key that is missing from en.json shows up as a raw key.
 jest.mock("react-i18next", () => {
@@ -46,6 +48,23 @@ describe("ChemistrySceneBlock", () => {
     expect(getByText("H · H around O")).toBeTruthy();
     expect(getByText("Lone pairs: 2")).toBeTruthy();
     expect(getByText("tetrahedral, ideal 109.5°")).toBeTruthy();
+  });
+
+  it("keeps its text inset from the card's edge, like the header", async () => {
+    const { getByTestId } = await render(
+      scene({
+        kind: "cell",
+        title: "Galvanic cell",
+        anode: "Zn",
+        cathode: "Cu",
+        potential: "1.10 V",
+        electrons: "anode to cathode",
+      }),
+    );
+    // Flush with the border, the rounded corner cut the first letter off the last line.
+    expect(StyleSheet.flatten(getByTestId("chemistry-scene-body").props.style)).toMatchObject({
+      paddingHorizontal: Space.sm,
+    });
   });
 
   it("says one lone pair without a plural form", async () => {
