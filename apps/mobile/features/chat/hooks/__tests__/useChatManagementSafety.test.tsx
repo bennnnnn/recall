@@ -36,14 +36,13 @@ const chat: Chat = {
 const setChatTitle = jest.fn();
 const setPinned = jest.fn();
 const setArchived = jest.fn();
-const router = { canGoBack: () => true, back: jest.fn(), replace: jest.fn() };
 let actions: ReturnType<typeof useChatActions>;
 function Probe({ chatId = "chat-1", token = "token", pinned = false, archived = false }: {
   chatId?: string; token?: string; pinned?: boolean; archived?: boolean;
 }) {
   const value = useChatActions({
     token, chatId, chatTitle: "Old title", messages: [], pinned, archived,
-    setPinned, setArchived, setChatTitle, setMessages: jest.fn(), router: router as never, t: (key) => key,
+    setPinned, setArchived, setChatTitle, setMessages: jest.fn(), t: (key) => key,
   });
   React.useLayoutEffect(() => { actions = value; });
   return <Text>Actions</Text>;
@@ -138,8 +137,6 @@ it("clears the active deleted conversation through the registered new-chat actio
   await act(async () => { await deletePress()(); });
   expect(clearCachedChatMessages).toHaveBeenCalledWith("chat-1");
   expect(abandonActiveChatIfDeleted).toHaveBeenCalledWith(["chat-1"]);
-  expect(router.back).not.toHaveBeenCalled();
-  expect(router.replace).not.toHaveBeenCalled();
 });
 
 it("haptics only after the confirmed chat deletion succeeds", async () => {

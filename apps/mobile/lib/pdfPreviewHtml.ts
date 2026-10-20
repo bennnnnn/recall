@@ -5,7 +5,7 @@ import { PDF_MIN_JS } from "@/lib/vendor/pdfMinJs";
 import { PDF_WORKER_MIN_JS } from "@/lib/vendor/pdfWorkerMinJs";
 
 /** What one preview shows; the page reads it as `window.RECALL_PDF`. */
-export type PdfPreviewConfig = {
+type PdfPreviewConfig = {
   /** A local file:// PDF the page reads itself (the file-backed page). */
   src?: string;
   /** The PDF as base64 (the inline fallback, where the WebView cannot read files). */

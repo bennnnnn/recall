@@ -1,5 +1,3 @@
-import { converterInsertSnippet } from "@/lib/unitConverter";
-
 export const MATH_KEYBOARD_GROUPS = [
   "basics",
   "symbols",
@@ -215,11 +213,6 @@ export const MATH_PAD_KEYS: readonly MathKeyboardSymbol[] = [
   key({ id: "var-z", label: "z", insert: "z", group: "pad" }),
 ];
 
-export function converterResultSpec(value: string, symbol: string): MathKeyboardSymbol {
-  const insert = converterInsertSnippet(value, symbol);
-  return key({ id: "converter-result", label: value, insert, group: "converter" });
-}
-
 /** Descriptive VoiceOver labels for math keyboard symbols (KB-005). */
 export const SYMBOL_A11Y: Record<string, string> = {
   frac: "Fraction",
@@ -338,7 +331,6 @@ export const SYMBOL_A11Y: Record<string, string> = {
   "var-x": "Variable x",
   "var-y": "Variable y",
   "var-z": "Variable z",
-  "converter-result": "Conversion result",
   equiv: "Identical to",
   ratio: "Ratio",
   floor: "Floor",

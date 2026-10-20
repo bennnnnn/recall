@@ -106,10 +106,7 @@ def select_recent_window(
 
 @dataclass(frozen=True)
 class HistorySplit:
-    keep_count: int
     summarized_count: int
-    window_tokens: int
-    token_pressure: bool
 
 
 def compute_history_split(
@@ -121,16 +118,7 @@ def compute_history_split(
 ) -> HistorySplit:
     """Split a chat into verbatim tail vs messages eligible for summarization."""
     keep = select_recent_window(recent_messages, budget, max_count, min_count)
-    tail = recent_messages[-keep:] if keep else []
-    window_tokens = sum(estimate_tokens(m.content) for m in tail)
-    summarized = max(0, total_message_count - keep)
-    token_pressure = keep < min(max_count, len(recent_messages))
-    return HistorySplit(
-        keep_count=keep,
-        summarized_count=summarized,
-        window_tokens=window_tokens,
-        token_pressure=token_pressure,
-    )
+    return HistorySplit(summarized_count=max(0, total_message_count - keep))
 
 
 def should_run_compression(

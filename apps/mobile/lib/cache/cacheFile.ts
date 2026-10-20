@@ -8,7 +8,7 @@ import {
 
 /** One best-effort text file in the OS cache directory, which the OS may purge
  * at any time; a missing or unreadable file reads as null. */
-export type CacheFile = {
+type CacheFile = {
   read: () => Promise<string | null>;
   write: (contents: string) => Promise<void>;
   clear: () => Promise<void>;

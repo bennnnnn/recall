@@ -14,7 +14,6 @@ per-user purge. Every submodule logs as ``app.core.jobs``.
 """
 
 from app.core.jobs.admin import (
-    collect_queue_metrics,
     list_dlq,
     purge_user_jobs,
     replay_dlq,
@@ -38,7 +37,6 @@ __all__ = [
     "JOBS_STREAM",
     "MAX_JOB_DELIVERIES",
     "JobDiscardError",
-    "collect_queue_metrics",
     "enqueue",
     "is_worker_alive",
     "job_done_key",

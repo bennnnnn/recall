@@ -18,6 +18,7 @@ from app.modules.chat.stream_events import error_payload_for_exception
 from app.modules.chat.turn_prep import StreamContext
 from app.services import quota as quota_service
 from app.services.quota import CHAT_SPEND_CAP_MESSAGE
+from app.services.quota import tokens as quota_tokens
 from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 _SETTINGS = Settings(max_output_tokens=1_000)
@@ -69,7 +70,7 @@ async def test_reserve_turn_quota_takes_estimate_or_what_is_left(
 ) -> None:
     user = _user()
     if used:
-        await quota_service.record_usage(fake_redis, str(user.id), used)
+        await quota_tokens.record_usage(fake_redis, str(user.id), used)
     expected = _wanted() if reserved == "wanted" else reserved
 
     got = await _reserve(fake_redis, user)
@@ -83,7 +84,7 @@ async def test_reserve_turn_quota_refuses_at_the_limit_without_charging(
     fake_redis, used: int
 ) -> None:
     user = _user()
-    await quota_service.record_usage(fake_redis, str(user.id), used)
+    await quota_tokens.record_usage(fake_redis, str(user.id), used)
 
     with pytest.raises(QuotaExceededError):
         await _reserve(fake_redis, user)
@@ -95,7 +96,7 @@ async def test_reserve_turn_quota_refuses_at_the_limit_without_charging(
 async def test_reserve_turn_quota_concurrent_turns_share_one_budget(fake_redis, turns: int) -> None:
     user = _user()
     left = _wanted() + 300
-    await quota_service.record_usage(fake_redis, str(user.id), _LIMIT - left)
+    await quota_tokens.record_usage(fake_redis, str(user.id), _LIMIT - left)
 
     results = await asyncio.gather(
         *(_reserve(fake_redis, user) for _ in range(turns)), return_exceptions=True
@@ -184,7 +185,7 @@ async def test_top_up_reserve_for_prompt_grows_up_to_what_is_left(
 ) -> None:
     user = _user()
     start = 1_000
-    await quota_service.record_usage(fake_redis, str(user.id), _LIMIT - room_after_start)
+    await quota_tokens.record_usage(fake_redis, str(user.id), _LIMIT - room_after_start)
     res = _resources(fake_redis, user, start)
     ctx = _ctx(user, start)
 
@@ -211,7 +212,7 @@ async def test_turn_reservation_settles_to_actual_usage(
 ) -> None:
     user = _user()
     if used_before:
-        await quota_service.record_usage(fake_redis, str(user.id), used_before)
+        await quota_tokens.record_usage(fake_redis, str(user.id), used_before)
     reserved = await _reserve(fake_redis, user)
 
     # What finalize_stream_turn_db does with ctx.reserved_tokens.

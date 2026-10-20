@@ -4,8 +4,8 @@ import pytest
 
 from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
+    FORMAT_CONTRACT,
     MATH_FENCE_SAFETY_HINT,
-    RESPONSE_FORMAT_HINT,
     TONE_FORMAT_GUARD,
     UNIVERSAL_FORMAT_BASELINE,
     WRITING_LINE_HINT,
@@ -22,7 +22,7 @@ def test_compact_turn_skips_rich_format_pack():
         compact=True,
     )
     assert COMPACT_RESPONSE_FORMAT_HINT in parts
-    assert RESPONSE_FORMAT_HINT not in parts
+    assert FORMAT_CONTRACT not in parts
     assert MATH_FENCE_SAFETY_HINT in parts
     joined = "\n".join(parts)
     assert "Make answers visually clear" not in joined
@@ -159,7 +159,7 @@ def test_day_plan_still_uses_richer_format_hint():
         is_day_plan=True,
         minimal_personal_context=False,
     )
-    assert RESPONSE_FORMAT_HINT in parts
+    assert FORMAT_CONTRACT in parts
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
 
 
@@ -213,10 +213,9 @@ def test_bare_y_does_not_invent_an_offer_to_follow_through_on():
 def test_clarification_hint_asks_once_when_purpose_or_data_missing():
     from app.modules.chat.prompt_constants import (
         CLARIFICATION_HINT,
-        EMAIL_ASK_PURPOSE_HINT,
-        EMAIL_DRAFT_HINT,
         is_underspecified_writing_request,
     )
+    from app.modules.chat.prompt_constants.writing import EMAIL_ASK_PURPOSE_HINT, EMAIL_DRAFT_HINT
 
     assert "escribeme un correo" in CLARIFICATION_HINT
     assert "LinkedIn" in CLARIFICATION_HINT
@@ -349,14 +348,14 @@ def test_bare_drafts_ask_once_but_supplied_purpose_drafts_now():
 
 
 def test_each_writing_kind_gets_only_its_relevant_format_hint():
-    from app.modules.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import WRITING_LINE_HINT
+    from app.modules.chat.prompt_constants.writing import (
         EMAIL_ASK_PURPOSE_HINT,
         EMAIL_DRAFT_HINT,
         PERSONAL_RECORD_HINT,
         PROSE_WRITING_HINT,
         SOCIAL_DRAFT_HINT,
         TRANSLATION_FORMAT_HINT,
-        WRITING_LINE_HINT,
     )
 
     cases = (
@@ -402,12 +401,10 @@ def _writing_style_parts(query: str, *, compact: bool = False) -> list[str]:
 
 
 def test_writing_kinds_displace_competing_format_contracts():
-    from app.modules.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import SHORT_RESPONSE_FORMAT_HINT
+    from app.modules.chat.prompt_constants.writing import (
         EMAIL_DRAFT_HINT,
-        FORMAT_CONTRACT,
         PROSE_WRITING_HINT,
-        RESPONSE_FORMAT_HINT,
-        SHORT_RESPONSE_FORMAT_HINT,
         SOCIAL_DRAFT_HINT,
         TRANSLATION_FORMAT_HINT,
     )
@@ -422,7 +419,6 @@ def test_writing_kinds_displace_competing_format_contracts():
     competing = {
         COMPACT_RESPONSE_FORMAT_HINT,
         FORMAT_CONTRACT,
-        RESPONSE_FORMAT_HINT,
         SHORT_RESPONSE_FORMAT_HINT,
     }
     for query, expected, skip_copy_fence in cases:
@@ -438,11 +434,8 @@ def test_writing_kinds_displace_competing_format_contracts():
 
 
 def test_writing_deliverable_wins_over_incidental_comparison_layout():
-    from app.modules.chat.prompt_constants import (
-        COMPARISON_FORMAT_HINT,
-        PROSE_WRITING_HINT,
-        SOCIAL_DRAFT_HINT,
-    )
+    from app.modules.chat.prompt_constants import COMPARISON_FORMAT_HINT
+    from app.modules.chat.prompt_constants.writing import PROSE_WRITING_HINT, SOCIAL_DRAFT_HINT
 
     article = _style_format_hints(
         query_text="Write an article comparing Python vs Java",
@@ -478,11 +471,11 @@ def test_writing_deliverable_wins_over_incidental_comparison_layout():
 
 
 def test_informational_queries_do_not_receive_writing_hints():
-    from app.modules.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import WRITING_LINE_HINT
+    from app.modules.chat.prompt_constants.writing import (
         EMAIL_ASK_PURPOSE_HINT,
         SOCIAL_DRAFT_HINT,
         TRANSLATION_FORMAT_HINT,
-        WRITING_LINE_HINT,
     )
 
     writing_hints = {
@@ -595,10 +588,10 @@ def test_capabilities_overview_skips_email_draft_contract():
         CAPABILITIES_FORMAT_HINT,
         CLARIFICATION_HINT,
         COPY_DELIVERABLE_HINT,
-        EMAIL_DRAFT_HINT,
         FORMAT_CONTRACT,
         is_capabilities_question,
     )
+    from app.modules.chat.prompt_constants.writing import EMAIL_DRAFT_HINT
 
     query = "What can you help me with? Give a few concrete examples."
     assert is_capabilities_question(query)
@@ -631,11 +624,11 @@ def test_capabilities_overview_skips_email_draft_contract():
 )
 def test_career_updates_are_conversation_not_unsolicited_email_drafts(query):
     from app.modules.chat.prompt_constants import (
-        EMAIL_DRAFT_HINT,
         NON_DRAFT_TURN_HINT,
         is_email_or_message_request,
         writing_request_kind,
     )
+    from app.modules.chat.prompt_constants.writing import EMAIL_DRAFT_HINT
     from app.modules.chat.prompt_format import _style_format_hints
 
     assert writing_request_kind(query) is None
@@ -650,7 +643,8 @@ def test_career_updates_are_conversation_not_unsolicited_email_drafts(query):
 
 
 def test_explicit_google_outreach_request_still_gets_email_draft_contract():
-    from app.modules.chat.prompt_constants import EMAIL_DRAFT_HINT, NON_DRAFT_TURN_HINT
+    from app.modules.chat.prompt_constants import NON_DRAFT_TURN_HINT
+    from app.modules.chat.prompt_constants.writing import EMAIL_DRAFT_HINT
     from app.modules.chat.prompt_format import _style_format_hints
 
     parts = _style_format_hints(

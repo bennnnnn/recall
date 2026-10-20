@@ -7,8 +7,8 @@ import pytest
 from app.core.config import Settings
 from app.modules.math import fence as math_fence
 from app.modules.math import match as math_match
-from app.modules.math import tools as math_tools
 from app.modules.math.schemas import GraphBlockSpec
+from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
 class TestGraphExprPairSignal:
@@ -39,7 +39,7 @@ class TestAugmentPromptMessagesForGraphPair:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "graph y=x^2 and y=2x on the same graph"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         fence = verified.canonical_fence
         assert fence is not None
@@ -52,7 +52,7 @@ class TestAugmentPromptMessagesForGraphPair:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "plot sin(x) and explain it"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert verified.canonical_fence["expr2"] is None
 

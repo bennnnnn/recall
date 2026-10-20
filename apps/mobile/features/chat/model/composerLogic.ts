@@ -180,16 +180,6 @@ export function composerInputTextBoxHeight(frameHeight: number, fontScale = 1): 
 /** How far the bottom scrim tucks under the pill. */
 export const COMPOSER_GAP_FADE_OVERLAP = 16;
 
-/**
- * Scrim height. Place the view at `bottom: -bottomPad`.
- * The extra pad of height covers the gap whether `bottom: 0` is the
- * screen edge or the top of the padding.
- */
-export function composerGapFadeHeight(bottomPad: number): number {
-  if (bottomPad <= 0) return 0;
-  return bottomPad * 2 + COMPOSER_GAP_FADE_OVERLAP;
-}
-
 const CHAT_EMPTY_MIN_HEIGHT = 160;
 
 export function isComposerMenuOverlayOpen(attachSheetOpen: boolean): boolean {

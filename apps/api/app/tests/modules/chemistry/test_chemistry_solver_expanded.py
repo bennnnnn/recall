@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.modules.chemistry.block import build_verified_chemistry
-from app.modules.chemistry.catalog import CATALOG, PUBCHEM_OPS
+from app.modules.chemistry.catalog import CATALOG
 from app.modules.chemistry.direct import (
     format_direct_chemistry_reply,
     maybe_direct_chemistry_reply,
@@ -419,8 +419,10 @@ PIPELINE_CASES: list[tuple[str, str, str]] = [
 ]
 
 
-# IUPAC names are a PubChem property. The local solver refuses them so a
-# missing lookup cannot be labeled verified.
+# Operations PubChem answers (a name's structure, a structure's name). IUPAC
+# names are a PubChem property. The local solver refuses them so a missing
+# lookup cannot be labeled verified.
+PUBCHEM_OPS = frozenset({"iupac_name", "structure"})
 _LOCAL_OPS = set(CATALOG) - PUBCHEM_OPS
 
 REMAINING_CASES = (

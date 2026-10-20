@@ -78,14 +78,12 @@ class MoleculeProperties:
     smiles: str  # canonical SMILES
     formula: str  # molecular formula (Hill notation)
     molecular_weight: float  # g/mol
-    atom_count: int  # heavy atom count (no H)
-    bond_count: int
     valid: bool = True
     error: str | None = None
 
     @classmethod
     def failure(cls, smiles: str, error: str) -> MoleculeProperties:
-        return cls(smiles, "", 0.0, 0, 0, valid=False, error=error)
+        return cls(smiles, "", 0.0, valid=False, error=error)
 
 
 @dataclass(frozen=True)
@@ -137,8 +135,6 @@ def validate_smiles(smiles: str) -> MoleculeProperties:
             smiles=Chem.MolToSmiles(mol),
             formula=rdMolDescriptors.CalcMolFormula(mol),
             molecular_weight=float(rdMolDescriptors._CalcMolWt(mol)),
-            atom_count=mol.GetNumAtoms(),
-            bond_count=mol.GetNumBonds(),
         )
     except Exception as exc:
         logger.info("RDKit validate failed for %r: %s", cleaned, exc)

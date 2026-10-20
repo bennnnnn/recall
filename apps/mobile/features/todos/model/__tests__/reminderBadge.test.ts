@@ -1,6 +1,5 @@
 import type { Todo } from "@/lib/api";
 import {
-  countUrgentReminders,
   countUnseenUrgentReminders,
   listUrgentReminders,
 } from "@/features/todos/model/reminderBadge";
@@ -29,7 +28,7 @@ describe("reminderBadge urgency (lead-based)", () => {
 
   it("includes reminders due within the lead window", () => {
     const soon = todo({ id: "2", content: "Soon", due_at: "2026-06-27T12:10:00.000Z" });
-    expect(countUrgentReminders([soon], now, lead)).toBe(1);
+    expect(listUrgentReminders([soon], now, lead)).toHaveLength(1);
   });
 
   it("excludes reminders beyond the lead window (not 'later today')", () => {
@@ -41,7 +40,7 @@ describe("reminderBadge urgency (lead-based)", () => {
   it("excludes checked and undated items", () => {
     const done = todo({ id: "4", content: "Done", due_at: "2026-06-27T12:05:00.000Z", checked: true });
     const undated = todo({ id: "5", content: "Milk" });
-    expect(countUrgentReminders([done, undated], now, lead)).toBe(0);
+    expect(listUrgentReminders([done, undated], now, lead)).toHaveLength(0);
   });
 
   it("counts only unseen urgent reminders", () => {

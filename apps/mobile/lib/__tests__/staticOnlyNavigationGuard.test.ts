@@ -3,8 +3,10 @@ import {
   isExternalHttpUrl,
   isPreviewFrameworkUrl,
   isPreviewInlineDocumentUrl,
-  PREVIEW_INLINE_BASE_URL,
 } from "@/lib/staticOnlyNavigationGuard";
+
+/** react-native-webview's inline-HTML `baseUrl` on iOS. */
+const PREVIEW_INLINE_BASE_URL = "https://localhost/";
 
 describe("isPreviewFrameworkUrl", () => {
   it("allows blank / data / file / applewebdata loads", () => {

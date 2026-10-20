@@ -5,7 +5,7 @@ real turn path (``behavior/harness.py``), and ``branch:`` turns. Together they r
 every line and branch of ``build_prompt_messages``, ``_style_format_hints`` and their
 helpers. A case stores only what differs from ``defaults``. A message is a list of
 tokens joined with nothing between: ``@NAME`` is that prompt constant's text (from
-``_COPY_MODULES``), a number is a piece of ``texts``. Rewording a named constant leaves
+``_COPY_MODULES`` and the modules of ``_COPY_PACKAGES``), a number is a piece of ``texts``. Rewording a named constant leaves
 the fixture as it is; a change to which text a turn gets, or its order, fails here.
 
 An intended prompt change means regenerating with this command and reviewing the diff:
@@ -19,6 +19,7 @@ import asyncio
 import difflib
 import importlib
 import json
+import pkgutil
 from contextlib import ExitStack
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
@@ -56,6 +57,9 @@ _COPY_MODULES = (
     "app.modules.chemistry.followup",
     "app.services.response_tone",
 )
+# Packages whose every module is read too: a constant counts whether or not the
+# package re-exports it.
+_COPY_PACKAGES = ("app.modules.chat.prompt_constants",)
 _MIN_COPY_CHARS = 60
 
 Case = dict[str, Any]
@@ -153,7 +157,15 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
 def prompt_copy() -> dict[str, str]:
     """Name -> text of each long string constant (``NAME[key]`` in a dict of them)."""
     copy: dict[str, str] = {}
-    for module_name in _COPY_MODULES:
+    package_modules = [
+        f"{package}.{info.name}"
+        for package in _COPY_PACKAGES
+        for info in sorted(
+            pkgutil.iter_modules(importlib.import_module(package).__path__),
+            key=lambda info: info.name,
+        )
+    ]
+    for module_name in (*_COPY_MODULES, *package_modules):
         module = importlib.import_module(module_name)
         for name in sorted(dir(module)):
             value = getattr(module, name)

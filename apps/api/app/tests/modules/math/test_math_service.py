@@ -17,6 +17,7 @@ from app.modules.math.schemas import (
     SystemOfEquationsInput,
 )
 from app.modules.math.solve import MathServiceError
+from app.modules.math.solve.graph import parse_ellipse_relation
 
 
 @pytest.mark.parametrize(
@@ -88,7 +89,7 @@ def test_normalize_unicode_scripts_and_glyphs() -> None:
     ],
 )
 def test_parse_ellipse_relation(expr: str, expected: tuple[float, float] | None) -> None:
-    got = math_solve.parse_ellipse_relation(expr)
+    got = parse_ellipse_relation(expr)
     if expected is None:
         assert got is None
     else:

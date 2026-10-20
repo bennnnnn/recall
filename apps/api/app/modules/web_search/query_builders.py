@@ -340,23 +340,3 @@ def build_search_queries(
     if fallback and is_current_news_request(current):
         fallback = anchor_news_query_to_today(fallback, user_timezone)
     return [fallback] if fallback else []
-
-
-def build_search_query(
-    text: str,
-    *,
-    user_timezone: str | None = None,
-    user_location: str | None = None,
-    latitude: float | None = None,
-    longitude: float | None = None,
-    prior_user_messages: list[str] | None = None,
-) -> str:
-    queries = build_search_queries(
-        text,
-        user_timezone=user_timezone,
-        user_location=user_location,
-        latitude=latitude,
-        longitude=longitude,
-        prior_user_messages=prior_user_messages,
-    )
-    return queries[0] if queries else text.strip()

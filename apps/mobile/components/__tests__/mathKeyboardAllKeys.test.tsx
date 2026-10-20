@@ -9,18 +9,12 @@ import {
   MATH_PAD_KEYS,
   autoAdvanceNextEmptySlot,
   caretStepRight,
-  converterResultSpec,
   spliceMathInsert,
   tapAdvancesToNextSlot,
   type MathKeyboardSymbol,
 } from "@/lib/math/keyboardSymbols";
 import { spliceMathBackspace } from "@/lib/math/draftSlots";
-import {
-  appendConverterDigit,
-  CONVERTER_DEFAULT_DIGITS,
-  convertUnit,
-  formatConvertNumber,
-} from "@/lib/unitConverter";
+import { appendConverterDigit, CONVERTER_DEFAULT_DIGITS } from "@/lib/unitConverter";
 
 // A command glued to its argument (`mathbbN`, `mathrmi`) is a leak too: no trailing \b.
 const RAW = /[\\{}]|\b(?:binom|mathrm|mathbb|mathbf|tfrac|dfrac|frac|sqrt|partial|nabla|infty|cdot|oint)/;
@@ -170,6 +164,12 @@ function shapeIssue(id: string, source: string, shown: string, ids: string[]): s
 }
 
 describe("math keyboard keys", () => {
+  afterAll(() => {
+    act(() => {
+      root.unmount();
+    });
+  });
+
   it("presses every key, then deletes without showing raw latex", async () => {
     const issues: Issue[] = [];
     for (const spec of SPECS) {
@@ -303,7 +303,7 @@ describe("math keyboard keys", () => {
     expect(typeKeys(keys)).toBe(expected);
   });
 
-  it("types every converter key, then deletes the inserted result", async () => {
+  it("types every converter key", () => {
     let digits = CONVERTER_DEFAULT_DIGITS;
     let fresh = true;
     for (const key of ["AC", "7", "8", ".", "5", "back", "±", "0", "±"]) {
@@ -311,16 +311,5 @@ describe("math keyboard keys", () => {
       fresh = key === "AC" || (key === "back" && digits === CONVERTER_DEFAULT_DIGITS);
       expect(digits).not.toMatch(/[\\{}]/);
     }
-    const raw = convertUnit(Number(digits), "m", "cm");
-    const result = formatConvertNumber(raw!);
-    const spec = converterResultSpec(result, "cm");
-    const inserted = press("", 0, spec);
-    const issues: Issue[] = [];
-    const shown = await visible(inserted.text, inserted.caret);
-    if (leaks(shown)) {
-      issues.push({ id: "converter", step: "insert", source: inserted.text, shown });
-    }
-    await walkDeletes("converter", inserted.text, inserted.caret, issues);
-    expect(issues).toEqual([]);
   });
 });

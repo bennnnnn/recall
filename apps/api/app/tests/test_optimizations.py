@@ -59,7 +59,7 @@ def test_group_by_recency_naive_datetime():
 @pytest.mark.asyncio
 async def test_upsert_sections_single_query():
     """upsert_sections must issue exactly 1 execute() call regardless of item count."""
-    from app.modules.memory import repository as memories_repo
+    from app.tests.modules.memory.sections_support import upsert_sections
 
     session = AsyncMock()
     mock_result = MagicMock()
@@ -73,7 +73,7 @@ async def test_upsert_sections_single_query():
         ("focus", "Working on API project.", 0.7, uuid4()),
     ]
 
-    await memories_repo.upsert_sections(session, user_id=uid, items=items)
+    await upsert_sections(session, user_id=uid, items=items)
 
     assert session.execute.await_count >= 1
     session.commit.assert_awaited_once()
@@ -81,44 +81,12 @@ async def test_upsert_sections_single_query():
 
 @pytest.mark.asyncio
 async def test_upsert_sections_empty_is_noop():
-    from app.modules.memory import repository as memories_repo
+    from app.tests.modules.memory.sections_support import upsert_sections
 
     session = AsyncMock()
-    await memories_repo.upsert_sections(session, user_id=uuid4(), items=[])
+    await upsert_sections(session, user_id=uuid4(), items=[])
     session.execute.assert_not_awaited()
     session.commit.assert_not_awaited()
-
-
-# ── chats.delete_by_id — correct cascade order ────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_delete_chat_cascades_then_deletes():
-    """delete_by_id relies on DB ON DELETE CASCADE for messages."""
-    from app.repositories import chats as chats_repo
-
-    chat = MagicMock()
-    session = AsyncMock()
-
-    with patch.object(chats_repo, "get_by_id", AsyncMock(return_value=chat)):
-        result = await chats_repo.delete_by_id(session, uuid4(), uuid4())
-
-    assert result is True
-    session.execute.assert_not_awaited()
-    session.delete.assert_called_once_with(chat)
-    session.commit.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_delete_chat_not_found_returns_false():
-    from app.repositories import chats as chats_repo
-
-    session = AsyncMock()
-    with patch.object(chats_repo, "get_by_id", AsyncMock(return_value=None)):
-        result = await chats_repo.delete_by_id(session, uuid4(), uuid4())
-
-    assert result is False
-    session.execute.assert_not_awaited()
 
 
 # ── delete_chat router ────────────────────────────────────────────────────────

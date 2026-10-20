@@ -246,26 +246,7 @@ async def _attachment_payload(
     }
 
 
-class _BorrowedSession:
-    """Use an existing session without closing it (``build_export`` tests)."""
-
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
-
-    async def __aenter__(self) -> AsyncSession:
-        return self._session
-
-    async def __aexit__(self, *_args: object) -> None:
-        return None
-
-
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
-
-
-def _session_factory(session: AsyncSession | None) -> SessionFactory:
-    if session is not None:
-        return lambda: _BorrowedSession(session)
-    return SessionLocal
 
 
 async def _iter_export_json(
@@ -459,20 +440,3 @@ async def iter_export_json(
     resolved = settings if settings is not None else get_settings()
     async for chunk in _iter_export_json(user, resolved, session_factory=SessionLocal):
         yield chunk
-
-
-async def build_export(
-    session: AsyncSession,
-    user: User,
-    settings: Settings | None = None,
-) -> dict[str, Any]:
-    """Materialize the export for tests and callers that need a dict."""
-    resolved = settings if settings is not None else get_settings()
-    parts: list[str] = []
-    async for chunk in _iter_export_json(
-        user,
-        resolved,
-        session_factory=_session_factory(session),
-    ):
-        parts.append(chunk)
-    return json.loads("".join(parts))

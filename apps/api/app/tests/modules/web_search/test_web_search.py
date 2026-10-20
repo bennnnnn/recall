@@ -5,7 +5,6 @@ import pytest
 from app.gateways.web_search_gateway import WebSearchHit, mock_search_results
 from app.modules.web_search import (
     build_search_queries,
-    build_search_query,
     format_location_not_set_answer,
     format_search_block,
     format_search_empty_block,
@@ -69,7 +68,8 @@ def test_needs_web_search(text, expected):
 
 
 def test_is_local_places_query():
-    from app.modules.web_search import is_distance_query, is_geo_query, is_proximity_query
+    from app.modules.web_search import is_distance_query, is_geo_query
+    from app.modules.web_search.geo_intent import is_proximity_query
 
     assert is_proximity_query("Best restaurants near me")
     assert is_proximity_query("coffee shops nearby")
@@ -206,7 +206,7 @@ def test_format_search_block_local_places_links():
 
 
 def test_places_payload_from_hits():
-    from app.modules.web_search import places_payload_from_hits
+    from app.modules.web_search.formatting import places_payload_from_hits
 
     rows = places_payload_from_hits(
         [
@@ -224,7 +224,7 @@ def test_places_payload_from_hits():
 
 
 def test_places_payload_keeps_direct_venue_url():
-    from app.modules.web_search import places_payload_from_hits
+    from app.modules.web_search.formatting import places_payload_from_hits
 
     rows = places_payload_from_hits(
         [
@@ -319,7 +319,7 @@ def test_resolve_search_subject_follow_up():
 
 
 def test_build_search_query_strips_prefix():
-    assert build_search_query("search the web for tesla stock price") == "tesla stock price"
+    assert build_search_queries("search the web for tesla stock price")[0] == "tesla stock price"
 
 
 def test_build_search_query_yesterday_sports():
@@ -336,27 +336,27 @@ def test_build_search_query_team_yesterday_not_world_cup():
 
 
 def test_build_search_query_news_defaults():
-    query = build_search_query("what's happening in the world today", user_timezone="UTC")
+    query = build_search_queries("what's happening in the world today", user_timezone="UTC")[0]
 
     assert query.startswith("top news today ")
     assert re.search(r"\b\d{4}-\d{2}-\d{2}\b", query)
 
 
 def test_build_search_query_specific_today_news_keeps_subject_and_date():
-    query = build_search_query(
+    query = build_search_queries(
         "What's happening in the U.S. today? Give me three major developments with dates.",
         user_timezone="America/Los_Angeles",
-    )
+    )[0]
 
     assert "U.S." in query
     assert re.search(r"\b\d{4}-\d{2}-\d{2}\b", query)
 
 
 def test_curly_apostrophe_today_news_is_date_anchored():
-    query = build_search_query(
+    query = build_search_queries(
         "What’s happening in the U.S. today?",
         user_timezone="America/Los_Angeles",
-    )
+    )[0]
 
     assert "U.S." in query
     assert re.search(r"\b\d{4}-\d{2}-\d{2}\b", query)
@@ -562,7 +562,7 @@ def test_format_location_not_set_answer_prompts_to_enable():
 
 
 def test_places_payload_extracts_price():
-    from app.modules.web_search import places_payload_from_hits
+    from app.modules.web_search.formatting import places_payload_from_hits
 
     rows = places_payload_from_hits(
         [

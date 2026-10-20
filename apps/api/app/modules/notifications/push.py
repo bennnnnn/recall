@@ -420,21 +420,3 @@ async def finalize_push_deliveries(
     now: datetime | None = None,
 ) -> None:
     await _finalize_push_deliveries(session, outbound, delivered, now=now or datetime.now(UTC))
-
-
-async def run_push_cycle(session: AsyncSession, redis: Redis, settings: Settings) -> int:
-    """Single-session helper for tests; production uses collect → dispatch → finalize."""
-    outbound = await collect_push_outbound(session, redis, settings)
-    if not outbound:
-        return 0
-    delivered, invalid_tokens, receipt_tickets = await dispatch_expo(outbound, settings)
-    for token in invalid_tokens:
-        try:
-            await push_repo.delete_by_token(session, token)
-            logger.info("Pruned invalid push token=%s", token[:20])
-        except Exception:
-            logger.debug("Failed to prune push token", exc_info=True)
-    if receipt_tickets:
-        await enqueue_push_receipts(redis, receipt_tickets)
-    await finalize_push_deliveries(session, outbound, delivered)
-    return len(outbound)

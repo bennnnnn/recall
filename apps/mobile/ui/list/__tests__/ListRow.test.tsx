@@ -12,7 +12,7 @@ describe("ListRow", () => {
       <ListGroup label="Experience">
         <ListRow icon="languages" title="Language" value="English" onPress={onPress} />
         <ListSeparator />
-        <ListRow icon="sun" title="Appearance" value="System" onPress={jest.fn()} />
+        <ListRow icon="palette" title="Appearance" value="System" onPress={jest.fn()} />
       </ListGroup>,
     );
     expect(view.getByRole("header", { name: "Experience" })).toBeTruthy();

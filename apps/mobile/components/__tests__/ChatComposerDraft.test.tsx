@@ -1,9 +1,9 @@
-import { useState } from "react";
 import { Dimensions } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { fireEvent, render, within, waitFor } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/features/chat/components/ChatComposer";
+import { DraftHarness } from "./DraftHarness";
 
 jest.mock("expo-linear-gradient", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
@@ -73,8 +73,6 @@ beforeEach(() => {
 
 const baseProps = {
   visible: true,
-  input: "",
-  onChangeInput: jest.fn(),
   streaming: false,
   pendingAttachment: null,
   onRemoveAttachment: jest.fn(),
@@ -92,7 +90,9 @@ describe("ChatComposer math keyboard", () => {
 
   it("renders the draft as math, not raw LaTeX", async () => {
     const { getByTestId } = await render(
-      <ChatComposer {...baseProps} input={"$\\frac{1}{2}$"} />,
+      <DraftHarness input={"$\\frac{1}{2}$"}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(getByTestId("math-draft-preview")).toBeTruthy();
@@ -104,19 +104,20 @@ describe("ChatComposer math keyboard", () => {
     const pasted =
       "A car starts from rest and accelerates at a constant rate of 1.2 m/s². How long does it take the car to travel a distance of 500 meters?";
     const { queryByTestId } = await render(
-      <ChatComposer {...baseProps} input={pasted} />,
+      <DraftHarness input={pasted}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
     expect(queryByTestId("math-draft-preview")).toBeNull();
   });
 
   it("puts the caret in the numerator, then → continues the expression after the fraction", async () => {
     let latest = "";
-    function Harness() {
-      const [input, setInput] = useState("");
-      latest = input;
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness onInput={(text) => { latest = text; }}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
     expect(getByTestId("math-slot-num-caret")).toBeTruthy();
@@ -134,11 +135,11 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("tabs to the denominator and back to the numerator", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, queryByTestId } = await render(<Harness />);
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
     expect(getByTestId("math-slot-num-caret")).toBeTruthy();
@@ -151,12 +152,11 @@ describe("ChatComposer math keyboard", () => {
 
   it("does not show raw latex after deleting an empty cos", async () => {
     let latest = "";
-    function Harness() {
-      const [input, setInput] = useState("");
-      latest = input;
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, queryByText } = await render(<Harness />);
+    const { getByTestId, queryByText } = await render(
+      <DraftHarness onInput={(text) => { latest = text; }}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
     await fireEvent.press(getByTestId("math-key-cos"));
@@ -166,22 +166,22 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("shows a tappable box for square root, not only for fractions", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-sqrt"));
     expect(getByTestId("math-slot-sqrt-caret")).toBeTruthy();
   });
 
   it("keeps the radical bar after a digit is typed into the root", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, queryByText } = await render(<Harness />);
+    const { getByTestId, queryByText } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-sqrt"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
@@ -195,22 +195,22 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("ⁿ√ opens an nth-root index box", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-nroot"));
     expect(getByTestId("math-slot-nroot-index")).toBeTruthy();
   });
 
   it("moves into the radicand after filling the nth-root index with π", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, queryByTestId } = await render(<Harness />);
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-nroot"));
     expect(getByTestId("math-slot-nroot-index-caret")).toBeTruthy();
@@ -220,11 +220,11 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("second ⁿ√ tap moves from a filled index into the radicand", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-nroot"));
     await fireEvent.press(getByTestId("math-key-digit-3"));
@@ -235,12 +235,11 @@ describe("ChatComposer math keyboard", () => {
 
   it("° on an empty composer inserts a base box", async () => {
     let latest = "";
-    function Harness() {
-      const [input, setInput] = useState("");
-      latest = input;
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness onInput={(text) => { latest = text; }}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
     await fireEvent.press(getByTestId("math-key-deg"));
@@ -252,12 +251,11 @@ describe("ChatComposer math keyboard", () => {
 
   it("logₙ auto-advances from the base into the argument after π", async () => {
     let latest = "";
-    function Harness() {
-      const [input, setInput] = useState("");
-      latest = input;
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness onInput={(text) => { latest = text; }}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-keyboard-tab-calc"));
     await fireEvent.press(getByTestId("math-key-logn"));
@@ -268,11 +266,11 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("types a comma and y from the number pad", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-var-y"));
     await fireEvent.press(getByTestId("math-key-comma"));
@@ -280,11 +278,11 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("shows a gray box for the empty exponent until it is focused", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, queryByTestId } = await render(<Harness />);
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-sup"));
     expect(getByTestId("math-slot-sup-caret")).toBeTruthy();
@@ -293,12 +291,11 @@ describe("ChatComposer math keyboard", () => {
 
   it("xⁿ on an empty composer shows a base x and an exponent box", async () => {
     let latest = "";
-    function Harness() {
-      const [input, setInput] = useState("");
-      latest = input;
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness onInput={(text) => { latest = text; }}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-sup"));
     expect(latest).toBe("$x^{}$");
@@ -308,22 +305,22 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("shows a caret in the subscript box", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-sub"));
     expect(getByTestId("math-slot-sub-caret")).toBeTruthy();
   });
 
   it("moves the blue caret to the denominator when that box is tapped", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, queryByTestId } = await render(<Harness />);
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
     expect(getByTestId("math-slot-num-caret")).toBeTruthy();
@@ -336,12 +333,11 @@ describe("ChatComposer math keyboard", () => {
 
   it("backspaces a fraction without showing raw LaTeX", async () => {
     let latest = "";
-    function Harness() {
-      const [input, setInput] = useState("");
-      latest = input;
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, queryByTestId } = await render(<Harness />);
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness onInput={(text) => { latest = text; }}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
@@ -359,12 +355,11 @@ describe("ChatComposer math keyboard", () => {
 
   it("lets you tap the front of the draft and delete the first digit", async () => {
     let latest = "";
-    function Harness() {
-      const [input, setInput] = useState("");
-      latest = input;
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness onInput={(text) => { latest = text; }}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
@@ -378,12 +373,11 @@ describe("ChatComposer math keyboard", () => {
 
   it("inserts at the tapped end of the draft, not the start", async () => {
     let latest = "$|5|99$";
-    function Harness() {
-      const [input, setInput] = useState("$|5|99$");
-      latest = input;
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, queryByTestId } = await render(<Harness />);
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness input="$|5|99$" onInput={(text) => { latest = text; }}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(getByTestId("math-slot-before-caret")).toBeTruthy();
     expect(queryByTestId("math-slot-after-caret")).toBeNull();
@@ -396,12 +390,11 @@ describe("ChatComposer math keyboard", () => {
 
   it("ABC keeps the visual fraction and parks the caret after it", async () => {
     let latest = "";
-    function Harness() {
-      const [input, setInput] = useState("");
-      latest = input;
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, queryByTestId } = await render(<Harness />);
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness onInput={(text) => { latest = text; }}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
     await fireEvent.press(getByTestId("math-key-digit-9"));
@@ -432,14 +425,16 @@ describe("ChatComposer math keyboard", () => {
 
   it("rewrites × through the math-bar Paste control", async () => {
     (Clipboard.getStringAsync as jest.Mock).mockResolvedValue("2 × 3");
-    const onChangeInput = jest.fn();
+    const onInput = jest.fn();
     const { getByTestId } = await render(
-      <ChatComposer {...baseProps} onChangeInput={onChangeInput} />,
+      <DraftHarness onInput={onInput}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-keyboard-paste"));
     await waitFor(() => {
-      expect(onChangeInput).toHaveBeenCalledWith("$2 \\times 3$");
+      expect(onInput).toHaveBeenCalledWith("$2 \\times 3$");
     });
   });
 
@@ -457,7 +452,9 @@ describe("ChatComposer math keyboard", () => {
 
   it("does not show a token count under a long draft", async () => {
     const { queryByText } = await render(
-      <ChatComposer {...baseProps} input={"a".repeat(400)} />,
+      <DraftHarness input={"a".repeat(400)}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
     expect(queryByText(/tokens/i)).toBeNull();
   });
@@ -473,7 +470,9 @@ describe("ChatComposer math keyboard", () => {
 
   it("hides live talk when the send button is showing", async () => {
     const { queryByTestId } = await render(
-      <ChatComposer {...baseProps} input="hello" onLiveTalkPress={jest.fn()} />,
+      <DraftHarness input="hello">
+        <ChatComposer {...baseProps} onLiveTalkPress={jest.fn()} />
+      </DraftHarness>,
     );
     expect(queryByTestId("live-talk-button")).toBeNull();
   });
@@ -528,30 +527,32 @@ describe("ChatComposer math keyboard", () => {
       onYield: jest.fn(),
     };
     const { queryByTestId, rerender } = await render(
-      <ChatComposer
-        {...baseProps}
-        input="hello"
-        onLiveTalkPress={jest.fn()}
-        liveTalkChrome={chrome}
-      />,
+      <DraftHarness input="hello">
+        <ChatComposer
+          {...baseProps}
+          onLiveTalkPress={jest.fn()}
+          liveTalkChrome={chrome}
+        />
+      </DraftHarness>,
     );
     expect(queryByTestId("live-talk-mute")).toBeNull();
     expect(queryByTestId("live-talk-close")).toBeNull();
     expect(queryByTestId("chat-composer-input")).toBeTruthy();
 
     await rerender(
-      <ChatComposer
-        {...baseProps}
-        input=""
-        onLiveTalkPress={jest.fn()}
-        liveTalkChrome={chrome}
-        pendingAttachment={{
-          kind: "image",
-          localUri: "file://photo.jpg",
-          contentType: "image/jpeg",
-          fileName: "photo.jpg",
-        }}
-      />,
+      <DraftHarness input="">
+        <ChatComposer
+          {...baseProps}
+          onLiveTalkPress={jest.fn()}
+          liveTalkChrome={chrome}
+          pendingAttachment={{
+            kind: "image",
+            localUri: "file://photo.jpg",
+            contentType: "image/jpeg",
+            fileName: "photo.jpg",
+          }}
+        />
+      </DraftHarness>,
     );
     expect(queryByTestId("live-talk-mute")).toBeTruthy();
     expect(queryByTestId("live-talk-close")).toBeTruthy();
@@ -574,7 +575,9 @@ describe("ChatComposer at a larger text size", () => {
   it("grows by a scaled line per Return", async () => {
     windowFontScale = 1.5;
     const { getByTestId } = await render(
-      <ChatComposer {...baseProps} input={"First line\nSecond line"} />,
+      <DraftHarness input={"First line\nSecond line"}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
 
     expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 72 });
@@ -584,7 +587,9 @@ describe("ChatComposer at a larger text size", () => {
   it("wraps sooner than at the default size", async () => {
     windowFontScale = 1.5;
     const { getByTestId } = await render(
-      <ChatComposer {...baseProps} input={"a".repeat(20)} />,
+      <DraftHarness input={"a".repeat(20)}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
     expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 36 });
 

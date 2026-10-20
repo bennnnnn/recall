@@ -64,16 +64,6 @@ it("shows the preview and opens the OS share menu once the sheet is up", async (
   expect(load).toHaveBeenCalledTimes(1);
 });
 
-it("does not open the OS menu when autoShare is off", async () => {
-  const { view } = await open({ autoShare: false });
-  await act(async () => {
-    fireEvent(view.getByTestId("app-sheet-modal", hidden), "show");
-  });
-  expect(mockPresent).not.toHaveBeenCalled();
-  await fireEvent.press(view.getByTestId("share-sheet-share", hidden));
-  expect(mockPresent).toHaveBeenCalledTimes(1);
-});
-
 it("copies the text once and shows a check", async () => {
   const { view, load } = await open();
   await fireEvent.press(view.getByTestId("share-sheet-copy", hidden));

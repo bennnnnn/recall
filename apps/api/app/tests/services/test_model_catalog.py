@@ -145,10 +145,6 @@ def test_get_unknown_alias_raises():
         model_catalog.get("not-a-real-model")
 
 
-def test_default_model_is_free_chat():
-    assert model_catalog.default_model().id == "free-chat"
-
-
 def _model(tier: str, *, input_price=None, output_price=None, id_="test-model"):
     return model_catalog.ChatModel(
         id=id_,

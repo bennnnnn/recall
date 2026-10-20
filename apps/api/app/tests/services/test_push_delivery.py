@@ -9,6 +9,7 @@ import pytest
 from app.core.config import Settings
 from app.models.orm import User
 from app.modules.notifications import push as push_service
+from app.tests.services.push_cycle_support import run_push_cycle
 
 
 @pytest.fixture
@@ -44,7 +45,7 @@ async def test_run_push_cycle_skips_expo_in_dev_mock():
             push_service.expo_push_gateway, "send_push_messages", AsyncMock()
         ) as send_mock,
     ):
-        count = await push_service.run_push_cycle(session, redis, settings)
+        count = await run_push_cycle(session, redis, settings)
 
     assert count == 1
     send_mock.assert_not_awaited()
@@ -60,7 +61,7 @@ async def test_run_push_cycle_disabled():
     redis = AsyncMock()
     settings = Settings(push_enabled=False)
 
-    count = await push_service.run_push_cycle(session, redis, settings)
+    count = await run_push_cycle(session, redis, settings)
     assert count == 0
 
 
@@ -96,7 +97,7 @@ async def test_run_push_cycle_sends_expo_in_production():
             ),
         ) as send_mock,
     ):
-        count = await push_service.run_push_cycle(session, redis, settings)
+        count = await run_push_cycle(session, redis, settings)
 
     assert count == 1
     send_mock.assert_awaited_once()
@@ -139,7 +140,7 @@ async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok(schedule_write)
             ),
         ),
     ):
-        await push_service.run_push_cycle(session, redis, settings)
+        await run_push_cycle(session, redis, settings)
 
     schedule_write.assert_awaited_once()
     assert schedule_write.await_args.kwargs["notification_sent_at"] is not None
@@ -278,7 +279,7 @@ async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
             ),
         ),
     ):
-        await push_service.run_push_cycle(session, redis, settings)
+        await run_push_cycle(session, redis, settings)
 
     assert todo.notification_sent_at is None
     session.commit.assert_not_awaited()
@@ -408,7 +409,7 @@ async def test_run_push_cycle_enqueues_receipt_tickets():
             AsyncMock(),
         ) as enqueue_mock,
     ):
-        await push_service.run_push_cycle(session, redis, settings)
+        await run_push_cycle(session, redis, settings)
 
     enqueue_mock.assert_awaited_once_with(
         redis,
@@ -459,7 +460,7 @@ async def test_run_push_cycle_marks_sent_on_ticket_without_receipt_poll(schedule
         ),
         patch.object(push_service, "enqueue_push_receipts", AsyncMock()) as enqueue_mock,
     ):
-        await push_service.run_push_cycle(session, redis, settings)
+        await run_push_cycle(session, redis, settings)
 
     schedule_write.assert_awaited_once()
     assert schedule_write.await_args.kwargs["notification_sent_at"] is not None

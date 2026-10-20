@@ -7,7 +7,7 @@ type ImageGenerateResult = {
 };
 
 /** A composer send, before it is sent; `chat_id` is null for a draft chat with no turns. */
-export type ImageIntentRequest = {
+type ImageIntentRequest = {
   text: string;
   chat_id: string | null;
   image_attached: boolean;
@@ -18,7 +18,7 @@ export type ImageIntentRequest = {
  * makes too. `generate_prompt` set: draw it from the composer, from the attached
  * image or `reference_attachment_ids`. Unset: an ordinary chat send.
  */
-export type ImageIntentVerdict = {
+type ImageIntentVerdict = {
   subject: "math" | "physics" | "chemistry" | null;
   lookup_query: string | null;
   generate_prompt: string | null;

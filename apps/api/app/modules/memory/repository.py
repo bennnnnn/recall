@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -103,33 +103,6 @@ async def list_range(
     return list(result.scalars().all())
 
 
-async def search_semantic(
-    session: AsyncSession,
-    user_id: UUID,
-    query_embedding: list[float],
-    *,
-    min_confidence: float,
-    limit: int,
-    max_distance: float | None = None,
-) -> list[Memory]:
-    filters = [
-        Memory.user_id == user_id,
-        Memory.status == ACTIVE_STATUS,
-        Memory.embedding.isnot(None),
-        or_(Memory.confidence.is_(None), Memory.confidence >= min_confidence),
-    ]
-    if max_distance is not None:
-        filters.append(Memory.embedding.cosine_distance(query_embedding) <= max_distance)
-    stmt = (
-        select(Memory)
-        .where(*filters)
-        .order_by(Memory.embedding.cosine_distance(query_embedding))
-        .limit(limit)
-    )
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
 async def apply_writes(
     session: AsyncSession,
     *,
@@ -153,47 +126,6 @@ async def apply_writes(
     else:
         await session.flush()
     return touched
-
-
-async def upsert_sections(
-    session: AsyncSession,
-    *,
-    user_id: UUID,
-    items: list[tuple[str, str, float, UUID | None]],
-    commit: bool = True,
-    expected_sections: dict[str, tuple[UUID, str]] | None = None,
-) -> None:
-    """Legacy adapter for tests: one write per (type, text) tuple."""
-    if not items:
-        return
-    writes: list[MemoryFactWrite] = []
-    expected_facts: dict[UUID, str] = {}
-    for memory_type, text, confidence, source_chat_id in items:
-        if not text.strip():
-            continue
-        prior = None if expected_sections is None else expected_sections.get(memory_type)
-        writes.append(
-            MemoryFactWrite(
-                op="update" if prior is not None else "add",
-                type=memory_type,
-                text=text,
-                confidence=confidence,
-                match_text=prior[1] if prior is not None else text,
-                source_chat_id=source_chat_id,
-            )
-        )
-        if prior is not None:
-            expected_facts[prior[0]] = prior[1]
-    if not writes:
-        return
-    await apply_writes(
-        session,
-        user_id=user_id,
-        writes=writes,
-        expected_facts=None if expected_sections is None else expected_facts,
-        active_cap=150,
-        commit=commit,
-    )
 
 
 async def delete_by_type(

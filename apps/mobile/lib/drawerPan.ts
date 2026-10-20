@@ -1,38 +1,7 @@
-/** Left-edge hit slop for swipe-to-open (pt). */
-export const DRAWER_EDGE_WIDTH = 28;
-/** Ignore jitter until the finger has clearly moved. */
-const DRAWER_PAN_SLOP = 10;
 /** Phone drawers stay ~82% wide; tablets cap so chat keeps a usable gutter. */
 export const DRAWER_MAX_WIDTH = 360;
 const DRAWER_WIDTH_RATIO = 0.82;
 
 export function cappedDrawerWidth(windowWidth: number): number {
   return Math.min(windowWidth * DRAWER_WIDTH_RATIO, DRAWER_MAX_WIDTH);
-}
-
-/**
- * Whether the shell pan should claim this move.
- * Closed: only a rightward swipe from the left edge.
- * Open: drag the panel itself, or swipe the scrim left to close.
- *
- * `startX` must be window-absolute. A view-local `x` from the composer/mic
- * is often ~0 and looks like an edge swipe.
- */
-export function shouldClaimDrawerPan(opts: {
-  open: boolean;
-  startX: number;
-  dx: number;
-  dy: number;
-  drawerWidth: number;
-  edgeWidth?: number;
-  slop?: number;
-}): boolean {
-  const edgeWidth = opts.edgeWidth ?? DRAWER_EDGE_WIDTH;
-  const slop = opts.slop ?? DRAWER_PAN_SLOP;
-  const { open, startX, dx, dy, drawerWidth } = opts;
-  if (Math.abs(dx) < slop && Math.abs(dy) < slop) return false;
-  if (Math.abs(dy) >= Math.abs(dx)) return false;
-  if (!open) return startX <= edgeWidth && dx > 0;
-  if (startX >= drawerWidth) return dx < 0;
-  return true;
 }

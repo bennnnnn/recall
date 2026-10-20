@@ -1,11 +1,9 @@
-import { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Sheet } from "@/ui/overlay/Sheet";
 import { SheetFormHeader } from "@/ui/overlay/SheetFormHeader";
 import { TextField } from "@/ui/controls/TextField";
-import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
 
 type Props = {
@@ -23,9 +21,7 @@ export function ChatRenameSheet({
   onClose,
   onSave,
 }: Props) {
-  const theme = useTheme();
   const { t } = useTranslation();
-  const s = useMemo(() => makeStyles(theme), [theme]);
 
   return (
     <Sheet
@@ -57,12 +53,10 @@ export function ChatRenameSheet({
   );
 }
 
-function makeStyles(C: Theme) {
-  return StyleSheet.create({
-    sheet: {
-      paddingHorizontal: 0,
-      paddingTop: 0,
-    },
-    body: { padding: Space.md },
-  });
-}
+const s = StyleSheet.create({
+  sheet: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
+  },
+  body: { padding: Space.md },
+});

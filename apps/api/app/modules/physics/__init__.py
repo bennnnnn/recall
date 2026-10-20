@@ -22,19 +22,12 @@ from importlib import import_module
 from typing import Any
 
 _EXPORTS = {
-    "PHYSICS_EXTRACTORS": ("registry", "PHYSICS_EXTRACTORS"),
     "PHYSICS_REPLY_POLICY": ("reply_policy", "PHYSICS_REPLY_POLICY"),
-    "PhysicsRequest": ("request", "PhysicsRequest"),
     "build_verified_physics_block": ("block", "build_verified_physics_block"),
-    "can_direct_physics": ("direct", "can_direct_physics"),
-    "complete_physics_intent": ("request", "complete_physics_intent"),
-    "format_direct_physics_working": ("direct", "format_direct_physics_working"),
     "extract_physics_intent": ("extract", "extract_physics_intent"),
-    "has_supported_physics_cue": ("registry", "has_supported_physics_cue"),
     "is_symbol_givens_request": ("symbol_givens", "is_symbol_givens_request"),
     "needs_physics": ("extract", "needs_physics"),
     "physics_prompt_hints": ("reply_policy", "physics_prompt_hints"),
-    "prepare_physics_request": ("request", "prepare_physics_request"),
     "solve_physics": ("solver", "solve_physics"),
 }
 

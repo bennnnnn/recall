@@ -3,7 +3,6 @@ export {
   MATH_KEYBOARD_SYMBOLS,
   MATH_PAD_KEYS,
   SYMBOL_A11Y,
-  converterResultSpec,
   isCursorInsideInlineMath,
   spliceMathInsert,
   symbolA11yLabel,
@@ -12,13 +11,11 @@ export {
   type TextSelection,
 } from "@/lib/math/keyboardCatalog";
 export {
-  autoAdvanceFracDen,
   autoAdvanceNextEmptySlot,
   caretInGroup,
   findFracSlots,
   findLognSlots,
   findNrootSlots,
-  fracTapAdvancesToDen,
   innermostSlot,
   readBraceGroup,
   readDelimGroup,
@@ -27,10 +24,7 @@ export {
   type LatexGroup,
 } from "@/lib/math/keyboardSlots";
 export {
-  PAD_COLUMNS,
   PAD_ROWS,
-  SYMBOL_PAGES,
-  pageKeyIds,
   padRows,
   type PadCell,
   type SymbolPage,

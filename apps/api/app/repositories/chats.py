@@ -175,17 +175,6 @@ def group_by_recency(
     return grouped
 
 
-async def delete_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> bool:
-    chat = await get_by_id(session, chat_id, user_id)
-    if chat is None:
-        return False
-
-    await session.delete(chat)
-    await session.commit()
-    forget_chat(chat_id)
-    return True
-
-
 async def set_title(session: AsyncSession, chat: Chat, title: str) -> Chat:
     chat.title = title
     await session.commit()

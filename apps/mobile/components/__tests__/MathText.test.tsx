@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react-native";
 
 import { MathText } from "@/components/rich/MathText";
 import { FRAC_SIZE_RATIO, layoutMath, SCRIPT_RATIO } from "@/lib/math/layout";
-import { findLayouts, layoutProblems } from "@/lib/math/layoutChecks";
+import { findLayouts, layoutProblems } from "./layoutChecks";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex } from "@/lib/math/text";
 import { lightTheme } from "@/lib/theme";

@@ -7,7 +7,7 @@ import re
 import pytest
 
 from app.modules.chemistry.block import build_verified_chemistry
-from app.modules.chemistry.catalog import CATALOG, PUBCHEM_OPS, law_name
+from app.modules.chemistry.catalog import CATALOG, law_name
 from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.fence import validate_chemistry_fences
@@ -19,6 +19,7 @@ from app.services.answer_fence import mark_server_answer_fences
 from app.tests.modules.chemistry.new_law_cases import NEW_LAW_CASES
 from app.tests.modules.chemistry.test_chemistry_solver_expanded import (
     PIPELINE_CASES,
+    PUBCHEM_OPS,
     REMAINING_CASES,
 )
 

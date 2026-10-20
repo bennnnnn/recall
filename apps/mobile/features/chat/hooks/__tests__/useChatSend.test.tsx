@@ -127,7 +127,6 @@ function Probe({
   onStreamBusy,
   messages = [],
   imageGenerating,
-  onBeforeSend,
   draft,
 }: {
   offline?: boolean;
@@ -142,7 +141,6 @@ function Probe({
   onStreamBusy?: jest.Mock;
   messages?: Message[];
   imageGenerating?: boolean;
-  onBeforeSend?: jest.Mock;
   draft?: Record<string, unknown>;
 }) {
   const result = useChatSend({
@@ -172,7 +170,6 @@ function Probe({
     onStreamBusy,
     isOffline: offline,
     onOfflineBlocked,
-    onBeforeSend,
     onGenerateImage,
     imageGenerating,
   });
@@ -1236,17 +1233,6 @@ describe("useChatSend send steps", () => {
     await send();
     expect(mockTap).not.toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
-  });
-
-  it("lets onBeforeSend take the turn after the tap", async () => {
-    const onBeforeSend = jest.fn(() => true);
-    const sendMessage = jest.fn();
-    await render(<Probe chatId="chat-1" onBeforeSend={onBeforeSend} sendMessage={sendMessage} />);
-    await send();
-    expect(mockTap).toHaveBeenCalledTimes(1);
-    expect(onBeforeSend).toHaveBeenCalledWith("hello");
-    expect(sendMessage).not.toHaveBeenCalled();
-    expect(mockSetInput).not.toHaveBeenCalled();
   });
 
   it("sends a photo lookup as chat once the server has read it", async () => {

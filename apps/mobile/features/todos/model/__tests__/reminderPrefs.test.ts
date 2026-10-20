@@ -5,7 +5,7 @@ import {
   clearReminderLeadPrefs,
   getReminderLeadMinutes,
   resetReminderLeadCache,
-  setReminderLeadMinutes,
+  syncReminderLeadFromServer,
 } from "@/features/todos/model/reminderPrefs";
 
 jest.mock("expo-secure-store", () => ({
@@ -50,8 +50,8 @@ describe("reminderPrefs", () => {
     await expect(getReminderLeadMinutes()).resolves.toBe(10);
   });
 
-  it("setReminderLeadMinutes persists to the filesystem, not Keychain", async () => {
-    await setReminderLeadMinutes(30);
+  it("syncReminderLeadFromServer persists to the filesystem, not Keychain", async () => {
+    await expect(syncReminderLeadFromServer(30)).resolves.toBe(30);
     expect(writeAsStringAsync).toHaveBeenCalledWith(
       "file:///docs/recall.reminder-lead-minutes.txt",
       "30",
@@ -77,7 +77,7 @@ it("does not restore a previous account's reminder preference after signout", as
     disk = value;
   });
   deleteAsync.mockImplementationOnce(async () => { disk = null; });
-  const write = setReminderLeadMinutes(30);
+  const write = syncReminderLeadFromServer(30);
   await Promise.resolve();
   const clear = clearReminderLeadPrefs();
   await Promise.resolve();

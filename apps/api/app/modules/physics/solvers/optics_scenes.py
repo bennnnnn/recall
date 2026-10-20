@@ -210,10 +210,6 @@ def mirror_scene(incidence: float, *, asked: bool, alt: str) -> list[SimulationB
     ]
 
 
-def _medium(n: float) -> str:
-    return "air" if math.isclose(n, 1.0) else f"n = {plain_number(n, GIVEN_FIGURES)}"
-
-
 def optics_scene(
     op: str, p: dict[str, float], given: dict[str, float], unit: str, value: float
 ) -> list[SimulationBlockSpec]:

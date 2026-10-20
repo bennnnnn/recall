@@ -7,7 +7,14 @@ import math
 import pytest
 
 from app.modules.physics.catalog import CATALOG
-from app.modules.physics.expression import ExpressionError, evaluate, names, parse, to_latex
+from app.modules.physics.expression import (
+    PHYSICS_NOTATION,
+    ExpressionError,
+    evaluate,
+    parse,
+    to_latex,
+)
+from app.tests.services.law_binding_support import names
 
 _SYMBOLS = {"u": "u", "v": "v", "a": "a", "t": "t", "d": "s", "mu": r"\mu"}
 
@@ -77,7 +84,7 @@ def test_the_formula_and_the_substitution_print_the_same_tree(
 
 
 def test_names_are_the_variables_read() -> None:
-    assert names("2*pi*sqrt(d**3/(G*M))") == {"d", "G", "M"}
+    assert names("2*pi*sqrt(d**3/(G*M))", PHYSICS_NOTATION) == {"d", "G", "M"}
 
 
 def _expressions() -> list[tuple[str, str]]:
@@ -96,4 +103,4 @@ def test_every_catalog_expression_reads_only_its_declared_variables(
     operation: str, expression: str
 ) -> None:
     declared = {variable.name for variable in CATALOG[operation].variables}
-    assert names(expression) <= declared, operation
+    assert names(expression, PHYSICS_NOTATION) <= declared, operation

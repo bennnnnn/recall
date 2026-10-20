@@ -490,9 +490,6 @@ FORMAT_CONTRACT = (
     "the user explicitly requested a compact table."
 )
 
-# Compat alias for the contract's historical name.
-RESPONSE_FORMAT_HINT = FORMAT_CONTRACT
-
 SHORT_RESPONSE_FORMAT_HINT = (
     "Formatting for SHORT mode: plain text or a few bullets only. No ## headings. "
     "No pipe tables unless the user explicitly requested one. No ```html / ```mermaid / "

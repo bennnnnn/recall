@@ -22,14 +22,6 @@ export function scannerCameraPrompt(subject: ScannerSubject): string {
   return SCANNER_CAMERA_PROMPTS[subject];
 }
 
-export function isScannerCameraPrompt(text: string): boolean {
-  const folded = text.trim().toLowerCase();
-  return Object.values(SCANNER_CAMERA_PROMPTS).some((prompt) => {
-    const expected = prompt.toLowerCase();
-    return folded === expected || folded.startsWith(`${expected}\n`);
-  });
-}
-
 export function composerTextAfterSubjectScan(
   existing: string,
   subject: ScannerSubject,

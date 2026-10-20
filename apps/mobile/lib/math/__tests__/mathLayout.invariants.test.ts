@@ -5,7 +5,7 @@ import {
   measureRunWidth,
   measureTextWidth,
 } from "@/lib/math/layout";
-import { findLayouts, layoutProblems } from "@/lib/math/layoutChecks";
+import { findLayouts, layoutProblems } from "@/components/__tests__/layoutChecks";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex, readableLatexFallback, segmentsToPlain } from "@/lib/math/text";
 

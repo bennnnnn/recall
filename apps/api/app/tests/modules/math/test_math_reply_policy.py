@@ -11,12 +11,13 @@ from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.chat.tool_loop import run_tool_rounds
 from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY, MATH_TUTORING_HINT
 from app.modules.math.tools.extract import extract_math_intent
-from app.modules.math.tools.prompt import augment_prompt_messages, needs_symbolic_math
+from app.modules.math.tools.prompt import needs_symbolic_math
 from app.services.workout import (
     MATH_WORKOUT_PROMPT_RULE,
     SELF_CHECK_PROMPT_RULE,
     WORKOUT_PROMPT_RULE,
 )
+from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
 def _messages(query: str, *, compact: bool = False) -> list[dict[str, Any]]:

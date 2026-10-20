@@ -32,7 +32,7 @@ def _day_plan_hints() -> list[str]:
 
 def test_day_plan_keeps_math_safety_guardrails():
     """BUG FIX (MATH-BE-033): day-plan turns used to get only
-    RESPONSE_FORMAT_HINT, so a math question that landed in day-plan mode
+    FORMAT_CONTRACT, so a math question that landed in day-plan mode
     lost every guardrail against raw ```latex/```copy fences. The compact
     math safety hint now ships on day-plan turns too."""
     parts = _day_plan_hints()
@@ -347,10 +347,7 @@ def test_bare_rainfall_chart_still_gets_chart_hint():
 
 
 def test_bare_email_asks_purpose_instead_of_inventing_a_draft():
-    from app.modules.chat.prompt_constants import (
-        EMAIL_ASK_PURPOSE_HINT,
-        EMAIL_DRAFT_HINT,
-    )
+    from app.modules.chat.prompt_constants.writing import EMAIL_ASK_PURPOSE_HINT, EMAIL_DRAFT_HINT
 
     parts = _style_format_hints(
         query_text="escribeme un correo",
@@ -364,10 +361,7 @@ def test_bare_email_asks_purpose_instead_of_inventing_a_draft():
 
 
 def test_specified_email_still_drafts_now():
-    from app.modules.chat.prompt_constants import (
-        EMAIL_ASK_PURPOSE_HINT,
-        EMAIL_DRAFT_HINT,
-    )
+    from app.modules.chat.prompt_constants.writing import EMAIL_ASK_PURPOSE_HINT, EMAIL_DRAFT_HINT
 
     parts = _style_format_hints(
         query_text="email my boss about PTO",

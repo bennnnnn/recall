@@ -70,7 +70,6 @@ function Probe() {
     setArchived: jest.fn(),
     setChatTitle,
     setMessages: jest.fn(),
-    router: { canGoBack: () => false, back: jest.fn(), replace: jest.fn() } as never,
     t: (key) => key,
   });
   useLayoutEffect(() => { actions = result; });
@@ -179,7 +178,7 @@ describe("useChatActions email draft", () => {
         token: "tok", chatId: "chat-1", chatTitle: "Draft", messages: [original],
         pinned: false, setPinned: jest.fn(), archived: false, setArchived: jest.fn(),
         setChatTitle: jest.fn(), setMessages: (update) => { updaters.push(update); },
-        router: {} as never, t: (key) => key,
+        t: (key) => key,
       });
       useLayoutEffect(() => { actions = result; });
       return <Text>deferred</Text>;
@@ -235,8 +234,7 @@ describe("useChatActions email draft", () => {
         setArchived: jest.fn(),
         setChatTitle: jest.fn(),
         setMessages,
-        router: { canGoBack: () => false, back: jest.fn(), replace: jest.fn() } as never,
-        t: (key) => key,
+            t: (key) => key,
       });
       useLayoutEffect(() => { actions = result; });
       return <Text>email actions</Text>;

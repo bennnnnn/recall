@@ -22,7 +22,7 @@ from app.core.db import SessionLocal
 from app.models.orm import User
 from app.modules.billing.entitlements import setting_name
 from app.services import quota
-from app.services.quota import counters
+from app.services.quota import carryover, counters
 
 from .conftest import World, delete_accounts
 
@@ -276,5 +276,5 @@ def test_quota_carryover_names_every_daily_counter() -> None:
     )
     used = set(re.findall(r'daily_key\(\s*"([a-z:]+)"', sources))
     used |= {spec.prefix for spec in counters.COUNTERS.values()}
-    assert used - {"usage:heal"} <= set(quota.DAILY_COUNTER_PREFIXES)
-    assert set(quota.DAILY_COUNTER_PREFIXES) == set(DAILY_PREFIXES)
+    assert used - {"usage:heal"} <= set(carryover.DAILY_COUNTER_PREFIXES)
+    assert set(carryover.DAILY_COUNTER_PREFIXES) == set(DAILY_PREFIXES)

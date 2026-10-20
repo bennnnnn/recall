@@ -18,14 +18,6 @@ function normalizeGuardRequest(
   return request ?? {};
 }
 
-/**
- * react-native-webview's historical `baseUrl` for inline HTML on iOS.
- * Must stay allowlisted: denying it blanks the Run tab even when the HTML is
- * already in memory (security #415 tightened originWhitelist to about:blank
- * and the nav guard blocked https://localhost as "external").
- */
-export const PREVIEW_INLINE_BASE_URL = "https://localhost/";
-
 /** Loads that are part of rendering self-contained preview HTML, not navigation. */
 export function isPreviewFrameworkUrl(url: string): boolean {
   const u = url.trim().toLowerCase();
@@ -39,7 +31,13 @@ export function isPreviewFrameworkUrl(url: string): boolean {
   return false;
 }
 
-/** Inline-HTML document origin (`baseUrl`), not an open-web navigation. */
+/**
+ * Inline-HTML document origin (`baseUrl`), not an open-web navigation.
+ * react-native-webview's historical `baseUrl` for inline HTML on iOS is
+ * https://localhost/. It must stay allowlisted: denying it blanks the Run tab
+ * even when the HTML is already in memory (security #415 tightened
+ * originWhitelist to about:blank and the nav guard blocked it as "external").
+ */
 export function isPreviewInlineDocumentUrl(url: string): boolean {
   const u = url.trim().toLowerCase();
   if (!u) return false;

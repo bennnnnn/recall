@@ -11,18 +11,20 @@ import pytest
 
 from app.modules.chat.prompt_constants import (
     COPY_DELIVERABLE_HINT,
-    EMAIL_ASK_PURPOSE_HINT,
-    EMAIL_DRAFT_HINT,
     FORMAT_CONTRACT,
     NON_DRAFT_TURN_HINT,
-    REWRITE_HINT,
-    SOCIAL_DRAFT_HINT,
-    TRANSLATION_FORMAT_HINT,
     WRITING_LINE_HINT,
     draft_followup,
     draft_followup_hint,
     is_underspecified_writing_request,
     writing_request_kind,
+)
+from app.modules.chat.prompt_constants.writing import (
+    EMAIL_ASK_PURPOSE_HINT,
+    EMAIL_DRAFT_HINT,
+    REWRITE_HINT,
+    SOCIAL_DRAFT_HINT,
+    TRANSLATION_FORMAT_HINT,
 )
 from app.modules.chat.prompt_format import _style_format_hints
 

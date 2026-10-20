@@ -13,7 +13,7 @@ from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatNotFoundError, QuotaExceededError
 from app.main import create_app
 from app.modules.chat.turn_outcome import TurnOutcome
-from app.services.quota import QUOTA_EXCEEDED_MESSAGE_FREE
+from app.services.quota.messages import QUOTA_EXCEEDED_MESSAGE_FREE
 
 
 @pytest.fixture(autouse=True)

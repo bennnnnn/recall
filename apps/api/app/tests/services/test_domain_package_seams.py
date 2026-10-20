@@ -50,7 +50,7 @@ def test_chemistry_package_exposes_its_public_api() -> None:
     assert callable(chemistry.molar_mass)
     assert callable(chemistry.solve_chemistry)
     assert callable(
-        importlib.import_module("app.modules.chemistry.context").build_chemistry_context
+        importlib.import_module("app.modules.chemistry.context").build_chemistry_augmentation
     )
     assert callable(importlib.import_module("app.modules.chemistry.block").build_verified_chemistry)
     assert callable(importlib.import_module("app.modules.chemistry.fence").enrich_chemistry_fences)

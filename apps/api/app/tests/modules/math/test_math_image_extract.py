@@ -291,7 +291,8 @@ async def test_augment_prompt_messages_image_math_extract_survives_ocr_chars(
 
     from app.core.config import Settings
     from app.modules.math.schemas import MathIntent
-    from app.modules.math.tools import VerifiedMathBlock, augment_prompt_messages
+    from app.modules.math.tools import VerifiedMathBlock
+    from app.tests.modules.math.prompt_support import augment_prompt_messages
 
     settings = Settings(math_tools_enabled=True)
     extract = MathImageExtract(lhs=lhs, rhs=rhs, variables=["x"], found=True)
@@ -335,7 +336,8 @@ async def test_augment_prompt_messages_without_image_math_extract_mangles_ocr_te
 
     from app.core.config import Settings
     from app.modules.math.schemas import MathIntent
-    from app.modules.math.tools import VerifiedMathBlock, augment_prompt_messages
+    from app.modules.math.tools import VerifiedMathBlock
+    from app.tests.modules.math.prompt_support import augment_prompt_messages
 
     settings = Settings(math_tools_enabled=True)
     user_content = "Solve the math problem in this image step by step.\n\nSolve: f(x,2) = 7"

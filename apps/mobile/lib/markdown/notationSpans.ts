@@ -21,7 +21,7 @@ const TRAILING = /[.,;:!?]+$/;
 const MIN_LENGTH = 6;
 
 /** True for a SMILES string such as `CC(=O)O` or `O=Cc1ccccc1`. */
-export function isNotation(token: string): boolean {
+function isNotation(token: string): boolean {
   if (
     token.length < MIN_LENGTH ||
     token.includes("://") ||

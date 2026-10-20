@@ -118,44 +118,6 @@ async def apply_memory_facts(
     await _invalidate_memory_caches(user_id)
 
 
-async def apply_memory_section_rows(
-    settings: Settings,
-    *,
-    user_id: UUID,
-    rows: list[tuple[str, str, float, UUID | None]],
-    session_factory: MemorySessionFactory = SessionLocal,
-    memories: Any = memories_repo,
-    expected_sections: dict[str, tuple[UUID, str]] | None = None,
-) -> None:
-    """Legacy wrapper: one add/update per type-keyed section tuple."""
-    writes: list[MemoryFactWrite] = []
-    expected_facts: dict[UUID, str] | None = None
-    if expected_sections is not None:
-        expected_facts = {memory_id: text for memory_id, text in expected_sections.values()}
-    for memory_type, text, confidence, source_chat_id in rows:
-        if not text.strip():
-            continue
-        prior = None if expected_sections is None else expected_sections.get(memory_type)
-        writes.append(
-            MemoryFactWrite(
-                op="update" if prior is not None else "add",
-                type=memory_type,
-                text=text,
-                confidence=confidence,
-                match_text=prior[1] if prior is not None else None,
-                source_chat_id=source_chat_id,
-            )
-        )
-    await apply_memory_facts(
-        settings,
-        user_id=user_id,
-        writes=writes,
-        session_factory=session_factory,
-        memories=memories,
-        expected_facts=expected_facts,
-    )
-
-
 async def _invalidate_memory_caches(user_id: UUID) -> None:
     from app.modules import memory as memory_service
     from app.modules.home import service as home_service

@@ -1,6 +1,6 @@
 import {
+  advancePreviewFilesScan,
   bundleHtmlPreview,
-  collectPreviewFiles,
   fenceLangFromInfo,
   previewHasSiblingAssets,
   sanitizePreviewFilename,
@@ -29,7 +29,7 @@ describe("sanitizePreviewFilename", () => {
   });
 });
 
-describe("collectPreviewFiles", () => {
+describe("advancePreviewFilesScan from empty", () => {
   it("collects named html/css/js siblings and skips other langs", () => {
     const md = [
       "Here is a page:",
@@ -50,14 +50,14 @@ describe("collectPreviewFiles", () => {
       "print(1)",
       "```",
     ].join("\n");
-    const files = collectPreviewFiles(md);
+    const files = advancePreviewFilesScan(null, md).files;
     expect(files.map((f) => f.name)).toEqual(["index.html", "styles.css", "app.js"]);
     expect(previewHasSiblingAssets(files)).toBe(true);
   });
 
   it("assigns default names when the fence has no filename", () => {
     const md = "```html\n<p>a</p>\n```\n\n```css\nbody{}\n```\n";
-    const files = collectPreviewFiles(md);
+    const files = advancePreviewFilesScan(null, md).files;
     expect(files.map((f) => f.name)).toEqual(["index.html", "styles.css"]);
   });
 });

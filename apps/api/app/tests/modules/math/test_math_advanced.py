@@ -4,7 +4,7 @@ These were flagged in a feature audit as common math asks with ZERO SymPy
 verification — the model answered them free-text, same reliability as any
 other chatbot. Covers the service layer (math_solve), text-signal
 extraction (math_match), and the end-to-end augmentation pipeline
-(math_tools.augment_prompt_messages).
+(build_math_augmentation).
 """
 
 from __future__ import annotations
@@ -14,13 +14,13 @@ import pytest
 from app.core.config import Settings
 from app.modules.math import match as math_match
 from app.modules.math import solve as math_solve
-from app.modules.math import tools as math_tools
 from app.modules.math.schemas import (
     CombinatoricsInput,
     MatrixInput,
     NumberTheoryInput,
     StatisticsInput,
 )
+from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
 class TestComputeStatistics:
@@ -237,7 +237,7 @@ class TestAugmentPromptMessagesForNewKinds:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "what is the standard deviation of 1, 3, 5, 7, 9"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        updated, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert "mean=5" in verified.text
         assert "[BEGIN VERIFIED MATH]" in verified.text
@@ -267,7 +267,7 @@ class TestAugmentPromptMessagesForNewKinds:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "how many ways can you choose 2 from 5? use C(5,2)"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _updated, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert "10" in verified.text
         assert verified.canonical_fence == {"type": "answer", "content": "10"}
@@ -279,7 +279,7 @@ class TestAugmentPromptMessagesForNewKinds:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "gcd of 48 and 18"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _updated, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert verified.canonical_fence == {"type": "answer", "content": "6"}
         assert verified.canonical_answer == "6"
@@ -290,7 +290,7 @@ class TestAugmentPromptMessagesForNewKinds:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "prime factorization of 60"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _updated, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert verified.canonical_fence is not None
         assert verified.canonical_fence["type"] == "answer"
@@ -303,7 +303,7 @@ class TestAugmentPromptMessagesForNewKinds:
         settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "find the determinant of [[1,2],[3,4]]"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _updated, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert "-2" in verified.text
         assert verified.canonical_fence == {"type": "answer", "content": "-2"}

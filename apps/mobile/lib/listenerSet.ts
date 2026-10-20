@@ -5,7 +5,7 @@
  * in subscription order. A listener added during an emit is called in that
  * same emit; one removed before its turn is not (`Set` iteration).
  */
-export type ListenerSet<Args extends unknown[] = []> = {
+type ListenerSet<Args extends unknown[] = []> = {
   subscribe: (listener: (...args: Args) => void) => () => void;
   emit: (...args: Args) => void;
   /** Test helpers reset module state between cases. */
@@ -34,7 +34,7 @@ export function createListenerSet<Args extends unknown[] = []>(): ListenerSet<Ar
  * One value plus its listeners, read with `useSyncExternalStore(subscribe, get)`.
  * `set` notifies only when the value changes (`===`).
  */
-export type ValueStore<T> = {
+type ValueStore<T> = {
   get: () => T;
   set: (next: T) => void;
   subscribe: (listener: () => void) => () => void;

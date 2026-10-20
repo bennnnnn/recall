@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.law_binding.expression import ExpressionError, Notation, evaluate, names, to_latex
+from app.services.law_binding.expression import ExpressionError, Notation, evaluate, to_latex
 from app.services.law_binding.fit import Question, Subject, fit, read_givens
 from app.services.law_binding.givens import scan_givens
 from app.services.law_binding.spec import Binding, FormulaSpec, VariableSpec, var
 from app.services.law_binding.units import UnitTable, dimension_of
+from app.tests.services.law_binding_support import names
 
 _UNITS = UnitTable(
     {"L": "liter", "K": "kelvin", "atm": "atmosphere", "mL": "milliliter"},

@@ -51,13 +51,6 @@ export function getReminderLeadMinutes(): Promise<ReminderLeadMinutes> {
   });
 }
 
-export function setReminderLeadMinutes(minutes: ReminderLeadMinutes): Promise<void> {
-  return withPreference(async () => {
-    cachedLeadMinutes = minutes;
-    await writePrefFile(filePath(), String(minutes));
-  });
-}
-
 /** Align local scheduling prefs with the server profile (no API call). */
 export function syncReminderLeadFromServer(minutes: unknown): Promise<ReminderLeadMinutes> {
   return withPreference(async () => {

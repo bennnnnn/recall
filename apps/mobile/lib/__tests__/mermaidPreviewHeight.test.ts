@@ -1,10 +1,11 @@
 import {
-  clampMermaidPreviewHeight,
   MERMAID_MAX_EXPANDED,
   MERMAID_MAX_HEIGHT,
   MERMAID_MIN_HEIGHT,
-  nextMermaidPreviewHeight,
+  MERMAID_PREVIEW_HEIGHT,
 } from "@/lib/mermaidPreviewHeight";
+
+const { clamp: clampMermaidPreviewHeight, next: nextMermaidPreviewHeight } = MERMAID_PREVIEW_HEIGHT;
 
 describe("clampMermaidPreviewHeight", () => {
   it("floors empty reports at the min placeholder", () => {

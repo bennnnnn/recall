@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -246,7 +244,3 @@ async def login_dev(
         device_label=device_label,
         platform=platform,
     )
-
-
-async def get_current_user(session: AsyncSession, user_id: UUID) -> User | None:
-    return await users_repo.get_by_id(session, user_id)

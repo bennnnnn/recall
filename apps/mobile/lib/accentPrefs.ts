@@ -20,8 +20,3 @@ export async function setAccentPreference(accent: AccentPreference): Promise<voi
   cachedAccent = accent;
   await writePrefFile(prefFilePath(FILE_NAME), accent);
 }
-
-/** Test helper — reset in-memory cache between cases. */
-export function resetAccentPreferenceCache(): void {
-  cachedAccent = null;
-}

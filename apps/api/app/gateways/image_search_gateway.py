@@ -29,10 +29,6 @@ class ImageSearchHit:
     source_title: str
 
 
-def is_configured(settings: Settings) -> bool:
-    return bool(settings.image_search_enabled and settings.tavily_api_key.strip())
-
-
 def mock_image_results(query: str, *, max_results: int) -> list[ImageSearchHit]:
     return [
         ImageSearchHit(

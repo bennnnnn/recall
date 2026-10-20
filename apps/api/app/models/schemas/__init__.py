@@ -1,6 +1,6 @@
 """Pydantic API schemas. Prefer `from app.models.schemas import X`."""
 
-from app.models.schemas.analytics import ProductEventBatchIn, ProductEventIn, ProductEventName
+from app.models.schemas.analytics import ProductEventBatchIn, ProductEventIn
 from app.models.schemas.auth import (
     AccountDeleteRequest,
     AppleAuthRequest,
@@ -11,7 +11,6 @@ from app.models.schemas.auth import (
     GoogleAuthRequest,
     LogoutRequest,
     RefreshRequest,
-    SettingsChangeOut,
     SettingsConfirmOut,
     UserOut,
     UserUpdate,
@@ -33,20 +32,12 @@ from app.models.schemas.chats import (
 )
 from app.models.schemas.classification import ConversationReference, WebSearchClassification
 from app.models.schemas.common import (
-    MemoryOpKind,
-    MemorySensitivity,
-    MemoryStatus,
     MemoryType,
-    MessageFeedback,
-    MessageRole,
     ModelInfo,
-    ResponseStyle,
-    ResponseTone,
     UsageOut,
 )
 from app.models.schemas.home import (
     HomeScreenOut,
-    HomeStarter,
     HomeUrgentTodo,
 )
 from app.models.schemas.push import PushTokenIn
@@ -67,14 +58,12 @@ from app.modules.memory.schemas import (
     MemoryUpdate,
 )
 from app.modules.todos.schemas import (
-    RecurrenceRule,
     TodoActionItem,
     TodoCreate,
     TodoExtractionResult,
     TodoOut,
     TodoPageOut,
     TodoReorderBody,
-    TodoReorderItem,
     TodoUpdate,
 )
 
@@ -102,36 +91,25 @@ __all__ = [
     "FeedbackUpdate",
     "GoogleAuthRequest",
     "HomeScreenOut",
-    "HomeStarter",
     "HomeUrgentTodo",
     "LogoutRequest",
     "MemoryFactOp",
     "MemoryFactUpdateResult",
-    "MemoryOpKind",
     "MemoryOut",
     "MemorySectionItem",
     "MemorySectionUpdateResult",
-    "MemorySensitivity",
-    "MemoryStatus",
     "MemoryType",
     "MemoryUpdate",
-    "MessageFeedback",
     "MessageOut",
     "MessagePageOut",
-    "MessageRole",
     "ModelInfo",
     "PinUpdate",
     "ProductEventBatchIn",
     "ProductEventIn",
-    "ProductEventName",
     "PushTokenIn",
-    "RecurrenceRule",
     "RefreshRequest",
-    "ResponseStyle",
-    "ResponseTone",
     "SearchResultItem",
     "SearchResults",
-    "SettingsChangeOut",
     "SettingsConfirmOut",
     "TodoActionItem",
     "TodoCreate",
@@ -139,7 +117,6 @@ __all__ = [
     "TodoOut",
     "TodoPageOut",
     "TodoReorderBody",
-    "TodoReorderItem",
     "TodoUpdate",
     "UsageOut",
     "UserOut",

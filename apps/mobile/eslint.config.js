@@ -13,7 +13,7 @@ const REPLACED_BY_UI_KIT = [
   },
   {
     name: "@react-native-community/datetimepicker",
-    message: "Use TimePickerDialog / DatePickerDialog / DateTimePickerDialog from @/ui/pickers.",
+    message: "Use TimePickerDialog / DatePickerDialog from @/ui/pickers.",
   },
 ];
 

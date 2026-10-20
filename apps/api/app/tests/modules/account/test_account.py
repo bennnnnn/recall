@@ -1,6 +1,8 @@
 """Tests for account deletion + data export."""
 
+import json
 from datetime import datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -18,6 +20,28 @@ def _fake_user():
     u.name = "Tester"
     u.created_at = datetime(2024, 1, 1)
     return u
+
+
+class _BorrowedSession:
+    """Use the test's session without closing it."""
+
+    def __init__(self, session) -> None:
+        self._session = session
+
+    async def __aenter__(self):
+        return self._session
+
+    async def __aexit__(self, *_args: object) -> None:
+        return None
+
+
+async def _export(session, user, settings: Settings | None = None) -> dict[str, Any]:
+    """The JSON the streamed export (``iter_export_json``) sends, read on the test's session."""
+    from app.modules.account import export as export_service
+
+    with patch.object(export_service, "SessionLocal", lambda: _BorrowedSession(session)):
+        chunks = [chunk async for chunk in export_service.iter_export_json(user, settings)]
+    return json.loads("".join(chunks))
 
 
 def _app_with_user(user):
@@ -239,7 +263,7 @@ async def test_build_export_structure(_empty_product_events_for_exports):
             AsyncMock(return_value=[]),
         ),
     ):
-        data = await export_service.build_export(session, user)
+        data = await _export(session, user)
 
     assert data["user"]["email"] == "e@x"
     # The consent record is the user's own data, so the export carries it.
@@ -267,7 +291,6 @@ async def test_build_export_structure(_empty_product_events_for_exports):
 
 @pytest.mark.asyncio
 async def test_build_export_includes_archived_chats():
-    from app.modules.account import export as export_service
 
     session = AsyncMock()
     user = MagicMock()
@@ -307,7 +330,7 @@ async def test_build_export_includes_archived_chats():
             AsyncMock(return_value=[]),
         ),
     ):
-        data = await export_service.build_export(session, user)
+        data = await _export(session, user)
 
     assert len(data["chats"]) == 1
     assert data["chats"][0]["title"] == "Old"
@@ -373,7 +396,7 @@ async def test_build_export_pages_messages_per_chat():
             AsyncMock(return_value=[]),
         ),
     ):
-        data = await export_service.build_export(session, user)
+        data = await _export(session, user)
 
     contents = [message["content"] for message in data["chats"][0]["messages"]]
     assert contents == ["one", "two", "three"]
@@ -419,7 +442,7 @@ async def test_build_export_pages_memories():
             AsyncMock(return_value=[]),
         ),
     ):
-        data = await export_service.build_export(session, user)
+        data = await _export(session, user)
 
     assert [memory["text"] for memory in data["memories"]] == ["a", "b", "c"]
 
@@ -464,14 +487,13 @@ async def test_build_export_caps_memories():
             AsyncMock(return_value=[]),
         ),
     ):
-        data = await export_service.build_export(session, user)
+        data = await _export(session, user)
 
     assert [memory["text"] for memory in data["memories"]] == ["a", "b"]
 
 
 @pytest.mark.asyncio
 async def test_build_export_includes_attachment_with_presigned_url():
-    from app.modules.account import export as export_service
 
     session = AsyncMock()
     user = MagicMock()
@@ -517,7 +539,7 @@ async def test_build_export_includes_attachment_with_presigned_url():
             return_value=gateway,
         ),
     ):
-        data = await export_service.build_export(session, user, settings)
+        data = await _export(session, user, settings)
 
     assert len(data["attachments"]) == 1
     exported = data["attachments"][0]

@@ -164,8 +164,6 @@ function ChatScreen() {
     setArchived,
     setChatTitle,
     setMessages,
-    hasMoreOlder,
-    router,
     t,
   });
 
@@ -377,7 +375,6 @@ function ChatScreen() {
   const { regenerate: handleRegenerate, regenerating } = useChatRegenerate({
     token,
     messages,
-    user,
     updateUser,
     regenerateResponse,
     beginRegenerateUi,

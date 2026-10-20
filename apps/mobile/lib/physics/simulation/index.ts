@@ -13,17 +13,9 @@
  */
 export {
   SCENE_TITLE_KEYS,
-  type SceneTitleKey,
-  type SimulationAngle,
   type SimulationArrow,
-  type SimulationBody,
   type SimulationKind,
-  type SimulationPlanet,
-  type SimulationPulley,
-  type SimulationSolid,
   type SimulationSpec,
-  type SimulationTether,
-  type SimulationVector,
 } from "@/lib/physics/simulation/spec";
 export { parseSimulationSpec } from "@/lib/physics/simulation/parse";
 export {
@@ -80,10 +72,8 @@ export {
   segmentHitsBox,
   tipLabelOrigin,
   vectorLabelOrigin,
-  type BodyLabelSide,
   type LabelBox,
   type PlacedLabel,
-  type Segment,
 } from "@/lib/physics/simulation/labels";
 export {
   ANGLE_MAX_RADIUS,
@@ -102,12 +92,9 @@ export { inclineDirections, inclineSurface, inclineWedge } from "@/lib/physics/s
 export { layoutSimulationScene, type SceneLayout } from "@/lib/physics/simulation/layout";
 export {
   type AngleLayout,
-  type PulleyLayout,
-  type TetherLayout,
 } from "@/lib/physics/simulation/layoutShapes";
 export {
   type BodyLabelLayout,
-  type PlanetLayout,
   type SolidLayout,
 } from "@/lib/physics/simulation/layoutLabels";
 export {

@@ -195,7 +195,7 @@ function equalsChain(expr: string): string[] | null {
   });
 }
 
-export function splitMathExpression(expr: string): string[] | null {
+function splitMathExpression(expr: string): string[] | null {
   const body = expr.trim();
   if (!body || body.includes("\\begin{") || body.includes("&")) return null;
   const pieces = independentPieces(body);

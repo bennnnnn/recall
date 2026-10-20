@@ -11,9 +11,9 @@ from app.modules.math.response_intent import response_intent_prompt
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.prompt import (
     VERIFIED_MATH_REPLY_HINT,
-    augment_prompt_messages,
     build_math_augmentation,
 )
+from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
 @pytest.mark.asyncio

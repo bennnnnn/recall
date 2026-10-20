@@ -105,7 +105,11 @@ def extract_text_details(
     *,
     max_chars: int = MAX_EXTRACT_CHARS,
 ) -> ExtractedText | None:
-    """Sync, CPU-bound parsing with truncation flags for honest disclosure."""
+    """Sync, CPU-bound parsing with truncation flags for honest disclosure.
+
+    Call via ``extract_text_details_async`` on any code path that isn't already
+    off the event loop.
+    """
     if content_type in _TEXTISH_TYPES:
         text = data.decode("utf-8", errors="replace").strip()
         if not text:
@@ -176,18 +180,6 @@ def extract_text_details(
     return None
 
 
-def extract_text_from_bytes(
-    content_type: str,
-    data: bytes,
-    *,
-    max_chars: int = MAX_EXTRACT_CHARS,
-) -> str | None:
-    """Sync, CPU-bound parsing — call via extract_text_from_bytes_async on
-    any code path that isn't already off the event loop."""
-    details = extract_text_details(content_type, data, max_chars=max_chars)
-    return None if details is None else details.text
-
-
 async def extract_text_details_async(
     content_type: str,
     data: bytes,
@@ -250,26 +242,6 @@ async def extract_text_details_async(
             return ocr_result
         return ExtractedText(text=ocr_result, via_ocr=True)
     return None
-
-
-async def extract_text_from_bytes_async(
-    content_type: str,
-    data: bytes,
-    settings: Settings,
-    *,
-    max_chars: int = MAX_EXTRACT_CHARS,
-    allow_ocr: bool = True,
-    ocr_max_pages: int | None = None,
-) -> str | None:
-    details = await extract_text_details_async(
-        content_type,
-        data,
-        settings,
-        max_chars=max_chars,
-        allow_ocr=allow_ocr,
-        ocr_max_pages=ocr_max_pages,
-    )
-    return None if details is None else details.text
 
 
 async def read_attachment_bytes(gateway: StorageGateway, storage_key: str) -> bytes | None:

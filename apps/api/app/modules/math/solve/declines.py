@@ -10,9 +10,7 @@ the two apart:
 - ``with sympy_decline() as declined:`` wraps part of one; ``declined`` is true afterwards when
   the block failed, so the caller returns its own default (a fresh ``[]`` each time).
 
-Each decline is logged at DEBUG (where, the exception type, a short message) and counted in an
-in-process ``Counter`` keyed by (where, exception type), read with ``decline_counts()``. The
-counter is per process: a SymPy pool worker keeps its own, and nothing exports it yet.
+Each decline is logged at DEBUG (where, the exception type, a short message).
 
 Outside strict mode every ``Exception`` declines except ``TimeoutError`` (the SymPy pool's
 timeout), as the plain ``except Exception`` it replaces did. A ``BaseException`` (cancellation,
@@ -34,8 +32,6 @@ from __future__ import annotations
 import functools
 import logging
 import os
-import threading
-from collections import Counter
 from collections.abc import Callable
 from types import TracebackType
 
@@ -56,24 +52,10 @@ _MATHS_LIBRARIES = frozenset({"sympy", "mpmath"})
 _LAMBDIFY_FILE = "<lambdifygenerated"
 _MESSAGE_CHARS = 120
 
-_counts: Counter[tuple[str, str]] = Counter()
-_counts_lock = threading.Lock()
-
 
 def strict_declines() -> bool:
     """True when a programming error must raise instead of declining (the test run)."""
     return os.environ.get(STRICT_ENV) == "1"
-
-
-def decline_counts() -> Counter[tuple[str, str]]:
-    """A copy of the declines so far in this process, keyed by (where, exception type)."""
-    with _counts_lock:
-        return Counter(_counts)
-
-
-def reset_decline_counts() -> None:
-    with _counts_lock:
-        _counts.clear()
 
 
 def _top_package(module: object) -> str:
@@ -117,8 +99,6 @@ def _declined(where: str, exc: BaseException) -> bool:
     if strict_declines() and is_programming_error(exc):
         return False
     name = type(exc).__name__
-    with _counts_lock:
-        _counts[(where, name)] += 1
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug("maths decline in %s: %s: %s", where, name, str(exc)[:_MESSAGE_CHARS])
     return True

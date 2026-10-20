@@ -1,6 +1,6 @@
 import type { RealtimeTimer, RealtimeTurnEvent } from "@/features/speech/model/realtimeTurnState";
 
-export type RealtimeMicGate = {
+type RealtimeMicGate = {
   setMic: (enabled: boolean) => void;
   /** Replaces a pending timer of the same name; `then` goes to onElapsed when it fires. */
   start: (timer: RealtimeTimer, ms: number, then: RealtimeTurnEvent) => void;

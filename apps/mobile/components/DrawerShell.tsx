@@ -161,7 +161,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
           }
           const w = widthSV.value;
           const openNow = isOpenSV.value > 0.5;
-          // Inline (not shouldClaimDrawerPan): worklets cannot close over
+          // Inline, not an imported helper: worklets cannot close over
           // imported helpers without a Hermes "Property doesn't exist" crash.
           // A short slide on a row is a press, not a drawer drag.
           const onPanel = openNow && touchStartX.value < w && Math.abs(dx) >= PANEL_DRAG;

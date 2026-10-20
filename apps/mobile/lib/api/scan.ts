@@ -21,7 +21,7 @@ const SCAN_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
  * plus 5 s for the upload and the reply, so a slow read comes back as the
  * API's "could not read" answer instead of a client timeout.
  */
-export const SCAN_READ_TIMEOUT_MS = 25_000;
+const SCAN_READ_TIMEOUT_MS = 25_000;
 
 /**
  * Read a cropped scan back without solving it, through the subject's own

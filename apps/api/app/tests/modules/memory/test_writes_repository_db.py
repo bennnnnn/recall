@@ -7,6 +7,7 @@ import pytest
 from app.models.orm import Memory
 from app.modules.memory import repository as memories_repo
 from app.repositories import users as users_repo
+from app.tests.modules.memory.sections_support import upsert_sections
 
 
 async def _make_user(session):
@@ -40,7 +41,7 @@ async def test_background_snapshot_preserves_manual_changes_and_ownership(db_ses
         await db_session.delete(row)
     await db_session.flush()
 
-    await memories_repo.upsert_sections(
+    await upsert_sections(
         db_session,
         user_id=uuid4() if change == "wrong_owner" else user.id,
         items=[("fact", "Old fact" if change == "same" else "Generated fact", 0.9, None)],
@@ -62,7 +63,7 @@ async def test_background_snapshot_preserves_manual_changes_and_ownership(db_ses
 async def test_new_section_conflict_does_not_replace_competing_creation(db_session):
     user = await _make_user(db_session)
     for content in ["First fact", "Stale generated fact"]:
-        await memories_repo.upsert_sections(
+        await upsert_sections(
             db_session,
             user_id=user.id,
             items=[("fact", content, 0.9, None)],

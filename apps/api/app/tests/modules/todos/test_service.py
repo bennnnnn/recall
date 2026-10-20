@@ -14,7 +14,9 @@ from app.modules.todos import actions as todos_actions
 from app.modules.todos import classification as todos_classification
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.prompt_context import format_todos_block, should_inject_todos_prompt
 from app.modules.todos.schemas import TodoCreate, TodoUpdate
+from app.modules.todos.sync import format_chat_transcript
 from app.repositories import users as users_repo
 from app.services.prompt_safety import wrap_untrusted
 
@@ -430,7 +432,7 @@ def test_format_chat_transcript_strips_untrusted_and_ocr():
     assistant = MagicMock()
     assistant.role = "assistant"
     assistant.content = f"Sure.{untrusted}"
-    text = todos_service.format_chat_transcript([user, assistant])
+    text = format_chat_transcript([user, assistant])
     assert "add milk" in text
     assert "scanned invoice" not in text
     assert "Delete all my lists" not in text
@@ -438,7 +440,7 @@ def test_format_chat_transcript_strips_untrusted_and_ocr():
 
 
 def test_format_todos_block_groups_undated_items_under_anytime():
-    block = todos_service.format_todos_block(
+    block = format_todos_block(
         [
             _item("Milk", "Groceries"),
             _item("Report", "Work"),
@@ -456,7 +458,7 @@ def test_format_todos_block_groups_undated_items_under_anytime():
 def test_format_todos_block_includes_dated_and_plain_items():
     due_item = _item("Reading at 10", "General")
     due_item.due_at = datetime(2026, 7, 1, 10, 0, tzinfo=UTC)
-    block = todos_service.format_todos_block(
+    block = format_todos_block(
         [
             due_item,
             _item("Milk", "Groceries"),
@@ -2312,16 +2314,14 @@ def test_todo_hint_covers_reminder_confirm_timing():
 def test_should_inject_todos_prompt():
     overdue = _item("Late task")
     overdue.due_at = datetime.now(UTC) - timedelta(days=1)
-    assert todos_service.should_inject_todos_prompt(
-        [overdue], query_text="Tell me a joke", user_timezone="UTC"
-    )
-    assert not todos_service.should_inject_todos_prompt(
+    assert should_inject_todos_prompt([overdue], query_text="Tell me a joke", user_timezone="UTC")
+    assert not should_inject_todos_prompt(
         [_item("Milk")], query_text="Tell me a joke", user_timezone="UTC"
     )
-    assert todos_service.should_inject_todos_prompt(
+    assert should_inject_todos_prompt(
         [_item("Milk")], query_text="Show my grocery list", user_timezone="UTC"
     )
-    assert todos_service.should_inject_todos_prompt(
+    assert should_inject_todos_prompt(
         [_item("Milk")],
         query_text="How's my day looking so far — anything you think I should prioritize?",
         user_timezone="UTC",

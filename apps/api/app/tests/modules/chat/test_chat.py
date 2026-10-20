@@ -442,7 +442,7 @@ def test_format_contract_is_markdown_not_ui_fences():
     assert "plain labels such as `A.` or `I.`" in FORMAT_CONTRACT
     assert "```smiles" not in VISUALIZATION_HINTS
     assert "```chemistry" not in VISUALIZATION_HINTS
-    from app.modules.chat.prompt_constants import CHEMISTRY_FENCE_HINT
+    from app.modules.chat.prompt_constants.visuals import CHEMISTRY_FENCE_HINT
     from app.modules.math.reply_policy import MATH_SOLVER_HINT
 
     assert "```smiles" in CHEMISTRY_FENCE_HINT

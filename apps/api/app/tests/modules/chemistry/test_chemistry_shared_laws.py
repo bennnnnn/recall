@@ -11,7 +11,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chemistry.extract import extract_chemistry_intent
-from app.modules.chemistry.solvers.solver import supported_operations
+from app.modules.chemistry.solvers.solver import CHEMISTRY_SOLVERS
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.direct import maybe_direct_physics_reply
 from app.services.solving import VerifiedPhysicsBlock
@@ -110,8 +110,8 @@ def test_chemistry_keeps_no_second_copy_of_a_shared_law() -> None:
         "exponential_decay",
         "nuclear_activity",
     }
-    assert not shared & supported_operations()
-    assert {"dalton", "partial_pressure", "gas_over_water"} <= supported_operations()
+    assert not shared & set(CHEMISTRY_SOLVERS)
+    assert {"dalton", "partial_pressure", "gas_over_water"} <= set(CHEMISTRY_SOLVERS)
 
 
 @pytest.mark.parametrize(

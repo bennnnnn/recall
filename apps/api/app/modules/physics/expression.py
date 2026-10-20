@@ -28,7 +28,7 @@ from app.modules.physics.display import latex_given
 from app.services.law_binding import expression as _shared
 from app.services.law_binding.expression import ExpressionError, Notation, parse
 
-__all__ = ["PHYSICS_NOTATION", "ExpressionError", "evaluate", "names", "parse", "to_latex"]
+__all__ = ["PHYSICS_NOTATION", "ExpressionError", "evaluate", "parse", "to_latex"]
 
 # Physical constants by the name an expression uses, with the symbol the
 # formula shows. The values are ``physics.constants`` (CODATA via Pint).
@@ -51,11 +51,6 @@ PHYSICS_NOTATION = Notation(
     },
     number=latex_given,
 )
-
-
-def names(expression: str) -> frozenset[str]:
-    """The variable names a physics expression reads; functions and constants excluded."""
-    return _shared.names(expression, PHYSICS_NOTATION)
 
 
 def evaluate(expression: str, values: Mapping[str, float]) -> float:

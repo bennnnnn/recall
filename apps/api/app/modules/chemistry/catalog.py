@@ -25,8 +25,6 @@ class FormulaSpec:
     method: bool = False
 
 
-# Operations PubChem answers (a name's structure, a structure's name); no local solver.
-PUBCHEM_OPS = frozenset({"iupac_name", "structure"})
 # Operations answered by a procedure (balancing, a table lookup, a structure match).
 METHODS = frozenset(
     {

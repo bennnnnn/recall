@@ -4,7 +4,7 @@ import { Dimensions, StyleSheet } from "react-native";
 import { MathText } from "@/components/rich/MathText";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { layoutMath } from "@/lib/math/layout";
-import { findLayouts, layoutProblems } from "@/lib/math/layoutChecks";
+import { findLayouts, layoutProblems } from "./layoutChecks";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex } from "@/lib/math/text";
 
