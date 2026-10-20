@@ -5,8 +5,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.memory.apply import apply_memory_facts, apply_memory_section_rows
+from app.modules.memory.apply import apply_memory_facts
 from app.modules.memory.writes_repository import MemoryFactWrite
+from app.tests.modules.memory.sections_support import apply_memory_section_rows
 
 
 class _SessionContext:

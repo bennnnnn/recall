@@ -128,47 +128,6 @@ async def apply_writes(
     return touched
 
 
-async def upsert_sections(
-    session: AsyncSession,
-    *,
-    user_id: UUID,
-    items: list[tuple[str, str, float, UUID | None]],
-    commit: bool = True,
-    expected_sections: dict[str, tuple[UUID, str]] | None = None,
-) -> None:
-    """Legacy adapter for tests: one write per (type, text) tuple."""
-    if not items:
-        return
-    writes: list[MemoryFactWrite] = []
-    expected_facts: dict[UUID, str] = {}
-    for memory_type, text, confidence, source_chat_id in items:
-        if not text.strip():
-            continue
-        prior = None if expected_sections is None else expected_sections.get(memory_type)
-        writes.append(
-            MemoryFactWrite(
-                op="update" if prior is not None else "add",
-                type=memory_type,
-                text=text,
-                confidence=confidence,
-                match_text=prior[1] if prior is not None else text,
-                source_chat_id=source_chat_id,
-            )
-        )
-        if prior is not None:
-            expected_facts[prior[0]] = prior[1]
-    if not writes:
-        return
-    await apply_writes(
-        session,
-        user_id=user_id,
-        writes=writes,
-        expected_facts=None if expected_sections is None else expected_facts,
-        active_cap=150,
-        commit=commit,
-    )
-
-
 async def delete_by_type(
     session: AsyncSession,
     user_id: UUID,

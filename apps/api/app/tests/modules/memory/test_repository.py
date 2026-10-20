@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 
 from app.modules.memory import repository as memories_repo
+from app.tests.modules.memory.sections_support import upsert_sections
 
 
 @pytest.fixture
@@ -21,7 +22,7 @@ def fake_session():
 
 @pytest.mark.asyncio
 async def test_upsert_sections_empty_items_is_noop(fake_session):
-    await memories_repo.upsert_sections(fake_session, user_id=uuid4(), items=[])
+    await upsert_sections(fake_session, user_id=uuid4(), items=[])
     fake_session.execute.assert_not_awaited()
 
 
@@ -29,14 +30,14 @@ async def test_upsert_sections_empty_items_is_noop(fake_session):
 async def test_upsert_sections_executes_and_commits(fake_session):
     user_id = uuid4()
     items = [("profile", "User is Sam, a software engineer.", 0.9, None)]
-    await memories_repo.upsert_sections(fake_session, user_id=user_id, items=items)
+    await upsert_sections(fake_session, user_id=user_id, items=items)
     assert fake_session.execute.await_count >= 1
     fake_session.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_upsert_sections_commit_false_flushes_without_committing(fake_session):
-    await memories_repo.upsert_sections(
+    await upsert_sections(
         fake_session,
         user_id=uuid4(),
         items=[("fact", "Owns a bicycle.", 0.9, None)],
@@ -56,7 +57,7 @@ async def test_upsert_sections_adds_duplicate_types_as_separate_facts(fake_sessi
         ("profile", "High confidence profile.", 0.9, None),
         ("preference", "Likes tea.", 0.8, None),
     ]
-    await memories_repo.upsert_sections(fake_session, user_id=user_id, items=items)
+    await upsert_sections(fake_session, user_id=user_id, items=items)
     assert fake_session.execute.await_count >= 1
     fake_session.commit.assert_awaited_once()
 
@@ -68,7 +69,7 @@ async def test_upsert_sections_keeps_same_type_facts(fake_session):
         ("fact", "First fact.", 0.7, None),
         ("fact", "Second fact.", 0.7, None),
     ]
-    await memories_repo.upsert_sections(fake_session, user_id=user_id, items=items)
+    await upsert_sections(fake_session, user_id=user_id, items=items)
     assert fake_session.execute.await_count >= 1
     fake_session.commit.assert_awaited_once()
 

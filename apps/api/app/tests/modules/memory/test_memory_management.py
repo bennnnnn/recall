@@ -14,9 +14,9 @@ from app.models.orm import Memory
 from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules import memory as memory_service
 from app.modules.memory import extraction_workflow
-from app.modules.memory.apply import apply_memory_section_rows
 from app.modules.memory.text import embedding_text_hash
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
+from app.tests.modules.memory.sections_support import apply_memory_section_rows
 
 
 @pytest.fixture

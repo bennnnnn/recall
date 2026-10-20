@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.models.orm import Memory
-from app.modules.memory import repository as memories_repo
+from app.tests.modules.memory.sections_support import upsert_sections
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ async def test_conditional_section_update_requires_owned_current_snapshot(memory
     sync_session.add(row)
     sync_session.commit()
     requested_text = "Old fact" if change == "same" else "New fact"
-    await memories_repo.upsert_sections(
+    await upsert_sections(
         session,
         user_id=uuid4() if change == "wrong_owner" else owner_id,
         items=[("fact", requested_text, 0.9, None)],
@@ -65,13 +65,13 @@ async def test_conditional_section_update_requires_owned_current_snapshot(memory
 async def test_new_section_conflict_preserves_existing_memory(memory_sql):
     sync_session, session = memory_sql
     owner_id = uuid4()
-    await memories_repo.upsert_sections(
+    await upsert_sections(
         session,
         user_id=owner_id,
         items=[("fact", "First fact", 0.9, None)],
         expected_sections={},
     )
-    await memories_repo.upsert_sections(
+    await upsert_sections(
         session,
         user_id=owner_id,
         items=[("fact", "Stale generated fact", 0.9, None)],
