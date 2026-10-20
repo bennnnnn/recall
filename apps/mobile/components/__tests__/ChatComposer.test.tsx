@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Dimensions, StyleSheet } from "react-native";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
@@ -7,6 +6,8 @@ import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/features/chat/components/chatCo
 import { KEY_HEIGHT_MIN, mathPadHeight, padKeyHeight } from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
 import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+
+import { DraftHarness } from "./DraftHarness";
 
 jest.mock("expo-linear-gradient", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
@@ -79,8 +80,6 @@ beforeEach(() => {
 
 const baseProps = {
   visible: true,
-  input: "",
-  onChangeInput: jest.fn(),
   streaming: false,
   pendingAttachment: null,
   onRemoveAttachment: jest.fn(),
@@ -101,11 +100,11 @@ describe("ChatComposer math keyboard", () => {
     "Let x=-5. Evaluate x^2",
     "Use $x^2$ with a $5 example",
   ])("keeps ordinary typing on the messaging keyboard with the native caret: %s", async (text) => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, queryByTestId } = await render(<Harness />);
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     for (let i = 1; i <= text.length; i += 1) {
       const next = text.slice(0, i);
       await fireEvent.changeText(getByTestId("chat-composer-input"), next);
@@ -143,11 +142,11 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("does not enable preview just by opening and closing an empty math pad", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, queryByTestId } = await render(<Harness />);
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-keyboard-abc"));
     const text = "The price is $5.00";
@@ -167,7 +166,7 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByTestId } = await render(
       <ComposerDraftProvider>
         <ApiProbe />
-        <ChatComposer {...baseProps} input={undefined} onChangeInput={undefined} />
+        <ChatComposer {...baseProps} />
       </ComposerDraftProvider>,
     );
     await act(() => api.switchThread("literal"));
@@ -189,7 +188,9 @@ describe("ChatComposer math keyboard", () => {
   it("shows a guarded busy send control before streaming starts", async () => {
     const onSend = jest.fn();
     const { getByLabelText } = await render(
-      <ChatComposer {...baseProps} input="" sendBusy onSend={onSend} />,
+      <DraftHarness input="">
+        <ChatComposer {...baseProps} sendBusy onSend={onSend} />
+      </DraftHarness>,
     );
 
     const send = getByLabelText("chat.sending");
@@ -201,7 +202,9 @@ describe("ChatComposer math keyboard", () => {
   it("holds Send and shows the + busy while a picked photo is being prepared", async () => {
     const onSend = jest.fn();
     const { getByLabelText, getByTestId, rerender } = await render(
-      <ChatComposer {...baseProps} input="what is this?" attachPicking onSend={onSend} />,
+      <DraftHarness input="what is this?">
+        <ChatComposer {...baseProps} attachPicking onSend={onSend} />
+      </DraftHarness>,
     );
     const send = getByLabelText("chat.send_a11y");
     expect(send.props.accessibilityState).toEqual({ disabled: true, busy: false });
@@ -210,19 +213,24 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("composer-attachment-busy")).toBeTruthy();
     expect(getByTestId("composer-attachment-button").props.accessibilityState).toMatchObject({ busy: true });
 
-    await rerender(<ChatComposer {...baseProps} input="what is this?" onSend={onSend} />);
+    await rerender(
+      <DraftHarness input="what is this?">
+        <ChatComposer {...baseProps} onSend={onSend} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByLabelText("chat.send_a11y"));
     expect(onSend).toHaveBeenCalledTimes(1);
   });
 
   it("shows an immediate locating status without clearing the draft", async () => {
     const { getByTestId } = await render(
-      <ChatComposer
-        {...baseProps}
-        input="coffee near me"
-        sendBusy
-        sendStatus="chat.locating"
-      />,
+      <DraftHarness input="coffee near me">
+        <ChatComposer
+          {...baseProps}
+          sendBusy
+          sendStatus="chat.locating"
+        />
+      </DraftHarness>,
     );
 
     expect(getByTestId("chat-composer-input").props.value).toBe("coffee near me");
@@ -232,21 +240,16 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("returns an expanded multiline input to its default height after send", async () => {
-    function Harness() {
-      const [input, setInput] = useState(
-        "A long message that wraps across several lines in the composer before it is sent.",
-      );
-      return (
-        <ChatComposer
-          {...baseProps}
-          input={input}
-          onChangeInput={setInput}
-          onSend={() => setInput("")}
-        />
-      );
+    function SendClearsDraft() {
+      const draft = useComposerDraftApi();
+      return <ChatComposer {...baseProps} onSend={() => draft.setInput("")} />;
     }
 
-    const { getByTestId, getByLabelText } = await render(<Harness />);
+    const { getByTestId, getByLabelText } = await render(
+      <DraftHarness input="A long message that wraps across several lines in the composer before it is sent.">
+        <SendClearsDraft />
+      </DraftHarness>,
+    );
     const composerInput = getByTestId("chat-composer-input");
 
     await fireEvent(composerInput, "contentSizeChange", {
@@ -263,12 +266,12 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("grows the field when a leading Return adds a line", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
 
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     const composerInput = getByTestId("chat-composer-input");
 
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
@@ -289,7 +292,9 @@ describe("ChatComposer math keyboard", () => {
 
   it("grows to the next line when text reaches the end of the field", async () => {
     const { getByTestId } = await render(
-      <ChatComposer {...baseProps} input={"a".repeat(40)} />,
+      <DraftHarness input={"a".repeat(40)}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
     expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 24 });
 
@@ -304,12 +309,12 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("preserves leading indentation while typing a code block", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
 
-    const { getByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     const composerInput = getByTestId("chat-composer-input");
 
     await fireEvent.changeText(composerInput, " ");
@@ -320,7 +325,9 @@ describe("ChatComposer math keyboard", () => {
 
   it("bottom-aligns controls only after visible multiline text is entered", async () => {
     const { getByTestId } = await render(
-      <ChatComposer {...baseProps} input={"First line\nSecond line"} />,
+      <DraftHarness input={"First line\nSecond line"}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
 
     await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
@@ -331,7 +338,11 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("puts text beside the + until it wraps, then gives it the full width", async () => {
-    const view = await render(<ChatComposer {...baseProps} input="Hello there" />);
+    const view = await render(
+      <DraftHarness input="Hello there">
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     const row = () => view.getByTestId("composer-input-row");
     await fireEvent(view.getByTestId("chat-composer-input"), "layout", {
       nativeEvent: { layout: { width: 200, height: 24 } },
@@ -340,7 +351,9 @@ describe("ChatComposer math keyboard", () => {
     expect(view.queryByTestId("composer-stacked-controls")).toBeNull();
 
     await view.rerender(
-      <ChatComposer {...baseProps} input={"A long message that wraps ".repeat(4)} />,
+      <DraftHarness input={"A long message that wraps ".repeat(4)}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
     const controls = view.getByTestId("composer-stacked-controls");
     expect(within(controls).getByTestId("composer-attachment-button")).toBeTruthy();
@@ -353,17 +366,22 @@ describe("ChatComposer math keyboard", () => {
     });
     expect(view.getByTestId("composer-stacked-controls")).toBeTruthy();
 
-    await view.rerender(<ChatComposer {...baseProps} input="Hello there" />);
+    await view.rerender(
+      <DraftHarness input="Hello there">
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     expect(view.queryByTestId("composer-stacked-controls")).toBeNull();
     expect(within(row()).getByTestId("composer-attachment-button")).toBeTruthy();
   });
 
   it("offers a full-height editor when the multiline input reaches its limit", async () => {
     const { getByTestId, getByLabelText } = await render(
-      <ChatComposer
-        {...baseProps}
-        input={"A long draft\n".repeat(20)}
-      />,
+      <DraftHarness input={"A long draft\n".repeat(20)}>
+        <ChatComposer
+          {...baseProps}
+        />
+      </DraftHarness>,
     );
     const composerInput = getByTestId("chat-composer-input");
 
@@ -391,24 +409,31 @@ describe("ChatComposer math keyboard", () => {
 
   it("uses Ionicon send and stop glyphs instead of text arrows", async () => {
     const { queryByText, getByLabelText, rerender } = await render(
-      <ChatComposer {...baseProps} input="hi" />,
+      <DraftHarness input="hi">
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
     expect(queryByText("↑")).toBeNull();
     expect(getByLabelText("chat.send_a11y")).toBeTruthy();
 
-    await rerender(<ChatComposer {...baseProps} input="hi" streaming />);
+    await rerender(
+      <DraftHarness input="hi">
+        <ChatComposer {...baseProps} streaming />
+      </DraftHarness>,
+    );
     expect(queryByText("■")).toBeNull();
     expect(getByLabelText("chat.stop_a11y")).toBeTruthy();
   });
 
   it("shows the math keyboard button on an empty composer, immediately before the mic", async () => {
     const { getByTestId } = await render(
-      <ChatComposer
-        {...baseProps}
-        input=""
-        voiceAvailable
-        onVoicePress={jest.fn()}
-      />,
+      <DraftHarness input="">
+        <ChatComposer
+          {...baseProps}
+          voiceAvailable
+          onVoicePress={jest.fn()}
+        />
+      </DraftHarness>,
     );
     const row = getByTestId("composer-input-row");
     const ids: string[] = [];
@@ -427,9 +452,11 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("toggles the symbol bar and inserts a fraction at the caret", async () => {
-    const onChangeInput = jest.fn();
+    const onInput = jest.fn();
     const { getByTestId, queryByTestId } = await render(
-      <ChatComposer {...baseProps} onChangeInput={onChangeInput} />,
+      <DraftHarness onInput={onInput}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
 
     expect(queryByTestId("math-key-frac")).toBeNull();
@@ -441,29 +468,31 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-key-frac")).toBeTruthy();
 
     await fireEvent.press(getByTestId("math-key-frac"));
-    expect(onChangeInput).toHaveBeenCalledWith("$\\frac{}{}$");
+    expect(onInput).toHaveBeenCalledWith("$\\frac{}{}$");
     expect(getByTestId("math-keyboard-pad")).toBeTruthy();
   });
 
   it("switches tabs to reach trig functions", async () => {
-    const onChangeInput = jest.fn();
+    const onInput = jest.fn();
     const { getByTestId, queryByTestId } = await render(
-      <ChatComposer {...baseProps} onChangeInput={onChangeInput} />,
+      <DraftHarness onInput={onInput}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
     );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(queryByTestId("math-key-sin")).toBeNull();
     await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
     expect(getByTestId("math-key-sin")).toBeTruthy();
     await fireEvent.press(getByTestId("math-key-sin"));
-    expect(onChangeInput).toHaveBeenCalledWith("$\\sin()$");
+    expect(onInput).toHaveBeenCalledWith("$\\sin()$");
   });
 
   it("renders a trig function once, not as a doubled name", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId, getAllByTestId } = await render(<Harness />);
+    const { getByTestId, getAllByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
     await fireEvent.press(getByTestId("math-key-cos"));
@@ -471,10 +500,12 @@ describe("ChatComposer math keyboard", () => {
   });
 
   it("sends a convert prompt on Ask, not a computed answer", async () => {
-    const onChangeInput = jest.fn();
+    const onInput = jest.fn();
     const onSend = jest.fn();
     const { getByTestId, queryByTestId } = await render(
-      <ChatComposer {...baseProps} onChangeInput={onChangeInput} onSend={onSend} />,
+      <DraftHarness onInput={onInput}>
+        <ChatComposer {...baseProps} onSend={onSend} />
+      </DraftHarness>,
     );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
@@ -486,7 +517,7 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-converter-to-value").props.children).toBe("500");
     await fireEvent.press(getByTestId("math-converter-ask"));
     expect(onSend).toHaveBeenCalledWith("convert 5 m to cm");
-    expect(onChangeInput).not.toHaveBeenCalledWith("convert 5 m to cm");
+    expect(onInput).not.toHaveBeenCalledWith("convert 5 m to cm");
     expect(queryByTestId("math-converter")).toBeNull();
   });
 

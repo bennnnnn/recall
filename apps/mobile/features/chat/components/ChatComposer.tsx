@@ -88,9 +88,6 @@ export type LiveTalkComposerChrome = {
 type Props = {
   visible: boolean;
   animatedContainerStyle?: AnimatedStyle<ViewStyle>;
-  /** Tests pass these; production reads ComposerDraftContext. */
-  input?: string;
-  onChangeInput?: (text: string) => void;
   streaming: boolean;
   /** A picked file is still being prepared: Send and Attach wait for it. */
   attachPicking?: boolean;
@@ -121,8 +118,6 @@ type Props = {
 export const ChatComposer = memo(function ChatComposer({
   visible,
   animatedContainerStyle,
-  input: inputProp,
-  onChangeInput: onChangeInputProp,
   streaming,
   attachPicking = false,
   sendBusy = false,
@@ -155,10 +150,8 @@ export const ChatComposer = memo(function ChatComposer({
   const s = useMemo(() => makeChatComposerStyles(theme), [theme]);
   const draft = useComposerDraftValueOptional();
   const draftApi = useComposerDraftApiOptional();
-  const input = inputProp ?? draft?.input ?? "";
-  const onChangeInput =
-    onChangeInputProp ??
-    (draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput);
+  const input = draft?.input ?? "";
+  const onChangeInput = draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput;
   const [scanHint, setScanHint] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const math = useMathKeyboardInsert({
