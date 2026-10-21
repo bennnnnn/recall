@@ -18,7 +18,8 @@ import { linkRules } from "@/components/markdown/rules/links";
 import { listRules } from "@/components/markdown/rules/lists";
 import { tableRules } from "@/components/markdown/rules/tables";
 import { textRules } from "@/components/markdown/rules/textWithMath";
-import type { RenderRules } from "react-native-markdown-display";
+import { withStableNodeKeys } from "@/components/markdown/stableNodeKeys";
+import { renderRules as libraryRules, type RenderRules } from "react-native-markdown-display";
 
 import type { Theme } from "@/lib/theme";
 
@@ -41,6 +42,10 @@ function makeSharedRules(
   };
 }
 
+/**
+ * `rules` draw a reply; `continuedRules` draw a piece of a streaming reply
+ * whose last list goes on in the next piece (`listRules`).
+ */
 export function makeRenderRules(t: Theme, streaming = false) {
   const mdMath = makeMdMath(t);
   const mdTable = makeMdTable(t);
@@ -48,10 +53,16 @@ export function makeRenderRules(t: Theme, streaming = false) {
   const mdStyles = makeMdStyles(t);
   // A streaming reply is not yet the server's final text: no answer check in it.
   const fence = streaming ? renderStreamingFence : renderSettledFence;
-  const rules: RenderRules = {
+  const shared = {
+    ...libraryRules,
     ...makeSharedRules(t, mdTable, mdMath, mdImg, mdStyles.code_inline, streaming),
     fence,
     code_block: fence,
   };
-  return { rules, mdStyles };
+  const rules: RenderRules = withStableNodeKeys(shared);
+  const continuedRules: RenderRules = withStableNodeKeys({
+    ...shared,
+    ...listRules(t, mdMath, true),
+  });
+  return { rules, continuedRules, mdStyles };
 }

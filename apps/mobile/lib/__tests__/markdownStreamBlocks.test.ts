@@ -58,7 +58,7 @@ describe("advanceStreamBlocks", () => {
     }
   });
 
-  it("never cuts between list items so ordered numbering survives", () => {
+  it("cuts a numbered list only before item 11, where its number column is settled", () => {
     const items = Array.from(
       { length: 12 },
       (_, i) => `${i + 1}. ${"item text ".repeat(8).trim()}`,
@@ -66,24 +66,11 @@ describe("advanceStreamBlocks", () => {
     const prepared = `${items}\n\n${PARA("After the list.")}\n\ntail`;
     const state = advanceStreamBlocks(null, prepared, prepared.length);
 
-    for (const chunk of state.chunks) {
-      const t = chunk.trimEnd();
-      // A chunk may contain the whole list, but must not end mid-list.
-      if (/^\d+\.\s/m.test(chunk)) {
-        expect(/\n\d+\.\s[^\n]*$/.test(t) && !t.endsWith("After the list.")).toBe(
-          false,
-        );
-      }
-    }
-    // The list is glued together: no chunk boundary directly precedes an item
-    // other than the first.
-    const boundaries = state.chunks.map((c) => c.length);
-    let offset = 0;
-    for (const len of boundaries) {
-      offset += len;
-      const next = prepared.slice(offset, offset + 12);
-      expect(/^\d+\.\s/.test(next)).toBe(false);
-    }
+    expect(state.chunks).toHaveLength(1);
+    expect(prepared.slice(state.settledText.length).startsWith("11. ")).toBe(true);
+    // The chunk ends inside the list: it is drawn as a list that goes on.
+    expect(state.continued).toEqual([true]);
+    expect(state.listAfter[0]).toEqual({ marker: ".", next: 11, irregular: false });
   });
 
   it("respects the safeLen bound", () => {
@@ -106,7 +93,12 @@ describe("advanceStreamBlocks", () => {
   });
 
   it("starts from a clean state helper", () => {
-    expect(emptyStreamBlocksState()).toEqual({ chunks: [], settledText: "" });
+    expect(emptyStreamBlocksState()).toEqual({
+      chunks: [],
+      continued: [],
+      listAfter: [],
+      settledText: "",
+    });
   });
 
   it(
@@ -159,14 +151,16 @@ describe("advanceStreamBlocks", () => {
     }
   });
 
-  it("cuts only before plain text that follows a blank after a line it may end on", () => {
+  it("cuts after a blank before plain text, or before the next item of the open list", () => {
     const parts = [
       `${PARA("One.")}\n\n`,
-      // A list glues to what is around it, so neither side of it is a cut.
-      "- a\n\n  more\n\n- b\n\n",
+      // A list's next item may start a chunk; its continuation paragraph may not.
+      "- a\n\n  more\n\n",
+      "- b\n\n",
       `${PARA("Two.")}\n\n`,
       // A one-line $$…$$ is a rich block: the next safe boundary cuts.
       "Inline $$a$$ here.\n\n",
+      // After a quote or a table, plain text past a blank line starts a new block.
       "Short.\n\n",
       "> q\n\n",
       `${PARA("Three.")}\n\n`,
@@ -176,13 +170,91 @@ describe("advanceStreamBlocks", () => {
     const prepared = parts.join("");
     const state = advanceStreamBlocks(null, prepared, prepared.length);
 
-    expect(state.chunks).toEqual([parts.slice(0, 4).join("")]);
-    expect(state.settledText).toBe(state.chunks[0]);
+    expect(state.chunks).toEqual([
+      parts.slice(0, 2).join(""),
+      parts.slice(2, 5).join(""),
+      parts.slice(5, 9).join(""),
+    ]);
+    expect(state.continued).toEqual([true, false, false]);
   });
 
   it("settles nothing for a negative safe length", () => {
     const prepared = `${PARA("First.")}\n\n${PARA("Second.")}\n\n`;
     const prev = emptyStreamBlocksState();
     expect(advanceStreamBlocks(prev, prepared, -5)).toBe(prev);
+  });
+});
+
+describe("advanceStreamBlocks between list items", () => {
+  const bullets = (count: number, marker = "-") =>
+    Array.from({ length: count }, (_, i) => `${marker} Item ${i + 1}: ${"words ".repeat(14).trim()}`);
+
+  it("cuts a long bullet list between items and says the list goes on", () => {
+    const prepared = `Intro.\n\n${bullets(12).join("\n")}\n\nDone.\n\ntail`;
+    const state = advanceStreamBlocks(null, prepared, prepared.length);
+
+    expect(state.chunks.length).toBeGreaterThan(1);
+    let offset = 0;
+    state.chunks.forEach((chunk, index) => {
+      offset += chunk.length;
+      if (state.continued[index]) {
+        expect(prepared.slice(offset)).toMatch(/^- Item \d+:/);
+        expect(state.listAfter[index]).toEqual({ marker: "-", next: null, irregular: false });
+      }
+    });
+    expect(state.continued.some(Boolean)).toBe(true);
+  });
+
+  it("does not continue a list across a change of bullet marker", () => {
+    const prepared = `${bullets(6, "-").join("\n")}\n${bullets(6, "*").join("\n")}\n\ntail`;
+    const state = advanceStreamBlocks(null, prepared, prepared.length);
+    let offset = 0;
+    for (const chunk of state.chunks) {
+      offset += chunk.length;
+      // The first `*` item opens a new list: never a cut that continues the `-` list.
+      expect(prepared.slice(offset).startsWith("* Item 1:")).toBe(false);
+    }
+  });
+
+  it("never cuts a numbered list whose numbers do not run on, or before item 11", () => {
+    const repeated = Array.from({ length: 14 }, () => `1. ${"step words ".repeat(10).trim()}`);
+    const short = Array.from({ length: 9 }, (_, i) => `${i + 1}. ${"step words ".repeat(10).trim()}`);
+    for (const lines of [repeated, short]) {
+      const prepared = `${lines.join("\n")}\n\ntail`;
+      expect(advanceStreamBlocks(null, prepared, prepared.length).chunks).toEqual([]);
+    }
+  });
+
+  it("does not cut a list after a line markdown may read as part of an item", () => {
+    const lines = bullets(4);
+    const prepared = `${lines[0]}\nlazy line of the first item\n${lines.slice(1).join("\n")}\n${bullets(6).join("\n")}\n\ntail`;
+    const state = advanceStreamBlocks(null, prepared, prepared.length);
+    expect(state.continued.some(Boolean)).toBe(false);
+  });
+
+  it("carries the open list across flushes", () => {
+    const lines = Array.from({ length: 14 }, (_, i) => `${i + 1}. ${"step words ".repeat(10).trim()}`);
+    const full = `${lines.join("\n")}\n\ntail`;
+    const upTo = (n: number) => `${lines.slice(0, n).join("\n")}\n`;
+    let state = advanceStreamBlocks(null, upTo(10), upTo(10).length);
+    expect(state.chunks).toEqual([]);
+    state = advanceStreamBlocks(state, upTo(13), upTo(13).length);
+    expect(state.continued).toEqual([true]);
+    expect(upTo(13).slice(state.settledText.length).startsWith("11. ")).toBe(true);
+    const final = advanceStreamBlocks(state, full, full.length);
+    expect(final.chunks.slice(0, 1)).toEqual(state.chunks);
+  });
+
+  it("drops only the chunks a rewrite changed", () => {
+    const streamed = `${PARA("First.")}\n\n${PARA("Second.")}\n\n${PARA("Third.")}\n\n`;
+    const s1 = advanceStreamBlocks(null, streamed, streamed.length);
+    expect(s1.chunks.length).toBeGreaterThan(1);
+
+    const rewritten = `${s1.chunks[0]}${PARA("Changed.")}\n\n${PARA("More.")}\n\nend`;
+    const s2 = advanceStreamBlocks(s1, rewritten, rewritten.length);
+
+    expect(s2.chunks[0]).toBe(s1.chunks[0]);
+    expect(s2.chunks.join("")).toBe(s2.settledText);
+    expect(rewritten.startsWith(s2.settledText)).toBe(true);
   });
 });

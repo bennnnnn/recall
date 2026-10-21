@@ -41,15 +41,9 @@ type Props = {
   presented?: boolean;
 };
 
-type MarkdownChunkProps = {
-  content: string;
-  rules: RenderRules;
-  mdStyles: ReturnType<typeof makeRenderRules>["mdStyles"];
-};
-
 /** What every `Markdown` of one reply is drawn with. */
 type MarkdownProps = {
-  style: MarkdownChunkProps["mdStyles"];
+  style: ReturnType<typeof makeRenderRules>["mdStyles"];
   rules: RenderRules;
   markdownit: typeof markdownItInstance;
 };
@@ -57,20 +51,23 @@ type MarkdownProps = {
 type OpenStreamRegion = ReturnType<typeof classifyOpenStreamTail>;
 
 /**
- * One settled chunk of a streaming reply. Chunk strings never change while a
- * reply streams (append-only), so each chunk parses and mounts exactly once —
- * per-flush work stays proportional to the live tail, not the whole message.
+ * One piece of a streaming reply: a settled chunk, the closed part not yet
+ * chunked, or the prose still typing. A settled chunk's string never changes
+ * while the reply streams, so it parses and mounts once. The live pieces parse
+ * on every flush, and their nodes keep their keys (`withStableNodeKeys`), so a
+ * flush updates their views instead of mounting them again.
+ *
+ * Pieces are keyed by where they start in the prepared text: when the live
+ * region is cut into a chunk, the chunk keeps the live piece's views.
  */
-const MarkdownStreamChunk = React.memo(function MarkdownStreamChunk({
+const MarkdownPiece = React.memo(function MarkdownPiece({
   content,
-  rules,
-  mdStyles,
-}: MarkdownChunkProps) {
-  return (
-    <Markdown style={mdStyles} rules={rules} markdownit={markdownItInstance}>
-      {content}
-    </Markdown>
-  );
+  md,
+}: {
+  content: string;
+  md: MarkdownProps;
+}) {
+  return <Markdown {...md}>{content}</Markdown>;
 });
 
 /** Open $$ / \[ body — native MathText until the closer arrives (no KaTeX WebView).
@@ -129,7 +126,7 @@ function openTail(
   caretOnMath: boolean,
   md: MarkdownProps,
 ): ReactNode {
-  const proseBlock = prose.trim() ? <Markdown {...md}>{prose}</Markdown> : null;
+  const proseBlock = prose.trim() ? <MarkdownPiece key="tail" content={prose} md={md} /> : null;
   if (region.kind === "math") return mathTail(region.body, caretOnMath);
   if (region.kind !== "fence") return proseBlock;
   switch (preview) {
@@ -172,13 +169,21 @@ export function MarkdownContent({
   presented = false,
 }: Props) {
   const t = useTheme();
-  const { rules, mdStyles: replyStyles } = useMemo(
+  const { rules, continuedRules, mdStyles: replyStyles } = useMemo(
     () => makeRenderRules(t, streaming),
     [t, streaming],
   );
   const mdStyles = useMemo(
     () => (compact ? compactMdStyles(replyStyles) : replyStyles),
     [compact, replyStyles],
+  );
+  const md = useMemo<MarkdownProps>(
+    () => ({ style: mdStyles, rules, markdownit: markdownItInstance }),
+    [mdStyles, rules],
+  );
+  const mdContinued = useMemo<MarkdownProps>(
+    () => ({ style: mdStyles, rules: continuedRules, markdownit: markdownItInstance }),
+    [mdStyles, continuedRules],
   );
   // Streaming input arrives already throttled at the draft→UI boundary
   // (useStreamingDraft, ~30fps), so parse immediately — a second throttle here
@@ -238,17 +243,6 @@ export function MarkdownContent({
         ? classifyOpenFencePreview(openRegion.lang, openRegion.body)
         : null;
 
-    // Key chunks by content offset + length, not index: chunks are append-only
-    // so offsets are stable while one reply streams, and a reset (new stream /
-    // regenerate) reusing the same position gets a fresh key instead of
-    // recycling a component whose memoized parse belongs to the old reply.
-    const chunkOffsets: number[] = [];
-    let chunkOffset = 0;
-    for (const chunk of blocks.chunks) {
-      chunkOffsets.push(chunkOffset);
-      chunkOffset += chunk.length;
-    }
-
     const proseTail =
       openRegion.kind === "fence" && fencePreview === "prose"
         ? draftFenceProseText(openRegion.body)
@@ -263,21 +257,25 @@ export function MarkdownContent({
     const caretOnMath =
       caretHost === "after" &&
       (openRegion.kind === "math" || fencePreview === "math");
-
-    const md: MarkdownProps = { style: mdStyles, rules, markdownit: markdownItInstance };
+    // One keyed list, so the chunk cut from the live piece keeps its views.
+    const pieces: { start: number; content: string; continued: boolean }[] = [];
+    let start = 0;
+    blocks.chunks.forEach((chunk, index) => {
+      pieces.push({ start, content: chunk, continued: blocks.continued[index] === true });
+      start += chunk.length;
+    });
+    if (unsettledShown) pieces.push({ start: settledEnd, content: unsettledShown, continued: false });
 
     return (
       <HtmlPreviewFilesProvider files={previewFiles}>
         <View style={leadingOffset}>
-        {blocks.chunks.map((chunk, index) => (
-          <MarkdownStreamChunk
-            key={`chunk-${chunkOffsets[index]}-${chunk.length}`}
-            content={chunk}
-            rules={rules}
-            mdStyles={mdStyles}
+        {pieces.map((piece) => (
+          <MarkdownPiece
+            key={`piece-${piece.start}`}
+            content={piece.content}
+            md={piece.continued ? mdContinued : md}
           />
         ))}
-        {unsettledShown ? <Markdown {...md}>{unsettledShown}</Markdown> : null}
         {openTail(openRegion, fencePreview, proseShown, caretOnMath, md)}
         {caretHost === "after" && !caretOnMath ? <StreamingCursor /> : null}
         </View>
@@ -288,9 +286,7 @@ export function MarkdownContent({
   return (
     <HtmlPreviewFilesProvider files={previewFiles}>
       <View style={leadingOffset}>
-        <Markdown style={mdStyles} rules={rules} markdownit={markdownItInstance}>
-          {prepared}
-        </Markdown>
+        <Markdown {...md}>{prepared}</Markdown>
       </View>
     </HtmlPreviewFilesProvider>
   );

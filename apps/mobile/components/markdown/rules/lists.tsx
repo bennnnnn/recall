@@ -8,6 +8,7 @@ import {
   bulletDiscMetrics,
   immediateAncestorType,
   isLastListItem,
+  isLastRootBlock,
   listItemDisplayNumber,
   listItemHasNestedList,
   listItemOpensWithTitle,
@@ -33,7 +34,19 @@ function bulletDiscStyle(): ViewStyle {
   return { width: size, height: size, marginTop: top };
 }
 
-export function listRules(t: Theme, mdMath: MdMathStyles) {
+/** A list's end: no gap under it, its last item flush. */
+const OPEN_LIST_END = { marginBottom: 0 };
+
+/**
+ * `continuesBelow`: this markdown is one piece of a streaming reply cut
+ * between two items of a list (lib/markdown/streamBlocks.ts). The list that
+ * ends the piece goes on in the next piece, so it is drawn without its end
+ * (its last item keeps the item gap, the list adds none), and the two pieces
+ * read as the one list they are.
+ */
+export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false) {
+  const listGoesOn = (list: unknown, ancestors: unknown[]) =>
+    continuesBelow && isLastRootBlock(list, ancestors);
   return {
     list_item: (
       node: AstNode & { index: number; markup?: string },
@@ -44,7 +57,9 @@ export function listRules(t: Theme, mdMath: MdMathStyles) {
       const task = taskChecked(node);
       const itemStyle = [
         styles._VIEW_SAFE_list_item as object,
-        isLastListItem(parent, node.index) && (styles.lastListItem as object),
+        isLastListItem(parent, node.index) &&
+          !listGoesOn(parent[0], parent.slice(1)) &&
+          (styles.lastListItem as object),
       ];
       if (parentHasType(parent, "bullet_list") && task !== null) {
         if (task) {
@@ -151,14 +166,16 @@ export function listRules(t: Theme, mdMath: MdMathStyles) {
     bullet_list: (
       node: AstNode,
       children: ReactNode,
-      parent: unknown,
+      parent: unknown[],
       styles: StyleMap,
     ) => (
       <View
         key={node.key}
+        testID="md-bullet-list"
         style={[
           styles._VIEW_SAFE_bullet_list as object,
           parentHasType(parent, "list_item") && (styles.nestedList as object),
+          listGoesOn(node, parent) && OPEN_LIST_END,
         ]}
       >
         {children}
@@ -167,14 +184,16 @@ export function listRules(t: Theme, mdMath: MdMathStyles) {
     ordered_list: (
       node: AstNode,
       children: ReactNode,
-      parent: unknown,
+      parent: unknown[],
       styles: StyleMap,
     ) => (
       <View
         key={node.key}
+        testID="md-ordered-list"
         style={[
           styles._VIEW_SAFE_ordered_list as object,
           parentHasType(parent, "list_item") && (styles.nestedList as object),
+          listGoesOn(node, parent) && OPEN_LIST_END,
         ]}
       >
         {children}

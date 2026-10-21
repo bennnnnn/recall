@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { ScrollView, Text, useWindowDimensions, View } from "react-native";
 
 import { inlineMathNeedsScroll, layoutMath } from "@/lib/math/layout";
@@ -27,7 +27,15 @@ type Props = {
 };
 
 
-export function MathText({ latex, textColor, compact = false, fontSize = 16, scrollOverflow = false }: Props) {
+/** Memoized: a markdown run re-renders on every streamed flush, and its unchanged formulas
+ * keep their layout instead of being laid out again. */
+export const MathText = memo(function MathText({
+  latex,
+  textColor,
+  compact = false,
+  fontSize = 16,
+  scrollOverflow = false,
+}: Props) {
   const theme = useTheme();
   const color = textColor ?? theme.text;
   const { fontScale, width: windowWidth } = useWindowDimensions();
@@ -129,4 +137,4 @@ export function MathText({ latex, textColor, compact = false, fontSize = 16, scr
       {runs}
     </Text>
   );
-}
+});

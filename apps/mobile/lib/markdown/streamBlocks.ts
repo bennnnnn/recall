@@ -15,27 +15,55 @@
 export type StreamBlocksState = {
   /** Settled chunks; their concatenation is exactly `settledText`. */
   chunks: string[];
+  /**
+   * Per chunk: it ends between two items of one list, so its last list
+   * continues in the next chunk and is drawn without a list's end (see
+   * `markdownRenderRules`).
+   */
+  continued: boolean[];
+  /** Per chunk: the list still open where it ends. */
+  listAfter: (OpenList | null)[];
   /** Prefix of the prepared streaming text covered by `chunks`. */
   settledText: string;
 };
 
+/**
+ * The top-level list the scan is in. A numbered list's `next` is the number
+ * its next item shows (markdown numbers items from the first one, whatever
+ * they say). `irregular`: a line markdown may read either way, or numbering
+ * that does not run on, so no cut is made in this list.
+ */
+export type OpenList = { marker: string; next: number | null; irregular: boolean };
+
 /** Group small blocks together so long replies don't spawn hundreds of renderers. */
 export const MIN_SETTLED_CHUNK_CHARS = 320;
+
+/**
+ * A numbered list's number column is as wide as its largest number. A chunk
+ * that ends at item 10 or later already has the width every item up to 99
+ * shares, so the items after it cannot widen the column the chunk drew.
+ */
+const MIN_NUMBERED_CUT = 11;
+const MAX_NUMBERED_CUT = 99;
 
 const LIST_LINE_RE = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:\s|$)/;
 const TABLE_LINE_RE = /^ {0,3}\|/;
 const QUOTE_LINE_RE = /^ {0,3}>/;
 const CONTINUATION_LINE_RE = /^(?: {2,}|\t)/;
 const FENCE_LINE_RE = /^(?:```|~~~)/;
+const BULLET_ITEM_RE = /^([-*+])[ \t]/;
+const NUMBERED_ITEM_RE = /^(\d{1,9})([.)])[ \t]/;
+const THEMATIC_BREAK_RE = /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 
 function isBlankLine(line: string): boolean {
   return line.trim().length === 0;
 }
 
 /**
- * Lines that glue to their neighbours across blank lines: cutting beside them
- * would restart ordered-list numbering, split tables/quotes, or detach list
- * continuations into a separate parse.
+ * Lines that glue to their neighbours across blank lines: cutting before them
+ * would split a list, table or quote, or detach a list continuation into a
+ * separate parse. (Between two items of one list is the one exception; see
+ * `listItemCut`.)
  */
 function isGlueyLine(line: string): boolean {
   return (
@@ -57,7 +85,7 @@ function countDoubleDollar(line: string): number {
 }
 
 export function emptyStreamBlocksState(): StreamBlocksState {
-  return { chunks: [], settledText: "" };
+  return { chunks: [], continued: [], listAfter: [], settledText: "" };
 }
 
 /** Where the scan stands: inside a fence or `$$` math, and what the last lines allow. */
@@ -66,6 +94,7 @@ type ScanState = {
   mathOpen: boolean;
   prevLineSafe: boolean;
   inBlankRun: boolean;
+  list: OpenList | null;
   /**
    * BUG FIX: a closed rich block (fenced code, ```math, or $$ display math)
    * sitting in the pending segment used to wait for MIN_SETTLED_CHUNK_CHARS
@@ -93,6 +122,7 @@ function trackBlockLine(state: ScanState, line: string): boolean {
     state.prevLineSafe = !state.fenceOpen;
     state.inBlankRun = false;
     state.hasRichBlockSinceChunkStart = true;
+    state.list = null;
     return true;
   }
   if (state.fenceOpen) {
@@ -106,6 +136,7 @@ function trackBlockLine(state: ScanState, line: string): boolean {
     state.prevLineSafe = !state.mathOpen;
     state.inBlankRun = false;
     state.hasRichBlockSinceChunkStart = true;
+    if (!CONTINUATION_LINE_RE.test(line)) state.list = null;
     return true;
   }
   if (state.mathOpen) {
@@ -125,6 +156,7 @@ function trackBlockLine(state: ScanState, line: string): boolean {
     state.prevLineSafe = true;
     state.inBlankRun = false;
     state.hasRichBlockSinceChunkStart = true;
+    if (!CONTINUATION_LINE_RE.test(line)) state.list = null;
     return true;
   }
 
@@ -135,21 +167,77 @@ function trackBlockLine(state: ScanState, line: string): boolean {
   return false;
 }
 
+/** The top-level list item `line` opens, if any: its marker and number. */
+function readListItem(line: string): { marker: string; number: number | null } | null {
+  if (THEMATIC_BREAK_RE.test(line)) return null;
+  const bullet = BULLET_ITEM_RE.exec(line);
+  if (bullet) return { marker: bullet[1]!, number: null };
+  const numbered = NUMBERED_ITEM_RE.exec(line);
+  if (numbered) return { marker: numbered[2]!, number: Number(numbered[1]) };
+  return null;
+}
+
+/**
+ * Follow the top-level list through a prose line; true when the line is the
+ * next item of the open list and a cut before it draws the same list.
+ */
+function listItemCut(state: ScanState, line: string): boolean {
+  const item = readListItem(line);
+  const list = state.list;
+  if (item) {
+    const sameList =
+      list != null && list.marker === item.marker && (list.next === null) === (item.number === null);
+    if (!sameList) {
+      state.list = {
+        marker: item.marker,
+        next: item.number === null ? null : item.number + 1,
+        irregular: false,
+      };
+      return false;
+    }
+    if (item.number === null) return !list.irregular;
+    const shown = list.next ?? 0;
+    list.next = shown + 1;
+    if (item.number !== shown) {
+      list.irregular = true;
+      return false;
+    }
+    return !list.irregular && shown >= MIN_NUMBERED_CUT && shown <= MAX_NUMBERED_CUT;
+  }
+  if (CONTINUATION_LINE_RE.test(line) || !list) return false;
+  if (state.inBlankRun) {
+    state.list = null;
+  } else {
+    // A lazy continuation, or a block that ends the list: either way, no cut.
+    list.irregular = true;
+  }
+  return false;
+}
+
+type Cut = { at: number; continued: boolean; listAfter: OpenList | null };
+
 /**
  * The cut points in `prepared` between `from` and `safeLen`, reading whole
  * lines only. A cut lands at the start of a prose line that follows a blank
- * run, when the line before the blank run may end a chunk and neither side
- * glues to the other, once the pending chunk is long enough or holds a
- * closed rich block. `from` is a chunk boundary, so every fence and `$$`
- * block starts closed.
+ * run, when the line before the blank run may end a chunk and the line does
+ * not glue to what came before; or before the next item of the open list.
+ * Either needs the pending chunk to be long enough or to hold a closed rich
+ * block. `from` is a chunk boundary, so every fence and `$$` block starts
+ * closed, and `list` is the list open there.
  */
-function scanClosedBlocks(prepared: string, from: number, safeLen: number): number[] {
-  const cuts: number[] = [];
+function scanClosedBlocks(
+  prepared: string,
+  from: number,
+  safeLen: number,
+  list: OpenList | null,
+): Cut[] {
+  const cuts: Cut[] = [];
   const state: ScanState = {
     fenceOpen: false,
     mathOpen: false,
     prevLineSafe: false,
     inBlankRun: false,
+    list: list ? { ...list } : null,
     hasRichBlockSinceChunkStart: false,
   };
   let chunkStart = from;
@@ -159,19 +247,18 @@ function scanClosedBlocks(prepared: string, from: number, safeLen: number): numb
     if (nl === -1 || nl >= safeLen) break;
     const line = prepared.slice(i, nl);
     if (!trackBlockLine(state, line)) {
-      const gluey = isGlueyLine(line);
-      if (
-        state.inBlankRun &&
-        state.prevLineSafe &&
-        !gluey &&
-        (i - chunkStart >= MIN_SETTLED_CHUNK_CHARS || state.hasRichBlockSinceChunkStart)
-      ) {
-        cuts.push(i);
+      const listBefore = state.list ? { ...state.list } : null;
+      const nextItem = listItemCut(state, line);
+      const longEnough =
+        i - chunkStart >= MIN_SETTLED_CHUNK_CHARS || state.hasRichBlockSinceChunkStart;
+      const afterBlock = state.inBlankRun && state.prevLineSafe && !isGlueyLine(line);
+      if (longEnough && i > chunkStart && (afterBlock || nextItem)) {
+        cuts.push({ at: i, continued: nextItem, listAfter: nextItem ? listBefore : null });
         chunkStart = i;
         state.hasRichBlockSinceChunkStart = false;
       }
       state.inBlankRun = false;
-      state.prevLineSafe = !gluey;
+      state.prevLineSafe = true;
     }
     i = nl + 1;
   }
@@ -179,17 +266,45 @@ function scanClosedBlocks(prepared: string, from: number, safeLen: number): numb
 }
 
 /** Append the chunks between consecutive cuts to the settled state. */
-function cutChunks(base: StreamBlocksState, prepared: string, cuts: number[]): StreamBlocksState {
+function cutChunks(base: StreamBlocksState, prepared: string, cuts: Cut[]): StreamBlocksState {
   const chunks = base.chunks.slice();
+  const continued = base.continued.slice();
+  const listAfter = base.listAfter.slice();
   let settledText = base.settledText;
   let chunkStart = settledText.length;
   for (const cut of cuts) {
-    const chunk = prepared.slice(chunkStart, cut);
+    const chunk = prepared.slice(chunkStart, cut.at);
     chunks.push(chunk);
+    continued.push(cut.continued);
+    // The list this chunk leaves open is the one the next chunk starts in.
+    listAfter.push(cut.listAfter);
     settledText += chunk;
-    chunkStart = cut;
+    chunkStart = cut.at;
   }
-  return { chunks, settledText };
+  return { chunks, continued, listAfter, settledText };
+}
+
+/**
+ * The chunks of `state` that `prepared` still starts with: a preprocess pass
+ * that rewrote earlier text drops the chunks from there on, not all of them.
+ */
+function keptPrefix(state: StreamBlocksState, prepared: string): StreamBlocksState {
+  if (prepared.startsWith(state.settledText)) return state;
+  let keep = 0;
+  let length = 0;
+  while (
+    keep < state.chunks.length &&
+    prepared.startsWith(state.chunks[keep]!, length)
+  ) {
+    length += state.chunks[keep]!.length;
+    keep += 1;
+  }
+  return {
+    chunks: state.chunks.slice(0, keep),
+    continued: state.continued.slice(0, keep),
+    listAfter: state.listAfter.slice(0, keep),
+    settledText: state.settledText.slice(0, length),
+  };
 }
 
 /**
@@ -198,21 +313,20 @@ function cutChunks(base: StreamBlocksState, prepared: string, cuts: number[]): S
  * `safeLen` bounds settling to the region whose preprocessing is final
  * (the prepared-stable prefix); the remainder stays in the live tail.
  * If `prepared` no longer extends the settled prefix (new stream, or a
- * preprocess pass rewrote earlier text) the state resets and re-chunks.
+ * preprocess pass rewrote earlier text) the chunks from the first one that
+ * changed are dropped and cut again.
  */
 export function advanceStreamBlocks(
   prev: StreamBlocksState | null,
   prepared: string,
   safeLen: number,
 ): StreamBlocksState {
-  let base = prev ?? emptyStreamBlocksState();
-  if (!prepared.startsWith(base.settledText)) {
-    base = emptyStreamBlocksState();
-  }
+  const base = keptPrefix(prev ?? emptyStreamBlocksState(), prepared);
 
   const boundedSafeLen = Math.min(Math.max(safeLen, 0), prepared.length);
   if (boundedSafeLen <= base.settledText.length) return base;
 
-  const cuts = scanClosedBlocks(prepared, base.settledText.length, boundedSafeLen);
+  const openList = base.listAfter[base.listAfter.length - 1] ?? null;
+  const cuts = scanClosedBlocks(prepared, base.settledText.length, boundedSafeLen, openList);
   return cuts.length > 0 ? cutChunks(base, prepared, cuts) : base;
 }

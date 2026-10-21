@@ -1,5 +1,6 @@
 import { preprocessMarkdown, type PreprocessOptions } from "@/lib/markdown/preprocess";
 import { presentStreamTail } from "@/lib/markdown/presentation";
+import { advanceSegmentedPrefix, type SegmentedPrefix } from "@/lib/markdown/segmentedPreprocess";
 
 export type StreamingPreprocessCache = {
   /** Raw byte length covered by `preparedStable`. */
@@ -15,6 +16,10 @@ export type StreamingPreprocessCache = {
   scanState: StableScanState | null;
   /** `preparedStable` was prepared as server-presented text (PreprocessOptions). */
   presented: boolean;
+  /** The stable prefix in parts, each preprocessed once (segmentedPreprocess.ts). */
+  segments?: SegmentedPrefix | null;
+  /** The maths formatter `segments` were preprocessed with. */
+  mathFormat?: (expr: string) => string;
 };
 
 /**
@@ -315,10 +320,12 @@ function scanStableMarkdownPrefix(
 
 /**
  * Incrementally preprocess append-only streaming markdown.
- * Stable prefix is fully preprocessed; the trailing unstable region stays raw
- * until it closes (or the stream ends and a full preprocess runs). The text
- * still streaming is the model's own and is presented here; `presented` text
- * is a saved row held in stream layout while it settles.
+ * The stable prefix is preprocessed exactly as `preprocessMarkdown` would the
+ * whole of it, in parts that each run once (segmentedPreprocess.ts), so a
+ * flush costs the new text rather than the reply. The trailing unstable region
+ * stays raw until it closes (or the stream ends and a full preprocess runs).
+ * The text still streaming is the model's own and is presented here;
+ * `presented` text is a saved row held in stream layout while it settles.
  */
 export function preprocessMarkdownForStream(
   content: string,
@@ -337,28 +344,23 @@ export function preprocessMarkdownForStream(
     };
   }
 
-  if (stableLen === content.length) {
-    const prepared = preprocessMarkdown(content, mathFormat, options);
-    return {
-      prepared,
-      cache: { rawStableLen: stableLen, preparedStable: prepared, scanState, presented },
-    };
-  }
-
-  const stableRaw = content.slice(0, stableLen);
-  let preparedStable = cache?.preparedStable ?? "";
-  if (
-    !cache ||
-    cache.presented !== presented ||
-    cache.rawStableLen !== stableLen ||
-    content.slice(0, cache.rawStableLen) !== stableRaw
-  ) {
-    preparedStable = preprocessMarkdown(stableRaw, mathFormat, options);
-  }
-
+  const reusable = cache && cache.presented === presented && cache.mathFormat === mathFormat;
+  const { prefix, preparedStable } = advanceSegmentedPrefix(
+    reusable ? (cache.segments ?? null) : null,
+    content,
+    stableLen,
+    (raw) => preprocessMarkdown(raw, mathFormat, options),
+  );
   const tail = content.slice(stableLen);
   return {
     prepared: preparedStable + presentStreamTail(tail, presented),
-    cache: { rawStableLen: stableLen, preparedStable, scanState, presented },
+    cache: {
+      rawStableLen: stableLen,
+      preparedStable,
+      scanState,
+      presented,
+      segments: prefix,
+      mathFormat,
+    },
   };
 }

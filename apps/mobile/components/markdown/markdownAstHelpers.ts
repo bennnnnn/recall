@@ -126,6 +126,13 @@ export function isLastListItem(parent: unknown, index: number): boolean {
   return count > 0 && index === count - 1;
 }
 
+/** `node` is a block of the markdown root, after every other one. */
+export function isLastRootBlock(node: unknown, ancestors: unknown): boolean {
+  if (!Array.isArray(ancestors) || ancestors.length !== 1) return false;
+  const blocks = (ancestors[0] as AstNode | undefined)?.children ?? [];
+  return blocks.length > 0 && blocks[blocks.length - 1] === node;
+}
+
 export function listItemDisplayNumber(parent: unknown, index: number): number {
   if (!Array.isArray(parent) || parent.length === 0) return index + 1;
   const list = parent[0] as { attributes?: { start?: number } };
