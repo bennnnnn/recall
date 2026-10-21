@@ -408,8 +408,7 @@ function interiorLineBlocksFold(line: string): boolean {
   if (
     stripped.startsWith("|") ||
     stripped.startsWith("#") ||
-    stripped.startsWith("```") ||
-    stripped.startsWith("~~~") ||
+    readFenceMarker(stripped) != null ||
     stripped.startsWith("- ") ||
     stripped.startsWith("* ") ||
     stripped.startsWith("+ ")

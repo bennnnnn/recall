@@ -15,13 +15,23 @@ from app.modules.chat.calculation_layout import layout_calculations
 from app.modules.chat.inline_boundaries import repair_inline_token_boundaries
 from app.modules.chat.notation_spans import code_notation
 from app.modules.chat.repl_transcript import fence_repl_transcripts
+from app.services.answer_fence import ANSWER_FENCE_LANGS, VERIFIED_ANSWER_MARKER
+from app.services.md_fence_scan import iter_fences
 
 _WHY_QUESTION = re.compile(r"\b(?:why|explain)\b", re.IGNORECASE)
 _BARE_NUMBER_LINE = re.compile(r"\d+(?:\.\d+)?")
-_LEADING_NUMBER_FENCE = re.compile(
-    r"\A```(?:answer|result|final)\n(?:verified: true\n)?\s*\d+(?:\.\d+)?\s*\n```\s*",
-    re.IGNORECASE,
-)
+
+
+def _without_leading_number_card(reply: str) -> str:
+    """The reply without an answer card that opens it holding only a number."""
+    fence = next(iter_fences(reply), None)
+    if fence is None or fence.start or not fence.closed or fence.lang not in ANSWER_FENCE_LANGS:
+        return reply
+    rows = [row.strip() for row in reply[fence.body_start : fence.body_end].split("\n")]
+    rows = [row for row in rows if row and row.lower() != VERIFIED_ANSWER_MARKER]
+    if len(rows) != 1 or not _BARE_NUMBER_LINE.fullmatch(rows[0]):
+        return reply
+    return reply[fence.end :]
 
 
 def drop_orphan_leading_answer(reply: str, user_text: str) -> str:
@@ -34,7 +44,7 @@ def drop_orphan_leading_answer(reply: str, user_text: str) -> str:
         return reply
     if _WHY_QUESTION.search(user_text) is None:
         return reply
-    text = _LEADING_NUMBER_FENCE.sub("", reply, count=1).lstrip()
+    text = _without_leading_number_card(reply).lstrip()
     lines = text.split("\n")
     index = 0
     while index < len(lines) and not lines[index].strip():

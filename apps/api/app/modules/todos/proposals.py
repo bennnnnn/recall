@@ -26,12 +26,12 @@ from app.modules.todos import repository as todos_repo
 from app.modules.todos.recurrence import next_recurring_due
 from app.modules.todos.write_log import PlannedWrite
 from app.repositories import messages as messages_repo
+from app.services.md_fence_scan import map_fence_blocks, strip_closed_fences
 
 logger = logging.getLogger(__name__)
 
 PROPOSAL_TTL_SECONDS = 24 * 60 * 60
 FENCE_LANG = "reminder_proposal"
-_FENCE_RE = re.compile(r"```reminder_proposal[ \t]*\n(.*?)\n?```", re.DOTALL)
 _MESSAGE_SCAN_LIMIT = 30
 # Only these row fields are ever written from a stored proposal.
 _WRITABLE = frozenset(
@@ -231,17 +231,17 @@ async def _apply(session: AsyncSession, user_id: UUID, stored: _Stored) -> None:
 def mark_saved(content: str, proposal_id: str) -> str:
     """The reply with this proposal's card marked saved."""
 
-    def replace(match: re.Match[str]) -> str:
+    def replace(body: str) -> str:
         try:
-            card = json.loads(match.group(1))
+            card = json.loads(body)
         except json.JSONDecodeError:
-            return match.group(0)
-        if not isinstance(card, dict) or card.get("proposal_id") != proposal_id:
-            return match.group(0)
-        card["status"] = "saved"
-        return f"```{FENCE_LANG}\n{json.dumps(card, ensure_ascii=False)}\n```"
+            card = None
+        if isinstance(card, dict) and card.get("proposal_id") == proposal_id:
+            card["status"] = "saved"
+            body = json.dumps(card, ensure_ascii=False)
+        return f"```{FENCE_LANG}\n{body.strip()}\n```"
 
-    return _FENCE_RE.sub(replace, content)
+    return map_fence_blocks(content, lambda _fence, body: replace(body), lang=FENCE_LANG)
 
 
 async def _mark_saved_in_chat(session: AsyncSession, chat_id: UUID, proposal_id: str) -> None:
@@ -310,7 +310,7 @@ def strip_cards(text: str) -> str:
     """Drop cards from model output: only the server writes one, with a stored id."""
     if f"```{FENCE_LANG}" not in text:
         return text
-    return re.sub(r"\n{3,}", "\n\n", _FENCE_RE.sub("", text)).strip()
+    return re.sub(r"\n{3,}", "\n\n", strip_closed_fences(text, FENCE_LANG)).strip()
 
 
 def cards_as_text(content: str) -> str:
@@ -323,9 +323,9 @@ def cards_as_text(content: str) -> str:
         return content
     from app.modules.todos.reminder_writes import result_prefix
 
-    def replace(match: re.Match[str]) -> str:
+    def replace(body: str) -> str:
         try:
-            card = json.loads(match.group(1))
+            card = json.loads(body)
             items = [CardItem.model_validate(item) for item in card.get("items", [])]
         except (json.JSONDecodeError, ValidationError, AttributeError):
             return ""
@@ -339,7 +339,7 @@ def cards_as_text(content: str) -> str:
             return text
         return f"Card offered, not yet tapped — {text}"
 
-    return _FENCE_RE.sub(replace, content)
+    return map_fence_blocks(content, lambda _fence, body: replace(body), lang=FENCE_LANG)
 
 
 def is_card_line(line: str, writes: list[PlannedWrite]) -> bool:

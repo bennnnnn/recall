@@ -16,6 +16,8 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
+from app.services.md_fence_scan import line_fences
+
 # The app's own result line: "Set: gym — Thursday, 6:00 PM.", "Added: milk".
 CLAIM_LINE_RE = re.compile(
     r"^(?:added|set|moved|deleted|done|reopened|scheduled|saved|created|date removed)\s*:\s+\S",
@@ -117,15 +119,14 @@ _WORD_RE = re.compile(r"[^\W_]")
 
 def without_claim_lines(lines: list[str]) -> list[str]:
     """Drop "Added: …" lines outside code fences; a ``done: false`` field stays."""
-    kept: list[str] = []
-    in_code = False
-    for line in lines:
-        if line.lstrip().startswith("```"):
-            in_code = not in_code
-        elif not in_code and CLAIM_LINE_RE.match(line.strip()):
-            continue
-        kept.append(line)
-    return kept
+    if not lines:
+        return []
+    owners = line_fences("\n".join(lines))
+    return [
+        line
+        for line, fence in zip(lines, owners, strict=True)
+        if fence is not None or not CLAIM_LINE_RE.match(line.strip())
+    ]
 
 
 def without_claims(text: str, titles: Iterable[str] = ()) -> str:
@@ -137,11 +138,8 @@ def without_claims(text: str, titles: Iterable[str] = ()) -> str:
     """
     named = tuple(title.strip().lower() for title in titles if len(title.strip()) >= 3)
     kept: list[str] = []
-    in_code = False
-    for line in text.split("\n"):
-        fence = line.lstrip().startswith("```")
-        in_code = in_code != fence
-        cleaned = line if in_code or fence else _line_without_claims(line, named)
+    for line, fence in zip(text.split("\n"), line_fences(text), strict=True):
+        cleaned = line if fence is not None else _line_without_claims(line, named)
         if cleaned is not None:
             kept.append(cleaned)
     body = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()

@@ -787,6 +787,30 @@
       "expected": "~~~\na = b = c\n~~~"
     },
     {
+      "id": "tilde-fence-holds-backticks",
+      "area": "fences",
+      "input": "~~~\n```python\nx = a = b\n```\n~~~",
+      "expected": "~~~\n```python\nx = a = b\n```\n~~~"
+    },
+    {
+      "id": "short-closer-does-not-close",
+      "area": "fences",
+      "input": "````\na = b = c\n```\nstill = code = here\n````",
+      "expected": "````\na = b = c\n```\nstill = code = here\n````"
+    },
+    {
+      "id": "indented-four-is-not-a-fence",
+      "area": "fences",
+      "input": "Before:\n\n    ```\n    a = b\n    ```\n\nAfter.",
+      "expected": "Before:\n\n    ```\n    a = b\n    ```\n\nAfter."
+    },
+    {
+      "id": "quoted-fence-is-quoted",
+      "area": "fences",
+      "input": "> ```\n> a = b = c\n> ```",
+      "expected": "> ```\n> a = b = c\n> ```"
+    },
+    {
       "id": "text-fence-left-alone",
       "area": "fences",
       "input": "```text\nv = d/t = 5\n```",

@@ -18,6 +18,7 @@ from app.modules.chat.prompt_constants.routing import (
     is_personal_disclosure_turn,
 )
 from app.modules.chat.prompt_constants.writing_kind import writing_request_kind
+from app.services.md_fence_scan import read_fence_marker
 from app.services.problem_followup import message_role_content
 from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
@@ -400,9 +401,9 @@ def accepted_questions(
 
 
 def answer_excerpt(answer: str) -> str:
-    text = re.sub(r"```[a-z0-9_-]*", " ", answer, flags=re.IGNORECASE)
-    text = text.replace("```", " ")
-    return collapse_ws(text)[:_ANSWER_CHARS]
+    # The fence lines go; a code block's body reads as text.
+    lines = [line for line in answer.split("\n") if read_fence_marker(line, lenient=True) is None]
+    return collapse_ws(" ".join(lines).replace("```", " "))[:_ANSWER_CHARS]
 
 
 # A line that asks for something to know: a question, or "explain", "tips for".

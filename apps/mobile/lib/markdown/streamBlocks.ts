@@ -12,6 +12,8 @@
  * never changes, so its parse/render is done exactly once.
  */
 
+import { fenceAfterLine, type OpenFence } from "@/lib/mdFenceScan";
+
 export type StreamBlocksState = {
   /** Settled chunks; their concatenation is exactly `settledText`. */
   chunks: string[];
@@ -26,7 +28,6 @@ const LIST_LINE_RE = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:\s|$)/;
 const TABLE_LINE_RE = /^ {0,3}\|/;
 const QUOTE_LINE_RE = /^ {0,3}>/;
 const CONTINUATION_LINE_RE = /^(?: {2,}|\t)/;
-const FENCE_LINE_RE = /^(?:```|~~~)/;
 
 function isBlankLine(line: string): boolean {
   return line.trim().length === 0;
@@ -62,7 +63,8 @@ export function emptyStreamBlocksState(): StreamBlocksState {
 
 /** Where the scan stands: inside a fence or `$$` math, and what the last lines allow. */
 type ScanState = {
-  fenceOpen: boolean;
+  /** Tracked open and closed, as `scanFences` reads fences: a ``` inside ~~~ is content. */
+  openFence: OpenFence | null;
   mathOpen: boolean;
   prevLineSafe: boolean;
   inBlankRun: boolean;
@@ -88,15 +90,17 @@ type ScanState = {
  * say so; a plain prose line (false) is where a cut may land.
  */
 function trackBlockLine(state: ScanState, line: string): boolean {
-  if (FENCE_LINE_RE.test(line)) {
-    state.fenceOpen = !state.fenceOpen;
-    state.prevLineSafe = !state.fenceOpen;
+  const before = state.openFence;
+  state.openFence = fenceAfterLine(before, line);
+  if (before != null && state.openFence != null) {
     state.inBlankRun = false;
-    state.hasRichBlockSinceChunkStart = true;
     return true;
   }
-  if (state.fenceOpen) {
+  if (before != null || state.openFence != null) {
+    // The fence's opener or its closer.
+    state.prevLineSafe = state.openFence == null;
     state.inBlankRun = false;
+    state.hasRichBlockSinceChunkStart = true;
     return true;
   }
 
@@ -146,7 +150,7 @@ function trackBlockLine(state: ScanState, line: string): boolean {
 function scanClosedBlocks(prepared: string, from: number, safeLen: number): number[] {
   const cuts: number[] = [];
   const state: ScanState = {
-    fenceOpen: false,
+    openFence: null,
     mathOpen: false,
     prevLineSafe: false,
     inBlankRun: false,

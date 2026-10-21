@@ -55,12 +55,18 @@ describe("markdownPreprocessStream", () => {
     expect(findStableMarkdownPrefixLen(input)).toBe(input.length);
   });
 
-  it("treats ``` and ~~~ as interchangeable fence markers", () => {
-    // A fence opened with ``` can be closed with ~~~ and vice versa per
-    // CommonMark; the scanner must not treat a ~~~ line as "outside a fence"
-    // when the fence was opened with ```.
+  it("does not let a ~~~ line close a ``` fence", () => {
+    // CommonMark: a closer repeats the opener's character, so the ```python fence is
+    // still open (markdown-it draws "Done." as code) and nothing after it is stable.
     const input = "Intro\n\n```python\nprint('hi')\n~~~\n\nDone.\n";
+    expect(findStableMarkdownPrefixLen(input)).toBe("Intro\n\n".length);
+  });
+
+  it("reads a ``` line inside a ~~~ block as its content (audit DUP-03)", () => {
+    // Counting fence lines by parity left this how-to unstable to the end.
+    const input = "Intro\n\n~~~\n```python\n~~~\n\nDone.\n";
     expect(findStableMarkdownPrefixLen(input)).toBe(input.length);
+    expect(preprocessMarkdownForStream(input, null).cache.rawStableLen).toBe(input.length);
   });
 
   it("reuses cached stable output and leaves the unstable tail raw", () => {

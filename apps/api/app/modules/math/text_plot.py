@@ -12,7 +12,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_FENCE = re.compile(r"^\s*```\s*([A-Za-z0-9_+-]*)\s*$")
+from app.services.md_fence_scan import line_fences
+
 # A plain block may hold a sketch; a tagged one (graph, math, python) never does.
 _PLAIN_FENCE_TAGS = frozenset({"", "text", "txt", "plaintext", "ascii"})
 _WORD = re.compile(r"[A-Za-z]{3,}")
@@ -42,6 +43,7 @@ def _is_text_plot(rows: list[str]) -> bool:
 def strip_text_plots(content: str) -> str:
     """Remove every sketch drawn in characters: a plain fenced block or a run of rows."""
     lines = content.split("\n")
+    owners = line_fences(content)
     kept: list[str] = []
     run: list[str] = []
 
@@ -53,15 +55,15 @@ def strip_text_plots(content: str) -> str:
     i = 0
     while i < len(lines):
         line = lines[i]
-        fence = _FENCE.match(line)
+        fence = owners[i]
         if fence is not None:
             flush_run()
-            close = next(
-                (j for j in range(i + 1, len(lines)) if _FENCE.match(lines[j])), len(lines) - 1
-            )
+            close = i
+            while close + 1 < len(lines) and owners[close + 1] is fence:
+                close += 1
             block = lines[i : close + 1]
-            body = [row for row in lines[i + 1 : close] if row.strip()]
-            if not (fence.group(1).lower() in _PLAIN_FENCE_TAGS and _is_text_plot(body)):
+            body = [row for row in block[1 : -1 if fence.closed else None] if row.strip()]
+            if not (fence.lang in _PLAIN_FENCE_TAGS and _is_text_plot(body)):
                 kept.extend(block)
             i = close + 1
             continue

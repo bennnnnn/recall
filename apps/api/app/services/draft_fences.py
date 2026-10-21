@@ -8,16 +8,24 @@ change or a new topic.
 
 from __future__ import annotations
 
-import re
+from app.services.md_fence_scan import iter_fences
 
 # The draft fences the mobile fence registry draws as copy cards.
-DRAFT_FENCE = re.compile(
-    r"^```(email|message|sms|reply|copy|twitter|tweet|x|linkedin|facebook|fb|instagram|"
-    r"insta|ig|tiktok|threads|caption|social)[ \t]*$",
-    re.IGNORECASE | re.MULTILINE,
-)
+DRAFT_LANGS = frozenset(
+    {
+        "email", "message", "sms", "reply", "copy", "twitter", "tweet", "x", "linkedin",
+        "facebook", "fb", "instagram", "insta", "ig", "tiktok", "threads", "caption", "social",
+    }
+)  # fmt: skip
+
+
+def draft_langs(text: str | None) -> list[str]:
+    """The languages of the reply's draft fences, in order."""
+    if not text:
+        return []
+    return [fence.lang for fence in iter_fences(text) if fence.lang in DRAFT_LANGS]
 
 
 def has_draft(text: str | None) -> bool:
     """True when the reply holds a send-ready draft."""
-    return bool(text and DRAFT_FENCE.search(text))
+    return bool(draft_langs(text))

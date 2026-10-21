@@ -2,7 +2,9 @@
 
 import katex from "katex";
 
+import { parseFenceLang } from "@/lib/codeHighlight";
 import { isMathFenceLang } from "@/lib/fenceRegistry";
+import { fenceAfterLine, readFenceMarker } from "@/lib/mdFenceScan";
 import { KATEX_CSS } from "@/lib/vendor/katexCss";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
 
@@ -106,13 +108,13 @@ export function markdownToStructuredPrintHtml(title: string, markdown: string): 
 
   while (i < lines.length) {
     const line = lines[i] ?? "";
-    const fence = line.match(/^```([\w-]*)\s*$/);
+    const fence = fenceAfterLine(null, line);
     if (fence) {
       flushParagraph();
-      const lang = fence[1] || "";
+      const lang = parseFenceLang(readFenceMarker(line)?.info ?? "");
       i += 1;
       const codeLines: string[] = [];
-      while (i < lines.length && !/^```\s*$/.test(lines[i] ?? "")) {
+      while (i < lines.length && fenceAfterLine(fence, lines[i] ?? "") != null) {
         codeLines.push(lines[i] ?? "");
         i += 1;
       }

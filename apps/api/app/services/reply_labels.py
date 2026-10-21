@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import re
 
+from app.services.md_fence_scan import iter_fences, line_fences
+
 # **Answer**, **Answer:**, ## Answer, Answer: — alone on its line.
 _HEADING = re.compile(r"^\s*(?:#{1,4}\s+)?(?:\*\*)?answer(?:\*\*)?\s*:?\s*(?:\*\*)?\s*:?\s*$", re.I)
 # Answer: X, **Answer:** X, **Answer**: X — a label and its value on one line.
@@ -25,10 +27,7 @@ _INLINE = re.compile(r"^\s*(?:\*\*)?answer\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(?P<val
 _PART = re.compile(
     r"^\s*(?:#{1,4}\s+)?\*\*\s*(?:part\s+\(?[a-h]\)?|\(?[a-h]\)|answer\s*\([a-h]\))", re.I
 )
-_FENCE = re.compile(r"^\s*(?:`{3,}|~{3,})")
-_WORKED = re.compile(
-    r"^\s*\*\*(?:Find|Formula|Substitution|Steps):?\*\*|^\s*(?:`{3,}|~{3,})\s*answer\b", re.I | re.M
-)
+_WORKED_HEADING = re.compile(r"^\s*\*\*(?:Find|Formula|Substitution|Steps):?\*\*", re.I | re.M)
 
 
 def _value(value: str) -> str:
@@ -42,7 +41,7 @@ def _value(value: str) -> str:
 def one_answer_label(text: str) -> str:
     """The reply with each answer labelled once (see the module docstring)."""
     lines = text.split("\n")
-    outside = _outside_fences(lines)
+    outside = {number for number, fence in enumerate(line_fences(text)) if fence is None}
     labels: list[int] = []
     for number, line in enumerate(lines):
         if number not in outside:
@@ -59,7 +58,7 @@ def one_answer_label(text: str) -> str:
             lines[number] = _value(inline.group("value"))
         else:
             labels.append(number)
-    if not _WORKED.search(text) or any(_PART.match(lines[number]) for number in outside):
+    if not _is_worked(text) or any(_PART.match(lines[number]) for number in outside):
         return "\n".join(lines)
     for number in labels[:-1]:
         inline = _INLINE.match(lines[number])
@@ -93,16 +92,8 @@ def _previous_text(lines: list[str], number: int) -> int | None:
     return None
 
 
-def _outside_fences(lines: list[str]) -> set[int]:
-    outside: set[int] = set()
-    fence: str | None = None
-    for number, line in enumerate(lines):
-        marker = _FENCE.match(line)
-        if fence is None:
-            if marker:
-                fence = marker.group(0).strip()[0] * 3
-                continue
-            outside.add(number)
-        elif marker and line.strip().startswith(fence):
-            fence = None
-    return outside
+def _is_worked(text: str) -> bool:
+    """A worked reply: a Find, Formula, Substitution or Steps heading, or a card."""
+    return _WORKED_HEADING.search(text) is not None or any(
+        fence.lang == "answer" for fence in iter_fences(text)
+    )

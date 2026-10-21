@@ -13,8 +13,7 @@ from app.modules.web_search.patterns import (
     _PRICE_RE,
 )
 from app.services.md_fence_scan import (
-    is_fence_closer,
-    next_fence_marker_line,
+    iter_fences,
     strip_closed_fences,
 )
 
@@ -257,8 +256,8 @@ def _sanitize_fence_json_text(value: str) -> str:
 
 
 def _parse_sources_json(raw: str) -> list[dict[str, str]]:
-    text = raw.strip()
-    text = re.sub(r"\s*```+\s*$", "", text).strip()
+    # A closer the model left glued to the JSON.
+    text = raw.strip().rstrip("`").strip()
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
@@ -285,29 +284,12 @@ def _strip_bare_source_array_fences(text: str) -> str:
     """Drop unlabeled ``` fences whose body is a sources JSON array."""
     pieces: list[str] = []
     index = 0
-    while True:
-        marker = next_fence_marker_line(text, index)
-        if marker is None:
-            pieces.append(text[index:])
-            break
-        start, after_opener, stripped = marker
-        lang = stripped.lstrip("`").strip()
-        if lang:
-            pieces.append(text[index:after_opener])
-            index = after_opener
-            continue
-        closer = next_fence_marker_line(text, after_opener)
-        if closer is None or not is_fence_closer(closer[2]):
-            pieces.append(text[index:after_opener])
-            index = after_opener
-            continue
-        body = text[after_opener : closer[0]]
-        if _parse_sources_json(body):
-            pieces.append(text[index:start])
-            index = closer[1]
-            continue
-        pieces.append(text[index : closer[1]])
-        index = closer[1]
+    for fence in iter_fences(text):
+        body = text[fence.body_start : fence.body_end]
+        if fence.closed and not fence.opener.info and _parse_sources_json(body):
+            pieces.append(text[index : fence.start])
+            index = fence.end
+    pieces.append(text[index:])
     return "".join(pieces)
 
 

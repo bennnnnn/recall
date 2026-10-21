@@ -2,7 +2,7 @@
   "_doc": "Files over 500 lines (docs/ENGINEERING_STANDARDS.md). 'lines' is a ceiling: the file may shrink, never grow. Tickets are in docs/ENGINEERING_STANDARDS_TICKETS.md. After a split, run scripts/check_file_sizes.py --update.",
   "files": {
     "apps/api/app/modules/chat/calculation_layout.py": {
-      "lines": 544,
+      "lines": 542,
       "why": "Over 500 before the standards; one algorithm, held to its twin by docs/fixtures/presentation_cases.json (ES-06); split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/chat/prompt_constants/format.py": {
@@ -50,7 +50,7 @@
       "why": "Exception: Law catalog; all data"
     },
     "apps/api/app/modules/math/fence.py": {
-      "lines": 642,
+      "lines": 636,
       "why": "Over 500 before the standards; tracked in ES-22"
     },
     "apps/api/app/modules/math/match/calculus.py": {
@@ -66,7 +66,7 @@
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/solve/graph.py": {
-      "lines": 584,
+      "lines": 554,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/solve/key_steps.py": {
@@ -138,15 +138,15 @@
       "why": "Exception: Regex pattern table plus thin predicates; the phone twin is under ES-07"
     },
     "apps/api/app/services/answer_check.py": {
-      "lines": 597,
+      "lines": 595,
       "why": "Over 500 before the standards; tracked in ES-01"
     },
     "apps/api/app/services/answer_fence.py": {
-      "lines": 572,
+      "lines": 569,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/services/time_context.py": {
-      "lines": 610,
+      "lines": 599,
       "why": "Over 500 before the standards; tracked in ES-04"
     },
     "apps/mobile/components/MathEquationScanner.tsx": {
@@ -182,7 +182,7 @@
       "why": "Exception: Prism grammar registration: Metro needs about 47 literal `require`s in one module"
     },
     "apps/mobile/lib/markdown/calculationLayout.ts": {
-      "lines": 523,
+      "lines": 522,
       "why": "Over 500 before the standards; one algorithm, held to its twin by docs/fixtures/presentation_cases.json (ES-06); split by responsibility after the ticketed files"
     },
     "apps/mobile/lib/math/draftSlots.ts": {

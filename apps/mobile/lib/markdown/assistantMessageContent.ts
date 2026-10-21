@@ -12,6 +12,8 @@ import { isLocationQuestion } from "@/lib/localPlacesQuery";
 import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/placesList";
 import { resolveSearchSources, stripSearchSourcesFromContent } from "@/lib/searchSources";
 import { parseMessageImages, stripLookupSourceCaption, type ParsedMessageImage } from "@/lib/messageAttachments";
+import { parseFenceLang } from "@/lib/codeHighlight";
+import { mapClosedFences } from "@/lib/mdFenceScan";
 import {
   assistantReplyIsTimeAnswer,
   extractClockTimezone,
@@ -56,8 +58,13 @@ export type AssistantMessageContent = {
  * Stored chats may still contain retired product fences (the language-learning
  * cards and the Google Calendar event proposal). Drop the JSON.
  */
-const RETIRED_FENCE =
-  /```(?:vocab_quiz|vocab_card|learning_launch|job-results|calendar_proposal)\b[^\n]*\n[\s\S]*?```/gi;
+const RETIRED_FENCE_LANGS: ReadonlySet<string> = new Set([
+  "vocab_quiz",
+  "vocab_card",
+  "learning_launch",
+  "job-results",
+  "calendar_proposal",
+]);
 
 const UNVERIFIED_RESULT_LINE =
   /[ \t]*\*?I couldn't automatically verify this result\.\*?[ \t]*/g;
@@ -69,7 +76,9 @@ function stripUnverifiedResultLine(text: string): string {
 
 function stripRetiredFences(text: string): string {
   if (!text.includes("```")) return text;
-  return text.replace(RETIRED_FENCE, "");
+  return mapClosedFences(text, (info, _body, original) =>
+    RETIRED_FENCE_LANGS.has(parseFenceLang(info)) ? "" : original,
+  );
 }
 
 function buildMarkdownContent(options: {

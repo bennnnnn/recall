@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import re
 
+from app.services.md_fence_scan import line_fences, read_fence_marker
+
 _COPY_FENCE_TAGS = frozenset(
     {"email", "message", "sms", "copy", "twitter", "linkedin", "facebook", "instagram", "social"}
 )
@@ -48,19 +50,14 @@ def strip_unrequested_recipient_placeholders(text: str, user_text: str) -> str:
         return text
 
     lines = text.split("\n")
+    owners = line_fences(text)
     out: list[str] = []
-    copy_fence = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("```"):
-            tag = stripped[3:].strip().split(maxsplit=1)[0].lower() if stripped[3:].strip() else ""
-            if copy_fence and not tag:
-                copy_fence = False
-            elif not copy_fence and tag in _COPY_FENCE_TAGS:
-                copy_fence = True
-            out.append(line)
-            continue
-        if not copy_fence:
+    for line, fence in zip(lines, owners, strict=True):
+        if (
+            fence is None
+            or fence.lang not in _COPY_FENCE_TAGS
+            or read_fence_marker(line, lenient=True)
+        ):
             out.append(line)
             continue
         match = _GREETING_SLOT.match(line)
@@ -127,17 +124,13 @@ def normalize_prose_artifacts(text: str) -> str:
     """Remove orphan colon lines and collapse excess blank lines outside fences."""
     text = _unwrap_fenced_pipe_tables(text)
     lines = text.split("\n")
+    owners = line_fences(text)
     out: list[str] = []
-    in_fence = False
     blank_run = 0
-    for line in lines:
+    for line, fence in zip(lines, owners, strict=True):
         stripped = line.strip()
-        if stripped.startswith("```"):
-            in_fence = not in_fence
+        if fence is not None:
             blank_run = 0
-            out.append(line)
-            continue
-        if in_fence:
             out.append(line)
             continue
         if stripped == ":":

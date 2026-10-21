@@ -16,7 +16,7 @@ from app.core.config import Settings
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
-from app.services.md_fence_scan import next_fence_marker_line
+from app.services.md_fence_scan import last_fence
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +31,10 @@ def drop_cut_reminder_fence(text: str) -> str:
     pass never applies an open one. Finalize closes every open fence before that
     pass runs, so the cut fence goes first (the phone hides reminder fences).
     """
-    count = 0
-    last: tuple[int, int, str] | None = None
-    while (marker := next_fence_marker_line(text, last[1] if last else 0)) is not None:
-        count += 1
-        last = marker
-    if count % 2 == 0 or last is None:
+    last = last_fence(text)
+    if last is None or last.closed or last.lang != _REMINDER_FENCE_LANG:
         return text
-    if last[2].strip("`").strip().lower() != _REMINDER_FENCE_LANG:
-        return text
-    return text[: last[0]].rstrip()
+    return text[: last.start].rstrip()
 
 
 async def apply_reminder_pass(

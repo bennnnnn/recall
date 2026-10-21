@@ -1,3 +1,9 @@
+import {
+  collectClosedFenceBodies,
+  stripClosedLangFence,
+  stripUnclosedLangTail,
+} from "@/lib/mdFenceScan";
+
 type SettingsProposalField =
   | "appearance"
   | "default_model"
@@ -17,7 +23,6 @@ export type SettingsProposal = {
   changes: SettingsProposalChange[];
 };
 
-const SETTINGS_PROPOSAL_FENCE_RE = /```settings_proposal\s*\n([\s\S]*?)```/gi;
 
 const FIELDS = new Set<SettingsProposalField>([
   "appearance",
@@ -59,11 +64,9 @@ function normalizeProposal(raw: unknown): SettingsProposal | null {
 
 export function parseSettingsProposals(content: string): SettingsProposal[] {
   const proposals: SettingsProposal[] = [];
-  const re = new RegExp(SETTINGS_PROPOSAL_FENCE_RE.source, "gi");
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(content)) !== null) {
+  for (const body of collectClosedFenceBodies(content, "settings_proposal")) {
     try {
-      const parsed = normalizeProposal(JSON.parse(match[1] ?? ""));
+      const parsed = normalizeProposal(JSON.parse(body));
       if (parsed) proposals.push(parsed);
     } catch {
       /* skip bad fence */
@@ -73,9 +76,8 @@ export function parseSettingsProposals(content: string): SettingsProposal[] {
 }
 
 export function stripSettingsProposalFences(content: string): string {
-  return content
-    .replace(SETTINGS_PROPOSAL_FENCE_RE, "")
-    .replace(/```settings_proposal[\s\S]*$/i, "")
+  const closed = stripClosedLangFence(content, "settings_proposal");
+  return stripUnclosedLangTail(closed, "settings_proposal")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

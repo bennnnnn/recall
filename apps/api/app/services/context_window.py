@@ -1,16 +1,16 @@
 """Token estimation + token-budget windowing for prompt context.
 
-Pure helpers (no app imports) so both the chat service and the background
-compaction job can share them without import cycles.
+Pure helpers (no app imports but the pure fence scanner) so both the chat service
+and the background compaction job can share them without import cycles.
 """
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any
 
-_CODE_FENCE_RE = re.compile(r"```[\s\S]*?```")
+from app.services.md_fence_scan import iter_fences
+
 _SUMMARY_MAX_CHARS = 6000
 _SUMMARY_MESSAGE_MAX_CHARS = 1200
 
@@ -70,7 +70,7 @@ def estimate_tokens(text: str | list[Any]) -> int:
         # word heuristic undercounts and lets the window grow too large.
         return max(1, len(stripped))
 
-    dense_chars = sum(len(block) for block in _CODE_FENCE_RE.findall(stripped))
+    dense_chars = sum(fence.end - fence.start for fence in iter_fences(stripped))
     plain_len = max(0, len(stripped) - dense_chars)
     words = len(stripped.split())
     char_est = plain_len / 3.6 + dense_chars / 2.5
