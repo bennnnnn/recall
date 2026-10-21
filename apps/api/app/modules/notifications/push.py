@@ -13,32 +13,25 @@ from __future__ import annotations
 
 import logging
 import time
-from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
-from sqlalchemy import false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.gateways import expo_push_gateway
-from app.models.orm import PushToken, TodoItem, User
+from app.models.orm import PushToken, TodoItem
 from app.modules.todos import (
     PUSH_REMINDERS,
-    TodoScheduleSnapshot,
+    advance_recurring_without_device,
+    aged_out_unsent,
     due_reminder_page,
     is_due_now,
-    is_recurrence_rule,
-    next_recurring_due,
+    mark_reminder_pushed,
     reminder_page_key,
-    tokenless_recurring_overdue,
-    update_schedule_if_current,
-)
-from app.modules.todos import (
-    crud as todos_crud,
 )
 from app.repositories import push_tokens as push_repo
 from app.services.reminder_timing import OVERDUE_MAX_HOURS, reminder_title
@@ -219,24 +212,7 @@ async def log_aged_unsent_reminders(
     on and a device token, count: a real delivery failure, each counted once.
     """
     when = now or datetime.now(UTC)
-    cutoff = when - timedelta(hours=OVERDUE_MAX_HOURS)
-    has_token = select(PushToken.id).where(PushToken.user_id == TodoItem.user_id).exists()
-    raw = await session.scalar(
-        select(func.count())
-        .select_from(TodoItem)
-        .join(User, User.id == TodoItem.user_id)
-        .where(
-            TodoItem.checked == false(),
-            TodoItem.due_at.isnot(None),
-            TodoItem.notification_sent_at.is_(None),
-            TodoItem.due_at < cutoff,
-            TodoItem.due_at >= cutoff - AGED_UNSENT_WINDOW,
-            User.push_notifications_enabled.is_(True),
-            User.push_reminders_enabled.is_(True),
-            has_token,
-        )
-    )
-    count = raw if isinstance(raw, int) else 0
+    count = await aged_out_unsent(session, PUSH_REMINDERS, now=when, window=AGED_UNSENT_WINDOW)
     if count:
         logger.warning(
             "Aged unsent reminders count=%s older_than_hours=%s",
@@ -309,7 +285,7 @@ async def process_todo_reminders(
 ) -> list[OutboundPush]:
     """Every due reminder's messages, page after page (the scheduler sends per page)."""
     now = now or datetime.now(UTC)
-    await advance_tokenless_recurring(session, now=now)
+    await advance_recurring_without_device(session, now=now)
     messages: list[OutboundPush] = []
     after: tuple[datetime, UUID] | None = None
     for _ in range(MAX_PUSH_PAGES_PER_CYCLE):
@@ -319,44 +295,6 @@ async def process_todo_reminders(
             break
         after = page.next_after
     return messages
-
-
-async def advance_tokenless_recurring(session: AsyncSession, *, now: datetime) -> int:
-    """Move overdue recurring to-dos of users with no device to their next occurrence."""
-    rows = [
-        (todo, user)
-        for todo, user in await tokenless_recurring_overdue(session, now=now)
-        if is_recurrence_rule(todo.recurrence_rule) and is_due_now(todo, user, now=now)
-    ]
-    if not rows:
-        return 0
-    by_timezone: dict[str | None, list[TodoItem]] = defaultdict(list)
-    for todo, user in rows:
-        by_timezone[user.timezone if isinstance(user.timezone, str) else None].append(todo)
-    for timezone, items in by_timezone.items():
-        await todos_crud._advance_past_recurring(session, items, timezone=timezone, now=now)
-    return len(rows)
-
-
-async def _mark_todo_after_successful_push(
-    session: AsyncSession,
-    todo: TodoItem,
-    *,
-    now: datetime,
-) -> bool:
-    """Apply this delivery only to the occurrence that was actually sent."""
-    snapshot = TodoScheduleSnapshot.from_todo(todo)
-    rule, due = snapshot.recurrence_rule, snapshot.due_at
-    if is_recurrence_rule(rule) and due is not None:
-        user_row = await session.get(User, snapshot.user_id)
-        timezone = getattr(user_row, "timezone", None) if user_row is not None else None
-        # A lead-time notification already consumed this occurrence, even
-        # when its due time is still in the future.
-        nxt = next_recurring_due(due, rule, now=max(now, due), timezone=timezone)
-        return await update_schedule_if_current(
-            session, snapshot, due_at=nxt, notification_sent_at=None, email_sent_at=None
-        )
-    return await update_schedule_if_current(session, snapshot, notification_sent_at=now)
 
 
 async def _finalize_push_deliveries(
@@ -375,7 +313,7 @@ async def _finalize_push_deliveries(
             todo_id = getattr(todo, "id", None)
             if todo_id is None or todo_id in todos_marked:
                 continue
-            if await _mark_todo_after_successful_push(session, todo, now=now):
+            if await mark_reminder_pushed(session, todo, now=now):
                 todos_marked.add(todo_id)
 
     if todos_marked:

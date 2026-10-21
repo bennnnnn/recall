@@ -310,14 +310,18 @@ def test_web_search_runtime_code_has_one_owner() -> None:
 
 
 def test_package_import_cannot_pull_a_private_name() -> None:
-    leaked = ast.parse("from app.modules.attachments import repository\n")
+    leaked = ast.parse(
+        "from app.modules.attachments import repository\nfrom app.modules.todos import repository\n"
+    )
     violations = _foreign_module_import_violations(leaked, owner="images", label="sample")
-    assert violations == ["sample imports repository from app.modules.attachments"]
+    assert violations == [
+        "sample imports repository from app.modules.attachments",
+        "sample imports repository from app.modules.todos",
+    ]
 
     public = ast.parse(
         "from app.modules.attachments import service\n"
-        "from app.modules.todos import snap_first_due\n"
-        "from app.modules.todos import repository\n"
+        "from app.modules.todos import mark_reminder_pushed\n"
         "from app.modules.billing import plan\n"
     )
     assert not _foreign_module_import_violations(public, owner="images", label="sample")

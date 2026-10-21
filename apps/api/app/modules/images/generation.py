@@ -25,9 +25,11 @@ from app.gateways.storage_gateway import (
 from app.models.model_catalog import get as get_model
 from app.models.model_catalog import openrouter_slug
 from app.models.orm import Attachment, Message, User
-from app.modules.attachments import service as attachments_repo
+from app.modules.attachments import service as attachments_service
 from app.modules.attachments.service import (
     MAX_ATTACHMENT_SIZE,
+    ReferenceCopy,
+    StoredImage,
     bytes_match_claimed,
     is_image_content_type,
     normalize_content_type,
@@ -143,7 +145,7 @@ async def generate_for_chat(
         cleaned = prompt.strip()
         if not cleaned:
             raise ImageGenerationError("Prompt is required", status_code=400)
-        image = await _generate_and_store(
+        stored = await _generate_and_store(
             settings,
             written,
             user_id=user.id,
@@ -153,7 +155,7 @@ async def generate_for_chat(
             copy_references=create_user_message,
         )
         user_message, assistant_message = await _persist_turn(
-            image,
+            stored,
             user_id=user.id,
             chat_id=chat_id,
             prompt=cleaned,
@@ -279,11 +281,8 @@ class _WrittenBytes:
 class _StoredImage:
     """The generated image in storage, and the reference copies written beside it."""
 
-    attachment_id: UUID
-    storage_key: str
-    content_type: str
-    size_bytes: int
-    reference_copies: list[tuple[Attachment, UUID, str]]
+    image: StoredImage
+    reference_copies: list[ReferenceCopy]
 
 
 async def _generate_and_store(
@@ -312,16 +311,15 @@ async def _generate_and_store(
     attachment_id = UUID(presigned.attachment_id)
     await written.write(presigned.storage_key, image_bytes)
 
-    reference_copies: list[tuple[Attachment, UUID, str]] = []
+    reference_copies: list[ReferenceCopy] = []
     if copy_references:
         for source, raw in references:
             ref_id = uuid4()
             ref_key = f"{user_id}/{ref_id}"
             await written.write(ref_key, raw)
-            reference_copies.append((source, ref_id, ref_key))
-    return _StoredImage(
-        attachment_id, presigned.storage_key, content_type, len(image_bytes), reference_copies
-    )
+            reference_copies.append(ReferenceCopy(source, ref_id, ref_key))
+    image = StoredImage(attachment_id, presigned.storage_key, content_type, len(image_bytes))
+    return _StoredImage(image, reference_copies)
 
 
 def _checked_image(generated: tuple[bytes, str] | None) -> tuple[bytes, str]:
@@ -348,7 +346,7 @@ def _checked_image(generated: tuple[bytes, str] | None) -> tuple[bytes, str]:
 
 
 async def _persist_turn(
-    image: _StoredImage,
+    stored: _StoredImage,
     *,
     user_id: UUID,
     chat_id: UUID,
@@ -356,19 +354,8 @@ async def _persist_turn(
     user_message_content: str | None,
     create_user_message: bool,
 ) -> tuple[Message, Message]:
-    """Save the attachment, the user turn (or reuse the last one) and the reply in one commit."""
+    """Save the user turn (or reuse the last one), the reply and its image in one commit."""
     async with SessionLocal() as session:
-        await attachments_repo.create_pending(
-            session,
-            attachment_id=image.attachment_id,
-            user_id=user_id,
-            storage_key=image.storage_key,
-            content_type=image.content_type,
-            size_bytes=image.size_bytes,
-            source="generated",
-            original_filename=(prompt.replace("\n", " ").strip()[:255] or None),
-            commit=False,
-        )
         if create_user_message:
             user_message = await _create_user_message(
                 session,
@@ -376,14 +363,14 @@ async def _persist_turn(
                 chat_id=chat_id,
                 prompt=prompt,
                 user_message_content=user_message_content,
-                reference_copies=image.reference_copies,
+                reference_copies=stored.reference_copies,
             )
         else:
             existing = await messages_repo.get_last_user(session, chat_id)
             if existing is None:
                 raise ImageGenerationError("No user message to attach image to", status_code=404)
             user_message = existing
-        image_marker = f"[Image: /attachments/{image.attachment_id}/file]"
+        image_marker = f"[Image: /attachments/{stored.image.attachment_id}/file]"
         assistant_message = await messages_repo.create(
             session,
             chat_id=chat_id,
@@ -393,19 +380,16 @@ async def _persist_turn(
             model=get_model(_IMAGE_MODEL_ALIAS).id,
             commit=False,
         )
-        linked = await attachments_repo.link_to_message(
+        await attachments_service.add_server_images(
             session,
             user_id=user_id,
-            attachment_ids=[image.attachment_id],
+            images=[stored.image],
+            source="generated",
+            label=prompt,
             message_id=assistant_message.id,
-            commit=False,
         )
-        if linked != 1:
-            raise ImageGenerationError("Could not link generated image", status_code=500)
-        # Bytes were generated and validated here — skip /file re-download.
-        await attachments_repo.mark_verified(session, image.attachment_id, commit=False)
-        # Persist the turn and its reference copies atomically. If any
-        # link fails, session close rolls back rows before byte cleanup.
+        # Persist the turn and its reference copies atomically. If a write fails,
+        # session close rolls back rows before byte cleanup.
         await session.commit()
     return user_message, assistant_message
 
@@ -417,40 +401,29 @@ async def _create_user_message(
     chat_id: UUID,
     prompt: str,
     user_message_content: str | None,
-    reference_copies: list[tuple[Attachment, UUID, str]],
+    reference_copies: list[ReferenceCopy],
 ) -> Message:
-    """The user's bubble, with hidden copies of its reference images linked to it."""
+    """The user's bubble, with hidden copies of its reference images on it."""
     bubble = (user_message_content or f"{_USER_MESSAGE_PREFIX}{prompt}").strip()
     if not bubble:
         bubble = f"{_USER_MESSAGE_PREFIX}{prompt}"
     # "Black" after a cat picture edits the picture right above; repeating it
     # in the user's bubble only shows it twice. A photo the user attached
     # stays in their bubble.
-    in_chat = await shown_in_chat(session, chat_id, [s for s, _, _ in reference_copies])
-    # Independent hidden copies keep an edit/regenerate usable if its original
-    # Library item or earlier image is later deleted. They are linked to the
-    # user row either way, so regenerate finds them without a marker in the text.
-    reference_ids: list[UUID] = []
-    for source, ref_id, ref_key in reference_copies:
-        await attachments_repo.insert_verified_clone(
-            session, src=source, new_id=ref_id, storage_key=ref_key
-        )
-        reference_ids.append(ref_id)
-        if source.id not in in_chat:
-            bubble += f"\n[Image: /attachments/{ref_id}/file]"
+    in_chat = await shown_in_chat(session, chat_id, [copy.source for copy in reference_copies])
+    for copy in reference_copies:
+        if copy.source.id not in in_chat:
+            bubble += f"\n[Image: /attachments/{copy.attachment_id}/file]"
     user_message = await messages_repo.create(
         session, chat_id=chat_id, user_id=user_id, role="user", content=bubble, commit=False
     )
-    if reference_ids:
-        linked_refs = await attachments_repo.link_to_message(
-            session,
-            user_id=user_id,
-            attachment_ids=reference_ids,
-            message_id=user_message.id,
-            commit=False,
+    # Independent hidden copies keep an edit/regenerate usable if its original
+    # Library item or earlier image is later deleted. They are on the user row
+    # either way, so regenerate finds them without a marker in the text.
+    if reference_copies:
+        await attachments_service.add_reference_copies(
+            session, message_id=user_message.id, copies=reference_copies
         )
-        if linked_refs != len(reference_ids):
-            raise ImageGenerationError("Could not preserve image references", status_code=500)
     return user_message
 
 
@@ -464,7 +437,7 @@ async def load_reference_images(
     if not ids:
         return []
     async with SessionLocal() as session:
-        rows = await attachments_repo.get_by_ids(session, ids, user_id)
+        rows = await attachments_service.get_by_ids(session, ids, user_id)
     by_id = {row.id: row for row in rows}
     if len(by_id) != len(ids):
         raise ImageGenerationError("Reference image not found", status_code=404)

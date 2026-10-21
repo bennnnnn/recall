@@ -1,6 +1,7 @@
 """A real photo above an answer: the search starts while the reply streams."""
 
 import asyncio
+from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -141,103 +142,81 @@ def _lookup_patches(gateway, *, reserve=True, hits=(_HIT,)):
     client = AsyncMock()
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
-    return (
-        patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
-        patch(
+    return {
+        "storage": patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
+        "redis": patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
+        "spend_cap": patch(
             "app.modules.images.search.quota_service.global_spend_exceeded",
             AsyncMock(return_value=False),
         ),
-        patch(
+        "reserve": patch(
             "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=reserve),
         ),
-        patch(
+        "search": patch(
             "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=list(hits)),
         ),
-        patch("app.gateways.safe_fetch.fetch_client", return_value=client),
-        patch(
+        "client": patch("app.gateways.safe_fetch.fetch_client", return_value=client),
+        "fetch": patch(
             "app.modules.images.search.safe_fetch.fetch_safely", AsyncMock(return_value=response)
         ),
-        patch("app.modules.images.search.attachments_repo.create_pending", AsyncMock()),
-        patch("app.modules.images.search.attachments_repo.mark_verified", AsyncMock()),
-        patch("app.modules.images.search.quota_service.record_global_spend", AsyncMock()),
-    )
+        "add_rows": patch(
+            "app.modules.images.search.attachments_service.add_server_images", AsyncMock()
+        ),
+        "spend": patch("app.modules.images.search.quota_service.record_global_spend", AsyncMock()),
+        "refund": patch("app.modules.images.search.counters.refund", AsyncMock()),
+    }
+
+
+def _entered(stack: ExitStack, patches: dict) -> dict:
+    return {name: stack.enter_context(patcher) for name, patcher in patches.items()}
 
 
 @pytest.mark.asyncio
 async def test_photos_for_answer_stores_one_unlinked_photo():
     gateway = _gateway()
     settings = Settings(image_search_enabled=True, image_search_max_results=3)
-    patches = _lookup_patches(gateway)
-    with (
-        patches[0],
-        patches[1],
-        patches[2],
-        patches[3],
-        patches[4],
-        patches[5],
-        patches[6],
-        patches[7] as create_pending,
-        patches[8],
-        patches[9],
-        patch("app.modules.images.search.counters.refund", AsyncMock()) as refund,
-    ):
+    with ExitStack() as stack:
+        mocks = _entered(stack, _lookup_patches(gateway))
         ids = await photos_for_answer(
             settings, user=MagicMock(id=uuid4(), plan="free"), query="Ethiopia  map"
         )
     assert len(ids) == 1
     gateway.write_bytes.assert_awaited_once()
-    assert create_pending.await_args.kwargs["original_filename"] == "Ethiopia map"
-    refund.assert_not_awaited()
+    added = mocks["add_rows"].await_args.kwargs
+    assert [image.attachment_id for image in added["images"]] == ids
+    assert (added["label"], added["message_id"], added["in_library"]) == (
+        "Ethiopia map",
+        None,
+        False,
+    )
+    mocks["refund"].assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_photos_for_answer_is_quiet_when_nothing_is_found():
     gateway = _gateway()
-    patches = _lookup_patches(gateway, hits=())
-    with (
-        patches[0],
-        patches[1],
-        patches[2],
-        patches[3],
-        patches[4],
-        patches[5],
-        patches[6],
-        patches[7],
-        patches[8],
-        patches[9],
-        patch("app.modules.images.search.counters.refund", AsyncMock()) as refund,
-    ):
+    with ExitStack() as stack:
+        mocks = _entered(stack, _lookup_patches(gateway, hits=()))
         ids = await photos_for_answer(
             Settings(image_search_enabled=True), user=MagicMock(id=uuid4()), query="nothing"
         )
     assert ids == []
-    refund.assert_awaited_once()
+    mocks["refund"].assert_awaited_once()
+    mocks["add_rows"].assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_photos_for_answer_skips_a_spent_daily_limit():
     gateway = _gateway()
-    patches = _lookup_patches(gateway, reserve=False)
-    with (
-        patches[0],
-        patches[1],
-        patches[2],
-        patches[3],
-        patches[4] as search,
-        patches[5],
-        patches[6],
-        patches[7],
-        patches[8],
-        patches[9],
-    ):
+    with ExitStack() as stack:
+        mocks = _entered(stack, _lookup_patches(gateway, reserve=False))
         ids = await photos_for_answer(
             Settings(image_search_enabled=True), user=MagicMock(id=uuid4()), query="capybara"
         )
     assert ids == []
-    search.assert_not_awaited()
+    mocks["search"].assert_not_awaited()
 
 
 @pytest.mark.asyncio

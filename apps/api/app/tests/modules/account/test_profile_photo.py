@@ -9,6 +9,7 @@ from app.models.orm import Attachment, User
 from app.models.schemas import UserOut
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.account import service as auth
+from app.modules.attachments import repository as attachments_repository
 
 
 def _user() -> User:
@@ -54,7 +55,7 @@ async def test_profile_rejects_unusable_photo_without_saving_name(override):
     session = AsyncMock()
     with (
         patch.object(
-            account_lifecycle.attachments_service, "get_by_id", AsyncMock(return_value=photo)
+            attachments_repository, "get_by_id", AsyncMock(return_value=photo)
         ) as get_photo,
         patch.object(account_lifecycle.users_repo, "update", AsyncMock()) as update,
     ):
@@ -77,11 +78,7 @@ async def test_profile_save_rolls_back_without_cache_invalidation_on_commit_fail
     photo = _photo(user)
     session = AsyncMock()
     session.commit.side_effect = RuntimeError("commit failed")
-    with (
-        patch.object(
-            account_lifecycle.attachments_service, "get_by_id", AsyncMock(return_value=photo)
-        ),
-    ):
+    with patch.object(attachments_repository, "get_by_id", AsyncMock(return_value=photo)):
         with pytest.raises(RuntimeError, match="commit failed"):
             await account_lifecycle.update_account(
                 session,

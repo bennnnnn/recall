@@ -113,7 +113,7 @@ async def test_reference_lookup_rejects_another_users_image_before_reading_stora
 
     gateway = AsyncMock()
     with patch(
-        "app.modules.images.generation.attachments_repo.get_by_ids", AsyncMock(return_value=[])
+        "app.modules.images.generation.attachments_service.get_by_ids", AsyncMock(return_value=[])
     ):
         with pytest.raises(ImageGenerationError, match="Reference image not found"):
             await load_reference_images(gateway, user_id=uuid4(), attachment_ids=[uuid4()])

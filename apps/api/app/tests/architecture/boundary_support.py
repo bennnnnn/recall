@@ -115,6 +115,8 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.services.mcp.web_search_adapter",
     "app.services.memory",
     "app.services.mermaid_sanitize",
+    # A second import path for ``models.model_catalog`` (code-health audit ARCH-05).
+    "app.services.model_catalog",
     "app.services.notifications",
     "app.services.office_text",
     "app.services.part_answers",

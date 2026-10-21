@@ -169,7 +169,7 @@ def test_generate_image_success():
     )
     gateway.write_bytes = AsyncMock()
     gateway.delete_bytes = AsyncMock()
-    create_pending = AsyncMock()
+    add_image = AsyncMock()
 
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
@@ -193,19 +193,11 @@ def test_generate_image_success():
             AsyncMock(return_value=(b"\x89PNG\r\n", "image/png")),
         ),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
-        patch("app.modules.images.generation.attachments_repo.create_pending", create_pending),
+        patch("app.modules.images.generation.attachments_service.add_server_images", add_image),
         patch(
             "app.modules.images.generation.messages_repo.create",
             AsyncMock(side_effect=[user_msg, assistant_msg]),
         ),
-        patch(
-            "app.modules.images.generation.attachments_repo.link_to_message",
-            AsyncMock(return_value=1),
-        ),
-        patch(
-            "app.modules.images.generation.attachments_repo.mark_verified",
-            AsyncMock(),
-        ) as mark_verified,
         patch("app.modules.images.generation.bytes_match_claimed", return_value=True),
     ):
         client = TestClient(app)
@@ -221,9 +213,10 @@ def test_generate_image_success():
     assert body["assistant_message"]["role"] == "assistant"
     assert "/attachments/" in body["assistant_message"]["content"]
     gateway.write_bytes.assert_awaited_once()
-    mark_verified.assert_awaited_once()
     gateway.delete_bytes.assert_not_called()
-    assert create_pending.await_args.kwargs["original_filename"] == "a cat"
+    added = add_image.await_args.kwargs
+    assert [image.attachment_id for image in added["images"]] == [attachment_id]
+    assert (added["label"], added["message_id"]) == ("a cat", assistant_msg.id)
 
 
 def test_generate_image_passes_original_user_message():
@@ -307,7 +300,7 @@ def test_generate_image_deletes_storage_when_persist_fails(quota_clock):
         ),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
         patch(
-            "app.modules.images.generation.attachments_repo.create_pending",
+            "app.modules.images.generation.messages_repo.create",
             AsyncMock(side_effect=RuntimeError("db down")),
         ),
         patch("app.modules.images.generation.bytes_match_claimed", return_value=True),

@@ -2069,7 +2069,7 @@ async def test_list_todos_advances_past_due_daily():
     item.email_sent_at = now
 
     with patch.object(todos_crud, "advance_schedules_if_current", AsyncMock()) as advance:
-        assert await todos_crud._advance_past_recurring(session, [item], timezone="UTC", now=now)
+        assert await todos_crud.advance_past_recurring(session, [item], timezone="UTC", now=now)
 
     advance.assert_awaited_once()
     snapshot, new_due = advance.await_args.args[1][0]

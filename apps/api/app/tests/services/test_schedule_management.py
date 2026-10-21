@@ -155,7 +155,7 @@ async def test_read_catchup_cannot_overwrite_reschedule(schedule_sql):
         .execution_options(synchronize_session=False)
     )
     sync_session.commit()
-    await crud._advance_past_recurring(session, [row], timezone="UTC", now=now)
+    await crud.advance_past_recurring(session, [row], timezone="UTC", now=now)
     sync_session.refresh(row)
     assert row.due_at == manual_due
 

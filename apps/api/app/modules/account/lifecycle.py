@@ -54,20 +54,9 @@ async def update_account(
             if avatar_url is None:
                 raise ValueError("Choose an uploaded photo that has finished uploading.")
             attachment_id = UUID(avatar_url.split("/")[2])
-            photo = await attachments_service.get_by_id(
-                session, attachment_id, user.id, for_update=True
-            )
-            if (
-                photo is None
-                or photo.verified_at is None
-                or photo.message_id is not None
-                or photo.source != "upload"
-                or not attachments_service.is_image_content_type(photo.content_type)
-                or not 0 < photo.size_bytes <= attachments_service.MAX_ATTACHMENT_SIZE
-            ):
+            if not await attachments_service.claim_profile_photo(session, attachment_id, user.id):
                 raise ValueError("Choose an uploaded photo that has finished uploading.")
             fields["avatar_url"] = avatar_url
-            await attachments_service.hide_from_gallery(session, photo)
             updated = await users_repo.update(session, user, commit=False, **fields)
             await session.commit()
             await session.refresh(updated)

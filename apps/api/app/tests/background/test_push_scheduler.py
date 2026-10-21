@@ -48,7 +48,7 @@ async def _cycle(pages: list[PushPage], lock: MagicMock) -> list[str]:
         patch("app.background.push_scheduler.SessionLocal", FakeSessionCM()),
         patch("app.background.push_scheduler.get_redis_client", return_value=AsyncMock()),
         patch(f"{notifications}.log_aged_unsent_reminders", AsyncMock()),
-        patch(f"{notifications}.advance_tokenless_recurring", AsyncMock()),
+        patch("app.background.push_scheduler.advance_recurring_without_device", AsyncMock()),
         patch(f"{notifications}.collect_push_page", collect),
         patch(f"{notifications}.dispatch_expo", dispatch),
         patch(f"{notifications}.finalize_push_deliveries", finalize),

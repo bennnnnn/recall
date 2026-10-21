@@ -237,7 +237,7 @@ async def test_successful_lookup_persists_attachment_and_message():
         created_asst_msg.content = content
         return created_asst_msg
 
-    create_pending = AsyncMock()
+    add_rows = AsyncMock()
     with (
         patch(
             "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
@@ -257,12 +257,7 @@ async def test_successful_lookup_persists_attachment_and_message():
             "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=good_response),
         ),
-        patch("app.modules.images.search.attachments_repo.create_pending", create_pending),
-        patch("app.modules.images.search.attachments_repo.mark_verified", AsyncMock()),
-        patch(
-            "app.modules.images.search.attachments_repo.link_to_message",
-            AsyncMock(return_value=1),
-        ),
+        patch("app.modules.images.search.attachments_service.add_server_images", add_rows),
         patch(
             "app.modules.images.search.messages_repo.create", AsyncMock(side_effect=_fake_create)
         ),
@@ -277,13 +272,15 @@ async def test_successful_lookup_persists_attachment_and_message():
     assert "Source:" not in asst_msg.content
     gateway.write_bytes.assert_awaited_once()
     refund.assert_not_awaited()
-    create_pending.assert_awaited()
-    assert create_pending.await_args.kwargs["source"] == "search"
-    assert create_pending.await_args.kwargs["library_visible"] is False
+    add_rows.assert_awaited_once()
+    added = add_rows.await_args.kwargs
+    assert (added["source"], added["in_library"], added["message_id"]) == ("search", False, asst_id)
+    markers = [f"[Image: /attachments/{image.attachment_id}/file]" for image in added["images"]]
+    assert asst_msg.content == "\n".join(markers)
 
 
 @pytest.mark.asyncio
-async def test_link_failure_rolls_back_bytes_and_refunds():
+async def test_a_failed_row_write_rolls_back_bytes_and_refunds():
     settings = Settings(image_search_enabled=True, daily_image_searches=10)
     user = MagicMock(id=uuid4(), plan="free")
     gateway = _fake_gateway()
@@ -311,20 +308,18 @@ async def test_link_failure_rolls_back_bytes_and_refunds():
             "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=good_response),
         ),
-        patch("app.modules.images.search.attachments_repo.create_pending", AsyncMock()),
         patch(
             "app.modules.images.search.messages_repo.create",
             AsyncMock(return_value=MagicMock(id=uuid4())),
         ),
         patch(
-            "app.modules.images.search.attachments_repo.link_to_message",
-            AsyncMock(return_value=0),
+            "app.modules.images.search.attachments_service.add_server_images",
+            AsyncMock(side_effect=RuntimeError("insert failed")),
         ),
         patch("app.modules.images.search.counters.refund", AsyncMock()) as refund,
     ):
-        with pytest.raises(ImageSearchError) as exc:
+        with pytest.raises(RuntimeError, match="insert failed"):
             await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
-    assert exc.value.status_code == 500
     gateway.delete_bytes.assert_awaited()
     refund.assert_awaited_once()
 
@@ -398,12 +393,7 @@ async def test_lookup_reply_is_image_markers_only():
             "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=good_response),
         ),
-        patch("app.modules.images.search.attachments_repo.create_pending", AsyncMock()),
-        patch("app.modules.images.search.attachments_repo.mark_verified", AsyncMock()),
-        patch(
-            "app.modules.images.search.attachments_repo.link_to_message",
-            AsyncMock(return_value=1),
-        ),
+        patch("app.modules.images.search.attachments_service.add_server_images", AsyncMock()),
         patch(
             "app.modules.images.search.messages_repo.create", AsyncMock(side_effect=_fake_create)
         ),

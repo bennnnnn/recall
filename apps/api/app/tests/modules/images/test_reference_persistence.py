@@ -13,9 +13,9 @@ from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("regenerate,fail_link", [(False, False), (False, True), (True, False)])
+@pytest.mark.parametrize("regenerate,fail_write", [(False, False), (False, True), (True, False)])
 async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_input(
-    regenerate, fail_link
+    regenerate, fail_write
 ):
     user = SimpleNamespace(id=uuid4())
     reference_id, output_id, chat_id = uuid4(), uuid4(), uuid4()
@@ -34,7 +34,7 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
     generated = AsyncMock(return_value=(b"png", "image/png"))
     load = AsyncMock(return_value=[(source, b"reference-bytes")])
     create = AsyncMock(side_effect=[assistant] if regenerate else [prior, assistant])
-    link = AsyncMock(return_value=0 if fail_link else 1)
+    add_image = AsyncMock(side_effect=RuntimeError("insert failed") if fail_write else None)
     refund = AsyncMock()
     with (
         patch("app.modules.images.generation.SessionLocal", return_value=session),
@@ -56,18 +56,14 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
         patch("app.modules.images.generation.counters.refund", refund),
         patch("app.modules.images.generation.generate_image", generated),
         patch("app.modules.images.generation.bytes_match_claimed", return_value=True),
+        patch("app.modules.images.generation.attachments_service.add_server_images", add_image),
         patch(
-            "app.modules.images.generation.attachments_repo.create_pending", AsyncMock()
-        ) as pending,
+            "app.modules.images.generation.attachments_service.add_reference_copies", AsyncMock()
+        ) as copies,
         patch(
-            "app.modules.images.generation.attachments_repo.insert_verified_clone", AsyncMock()
-        ) as clone,
-        patch("app.modules.images.generation.attachments_repo.link_to_message", link),
-        patch(
-            "app.modules.images.generation.attachments_repo.list_for_message_ids",
+            "app.modules.images.generation.attachments_service.list_for_message_ids",
             AsyncMock(return_value=[]),
         ),
-        patch("app.modules.images.generation.attachments_repo.mark_verified", AsyncMock()),
         patch("app.modules.images.generation.messages_repo.create", create),
     ):
         args = dict(
@@ -77,8 +73,8 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
             create_user_message=not regenerate,
             reference_attachment_ids=None if regenerate else [reference_id],
         )
-        if fail_link:
-            with pytest.raises(ImageGenerationError):
+        if fail_write:
+            with pytest.raises(RuntimeError, match="insert failed"):
                 await generate_for_chat(Settings(), **args)
             session.commit.assert_not_awaited()
             assert gateway.delete_bytes.await_count == 2
@@ -91,10 +87,12 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
         assert generated.await_args.kwargs["reference_images"] == [
             (b"reference-bytes", "image/png")
         ]
-        assert pending.await_args.kwargs["commit"] is False
+        assert add_image.await_args.kwargs["message_id"] == assistant.id
         assert all(call.kwargs["commit"] is False for call in create.await_args_list)
-        assert all(call.kwargs["commit"] is False for call in link.await_args_list)
-        assert clone.await_count == int(not regenerate)
+        assert copies.await_count == int(not regenerate)
+        if not regenerate:
+            assert copies.await_args.kwargs["message_id"] == prior.id
+            assert [copy.source for copy in copies.await_args.kwargs["copies"]] == [source]
 
 
 @pytest.mark.asyncio
@@ -258,17 +256,14 @@ def _patched_generation(
             AsyncMock(return_value=(b"png", "image/png")),
         ),
         patch("app.modules.images.generation.bytes_match_claimed", return_value=True),
-        patch("app.modules.images.generation.attachments_repo.create_pending", AsyncMock()),
-        patch("app.modules.images.generation.attachments_repo.insert_verified_clone", AsyncMock()),
+        patch("app.modules.images.generation.attachments_service.add_server_images", AsyncMock()),
         patch(
-            "app.modules.images.generation.attachments_repo.link_to_message",
-            AsyncMock(side_effect=lambda _s, **kw: len(kw["attachment_ids"])),
+            "app.modules.images.generation.attachments_service.add_reference_copies", AsyncMock()
         ),
         patch(
-            "app.modules.images.generation.attachments_repo.list_for_message_ids",
+            "app.modules.images.generation.attachments_service.list_for_message_ids",
             AsyncMock(return_value=linked or []),
         ),
-        patch("app.modules.images.generation.attachments_repo.mark_verified", AsyncMock()),
     )
     return patches, load
 

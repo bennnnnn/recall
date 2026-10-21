@@ -291,7 +291,7 @@ async def test_build_export_structure(_empty_product_events_for_exports):
             AsyncMock(return_value=[mem]),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[todo]),
         ),
         patch(
@@ -358,7 +358,7 @@ async def test_build_export_includes_archived_chats():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -424,7 +424,7 @@ async def test_build_export_pages_messages_per_chat():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -470,7 +470,7 @@ async def test_build_export_pages_memories():
             AsyncMock(side_effect=list_memories),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -515,7 +515,7 @@ async def test_build_export_caps_memories():
             AsyncMock(side_effect=list_memories),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -563,7 +563,7 @@ async def test_build_export_includes_attachment_with_presigned_url():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[]),
         ),
         patch(

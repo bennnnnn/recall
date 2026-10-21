@@ -20,30 +20,22 @@ _EXPORTS = {
     "reminder_cards_as_text": ("proposals", "cards_as_text"),
     "query_implies_todos": ("classification", "query_implies_todos"),
     "select_todos_for_prompt": ("prompt_context", "select_todos_for_prompt"),
-    "TodoEmailSnapshot": ("email_repository", "TodoEmailSnapshot"),
+    "TodoEmailSnapshot": ("occurrences", "TodoEmailSnapshot"),
     "EMAIL_REMINDERS": ("due_reminders", "EMAIL"),
     "PUSH_REMINDERS": ("due_reminders", "PUSH"),
+    "advance_recurring_without_device": ("due_reminders", "advance_recurring_without_device"),
+    "aged_out_unsent": ("due_reminders", "aged_out_unsent"),
     "due_reminder_page": ("due_reminders", "due_reminder_page"),
     "is_due_now": ("due_reminders", "is_due_now"),
+    "mark_reminder_emailed": ("due_reminders", "mark_reminder_emailed"),
+    "mark_reminder_pushed": ("due_reminders", "mark_reminder_pushed"),
     "reminder_page_key": ("due_reminders", "page_key"),
-    "tokenless_recurring_overdue": ("due_reminders", "tokenless_recurring_overdue"),
-    "TodoScheduleSnapshot": ("schedule_repository", "TodoScheduleSnapshot"),
-    "is_recurrence_rule": ("recurrence", "is_recurrence_rule"),
-    "mark_email_sent_if_current": ("email_repository", "mark_email_sent_if_current"),
-    "next_recurring_due": ("recurrence", "next_recurring_due"),
-    "snap_first_due": ("recurrence", "snap_first_due"),
-    "update_schedule_if_current": ("schedule_repository", "update_schedule_if_current"),
 }
 
-_MODULE_EXPORTS = ("repository",)
-__all__ = list(_EXPORTS) + list(_MODULE_EXPORTS)
+__all__ = list(_EXPORTS)
 
 
 def __getattr__(name: str) -> Any:
-    if name in _MODULE_EXPORTS:
-        value = import_module(f"app.modules.todos.{name}")
-        globals()[name] = value
-        return value
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(name)

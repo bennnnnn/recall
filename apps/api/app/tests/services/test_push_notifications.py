@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.modules.notifications import push as push_service
+from app.modules.todos import due_reminders
 
 
 def test_android_channel_follows_push_type():
@@ -182,8 +183,8 @@ async def test_process_todo_reminders_logs_when_user_has_no_token(caplog):
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            push_service.todos_crud,
-            "_advance_past_recurring",
+            due_reminders,
+            "advance_past_recurring",
             AsyncMock(return_value=False),
         ) as advance,
         caplog.at_level("DEBUG", logger="app.modules.notifications.push"),
@@ -225,8 +226,8 @@ async def test_process_todo_reminders_advances_tokenless_overdue_recurring():
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            push_service.todos_crud,
-            "_advance_past_recurring",
+            due_reminders,
+            "advance_past_recurring",
             AsyncMock(return_value=True),
         ) as advance,
     ):

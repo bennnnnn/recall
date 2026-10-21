@@ -87,14 +87,51 @@ async def create_pending(
     return row
 
 
+async def insert_verified(
+    session: AsyncSession,
+    *,
+    attachment_id: UUID,
+    user_id: UUID,
+    storage_key: str,
+    content_type: str,
+    size_bytes: int,
+    source: str,
+    original_filename: str | None,
+    library_visible: bool,
+    message_id: UUID | None,
+) -> None:
+    """A row for bytes the server stored and checked itself, on ``message_id`` if given.
+
+    No commit: the caller's turn saves it with its messages.
+    """
+    now = datetime.now(UTC)
+    session.add(
+        Attachment(
+            id=attachment_id,
+            user_id=user_id,
+            storage_key=storage_key,
+            content_type=content_type,
+            size_bytes=size_bytes,
+            source=source,
+            original_filename=original_filename,
+            library_visible=library_visible,
+            verified_at=now,
+            message_id=message_id,
+            linked_at=now if message_id is not None else None,
+        )
+    )
+    await session.flush()
+
+
 async def insert_verified_clone(
     session: AsyncSession,
     *,
     src: Attachment,
     new_id: UUID,
     storage_key: str,
+    message_id: UUID | None = None,
 ) -> Attachment:
-    """Unlinked copy of a Library item for a new chat send. Hidden from gallery."""
+    """Copy of an item for a new chat send, on ``message_id`` if given. Hidden from gallery."""
     row = Attachment(
         id=new_id,
         user_id=src.user_id,
@@ -105,7 +142,8 @@ async def insert_verified_clone(
         original_filename=src.original_filename,
         verified_at=src.verified_at or datetime.now(UTC),
         library_visible=False,
-        message_id=None,
+        message_id=message_id,
+        linked_at=datetime.now(UTC) if message_id is not None else None,
     )
     session.add(row)
     await session.flush()

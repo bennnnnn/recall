@@ -10,6 +10,7 @@ import pytest
 from app.core.config import Settings
 from app.models.orm import User
 from app.modules.notifications import push as push_service
+from app.modules.todos import due_reminders
 from app.tests.fakes import fake_session, redis_mock
 from app.tests.services.push_cycle_support import run_push_cycle
 
@@ -17,7 +18,7 @@ from app.tests.services.push_cycle_support import run_push_cycle
 @pytest.fixture
 def schedule_write():
     with patch.object(
-        push_service, "update_schedule_if_current", AsyncMock(return_value=True)
+        due_reminders, "update_schedule_if_current", AsyncMock(return_value=True)
     ) as write:
         yield write
 

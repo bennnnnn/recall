@@ -10,7 +10,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Attachment, Message
-from app.modules.attachments import service as attachments_repo
+from app.modules.attachments import service as attachments_service
 from app.modules.attachments.service import is_image_content_type
 from app.modules.images.intent import image_reference_ids
 from app.repositories import messages as messages_repo
@@ -38,7 +38,7 @@ async def turn_reference_ids(session: AsyncSession, turn: Message | None) -> lis
     """
     if turn is None:
         return []
-    linked = await attachments_repo.list_for_message_ids(session, [turn.id])
+    linked = await attachments_service.list_for_message_ids(session, [turn.id])
     hidden = [
         row.id
         for row in sorted(
