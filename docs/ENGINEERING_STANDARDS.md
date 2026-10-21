@@ -103,6 +103,10 @@ Correct maths, physics and chemistry is a release requirement.
 - Least privilege for credentials, database roles and integrations.
 - No repeated work: batch independent calls, cache hot reads, no heavy work per keystroke or
   per streamed token. Handle timeouts, cancellation, retries and duplicate requests.
+- Nothing CPU-bound and unbounded on the event loop. A pure reader of user text (subject
+  detection, the plan, a subject's extraction) is a `@reading` (`core/readings.py`) and is
+  read in the SymPy pool; async code that needs one awaits `read_off_loop`. SymPy runs in
+  the pool only.
 - Accessibility: screen-reader labels, contrast, scalable text, real touch targets.
 - Measure before optimizing.
 - Schema changes are expand, then contract: add first; drop, rename or retype
@@ -120,6 +124,7 @@ Correct maths, physics and chemistry is a release requirement.
 | Import cycles | `app/tests/architecture/test_import_cycles.py`; `lib/__tests__/importCycles.test.ts` (type-only imports included) | API CI, Mobile CI |
 | Layer boundaries | `app/tests/architecture/` (module boundaries; `test_pure_solvers.py` keeps solvers off infrastructure and subjects apart); ESLint `no-restricted-imports` (`ui/` leaf, subject libraries) | API CI, Mobile CI |
 | File size | `scripts/check_file_sizes.py` against `scripts/file_size_baseline.json` | API CI, Mobile CI |
+| Event loop | `app/tests/loop_guard.py` fails any test in which production code runs SymPy or computes a reading on the loop; `test_sympy_worker_imports.py` keeps the pool's workers free of the web stack | API CI |
 | Migrations | `app/tests/architecture/test_migration_safety.py`: one alembic head; no drop or rename in `upgrade()` without an `# expand-contract:` reason | API CI |
 | Deploy gate | Deploy and production app updates run from `main` only, after CI passed for the commit (`scripts/require-green-ci.sh`) | Deploy, Publish app update |
 | Security | CodeQL, Dependabot, GitHub secret scanning | GitHub |

@@ -419,11 +419,11 @@ def test_scanner_caption_solves_the_confirmed_line() -> None:
 
 def test_confirmed_scan_of_glued_power_uses_the_solver() -> None:
     from app.modules.math.ocr import extract_from_confirmed_reading
-    from app.modules.math.tools.prompt import _intent_from_image_extract
+    from app.modules.math.tools.image_intent import intent_from_image_extract
 
     extracted = extract_from_confirmed_reading("3x2+4=4")
     assert extracted is not None
-    intent = _intent_from_image_extract(extracted)
+    intent = intent_from_image_extract(extracted)
     assert intent is not None
     block = _build_verified_block(intent, Settings(math_tools_enabled=True))
     assert block is not None

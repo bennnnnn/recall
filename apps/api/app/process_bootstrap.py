@@ -24,8 +24,8 @@ from app.gateways import email_gateway
 from app.gateways.http_client import aclose_pooled_clients
 from app.modules.attachments import reaper as attachment_orphan_reaper
 from app.modules.chat.finalize_registry import stop_inflight_streams
+from app.modules.chat.turn_prep.reading import warm_pool_worker
 from app.modules.chat.ws_limits import open_socket_count
-from app.modules.math.sympy_warmup import warm_math_worker
 from app.services.mcp import setup_mcp_adapters
 
 VALID_PROCESS_ROLES = frozenset({"all", "api", "worker"})
@@ -55,7 +55,7 @@ async def initialize_process(settings: Settings) -> None:
     await warmup_db_pool()
     start_saturation_monitor({"sockets": open_socket_count})
     if role in ("all", "api"):
-        await warm_sympy_pool(warm_math_worker)
+        await warm_sympy_pool(warm_pool_worker)
         install_chat_stop_on_signal()
 
 

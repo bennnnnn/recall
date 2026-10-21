@@ -22,6 +22,7 @@ from redis.asyncio import Redis
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
+from app.core.readings import read_off_loop
 from app.gateways.litellm_gateway import complete_structured
 from app.modules.chat.follow_up_prompts import GENERAL_SYSTEM as _GENERAL_SYSTEM
 from app.modules.chat.follow_up_prompts import SUBJECT_SYSTEM as _SYSTEM
@@ -34,6 +35,7 @@ from app.modules.chat.related_questions import (
 )
 from app.modules.chat.stream_accum import Completion
 from app.modules.chat.stream_events import build_related_prompts_event
+from app.modules.chat.turn_prep.followups import role_content_dicts
 from app.services.quota import global_spend_exceeded
 from app.services.text_normalize import collapse_ws
 
@@ -62,7 +64,15 @@ async def generate_related_questions(
     allow_general: bool = True,
 ) -> list[str]:
     """Up to three short follow-up questions about what the user asked."""
-    topic = follow_up_topic(question, answer, prior, allow_general=allow_general)
+    # The subject readers parse with SymPy: read them in the pool, never on the loop.
+    topic = await read_off_loop(
+        follow_up_topic,
+        question,
+        answer,
+        role_content_dicts(prior or []),
+        allow_general=allow_general,
+        timeout=settings.subject_read_timeout_seconds,
+    )
     if topic is None:
         return []
     kind, problem = topic
@@ -88,7 +98,7 @@ async def generate_related_questions(
     raw = await _ask_for_questions(settings, messages)
     if raw is None:
         return []
-    kept = accepted_questions(question, raw, problem, anchors)
+    kept = await _accepted(settings, question, raw, problem, anchors)
     if raw and len(kept) < MAX_QUESTIONS:
         # The filter dropped some (vague, off-topic, a repeat): one more ask, for others.
         have = "\n".join(f"- {q}" for q in kept) or "- (none)"
@@ -100,9 +110,28 @@ async def generate_related_questions(
             },
         ]
         more = await _ask_for_questions(settings, retry) or []
-        kept = accepted_questions(question, [*kept, *more], problem, anchors)
+        kept = await _accepted(settings, question, [*kept, *more], problem, anchors)
     # Always three, or none: one or two lines read as a half-finished list.
     return kept if len(kept) == MAX_QUESTIONS else []
+
+
+async def _accepted(
+    settings: Settings,
+    question: str,
+    raw: list[str],
+    problem: str | None,
+    anchors: set[str] | None,
+) -> list[str]:
+    """``accepted_questions`` in the SymPy pool: it asks each candidate's subject."""
+    kept = await read_off_loop(
+        accepted_questions,
+        question,
+        raw,
+        problem,
+        anchors,
+        timeout=settings.subject_read_timeout_seconds,
+    )
+    return kept or []
 
 
 async def _ask_for_questions(

@@ -14,6 +14,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core import readings
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError
 from app.models.orm import Chat, User
@@ -108,6 +109,7 @@ async def stream_chat_response(
     content = content.strip()
     if not content and not attachment_ids:
         raise ChatNotFoundError("Message cannot be empty.")
+    readings.begin_turn()
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)
@@ -225,6 +227,7 @@ async def stream_regenerate_response(
     on_status: StreamStatusFn | None = None,
     on_reasoning: StreamReasoningFn | None = None,
 ) -> AsyncIterator[str]:
+    readings.begin_turn()
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)

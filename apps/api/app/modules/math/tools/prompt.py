@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import replace
-from typing import Literal, cast
+from dataclasses import dataclass, replace
 
 from app.core.config import Settings
+from app.core.readings import read_off_loop, reading
 from app.modules.math import solve as math_solve
 from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE, MATH_REPLY_POLICY
 from app.modules.math.request_consumption import request_consumption_complete
@@ -27,6 +27,7 @@ from app.modules.math.tools.extract import (
     trig_domain_would_be_dropped,
 )
 from app.modules.math.tools.function_def import has_assignment_evaluation_request
+from app.modules.math.tools.image_intent import intent_from_image_extract
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
 from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END
 from app.services.workout import SELF_CHECK_PROMPT_RULE
@@ -37,6 +38,11 @@ _MAX_SYMBOLIC_INPUT = 1000
 
 # "Graph it" when nothing earlier in the thread names a function. With no
 # guidance the model drew the lines as ASCII art, which the phone cannot render.
+_NO_VERIFIED_RESULT = (
+    "No verified solver result is available for this request. "
+    "Do not claim verification or invent missing measures.\n\n"
+    f"{MATH_REPLY_POLICY}"
+)
 NOTHING_TO_GRAPH = (
     "The user asked to graph the previous problem, but no function y = f(x) to plot "
     "was found in it. Ask in one short sentence which function to graph, for example "
@@ -97,6 +103,7 @@ def _withhold_hint_answer(
     )
 
 
+@reading(declined=False)
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
     from app.modules.math import match as math_match
     from app.modules.math.tools.keyboard_notation import keyboard_math_to_plain
@@ -137,102 +144,113 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
     return word_problem_candidate(text) or word_template_setup(text) is not None
 
 
-def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
-    """Map a vision extract onto an existing MathIntent kind (no second parser)."""
-    variable = extract.variables[0]
-    if extract.kind == "system" and extract.equations:
-        if len(extract.equations) > 4:
-            return None
-        return MathIntent(
-            kind="system",
-            system_equations=extract.equations,
-            system_variables=extract.variables,
-            operation="solve",
-        )
-    if extract.kind == "inequality" and extract.comparator:
-        return MathIntent(
-            kind="inequality",
-            lhs=extract.lhs,
-            rhs=extract.rhs,
-            comparator=extract.comparator,
-            operation="solve",
-            variable=variable,
-        )
-    if extract.kind == "calculus" and extract.expr and extract.operation:
-        return MathIntent(
-            kind="calculus",
-            expr=extract.expr,
-            operation=cast(
-                Literal["simplify", "differentiate", "integrate", "factor", "expand"],
-                extract.operation,
+@dataclass(frozen=True)
+class MathReading:
+    """What reading a maths request found, before any model is asked.
+
+    ``note`` set: the turn's maths block is that note and nothing is solved. Otherwise
+    ``content`` is the request to solve (a graph follow-up or an opened earlier problem
+    replaces the message) and ``intent`` what the regex readers made of it, if anything.
+    """
+
+    content: str
+    note: str | None = None
+    intent: MathIntent | None = None
+    answered: bool = False
+
+
+def read_math_request(
+    user_content: str,
+    *,
+    has_image_attachment: bool,
+    image_math_extract: MathImageExtract | None,
+    needs_math: bool | None,
+    prior_user_messages: list[str] | None,
+) -> MathReading:
+    """The sync, CPU-bound half of ``build_math_augmentation``: runs in the SymPy pool.
+
+    The graph reader parses with SymPy and solves; on the event loop one message held
+    it for 56 s (code-health audit SCALE-01).
+    """
+    if image_math_extract is None:
+        user_content, skip_math = resolve_graph_followup(user_content, prior_user_messages)
+        if skip_math:
+            return MathReading(user_content, note=NOTHING_TO_GRAPH, answered=True)
+    if needs_math is None:
+        needs_math = needs_symbolic_math(user_content, has_image_attachment=has_image_attachment)
+    if not needs_math and image_math_extract is None:
+        from app.modules.math.followup import open_math_problem
+
+        opened = open_math_problem(user_content, prior_user_messages)
+        if opened:
+            user_content = opened
+            needs_math = True
+    if not needs_math:
+        return MathReading(user_content, answered=True)
+
+    if image_math_extract is not None:
+        # OCR already produced a Pydantic-validated extract — map it straight
+        # to MathIntent (do not re-parse through the text regex, which mangles
+        # unicode ops / abs bars a photographed problem can contain).
+        intent: MathIntent | None = intent_from_image_extract(image_math_extract)
+        if intent is not None:
+            audit_sources = [user_content]
+            if image_math_extract.source_text:
+                audit_sources.append(image_math_extract.source_text)
+            if image_math_extract.alternate_source_text:
+                audit_sources.append(image_math_extract.alternate_source_text)
+            if any(not _intent_preserves_request(source, intent) for source in audit_sources):
+                intent = None
+    else:
+        intent = extract_math_intent(user_content)
+    if intent is not None:
+        return MathReading(user_content, intent=intent)
+    if has_image_attachment:
+        lines = [
+            "The user attached an image that may contain a math problem. "
+            "Extract the equation as lhs/rhs only if the notation and measures are legible. "
+            "Do NOT claim SymPy verification unless a verified system block is present. "
+            "Use $...$ for formulas. Do not emit ```geometry / ```graph. "
+            "Never invent measures.",
+            MATH_REPLY_POLICY,
+        ]
+        return MathReading(user_content, note="\n".join(lines), answered=True)
+    if image_math_extract is not None:
+        return MathReading(user_content)
+    from app.modules.math.solve.extract_eq import rejected_equality_chain
+
+    if rejected_equality_chain(user_content):
+        # An empty extract is also what a regex miss looks like. A chain
+        # must not fall through to the LLM extractor, which can rewrite
+        # ``a=b=c`` into one solvable equation.
+        return MathReading(
+            user_content,
+            note=(
+                "The message chains equalities (a=b=c). Ask which single "
+                "equation to solve. Do not collapse the chain or claim a "
+                "verified answer.\n\n"
+                f"{MATH_REPLY_POLICY}"
             ),
-            variable=variable,
-            integral_lower=extract.integral_lower,
-            integral_upper=extract.integral_upper,
+            answered=True,
         )
-    if extract.kind == "limit" and extract.expr and extract.limit_point:
-        return MathIntent(
-            kind="limit",
-            expr=extract.expr,
-            limit_point=extract.limit_point,
-            operation="limit",
-            variable=variable,
-        )
-    if extract.kind == "graph" and extract.expr:
-        return MathIntent(
-            kind="graph",
-            expr=extract.expr,
-            operation="graph",
-            variable=variable,
-        )
-    if extract.kind == "rectangle" and extract.width is not None and extract.height is not None:
-        return MathIntent(
-            kind="rectangle",
-            width=extract.width,
-            height=extract.height,
-            unit=extract.unit or "cm",
-            wants_area=True,
-            wants_perimeter=True,
-        )
-    if extract.kind == "circle" and extract.radius is not None:
-        return MathIntent(
-            kind="circle",
-            radius=extract.radius,
-            unit=extract.unit or "cm",
-            wants_area=True,
-            wants_circumference=True,
-        )
-    if (
-        extract.kind == "triangle_sides"
-        and extract.tri_a is not None
-        and extract.tri_b is not None
-        and extract.tri_c is not None
-    ):
-        return MathIntent(
-            kind="triangle_sides",
-            tri_a=extract.tri_a,
-            tri_b=extract.tri_b,
-            tri_c=extract.tri_c,
-            unit=extract.unit or "cm",
-            operation="solve",
-        )
-    if extract.kind == "statistics" and extract.stats_numbers and extract.stats_op:
-        return MathIntent(
-            kind="statistics",
-            stats_op=cast(
-                Literal["mean", "median", "mode", "variance", "stdev"],
-                extract.stats_op,
+    if has_assignment_evaluation_request(user_content):
+        # The deterministic substitution parser saw an assignment followed by
+        # an evaluation request, but could not parse the requested expression.
+        # Do not let a word-problem or LLM fallback certify only the easy
+        # binding (for example x=-5) while silently dropping malformed x^2.
+        return MathReading(
+            user_content,
+            note=(
+                "The assignment was readable, but the expression to evaluate was not. "
+                "Ask the user to rewrite the expression; do not solve only the given "
+                "assignment or claim a verified result.\n\n"
+                f"{MATH_REPLY_POLICY}"
             ),
-            stats_numbers=extract.stats_numbers,
-            operation="solve",
+            answered=True,
         )
-    return MathIntent(
-        kind="equation",
-        lhs=extract.lhs,
-        rhs=extract.rhs,
-        operation="solve",
-        variable=variable,
-    )
+    if bare_answer(user_content):
+        return MathReading(user_content, note=BARE_ANSWER_NOTE, answered=True)
+    return MathReading(user_content)
 
 
 async def build_math_augmentation(
@@ -261,80 +279,21 @@ async def build_math_augmentation(
     """
     if not settings.math_tools_enabled:
         return None, None
-    if image_math_extract is None:
-        user_content, skip_math = resolve_graph_followup(user_content, prior_user_messages)
-        if skip_math:
-            return NOTHING_TO_GRAPH, None
-    if needs_math is None:
-        needs_math = needs_symbolic_math(user_content, has_image_attachment=has_image_attachment)
-    if not needs_math and image_math_extract is None:
-        from app.modules.math.followup import open_math_problem
-
-        opened = open_math_problem(user_content, prior_user_messages)
-        if opened:
-            user_content = opened
-            needs_math = True
-    if not needs_math:
-        return None, None
-
-    if image_math_extract is not None:
-        # OCR already produced a Pydantic-validated extract — map it straight
-        # to MathIntent (do not re-parse through the text regex, which mangles
-        # unicode ops / abs bars a photographed problem can contain).
-        intent: MathIntent | None = _intent_from_image_extract(image_math_extract)
-        if intent is not None:
-            audit_sources = [user_content]
-            if image_math_extract.source_text:
-                audit_sources.append(image_math_extract.source_text)
-            if image_math_extract.alternate_source_text:
-                audit_sources.append(image_math_extract.alternate_source_text)
-            if any(not _intent_preserves_request(source, intent) for source in audit_sources):
-                intent = None
-    else:
-        intent = extract_math_intent(user_content)
-    if intent is None and has_image_attachment:
-        lines = [
-            "The user attached an image that may contain a math problem. "
-            "Extract the equation as lhs/rhs only if the notation and measures are legible. "
-            "Do NOT claim SymPy verification unless a verified system block is present. "
-            "Use $...$ for formulas. Do not emit ```geometry / ```graph. "
-            "Never invent measures.",
-            MATH_REPLY_POLICY,
-        ]
-        return "\n".join(lines), None
-
-    if intent is None and image_math_extract is None:
-        from app.modules.math.solve.extract_eq import rejected_equality_chain
-
-        if rejected_equality_chain(user_content):
-            # An empty extract is also what a regex miss looks like. A chain
-            # must not fall through to the LLM extractor, which can rewrite
-            # ``a=b=c`` into one solvable equation.
-            return (
-                "The message chains equalities (a=b=c). Ask which single "
-                "equation to solve. Do not collapse the chain or claim a "
-                "verified answer.\n\n"
-                f"{MATH_REPLY_POLICY}",
-                None,
-            )
-    if (
-        intent is None
-        and image_math_extract is None
-        and has_assignment_evaluation_request(user_content)
-    ):
-        # The deterministic substitution parser saw an assignment followed by
-        # an evaluation request, but could not parse the requested expression.
-        # Do not let a word-problem or LLM fallback certify only the easy
-        # binding (for example x=-5) while silently dropping malformed x^2.
-        return (
-            "The assignment was readable, but the expression to evaluate was not. "
-            "Ask the user to rewrite the expression; do not solve only the given "
-            "assignment or claim a verified result.\n\n"
-            f"{MATH_REPLY_POLICY}",
-            None,
-        )
-    if intent is None and image_math_extract is None and bare_answer(user_content):
-        return (BARE_ANSWER_NOTE, None)
+    reading = await read_off_loop(
+        read_math_request,
+        user_content,
+        has_image_attachment=has_image_attachment,
+        image_math_extract=image_math_extract,
+        needs_math=needs_math,
+        prior_user_messages=prior_user_messages,
+        timeout=settings.subject_read_timeout_seconds,
+    )
+    if reading is None:
+        # Reading gave up (a timeout, or no pool): a maths turn with nothing verified.
+        return _unverified_math_note(None), None
+    if reading.answered:
+        return reading.note, None
+    user_content, intent = reading.content, reading.intent
     if intent is None and image_math_extract is None:
         from app.modules.math.tools.word_problem import word_problem_intent
 
@@ -346,16 +305,16 @@ async def build_math_augmentation(
         # Only this already-failing path pays — gate-miss and regex-hit turns
         # never make this call.
         intent = await llm_extract_math_intent(user_content, settings)
-        if intent is not None and not _intent_preserves_request(user_content, intent):
+        if intent is not None and not await read_off_loop(
+            _intent_preserves_request,
+            user_content,
+            intent,
+            timeout=settings.subject_read_timeout_seconds,
+        ):
             intent = None
 
     if intent is None:
-        return (
-            "No verified solver result is available for this request. "
-            "Do not claim verification or invent missing measures.\n\n"
-            f"{MATH_REPLY_POLICY}",
-            None,
-        )
+        return _NO_VERIFIED_RESULT, None
 
     from app.modules.math import tools as mt
 
@@ -389,11 +348,12 @@ async def build_math_augmentation(
     )
 
 
-def _unverified_math_note(kind: str) -> str:
+def _unverified_math_note(kind: str | None) -> str:
     """System note when symbolic intent fired but no VerifiedMathBlock landed."""
+    detected = f" (kind={kind})" if kind else ""
     return (
-        "Math note: a symbolic problem was detected "
-        f"(kind={kind}), but a verified result could not be produced "
+        f"Math note: a symbolic problem was detected{detected}, "
+        "but a verified result could not be produced "
         "(timeout, unsupported expression, or incomplete extract).\n"
         "Do NOT claim the answer was "
         "verified. Never tell the user that a result is unverified, not "

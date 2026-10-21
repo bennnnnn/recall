@@ -118,13 +118,7 @@ async def test_symbolic_drag_fall_is_verified_not_a_failed_check() -> None:
 async def test_a_failed_physics_solve_is_still_unverified() -> None:
     text = "A ball is dropped from 20 m. How long until it hits the ground?"
 
-    async def fail(*_args: object, **_kwargs: object) -> None:
-        return None
-
-    with patch(
-        "app.modules.physics.prompt._build_verified_physics_block_async",
-        fail,
-    ):
+    with patch("app.modules.physics.prompt._build_physics_block", return_value=None):
         result = await build_subject_augmentation(text, Settings(math_tools_enabled=True))
     assert result.subject == "physics"
     assert result.verified is None

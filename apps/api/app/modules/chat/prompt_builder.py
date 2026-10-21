@@ -8,6 +8,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.core.readings import read_off_loop
 from app.models.orm import Chat, User
 from app.modules.attachments import service as attachments_service
 from app.modules.chat import history_rag as chat_history_rag_service
@@ -23,12 +24,12 @@ from app.modules.chat.prompt_memory import (
 from app.modules.chat.prompt_sections import NEARBY_CONTRACTS, PROMPT_SECTIONS, PromptTurn
 from app.modules.chat.prompt_window import (
     PromptWindow,
-    followup_subject,
     history_messages,
     load_prompt_window,
 )
 from app.modules.chat.stream_status import StreamStatusFn, status_phase_for_subject
 from app.modules.chat.turn_plan import TurnPlan
+from app.modules.chat.turn_prep.followups import read_prompt_inputs, role_content_dicts
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
 from app.services import time_context as time_context_service
@@ -37,7 +38,7 @@ from app.services.solving import VerifiedSolveBlock
 from app.services.subject_solving import (
     SubjectName,
     build_subject_augmentation,
-    detect_subject,
+    read_subject,
 )
 
 if TYPE_CHECKING:
@@ -94,11 +95,11 @@ async def fetch_subject(
         subject = "physics"
         subject_user_content = physics_followup_problem
     else:
-        subject = detect_subject(
+        subject = await read_subject(
             subject_user_content,
+            settings,
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
-            chemistry_enabled=settings.chemistry_enabled,
         )
     if subject == "chemistry":
         needs_subject = settings.chemistry_enabled
@@ -297,7 +298,13 @@ async def build_prompt_messages(
         current_user_message_id=current_user_message_id,
         prior_count=prior_count if recent_messages is not None else None,
     )
-    followup = followup_subject(query_text, window.exchange)
+    # Read off the event loop, in the SymPy pool: the readers behind it parse with SymPy.
+    followup = await read_off_loop(
+        read_prompt_inputs,
+        query_text,
+        role_content_dicts(window.exchange),
+        timeout=settings.subject_read_timeout_seconds,
+    )
     chat_history_rag_block = await _history_rag_block(
         settings,
         user,

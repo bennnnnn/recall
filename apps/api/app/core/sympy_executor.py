@@ -51,11 +51,27 @@ _MAX_SYMPY_WORKERS = 8
 # SymPy import). That is not "queued behind another request" and must not
 # share the 2s interactive wait.
 _SPAWN_WAIT_SECONDS = 20.0
+# A submitted job usually starts within a millisecond. Polling from half a millisecond,
+# backing off to 10 ms, keeps a message read on the turn's path from waiting a whole
+# 10 ms poll for nothing (every pool call paid it).
+_FIRST_POLL_SECONDS = 0.0005
 _QUEUE_POLL_SECONDS = 0.01
 
 
 def _clamp_workers(max_workers: int) -> int:
     return max(1, min(max_workers, _MAX_SYMPY_WORKERS))
+
+
+async def wait_until_started(future: Future[Any], limit: float) -> bool:
+    """Wait until the pool runs ``future`` (or it already finished); False after ``limit`` s."""
+    deadline = time.monotonic() + limit
+    delay = _FIRST_POLL_SECONDS
+    while not future.running() and not future.done():
+        if time.monotonic() >= deadline:
+            return False
+        await asyncio.sleep(delay)
+        delay = min(delay * 2, _QUEUE_POLL_SECONDS)
+    return True
 
 
 class BoundedSympyExecutor:
@@ -325,14 +341,11 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
             if fn is not self._warmup:
                 await self._warm_slot(slot, pool)
             future = pool.submit(sympy_worker, fn, *args)
-            t_spawn = time.monotonic()
-            while not future.running() and not future.done():
-                if time.monotonic() - t_spawn >= _SPAWN_WAIT_SECONDS:
-                    logger.warning("sympy worker failed to start after %.3fs", _SPAWN_WAIT_SECONDS)
-                    future.cancel()
-                    await self._kill_slot_async(slot)
-                    raise TimeoutError("SymPy worker failed to start")
-                await asyncio.sleep(_QUEUE_POLL_SECONDS)
+            if not await wait_until_started(future, _SPAWN_WAIT_SECONDS):
+                logger.warning("sympy worker failed to start after %.3fs", _SPAWN_WAIT_SECONDS)
+                future.cancel()
+                await self._kill_slot_async(slot)
+                raise TimeoutError("SymPy worker failed to start")
             return future
         except asyncio.CancelledError:
             if future is not None:
@@ -376,12 +389,9 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         if pool is None:
             raise RuntimeError("sympy in-process fallback was not armed")
         future = pool.submit(fn, *args)
-        t_spawn = time.monotonic()
-        while not future.running() and not future.done():
-            if time.monotonic() - t_spawn >= _SPAWN_WAIT_SECONDS:
-                future.cancel()
-                raise TimeoutError("SymPy worker failed to start")
-            await asyncio.sleep(_QUEUE_POLL_SECONDS)
+        if not await wait_until_started(future, _SPAWN_WAIT_SECONDS):
+            future.cancel()
+            raise TimeoutError("SymPy worker failed to start")
         afut = asyncio.wrap_future(future)
         async with asyncio.timeout(timeout):
             return await afut

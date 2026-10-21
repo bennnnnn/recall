@@ -30,6 +30,7 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.mode import _TurnMode, classify_turn_mode
+from app.modules.chat.turn_prep.reading import read_turn_message
 from app.modules.chat.turn_settle import seed_usage_from_db
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import model_health
@@ -217,6 +218,20 @@ async def _load_history_after_finalize(
     return recent, prior_count
 
 
+async def _load_history_and_read(
+    deps: ChatTurnDeps,
+    redis: Redis,
+    settings: Settings,
+    timing: TurnTimingTracker,
+    chat_id: UUID,
+    content: str,
+) -> tuple[list[Any], int]:
+    """The recent window, then the message read off the loop with the line before it."""
+    recent, prior_count = await _load_history_after_finalize(deps, redis, settings, timing, chat_id)
+    await read_turn_message(content, recent, settings)
+    return recent, prior_count
+
+
 async def load_new_turn(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -258,6 +273,7 @@ async def load_new_turn(
         recent: list[Any] = []
         prior_count = 0
         timing.mark_phase("history_ready")
+        await read_turn_message(content, recent, settings)
     else:
         (
             (loaded_user, daily_limit, loaded_chat),
@@ -265,7 +281,7 @@ async def load_new_turn(
             unhealthy,
         ) = await asyncio.gather(
             load_account(),
-            _load_history_after_finalize(deps, redis, settings, timing, chat_id),
+            _load_history_and_read(deps, redis, settings, timing, chat_id, content),
             _unhealthy_models(redis, settings),
         )
     # Read from the window just loaded: "yes" after a question, or "make it shorter"
@@ -321,6 +337,8 @@ async def load_regenerate_turn(
         _unhealthy_models(redis, settings),
     )
     last = recent[-1]
+    # A regenerate routes the line on its own (``resolve_regenerate_model``): no prior line.
+    await read_turn_message(last_user.content, [], settings)
     model = deps.plan.resolve_regenerate_model(
         user, model_alias, last_user.content, last.model, settings
     )

@@ -11,9 +11,10 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from app.core.readings import reading
 from app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn
 from app.modules.chat.prompt_constants.writing_kind import is_writing_deliverable_request
-from app.services.problem_followup import adjacent_problem
+from app.services.problem_followup import adjacent_problem, message_role_content
 from app.services.text_normalize import collapse_ws
 
 _MAX_CHARS = 80
@@ -244,11 +245,25 @@ def chemistry_working_followup_problem(query: str | None, recent: Sequence[Any])
     return adjacent_problem(recent, is_chemistry_question)
 
 
+def exchange_pairs(messages: Sequence[Any]) -> tuple[tuple[str, str], ...]:
+    """The user and assistant lines of an exchange as ``(role, content)`` pairs."""
+    pairs: list[tuple[str, str]] = []
+    for message in messages:
+        role, content = message_role_content(message)
+        if role in {"user", "assistant"} and content is not None:
+            pairs.append((role, content))
+    return tuple(pairs)
+
+
+@reading(declined=None)
 def effective_presentation_subject(
     query: str | None,
     prior_messages: Sequence[tuple[str, str]] | None = None,
 ) -> str | None:
-    """Subject hints for this turn, including a pure continuation."""
+    """Subject hints for this turn, including a pure continuation.
+
+    A reading (``core/readings``): pass ``prior_messages`` as ``exchange_pairs`` gives it.
+    """
     if not query or not query.strip():
         return None
     own = classify_presentation_subject(query)

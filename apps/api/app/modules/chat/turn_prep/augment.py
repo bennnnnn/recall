@@ -24,7 +24,7 @@ from app.modules.web_search.subject import (
 )
 from app.modules.web_search.subject import last_assistant_content
 from app.services.solving import VerifiedSolveBlock
-from app.services.subject_solving import detect_subject, maybe_direct_subject_reply
+from app.services.subject_solving import SubjectName, read_direct_reply, read_subject
 
 # Earlier user lines a follow-up may take its problem from.
 _PRIOR_USER_LINES = 8
@@ -41,15 +41,18 @@ class Augmentation:
     # The message asks for more than its solve: the model answers the rest.
     asks_more: bool = False
 
-    def direct_reply(self, request: TurnRequest, followup: SubjectFollowup) -> str | None:
+    async def direct_reply(
+        self, request: TurnRequest, followup: SubjectFollowup, settings: Settings
+    ) -> str | None:
         """The reply the verified solve writes itself, when the turn needs no model."""
         if self.direct_text:
             return self.direct_text
         if self.verified_subject is None or self.asks_more:
             return None
-        return maybe_direct_subject_reply(
+        return await read_direct_reply(
             self.verified_subject,
             request.content,
+            settings,
             has_image_attachment=request.has_image_attachment,
             verified_request_text=followup.math,
         )
@@ -68,8 +71,14 @@ async def gather_and_inject(
     """Phase B/C for one turn. A turn the gate turns away keeps its prompt as built."""
     mode = identity.mode
     plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
+    detected_subject = await read_subject(
+        _mixed_solve(plan) or request.content,
+        settings,
+        has_image_attachment=request.has_image_attachment,
+        image_math_extract=request.image_math_extract,
+    )
     needs_math, needs_search, needs_chem = _turn_needs(
-        request, settings, prompt_messages, followup, plan
+        request, settings, prompt_messages, followup, plan, detected_subject
     )
     if not _should_augment_web_and_tools(
         instant_reply=instant_reply,
@@ -114,15 +123,10 @@ def _turn_needs(
     prompt_messages: list[dict[str, str]],
     followup: SubjectFollowup,
     plan: TurnPlan,
+    detected_subject: SubjectName | None,
 ) -> tuple[bool, bool, bool]:
     """Whether the turn needs maths, a web search and chemistry, in that order."""
     content = request.content
-    detected_subject = detect_subject(
-        _mixed_solve(plan) or content,
-        has_image_attachment=request.has_image_attachment,
-        image_math_extract=request.image_math_extract,
-        chemistry_enabled=settings.chemistry_enabled,
-    )
     needs_math = settings.math_tools_enabled and (
         detected_subject in {"math", "physics"}
         or followup.math is not None

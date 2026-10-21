@@ -41,9 +41,9 @@ async def test_initialize_process_warms_sympy_only_for_api_roles(
 
     assert (stop_inflight_streams in shutdown._callbacks) is bool(expected_warmups)
     if expected_warmups:
-        from app.modules.math.sympy_warmup import warm_math_worker
+        from app.modules.chat.turn_prep.reading import warm_pool_worker
 
-        warm_sympy.assert_awaited_once_with(warm_math_worker)
+        warm_sympy.assert_awaited_once_with(warm_pool_worker)
 
 
 @pytest.mark.asyncio

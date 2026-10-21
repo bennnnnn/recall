@@ -10,13 +10,18 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.readings import read_off_loop
 from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.modules.billing import plan as plan_service
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.turn_prep.augment import Augmentation, gather_and_inject
-from app.modules.chat.turn_prep.followups import resolve_subject_followup
+from app.modules.chat.turn_prep.followups import (
+    SubjectFollowup,
+    resolve_subject_followup,
+    role_content_dicts,
+)
 from app.modules.chat.turn_prep.instant import (
     location_not_set_reply,
     recurring_pay_reply,
@@ -25,6 +30,7 @@ from app.modules.chat.turn_prep.instant import (
 )
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import classify_turn_mode
+from app.modules.chat.turn_prep.reading import read_turn_message
 from app.modules.chat.turn_prep.request import (
     ClientGeoContext,
     TurnIdentity,
@@ -314,6 +320,12 @@ async def build_stream_prompt_context(
     timing = request.timing
     if timing is not None:
         timing.mark_phase("prepare_start")
+    await read_turn_message(
+        request.content,
+        request.recent_messages or [],
+        settings,
+        has_image_attachment=request.has_image_attachment,
+    )
     identity = await _load_turn_identity(request, settings)
     pay_reply = recurring_pay_reply(request, identity.local_tz)
     if pay_reply is not None:
@@ -376,7 +388,15 @@ async def build_stream_prompt_context(
     if timing is not None:
         timing.mark_phase("prompt_assembled")
 
-    followup = resolve_subject_followup(request.content, prompt_messages)
+    followup = (
+        await read_off_loop(
+            resolve_subject_followup,
+            request.content,
+            role_content_dicts(prompt_messages),
+            timeout=settings.subject_read_timeout_seconds,
+        )
+        or SubjectFollowup()
+    )
     if instant_reply is None:
         instant_reply = location_not_set_reply(request.content, geo, followup)
     augmented = await gather_and_inject(
@@ -387,7 +407,7 @@ async def build_stream_prompt_context(
         timing.mark_prompt_ready()
 
     if instant_reply is None:
-        instant_reply = augmented.direct_reply(request, followup)
+        instant_reply = await augmented.direct_reply(request, followup, settings)
     bundle = _bundle(
         identity,
         settings,
