@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { getDefaultConfig } = require("expo/metro-config");
+const { withSentryFeedbackResolver, withSentryResolver } = require("@sentry/react-native/metro");
 
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
@@ -33,6 +34,14 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   }
   return context.resolveRequest(context, moduleName, platform);
 };
+
+// lib/sentry.ts turns on neither Sentry's web Session Replay nor its web feedback
+// widget. Sentry's own resolvers for its `includeWebReplay: false` and
+// `includeWebFeedback: false` options leave both packages out of the bundle.
+config.resolver.resolveRequest = withSentryFeedbackResolver(
+  withSentryResolver(config, false),
+  false,
+).resolver.resolveRequest;
 
 // Keep Jest-only tooling out of the app bundle (SDK 52+ handles monorepo resolution;
 // avoid extraNodeModules — it can break RN global init with "property is not writable").
