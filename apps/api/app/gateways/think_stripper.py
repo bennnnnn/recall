@@ -13,7 +13,9 @@ THINK_CLOSE = "\x3c/think\x3e"
 THINK_MAX_OPEN_BUFFER = 65_536
 # How much of a reply's start to hold for a model that has ended untagged
 # reasoning with a lone closing tag ("Simple question.</think>2 + 2 = 4"): text
-# before such a tag, inside this window, is that reasoning and is dropped.
+# before such a tag, inside this window, is that reasoning and is dropped. The
+# leak happens when the provider did not split the reasoning off, so the hold
+# ends as soon as reasoning arrives on its own channel (``reasoning_streamed``).
 STRAY_THINK_LEAD_HOLD = 400
 # Held back at the end of the buffer so a tag split across chunks cannot leak.
 _TAG_TAIL = len(THINK_CLOSE) - 1
@@ -27,7 +29,8 @@ class ThinkStripper:
     A closing tag with no opening one is never shown; before any visible text
     has gone out, the text ahead of it is reasoning and is dropped too.
     ``lead_hold`` holds that many characters of the reply's start so a lone
-    closing tag can still arrive in time.
+    closing tag can still arrive in time, until ``reasoning_streamed`` says it
+    cannot.
     """
 
     def __init__(self, *, lead_hold: int = 0) -> None:
@@ -41,6 +44,25 @@ class ThinkStripper:
             out.append(text)
             if text.strip():
                 self._released = True
+
+    @property
+    def holding_thought(self) -> bool:
+        """Text is held as reasoning: inside a think block, or a reply's start
+        that a lone closing tag could still turn into reasoning."""
+        if self._in_think:
+            return True
+        return not self._released and self._lead_hold > 0 and bool(self._buf.strip())
+
+    def reasoning_streamed(self) -> str:
+        """The provider sends this reply's reasoning on its own channel.
+
+        Its text is then the answer, never reasoning that ends in a lone closing
+        tag, so the start is no longer held. Returns the text that releases.
+        """
+        if self._lead_hold == 0:
+            return ""
+        self._lead_hold = 0
+        return self.feed("")
 
     def feed(self, chunk: str) -> str:
         self._buf += chunk

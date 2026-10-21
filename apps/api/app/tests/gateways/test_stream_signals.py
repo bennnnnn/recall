@@ -1,0 +1,125 @@
+"""What a model stream shows before its answer: the think hold, thinking, first-reply caps."""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import AsyncIterator
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from app.core.config import Settings
+from app.gateways import litellm_gateway
+from app.gateways.think_stripper import STRAY_THINK_LEAD_HOLD, THINK_CLOSE, ThinkStripper
+
+_SETTINGS = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+
+
+def chunk(content: str | None = None, reasoning: str | None = None) -> SimpleNamespace:
+    delta = SimpleNamespace(content=content, reasoning_content=reasoning)
+    return SimpleNamespace(choices=[SimpleNamespace(delta=delta, finish_reason=None)], usage=None)
+
+
+class FakeStream:
+    """A provider stream: each chunk after its delay, then it waits for ``finish``."""
+
+    def __init__(self, chunks: list[SimpleNamespace], *, delay: float = 0.0) -> None:
+        self._chunks = list(chunks)
+        self._delay = delay
+        self.finish = asyncio.Event()
+
+    def __aiter__(self) -> FakeStream:
+        return self
+
+    async def __anext__(self) -> SimpleNamespace:
+        if not self._chunks:
+            await self.finish.wait()
+            raise StopAsyncIteration
+        if self._delay:
+            await asyncio.sleep(self._delay)
+        return self._chunks.pop(0)
+
+
+def stream_once(alias: str, provider: FakeStream, **kwargs: Any) -> AsyncIterator[str]:
+    async def run() -> AsyncIterator[str]:
+        with patch.object(litellm_gateway, "acompletion", AsyncMock(return_value=provider)):
+            async for token in litellm_gateway._stream_chat_once(
+                settings=kwargs.pop("settings", _SETTINGS),
+                model_alias=alias,
+                messages=[{"role": "user", "content": "what is 2 + 2?"}],
+                max_tokens=50,
+                **kwargs,
+            ):
+                yield token
+
+    return run()
+
+
+# ── the think hold ─────────────────────────────────────────────────────────────
+
+
+def test_the_hold_ends_when_reasoning_streams_on_its_own_channel() -> None:
+    stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD)
+    assert stripper.feed("Paris is the capital of France.") == ""
+    assert stripper.holding_thought
+    released = stripper.reasoning_streamed()
+    assert released == "Paris is the capital of "
+    assert not stripper.holding_thought
+    assert stripper.feed(" Its river") + stripper.flush() == "France. Its river"
+
+
+def test_after_reasoning_streams_the_start_is_never_held() -> None:
+    stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD)
+    assert stripper.reasoning_streamed() == ""
+    assert stripper.feed("The answer is 4, since 2 + 2 = 4.") == "The answer is 4, since 2 +"
+    # A lone closing tag is still never shown.
+    assert stripper.feed(f"{THINK_CLOSE} Done.") + stripper.flush() == " 2 = 4. Done."
+
+
+def test_a_think_block_is_a_held_thought() -> None:
+    stripper = ThinkStripper()
+    assert stripper.feed("<think>the user wants a sum") == ""
+    assert stripper.holding_thought
+    assert stripper.feed("</think>4") + stripper.flush() == "4"
+    assert not stripper.holding_thought
+
+
+def test_without_a_hold_nothing_is_a_held_thought() -> None:
+    stripper = ThinkStripper()
+    stripper.feed("Hello")
+    assert not stripper.holding_thought
+    assert stripper.reasoning_streamed() == ""
+
+
+@pytest.mark.asyncio
+async def test_a_guarded_model_with_channel_reasoning_shows_its_answer_at_once() -> None:
+    provider = FakeStream(
+        [chunk(reasoning="Capital of France."), chunk(content="Paris is the capital of France.")]
+    )
+    tokens = stream_once("glm-5.3-flash", provider)
+    # Not held for the stray-tag window: the text arrives while the stream is open.
+    first = await asyncio.wait_for(anext(tokens), 1)
+    assert first == "Paris is the capital of "
+    provider.finish.set()
+    assert first + "".join([token async for token in tokens]) == "Paris is the capital of France."
+
+
+@pytest.mark.asyncio
+async def test_a_guarded_model_still_drops_a_leaked_start_without_channel_reasoning() -> None:
+    provider = FakeStream([chunk(content="Simple question."), chunk(content=f"{THINK_CLOSE}4")])
+    provider.finish.set()
+    tokens = [token async for token in stream_once("glm-5.3-flash", provider)]
+    assert "".join(tokens) == "4"
+
+
+@pytest.mark.asyncio
+async def test_a_guarded_model_holds_a_clean_start_until_the_stream_ends() -> None:
+    provider = FakeStream([chunk(content="Paris is the capital of France.")])
+    tokens = stream_once("glm-5.3-flash", provider)
+    pending = asyncio.ensure_future(anext(tokens))
+    await asyncio.sleep(0.05)
+    assert not pending.done()
+    provider.finish.set()
+    assert await pending == "Paris is the capital of France."

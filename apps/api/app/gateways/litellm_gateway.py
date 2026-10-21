@@ -11,6 +11,7 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.gateways import llm_spend, mock_llm
 from app.gateways.reasoning import reasoning_body
+from app.gateways.stream_signals import reasoning_delta
 
 # The completion kinds split out of this module are part of its public surface
 # (callers use ``litellm_gateway.complete_structured`` and friends). They reach
@@ -390,6 +391,11 @@ async def _stream_chat_once(
             if reason and stream_meta is not None:
                 stream_meta["finish_reason"] = str(reason)
             delta = getattr(choices[0], "delta", None)
+            if reasoning_delta(delta) and (released := stripper.reasoning_streamed()):
+                # Reasoning on its own channel: the held start of the reply is the answer.
+                if released.strip():
+                    visible_content_started = True
+                yield released
             content = getattr(delta, "content", None) or "" if delta is not None else ""
             if content:
                 cleaned = stripper.feed(content)
