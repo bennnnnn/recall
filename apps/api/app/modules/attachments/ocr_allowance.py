@@ -29,7 +29,7 @@ from uuid import UUID
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
-from app.modules.attachments.content import ExtractedText
+from app.modules.attachments.text_extract import ExtractedText
 from app.repositories import users as users_repo
 from app.services.quota import counters
 

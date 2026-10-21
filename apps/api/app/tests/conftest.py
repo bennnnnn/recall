@@ -269,6 +269,17 @@ def _reset_sympy_executor():
     reset_sympy_executor()
 
 
+@pytest.fixture(autouse=True)
+def _thread_document_executor():
+    """Documents parse on an in-process thread in tests, as maths does above."""
+    from app.core.document_executor import set_document_executor
+    from app.tests.sympy_support import ThreadSympyExecutor
+
+    set_document_executor(ThreadSympyExecutor(max_workers=2))
+    yield
+    set_document_executor(None)
+
+
 @pytest.fixture
 def thread_sympy_executor():
     """Swap the production ProcessPoolSympyExecutor for an in-process

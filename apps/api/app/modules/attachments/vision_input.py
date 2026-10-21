@@ -17,12 +17,12 @@ past it, or one that cannot be decoded, is left out and the model is told.
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import io
 import logging
 from typing import Any
 
+from app.core.blocking import run_blocking
 from app.core.config import Settings
 from app.gateways.storage_gateway import StorageGateway
 from app.modules.attachments.image_decode import decode_upright, has_transparency
@@ -97,7 +97,8 @@ async def _image_parts(
             left_out += 1
             continue
         try:
-            mime, encoded = await asyncio.to_thread(
+            mime, encoded = await run_blocking(
+                "images",
                 encode_for_vision,
                 data,
                 max_edge=settings.attachment_vision_max_edge,

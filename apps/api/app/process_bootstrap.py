@@ -11,10 +11,11 @@ from app.background import (
 )
 from app.background import handlers as job_handlers
 from app.content.legal import warn_if_no_support_email
-from app.core import jobs, shutdown
+from app.core import blocking, jobs, shutdown
 from app.core.background_tasks import drain_background_tasks
 from app.core.config import Settings, validate_production_settings
 from app.core.db import engine, warmup_db_pool
+from app.core.document_executor import shutdown_document_executor
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.core.saturation import start_saturation_monitor, stop_saturation_monitor
@@ -122,6 +123,8 @@ async def shutdown_process(
     if stop_worker and drain_before_stop:
         await stop_worker_runtime()
     shutdown_sympy_executor()
+    shutdown_document_executor()
+    blocking.shutdown()
     await engine.dispose()
     await get_redis_client().aclose()
     await aclose_pooled_clients()

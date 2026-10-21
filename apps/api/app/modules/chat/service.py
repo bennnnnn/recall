@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -11,6 +10,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import Chat, Message, User
@@ -67,7 +67,7 @@ async def list_chats_grouped(
                 archived_session, user.id, limit=ARCHIVED_CHAT_LIST_LIMIT
             )
 
-    chats, archived = await asyncio.gather(
+    chats, archived = await gather_or_cancel(
         chats_repo.list_for_user(session, user.id, limit=limit),
         _archived(),
     )

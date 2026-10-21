@@ -35,6 +35,7 @@ from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 from typing import Any, TypeVar
 
+from app.core.blocking import run_blocking
 from app.core.log_context import current_log_ids
 from app.core.sympy_worker_process import MP_CONTEXT, exit_with_parent, reap_pool, sympy_worker
 
@@ -56,6 +57,14 @@ _SPAWN_WAIT_SECONDS = 20.0
 # 10 ms poll for nothing (every pool call paid it).
 _FIRST_POLL_SECONDS = 0.0005
 _QUEUE_POLL_SECONDS = 0.01
+
+
+class WorkerBusyError(TimeoutError):
+    """No worker came free within the queue wait: the pool is busy, the job did not run.
+
+    Distinct from the job's own deadline, which kills its worker: a busy pool is worth
+    retrying later, a job that ran too long is not.
+    """
 
 
 def _clamp_workers(max_workers: int) -> int:
@@ -114,9 +123,13 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         max_workers: int = DEFAULT_SYMPY_MAX_WORKERS,
         *,
         queue_wait_seconds: float = DEFAULT_SYMPY_QUEUE_WAIT_SECONDS,
+        per_user: bool = True,
     ) -> None:
         self._max_workers = _clamp_workers(max_workers)
         self._queue_wait_seconds = queue_wait_seconds
+        # One job per user at a time (below). The document pool turns it off: a turn reads
+        # its own files side by side, and each parse is killed at its deadline anyway.
+        self._per_user = per_user
         self._slots: list[ProcessPoolExecutor | None] = [None] * self._max_workers
         # A new worker imports SymPy and the solvers on its first job (about
         # 4s), which ate the 5s solve budget. After a timeout kills a worker,
@@ -152,7 +165,7 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         while (running := self._owner_jobs.get(owner)) is not None:
             remaining = deadline - loop.time()
             if remaining <= 0:
-                raise TimeoutError("SymPy: this user's previous solve is still running")
+                raise WorkerBusyError("SymPy: this user's previous solve is still running")
             await asyncio.wait_for(asyncio.shield(running), remaining)
         self._owner_jobs[owner] = loop.create_future()
 
@@ -247,7 +260,7 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         pool = self._slots[slot]
         self._slots[slot] = None
         if pool is not None:
-            await asyncio.to_thread(reap_pool, pool)
+            await run_blocking("processes", reap_pool, pool)
 
     def _kill_all_slots(self) -> None:
         for i in range(self._max_workers):
@@ -267,7 +280,7 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         caller cancelled mid-solve (Stop, a closed socket) leaves the job to finish
         under its own deadline in the background, then the slot frees.
         """
-        owner = current_log_ids().get("user_id")
+        owner = current_log_ids().get("user_id") if self._per_user else None
         t_submit = time.monotonic()
         await self._claim_owner(owner, self._queue_wait_seconds)
         slot: int | None = None
@@ -281,7 +294,7 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                     "sympy queued %.3fs without a free worker slot",
                     time.monotonic() - t_submit,
                 )
-                raise TimeoutError("SymPy worker slot wait timed out") from exc
+                raise WorkerBusyError("SymPy worker slot wait timed out") from exc
 
             queue_s = time.monotonic() - t_submit
             if self._in_process:
@@ -458,12 +471,14 @@ async def warm_sympy_pool(warmup: Callable[[], None]) -> None:
     """
     executor = get_sympy_executor()
     executor.set_warmup(warmup)
-    try:
-        await asyncio.gather(
-            *(executor.run(warmup, timeout=20.0) for _ in range(executor.max_workers))
-        )
-    except Exception:
-        logger.warning("sympy pool warmup failed", exc_info=True)
+    # Every slot warms whatever happens to the others; a cold one warms before its first job.
+    results = await asyncio.gather(
+        *(executor.run(warmup, timeout=20.0) for _ in range(executor.max_workers)),
+        return_exceptions=True,
+    )
+    for result in results:
+        if isinstance(result, Exception):
+            logger.warning("sympy pool warmup failed", exc_info=result)
 
 
 async def run_sympy[T](

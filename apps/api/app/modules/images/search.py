@@ -9,6 +9,7 @@ attachment upload), and attaches it to the chat as an ``[Image: …]`` marker
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from uuid import UUID
@@ -116,20 +117,31 @@ async def _fetch_candidates(
     *,
     max_images: int,
 ) -> list[tuple[bytes, str]]:
+    """The first ``max_images`` usable photos, fetched side by side under one deadline.
+
+    One after another, a slow host used its whole 8 s before the next candidate was
+    tried, so an answer photo (which waits 6 s) went out empty even when the next
+    candidate would have arrived at once.
+    """
+    deadline = settings.image_search_fetch_timeout_seconds
     fetched: list[tuple[bytes, str]] = []
-    async with httpx.AsyncClient(
-        timeout=settings.image_search_fetch_timeout_seconds, follow_redirects=False
-    ) as client:
-        for hit in hits:
-            if len(fetched) >= max_images:
-                break
-            # One slow candidate gets the fetch timeout in all, then the next is tried.
-            result = await _fetch_one_image(
-                client, hit, deadline_seconds=settings.image_search_fetch_timeout_seconds
-            )
-            if result is not None:
-                fetched.append(result)
-    return fetched
+    async with httpx.AsyncClient(timeout=deadline, follow_redirects=False) as client:
+        pending = {
+            asyncio.create_task(_fetch_one_image(client, hit, deadline_seconds=deadline))
+            for hit in hits
+        }
+        try:
+            async with asyncio.timeout(deadline):
+                while pending and len(fetched) < max_images:
+                    done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                    fetched.extend(found for task in done if (found := task.result()) is not None)
+        except TimeoutError:
+            logger.info("Reference-photo candidates ran past %ss", deadline)
+        finally:
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+    return fetched[:max_images]
 
 
 async def _find_photos(

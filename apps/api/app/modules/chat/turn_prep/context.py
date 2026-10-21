@@ -8,6 +8,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.readings import read_off_loop
@@ -352,7 +353,7 @@ async def build_stream_prompt_context(
     # More than one request: each is answered (``intents``), and the prompt says how.
     plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
     # Phase A: prompt + instant-reply + fallback-health share no data.
-    prompt_messages, instant_reply, fallback_models, card = await asyncio.gather(
+    prompt_messages, instant_reply, fallback_models, card = await gather_or_cancel(
         build_prompt_messages(
             user,
             chat.id,

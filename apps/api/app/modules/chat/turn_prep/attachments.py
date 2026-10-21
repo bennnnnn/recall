@@ -253,7 +253,7 @@ async def _read_turn_attachments(
                 image_bytes[row.storage_key] = data
             return lines, is_image
 
-    formatted = await gather_or_cancel(read(row) for row in attachment_rows)
+    formatted = await gather_or_cancel(*(read(row) for row in attachment_rows))
     if verified:
         async with SessionLocal() as session:
             await attachments_service.mark_verified_many(session, verified)

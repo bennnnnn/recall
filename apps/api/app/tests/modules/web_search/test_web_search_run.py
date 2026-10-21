@@ -328,10 +328,24 @@ async def test_search_duckduckgo_timeout_is_a_failed_search():
 
     with (
         patch.object(gw, "_DDG_TIMEOUT_SECONDS", 0.05),
-        patch.object(gw.asyncio, "to_thread", side_effect=never_finishes),
+        patch.object(gw, "run_blocking", side_effect=never_finishes),
         pytest.raises(gw.WebSearchUnavailableError),
     ):
         await gw._search_duckduckgo("slow query", max_results=3)
+
+
+@pytest.mark.asyncio
+async def test_a_busy_duckduckgo_fallback_fails_fast_instead_of_queueing():
+    """Its threads outlive their waits; with both taken, a search is refused at once."""
+    from app.gateways import web_search_gateway as gw
+
+    with (
+        patch.object(gw, "has_room", return_value=False),
+        patch.object(gw, "run_blocking") as run,
+        pytest.raises(gw.WebSearchUnavailableError, match="busy"),
+    ):
+        await gw._search_duckduckgo("query", max_results=3)
+    run.assert_not_called()
 
 
 @pytest.mark.asyncio

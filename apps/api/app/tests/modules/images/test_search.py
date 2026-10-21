@@ -432,3 +432,32 @@ async def test_photo_fetch_names_itself_and_asks_for_plain_bytes():
     assert fetch.await_args.kwargs["deadline_seconds"] == 8.0
     assert headers["User-Agent"].startswith("RecallPhotos/")
     assert headers["Accept-Encoding"] == "identity"
+
+
+async def test_candidates_are_fetched_side_by_side_and_a_slow_host_waits_for_none() -> None:
+    import asyncio
+    import time
+
+    from app.modules.images import search as search_module
+
+    delays = {"slow": 8.0, "quick": 0.2, "also-quick": 0.2}
+    hits = [
+        ImageSearchHit(
+            image_url=f"https://example.com/{name}.png",
+            description=name,
+            source_url="https://example.com",
+            source_title=name,
+        )
+        for name in delays
+    ]
+
+    async def fetch(_client, hit, *, deadline_seconds):
+        await asyncio.sleep(delays[hit.description])
+        return PNG_BYTES, "image/png"
+
+    started = time.monotonic()
+    with patch.object(search_module, "_fetch_one_image", fetch):
+        fetched = await search_module._fetch_candidates(Settings(), hits, max_images=1)
+
+    assert fetched == [(PNG_BYTES, "image/png")]
+    assert time.monotonic() - started < 1.0

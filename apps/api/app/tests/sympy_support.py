@@ -15,6 +15,7 @@ from typing import Any, TypeVar
 from app.core.sympy_executor import (
     DEFAULT_SYMPY_QUEUE_WAIT_SECONDS,
     BoundedSympyExecutor,
+    WorkerBusyError,
     _clamp_workers,
     wait_until_started,
 )
@@ -54,7 +55,7 @@ class ThreadSympyExecutor(BoundedSympyExecutor):
         future = self._pool.submit(fn, *args)
         if not await wait_until_started(future, self._queue_wait_seconds):
             future.cancel()
-            raise TimeoutError("SymPy worker slot wait timed out")
+            raise WorkerBusyError("SymPy worker slot wait timed out")
         afut = asyncio.wrap_future(future)
         try:
             async with asyncio.timeout(timeout):

@@ -14,10 +14,12 @@ import asyncio
 import logging
 import shutil
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
+from app.core.blocking import run_blocking
 from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -164,6 +166,7 @@ class R2StorageGateway:
             f"https://{settings.r2_account_id}.r2.cloudflarestorage.com"
         )
         self._bucket = settings.r2_bucket
+        self._deadline = settings.r2_call_deadline_seconds
         self._expiry = settings.r2_presign_expiry_seconds
         self._upload_expiry = settings.r2_presign_upload_expiry_seconds
         self._client = boto3.client(
@@ -172,9 +175,9 @@ class R2StorageGateway:
             region_name="auto",  # R2 ignores region but boto3 requires one
             aws_access_key_id=settings.r2_access_key_id,
             aws_secret_access_key=settings.r2_secret_access_key,
-            # Every call below runs on a default-executor thread. botocore's
-            # defaults (60s + 60s, 5 legacy attempts) let a stalled R2 hold
-            # those threads for minutes.
+            # Every call below runs on the storage pool (core/blocking.py). botocore's
+            # defaults (60s + 60s, 5 legacy attempts) let a stalled R2 hold its
+            # threads for minutes.
             config=Config(
                 connect_timeout=settings.r2_connect_timeout_seconds,
                 read_timeout=settings.r2_read_timeout_seconds,
@@ -186,6 +189,11 @@ class R2StorageGateway:
             ),
         )
 
+    async def _call[T](self, fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+        """One R2 call on the storage pool, given up after the deadline."""
+        async with asyncio.timeout(self._deadline):
+            return await run_blocking("storage", fn, *args, **kwargs)
+
     async def presign_upload(
         self, *, user_id: str, content_type: str, size_bytes: int
     ) -> PresignedUpload:
@@ -193,7 +201,8 @@ class R2StorageGateway:
         storage_key = f"{user_id}/{attachment_id}"
         # R2/S3 presigned PUT — the client uploads directly; the signed URL
         # pins Content-Type so a swapped MIME can't be stored under this URL.
-        url = await asyncio.to_thread(
+        url = await run_blocking(
+            "storage",
             self._client.generate_presigned_url,
             "put_object",
             Params={
@@ -214,7 +223,8 @@ class R2StorageGateway:
         )
 
     async def presign_download(self, storage_key: str) -> str:
-        return await asyncio.to_thread(
+        return await run_blocking(
+            "storage",
             self._client.generate_presigned_url,
             "get_object",
             Params={"Bucket": self._bucket, "Key": storage_key},
@@ -223,7 +233,7 @@ class R2StorageGateway:
 
     async def write_bytes(self, storage_key: str, data: bytes) -> None:
         try:
-            await asyncio.to_thread(
+            await self._call(
                 self._client.put_object,
                 Bucket=self._bucket,
                 Key=storage_key,
@@ -233,12 +243,10 @@ class R2StorageGateway:
             raise StorageUnavailableError(_R2_UNAVAILABLE) from exc
 
     async def copy_bytes(self, source_key: str, target_key: str) -> bool:
-        import asyncio
-
         from botocore.exceptions import ClientError
 
         try:
-            await asyncio.to_thread(
+            await self._call(
                 self._client.copy_object,
                 Bucket=self._bucket,
                 Key=target_key,
@@ -254,18 +262,15 @@ class R2StorageGateway:
 
     async def read_bytes(self, storage_key: str) -> bytes | None:
         # Used by attachment_content to extract text/vision bytes for the prompt.
-        # get_object is a real network call — offload to a thread.
         from botocore.exceptions import ClientError
 
         try:
-            resp = await asyncio.to_thread(
-                self._client.get_object, Bucket=self._bucket, Key=storage_key
-            )
+            resp = await self._call(self._client.get_object, Bucket=self._bucket, Key=storage_key)
             body = resp["Body"]
             try:
-                return await asyncio.to_thread(body.read)
+                return await self._call(body.read)
             finally:
-                await asyncio.to_thread(body.close)
+                await self._call(body.close)
         except ClientError as exc:
             if exc.response.get("Error", {}).get("Code") in {"NoSuchKey", "NotFound", "404"}:
                 return None
@@ -275,9 +280,7 @@ class R2StorageGateway:
 
     async def delete_bytes(self, storage_key: str) -> None:
         try:
-            await asyncio.to_thread(
-                self._client.delete_object, Bucket=self._bucket, Key=storage_key
-            )
+            await self._call(self._client.delete_object, Bucket=self._bucket, Key=storage_key)
         except Exception as exc:
             raise StorageUnavailableError(_R2_UNAVAILABLE) from exc
 
@@ -298,7 +301,7 @@ class R2StorageGateway:
             def _list_page(params: dict[str, object]) -> object:
                 return self._client.list_objects_v2(**params)
 
-            resp = await asyncio.to_thread(_list_page, kwargs)
+            resp = await self._call(_list_page, kwargs)
             # Only a real listing continues the sweep. A reply that is not one, or
             # a page token that does not advance, would otherwise loop forever.
             if not isinstance(resp, dict):
@@ -310,7 +313,7 @@ class R2StorageGateway:
                 if isinstance(obj, dict) and isinstance(obj.get("Key"), str)
             ]
             if keys:
-                deletion = await asyncio.to_thread(
+                deletion = await self._call(
                     self._client.delete_objects,
                     Bucket=self._bucket,
                     Delete={"Objects": [{"Key": key} for key in keys], "Quiet": True},

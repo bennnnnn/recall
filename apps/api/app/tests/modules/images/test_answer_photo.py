@@ -74,7 +74,11 @@ async def test_a_slow_photo_does_not_hold_the_reply(monkeypatch):
         photo = AnswerPhoto(Settings(), MagicMock())
         photo.feed(REPLY)
         content, ids = await photo.attach(REPLY)
-        photo.cancel()
+        task = photo._task
+        assert task is not None
+        # Stopped, not left to store a photo nothing links (it cost a lookup).
+        await asyncio.sleep(0)
+        assert task.cancelled()
     assert ids == []
     assert "```photo" not in content
 

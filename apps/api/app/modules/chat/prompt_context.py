@@ -8,6 +8,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import Chat, User
@@ -186,7 +187,7 @@ def _memory_hints(memory_block: str) -> list[str]:
 async def _slim_blocks(reads: _ContextReads, chat: Chat | None) -> _PromptContextBlocks:
     """A slim turn without memory: the recent window, and the history embed if asked."""
     if reads.history_rag:
-        recent_all, history_rag_query_vec = await asyncio.gather(
+        recent_all, history_rag_query_vec = await gather_or_cancel(
             reads.recent(pooled=False),
             reads.history_rag_embed(),
         )
@@ -205,7 +206,7 @@ async def _slim_blocks(reads: _ContextReads, chat: Chat | None) -> _PromptContex
 
 async def _slim_memory_blocks(reads: _ContextReads, chat: Chat | None) -> _PromptContextBlocks:
     """A slim turn that recalls: memory too, capped to whole facts."""
-    recent_all, memory_block, history_rag_query_vec = await asyncio.gather(
+    recent_all, memory_block, history_rag_query_vec = await gather_or_cancel(
         reads.recent(pooled=False),
         reads.memory_block(),
         reads.history_rag_embed(),
@@ -230,7 +231,7 @@ async def _full_blocks(reads: _ContextReads, chat: Chat | None) -> _PromptContex
         recent_all,
         attachment_rag_block,
         history_rag_query_vec,
-    ) = await asyncio.gather(
+    ) = await gather_or_cancel(
         reads.memory_block(),
         reads.todos_section(),
         reads.recent(pooled=True),

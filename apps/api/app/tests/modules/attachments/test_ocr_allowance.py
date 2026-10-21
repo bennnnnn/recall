@@ -222,7 +222,7 @@ async def test_index_attachment_refunds_the_slot_when_the_parse_times_out() -> N
     from datetime import date
 
     from app.modules.attachments.content import ExtractTimeoutError
-    from app.modules.attachments.rag import AttachmentIndexError
+    from app.modules.attachments.rag import AttachmentUnreadableError
 
     row = _pdf_row()
     day = date(2026, 10, 16)
@@ -237,7 +237,8 @@ async def test_index_attachment_refunds_the_slot_when_the_parse_times_out() -> N
         fifth,
         patch.object(ocr_allowance, "reserve_ocr", AsyncMock(return_value=day)),
         patch.object(ocr_allowance, "refund_ocr", refund),
-        pytest.raises(AttachmentIndexError),
+        # Not retried: the same file would run past its budget the same way.
+        pytest.raises(AttachmentUnreadableError),
     ):
         await index_attachment(
             Settings(attachment_rag_enabled=True), user_id=row.user_id, attachment_id=row.id
@@ -270,3 +271,46 @@ async def test_index_attachment_reuses_kept_ocr_text_without_reading_again() -> 
     assert count == 0
     extract.assert_not_awaited()
     reserve.assert_not_awaited()
+
+
+async def test_a_busy_document_pool_is_retried_not_dead_lettered() -> None:
+    from datetime import date
+
+    from app.core.sympy_executor import WorkerBusyError
+    from app.modules.attachments.rag import AttachmentIndexError
+
+    row = _pdf_row()
+    refund = AsyncMock()
+    extract = AsyncMock(side_effect=WorkerBusyError("no document worker free"))
+    first, second, third, fourth, fifth = _index_patches(row, extract, None)
+    with (
+        first,
+        second,
+        third,
+        fourth,
+        fifth,
+        patch.object(ocr_allowance, "reserve_ocr", AsyncMock(return_value=date(2026, 10, 16))),
+        patch.object(ocr_allowance, "refund_ocr", refund),
+        pytest.raises(AttachmentIndexError),
+    ):
+        await index_attachment(
+            Settings(attachment_rag_enabled=True), user_id=row.user_id, attachment_id=row.id
+        )
+    refund.assert_awaited_once()
+
+
+async def test_the_index_job_dead_letters_a_file_it_cannot_read_in_time() -> None:
+    from app.core.jobs import JobDiscardError
+    from app.modules.attachments import jobs as attachment_jobs
+    from app.modules.attachments.rag import AttachmentUnreadableError
+
+    payload = {"attachment_id": str(uuid4()), "user_id": str(uuid4())}
+    with (
+        patch.object(
+            attachment_jobs.attachment_rag,
+            "index_attachment",
+            AsyncMock(side_effect=AttachmentUnreadableError("could not read in time")),
+        ),
+        pytest.raises(JobDiscardError),
+    ):
+        await attachment_jobs.index_attachment_job(Settings(attachment_rag_enabled=True), payload)

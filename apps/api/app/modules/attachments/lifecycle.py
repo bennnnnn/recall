@@ -68,8 +68,10 @@ async def delete_storage_keys(settings: Settings, storage_keys: list[str]) -> li
         *(gateway.delete_bytes(key) for key in storage_keys),
         return_exceptions=True,
     )
-    # An object's stored thumbnails go with it (best-effort, logged on failure).
-    await asyncio.gather(*(delete_thumbnails(gateway, key) for key in storage_keys))
+    # An object's stored thumbnails go with it (best-effort: each logs its own failure).
+    await asyncio.gather(
+        *(delete_thumbnails(gateway, key) for key in storage_keys), return_exceptions=True
+    )
     failed: list[str] = []
     for key, result in zip(storage_keys, results, strict=False):
         if isinstance(result, Exception):

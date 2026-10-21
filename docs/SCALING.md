@@ -67,10 +67,15 @@ Everything a turn or a request must agree on across machines lives in Redis or P
   chemistry readers run in the pool's processes: a turn reads its message there once and
   keeps the answers (`core/readings.py`, `modules/chat/turn_prep/reading.py`), and the
   test suite fails when production code reads a message or runs SymPy on the loop
-  (`app/tests/loop_guard.py`). Document parsing runs on threads; prompt building and the
-  finalize passes' text work still run on the loop.
-- **Memory.** About 270–400 MB for the API plus 90–150 MB per SymPy worker
-  (PRODUCTION.md); hence 1 GB per `app` machine.
+  (`app/tests/loop_guard.py`). Documents parse and PDF pages render in their own
+  killable processes (`core/document_executor.py`, 2 per machine). Blocking calls run on
+  a small thread pool per kind, never the shared default executor (`core/blocking.py`:
+  R2 8, images 2, sign-in 2, DuckDuckGo 2, which refuses rather than queues); the
+  saturation report logs each pool's fill. Prompt building and the finalize passes' text
+  work still run on the loop.
+- **Memory.** About 270–400 MB for the API plus 90–150 MB per SymPy worker and about
+  70 MB per document worker once one starts (PRODUCTION.md); hence 1 GB per `app`
+  machine.
 
 ## Changes for scaling out, most useful first
 

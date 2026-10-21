@@ -67,3 +67,37 @@ def test_sympy_worker_does_not_import_the_model_client_or_web_stack() -> None:
     )
     loaded = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
     assert loaded == "", f"SymPy worker imports pulled in: {loaded}"
+
+
+# What the document pool's jobs import and run (``core/document_executor.py``).
+_DOCUMENT_JOBS = (
+    "import io, pypdf",
+    "writer = pypdf.PdfWriter()",
+    "writer.add_blank_page(width=200, height=200)",
+    "buffer = io.BytesIO()",
+    "writer.write(buffer)",
+    "from app.modules.attachments.text_extract import extract_in_worker",
+    "extract_in_worker('application/pdf', buffer.getvalue(), 1000)",
+    "from app.modules.attachments.pdf_render import render_in_worker",
+    "render_in_worker(buffer.getvalue(), 1, 1.0, 1_000_000)",
+)
+
+
+def test_document_worker_does_not_import_the_model_client_or_web_stack() -> None:
+    script = "\n".join(
+        [
+            "import sys",
+            *_DOCUMENT_JOBS,
+            f"print(','.join(m for m in {_HEAVY!r} if m in sys.modules))",
+        ]
+    )
+    result = subprocess.run(  # noqa: S603 - fixed argv: this interpreter and literal jobs
+        [sys.executable, "-c", script],
+        cwd=APP_ROOT.parent,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=True,
+    )
+    loaded = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
+    assert loaded == "", f"Document worker imports pulled in: {loaded}"
