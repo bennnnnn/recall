@@ -263,6 +263,7 @@ function ChatScreen() {
     messages,
     selectedModel,
     updateUser,
+    locationEnabled: user?.location_enabled === true,
     t,
     onStreamBusy: handleStreamBusy,
     onOfflineBlocked: notifyOfflineBlocked,

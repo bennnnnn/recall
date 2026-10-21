@@ -73,6 +73,8 @@ type Options = {
   messages: Message[];
   selectedModel: string;
   updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
+  /** The profile's location switch is on (a location question then need not wait for it to save). */
+  locationEnabled?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
   onStreamBusy?: () => void;
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
@@ -100,6 +102,7 @@ export function useChatSend({
   messages,
   selectedModel,
   updateUser,
+  locationEnabled = false,
   t,
   onStreamBusy,
   onOfflineBlocked,
@@ -296,7 +299,8 @@ export function useChatSend({
   );
 
   const routeSend = useChatSendRoute({
-    token, chatId, messages, selectedModel, imageGenerating, onGenerateImage, sendMessage, sendStart, updateUser, t,
+    token, chatId, messages, selectedModel, imageGenerating, onGenerateImage, sendMessage, sendStart, updateUser,
+    locationEnabled, t,
     pendingAttachmentRef, setPendingAttachment, setPendingOutboundId, sendInFlightRef, setSendPhase,
     restoreFailedSend, sendToNewChat,
   });

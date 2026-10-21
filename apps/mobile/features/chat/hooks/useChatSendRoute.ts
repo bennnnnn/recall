@@ -37,6 +37,8 @@ type Options = {
   sendMessage: (text: string, opts?: SendMessageOptions) => void;
   sendStart: SendTurnStart;
   updateUser: (patch: Partial<User>) => Promise<void>;
+  /** The profile's location switch is already on: the turn need not wait for it to save. */
+  locationEnabled: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
   pendingAttachmentRef: MutableRefObject<PendingAttachment | null>;
   setPendingAttachment: (value: PendingAttachment | null) => void;
@@ -68,6 +70,7 @@ export function useChatSendRoute({
   sendMessage,
   sendStart,
   updateUser,
+  locationEnabled,
   t,
   pendingAttachmentRef,
   setPendingAttachment,
@@ -149,7 +152,14 @@ export function useChatSendRoute({
 
       const authToken = token;
       if (!authToken) return giveBack();
-      const geo = await resolveClientGeoForQuery(authToken, send.text, t, updateUser);
+      // The fix goes with the turn. The server reads one only from a user whose
+      // location is on, so only switching it on has to save before the turn goes.
+      const persistLocation = (patch: Partial<User>) => {
+        const saving = updateUser(patch);
+        if (!locationEnabled) return saving;
+        void saving.catch(() => undefined);
+      };
+      const geo = await resolveClientGeoForQuery(authToken, send.text, t, persistLocation);
       if (!geo.ok || !stillSending()) return giveBack();
       let attachmentIds: string[] | undefined;
       if (attached) {
@@ -183,7 +193,8 @@ export function useChatSendRoute({
     },
     [
       chatId, messages, onGenerateImage, imageGenerating, token, sendStart, restoreFailedSend,
-      handToImageGeneration, t, updateUser, setSendPhase, feedback, selectedModel, sendToNewChat, sendMessage,
+      handToImageGeneration, t, updateUser, locationEnabled, setSendPhase, feedback, selectedModel, sendToNewChat,
+      sendMessage,
       setPendingOutboundId, sendInFlightRef,
     ],
   );

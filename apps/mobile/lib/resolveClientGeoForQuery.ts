@@ -44,6 +44,9 @@ function alertOpenDeviceSettings(t: Translate): void {
  * Resolve device geo for nearby / where-am-I asks.
  * Show the system permission sheet immediately — do not ask the model for a city,
  * and do not insert an in-app "Turn on" alert in front of the OS prompt.
+ * A recent fix serves, and the waits are bounded: with no fix in time the turn
+ * goes without one. `persistLocation` is awaited only as far as it says: the
+ * caller decides whether the turn must wait for the profile to save.
  */
 export async function resolveClientGeoForQuery(
   _token: string,
@@ -55,7 +58,11 @@ export async function resolveClientGeoForQuery(
     return { ok: true, clientGeo: null };
   }
 
-  const result = await requestDeviceGeo();
+  const result = await requestDeviceGeo({ quick: true });
+
+  if (result.status === "no_fix") {
+    return { ok: true, clientGeo: null };
+  }
 
   if (result.status === "granted") {
     const label =

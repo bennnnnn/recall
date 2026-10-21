@@ -137,6 +137,8 @@ function Probe({
   messages = [],
   imageGenerating,
   draft,
+  updateUser = jest.fn(),
+  locationEnabled,
 }: {
   offline?: boolean;
   chatLoading?: boolean;
@@ -151,6 +153,8 @@ function Probe({
   messages?: Message[];
   imageGenerating?: boolean;
   draft?: Record<string, unknown>;
+  updateUser?: jest.Mock;
+  locationEnabled?: boolean;
 }) {
   const result = useChatSend({
     token,
@@ -175,7 +179,8 @@ function Probe({
     setMessages,
     messages,
     selectedModel: "free-chat",
-    updateUser: jest.fn(),
+    updateUser,
+    locationEnabled,
     t: (key) => key,
     onStreamBusy,
     isOffline: offline,
@@ -1608,6 +1613,49 @@ describe("useChatSend send steps", () => {
     await render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
     await send();
     expect(whenReplySettled).not.toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [true, 1],
+    [false, 0],
+  ])("a location question with location already on=%p sends before the profile saves: %p", async (locationEnabled, sentEarly) => {
+    inputRef.current = "coffee near me";
+    needsGeo.mockReturnValue(true);
+    let saved!: () => void;
+    const updateUser = jest.fn(() => new Promise<void>((resolve) => { saved = resolve; }));
+    resolveGeo.mockImplementation(async (_token: string, _text: string, _t: unknown, persist: (patch: object) => unknown) => {
+      await persist({ location: "Oakland, CA", location_enabled: true });
+      return { ok: true, clientGeo: { label: "Oakland, CA", latitude: 1, longitude: 2 } };
+    });
+    const sendMessage = jest.fn();
+    await render(
+      <Probe chatId="chat-1" sendMessage={sendMessage} updateUser={updateUser} locationEnabled={locationEnabled} />,
+    );
+    let sending!: Promise<void>;
+    await act(async () => { sending = current.handleSend(); });
+    expect(updateUser).toHaveBeenCalledWith({ location: "Oakland, CA", location_enabled: true });
+    // The fix rides with the turn; only switching location on must save first,
+    // since the server ignores a fix from a user whose location is off.
+    expect(sendMessage).toHaveBeenCalledTimes(sentEarly);
+    await act(async () => { saved(); await sending; });
+    expect(sendMessage).toHaveBeenCalledWith(
+      "coffee near me",
+      expect.objectContaining({ clientGeo: { label: "Oakland, CA", latitude: 1, longitude: 2 } }),
+    );
+  });
+
+  it("does not let a failed background profile save fail the send", async () => {
+    inputRef.current = "coffee near me";
+    needsGeo.mockReturnValue(true);
+    const updateUser = jest.fn(() => Promise.reject(new Error("update failed")));
+    resolveGeo.mockImplementation(async (_token: string, _text: string, _t: unknown, persist: (patch: object) => unknown) => {
+      await persist({ location: "Oakland, CA", location_enabled: true });
+      return { ok: true, clientGeo: null };
+    });
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" sendMessage={sendMessage} updateUser={updateUser} locationEnabled />);
+    await send();
     expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 

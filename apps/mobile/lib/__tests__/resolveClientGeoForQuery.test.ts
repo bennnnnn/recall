@@ -143,4 +143,32 @@ describe("resolveClientGeoForQuery", () => {
     );
     expect(persistLocation).not.toHaveBeenCalled();
   });
+
+  it("reads quickly: a recent fix serves, and the waits are bounded", async () => {
+    (requestDeviceGeo as jest.Mock).mockResolvedValue({ status: "no_fix" });
+    await resolveClientGeoForQuery("tok", "Where am I right now", t, persistLocation);
+    expect(requestDeviceGeo).toHaveBeenCalledWith({ quick: true });
+  });
+
+  it("sends the turn without a fix when none comes in time, saving nothing", async () => {
+    (requestDeviceGeo as jest.Mock).mockResolvedValue({ status: "no_fix" });
+
+    const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation);
+
+    expect(result).toEqual({ ok: true, clientGeo: null });
+    expect(persistLocation).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it("waits on the profile save only as long as the caller's save does", async () => {
+    (requestDeviceGeo as jest.Mock).mockResolvedValue({
+      status: "granted",
+      geo: { label: "Oakland, CA", latitude: 37.8, longitude: -122.27 },
+    });
+    // A save the caller does not wait for (location already on) returns nothing to await.
+    const saveInBackground = jest.fn(() => undefined);
+    const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, saveInBackground);
+    expect(saveInBackground).toHaveBeenCalledWith({ location: "Oakland, CA", location_enabled: true });
+    expect(result).toMatchObject({ ok: true, clientGeo: { label: "Oakland, CA" } });
+  });
 });
