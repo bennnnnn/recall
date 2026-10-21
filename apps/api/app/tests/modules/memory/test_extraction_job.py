@@ -59,7 +59,7 @@ def embedding_write():
 def _memory_extract_backlog_noop():
     with (
         patch(
-            "app.modules.memory.extract_backlog.messages_repo.list_user_contents_since",
+            "app.modules.memory.extract_backlog.chat_history.user_lines_since",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -908,7 +908,7 @@ def _history_patches(stack: ExitStack, *, lines: list[str], revise: AsyncMock, a
     )
     stack.enter_context(
         patch(
-            "app.modules.memory.extract_backlog.messages_repo.list_user_contents_since",
+            "app.modules.memory.extract_backlog.chat_history.user_lines_since",
             read_lines,
         )
     )

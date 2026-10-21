@@ -14,8 +14,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import get_redis_client
+from app.modules.chat import history as chat_history
 from app.modules.memory.text import memory_extract_user_text
-from app.repositories import messages as messages_repo
 from app.services.text_normalize import cap_text_head_tail
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ async def history_chat_transcript(
     Lines written at or before ``newer_than`` (the user's last hand edit to
     memory) are left out, so reading them cannot undo that edit.
     """
-    rows = await messages_repo.list_user_contents_since(
+    rows = await chat_history.user_lines_since(
         session, chat_id, newer_than=newer_than, limit=_MEMORY_EXTRACT_BACKLOG
     )
     return cap_text_head_tail(
@@ -105,7 +105,7 @@ async def expand_memory_extract_transcript(
         logger.debug("memory extract cursor read failed chat_id=%s", chat_id, exc_info=True)
 
     try:
-        rows = await messages_repo.list_user_contents_since(
+        rows = await chat_history.user_lines_since(
             session,
             chat_id,
             after_created_at=after_created_at,

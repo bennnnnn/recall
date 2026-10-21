@@ -1,4 +1,4 @@
-"""Real-Postgres tests for app.repositories.messages.
+"""Real-Postgres tests for chat's messages repository.
 
 `test_messages.py` mocks `AsyncSession` and returns a canned result no
 matter what statement is executed, so it can't catch wrong ordering or a
@@ -16,8 +16,8 @@ from uuid import uuid4
 import pytest
 
 from app.models.orm import Message
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
+from app.modules.chat import chats_repository as chats_repo
+from app.modules.chat import messages_repository as messages_repo
 from app.repositories import users as users_repo
 
 

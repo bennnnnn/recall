@@ -20,13 +20,13 @@ from app.models.orm import Chat, User
 from app.modules.attachments import rag as attachment_rag
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan as plan_service
+from app.modules.chat import chats_repository as chats_repo
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.model_routing.route import last_user_turn
 from app.modules.chat.turn_prep.mode import _TurnMode, classify_turn_mode
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
 
 

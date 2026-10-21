@@ -12,7 +12,7 @@ from redis.exceptions import TimeoutError as RedisTimeoutError
 from app.core import redis_lock
 from app.core.config import Settings
 from app.exceptions import ChatBusyError
-from app.modules.chat import stream_entry, turn_resources
+from app.modules.chat import chats_repository, messages_repository, stream_entry, turn_resources
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.stream_events import error_payload_for_exception
 from app.tests.fakes import redis_mock
@@ -40,9 +40,9 @@ def _chat() -> MagicMock:
 def _turn_load():
     chat = _chat()
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
     ):
         yield
 
@@ -222,12 +222,13 @@ async def test_regenerate_acquires_chatprep_lock():
     with (
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[fake_last_user, fake_last]),
         ),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=2)),
         patch.object(
             model_choice,
             "resolve_user_model_override",

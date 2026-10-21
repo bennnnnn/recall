@@ -31,7 +31,7 @@ from app.modules.attachments.quota import has_current_upload_reservation, upload
 from app.modules.attachments.schemas import AttachmentListItemOut, AttachmentListOut, AttachmentOut
 from app.modules.attachments.thumbnails import thumbnail_bytes, thumbnail_edge
 from app.modules.attachments.upload import AttachmentUploadError, cancel_pending_upload
-from app.repositories import messages as messages_repo
+from app.modules.chat import history as chat_history
 from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
@@ -173,7 +173,7 @@ async def _delete_library_attachment(
     message_id = row.message_id
     storage_key = row.storage_key
     if message_id is not None:
-        message = await messages_repo.get_for_user(session, message_id, user.id)
+        message = await chat_history.message_for_user(session, message_id, user.id)
         if message is not None:
             next_content = strip_attachment_from_content(message.content, row.id)
             if next_content:

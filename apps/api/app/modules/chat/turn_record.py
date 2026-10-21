@@ -18,9 +18,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import Message, User
+from app.modules.chat import chats_repository as chats_repo
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.post_turn import SavedTurn, enqueue_saved_turn_jobs
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 
 logger = logging.getLogger(__name__)
 

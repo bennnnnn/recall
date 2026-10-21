@@ -8,6 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.litellm_gateway import StreamAttempt
+from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.tests.modules.chat.chat_test_support import (
     FakeSessionCM as _FakeSessionCM,
@@ -54,14 +55,14 @@ async def test_stream_does_not_duplicate_user_message(fake_redis, stream_offline
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=1)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch("app.modules.chat.turn_prep.context.build_prompt_messages", mock_build),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         collected = []
@@ -96,10 +97,10 @@ async def test_memory_extraction_runs_on_later_turn(fake_redis, stream_offline_i
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=stub_recent(3))),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=stub_recent(3))),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
@@ -107,7 +108,7 @@ async def test_memory_extraction_runs_on_later_turn(fake_redis, stream_offline_i
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         outcome = TurnOutcome()
@@ -159,9 +160,9 @@ async def test_memory_extraction_skipped_when_memory_disabled(fake_redis, stream
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
@@ -169,7 +170,7 @@ async def test_memory_extraction_skipped_when_memory_disabled(fake_redis, stream
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         outcome = TurnOutcome()
@@ -209,10 +210,10 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(fake_redis, stream_
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=stub_recent(2))),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=stub_recent(2))),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=2)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
@@ -220,7 +221,7 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(fake_redis, stream_
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         outcome = TurnOutcome()
@@ -264,9 +265,9 @@ async def test_a_reminder_reply_enqueues_no_background_write(fake_redis, stream_
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
@@ -274,7 +275,7 @@ async def test_a_reminder_reply_enqueues_no_background_write(fake_redis, stream_
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         outcome = TurnOutcome()
@@ -324,9 +325,9 @@ async def test_stream_sets_final_content_on_cancel(fake_redis, stream_offline_io
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
@@ -334,7 +335,7 @@ async def test_stream_sets_final_content_on_cancel(fake_redis, stream_offline_io
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         outcome = TurnOutcome()
@@ -1650,9 +1651,9 @@ async def test_stream_closes_llm_stream_on_cancel(fake_redis, stream_offline_io)
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
@@ -1660,7 +1661,7 @@ async def test_stream_closes_llm_stream_on_cancel(fake_redis, stream_offline_io)
         patch("app.gateways.litellm_gateway.stream_chat_completion", tracked),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         async for _ in chat_module.stream_chat_response(
@@ -1698,9 +1699,9 @@ async def test_stream_places_query_without_location_prompts_to_enable(
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
@@ -1708,7 +1709,7 @@ async def test_stream_places_query_without_location_prompts_to_enable(
         patch("app.gateways.litellm_gateway.stream_chat_completion", AsyncMock()),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         yielded: list[str] = []
@@ -1751,9 +1752,9 @@ async def test_stream_places_query_with_client_location_skips_the_settings_promp
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.users.update", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
@@ -1761,7 +1762,7 @@ async def test_stream_places_query_with_client_location_skips_the_settings_promp
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         yielded: list[str] = []
@@ -1804,12 +1805,12 @@ async def test_stream_persists_raw_text_when_enrichment_fails(fake_redis, stream
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+            patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3))
+            patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3))
         )
-        stack.enter_context(patch("app.repositories.messages.create", AsyncMock()))
+        stack.enter_context(patch.object(messages_repository, "create", AsyncMock()))
         stack.enter_context(
             patch(
                 "app.modules.chat.turn_prep.context.build_prompt_messages",
@@ -1821,7 +1822,7 @@ async def test_stream_persists_raw_text_when_enrichment_fails(fake_redis, stream
         )
         stack.enter_context(patch("app.services.quota.adjust_usage", AsyncMock()))
         stack.enter_context(patch("app.repositories.usage.add_tokens", AsyncMock()))
-        stack.enter_context(patch("app.repositories.chats.touch_by_id", AsyncMock()))
+        stack.enter_context(patch.object(chats_repository, "touch_by_id", AsyncMock()))
         stack.enter_context(patch("app.core.jobs.enqueue", AsyncMock()))
         stack.enter_context(
             patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
@@ -1874,9 +1875,9 @@ async def test_stream_no_final_content_on_normal_completion(fake_redis, stream_o
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
@@ -1884,7 +1885,7 @@ async def test_stream_no_final_content_on_normal_completion(fake_redis, stream_o
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         outcome = TurnOutcome()
@@ -1944,16 +1945,17 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+            patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
+            patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=2))
         )
         # Every plan can generate images now, so a short regenerate reads the
         # thread for an image follow-up before it searches.
         stack.enter_context(
-            patch(
-                "app.repositories.messages.list_recent",
+            patch.object(
+                messages_repository,
+                "list_recent",
                 AsyncMock(return_value=[fake_last_user, fake_last]),
             )
         )
@@ -1989,7 +1991,7 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
                 AsyncMock(),
             )
         )
-        stack.enter_context(patch("app.repositories.messages.delete_message", delete))
+        stack.enter_context(patch.object(messages_repository, "delete_message", delete))
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
         )
@@ -2077,14 +2079,15 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+            patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
+            patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=2))
         )
         stack.enter_context(
-            patch(
-                "app.repositories.messages.list_recent",
+            patch.object(
+                messages_repository,
+                "list_recent",
                 AsyncMock(return_value=[fake_last_user, fake_last]),
             )
         )
@@ -2109,8 +2112,9 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
             )
         )
         stack.enter_context(
-            patch(
-                "app.repositories.messages.delete_message",
+            patch.object(
+                messages_repository,
+                "delete_message",
                 delete_mock,
             )
         )
@@ -2174,14 +2178,15 @@ async def test_regenerate_passes_client_geo_to_the_turn(fake_redis):
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+            patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
+            patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=2))
         )
         stack.enter_context(
-            patch(
-                "app.repositories.messages.list_recent",
+            patch.object(
+                messages_repository,
+                "list_recent",
                 AsyncMock(return_value=[fake_last_user, fake_last]),
             )
         )

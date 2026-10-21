@@ -14,12 +14,11 @@ from app.core.db import SessionLocal
 from app.models.orm import Message, User
 from app.modules import todos as todos_service
 from app.modules.billing import can_use
+from app.modules.chat import history as chat_history
 from app.modules.chat import needs_generated_title, present_assistant_markdown, turn_record
 from app.modules.speech.schemas import SpeechLiveStatusOut
 from app.modules.speech.service import LIVE_TALK_ALIAS
 from app.modules.todos.service import list_owned_todos
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.services.prompt_safety import wrap_untrusted, wrap_user_preferences
 
 logger = logging.getLogger(__name__)
@@ -129,10 +128,10 @@ async def load_live_talk_history(
     user_id: UUID,
 ) -> tuple[list[tuple[str, str]], bool] | None:
     """Recent text turns for the audio model, plus whether the chat still needs a title."""
-    chat = await chats_repo.get_by_id(session, chat_id, user_id)
+    chat = await chat_history.get_chat(session, chat_id, user_id)
     if chat is None:
         return None
-    recent = await messages_repo.list_recent(session, chat_id, limit=_LIVE_TALK_RECENT)
+    recent = await chat_history.recent_messages(session, chat_id, limit=_LIVE_TALK_RECENT)
     history = [(row.role, row.content) for row in recent if row.role in {"user", "assistant"}]
     untitled = needs_generated_title(chat.title)
     return history, untitled
@@ -325,7 +324,7 @@ async def persist_live_talk_turn(
     should_write_assistant = write_assistant and bool(assistant_content)
     if should_write_user or should_write_assistant:
         async with SessionLocal() as session:
-            chat = await chats_repo.get_by_id(session, chat_id, user.id)
+            chat = await chat_history.get_chat(session, chat_id, user.id)
             if chat is None:
                 logger.warning("Live talk persist skipped; chat missing chat_id=%s", chat_id)
                 return None, None

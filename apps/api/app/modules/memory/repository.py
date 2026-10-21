@@ -16,7 +16,6 @@ from app.modules.memory.writes_repository import lock_memory_enabled as lock_mem
 from app.modules.memory.writes_repository import (
     update_embedding_if_current as update_embedding_if_current,
 )
-from app.repositories import message_chunks as chunks_repo
 
 
 async def list_for_user(
@@ -178,8 +177,11 @@ async def delete_all_for_user(
         await session.execute(delete(Memory).where(Memory.user_id == user_id)),
     )
     await session.execute(delete(MemoryArea).where(MemoryArea.user_id == user_id))
-    # With every fact gone, past-chat recall must not repeat any of them.
-    await chunks_repo.delete_all_for_user(session, user_id)
+    # With every fact gone, past-chat recall must not repeat any of them. Here, not at
+    # the top: chat's history index loads modules that read memory.
+    from app.modules.chat import history_rag
+
+    await history_rag.forget_all_snippets(session, user_id)
     if commit:
         await session.commit()
     else:

@@ -11,6 +11,7 @@ from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.core.redis_lock import acquire_lock, release_lock
 from app.models.orm import Chat
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.context_window import (
     cap_summary,
     compute_history_split,
@@ -18,7 +19,6 @@ from app.modules.chat.context_window import (
     trim_message_for_summary,
 )
 from app.modules.chat.summarize import summarize_conversation
-from app.repositories import messages as messages_repo
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ async def compress_chat_history(
 
 async def _load_chat(session: AsyncSession, chat_id: UUID, user_id: UUID | None) -> Chat | None:
     if user_id is not None:
-        from app.repositories import chats as chats_repo
+        from app.modules.chat import chats_repository as chats_repo
 
         return await chats_repo.get_by_id(session, chat_id, user_id)
     return await session.get(Chat, chat_id)

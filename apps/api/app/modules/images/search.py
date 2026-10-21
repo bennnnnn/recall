@@ -35,9 +35,8 @@ from app.modules.attachments.service import (
     is_image_content_type,
     normalize_content_type,
 )
+from app.modules.chat import history as chat_history
 from app.modules.chat import turn_record
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
 from app.services.quota import counters
 
@@ -236,7 +235,7 @@ async def search_and_attach_for_chat(
         raise ImageSearchError("Query is required", status_code=400)
 
     async with SessionLocal() as session:
-        chat = await chats_repo.get_by_id(session, chat_id, user.id)
+        chat = await chat_history.get_chat(session, chat_id, user.id)
         if chat is None:
             raise ImageSearchError("Chat not found", status_code=404)
 
@@ -276,7 +275,7 @@ async def search_and_attach_for_chat(
                     session, chat_id=chat_id, user_id=user.id, role="user", content=bubble
                 )
             else:
-                existing = await messages_repo.get_last_user(session, chat_id)
+                existing = await chat_history.last_user_message(session, chat_id)
                 if existing is None:
                     raise ImageSearchError("No user message to attach image to", status_code=404)
                 user_message = existing

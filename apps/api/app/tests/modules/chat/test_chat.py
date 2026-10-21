@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.prompt_constants import (
@@ -103,7 +104,7 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
     user.timezone = None
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value=""),
@@ -112,8 +113,9 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -143,7 +145,7 @@ async def test_build_prompt_includes_comparison_table_hint():
     user.timezone = None
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value=""),
@@ -152,8 +154,9 @@ async def test_build_prompt_includes_comparison_table_hint():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -186,7 +189,7 @@ async def test_build_prompt_includes_chart_vega_hint():
     user.timezone = None
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value=""),
@@ -195,8 +198,9 @@ async def test_build_prompt_includes_chart_vega_hint():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -230,7 +234,7 @@ async def test_build_prompt_includes_mermaid_layout_hint():
     user.timezone = None
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value=""),
@@ -239,8 +243,9 @@ async def test_build_prompt_includes_mermaid_layout_hint():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -537,7 +542,7 @@ async def test_build_prompt_injects_custom_instructions():
     user.custom_instructions = "Always answer in bullet points and cite sources."
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value=""),
@@ -546,8 +551,9 @@ async def test_build_prompt_injects_custom_instructions():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -583,10 +589,10 @@ async def test_build_prompt_strips_solver_fences_from_recent_assistant():
     ]
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value="")),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=recent)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=recent)),
     ):
         messages = await build_prompt_messages(
             user,
@@ -620,7 +626,7 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
     get_by_id = AsyncMock()
 
     with (
-        patch("app.repositories.chats.get_by_id", get_by_id),
+        patch.object(chats_repository, "get_by_id", get_by_id),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value=""),
@@ -629,8 +635,9 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -657,7 +664,7 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
     user.custom_instructions = None
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value=""),
@@ -666,8 +673,9 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -693,8 +701,9 @@ async def test_build_prompt_includes_memory_and_fits_length_to_the_message():
             "app.modules.memory.load_relevant_memories",
             AsyncMock(return_value=[AsyncMock(type="preference", text="likes Python")]),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             return_value=[AsyncMock(role="user", content="Hi")],
         ),
         patch(
@@ -705,8 +714,9 @@ async def test_build_prompt_includes_memory_and_fits_length_to_the_message():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -751,7 +761,7 @@ async def test_build_prompt_recalled_count_counts_section_headers():
             "app.modules.memory.load_relevant_memories",
             AsyncMock(return_value=[AsyncMock(type="profile", text="Lives in Addis")]),
         ),
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
             "app.modules.memory.format_memory_block",
             return_value=block,
@@ -760,8 +770,9 @@ async def test_build_prompt_recalled_count_counts_section_headers():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -789,7 +800,7 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
             "app.modules.memory.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
             "app.modules.memory.format_memory_block",
             return_value="",
@@ -798,8 +809,9 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -825,7 +837,7 @@ async def test_build_prompt_includes_response_tone():
             "app.modules.memory.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
             "app.modules.memory.format_memory_block",
             return_value="",
@@ -834,8 +846,9 @@ async def test_build_prompt_includes_response_tone():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -863,7 +876,7 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
             "app.modules.memory.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
             "app.modules.memory.format_memory_block",
             return_value="",
@@ -872,8 +885,9 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -1052,7 +1066,7 @@ async def test_build_prompt_minimal_for_who_am_i():
 
     chat = MagicMock(project_id=None)
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(
@@ -1105,7 +1119,7 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
     user.custom_instructions = "Always mention my cat Fluffy."
 
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]) as recent_mock,
+        patch.object(messages_repository, "list_recent", return_value=[]) as recent_mock,
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value="MEMORY SHOULD NOT LOAD"),
@@ -1153,7 +1167,7 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
     chat = MagicMock(project_id=None)
 
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]) as recent_mock,
+        patch.object(messages_repository, "list_recent", return_value=[]) as recent_mock,
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value="Prefers warm but concise replies."),
@@ -1205,7 +1219,7 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     chat = MagicMock()
 
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value="Prefers vegetarian food. Peanut allergy."),
@@ -1255,7 +1269,7 @@ async def test_build_prompt_teaching_uses_a_known_detail_in_examples():
     chat = MagicMock()
 
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value="User is from Addis Ababa, Ethiopia. User speaks Amharic."),
@@ -1300,7 +1314,7 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
     chat = MagicMock()
 
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value="Building Recall. Learning FastAPI and async Python."),
@@ -1364,7 +1378,7 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
             "app.modules.chat.history_rag.embed_query_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value=""),
@@ -1423,7 +1437,7 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
             "app.modules.chat.history_rag.embed_query_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value=""),
@@ -1483,7 +1497,7 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
     with (
         patch("app.modules.attachments.rag.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
-        patch("app.repositories.messages.list_recent", list_recent),
+        patch.object(messages_repository, "list_recent", list_recent),
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value=""),
@@ -1810,7 +1824,7 @@ async def test_build_prompt_passes_client_timezone():
             "app.modules.memory.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
             "app.modules.memory.format_memory_block",
             return_value="",
@@ -1819,8 +1833,9 @@ async def test_build_prompt_passes_client_timezone():
             "app.modules.todos.build_todos_system_section",
             load_todos,
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
         patch(

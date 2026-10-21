@@ -21,8 +21,8 @@ from sqlalchemy import func, select, text
 from app.core.config import Settings
 from app.models.orm import Message, TodoItem
 from app.modules import todos as todos_service
+from app.modules.chat import chats_repository as chats_repo
 from app.modules.speech.live_talk import persist_live_talk_turn
-from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.tests.fakes import FakeSessionCM, redis_mock
 

@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import Attachment, Message
 from app.modules.attachments import service as attachments_service
 from app.modules.attachments.service import is_image_content_type
+from app.modules.chat import history as chat_history
 from app.modules.images.intent import image_reference_ids
-from app.repositories import messages as messages_repo
 
 
 async def shown_in_chat(
@@ -24,7 +24,7 @@ async def shown_in_chat(
     for source in sources:
         if source.message_id is None:
             continue
-        message = await messages_repo.get_by_id(session, source.message_id, chat_id)
+        message = await chat_history.message_in_chat(session, source.message_id, chat_id)
         if message is not None and message.role == "assistant":
             shown.add(source.id)
     return shown

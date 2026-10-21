@@ -15,15 +15,15 @@ from app.models.orm import Chat, User
 from app.modules import memory as memory_service
 from app.modules import todos as todos_service
 from app.modules.attachments import rag as attachment_rag_service
+from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat import history_rag as chat_history_rag_service
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.context_window import (
     UNSUMMARIZED_GAP_MAX_MESSAGES,
     messages_within_token_budget,
     unsummarized_gap_bounds,
 )
 from app.modules.chat.prompt_constants import is_broad_self_question
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 
 if TYPE_CHECKING:
     from app.modules.memory import MemoryScope

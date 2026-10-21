@@ -49,7 +49,7 @@ def _memory_write_lock_always_free():
         ),
         patch("app.modules.memory.extraction_workflow.release_memory_write_lock", AsyncMock()),
         patch(
-            "app.modules.memory.extract_backlog.messages_repo.list_user_contents_since",
+            "app.modules.memory.extract_backlog.chat_history.user_lines_since",
             AsyncMock(return_value=[]),
         ),
         patch(

@@ -56,7 +56,7 @@ async def test_expand_includes_unprocessed_user_lines():
     redis.get = AsyncMock(return_value=None)
     with (
         patch(
-            "app.modules.memory.extract_backlog.messages_repo.list_user_contents_since",
+            "app.modules.memory.extract_backlog.chat_history.user_lines_since",
             AsyncMock(return_value=[older, newer]),
         ),
         patch(

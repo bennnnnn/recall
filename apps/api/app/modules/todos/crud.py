@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import DomainError
 from app.models.orm import TodoItem, User
+from app.modules.chat import history as chat_history
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.occurrences import TodoScheduleSnapshot
 from app.modules.todos.recurrence import (
@@ -19,7 +20,6 @@ from app.modules.todos.recurrence import (
     snap_first_due,
 )
 from app.modules.todos.schedule_repository import advance_schedules_if_current
-from app.repositories import chats as chats_repo
 from app.services.time_context import normalize_due_at
 
 
@@ -72,7 +72,7 @@ async def create_todo(
     recurrence_rule: RecurrenceRule | None = None,
 ) -> TodoItem:
     if chat_id is not None:
-        chat = await chats_repo.get_by_id(session, chat_id, user.id)
+        chat = await chat_history.get_chat(session, chat_id, user.id)
         if chat is None:
             raise TodosError("Chat not found", status_code=400)
     normalized_due = normalize_due_at(due_at, user.timezone)

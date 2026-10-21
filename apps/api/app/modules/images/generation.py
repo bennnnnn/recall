@@ -35,11 +35,10 @@ from app.modules.attachments.service import (
     normalize_content_type,
 )
 from app.modules.billing import can_use
+from app.modules.chat import history as chat_history
 from app.modules.chat import turn_record
 from app.modules.images.intent import image_reference_ids as image_reference_ids
 from app.modules.images.turn_references import shown_in_chat, turn_reference_ids
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
 from app.services.quota import counters
 
@@ -205,11 +204,11 @@ async def _authorize_generation(
         )
 
     async with SessionLocal() as session:
-        chat = await chats_repo.get_by_id(session, chat_id, user.id)
+        chat = await chat_history.get_chat(session, chat_id, user.id)
         if chat is None:
             raise ImageGenerationError("Chat not found", status_code=404)
         if reference_attachment_ids is None and not create_user_message:
-            prior = await messages_repo.get_last_user(session, chat_id)
+            prior = await chat_history.last_user_message(session, chat_id)
             reference_attachment_ids = await turn_reference_ids(session, prior)
 
     gateway = get_storage_gateway(settings)
@@ -381,7 +380,7 @@ async def _persist_turn(
                 reference_copies=stored.reference_copies,
             )
         else:
-            existing = await messages_repo.get_last_user(session, chat_id)
+            existing = await chat_history.last_user_message(session, chat_id)
             if existing is None:
                 raise ImageGenerationError("No user message to attach image to", status_code=404)
             user_message = existing

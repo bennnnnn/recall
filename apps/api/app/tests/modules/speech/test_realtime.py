@@ -11,6 +11,7 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.gateways import openai_speech_gateway
 from app.gateways.openai_speech_gateway import RealtimeClientSecretResult
 from app.main import create_app
+from app.modules.chat import chats_repository
 from app.modules.speech.live_talk import LiveTalkSessionContext
 from app.modules.speech.realtime import _realtime_instructions
 from app.tests.api_support import api_user
@@ -598,8 +599,9 @@ def test_voice_tools_enforce_session_ownership_plan_and_read_only_allowlist(case
         patch(
             "app.modules.speech.realtime.allow_request_fail_closed", AsyncMock(return_value=True)
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None if case == "missing_chat" else MagicMock()),
         ),
         patch("app.modules.speech.live_talk_tools.execute_tool", invoke),

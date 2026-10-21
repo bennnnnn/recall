@@ -7,7 +7,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.chat import turn_record
+from app.modules.chat import messages_repository, turn_record
 from app.modules.images.generation import ImageGenerationError, generate_for_chat
 from app.services.quota import counters
 from app.tests.fakes import redis_mock
@@ -41,10 +41,10 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
         patch("app.modules.images.generation.SessionLocal", return_value=session),
         patch("app.modules.images.generation.can_use", return_value=True),
         patch(
-            "app.modules.images.generation.chats_repo.get_by_id", AsyncMock(return_value=object())
+            "app.modules.images.generation.chat_history.get_chat", AsyncMock(return_value=object())
         ),
         patch(
-            "app.modules.images.generation.messages_repo.get_last_user",
+            "app.modules.images.generation.chat_history.last_user_message",
             AsyncMock(return_value=prior),
         ),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
@@ -65,7 +65,7 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
             "app.modules.images.generation.attachments_service.list_for_message_ids",
             AsyncMock(return_value=[]),
         ),
-        patch("app.modules.images.generation.messages_repo.create", create),
+        patch.object(messages_repository, "create", create),
         patch.object(turn_record, "count_messages", AsyncMock(return_value=0)),
         patch.object(turn_record, "finish_turn", AsyncMock()) as finish,
     ):
@@ -119,7 +119,7 @@ async def test_generate_for_chat_refunds_on_cancelled_error():
         patch("app.modules.images.generation.SessionLocal", return_value=session),
         patch("app.modules.images.generation.can_use", return_value=True),
         patch(
-            "app.modules.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chat_history.get_chat",
             AsyncMock(return_value=object()),
         ),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
@@ -163,7 +163,7 @@ async def test_generate_for_chat_refunds_the_day_it_reserved(
         patch("app.modules.images.generation.SessionLocal", return_value=session),
         patch("app.modules.images.generation.can_use", return_value=True),
         patch(
-            "app.modules.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chat_history.get_chat",
             AsyncMock(return_value=object()),
         ),
         patch("app.modules.images.generation.get_storage_gateway", return_value=AsyncMock()),
@@ -190,7 +190,7 @@ async def test_generate_for_chat_skips_reserve_when_spend_capped():
         patch("app.modules.images.generation.SessionLocal", return_value=session),
         patch("app.modules.images.generation.can_use", return_value=True),
         patch(
-            "app.modules.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chat_history.get_chat",
             AsyncMock(return_value=object()),
         ),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
@@ -241,14 +241,14 @@ def _patched_generation(
         patch("app.modules.images.generation.SessionLocal", return_value=session),
         patch("app.modules.images.generation.can_use", return_value=True),
         patch(
-            "app.modules.images.generation.chats_repo.get_by_id", AsyncMock(return_value=object())
+            "app.modules.images.generation.chat_history.get_chat", AsyncMock(return_value=object())
         ),
         patch(
-            "app.modules.images.generation.messages_repo.get_last_user",
+            "app.modules.images.generation.chat_history.last_user_message",
             AsyncMock(return_value=prior),
         ),
-        patch("app.modules.images.generation.messages_repo.get_by_id", get_in_chat),
-        patch("app.modules.images.generation.messages_repo.create", create),
+        patch("app.modules.images.generation.chat_history.message_in_chat", get_in_chat),
+        patch.object(messages_repository, "create", create),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
         patch("app.modules.images.generation.get_redis_client", return_value=redis_mock()),
         patch("app.modules.images.generation.load_reference_images", load),

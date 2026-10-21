@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat import messages_repository
 from app.modules.speech.live_talk import (
     LiveTalkSessionContext,
     build_realtime_instructions,
@@ -19,9 +20,7 @@ from app.tests.fakes import fake_session, redis_mock
 @pytest.fixture(autouse=True)
 def _chat_message_count():
     """The chat's rows before this turn is saved; 0 makes it the first turn."""
-    with patch(
-        "app.modules.speech.live_talk.messages_repo.count_for_chat", AsyncMock(return_value=0)
-    ) as count:
+    with patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)) as count:
         yield count
 
 
@@ -43,9 +42,10 @@ async def test_persist_live_talk_turn_writes_both_roles_and_enqueues_topic():
 
     with (
         patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
-        patch("app.modules.speech.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
-        patch(
-            "app.modules.speech.live_talk.messages_repo.create",
+        patch("app.modules.speech.live_talk.chat_history.get_chat", AsyncMock(return_value=chat)),
+        patch.object(
+            messages_repository,
+            "create",
             AsyncMock(side_effect=[user_row, asst_row]),
         ) as create,
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
@@ -79,11 +79,12 @@ async def test_persist_live_talk_turn_saves_the_presented_reply():
     with (
         patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
         patch(
-            "app.modules.speech.live_talk.chats_repo.get_by_id",
+            "app.modules.speech.live_talk.chat_history.get_chat",
             AsyncMock(return_value=MagicMock()),
         ),
-        patch(
-            "app.modules.speech.live_talk.messages_repo.create",
+        patch.object(
+            messages_repository,
+            "create",
             AsyncMock(side_effect=[MagicMock(id=uuid4()), MagicMock(id=uuid4())]),
         ) as create,
         patch("app.core.jobs.enqueue", AsyncMock()),
@@ -118,9 +119,10 @@ async def test_persist_live_talk_turn_titles_when_assistant_transcript_missing()
 
     with (
         patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
-        patch("app.modules.speech.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
-        patch(
-            "app.modules.speech.live_talk.messages_repo.create",
+        patch("app.modules.speech.live_talk.chat_history.get_chat", AsyncMock(return_value=chat)),
+        patch.object(
+            messages_repository,
+            "create",
             AsyncMock(return_value=user_row),
         ),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
@@ -156,9 +158,10 @@ async def test_persist_live_talk_turn_skips_user_row_on_follow_up():
 
     with (
         patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
-        patch("app.modules.speech.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
-        patch(
-            "app.modules.speech.live_talk.messages_repo.create",
+        patch("app.modules.speech.live_talk.chat_history.get_chat", AsyncMock(return_value=chat)),
+        patch.object(
+            messages_repository,
+            "create",
             AsyncMock(return_value=asst_row),
         ) as create,
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
@@ -424,9 +427,10 @@ async def test_persist_live_talk_turn_materializes_clocked_reminder():
 
     with (
         patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
-        patch("app.modules.speech.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
-        patch(
-            "app.modules.speech.live_talk.messages_repo.create",
+        patch("app.modules.speech.live_talk.chat_history.get_chat", AsyncMock(return_value=chat)),
+        patch.object(
+            messages_repository,
+            "create",
             AsyncMock(side_effect=[user_row, asst_row]),
         ),
         patch(
@@ -468,11 +472,12 @@ async def _persist_voice_turn(
     with (
         patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
         patch(
-            "app.modules.speech.live_talk.chats_repo.get_by_id",
+            "app.modules.speech.live_talk.chat_history.get_chat",
             AsyncMock(return_value=MagicMock()),
         ),
-        patch(
-            "app.modules.speech.live_talk.messages_repo.create",
+        patch.object(
+            messages_repository,
+            "create",
             AsyncMock(side_effect=[user_row, asst_row]),
         ),
         patch(
@@ -480,8 +485,9 @@ async def _persist_voice_turn(
             AsyncMock(return_value=(assistant_text, 0)),
         ),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
-        patch(
-            "app.modules.speech.live_talk.messages_repo.count_for_chat",
+        patch.object(
+            messages_repository,
+            "count_for_chat",
             AsyncMock(return_value=rows_before),
         ),
     ):

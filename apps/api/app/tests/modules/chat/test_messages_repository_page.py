@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.repositories import messages as messages_repo
+from app.modules.chat import messages_repository as messages_repo
 
 
 def _msg(content: str, created_at: int):

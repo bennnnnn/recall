@@ -17,7 +17,9 @@ from app.core.db import SessionLocal
 from app.exceptions import DomainError
 from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
+from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat import finalize_registry
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.email_fence import rewrite_first_email_fence
 from app.modules.chat.related_prompts import (
     RELATED_PROMPTS_TTL_SECONDS,
@@ -25,8 +27,6 @@ from app.modules.chat.related_prompts import (
     load_related_prompts,
 )
 from app.modules.chat.titles import sanitize_manual_chat_title
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services.quota import utc_today

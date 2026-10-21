@@ -380,7 +380,7 @@ def test_create_todo_with_chat_id():
     chat_mock.user_id = user.id
     with (
         patch("app.modules.todos.crud.todos_repo.create", AsyncMock(return_value=todo_mock)),
-        patch("app.modules.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=chat_mock)),
+        patch("app.modules.todos.crud.chat_history.get_chat", AsyncMock(return_value=chat_mock)),
     ):
         client = TestClient(app)
         r = client.post(
@@ -414,7 +414,7 @@ def test_create_todo_with_other_users_chat_id_rejected():
     # chats_repo.get_by_id returns None → the chat doesn't belong to this user
     # (or doesn't exist). The cross-user FK guard must reject with 400 rather
     # than silently linking the todo to a foreign chat.
-    with patch("app.modules.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.modules.todos.crud.chat_history.get_chat", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.post(
             "/todos",
@@ -430,7 +430,7 @@ def test_create_todo_with_unowned_chat_id_404s():
 
     user = api_user()
     app = app_with_user(user)
-    with patch("app.modules.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.modules.todos.crud.chat_history.get_chat", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.post(
             "/todos",

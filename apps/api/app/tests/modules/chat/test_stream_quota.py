@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat import stream_entry
+from app.modules.chat import chats_repository, messages_repository, stream_entry
 from app.modules.chat.turn_resources import TurnResources
 from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM
@@ -28,9 +28,9 @@ def _turn_load():
     chat = MagicMock()
     chat.summary = None
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
     ):
         yield
@@ -227,9 +227,9 @@ async def test_stream_skips_count_when_recent_window_has_room():
     chat.summary = None
     with (
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[MagicMock()])),
-        patch("app.repositories.messages.count_for_chat", count),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[MagicMock()])),
+        patch.object(messages_repository, "count_for_chat", count),
         patch(
             "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
             AsyncMock(return_value=False),
@@ -268,12 +268,13 @@ async def test_stream_counts_when_recent_window_is_full():
     chat.summary = None
     with (
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[MagicMock(), MagicMock()]),
         ),
-        patch("app.repositories.messages.count_for_chat", count),
+        patch.object(messages_repository, "count_for_chat", count),
         patch(
             "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
             AsyncMock(return_value=False),

@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from app.core.db import SessionLocal
+from app.modules.chat import history as chat_history
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject
 from app.modules.images.gen_intent_thread import (
     could_be_image_revision,
@@ -26,8 +27,6 @@ from app.modules.images.gen_intent_thread import (
     prior_user_contents_for_image_gen,
 )
 from app.modules.images.lookup_intent import extract_image_lookup_query, is_reference_subject
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 
 if TYPE_CHECKING:
     from app.core.config import Settings
@@ -201,9 +200,9 @@ async def composer_intent_for_chat(
     recent: list[Any] = []
     if chat_id is not None:
         async with SessionLocal() as session:
-            if await chats_repo.get_by_id(session, chat_id, user_id) is None:
+            if await chat_history.get_chat(session, chat_id, user_id) is None:
                 return None
-            recent = await messages_repo.list_recent(
+            recent = await chat_history.recent_messages(
                 session, chat_id, limit=settings.recent_message_window
             )
     # The subject is the one reading behind this answer that parses with SymPy; read it in

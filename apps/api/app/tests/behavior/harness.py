@@ -317,8 +317,11 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
 
         stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
-        stub("app.repositories.messages.list_recent", AsyncMock(return_value=list(rows)))
-        stub("app.repositories.messages.get_last_assistant", AsyncMock(return_value=last_assistant))
+        stub("app.modules.chat.messages_repository.list_recent", AsyncMock(return_value=list(rows)))
+        stub(
+            "app.modules.chat.messages_repository.get_last_assistant",
+            AsyncMock(return_value=last_assistant),
+        )
         stub("app.modules.memory.list_for_user", AsyncMock(return_value=[]))
         stub("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
         stub("app.modules.billing.plan.chat_fallback_models", lambda *_a, **_k: [])

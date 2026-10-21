@@ -1,4 +1,4 @@
-"""Real-Postgres tests for app.repositories.chats.
+"""Real-Postgres tests for chat's chats repository.
 
 `test_chats.py` mocks `AsyncSession`, so it can only prove "did the
 repository call `.execute()`". It cannot catch a `WHERE user_id ==` filter
@@ -16,8 +16,8 @@ import pytest
 from sqlalchemy import update
 
 from app.models.orm import Chat
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
+from app.modules.chat import chats_repository as chats_repo
+from app.modules.chat import messages_repository as messages_repo
 from app.repositories import users as users_repo
 
 

@@ -279,11 +279,11 @@ async def test_build_export_structure(_empty_product_events_for_exports):
 
     with (
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             AsyncMock(return_value=[chat]),
         ),
         patch(
-            "app.modules.account.export.messages_repo.list_range",
+            "app.modules.account.export.chat_history.messages_page",
             AsyncMock(return_value=[msg]),
         ),
         patch(
@@ -346,11 +346,11 @@ async def test_build_export_includes_archived_chats():
     list_chats = AsyncMock(return_value=[archived])
     with (
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             list_chats,
         ),
         patch(
-            "app.modules.account.export.messages_repo.list_range",
+            "app.modules.account.export.chat_history.messages_page",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -370,7 +370,8 @@ async def test_build_export_includes_archived_chats():
 
     assert len(data["chats"]) == 1
     assert data["chats"][0]["title"] == "Old"
-    assert list_chats.await_args.kwargs.get("include_archived") is True
+    # chat.history's export read includes archived chats (test_chat_history.py).
+    list_chats.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -412,11 +413,11 @@ async def test_build_export_pages_messages_per_chat():
     with (
         patch.object(export_service, "EXPORT_MESSAGE_PAGE_SIZE", 2),
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             AsyncMock(return_value=[chat]),
         ),
         patch(
-            "app.modules.account.export.messages_repo.list_range",
+            "app.modules.account.export.chat_history.messages_page",
             AsyncMock(side_effect=list_range),
         ),
         patch(
@@ -462,7 +463,7 @@ async def test_build_export_pages_memories():
     with (
         patch.object(export_service, "EXPORT_MEMORY_PAGE_SIZE", 2),
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -507,7 +508,7 @@ async def test_build_export_caps_memories():
         patch.object(export_service, "EXPORT_MEMORY_PAGE_SIZE", 2),
         patch.object(export_service, "EXPORT_MAX_MEMORIES", 2),
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -555,7 +556,7 @@ async def test_build_export_includes_attachment_with_presigned_url():
 
     with (
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             AsyncMock(return_value=[]),
         ),
         patch(

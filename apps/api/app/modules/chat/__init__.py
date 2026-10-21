@@ -36,6 +36,7 @@ _EXPORTS = {
 }
 _MODULE_EXPORTS = (
     "compaction",
+    "history",
     "history_rag",
     "service",
     "stream_entry",

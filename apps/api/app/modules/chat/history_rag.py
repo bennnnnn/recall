@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.core import presence_cache
 from app.core.config import Settings
@@ -12,8 +16,8 @@ from app.core.db import SessionLocal
 from app.gateways import embedding_gateway
 from app.models.orm import Message, MessageChunk
 from app.modules.attachments.rag import chunk_text
-from app.repositories import message_chunks as chunks_repo
-from app.repositories import messages as messages_repo
+from app.modules.chat import chunks_repository as chunks_repo
+from app.modules.chat import messages_repository as messages_repo
 from app.repositories import users as users_repo
 from app.services.prompt_safety import text_before_attachment_markers, wrap_earlier_chats
 
@@ -283,3 +287,22 @@ async def retrieve_for_prompt(
 def _snippet_date(row: MessageChunk) -> str:
     created_at = getattr(row, "created_at", None)
     return f" ({created_at:%Y-%m-%d})" if isinstance(created_at, datetime) else ""
+
+
+async def forget_snippets_near(
+    session: AsyncSession, user_id: UUID, vector: ColumnElement[Any], *, max_distance: float
+) -> None:
+    """Drop the user's past-chat snippets close to ``vector`` (a forgotten fact); no commit."""
+    await chunks_repo.delete_near(session, user_id, vector, max_distance=max_distance)
+
+
+async def forget_snippets_naming(
+    session: AsyncSession, user_id: UUID, names: list[str], *, role: str
+) -> None:
+    """Drop the user's ``role`` snippets that name every one of ``names``; no commit."""
+    await chunks_repo.delete_mentioning_all(session, user_id, names, role=role)
+
+
+async def forget_all_snippets(session: AsyncSession, user_id: UUID) -> None:
+    """Drop the user's whole past-chat index (memory reset); no commit."""
+    await chunks_repo.delete_all_for_user(session, user_id)

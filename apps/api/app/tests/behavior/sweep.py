@@ -45,6 +45,7 @@ from uuid import uuid4
 
 from app.models.orm import User
 from app.modules.account.settings_intent import extract_settings_changes
+from app.modules.chat import messages_repository
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -347,8 +348,9 @@ async def _run_entry(entry: Entry) -> Outcome:
     with (
         _stores(outcome, user),
         patch("app.core.sympy_executor.run_sympy", _inline),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(
                 return_value=[
                     *rows,

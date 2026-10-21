@@ -8,6 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules import todos as todos_service
+from app.modules.chat import messages_repository
 from app.modules.todos import actions as todos_actions
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import repository as todos_repo
@@ -1015,8 +1016,9 @@ async def test_clock_reply_saves_tomorrow_not_a_past_today():
     when = datetime(2026, 10, 10, 22, 8, tzinfo=ZoneInfo("America/New_York"))
     text = "Set: Read — Saturday, Oct 10, 6:00 PM."
     with (
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[previous, current]),
         ),
         patch("app.modules.todos.spoken_add._now", return_value=when),
@@ -1049,8 +1051,9 @@ async def _clock_reply(user_text: str, assistant_text: str) -> tuple[str, int, A
     current.content = user_text
     when = datetime(2026, 10, 10, 22, 8, tzinfo=ZoneInfo("America/New_York"))
     with (
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[previous, current]),
         ),
         patch("app.modules.todos.spoken_add._now", return_value=when),
@@ -1111,8 +1114,9 @@ async def test_clock_reply_keeps_the_repeat_from_the_earlier_add():
     current.content = "7pm"
     when = datetime(2026, 10, 10, 22, 8, tzinfo=ZoneInfo("America/New_York"))
     with (
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[previous, current]),
         ),
         patch("app.modules.todos.spoken_add._now", return_value=when),
@@ -1140,7 +1144,7 @@ async def test_past_fence_is_not_saved_when_the_user_only_said_a_clock():
         '```reminder\n{"title":"Read","due_at":"2026-10-10T18:00:00-04:00"}\n```'
     )
     with (
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
     ):
         updated, created = await todos_service.materialize_reminder_fences(

@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
@@ -389,10 +390,10 @@ def _user():
 
 async def _system_prompt(recent, query):
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value="")),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=recent)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=recent)),
     ):
         messages = await build_prompt_messages(
             _user(),

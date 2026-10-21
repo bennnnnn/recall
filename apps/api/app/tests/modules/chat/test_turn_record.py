@@ -18,10 +18,10 @@ from sqlalchemy import select
 
 from app.core.config import Settings
 from app.models.orm import Chat
-from app.modules.chat import post_turn, turn_record
+from app.modules.chat import chats_repository as chats_repo
+from app.modules.chat import messages_repository, post_turn, turn_record
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.speech.live_talk import persist_live_talk_turn
-from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.tests.fakes import fake_session, make_user, redis_mock
 
@@ -75,8 +75,8 @@ async def _voice() -> None:
     with (
         patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
         patch.object(chats_repo, "get_by_id", AsyncMock(return_value=MagicMock())),
-        patch("app.repositories.messages.create", AsyncMock(side_effect=rows)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch.object(messages_repository, "create", AsyncMock(side_effect=rows)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
         patch(
             "app.modules.speech.live_talk.todos_service.materialize_reminder_fences",
             AsyncMock(return_value=(_REPLY, 0)),

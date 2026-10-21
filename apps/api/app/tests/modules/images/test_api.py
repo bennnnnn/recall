@@ -14,6 +14,7 @@ from app.core.deps import get_settings_dep
 from app.gateways.storage_gateway import LocalStorageGateway, PresignedUpload
 from app.main import create_app
 from app.models.orm import Chat, Message, User
+from app.modules.chat import messages_repository
 
 
 def _fake_user(*, plan: str = "pro") -> User:
@@ -54,7 +55,7 @@ def test_generate_image_stops_at_each_plans_daily_cap(quota_clock, plan, cap):
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chat_history.get_chat",
             AsyncMock(return_value=MagicMock()),
         ),
         patch(
@@ -81,7 +82,7 @@ def test_generate_image_quota_exhausted(quota_clock):
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chat_history.get_chat",
             AsyncMock(return_value=MagicMock()),
         ),
     ):
@@ -113,7 +114,7 @@ def test_generate_image_rejects_oversized_result(quota_clock):
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chat_history.get_chat",
             AsyncMock(return_value=chat),
         ),
         patch(
@@ -185,7 +186,7 @@ def test_generate_image_success():
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chat_history.get_chat",
             AsyncMock(return_value=chat),
         ),
         patch(
@@ -194,8 +195,9 @@ def test_generate_image_success():
         ),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
         patch("app.modules.images.generation.attachments_service.add_server_images", add_image),
-        patch(
-            "app.modules.images.generation.messages_repo.create",
+        patch.object(
+            messages_repository,
+            "create",
             AsyncMock(side_effect=[user_msg, assistant_msg]),
         ),
         patch("app.modules.images.generation.bytes_match_claimed", return_value=True),
@@ -291,7 +293,7 @@ def test_generate_image_deletes_storage_when_persist_fails(quota_clock):
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chat_history.get_chat",
             AsyncMock(return_value=chat),
         ),
         patch(
@@ -299,8 +301,9 @@ def test_generate_image_deletes_storage_when_persist_fails(quota_clock):
             AsyncMock(return_value=(b"\x89PNG\r\n", "image/png")),
         ),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
-        patch(
-            "app.modules.images.generation.messages_repo.create",
+        patch.object(
+            messages_repository,
+            "create",
             AsyncMock(side_effect=RuntimeError("db down")),
         ),
         patch("app.modules.images.generation.bytes_match_claimed", return_value=True),

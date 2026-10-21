@@ -29,11 +29,13 @@ from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan
+from app.modules.chat import chats_repository as chats
+from app.modules.chat import messages_repository as messages
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
 from app.modules.math import fence as math_fence
-from app.repositories import chats, messages, usage, users
+from app.repositories import usage, users
 from app.services import conversation_reference, quota
 
 if TYPE_CHECKING:

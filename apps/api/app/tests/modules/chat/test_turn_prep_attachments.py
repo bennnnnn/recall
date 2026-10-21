@@ -7,6 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway
+from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.turn_prep import TurnPromptBundle
 from app.modules.chat.turn_prep.request import TurnRequest
@@ -159,7 +160,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             "app.modules.chat.turn_prep.persist.SessionLocal", return_value=FakeSessionCM(session)
         ),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
         patch(
             "app.modules.attachments.repository.get_by_ids",
             AsyncMock(return_value=[row]),
@@ -189,13 +190,15 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             "resolve_user_model_override",
             return_value="smart-chat",
         ),
-        patch(
-            "app.repositories.messages.count_for_chat",
+        patch.object(
+            messages_repository,
+            "count_for_chat",
             AsyncMock(return_value=0),
         ),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
-        patch(
-            "app.repositories.messages.create",
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
+        patch.object(
+            messages_repository,
+            "create",
             AsyncMock(return_value=user_message),
         ) as create_mock,
         patch(
@@ -286,7 +289,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             "app.modules.chat.turn_prep.persist.SessionLocal", return_value=FakeSessionCM(session)
         ),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
         patch(
             "app.modules.attachments.repository.get_by_ids",
             AsyncMock(return_value=[row]),
@@ -316,13 +319,15 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             "resolve_user_model_override",
             return_value="smart-chat",
         ),
-        patch(
-            "app.repositories.messages.count_for_chat",
+        patch.object(
+            messages_repository,
+            "count_for_chat",
             AsyncMock(return_value=0),
         ),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
-        patch(
-            "app.repositories.messages.create",
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
+        patch.object(
+            messages_repository,
+            "create",
             AsyncMock(return_value=user_message),
         ),
         patch(
@@ -676,7 +681,7 @@ async def test_prepare_overlap_returns_before_persist_commit():
 
     with (
         patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=FakeSessionCM()),
-        patch("app.repositories.messages.create", side_effect=slow_create),
+        patch.object(messages_repository, "create", side_effect=slow_create),
         patch(
             "app.modules.chat.turn_prep.prepare.build_stream_prompt_context",
             AsyncMock(return_value=_prompt_bundle()),

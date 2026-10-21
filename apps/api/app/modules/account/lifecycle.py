@@ -164,7 +164,7 @@ async def delete_account(
     await attachments_service.purge_attachments_for_user(session, settings, user.id)
     user_id = user.id
     from app.core.user_cache import forget_user
-    from app.repositories.chats import forget_user_chats
+    from app.modules.chat.history import forget_user_chats
 
     try:
         # Keyed by reply id, not user id, so only the rows can find them.

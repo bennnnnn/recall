@@ -11,6 +11,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Chat, User
+from app.modules.chat import messages_repository
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.turn_prep.context import build_stream_prompt_context
 from app.modules.chat.turn_prep.mode import _TurnMode
@@ -84,7 +85,7 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
     )
     with (
         patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=_Session()),
-        patch("app.repositories.messages.create", AsyncMock(side_effect=create_message)),
+        patch.object(messages_repository, "create", AsyncMock(side_effect=create_message)),
         patch(
             "app.modules.chat.prompt_builder._load_context_blocks",
             AsyncMock(side_effect=context_blocks),

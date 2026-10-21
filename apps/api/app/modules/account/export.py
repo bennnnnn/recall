@@ -32,10 +32,9 @@ from app.models.orm import (
 )
 from app.modules import memory as memory_service
 from app.modules.attachments import service as attachments_service
+from app.modules.chat import history as chat_history
 from app.modules.suggestions import service as suggestions_service
 from app.modules.todos import service as todos_service
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.repositories import product_events as product_events_repo
 from app.repositories import push_tokens as push_tokens_repo
 from app.repositories import usage as usage_repo
@@ -265,13 +264,7 @@ async def _iter_export_json(
     yield '"chats":['
 
     async with session_factory() as session:
-        chats = await chats_repo.list_for_user(
-            session,
-            user.id,
-            limit=EXPORT_MAX_CHATS,
-            include_archived=True,
-            with_summary=True,
-        )
+        chats = await chat_history.chats_for_export(session, user.id, limit=EXPORT_MAX_CHATS)
         chat_rows = [(_chat_header(chat), chat.id) for chat in chats]
 
     for chat_index, (header, chat_id) in enumerate(chat_rows):
@@ -285,7 +278,7 @@ async def _iter_export_json(
         while offset < EXPORT_MAX_MESSAGES_PER_CHAT:
             page_size = min(EXPORT_MESSAGE_PAGE_SIZE, EXPORT_MAX_MESSAGES_PER_CHAT - offset)
             async with session_factory() as session:
-                messages = await messages_repo.list_range(
+                messages = await chat_history.messages_page(
                     session,
                     chat_id,
                     offset=offset,

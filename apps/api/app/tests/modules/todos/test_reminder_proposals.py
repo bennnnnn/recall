@@ -11,12 +11,12 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from app.modules.chat import chats_repository as chats_repo
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.todos import proposals, write_log
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_hint import TODO_HINT
 from app.modules.todos.reminder_fences import materialize_reminder_fences
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
 
 _CARD = re.compile(r"```reminder_proposal\n(.*?)\n```", re.DOTALL)

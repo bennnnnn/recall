@@ -11,7 +11,7 @@ from app.core.validation import normalize_chat_title as normalize_chat_title
 from app.core.validation import normalize_stored_chat_title, unwrap_chat_title
 from app.gateways import litellm_gateway, mock_llm
 from app.models.routing_lanes import ROUTING
-from app.repositories import chats as chats_repo
+from app.modules.chat import chats_repository as chats_repo
 
 GREETING_CHAT_TITLE = "Greeting"
 
