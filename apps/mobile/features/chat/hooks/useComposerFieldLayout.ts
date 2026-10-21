@@ -22,7 +22,6 @@ type Options = {
   draftRevision: number | undefined;
   /** Native text scales the field's line box with the system text size. */
   fontScale: number;
-  visible: boolean;
   /** Recording or transcribing: the waveform takes the row, so nothing stacks. */
   voiceActive: boolean;
   /** Extra field height past one line, so the thread moves up with the pill. */
@@ -38,7 +37,6 @@ export function useComposerFieldLayout({
   input,
   draftRevision,
   fontScale,
-  visible,
   voiceActive,
   onInputFrameExtraChange,
 }: Options) {
@@ -97,9 +95,11 @@ export function useComposerFieldLayout({
     ? 0
     : Math.max(0, returnFrame.height - COMPOSER_CONTROL_SIZE) +
       (stacked ? COMPOSER_CONTROL_SIZE : 0);
+  // Reported while the drawer hides the composer too: it keeps its size there,
+  // so opening the drawer does not lay out the chat under it again.
   useEffect(() => {
-    onInputFrameExtraChange?.(visible ? inputFrameExtra : 0);
-  }, [inputFrameExtra, onInputFrameExtraChange, visible]);
+    onInputFrameExtraChange?.(inputFrameExtra);
+  }, [inputFrameExtra, onInputFrameExtraChange]);
 
   const measuredNow = input
     ? retainedComposerContentHeight(measuredContent.current, draftRevision ?? 0, input)

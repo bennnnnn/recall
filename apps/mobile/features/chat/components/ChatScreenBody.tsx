@@ -23,11 +23,11 @@ import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
 import type { IconName } from "@/ui/icons/names";
 import type { Theme } from "@/lib/theme";
+import { useDrawerOpen } from "@/contexts/DrawerContext";
 
 export interface ChatScreenLayoutProps {
   styles: ChatScreenStyles;
   theme: Theme;
-  drawerOpen: boolean;
   composerClearance: number;
   headerInset: number;
   listBottomPad: number;
@@ -135,7 +135,8 @@ export const ChatScreenBody = memo(function ChatScreenBody({
   sheets,
 }: ChatScreenBodyProps) {
   const { t } = useTranslation();
-  const { styles: s, drawerOpen } = layout;
+  const drawerOpen = useDrawerOpen();
+  const { styles: s } = layout;
   const { messages } = list;
   const { liveTalkSession, onSend } = composer;
   const { mathScannerOpen, onCloseMathScanner } = sheets;
@@ -204,6 +205,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
 
       <ChatOverlays
         layout={layout}
+        drawerOpen={drawerOpen}
         chrome={chrome}
         sheets={sheets}
         onStop={composer.onStop}
@@ -215,6 +217,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
 
 type ChatOverlaysProps = {
   layout: ChatScreenLayoutProps;
+  drawerOpen: boolean;
   chrome: ChatScreenChromeProps;
   sheets: ChatScreenSheetsProps;
   onStop: () => void;
@@ -223,12 +226,13 @@ type ChatOverlaysProps = {
 
 const ChatOverlays = memo(function ChatOverlays({
   layout,
+  drawerOpen,
   chrome,
   sheets,
   onStop,
   quotaUpgradeLabel,
 }: ChatOverlaysProps) {
-  const { styles, theme, drawerOpen, composerClearance } = layout;
+  const { styles, theme, composerClearance } = layout;
 
   return (
     <>

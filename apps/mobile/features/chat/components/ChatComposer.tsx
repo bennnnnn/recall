@@ -170,9 +170,10 @@ export const ChatComposer = memo(function ChatComposer({
     (scanHint ? COMPOSER_SCAN_HINT_HEIGHT : 0) +
     (sendStatus ? COMPOSER_STATUS_LINE_HEIGHT : 0);
 
+  // Kept while the drawer hides the composer, so opening it does not re-lay out the chat.
   useEffect(() => {
-    onMathChromeHeightChange?.(visible ? mathChromeHeight : 0);
-  }, [mathChromeHeight, onMathChromeHeightChange, visible]);
+    onMathChromeHeightChange?.(mathChromeHeight);
+  }, [mathChromeHeight, onMathChromeHeightChange]);
 
   useEffect(() => {
     if (!math.mathBarOpen) return;
@@ -211,7 +212,6 @@ export const ChatComposer = memo(function ChatComposer({
     input,
     draftRevision: draft?.revision,
     fontScale,
-    visible,
     voiceActive,
     onInputFrameExtraChange,
   });

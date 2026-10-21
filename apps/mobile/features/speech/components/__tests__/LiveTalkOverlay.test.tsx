@@ -1,6 +1,7 @@
 import { AccessibilityInfo } from "react-native";
 import { fireEvent, render } from "@testing-library/react-native";
 
+import { DrawerProvider } from "@/contexts/DrawerContext";
 import { LiveTalkOverlay } from "@/features/speech/components/LiveTalkOverlay";
 
 jest.mock("react-i18next", () => ({
@@ -35,6 +36,23 @@ describe("LiveTalkOverlay", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("leaves the header strip open, and takes it while the drawer hides the header", async () => {
+    const controls = { open: jest.fn(), close: jest.fn(), isOpenNow: () => false };
+    const view = await render(
+      <DrawerProvider controls={controls} isOpen={false}>
+        <LiveTalkOverlay {...base} phase="recording" recording />
+      </DrawerProvider>,
+    );
+    expect(view.getByTestId("live-talk-overlay")).toHaveStyle({ top: 96, bottom: 88 });
+
+    await view.rerender(
+      <DrawerProvider controls={controls} isOpen>
+        <LiveTalkOverlay {...base} phase="recording" recording />
+      </DrawerProvider>,
+    );
+    expect(view.getByTestId("live-talk-overlay")).toHaveStyle({ top: 0, bottom: 88 });
   });
 
   it("does not pause from the orb and has no Listening/Speaking copy", async () => {

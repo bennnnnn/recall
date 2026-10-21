@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 
 import type { UpgradeSource } from "@/components/UpgradeSheet";
 import type { LiveTalkComposerChrome } from "@/features/chat/components/ChatComposer";
+import { WhileDrawerClosed } from "@/contexts/DrawerContext";
 import { ChatHeader } from "@/features/chat/components/ChatHeader";
 import type {
   ChatScreenBodyProps,
@@ -42,7 +43,6 @@ type QuotaNudge = {
 type UseChatScreenBodyPropsParams = {
   styles: ChatScreenStyles;
   theme: Theme;
-  drawerOpen: boolean;
   routeChatId?: string;
   layout: {
     headerMinimumHeight: number;
@@ -131,7 +131,6 @@ type UseChatScreenBodyPropsParams = {
 export function useChatScreenBodyProps({
   styles,
   theme,
-  drawerOpen,
   routeChatId,
   layout,
   listBottomPadRef,
@@ -273,9 +272,10 @@ export function useChatScreenBodyProps({
     ],
   );
 
+  // Hidden while the drawer is open; it reads that itself, so this screen never re-renders for it.
   const listHeader = useMemo(
-    () =>
-      !drawerOpen ? (
+    () => (
+      <WhileDrawerClosed>
         <ChatHeader
           paddingTop={insetsTop}
           minimumHeight={headerMinimumHeight}
@@ -292,9 +292,9 @@ export function useChatScreenBodyProps({
           onOpenMenu={() => setMenuVisible((v) => !v)}
           menuAnchorRef={menuAnchorRef}
         />
-      ) : null,
+      </WhileDrawerClosed>
+    ),
     [
-      drawerOpen,
       insetsTop,
       headerMinimumHeight,
       onHeaderHeightChange,
@@ -314,7 +314,6 @@ export function useChatScreenBodyProps({
     (): ChatScreenLayoutProps => ({
       styles,
       theme,
-      drawerOpen,
       composerClearance,
       headerInset,
       listBottomPad,
@@ -323,7 +322,6 @@ export function useChatScreenBodyProps({
     [
       styles,
       theme,
-      drawerOpen,
       composerClearance,
       headerInset,
       listBottomPad,

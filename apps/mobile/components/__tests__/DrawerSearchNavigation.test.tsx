@@ -15,7 +15,7 @@ let mockFooter: { onSettings: () => void };
 let mockList: { onOpenChat: (id: string, messageId?: string | null) => void; onOpenSearchResult?: (id: string, messageId?: string | null) => void };
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
-jest.mock("@/contexts/DrawerContext", () => ({ useDrawer: () => ({ isOpen: mockDrawerOpen }) }));
+jest.mock("@/contexts/DrawerContext", () => ({ useDrawerOpen: () => mockDrawerOpen }));
 jest.mock("expo-router", () => ({ useRouter: () => ({ setParams: mockSetParams, push: mockPush }) }));
 jest.mock("expo-linear-gradient", () => ({ LinearGradient: () => null }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));

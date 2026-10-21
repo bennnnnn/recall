@@ -1,13 +1,20 @@
 import React from "react";
 import { Text } from "react-native";
-import { renderHook } from "@testing-library/react-native";
+import { render, renderHook } from "@testing-library/react-native";
+
+import { DrawerProvider } from "@/contexts/DrawerContext";
 
 import { useChatScreenBodyProps } from "@/features/chat/hooks/useChatScreenBodyProps";
 import type { Message } from "@/lib/api";
 import { lightTheme } from "@/lib/theme";
 
+const mockChatHeader = jest.fn();
+
 jest.mock("@/features/chat/components/ChatHeader", () => ({
-  ChatHeader: () => null,
+  ChatHeader: () => {
+    mockChatHeader();
+    return null;
+  },
 }));
 
 jest.mock("@/lib/drawer", () => ({
@@ -54,11 +61,10 @@ const router = {
   push: jest.fn(),
 } as never;
 
-function useHarness(streaming: boolean, messages: Message[], drawerOpen = false) {
+function useHarness(streaming: boolean, messages: Message[]) {
   return useChatScreenBodyProps({
     styles,
     theme: lightTheme,
-    drawerOpen,
     routeChatId: "chat-1",
     layout: {
       headerMinimumHeight: 72,
@@ -203,9 +209,20 @@ describe("useChatScreenBodyProps", () => {
   });
 
   it("hides header chrome while the drawer is open without dropping the measured list inset", async () => {
-    const { result } = await renderHook(() => useHarness(false, [message], true));
+    const { result } = await renderHook(() => useHarness(false, [message]));
+    const header = result.current.bodyProps.list.header;
+    const controls = { open: jest.fn(), close: jest.fn(), isOpenNow: () => false };
 
-    expect(result.current.bodyProps.list.header).toBeNull();
+    const view = await render(<DrawerProvider controls={controls} isOpen={false}>{header}</DrawerProvider>);
+    expect(mockChatHeader).toHaveBeenCalledTimes(1);
+
+    // The same header element: it reads the drawer itself, so nothing rebuilds it.
+    await view.rerender(<DrawerProvider controls={controls} isOpen>{header}</DrawerProvider>);
+    expect(mockChatHeader).toHaveBeenCalledTimes(1);
+    expect(result.current.bodyProps.list.header).toBe(header);
     expect(result.current.bodyProps.layout.headerInset).toBe(72);
+
+    await view.rerender(<DrawerProvider controls={controls} isOpen={false}>{header}</DrawerProvider>);
+    expect(mockChatHeader).toHaveBeenCalledTimes(2);
   });
 });

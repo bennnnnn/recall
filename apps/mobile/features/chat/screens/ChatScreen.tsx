@@ -21,7 +21,6 @@ import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
 import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
-import { useDrawer } from "@/contexts/DrawerContext";
 import { useHomeRefreshOnChatFocus } from "@/features/home/hooks/useHomeRefreshOnChatFocus";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
@@ -53,7 +52,6 @@ function ChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height: windowHeight, fontScale } = useWindowDimensions();
-  const drawerOpen = useDrawer().isOpen;
   const { chatId: routeChatId, highlightMessage: routeHighlightMessage } =
     useLocalSearchParams<{ chatId?: string; highlightMessage?: string }>();
 
@@ -434,7 +432,6 @@ function ChatScreen() {
   const chatScreenBody = useChatScreenBodyProps({
     styles: s,
     theme: C,
-    drawerOpen,
     routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
     layout,
     listBottomPadRef,
@@ -528,7 +525,7 @@ function ChatScreen() {
           phase={liveTalk.phase}
           meterLevel={liveTalk.meterLevel}
           recording={liveTalk.recording}
-          headerInset={drawerOpen ? 0 : layout.headerInset}
+          headerInset={layout.headerInset}
           composerClearance={layout.composerClearance}
           onToggle={() => void liveTalk.toggle()}
         />
