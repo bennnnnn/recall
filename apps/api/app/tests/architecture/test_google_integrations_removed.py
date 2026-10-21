@@ -23,6 +23,8 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.stream_status import StreamStatusPhase
 from app.modules.todos import TODO_HINT
 
+from .boundary_support import served_paths
+
 REPO_ROOT = Path(__file__).resolve().parents[5]
 APP_ROOT = REPO_ROOT / "apps" / "api" / "app"
 MIGRATION = REPO_ROOT / "apps" / "api" / "alembic" / "versions" / "0106_drop_google_integrations.py"
@@ -76,7 +78,8 @@ def test_orm_metadata_has_no_integration_schema() -> None:
 
 
 def test_integration_http_routes_are_absent() -> None:
-    paths = {getattr(route, "path", "") for route in app.routes}
+    paths = served_paths()
+    assert "/chats" in paths  # the check sees the live routes
     assert not any(path.startswith("/integrations") for path in paths)
     client = TestClient(app)
     assert client.get("/integrations/google-calendar/status").status_code == 404

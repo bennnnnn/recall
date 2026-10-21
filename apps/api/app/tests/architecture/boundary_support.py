@@ -420,3 +420,14 @@ def _foreign_module_import_violations(tree: ast.AST, *, owner: str, label: str) 
             if ".".join(parts[1:]) not in _package_public_names(other):
                 violations.append(f"{label} imports {module_name}")
     return violations
+
+
+def served_paths() -> set[str]:
+    """Every HTTP path the app serves, read from its OpenAPI document.
+
+    FastAPI 0.14x wraps each included router, so ``app.routes`` lists only the docs
+    routes, and a "this route is gone" check over it passed whatever the app served.
+    """
+    from app.main import app
+
+    return set(app.openapi()["paths"])
