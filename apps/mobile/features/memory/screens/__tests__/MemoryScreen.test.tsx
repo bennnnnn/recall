@@ -140,7 +140,7 @@ describe("MemoryScreen", () => {
   });
 
   it("keeps the words and says so when the edit fails", async () => {
-    mockInstruct.mockResolvedValue({ ok: false });
+    mockInstruct.mockResolvedValue({ ok: false, failure: "failed" });
     const ui = await render(<MemoryScreen />);
 
     await fireEvent.changeText(ui.getByTestId("memory-composer-input"), "Keep it short");
@@ -148,6 +148,16 @@ describe("MemoryScreen", () => {
 
     expect(mockFeedback.error).toHaveBeenCalledWith("memory.instruct_failed");
     expect(ui.getByTestId("memory-composer-input").props.value).toBe("Keep it short");
+  });
+
+  it("says memory is off when an edit is refused for it (CLAR-08)", async () => {
+    mockInstruct.mockResolvedValue({ ok: false, failure: "off" });
+    const ui = await render(<MemoryScreen />);
+
+    await fireEvent.changeText(ui.getByTestId("memory-composer-input"), "Keep it short");
+    await fireEvent.press(ui.getByTestId("memory-composer-send"));
+
+    expect(mockFeedback.error).toHaveBeenCalledWith("memory.off");
   });
 
   it("says when it is reading recent chats", async () => {

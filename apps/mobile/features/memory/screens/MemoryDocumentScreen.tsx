@@ -36,6 +36,7 @@ import { confirmDialog } from "@/ui/overlay/dialogs";
 import { Menu } from "@/ui/overlay/Menu";
 import { MemoryHeaderMenu } from "@/features/memory/components/MemoryHeaderMenu";
 import { useClearAllMemories } from "@/features/memory/hooks/useClearAllMemories";
+import { memoryFailureKey } from "@/features/memory/model/memoryFailure";
 
 type FactMenu = { fact: Memory; point: { x: number; y: number } };
 
@@ -87,8 +88,8 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       if (!ok) return;
       const done = await deleteDocument(document.key);
       if (!isCurrentView()) return;
-      if (!done) {
-        reportRecoverableError(feedback, t("memory.delete_failed"));
+      if (!done.ok) {
+        reportRecoverableError(feedback, t(memoryFailureKey(done.failure, "memory.delete_failed")));
         return;
       }
       router.back();
@@ -106,8 +107,8 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       if (!ok) return;
       const done = await deleteFact(fact.id);
       if (!isCurrentView()) return;
-      if (!done) {
-        reportRecoverableError(feedback, t("memory.delete_failed"));
+      if (!done.ok) {
+        reportRecoverableError(feedback, t(memoryFailureKey(done.failure, "memory.delete_failed")));
         return;
       }
       // The page is gone with its last fact.
@@ -119,26 +120,28 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     const text = editing?.text.trim();
     if (!editing || !text || saving) return;
     setSaving(true);
-    const ok = await editFact(editing.fact.id, text);
+    const saved = await editFact(editing.fact.id, text);
     if (!isCurrentView()) return;
     setSaving(false);
-    if (!ok) {
-      reportRecoverableError(feedback, t("memory.edit_failed"));
+    if (!saved.ok) {
+      reportRecoverableError(feedback, t(memoryFailureKey(saved.failure, "memory.edit_failed")));
       return;
     }
     setEditing(null);
   }, [editing, saving, editFact, isCurrentView, feedback, t]);
 
   const toggleMuted = useCallback(async (fact: Memory) => {
-    const ok = await setFactMuted(fact.id, fact.status !== "muted");
-    if (!ok && isCurrentView()) reportRecoverableError(feedback, t("memory.mute_failed"));
+    const changed = await setFactMuted(fact.id, fact.status !== "muted");
+    if (!changed.ok && isCurrentView()) {
+      reportRecoverableError(feedback, t(memoryFailureKey(changed.failure, "memory.mute_failed")));
+    }
   }, [setFactMuted, isCurrentView, feedback, t]);
 
   const submit = useCallback(async (instruction: string) => {
     const outcome = await instruct(instruction, typeof key === "string" ? key : undefined);
     if (!isCurrentView()) return false;
     if (!outcome.ok) {
-      reportRecoverableError(feedback, t("memory.instruct_failed"));
+      reportRecoverableError(feedback, t(memoryFailureKey(outcome.failure, "memory.instruct_failed")));
       return false;
     }
     feedback?.success(outcome.reply || t("memory.instruct_done"));

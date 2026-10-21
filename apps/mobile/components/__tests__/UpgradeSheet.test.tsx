@@ -1,6 +1,7 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { UpgradeSheet } from "@/components/UpgradeSheet";
+import { getPlanPackages } from "@/lib/purchases";
 
 const mockSyncSubscription = jest.fn();
 const mockPurchase = jest.fn();
@@ -45,8 +46,11 @@ jest.mock("@/lib/purchases", () => ({
   isPurchasesConfigured: () => true,
   isPurchaseCancelled: (error: { userCancelled?: boolean }) => error?.userCancelled === true,
   getPlanPackages: jest.fn(async () => ({
-    plus: { plan: "plus", priceString: "$7.99", productId: "recall_plus", native: {} },
-    pro: { plan: "pro", priceString: "$13.99", productId: "recall_pro", native: {} },
+    packages: {
+      plus: { plan: "plus", priceString: "$7.99", productId: "recall_plus", native: {} },
+      pro: { plan: "pro", priceString: "$13.99", productId: "recall_pro", native: {} },
+    },
+    unavailable: false,
   })),
   purchasePlanPackage: (...args: unknown[]) => mockPurchase(...args),
   restorePurchases: (...args: unknown[]) => mockRestore(...args),
@@ -84,6 +88,7 @@ beforeEach(() => {
   mockRestore.mockReset();
   mockTrack.mockReset();
   mockListPlans.mockReset().mockResolvedValue(CATALOG);
+  jest.mocked(getPlanPackages).mockClear();
   mockUser = { plan: "free" };
 });
 
@@ -96,6 +101,18 @@ it("offers free users both plans with store prices and server numbers", async ()
   expect(screen.getByText('upgrade.feature_images {"count":10}')).toBeOnTheScreen();
   expect(screen.getByText('upgrade.feature_live_talk {"count":60}')).toBeOnTheScreen();
   expect(mockTrack).toHaveBeenCalledWith("paywall_viewed", { source: "live_talk" });
+});
+
+it("says the store is unavailable, never an empty shop, and reads it again on Retry (CLAR-08)", async () => {
+  jest.mocked(getPlanPackages).mockResolvedValueOnce({ packages: {}, unavailable: true });
+  const screen = await openSheet();
+  expect(screen.getByText("upgrade.store_unavailable")).toBeOnTheScreen();
+  await act(async () => {
+    fireEvent.press(screen.getByText("common.retry"));
+  });
+  expect(getPlanPackages).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText("upgrade.store_unavailable")).toBeNull();
+  expect(screen.getByText('upgrade.per_month {"price":"$7.99"}')).toBeOnTheScreen();
 });
 
 it("offers a Plus subscriber only the step up to Pro", async () => {

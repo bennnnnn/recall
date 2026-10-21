@@ -346,6 +346,9 @@
   "login.tagline": "ይማሩ፣ ያደራጁ እና ይወያዩ — እርስዎን የሚذكر AI ጋር።",
   "login.terms": "ውሎች",
   "memory.back_to_memory": "ወደ ማህደረ ትውስታ ተመለስ",
+  "memory.busy": "ማህደረ ትውስታ እየተዘመነ ነው። ትንሽ ቆይተው እንደገና ይሞክሩ።",
+  "memory.off": "ማህደረ ትውስታ ጠፍቷል። ለመቀየር በቅንብሮች ውስጥ ያብሩት።",
+  "memory.limited": "ለአሁን በጣም ብዙ የማህደረ ትውስታ ለውጦች። ቆይተው እንደገና ይሞክሩ።",
   "memory.composer_label": "Recall ምን እንዲያስታውስ ወይም እንዲቀይር ይንገሩት",
   "memory.composer_placeholder": "ሐሳቤን የበለጠ መቃወም ትችላለህ",
   "memory.composer_placeholder_document": "ዝርዝሮችን ከአምስት ነጥብ በታች አድርግ",
@@ -933,6 +936,7 @@
   "upgrade.purchase_failed": "ግዢው ሊጠናቀቅ አልተቻለም። እንደገና ይሞክሩ።",
   "upgrade.restore": "ግዢዎችን ይመልሱ",
   "upgrade.restore_empty": "ለዚህ መለያ aktiv subscription አልተገኘም።",
+  "upgrade.store_unavailable": "መደብሩ ምላሽ እየሰጠ አይደለም። ትንሽ ቆይተው እንደገና ይሞክሩ።",
   "upgrade.sync_pending": "ደንበኝነትዎ ተመዝግቧል። እቅድዎ በቅርቡ ይዘምናል — ካልዘመነ መተግበሪያውን እንደገና ይክፈቱ።",
   "upgrade.subscription_terms": "የደንበኝነት ምዝገባው በApp Store ወይም Google Play መለያዎ ውስጥ ካልተሰረዘ በየወሩ በራሱ ይታደሳል።",
   "upgrade.title": "እቅድ ይምረጡ"

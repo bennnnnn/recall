@@ -346,6 +346,9 @@
   "login.tagline": "Learn, organize, and chat — with an AI that remembers you.",
   "login.terms": "Terms",
   "memory.back_to_memory": "Back to Memory",
+  "memory.busy": "Memory is being updated. Try again in a moment.",
+  "memory.off": "Memory is off. Turn it on in Settings to change it.",
+  "memory.limited": "Too many memory changes for now. Try again later.",
   "memory.composer_label": "Tell Recall what to remember or change",
   "memory.composer_placeholder": "You can disagree with me more",
   "memory.composer_placeholder_document": "Keep lists under five things",
@@ -933,6 +936,7 @@
   "upgrade.purchase_failed": "Purchase could not be completed. Try again.",
   "upgrade.restore": "Restore purchases",
   "upgrade.restore_empty": "No active subscription found for this account.",
+  "upgrade.store_unavailable": "The store isn't responding. Try again in a moment.",
   "upgrade.sync_pending": "You're subscribed. Your plan will update in a moment — reopen the app if it doesn't.",
   "upgrade.subscription_terms": "Subscription renews automatically each month unless canceled in your App Store or Google Play account.",
   "upgrade.title": "Choose a plan"

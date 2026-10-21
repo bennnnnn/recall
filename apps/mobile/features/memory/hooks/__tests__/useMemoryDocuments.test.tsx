@@ -6,8 +6,10 @@ import {
   invalidateMemoryDocuments,
   setMemoryDocuments,
 } from "@/features/memory/model/memoryDocumentsCache";
+import type { MemoryChange } from "@/features/memory/model/memoryFailure";
 import type { MemoryDocument } from "@/features/memory/types";
 import { api } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api/errorBody";
 
 jest.mock("@/lib/api", () => ({
   api: {
@@ -80,8 +82,8 @@ describe("useMemoryDocuments deletes", () => {
     (api.deleteMemoryDocument as jest.Mock).mockReturnValue(pageDelete.promise);
     const { result } = await renderHook(() => useMemoryDocuments("token"));
 
-    let factDone!: Promise<boolean>;
-    let pageDone!: Promise<boolean>;
+    let factDone!: Promise<MemoryChange>;
+    let pageDone!: Promise<MemoryChange>;
     await act(async () => {
       factDone = result.current.deleteFact("a");
       pageDone = result.current.deleteDocument("notes");
@@ -95,8 +97,8 @@ describe("useMemoryDocuments deletes", () => {
       await factDone;
     });
 
-    await expect(factDone).resolves.toBe(false);
-    await expect(pageDone).resolves.toBe(true);
+    await expect(factDone).resolves.toEqual({ ok: false, failure: "unreachable" });
+    await expect(pageDone).resolves.toEqual({ ok: true });
     // The page delete went through, so only fact "a" comes back, in its old place.
     expect(shown()).toEqual([["interests", ["a", "b"]]]);
   });
@@ -120,16 +122,34 @@ describe("useMemoryDocuments deletes", () => {
     (api.deleteMemory as jest.Mock).mockRejectedValue(new Error("offline"));
     const { result } = await renderHook(() => useMemoryDocuments("token"));
 
-    let ok = true;
+    let done: MemoryChange = { ok: true };
     await act(async () => {
-      ok = await result.current.deleteFact("c");
+      done = await result.current.deleteFact("c");
     });
 
-    expect(ok).toBe(false);
+    expect(done.ok).toBe(false);
     expect(shown()).toEqual([
       ["interests", ["a", "b"]],
       ["notes", ["c"]],
     ]);
+  });
+
+  it.each([
+    [409, { code: "memory_busy", message: "Memory is being updated right now — try again in a moment." }, "busy"],
+    [409, { code: "memory_off", message: "Memory is off." }, "off"],
+    [404, "Memory not found", "gone"],
+    [429, { code: "rate_limited", message: "Too many memory edits — try again later." }, "limited"],
+    [422, [{ msg: "too long" }], "failed"],
+  ])("says why a change was refused: %i %j is %s (CLAR-08)", async (status, detail, failure) => {
+    (api.deleteMemory as jest.Mock).mockRejectedValue(new ApiRequestError(status, JSON.stringify({ detail })));
+    const { result } = await renderHook(() => useMemoryDocuments("token"));
+
+    let done: MemoryChange = { ok: true };
+    await act(async () => {
+      done = await result.current.deleteFact("a");
+    });
+
+    expect(done).toEqual({ ok: false, failure });
   });
 
   it("keeps a deleted fact gone when a refresh lands mid-request", async () => {
@@ -137,7 +157,7 @@ describe("useMemoryDocuments deletes", () => {
     (api.deleteMemory as jest.Mock).mockReturnValue(factDelete.promise);
     const { result } = await renderHook(() => useMemoryDocuments("token"));
 
-    let done!: Promise<boolean>;
+    let done!: Promise<MemoryChange>;
     await act(async () => {
       done = result.current.deleteFact("a");
     });

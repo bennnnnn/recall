@@ -346,6 +346,9 @@
   "login.tagline": "La tua IA che si ricorda di te.",
   "login.terms": "Termini",
   "memory.back_to_memory": "Torna a Memoria",
+  "memory.busy": "La memoria si sta aggiornando. Riprova tra poco.",
+  "memory.off": "La memoria è disattivata. Attivala nelle Impostazioni per modificarla.",
+  "memory.limited": "Troppe modifiche alla memoria per ora. Riprova più tardi.",
   "memory.composer_label": "Di' a Recall cosa ricordare o cambiare",
   "memory.composer_placeholder": "Puoi contraddirmi più spesso",
   "memory.composer_placeholder_document": "Tieni gli elenchi sotto i cinque punti",
@@ -933,6 +936,7 @@
   "upgrade.purchase_failed": "Acquisto non completato. Riprova.",
   "upgrade.restore": "Ripristina acquisti",
   "upgrade.restore_empty": "Nessun abbonamento attivo per questo account.",
+  "upgrade.store_unavailable": "Lo store non risponde. Riprova tra poco.",
   "upgrade.sync_pending": "Abbonamento attivo. Il tuo piano si aggiornerà a breve: riapri l'app se non succede.",
   "upgrade.subscription_terms": "L'abbonamento si rinnova automaticamente ogni mese, salvo annullamento nell'account App Store o Google Play.",
   "upgrade.title": "Scegli un piano"

@@ -130,13 +130,13 @@ export function useChatActions({
     [token, chatId, setMessages, feedback, t],
   );
 
+  /**
+   * Every message in the chat. A failed read throws: the loaded page is not the whole
+   * chat, and a PDF or share of it would pass for one (code-health audit CLAR-08).
+   */
   const loadTranscriptMessages = useCallback(async () => {
     if (!token || !chatId) return messages;
-    try {
-      return await api.listAllMessages(token, chatId);
-    } catch {
-      return messages;
-    }
+    return api.listAllMessages(token, chatId);
   }, [token, chatId, messages]);
 
   const handleExportPdf = useCallback(async () => {

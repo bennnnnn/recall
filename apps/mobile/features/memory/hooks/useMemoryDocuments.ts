@@ -11,9 +11,12 @@ import {
   updateMemoryDocuments,
 } from "@/features/memory/model/memoryDocumentsCache";
 import { invalidateMemoriesCache } from "@/features/memory/model/memoryListCache";
+import { memoryFailure, type MemoryChange, type MemoryFailure } from "@/features/memory/model/memoryFailure";
 import type { MemoryDocument, MemoryDocuments } from "@/features/memory/types";
 
-type InstructOutcome = { ok: true; reply: string } | { ok: false };
+type InstructOutcome = { ok: true; reply: string } | { ok: false; failure: MemoryFailure };
+
+const NOT_SIGNED_IN = { ok: false, failure: "failed" } as const;
 
 function withoutFact(documents: MemoryDocument[], factId: string): MemoryDocument[] {
   return documents
@@ -96,7 +99,7 @@ export function useMemoryDocuments(token: string | null) {
     instruction: string,
     topic?: string,
   ): Promise<InstructOutcome> => {
-    if (!token) return { ok: false };
+    if (!token) return NOT_SIGNED_IN;
     const session = getSessionGeneration();
     try {
       const result = await api.instructMemory(token, instruction, topic);
@@ -104,8 +107,8 @@ export function useMemoryDocuments(token: string | null) {
       setMemoryDocuments({ documents: result.documents, scanning }, session);
       invalidateMemoriesCache();
       return { ok: true, reply: result.reply };
-    } catch {
-      return { ok: false };
+    } catch (error) {
+      return { ok: false, failure: memoryFailure(error) };
     }
   }, [token]);
 
@@ -113,7 +116,7 @@ export function useMemoryDocuments(token: string | null) {
     remove: (documents: MemoryDocument[]) => MemoryDocument[],
     restore: (documents: MemoryDocument[]) => MemoryDocument[],
     request: () => Promise<void>,
-  ): Promise<boolean> => {
+  ): Promise<MemoryChange> => {
     const session = getSessionGeneration();
     updateMemoryDocuments(remove, session);
     try {
@@ -121,16 +124,16 @@ export function useMemoryDocuments(token: string | null) {
       // A refresh that landed mid-request may have brought the item back.
       updateMemoryDocuments(remove, session);
       invalidateMemoriesCache();
-      return true;
-    } catch {
+      return { ok: true };
+    } catch (error) {
       // Put back only this item: other deletes may have finished meanwhile.
       updateMemoryDocuments(restore, session);
-      return false;
+      return { ok: false, failure: memoryFailure(error) };
     }
   }, []);
 
-  const deleteDocument = useCallback(async (key: string): Promise<boolean> => {
-    if (!token) return false;
+  const deleteDocument = useCallback(async (key: string): Promise<MemoryChange> => {
+    if (!token) return NOT_SIGNED_IN;
     const removed = getCachedMemoryDocuments()?.documents.find((document) => document.key === key);
     return removeOptimistically(
       (documents) => documents.filter((document) => document.key !== key),
@@ -139,8 +142,8 @@ export function useMemoryDocuments(token: string | null) {
     );
   }, [token, removeOptimistically]);
 
-  const deleteFact = useCallback(async (factId: string): Promise<boolean> => {
-    if (!token) return false;
+  const deleteFact = useCallback(async (factId: string): Promise<MemoryChange> => {
+    if (!token) return NOT_SIGNED_IN;
     const place = findFact(getCachedMemoryDocuments()?.documents ?? [], factId);
     return removeOptimistically(
       (documents) => withoutFact(documents, factId),
@@ -149,22 +152,22 @@ export function useMemoryDocuments(token: string | null) {
     );
   }, [token, removeOptimistically]);
 
-  const editFact = useCallback(async (factId: string, text: string): Promise<boolean> => {
-    if (!token) return false;
+  const editFact = useCallback(async (factId: string, text: string): Promise<MemoryChange> => {
+    if (!token) return NOT_SIGNED_IN;
     const session = getSessionGeneration();
     try {
       const updated = await api.updateMemory(token, factId, text);
       updateMemoryDocuments((documents) => withFact(documents, updated), session);
       invalidateMemoriesCache();
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, failure: memoryFailure(error) };
     }
   }, [token]);
 
   /** Mute keeps a fact but stops Recall using it in chats; unmute brings it back. */
-  const setFactMuted = useCallback(async (factId: string, muted: boolean): Promise<boolean> => {
-    if (!token) return false;
+  const setFactMuted = useCallback(async (factId: string, muted: boolean): Promise<MemoryChange> => {
+    if (!token) return NOT_SIGNED_IN;
     const session = getSessionGeneration();
     try {
       const updated = await api.updateMemory(token, factId, {
@@ -172,9 +175,9 @@ export function useMemoryDocuments(token: string | null) {
       });
       updateMemoryDocuments((documents) => withFact(documents, updated), session);
       invalidateMemoriesCache();
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, failure: memoryFailure(error) };
     }
   }, [token]);
 

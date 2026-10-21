@@ -346,6 +346,9 @@
   "login.tagline": "Deine KI, die sich an dich erinnert.",
   "login.terms": "Nutzungsbedingungen",
   "memory.back_to_memory": "Zurück zu Erinnerung",
+  "memory.busy": "Die Erinnerung wird gerade aktualisiert. Versuch es gleich noch einmal.",
+  "memory.off": "Die Erinnerung ist aus. Schalte sie in den Einstellungen ein, um sie zu ändern.",
+  "memory.limited": "Gerade zu viele Änderungen an der Erinnerung. Versuch es später noch einmal.",
   "memory.composer_label": "Sag Recall, was es sich merken oder ändern soll",
   "memory.composer_placeholder": "Du darfst mir öfter widersprechen",
   "memory.composer_placeholder_document": "Listen unter fünf Punkten halten",
@@ -933,6 +936,7 @@
   "upgrade.purchase_failed": "Kauf konnte nicht abgeschlossen werden. Erneut versuchen.",
   "upgrade.restore": "Käufe wiederherstellen",
   "upgrade.restore_empty": "Kein aktives Abo für dieses Konto gefunden.",
+  "upgrade.store_unavailable": "Der Store antwortet nicht. Gleich noch einmal versuchen.",
   "upgrade.sync_pending": "Dein Abo ist aktiv. Dein Tarif wird gleich aktualisiert – öffne die App neu, falls nicht.",
   "upgrade.subscription_terms": "Das Abo verlängert sich jeden Monat automatisch, sofern es nicht im App-Store- oder Google-Play-Konto gekündigt wird.",
   "upgrade.title": "Tarif wählen"

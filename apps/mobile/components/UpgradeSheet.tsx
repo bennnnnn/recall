@@ -13,7 +13,7 @@ import {
   getPlanPackages,
   isPurchaseCancelled,
   isPurchasesConfigured,
-  type PlanPackage,
+  type PlanOffer,
   purchasePlanPackage,
   restorePurchases,
 } from "@/lib/purchases";
@@ -47,6 +47,8 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 const PLAN_RANK: Record<PlanId, number> = { free: 0, plus: 1, pro: 2 };
 
+const NO_OFFER: PlanOffer = { packages: {}, unavailable: false };
+
 type FeatureLine = { icon: IconName; text: string };
 
 /** What a plan includes, with the server's numbers (the store owns the price). */
@@ -77,7 +79,9 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const { account, getToken } = useAccountSession();
   const current = planOf(user);
   const targets = upgradeTargets(current);
-  const [packages, setPackages] = useState<Partial<Record<PaidPlanId, PlanPackage>>>({});
+  const [offer, setOffer] = useState<PlanOffer>(NO_OFFER);
+  const [offerAttempt, setOfferAttempt] = useState(0);
+  const packages = offer.packages;
   const [catalog, setCatalog] = useState<PlanCatalog | null>(null);
   const [loadingOffer, setLoadingOffer] = useState(false);
   const [busy, setBusy] = useState<PaidPlanId | "restore" | null>(null);
@@ -112,14 +116,14 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
 
   useEffect(() => {
     if (!visible || !purchasesReady) {
-      setPackages({});
+      setOffer(NO_OFFER);
       return;
     }
     let cancelled = false;
     setLoadingOffer(true);
     void getPlanPackages()
       .then((next) => {
-        if (!cancelled) setPackages(next);
+        if (!cancelled) setOffer(next);
       })
       .finally(() => {
         if (!cancelled) setLoadingOffer(false);
@@ -127,7 +131,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [visible, purchasesReady]);
+  }, [visible, purchasesReady, offerAttempt]);
 
   const syncAfterStore = async () => {
     if (!token) return;
@@ -241,6 +245,17 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
           </View>
         );
       })}
+      {purchasesReady && offer.unavailable && !loadingOffer ? (
+        <>
+          <Text style={s.error}>{t("upgrade.store_unavailable")}</Text>
+          <Button
+            title={t("common.retry")}
+            onPress={() => setOfferAttempt((attempt) => attempt + 1)}
+            variant="secondary"
+            style={s.primaryBtn}
+          />
+        </>
+      ) : null}
       {error ? <Text style={s.error}>{error}</Text> : null}
       {purchasesReady ? (
         <Button
