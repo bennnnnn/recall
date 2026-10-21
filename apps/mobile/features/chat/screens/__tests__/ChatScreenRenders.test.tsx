@@ -4,10 +4,11 @@ import HomeScreen from "@/features/chat/screens/ChatScreen";
 import { closeDrawer, openDrawer } from "@/lib/drawer";
 
 /**
- * How often the whole chat screen renders while the keyboard and the drawer
- * move. Every hook the screen calls is a stub except the keyboard inset, the
- * layout metrics, the body props and the drawer shell, so a render here is
- * the screen reacting to the keyboard or the drawer and nothing else.
+ * The chat screen while the keyboard and the drawer move: how often it
+ * renders, and whether the thread follows the keyboard. Every hook the screen
+ * calls is a stub except the keyboard inset, the scroll hook, the layout
+ * metrics, the body props and the drawer shell, so a render here is the
+ * screen reacting to the keyboard or the drawer and nothing else.
  */
 
 type KeyboardFrame = { state: number; height: number };
@@ -66,14 +67,12 @@ jest.mock("react-native-reanimated", () => {
 });
 
 const mockChatRenders = jest.fn();
-const mockScrollOptions = jest.fn();
 const mockBodyProps = jest.fn();
 const mockNoop = () => {};
 const mockAsyncNoop = async () => {};
-const mockRef = { current: null };
+let mockMessages: { id: string }[] = [];
 
 const mockChat = {
-  messages: [],
   setMessages: mockNoop,
   streaming: false,
   finalizing: false,
@@ -87,18 +86,6 @@ const mockChat = {
   regenerateResponse: mockAsyncNoop,
   stopGeneration: mockNoop,
   connect: mockNoop,
-};
-const mockScroll = {
-  listRef: mockRef,
-  listBottomPadRef: { current: 0 },
-  newMessageCountRef: { current: 0 },
-  showScrollToBottom: false,
-  scrollAwayCount: 0,
-  scrollToLatest: mockNoop,
-  handleScroll: mockNoop,
-  handleScrollEnd: mockNoop,
-  handleContentSizeChange: mockNoop,
-  handleListLayout: mockNoop,
 };
 const mockRouteLoader = {
   handleFirstReply: mockAsyncNoop,
@@ -221,7 +208,7 @@ jest.mock("@/features/home/hooks/useHomeRefreshOnChatFocus", () => ({ useHomeRef
 jest.mock("@/features/chat/hooks/useChat", () => ({
   useChat: () => {
     mockChatRenders();
-    return mockChat;
+    return { ...mockChat, messages: mockMessages };
   },
 }));
 jest.mock("@/features/chat/hooks/useChatActions", () => ({ useChatActions: () => mockChatActions }));
@@ -231,12 +218,6 @@ jest.mock("@/features/chat/hooks/useChatDraftWarmup", () => ({ useChatDraftWarmu
 jest.mock("@/features/chat/hooks/useChatMessageList", () => ({ useChatMessageList: () => mockMessageList }));
 jest.mock("@/features/chat/hooks/useChatRegenerate", () => ({ useChatRegenerate: () => mockRegenerate }));
 jest.mock("@/features/chat/hooks/useChatRouteLoader", () => ({ useChatRouteLoader: () => mockRouteLoader }));
-jest.mock("@/features/chat/hooks/useChatScroll", () => ({
-  useChatScroll: (options: unknown) => {
-    mockScrollOptions(options);
-    return mockScroll;
-  },
-}));
 jest.mock("@/features/chat/hooks/useChatSend", () => ({ useChatSend: () => mockSend }));
 jest.mock("@/features/speech/hooks/useLiveTalk", () => ({ useLiveTalk: () => mockLiveTalk }));
 jest.mock("@/features/chat/hooks/useDraftChat", () => ({ useDraftChat: () => mockDraft }));
@@ -278,66 +259,114 @@ const closingFrames: KeyboardFrame[] = curve(5.65, 2.74, 8.38, 0.93, 3.29).map((
   height: Math.round(KEYBOARD_HEIGHT * (1 - progress)),
 }));
 
-/** Each step runs in its own act, the way each keyboard frame reaches JS in its own task. */
+/** Keyboard frames reach JS 16 ms apart (60 fps); timers are fake, so the scroll hook's waits run on this clock. */
+const FRAME_MS = 16;
+
+/** Each step runs in its own act, the way each keyboard frame reaches JS in its own task, then a frame passes. */
 async function rendersDuring(steps: (() => void)[]): Promise<number> {
   const before = mockChatRenders.mock.calls.length;
   for (const step of steps) {
     await act(async () => {
       step();
     });
+    await act(async () => {
+      jest.advanceTimersByTime(FRAME_MS);
+    });
   }
   return mockChatRenders.mock.calls.length - before;
 }
 
+async function wait(ms: number): Promise<number> {
+  const before = mockChatRenders.mock.calls.length;
+  await act(async () => {
+    jest.advanceTimersByTime(ms);
+  });
+  return mockChatRenders.mock.calls.length - before;
+}
+
 const emitAll = (frames: KeyboardFrame[]) => frames.map((frame) => () => mockEmitKeyboard(frame));
+const frames = (state: number, heights: number[]) => heights.map((height) => ({ state, height }));
+
+type BodyProps = {
+  layout: {
+    keyboardLift: { value: number };
+    restingListBottomPad: number;
+    restingComposerClearance: number;
+    emptyHeight: number;
+  };
+  list: { listRef: { current: unknown }; onScroll: (event: unknown) => void };
+};
+const lastBody = () => mockBodyProps.mock.calls.at(-1)?.[0] as BodyProps;
+// Tests have no safe area, so the composer rests on the 10 pt minimum pad.
+const IDLE_BOTTOM_PAD = 10;
+/** The empty state is the one layout value that waits for the keyboard to settle. */
+const emptyHeightWith = (resting: number, keyboard: number) =>
+  resting - Math.max(0, keyboard - IDLE_BOTTOM_PAD);
+
+/**
+ * A thread taller than the screen (2000 pt to scroll), at `offset`, 2000 being
+ * its end. Records when it is pinned to the end again.
+ */
+function attachList(offset = 2000) {
+  let start = Date.now();
+  const pinnedAt: number[] = [];
+  lastBody().list.listRef.current = {
+    scrollToEnd: () => pinnedAt.push(Date.now() - start),
+    getAbsoluteLastScrollOffset: () => offset,
+    getChildContainerDimensions: () => ({ width: 390, height: 2700 }),
+    getWindowSize: () => ({ width: 390, height: 700 }),
+  };
+  return {
+    pinnedAt,
+    restartClock: () => {
+      start = Date.now();
+      pinnedAt.length = 0;
+    },
+  };
+}
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  mockMessages = [];
+  // Nothing is mounted yet, so this only puts the shared keyboard back down.
+  mockEmitKeyboard({ state: CLOSED, height: 0 });
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
 
 describe("ChatScreen renders", () => {
-  beforeEach(() => {
-    // Nothing is mounted yet, so this only puts the shared keyboard back down.
-    mockEmitKeyboard({ state: CLOSED, height: 0 });
-  });
-
   it("renders once per keyboard show and once per hide, with the settled height", async () => {
     await render(<HomeScreen />);
+    const resting = lastBody().layout.emptyHeight;
 
     const show = await rendersDuring(
       emitAll([...openingFrames, { state: OPEN, height: KEYBOARD_HEIGHT }]),
     );
-    expect(mockScrollOptions).toHaveBeenLastCalledWith(
-      expect.objectContaining({ keyboardHeight: KEYBOARD_HEIGHT }),
-    );
+    expect(lastBody().layout.emptyHeight).toBe(emptyHeightWith(resting, KEYBOARD_HEIGHT));
 
     const hide = await rendersDuring(emitAll([...closingFrames, { state: CLOSED, height: 0 }]));
-    expect(mockScrollOptions).toHaveBeenLastCalledWith(expect.objectContaining({ keyboardHeight: 0 }));
+    expect(lastBody().layout.emptyHeight).toBe(resting);
 
     expect({ show, hide }).toEqual({ show: 1, hide: 1 });
   });
 
   it("moves the list space and the chrome with each keyboard frame while React holds the resting layout", async () => {
     await render(<HomeScreen />);
-    type BodyLayout = {
-      keyboardLift: { value: number };
-      restingListBottomPad: number;
-      restingComposerClearance: number;
-      emptyHeight: number;
-    };
-    const bodyLayout = () => (mockBodyProps.mock.calls.at(-1)?.[0] as { layout: BodyLayout }).layout;
-    const resting = bodyLayout();
-    // Tests have no safe area, so the composer rests on the 10 pt minimum pad.
-    const idleBottomPad = 10;
+    const resting = lastBody().layout;
 
     const midway = openingFrames[FRAMES / 2];
     await rendersDuring(emitAll(openingFrames.slice(0, FRAMES / 2 + 1)));
-    expect(bodyLayout()).toBe(resting);
-    expect(resting.keyboardLift.value).toBe(midway.height - idleBottomPad);
+    expect(lastBody().layout).toBe(resting);
+    expect(resting.keyboardLift.value).toBe(midway.height - IDLE_BOTTOM_PAD);
 
     await rendersDuring(emitAll([...openingFrames.slice(FRAMES / 2 + 1), { state: OPEN, height: KEYBOARD_HEIGHT }]));
-    const open = bodyLayout();
-    expect(open.keyboardLift.value).toBe(KEYBOARD_HEIGHT - idleBottomPad);
+    const open = lastBody().layout;
+    expect(open.keyboardLift.value).toBe(KEYBOARD_HEIGHT - IDLE_BOTTOM_PAD);
     expect(open.restingListBottomPad).toBe(resting.restingListBottomPad);
     expect(open.restingComposerClearance).toBe(resting.restingComposerClearance);
-    // The empty state is the one height that waits for the keyboard to settle.
-    expect(open.emptyHeight).toBe(resting.emptyHeight - (KEYBOARD_HEIGHT - idleBottomPad));
+    expect(open.emptyHeight).toBe(emptyHeightWith(resting.emptyHeight, KEYBOARD_HEIGHT));
   });
 
   it("does not render when the drawer opens or closes", async () => {
@@ -347,5 +376,90 @@ describe("ChatScreen renders", () => {
     const close = await rendersDuring([() => closeDrawer()]);
 
     expect({ open, close }).toEqual({ open: 0, close: 0 });
+  });
+});
+
+describe("ChatScreen when the keyboard changes size, turns back or never reports that it settled", () => {
+  it("takes a new height while open (emoji keyboard, QuickType bar) with one render", async () => {
+    await render(<HomeScreen />);
+    const resting = lastBody().layout.emptyHeight;
+    await rendersDuring(emitAll([...openingFrames, { state: OPEN, height: KEYBOARD_HEIGHT }]));
+
+    const taller = KEYBOARD_HEIGHT + 44;
+    const grow = await rendersDuring(
+      emitAll([...frames(OPENING, [350, 366, taller]), { state: OPEN, height: taller }]),
+    );
+    expect(grow).toBe(1);
+    expect(lastBody().layout.emptyHeight).toBe(emptyHeightWith(resting, taller));
+  });
+
+  it("does not render for a drag-to-dismiss the user lets go of", async () => {
+    await render(<HomeScreen />);
+    const resting = lastBody().layout.emptyHeight;
+    await rendersDuring(emitAll([...openingFrames, { state: OPEN, height: KEYBOARD_HEIGHT }]));
+
+    const dragged = await rendersDuring(
+      emitAll([
+        ...frames(CLOSING, [320, 290, 250, 230]),
+        ...frames(OPENING, [260, 300, KEYBOARD_HEIGHT]),
+        { state: OPEN, height: KEYBOARD_HEIGHT },
+      ]),
+    );
+    expect(dragged).toBe(0);
+    expect(lastBody().layout.emptyHeight).toBe(emptyHeightWith(resting, KEYBOARD_HEIGHT));
+  });
+
+  it("settles on a keyboard that stops moving even when OPEN or CLOSED never comes", async () => {
+    await render(<HomeScreen />);
+    const resting = lastBody().layout.emptyHeight;
+
+    // Android's transition count can stick, leaving the state OPENING or CLOSING for good.
+    expect(await rendersDuring(emitAll(openingFrames))).toBe(0);
+    expect(await wait(100 - FRAME_MS)).toBe(1);
+    expect(lastBody().layout.emptyHeight).toBe(emptyHeightWith(resting, KEYBOARD_HEIGHT));
+
+    expect(await rendersDuring(emitAll(closingFrames))).toBe(0);
+    expect(await wait(100 - FRAME_MS)).toBe(1);
+    expect(lastBody().layout.emptyHeight).toBe(resting);
+  });
+});
+
+describe("ChatScreen thread while the keyboard moves", () => {
+  it("catches up with the keyboard while it opens and while it closes, not only once it stops", async () => {
+    await render(<HomeScreen />);
+    const list = attachList();
+
+    // The keyboard is up by frame 26 (416 ms) and reports OPEN at frame 30 (480 ms).
+    await rendersDuring(emitAll([...openingFrames, { state: OPEN, height: KEYBOARD_HEIGHT }]));
+    await wait(500);
+    expect(list.pinnedAt.filter((ms) => ms < 416).length).toBeGreaterThanOrEqual(2);
+    // The same moments as when every ~48 pt step rendered the screen (measured on main):
+    // the 50 ms wait each step restarts runs out where the keyboard slows between steps.
+    expect(list.pinnedAt).toEqual([194, 306, 482]);
+
+    // Down by frame 25 (400 ms).
+    list.restartClock();
+    await rendersDuring(emitAll([...closingFrames, { state: CLOSED, height: 0 }]));
+    await wait(500);
+    expect(list.pinnedAt).toEqual([178, 274, 434]);
+  });
+
+  it("leaves a thread the reader has scrolled up where it is", async () => {
+    mockMessages = [{ id: "m1" }, { id: "m2" }];
+    await render(<HomeScreen />);
+    const { pinnedAt } = attachList(0);
+    await act(async () => {
+      lastBody().list.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 0 },
+          contentSize: { width: 390, height: 2700 },
+          layoutMeasurement: { width: 390, height: 700 },
+        },
+      });
+    });
+
+    await rendersDuring(emitAll([...openingFrames, { state: OPEN, height: KEYBOARD_HEIGHT }]));
+    await wait(500);
+    expect(pinnedAt).toEqual([]);
   });
 });
