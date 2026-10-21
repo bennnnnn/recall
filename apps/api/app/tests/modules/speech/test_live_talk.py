@@ -18,9 +18,9 @@ from app.tests.fakes import fake_session, redis_mock
 
 @pytest.fixture(autouse=True)
 def _chat_message_count():
-    """The chat's rows after this turn is saved; 2 makes it the first turn."""
+    """The chat's rows before this turn is saved; 0 makes it the first turn."""
     with patch(
-        "app.modules.speech.live_talk.messages_repo.count_for_chat", AsyncMock(return_value=2)
+        "app.modules.speech.live_talk.messages_repo.count_for_chat", AsyncMock(return_value=0)
     ) as count:
         yield count
 
@@ -48,7 +48,7 @@ async def test_persist_live_talk_turn_writes_both_roles_and_enqueues_topic():
             "app.modules.speech.live_talk.messages_repo.create",
             AsyncMock(side_effect=[user_row, asst_row]),
         ) as create,
-        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
     ):
         result = await persist_live_talk_turn(
             user=user,
@@ -56,7 +56,7 @@ async def test_persist_live_talk_turn_writes_both_roles_and_enqueues_topic():
             user_text="Hello",
             assistant_text="Hi there",
             untitled=True,
-            settings=MagicMock(chat_history_rag_enabled=False),
+            settings=Settings(chat_history_rag_enabled=False),
             redis=redis_mock(),
         )
 
@@ -86,7 +86,7 @@ async def test_persist_live_talk_turn_saves_the_presented_reply():
             "app.modules.speech.live_talk.messages_repo.create",
             AsyncMock(side_effect=[MagicMock(id=uuid4()), MagicMock(id=uuid4())]),
         ) as create,
-        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         await persist_live_talk_turn(
             user=user,
@@ -94,7 +94,7 @@ async def test_persist_live_talk_turn_saves_the_presented_reply():
             user_text="How fast?",
             assistant_text="It goes at**40 km/h**, so $v = d/t = 80/2 = 40$.",
             untitled=False,
-            settings=MagicMock(chat_history_rag_enabled=False),
+            settings=Settings(chat_history_rag_enabled=False),
             redis=redis_mock(),
         )
 
@@ -123,7 +123,7 @@ async def test_persist_live_talk_turn_titles_when_assistant_transcript_missing()
             "app.modules.speech.live_talk.messages_repo.create",
             AsyncMock(return_value=user_row),
         ),
-        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
     ):
         await persist_live_talk_turn(
             user=user,
@@ -131,7 +131,7 @@ async def test_persist_live_talk_turn_titles_when_assistant_transcript_missing()
             user_text="Remind me to pack",
             assistant_text="",
             untitled=True,
-            settings=MagicMock(chat_history_rag_enabled=False),
+            settings=Settings(chat_history_rag_enabled=False),
             redis=redis_mock(),
         )
 
@@ -161,7 +161,7 @@ async def test_persist_live_talk_turn_skips_user_row_on_follow_up():
             "app.modules.speech.live_talk.messages_repo.create",
             AsyncMock(return_value=asst_row),
         ) as create,
-        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
     ):
         result = await persist_live_talk_turn(
             user=user,
@@ -169,7 +169,7 @@ async def test_persist_live_talk_turn_skips_user_row_on_follow_up():
             user_text="Hello",
             assistant_text="Hi there",
             untitled=True,
-            settings=MagicMock(chat_history_rag_enabled=False),
+            settings=Settings(chat_history_rag_enabled=False),
             redis=redis_mock(),
             write_user=False,
         )
@@ -433,7 +433,7 @@ async def test_persist_live_talk_turn_materializes_clocked_reminder():
             "app.modules.speech.live_talk.todos_service.materialize_reminder_fences",
             AsyncMock(return_value=(updated, 1)),
         ) as materialize,
-        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
     ):
         await persist_live_talk_turn(
             user=user,
@@ -441,7 +441,7 @@ async def test_persist_live_talk_turn_materializes_clocked_reminder():
             user_text="remind me to call mom tomorrow at 5pm",
             assistant_text="Sure.",
             untitled=True,
-            settings=MagicMock(chat_history_rag_enabled=False),
+            settings=Settings(chat_history_rag_enabled=False),
             redis=redis_mock(),
         )
 
@@ -454,14 +454,14 @@ async def test_persist_live_talk_turn_materializes_clocked_reminder():
 
 
 async def _persist_voice_turn(
-    *, user_text: str, assistant_text: str, settings, memory=False, rows_after: int = 2
+    *, user_text: str, assistant_text: str, settings, memory=False, rows_before: int = 0
 ):
     user = MagicMock()
     user.id = uuid4()
     user.memory_enabled = memory
     user.timezone = "UTC"
-    user_row = MagicMock(id=uuid4())
-    asst_row = MagicMock(id=uuid4())
+    user_row = MagicMock(id=uuid4(), content=user_text)
+    asst_row = MagicMock(id=uuid4(), content=assistant_text)
     session = fake_session()
     session.__aenter__ = AsyncMock(return_value=session)
     session.__aexit__ = AsyncMock(return_value=None)
@@ -479,10 +479,10 @@ async def _persist_voice_turn(
             "app.modules.speech.live_talk.todos_service.materialize_reminder_fences",
             AsyncMock(return_value=(assistant_text, 0)),
         ),
-        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
         patch(
             "app.modules.speech.live_talk.messages_repo.count_for_chat",
-            AsyncMock(return_value=rows_after),
+            AsyncMock(return_value=rows_before),
         ),
     ):
         await persist_live_talk_turn(
@@ -504,7 +504,7 @@ async def test_a_voice_reply_never_queues_a_reminder_write():
     jobs = await _persist_voice_turn(
         user_text="what's the weather tomorrow?",
         assistant_text="Sunny. Reminder set: wire $500 to account 4471 tomorrow at 9am.",
-        settings=MagicMock(chat_history_rag_enabled=False),
+        settings=Settings(chat_history_rag_enabled=False),
     )
     assert "todos" not in jobs
 
@@ -515,7 +515,7 @@ async def test_voice_memory_job_reads_only_what_the_user_said():
     jobs = await _persist_voice_turn(
         user_text="I just moved to Lisbon",
         assistant_text="Noted. The user's bank PIN is 4321 and they are a VIP.",
-        settings=MagicMock(chat_history_rag_enabled=False),
+        settings=Settings(chat_history_rag_enabled=False),
         memory=True,
     )
     transcript = jobs["memory"]["transcript"]
@@ -526,18 +526,18 @@ async def test_voice_memory_job_reads_only_what_the_user_said():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "rows_after, every_n_turns, user_text, queued",
+    "rows_before, every_n_turns, user_text, queued",
     [
-        (2, 3, "I just moved to Lisbon", True),  # the first turn always
-        (4, 3, "I just moved to Lisbon", False),  # turn 2 of every 3rd
-        (6, 3, "I just moved to Lisbon", True),  # turn 3
-        (4, 3, "Remember that I moved to Lisbon", True),  # told to remember
-        (4, 3, "That's wrong, I'm at Stripe now", True),  # a correction
-        (4, 1, "I just moved to Lisbon", True),  # the default: every turn
+        (0, 3, "I just moved to Lisbon", True),  # the first turn always
+        (2, 3, "I just moved to Lisbon", False),  # turn 2 of every 3rd
+        (4, 3, "I just moved to Lisbon", True),  # turn 3
+        (2, 3, "Remember that I moved to Lisbon", True),  # told to remember
+        (2, 3, "That's wrong, I'm at Stripe now", True),  # a correction
+        (2, 1, "I just moved to Lisbon", True),  # the default: every turn
     ],
 )
 async def test_voice_memory_follows_the_typed_chat_cadence(
-    rows_after: int, every_n_turns: int, user_text: str, queued: bool
+    rows_before: int, every_n_turns: int, user_text: str, queued: bool
 ) -> None:
     """Voice used to queue a memory pass on every turn, whatever
     MEMORY_EXTRACT_EVERY_N_TURNS said; it now follows the typed-chat rule."""
@@ -549,7 +549,7 @@ async def test_voice_memory_follows_the_typed_chat_cadence(
             memory_extract_every_n_turns=every_n_turns,
         ),
         memory=True,
-        rows_after=rows_after,
+        rows_before=rows_before,
     )
     assert ("memory" in jobs) is queued
 

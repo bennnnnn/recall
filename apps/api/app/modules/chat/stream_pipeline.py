@@ -162,9 +162,8 @@ async def finalize_terminal_image_turn(
     assistant_text = ctx.terminal_image_content or ""
 
     async def slim_finalize() -> None:
+        # The picture's row moved the chat up when it was saved (``turn_record``).
         try:
-            async with deps.session_factory() as session:
-                await deps.chats.touch_by_id(session, ctx.chat_id, commit=True)
             await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
         except Exception:
             logger.exception("Slim finalize for terminal image failed")

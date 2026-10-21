@@ -65,7 +65,7 @@ async def test_a_voice_reminder_that_hits_a_saved_duplicate_keeps_the_voice_turn
 
     with (
         patch("app.modules.speech.live_talk.SessionLocal", FakeSessionCM(db_session)),
-        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         user_message, assistant_message = await persist_live_talk_turn(
             user=user,

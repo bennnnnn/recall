@@ -35,6 +35,7 @@ from app.modules.attachments.service import (
     normalize_content_type,
 )
 from app.modules.billing import can_use
+from app.modules.chat import turn_record
 from app.modules.images.intent import image_reference_ids as image_reference_ids
 from app.modules.images.turn_references import shown_in_chat, turn_reference_ids
 from app.repositories import chats as chats_repo
@@ -128,7 +129,8 @@ async def generate_for_chat(
     (e.g. \"create a cat image\"). Falls back to ``Generate image: …`` only
     when the caller did not pass the original wording. Set
     ``create_user_message=False`` when regenerating — only a new assistant row
-    is written.
+    is written. A turn that saved the user's message sets off a typed turn's jobs
+    (its title, memory, indexing); a regenerate or the tool loop's picture does not.
 
     DB sessions open only around ownership checks and persistence — the image
     provider HTTP call runs with no pool checkout held.
@@ -154,7 +156,7 @@ async def generate_for_chat(
             references=references,
             copy_references=create_user_message,
         )
-        user_message, assistant_message = await _persist_turn(
+        user_message, assistant_message, prior_count = await _persist_turn(
             stored,
             user_id=user.id,
             chat_id=chat_id,
@@ -167,7 +169,16 @@ async def generate_for_chat(
         await quota_service.record_global_spend(redis, quota_service.IMAGE_GEN_SPEND_USD)
     except Exception:
         logger.exception("record_global_spend failed after image generation")
-
+    if create_user_message:
+        await turn_record.finish_turn(
+            redis,
+            settings,
+            user=user,
+            chat_id=chat_id,
+            user_message=user_message.content,
+            assistant=assistant_message,
+            prior_count=prior_count,
+        )
     return user_message, assistant_message
 
 
@@ -353,9 +364,13 @@ async def _persist_turn(
     prompt: str,
     user_message_content: str | None,
     create_user_message: bool,
-) -> tuple[Message, Message]:
-    """Save the user turn (or reuse the last one), the reply and its image in one commit."""
+) -> tuple[Message, Message, int]:
+    """Save the user turn (or reuse the last one), the reply and its image in one commit.
+
+    Returns the two messages and how many the chat held before this turn.
+    """
     async with SessionLocal() as session:
+        prior_count = await turn_record.count_messages(session, chat_id)
         if create_user_message:
             user_message = await _create_user_message(
                 session,
@@ -371,14 +386,13 @@ async def _persist_turn(
                 raise ImageGenerationError("No user message to attach image to", status_code=404)
             user_message = existing
         image_marker = f"[Image: /attachments/{stored.image.attachment_id}/file]"
-        assistant_message = await messages_repo.create(
+        assistant_message = await turn_record.add_turn_message(
             session,
             chat_id=chat_id,
             user_id=user_id,
             role="assistant",
             content=image_marker,
             model=get_model(_IMAGE_MODEL_ALIAS).id,
-            commit=False,
         )
         await attachments_service.add_server_images(
             session,
@@ -391,7 +405,7 @@ async def _persist_turn(
         # Persist the turn and its reference copies atomically. If a write fails,
         # session close rolls back rows before byte cleanup.
         await session.commit()
-    return user_message, assistant_message
+    return user_message, assistant_message, prior_count
 
 
 async def _create_user_message(
@@ -414,8 +428,8 @@ async def _create_user_message(
     for copy in reference_copies:
         if copy.source.id not in in_chat:
             bubble += f"\n[Image: /attachments/{copy.attachment_id}/file]"
-    user_message = await messages_repo.create(
-        session, chat_id=chat_id, user_id=user_id, role="user", content=bubble, commit=False
+    user_message = await turn_record.add_turn_message(
+        session, chat_id=chat_id, user_id=user_id, role="user", content=bubble
     )
     # Independent hidden copies keep an edit/regenerate usable if its original
     # Library item or earlier image is later deleted. They are on the user row

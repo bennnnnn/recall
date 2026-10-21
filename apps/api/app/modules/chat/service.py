@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -343,3 +344,27 @@ async def update_message_email(
     if rewritten == message.content:
         return message
     return await messages_repo.update_content(session, message, rewritten)
+
+
+async def edit_recent_reply(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    containing: str,
+    edit: Callable[[str], str],
+    scan: int = 30,
+) -> bool:
+    """Rewrite the chat's recent reply that holds ``containing``; commits. Whether it changed.
+
+    A card the user acted on in another module (a reminder card saved by its tap) is
+    stored as acted on; chat keeps the only writes to its messages (audit ARCH-08).
+    """
+    for message in await messages_repo.list_recent(session, chat_id, limit=scan):
+        if message.role != "assistant" or containing not in (message.content or ""):
+            continue
+        updated = edit(message.content)
+        if updated == message.content:
+            return False
+        await messages_repo.update_content(session, message, updated)
+        return True
+    return False

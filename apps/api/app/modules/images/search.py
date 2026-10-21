@@ -35,6 +35,7 @@ from app.modules.attachments.service import (
     is_image_content_type,
     normalize_content_type,
 )
+from app.modules.chat import turn_record
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
@@ -266,17 +267,13 @@ async def search_and_attach_for_chat(
         )
         stored = await _upload_photos(gateway, user, fetched, written_keys=written_keys)
         async with SessionLocal() as session:
+            prior_count = await turn_record.count_messages(session, chat_id)
             if create_user_message:
                 bubble = (user_message_content or f"{_USER_MESSAGE_PREFIX}{cleaned}").strip()
                 if not bubble:
                     bubble = f"{_USER_MESSAGE_PREFIX}{cleaned}"
-                user_message = await messages_repo.create(
-                    session,
-                    chat_id=chat_id,
-                    user_id=user.id,
-                    role="user",
-                    content=bubble,
-                    commit=False,
+                user_message = await turn_record.add_turn_message(
+                    session, chat_id=chat_id, user_id=user.id, role="user", content=bubble
                 )
             else:
                 existing = await messages_repo.get_last_user(session, chat_id)
@@ -287,14 +284,13 @@ async def search_and_attach_for_chat(
             markers = "\n".join(
                 f"[Image: /attachments/{photo.attachment_id}/file]" for photo in stored
             )
-            assistant_message = await messages_repo.create(
+            assistant_message = await turn_record.add_turn_message(
                 session,
                 chat_id=chat_id,
                 user_id=user.id,
                 role="assistant",
                 content=markers,
                 model=_IMAGE_SEARCH_MODEL_ALIAS,
-                commit=False,
             )
             await _add_photo_rows(
                 session, user, stored, label=cleaned, message_id=assistant_message.id
@@ -313,7 +309,17 @@ async def search_and_attach_for_chat(
         await quota_service.record_global_spend(redis, quota_service.IMAGE_SEARCH_SPEND_USD)
     except Exception:
         logger.exception("record_global_spend failed after photo lookup")
-
+    if create_user_message:
+        # As a typed turn's: its title, memory and indexing (code-health audit ARCH-08).
+        await turn_record.finish_turn(
+            redis,
+            settings,
+            user=user,
+            chat_id=chat_id,
+            user_message=user_message.content,
+            assistant=assistant_message,
+            prior_count=prior_count,
+        )
     return user_message, assistant_message
 
 

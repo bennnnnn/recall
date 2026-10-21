@@ -41,6 +41,7 @@ _MODULE_EXPORTS = (
     "stream_entry",
     "stream_pipeline",
     "titles",
+    "turn_record",
     "turn_resources",
 )
 

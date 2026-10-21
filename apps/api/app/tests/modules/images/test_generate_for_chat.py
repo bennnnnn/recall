@@ -49,6 +49,8 @@ class Turn:
     prior: SimpleNamespace | None = None
     user: SimpleNamespace = field(default_factory=lambda: SimpleNamespace(id=uuid4(), plan="pro"))
     events: list[tuple[Any, ...]] = field(default_factory=list)
+    # Messages the chat held before the turn.
+    earlier: list[Any] = field(default_factory=list)
     output_key: str | None = None
     slot_at_delete: list[str | None] = field(default_factory=list)
 
@@ -114,6 +116,15 @@ class Turn:
             turn.step(f"create_{role}", content, commit)
             return SimpleNamespace(id=uuid4(), role=role, content=content, model=kw.get("model"))
 
+        async def touch(_s: Any, chat_id: UUID, *, commit: bool) -> None:
+            turn.step("touch", chat_id, commit)
+
+        async def count(*_a: Any) -> int:
+            return len(turn.earlier)
+
+        async def finish(_redis: Any, _settings: Any, **kw: Any) -> None:
+            turn.step("finish", kw["prior_count"], kw["assistant"].id, kw["user_message"])
+
         async def add_image(_s: Any, *, images: list[Any], message_id: UUID, **kw: Any) -> None:
             turn.step("add_image", [image.attachment_id for image in images], message_id, kw)
 
@@ -157,6 +168,9 @@ class Turn:
                 "messages_repo.get_last_user": last_user,
                 "messages_repo.get_by_id": none,
                 "messages_repo.create": create_message,
+                "messages_repo.count_for_chat": count,
+                "chats_repo.touch_by_id": touch,
+                "turn_record.finish_turn": finish,
                 "attachments_service.get_by_ids": get_by_ids,
                 "attachments_service.list_for_message_ids": nothing,
                 "attachments_service.add_server_images": add_image,
@@ -409,13 +423,23 @@ async def test_generate_for_chat_success_commits_one_turn_then_records_spend(tur
         "write_output",
         "session",
         "create_user",
+        "touch",
         "create_assistant",
+        "touch",
         "add_image",
         "commit",
         "session_exit",
         "spend",
+        "finish",
     ]
-    assert all(e[-1] is False for e in turn.events if e[0].startswith("create_"))
+    # Each row moves the chat up the drawer, in the turn's one commit (audit ARCH-08).
+    assert all(e[-1] is False for e in turn.events if e[0].startswith(("create_", "touch")))
+    # Then a typed turn's jobs: its title, memory and indexing.
+    assert next(e for e in turn.events if e[0] == "finish")[1:] == (
+        0,
+        assistant_message.id,
+        "Generate image: a cat",
+    )
     added = next(e for e in turn.events if e[0] == "add_image")
     assert added[1:] == (
         [UUID(attachment)],
@@ -442,12 +466,15 @@ async def test_generate_for_chat_a_users_photo_is_copied_linked_and_shown(turn):
     assert provider[3] == [(PNG, "image/png")]
     assert turn.names()[turn.names().index("create_user") :] == [
         "create_user",
+        "touch",
         "add_refs",
         "create_assistant",
+        "touch",
         "add_image",
         "commit",
         "session_exit",
         "spend",
+        "finish",
     ]
     copies = next(e for e in turn.events if e[0] == "add_refs")
     assert copies[1:] == ([UUID(copy_id)], user_message.id)
@@ -462,6 +489,8 @@ async def test_generate_for_chat_regenerate_reuses_the_last_user_turn(turn):
     assert assistant_message.role == "assistant"
     assert turn.names().count("last_user") == 2
     assert "create_user" not in turn.names()
+    # A regenerate saves only a new reply: the turn's jobs already ran.
+    assert "finish" not in turn.names()
 
 
 async def test_generate_for_chat_a_failed_spend_record_is_logged_not_raised(turn, caplog):

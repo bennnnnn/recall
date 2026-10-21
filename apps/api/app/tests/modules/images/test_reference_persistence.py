@@ -7,6 +7,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
+from app.modules.chat import turn_record
 from app.modules.images.generation import ImageGenerationError, generate_for_chat
 from app.services.quota import counters
 from app.tests.fakes import redis_mock
@@ -65,6 +66,8 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
             AsyncMock(return_value=[]),
         ),
         patch("app.modules.images.generation.messages_repo.create", create),
+        patch.object(turn_record, "count_messages", AsyncMock(return_value=0)),
+        patch.object(turn_record, "finish_turn", AsyncMock()) as finish,
     ):
         args = dict(
             user=user,
@@ -90,6 +93,8 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
         assert add_image.await_args.kwargs["message_id"] == assistant.id
         assert all(call.kwargs["commit"] is False for call in create.await_args_list)
         assert copies.await_count == int(not regenerate)
+        # A new turn sets off a typed turn's jobs once it is saved; a regenerate does not.
+        assert finish.await_count == int(not regenerate and not fail_write)
         if not regenerate:
             assert copies.await_args.kwargs["message_id"] == prior.id
             assert [copy.source for copy in copies.await_args.kwargs["copies"]] == [source]
@@ -264,6 +269,8 @@ def _patched_generation(
             "app.modules.images.generation.attachments_service.list_for_message_ids",
             AsyncMock(return_value=linked or []),
         ),
+        patch.object(turn_record, "count_messages", AsyncMock(return_value=2)),
+        patch.object(turn_record, "finish_turn", AsyncMock()),
     )
     return patches, load
 
