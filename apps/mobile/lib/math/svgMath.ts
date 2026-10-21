@@ -11,6 +11,16 @@
  */
 import type { LiteElement } from "mathjax-full/js/adaptors/lite/Element.js";
 
+import { rewriteLatexDialects } from "@/lib/math/latexDialects";
+
+/**
+ * Every package but the two that hide a mistake: `noundefined` paints an
+ * unknown `\name` in red and `noerrors` paints the source of a formula that
+ * failed. Without them the result is an `merror`, which `svgPaintsGlyphs`
+ * rejects, and the view falls back to the native renderer.
+ */
+const HIDDEN_ERROR_PACKAGES = new Set(["noundefined", "noerrors"]);
+
 /** Cap pathological model latex before MathJax can burn the JS thread. */
 const MAX_LATEX_CHARS = 4000;
 const CACHE_MAX = 200;
@@ -119,7 +129,8 @@ async function loadRenderer(): Promise<SvgMathRenderer> {
     ]);
   const adaptor = adaptorModule.liteAdaptor();
   handlerModule.RegisterHTMLHandler(adaptor);
-  const tex = new texModule.TeX({ packages: allPackages.AllPackages });
+  const packages = allPackages.AllPackages.filter((name) => !HIDDEN_ERROR_PACKAGES.has(name));
+  const tex = new texModule.TeX({ packages });
   const svgJax = new svgModule.SVG({ fontCache: "none" });
   const doc = mathjaxModule.mathjax.document("", {
     InputJax: tex,
@@ -166,7 +177,7 @@ export async function latexToSvgMath(
   if (trimmed && trimmed.length <= MAX_LATEX_CHARS) {
     try {
       const render = await getRenderer();
-      const containerHtml = render(trimmed, display);
+      const containerHtml = render(rewriteLatexDialects(trimmed), display);
       const svg = extractSvgElement(containerHtml);
       if (svg && svgPaintsGlyphs(svg)) {
         const widthEx = parseExDimension(svg, "width");

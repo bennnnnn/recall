@@ -108,6 +108,7 @@
     "test": "jest",
     "icons": "node scripts/generate-icons.mjs",
     "oss-licenses": "node scripts/generate-licenses.mjs",
+    "latex-symbols": "UPDATE_LATEX_SYMBOLS=1 jest lib/math/__tests__/latexSymbols.test.ts lib/math/__tests__/latexCoverage.test.ts",
     "postinstall": "node scripts/generate-licenses.mjs"
   },
   "pnpm": {

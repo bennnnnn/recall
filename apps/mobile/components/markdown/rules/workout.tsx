@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Text, View, type StyleProp, type TextStyle } from "react-native";
 
 import { MathText } from "@/components/rich/MathText";
+import { splitStreamCaret, StreamingCursor } from "@/components/StreamingCursor";
 import {
   type AstNode,
   astText,
@@ -62,7 +63,7 @@ export function workoutPartParts(node: AstNode): { letter: string; title: string
   const strong = openingStrong(kids[0]);
   if (!strong) return null;
   if (kids.slice(1).some((kid) => astTextWithBreaks(kid).trim())) return null;
-  return workoutPart(astText(strong));
+  return workoutPart(splitStreamCaret(astText(strong)).text);
 }
 
 /** Prose and ``$...$`` math in one wrapping run, every piece in one colour. */
@@ -137,7 +138,9 @@ export function renderWorkoutSection(
   const answer = isAnswerHeading(section.heading);
   const boxed = answer ? lastMathLine(section.lines) : -1;
   const lines = section.lines.map((line, index) => {
-    const { state, note } = splitWorkoutNote(line);
+    // While streaming, the caret's mark rides on the last line: draw the caret, never the mark.
+    const marked = splitStreamCaret(line);
+    const { state, note } = splitWorkoutNote(marked.text);
     const lineKey = `${key}-line-${index}`;
     const naming = given && /^where\s/i.test(state);
     return (
@@ -167,6 +170,7 @@ export function renderWorkoutSection(
                 </View>
               ))
             : workoutInline(state, `${lineKey}-state`, body, t.assistantText, t.success)}
+          {marked.caret ? <StreamingCursor key={`${lineKey}-caret`} /> : null}
         </View>
         {note ? (
           <View

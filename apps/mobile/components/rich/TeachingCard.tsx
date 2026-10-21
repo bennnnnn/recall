@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { CountingPicture } from "@/components/rich/CountingPicture";
+import { MathText } from "@/components/rich/MathText";
+import { spokenText } from "@/lib/markdown/plain";
 import type { TeachingSpec } from "@/lib/math/teachingBlock";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -22,7 +24,7 @@ export function TeachingCard({ spec }: { spec: TeachingSpec }) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
-    <View style={styles.card} accessibilityLabel={spec.speech} testID={`teaching-${spec.type}`}>
+    <View style={styles.card} accessibilityLabel={spokenText(spec.speech)} testID={`teaching-${spec.type}`}>
       <Picture spec={spec} styles={styles} />
     </View>
   );
@@ -249,7 +251,13 @@ function Circle({ spec, styles }: { spec: TeachingSpec; styles: Styles }) {
       <View style={styles.circle}>
         <View style={[styles.dot, { left: x, top: y }]} />
       </View>
-      <Text style={styles.body}>{`${text(spec.degrees)}°  cos ${text(spec.cosine)}  sin ${text(spec.sine)}`}</Text>
+      {/* cos and sin arrive as TeX (`\frac{\sqrt{3}}{2}`): drawn as maths, never as source. */}
+      <View style={styles.values}>
+        <Text style={styles.body}>{`${text(spec.degrees)}°  cos `}</Text>
+        <MathText latex={text(spec.cosine)} />
+        <Text style={styles.body}>{"  sin "}</Text>
+        <MathText latex={text(spec.sine)} />
+      </View>
     </View>
   );
 }
@@ -293,6 +301,7 @@ function makeStyles(theme: Theme) {
       gap: Space.xs,
     },
     row: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end", gap: Space.xs },
+    values: { flexDirection: "row", flexWrap: "wrap", alignItems: "center" },
     cell: { minWidth: 52, alignItems: "center" },
     body: { color: theme.text, ...Type.body },
     strong: { color: theme.text, ...Type.body, ...Weight.semibold },

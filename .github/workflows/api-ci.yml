@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "apps/api/**"
+      # API tests read the fixtures it shares with the phone.
+      - "docs/fixtures/**"
       - "scripts/check_file_sizes.py"
       - "scripts/file_size_baseline.json"
       - ".github/workflows/api-ci.yml"
@@ -35,7 +37,7 @@ jobs:
         run: |
           run=true
           if [ -n "$PR" ] && files=$(gh pr diff "$PR" --repo "$GITHUB_REPOSITORY" --name-only); then
-            echo "$files" | grep -qE '^(apps/api/|scripts/(check_file_sizes\.py|file_size_baseline\.json)$|\.github/workflows/api-ci\.yml$)' || run=false
+            echo "$files" | grep -qE '^(apps/api/|docs/fixtures/|scripts/(check_file_sizes\.py|file_size_baseline\.json)$|\.github/workflows/api-ci\.yml$)' || run=false
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
 

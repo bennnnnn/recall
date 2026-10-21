@@ -206,7 +206,7 @@
       "why": "Exception: Key and accessibility tables (321 lines of data)"
     },
     "apps/mobile/lib/math/latexParse.ts": {
-      "lines": 510,
+      "lines": 508,
       "why": "Exception: One parser; ES-38 split its one long function"
     },
     "apps/mobile/lib/math/layout.ts": {

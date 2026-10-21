@@ -1,8 +1,11 @@
 import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
 
 import { repairLeakedMath } from "@/lib/math/healMathSource";
+import { rewriteLatexChemistry } from "@/lib/math/latexChemistry";
 import { CMD_REPLACEMENTS } from "@/lib/math/latexCommands";
+import { rewriteLatexDialects } from "@/lib/math/latexDialects";
 import { braceFractionArguments, isParenthesizedArgument, readGroup } from "@/lib/math/latexGroups";
+import { rewriteLatexStructure } from "@/lib/math/latexStructure";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import {
   NATIVE_LITERAL_APOSTROPHE_MARKER,
@@ -15,20 +18,20 @@ import {
   restoreMathEscapes,
 } from "@/lib/math/textMarkers";
 
-// Bracket glyphs for the matrix-family environments — "" (matrix) draws no
-// bracket at all, matching how KaTeX renders each variant.
+// Bracket glyphs for the matrix family, by the letter before "matrix" or
+// "smallmatrix" ("" draws no bracket at all), matching how KaTeX draws each.
 const ENV_BRACKETS: Record<string, [string, string]> = {
-  matrix: ["", ""],
-  pmatrix: ["(", ")"],
-  bmatrix: ["[", "]"],
-  vmatrix: ["|", "|"],
-  Vmatrix: ["‖", "‖"],
-  smallmatrix: ["", ""],
-  Bmatrix: [NATIVE_LITERAL_LEFT_BRACE_MARKER, NATIVE_LITERAL_RIGHT_BRACE_MARKER],
+  "": ["", ""],
+  p: ["(", ")"],
+  b: ["[", "]"],
+  v: ["|", "|"],
+  V: ["‖", "‖"],
+  B: [NATIVE_LITERAL_LEFT_BRACE_MARKER, NATIVE_LITERAL_RIGHT_BRACE_MARKER],
 };
 
-const ENV_RE =
-  /\\begin\{(cases|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|smallmatrix|Bmatrix|array|aligned|align\*?|gathered|split|multline|eqnarray)\}([\s\S]*?)\\end\{\1\}/g;
+const ENV_RE = /\\begin\{([A-Za-z]+)\*?\}([\s\S]*?)\\end\{\1\*?\}/g;
+// Environments whose first argument is a column or alignment spec, not content.
+const ENV_SPEC = new Set(["array", "subarray", "crampedsubarray", "alignat", "alignedat", "xalignat", "xxalignat"]);
 
 /** Split a LaTeX environment body into rows ("\\" is the row separator) and
  * cells within a row ("&" is the column/alignment separator), trimming each. */
@@ -53,32 +56,25 @@ function expandLatexEnvironments(latex: string): string {
     // braced group before splitting rows, otherwise it leaks as "{cc}" in
     // the first cell.
     let envBody = body;
-    if (env === "array" && envBody.trimStart().startsWith("{")) {
+    if (ENV_SPEC.has(env) && envBody.trimStart().startsWith("{")) {
       const group = readGroup(envBody, envBody.indexOf("{"));
       if (group) envBody = envBody.slice(group.next);
     }
-    const rows = splitEnvRows(envBody);
+    const rows = splitEnvRows(expandLatexEnvironments(envBody));
     if (!rows.length) return "";
-    if (env === "cases") {
+    if (/cases$/.test(env)) {
       // Piecewise: "expr & condition" per row → "expr if condition".
       return rows
         .map(([expr, cond]) => (cond ? `${expr} if ${cond}` : (expr ?? "")))
         .join("; ");
     }
-    if (
-      env === "aligned" ||
-      env === "array" ||
-      env === "gathered" ||
-      env === "split" ||
-      env === "multline" ||
-      env === "eqnarray" ||
-      env.startsWith("align")
-    ) {
+    const matrix = /^([pbvVB]?)(?:small)?matrix$/.exec(env);
+    if (!matrix) {
       // Alignment columns carry no visible meaning outside KaTeX's layout —
       // just join the cells with a space and each row with a separator.
       return rows.map((cells) => cells.join(" ")).join(";  ");
     }
-    const [open, close] = ENV_BRACKETS[env] ?? ["[", "]"];
+    const [open, close] = ENV_BRACKETS[matrix[1]] ?? ["[", "]"];
     const matrixRows = rows.map((cells) => cells.join(", "));
     return `${open}${matrixRows.join("; ")}${close}`;
   });
@@ -215,9 +211,10 @@ function normalizeScriptsOutsideUpright(source: string): string {
 }
 
 export function preprocessLatex(latex: string): string {
-  let s = repairLeakedMath(
-    normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(restoreMathEscapes(latex.trim()))),
-  );
+  // Package dialects (`\bm`, `\SI`, `\abs`) and mhchem become plain TeX first,
+  // so their units and formulas reach the upright-run step below.
+  const source = rewriteLatexChemistry(rewriteLatexDialects(restoreMathEscapes(latex.trim())));
+  let s = repairLeakedMath(normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(source)));
   s = preserveNativeUprightRuns(s);
   // Protect visible set delimiters before command replacement turns `\{`
   // into an ordinary `{`, which is otherwise indistinguishable from an
@@ -244,10 +241,10 @@ export function preprocessLatex(latex: string): string {
   // row separator and "&" column separator, which later rules (e.g. the
   // \\, → " " spacing rule) would otherwise destroy.
   s = expandLatexEnvironments(s);
-  // \binom{n}{k} (and \dbinom/\tbinom, display/text variants) has no visual
-  // stacked-column equivalent in plain text — render as the unambiguous
-  // "C(n,k)" combinations notation instead of leaking the raw command.
-  s = s.replace(/\\[dt]?binom\{([^{}]*)\}\{([^{}]*)\}/g, "C($1,$2)");
+  // Boxes, colours, labels, spacing, sized delimiters, \binom and labelled
+  // arrows keep only what is seen, with every argument brace-matched. A line
+  // break or an alignment mark left outside an environment is only a gap.
+  s = rewriteLatexStructure(s).replace(/\s*\\\\\s*/g, "; ").replace(/\s*(?<!\\)&\s*/g, " ");
   // \dfrac / \tfrac / \cfrac are display/text-style fractions — KaTeX treats
   // them like \frac, so normalize before parsing so parseFrac catches them
   // (otherwise they leak as raw "\dfrac{a}{b}" inline).
@@ -271,59 +268,8 @@ export function preprocessLatex(latex: string): string {
     if (unwrapped === s) break;
     s = unwrapped;
   }
-  s = s.replace(/\\overbrace\{([^}]+)\}/g, "$1");
-  s = s.replace(/\\underbrace\{([^}]+)\}/g, "$1");
-  s = s.replace(/\\substack\{([^{}]+)\}/g, (_m, body: string) =>
-    // \substack{a\\b\\c} stacks rows (used under \sum/\prod). Native layout
-    // can't stack vertically, so join the rows with "; " — without this the
-    // bare unwrap left the "\\" row separator, which then leaked as a stray
-    // backslash ("\b") in the next cell.
-    body
-      .split("\\\\")
-      .map((r) => r.trim())
-      .filter(Boolean)
-      .join("; "),
-  );
-  // \boxed{...} has no plain-text equivalent (KaTeX/MathJax draw an actual
-  // border) — unwrap to the inner content rather than leave the raw command
-  // visible, matching \text/\mathrm's fallback above.
-  s = s.replace(/\\boxed\{([^}]+)\}/g, "$1");
-  // \overset{x}{base} / \underset{x}{base} / \stackrel{x}{base} stack x over
-  // or under base — native inline layout can't draw that, so unwrap to the
-  // base alone. Runs AFTER \text/\mathrm unwrap so an overset arg written as
-  // \overset{\text{def}}{=} is flattened to \overset{def}{=} first, which the
-  // single-brace regex below can then match (otherwise the nested braces in
-  // \text{def} defeat `[^{}]+` and the overset never unwraps).
-  s = s.replace(/\\(?:overset|underset|stackrel)\{[^{}]+\}\{([^{}]+)\}/g, "$1");
-  // \color{name}{base} / \textcolor{name}{base} — color has no plain-text
-  // meaning; unwrap to the base so the color name ("red") doesn't leak as
-  // literal text followed by bare braces.
-  s = s.replace(/\\(?:textcolor|color)\{[^{}]+\}\{([^{}]+)\}/g, "$1");
-  // \pmod{x} → "(mod x)" (KaTeX renders parenthesized mod). Must run after
-  // \pm → ± (in CMD_REPLACEMENTS) so \pm's word boundary lets \pmod survive.
-  s = s.replace(/\\pmod\{([^{}]+)\}/g, "(mod $1)");
   // Accents stay as commands. parseAccent builds a segment whose rule is
   // measured from the child; combining marks are only the copy/speech form.
-  s = s.replace(/\\,/g, " ");
-  // Two real alternatives, not one merged character class: the previous
-  // `/\\left[\(\[\{|\\right[\)\]\}.]/` compiled everything after the first
-  // `[` into a single class, so `\right` never matched at all and left a
-  // dangling "\right)" behind (e.g. `\left(\frac{1}{2}\right)`).
-  s = s.replace(/\\left([([{|]|\.)/g, (_m, ch: string) => (ch === "." ? "" : ch));
-  s = s.replace(/\\right([)\]}|]|\.)/g, (_m, ch: string) => (ch === "." ? "" : ch));
-  // After \langle→⟨ / \lvert→| (etc.) above, strip sized wrappers so
-  // `\left\langle … \right\rangle` doesn't leak a bare `\left`/`\right`.
-  s = s.replace(/\\left(?=[⟨⌈⌊|‖])/g, "");
-  s = s.replace(/\\right(?=[⟩⌉⌋|‖])/g, "");
-  // Sized delimiters \bigl( \bigr) \Bigl[ \biggl\{ … and the dot form
-  // \bigl. behave like \left/\right — they wrap the following delimiter
-  // (or "." for an invisible boundary). Strip the command word so the
-  // delimiter itself shows; without this the generic \cmd handler kept
-  // "bigl"/"bigr"/"Bigl" as literal text ("\bigl(x+1\bigr)" → "bigl(x+1bigr)").
-  // The big-operator words (\bigcup etc.) are already replaced above, so a
-  // trailing-letter guard isn't needed here — only \big*/\Big* sizing words
-  // remain at this point.
-  s = s.replace(/\\[Bb]ig(?:gl|gr|l|r|g)?\.?(?![a-zA-Z])/g, "");
-  return s;
+  return s.replace(/\\,/g, " ");
 }
 
