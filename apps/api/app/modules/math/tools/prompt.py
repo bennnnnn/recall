@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from contextlib import suppress
 from dataclasses import replace
 from typing import Literal, cast
 
@@ -335,19 +337,10 @@ async def build_math_augmentation(
         )
     if intent is None and image_math_extract is None and bare_answer(user_content):
         return (BARE_ANSWER_NOTE, None)
-    if intent is None and image_math_extract is None:
-        from app.modules.math.tools.word_problem import word_problem_intent
-
-        intent = await word_problem_intent(user_content, settings)
     if intent is None:
-        # The gate fired but no regex extractor matched (the "Couldn't verify
-        # under a correct ∫ x²" class). One bounded structured-extraction call
-        # on a fast alias; the candidate still has to survive SymPy below.
-        # Only this already-failing path pays — gate-miss and regex-hit turns
-        # never make this call.
-        intent = await llm_extract_math_intent(user_content, settings)
-        if intent is not None and not _intent_preserves_request(user_content, intent):
-            intent = None
+        intent = await _model_math_intent(
+            user_content, settings, word_problem=image_math_extract is None
+        )
 
     if intent is None:
         return (
@@ -387,6 +380,47 @@ async def build_math_augmentation(
         f"{verified.text}\n\n{response_intent_prompt(response_intent)}\n{VERIFIED_MATH_REPLY_HINT}",
         verified,
     )
+
+
+async def _model_math_intent(
+    user_content: str, settings: Settings, *, word_problem: bool
+) -> MathIntent | None:
+    """The intent no regex extractor found, from the two model helpers side by side.
+
+    A translated word problem wins, as before. Otherwise the gate fired but no
+    extractor matched (the "Couldn't verify under a correct ∫ x²" class): one
+    bounded structured extraction on a fast alias, whose candidate still has to
+    survive SymPy. Both start at once under one budget, so the extraction no
+    longer waits out a translation that finds nothing (up to 6 s); when the
+    translation wins, the extraction is dropped. Gate-miss and regex-hit turns
+    never get here.
+    """
+    from app.modules.math.tools.word_problem import word_problem_intent
+
+    extract = asyncio.ensure_future(_llm_extract_preserving(user_content, settings))
+    budget = settings.math_model_intent_budget_seconds
+    try:
+        async with asyncio.timeout(budget):
+            if word_problem:
+                translated = await word_problem_intent(user_content, settings)
+                if translated is not None:
+                    return translated
+            return await extract
+    except TimeoutError:
+        logger.warning("math model helpers ran past their %ss budget", budget)
+        return None
+    finally:
+        # Dropped (or finished): either way nothing is left running or unread.
+        extract.cancel()
+        with suppress(asyncio.CancelledError, Exception):
+            await extract
+
+
+async def _llm_extract_preserving(user_content: str, settings: Settings) -> MathIntent | None:
+    intent = await llm_extract_math_intent(user_content, settings)
+    if intent is not None and not _intent_preserves_request(user_content, intent):
+        return None
+    return intent
 
 
 def _unverified_math_note(kind: str) -> str:
