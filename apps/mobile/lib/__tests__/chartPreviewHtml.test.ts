@@ -1,4 +1,6 @@
 import { buildVegaHtml, normalizeChartSpec } from "@/lib/chartPreviewHtml";
+
+const LIBRARIES = { vega: "/*vega*/", vegaLite: "/*vega-lite*/", vegaEmbed: "/*vega-embed*/" };
 import { CHART_PREVIEW_CSP, PREVIEW_CSP } from "@/lib/previewSandbox";
 
 const theme = {
@@ -109,6 +111,8 @@ describe("buildVegaHtml", () => {
     const html = buildVegaHtml(
       '{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"bar"}',
       theme,
+      320,
+      LIBRARIES,
     );
     expect(html).toContain(`content="${CHART_PREVIEW_CSP}"`);
     expect(html).toContain("unsafe-eval");
@@ -125,11 +129,19 @@ describe("buildVegaHtml", () => {
         encoding: { x: { field: "month", type: "nominal" } },
       }),
       theme,
+      320,
+      LIBRARIES,
     );
     expect(html).not.toContain("100vh");
     expect(html).toContain('"sort":null');
     expect(html).toContain("chart-size");
     expect(html).toContain("tooltip: false");
     expect(html).toContain("overflow: hidden");
+  });
+
+  it("runs the libraries it is given, in order (DEAD-03)", () => {
+    const html = buildVegaHtml('{"mark":"bar"}', theme, 320, LIBRARIES);
+    expect(html.indexOf("/*vega*/")).toBeLessThan(html.indexOf("/*vega-lite*/"));
+    expect(html.indexOf("/*vega-lite*/")).toBeLessThan(html.indexOf("/*vega-embed*/"));
   });
 });

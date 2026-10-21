@@ -6,10 +6,12 @@ import { ensureLocalAttachmentFile } from "@/features/attachments/model/download
 import { pdfViewerFile } from "@/features/attachments/model/pdfViewerFile";
 import {
   buildPdfPreviewHtml,
+  PDF_LIBRARIES,
   PDF_PREVIEW_ERROR,
   pdfPreviewColors,
   pdfPreviewConfigScript,
 } from "@/lib/pdfPreviewHtml";
+import { loadVendorTexts, type VendorTexts } from "@/lib/vendorAssets";
 import { useTheme } from "@/lib/theme";
 import { getPreviewWebView, STATIC_HTML_ORIGIN_WHITELIST } from "@/lib/webView";
 
@@ -18,7 +20,7 @@ const FILE_ORIGIN_WHITELIST = [...STATIC_HTML_ORIGIN_WHITELIST, "file://*"];
 
 type Loaded =
   | { key: string; kind: "file"; viewer: string; pdf: string }
-  | { key: string; kind: "html"; base64: string };
+  | { key: string; kind: "html"; base64: string; libraries: VendorTexts<(typeof PDF_LIBRARIES)[number]> };
 
 type PdfPreview =
   | { status: "idle" | "loading" | "failed" }
@@ -59,7 +61,12 @@ export function usePdfPreview(options: {
         const pdf = await ensureLocalAttachmentFile({ uri, token: getToken(), fileName, signal: controller.signal });
         const next: Loaded = useFile
           ? { key, kind: "file", viewer: await pdfViewerFile(), pdf }
-          : { key, kind: "html", base64: await readAsStringAsync(pdf, { encoding: EncodingType.Base64 }) };
+          : {
+              key,
+              kind: "html",
+              base64: await readAsStringAsync(pdf, { encoding: EncodingType.Base64 }),
+              libraries: await loadVendorTexts(PDF_LIBRARIES),
+            };
         if (!controller.signal.aborted) setLoaded(next);
       } catch {
         if (!controller.signal.aborted) setFailedKey(key);
@@ -79,7 +86,9 @@ export function usePdfPreview(options: {
   const colors = pdfPreviewColors(theme);
   const colorKey = `${colors.bg}|${colors.text}|${colors.danger}`;
   const html = useMemo(
-    () => (current?.kind === "html" ? buildPdfPreviewHtml(current.base64, theme, allPages) : null),
+    () => (current?.kind === "html"
+      ? buildPdfPreviewHtml(current.base64, theme, allPages, current.libraries)
+      : null),
     [current, allPages, theme],
   );
 

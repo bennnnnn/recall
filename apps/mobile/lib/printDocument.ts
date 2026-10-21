@@ -5,7 +5,6 @@ import katex from "katex";
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { isMathFenceLang } from "@/lib/fenceRegistry";
 import { fenceAfterLine, readFenceMarker } from "@/lib/mdFenceScan";
-import { KATEX_CSS } from "@/lib/vendor/katexCss";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
 
 function escapeHtml(text: string): string {
@@ -67,7 +66,7 @@ function isPrintMathFenceLang(lang: string): boolean {
   return isMathFenceLang(l) || l === "katex" || l === "asciimath";
 }
 
-function wrapPrintDocument(title: string, bodyHtml: string, meta?: string): string {
+function wrapPrintDocument(title: string, bodyHtml: string, katexCss: string, meta?: string): string {
   const safeTitle = escapeHtml(title.trim() || "Recall report");
   const metaBlock = meta?.trim()
     ? `<p class="meta">${escapeHtml(meta.trim())}</p>`
@@ -76,7 +75,7 @@ function wrapPrintDocument(title: string, bodyHtml: string, meta?: string): stri
 <html>
 <head>
 <meta charset="utf-8"/>
-<style>${KATEX_CSS}
+<style>${katexCss}
 ${PRINT_STYLES}</style>
 </head>
 <body>
@@ -92,7 +91,7 @@ ${PRINT_STYLES}</style>
  * Math fences and $...$ / \\(...\\) inline math use KaTeX — same as the chat UI —
  * instead of dumping raw LaTeX into <pre>.
  */
-export function markdownToStructuredPrintHtml(title: string, markdown: string): string {
+export function markdownToStructuredPrintHtml(title: string, markdown: string, katexCss: string): string {
   const prepared = preprocessMarkdown(markdown.replace(/\r\n/g, "\n"));
   const lines = prepared.split("\n");
   const parts: string[] = [];
@@ -197,7 +196,7 @@ export function markdownToStructuredPrintHtml(title: string, markdown: string): 
   flushParagraph();
 
   const body = parts.join("\n") || `<p class="empty"></p>`;
-  return wrapPrintDocument(title, body);
+  return wrapPrintDocument(title, body, katexCss);
 }
 
 function looksLikePrintTableRow(line: string): boolean {

@@ -33,6 +33,9 @@ jest.mock("expo-file-system/legacy", () => ({
   EncodingType: { Base64: "base64" },
   readAsStringAsync: jest.fn(async () => "QUJD"),
 }));
+jest.mock("@/lib/vendorAssets", () => ({
+  loadVendorTexts: jest.fn(async () => ({ pdf: "/*pdf.js*/", pdfWorker: "/*pdf.worker*/" })),
+}));
 jest.mock("@/lib/pdfPreviewHtml", () => ({
   ...jest.requireActual("@/lib/pdfPreviewHtml"),
   buildPdfPreviewHtml: (base64: string) => `<html>${base64}</html>`,

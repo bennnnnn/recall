@@ -1,6 +1,7 @@
 import { cacheDirectory, writeAsStringAsync } from "expo-file-system/legacy";
 
-import { buildPdfViewerHtml } from "@/lib/pdfPreviewHtml";
+import { buildPdfViewerHtml, PDF_LIBRARIES } from "@/lib/pdfPreviewHtml";
+import { loadVendorTexts } from "@/lib/vendorAssets";
 
 let written: Promise<string> | null = null;
 
@@ -13,7 +14,7 @@ export function pdfViewerFile(): Promise<string> {
   written ??= (async () => {
     if (!cacheDirectory) throw new Error("Storage unavailable.");
     const path = `${cacheDirectory}pdf-viewer.html`;
-    await writeAsStringAsync(path, buildPdfViewerHtml());
+    await writeAsStringAsync(path, buildPdfViewerHtml(await loadVendorTexts(PDF_LIBRARIES)));
     return path;
   })().catch((error: unknown) => {
     written = null;

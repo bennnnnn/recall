@@ -1,8 +1,10 @@
 import { injectPreviewCsp, PDF_PREVIEW_CSP, PREVIEW_VIEWPORT, inlineScript } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
+import type { VendorTexts } from "@/lib/vendorAssets";
 
-import { PDF_MIN_JS } from "@/lib/vendor/pdfMinJs";
-import { PDF_WORKER_MIN_JS } from "@/lib/vendor/pdfWorkerMinJs";
+/** The vendored libraries a PDF page runs (lib/vendorAssets). */
+export const PDF_LIBRARIES = ["pdf", "pdfWorker"] as const;
+type PdfLibraries = VendorTexts<(typeof PDF_LIBRARIES)[number]>;
 
 /** What one preview shows; the page reads it as `window.RECALL_PDF`. */
 type PdfPreviewConfig = {
@@ -138,14 +140,14 @@ const PAGE_SCRIPT = `(function () {
   }).catch(fail);
 })();`;
 
-function pdfPageHtml(csp: string, configScript: string): string {
+function pdfPageHtml(csp: string, configScript: string, libraries: PdfLibraries): string {
   return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="${PREVIEW_VIEWPORT}">
-${configScript}<script>${inlineScript(PDF_MIN_JS)}</script>
-<script type="text/pdf-worker" id="pdf-worker-src">${inlineScript(PDF_WORKER_MIN_JS)}</script>
+${configScript}<script>${inlineScript(libraries.pdf)}</script>
+<script type="text/pdf-worker" id="pdf-worker-src">${inlineScript(libraries.pdfWorker)}</script>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; padding: 8px; background: var(--bg, #fff); color: var(--text, #111); font-family: -apple-system, sans-serif; }
@@ -167,13 +169,22 @@ let viewerHtml: string | null = null;
  * The file-backed page: one document for every preview, written to disk once.
  * Each WebView hands it its PDF path and colors with `pdfPreviewConfigScript`.
  */
-export function buildPdfViewerHtml(): string {
-  viewerHtml ??= pdfPageHtml(PDF_FILE_PREVIEW_CSP, "");
+export function buildPdfViewerHtml(libraries: PdfLibraries): string {
+  viewerHtml ??= pdfPageHtml(PDF_FILE_PREVIEW_CSP, "", libraries);
   return viewerHtml;
 }
 
 /** Inline fallback for WebViews that cannot read local files: the PDF rides in the page. */
-export function buildPdfPreviewHtml(base64: string, theme: Theme, allPages = false): string {
+export function buildPdfPreviewHtml(
+  base64: string,
+  theme: Theme,
+  allPages: boolean,
+  libraries: PdfLibraries,
+): string {
   const config: PdfPreviewConfig = { data: base64, allPages, colors: pdfPreviewColors(theme) };
-  return pdfPageHtml(PDF_PREVIEW_CSP, `<script>${inlineScript(`window.RECALL_PDF = ${JSON.stringify(config)};`)}</script>\n`);
+  return pdfPageHtml(
+    PDF_PREVIEW_CSP,
+    `<script>${inlineScript(`window.RECALL_PDF = ${JSON.stringify(config)};`)}</script>\n`,
+    libraries,
+  );
 }

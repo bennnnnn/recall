@@ -157,6 +157,7 @@ const NO_ACCOUNT_DATA = [
   "lib/speech/voiceAudio.ts#audioModule",
   "lib/speech/voiceAudio.ts#exclusiveMicStop",
   "lib/theme.ts#accented",
+  "lib/vendorAssets.ts#loading",
   "lib/webView.ts#cachedPreviewWebView",
   "lib/webViewMountQueue.ts#grantedTickets",
   "lib/webViewMountQueue.ts#listeners",

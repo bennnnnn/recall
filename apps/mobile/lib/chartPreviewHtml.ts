@@ -10,9 +10,7 @@ import {
   inlineScript,
 } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
-import { VEGA_EMBED_MIN_JS } from "@/lib/vendor/vegaEmbedMinJs";
-import { VEGA_LITE_MIN_JS } from "@/lib/vendor/vegaLiteMinJs";
-import { VEGA_MIN_JS } from "@/lib/vendor/vegaMinJs";
+import type { VendorTexts } from "@/lib/vendorAssets";
 import { parseChartBody, seriesChartToVegaLite } from "@/lib/chartSeriesSpec";
 
 type ChartPreviewTheme = Pick<
@@ -131,11 +129,15 @@ function specPayloadForEmbed(raw: string): string {
   return JSON.stringify(spec);
 }
 
+/** The vendored libraries a chart page runs (lib/vendorAssets). */
+export const VEGA_LIBRARIES = ["vega", "vegaLite", "vegaEmbed"] as const;
+
 /** Build a page that renders a Vega / Vega-Lite spec via vendored Vega-Embed. */
 export function buildVegaHtml(
   spec: string,
   theme: ChartPreviewTheme,
-  plotWidth = 320,
+  plotWidth: number,
+  libraries: VendorTexts<(typeof VEGA_LIBRARIES)[number]>,
 ): string {
   const safeSpec = escapeForInlineJsTemplate(specPayloadForEmbed(spec));
   const vegaTheme = theme.isDark ? "dark" : "vox";
@@ -149,9 +151,9 @@ export function buildVegaHtml(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>${inlineScript(VEGA_MIN_JS)}</script>
-<script>${inlineScript(VEGA_LITE_MIN_JS)}</script>
-<script>${inlineScript(VEGA_EMBED_MIN_JS)}</script>
+<script>${inlineScript(libraries.vega)}</script>
+<script>${inlineScript(libraries.vegaLite)}</script>
+<script>${inlineScript(libraries.vegaEmbed)}</script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { overflow: hidden; }

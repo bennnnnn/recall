@@ -4,7 +4,6 @@
  */
 import { escapeForInlineJsTemplate, injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
-import { SMILES_DRAWER_MIN_JS } from "@/lib/vendor/smilesDrawerMinJs";
 
 type SmilesDrawerTheme = Pick<Theme, "bg" | "isDark">;
 
@@ -25,11 +24,12 @@ function escapeSmiles(smiles: string): string {
   return escapeForInlineJsTemplate(smiles.trim()).replace(/<!--/g, "<\\!--");
 }
 
-export function buildSmilesDrawerHtml(smiles: string, theme: SmilesDrawerTheme): string {
+/** `smilesDrawer` is the vendored library's text (lib/vendorAssets). */
+export function buildSmilesDrawerHtml(smiles: string, theme: SmilesDrawerTheme, smilesDrawer: string): string {
   const themeName = theme.isDark ? "dark" : "light";
   // Concat (not template interpolate) so `${` inside the browserify bundle
   // cannot break this file. Bundle returns require(); entry id is 1.
-  const loader = "var __sdReq = " + SMILES_DRAWER_MIN_JS + "\nvar SmilesDrawer = __sdReq(1);\n";
+  const loader = "var __sdReq = " + smilesDrawer + "\nvar SmilesDrawer = __sdReq(1);\n";
   // SmilesDrawer.Drawer.draw(..., infoOnly) incorrectly forwards infoOnly as
   // SvgDrawer weights (weights.every throws). Use SvgDrawer on an <svg> target
   // and omit weights/infoOnly so defaults apply.
