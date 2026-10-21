@@ -10,6 +10,7 @@ from litellm import acompletion
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.gateways import llm_spend, mock_llm
+from app.gateways.prompt_cache import with_cache_breakpoint
 from app.gateways.reasoning import reasoning_body
 
 # The completion kinds split out of this module are part of its public surface
@@ -311,7 +312,7 @@ async def _stream_chat_once(
         async with asyncio.timeout(settings.chat_stream_connect_timeout_seconds):
             response = await acompletion(
                 model=route.model,
-                messages=messages,
+                messages=with_cache_breakpoint(messages, route),
                 stream=True,
                 max_tokens=max_tokens,
                 stream_options={"include_usage": True},

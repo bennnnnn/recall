@@ -312,10 +312,10 @@ async def build_prompt_messages(
     Context loading uses short-lived sessions so embeds cannot pin a caller
     connection across the concurrent gather. The system prompt is two messages: the
     first is ``STABLE_SECTIONS``, the same text on every turn of this kind for this
-    user, so a provider can reuse it; the second is ``TURN_SECTIONS``. The history is
-    ``prompt_window``. ``turn_plan``: the message's separate requests, when it holds
-    more than one (``turn_prep.intents``). ``stats``, when given, is filled with what
-    the prompt drew on.
+    user, which the gateway marks for providers that cache only a marked prefix; the
+    second is ``TURN_SECTIONS``. The history is ``prompt_window``. ``turn_plan``: the
+    message's separate requests, when it holds more than one (``turn_prep.intents``).
+    ``stats``, when given, is filled with what the prompt drew on.
     """
     plan = await _context_plan(
         user,
