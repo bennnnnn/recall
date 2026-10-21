@@ -17,6 +17,7 @@ from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan
+from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.turn_deps import ChatTurnDeps, default_deps
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
@@ -33,6 +34,7 @@ _REAL_MODULES = {
     "usage": usage,
     "quota": quota,
     "plan": plan,
+    "model_choice": model_choice,
     "locks": redis_lock,
     "llm": litellm_gateway,
     "image_generation": image_generation,

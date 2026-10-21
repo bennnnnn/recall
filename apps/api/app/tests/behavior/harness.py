@@ -24,10 +24,11 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
-from app.modules.billing import plan as plan_service
 from app.modules.chat import prompt_constants as pc
 from app.modules.chat import prompt_memory
 from app.modules.chat.json_output import JSON_OUTPUT_HINT
+from app.modules.chat.model_routing import choice as model_choice
+from app.modules.chat.model_routing.route import last_user_turn
 from app.modules.chat.prompt_constants.coding import (
     CODE_DEBUG_HINT,
     CODE_EXPLAIN_HINT,
@@ -53,7 +54,6 @@ from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
-from app.services.routing import last_user_turn
 from app.services.subject_solving import detect_subject
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
@@ -269,7 +269,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     last_assistant = next((row for row in reversed(rows) if row.role == "assistant"), None)
     text = case.prompt
     prior_user, prior_model = last_user_turn(rows)
-    model = plan_service.resolve_user_model(
+    model = model_choice.resolve_user_model(
         user,
         text,
         settings,

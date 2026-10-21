@@ -4,8 +4,8 @@ import pytest
 
 from app.core.config import Settings
 from app.models import model_catalog
-from app.services.rate_problems import is_multi_step_rate_problem
-from app.services.routing import message_needs_thinking, route_chat_model
+from app.modules.chat.model_routing.rate_problems import is_multi_step_rate_problem
+from app.modules.chat.model_routing.route import message_needs_thinking, route_chat_model
 
 TRAIN = (
     "A train leaves at 3pm going 80 km/h; another leaves the same station at 4pm going "

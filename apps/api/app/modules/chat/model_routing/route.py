@@ -15,8 +15,14 @@ from typing import Any
 
 from app.core.config import Settings
 from app.models import model_catalog
-from app.services.routing_physics import physics_route
-from app.services.routing_signals import SMART_TRIGGERS, needs_strong_model
+from app.modules.billing.plan import (
+    pick_cheapest_from_pool,
+    pick_fast_from_pool,
+    pick_preferred_tier,
+    pick_smart_from_pool,
+)
+from app.modules.chat.model_routing.physics import physics_route
+from app.modules.chat.model_routing.signals import SMART_TRIGGERS, needs_strong_model
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +277,7 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
             return physics_alias
     # Math turns (equations, graphs, geometry, calculus, stats, …) go to the math-tuned
     # strong model: a fast model's steps disagreed with the verified answer.
-    from app.services.rate_problems import is_multi_step_rate_problem
+    from app.modules.chat.model_routing.rate_problems import is_multi_step_rate_problem
 
     if is_multi_step_rate_problem(content):  # catch-up, meet, together: the maths lane won't think
         return smart
@@ -293,7 +299,7 @@ def route_chat_model(
     Lessons stay on the low-latency tier. "That's wrong" after an answer goes to
     the thinking tier; otherwise a short continuation of a smart turn inherits it.
     """
-    from app.services.thinking_effort import is_answer_dispute
+    from app.modules.chat.model_routing.thinking import is_answer_dispute
 
     smart = model_catalog.auto_smart_alias()
     if lesson_active:
@@ -346,10 +352,12 @@ def _verified_math_stays_fast(content: str) -> bool:
     Keep equations / calculus / graphs on smart. Bare factorial ("4!") and
     "what is 1+1" style arithmetic stay on the fast model.
     """
-    from app.modules.math.match.arithmetic import bare_arithmetic_expr
-    from app.modules.math.match.discrete import combinatorics_signal
-    from app.modules.math.match.scan import prepare
-    from app.modules.math.match.written import written_arithmetic_request
+    from app.modules.math.match import (
+        bare_arithmetic_expr,
+        combinatorics_signal,
+        prepare,
+        written_arithmetic_request,
+    )
 
     cleaned = prepare(content)
     if not cleaned:
@@ -387,12 +395,12 @@ def resolve_alias_in_pool(
     if not pool:
         return model_catalog.auto_fast_alias()
     if alias not in _MODES:
-        return alias if alias in pool else _pick_cheapest_from_pool(pool, settings)
+        return alias if alias in pool else pick_cheapest_from_pool(pool, settings)
     usable = _usable_pool(pool, unhealthy, content)
     if alias == "fast":
-        return _pick_fast_from_pool(usable)
+        return pick_fast_from_pool(usable)
     if alias == "smart":
-        return _pick_smart_from_pool(usable)
+        return pick_smart_from_pool(usable)
     preferred = route_chat_model(
         content,
         prior_user=prior_user,
@@ -400,7 +408,7 @@ def resolve_alias_in_pool(
         lesson_active=lesson_active,
         settings=settings,
     )
-    return _pick_preferred_tier(preferred, usable)
+    return pick_preferred_tier(preferred, usable)
 
 
 def _usable_pool(pool: list[str], unhealthy: frozenset[str], content: str) -> list[str]:
@@ -416,68 +424,3 @@ def _usable_pool(pool: list[str], unhealthy: frozenset[str], content: str) -> li
     known = model_catalog.known_ids()
     with_json = [m for m in usable if m in known and model_catalog.get(m).json_mode]
     return with_json or usable
-
-
-def pick_cheapest_from_pool(pool: list[str], settings: Settings | None = None) -> str:
-    return _pick_cheapest_from_pool(pool, settings)
-
-
-def pick_strongest_from_pool(pool: list[str]) -> str:
-    return _pick_strongest_from_pool(pool)
-
-
-def _models_in_pool(pool: list[str]) -> list[model_catalog.ChatModel]:
-    known = model_catalog.known_ids()
-    return [model_catalog.get(model_id) for model_id in pool if model_id in known]
-
-
-def _pick_cheapest_from_pool(pool: list[str], settings: Settings | None) -> str:
-    del settings
-    models = _models_in_pool(pool)
-    if not models:
-        return pool[0]
-    models.sort(key=model_catalog.price_sort_key)
-    return models[0].id
-
-
-def _pick_fast_from_pool(pool: list[str]) -> str:
-    models = _models_in_pool(pool)
-    fast = [m for m in models if m.tier in {"fast", "standard"}]
-    if fast:
-        fast.sort(key=model_catalog.price_sort_key)
-        return fast[0].id
-    return _pick_cheapest_from_pool(pool, None)
-
-
-def _pick_strongest_from_pool(pool: list[str]) -> str:
-    """Best remaining model when the preferred smart/max alias is not in pool."""
-    models = _models_in_pool(pool)
-    if not models:
-        return pool[0]
-    models.sort(
-        key=lambda m: (
-            -model_catalog.tier_rank(m),
-            -m.quota_multiplier,
-            -model_catalog.price_sort_key(m)[0],
-            -model_catalog.price_sort_key(m)[1],
-            m.id,
-        )
-    )
-    return models[0].id
-
-
-def _pick_smart_from_pool(pool: list[str]) -> str:
-    models = _models_in_pool(pool)
-    smart = [m.id for m in models if m.tier in {"smart", "max"}]
-    if smart:
-        return _pick_strongest_from_pool(smart)
-    return _pick_strongest_from_pool(pool)
-
-
-def _pick_preferred_tier(preferred: str, pool: list[str]) -> str:
-    if preferred in pool:
-        return preferred
-    preferred_model = model_catalog.get(preferred)
-    if preferred_model.tier in {"smart", "max"}:
-        return _pick_smart_from_pool(pool)
-    return _pick_fast_from_pool(pool)

@@ -21,6 +21,7 @@ from app.models.orm import Chat, User
 from app.modules.account import profile as profile_service
 from app.modules.attachments.markers import image_attachment_ids_from_text
 from app.modules.billing import plan as plan_service
+from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
@@ -48,7 +49,6 @@ from app.modules.chat.turn_resources import (
     wrap_stream_status,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.services.thinking_effort import thinking_level
 
 logger = logging.getLogger(__name__)
 

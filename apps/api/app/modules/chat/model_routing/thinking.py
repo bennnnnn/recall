@@ -13,7 +13,7 @@ import re
 
 from app.core.config import Settings
 from app.gateways.reasoning import ThinkingLevel
-from app.services.routing import message_needs_thinking
+from app.modules.chat.model_routing.route import message_needs_thinking
 
 # Pushback on the reply just given. Bare "wrong" is not enough: "what's wrong
 # with my code" asks for help, it does not dispute an answer.

@@ -60,7 +60,7 @@ class Expect:
     # A real photo above the model's answer (it opened with ```photo). Routing can
     # only check the hint that offers it; the live replay checks the photo.
     answer_photo: bool | None = None
-    # The model the case's plan gets on Auto (``plan.resolve_user_model``).
+    # The model the case's plan gets on Auto (``model_choice.resolve_user_model``).
     model: str | None = None
     # A multi-part message's picture, drawn above the model's answer to the rest.
     picture: bool | None = None

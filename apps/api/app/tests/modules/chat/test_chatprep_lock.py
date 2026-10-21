@@ -13,6 +13,7 @@ from app.core import redis_lock
 from app.core.config import Settings
 from app.exceptions import ChatBusyError
 from app.modules.chat import stream_entry, turn_resources
+from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.stream_events import error_payload_for_exception
 from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM
@@ -56,7 +57,7 @@ def _held_lock_deps(*, acquire, release, refresh=None, **fields):
 
 def _plan_and_quota():
     return {
-        "plan": {"resolve_user_model_override": MagicMock(return_value="free-chat")},
+        "model_choice": {"resolve_user_model_override": MagicMock(return_value="free-chat")},
         "quota": {"daily_limit_for_user": MagicMock(return_value=100_000)},
     }
 
@@ -227,8 +228,9 @@ async def test_regenerate_acquires_chatprep_lock():
             AsyncMock(return_value=[fake_last_user, fake_last]),
         ),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2)),
-        patch(
-            "app.modules.billing.plan.resolve_user_model_override",
+        patch.object(
+            model_choice,
+            "resolve_user_model_override",
             return_value="free-chat",
         ),
         patch(

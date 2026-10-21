@@ -29,6 +29,7 @@ from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan
+from app.modules.chat.model_routing import choice as model_choice
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
 from app.modules.math import fence as math_fence
@@ -149,6 +150,10 @@ class UsageRepo(Protocol):
 
 class Plan(Protocol):
     def can_use(self, subject: User, feature: Feature, settings: Settings) -> bool: ...
+
+
+class ModelChoice(Protocol):
+    """The model a turn runs on (``model_routing.choice``): the user's pool, routed."""
 
     def resolve_user_model_override(
         self,
@@ -337,6 +342,7 @@ class ChatTurnDeps:
     usage: UsageRepo
     quota: Quota
     plan: Plan
+    model_choice: ModelChoice
     locks: TurnLocks
     llm: ChatModel
     image_generation: ImageGeneration
@@ -359,6 +365,7 @@ def default_deps() -> ChatTurnDeps:
         usage=usage,
         quota=quota,
         plan=plan,
+        model_choice=model_choice,
         locks=redis_lock,
         llm=litellm_gateway,
         image_generation=image_generation,

@@ -8,8 +8,8 @@ from app.core.config import Settings
 from app.gateways.reasoning import EFFORTS, reasoning_body
 from app.models import model_catalog
 from app.modules.billing import plan as plan_service
-from app.services.routing import resolve_alias_in_pool, route_chat_model
-from app.services.thinking_effort import is_answer_dispute, thinking_level
+from app.modules.chat.model_routing.route import resolve_alias_in_pool, route_chat_model
+from app.modules.chat.model_routing.thinking import is_answer_dispute, thinking_level
 
 # OpenRouter GET /api/v1/models, `reasoning` per slug, 2026-10-18. A model with
 # no efforts listed takes only a disable or a token budget; a mandatory one

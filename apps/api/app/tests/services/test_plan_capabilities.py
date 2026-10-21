@@ -9,7 +9,8 @@ import pytest
 from app.core.config import Settings
 from app.models import model_catalog
 from app.modules.billing import plan as plan_service
-from app.services import routing
+from app.modules.chat.model_routing import choice as model_choice
+from app.modules.chat.model_routing import route as routing
 
 _SETTINGS = Settings(mock_llm_enabled=True, openrouter_api_key="")
 _HARD = "plan a zero-downtime migration of a monolith Postgres schema to sharded tables"
@@ -23,12 +24,12 @@ def _User(plan: str = "pro", enabled: list[str] | None = None) -> Any:
 def test_unhealthy_first_choice_is_skipped_for_a_healthy_strong_model() -> None:
     """R4.10: smart-chat's provider is failing; Auto's hard lane takes GLM 5.2."""
     user = _User()
-    assert plan_service.resolve_user_model(user, _HARD, _SETTINGS) == "smart-chat"
-    resolved = plan_service.resolve_user_model(
+    assert model_choice.resolve_user_model(user, _HARD, _SETTINGS) == "smart-chat"
+    resolved = model_choice.resolve_user_model(
         user, _HARD, _SETTINGS, unhealthy=frozenset({"smart-chat"})
     )
     assert resolved == "glm-5.2"
-    everyday = plan_service.resolve_user_model(
+    everyday = model_choice.resolve_user_model(
         user, "hi there", _SETTINGS, unhealthy=frozenset({"qwen-3.7-flash"})
     )
     assert everyday != "qwen-3.7-flash"
@@ -38,14 +39,14 @@ def test_unhealthy_first_choice_is_skipped_for_a_healthy_strong_model() -> None:
 def test_a_degraded_model_beats_none() -> None:
     user = _User(enabled=["auto", "smart-chat"])
     assert (
-        plan_service.resolve_user_model(user, _HARD, _SETTINGS, unhealthy=frozenset({"smart-chat"}))
+        model_choice.resolve_user_model(user, _HARD, _SETTINGS, unhealthy=frozenset({"smart-chat"}))
         == "smart-chat"
     )
 
 
 def test_an_explicit_pick_is_kept_even_when_unhealthy() -> None:
     user = _User()
-    picked = plan_service.resolve_user_model_override(
+    picked = model_choice.resolve_user_model_override(
         user, "smart-chat", "hi", _SETTINGS, unhealthy=frozenset({"smart-chat"})
     )
     assert picked == "smart-chat"

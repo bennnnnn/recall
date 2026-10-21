@@ -7,6 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway
+from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.turn_prep import TurnPromptBundle
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.math.schemas import MathImageExtract
@@ -183,8 +184,9 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             "app.modules.math.image_extract.extract_equation_from_image",
             AsyncMock(return_value=extracted),
         ) as extract_mock,
-        patch(
-            "app.modules.billing.plan.resolve_user_model_override",
+        patch.object(
+            model_choice,
+            "resolve_user_model_override",
             return_value="smart-chat",
         ),
         patch(
@@ -309,8 +311,9 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             "app.modules.math.image_extract.extract_equation_from_image",
             AsyncMock(return_value=extracted),
         ) as extract_mock,
-        patch(
-            "app.modules.billing.plan.resolve_user_model_override",
+        patch.object(
+            model_choice,
+            "resolve_user_model_override",
             return_value="smart-chat",
         ),
         patch(

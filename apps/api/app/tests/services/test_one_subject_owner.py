@@ -18,8 +18,8 @@ from app.modules.chat.continuation_subject import (
     blocks_math_followup,
     classify_presentation_subject,
 )
+from app.modules.chat.model_routing.route import route_chat_model
 from app.modules.chat.related_questions import subject_for_related
-from app.services.routing import route_chat_model
 from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
 from app.tests.behavior.cases import CASES

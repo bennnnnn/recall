@@ -106,7 +106,7 @@ async def test_persist_user_turn_reads_what_the_caller_left_out_and_queues_its_d
         patch(f"{_MODULE}.messages_repo.count_for_chat", AsyncMock(return_value=4)),
         patch(f"{_MODULE}.messages_repo.list_recent", AsyncMock(return_value=[])),
         patch(f"{_MODULE}.classify_turn_mode", return_value=mode),
-        patch(f"{_MODULE}.plan_service.resolve_user_model_override", return_value="smart-chat"),
+        patch(f"{_MODULE}.model_choice.resolve_user_model_override", return_value="smart-chat"),
         patch(
             f"{_MODULE}.messages_repo.create",
             AsyncMock(return_value=SimpleNamespace(id=turn.message_id)),

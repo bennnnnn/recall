@@ -1,0 +1,116 @@
+"""The model a turn runs on: billing's pool for the user, chat's routing for the message."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from app.core.config import Settings
+from app.exceptions import UnknownModelOverrideError
+from app.modules.billing.plan import (
+    AUTO_ALIAS,
+    is_auto_enabled,
+    is_explicit_pick,
+    model_pool,
+    override_pool,
+    pick_cheapest_from_pool,
+)
+from app.modules.chat.model_routing.route import resolve_alias_in_pool
+
+if TYPE_CHECKING:
+    from app.models.orm import User
+
+
+def resolve_user_model(
+    user: User,
+    content: str,
+    settings: Settings,
+    *,
+    prior_user: str | None = None,
+    prior_model: str | None = None,
+    lesson_active: bool = False,
+    unhealthy: frozenset[str] = frozenset(),
+) -> str:
+    """Pick a concrete model from the user's Settings preferences.
+
+    Auto skips models whose provider is failing (``unhealthy``) while a healthy
+    one is left in the pool.
+    """
+    pool = model_pool(user, settings)
+    if is_auto_enabled(user):
+        return resolve_alias_in_pool(
+            AUTO_ALIAS,
+            content,
+            pool,
+            settings,
+            prior_user=prior_user,
+            prior_model=prior_model,
+            lesson_active=lesson_active,
+            unhealthy=unhealthy,
+        )
+    if len(pool) == 1:
+        return pool[0]
+    return pick_cheapest_from_pool(pool, settings)
+
+
+def resolve_user_model_override(
+    user: User,
+    model_alias: str | None,
+    content: str,
+    settings: Settings,
+    *,
+    prior_user: str | None = None,
+    prior_model: str | None = None,
+    lesson_active: bool = False,
+    unhealthy: frozenset[str] = frozenset(),
+) -> str:
+    """Pick a concrete model, honoring a per-message override when allowed.
+
+    A per-chat/per-message picker passes ``model_alias`` over the WS. Use it
+    only if it's a concrete alias the user has enabled (and their plan allows).
+    ``auto`` and ``None`` route within the Settings pool. A concrete alias
+    that is not in that pool raises rather than silently switching models.
+    """
+    if is_explicit_pick(model_alias):
+        if model_alias not in override_pool(user, settings):
+            raise UnknownModelOverrideError(model_alias)
+        return model_alias
+    return resolve_user_model(
+        user,
+        content,
+        settings,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=lesson_active,
+        unhealthy=unhealthy,
+    )
+
+
+def resolve_regenerate_model(
+    user: User,
+    model_alias: str | None,
+    content: str,
+    prior_assistant_model: str | None,
+    settings: Settings,
+) -> str:
+    """Pick a model for a regenerate turn.
+
+    Honors an explicit concrete override (a per-message picker pick) just like
+    ``resolve_user_model_override``. When the picker is ``auto`` (or absent),
+    reuse the model that produced the prior assistant reply so "try again"
+    reproduces the same conditions instead of re-running the routing heuristic
+    — a borderline query that auto-routed to a smart model the first time would
+    otherwise re-route to a weaker model on regenerate. Falls back to routing
+    if the prior model is unknown or no longer in the user's enabled pool.
+    """
+    pool = override_pool(user, settings)
+    if is_explicit_pick(model_alias):
+        if model_alias not in pool:
+            raise UnknownModelOverrideError(model_alias)
+        return model_alias
+    if (
+        prior_assistant_model
+        and prior_assistant_model != AUTO_ALIAS
+        and prior_assistant_model in pool
+    ):
+        return prior_assistant_model
+    return resolve_user_model(user, content, settings)

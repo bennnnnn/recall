@@ -210,7 +210,7 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
             "list_recent": AsyncMock(return_value=[last_user, previous]),
             "count_for_chat": AsyncMock(return_value=2),
         },
-        plan={"resolve_regenerate_model": lambda *_args: "free-chat"},
+        model_choice={"resolve_regenerate_model": lambda *_args: "free-chat"},
         quota={"daily_limit_for_user": lambda *_args: 10000},
     )
     lookup = AsyncMock(return_value=[_row(uid)])
