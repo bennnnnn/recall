@@ -2979,3 +2979,17 @@ def test_speech_live_disabled():
     r = client.get("/speech/live", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
     assert r.json()["enabled"] is False
+
+
+def test_list_messages_takes_one_cursor():
+    """NET-18: a page is before, after or around one message, never two at once."""
+    user = _fake_user()
+    app = _app_with_user(user)
+    chat_id = uuid4()
+    client = TestClient(app)
+    response = client.get(
+        f"/chats/{chat_id}/messages",
+        params={"before": str(uuid4()), "around": str(uuid4())},
+        headers={"Authorization": "Bearer tok"},
+    )
+    assert response.status_code == 422

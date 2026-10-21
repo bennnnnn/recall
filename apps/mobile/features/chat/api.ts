@@ -15,18 +15,21 @@ function normalizeMessagePage(data: MessagePage | Message[]): MessagePage {
   return data;
 }
 
+/** The newest page, or the page `before` or `after` a message, or the window `around` one. */
 async function listMessages(
   token: string,
   chatId: string,
-  opts?: { limit?: number; before?: string },
+  opts?: { limit?: number; before?: string; after?: string; around?: string },
 ): Promise<MessagePage> {
   const params = new URLSearchParams();
   if (opts?.limit != null) params.set("limit", String(opts.limit));
   if (opts?.before) params.set("before", opts.before);
+  if (opts?.after) params.set("after", opts.after);
+  if (opts?.around) params.set("around", opts.around);
   const qs = params.toString();
   const path = `/chats/${chatId}/messages${qs ? `?${qs}` : ""}`;
-  // The newest page is read again on every visit; an older one, seldom.
-  const data = opts?.before
+  // The newest page is read again on every visit; another, seldom.
+  const data = opts?.before || opts?.after || opts?.around
     ? await request<MessagePage | Message[]>(path, token)
     : await requestRevalidated<MessagePage | Message[]>(path, token);
   return normalizeMessagePage(data);

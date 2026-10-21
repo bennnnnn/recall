@@ -74,6 +74,7 @@ type UseChatScreenBodyPropsParams = {
     messages: Message[];
     hasMoreOlder: boolean;
     loadingOlder: boolean;
+    newerPage: ChatScreenListProps["newerPage"];
     chatLoading: boolean;
     renderItem: (info: ListRenderItemInfo<Message>) => ReactElement | null;
     loadOlderMessages: () => Promise<void>;
@@ -153,6 +154,7 @@ export function useChatScreenBodyProps({
     messages,
     hasMoreOlder,
     loadingOlder,
+    newerPage,
     chatLoading,
     renderItem,
     loadOlderMessages,
@@ -337,6 +339,7 @@ export function useChatScreenBodyProps({
       messages,
       hasMoreOlder,
       loadingOlder,
+      newerPage,
       chatLoading,
       routeChatId,
       renderItem,
@@ -352,6 +355,7 @@ export function useChatScreenBodyProps({
       messages,
       hasMoreOlder,
       loadingOlder,
+      newerPage,
       chatLoading,
       routeChatId,
       renderItem,

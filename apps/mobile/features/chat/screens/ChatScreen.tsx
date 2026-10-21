@@ -140,19 +140,8 @@ function ChatScreen() {
   onFirstReplyRef.current = routeLoader.handleFirstReply;
 
   const {
-    chatTitle,
-    setChatTitle,
-    titleGenerating,
-    pinned,
-    setPinned,
-    archived,
-    setArchived,
-    chatLoading,
-    hasMoreOlder,
-    loadingOlder,
-    loadOlderMessages,
-    highlightedMessageId,
-    startNewChat,
+    chatTitle, setChatTitle, titleGenerating, pinned, setPinned, archived, setArchived, chatLoading,
+    hasMoreOlder, loadingOlder, loadOlderMessages, newerPage, jumpToLatest, highlightedMessageId, startNewChat,
   } = routeLoader;
 
   const chatActions = useChatActions({
@@ -261,6 +250,8 @@ function ChatScreen() {
     onStreamBusy: handleStreamBusy,
     onOfflineBlocked: notifyOfflineBlocked,
     isOffline,
+    // A send from a window around an old search hit goes to the newest page first.
+    beforeSend: newerPage ? jumpToLatest : undefined,
     imageGenerating: imageGen.generating,
     onGenerateImage: (prompt, userMessage, reference, persistence) => {
       void imageGen.submitPrompt({
@@ -352,12 +343,12 @@ function ChatScreen() {
     listBottomPadRef,
     showScrollToBottom,
     scrollAwayCount,
-    scrollToLatest,
     handleScroll,
     handleScrollEnd,
     handleContentSizeChange,
     handleListLayout,
   } = scroll;
+  const scrollToLatest = newerPage ? () => void jumpToLatest().then(scroll.scrollToLatest) : scroll.scrollToLatest;
 
   const { draftChatId } = draft;
 
@@ -452,6 +443,7 @@ function ChatScreen() {
       messages,
       hasMoreOlder,
       loadingOlder,
+      newerPage,
       chatLoading,
       renderItem,
       loadOlderMessages,

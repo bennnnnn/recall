@@ -76,7 +76,10 @@ export type Feedback = "up" | "down" | null;
 
 export type MessagePage = {
   messages: Message[];
+  /** Older messages precede the page. */
   has_more: boolean;
+  /** Newer messages follow it: a page read `around` or `after` a message. */
+  has_more_after?: boolean;
 };
 
 export type Message = {

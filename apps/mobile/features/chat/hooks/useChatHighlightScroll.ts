@@ -8,26 +8,31 @@ import { registerChatHighlightClearer } from "@/lib/drawer";
 
 type Router = ReturnType<typeof useRouter>;
 type ViewOwner = { session: number; chatId: string | null };
-type HighlightRequest = { owner: ViewOwner; id: string; cursor?: string; loading?: boolean };
+type HighlightRequest = { owner: ViewOwner; id: string; loading?: boolean; windowed?: boolean };
 type Options = {
   routeChatId?: string;
   routeHighlightMessage: string | undefined;
   router: Router;
   messages: Message[];
   hasMoreOlder: boolean;
+  hasMoreNewer: boolean;
   chatLoading?: boolean;
-  loadingOlder: boolean;
   token: string | null;
   chatId: string | null;
-  loadOlderMessages: () => Promise<void>;
+  /** Show the window of messages around one; false when it could not be read. */
+  openAround: (messageId: string) => Promise<boolean>;
   listRef: React.RefObject<FlashListRef<Message> | null>;
 };
 const HIGHLIGHT_MS = 3500;
 
-/** Page toward a selected search hit, then scroll/highlight within its conversation. */
+/**
+ * Bring a selected search hit into view and highlight it. A hit beyond the loaded
+ * thread opens the window around it in one read; it was paged toward 40 messages
+ * at a time (code-health audit NET-18).
+ */
 export function useChatHighlightScroll({
-  routeChatId, routeHighlightMessage, router, messages, hasMoreOlder, chatLoading = false, loadingOlder,
-  token, chatId, loadOlderMessages, listRef,
+  routeChatId, routeHighlightMessage, router, messages, hasMoreOlder, hasMoreNewer, chatLoading = false,
+  token, chatId, openAround, listRef,
 }: Options) {
   const session = getSessionGeneration();
   const destination = routeChatId ?? chatId;
@@ -41,7 +46,6 @@ export function useChatHighlightScroll({
   const mounted = useRef(true);
   const pending = useRef<HighlightRequest | null>(null);
   const [highlight, setHighlight] = useState<HighlightRequest | null>(null);
-  const [pageRevision, setPageRevision] = useState(0);
   const frame = useRef<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelScheduled = useCallback(() => {
@@ -97,19 +101,22 @@ export function useChatHighlightScroll({
       });
       return;
     }
-    const cursor = messages[0].id;
-    if (!hasMoreOlder || chatLoading || loadingOlder || request.loading || request.cursor === cursor) return;
-    request.cursor = cursor;
+    // Not in the loaded thread: read the window around it, once.
+    if (request.loading || chatLoading) return;
+    if (request.windowed) {
+      pending.current = null;
+      return;
+    }
+    if (!hasMoreOlder && !hasMoreNewer) return;
     request.loading = true;
-    void (async () => {
-      try { await loadOlderMessages(); }
-      catch { /* The history loader reports failures; Load earlier remains available for retry. */ }
-      finally {
-        request.loading = false;
-        if (current() && pending.current === request) setPageRevision((value) => value + 1);
-      }
-    })();
-  }, [owner, current, chatId, messages, hasMoreOlder, chatLoading, loadingOlder, loadOlderMessages, listRef, pageRevision]);
+    void openAround(request.id).then((shown) => {
+      request.loading = false;
+      request.windowed = true;
+      if (shown || pending.current !== request) return;
+      pending.current = null;
+      if (current()) setHighlight((value) => (value === request ? null : value));
+    });
+  }, [owner, current, chatId, messages, hasMoreOlder, hasMoreNewer, chatLoading, openAround, listRef]);
 
   return { highlightedMessageId: highlight?.owner === owner && token ? highlight.id : null };
 }

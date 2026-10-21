@@ -29,20 +29,12 @@ import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
 import { queryNeedsClientGeo, resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
-import {
-  subscribeComposerAttachmentQueue,
-  takeQueuedComposerAttachment,
-} from "@/features/attachments/model/pendingComposerAttachment";
+import { subscribeComposerAttachmentQueue, takeQueuedComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
 
 type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
 type ChatScroll = ReturnType<typeof useChatScroll>;
-type ChatSendPhase =
-  | "idle"
-  | "locating"
-  | "preparing"
-  | "uploading"
-  | "creating";
+type ChatSendPhase = "idle" | "locating" | "preparing" | "uploading" | "creating";
 
 type SendMessageFn = (text: string, opts?: SendMessageOptions) => void;
 
@@ -76,6 +68,8 @@ type Options = {
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;
   isOffline: boolean;
+  /** Runs before a send is painted (a window around a search hit goes to the newest page). */
+  beforeSend?: () => Promise<void>;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
   onGenerateImage?: (
     prompt: string,
@@ -109,6 +103,7 @@ export function useChatSend({
   onStreamBusy,
   onOfflineBlocked,
   isOffline,
+  beforeSend,
   onGenerateImage,
   imageGenerating = false,
 }: Options) {
@@ -338,6 +333,11 @@ export function useChatSend({
       if (verdict === "streaming") onStreamBusy?.();
       if (verdict !== "send") return;
       tap();
+      if (beforeSend) {
+        sendInFlightRef.current = true;
+        await beforeSend();
+        sendInFlightRef.current = false;
+      }
       const isCurrentSession = () => session === getSessionGeneration();
       const turn: SendTurn = {
         text,
@@ -451,7 +451,7 @@ export function useChatSend({
       token, creatingRef, attachPickInFlightRef, onOfflineBlocked, onStreamBusy, getThreadKey,
       messages, onGenerateImage, imageGenerating, generateFromComposer, t, updateUser, paintUserTurn,
       restoreFailedSend, feedback, selectedModel, sendMessage, ensureChatId, discardEmptyChat,
-      adoptComposerThread,
+      adoptComposerThread, beforeSend,
     ],
   );
 

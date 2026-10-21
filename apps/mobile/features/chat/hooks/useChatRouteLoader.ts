@@ -35,6 +35,7 @@ import { shouldInsertDrawerRowOnLeave } from "@/features/chat/model/titleRefresh
 import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/lib/drawer";
 import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/features/chat/hooks/useChatHighlightScroll";
+import { useChatPaging } from "@/features/chat/hooks/useChatPaging";
 import { useChatTitlePolling } from "@/features/chat/hooks/useChatTitlePolling";
 
 type Router = ReturnType<typeof useRouter>;
@@ -107,7 +108,6 @@ export function useChatRouteLoader({
   const [archived, setArchived] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
-  const [loadingOlder, setLoadingOlder] = useState(false);
   const session = getSessionGeneration();
   const signedIn = Boolean(token);
   const viewRef = useRef({ session, routeChatId, version: 0 });
@@ -130,7 +130,9 @@ export function useChatRouteLoader({
     setPinned(chat.pinned);
     setArchived(Boolean(chat.archived));
   }, []);
-  const olderRequestRef = useRef<object | null>(null);
+  const paging = useChatPaging({ token, chatId, chatLoading, messages, setMessages, hasMoreOlder, setHasMoreOlder,
+    viewRef, activeChatRef, showActionBanner, t });
+  const { resetPaging, hasMoreNewer } = paging;
   useEffect(() => () => {
     viewRef.current.version += 1;
   }, []);
@@ -191,7 +193,7 @@ export function useChatRouteLoader({
   const startNewChat = useCallback(
     (_opts?: { force?: boolean }) => {
       viewRef.current.version++;
-      olderRequestRef.current = null;
+      resetPaging();
       leaveOpenChat(_opts);
       setChatId(null);
       setChatTitle(null);
@@ -199,7 +201,6 @@ export function useChatRouteLoader({
       setArchived(false);
       setMessages([]);
       setHasMoreOlder(false);
-      setLoadingOlder(false);
       setChatLoading(false);
       if (routeChatId != null) {
         router.setParams({ chatId: undefined });
@@ -207,6 +208,7 @@ export function useChatRouteLoader({
     },
     [
       leaveOpenChat,
+      resetPaging,
       routeChatId,
       router,
       setMessages,
@@ -218,7 +220,7 @@ export function useChatRouteLoader({
   const silentRefetchChat = useCallback(
     async (openChatId: string, cancelled: () => boolean, opts?: { force?: boolean }) => {
       if (!token || session !== getSessionGeneration() || viewVersion !== viewRef.current.version ||
-          openChatId !== activeChatRef.current) return;
+          openChatId !== activeChatRef.current || hasMoreNewer) return;
       const version = viewVersion;
       const ownerSession = getSessionGeneration();
       const previousMessages = messagesRef.current;
@@ -265,7 +267,7 @@ export function useChatRouteLoader({
         /* keep existing messages on silent refetch failure */
       }
     },
-    [token, session, viewVersion, setChatId, setMessages, applyMetadata, turnBusy],
+    [token, session, viewVersion, setChatId, setMessages, applyMetadata, turnBusy, hasMoreNewer],
   );
 
   useEffect(() => {
@@ -322,8 +324,7 @@ export function useChatRouteLoader({
   ]);
 
   useEffect(() => {
-    olderRequestRef.current = null;
-    setLoadingOlder(false);
+    resetPaging();
     if (!token) {
       setChatLoading(false);
       return;
@@ -447,58 +448,9 @@ export function useChatRouteLoader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signedIn, session, routeChatId]);
 
-  const loadOlderMessages = useCallback(async () => {
-    if (
-      !token || !chatId || session !== getSessionGeneration() || viewVersion !== viewRef.current.version ||
-      chatId !== activeChatRef.current || chatLoading || olderRequestRef.current ||
-      !hasMoreOlder || messages.length === 0
-    ) return;
-    const oldest = messages[0];
-    const isServerId =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(oldest.id);
-    if (!isServerId) return;
-
-    const request = {};
-    const version = viewRef.current.version;
-    const ownerSession = getSessionGeneration();
-    const isCurrent = () =>
-      ownerSession === getSessionGeneration() && version === viewRef.current.version && olderRequestRef.current === request;
-    olderRequestRef.current = request;
-    setLoadingOlder(true);
-    try {
-      const page = await api.listMessages(token, chatId, {
-        limit: MESSAGE_PAGE_SIZE,
-        before: oldest.id,
-      });
-      if (!isCurrent()) return;
-      setMessages((prev) => {
-        if (ownerSession !== getSessionGeneration() || version !== viewRef.current.version) return prev;
-        const knownIds = new Set(prev.map((message) => message.id));
-        return [...page.messages.filter((message) => !knownIds.has(message.id)), ...prev];
-      });
-      setHasMoreOlder(page.has_more);
-    } catch {
-      if (isCurrent()) showActionBanner(t("common.error"), "alert-circle");
-    } finally {
-      if (isCurrent()) {
-        olderRequestRef.current = null;
-        setLoadingOlder(false);
-      }
-    }
-  }, [token, session, viewVersion, chatId, chatLoading, hasMoreOlder, messages, setMessages, showActionBanner, t]);
-
   const { highlightedMessageId } = useChatHighlightScroll({
-    chatLoading,
-    routeChatId,
-    routeHighlightMessage,
-    router,
-    messages,
-    hasMoreOlder,
-    loadingOlder,
-    token,
-    chatId,
-    loadOlderMessages,
-    listRef,
+    chatLoading, routeChatId, routeHighlightMessage, router, messages, hasMoreOlder, hasMoreNewer,
+    token, chatId, openAround: paging.openAround, listRef,
   });
 
 
@@ -512,8 +464,10 @@ export function useChatRouteLoader({
     setArchived,
     chatLoading,
     hasMoreOlder,
-    loadingOlder,
-    loadOlderMessages,
+    loadingOlder: paging.loadingOlder,
+    loadOlderMessages: paging.loadOlderMessages,
+    newerPage: paging.newerPage,
+    jumpToLatest: paging.jumpToLatest,
     highlightedMessageId,
     handleFirstReply,
     startNewChat,

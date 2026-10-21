@@ -163,9 +163,16 @@ async def list_messages(
     redis: Redis = Depends(get_redis),
     limit: int = Query(default=40, ge=1, le=200),
     before: UUID | None = None,
+    after: UUID | None = None,
+    around: UUID | None = None,
 ) -> Response:
+    if sum(cursor is not None for cursor in (before, after, around)) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Use one of before, after and around.",
+        )
     page = await chats_service.list_messages_page(
-        session, redis, user, chat_id, limit=limit, before=before
+        session, redis, user, chat_id, limit=limit, before=before, after=after, around=around
     )
     return conditional_json(request, page)
 

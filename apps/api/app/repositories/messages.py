@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Message
@@ -150,6 +150,66 @@ async def list_page(
         rows = rows[:capped]
     rows.reverse()
     return rows, has_more
+
+
+async def _anchor(session: AsyncSession, chat_id: UUID, message_id: UUID) -> Message | None:
+    result = await session.execute(
+        select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
+    )
+    return result.scalar_one_or_none()
+
+
+def _after(anchor: Message, *, inclusive: bool = False) -> ColumnElement[bool]:
+    """Rows after ``anchor`` in (created_at, id) order."""
+    same_time = Message.id >= anchor.id if inclusive else Message.id > anchor.id
+    return or_(
+        Message.created_at > anchor.created_at,
+        and_(Message.created_at == anchor.created_at, same_time),
+    )
+
+
+async def list_after(
+    session: AsyncSession, chat_id: UUID, *, limit: int, after_id: UUID
+) -> tuple[list[Message], bool]:
+    """The ``limit`` messages after ``after_id``, oldest first, and whether more follow."""
+    capped = max(1, min(limit, 200))
+    anchor = await _anchor(session, chat_id, after_id)
+    if anchor is None:
+        return [], False
+    result = await session.execute(
+        select(Message)
+        .where(Message.chat_id == chat_id, _after(anchor))
+        .order_by(Message.created_at.asc(), Message.id.asc())
+        .limit(capped + 1)
+    )
+    rows = list(result.scalars().all())
+    return rows[:capped], len(rows) > capped
+
+
+async def list_around(
+    session: AsyncSession, chat_id: UUID, *, limit: int, around_id: UUID
+) -> tuple[list[Message], bool, bool]:
+    """A window of ``limit`` messages with ``around_id`` in its middle, oldest first,
+    whether older ones precede it and whether newer ones follow (code-health audit
+    NET-18: a search hit deep in a chat was reached 40 messages at a time)."""
+    capped = max(1, min(limit, 200))
+    anchor = await _anchor(session, chat_id, around_id)
+    if anchor is None:
+        return [], False, False
+    older: list[Message] = []
+    has_older = False
+    if before := (capped - 1) // 2:
+        older, has_older = await list_page(session, chat_id, limit=before, before_id=around_id)
+    # The anchor and what follows it fill the rest of the window.
+    room = capped - len(older)
+    result = await session.execute(
+        select(Message)
+        .where(Message.chat_id == chat_id, _after(anchor, inclusive=True))
+        .order_by(Message.created_at.asc(), Message.id.asc())
+        .limit(room + 1)
+    )
+    newer = list(result.scalars().all())
+    return older + newer[:room], has_older, len(newer) > room
 
 
 async def list_range(

@@ -84,6 +84,7 @@
   "chat.live_talk_unavailable_body": "Live talk needs a dev build with the microphone. It doesn't work in Expo Go.",
   "chat.live_talk_unmute_a11y": "Unmute microphone",
   "chat.load_earlier": "Load earlier messages",
+  "chat.load_newer": "Load newer messages",
   "chat.locating": "Getting your location…",
   "chat.location_open_settings": "Open Settings",
   "chat.location_required_body": "Location is turned off for Recall. Open Settings to allow access, then try again.",

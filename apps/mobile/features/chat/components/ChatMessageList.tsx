@@ -25,6 +25,8 @@ type Props = {
   listBottomPad: number;
   hasMoreOlder: boolean;
   loadingOlder: boolean;
+  /** A window around a search hit ends before the newest message: its next page. */
+  newerPage?: { loading: boolean; load: () => Promise<void> } | null;
   chatLoading: boolean;
   routeChatId?: string;
   emptyHeight: number;
@@ -46,6 +48,7 @@ function ChatMessageListComponent({
   listBottomPad,
   hasMoreOlder,
   loadingOlder,
+  newerPage = null,
   chatLoading,
   routeChatId,
   emptyHeight,
@@ -97,9 +100,12 @@ function ChatMessageListComponent({
     hasMoreOlder,
   });
   const startFromBottom = startFromBottomState.current.value;
+  // In a window the bottom is not the newest message: a newer page must not pull
+  // the list down past what the user is reading.
+  const holdPosition = autoscrollSuppressed || newerPage != null;
   const maintainVisibleContentPosition = useMemo(
     () =>
-      autoscrollSuppressed
+      holdPosition
         ? {
             disabled: false,
             autoscrollToBottomThreshold: -1,
@@ -110,7 +116,7 @@ function ChatMessageListComponent({
             autoscrollToBottomThreshold: 0.25,
             startRenderingFromBottom: startFromBottom,
           },
-    [autoscrollSuppressed, startFromBottom],
+    [holdPosition, startFromBottom],
   );
 
   return (
@@ -147,6 +153,19 @@ function ChatMessageListComponent({
               <Text style={s.loadEarlierText}>
                 {loadingOlder ? "…" : t("chat.load_earlier")}
               </Text>
+            </Pressable>
+          ) : null
+        }
+        ListFooterComponent={
+          newerPage ? (
+            <Pressable
+              style={s.loadEarlier}
+              onPress={() => void newerPage.load()}
+              disabled={newerPage.loading}
+              accessibilityRole="button"
+              accessibilityLabel={t("chat.load_newer")}
+            >
+              <Text style={s.loadEarlierText}>{newerPage.loading ? "…" : t("chat.load_newer")}</Text>
             </Pressable>
           ) : null
         }
