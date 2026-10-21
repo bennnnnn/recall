@@ -12,6 +12,7 @@ import { WS_RETRY_BASE_MS } from "@/features/chat/model/wsBackoff";
 import {
   EAGER_CONNECT_DEBOUNCE_MS,
   WS_ACK_PROBE_MS,
+  WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
   WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
@@ -39,6 +40,16 @@ const listMessages = jest.requireMock("@/lib/api").api.listMessages as jest.Mock
 jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "UTC" }));
 let mockClientMessageIds = 0;
 jest.mock("expo-crypto", () => ({ randomUUID: () => `name-${++mockClientMessageIds}` }));
+const mockNetInfoListeners = new Set<(state: object) => void>();
+jest.mock("@react-native-community/netinfo", () => ({
+  __esModule: true,
+  default: {
+    addEventListener: (listener: (state: object) => void) => {
+      mockNetInfoListeners.add(listener);
+      return () => mockNetInfoListeners.delete(listener);
+    },
+  },
+}));
 jest.mock("@/features/chat/model/sse", () => ({
   streamChatMessageSse: jest.fn(),
   streamChatRegenerateSse: jest.fn(),
@@ -1103,6 +1114,7 @@ describe("useChat socket recovery", () => {
     listMessages.mockReset();
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
+    mockNetInfoListeners.clear();
     // Earlier tests can leave a queued one-off stream behind.
     (streamChatMessageSse as jest.Mock).mockReset();
     (streamChatRegenerateSse as jest.Mock).mockReset();
@@ -1119,6 +1131,11 @@ describe("useChat socket recovery", () => {
   const frames = (socket: FakeSocket) =>
     socket.send.mock.calls.map(([data]) => JSON.parse(data) as Record<string, unknown>);
   const latestSocket = () => FakeSocket.instances[FakeSocket.instances.length - 1];
+  const network = async (state: object) => {
+    await act(async () => { for (const listener of [...mockNetInfoListeners]) listener(state); });
+  };
+  const WIFI = { type: "wifi", isConnected: true, isInternetReachable: true, details: { ipAddress: "192.168.1.5" } };
+  const CELLULAR = { type: "cellular", isConnected: true, isInternetReachable: true, details: {} };
   const answeredSse = (reply: string) => async ({ onEvent }: { onEvent: (payload: object) => void }) => {
     onEvent({ type: "start" });
     onEvent({ type: "token", content: reply });
@@ -1246,5 +1263,86 @@ describe("useChat socket recovery", () => {
     expect(second.close).toHaveBeenCalledTimes(1);
     await act(async () => { latestSocket().open(); });
     expect(frames(latestSocket())[0]).toEqual({ token: "token-3", client_timezone: "UTC" });
+  });
+
+  it("replaces an idle socket after a network switch and stays off it while offline", async () => {
+    await render(<Probe chatId="a" />);
+    const first = await openSocket();
+    await network(WIFI);
+    expect(first.close).not.toHaveBeenCalled();
+
+    await network(CELLULAR);
+    expect(first.close).toHaveBeenCalledTimes(1);
+    expect(FakeSocket.instances).toHaveLength(2);
+    expect(latestSocket().url).toBe("wss://test/a");
+
+    await network({ type: "none", isConnected: false, isInternetReachable: false, details: null });
+    expect(latestSocket().close).toHaveBeenCalledTimes(1);
+    expect(FakeSocket.instances).toHaveLength(2);
+    await network(WIFI);
+    expect(FakeSocket.instances).toHaveLength(3);
+  });
+
+  it("leaves a socket the server closed for idling closed on a network switch", async () => {
+    await render(<Probe chatId="a" />);
+    const first = await openSocket();
+    await network(WIFI);
+    await act(async () => { (first.onclose as (event: { code: number }) => void)({ code: 4408 }); });
+    await network(CELLULAR);
+    await network(WIFI);
+    expect(FakeSocket.instances).toHaveLength(1);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("tries the socket again at once on a new network, whatever failed on the old one", async () => {
+    await render(<Probe chatId="a" />);
+    await network(WIFI);
+    await act(async () => { void current.connect(); });
+    const stalled = latestSocket();
+    await act(async () => { jest.advanceTimersByTime(WS_CONNECT_TIMEOUT_MS); });
+    expect(stalled.close).toHaveBeenCalledTimes(1);
+    await act(async () => { void current.connect(); });
+    expect(FakeSocket.instances).toHaveLength(1);
+
+    await network(CELLULAR);
+    await act(async () => { void current.connect(); });
+    expect(FakeSocket.instances).toHaveLength(2);
+  });
+
+  it("probes a turn's socket after a network switch and follows the turn if it is dead", async () => {
+    const saved = [
+      { id: SERVER_USER_ID, role: "user" as const, content: "question", model: null, created_at: "t1" },
+      { id: SERVER_REPLY_ID, role: "assistant" as const, content: "whole reply", model: null, created_at: "t2" },
+    ];
+    listMessages.mockResolvedValue({ messages: saved, has_more: false });
+    await render(<Probe chatId="a" />);
+    await network(WIFI);
+    const socket = await openProbedSocket();
+    await sendAndStream(socket, "partial");
+    await network(CELLULAR);
+    expect(frames(socket).at(-1)).toEqual({ type: "ping" });
+    expect(socket.close).not.toHaveBeenCalled();
+
+    await act(async () => { jest.advanceTimersByTime(WS_PROBE_TIMEOUT_MS); });
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    expect(current.messages).toEqual(saved);
+    expect(streamChatMessageSse).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("keeps a turn's socket that answers the probe after a network switch", async () => {
+    await render(<Probe chatId="a" />);
+    await network(WIFI);
+    const socket = await openProbedSocket();
+    await sendAndStream(socket, "partial");
+    await network(CELLULAR);
+    await act(async () => {
+      socket.emit({ type: "pong" });
+      jest.advanceTimersByTime(WS_PROBE_TIMEOUT_MS);
+      socket.emit({ type: "done", message_id: "saved", final_content: "partial and the rest" });
+    });
+    expect(socket.close).not.toHaveBeenCalled();
+    expect(current.messages.some((message) => message.content === "partial and the rest")).toBe(true);
   });
 });

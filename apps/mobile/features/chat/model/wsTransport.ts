@@ -129,6 +129,11 @@ export class ChatWsTransport {
     return this.socket?.readyState === WS_OPEN_STATE;
   }
 
+  /** A socket is open or opening (not closed by the server, a failure or `close`). */
+  holdsSocket(): boolean {
+    return this.socket !== null;
+  }
+
   /** Sends go over SSE while the socket cools down after a failure, or once its token was refused. */
   shouldUseSse(): boolean {
     return this.authRejected || this.backoff.cooling();

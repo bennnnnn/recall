@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
 import { AppState } from "react-native";
+import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 
 import { chatWebSocketUrl } from "@/lib/api";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
+import { isNetworkOffline, isNetworkPathChange } from "@/lib/networkStatus";
 import { shouldAbortPriorSse, streamChatMessageSse, streamChatRegenerateSse, type ChatSsePayload } from "@/features/chat/model/sse";
 import { createWsBackoff } from "@/features/chat/model/wsBackoff";
 import { EAGER_CONNECT_DEBOUNCE_MS } from "@/features/chat/model/wsConnect";
@@ -165,6 +167,33 @@ export function useChatTransport({
     });
     return () => sub.remove();
   }, [connect, releaseIdleInBackground]);
+
+  // Wi-Fi ⇄ cellular, or back online: a socket opened on the old path can be
+  // half-open. A turn's socket is probed (dropped if it does not answer); an
+  // idle one is replaced, once online, while the chat is open. A socket the
+  // server already closed for idling stays closed. Failures on the old path
+  // do not hold the new one back.
+  useEffect(() => {
+    let previous: NetInfoState | null = null;
+    let reopen = false;
+    return NetInfo.addEventListener((state) => {
+      const changed = isNetworkPathChange(previous, state);
+      previous = state;
+      if (!changed || backgroundedRef.current) return;
+      backoffRef.current = createWsBackoff();
+      const transport = wsTransportRef.current;
+      if (transport?.isTurnActive()) {
+        transport.probe();
+        return;
+      }
+      if (transport?.holdsSocket()) reopen = true;
+      wsTransportRef.current = null;
+      transport?.close();
+      if (!reopen || isNetworkOffline(state)) return;
+      reopen = false;
+      void connectRef.current();
+    });
+  }, []);
 
   const sendViaSse = useCallback(
     async (content: string, options?: SendSseOptions) => {
