@@ -70,7 +70,9 @@ override-dependencies = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["app/tests"]
-addopts = ["--assert=plain", "--import-mode=importlib"]
+# Assertion rewriting is on: a failure shows the values that differed. Plain asserts
+# worked around a collection segfault that was CPython 3.12.3 (see requires-python).
+addopts = ["--import-mode=importlib"]
 
 [tool.ruff]
 line-length = 100
