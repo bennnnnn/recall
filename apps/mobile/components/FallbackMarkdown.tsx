@@ -2,7 +2,9 @@
  * Minimal markdown when the rich renderer fails — still formats headers,
  * tables, bold, and code (no Prism / rich cards). Callout fences render as
  * styled prose instead of raw "callout-tip" code. Geometry/graph fences keep
- * their SVG renderers so densified point dumps never become a wall of JSON.
+ * their SVG renderers so densified point dumps never become a wall of JSON;
+ * those load on first use, as in the rich renderer, so the chat screen never
+ * loads them (or Skia) at launch through this fallback.
  * Sources, places, answers, and heavy visuals degrade to a short summary.
  */
 import { useMemo } from "react";
@@ -14,8 +16,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles";
-import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
-import { GeometryBlock } from "@/components/rich/GeometryBlock";
+import { LazyFunctionGraphBlock, LazyGeometryBlock } from "@/components/rich/LazyHeavyRich";
 import { codeLanguageLabel } from "@/lib/codeHighlight";
 import { CODE_FONT } from "@/lib/fonts";
 import { markdownItInstance } from "@/lib/markdown/parser";
@@ -94,10 +95,10 @@ function renderFallbackFence(
     );
   }
   if (classified.kind === "geometry") {
-    return <GeometryBlock key={node.key} content={classified.body} />;
+    return <LazyGeometryBlock key={node.key} content={classified.body} />;
   }
   if (classified.kind === "graph") {
-    return <FunctionGraphBlock key={node.key} content={classified.body} />;
+    return <LazyFunctionGraphBlock key={node.key} content={classified.body} />;
   }
   if (classified.kind === "answer") {
     if (!classified.body) return null;

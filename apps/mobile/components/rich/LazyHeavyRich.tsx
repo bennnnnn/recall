@@ -1,22 +1,13 @@
 /**
  * Async-split Mermaid (~3.4MB), Vega (~0.85MB), SmilesDrawer (~0.25MB),
- * Web preview, clock, and geometry/graph SVG blocks off the chat import graph.
+ * Web preview, clock, geometry/graph SVG blocks, physics scenes and the
+ * parsers that size a scene's placeholder off the chat import graph.
  */
-import React, { Suspense, useMemo, type ComponentType } from "react";
+import React, { Suspense, useEffect, useMemo, useState, type ComponentType } from "react";
 import { ActivityIndicator, useWindowDimensions, View } from "react-native";
 
-import { physicsDiagramPlaceholderHeight } from "@/components/rich/diagrams/placeholder";
-import { FIGURE_TITLE_HEIGHT, figureWidth } from "@/components/rich/figure";
 import { diagramKind } from "@/lib/physics/diagramKind";
-import {
-  parseSimulationSpec,
-  SIMULATION_HEIGHT,
-  SIMULATION_MIN_HEIGHT,
-  SIMULATION_PAD,
-  simulationIsAnimated,
-  simulationViewportHeight,
-} from "@/lib/physics/simulation";
-import { Space } from "@/lib/space";
+import { SIMULATION_HEIGHT } from "@/lib/physics/simulation/viewport";
 
 /** The height each block's spinner holds while its chunk loads, close to the drawn card. */
 const PLACEHOLDER_HEIGHT = {
@@ -55,7 +46,7 @@ const WebPreviewCodeBlockLazy = React.lazy(() =>
 
 function RichLoadPlaceholder({ height }: { height: number }) {
   return (
-    <View style={{ height, alignItems: "center", justifyContent: "center" }}>
+    <View testID="rich-load-placeholder" style={{ height, alignItems: "center", justifyContent: "center" }}>
       <ActivityIndicator />
     </View>
   );
@@ -127,39 +118,57 @@ export const LazyCircularClockBlock = lazyContentBlock(
   PLACEHOLDER_HEIGHT.clock,
 );
 
-/**
- * The height the scene will take once loaded — title, canvas sized to the
- * scene's aspect, and the play button when something moves — so a list cell
- * does not jump when the chunk arrives. Unreadable content keeps the old
- * fixed guess; the block shows a one-line fallback for it anyway.
- */
-export function simulationPlaceholderHeight(
-  content: string,
-  screenWidth: number,
-): number {
-  const spec = parseSimulationSpec(content);
-  if (!spec) return SIMULATION_HEIGHT;
-  const canvas = simulationViewportHeight(
-    spec,
-    figureWidth(screenWidth),
-    SIMULATION_PAD,
-    SIMULATION_MIN_HEIGHT,
-    SIMULATION_HEIGHT,
+type SimulationSizing = typeof import("@/components/rich/simulationPlaceholder");
+
+/** The fence's exact placeholder height comes from the physics parsers, loaded on first use. */
+let simulationSizing: SimulationSizing | null = null;
+let simulationSizingLoad: Promise<SimulationSizing> | null = null;
+
+function loadSimulationSizing(): Promise<SimulationSizing> {
+  simulationSizingLoad ??= import("@/components/rich/simulationPlaceholder").then(
+    (sizing) => {
+      simulationSizing = sizing;
+      return sizing;
+    },
+    (error: unknown) => {
+      simulationSizingLoad = null;
+      throw error;
+    },
   );
-  const control = simulationIsAnimated(spec) ? Space.xxs + Space.minTouch : 0;
-  return Space.xs * 2 + FIGURE_TITLE_HEIGHT + canvas + control;
+  return simulationSizingLoad;
+}
+
+/** The sizing module once loaded; the first scene of a session asks for it. */
+function useSimulationSizing(): SimulationSizing | null {
+  const [sizing, setSizing] = useState(simulationSizing);
+  useEffect(() => {
+    if (sizing) return;
+    let current = true;
+    loadSimulationSizing().then(
+      (loaded) => {
+        if (current) setSizing(loaded);
+      },
+      () => {},
+    );
+    return () => {
+      current = false;
+    };
+  }, [sizing]);
+  return sizing;
 }
 
 export function LazySimulationBlock({ content }: { content: string }) {
   const { width: screenWidth } = useWindowDimensions();
   // A circuit, a ray diagram or a wave has no bodies to walk: its own renderer.
   const kind = useMemo(() => diagramKind(content), [content]);
+  const sizing = useSimulationSizing();
+  // Until the sizing module is in (a moment, once per session), the usual scene height.
   const height = useMemo(
     () =>
-      kind
-        ? physicsDiagramPlaceholderHeight(content, screenWidth)
-        : simulationPlaceholderHeight(content, screenWidth),
-    [content, kind, screenWidth],
+      sizing
+        ? sizing.simulationFencePlaceholderHeight(content, kind, screenWidth)
+        : SIMULATION_HEIGHT,
+    [content, kind, screenWidth, sizing],
   );
   return (
     <Suspense fallback={<RichLoadPlaceholder height={height} />}>

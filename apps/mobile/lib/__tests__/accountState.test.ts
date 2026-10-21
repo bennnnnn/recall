@@ -99,6 +99,8 @@ const IN_FLIGHT = [
 /** No account data: phone settings, native modules, players, listeners, counters, lookup tables. */
 const NO_ACCOUNT_DATA = [
   "components/CodeBlock.tsx#cachedTokenizer",
+  "components/rich/LazyHeavyRich.tsx#simulationSizing",
+  "components/rich/LazyHeavyRich.tsx#simulationSizingLoad",
   "components/markdown/LinkPreviewTrust.tsx#NO_PREVIEWS",
   "features/attachments/model/attachmentIndexStatus.ts#offline",
   "features/attachments/model/attachmentIndexStatus.ts#stopWatchingNetwork",
@@ -143,7 +145,8 @@ const NO_ACCOUNT_DATA = [
   "lib/scanner/switchCue.ts#activePlayer",
   "lib/scanner/switchCue.ts#cueEpoch",
   "lib/scanner/switchCue.ts#releaseTimer",
-  "lib/sentry.ts#initialized",
+  "lib/sentry.ts#sdk",
+  "lib/sentry.ts#starting",
   "lib/skiaAvailability.ts#cached",
   "lib/speech/voiceAudio.ts#audioModule",
   "lib/speech/voiceAudio.ts#exclusiveMicStop",

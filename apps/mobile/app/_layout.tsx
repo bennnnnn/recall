@@ -120,7 +120,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
-      initMobileSentry();
+      void initMobileSentry();
     });
     return () => task.cancel();
   }, []);

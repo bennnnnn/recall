@@ -12,7 +12,7 @@ import type { IconName } from "@/ui/icons/names";
 import { useTheme } from "@/lib/theme";
 import { ChatScreenBody } from "@/features/chat/components/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/features/chat/components/ChatScreenMenuSheets";
-import { LiveTalkOverlay } from "@/features/speech/components/LiveTalkOverlay";
+import { LazyLiveTalkOverlay } from "@/features/speech/components/LazyLiveTalkOverlay";
 import { makeChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import { COMPOSER_HEIGHT } from "@/features/chat/components/ChatComposer";
 import { composerAttachmentExtra } from "@/features/attachments/components/ComposerAttachmentPreview";
@@ -523,7 +523,7 @@ function ChatScreen() {
     <EmailDraftPersistProvider save={handleSaveEmailDraft}>
       <View style={{ flex: 1 }}>
         <ChatScreenBody {...chatScreenBodyProps} />
-        <LiveTalkOverlay
+        <LazyLiveTalkOverlay
           visible={liveTalk.visible}
           phase={liveTalk.phase}
           meterLevel={liveTalk.meterLevel}
