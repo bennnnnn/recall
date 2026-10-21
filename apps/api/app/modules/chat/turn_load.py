@@ -337,6 +337,8 @@ async def load_regenerate_turn(
             backup = RegenerateBackup(content=last.content, model=last.model, message_id=last.id)
             omit_message_ids = {last.id}
         turn_mode = await _classify_turn_mode(session, chat, content)
+        # Last, so a failed read here (logged, not raised) cannot cut the reads above.
+        await seed_usage_from_db(redis, session, user_id)
     return RegenerateTurn(
         user=user,
         chat=chat,

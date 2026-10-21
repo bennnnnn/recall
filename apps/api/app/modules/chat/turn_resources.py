@@ -20,7 +20,6 @@ from app.models.orm import User
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
-from app.modules.chat.turn_settle import seed_usage_from_db
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import model_catalog
 from app.services.context_window import estimate_tokens
@@ -64,7 +63,6 @@ class TurnResources:
         daily_limit: int | None = None,
         max_output: int | None = None,
         vision_extra: int = 0,
-        seed: bool = True,
     ) -> int:
         self.reserved_tokens = await reserve_turn_quota(
             self.deps,
@@ -76,7 +74,6 @@ class TurnResources:
             daily_limit=daily_limit,
             max_output=max_output,
             vision_extra=vision_extra,
-            seed=seed,
         )
         return self.reserved_tokens
 
@@ -255,7 +252,6 @@ async def reserve_turn_quota(
     daily_limit: int | None = None,
     max_output: int | None = None,
     vision_extra: int = 0,
-    seed: bool = True,
 ) -> int:
     """Refuse a turn the global spend cap or today's token budget cannot cover.
 
@@ -268,14 +264,11 @@ async def reserve_turn_quota(
     or a page of code would stop mid-fence), and finalize clips the counter
     at the limit, so one turn is the most a user can go over.
 
-    ``seed`` re-reads today's total from the DB when Redis lost it
-    (regenerate); a new turn already did that in ``turn_load``.
+    Today's total was read back from the DB, when Redis had lost it, as the
+    turn loaded (``turn_load``), in a session it had open anyway.
     """
     if await deps.quota.global_spend_exceeded(redis, settings):
         raise SpendCapReachedError(CHAT_SPEND_CAP_MESSAGE)
-    if seed:
-        async with deps.session_factory() as session:
-            await seed_usage_from_db(redis, session, user.id)
     if daily_limit is None:
         daily_limit = deps.quota.daily_limit_for_user(user, settings)
     wanted = weighted_reserve_tokens(

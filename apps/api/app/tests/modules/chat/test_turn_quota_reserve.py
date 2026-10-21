@@ -13,7 +13,7 @@ import pytest
 
 from app.core.config import Settings
 from app.exceptions import QuotaExceededError, SpendCapReachedError
-from app.modules.chat import stream_entry, turn_resources
+from app.modules.chat import stream_entry, turn_load, turn_resources
 from app.modules.chat.stream_events import error_payload_for_exception
 from app.modules.chat.turn_prep import StreamContext
 from app.services import quota as quota_service
@@ -38,9 +38,13 @@ def _wanted(content: str = "hi", model: str = "free-chat") -> int:
     )
 
 
+def _no_session() -> FakeSessionCM:
+    raise AssertionError("reserving a turn's tokens opened a database session")
+
+
 async def _reserve(fake_redis, user, *, settings: Settings = _SETTINGS) -> int:
     return await turn_resources.reserve_turn_quota(
-        turn_deps(session_factory=FakeSessionCM),
+        turn_deps(session_factory=_no_session),
         fake_redis,
         user=user,
         content="hi",
@@ -48,7 +52,6 @@ async def _reserve(fake_redis, user, *, settings: Settings = _SETTINGS) -> int:
         settings=settings,
         daily_limit=_LIMIT,
         max_output=settings.max_output_tokens,
-        seed=False,
     )
 
 
@@ -242,7 +245,6 @@ async def test_turn_resources_refund_the_reservation_when_a_turn_fails(
                 settings=_SETTINGS,
                 daily_limit=_LIMIT,
                 max_output=_SETTINGS.max_output_tokens,
-                seed=False,
             )
             assert await _used(fake_redis, user) == _wanted()
             raise failure
@@ -291,3 +293,44 @@ async def test_stream_chat_response_at_spend_cap_never_prepares_the_turn(fake_re
     prepare.assert_not_awaited()
     release.assert_awaited_once()
     assert await _used(fake_redis, user) == 0
+
+
+async def test_regenerate_reads_back_a_lost_usage_counter_in_its_load_session(fake_redis) -> None:
+    """Redis lost today's counter: the regenerate's one load session reads it back.
+
+    The reservation used to open a second session for it, after the load closed.
+    """
+    user = _user()
+    last = MagicMock(role="assistant", content="old answer", model="free-chat", id=uuid4())
+    sessions: list[object] = []
+
+    def counting_session() -> FakeSessionCM:
+        sessions.append(object())
+        return FakeSessionCM()
+
+    deps = turn_deps(
+        session_factory=counting_session,
+        users={"get_by_id": AsyncMock(return_value=user)},
+        chats={"get_by_id": AsyncMock(return_value=MagicMock(summary=None))},
+        messages={
+            "get_last": AsyncMock(return_value=last),
+            "get_last_user": AsyncMock(return_value=MagicMock(content="explain entropy")),
+            "count_for_chat": AsyncMock(return_value=2),
+        },
+        plan={"resolve_regenerate_model": MagicMock(return_value="free-chat")},
+    )
+    with (
+        patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
+        patch("app.modules.chat.turn_load._classify_turn_mode", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_settle.usage_repo.get_total_for_date",
+            AsyncMock(return_value=4_321),
+        ),
+    ):
+        await turn_load.load_regenerate_turn(
+            deps, fake_redis, _SETTINGS, user_id=user.id, chat_id=uuid4(), model_alias=None
+        )
+        reserved = await _reserve(fake_redis, user)
+
+    assert len(sessions) == 1
+    assert await _used(fake_redis, user) == 4_321 + reserved

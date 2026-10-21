@@ -78,7 +78,6 @@ async def _reserve_new_turn(
         daily_limit=turn.daily_limit,
         vision_extra=vision_extra,
         max_output=settings.max_output_tokens,
-        seed=False,
     )
 
 
@@ -268,7 +267,6 @@ async def stream_regenerate_response(
             settings=settings,
             max_output=settings.max_output_tokens,
             vision_extra=vision_reserve_tokens(settings, len(current_image_ids)),
-            seed=True,
         )
         request = TurnRequest(
             user_id=user_id,
