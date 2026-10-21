@@ -1,5 +1,6 @@
 import type { Message } from "@/lib/api";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
+import { isServerMessageId } from "@/lib/serverMessageId";
 
 type OrphanFile = {
   uri: string;
@@ -37,7 +38,7 @@ function sameFields(a: Record<string, unknown>, b: Record<string, unknown>, skip
 }
 
 /** True when `next` draws exactly like `prior`. `renderKey` is the list key, not anything drawn. */
-function drawsSame(prior: Message, next: Message): boolean {
+export function drawsSame(prior: Message, next: Message): boolean {
   return prior === next || sameFields(prior, next, "renderKey");
 }
 
@@ -146,4 +147,55 @@ export function mergeLocalAttachmentUris(
   }
 
   return unlessUnchanged(previous, merged);
+}
+
+/** A cached page in place of the shown thread; a repaint of the same thread keeps its local previews. */
+export function paintCachedThread(previous: Message[], cached: Message[]): Message[] {
+  const cachedIds = new Set(cached.map((m) => m.id));
+  // Carrying local previews over only makes sense within one thread; on a chat
+  // swap it could put the old chat's local image on the new chat's row.
+  return previous.some((m) => cachedIds.has(m.id)) ? mergeLocalAttachmentUris(previous, cached) : cached;
+}
+
+/** The message a sent bubble shows, as the server saved it (its text, or the caption under its files). */
+function savedAs(sent: Message, saved: Message): boolean {
+  const text = sent.content.trim();
+  return Boolean(text) && (saved.content.trim() === text || parseUserMessageContent(saved.content).caption === text);
+}
+
+type OpenedPageMerge = {
+  messages: Message[];
+  /** The page may hold the saved copy of a message just sent: read the chat again once the turn settles. */
+  recheck: boolean;
+};
+
+/**
+ * The chat's newest page over the thread painted from cache while it loaded.
+ * `painted` is what that paint showed. Rows the view added after the last row
+ * it shares with the page (a sent message, its reply) stay after the page;
+ * rows before it are in the page under the server's ids. Rows the view took
+ * away (a reply being regenerated) stay out.
+ *
+ * The page was asked for before the view could send, so it almost never holds
+ * a message sent meanwhile. If it ends with a message this view never showed
+ * while one of its own sent messages waits, that message may be the saved copy:
+ * one with the same text is left out so it does not show twice, and `recheck`
+ * asks for the chat again when the turn settles.
+ */
+export function mergeOpenedPage(
+  previous: Message[],
+  page: Message[],
+  painted: ReadonlySet<string>,
+): OpenedPageMerge {
+  const shown = new Map(previous.map((m) => [m.id, m]));
+  const pageIds = new Set(page.map((m) => m.id));
+  const kept = page.filter((m) => shown.has(m.id) || !painted.has(m.id));
+  const lastShared = previous.findLastIndex((m) => pageIds.has(m.id));
+  const added = previous.slice(lastShared + 1).filter((m) => !painted.has(m.id));
+  const waiting = added.filter((m) => m.role === "user" && !isServerMessageId(m.id));
+  const last = kept[kept.length - 1];
+  const recheck = waiting.length > 0 && last?.role === "user" && !shown.has(last.id);
+  const rows = recheck && waiting.some((sent) => savedAs(sent, last)) ? kept.slice(0, -1) : kept;
+  const merged = [...rows.map((row) => settleRow(shown.get(row.id), row)), ...added];
+  return { messages: unlessUnchanged(previous, merged), recheck };
 }

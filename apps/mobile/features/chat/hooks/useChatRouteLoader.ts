@@ -18,10 +18,13 @@ import {
 import {
   cachedChatPageFetchedAt,
   clearCachedChatMessages,
+  isCachedChatPageFresh,
+  markCachedChatPagesStale,
+  peekCachedChatPage,
   readCachedChatMessages,
-  writeCachedChatMessages,
+  type CachedChatPage,
 } from "@/features/chat/model/messageCache";
-import { mergeLocalAttachmentUris } from "@/features/chat/model/messageMerge";
+import { mergeLocalAttachmentUris, mergeOpenedPage, paintCachedThread } from "@/features/chat/model/messageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import {
   chatHasThreadContent,
@@ -34,6 +37,8 @@ import { shouldInsertDrawerRowOnLeave } from "@/features/chat/model/titleRefresh
 import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/lib/drawer";
 import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/features/chat/hooks/useChatHighlightScroll";
+import { useChatOlderMessages } from "@/features/chat/hooks/useChatOlderMessages";
+import { syncedAt, useChatPageCacheWriter, type ChatPageSync } from "@/features/chat/hooks/useChatPageCacheWriter";
 import { useChatTitlePolling } from "@/features/chat/hooks/useChatTitlePolling";
 
 type Router = ReturnType<typeof useRouter>;
@@ -105,8 +110,7 @@ export function useChatRouteLoader({
   const [pinned, setPinned] = useState(false);
   const [archived, setArchived] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
-  const [hasMoreOlder, setHasMoreOlder] = useState(false);
-  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [pageSync, setPageSync] = useState<ChatPageSync | null>(null);
   const session = getSessionGeneration();
   const signedIn = Boolean(token);
   const viewRef = useRef({ session, routeChatId, version: 0 });
@@ -116,6 +120,10 @@ export function useChatRouteLoader({
   const viewVersion = viewRef.current.version;
   const activeChatRef = useRef(chatId);
   activeChatRef.current = chatId;
+  const isActiveChat = useCallback((id: string) => id === activeChatRef.current, []);
+  const { hasMoreOlder, setHasMoreOlder, loadingOlder, loadOlderMessages, resetOlder } = useChatOlderMessages({
+    token, chatId, chatLoading, messages, setMessages, viewRef, isActiveChat, showActionBanner, t,
+  });
   useEffect(() => subscribeChatChanges((id, patch) => {
     if (session !== getSessionGeneration() || id !== activeChatRef.current || !patch) return;
     if (patch.title !== undefined) setChatTitle(patch.title);
@@ -129,7 +137,6 @@ export function useChatRouteLoader({
     setPinned(chat.pinned);
     setArchived(Boolean(chat.archived));
   }, []);
-  const olderRequestRef = useRef<object | null>(null);
   useEffect(() => () => {
     viewRef.current.version += 1;
   }, []);
@@ -188,7 +195,7 @@ export function useChatRouteLoader({
   const startNewChat = useCallback(
     (_opts?: { force?: boolean }) => {
       viewRef.current.version++;
-      olderRequestRef.current = null;
+      resetOlder();
       leaveOpenChat(_opts);
       setChatId(null);
       setChatTitle(null);
@@ -196,7 +203,6 @@ export function useChatRouteLoader({
       setArchived(false);
       setMessages([]);
       setHasMoreOlder(false);
-      setLoadingOlder(false);
       setChatLoading(false);
       if (routeChatId != null) {
         router.setParams({ chatId: undefined });
@@ -208,6 +214,8 @@ export function useChatRouteLoader({
       router,
       setMessages,
       setChatId,
+      resetOlder,
+      setHasMoreOlder,
     ],
   );
 
@@ -230,7 +238,7 @@ export function useChatRouteLoader({
       ) {
         return;
       }
-      const disk = await readCachedChatMessages(openChatId);
+      const disk = peekCachedChatPage(openChatId) ?? await readCachedChatMessages(openChatId);
       if (stale()) return;
       if (
         shouldSkipSilentChatRefetch({
@@ -245,10 +253,9 @@ export function useChatRouteLoader({
         return;
       }
       try {
-        const listed = getCachedChat(openChatId);
         const revision = getChatMutationRevision(openChatId);
         const [chat, page] = await Promise.all([
-          listed ?? api.getChat(token, openChatId),
+          getCachedChat(openChatId) ?? api.getChat(token, openChatId),
           api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
         if (stale()) return;
@@ -256,13 +263,14 @@ export function useChatRouteLoader({
         applyMetadata(revision === getChatMutationRevision(openChatId) ? chat : getCachedChat(openChatId));
         setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
         setHasMoreOlder(page.has_more);
-        lastSilentFetchAtRef.current.set(openChatId, Date.now());
-        void writeCachedChatMessages(openChatId, page.messages, page.has_more);
+        const fetchedAt = Date.now();
+        lastSilentFetchAtRef.current.set(openChatId, fetchedAt);
+        setPageSync(syncedAt(openChatId, fetchedAt));
       } catch {
         /* keep existing messages on silent refetch failure */
       }
     },
-    [token, session, viewVersion, setChatId, setMessages, applyMetadata, turnBusy],
+    [token, session, viewVersion, setChatId, setMessages, applyMetadata, turnBusy, setHasMoreOlder],
   );
 
   useEffect(() => {
@@ -270,6 +278,8 @@ export function useChatRouteLoader({
     const onAppState = (state: AppStateStatus) => {
       if (session !== getSessionGeneration()) return;
       if (state === "background" || state === "inactive") {
+        // Another device may write to any chat while this one is away.
+        if (state === "background") markCachedChatPagesStale();
         if (streamingRef.current || Boolean(imageGeneratingRef?.current)) {
           wasStreamingWhenBackgroundedRef.current = true;
         }
@@ -330,8 +340,7 @@ export function useChatRouteLoader({
   }, [routeChatId]);
 
   useEffect(() => {
-    olderRequestRef.current = null;
-    setLoadingOlder(false);
+    resetOlder();
     if (!token) {
       setChatLoading(false);
       return;
@@ -373,7 +382,32 @@ export function useChatRouteLoader({
         skipLoadForChatIdRef.current = null;
         setChatId(openChatId);
         setChatLoading(false);
+        // The chat this view just created holds nothing but what it shows.
         lastSilentFetchAtRef.current.set(openChatId, Date.now());
+        setPageSync(syncedAt(openChatId, Date.now()));
+        return;
+      }
+      const showCachedPage = (cached: CachedChatPage | null, listed = getCachedChat(openChatId)) => {
+        setChatId(openChatId);
+        setMessages((prev) => paintCachedThread(prev, cached?.messages ?? []));
+        setChatTitle(null);
+        setPinned(false);
+        setArchived(false);
+        if (cached) {
+          setHasMoreOlder(cached.has_more);
+          if (listed) applyMetadata(listed);
+        }
+      };
+      const kept = peekCachedChatPage(openChatId);
+      const listed = getCachedChat(openChatId);
+      if (kept && listed && isCachedChatPageFresh(openChatId, listed.updated_at)) {
+        // This device wrote the page moments ago and nothing suggests the chat moved on.
+        showCachedPage(kept, listed);
+        const fetchedAt = cachedChatPageFetchedAt(kept) ?? Date.now();
+        lastSilentFetchAtRef.current.set(openChatId, fetchedAt);
+        setPageSync(syncedAt(openChatId, fetchedAt));
+        setChatLoading(false);
+        if (!listed.title && kept.messages.length > 0) pollForTitle(token, openChatId);
         return;
       }
       setChatLoading(true);
@@ -383,41 +417,30 @@ export function useChatRouteLoader({
         // (fast) cache read, then swap in one shot — no blank flash on open.
         // The old thread's pending work still cannot paint into this route
         // because every set below is guarded by isCurrent().
-        const cached = await readCachedChatMessages(openChatId);
+        const cached = kept ?? await readCachedChatMessages(openChatId);
         if (!isCurrent()) return;
-        const listed = getCachedChat(openChatId);
-        setChatId(openChatId);
-        setMessages((prev) => {
-          const incoming = cached?.messages ?? [];
-          // Orphan local-URI carry-over only makes sense when prev is the same
-          // thread; on a chat swap it could leak the old chat's local image
-          // onto the new chat's row.
-          const incomingIds = new Set(incoming.map((m) => m.id));
-          const sameThread = prev.some((m) => incomingIds.has(m.id));
-          return sameThread ? mergeLocalAttachmentUris(prev, incoming) : incoming;
-        });
-        setChatTitle(null);
-        setPinned(false);
-        setArchived(false);
-        if (cached) {
-          setHasMoreOlder(cached.has_more);
-          if (listed) {
-            applyMetadata(listed);
-          }
-        }
+        showCachedPage(cached);
+        const painted = new Set(cached?.messages.map((m) => m.id));
         const revision = getChatMutationRevision(openChatId);
         const [chat, page] = await Promise.all([
-          listed ?? api.getChat(token, openChatId),
+          getCachedChat(openChatId) ?? api.getChat(token, openChatId),
           api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
         if (!isCurrent()) return;
         setChatId(chat.id);
         const currentChat = revision === getChatMutationRevision(openChatId) ? chat : getCachedChat(openChatId);
         applyMetadata(currentChat);
-        setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
+        // Send works on the painted page: what it sent meanwhile stays after the page.
+        const outcome = { recheck: false };
+        setMessages((prev) => {
+          const merged = mergeOpenedPage(prev, page.messages, painted);
+          outcome.recheck = merged.recheck;
+          return merged.messages;
+        });
         setHasMoreOlder(page.has_more);
-        lastSilentFetchAtRef.current.set(openChatId, Date.now());
-        void writeCachedChatMessages(openChatId, page.messages, page.has_more);
+        const fetchedAt = Date.now();
+        lastSilentFetchAtRef.current.set(openChatId, fetchedAt);
+        setPageSync({ chatId: openChatId, fetchedAt, outcome });
         if (currentChat && !currentChat.title && page.messages.length > 0) {
           pollForTitle(token, openChatId);
         }
@@ -458,45 +481,18 @@ export function useChatRouteLoader({
     }, [token, routeChatId, chatLoading, silentRefetchChat, turnBusy]),
   );
 
-  const loadOlderMessages = useCallback(async () => {
-    if (
-      !token || !chatId || session !== getSessionGeneration() || viewVersion !== viewRef.current.version ||
-      chatId !== activeChatRef.current || chatLoading || olderRequestRef.current ||
-      !hasMoreOlder || messages.length === 0
-    ) return;
-    const oldest = messages[0];
-    const isServerId =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(oldest.id);
-    if (!isServerId) return;
+  // The page may have held the saved copy of a message sent meanwhile: read the chat once the turn settles.
+  const recheckChatId = pageSync?.outcome.recheck ? pageSync.chatId : null;
+  useEffect(() => {
+    if (!recheckChatId || recheckChatId !== chatId || streaming) return;
+    let cancelled = false;
+    void silentRefetchChat(recheckChatId, () => cancelled, { force: true });
+    return () => {
+      cancelled = true;
+    };
+  }, [recheckChatId, chatId, streaming, silentRefetchChat]);
 
-    const request = {};
-    const version = viewRef.current.version;
-    const ownerSession = getSessionGeneration();
-    const isCurrent = () =>
-      ownerSession === getSessionGeneration() && version === viewRef.current.version && olderRequestRef.current === request;
-    olderRequestRef.current = request;
-    setLoadingOlder(true);
-    try {
-      const page = await api.listMessages(token, chatId, {
-        limit: MESSAGE_PAGE_SIZE,
-        before: oldest.id,
-      });
-      if (!isCurrent()) return;
-      setMessages((prev) => {
-        if (ownerSession !== getSessionGeneration() || version !== viewRef.current.version) return prev;
-        const knownIds = new Set(prev.map((message) => message.id));
-        return [...page.messages.filter((message) => !knownIds.has(message.id)), ...prev];
-      });
-      setHasMoreOlder(page.has_more);
-    } catch {
-      if (isCurrent()) showActionBanner(t("common.error"), "alert-circle");
-    } finally {
-      if (isCurrent()) {
-        olderRequestRef.current = null;
-        setLoadingOlder(false);
-      }
-    }
-  }, [token, session, viewVersion, chatId, chatLoading, hasMoreOlder, messages, setMessages, showActionBanner, t]);
+  useChatPageCacheWriter({ chatId, routeChatId, messages, busy: streaming, hasMoreOlder, sync: pageSync });
 
   const { highlightedMessageId } = useChatHighlightScroll({
     chatLoading,
@@ -522,6 +518,8 @@ export function useChatRouteLoader({
     archived,
     setArchived,
     chatLoading,
+    // Send waits only while nothing of the routed chat is on screen.
+    historyPending: chatLoading && (messages.length === 0 || chatId !== (routeChatId ?? null)),
     hasMoreOlder,
     loadingOlder,
     loadOlderMessages,
