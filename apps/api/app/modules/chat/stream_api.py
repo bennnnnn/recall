@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
 from typing import Any
 from uuid import UUID
@@ -22,12 +22,14 @@ from app.core.redis import get_redis_client
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry
+from app.modules.chat.client_message import UNNAMED, ClientMessageClaim, claim_client_message
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     SERVER_RESTARTING_MESSAGE,
     StreamEndEvent,
     await_finalize_commit,
+    build_duplicate_event,
     build_reasoning_event,
     build_start_event,
     build_status_event,
@@ -54,6 +56,8 @@ _TokenStream = Callable[
     [TurnOutcome, StreamStatusFn, StreamReasoningFn, Callable[[], bool]],
     AsyncIterator[str],
 ]
+# A message's claim on its client_message_id; None when an earlier send took it.
+_ClaimMessage = Callable[[], Awaitable[ClientMessageClaim | None]]
 
 
 async def require_chat_rate_limit(user: User = Depends(get_current_user)) -> Redis:
@@ -83,6 +87,7 @@ async def _stream_tokens_sse(
     stream_factory: _TokenStream,
     request: Request,
     cancel_event: asyncio.Event | None = None,
+    claim_message: _ClaimMessage | None = None,
 ) -> AsyncIterator[str]:
     outcome = TurnOutcome()
     event_queue: asyncio.Queue[tuple[str, str, str | None] | None] = asyncio.Queue()
@@ -95,7 +100,17 @@ async def _stream_tokens_sse(
             turn_error_payload(None, user_message_saved=False, message=SERVER_RESTARTING_MESSAGE)
         )
         return
-    yield _sse(build_start_event())
+    # Claimed here, once the response is under way, so a request whose client
+    # left before it began holds no claim. Every exit below settles it.
+    claim = UNNAMED if claim_message is None else await claim_message()
+    if claim is None:
+        yield _sse(build_duplicate_event())
+        return
+    try:
+        yield _sse(build_start_event())
+    except GeneratorExit:
+        await claim.settle(outcome)
+        raise
 
     async def on_status(phase: str, detail: str | None = None) -> None:
         await event_queue.put(("status", phase, detail))
@@ -232,6 +247,7 @@ async def _stream_tokens_sse(
         # when the transport breaks. The shield inside await_finalize_commit
         # means this never cancels the commit task on timeout.
         await persist_finalize_if_pending(outcome)
+        await claim.settle(outcome)
         if not disconnect_watcher.done():
             disconnect_watcher.cancel()
             with suppress(asyncio.CancelledError):
@@ -272,6 +288,9 @@ async def stream_message_sse(
         _stream_tokens_sse(
             chat_id=chat_id,
             request=request,
+            claim_message=lambda: claim_client_message(
+                redis, user_id=user.id, chat_id=chat_id, client_message_id=body.client_message_id
+            ),
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_chat_response(
                     default_deps(),

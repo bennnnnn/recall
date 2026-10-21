@@ -22,11 +22,13 @@ from app.exceptions import (
     QuotaExceededError,
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
+from app.modules.chat.client_message import UNNAMED, ClientMessageClaim
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     StreamEndEvent,
     await_finalize_commit,
+    build_pong_event,
     build_start_event,
     build_token_event,
     clear_task_cancellation,
@@ -173,7 +175,9 @@ async def stream_over_ws(
                 if msg.get("type") == "cancel":
                     outcome.client_shown_chars = client_shown_chars(msg)
                     stop()
-                elif msg.get("type") != "ping":
+                elif msg.get("type") == "ping":
+                    await safe_send_json(websocket, build_pong_event())
+                else:
                     await safe_send_json(
                         websocket,
                         turn_error_payload(ChatBusyError(), user_message_saved=False),
@@ -209,12 +213,15 @@ async def run_chat_stream(
     stream_factory: Callable[[TurnOutcome], AsyncIterator[str]],
     chat_id: UUID | None = None,
     frame_budget: FrameBudget | None = None,
+    claim: ClientMessageClaim = UNNAMED,
 ) -> None:
+    """One turn: ``start``, the stream, and the settle of the message's ``claim``."""
     cancel_event.clear()
-    if not await safe_send_json(websocket, build_start_event()):
-        return
     outcome = TurnOutcome()
     try:
+        # A client gone before ``start`` gets no turn, and its claim is freed.
+        if not await safe_send_json(websocket, build_start_event()):
+            return
         await stream_over_ws(
             websocket,
             stream_factory(outcome),
@@ -229,6 +236,8 @@ async def run_chat_stream(
         await safe_send_json(
             websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
         )
+    finally:
+        await claim.settle(outcome)
 
 
 def schedule_related_prompts(websocket: WebSocket, outcome: TurnOutcome) -> None:
