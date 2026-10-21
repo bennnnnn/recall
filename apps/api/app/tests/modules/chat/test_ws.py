@@ -14,6 +14,7 @@ from app.exceptions import AttachmentValidationError, ChatNotFoundError, QuotaEx
 from app.main import create_app
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.services.quota.messages import QUOTA_EXCEEDED_MESSAGE_FREE
+from app.tests.modules.chat.chat_test_support import access_for
 
 
 @pytest.fixture(autouse=True)
@@ -124,8 +125,8 @@ async def test_ws_receive_after_client_dropped_mid_stream(error, socket_closed, 
         patch("app.modules.chat.ws_api._ws_connect_rate_limit", AsyncMock(return_value=True)),
         patch("app.modules.chat.ws_api.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=uuid4()),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(uuid4())),
         ),
     ):
         if ends_quietly:
@@ -257,8 +258,8 @@ def test_ws_non_dict_frame_does_not_crash():
     app = _app(user)
 
     with patch(
-        "app.modules.chat.ws_api.access_tokens.verify_access_token",
-        AsyncMock(return_value=user.id),
+        "app.modules.chat.ws_api.access_tokens.check_access",
+        AsyncMock(return_value=access_for(user.id)),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -279,8 +280,8 @@ def test_ws_null_content_does_not_crash():
     app = _app(user)
 
     with patch(
-        "app.modules.chat.ws_api.access_tokens.verify_access_token",
-        AsyncMock(return_value=user.id),
+        "app.modules.chat.ws_api.access_tokens.check_access",
+        AsyncMock(return_value=access_for(user.id)),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -307,8 +308,8 @@ def test_ws_connect_rate_limit_fails_closed_on_redis_error():
     with (
         patch("app.modules.chat.ws_api.allow_request_fail_closed", side_effect=allow_side_effect),
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
     ):
         client = TestClient(app)
@@ -335,8 +336,8 @@ def test_ws_sends_message_and_receives_tokens():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
     ):
@@ -371,8 +372,8 @@ def test_ws_done_includes_resolved_model():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
     ):
@@ -403,8 +404,8 @@ def test_ws_passes_client_timezone_to_stream():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
     ):
@@ -430,8 +431,8 @@ def test_ws_empty_message_sends_error_frame():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
     ):
         client = TestClient(app)
@@ -458,8 +459,8 @@ def test_ws_regenerate():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_regenerate_response", fake_regen),
     ):
@@ -491,8 +492,8 @@ def test_ws_regenerate_passes_client_geo():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_regenerate_response", fake_regen),
     ):
@@ -531,8 +532,8 @@ def test_ws_cancel_sets_flag():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
     ):
@@ -564,8 +565,8 @@ def test_ws_mid_stream_cancel():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", slow_stream),
     ):
@@ -602,8 +603,8 @@ def test_ws_cancel_carries_how_much_the_phone_drew():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", slow_stream),
     ):
@@ -637,8 +638,8 @@ def test_ws_mid_stream_non_dict_frame_is_ignored():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", slow_stream),
     ):
@@ -751,8 +752,8 @@ def test_ws_invalid_message_payload():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
     ):
         client = TestClient(app)
@@ -783,8 +784,8 @@ def test_ws_rejected_send_error_frame(error, code):
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", quota_fail),
     ):
@@ -816,8 +817,8 @@ def test_ws_user_not_found_sends_error():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=uuid4()),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(uuid4())),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", missing_user_stream),
     ):
@@ -852,8 +853,8 @@ def test_ws_message_rate_limit_blocks_second_chargeable_message():
             side_effect=allow_chat_side_effect,
         ),
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
     ):
@@ -912,8 +913,8 @@ def test_ws_done_waits_for_finalize_commit():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
     ):
@@ -961,8 +962,8 @@ def test_ws_done_sends_error_when_finalize_fails():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
     ):
@@ -1003,8 +1004,8 @@ def test_ws_done_sends_persisting_when_finalize_times_out():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
         patch("app.modules.chat.stream_events.DONE_COMMIT_WAIT_SECONDS", 0.05),
@@ -1040,8 +1041,8 @@ def test_ws_status_event_carries_detail():
 
     with (
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user.id)),
         ),
         patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
     ):
@@ -1071,9 +1072,9 @@ def test_ws_rechecks_token_on_chargeable_message():
     user = _fake_user()
     chat_id = uuid4()
     app = _app(user)
-    verify = AsyncMock(side_effect=[user.id, GoogleAuthError("Token revoked")])
+    verify = AsyncMock(side_effect=[access_for(user.id), GoogleAuthError("Token revoked")])
 
-    with patch("app.modules.chat.ws_api.access_tokens.verify_access_token", verify):
+    with patch("app.modules.chat.ws_api.access_tokens.check_access", verify):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
             ws.send_json({"token": tok})

@@ -5,7 +5,12 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, object_session
 
-from app.core.user_cache import forget_user, remember_user, remember_user_after_commit
+from app.core.user_cache import (
+    forget_user,
+    publish_change,
+    publish_change_after_commit,
+    remember_user,
+)
 from app.models.orm import (
     Attachment,
     Chat,
@@ -103,16 +108,20 @@ async def update(session: AsyncSession, user: User, *, commit: bool = True, **fi
             setattr(bound, key, value)
     if commit:
         await session.commit()
+        # Every machine drops its copy before the row is read back, so the copy
+        # kept here under the new generation already holds this write.
+        generation = await publish_change(bound.id)
         await session.refresh(bound)
-        remember_user(bound)
+        if generation is not None:
+            remember_user(bound, generation)
     else:
         await session.flush()
         if isinstance(sync, Session):
-            # The caller commits; cache the change only once that commit succeeds.
-            remember_user_after_commit(sync, bound)
+            # The caller commits; publish the change only once that commit succeeds.
+            publish_change_after_commit(sync, bound.id)
         else:
             # Session mocks in unit tests have no transaction to wait for.
-            remember_user(bound)
+            forget_user(bound.id)
     return bound
 
 

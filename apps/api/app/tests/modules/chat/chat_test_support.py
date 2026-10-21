@@ -2,10 +2,12 @@ from contextlib import ExitStack
 from dataclasses import replace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
+from app.core.access_tokens import AccessCheck
+from app.core.cache_generation import MISSING_GENERATION
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat.prompt_builder import (
@@ -35,6 +37,11 @@ class Overlay:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._base, name)
+
+
+def access_for(user_id: UUID) -> AccessCheck:
+    """What ``check_access`` returns for a live token of a user never edited."""
+    return AccessCheck(user_id=user_id, user_generation=MISSING_GENERATION)
 
 
 def grant_quota() -> AsyncMock:

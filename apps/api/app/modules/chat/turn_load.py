@@ -15,6 +15,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import user_cache
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, ConsentRequiredError
 from app.models.orm import Chat, User
@@ -77,7 +78,11 @@ async def _prior_count_for_window(
 
 
 async def _load_user(
-    deps: ChatTurnDeps, timing: TurnTimingTracker, user_id: UUID, user: User | None
+    deps: ChatTurnDeps,
+    timing: TurnTimingTracker,
+    user_id: UUID,
+    user: User | None,
+    generation: str | None,
 ) -> User:
     if user is not None and consent.has_ai_data_consent(user):
         timing.mark_phase("user_ready")
@@ -89,6 +94,9 @@ async def _load_user(
     if loaded is None:
         raise ChatNotFoundError("User not found.")
     _require_consent(loaded)
+    if generation is not None:
+        # The socket's next turn finds it (core/user_cache).
+        user_cache.remember_user(loaded, generation)
     timing.mark_phase("user_ready")
     return loaded
 
@@ -151,6 +159,7 @@ async def _load_account(
     user_id: UUID,
     chat_id: UUID,
     user: User | None,
+    user_generation: str | None,
     chat: Chat | None,
     skip_usage_seed: bool,
 ) -> tuple[User, int, Chat]:
@@ -160,7 +169,7 @@ async def _load_account(
     # AsyncSession; SQLAlchemy AsyncSession itself is intentionally not used
     # concurrently.
     loaded_user, loaded_chat, need_usage_seed = await asyncio.gather(
-        _load_user(deps, timing, user_id, user),
+        _load_user(deps, timing, user_id, user, user_generation),
         _load_chat(deps, timing, chat_id=chat_id, user_id=user_id, chat=chat),
         _needs_usage_seed(deps, redis, timing, user_id, skip_usage_seed),
     )
@@ -213,6 +222,7 @@ async def load_new_turn(
     user: User | None,
     chat: Chat | None,
     skip_usage_seed: bool,
+    user_generation: str | None = None,
 ) -> NewTurn:
     # Account/quota and history are independent once the previous turn is
     # committed. A greeting does not need the recent window before the model
@@ -229,6 +239,7 @@ async def load_new_turn(
         user_id=user_id,
         chat_id=chat_id,
         user=user,
+        user_generation=user_generation,
         chat=chat,
         skip_usage_seed=skip_usage_seed,
     )

@@ -64,7 +64,7 @@ async def test_get_current_user_maps_redis_outage_to_503():
     credentials = MagicMock()
     credentials.credentials = "tok"
     with patch(
-        "app.core.deps.access_tokens.verify_access_token",
+        "app.core.deps.access_tokens.check_access",
         AsyncMock(side_effect=RedisUnavailableError()),
     ):
         with pytest.raises(HTTPException) as exc:

@@ -21,5 +21,19 @@ from redis.asyncio import Redis
 GENERATION_TTL_SECONDS = 30 * 24 * 60 * 60
 
 
-async def bump_generation(redis: Redis, key: str) -> None:
-    await redis.set(key, secrets.token_hex(8), ex=GENERATION_TTL_SECONDS)
+# What a reader uses when the key is missing: never bumped, or bumped a TTL ago.
+MISSING_GENERATION = "0"
+
+
+async def bump_generation(redis: Redis, key: str) -> str:
+    """Store and return a fresh generation for ``key``."""
+    generation = secrets.token_hex(8)
+    await redis.set(key, generation, ex=GENERATION_TTL_SECONDS)
+    return generation
+
+
+def generation_from(raw: bytes | str | None) -> str:
+    """A generation as read from Redis (bytes or str), or the missing-key one."""
+    if raw is None:
+        return MISSING_GENERATION
+    return raw.decode() if isinstance(raw, bytes) else str(raw)

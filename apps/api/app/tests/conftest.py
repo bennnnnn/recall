@@ -102,6 +102,14 @@ def model_spend_redis():
 
 
 @pytest.fixture(autouse=True)
+def user_generation_redis():
+    """Where user-row writes publish their generation (core/user_cache): a fresh fake per test."""
+    client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.core.user_cache.get_redis_client", return_value=client):
+        yield client
+
+
+@pytest.fixture(autouse=True)
 def structured_invalid_redis():
     """The invalid-structured-output counter's Redis: a fresh fake per test."""
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)

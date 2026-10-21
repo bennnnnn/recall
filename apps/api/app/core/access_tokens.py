@@ -2,13 +2,16 @@
 
 Every authenticated request verifies its token here (``app.core.deps``). The
 account module issues, rotates and revokes sessions, and writes the revocation
-keys this module reads. Not Google OAuth.
+keys this module reads. Not Google OAuth. The same round trip reads the user
+row's generation, which says whether this process's copy of the row is current
+(``core/user_cache``).
 """
 
 from __future__ import annotations
 
 import logging
 import secrets
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -17,6 +20,8 @@ import jwt
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from app.core import user_cache
+from app.core.cache_generation import generation_from
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
@@ -90,12 +95,20 @@ def _revocation_keys(payload: dict[str, Any], user_id: UUID) -> tuple[list[str],
     return markers, since
 
 
-async def verify_access_token(redis: Redis, token: str, settings: Settings) -> UUID:
-    """The token's user, once no revocation names it.
+@dataclass(frozen=True)
+class AccessCheck:
+    """A live token's user, and that user row's current generation (``core/user_cache``)."""
+
+    user_id: UUID
+    user_generation: str
+
+
+async def check_access(redis: Redis, token: str, settings: Settings) -> AccessCheck:
+    """The token's user once no revocation names it, with the user row's generation.
 
     Every revocation key (this token, its signed-in device, the user's cutoff)
-    is read in one MGET: this runs before every authenticated request and every
-    chat frame, so it is one Redis round trip, not three.
+    and the generation are read in one MGET: this runs before every
+    authenticated request and every chat frame, so it is one Redis round trip.
     """
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
@@ -103,9 +116,7 @@ async def verify_access_token(redis: Redis, token: str, settings: Settings) -> U
         raise GoogleAuthError("Invalid access token") from exc
     user_id = UUID(payload["sub"])
     markers, since = _revocation_keys(payload, user_id)
-    keys = [*markers, *([since] if since else [])]
-    if not keys:
-        return user_id
+    keys = [*markers, user_cache.generation_key(user_id), *([since] if since else [])]
     try:
         values = await redis.mget(keys)
     except RedisError as exc:
@@ -118,4 +129,9 @@ async def verify_access_token(redis: Redis, token: str, settings: Settings) -> U
     since_raw = values[-1] if since else None
     if since_raw is not None and payload["iat"] <= float(redis_str(since_raw)):
         raise GoogleAuthError("Token revoked")
-    return user_id
+    return AccessCheck(user_id=user_id, user_generation=generation_from(values[len(markers)]))
+
+
+async def verify_access_token(redis: Redis, token: str, settings: Settings) -> UUID:
+    """The token's user once no revocation names it (``check_access`` without the row)."""
+    return (await check_access(redis, token, settings)).user_id

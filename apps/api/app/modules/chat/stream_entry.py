@@ -101,10 +101,14 @@ async def stream_chat_response(
     on_status: StreamStatusFn | None = None,
     on_reasoning: StreamReasoningFn | None = None,
     user: User | None = None,
+    user_generation: str | None = None,
     chat: Chat | None = None,
     skip_usage_seed: bool = False,
     resources: TurnResources | None = None,
 ) -> AsyncIterator[str]:
+    """``user`` is the transport's current copy of the user, if it has one;
+    ``user_generation`` is the generation it read (``core/user_cache``), under
+    which a row this turn reads instead is kept for the next turn."""
     content = content.strip()
     if not content and not attachment_ids:
         raise ChatNotFoundError("Message cannot be empty.")
@@ -125,6 +129,7 @@ async def stream_chat_response(
             content=content,
             model_alias=model_alias,
             user=user,
+            user_generation=user_generation,
             chat=chat,
             skip_usage_seed=skip_usage_seed,
         )

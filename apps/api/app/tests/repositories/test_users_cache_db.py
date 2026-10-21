@@ -1,8 +1,9 @@
-"""A user change the caller has not committed never reaches the per-process user cache.
+"""A user change reaches the user cache only once it commits, and then on every machine.
 
 ``users.update(commit=False)`` used to cache the new values at flush. When the
 caller's commit then failed and rolled back, this process served the unsaved
-profile to every request for up to the cache TTL.
+profile to every request for up to the cache TTL. A committed change now also
+publishes a new generation (core/user_cache), so other machines drop their copy.
 """
 
 from uuid import uuid4
@@ -10,6 +11,8 @@ from uuid import uuid4
 import pytest
 
 from app.core import user_cache
+from app.core.background_tasks import drain_background_tasks
+from app.core.cache_generation import MISSING_GENERATION, generation_from
 from app.models.orm import User
 from app.repositories import users
 
@@ -24,6 +27,10 @@ async def _user(session) -> User:
     )
 
 
+async def _generation(redis, user_id) -> str:
+    return generation_from(await redis.get(user_cache.generation_key(user_id)))
+
+
 @pytest.fixture(autouse=True)
 def _empty_cache():
     user_cache.clear()
@@ -31,37 +38,68 @@ def _empty_cache():
     user_cache.clear()
 
 
-async def test_an_uncommitted_change_is_not_cached_until_the_commit(db_session):
+async def test_an_uncommitted_change_is_published_only_at_the_commit(
+    db_session, user_generation_redis
+):
     user = await _user(db_session)
+    user_cache.remember_user(user, MISSING_GENERATION)
 
     await users.update(db_session, user, commit=False, name="After")
-    assert user_cache.cached_user(user.id) is None
+    await drain_background_tasks()
+    assert await _generation(user_generation_redis, user.id) == MISSING_GENERATION
 
     await db_session.commit()
-    cached = user_cache.cached_user(user.id)
-    assert cached is not None
-    assert cached.name == "After"
+    await drain_background_tasks()
+    assert await _generation(user_generation_redis, user.id) != MISSING_GENERATION
+    assert user_cache.cached_user(user.id, MISSING_GENERATION) is None
 
 
-async def test_a_rolled_back_change_is_never_served_from_the_cache(db_session):
+async def test_a_rolled_back_change_is_never_served_from_the_cache(
+    db_session, user_generation_redis
+):
     user = await _user(db_session)
     user_id = user.id  # the rollback expires the row; reading it again would load it
-    user_cache.remember_user(user)
+    user_cache.remember_user(user, MISSING_GENERATION)
 
     await users.update(db_session, user, commit=False, name="Unsaved")
     await db_session.rollback()
 
-    assert user_cache.cached_user(user_id) is None
-    # A later commit on the same session does not bring the unsaved values back.
+    assert user_cache.cached_user(user_id, MISSING_GENERATION) is None
+    # A later commit on the same session does not publish the unsaved change.
     await db_session.commit()
-    assert user_cache.cached_user(user_id) is None
+    await drain_background_tasks()
+    assert await _generation(user_generation_redis, user_id) == MISSING_GENERATION
 
 
-async def test_a_committed_update_is_cached_at_once(db_session):
+async def test_a_committed_update_is_kept_under_its_new_generation(
+    db_session, user_generation_redis
+):
     user = await _user(db_session)
+    user_cache.remember_user(user, MISSING_GENERATION)
 
     await users.update(db_session, user, name="Saved")
 
-    cached = user_cache.cached_user(user.id)
+    generation = await _generation(user_generation_redis, user.id)
+    assert generation != MISSING_GENERATION
+    # Another machine (or this one) holding the old generation reads the row again.
+    assert user_cache.cached_user(user.id, MISSING_GENERATION) is None
+    cached = user_cache.cached_user(user.id, generation)
     assert cached is not None
     assert cached.name == "Saved"
+
+
+async def test_a_memory_hand_edit_retires_cached_copies_at_the_commit(
+    db_session, user_generation_redis
+):
+    """The stamp is a write to the user row like any other."""
+    from app.modules.memory import repository as memories_repo
+
+    user = await _user(db_session)
+
+    await memories_repo.note_manual_edit(db_session, user.id)
+    await drain_background_tasks()
+    assert await _generation(user_generation_redis, user.id) == MISSING_GENERATION
+
+    await db_session.commit()
+    await drain_background_tasks()
+    assert await _generation(user_generation_redis, user.id) != MISSING_GENERATION

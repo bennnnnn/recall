@@ -20,7 +20,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy import exists, select, update
 
-from app.core import jobs
+from app.core import jobs, user_cache
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
@@ -186,6 +186,8 @@ async def scan_recent_chats(settings: Settings, *, user_id: UUID) -> None:
             .values(memory_history_scanned_at=datetime.now(UTC))
         )
         await session.commit()
+    # Cached copies of the row still say "not scanned" (core/user_cache).
+    await user_cache.publish_change(user_id)
     await _clear_state(redis, user_id)
     logger.info(
         "memory history scan done user_id=%s chats=%s missed=%s", user_id, len(chat_ids), missed
