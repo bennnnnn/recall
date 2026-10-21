@@ -15,6 +15,7 @@ from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from app.core.timezone import resolve_timezone
+from app.services.calendar_dates import read_dates
 from app.services.number_text import count_word_pattern, number_word_value
 from app.services.text_normalize import collapse_ws
 
@@ -64,45 +65,6 @@ _SIMPLE_CADENCE = re.compile(
     re.IGNORECASE,
 )
 _BIWEEKLY = re.compile(r"\b(?:bi[\s-]?weekly|fortnightly|every\s+other\s+week)\b", re.IGNORECASE)
-
-_MONTHS = {
-    "jan": 1,
-    "january": 1,
-    "feb": 2,
-    "february": 2,
-    "mar": 3,
-    "march": 3,
-    "apr": 4,
-    "april": 4,
-    "may": 5,
-    "jun": 6,
-    "june": 6,
-    "jul": 7,
-    "july": 7,
-    "aug": 8,
-    "august": 8,
-    "sep": 9,
-    "sept": 9,
-    "september": 9,
-    "oct": 10,
-    "october": 10,
-    "nov": 11,
-    "november": 11,
-    "dec": 12,
-    "december": 12,
-    # Common mobile typo from the reported production question.
-    "dcember": 12,
-}
-_WORD_DATE = re.compile(
-    r"\b([a-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b",
-    re.IGNORECASE,
-)
-_DAY_MONTH_DATE = re.compile(
-    r"\b(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)\.?(?:\s+(\d{4}))?\b",
-    re.IGNORECASE,
-)
-_ISO_DATE = re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b")
-_SLASH_DATE = re.compile(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2}|\d{4}))?\b")
 
 
 @dataclass(frozen=True)
@@ -162,16 +124,11 @@ def _parse_interval_days(text: str) -> int | None:
     return days if 1 <= days <= 365 else None
 
 
-def _year_or_next(month: int, day: int, raw_year: str | None, start: date) -> date | None:
-    if raw_year:
-        year = int(raw_year)
-        if year < 100:
-            year += 2000
-    else:
-        year = start.year
+def _year_or_next(month: int, day: int, stated_year: int | None, start: date) -> date | None:
+    year = start.year if stated_year is None else stated_year
     try:
         parsed = date(year, month, day)
-        if raw_year is None and parsed < start:
+        if stated_year is None and parsed < start:
             parsed = date(year + 1, month, day)
     except ValueError:
         return None
@@ -179,26 +136,18 @@ def _year_or_next(month: int, day: int, raw_year: str | None, start: date) -> da
 
 
 def _parse_target_date(text: str, start: date) -> date | None:
-    iso = _ISO_DATE.search(text)
-    if iso is not None:
-        try:
-            return date(*(int(value) for value in iso.groups()))
-        except ValueError:
-            return None
-
-    for match in _WORD_DATE.finditer(text):
-        month = _MONTHS.get(match.group(1).lower())
-        if month is not None:
-            return _year_or_next(month, int(match.group(2)), match.group(3), start)
-    for match in _DAY_MONTH_DATE.finditer(text):
-        month = _MONTHS.get(match.group(2).lower())
-        if month is not None:
-            return _year_or_next(month, int(match.group(1)), match.group(3), start)
-
-    slash = _SLASH_DATE.search(text)
-    if slash is not None:
-        slash_month, slash_day, raw_year = slash.groups()
-        return _year_or_next(int(slash_month), int(slash_day), raw_year, start)
+    """An ISO date first, then a named month (month first, then day first), then a slash."""
+    dates = read_dates(text, slash=True)
+    for form in ("iso", "month_day", "day_month", "slash"):
+        named = next((found for found in dates if found.form == form), None)
+        if named is None:
+            continue
+        if form == "iso":
+            try:
+                return date(named.year or start.year, named.month, named.day)
+            except ValueError:
+                return None
+        return _year_or_next(named.month, named.day, named.year, start)
     return None
 
 

@@ -18,32 +18,8 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, timedelta
 
-_MONTHS = (
-    "january",
-    "february",
-    "march",
-    "april",
-    "may",
-    "june",
-    "july",
-    "august",
-    "september",
-    "october",
-    "november",
-    "december",
-)
-_MONTH = (
-    r"(?P<month>jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?"
-    r"|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?"
-)
-_DAY = r"(?P<day>[0-3]?\d)(?:st|nd|rd|th)?"
-_YEAR = r"(?:,?\s+(?P<year>(?:19|20)\d\d)\b)?"
-# "December 25", "Dec 25th, 2026", "25 December", "the 3rd of March 2027", "2027-01-07".
-_DATES = (
-    re.compile(rf"\b{_MONTH}\s+{_DAY}\b{_YEAR}", re.IGNORECASE),
-    re.compile(rf"\b{_DAY}\s+(?:of\s+)?{_MONTH}\b{_YEAR}", re.IGNORECASE),
-)
-_ISO = re.compile(r"\b((?:19|20)\d\d)-([01]\d)-([0-3]\d)\b")
+from app.services.calendar_dates import YEAR_SUFFIX, read_dates
+
 # Fixed-date days people ask about by name, as (month, day).
 _HOLIDAYS = {
     "new year's day": (1, 1),
@@ -72,17 +48,13 @@ _HOLIDAYS = {
     "enkutatash": (9, 11),
 }
 _HOLIDAY_NAMES = "|".join(re.escape(name) for name in sorted(_HOLIDAYS, key=len, reverse=True))
-_HOLIDAY = re.compile(rf"\b({_HOLIDAY_NAMES})\b{_YEAR}", re.IGNORECASE)
+_HOLIDAY = re.compile(rf"\b({_HOLIDAY_NAMES})\b{YEAR_SUFFIX}", re.IGNORECASE)
 # "May" and "March" are words too: "a 5 may be wrong" names no date. Day first
 # ("5 May"), they count only capitalised or with a year.
 _WORD_MONTHS = frozenset({"may", "mar", "march"})
 _YEAR_WORD = re.compile(r"\b(this|next|last)\s+year\b", re.IGNORECASE)
 _LOOSE_YEAR = re.compile(r"\b(?:in|of)\s+((?:19|20)\d\d)\b")
 _MAX_FACTS = 6
-
-
-def _month_number(name: str) -> int:
-    return next(i for i, month in enumerate(_MONTHS, 1) if month.startswith(name.lower()[:3]))
 
 
 def _safe_date(year: int, month: int, day: int) -> date | None:
@@ -92,10 +64,10 @@ def _safe_date(year: int, month: int, day: int) -> date | None:
         return None
 
 
-def _meant_year(text: str, today: date, month: int, day: int, stated: str | None) -> int:
+def _meant_year(text: str, today: date, month: int, day: int, stated: int | None) -> int:
     """The year a date means: stated, "this/next/last year", or its next occurrence."""
-    if stated:
-        return int(stated)
+    if stated is not None:
+        return stated
     loose = _LOOSE_YEAR.search(text)
     if loose:
         return int(loose.group(1))
@@ -115,26 +87,20 @@ def _enkutatash_day(year: int) -> int:
 def named_dates(text: str, today: date) -> list[tuple[str, date]]:
     """Each date the text names, with the words that named it, first mention first."""
     found: list[tuple[int, str, date]] = []
-    for day_first, pattern in enumerate(_DATES):
-        for match in pattern.finditer(text):
-            word = match.group("month").rstrip(".")
-            ambiguous = word.lower() in _WORD_MONTHS and word.islower()
-            if day_first and ambiguous and not match.group("year"):
-                continue
-            month = _month_number(word)
-            day = int(match.group("day"))
-            year = _meant_year(text, today, month, day, match.group("year"))
-            when = _safe_date(year, month, day)
-            if when is not None:
-                found.append((match.start(), match.group(0).strip(), when))
-    for match in _ISO.finditer(text):
-        when = _safe_date(*(int(part) for part in match.groups()))
+    for named in read_dates(text):
+        word = (named.month_word or "").rstrip(".")
+        ambiguous = word.lower() in _WORD_MONTHS and word.islower()
+        if named.form == "day_month" and ambiguous and named.year is None:
+            continue
+        year = _meant_year(text, today, named.month, named.day, named.year)
+        when = _safe_date(year, named.month, named.day)
         if when is not None:
-            found.append((match.start(), match.group(0), when))
+            found.append((named.start, named.text, when))
     for match in _HOLIDAY.finditer(text):
         name = match.group(1).lower()
         month, day = _HOLIDAYS[name]
-        year = _meant_year(text, today, month, day, match.group("year"))
+        stated = match.group("year")
+        year = _meant_year(text, today, month, day, int(stated) if stated else None)
         if name in {"ethiopian new year", "enkutatash"}:
             day = _enkutatash_day(year)
         when = _safe_date(year, month, day)
