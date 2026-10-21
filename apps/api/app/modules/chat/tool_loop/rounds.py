@@ -25,14 +25,14 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models import model_catalog
 from app.models.orm import User
 from app.modules.chat.stream_status import StreamStatusFn
-from app.modules.chat.tool_loop.calls import _execute_calls, _Round
+from app.modules.chat.tool_loop.calls import CallRound, execute_calls
 from app.modules.chat.tool_loop.forced_search import _force_web_search_if_needed
 from app.modules.chat.tool_loop.results import TerminalImageResult, ToolResults
 from app.modules.chat.tool_loop.selection import (
-    _last_user_content,
     _search_before_the_model,
     _tools_for_user,
-    _user_texts,
+    last_user_content,
+    user_words,
 )
 from app.modules.chat.tool_loop.text_calls import _tool_calls_from_text
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
@@ -87,12 +87,12 @@ async def run_tool_rounds(
 
     # The caller's text is the user's own words; the prompt's last user
     # message can also carry attached file text.
-    own_text = user_text if user_text is not None else _last_user_content(messages)
+    own_text = user_text if user_text is not None else last_user_content(messages)
     tools = _tools_for_user(settings, user, user_text=own_text)
     if not tools:
         return ToolRoundsOutcome(messages, None, None, [])
 
-    user_text = _last_user_content(messages)
+    user_text = last_user_content(messages)
     # One context for the turn: every tool call and the forced search share
     # its Tavily budget.
     ctx = ToolContext(
@@ -137,7 +137,7 @@ async def run_tool_rounds(
         ctx=ctx,
         on_status=on_status,
         should_cancel=should_cancel,
-        user_texts=_user_texts(messages, user_text),
+        user_texts=user_words(messages, user_text),
     )
     working, hits = await _force_web_search_if_needed(
         settings=settings,
@@ -170,14 +170,14 @@ async def _run_rounds(
     round that ran calls hands off, so at most one round runs. The selection model
     comes from the catalog's tool selectors, whatever model answers the turn.
     """
-    turn = _Round(
+    turn = CallRound(
         settings=settings,
         offered=frozenset(str((tool.get("function") or {}).get("name") or "") for tool in tools),
         ctx=ctx,
         on_status=on_status,
         should_cancel=should_cancel,
-        user_texts=_user_texts(messages, None) if user_texts is None else user_texts,
-        user_text=_last_user_content(messages),
+        user_texts=user_words(messages, None) if user_texts is None else user_texts,
+        user_text=last_user_content(messages),
     )
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     collected = ToolResults()
@@ -186,7 +186,7 @@ async def _run_rounds(
         if not tool_calls:
             break
         working.append({"role": "assistant", "content": None, "tool_calls": tool_calls})
-        await _execute_calls(turn, tool_calls, working, collected)
+        await execute_calls(turn, tool_calls, working, collected)
         # Image gen already persisted the assistant row — stop before another
         # completion round invents prose around the marker. Otherwise hand off
         # to the token stream instead of a leftover complete_with_tools that we
@@ -196,7 +196,7 @@ async def _run_rounds(
 
 
 async def _select_tool_calls(
-    turn: _Round,
+    turn: CallRound,
     tools: list[dict[str, Any]],
     working: list[dict[str, Any]],
     usage: dict[str, int],
@@ -232,7 +232,7 @@ def _hand_off(
     # every tool result is appended. Providers reject a message list where a
     # tool_calls turn isn't fully answered, so truncate back to the last valid
     # (fully-answered) prefix before handing off to the visible stream.
-    cut = _first_unanswered_assistant_idx(working)
+    cut = first_unanswered_tool_turn(working)
     if cut is not None:
         logger.info("Tool loop cancelled mid-round; trimming unanswered tool_calls turn")
         working = working[:cut]
@@ -252,7 +252,7 @@ def _hand_off(
 
 
 async def _complete_selection(
-    turn: _Round,
+    turn: CallRound,
     tools: list[dict[str, Any]],
     working: list[dict[str, Any]],
     usage: dict[str, int],
@@ -305,7 +305,7 @@ def _tool_selection_unavailable_message() -> dict[str, Any]:
     }
 
 
-def _first_unanswered_assistant_idx(msgs: list[dict[str, Any]]) -> int | None:
+def first_unanswered_tool_turn(msgs: list[dict[str, Any]]) -> int | None:
     """Index of the newest assistant tool_calls turn missing a tool reply, else None."""
     for i in range(len(msgs) - 1, -1, -1):
         m = msgs[i]

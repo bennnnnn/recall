@@ -67,7 +67,7 @@ async def test_unrestricted_trig_retry_cannot_attach_canonical_answer(query: str
     assert messages[-2]["role"] == "tool" and messages[-2]["tool_call_id"] == "trig"
     assert "No solution was certified" in messages[-2]["content"]  # safety phrase
     assert messages[-1] == {"role": "system", "content": MATH_REPLY_POLICY}
-    assert rounds._first_unanswered_assistant_idx(messages) is None
+    assert rounds.first_unanswered_tool_turn(messages) is None
 
 
 @pytest.mark.asyncio

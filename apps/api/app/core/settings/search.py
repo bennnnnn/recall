@@ -7,6 +7,10 @@ class SearchSettings(BaseModel):
     tavily_api_key: str = ""
 
     web_search_enabled: bool = True
+    # The reply's own model call carries the web_search tool on a turn the word rules
+    # neither searched nor ruled out (``tool_loop.reply_calls``): the model searches
+    # what may have changed since it was trained. A reply that needs none costs nothing.
+    reply_search_tool_enabled: bool = True
     # Reading what "search that" or "show me one" refers to in the conversation (one
     # small model call before the search). Foreground: kept short, no retry.
     reference_resolve_timeout_seconds: float = 4.0

@@ -67,8 +67,7 @@
   "area": "search",
   "prompt": "Finish line results from Sunday's Chicago Marathon?",
   "reply": "**Chicago Marathon — Sunday, October 11, 2026**\n\n| Place | Men | Women |\n|---|---|---|\n| 1st | 2:04:12 (Kenya) | 2:16:48 (Ethiopia) |\n| 2nd | 2:04:31 (Ethiopia) | 2:17:05 (Kenya) |\n| 3rd | 2:05:02 (Kenya) | 2:18:40 (Ethiopia) |\n\nWarm, humid conditions kept times well off the course records. Want the full results with names and splits?",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "sp-011",
@@ -92,8 +91,7 @@
   "area": "search",
   "prompt": "What's scheduled at the Hollywood Bowl this weekend?",
   "reply": "Here's what's on at the **Hollywood Bowl** this weekend:\n\n- **Fri, Oct 16, 7:30 PM** — LA Phil with a guest conductor: Dvořák's *New World* Symphony\n- **Sat, Oct 17, 7:00 PM** — Halloween film night with live orchestra\n- **Sun, Oct 18** — no performance\n\nParking fills fast; the Park & Ride shuttles start running 2 hours before showtime.",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "sp-013",
@@ -143,8 +141,7 @@
   "area": "time",
   "prompt": "Is it going to be cold in Chicago every day next week?",
   "reply": "Not every day. Here's **Chicago, Mon Oct 19 – Sun Oct 25**:\n\n| Day | High | Low |\n|---|---|---|\n| Mon | 58°F | 44°F |\n| Tue | 52°F | 39°F |\n| Wed | 47°F | 35°F |\n| Thu | 49°F | 37°F |\n| Fri | 55°F | 42°F |\n| Sat | 61°F | 46°F |\n| Sun | 57°F | 43°F |\n\nMidweek is the cold stretch, with frost possible Wednesday night. Bring a warm coat for those days.",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "sp-020",
@@ -182,8 +179,7 @@
   "area": "time",
   "prompt": "What time is sunset tomorrow in Cape Town?",
   "reply": "**Cape Town, Thursday October 15:**\n\nSunrise: 6:16 AM\nSunset: 7:11 PM\n\nFor the best view, head up Signal Hill about 45 minutes before — parking fills up fast on clear evenings.",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "sp-024",
@@ -665,8 +661,7 @@
   "area": "shopping",
   "prompt": "How much is an iPhone 17 in Ethiopia?",
   "reply": "In **Ethiopia**, the base **iPhone 17 (256 GB)** is selling for about **180,000–210,000 birr** at phone shops in Bole and Mexico, depending on the seller and the model variant.\n\n- Apple's US price is **$799**\n- Imported phones carry duty, so local prices run well above the US price\n- Check whether it's the eSIM-only US model if you need a physical SIM slot",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "sp-074",
@@ -721,8 +716,7 @@
   "area": "travel",
   "prompt": "Can you get me a cheap flight to Nairobi?",
   "reply": "I can't book it, but here are the cheapest options I found for **Addis Ababa → Nairobi**:\n\n| Date | Airline | Fare (one way) |\n|---|---|---|\n| Tue, Oct 20 | Ethiopian (nonstop, ~2 h) | $168 |\n| Wed, Oct 21 | Kenya Airways (nonstop) | $175 |\n| Sat, Oct 24 | Ethiopian | $214 |\n\nBooking directly on the airline's site makes changes easiest. Want me to check return dates?",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "sp-079",
@@ -1315,40 +1309,35 @@
   "area": "search",
   "prompt": "what's the population of Ethiopia",
   "reply": "Ethiopia has about 135 million people, according to recent estimates.",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "sp-136",
   "area": "search",
   "prompt": "who won the champions league",
   "reply": "The latest winners are listed in the results above.",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "sp-137",
   "area": "search",
   "prompt": "best restaurants in Addis",
   "reply": "A few well-reviewed places in Addis Ababa are listed above.",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "sp-138",
   "area": "search",
   "prompt": "is Abiy Ahmed responsible for the Tigray war",
   "reply": "Responsibility is contested: documented accounts point to both the federal government and the TPLF.",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "sp-139",
   "area": "search",
   "prompt": "how many people live in Nairobi",
   "reply": "Nairobi has roughly 5 million residents in the city proper.",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "sp-140",

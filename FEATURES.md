@@ -181,8 +181,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   reservation per turn. A Redis reserve failure (or a missing user) fails closed to **DuckDuckGo
   only** — DDG is uncapped (latency only). Search cache keys include `user_id`. The search gate is
   deterministic (`should_web_search`: skip rules, the explicit fast path, then the heuristic); the
-  LLM classifier that once sat behind it was off in production and is gone. Known misses (a
-  question about the world with no live word) are listed as gaps in the behavior battery.
+  LLM classifier that once sat behind it was off in production and is gone. A turn the gate
+  neither searches nor rules out (chitchat, the user's own facts, a reminder, a sum, a greeting,
+  pasted code, the time somewhere) offers `web_search` to the reply's own model call
+  (`tool_loop/reply_calls.py`, `reply_search_tool_enabled`, on): the model answers at once, or
+  calls the tool and answers in a second call that reads the results, with source chips. "Who won
+  the champions league" and "the population of Ethiopia" search now; a reply that needs no search
+  costs nothing more.
   An explicit request always searches: "do a search", "search it online", "google it", "check
   that online", typos like "seearch" (`web_search/command.py`). When the request names no topic,
   or a follow-up says "she" or "it", one cheap call reads the last turns and writes the query

@@ -10,7 +10,8 @@ production's: the battery certifies what users get.
 
 from __future__ import annotations
 
-from contextlib import ExitStack
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -19,6 +20,7 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 from app.core.config import Settings
+from app.gateways.mcp import registry as tool_registry
 from app.gateways.pubchem_gateway import PubChemCompound, PubChemResult
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
@@ -54,6 +56,7 @@ from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
+from app.services.mcp import setup_mcp_adapters
 from app.services.subject_solving import detect_subject
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
@@ -172,6 +175,19 @@ class Route:
         if self.hints:
             parts.append("hints=" + ",".join(sorted(self.hints)))
         return " ".join(parts)
+
+
+@contextmanager
+def _production_tools(settings: Settings) -> Iterator[None]:
+    """The model's tools as production registers them at startup, then the registry as it was."""
+    before = tool_registry.list_adapters()
+    setup_mcp_adapters(settings)
+    try:
+        yield
+    finally:
+        tool_registry.clear()
+        for adapter in before:
+            tool_registry.register(adapter)
 
 
 def battery_settings() -> Settings:
@@ -331,6 +347,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stub("app.gateways.pubchem_gateway.lookup_iupac_name", AsyncMock(return_value=None))
         stub("app.modules.chat.tool_loop.run_tool_rounds", tool_rounds)
         stub("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False))
+        stack.enter_context(_production_tools(settings))
 
         turn_mode = classify_turn_mode(list(rows), text)
         bundle = await build_stream_prompt_context(
@@ -375,7 +392,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     )
     if prefetch_searched or direct or (loop_ran and needs_web_search(text)):
         search = "yes"
-    elif loop_ran:
+    elif loop_ran or ctx.reply_tools:
+        # The tool loop's model, or the reply's own model call, may call web_search.
         search = "ask"
     else:
         search = "no"

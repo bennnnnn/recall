@@ -819,8 +819,7 @@
   "prompt": "latest version of Python",
   "history": [],
   "reply": "The latest stable release is **Python 3.15** — **3.15.0** came out at the start of **October 2026**.\n\nNotable changes in 3.15:\n- **UTF-8 mode on by default** (PEP 686) — `open()` and friends use UTF-8 unless told otherwise, fixing a lot of Windows encoding bugs.\n- **Explicit lazy imports** (PEP 810) — `lazy import json` defers loading a module until it's first used, which speeds up startup.\n- A new **sampling profiler** in the standard library for low-overhead profiling.\n\n**Should you upgrade?** For new projects, yes. For existing ones, check that your key libraries publish 3.15 wheels first — if not, **3.14** is a solid choice.\n\nDownload: [python.org/downloads](https://www.python.org/downloads/)",
-  "expect": "search",
-  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
+  "expect": "search"
  },
  {
   "id": "hi-086",

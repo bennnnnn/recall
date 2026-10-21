@@ -204,6 +204,8 @@ class ChatModel(Protocol):
         on_reasoning: Callable[[str], Awaitable[None]] | None = ...,
         thinking: bool | str | None = ...,
         attempts: list[StreamAttempt] | None = ...,
+        tools: list[dict[str, Any]] | None = ...,
+        tool_calls: list[dict[str, Any]] | None = ...,
     ) -> AsyncIterator[str]: ...
 
 
