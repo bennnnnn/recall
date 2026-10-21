@@ -9,6 +9,7 @@ length line a turn's system prompt carries.
 import re
 from typing import Literal
 
+from app.services.number_text import count_word_pattern
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 ReplyLength = Literal["brief", "balanced", "detailed", "mixed"]
@@ -30,11 +31,11 @@ _BREVITY_MARKERS = (
 # "in 3 sentences", "under 100 words", "in two lines": a stated length is a cap too.
 _LENGTH_CAP = re.compile(
     r"\b(?:in|within|using|with)\s+(?:only\s+|just\s+|exactly\s+)?"
-    r"(?:one|two|three|four|five|six|seven|eight|nine|ten|a\s+few|\d{1,3})\s+"
+    rf"(?:{count_word_pattern(high=10)}|a\s+few|\d{{1,3}})\s+"
     r"(?:short\s+)?(?:sentences?|words?|lines?|bullet(?:\s+point)?s?|paragraphs?)\b"
     r"|\b(?:under|less\s+than|fewer\s+than|no\s+more\s+than|at\s+most|max(?:imum)?)\s+"
     r"\d{1,4}\s+(?:words?|characters?|sentences?|lines?)\b"
-    r"|\b(?:one|two|three|four|five|\d{1,3})[- ](?:sentence|word|line|paragraph)\s+"
+    rf"|\b(?:{count_word_pattern(high=5)}|\d{{1,3}})[- ](?:sentence|word|line|paragraph)\s+"
     r"(?:summary|answer|reply|description|explanation|version|bio|pitch|intro|overview)\b",
     re.IGNORECASE,
 )

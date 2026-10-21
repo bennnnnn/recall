@@ -48,6 +48,33 @@ NUMERIC_LITERAL = re.compile(SIGNED_DECIMAL_SCI)
 LITERAL_START = re.compile(r"(?<![\w.])(?=[+-]?(?:\d|\.\d))")
 
 
+# A count written as a word: zero to twenty and the tens, one table for every reader.
+# Nine private copies stopped at six, ten, twelve or fourteen, so "six notebooks" was a
+# change-from-payment problem and "seven notebooks" was not (code-health audit DUP-06).
+NUMBER_WORDS: dict[str, int] = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+    "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17,
+    "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40,
+    "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}  # fmt: skip
+
+
+def number_word_value(word: str) -> int | None:
+    """``seven`` → 7; None for a word that is no count."""
+    return NUMBER_WORDS.get(word.lower())
+
+
+def count_word_pattern(*, low: int = 1, high: int = 20) -> str:
+    """A regex alternation (no group) of the count words from ``low`` to ``high``.
+
+    Longest first, so ``fourteen`` is tried before ``four`` where no boundary follows.
+    A reader narrows the range here; it keeps no table of its own.
+    """
+    words = [word for word, value in NUMBER_WORDS.items() if low <= value <= high]
+    return "|".join(sorted(words, key=len, reverse=True))
+
+
 def bounded_decimal(max_digits: int, *, exponent_digits: int = 0) -> str:
     """``SIGNED_DECIMAL`` with at most ``max_digits`` digits on each side of the point.
 

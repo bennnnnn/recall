@@ -15,6 +15,7 @@ from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from app.core.timezone import resolve_timezone
+from app.services.number_text import count_word_pattern, number_word_value
 from app.services.text_normalize import collapse_ws
 
 _MAX_REQUEST_CHARS = 500
@@ -48,24 +49,9 @@ _PAY_IS_AMOUNT = re.compile(
 )
 _CURRENCY_AMOUNT = re.compile(rf"(?:\$\s*|\busd\s*){_AMOUNT_TEXT}", re.IGNORECASE)
 
-_NUMBER_WORDS = {
-    "one": 1,
-    "two": 2,
-    "three": 3,
-    "four": 4,
-    "five": 5,
-    "six": 6,
-    "seven": 7,
-    "eight": 8,
-    "nine": 9,
-    "ten": 10,
-    "eleven": 11,
-    "twelve": 12,
-    "fourteen": 14,
-}
 _INTERVAL = re.compile(
     r"\b(?:once\s+)?(?:every|each|per)\s+"
-    r"(?:(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fourteen)\s+)?"
+    rf"(?:(\d+|{count_word_pattern(high=30)})\s+)?"
     r"(weeks?|days?)\b",
     re.IGNORECASE,
 )
@@ -166,7 +152,7 @@ def _parse_interval_days(text: str) -> int | None:
     if match is None:
         return None
     raw_count, unit = match.groups()
-    count = 1 if raw_count is None else _NUMBER_WORDS.get(raw_count.lower())
+    count = 1 if raw_count is None else number_word_value(raw_count)
     if count is None:
         try:
             count = int(raw_count)

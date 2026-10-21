@@ -9,6 +9,7 @@ from app.modules.physics.extractors.common import (
     _OHM_PATTERN,
     _ordered_values,
 )
+from app.services.number_text import count_word_pattern, number_word_value
 
 _CIRCUIT_CUES = (
     "ohm",
@@ -115,10 +116,9 @@ _RESISTOR_LIST_RE = re.compile(
 )
 
 
-_COUNT_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
 # "three 9 Ω resistors", "two identical 10 ohm resistors": one value, stated once.
 _COUNTED_RESISTORS_RE = re.compile(
-    r"\b(two|three|four|five|six)\s+(?:identical\s+|equal\s+)?"
+    rf"\b({count_word_pattern(low=2, high=6)})\s+(?:identical\s+|equal\s+)?"
     r"(\d+(?:\.\d+)?)\s*(?:ohms?|Ω)\s+resistors\b",
     re.IGNORECASE,
 )
@@ -130,7 +130,8 @@ def counted_resistors(text: str) -> tuple[int, float] | None:
     found = list(_COUNTED_RESISTORS_RE.finditer(text))
     if len(found) != 1:
         return None
-    return _COUNT_WORDS[found[0].group(1).lower()], float(found[0].group(2))
+    # The pattern reads only count words, so the value is always there.
+    return number_word_value(found[0].group(1)) or 0, float(found[0].group(2))
 
 
 def _resistor_values(text: str) -> list[float]:

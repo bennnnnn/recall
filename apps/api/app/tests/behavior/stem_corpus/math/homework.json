@@ -159,6 +159,8 @@
   {"id": "cg4", "area": "coordinate", "prompt": "equation of the line through (1,2) and (3,8)", "expect": "answer", "check": ["regex", "y\\s*=\\s*3\\s*x\\s*-\\s*1"]},
   {"id": "cg5", "area": "coordinate", "prompt": "line perpendicular to y = 2x + 1 through (4, 3)", "expect": "answer", "check": ["regex", "y\\s*=\\s*(-\\s*\\\\frac\\{x\\}\\{2\\}|-\\s*\\\\frac\\{1\\}\\{2\\}\\s*x|-\\s*0\\.5\\s*x|-\\s*x\\s*/\\s*2)\\s*\\+\\s*5"]},
   {"id": "wp1", "area": "word", "prompt": "I bought 3 notebooks at $2.40 each and a pen for $1.85. I paid with a $20 bill. how much change do i get", "expect": "answer", "check": ["num", "10.95"]},
+  {"id": "wp1-seven", "area": "word", "prompt": "I bought seven notebooks at $2 each. I paid with a $20 bill. How much change do I get?", "expect": "answer", "check": ["num", "6"]},
+  {"id": "wp1-nine", "area": "word", "prompt": "I bought nine pens at $1.50 each. I paid with a $20 bill. How much change do I get?", "expect": "answer", "check": ["num", "6.5"]},
   {"id": "wp2", "area": "word", "prompt": "Sam is 4 years older than Ana. the sum of their ages is 30. how old is Ana", "expect": "answer", "check": ["num", "13"]},
   {"id": "wp3", "area": "word", "prompt": "a car travels 150 km in 2.5 hours. what is its average speed", "expect": "answer", "check": ["num", "60"], "note": "physics peer OK"},
   {"id": "wp4", "area": "word", "prompt": "$5000 invested at 4% interest compounded annually for 3 years, how much will i have", "expect": "answer", "check": ["num", "5624.32"]},
