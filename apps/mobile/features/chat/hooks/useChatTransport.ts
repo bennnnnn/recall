@@ -44,9 +44,14 @@ export function useChatTransport({
   onRegenerateFailure,
 }: Options) {
   const wsTransportRef = useRef<ChatWsTransport | null>(null);
-  // A view's sockets share it, so a socket rebuilt after Stop keeps the
-  // wait; opening a chat starts with none (`detach`).
+  /** The token the current transport authenticates with. */
+  const transportTokenRef = useRef<string | null>(null);
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  // A view's sockets share it, so a socket rebuilt after Stop or a token
+  // refresh keeps the wait; opening a chat starts with none (`detach`).
   const backoffRef = useRef(createWsBackoff());
+  const connectRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const sseAbortRef = useRef<AbortController | null>(null);
   const sseAbortChatIdRef = useRef<string | null>(null);
   const isCurrentViewRef = useRef(isCurrentView);
@@ -85,9 +90,23 @@ export function useChatTransport({
     transport.close();
   }, []);
 
+  /** A token refreshed during a turn takes over once that turn ends. */
+  const renewStaleToken = useCallback(() => {
+    const transport = wsTransportRef.current;
+    if (backgroundedRef.current || !transport || transport.isTurnActive()) return;
+    if (transportTokenRef.current !== tokenRef.current) void connectRef.current();
+  }, []);
+
   const connect = useCallback((): Promise<void> => {
     if (!token || !chatId || !isCurrentViewRef.current()) return Promise.resolve();
     let transport = wsTransportRef.current;
+    if (transport && transportTokenRef.current !== token && !transport.isTurnActive()) {
+      // The server checks a socket's own token on every send: after a refresh
+      // the old one is refused and the send goes over SSE. A new socket instead.
+      wsTransportRef.current = null;
+      transport.close();
+      transport = null;
+    }
     if (!transport) {
       transport = new ChatWsTransport({
         url: chatWebSocketUrl(chatId),
@@ -98,13 +117,16 @@ export function useChatTransport({
           if (wsTransportRef.current !== transport) return;
           onPayloadRef.current(chatId, payload, ttftTurnIdRef.current());
           releaseIdleInBackground();
+          renewStaleToken();
         },
         onFallback: (signal) => onFallbackRef.current(transport!, signal),
       });
       wsTransportRef.current = transport;
+      transportTokenRef.current = token;
     }
     return transport.connect();
-  }, [token, chatId, releaseIdleInBackground]);
+  }, [token, chatId, releaseIdleInBackground, renewStaleToken]);
+  connectRef.current = connect;
 
   // Handshake overlaps reading. Debounced so flicking the chat list does not
   // open a socket per glance (each handshake counts against the connect limit).

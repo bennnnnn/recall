@@ -10,6 +10,7 @@ import {
 } from "@/features/chat/model/turnReconcile";
 import { WS_RETRY_BASE_MS } from "@/features/chat/model/wsBackoff";
 import {
+  EAGER_CONNECT_DEBOUNCE_MS,
   WS_ACK_PROBE_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
   WS_PROBE_TIMEOUT_MS,
@@ -1218,5 +1219,32 @@ describe("useChat socket recovery", () => {
     await act(async () => { next.open(); await sending; });
     expect(frames(next).at(-1)).toMatchObject({ type: "message", content: "later" });
     expect(streamChatMessageSse).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens a new socket with a refreshed token, once the turn on the old one ends", async () => {
+    const view = await render(<Probe chatId="a" token="token-1" />);
+    const first = await openSocket();
+    await act(async () => {
+      await current.sendMessage("question");
+      first.emit({ type: "start" });
+    });
+    await view.rerender(<Probe chatId="a" token="token-2" />);
+    await act(async () => { jest.advanceTimersByTime(EAGER_CONNECT_DEBOUNCE_MS); });
+    expect(first.close).not.toHaveBeenCalled();
+    expect(FakeSocket.instances).toHaveLength(1);
+
+    await act(async () => { first.emit({ type: "done", message_id: "saved", final_content: "answer" }); });
+    expect(first.close).toHaveBeenCalledTimes(1);
+    const second = latestSocket();
+    expect(FakeSocket.instances).toHaveLength(2);
+    await act(async () => { second.open(); });
+    expect(frames(second)[0]).toEqual({ token: "token-2", client_timezone: "UTC" });
+
+    // An idle socket is replaced as soon as the token changes.
+    await view.rerender(<Probe chatId="a" token="token-3" />);
+    await act(async () => { jest.advanceTimersByTime(EAGER_CONNECT_DEBOUNCE_MS); });
+    expect(second.close).toHaveBeenCalledTimes(1);
+    await act(async () => { latestSocket().open(); });
+    expect(frames(latestSocket())[0]).toEqual({ token: "token-3", client_timezone: "UTC" });
   });
 });
