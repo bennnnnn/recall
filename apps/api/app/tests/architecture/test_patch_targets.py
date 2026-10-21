@@ -30,10 +30,10 @@ _SHARED_MODULE = re.compile(
 )
 # What is left; lower these when a change removes some.
 _CHAT_PATCHES = 521
-_PRIVATE_PATCHES = 106
+_PRIVATE_PATCHES = 103
 
 
-def _patch_targets(*, setattr_objects: bool = False) -> Iterator[tuple[str, str]]:
+def patch_targets(*, setattr_objects: bool = False) -> Iterator[tuple[str, str]]:
     """``(file:line, target)`` for each string patch and each ``patch.object`` attribute.
 
     With ``setattr_objects``, ``monkeypatch.setattr(module.asyncio, "sleep", ...)`` too.
@@ -68,14 +68,14 @@ def _private(target: str) -> bool:
 def test_no_patch_of_a_library_name_through_an_app_module() -> None:
     through = [
         f"{where} {target}"
-        for where, target in _patch_targets(setattr_objects=True)
+        for where, target in patch_targets(setattr_objects=True)
         if _SHARED_MODULE.search(target)
     ]
     assert through == [], "this patches the library for the whole process"
 
 
 def test_string_patches_into_chat_and_private_names_only_go_down() -> None:
-    targets = [target for _where, target in _patch_targets()]
+    targets = [target for _where, target in patch_targets()]
     chat = sum(target.startswith("app.modules.chat.") for target in targets)
     private = sum(_private(target) for target in targets)
     assert chat <= _CHAT_PATCHES, (

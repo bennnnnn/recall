@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
 from app.models.orm import Chat, Memory, User
-from app.modules import memory as memory_service
+from app.modules.memory import consolidation
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.switch import memory_switch_on
 
@@ -44,7 +44,7 @@ async def request_consolidation(
     if skip_if_already_queued and await redis.exists(lock_key):
         return "in_progress"
 
-    if not memory_service.facts_need_consolidation(memory_list):
+    if not consolidation.facts_need_consolidation(memory_list):
         return "skipped"
 
     acquired = await redis.set(

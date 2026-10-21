@@ -16,9 +16,9 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.modules.memory import acquire_memory_write_lock, release_memory_write_lock
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
+from app.modules.memory.locks import acquire_memory_write_lock, release_memory_write_lock
 from app.modules.memory.ops import is_active_memory, normalize_memory_text
 from app.modules.memory.switch import memory_switch_on
 from app.modules.memory.topics import fact_topic, topic_memory_type

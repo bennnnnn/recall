@@ -5,11 +5,13 @@ from datetime import UTC, datetime
 import pytest
 
 from app.core.config import Settings
+from app.gateways import litellm_gateway, mock_llm
 from app.models.orm import Memory
 from app.modules.chat.prompt_constants import writing_request_kind
-from app.modules.memory import is_memory_candidate, select_memories_semantic
 from app.modules.memory import llm as memory_llm
 from app.modules.memory.schemas import MemoryFactUpdateResult
+from app.modules.memory.selection import select_memories_semantic
+from app.modules.memory.text import is_memory_candidate
 from app.tests.modules.memory.scoring import scored
 
 CURRENT_EMPLOYER_QUERIES = [
@@ -212,9 +214,9 @@ async def test_extractor_prompt_preserves_current_employer_when_target_is_aspira
         captured.update(kwargs)
         return None
 
-    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
     monkeypatch.setattr(
-        memory_llm.litellm_gateway,
+        litellm_gateway,
         "complete_structured",
         fake_complete_structured,
     )
@@ -252,9 +254,9 @@ async def test_extractor_prompt_keeps_everyday_profile_facts_normal(
         captured.update(kwargs)
         return None
 
-    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
     monkeypatch.setattr(
-        memory_llm.litellm_gateway,
+        litellm_gateway,
         "complete_structured",
         fake_complete_structured,
     )
@@ -292,8 +294,8 @@ async def test_extractor_prompt_keeps_how_the_user_wants_to_be_taught(
         captured.update(kwargs)
         return None
 
-    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
-    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete_structured)
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake_complete_structured)
     preference = (
         "When teaching me, explain one concept at a time, use practical examples, and ask me "
         "to solve a short exercise before moving on."
@@ -324,8 +326,8 @@ async def test_extractor_prompt_lets_old_chats_only_fill_gaps(
         captured.update(kwargs)
         return None
 
-    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
-    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete_structured)
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake_complete_structured)
 
     await memory_llm.revise_memory_facts(
         Settings(), "User: I live in Paris", from_history=from_history
@@ -351,8 +353,8 @@ async def test_instruct_prompt_names_the_open_document_and_asks_for_a_reply(
         captured.update(kwargs)
         return None
 
-    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
-    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete_structured)
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake_complete_structured)
 
     await memory_llm.instruct_memory(
         Settings(),

@@ -10,9 +10,9 @@ import pytest
 from app.core.config import Settings
 from app.models.orm import Memory
 from app.models.schemas.common import MemoryType
-from app.modules.memory import embedding_text_hash
 from app.modules.memory.extraction_workflow import extract_and_store_memories, extract_history_chat
 from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
+from app.modules.memory.text import embedding_text_hash
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
@@ -703,7 +703,7 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
             AsyncMock(return_value=extraction),
         ),
         patch("app.modules.memory.extraction_workflow.memories_repo.apply_writes", apply_writes),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
         patch(EMBED_MANY, embed_each(AsyncMock(return_value=vector))),
     ):
         await extract_and_store_memories(
@@ -761,7 +761,6 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
     consolidation_session.commit = AsyncMock()
 
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
         patch(
             "app.modules.memory.extraction_workflow.SessionLocal",
             side_effect=lambda: FakeSessionCM(extraction_session),
@@ -788,7 +787,7 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
         ),
         patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply),
         patch("app.modules.memory.consolidation_workflow.apply_memory_facts", apply),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
     ):
         await asyncio.gather(
             extract_and_store_memories(

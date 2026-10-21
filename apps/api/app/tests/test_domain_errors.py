@@ -25,8 +25,9 @@ from app.modules.attachments.workflow import AttachmentWorkflowError
 from app.modules.chat.service import ChatsError
 from app.modules.images.generation import ImageGenerationError
 from app.modules.images.search import ImageSearchError
+from app.modules.memory.crud import MemoryEmptyTextError
 from app.modules.memory.instruct import MemoryInstructionFailedError, MemoryOffError
-from app.modules.memory.surface import MemoryEmptyTextError, MemoryWriteLockBusyError
+from app.modules.memory.locks import MemoryWriteLockBusyError
 from app.modules.speech.gates import SpeechRefusedError
 from app.modules.todos.crud import TodosError
 from app.modules.todos.proposals import ProposalError

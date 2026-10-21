@@ -303,12 +303,8 @@ async def _iter_export_json(
     while memory_offset < EXPORT_MAX_MEMORIES:
         page_size = min(EXPORT_MEMORY_PAGE_SIZE, EXPORT_MAX_MEMORIES - memory_offset)
         async with session_factory() as session:
-            memories = await memory_service.list_range(
-                session,
-                user.id,
-                offset=memory_offset,
-                limit=page_size,
-                include_superseded=True,
+            memories = await memory_service.facts_for_export(
+                session, user.id, offset=memory_offset, limit=page_size
             )
             memory_chunks = [json.dumps(_memory_payload(memory)) for memory in memories]
         if not memory_chunks:
@@ -326,7 +322,7 @@ async def _iter_export_json(
     async with session_factory() as session:
         area_chunks = [
             json.dumps(_memory_area_payload(area))
-            for area in await memory_service.list_areas(session, user.id)
+            for area in await memory_service.areas_for_export(session, user.id)
         ]
     yield ",".join(area_chunks)
 

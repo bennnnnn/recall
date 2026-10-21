@@ -53,17 +53,16 @@ async def test_stale_holder_cannot_release_new_owner(fake_redis):
 async def test_memory_write_lock_stale_release_is_noop(fake_redis):
     from uuid import uuid4
 
-    from app.modules import memory as memory_service
+    from app.modules.memory import locks
 
+    # fake_redis shares the in-memory server every app client uses in tests.
     user_id = uuid4()
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(memory_service, "get_redis_client", lambda: fake_redis)
-        first = await memory_service.acquire_memory_write_lock(user_id)
-        assert first is not None
-        await fake_redis.delete(f"memwrite:{user_id}")
-        second = await memory_service.acquire_memory_write_lock(user_id)
-        assert second is not None
-        await memory_service.release_memory_write_lock(user_id, first)
-        assert await fake_redis.get(f"memwrite:{user_id}") == second
-        await memory_service.release_memory_write_lock(user_id, second)
-        assert await fake_redis.get(f"memwrite:{user_id}") is None
+    first = await locks.acquire_memory_write_lock(user_id)
+    assert first is not None
+    await fake_redis.delete(f"memwrite:{user_id}")
+    second = await locks.acquire_memory_write_lock(user_id)
+    assert second is not None
+    await locks.release_memory_write_lock(user_id, first)
+    assert await fake_redis.get(f"memwrite:{user_id}") == second
+    await locks.release_memory_write_lock(user_id, second)
+    assert await fake_redis.get(f"memwrite:{user_id}") is None

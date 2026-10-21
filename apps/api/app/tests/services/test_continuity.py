@@ -93,7 +93,7 @@ async def test_prompt_includes_messages_between_summary_and_recent_window():
             "app.modules.chat.prompt_context.messages_repo.list_before",
             AsyncMock(return_value=[gap_row]),
         ) as list_before,
-        patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
+        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
     ):
         messages = await build_prompt_messages(
@@ -158,7 +158,7 @@ async def test_prompt_keeps_the_message_pushed_out_by_the_current_turn():
             "app.modules.chat.prompt_context.messages_repo.list_before",
             AsyncMock(return_value=[]),
         ),
-        patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
+        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
     ):
         messages = await build_prompt_messages(
@@ -238,7 +238,7 @@ async def test_continue_after_a_cut_long_reply_keeps_that_reply_whole():
             "app.modules.chat.prompt_context.messages_repo.list_before",
             AsyncMock(return_value=[]),
         ),
-        patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
+        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
     ):
         messages = await build_prompt_messages(

@@ -189,8 +189,8 @@ async def test_confirming_a_memory_reset_applies_it(monkeypatch: pytest.MonkeyPa
     update = AsyncMock(return_value=_user(memory_enabled=False))
     clear = AsyncMock(return_value=3)
     monkeypatch.setattr(svc.users_repo, "update", update)
-    monkeypatch.setattr(svc.memory_service, "invalidate_memory_block", AsyncMock())
-    monkeypatch.setattr(svc.memory_service, "delete_all_memories", clear)
+    monkeypatch.setattr("app.modules.memory.cache.invalidate_memory_block", AsyncMock())
+    monkeypatch.setattr("app.modules.memory.crud.delete_all_memories", clear)
 
     result = await confirm_proposal(AsyncMock(), redis, user, MagicMock(), "pid")  # type: ignore[arg-type]
 

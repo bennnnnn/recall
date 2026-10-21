@@ -147,6 +147,8 @@ module = [
     "app.modules.todos.*",
     "app.gateways",
     "app.gateways.*",
+    "app.modules.memory",
+    "app.modules.memory.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

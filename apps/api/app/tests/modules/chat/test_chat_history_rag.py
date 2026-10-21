@@ -305,7 +305,7 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
         patch("app.modules.attachments.rag.SessionLocal", _session_cm()),
         patch("app.modules.chat.prompt_context.SessionLocal", _session_cm()),
         patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
-        patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
+        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
         patch("app.modules.chat.history_rag.chunks_repo.has_chunks_for_user", probe),
         patch("app.modules.chat.history_rag.embedding_gateway.get_or_embed_query", embed),

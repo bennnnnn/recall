@@ -11,10 +11,8 @@ from collections.abc import Iterable
 from typing import Any
 
 from app.modules.memory.fact_quality import FactView, texts_to_drop
-from app.modules.memory.text import (
-    merge_diet_facts,
-    normalize_memory_text,
-)
+from app.modules.memory.ops import normalize_memory_text
+from app.modules.memory.text import merge_diet_facts
 
 logger = logging.getLogger(__name__)
 

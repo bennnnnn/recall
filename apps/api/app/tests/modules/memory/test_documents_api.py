@@ -14,7 +14,7 @@ from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.domain_errors import register_domain_error_handler
 from app.models.orm import Memory
-from app.modules import memory as memory_service
+from app.modules.memory import crud, locks
 from app.modules.memory import instruct as instruct_service
 from app.modules.memory.api import router
 from app.modules.memory.documents import MemoryDocument
@@ -123,9 +123,7 @@ def test_document_facts_say_where_they_were_learned_and_if_muted():
 )
 def test_delete_document(topic, result, status):
     client, user = _client()
-    with patch.object(
-        memory_service, "delete_memory_document", AsyncMock(return_value=result)
-    ) as delete:
+    with patch.object(crud, "delete_memory_document", AsyncMock(return_value=result)) as delete:
         response = client.delete(f"/memories/documents/{topic}")
 
     assert response.status_code == status
@@ -138,9 +136,9 @@ def test_delete_document(topic, result, status):
 def test_delete_document_while_memory_is_busy_is_a_conflict():
     client, _ = _client()
     with patch.object(
-        memory_service,
+        crud,
         "delete_memory_document",
-        AsyncMock(side_effect=memory_service.MemoryWriteLockBusyError(uuid4())),
+        AsyncMock(side_effect=locks.MemoryWriteLockBusyError(uuid4())),
     ):
         response = client.delete("/memories/documents/profile")
     assert response.status_code == 409
@@ -194,7 +192,7 @@ def test_instruct_applies_the_edit_and_returns_the_documents():
     [
         ({"spend_capped": True}, 503, "unavailable"),
         ({"allowed": False}, 429, "rate_limited"),
-        ({"error": memory_service.MemoryWriteLockBusyError(uuid4())}, 409, "memory_busy"),
+        ({"error": locks.MemoryWriteLockBusyError(uuid4())}, 409, "memory_busy"),
         ({"error": instruct_service.MemoryOffError()}, 409, "memory_off"),
         ({"error": instruct_service.MemoryInstructionFailedError()}, 502, "memory_edit_failed"),
     ],

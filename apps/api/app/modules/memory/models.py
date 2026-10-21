@@ -34,7 +34,8 @@ if TYPE_CHECKING:
 
 
 def _default_topic(context: DefaultExecutionContext) -> str:
-    memory_type = context.get_current_parameters().get("type")
+    # SQLAlchemy leaves get_current_parameters unannotated.
+    memory_type = context.get_current_parameters().get("type")  # type: ignore[no-untyped-call]
     return TYPE_DEFAULT_TOPIC.get(str(memory_type), "notes")
 
 

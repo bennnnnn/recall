@@ -8,7 +8,7 @@ import pytest
 from app.core.config import Settings
 
 # ── memory service ─────────────────────────────────────────────────────────────
-from app.modules.memory import format_memory_block, select_memories_for_prompt
+from app.modules.memory.selection import format_memory_block, select_memories_for_prompt
 
 
 def _mem(type_: str, text: str, confidence: float | None = 0.9):
@@ -47,7 +47,7 @@ def test_select_memories_priority_order():
 
 @pytest.mark.asyncio
 async def test_load_relevant_memories_disabled():
-    from app.modules.memory import load_relevant_memories
+    from app.modules.memory.retrieval import load_relevant_memories
 
     user = MagicMock(memory_enabled=False)
     result = await load_relevant_memories(AsyncMock(), user, Settings())
@@ -56,15 +56,15 @@ async def test_load_relevant_memories_disabled():
 
 @pytest.mark.asyncio
 async def test_delete_memory_delegates():
-    from app.modules import memory as memory_service
+    from app.modules.memory import crud, locks
     from app.modules.memory import repository as memories_repo
 
     delete_by_id = AsyncMock(return_value=True)
     with (
         patch.object(memories_repo, "delete_by_id", delete_by_id),
-        patch.object(memory_service, "acquire_memory_write_lock", AsyncMock(return_value=True)),
-        patch.object(memory_service, "release_memory_write_lock", AsyncMock()),
+        patch.object(locks, "acquire_memory_write_lock", AsyncMock(return_value=True)),
+        patch.object(locks, "release_memory_write_lock", AsyncMock()),
     ):
-        result = await memory_service.delete_memory(AsyncMock(), uuid4(), uuid4())
+        result = await crud.delete_memory(AsyncMock(), uuid4(), uuid4())
     assert result is True
     delete_by_id.assert_awaited_once()

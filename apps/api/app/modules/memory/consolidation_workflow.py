@@ -8,19 +8,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.modules.memory import (
-    accept_memory_section_rewrite,
-    acquire_memory_write_lock,
-    facts_need_consolidation,
-    normalize_memory_text,
-    release_memory_write_lock,
-)
+from app.models.orm import Memory
 from app.modules.memory import llm as memory_llm
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
-from app.modules.memory.consolidation import fact_text_jaccard
+from app.modules.memory.consolidation import (
+    accept_memory_section_rewrite,
+    fact_text_jaccard,
+    facts_need_consolidation,
+)
 from app.modules.memory.fact_quality import FactView, texts_to_drop
 from app.modules.memory.facts import is_active_memory
+from app.modules.memory.locks import acquire_memory_write_lock, release_memory_write_lock
+from app.modules.memory.ops import normalize_memory_text
 from app.modules.memory.switch import memory_switch_on
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.repositories import users as users_repo
@@ -38,9 +38,9 @@ class _Pair:
 _NEAR_DUP_JACCARD = 0.8
 
 
-def _duplicate_pairs(facts: list) -> list[_Pair]:
+def _duplicate_pairs(facts: list[Memory]) -> list[_Pair]:
     active = [fact for fact in facts if is_active_memory(fact) and normalize_memory_text(fact.text)]
-    by_key: dict[tuple[str, str], list] = {}
+    by_key: dict[tuple[str, str], list[Memory]] = {}
     for fact in active:
         key = (fact.type, normalize_memory_text(fact.text).lower())
         by_key.setdefault(key, []).append(fact)

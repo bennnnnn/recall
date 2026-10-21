@@ -51,9 +51,7 @@ async def test_voice_search_runs_in_its_own_turn_context():
 @pytest.mark.asyncio
 async def test_memory_disabled_does_not_call_memory_service():
     user = make_user(memory_enabled=False)
-    with patch(
-        "app.modules.speech.live_talk_tools.memory_service.get_memory_block", AsyncMock()
-    ) as memory:
+    with patch("app.modules.memory.retrieval.get_memory_block", AsyncMock()) as memory:
         result = await execute_tool(
             Settings(),
             fakeredis.aioredis.FakeRedis(),

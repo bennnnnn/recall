@@ -47,7 +47,7 @@ def test_me_patch_invalidates_memory_cache_on_toggle():
     with (
         patch("app.modules.account.lifecycle.users_repo.update", AsyncMock(return_value=user)),
         patch(
-            "app.modules.account.lifecycle.memory_service.invalidate_memory_block",
+            "app.modules.memory.cache.invalidate_memory_block",
             invalidate_mock,
         ),
     ):
@@ -71,7 +71,7 @@ def test_me_patch_skips_memory_invalidation_when_unchanged():
     with (
         patch("app.modules.account.lifecycle.users_repo.update", AsyncMock(return_value=user)),
         patch(
-            "app.modules.account.lifecycle.memory_service.invalidate_memory_block",
+            "app.modules.memory.cache.invalidate_memory_block",
             invalidate_mock,
         ),
     ):

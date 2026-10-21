@@ -88,7 +88,7 @@ def test_delete_all_memories():
     user = api_user()
     app = app_with_user(user)
     with patch(
-        "app.modules.memory.api.memory_service.delete_all_memories",
+        "app.modules.memory.crud.delete_all_memories",
         AsyncMock(return_value=5),
     ) as clear:
         client = TestClient(app)

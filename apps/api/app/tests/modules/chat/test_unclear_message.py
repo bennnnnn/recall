@@ -49,7 +49,7 @@ async def _system_prompt(query: str) -> str:
     current = SimpleNamespace(id=uuid4(), role="user", content=query)
     with (
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
-        patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
+        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value="")),
         patch.object(messages_repository, "list_recent", AsyncMock(return_value=[current])),
     ):

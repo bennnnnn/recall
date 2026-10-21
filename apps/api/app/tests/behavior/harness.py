@@ -322,7 +322,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
             "app.modules.chat.messages_repository.get_last_assistant",
             AsyncMock(return_value=last_assistant),
         )
-        stub("app.modules.memory.list_for_user", AsyncMock(return_value=[]))
+        stub("app.modules.memory.repository.list_for_user", AsyncMock(return_value=[]))
         stub("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
         stub("app.modules.billing.plan.chat_fallback_models", lambda *_a, **_k: [])
         stub("app.modules.web_search.search_cache.run_cached_search", run_search)

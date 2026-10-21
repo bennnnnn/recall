@@ -11,18 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.modules.memory import (
-    acquire_memory_write_lock,
-    is_explicit_forget_command,
-    is_explicit_memory_command,
-    is_memory_candidate,
-    release_memory_write_lock,
-)
 from app.modules.memory import llm as memory_llm
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
 from app.modules.memory.commands import (
     forget_requests,
+    is_explicit_forget_command,
+    is_explicit_memory_command,
     is_explicit_mute_command,
     is_memory_correction,
     memory_reset_request,
@@ -38,14 +33,13 @@ from app.modules.memory.extract_backlog import (
 from app.modules.memory.fact_quality import FactView, is_one_off_schedule_fact, texts_to_drop
 from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.forget_match import phrase_names_fact
+from app.modules.memory.locks import acquire_memory_write_lock, release_memory_write_lock
 from app.modules.memory.name_claim import is_unclaimed_user_name
-from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX
+from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX, normalize_memory_text
+from app.modules.memory.schemas import MemoryFactOp
 from app.modules.memory.self_facts import stated_fact_writes
 from app.modules.memory.switch import memory_switch_on
-from app.modules.memory.text import (
-    classify_memory_sensitivity,
-    normalize_memory_text,
-)
+from app.modules.memory.text import classify_memory_sensitivity, is_memory_candidate
 from app.modules.memory.topics import (
     fact_topic,
     is_area,
@@ -120,7 +114,7 @@ async def load_memory_snapshot(
 
 
 def writes_from_ops(
-    result_ops: list,
+    result_ops: list[MemoryFactOp],
     *,
     chat_id: UUID | None,
     explicit_remember: bool,

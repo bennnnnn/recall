@@ -10,9 +10,8 @@ from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.exceptions import DomainError
 from app.models.orm import Memory, User
-from app.modules import memory as memory_service
+from app.modules.memory import crud, enqueue_policy, history_scan
 from app.modules.memory import documents as documents_service
-from app.modules.memory import enqueue_policy, history_scan
 from app.modules.memory import instruct as instruct_service
 from app.modules.memory.schemas import (
     MemoryDocumentOut,
@@ -92,7 +91,7 @@ async def delete_memory_document(
     key = parse_topic(topic)
     if key is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
-    deleted = await memory_service.delete_memory_document(session, user.id, key)
+    deleted = await crud.delete_memory_document(session, user.id, key)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
 
@@ -136,7 +135,7 @@ async def delete_all_memories(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    await memory_service.delete_all_memories(session, user.id)
+    await crud.delete_all_memories(session, user.id)
 
 
 @router.patch("/{memory_id}", response_model=MemoryOut)
@@ -147,7 +146,7 @@ async def update_memory(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> MemoryOut:
-    updated = await memory_service.update_memory(
+    updated = await crud.update_memory(
         session, settings, user.id, memory_id, body.text, status=body.status
     )
     if updated is None:
@@ -161,6 +160,6 @@ async def delete_memory(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    deleted = await memory_service.delete_memory(session, user.id, memory_id)
+    deleted = await crud.delete_memory(session, user.id, memory_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")

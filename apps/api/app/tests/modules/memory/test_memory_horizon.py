@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
-from app.modules.memory import format_memory_block, is_memory_candidate
+from app.models.orm import Memory
 from app.modules.memory.extraction_workflow import extract_and_store_memories
 from app.modules.memory.facts import is_active_memory
 from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
-from app.modules.memory.text import memory_extract_user_text
+from app.modules.memory.selection import format_memory_block
+from app.modules.memory.text import is_memory_candidate, memory_extract_user_text
 from app.tests.fakes import redis_mock
 
 
@@ -56,10 +58,9 @@ def _apply(store: list[SimpleNamespace], ops: list[MemoryFactOp]) -> None:
 
 
 def _block(store: list[SimpleNamespace]) -> str:
-    return format_memory_block(
-        [row for row in store if is_active_memory(row)],
-        max_chars=1500,
-    )
+    # The rows stand in for Memory: the same fields, no database.
+    active = cast(list[Memory], [row for row in store if is_active_memory(row)])
+    return format_memory_block(active, max_chars=1500)
 
 
 def test_horizon_max_python_oakland_forget_luna():

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.modules.memory import cache
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.text import embedding_text_hash
 from app.modules.memory.writes_repository import MemoryFactWrite
@@ -106,6 +107,4 @@ async def apply_memory_facts(
 
 
 async def _invalidate_memory_caches(user_id: UUID) -> None:
-    from app.modules import memory as memory_service
-
-    await memory_service.invalidate_memory_block(user_id)
+    await cache.invalidate_memory_block(user_id)

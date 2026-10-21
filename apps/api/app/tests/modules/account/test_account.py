@@ -61,7 +61,7 @@ def _empty_product_events_for_exports():
             AsyncMock(return_value=[]),
         ) as list_events,
         patch(
-            "app.modules.account.export.memory_service.list_areas",
+            "app.modules.memory.repository.list_areas",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -287,7 +287,7 @@ async def test_build_export_structure(_empty_product_events_for_exports):
             AsyncMock(return_value=[msg]),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(return_value=[mem]),
         ),
         patch(
@@ -354,7 +354,7 @@ async def test_build_export_includes_archived_chats():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -421,7 +421,7 @@ async def test_build_export_pages_messages_per_chat():
             AsyncMock(side_effect=list_range),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -467,7 +467,7 @@ async def test_build_export_pages_memories():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(side_effect=list_memories),
         ),
         patch(
@@ -512,7 +512,7 @@ async def test_build_export_caps_memories():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(side_effect=list_memories),
         ),
         patch(
@@ -560,7 +560,7 @@ async def test_build_export_includes_attachment_with_presigned_url():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(return_value=[]),
         ),
         patch(

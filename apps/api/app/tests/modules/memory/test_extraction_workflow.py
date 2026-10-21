@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.memory import embedding_text_hash
+from app.modules.memory.text import embedding_text_hash
 from app.tests.fakes import FakeSessionCM, fake_session, redis_mock
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 
@@ -305,7 +305,7 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
             "app.modules.memory.extraction_workflow.memories_repo.apply_writes",
             AsyncMock(return_value=[memory_id]),
         ),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
         patch(EMBED_MANY, embed_each(embed_calls)),
     ):
         await extract_and_store_memories(
@@ -382,7 +382,7 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
             "app.modules.memory.extraction_workflow.memories_repo.apply_writes",
             AsyncMock(return_value=[memory_id]),
         ),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
         patch(EMBED_MANY, embed_each(embed_calls)),
     ):
         await extract_and_store_memories(
@@ -461,7 +461,7 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
             "app.modules.memory.extraction_workflow.memories_repo.apply_writes",
             AsyncMock(return_value=[memory_id]),
         ),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
         patch(EMBED_MANY, embed_each(embed_calls)),
     ):
         await extract_and_store_memories(

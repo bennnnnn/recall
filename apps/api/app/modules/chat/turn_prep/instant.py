@@ -128,18 +128,13 @@ async def _profile_reply(asked: str, identity: TurnIdentity) -> str | None:
         return None
     try:
         async with SessionLocal() as session:
-            rows = await memory_service.list_for_user(
-                session,
-                user.id,
-                include_muted=False,
-                include_superseded=False,
-            )
+            facts = await memory_service.active_fact_texts(session, user.id)
     except Exception:
         logger.warning("Profile reply memory read failed user_id=%s", user.id, exc_info=True)
         return None
     return reply_for_profile_question(
         asked,
-        [row.text for row in rows],
+        facts,
         location=profile_service.user_location_label(user),
     )
 

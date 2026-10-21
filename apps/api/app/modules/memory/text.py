@@ -8,18 +8,8 @@ can depend on the text rules without pulling in the caching/locking machinery.
 import hashlib
 import re
 
-from app.modules.memory.commands import (
-    is_explicit_forget_command as is_explicit_forget_command,
-)
-from app.modules.memory.commands import (
-    is_explicit_memory_command as is_explicit_memory_command,
-)
-from app.modules.memory.commands import (
-    is_explicit_mute_command as is_explicit_mute_command,
-)
-from app.modules.memory.commands import is_memory_correction as is_memory_correction
-from app.modules.memory.commands import memory_reset_request as memory_reset_request
-from app.modules.memory.ops import normalize_memory_text as normalize_memory_text
+from app.modules.memory.commands import is_explicit_memory_command, is_memory_correction
+from app.modules.memory.ops import normalize_memory_text
 from app.services.prompt_safety import strip_untrusted_blocks, text_before_attachment_markers
 
 _AS_OF_PREFIX_RE = re.compile(r"^As of \d{4}-\d{2}-\d{2}:\s*", re.IGNORECASE)

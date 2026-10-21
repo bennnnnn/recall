@@ -1,21 +1,14 @@
 """Which memories go into a prompt, in what order, and how they're rendered.
 
-Pure ranking and formatting — no Redis, no DB, no awaits. The stateful core
-(`app/modules/memory/surface.py`) imports these into its own namespace and
-calls them there, so tests patching `app.modules.memory.format_memory_block`
-and friends still intercept the internal calls.
+Pure ranking and formatting — no Redis, no DB, no awaits. ``retrieval`` calls them
+through this module, so a test that patches ``selection.format_memory_block`` reaches
+the prompt path too.
 """
 
 import re
 
 from app.core.config import Settings
 from app.models.orm import Memory
-from app.modules.memory.facts import (
-    SECTION_LABELS as SECTION_LABELS,
-)
-from app.modules.memory.facts import (
-    TYPE_PRIORITY as TYPE_PRIORITY,
-)
 from app.modules.memory.facts import (
     fallback_score,
     identity_core,
@@ -68,7 +61,7 @@ def select_memories_for_prompt(
     return [*core, *rest][: settings.memory_inject_limit]
 
 
-def format_memory_block(memories: list, *, max_chars: int = 0) -> str:
+def format_memory_block(memories: list[Memory], *, max_chars: int = 0) -> str:
     packed = pack_memories(memories, max_chars=max_chars)
     return render_memory_block(packed)
 
