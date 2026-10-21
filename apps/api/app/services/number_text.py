@@ -24,6 +24,8 @@ import math
 import re
 from typing import Literal
 
+from app.services.glyphs import SUPERSCRIPT_SIGNED
+
 # 12, 3.5 or .5. A leading point is part of the number: skipping it once turned a
 # radius of .5 into a verified radius of 5.
 DECIMAL = r"(?:\d+(?:\.\d+)?|\.\d+)"
@@ -126,7 +128,7 @@ def numeric_spans(text: str) -> list[tuple[int, int]]:
 
 
 _MINUS_SIGNS = "−–"  # − (minus sign) and – (en dash, OCR and phones)
-_SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺", "0123456789-+")
+_SUPERSCRIPTS = SUPERSCRIPT_SIGNED
 
 # Thin spaces and the LaTeX spacing commands people paste from a typeset page.
 _GAP = r"(?:\s|\\[,;:! ])*"

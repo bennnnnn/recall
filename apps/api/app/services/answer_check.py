@@ -29,6 +29,7 @@ from fractions import Fraction
 from typing import Literal
 
 from app.services.answer_fence import CHEMISTRY_NOTATION_LINE, answer_header_and_value
+from app.services.glyphs import SUBSCRIPT_DIGITS, SUPERSCRIPT_SIGNED
 from app.services.school_rounding import round_places
 
 Verdict = Literal["same", "rounded", "conflict", "absent", "unknown"]
@@ -49,8 +50,8 @@ class VerifiedValue:
 
 # --- Cleaning ------------------------------------------------------------------------------
 
-_SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺", "0123456789-+")
-_SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
+_SUPERSCRIPTS = SUPERSCRIPT_SIGNED
+_SUBSCRIPTS = SUBSCRIPT_DIGITS
 _SUPERSCRIPT_RUN = re.compile(r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+")
 _TEX_WRAPPERS = re.compile(r"\\(?:mathrm|text|textrm|mathbf|operatorname|mathit|rm)\s*\{([^{}]*)\}")
 _TEX_FRAC = re.compile(r"\\[dt]?frac\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}")

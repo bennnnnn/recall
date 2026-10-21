@@ -40,6 +40,7 @@ from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si, si_factor
 from app.modules.physics.working import result_symbol_for
 from app.modules.physics.working_steps import carried_to_answer
+from app.services.glyphs import SUPERSCRIPT_SIGNED
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
 from app.services.workout import (
     ANSWER,
@@ -325,7 +326,7 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     )
 
 
-_SUPERSCRIPT_DIGITS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
+_SUPERSCRIPT_DIGITS = SUPERSCRIPT_SIGNED
 # The first value of a plain verified answer: "19.8 m/s", "3.97 × 10⁻¹⁹ J".  # noqa: RUF003
 _PLAIN_ANSWER = re.compile(
     r"^\s*(?P<number>-?\d+(?:\.\d+)?)(?:\s*×\s*10(?P<power>[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+))?"  # noqa: RUF001

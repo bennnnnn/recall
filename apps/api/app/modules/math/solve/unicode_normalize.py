@@ -3,20 +3,20 @@ superscript and subscript digits, and root signs."""
 
 from __future__ import annotations
 
+from app.services.glyphs import (
+    OPERATOR_GLYPHS,
+    SUBSCRIPT_DIGIT_GLYPHS,
+    SUBSCRIPT_DIGITS,
+    SUPERSCRIPT_DIGIT_GLYPHS,
+    SUPERSCRIPT_DIGITS,
+)
+
 # OCR / homework unicode operators → ASCII before the allowlist runs.
 # Do NOT widen `_SAFE_EXPR_CHARS`; map glyphs here instead.
 # Escapes (not literals) keep RUF001 from flagging lookalike punctuation.
+# The operators are the shared table (services/glyphs.py); π and ∞ are the solver's own.
 _UNICODE_OP_SUBS: tuple[tuple[str, str], ...] = (
-    ("\u00d7", "*"),  # U+00D7 multiplication sign
-    ("\u22c5", "*"),  # U+22C5 dot operator
-    ("\u00b7", "*"),  # U+00B7 middle dot
-    ("\u2217", "*"),  # U+2217 asterisk operator
-    ("\u00f7", "/"),  # U+00F7 division sign
-    ("\u2215", "/"),  # U+2215 division slash
-    ("\u2044", "/"),  # U+2044 fraction slash
-    ("\u2212", "-"),  # U+2212 minus sign
-    ("\u2013", "-"),  # U+2013 en dash
-    ("\u2014", "-"),  # U+2014 em dash
+    *OPERATOR_GLYPHS.items(),
     ("\u03c0", "pi"),  # π
     ("\u221e", "oo"),  # ∞
 )
@@ -39,12 +39,10 @@ _UNICODE_VULGAR: tuple[tuple[str, str], ...] = (
     ("\u215e", "(7)/(8)"),
 )
 
-_SUP_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
-_SUP_ASCII = "0123456789"
-_SUB_GLYPHS = "₀₁₂₃₄₅₆₇₈₉"
-_SUB_ASCII = "0123456789"
-_SUP_TABLE = str.maketrans(_SUP_GLYPHS, _SUP_ASCII)
-_SUB_TABLE = str.maketrans(_SUB_GLYPHS, _SUB_ASCII)
+_SUP_GLYPHS = SUPERSCRIPT_DIGIT_GLYPHS
+_SUB_GLYPHS = SUBSCRIPT_DIGIT_GLYPHS
+_SUP_TABLE = SUPERSCRIPT_DIGITS
+_SUB_TABLE = SUBSCRIPT_DIGITS
 
 
 def _rewrite_unicode_script_runs(s: str) -> str:

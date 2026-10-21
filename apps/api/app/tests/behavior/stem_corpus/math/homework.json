@@ -2,6 +2,8 @@
   {"id": "ar1", "area": "arithmetic", "prompt": "whats 12 + 6 ÷ 3 × 2", "expect": "answer", "check": ["num", "16"]},
   {"id": "ar2", "area": "arithmetic", "prompt": "(3+5)^2 - 4*3", "expect": "answer", "check": ["num", "52"]},
   {"id": "ar3", "area": "arithmetic", "prompt": "calculate 7 - 3 × (2 + 1)²", "expect": "answer", "check": ["num", "-20"]},
+  {"id": "ar3-en-dash", "area": "arithmetic", "prompt": "what is 12 \u2013 5 \u22c5 2", "expect": "answer", "check": ["num", "2"]},
+  {"id": "ar3-dot", "area": "arithmetic", "prompt": "calculate 6 \u22c5 7 \u2212 2", "expect": "answer", "check": ["num", "40"]},
   {"id": "ar4", "area": "arithmetic", "prompt": "what is 2^10", "expect": "answer", "check": ["num", "1024"]},
   {"id": "ar5", "area": "arithmetic", "prompt": "-3^2 + 5", "expect": "answer", "check": ["num", "-4"], "note": "-3^2 = -9 by convention"},
   {"id": "ar6", "area": "arithmetic", "prompt": "456 x 23", "expect": "answer", "check": ["num", "10488"]},
