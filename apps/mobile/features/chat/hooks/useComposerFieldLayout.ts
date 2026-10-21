@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   LayoutChangeEvent,
   NativeSyntheticEvent,
@@ -29,6 +29,21 @@ type Options = {
 };
 
 /**
+ * What the off-screen copy of the draft says about layout, kept coarse. Its
+ * one-line width grows with every letter; the layout changes only when the
+ * text stops fitting beside the buttons or takes another line, so a keystroke
+ * that does neither does not render the composer again.
+ */
+type MeasuredText = {
+  /** Wider than the field beside the buttons; null until the copy has been laid out. */
+  wrapsInline: boolean | null;
+  /** The copy's height at the field width. */
+  height: number;
+};
+
+const UNMEASURED: MeasuredText = { wrapsInline: null, height: 0 };
+
+/**
  * How tall the composer field is, whether its text wraps above the buttons,
  * and the full-height editor toggle. The field reports its width and content
  * size; everything else is derived from the draft and the text size.
@@ -46,8 +61,26 @@ export function useComposerFieldLayout({
   // Field width beside the buttons. Wrapping is judged at this width, so the
   // wider stacked field cannot flip the layout back.
   const [inlineWidth, setInlineWidth] = useState(0);
-  const [textSize, setTextSize] = useState<ComposerTextSize>({ naturalWidth: 0, height: 0 });
+  const [measured, setMeasured] = useState<MeasuredText>(UNMEASURED);
+  // Copies of state for the setters below, which skip a value React already
+  // has (setting even an unchanged value right after a render renders again),
+  // and for layout events that land before the render holding the last one.
+  const inputHeightRef = useRef(inputHeight);
+  const inlineWidthRef = useRef(inlineWidth);
+  const measuredRef = useRef(measured);
+  const textSize = useRef<ComposerTextSize>({ naturalWidth: 0, height: 0 });
   const measuredContent = useRef<{ revision: number; height: number } | null>(null);
+  // The glyph estimate walks every character: once per draft and width, shared below.
+  const estimatedLines = useMemo(
+    () => composerSoftWrapLineCount(input, inputContentWidth, fontScale),
+    [input, inputContentWidth, fontScale],
+  );
+
+  const commitInputHeight = useCallback((height: number) => {
+    if (inputHeightRef.current === height) return;
+    inputHeightRef.current = height;
+    setInputHeight(height);
+  }, []);
 
   // Expanded chrome belongs to the active draft, not the mounted screen.
   useEffect(() => {
@@ -64,18 +97,33 @@ export function useComposerFieldLayout({
     const revision = draftRevision ?? 0;
     if (!input) {
       measuredContent.current = null;
-      setInputHeight(COMPOSER_CONTROL_SIZE);
+      commitInputHeight(COMPOSER_CONTROL_SIZE);
       setComposerExpanded(false);
       return;
     }
-    const measured = retainedComposerContentHeight(
-      measuredContent.current,
-      revision,
+    const retained = retainedComposerContentHeight(measuredContent.current, revision, input);
+    const frame = composerInputFrameHeight(
       input,
+      retained,
+      inputContentWidth,
+      fontScale,
+      estimatedLines,
     );
-    const frame = composerInputFrameHeight(input, measured, inputContentWidth, fontScale);
-    setInputHeight(frame.height);
-  }, [draftRevision, fontScale, input, inputContentWidth]);
+    commitInputHeight(frame.height);
+  }, [commitInputHeight, draftRevision, estimatedLines, fontScale, input, inputContentWidth]);
+
+  const commitMeasured = (size: ComposerTextSize, fitWidth: number) => {
+    const wrapsInline = size.naturalWidth > 0 ? fitWidth > 0 && size.naturalWidth > fitWidth : null;
+    const current = measuredRef.current;
+    if (current.wrapsInline === wrapsInline && current.height === size.height) return;
+    measuredRef.current = { wrapsInline, height: size.height };
+    setMeasured(measuredRef.current);
+  };
+
+  const onTextMeasure = (size: ComposerTextSize) => {
+    textSize.current = size;
+    commitMeasured(size, inlineWidthRef.current);
+  };
 
   // Only hard returns move the thread. A soft wrap grows the field in place;
   // pushing list padding here is what yanks the chat up on every line.
@@ -84,12 +132,13 @@ export function useComposerFieldLayout({
   const returnFrame = composerInputFrameHeight(input, 0, 0, fontScale);
   // Text wraps beside the buttons: it takes the full width over a row of them.
   // Judged on the rendered text; the glyph estimate is only for the first frame.
-  const stacked = Boolean(input) && (
-    input.includes("\n") ||
-    (textSize.naturalWidth > 0
-      ? inlineWidth > 0 && textSize.naturalWidth > inlineWidth
-      : composerSoftWrapLineCount(input, inlineWidth, fontScale) > 1)
-  );
+  const estimateWrapsInline = () =>
+    (inlineWidth === inputContentWidth
+      ? estimatedLines
+      : composerSoftWrapLineCount(input, inlineWidth, fontScale)) > 1;
+  const stacked =
+    Boolean(input) &&
+    (input.includes("\n") || (measured.wrapsInline ?? estimateWrapsInline()));
   // Stacking adds the button row once, so the last reply stays clear of the pill.
   const inputFrameExtra = composerExpanded
     ? 0
@@ -106,13 +155,14 @@ export function useComposerFieldLayout({
     : 0;
   const field = composerInputMetrics(fontScale);
   const frameNow =
-    textSize.height > 0
-      ? composerInputFrameForLines(Math.round(textSize.height / field.line), fontScale)
+    measured.height > 0
+      ? composerInputFrameForLines(Math.round(measured.height / field.line), fontScale)
       : composerInputFrameHeight(
           input,
           Math.max(measuredNow, inputHeight),
           inputContentWidth,
           fontScale,
+          estimatedLines,
         );
   // Same render as the keystroke. Waiting for the effect leaves one frame
   // clipped at the end of the line.
@@ -124,35 +174,36 @@ export function useComposerFieldLayout({
     const next = Math.round(event.nativeEvent.layout.width);
     if (next <= 0) return;
     setInputContentWidth((current) => (current === next ? current : next));
-    if (!stackedLayout) setInlineWidth(next);
+    if (!stackedLayout) {
+      inlineWidthRef.current = next;
+      setInlineWidth(next);
+      commitMeasured(textSize.current, next);
+    }
   };
 
   const onInputContentSizeChange = (
     event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
   ) => {
-    const measured = Math.ceil(event.nativeEvent.contentSize.height);
+    const measuredHeight = Math.ceil(event.nativeEvent.contentSize.height);
     measuredContent.current = {
       revision: draftRevision ?? 0,
-      height: measured,
+      height: measuredHeight,
     };
     const frame = composerInputFrameHeight(
       input,
-      measured,
+      measuredHeight,
       inputContentWidth,
       fontScale,
+      estimatedLines,
     );
-    if (!composerExpanded) {
-      setInputHeight((current) =>
-        current === frame.height ? current : frame.height,
-      );
-    }
+    if (!composerExpanded) commitInputHeight(frame.height);
   };
 
   return {
     composerExpanded,
     toggleExpanded: () => setComposerExpanded((expanded) => !expanded),
     inputContentWidth,
-    setTextSize,
+    onTextMeasure,
     field,
     fieldHeight,
     // Text box matches the lines. Centering slack stays on the wrapper so the

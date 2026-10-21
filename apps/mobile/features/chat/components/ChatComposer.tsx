@@ -199,7 +199,7 @@ export const ChatComposer = memo(function ChatComposer({
     composerExpanded,
     toggleExpanded,
     inputContentWidth,
-    setTextSize,
+    onTextMeasure,
     field,
     textBoxHeight,
     fieldOverflows,
@@ -435,7 +435,7 @@ export const ChatComposer = memo(function ChatComposer({
                   <ComposerTextMeasure
                     text={input}
                     width={inputContentWidth}
-                    onMeasure={setTextSize}
+                    onMeasure={onTextMeasure}
                   />
                   <TextInput
                     ref={inputRef}

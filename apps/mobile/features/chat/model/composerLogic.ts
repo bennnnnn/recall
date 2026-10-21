@@ -128,16 +128,19 @@ export function composerSoftWrapLineCount(
  * Once the field width is known, ignore the native content size. iOS reports
  * the height we just set, and trusting that number ratchets the pill (and the
  * thread) upward on every keystroke.
+ *
+ * `lineCount` is `composerSoftWrapLineCount` for the same text, width and
+ * scale, for a caller that already has it: the estimate walks every character.
  */
 export function composerInputFrameHeight(
   text: string,
   measuredContentHeight: number,
   contentWidth = 0,
   fontScale = 1,
+  lineCount = composerSoftWrapLineCount(text, contentWidth, fontScale),
 ): { height: number; overflows: boolean } {
   const { line, min, max } = composerInputMetrics(fontScale);
   if (!text) return { height: min, overflows: false };
-  const lineCount = composerSoftWrapLineCount(text, contentWidth, fontScale);
   const fromLines = min + (lineCount - 1) * line;
   const measured =
     contentWidth >= SOFT_WRAP_MIN_WIDTH

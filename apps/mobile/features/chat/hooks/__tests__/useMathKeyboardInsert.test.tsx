@@ -62,6 +62,33 @@ describe("useMathKeyboardInsert", () => {
     expect(result.current.input).toBe("Let x=-5. Evaluate x^2");
   });
 
+  it("does not render again for a selection event that repeats the caret typing already moved", async () => {
+    let renders = 0;
+    const { result } = await renderHook(() => {
+      renders += 1;
+      return useHarness("Hi");
+    });
+    const selectionEvent = (start: number, end = start) =>
+      ({ nativeEvent: { selection: { start, end } } }) as Parameters<
+        typeof result.current.math.onSelectionChange
+      >[0];
+
+    await act(() => result.current.math.onChangeText("Hi!"));
+    const afterTyping = renders;
+    const caret = result.current.math.selection;
+    expect(caret).toEqual({ start: 3, end: 3 });
+
+    await act(() => result.current.math.onSelectionChange(selectionEvent(3)));
+    expect(renders).toBe(afterTyping);
+    expect(result.current.math.selection).toBe(caret);
+
+    // A real move still lands.
+    await act(() => result.current.math.onSelectionChange(selectionEvent(0, 2)));
+    expect(renders).toBe(afterTyping + 1);
+    expect(result.current.math.selection).toEqual({ start: 0, end: 2 });
+    expect(result.current.math.forcedSelection).toBeUndefined();
+  });
+
   it("normalizes math-bar paste even when replacing a longer selection", async () => {
     const { result } = await renderHook(() => useHarness("abcdefgh"));
     await act(() => {
