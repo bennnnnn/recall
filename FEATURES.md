@@ -771,6 +771,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 11. Navigation & UX
 - ✅ **Drawer** — custom slide-in: search, New chat, chat history, profile + settings.
+  A cold start shows the chats the account had last time while the list is read again.
 - ✅ **Opening a chat** — the last page shows at once (kept after every finished turn) and Send
   works on it; a message sent before the server's page lands stays below it, once. A chat
   reopened within 20s, with the app in the foreground and its drawer row unchanged, is not

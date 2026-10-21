@@ -8,7 +8,7 @@ import type { IconName } from "@/ui/icons/names";
 import { api, type Chat, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
 import { getSessionGeneration } from "@/lib/auth";
-import { getCachedChat } from "@/lib/cache/chatListCache";
+import { getCachedChat, getFetchedChat } from "@/lib/cache/chatListCache";
 import {
   shouldForceForegroundChatRecovery,
   shouldRefetchChatOnForeground,
@@ -255,7 +255,7 @@ export function useChatRouteLoader({
       try {
         const revision = getChatMutationRevision(openChatId);
         const [chat, page] = await Promise.all([
-          getCachedChat(openChatId) ?? api.getChat(token, openChatId),
+          getFetchedChat(openChatId) ?? api.getChat(token, openChatId),
           api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
         if (stale()) return;
@@ -399,7 +399,7 @@ export function useChatRouteLoader({
         }
       };
       const kept = peekCachedChatPage(openChatId);
-      const listed = getCachedChat(openChatId);
+      const listed = getFetchedChat(openChatId);
       if (kept && listed && isCachedChatPageFresh(openChatId, listed.updated_at)) {
         // This device wrote the page moments ago and nothing suggests the chat moved on.
         showCachedPage(kept, listed);
@@ -423,7 +423,7 @@ export function useChatRouteLoader({
         const painted = new Set(cached?.messages.map((m) => m.id));
         const revision = getChatMutationRevision(openChatId);
         const [chat, page] = await Promise.all([
-          getCachedChat(openChatId) ?? api.getChat(token, openChatId),
+          getFetchedChat(openChatId) ?? api.getChat(token, openChatId),
           api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
         if (!isCurrent()) return;

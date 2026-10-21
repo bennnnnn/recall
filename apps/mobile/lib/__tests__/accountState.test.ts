@@ -50,6 +50,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/auth.ts#sessionGeneration": "clearToken",
   "lib/auth.ts#storageQueue": "clearToken",
   "lib/cache/chatListCache.ts#resource": "invalidateChatListCache",
+  "lib/cache/chatListFile.ts#chatListFile": "invalidateChatListCache",
   "lib/cache/usageCache.ts#resource": "invalidateUsageCache",
   "lib/cachedModels.ts#cachedModelsFile": "clearCachedModels",
   "lib/cachedUser.ts#cachedUserFile": "clearCachedUser",

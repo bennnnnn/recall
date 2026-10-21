@@ -143,6 +143,19 @@ export class SessionResourceCache<Key, T, S = undefined> {
     return true;
   }
 
+  /**
+   * A value restored from disk for a key nothing has read or edited this
+   * session: shown at once, never fresh, and never replayed over a running
+   * read, whose result replaces it.
+   */
+  seed(key: Key, data: T, expectedSession: number): boolean {
+    const owner = this.current();
+    if (owner.session !== expectedSession || owner.entries.getEntry(key) !== undefined) return false;
+    owner.entries.set(key, data, NEVER_FETCHED);
+    this.notify();
+    return true;
+  }
+
   /** Apply a local edit now and over the running read. Returns the edited value, if any. */
   update(key: Key, update: ResourceUpdate<T>, expectedSession?: number): T | undefined {
     const owner = this.current();

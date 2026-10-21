@@ -50,9 +50,12 @@ product-free code goes to `lib/<domain>/`; a reusable control goes to `ui/` (cat
 Data that is shown again before it is fetched again (drawer chats, memory pages, gallery)
 is a port onto `SessionResourceCache` (`lib/cache/sessionResource.ts`): it fences each
 account, sends one request per key, replays edits made during a read, and tells "empty"
-from "failed". A cheap stale-while-revalidate value uses `StaleResourceCache`. An open chat's
-settled thread is kept by `features/chat/model/messageCache.ts` (memory at once, the file when
-idle) so the next open paints it, and a reopen within the stale window skips the read.
+from "failed". A cheap stale-while-revalidate value uses `StaleResourceCache`. A list kept on
+disk for a cold start (the drawer's chats, `lib/cache/chatListFile.ts`) goes back in with
+`seed`: shown at once, never fresh, so the screen still reads it; its file names the account
+that wrote it. An open chat's settled thread is kept by `features/chat/model/messageCache.ts`
+(memory at once, the file when idle) so the next open paints it, and a reopen within the stale
+window skips the read.
 
 A module-level value that components read with `useSyncExternalStore` is a
 `createValueStore` (or `createListenerSet` for plain notifications) from `lib/listenerSet.ts`.

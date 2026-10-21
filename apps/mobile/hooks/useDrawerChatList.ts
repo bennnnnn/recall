@@ -15,6 +15,7 @@ import {
   getCachedChatList,
   getChatListFetchedAt,
   isChatListFresh,
+  restoreChatList,
   updateChatListCache,
 } from "@/lib/cache/chatListCache";
 import {
@@ -115,6 +116,16 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     try { await load(false, true); }
     finally { if (current()) setRefreshing(false); }
   }, [token, current, load]);
+
+  // A cold start paints the chats this account had last time while the list is read again.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    void restoreChatList(token).then((restored) => {
+      if (restored && !cancelled && current()) hydrateFromCache();
+    });
+    return () => { cancelled = true; };
+  }, [token, current, hydrateFromCache]);
 
   // Idle warm is only for first paint. Closing the drawer never triggers a read.
   useEffect(() => {
