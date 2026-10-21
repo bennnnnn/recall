@@ -24,6 +24,7 @@ import type {
   ChatScreenSheetsProps,
 } from "@/features/chat/components/ChatScreenBody";
 import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
+import type { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
@@ -40,19 +41,14 @@ type QuotaNudge = {
   dismiss: () => void;
 };
 
+type ChatLayout = ReturnType<typeof useChatLayoutMetrics>;
+
 type UseChatScreenBodyPropsParams = {
   styles: ChatScreenStyles;
   theme: Theme;
   routeChatId?: string;
-  layout: {
-    headerMinimumHeight: number;
-    headerInset: number;
-    onHeaderHeightChange: (height: number) => void;
-    listBottomPad: number;
-    restingComposerClearance: number;
-    restingListBottomPad: number;
-    emptyHeight: number;
-  };
+  layout: Pick<ChatLayout, "headerMinimumHeight" | "headerInset" | "onHeaderHeightChange" | "emptyHeight" |
+    "listBottomPad" | "restingComposerClearance" | "restingListBottomPad">;
   listBottomPadRef: MutableRefObject<number>;
   actionBanner: ChatScreenChromeProps["actionBanner"];
   dismissActionBanner: () => void;
