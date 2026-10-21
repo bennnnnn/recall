@@ -102,7 +102,7 @@ function ChatScreen() {
   }, []);
 
   const idleComposerBottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
-  const { keyboardHeight, composerAnimatedStyle } = useKeyboardInset({
+  const { keyboardHeight, keyboardLift, composerAnimatedStyle } = useKeyboardInset({
     idleBottomPad: idleComposerBottomPad,
   });
 
@@ -488,6 +488,7 @@ function ChatScreen() {
     retryChatError,
     dismissChatError,
     composerAnimatedStyle,
+    keyboardLift,
     streaming: streamActive,
     sendBusy: chatLoading || sendPhase !== "idle",
     sendStatus: sendPhase === "locating" ? t("chat.locating") : undefined,

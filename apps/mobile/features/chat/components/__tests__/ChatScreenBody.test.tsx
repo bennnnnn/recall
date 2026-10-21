@@ -15,6 +15,7 @@ const mockChatMessageList = jest.fn();
 const mockChatComposer = jest.fn();
 const mockAttachmentSourceSheet = jest.fn();
 const mockScrollFab = jest.fn();
+const mockActionBanner = jest.fn();
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -64,7 +65,12 @@ jest.mock("@/contexts/StreamingDraftContext", () => ({
   StreamingDraftProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-jest.mock("@/ui/feedback/ActionBanner", () => ({ ActionBanner: () => null }));
+jest.mock("@/ui/feedback/ActionBanner", () => ({
+  ActionBanner: (props: unknown) => {
+    mockActionBanner(props);
+    return null;
+  },
+}));
 jest.mock("@/features/attachments/components/AttachmentSourceSheet", () => ({
   AttachmentSourceSheet: (props: { visible?: boolean }) => {
     mockAttachmentSourceSheet(props);
@@ -96,15 +102,17 @@ const renderItem = jest.fn(({ item }: { item: Message }) => <Text>{item.content}
 const onScroll = jest.fn();
 const onScrollEnd = jest.fn();
 const onLoadOlder = jest.fn();
+const keyboardLift = { value: 0 } as never;
 const drawerControls = { open: noop, close: noop, isOpenNow: () => false };
 
 const baseProps: ChatScreenBodyProps = {
   layout: {
     styles: { container: {} } as never,
     theme: lightTheme,
-    composerClearance: 96,
+    restingComposerClearance: 96,
     headerInset: 72,
-    listBottomPad: 104,
+    restingListBottomPad: 104,
+    keyboardLift,
     emptyHeight: 500,
   },
   list: {
@@ -209,6 +217,25 @@ describe("ChatScreenBody", () => {
         onScrollEnd,
         streamActive: true,
       }),
+    );
+  });
+
+  it("lays the list out at rest and lets the keyboard spacer and lifted chrome follow the keyboard", async () => {
+    await render(
+      <ChatScreenBody
+        {...baseProps}
+        chrome={{ ...baseProps.chrome, showScrollToBottom: true, actionBanner: { message: "Saved" } }}
+      />,
+    );
+
+    const listProps = mockChatMessageList.mock.calls.at(-1)?.[0];
+    expect(listProps).toEqual(expect.objectContaining({ listBottomPad: 104 }));
+    expect(listProps.footer.props).toEqual({ lift: keyboardLift });
+    expect(mockScrollFab).toHaveBeenLastCalledWith(
+      expect.objectContaining({ visible: true, bottomOffset: 104, lift: keyboardLift }),
+    );
+    expect(mockActionBanner).toHaveBeenLastCalledWith(
+      expect.objectContaining({ bottomOffset: 108, lift: keyboardLift }),
     );
   });
 

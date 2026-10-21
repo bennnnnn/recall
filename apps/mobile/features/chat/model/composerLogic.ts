@@ -239,6 +239,13 @@ type ChatLayoutMetrics = {
   composerClearance: number;
   listBottomPad: number;
   emptyHeight: number;
+  /**
+   * `composerClearance` with the keyboard down. Chrome above the composer adds
+   * the keyboard's lift on the UI thread, so it moves with every frame of it.
+   */
+  restingComposerClearance: number;
+  /** `listBottomPad` with the keyboard down; a spacer under the list adds the keyboard frame by frame. */
+  restingListBottomPad: number;
 };
 
 export function computeChatHeaderMinimumHeight(insetsTop: number, fontScale = 1): number {
@@ -277,22 +284,22 @@ export function computeChatLayoutMetrics(options: {
     options.keyboardHeight > 0
       ? options.keyboardHeight + CHAT_KEYBOARD_LIFT_EXTRA
       : 0;
-  const composerBottomPad =
-    options.keyboardHeight > 0
-      ? 0
-      : Math.max(options.insetsBottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
+  const restingBottomPad = Math.max(options.insetsBottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
+  const composerBottomPad = options.keyboardHeight > 0 ? 0 : restingBottomPad;
   const composerBlockHeight =
     options.composerHeight + options.attachmentExtra + (options.mathBarExtra ?? 0);
   const composerClearance = composerBlockHeight + composerBottomPad + composerLift;
+  const restingComposerClearance = composerBlockHeight + restingBottomPad;
   // ChatGPT-style: while the in-flight placeholder is on screen, hold empty
   // air above the composer. When that row becomes a real message the icons
   // mount in the bubble and this pad drops in the same render — net zero, so
   // the prose does not move. Never reserve both regions at once (`streaming`
   // is not the signal: it stays true through finalize after icons already
   // landed, which was the down-spring).
-  const listBottomPad =
-    composerClearance +
-    (shouldReserveComposerActionGap(options.lastMessageId) ? CHAT_ACTION_ROW_HEIGHT : 0);
+  const actionGap = shouldReserveComposerActionGap(options.lastMessageId)
+    ? CHAT_ACTION_ROW_HEIGHT
+    : 0;
+  const listBottomPad = composerClearance + actionGap;
   const emptyHeight = Math.max(
     CHAT_EMPTY_MIN_HEIGHT,
     options.windowHeight - headerInset - composerClearance,
@@ -307,6 +314,8 @@ export function computeChatLayoutMetrics(options: {
     composerClearance,
     listBottomPad,
     emptyHeight,
+    restingComposerClearance,
+    restingListBottomPad: restingComposerClearance + actionGap,
   };
 }
 

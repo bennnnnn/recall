@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
 import Animated, {
   runOnJS,
+  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -20,6 +21,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Space } from "@/lib/space";
 import { IconSize } from "../icons/sizes";
+import { useBottomLiftStyle } from "../hooks/useBottomLiftStyle";
 
 type Props = {
   message: string | null;
@@ -29,6 +31,8 @@ type Props = {
   appearance?: ActionBannerAppearance;
   onDismiss: () => void;
   bottomOffset?: number;
+  /** Moves the toast up by this much (pt) on the UI thread, e.g. with a keyboard-lifted composer. */
+  lift?: SharedValue<number>;
 };
 
 type ActionFeedbackTone = "success" | "info" | "warning" | "error";
@@ -41,6 +45,7 @@ export function ActionBanner({
   appearance = "default",
   onDismiss,
   bottomOffset = 24,
+  lift,
 }: Props) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
@@ -81,6 +86,7 @@ export function ActionBanner({
     opacity: opacity.value,
     transform: [{ translateY: translateY.value }],
   }));
+  const liftStyle = useBottomLiftStyle(lift);
 
   if (!message) return null;
 
@@ -95,7 +101,11 @@ export function ActionBanner({
   const liveRegion = tone === "error" || tone === "warning" ? "assertive" : "polite";
 
   return (
-    <View testID="action-banner-host" style={s.host} pointerEvents="box-none">
+    <Animated.View
+      testID="action-banner-host"
+      style={[s.host, lift ? liftStyle : null]}
+      pointerEvents="box-none"
+    >
       <Animated.View
         style={[
           s.wrap,
@@ -119,7 +129,7 @@ export function ActionBanner({
           </Text>
         </Pressable>
       </Animated.View>
-    </View>
+    </Animated.View>
   );
 }
 

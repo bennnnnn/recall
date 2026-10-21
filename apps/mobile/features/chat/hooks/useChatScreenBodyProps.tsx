@@ -8,7 +8,7 @@ import {
 } from "react";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type NativeScrollEvent, type NativeSyntheticEvent, type View, type ViewStyle } from "react-native";
-import { type AnimatedStyle } from "react-native-reanimated";
+import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
 import type { UpgradeSource } from "@/components/UpgradeSheet";
@@ -48,8 +48,9 @@ type UseChatScreenBodyPropsParams = {
     headerMinimumHeight: number;
     headerInset: number;
     onHeaderHeightChange: (height: number) => void;
-    composerClearance: number;
     listBottomPad: number;
+    restingComposerClearance: number;
+    restingListBottomPad: number;
     emptyHeight: number;
   };
   listBottomPadRef: MutableRefObject<number>;
@@ -111,6 +112,7 @@ type UseChatScreenBodyPropsParams = {
   retryChatError: () => void;
   dismissChatError: () => void;
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
+  keyboardLift: SharedValue<number>;
   streaming: boolean;
   sendBusy: boolean;
   sendStatus?: string;
@@ -187,6 +189,7 @@ export function useChatScreenBodyProps({
   retryChatError,
   dismissChatError,
   composerAnimatedStyle,
+  keyboardLift,
   streaming,
   sendBusy,
   sendStatus,
@@ -217,8 +220,9 @@ export function useChatScreenBodyProps({
     headerMinimumHeight,
     headerInset,
     onHeaderHeightChange,
-    composerClearance,
     listBottomPad,
+    restingComposerClearance,
+    restingListBottomPad,
     emptyHeight,
   } = layout;
   listBottomPadRef.current = listBottomPad;
@@ -314,17 +318,19 @@ export function useChatScreenBodyProps({
     (): ChatScreenLayoutProps => ({
       styles,
       theme,
-      composerClearance,
+      restingComposerClearance,
       headerInset,
-      listBottomPad,
+      restingListBottomPad,
+      keyboardLift,
       emptyHeight,
     }),
     [
       styles,
       theme,
-      composerClearance,
+      restingComposerClearance,
       headerInset,
-      listBottomPad,
+      restingListBottomPad,
+      keyboardLift,
       emptyHeight,
     ],
   );

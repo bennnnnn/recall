@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { type SharedValue } from "react-native-reanimated";
 import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
@@ -10,6 +11,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
 import { IconSize } from "@/ui/icons/sizes";
+import { useBottomLiftStyle } from "@/ui/hooks/useBottomLiftStyle";
 
 type Props = {
   error: ResolvedChatError | null;
@@ -20,6 +22,8 @@ type Props = {
   onChangeModel?: () => void;
   onDismiss: () => void;
   bottom: number;
+  /** Rides the keyboard with the composer, frame by frame. */
+  lift?: SharedValue<number>;
 };
 
 export function ChatInlineError({
@@ -31,10 +35,12 @@ export function ChatInlineError({
   onChangeModel,
   onDismiss,
   bottom,
+  lift,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const liftStyle = useBottomLiftStyle(lift);
 
   if (!error) return null;
 
@@ -48,7 +54,7 @@ export function ChatInlineError({
           : "alert-circle";
 
   return (
-    <View style={[s.wrap, { bottom }]}>
+    <Animated.View style={[s.wrap, { bottom }, lift ? liftStyle : null]}>
       <View style={s.body}>
         <Icon name={iconName} size={IconSize.xs} color={theme.warning} style={s.icon} />
         <Text style={s.text}>{error.message}</Text>
@@ -127,7 +133,7 @@ export function ChatInlineError({
       >
         <Icon name="close" size={IconSize.xs} color={theme.textTertiary} />
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 

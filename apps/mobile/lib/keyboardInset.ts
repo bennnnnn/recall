@@ -1,25 +1,33 @@
 /**
- * Gate for pushing a new keyboard height from the UI thread to JS state.
- * Called from inside a `useAnimatedReaction` callback, so it must carry the
- * 'worklet' directive to run on the UI thread — it also works fine as a
- * plain pure function under Jest, where the directive is inert.
+ * Keyboard geometry for the chat screen. Both functions run inside Reanimated
+ * worklets, so they carry the 'worklet' directive and read nothing but their
+ * arguments; under Jest the directive is inert and they are plain functions.
  */
+
 /**
- * `lastPushed` is the last height we sent to JS — not the previous animation
- * frame. Comparing frames at a 48px gate never catches the rest of a smooth
- * iOS curve (~16px/frame), so list pad stayed at the first 1–20px and
- * messages sat under the composer.
+ * The height to hand to React state, or null while the keyboard is still
+ * moving. React only needs where the keyboard comes to rest: the composer,
+ * the list's bottom space and the chrome above the composer follow every
+ * frame on the UI thread. `state` is Reanimated's `KeyboardState`, which
+ * reports OPEN and CLOSED once the native show or hide has finished.
  */
-export function shouldPushKeyboardHeight(
-  next: number,
-  lastPushed: number,
-  thresholdPx: number,
-  previousFrame: number = lastPushed,
-): boolean {
+export function settledKeyboardHeight(state: number, height: number): number | null {
   "worklet";
-  const isOpenTransition = (next > 0) !== (lastPushed > 0);
-  if (isOpenTransition) return true;
-  if (Math.abs(next - lastPushed) >= thresholdPx) return true;
-  // Last step of the curve is often under the threshold — still commit rest.
-  return next === previousFrame && next !== lastPushed;
+  // KeyboardState.OPEN and KeyboardState.CLOSED. A worklet cannot read an
+  // imported enum, so the values are spelled out here.
+  const open = 2;
+  const closed = 4;
+  if (state === open) return Math.max(0, height);
+  if (state === closed) return 0;
+  return null;
+}
+
+/**
+ * How far the keyboard has raised the composer above its resting place. At
+ * rest the composer sits on `idleBottomPad` (the home indicator); with the
+ * keyboard up it sits on the keyboard instead, so the rise is the difference.
+ */
+export function keyboardLiftAbove(keyboardHeight: number, idleBottomPad: number): number {
+  "worklet";
+  return keyboardHeight > idleBottomPad ? keyboardHeight - idleBottomPad : 0;
 }

@@ -35,6 +35,8 @@ type Props = {
   onContentSizeChange?: (width: number, height: number) => void;
   onListLayout?: (height: number) => void;
   header?: ReactElement | null;
+  /** After the last message, inside the scroll content (the keyboard spacer). */
+  footer?: ReactElement | null;
   /** When true, disable FlashList autoscroll — useChatScroll owns bottom-pinning. */
   streamActive?: boolean;
 };
@@ -56,6 +58,7 @@ function ChatMessageListComponent({
   onContentSizeChange,
   onListLayout,
   header,
+  footer,
   streamActive = false,
 }: Props) {
   const { t } = useTranslation();
@@ -161,6 +164,7 @@ function ChatMessageListComponent({
             </View>
           )
         }
+        ListFooterComponent={footer}
       />
 
       {header}

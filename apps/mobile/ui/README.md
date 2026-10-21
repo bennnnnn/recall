@@ -46,7 +46,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 - `share/`: ShareSheet.
 - `icons/`: Icon, BrandMark, the icon manifest and generated glyphs, IconSize.
 - `feedback/`: ActionBanner (the toast), StateView, SkeletonLoader, CountBadge, ActionShimmer.
-- `hooks/`: useKeyboardHeight.
+- `hooks/`: useKeyboardHeight, useBottomLiftStyle (bottom chrome that rides a keyboard-lifted composer on the UI thread).
 
 ## Tokens
 

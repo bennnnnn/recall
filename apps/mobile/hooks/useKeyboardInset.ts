@@ -4,43 +4,42 @@ import {
   useAnimatedKeyboard,
   useAnimatedReaction,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
 } from "react-native-reanimated";
 
-import { shouldPushKeyboardHeight } from "@/lib/keyboardInset";
+import { keyboardLiftAbove, settledKeyboardHeight } from "@/lib/keyboardInset";
 
 type Options = {
   /** Bottom padding when the keyboard is hidden (safe area aware). */
   idleBottomPad: number;
 };
 
-const KEYBOARD_HEIGHT_THRESHOLD_PX = 48;
-
-/** Tracks the OS keyboard curve for the chat composer and layout metrics. */
+/**
+ * Tracks the OS keyboard for the chat screen. Everything that moves with the
+ * keyboard (the composer, the list's bottom space, the chrome above the
+ * composer) follows it frame by frame on the UI thread. React state takes the
+ * height only once the keyboard has finished opening or closing, so a show or
+ * a hide renders the screen once instead of on every step of the curve.
+ */
 export function useKeyboardInset({ idleBottomPad }: Options) {
   const keyboard = useAnimatedKeyboard();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const lastPushedHeight = useSharedValue(0);
+  const committedHeight = useSharedValue(0);
 
   useAnimatedReaction(
-    () => keyboard.height.value,
-    (height, previousHeight) => {
-      const next = Math.max(0, height);
-      const previousFrame = Math.max(0, previousHeight ?? 0);
-      const lastPushed = lastPushedHeight.value;
-      if (
-        !shouldPushKeyboardHeight(
-          next,
-          lastPushed,
-          KEYBOARD_HEIGHT_THRESHOLD_PX,
-          previousFrame,
-        )
-      ) {
-        return;
-      }
-      lastPushedHeight.value = next;
-      runOnJS(setKeyboardHeight)(next);
+    () => settledKeyboardHeight(keyboard.state.value, keyboard.height.value),
+    (settled) => {
+      if (settled === null || settled === committedHeight.value) return;
+      committedHeight.value = settled;
+      runOnJS(setKeyboardHeight)(settled);
     },
+  );
+
+  /** How far the keyboard has lifted the composer above its resting place, this frame. */
+  const keyboardLift = useDerivedValue(
+    () => keyboardLiftAbove(keyboard.height.value, idleBottomPad),
+    [idleBottomPad],
   );
 
   const composerAnimatedStyle = useAnimatedStyle(() => {
@@ -51,5 +50,5 @@ export function useKeyboardInset({ idleBottomPad }: Options) {
     };
   }, [idleBottomPad]);
 
-  return { keyboardHeight, composerAnimatedStyle };
+  return { keyboardHeight, keyboardLift, composerAnimatedStyle };
 }

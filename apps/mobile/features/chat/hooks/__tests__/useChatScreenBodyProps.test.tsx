@@ -55,6 +55,7 @@ const handleHeaderHeightChange = jest.fn();
 const styles = {} as never;
 const listRef = { current: null };
 const listBottomPadRef = { current: 0 };
+const keyboardLift = { value: 0 } as never;
 
 const router = {
   setParams: jest.fn(),
@@ -70,8 +71,9 @@ function useHarness(streaming: boolean, messages: Message[]) {
       headerMinimumHeight: 72,
       headerInset: 72,
       onHeaderHeightChange: handleHeaderHeightChange,
-      composerClearance: 96,
       listBottomPad: 104,
+      restingComposerClearance: 96,
+      restingListBottomPad: 104,
       emptyHeight: 500,
     },
     listBottomPadRef,
@@ -125,6 +127,7 @@ function useHarness(streaming: boolean, messages: Message[]) {
     isPaid: false,
     retryChatError,
     dismissChatError,
+    keyboardLift,
     streaming,
     sendBusy: false,
     stopGeneration,
