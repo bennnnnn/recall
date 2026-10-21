@@ -1139,7 +1139,15 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
 - ✅ **JWT refresh / logout** — 1h access + refresh rotation; mobile auto-refresh on 401.
 - ✅ **HTTP SSE chat fallback** — `POST /chats/{id}/messages/stream` when WebSocket fails.
   New chat does not abort the fetch; Stop still does. The producer is registered as
-  in-flight so `GET /messages` can wait out a leave.
+  in-flight so `GET /messages` can wait out a leave. After a socket failure the next sends
+  use SSE for 10 s (doubling to 5 min, reset by a reply over the socket, a network change
+  or another chat), then the socket again; it used to stay SSE for the rest of the chat.
+- ✅ **Chat socket recovery** — the socket reopens when the user starts to write after the
+  server's idle close, is rebuilt after an access-token refresh, and is replaced on a network
+  change (a reply in flight is probed instead). A send with no `start` within 3 s is probed
+  (ping/pong); a dead socket's send is replayed over SSE under the message's
+  `client_message_id`, which the server runs at most once (`modules/chat/client_message.py`);
+  a resend it already took gets `duplicate` and the phone follows the first turn.
 
 ### Architecture review follow-ups (Jul 2026)
 
