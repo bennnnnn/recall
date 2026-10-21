@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.services.number_text import FRACTION_OR_DECIMAL
+from app.services.student_claim import CLAIM_LEAD
 
 _MAX_TEXT = 1000
 _MAX_LINES = 12
@@ -146,8 +147,8 @@ _ROOT_CLAIM = re.compile(
 
 # "I got x = 4 for 3x - 2 = 10": the answer comes before the equation.
 _ANSWER_CLAIM = re.compile(
-    rf"\b(?:i\s+(?:got|found|get|have)|my\s+answer\s+(?:is|was)"
-    rf"|i\s+think\s+(?:it'?s|it\s+is))\s+"
+    # "I get / I have" too: a ``var = value`` follows, so it is a claim, not a given.
+    rf"(?:{CLAIM_LEAD}|\bi\s+(?:get|have)\b)\s+"
     rf"(?P<var>[A-Za-z])\s*=\s*(?P<value>{FRACTION_OR_DECIMAL})"
     rf"\s+(?:for|in|on|when\s+solving|solving)\s+(?P<equation>.+)",
     re.IGNORECASE,
