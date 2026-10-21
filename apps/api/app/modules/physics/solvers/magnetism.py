@@ -13,8 +13,8 @@ from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
-    _latex_num,
-    _params_in_si,
+    latex_num,
+    params_in_si,
 )
 from app.modules.physics.solvers.field_scenes import charges_scene
 from app.services.solving import SolveServiceError
@@ -29,7 +29,7 @@ def _angle_label(intent: PhysicsIntent) -> str:
 
 
 def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or ""
     solver = _OPERATIONS.get(op)
     if solver is None:
@@ -151,14 +151,14 @@ def _electric_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
             rf"{latex_given(COULOMB_K)} \cdot "
             rf"\frac{{\lvert {latex_given(p['q1'])} \cdot "
             rf"{latex_given(p['q2'])}"
-            rf"\rvert}}{{{_latex_num(separation, square=True)}}} "
+            rf"\rvert}}{{{latex_num(separation, square=True)}}} "
             rf"\approx {value:.4g} \text{{ N}}"
         ),
         formulas=(r"F_e = k_e \frac{\lvert q_1q_2\rvert}{r^2}",),
         substitutions=(
             rf"F_e = {latex_given(COULOMB_K)} \cdot \frac{{\lvert "
             rf"{latex_given(p['q1'])} \cdot {latex_given(p['q2'])}"
-            rf"\rvert}}{{{_latex_num(separation, square=True)}}}",
+            rf"\rvert}}{{{latex_num(separation, square=True)}}}",
         ),
         quantities=(QuantityResult("", value, "N"),),
         simulation_specs=[_charges(intent, value)],

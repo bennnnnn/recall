@@ -10,7 +10,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from app.core import deps
 from app.core.access_tokens import create_access_token
 from app.core.config import Settings
-from app.exceptions import RedisUnavailableError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.schemas import LogoutRequest, RefreshRequest
 from app.modules.account import api as auth_router
 from app.modules.account import tokens as tokens_service
@@ -151,5 +151,5 @@ async def test_verify_access_token_reads_the_revocation_keys_in_one_round_trip(f
     assert await tokens_service.verify_access_token(fake_redis, token, settings) == user_id
     assert calls == ["mget"]
     await fake_redis.set(f"revoked:sid:{'device-1'}", "1")
-    with pytest.raises(tokens_service.GoogleAuthError):
+    with pytest.raises(AuthenticationError):
         await tokens_service.verify_access_token(fake_redis, token, settings)

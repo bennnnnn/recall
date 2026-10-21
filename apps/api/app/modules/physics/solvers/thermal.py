@@ -7,12 +7,12 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
+from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, params_in_si
 from app.services.solving import SolveServiceError
 
 
 def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or ""
     solver = _OPERATIONS.get(op)
     if solver is None:

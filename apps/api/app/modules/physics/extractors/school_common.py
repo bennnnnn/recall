@@ -5,10 +5,10 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
-    _AMP_PATTERN,
-    _NUMBER,
-    _find_value_with_specific_unit,
+    AMP_PATTERN,
+    NUMBER,
     _keyword_spans,
+    find_value_with_specific_unit,
 )
 from app.modules.physics.schemas import PhysicsIntent
 
@@ -41,17 +41,17 @@ def _numbers_before(pattern: str, text: str) -> list[float]:
     found = re.search(pattern, text, re.IGNORECASE)
     if found is None:
         return []
-    return [float(value) for value in re.findall(_NUMBER, found.group(1))]
+    return [float(value) for value in re.findall(NUMBER, found.group(1))]
 
 
 def _sum_directed(text: str, verb: str, label: str) -> float | None:
     grouped = _numbers_before(
-        rf"((?:{_NUMBER}\s*(?:{_AMP_PATTERN})(?:\s*(?:,|and)\s*)?)+)\s*(?:{verb})",
+        rf"((?:{NUMBER}\s*(?:{AMP_PATTERN})(?:\s*(?:,|and)\s*)?)+)\s*(?:{verb})",
         text,
     )
     labeled = _numbers_before(
         rf"\b{label}(?:\s+currents?)?(?:\s+of)?\s+"
-        rf"((?:{_NUMBER}\s*(?:{_AMP_PATTERN})(?:\s*(?:,|and)\s*)?)+)",
+        rf"((?:{NUMBER}\s*(?:{AMP_PATTERN})(?:\s*(?:,|and)\s*)?)+)",
         text,
     )
     values = grouped or labeled
@@ -74,7 +74,7 @@ def _one(
     require_keyword: bool = False,
 ) -> tuple[float, str] | None:
     """The value in this unit nearest a keyword, matched only as a whole word."""
-    return _find_value_with_specific_unit(
+    return find_value_with_specific_unit(
         text, unit, keywords, require_keyword=require_keyword, whole_words=True
     )
 
@@ -84,7 +84,7 @@ def _has_word(text: str, words: tuple[str, ...]) -> bool:
 
 
 def _turns(text: str, lower: str) -> float | None:
-    match = re.search(rf"({_NUMBER})\s*(?:turns?|coils?)", text, re.IGNORECASE)
+    match = re.search(rf"({NUMBER})\s*(?:turns?|coils?)", text, re.IGNORECASE)
     if match is not None:
         return float(match.group(1))
     if re.search(r"\b(?:a|one|single)\s+(?:loop|turn|coil)\b", lower):
@@ -101,7 +101,7 @@ def _kelvin(text: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
     for _start, end in _keyword_spans(text, keywords):
         window = text[end : end + 48]
         found = re.search(
-            rf"({_NUMBER})\s*(K|kelvins?)(?![A-Za-z0-9/^])",
+            rf"({NUMBER})\s*(K|kelvins?)(?![A-Za-z0-9/^])",
             window,
             re.IGNORECASE,
         )

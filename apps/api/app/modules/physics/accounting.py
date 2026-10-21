@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass
 from itertools import combinations, product
 
-from app.modules.physics.extractors.common import _NUMBER
+from app.modules.physics.extractors.common import NUMBER
 from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 # A stated g is a setting for whichever law needs it, not a competing given.
 _GRAVITY_SETTING = re.compile(
-    rf"\b(?:g\s*=|gravity\s*(?:of|is|=)?)\s*{_NUMBER}(?:\s*m/s\^?2)?",
+    rf"\b(?:g\s*=|gravity\s*(?:of|is|=)?)\s*{NUMBER}(?:\s*m/s\^?2)?",
     re.IGNORECASE,
 )
 # Derived values are sums or differences of a few givens; more is a guess.

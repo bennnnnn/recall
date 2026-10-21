@@ -9,9 +9,9 @@ from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, Simu
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
-    _latex_num,
-    _params_in_si,
     gravity_of,
+    latex_num,
+    params_in_si,
 )
 from app.modules.physics.solvers.force_scenes import _free_body_scene
 from app.services.solving import SolveServiceError
@@ -27,7 +27,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
     }:
         return solve_energy_conservation(intent)
 
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     g = gravity_of(p)
     op = intent.physics_op or "kinetic_energy"
     work_direction = (1.0, 0.0)
@@ -45,7 +45,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         quantity = QuantityResult("", eta, "", detail=f"{eta * 100:.4g}%")
     elif op == "kinetic_energy":
         ke_val = 0.5 * p["m"] * p["v"] ** 2
-        v_sq = _latex_num(p["v"], square=True)
+        v_sq = latex_num(p["v"], square=True)
         plugged = rf"\frac{{1}}{{2}} \cdot {p['m']:g} \cdot {v_sq}"
         answer_latex = rf"KE = \frac{{1}}{{2}} m v^2 = {plugged} \approx {ke_val:.2f} \text{{ J}}"
         formula = r"KE = \frac{1}{2} m v^2"

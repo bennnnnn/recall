@@ -12,15 +12,15 @@ from app.modules.physics.schemas import PhysicsIntent, SimulationSolid, Simulati
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
-    _params_in_si,
     gravity_of,
+    params_in_si,
 )
 from app.modules.physics.solvers.force_scenes import _free_body_scene
 from app.services.solving import SolveServiceError
 
 
 def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or ""
     solver = _OPERATIONS.get(op)
     if solver is None:

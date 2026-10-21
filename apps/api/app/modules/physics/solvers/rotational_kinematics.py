@@ -7,7 +7,7 @@ import math
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
-    _latex_num,
+    latex_num,
     one_unknown,
 )
 from app.services.solving import SolveServiceError
@@ -57,7 +57,7 @@ def _theta(params: dict[str, float]) -> PhysicsResult:
         value = (
             theta0 + params["omega0"] * params["t"] + 0.5 * params["ang_alpha"] * params["t"] ** 2
         )
-        elapsed = _latex_num(params["t"], square=True)
+        elapsed = latex_num(params["t"], square=True)
         answer = (
             r"\theta = \theta_0 + \omega_0 t + \frac{1}{2}\alpha t^2 = "
             rf"{theta0:g} + {params['omega0']:g} \cdot {params['t']:g} + "

@@ -62,10 +62,10 @@ def written_side(text: str, variables: list[str]) -> tuple[Any, str] | None:
     The parse is unevaluated and printed in the typed order, so Given shows
     the problem the student wrote; a change of base prints as its written base.
     """
-    from app.modules.math.solve.parse import _parse_expression
+    from app.modules.math.solve.parse import parse_expression
 
     with sympy_decline() as declined:
-        expr = _parse_expression(text, variables, real=True, evaluate=False)
+        expr = parse_expression(text, variables, real=True, evaluate=False)
         tex = str(latex(expr, order="none"))
     if declined:
         return None

@@ -24,7 +24,7 @@ from hypothesis import strategies as st
 
 from app.modules.math.match import needs_symbolic
 from app.modules.math.schemas import MathIntent
-from app.modules.math.solve import _parse_expression
+from app.modules.math.solve import parse_expression
 from app.modules.math.solve.fractions import build_fraction_work
 from app.modules.math.solve.written_arithmetic import build_written_arithmetic_operands
 from app.modules.math.tools.extract import extract_math_intent
@@ -64,7 +64,7 @@ def test_generated_arithmetic_extracts_matching_value(a: int, op: str, b: int) -
     assert intent is not None, text
     assert intent.kind == "arithmetic"
     assert intent.expr is not None
-    parsed = _parse_expression(intent.expr)
+    parsed = parse_expression(intent.expr)
     expected = a + b if op == "+" else (a - b if op == "-" else a * b)
     assert float(parsed) == pytest.approx(expected), text
 
@@ -78,9 +78,9 @@ def test_generated_linear_equation_extracts_equivalent_sides(a: int, b: int, c: 
     assert intent is not None, text
     assert intent.kind == "equation"
     assert intent.lhs is not None and intent.rhs is not None
-    lhs = _parse_expression(intent.lhs, ["x"])
-    rhs = _parse_expression(intent.rhs, ["x"])
-    reference = _parse_expression(f"{a}*x + ({b}) - ({c})", ["x"])
+    lhs = parse_expression(intent.lhs, ["x"])
+    rhs = parse_expression(intent.rhs, ["x"])
+    reference = parse_expression(f"{a}*x + ({b}) - ({c})", ["x"])
     assert (lhs - rhs - reference).simplify() == 0, text
 
 

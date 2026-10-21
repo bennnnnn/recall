@@ -11,7 +11,7 @@ from app.modules.math.schemas import (
     NewtonMethodResult,
 )
 from app.modules.math.solve.display import format_verified_latex
-from app.modules.math.solve.parse import SolveServiceError, _parse_expression
+from app.modules.math.solve.parse import SolveServiceError, parse_expression
 
 
 def newton_method(data: NewtonMethodInput) -> NewtonMethodResult:
@@ -20,7 +20,7 @@ def newton_method(data: NewtonMethodInput) -> NewtonMethodResult:
     _worked_isolation_steps's role for algebraic solves — the model copies
     the iteration history verbatim instead of inventing its own numbers."""
     sym = Symbol(data.variable)
-    parsed = _parse_expression(data.expr, [data.variable])
+    parsed = parse_expression(data.expr, [data.variable])
     derivative = diff(parsed, sym)
 
     f = lambdify(sym, parsed, modules=["math"])

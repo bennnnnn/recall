@@ -22,17 +22,17 @@ from app.modules.physics.extractors.circuit_patterns import (
     counted_resistors,
 )
 from app.modules.physics.extractors.common import (
-    _AMP_PATTERN,
-    _LENGTH_UNIT_PATTERN,
     _OHM_PATTERN,
-    _find_value_with_specific_unit,
-    _ordered_values,
-    _strip_param_assignments,
+    AMP_PATTERN,
+    LENGTH_UNIT_PATTERN,
+    find_value_with_specific_unit,
+    ordered_values,
+    strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )
-from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
+from app.modules.physics.extractors.fluid_readings import AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_circuit
 from app.modules.physics.givens import scan_givens
 from app.modules.physics.schemas import PhysicsIntent
@@ -75,20 +75,20 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
         return None
     if blocks_circuit(cleaned):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
-    volts = _ordered_values(cleaned, _VOLT_PATTERN)
-    amps = _ordered_values(cleaned, _AMP_PATTERN)
-    ohms = _ordered_values(cleaned, _OHM_PATTERN)
-    farads = _ordered_values(cleaned, _FARAD_PATTERN)
+    volts = ordered_values(cleaned, _VOLT_PATTERN)
+    amps = ordered_values(cleaned, AMP_PATTERN)
+    ohms = ordered_values(cleaned, _OHM_PATTERN)
+    farads = ordered_values(cleaned, _FARAD_PATTERN)
 
     # --- parallel-plate capacitance: C = epsilon_0 A / d ----------------
     if "parallel plate" in lower:
-        area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
-        spacing = _find_value_with_specific_unit(
+        area = find_value_with_specific_unit(cleaned, AREA_PATTERN)
+        spacing = find_value_with_specific_unit(
             cleaned,
-            _LENGTH_UNIT_PATTERN,
+            LENGTH_UNIT_PATTERN,
             ("separation", "spacing", "apart", "distance"),
             require_keyword=True,
         )
@@ -192,7 +192,7 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
     # between the EMF and the terminal voltage on the reader's behalf is the
     # kind of guess a verified block must not make.
     if "internal resistance" in lower and _TERMINAL_ASK_RE.search(cleaned):
-        r_internal = _find_value_with_specific_unit(
+        r_internal = find_value_with_specific_unit(
             cleaned, _OHM_PATTERN, ("internal",), require_keyword=True
         )
         if r_internal is None or not volts or not amps:
@@ -213,7 +213,7 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
     # Stored energy from Q and V is not this capacitance. The energy branch
     # above already declined when C was not stated.
     if "capacit" in lower and "energy" not in lower:
-        coulombs = _ordered_values(cleaned, _COULOMB_PATTERN)
+        coulombs = ordered_values(cleaned, _COULOMB_PATTERN)
         if not coulombs or not volts:
             return None
         return PhysicsIntent(
@@ -226,7 +226,7 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
 
     # --- charge: Q = I t --------------------------------------------------
     if _CHARGE_FLOW_RE.search(cleaned):
-        seconds = _find_value_with_specific_unit(cleaned, _CIRCUIT_TIME_UNITS)
+        seconds = find_value_with_specific_unit(cleaned, _CIRCUIT_TIME_UNITS)
         if not amps or seconds is None:
             return None
         return PhysicsIntent(
@@ -239,8 +239,8 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
 
     # --- electrical energy: E = P t ---------------------------------------
     if _ELECTRICAL_ENERGY_RE.search(cleaned):
-        watts = _find_value_with_specific_unit(cleaned, _WATT_PATTERN)
-        seconds = _find_value_with_specific_unit(cleaned, _CIRCUIT_TIME_UNITS)
+        watts = find_value_with_specific_unit(cleaned, _WATT_PATTERN)
+        seconds = find_value_with_specific_unit(cleaned, _CIRCUIT_TIME_UNITS)
         if watts is None or seconds is None:
             return None
         return PhysicsIntent(

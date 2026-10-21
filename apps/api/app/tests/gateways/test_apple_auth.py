@@ -10,8 +10,8 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from app.core.config import Settings
+from app.exceptions import AuthenticationError
 from app.gateways.apple_auth import verify_apple_id_token
-from app.gateways.google_auth import GoogleAuthError
 
 RAW_NONCE = "raw-nonce-from-the-app"
 _UNSET: Any = object()
@@ -76,7 +76,7 @@ async def test_verify_apple_id_token_rejects_wrong_audience():
 
     with (
         patch("app.gateways.apple_auth._fetch_apple_jwks", AsyncMock(return_value=_jwks(kid, jwk))),
-        pytest.raises(GoogleAuthError, match="Invalid Apple ID token"),
+        pytest.raises(AuthenticationError, match="Invalid Apple ID token"),
     ):
         await verify_apple_id_token(token, settings, nonce=RAW_NONCE)
 
@@ -103,7 +103,7 @@ async def test_verify_apple_id_token_rejects_a_token_not_bound_to_this_sign_in(
 
     with (
         patch("app.gateways.apple_auth._fetch_apple_jwks", AsyncMock(return_value=_jwks(kid, jwk))),
-        pytest.raises(GoogleAuthError, match="Invalid Apple ID token"),
+        pytest.raises(AuthenticationError, match="Invalid Apple ID token"),
     ):
         await verify_apple_id_token(token, settings, nonce=sent_nonce)
 
@@ -116,7 +116,7 @@ async def test_verify_apple_id_token_rejects_missing_or_past_expiry(exp):
 
     with (
         patch("app.gateways.apple_auth._fetch_apple_jwks", AsyncMock(return_value=_jwks(kid, jwk))),
-        pytest.raises(GoogleAuthError, match="Invalid Apple ID token"),
+        pytest.raises(AuthenticationError, match="Invalid Apple ID token"),
     ):
         await verify_apple_id_token(token, settings, nonce=RAW_NONCE)
 
@@ -124,7 +124,7 @@ async def test_verify_apple_id_token_rejects_missing_or_past_expiry(exp):
 @pytest.mark.asyncio
 async def test_verify_apple_id_token_requires_server_config():
     settings = Settings(apple_client_id="")
-    with pytest.raises(GoogleAuthError, match="not configured"):
+    with pytest.raises(AuthenticationError, match="not configured"):
         await verify_apple_id_token("bad.token.here", settings, nonce=RAW_NONCE)
 
 

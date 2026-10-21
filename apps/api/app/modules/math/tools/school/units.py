@@ -9,7 +9,7 @@ from typing import Any
 from app.core.config import Settings
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
 from app.modules.math.tools.extractors.readings import read
 from app.modules.math.unit_conversion import convert_unit
@@ -47,13 +47,13 @@ def _quantity_expression(text: str) -> Any | None:
     """A numeric value made of numbers, π and arithmetic; never a variable."""
     from sympy import pi
 
-    from app.modules.math.solve.parse import _parse_expression
+    from app.modules.math.solve.parse import parse_expression
 
     compact = text.strip()
     if not compact or _QUANTITY_CHARS.sub("", compact):
         return None
     with sympy_decline() as declined:
-        value = _parse_expression(compact.replace("π", "pi"), [])
+        value = parse_expression(compact.replace("π", "pi"), [])
     if declined:
         return None
     if value is None or value.free_symbols or not value.is_finite or not value.is_real:
@@ -260,7 +260,7 @@ def _verified_block_unit(
     exact = _exact_angle(intent)
     if exact is not None:
         lines.append(f"{quantity} {intent.unit_from} = {exact} {intent.unit_to} (exact)")
-        return _finish_with_answer(lines, format_quantity(exact, intent.unit_to))
+        return finish_with_answer(lines, format_quantity(exact, intent.unit_to))
     answer = convert_unit(intent.percent_base, intent.unit_from, intent.unit_to)
     lines.append(f"{quantity} {intent.unit_from} = {answer} {intent.unit_to}")
     if (
@@ -310,4 +310,4 @@ def _verified_block_unit(
             )
         ).removesuffix("\n\n**Answer**")
         return VerifiedMathBlock(text="\n".join(lines), direct_reply=direct)
-    return _finish_with_answer(lines, format_quantity(answer, intent.unit_to))
+    return finish_with_answer(lines, format_quantity(answer, intent.unit_to))

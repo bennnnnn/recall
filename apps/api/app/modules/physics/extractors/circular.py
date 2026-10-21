@@ -7,15 +7,15 @@ from typing import Literal
 
 from app.modules.physics.extractors.angles import _stated_angle
 from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-    _detect_gravity,
-    _find_value_with_specific_unit,
-    _strip_param_assignments,
+    LENGTH_UNIT_PATTERN,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+    detect_gravity,
+    find_value_with_specific_unit,
+    strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
 from app.modules.physics.extractors.friction import _MU_RE
 from app.modules.physics.extractors.oscillations import _ANGULAR_FREQ_RE
@@ -58,7 +58,7 @@ _CIRCULAR_ASKS: tuple[tuple[str, _CircularOp], ...] = (
     ("force", "centripetal_force"),
 )
 
-_RPM_RE = re.compile(rf"({_NUMBER})\s*(?:rpm|revolutions?\s+per\s+minute)\b", re.IGNORECASE)
+_RPM_RE = re.compile(rf"({NUMBER})\s*(?:rpm|revolutions?\s+per\s+minute)\b", re.IGNORECASE)
 
 _CIRCULAR_CUE_RES: tuple[re.Pattern[str], ...] = (
     # Revolutions of a body: counted ("3 revolutions", "one revolution") or a rate
@@ -142,13 +142,13 @@ def _asked_circular_op(text: str) -> _CircularOp | None:
 
 
 def _radius(text: str) -> tuple[float, str] | None:
-    found = _find_value_with_specific_unit(
-        text, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
+    found = find_value_with_specific_unit(
+        text, LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
     if found is not None:
         return found
     labeled = re.search(
-        rf"\br\s*=\s*({_NUMBER})\s*({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
+        rf"\br\s*=\s*({NUMBER})\s*({LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
         text,
         re.IGNORECASE,
     )
@@ -162,7 +162,7 @@ def _road_intent(text: str) -> PhysicsIntent | None:
     radius = _radius(text)
     if radius is None:
         return None
-    gravity = _detect_gravity(text)
+    gravity = detect_gravity(text)
     params: dict[str, float] = {"r": radius[0], "g": gravity}
     units: dict[str, str] = {"r": radius[1] or "m", "g": "m/s^2"}
     if _LEVEL_CURVE.search(text) and not _BANKED.search(text):
@@ -193,7 +193,7 @@ def _road_intent(text: str) -> PhysicsIntent | None:
     if re.search(r"\bfriction", text, re.IGNORECASE) and not _FRICTIONLESS.search(text):
         return None
     angle = _stated_angle(text)
-    speed = _find_value_with_specific_unit(text, _VELOCITY_UNIT_PATTERN)
+    speed = find_value_with_specific_unit(text, VELOCITY_UNIT_PATTERN)
     asks_angle = _ASKS_ANGLE.search(text) is not None
     asks_speed = _ASKS_SPEED.search(text) is not None
     if asks_angle and asks_speed:
@@ -226,9 +226,9 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
     if road is not None:
         return road
     lower = cleaned.lower()
-    if not _has_cue(lower, _CIRCULAR_CUES, _CIRCULAR_CUE_RES):
+    if not has_cue(lower, _CIRCULAR_CUES, _CIRCULAR_CUE_RES):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
     rpm_match = _RPM_RE.search(cleaned)
@@ -241,10 +241,10 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
 
-    radius = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
+    radius = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
-    speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
+    speed = find_value_with_specific_unit(cleaned, VELOCITY_UNIT_PATTERN)
     omega = _ANGULAR_FREQ_RE.search(cleaned)
     if radius is None or (speed is None and omega is None):
         # ω = 2π/T needs a period and no tangential speed. Radius is not an input.
@@ -254,7 +254,7 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
             and omega is None
             and "period" in lower
         ):
-            period = _find_value_with_specific_unit(
+            period = find_value_with_specific_unit(
                 cleaned,
                 r"seconds?|secs?|sec|s|minutes?|mins?|min",
                 ("period",),
@@ -270,7 +270,7 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
                 )
         return None
 
-    mass = _find_value_with_specific_unit(
+    mass = find_value_with_specific_unit(
         cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "object", "body", "ball", "car")
     )
 

@@ -8,12 +8,12 @@ from typing import Literal
 
 from app.modules.physics.extractors.angles import _stated_angle
 from app.modules.physics.extractors.common import (
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-    _detect_gravity,
-    _find_value_with_specific_unit,
-    _ordered_values,
-    _strip_param_assignments,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+    detect_gravity,
+    find_value_with_specific_unit,
+    ordered_values,
+    strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
@@ -62,10 +62,10 @@ _PE_ABBREV_RE = re.compile(r"\bp\.?\s?e\.?\s+of\b")
 # without maintaining a noun allowlist or stealing "the third power of 5".
 _SOLVABLE_POWER_DATA_RE = re.compile(
     rf"(?is)\A(?=.*\bpower\b)(?:"
-    rf"(?=.*{_NUMBER}\s*(?:kilojoules?|joules?|kJ|J)\b)"
-    rf"(?=.*{_NUMBER}\s*(?:milliseconds?|ms|seconds?|secs?|sec|s|"
+    rf"(?=.*{NUMBER}\s*(?:kilojoules?|joules?|kJ|J)\b)"
+    rf"(?=.*{NUMBER}\s*(?:milliseconds?|ms|seconds?|secs?|sec|s|"
     r"minutes?|mins?|min|hours?|hrs?|hr|h)\b)"
-    rf"|(?=.*{_NUMBER}\s*N\b)(?=.*{_NUMBER}\s*(?:{_VELOCITY_UNIT_PATTERN})\b))"
+    rf"|(?=.*{NUMBER}\s*N\b)(?=.*{NUMBER}\s*(?:{VELOCITY_UNIT_PATTERN})\b))"
 )
 
 _ENERGY_CUE_RES: tuple[re.Pattern[str], ...] = (
@@ -114,7 +114,7 @@ def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue_either_case(cleaned, _ENERGY_CUES, _ENERGY_CUE_RES):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
     if _ROLLING_BODY_RE.search(cleaned):
         # A rolling sphere, cylinder or hoop also spins: ½mv² is not its energy.
@@ -156,28 +156,28 @@ def _mechanical_efficiency(cleaned: str, lower: str) -> PhysicsIntent | None:
     """
     if not any(word in lower for word in ("machine", "mechanical", "device", "motor")):
         return None
-    energies = _ordered_values(cleaned, r"kilojoules?|joules?|kJ|J")
+    energies = ordered_values(cleaned, r"kilojoules?|joules?|kJ|J")
     if len(energies) != 2:
         return None
     output_match = re.search(
-        rf"(?:output|outputs|useful(?:\s+energy)?)\D{{0,24}}?({_NUMBER})\s*"
+        rf"(?:output|outputs|useful(?:\s+energy)?)\D{{0,24}}?({NUMBER})\s*"
         r"(kilojoules?|joules?|kJ|J)",
         cleaned,
         re.IGNORECASE,
     )
     input_match = re.search(
-        rf"(?:input|supplied|receives?|takes?\s+in)\D{{0,24}}?({_NUMBER})\s*"
+        rf"(?:input|supplied|receives?|takes?\s+in)\D{{0,24}}?({NUMBER})\s*"
         r"(kilojoules?|joules?|kJ|J)",
         cleaned,
         re.IGNORECASE,
     )
     output_reverse = re.search(
-        rf"({_NUMBER})\s*(kilojoules?|joules?|kJ|J)\s*(?:output|useful)",
+        rf"({NUMBER})\s*(kilojoules?|joules?|kJ|J)\s*(?:output|useful)",
         cleaned,
         re.IGNORECASE,
     )
     input_reverse = re.search(
-        rf"({_NUMBER})\s*(kilojoules?|joules?|kJ|J)\s*(?:input|supplied)",
+        rf"({NUMBER})\s*(kilojoules?|joules?|kJ|J)\s*(?:input|supplied)",
         cleaned,
         re.IGNORECASE,
     )
@@ -199,30 +199,30 @@ def _read_energy_givens(cleaned: str) -> _EnergyGivens:
     """Each value by its own unit, nearest the words that name it."""
     return _EnergyGivens(
         # Mass (m) — use unit-specific search so force isn't picked up as mass.
-        mass=_find_value_with_specific_unit(
+        mass=find_value_with_specific_unit(
             cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "object", "body")
         ),
         # Velocity (v) — for KE = 1/2 m v^2
-        velocity=_find_value_with_specific_unit(
+        velocity=find_value_with_specific_unit(
             cleaned,
             r"m/s|km/h|mph|cm/s|mm/s",
             ("velocity", "speed", "moving", "traveling", "travelling"),
         ),
         # Height (h) — for PE = m g h. Use length-specific search.
-        height=_find_value_with_specific_unit(
+        height=find_value_with_specific_unit(
             cleaned, r"km|cm|mm|m|ft|yd|in|mi", ("height", "high", "above")
         ),
         # Force (F) — for W = F d
-        force=_find_value_with_specific_unit(cleaned, r"\bN\b", ("force",)),
+        force=find_value_with_specific_unit(cleaned, r"\bN\b", ("force",)),
         # Distance (d) — for W = F d. Use length-specific search.
-        distance=_find_value_with_specific_unit(
+        distance=find_value_with_specific_unit(
             cleaned, r"km|cm|mm|m|ft|yd|in|mi", ("distance", "over", "through")
         ),
         # Energy done (W, in joules) and elapsed time — for P = W / t.
-        work=_find_value_with_specific_unit(
+        work=find_value_with_specific_unit(
             cleaned, r"kilojoules?|joules?|kJ|J", ("work", "energy")
         ),
-        elapsed=_find_value_with_specific_unit(
+        elapsed=find_value_with_specific_unit(
             cleaned, r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
         ),
     )
@@ -305,6 +305,6 @@ def _energy_params(
             params["angle"] = angle[0]
             units["angle"] = angle[1]
     if op == "potential_energy":
-        params["g"] = _detect_gravity(cleaned)
+        params["g"] = detect_gravity(cleaned)
         units["g"] = "m/s^2"
     return params, units

@@ -19,7 +19,7 @@ from app.modules.math.followup import answer_claim_problem, pronoun_math_problem
 from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.key_steps import equation_key_steps
-from app.modules.math.solve.parse import _parse_expression
+from app.modules.math.solve.parse import parse_expression
 from app.modules.math.solve.work_check import check_work
 from app.modules.math.tools.block.work import format_work_check_reply
 from app.modules.math.tools.extract import extract_math_intent
@@ -518,8 +518,8 @@ async def test_a_hint_for_fully_correct_work_says_it_is_right() -> None:
 
 
 def _steps(lhs: str, rhs: str, variable: str = "x") -> list[str]:
-    left = _parse_expression(lhs, [variable, "y"], real=True)
-    right = _parse_expression(rhs, [variable, "y"], real=True)
+    left = parse_expression(lhs, [variable, "y"], real=True)
+    right = parse_expression(rhs, [variable, "y"], real=True)
     return [step.formula for step in equation_key_steps(left, right, variable)]
 
 
@@ -539,7 +539,7 @@ def test_every_shown_step_is_a_true_equation() -> None:
     x = Symbol("x", real=True)
 
     def side(tex: str) -> Any:
-        return _parse_expression(tex, ["x", "y"], real=True)
+        return parse_expression(tex, ["x", "y"], real=True)
 
     for lhs, rhs in [("2*x + 3*y + 5", "0"), ("0.4*x + 1.2", "2"), ("5 - 3*y - 2*x", "y")]:
         expected = solve(side(lhs) - side(rhs), x)

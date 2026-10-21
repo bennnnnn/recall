@@ -18,7 +18,7 @@ from typing import Any
 from sympy import Rational, sstr
 
 from app.modules.math.solve.declines import sympy_decline
-from app.modules.math.solve.parse import _parse_expression
+from app.modules.math.solve.parse import parse_expression
 
 _NUMBER = r"[-+]?\d+(?:\.\d+)?(?:\s*/\s*\d+)?"
 _CHANGE = re.compile(
@@ -52,8 +52,8 @@ def changed_part_equation(query: str, lhs: str, rhs: str, variable: str) -> str 
     with sympy_decline() as declined:
         value = Rational(match["value"].replace(" ", ""))
         # The app's parser reads "3x" the way the student typed it.
-        left = _parse_expression(lhs, [variable])
-        right = _parse_expression(rhs, [variable])
+        left = parse_expression(lhs, [variable])
+        right = parse_expression(rhs, [variable])
         var = next((s for s in left.free_symbols if str(s) == variable), None)
         if var is None:
             return None

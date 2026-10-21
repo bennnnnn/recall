@@ -45,11 +45,11 @@ def _polynomial(source: str) -> Poly | None:
         return None
     if "xx" in source.lower():
         return None
-    from app.modules.math.solve.parse import _parse_expression
+    from app.modules.math.solve.parse import parse_expression
     from app.services.solving import SolveServiceError
 
     try:
-        parsed_expr = _parse_expression(source, ["x"])
+        parsed_expr = parse_expression(source, ["x"])
     except SolveServiceError:
         return None
     if isinstance(parsed_expr, tuple) or getattr(parsed_expr, "free_symbols", set()) - {_X}:

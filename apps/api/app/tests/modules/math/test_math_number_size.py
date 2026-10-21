@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from app.modules.math.solve.parse import _parse_expression
+from app.modules.math.solve.parse import parse_expression
 from app.modules.math.tools.extract import extract_math_intent
 from app.services.solving import SolveServiceError
 
@@ -22,7 +22,7 @@ from app.services.solving import SolveServiceError
 def test_a_number_past_the_limit_is_refused(expr: str) -> None:
     start = time.perf_counter()
     with pytest.raises(SolveServiceError, match="out of range"):
-        _parse_expression(expr, ["x"])
+        parse_expression(expr, ["x"])
     assert time.perf_counter() - start < 0.5
 
 
@@ -38,11 +38,11 @@ def test_a_number_past_the_limit_is_refused(expr: str) -> None:
     ],
 )
 def test_ordinary_powers_still_parse(expr: str, expected: str) -> None:
-    assert str(_parse_expression(expr, ["x"])) == expected
+    assert str(parse_expression(expr, ["x"])) == expected
 
 
 def test_a_hundred_factorial_is_within_the_limit() -> None:
-    assert len(str(_parse_expression("100!"))) == 158
+    assert len(str(parse_expression("100!"))) == 158
 
 
 def test_the_graph_reader_declines_a_power_tower_at_once() -> None:

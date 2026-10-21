@@ -19,8 +19,8 @@ from app.modules.physics.schemas import (
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
-    _params_in_si,
     gravity_of,
+    params_in_si,
 )
 from app.services.solving import SolveServiceError
 
@@ -39,7 +39,7 @@ class _Incline:
 
 
 def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or "friction_force"
     g = gravity_of(p)
     mu = p.get("mu", 0.0)

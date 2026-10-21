@@ -5,15 +5,15 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
+from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
 from app.modules.physics.extractors.common import (
-    _DEGREE_WORD,
-    _detect_gravity,
-    _find_value_with_specific_unit,
-    _strip_param_assignments,
+    DEGREE_WORD,
+    detect_gravity,
+    find_value_with_specific_unit,
+    strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
@@ -27,7 +27,7 @@ _FRICTION_SUBJECT = r"friction|frictional|incline|inclined|ramp"
 
 _FRICTION_GIVEN = (
     r"coefficient|(?:\\?(?:\bmu|\u03bc)\s*_?\s*[sk]?\s*(?:=|is))|"
-    rf"(?<!\d)\d+\s*{_DEGREE_WORD}"
+    rf"(?<!\d)\d+\s*{DEGREE_WORD}"
 )
 
 _FRICTION_CUE_RES: tuple[re.Pattern[str], ...] = (
@@ -111,17 +111,17 @@ _MOVING = re.compile(r"\b(?:moves?|moving|slides?|sliding|travell?ing)\b", re.IG
 
 def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _FRICTION_CUES, _FRICTION_CUE_RES):
+    if not has_cue(lower, _FRICTION_CUES, _FRICTION_CUE_RES):
         return None
     if "net force" in lower:
         # A different quantity. The force extractor refuses it via
         # _UNSUPPORTED_FORCE_CONTEXT rather than guessing, which is right.
         return None
     without_coefficients = _MU_RE.sub("", _MU_STATIC_RE.sub("", _MU_KINETIC_RE.sub("", cleaned)))
-    if has_equation(_strip_param_assignments(without_coefficients)):
+    if has_equation(strip_param_assignments(without_coefficients)):
         return None
 
-    mass = _find_value_with_specific_unit(
+    mass = find_value_with_specific_unit(
         cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "block", "box", "crate", "object", "body")
     )
 
@@ -130,7 +130,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     mu = 0.0 if frictionless else (float(mu_match.group(1)) if mu_match else None)
     static_mu_match = _MU_STATIC_RE.search(cleaned)
 
-    angle_match = _INCLINE_ANGLE_RE.search(cleaned)
+    angle_match = INCLINE_ANGLE_RE.search(cleaned)
     angle = float(angle_match.group(1)) if angle_match else 0.0
 
     wants_normal = "normal force" in lower
@@ -208,7 +208,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     else:
         return None
 
-    params: dict[str, float] = {"angle": angle, "g": _detect_gravity(cleaned)}
+    params: dict[str, float] = {"angle": angle, "g": detect_gravity(cleaned)}
     units: dict[str, str] = {
         "angle": "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg",
         "g": "m/s^2",

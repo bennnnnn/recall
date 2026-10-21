@@ -8,7 +8,7 @@ from typing import Any
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent, StatisticsInput
-from app.modules.math.tools.block.canonical import _finish_with_answer
+from app.modules.math.tools.block.canonical import finish_with_answer
 from app.services.solving import VerifiedMathBlock
 
 _BIVARIATE_STATS_OPS = {
@@ -68,7 +68,7 @@ def _verified_block_statistics(
         answer = r",\quad ".join(
             f"{_STAT_SYMBOLS[op]} = {_summary_value(result, op)}" for op in intent.stats_ops
         )
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if intent.stats_op in {"iqr", "quartiles", "percentile"}:
         from app.modules.math import formulas as math_formulas
 
@@ -82,7 +82,7 @@ def _verified_block_statistics(
             answer = math_formulas.percentile(intent.stats_numbers, intent.combo_n)
     else:
         answer = _summary_value(result, intent.stats_op or "mean")
-    block = _finish_with_answer(
+    block = finish_with_answer(
         lines,
         answer,
     )
@@ -116,4 +116,4 @@ def _verified_bivariate(
         return VerifiedMathBlock(text="\n".join(lines), direct_reply=message)
     answer, steps = math_solve.compute_bivariate_statistics(op, numbers, paired)
     lines.extend(steps)
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)

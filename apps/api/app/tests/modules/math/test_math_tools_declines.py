@@ -1,6 +1,6 @@
 """Strict declines in math root and tools/ (ES-39 part 3): a parse that is no expression.
 
-``_parse_expression`` hands back what the text names: a point ``(1, 2)`` as a tuple, ``True``,
+``parse_expression`` hands back what the text names: a point ``(1, 2)`` as a tuple, ``True``,
 ``x == 1`` as False, ``limit`` as SymPy's function. These callers then subtracted it or read its
 ``free_symbols``, and the silent ``except`` took the ``TypeError`` for a decline. Each now
 declines on purpose; under strict declines the old code raised.

@@ -1057,13 +1057,13 @@ def test_ws_status_event_carries_detail():
 
 def test_ws_rechecks_token_on_chargeable_message():
     """After purge/revoke, the next chargeable frame must close the socket."""
-    from app.gateways.google_auth import GoogleAuthError
+    from app.exceptions import AuthenticationError
 
     _, tok = _token()
     user = _fake_user()
     chat_id = uuid4()
     app = _app(user)
-    verify = AsyncMock(side_effect=[user.id, GoogleAuthError("Token revoked")])
+    verify = AsyncMock(side_effect=[user.id, AuthenticationError("Token revoked")])
 
     with patch("app.modules.chat.ws_api.access_tokens.verify_access_token", verify):
         client = TestClient(app)

@@ -17,8 +17,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.core.config import Settings
-from app.exceptions import RedisUnavailableError
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -92,13 +91,13 @@ async def verify_access_token(redis: Redis, token: str, settings: Settings) -> U
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
     except (jwt.PyJWTError, ValueError, KeyError) as exc:
-        raise GoogleAuthError("Invalid access token") from exc
+        raise AuthenticationError("Invalid access token") from exc
     jti = payload.get("jti")
     sid = payload.get("sid")
     try:
         user_id = UUID(payload["sub"])
     except (ValueError, KeyError, TypeError) as exc:
-        raise GoogleAuthError("Invalid access token") from exc
+        raise AuthenticationError("Invalid access token") from exc
     try:
         # One round trip for the three revocation keys (every authenticated request).
         revoked_jti, revoked_sid, revoked_since_raw = await redis.mget(
@@ -107,12 +106,12 @@ async def verify_access_token(redis: Redis, token: str, settings: Settings) -> U
             revoked_since_key(user_id),
         )
         if jti and revoked_jti:
-            raise GoogleAuthError("Token revoked")
+            raise AuthenticationError("Token revoked")
         if isinstance(sid, str) and sid and revoked_sid:
-            raise GoogleAuthError("Token revoked")
+            raise AuthenticationError("Token revoked")
         if _issued_before(payload.get("iat"), revoked_since_raw):
-            raise GoogleAuthError("Token revoked")
-    except GoogleAuthError:
+            raise AuthenticationError("Token revoked")
+    except AuthenticationError:
         raise
     except RedisError as exc:
         # Fail closed: without Redis we cannot check jti / revoked_since.

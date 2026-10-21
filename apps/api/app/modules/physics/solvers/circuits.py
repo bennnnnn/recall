@@ -12,14 +12,14 @@ from app.modules.physics.solvers.common import (
     _RESISTOR_KEY_RE,
     PhysicsResult,
     QuantityResult,
-    _latex_num,
-    _params_in_si,
+    latex_num,
+    params_in_si,
 )
 from app.services.solving import SolveServiceError
 
 
 def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or "current"
     solver = _OPERATIONS.get(op)
     if solver is None:
@@ -174,7 +174,7 @@ def _electrical_power(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResu
         substitution = rf"P = {p['V']:g} \cdot {p['I']:g}"
     elif "I" in p and "R" in p:
         val = p["I"] ** 2 * p["R"]
-        plugged = rf"{_latex_num(p['I'], square=True)} \cdot {p['R']:g}"
+        plugged = rf"{latex_num(p['I'], square=True)} \cdot {p['R']:g}"
         answer = rf"P = I^2 R = {plugged} \approx {val:.2f} \text{{ W}}"
         formula = r"P = I^2 R"
         substitution = rf"P = {plugged}"
@@ -182,7 +182,7 @@ def _electrical_power(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResu
         if p["R"] == 0:
             raise SolveServiceError("resistance must be nonzero")
         val = p["V"] ** 2 / p["R"]
-        plugged = rf"\frac{{{_latex_num(p['V'], square=True)}}}{{{p['R']:g}}}"
+        plugged = rf"\frac{{{latex_num(p['V'], square=True)}}}{{{p['R']:g}}}"
         answer = rf"P = \frac{{V^2}}{{R}} = {plugged} \approx {val:.2f} \text{{ W}}"
         formula = r"P = \frac{V^2}{R}"
         substitution = rf"P = {plugged}"

@@ -3,13 +3,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.core.attachment_limits import MAX_ATTACHMENT_SIZE
 from app.models.schemas.text import UserText
+from app.modules.attachments.models import ORIGINAL_FILENAME_MAX_CHARS
 
 
 class AttachmentPresignIn(BaseModel):
     content_type: str = Field(min_length=3, max_length=128)
-    size_bytes: int = Field(gt=0, le=10_485_760)
-    filename: UserText | None = Field(default=None, max_length=255)
+    size_bytes: int = Field(gt=0, le=MAX_ATTACHMENT_SIZE)
+    filename: UserText | None = Field(default=None, max_length=ORIGINAL_FILENAME_MAX_CHARS)
 
 
 class AttachmentPresignOut(BaseModel):

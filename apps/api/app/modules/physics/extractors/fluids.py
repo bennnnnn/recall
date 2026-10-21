@@ -5,19 +5,19 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
-    _MASS_UNITS,
-    _detect_gravity,
-    _strip_param_assignments,
+    MASS_UNITS,
+    detect_gravity,
+    strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
 from app.modules.physics.extractors.fluid_laws import NAMED_FLUID_LAWS, pipe_sections
 from app.modules.physics.extractors.fluid_readings import (
-    _AREA_PATTERN,
     _DENSITY_PATTERN,
     _PRESSURE_PATTERN,
     _VOLUME_PATTERN,
+    AREA_PATTERN,
     FluidReading,
     read_fluid,
 )
@@ -47,20 +47,20 @@ _FLUIDS_CUES = (
 
 _FLUIDS_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(
-        rf"\bpressure\b.{{0,80}}?\d\s*(?:{_AREA_PATTERN}|{_PRESSURE_PATTERN})\b", re.IGNORECASE
+        rf"\bpressure\b.{{0,80}}?\d\s*(?:{AREA_PATTERN}|{_PRESSURE_PATTERN})\b", re.IGNORECASE
     ),
     re.compile(
-        rf"\d\s*(?:{_AREA_PATTERN}|{_PRESSURE_PATTERN})\b.{{0,80}}?\bpressure\b", re.IGNORECASE
+        rf"\d\s*(?:{AREA_PATTERN}|{_PRESSURE_PATTERN})\b.{{0,80}}?\bpressure\b", re.IGNORECASE
     ),
     re.compile(r"\bpressure\b.{0,80}?\bdepth\b", re.IGNORECASE),
     re.compile(rf"\bdensity\b.{{0,80}}?\d\s*(?:{_VOLUME_PATTERN})\b", re.IGNORECASE),
     re.compile(
-        rf"\A(?=.*\bdensity\b)(?=.*\d\s*(?:{_MASS_UNITS})\b)"
+        rf"\A(?=.*\bdensity\b)(?=.*\d\s*(?:{MASS_UNITS})\b)"
         rf"(?=.*\d\s*(?:{_VOLUME_PATTERN})\b)",
         re.IGNORECASE | re.DOTALL,
     ),
     re.compile(rf"\d\s*(?:{_DENSITY_PATTERN})\b", re.IGNORECASE),
-    re.compile(rf"\bpipe\b.{{0,80}}?\d\s*(?:{_AREA_PATTERN})\b", re.IGNORECASE),
+    re.compile(rf"\bpipe\b.{{0,80}}?\d\s*(?:{AREA_PATTERN})\b", re.IGNORECASE),
     # "a pipe of diameter 4 cm, which narrows to 2 cm"
     re.compile(
         r"\A(?=.*\b(?:pipe|tube|hose)s?\b)"
@@ -77,13 +77,13 @@ _ABSOLUTE_PRESSURE_RE = re.compile(r"\babsolute\b|\batmospheric\b", re.IGNORECAS
 
 def _extract_fluids_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _FLUIDS_CUES, _FLUIDS_CUE_RES):
+    if not has_cue(lower, _FLUIDS_CUES, _FLUIDS_CUE_RES):
         return None
     if blocks_fluids(cleaned):
         return None
     if any(word in lower for word in _STRESS_WORDS):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
     reading = read_fluid(cleaned)
@@ -136,7 +136,7 @@ def _general_law(f: FluidReading) -> PhysicsIntent | None:
         return PhysicsIntent(
             kind="fluids",
             physics_op="upthrust",
-            physics_params={"rho": rho, "volume": f.volume[0], "g": _detect_gravity(f.cleaned)},
+            physics_params={"rho": rho, "volume": f.volume[0], "g": detect_gravity(f.cleaned)},
             physics_units={"rho": "kg/m^3", "volume": f.volume[1] or "m^3", "g": "m/s^2"},
             operation="solve",
         )
@@ -151,7 +151,7 @@ def _general_law(f: FluidReading) -> PhysicsIntent | None:
         return PhysicsIntent(
             kind="fluids",
             physics_op="pressure_at_depth",
-            physics_params={"rho": rho, "depth": f.depth[0], "g": _detect_gravity(f.cleaned)},
+            physics_params={"rho": rho, "depth": f.depth[0], "g": detect_gravity(f.cleaned)},
             physics_units={"rho": "kg/m^3", "depth": f.depth[1] or "m", "g": "m/s^2"},
             operation="solve",
         )

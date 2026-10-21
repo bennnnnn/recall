@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
+from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, params_in_si
 from app.services.solving import SolveServiceError
 
 
@@ -17,7 +17,7 @@ def _solve_stopping_distance(intent: PhysicsIntent) -> PhysicsResult:
     """
     from app.modules.physics.display import latex_given
 
-    params = _params_in_si(intent)
+    params = params_in_si(intent)
     if "decel" in params:
         return _braking_at_a_rate(params)
     speed = params.get("v")

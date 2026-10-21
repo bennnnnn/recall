@@ -20,9 +20,9 @@ from sympy.calculus.util import continuous_domain
 
 from app.modules.math.solve import (
     SolveServiceError,
-    _parse_expression,
     definite_integral,
     format_verified_latex,
+    parse_expression,
 )
 
 # A region split at more crossings than this is not a homework question, and
@@ -34,7 +34,7 @@ def _expression(expr: str, variable: str):
     if not (expr or "").strip():
         raise SolveServiceError("an expression is required")
     try:
-        parsed = _parse_expression(expr, [variable], real=True)
+        parsed = parse_expression(expr, [variable], real=True)
     except SolveServiceError:
         raise
     except Exception as exc:
@@ -46,8 +46,8 @@ def _expression(expr: str, variable: str):
 
 
 def _ordered_bounds(lower: str, upper: str):
-    low = _parse_expression(lower, [], real=True)
-    high = _parse_expression(upper, [], real=True)
+    low = parse_expression(lower, [], real=True)
+    high = parse_expression(upper, [], real=True)
     try:
         width = float((high - low).evalf())
     except (TypeError, ValueError, OverflowError) as exc:

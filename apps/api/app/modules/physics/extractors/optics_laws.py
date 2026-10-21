@@ -7,14 +7,14 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
+from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
 from app.modules.physics.extractors.common import (
-    _DECIMAL,
-    _DEGREE_WORD,
-    _LENGTH_UNIT_PATTERN,
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-    _find_value_with_specific_unit,
+    DECIMAL,
+    DEGREE_WORD,
+    LENGTH_UNIT_PATTERN,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+    find_value_with_specific_unit,
 )
 from app.modules.physics.schemas import PhysicsIntent
 
@@ -23,10 +23,10 @@ _HEIGHT_RE = re.compile(r"\b(?:tall|high|height)\b")
 
 def _malus(cleaned: str) -> PhysicsIntent | None:
     """I = I₀ cos²θ through a polarizer."""
-    intensity = _find_value_with_specific_unit(
+    intensity = find_value_with_specific_unit(
         cleaned, r"W/m\^?2|watts?\s+per\s+square\s+met(?:er|re)", ("intensity",)
     )
-    angle_match = _INCLINE_ANGLE_RE.search(cleaned)
+    angle_match = INCLINE_ANGLE_RE.search(cleaned)
     if intensity is None or angle_match is None:
         return None
     return PhysicsIntent(
@@ -41,7 +41,7 @@ def _malus(cleaned: str) -> PhysicsIntent | None:
 def _brewster(cleaned: str) -> PhysicsIntent | None:
     """tan θ_B = n₂ / n₁, from the two indexes written as n1 and n2."""
     indexes = [
-        float(value) for value in re.findall(rf"\bn[12]\s*(?:=|is)\s*({_NUMBER})", cleaned, re.I)
+        float(value) for value in re.findall(rf"\bn[12]\s*(?:=|is)\s*({NUMBER})", cleaned, re.I)
     ]
     if len(indexes) != 2:
         return None
@@ -56,17 +56,17 @@ def _brewster(cleaned: str) -> PhysicsIntent | None:
 
 def _double_slit(cleaned: str) -> PhysicsIntent | None:
     """The fringe spacing λL/d."""
-    wavelength = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("wavelength",), require_keyword=True
+    wavelength = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("wavelength",), require_keyword=True
     )
-    screen = _find_value_with_specific_unit(
+    screen = find_value_with_specific_unit(
         cleaned,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("screen distance", "to the screen"),
         require_keyword=True,
     )
-    separation = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("slit separation", "slits"), require_keyword=True
+    separation = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("slit separation", "slits"), require_keyword=True
     )
     if wavelength is None or screen is None or separation is None:
         return None
@@ -85,17 +85,17 @@ def _double_slit(cleaned: str) -> PhysicsIntent | None:
 
 def _single_slit(cleaned: str) -> PhysicsIntent | None:
     """The width of the central maximum, 2λL/a."""
-    wavelength = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("wavelength",), require_keyword=True
+    wavelength = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("wavelength",), require_keyword=True
     )
-    screen = _find_value_with_specific_unit(
+    screen = find_value_with_specific_unit(
         cleaned,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("screen distance", "to the screen"),
         require_keyword=True,
     )
-    width = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("slit width", "aperture"), require_keyword=True
+    width = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("slit width", "aperture"), require_keyword=True
     )
     if wavelength is None or screen is None or width is None:
         return None
@@ -114,8 +114,8 @@ def _single_slit(cleaned: str) -> PhysicsIntent | None:
 
 def _lens_power(cleaned: str) -> PhysicsIntent | None:
     """P = 1/f, in dioptres."""
-    focal = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("focal length", "focal"), require_keyword=True
+    focal = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("focal length", "focal"), require_keyword=True
     )
     if focal is None:
         return None
@@ -156,13 +156,13 @@ def _critical_angle(cleaned: str) -> PhysicsIntent | None:
 
 
 def _refraction_angles(cleaned: str) -> list[float]:
-    angles = [float(m.group(1)) for m in _INCLINE_ANGLE_RE.finditer(cleaned)]
+    angles = [float(m.group(1)) for m in INCLINE_ANGLE_RE.finditer(cleaned)]
     if len(angles) < 2:
         # "bends from 30 to 20 degrees" puts the unit on the second angle only,
         # so the scan above sees one number where the question gave two.
         pair = re.search(
-            rf"from\s+(-?\d+(?:\.\d+)?)\s*{_DEGREE_WORD}?\s*to\s+"
-            rf"({_DECIMAL})\s*{_DEGREE_WORD}",
+            rf"from\s+(-?\d+(?:\.\d+)?)\s*{DEGREE_WORD}?\s*to\s+"
+            rf"({DECIMAL})\s*{DEGREE_WORD}",
             cleaned,
             re.IGNORECASE,
         )
@@ -184,9 +184,9 @@ def _refractive_index(cleaned: str) -> PhysicsIntent | None:
             physics_units={"angle": "deg", "angle2": "deg"},
             operation="solve",
         )
-    medium_speed = _find_value_with_specific_unit(
+    medium_speed = find_value_with_specific_unit(
         cleaned,
-        _VELOCITY_UNIT_PATTERN,
+        VELOCITY_UNIT_PATTERN,
         ("travels", "speed", "in glass", "in water", "in the medium"),
     )
     if medium_speed is not None and not index_values:
@@ -202,16 +202,16 @@ def _refractive_index(cleaned: str) -> PhysicsIntent | None:
 
 def _focal_length(cleaned: str) -> tuple[float, str] | None:
     focal_match = re.search(
-        rf"\bfocal(?:\s+length)?\b\s*(?:of|is|=|:)?\s*({_NUMBER})\s*"
-        rf"({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
+        rf"\bfocal(?:\s+length)?\b\s*(?:of|is|=|:)?\s*({NUMBER})\s*"
+        rf"({LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
         cleaned,
         re.IGNORECASE,
     )
     return (
         (float(focal_match.group(1)), focal_match.group(2))
         if focal_match is not None
-        else _find_value_with_specific_unit(
-            cleaned, _LENGTH_UNIT_PATTERN, ("focal length", "focal"), require_keyword=True
+        else find_value_with_specific_unit(
+            cleaned, LENGTH_UNIT_PATTERN, ("focal length", "focal"), require_keyword=True
         )
     )
 
@@ -219,23 +219,23 @@ def _focal_length(cleaned: str) -> tuple[float, str] | None:
 def _object_length(cleaned: str) -> tuple[float, str] | None:
     """The object's distance, or its height when the question gives one."""
     obj_match = re.search(
-        rf"\bobject(?:\s+distance)?\b\s*(?:of|is|=|:)?\s*({_NUMBER})\s*"
-        rf"({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
+        rf"\bobject(?:\s+distance)?\b\s*(?:of|is|=|:)?\s*({NUMBER})\s*"
+        rf"({LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
         cleaned,
         re.IGNORECASE,
     ) or re.search(
         # "An object is placed 15 cm from the mirror": the object's own
         # sentence. The nearest number was the focal length just before it.
         rf"\bobject\b[^.?!]{{0,30}}?\b(?:placed|located|positioned|sits|is)\s+(?:at\s+)?"
-        rf"({_NUMBER})\s*({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
+        rf"({NUMBER})\s*({LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
         cleaned,
         re.IGNORECASE,
     )
     return (
         (float(obj_match.group(1)), obj_match.group(2))
         if obj_match is not None
-        else _find_value_with_specific_unit(
-            cleaned, _LENGTH_UNIT_PATTERN, ("object",), require_keyword=True
+        else find_value_with_specific_unit(
+            cleaned, LENGTH_UNIT_PATTERN, ("object",), require_keyword=True
         )
     )
 
@@ -245,8 +245,8 @@ def _magnification(cleaned: str) -> PhysicsIntent | None:
     obj = _object_length(cleaned)
     # Heights only: "the image forms 60 cm from the lens" is a distance,
     # and m = -v/u (the catalog binder) answers that one.
-    img = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("image",), require_keyword=True
+    img = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("image",), require_keyword=True
     )
     if img is None or obj is None or _HEIGHT_RE.search(cleaned.lower()) is None:
         return None

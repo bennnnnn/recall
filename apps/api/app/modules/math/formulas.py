@@ -32,9 +32,9 @@ from sympy.ntheory.modular import solve_congruence
 from app.modules.math.school import _format_school_number, _imaginary_unit_to_sympy, _progression
 from app.modules.math.solve import (
     SolveServiceError,
-    _parse_expression,
     definite_integral,
     format_verified_latex,
+    parse_expression,
 )
 from app.modules.math.solve.calculus import _parse_infinity_aware_point
 from app.services.school_rounding import round_figures, round_places
@@ -141,7 +141,7 @@ def vector_projection(a: list[float], b: list[float]) -> str:
 
 
 def _complex_value(expr: str):
-    parsed = _parse_expression(_imaginary_unit_to_sympy(expr), ["x"])
+    parsed = parse_expression(_imaginary_unit_to_sympy(expr), ["x"])
     if parsed.free_symbols:
         raise SolveServiceError("complex expression still has variables")
     return simplify(parsed)
@@ -260,7 +260,7 @@ def sas_triangle_area(side_a: float, side_b: float, angle_deg: float) -> str:
 
 
 def average_value(expr: str, variable: str, lower: str, upper: str) -> str:
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     # "infinity" is oo, not the letters i, n, f, t and y; and an average needs
     # a finite interval (sin over [0, oo) was <0, 2> / oo = 0).
     lo = _parse_infinity_aware_point(lower)
@@ -279,16 +279,16 @@ def average_value(expr: str, variable: str, lower: str, upper: str) -> str:
 
 
 def linear_approximation(expr: str, variable: str, point: str) -> str:
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     var = Symbol(variable)
-    at = _parse_expression(point, [variable])
+    at = parse_expression(point, [variable])
     value = parsed.subs(var, at)
     slope = diff(parsed, var).subs(var, at)
     return format_verified_latex(simplify(value + slope * (var - at)))
 
 
 def gradient_of(expr: str) -> str:
-    parsed = _parse_expression(expr, ["x", "y", "z"])
+    parsed = parse_expression(expr, ["x", "y", "z"])
     names = sorted(str(symbol) for symbol in parsed.free_symbols)
     if not names:
         raise SolveServiceError("gradient needs a non-constant expression")
@@ -297,7 +297,7 @@ def gradient_of(expr: str) -> str:
 
 
 def directional_derivative(expr: str, point: tuple[float, ...], direction: list[float]) -> str:
-    parsed = _parse_expression(expr, ["x", "y", "z"])
+    parsed = parse_expression(expr, ["x", "y", "z"])
     names = ["x", "y", "z"][: len(point)]
     if len(direction) != len(point):
         raise SolveServiceError("direction must match the point dimension")
@@ -319,7 +319,7 @@ def _vector_field(expr: str) -> list:
     if len(parts) not in {2, 3}:
         raise SolveServiceError("vector field needs 2 or 3 components")
     names = ["x", "y", "z"][: len(parts)]
-    return [_parse_expression(part, names) for part in parts]
+    return [parse_expression(part, names) for part in parts]
 
 
 def divergence_of(expr: str) -> str:
@@ -348,8 +348,8 @@ def curl_of(expr: str) -> str:
 
 
 def implicit_derivative(lhs: str, rhs: str, independent: str = "x", dependent: str = "y") -> str:
-    left = _parse_expression(lhs, [independent, dependent])
-    right = _parse_expression(rhs, [independent, dependent])
+    left = parse_expression(lhs, [independent, dependent])
+    right = parse_expression(rhs, [independent, dependent])
     try:
         out = idiff(left - right, Symbol(dependent), Symbol(independent))
     except Exception as exc:

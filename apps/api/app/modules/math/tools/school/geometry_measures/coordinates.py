@@ -38,8 +38,8 @@ def _circle_centre_radius(intent: MathIntent) -> _Solved | None:
     equation = intent.expr or ""
     left, _, right = equation.partition("=")
     with sympy_decline() as declined:
-        lhs = math_solve._parse_expression(left, ["x", "y"])
-        rhs = math_solve._parse_expression(right, ["x", "y"])
+        lhs = math_solve.parse_expression(left, ["x", "y"])
+        rhs = math_solve.parse_expression(right, ["x", "y"])
         if not (isinstance(lhs, Expr) and isinstance(rhs, Expr)):
             return None  # ``y = (1, 2)`` is a point, not a side of a circle's equation
         poly = Poly(expand(lhs - rhs), x, y)
@@ -117,7 +117,7 @@ def _perpendicular_gradient(intent: MathIntent, words: list[str]) -> _Solved | N
 
     x = Symbol("x")
     with sympy_decline() as declined:
-        line = math_solve._parse_expression((intent.expr or "").strip(), ["x"])
+        line = math_solve.parse_expression((intent.expr or "").strip(), ["x"])
         poly = Poly(line, x)
     if declined:
         return None

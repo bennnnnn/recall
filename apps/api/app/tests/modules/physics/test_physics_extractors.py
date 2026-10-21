@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.physics.extractors.common import _VALUE_UNIT_RE, _detect_gravity
+from app.modules.physics.extractors.common import _VALUE_UNIT_RE, detect_gravity
 from app.modules.physics.extractors.energy import _extract_energy_intent
 from app.modules.physics.extractors.forces import _extract_force_intent
 from app.modules.physics.extractors.kinematics import _extract_kinematics_intent
@@ -172,7 +172,7 @@ def test_kinematics_marsh_and_moonlight_are_earth_g(text: str) -> None:
     assert intent is not None
     assert intent.physics_params is not None
     assert intent.physics_params["g"] == 9.81
-    assert _detect_gravity(text) == 9.81
+    assert detect_gravity(text) == 9.81
 
 
 def test_kinematics_thrown_up_not_only_thrown_upward() -> None:

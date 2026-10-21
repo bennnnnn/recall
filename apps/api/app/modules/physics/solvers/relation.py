@@ -18,7 +18,7 @@ from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
-    _params_in_si,
+    params_in_si,
     solved,
 )
 from app.services.solving import SolveServiceError
@@ -33,7 +33,7 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
     spec = CATALOG.get(intent.physics_op or "")
     if spec is None or spec.expression is None or spec.binding is None:
         raise SolveServiceError(f"{intent.physics_op} is not an expression operation")
-    params = _params_in_si(intent)
+    params = params_in_si(intent)
     variant = matching_variant(spec, params)
     expression = spec.expression
     symbol = spec.result_symbol

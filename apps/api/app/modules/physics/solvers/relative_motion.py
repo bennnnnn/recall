@@ -7,7 +7,7 @@ import math
 from app.modules.physics.display import latex_given, latex_number, latex_unit, plain_number
 from app.modules.physics.extractors.relative_motion import COMPASS_NAMES
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
+from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, params_in_si
 from app.services.solving import SolveServiceError
 
 RELATIVE_MOTION_OPERATIONS = frozenset({"catch_up_time", "displacement_two_legs"})
@@ -15,7 +15,7 @@ RELATIVE_MOTION_OPERATIONS = frozenset({"catch_up_time", "displacement_two_legs"
 
 def _catch_up_time(intent: PhysicsIntent) -> PhysicsResult:
     """t = d/(v₁ - v₂): the gap closes at the difference of the speeds."""
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     closing = p["v_chaser"] - p["v_target"]
     if closing <= 0 or p["d"] <= 0:
         raise SolveServiceError("a slower chaser never catches up")

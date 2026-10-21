@@ -5,17 +5,17 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
-    _DECIMAL,
-    _DEGREE_WORD,
-    _LENGTH_UNIT_PATTERN,
-    _VELOCITY_UNIT_PATTERN,
-    _detect_gravity,
-    _find_value_with_specific_unit,
+    DECIMAL,
+    DEGREE_WORD,
+    LENGTH_UNIT_PATTERN,
+    VELOCITY_UNIT_PATTERN,
     _find_value_with_unit,
-    _strip_param_assignments,
+    detect_gravity,
+    find_value_with_specific_unit,
+    strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
 from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE
 from app.modules.physics.schemas import PhysicsIntent
@@ -35,8 +35,8 @@ _PROJECTILE_CUES = (
 )
 
 _PROJECTILE_CUE_RES: tuple[re.Pattern[str], ...] = (
-    re.compile(rf"\d\s*(?:m/s|km/h|mph)\b.{{0,80}}?\d\s*{_DEGREE_WORD}"),
-    re.compile(rf"\d\s*{_DEGREE_WORD}.{{0,80}}?\d\s*(?:m/s|km/h|mph)\b"),
+    re.compile(rf"\d\s*(?:m/s|km/h|mph)\b.{{0,80}}?\d\s*{DEGREE_WORD}"),
+    re.compile(rf"\d\s*{DEGREE_WORD}.{{0,80}}?\d\s*(?:m/s|km/h|mph)\b"),
     # The launch-angle question has no angle to co-occur with — the angle is
     # what it is asking for — so the signature above cannot see it. A speed
     # beside an explicit ask for an angle is the signature instead.
@@ -105,7 +105,7 @@ _BELOW_HORIZONTAL_RE = re.compile(
 
 def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _PROJECTILE_CUES, _PROJECTILE_CUE_RES):
+    if not has_cue(lower, _PROJECTILE_CUES, _PROJECTILE_CUE_RES):
         return None
     from app.modules.physics.extractors.drag import states_velocity_drag
 
@@ -118,7 +118,7 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     # answered 0.79 m: the range of a ball lobbed at 3 m/s.
     if _COLLISION_SUBJECT_RE.search(cleaned):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
     # Initial speed (v0): "at 15 m/s", "speed of 15 m/s", "velocity of 15 m/s"
@@ -127,7 +127,7 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     v0: float | None = None
     v0_unit = "m/s"
     speed_m = re.search(
-        rf"({_DECIMAL})\s*({_VELOCITY_UNIT_PATTERN})",
+        rf"({DECIMAL})\s*({VELOCITY_UNIT_PATTERN})",
         cleaned,
         re.IGNORECASE,
     )
@@ -152,13 +152,13 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
         # present so "at 15 m/s" (speed) isn't mistaken for an angle.
         # ``°`` is not a word char, so a trailing ``\b`` would miss ``30°?``.
         angle_m = re.search(
-            rf"\bat\s+(-?\d+(?:\.\d+)?)\s*{_DEGREE_WORD}(?![A-Za-z0-9])",
+            rf"\bat\s+(-?\d+(?:\.\d+)?)\s*{DEGREE_WORD}(?![A-Za-z0-9])",
             lower,
         )
     if angle_m is None:
         # After stripping ``angle = 30``, only ``30 deg`` remains.
         angle_m = re.search(
-            rf"({_DECIMAL})\s*(?:degrees?|°|deg|radians?|rad)(?![A-Za-z0-9])",
+            rf"({DECIMAL})\s*(?:degrees?|°|deg|radians?|rad)(?![A-Za-z0-9])",
             lower,
         )
     if angle_m:
@@ -178,7 +178,7 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     if op is None:
         return None
 
-    g = _detect_gravity(cleaned)
+    g = detect_gravity(cleaned)
     angle_unit = "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg"
 
     if op == "launch_angle":
@@ -186,8 +186,8 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
         # in the text would make the question self-contradictory.
         if angle is not None:
             return None
-        ru = _find_value_with_specific_unit(
-            cleaned, _LENGTH_UNIT_PATTERN, _RANGE_GIVEN_KEYWORDS, require_keyword=True
+        ru = find_value_with_specific_unit(
+            cleaned, LENGTH_UNIT_PATTERN, _RANGE_GIVEN_KEYWORDS, require_keyword=True
         )
         if ru is None:
             return None
@@ -208,9 +208,9 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
 
     h0: float | None = None
     h0_unit = "m"
-    hu = _find_value_with_specific_unit(
+    hu = find_value_with_specific_unit(
         cleaned,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("from", "initial height", "height of", "high", "above", "cliff", "h0"),
         require_keyword=True,
     )

@@ -6,10 +6,10 @@ import re
 
 from app.modules.physics.bodies import WATER_SPECIFIC_HEAT
 from app.modules.physics.extractors.common import (
-    _DECIMAL,
-    _NUMBER,
-    _find_value_with_specific_unit,
+    DECIMAL,
+    NUMBER,
     _positioned_values,
+    find_value_with_specific_unit,
 )
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.units import CELSIUS_OFFSET_K
@@ -31,14 +31,14 @@ _SPECIFIC_HEAT_UNIT = (
 
 # "from 20 °C to 80 °C": two readings, scale written on both or on the second.
 _TEMPERATURE_SPAN = re.compile(
-    rf"\bfrom\s+({_NUMBER})\s*(°\s*C|K)?\s*(?:up\s+|down\s+)?(?:to|until)\s+"
-    rf"({_NUMBER})\s*(°\s*C|K)(?![A-Za-z])",
+    rf"\bfrom\s+({NUMBER})\s*(°\s*C|K)?\s*(?:up\s+|down\s+)?(?:to|until)\s+"
+    rf"({NUMBER})\s*(°\s*C|K)(?![A-Za-z])",
 )
 
 
 # A change of temperature reads the same in K and °C; it is named as a change.
 _TEMPERATURE_READING = re.compile(
-    rf"({_DECIMAL})\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN})(?![A-Za-z])",
+    rf"({DECIMAL})\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN})(?![A-Za-z])",
     re.IGNORECASE,
 )
 _CHANGE_REACH = 30
@@ -65,11 +65,11 @@ def _temperature_value(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, 
     rather than assumed - and "degrees" alone cannot help, because it means an
     *angle* everywhere else in this file.
     """
-    kelvin = _find_value_with_specific_unit(cleaned, _KELVIN_PATTERN, keywords)
+    kelvin = find_value_with_specific_unit(cleaned, _KELVIN_PATTERN, keywords)
     if kelvin is not None:
         return kelvin[0], "K"
     match = re.search(
-        rf"({_DECIMAL})\s*(?:{_CELSIUS_PATTERN})",
+        rf"({DECIMAL})\s*(?:{_CELSIUS_PATTERN})",
         cleaned,
         re.IGNORECASE,
     )
@@ -128,7 +128,7 @@ def _nearest_labeled_energy(
     """The energy literal closest to one of ``keywords``, with its span."""
     energies = list(
         re.finditer(
-            rf"({_NUMBER})\s*({_ENERGY_UNIT})(?![A-Za-z0-9/^])",
+            rf"({NUMBER})\s*({_ENERGY_UNIT})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )

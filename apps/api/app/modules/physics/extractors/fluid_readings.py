@@ -7,15 +7,15 @@ from dataclasses import dataclass
 
 from app.modules.physics.bodies import WATER_DENSITY
 from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _MASS_UNITS,
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-    _find_value_with_specific_unit,
-    _ordered_values,
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+    find_value_with_specific_unit,
+    ordered_values,
 )
 
-_AREA_PATTERN = r"m\^?2|cm\^?2|mm\^?2|square\s+met(?:er|re)s?"
+AREA_PATTERN = r"m\^?2|cm\^?2|mm\^?2|square\s+met(?:er|re)s?"
 
 _VOLUME_PATTERN = r"m\^?3|cm\^?3|litres?|liters?|ml"
 
@@ -60,28 +60,28 @@ class FluidReading:
 
 def read_fluid(cleaned: str) -> FluidReading:
     lower = cleaned.lower()
-    area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
-    volume = _find_value_with_specific_unit(cleaned, _VOLUME_PATTERN)
-    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
-    force = _find_value_with_specific_unit(cleaned, r"N|newtons?", ("force", "weight"))
-    depth = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("depth", "deep", "below", "down"), require_keyword=True
+    area = find_value_with_specific_unit(cleaned, AREA_PATTERN)
+    volume = find_value_with_specific_unit(cleaned, _VOLUME_PATTERN)
+    mass = find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass", "of"))
+    force = find_value_with_specific_unit(cleaned, r"N|newtons?", ("force", "weight"))
+    depth = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("depth", "deep", "below", "down"), require_keyword=True
     )
-    density = _find_value_with_specific_unit(cleaned, _DENSITY_PATTERN)
-    speed = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)
-    areas = _ordered_values(cleaned, _AREA_PATTERN)
-    viscosity = _find_value_with_specific_unit(
+    density = find_value_with_specific_unit(cleaned, _DENSITY_PATTERN)
+    speed = ordered_values(cleaned, VELOCITY_UNIT_PATTERN)
+    areas = ordered_values(cleaned, AREA_PATTERN)
+    viscosity = find_value_with_specific_unit(
         cleaned, r"Pa\s*[·*]\s*s|Pa\s*s|pascal\s*seconds?", ("viscosity",)
     )
-    surface_tension = _find_value_with_specific_unit(
+    surface_tension = find_value_with_specific_unit(
         cleaned, r"N/m|newtons?\s+per\s+met(?:er|re)", ("surface tension",)
     )
-    radius = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("radius",), require_keyword=True
+    radius = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("radius",), require_keyword=True
     )
-    characteristic_length = _find_value_with_specific_unit(
+    characteristic_length = find_value_with_specific_unit(
         cleaned,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("characteristic length", "diameter", "length scale"),
         require_keyword=True,
     )
@@ -89,8 +89,8 @@ def read_fluid(cleaned: str) -> FluidReading:
         # "narrowing from 0.04 to 0.01 m^2" carries the unit once, on the
         # second value - the same shape the resistor networks had.
         pair = re.search(
-            rf"from\s+({_NUMBER})\s*(?:{_AREA_PATTERN})?\s*to\s+({_NUMBER})\s*"
-            rf"({_AREA_PATTERN})",
+            rf"from\s+({NUMBER})\s*(?:{AREA_PATTERN})?\s*to\s+({NUMBER})\s*"
+            rf"({AREA_PATTERN})",
             cleaned,
             re.IGNORECASE,
         )

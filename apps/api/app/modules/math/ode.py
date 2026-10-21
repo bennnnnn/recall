@@ -19,7 +19,7 @@ from sympy import (
 )
 
 from app.modules.math.schemas import MathExprResult
-from app.modules.math.solve import SolveServiceError, _parse_expression, declines
+from app.modules.math.solve import SolveServiceError, declines, parse_expression
 
 _ODE_PLACEHOLDERS = {"y''": "Dyy", "y'": "Dy"}
 
@@ -35,7 +35,7 @@ def _ode_side(side: str, variable: str):
     text = side
     for mark, name in _ODE_PLACEHOLDERS.items():
         text = text.replace(mark, name)
-    return _parse_expression(text, [variable, "y", "Dy", "Dyy"])
+    return parse_expression(text, [variable, "y", "Dy", "Dyy"])
 
 
 def solve_ode(
@@ -76,8 +76,8 @@ def solve_ode(
         )
         ics = None
         if initial_x is not None and initial_y is not None:
-            x0 = _parse_expression(initial_x, [variable])
-            y0 = _parse_expression(initial_y, [variable])
+            x0 = parse_expression(initial_x, [variable])
+            y0 = parse_expression(initial_y, [variable])
             ics = {y(x0): y0}
         sol = dsolve(eq, y(ivar), ics=ics)
     except SolveServiceError:

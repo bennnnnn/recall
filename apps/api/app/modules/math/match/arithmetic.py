@@ -290,9 +290,9 @@ def bare_arithmetic_expr(text: str) -> str | None:
     ):
         return None
     stripped = spoken_arithmetic(stripped)
-    from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
+    from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
 
-    normalized = _normalize_latex_to_sympy(_MIXED_NUMBER.sub(r"(\1+\2/\3)", stripped))
+    normalized = normalize_latex_to_sympy(_MIXED_NUMBER.sub(r"(\1+\2/\3)", stripped))
     normalized = _SPACED_CALL.sub(r"\1(", normalized)
     if _SPACED_NUMBERS.search(normalized):
         return None

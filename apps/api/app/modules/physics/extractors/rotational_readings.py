@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
-    _NUMBER,
-    _find_value_with_specific_unit,
+    NUMBER,
+    find_value_with_specific_unit,
     labeled_value,
 )
 from app.modules.physics.schemas import PhysicsIntent
@@ -30,7 +30,7 @@ def _intent(operation: str, params: dict[str, float], units: dict[str, str]) -> 
 
 def _omega_pair(text: str) -> tuple[tuple[float, str], tuple[float, str]] | None:
     match = re.search(
-        rf"\bfrom\s+({_NUMBER})\s*({_OMEGA_UNIT})\s+to\s+({_NUMBER})\s*({_OMEGA_UNIT})\b",
+        rf"\bfrom\s+({NUMBER})\s*({_OMEGA_UNIT})\s+to\s+({NUMBER})\s*({_OMEGA_UNIT})\b",
         text,
         re.IGNORECASE,
     )
@@ -40,7 +40,7 @@ def _omega_pair(text: str) -> tuple[tuple[float, str], tuple[float, str]] | None
 
 
 def _time(text: str) -> tuple[float, str] | None:
-    match = re.search(rf"\b(?:after|in)\s+({_NUMBER})\s*({_TIME_UNIT})\b", text, re.IGNORECASE)
+    match = re.search(rf"\b(?:after|in)\s+({NUMBER})\s*({_TIME_UNIT})\b", text, re.IGNORECASE)
     if match is None:
         return None
     return float(match.group(1)), match.group(2)
@@ -50,7 +50,7 @@ def _alpha(text: str) -> tuple[float, str] | None:
     found = labeled_value(text, r"angular acceleration", _ALPHA_UNIT)
     if found is not None:
         return found
-    match = re.search(rf"({_NUMBER})\s*({_ALPHA_UNIT})\b", text, re.IGNORECASE)
+    match = re.search(rf"({NUMBER})\s*({_ALPHA_UNIT})\b", text, re.IGNORECASE)
     if match is None:
         return None
     return float(match.group(1)), "rad/s^2"
@@ -64,21 +64,21 @@ def _from_rest(text: str) -> bool:
 
 
 def _torque_value(text: str) -> float | None:
-    match = re.search(rf"({_NUMBER})\s*{_TORQUE_UNIT}(?![A-Za-z0-9/^])", text, re.IGNORECASE)
+    match = re.search(rf"({NUMBER})\s*{_TORQUE_UNIT}(?![A-Za-z0-9/^])", text, re.IGNORECASE)
     if match is None:
         return None
     return float(match.group(1))
 
 
 def _inertia_value(text: str) -> float | None:
-    found = _find_value_with_specific_unit(text, _INERTIA_PATTERN)
+    found = find_value_with_specific_unit(text, _INERTIA_PATTERN)
     if found is None:
         return None
     return found[0]
 
 
 _MASS_NOT_INERTIA_RE = re.compile(
-    rf"({_NUMBER})\s*(kg|g|mg)\b(?!\s*[*·]?\s*m(?:\s*\^?\s*2|\s+squared)\b)",
+    rf"({NUMBER})\s*(kg|g|mg)\b(?!\s*[*·]?\s*m(?:\s*\^?\s*2|\s+squared)\b)",
     re.IGNORECASE,
 )
 
@@ -99,7 +99,7 @@ def _angular_values(text: str) -> list[float]:
     return [
         float(match.group(1))
         for match in re.finditer(
-            rf"({_NUMBER})\s*(?:kg\s*m\^?2\s*/\s*s|kg\*m\^?2/s)",
+            rf"({NUMBER})\s*(?:kg\s*m\^?2\s*/\s*s|kg\*m\^?2/s)",
             text,
             re.IGNORECASE,
         )

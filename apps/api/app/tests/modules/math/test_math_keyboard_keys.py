@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.math.solve.parse import _parse_expression
+from app.modules.math.solve.parse import parse_expression
 from app.services.subject_solving import build_subject_augmentation
 
 
@@ -47,7 +47,7 @@ async def _answer(text: str) -> str | None:
     ],
 )
 def test_parse_reads_keyboard_functions(typed: str, expected: str) -> None:
-    assert str(_parse_expression(typed, ["x"])) == expected
+    assert str(parse_expression(typed, ["x"])) == expected
 
 
 @pytest.mark.parametrize(

@@ -5,10 +5,10 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _NUMBER,
     _TESLA_PATTERN,
-    _ordered_values,
+    LENGTH_UNIT_PATTERN,
+    NUMBER,
+    ordered_values,
 )
 from app.modules.physics.extractors.school_common import (
     _SECOND,
@@ -26,11 +26,11 @@ def extract_gauss(text: str, lower: str) -> PhysicsIntent | None:
     if word_index(lower, "gauss") == -1:
         return None
     charge = _one(text, r"uC|µC|C|microcoulombs?|coulombs?")
-    radius = _one(text, _LENGTH_UNIT_PATTERN, ("radius", "shell"), require_keyword=True)
+    radius = _one(text, LENGTH_UNIT_PATTERN, ("radius", "shell"), require_keyword=True)
     # "at" is not a distance cue: it sits next to almost every quantity.
     distance = _one(
         text,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("distance", "from the center"),
         require_keyword=True,
     )
@@ -111,11 +111,11 @@ def extract_faraday(text: str, lower: str) -> PhysicsIntent | None:
             {"turns": "", "delta_flux": flux[1] or "Wb", "dt": seconds[1] or "s"},
         )
     area = _one(text, r"m\^?2|cm\^?2")
-    fields = _ordered_values(text, _TESLA_PATTERN)
+    fields = ordered_values(text, _TESLA_PATTERN)
     if len(fields) == 1:
         # "drops from 0.5 T to 0": the second reading shares the first's unit.
         to_bare = re.search(
-            rf"\bfrom\s+{_NUMBER}\s*(?P<unit>{_TESLA_PATTERN})\s+to\s+(?P<to>{_NUMBER})"
+            rf"\bfrom\s+{NUMBER}\s*(?P<unit>{_TESLA_PATTERN})\s+to\s+(?P<to>{NUMBER})"
             r"(?![\d.])",
             text,
         )

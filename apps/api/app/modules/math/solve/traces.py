@@ -567,11 +567,11 @@ def system_check_latex(
 
 def _parse_sides(sides: list[str], variables: list[str]) -> list[Any] | None:
     """Each side as an expression; a bare SymPy name parses to its object (``limit``, ``CC``)."""
-    from app.modules.math.solve.parse import _expr_needs_real_domain, _parse_expression
+    from app.modules.math.solve.parse import _expr_needs_real_domain, parse_expression
 
     real = _expr_needs_real_domain(*sides)
     with sympy_decline() as declined:
-        parsed = [_parse_expression(side, variables, real=real) for side in sides]
+        parsed = [parse_expression(side, variables, real=real) for side in sides]
     if declined or not all(isinstance(side, Expr) for side in parsed):
         return None
     return parsed

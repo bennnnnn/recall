@@ -62,6 +62,15 @@ class DomainError(Exception):
         return {"code": self.code, "message": self.message, **self.fields}
 
 
+class AuthenticationError(Exception):
+    """A sign-in or a token the server does not accept; the API answers 401.
+
+    Google, Apple, the access and refresh tokens and dev login all raise it. It was the
+    Google gateway's ``GoogleAuthError``, so ``core`` took its auth error from a Google
+    module and a revoked JWT read as a Google failure (code-health audit CLAR-14).
+    """
+
+
 class ChatServiceError(Exception):
     def __init__(self, message: str) -> None:
         self.message = message

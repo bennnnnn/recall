@@ -14,20 +14,20 @@ logger = logging.getLogger(__name__)
 
 # The extractors' short names for the shared running-text number, and the same
 # number without an exponent, as an angle or a reading is written.
-_NUMBER = TEXT_NUMBER
-_DECIMAL = TEXT_DECIMAL
+NUMBER = TEXT_NUMBER
+DECIMAL = TEXT_DECIMAL
 # The unit after an angle in degrees.
-_DEGREE_WORD = r"(?:degrees?|deg|\u00b0)"
+DEGREE_WORD = r"(?:degrees?|deg|\u00b0)"
 
-_LENGTH_UNIT_PATTERN = (
+LENGTH_UNIT_PATTERN = (
     r"kilometers?|km|centimeters?|cm|millimeters?|mm|"
     r"nanometers?|nm|micrometers?|micrometres?|um|µm|"
     r"miles?|mi|meters?|metres?|m|feet|ft|yards?|yd|inches?|in"
 )
 
-_VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour"
+VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour"
 
-_AMP_PATTERN = r"A|amps?|amperes?"
+AMP_PATTERN = r"A|amps?|amperes?"
 
 _OHM_PATTERN = r"ohms?|\u03a9"
 
@@ -36,7 +36,7 @@ _TESLA_PATTERN = r"T|tesla|teslas|mT|millitesla"
 _G_DEFAULT = SCHOOL_GRAVITY["earth"]
 
 _VALUE_UNIT_RE = re.compile(
-    rf"({_NUMBER})\s*"
+    rf"({NUMBER})\s*"
     r"(m/s\^?2|m/s2|m/s|m\^?2/s\^?2|km/h|mph|miles\s+per\s+hour|cm/s|mm/s|"
     r"kilometers?|centimeters?|millimeters?|"
     r"miles?|minutes?|milliseconds?|seconds?|hours?|"
@@ -164,7 +164,7 @@ def _value_the_keyword_names(
     return named[0][2]
 
 
-def _find_value_with_specific_unit(
+def find_value_with_specific_unit(
     text: str,
     unit_pattern: str,
     keywords: tuple[str, ...] = (),
@@ -187,7 +187,7 @@ def _find_value_with_specific_unit(
     """
     matches = list(
         re.finditer(
-            rf"({_NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
@@ -231,7 +231,7 @@ def _find_value_with_specific_unit(
 def labeled_value(text: str, label: str, unit: str) -> tuple[float, str] | None:
     """The value a label names, with its unit: ``initial speed of 4 m/s`` → ``(4.0, "m/s")``."""
     match = re.search(
-        rf"\b(?:{label})(?:\s+of)?\s+({_NUMBER})\s*({unit})\b",
+        rf"\b(?:{label})(?:\s+of)?\s+({NUMBER})\s*({unit})\b",
         text,
         re.IGNORECASE,
     )
@@ -252,7 +252,7 @@ def stated_gravity(text: str) -> float | None:
     return None
 
 
-def _detect_gravity(text: str) -> float:
+def detect_gravity(text: str) -> float:
     """If the user named a gravity value, use it; else the named body's, else 9.81 m/s^2."""
     stated = stated_gravity(text)
     if stated is not None:
@@ -290,7 +290,7 @@ _NAMED_FORMULA_RE = re.compile(
 )
 
 
-def _strip_param_assignments(text: str) -> str:
+def strip_param_assignments(text: str) -> str:
     """Remove textbook labels such as ``h0 =``, ``m1 =``, ``x_2 =`` and
     ``g =`` so has_equation does not mistake a list of givens for algebra.
     The number and unit stay for the quantity scanners.
@@ -302,7 +302,7 @@ def _strip_param_assignments(text: str) -> str:
     return _PARAM_ASSIGN_RE.sub("", text)
 
 
-def _ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
+def ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
     """Every number carrying one of these units, left to right.
 
     Collisions need two masses and two velocities *in the order written* —
@@ -312,7 +312,7 @@ def _ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
     return [
         (float(m.group(1)), m.group(2))
         for m in re.finditer(
-            rf"({_NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
@@ -320,7 +320,7 @@ def _ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
 
 
 def _positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, str]]:
-    """Like ``_ordered_values`` but keeps each match's offset.
+    """Like ``ordered_values`` but keeps each match's offset.
 
     Torque balance needs to know *which* force a distance belongs to, which
     written order alone cannot say.
@@ -328,11 +328,11 @@ def _positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, s
     return [
         (m.start(), float(m.group(1)), m.group(2))
         for m in re.finditer(
-            rf"({_NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
     ]
 
 
-_MASS_UNITS = r"kg|mg|g|lb|lbs|oz"
+MASS_UNITS = r"kg|mg|g|lb|lbs|oz"

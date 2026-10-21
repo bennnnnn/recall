@@ -6,10 +6,10 @@ import re
 
 from app.modules.physics.extractors.circuit_patterns import _COULOMB_PATTERN
 from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _find_value_with_specific_unit,
-    _ordered_values,
-    _strip_param_assignments,
+    LENGTH_UNIT_PATTERN,
+    find_value_with_specific_unit,
+    ordered_values,
+    strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
@@ -49,21 +49,21 @@ def _extract_electrostatics_intent(cleaned: str) -> PhysicsIntent | None:
         return None
     if blocks_field(cleaned):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
     lower = cleaned.lower()
     # The axial dipole field is not the field of one of its charges.
     if "dipole" in lower:
         return None
-    charges = _ordered_values(cleaned, _COULOMB_PATTERN)
+    charges = ordered_values(cleaned, _COULOMB_PATTERN)
     if len(charges) == 1 and (
         ("each" in lower and _TWO_CHARGES_RE.search(cleaned))
         or _TWO_EQUAL_CHARGES_RE.search(cleaned)
     ):
         charges = [charges[0], charges[0]]
-    separation = _find_value_with_specific_unit(
+    separation = find_value_with_specific_unit(
         cleaned,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("separated", "separation", "apart", "distance", "from"),
         require_keyword=True,
     )

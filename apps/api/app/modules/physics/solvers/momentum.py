@@ -13,15 +13,15 @@ from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, Simu
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
-    _latex_num,
-    _params_in_si,
+    latex_num,
+    params_in_si,
 )
 from app.services.solving import SolveServiceError
 
 
 def _collision_substitutions(intent: PhysicsIntent, *, elastic: bool) -> tuple[str, ...]:
     """Numeric collision rows. The reply reads these; it does not rebuild them."""
-    params = _params_in_si(intent)
+    params = params_in_si(intent)
     m1 = latex_given(params["m1"])
     m2 = latex_given(params["m2"])
     v1 = latex_given(params["v1"])
@@ -35,7 +35,7 @@ def _collision_substitutions(intent: PhysicsIntent, *, elastic: bool) -> tuple[s
 
 
 def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or "momentum"
 
     if op == "center_of_mass":
@@ -81,7 +81,7 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
         else:
             # J = Delta p. Same quantity, same units — N*s and kg*m/s are equal.
             j_val = p["m"] * (p["v2"] - p["v1"])
-            plugged = rf"{p['m']:g} \cdot ({_latex_num(p['v2'])} - {_latex_num(p['v1'])})"
+            plugged = rf"{p['m']:g} \cdot ({latex_num(p['v2'])} - {latex_num(p['v1'])})"
             answer = rf"J = m \Delta v = {plugged} \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
             formula = r"J = m(v_2 - v_1)"
             substitution = rf"J = {plugged}"
@@ -206,10 +206,10 @@ def _collision_energy_lost(intent: PhysicsIntent, p: dict[str, float]) -> Physic
     g1, g2, s1, s2 = (latex_given(value) for value in (m1, m2, v1, v2))
     substitutions = (
         rf"v_f = \frac{{{g1}\cdot {s1} + {g2}\cdot {s2}}}{{{g1}+{g2}}} = {latex_number(vf)}",
-        rf"KE_i = \tfrac{{1}}{{2}}\cdot {g1}\cdot {_latex_num(v1, square=True)} + "
-        rf"\tfrac{{1}}{{2}}\cdot {g2}\cdot {_latex_num(v2, square=True)} = {latex_number(before)}",
+        rf"KE_i = \tfrac{{1}}{{2}}\cdot {g1}\cdot {latex_num(v1, square=True)} + "
+        rf"\tfrac{{1}}{{2}}\cdot {g2}\cdot {latex_num(v2, square=True)} = {latex_number(before)}",
         rf"KE_f = \tfrac{{1}}{{2}}\cdot {latex_number(total)}\cdot "
-        rf"{_latex_num(vf, square=True)} = {latex_number(after)}",
+        rf"{latex_num(vf, square=True)} = {latex_number(after)}",
         rf"\Delta KE = {latex_number(before)} - {latex_number(after)} = {latex_number(lost)}",
     )
     return PhysicsResult(

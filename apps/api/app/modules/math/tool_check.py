@@ -115,7 +115,7 @@ def _parse(text: str) -> Any | None:
     if not candidate or len(candidate) > 200:
         return None
     with sympy_decline():
-        parsed = math_solve._parse_expression(candidate)
+        parsed = math_solve.parse_expression(candidate)
         return parsed if isinstance(parsed, Expr) else None
     return None
 

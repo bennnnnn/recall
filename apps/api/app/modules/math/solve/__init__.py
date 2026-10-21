@@ -61,14 +61,14 @@ from app.modules.math.solve.graph import (
 )
 from app.modules.math.solve.inequalities import solve_compound_inequality, solve_inequality
 from app.modules.math.solve.latex_normalize import (
-    _normalize_latex_to_sympy as _normalize_latex_to_sympy,
+    normalize_latex_to_sympy as normalize_latex_to_sympy,
 )
 from app.modules.math.solve.numeric import newton_method
 from app.modules.math.solve.parse import (
     _SAFE_EXPR_CHARS as _SAFE_EXPR_CHARS,
 )
 from app.modules.math.solve.parse import (
-    _parse_expression as _parse_expression,
+    parse_expression as parse_expression,
 )
 from app.modules.math.solve.statistics import compute_bivariate_statistics
 from app.modules.math.solve.systems import solve_system
@@ -80,8 +80,6 @@ from app.services.solving import (
 __all__ = [
     "_SAFE_EXPR_CHARS",
     "SolveServiceError",
-    "_normalize_latex_to_sympy",
-    "_parse_expression",
     "build_ellipse_graph_spec",
     "circle_geometry",
     "compute_bivariate_statistics",
@@ -106,8 +104,10 @@ __all__ = [
     "integrate_expression",
     "integrate_triple",
     "newton_method",
+    "normalize_latex_to_sympy",
     "number_line_spec_from_expr",
     "parallelogram_geometry",
+    "parse_expression",
     "rectangle_geometry",
     "rejected_equality_chain",
     "right_triangle_geometry",

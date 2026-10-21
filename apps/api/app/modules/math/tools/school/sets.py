@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.number_text import DECIMAL_LITERAL, finite_match_value
 from app.services.text_match import word_index
 
@@ -88,4 +88,4 @@ def _block_sets(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | Non
     else:
         answer = math_school.set_difference(intent.vec_a, intent.vec_b)
     lines.append(f"{intent.school_op}: {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)

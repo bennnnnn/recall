@@ -5,15 +5,15 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-    _find_value_with_specific_unit,
-    _ordered_values,
-    _strip_param_assignments,
+    LENGTH_UNIT_PATTERN,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+    find_value_with_specific_unit,
+    ordered_values,
+    strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
 from app.modules.physics.extractors.doppler import SOUND_SOURCE, doppler_intent
 from app.modules.physics.extractors.oscillations import _SHM_TIME_UNITS
@@ -58,17 +58,17 @@ _WAVE_CUE_RES: tuple[re.Pattern[str], ...] = (
 
 def _extract_waves_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _WAVE_CUES, _WAVE_CUE_RES):
+    if not has_cue(lower, _WAVE_CUES, _WAVE_CUE_RES):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
-    frequencies = _ordered_values(cleaned, _HERTZ_PATTERN)
+    frequencies = ordered_values(cleaned, _HERTZ_PATTERN)
 
     # --- Waves on strings: v = sqrt(T / mu) ----------------------------
     if "string" in lower and ("tension" in lower or "linear density" in lower):
-        tension = _find_value_with_specific_unit(cleaned, r"N|newtons?", ("tension",))
-        linear_density = _find_value_with_specific_unit(
+        tension = find_value_with_specific_unit(cleaned, r"N|newtons?", ("tension",))
+        linear_density = find_value_with_specific_unit(
             cleaned,
             r"kg/m|g/m|kilograms?\s+per\s+met(?:er|re)|grams?\s+per\s+met(?:er|re)",
             ("linear density", "mass per unit length"),
@@ -88,14 +88,14 @@ def _extract_waves_intent(cleaned: str) -> PhysicsIntent | None:
 
     # --- Open/closed pipes and strings: f_n = n v / (k L) --------------
     if any(cue in lower for cue in ("standing wave", "open pipe", "closed pipe")):
-        length = _find_value_with_specific_unit(
-            cleaned, _LENGTH_UNIT_PATTERN, ("length", "long", "pipe", "string")
+        length = find_value_with_specific_unit(
+            cleaned, LENGTH_UNIT_PATTERN, ("length", "long", "pipe", "string")
         )
-        speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
+        speed = find_value_with_specific_unit(cleaned, VELOCITY_UNIT_PATTERN)
         if length is None or speed is None:
             return None
         harmonic_match = re.search(
-            rf"\b({_NUMBER})(?:st|nd|rd|th)?\s+(?:harmonic|mode)\b", cleaned, re.IGNORECASE
+            rf"\b({NUMBER})(?:st|nd|rd|th)?\s+(?:harmonic|mode)\b", cleaned, re.IGNORECASE
         )
         named_harmonic = re.search(
             r"\b(first|second|third|fourth|fifth|sixth)\s+(?:harmonic|mode)\b",
@@ -144,11 +144,11 @@ def _extract_waves_intent(cleaned: str) -> PhysicsIntent | None:
 
     # --- Sound spreading from a point source: I = P / (4 pi r^2) -------
     if "sound intensity" in lower:
-        power = _find_value_with_specific_unit(
+        power = find_value_with_specific_unit(
             cleaned, r"W|watts?|kW|kilowatts?", ("power", "source", "emits")
         )
-        radius = _find_value_with_specific_unit(
-            cleaned, _LENGTH_UNIT_PATTERN, ("distance", "radius", "away", "at")
+        radius = find_value_with_specific_unit(
+            cleaned, LENGTH_UNIT_PATTERN, ("distance", "radius", "away", "at")
         )
         if power is None or radius is None:
             return None
@@ -175,12 +175,12 @@ def _extract_waves_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
 
-    freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
-    wavelength = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("wavelength",), require_keyword=True
+    freq = find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
+    wavelength = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("wavelength",), require_keyword=True
     )
-    speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
-    period = _find_value_with_specific_unit(
+    speed = find_value_with_specific_unit(cleaned, VELOCITY_UNIT_PATTERN)
+    period = find_value_with_specific_unit(
         cleaned, _SHM_TIME_UNITS, ("period",), require_keyword=True
     )
 

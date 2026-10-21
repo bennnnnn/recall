@@ -9,7 +9,7 @@ from app.modules.math.match.letter_runs import MATH_MULTI_LETTER, peel_edge_engl
 from app.modules.math.schemas import EquationInput
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.discrete import guess_variables
-from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
+from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
 
 _EQUATION_SIDE_CHARS = frozenset(
     "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/().^ "
@@ -208,7 +208,7 @@ def _equation_spans(text: str) -> list[tuple[int, int, str, str]]:
     """``(lhs_index, rhs_end, lhs, rhs)`` for every equation the walker accepts."""
     # Expand LaTeX first so ``\frac{1}{2}x = 3`` survives the ASCII-only
     # side walker (which rejects ``\`` / ``{}``).
-    cleaned = _normalize_latex_to_sympy(_strip_leading_filler(text))
+    cleaned = normalize_latex_to_sympy(_strip_leading_filler(text))
     spans: list[tuple[int, int, str, str]] = []
     start = 0
     while start < len(cleaned):
@@ -329,7 +329,7 @@ def free_standing_equation(text: str) -> tuple[str, str, str] | None:
     spans = _equation_spans(text)
     if _is_equal_chain([(lhs, rhs) for _left, _right, lhs, rhs in spans]):
         return None
-    cleaned = _normalize_latex_to_sympy(_strip_leading_filler(text))
+    cleaned = normalize_latex_to_sympy(_strip_leading_filler(text))
     for left, right, lhs, rhs in spans:
         if left > len(cleaned) or right > len(cleaned) or not _clause_start(cleaned, left):
             continue
@@ -411,7 +411,7 @@ def try_extract_compound_inequality_from_text(
     Returns ``(low, low_op, mid, high_op, high)`` with canonical ops, or None.
     Must run before single-op extract so ``1 < x < 5`` is not eaten as ``1 < x``.
     """
-    cleaned = _normalize_latex_to_sympy(_strip_leading_verb(text))
+    cleaned = normalize_latex_to_sympy(_strip_leading_verb(text))
     hits = _find_inequality_ops(cleaned)
     if len(hits) < 2:
         return None
@@ -446,7 +446,7 @@ def try_extract_inequality_from_text(text: str) -> tuple[str, str, str] | None:
     or None. NOTE: callers gate this on a math keyword (needs_symbolic_math)
     having already matched, so prose like "less than 5 minutes" (no keyword)
     never reaches here — bare < / > is safe in that context."""
-    cleaned = _normalize_latex_to_sympy(_strip_leading_verb(text))
+    cleaned = normalize_latex_to_sympy(_strip_leading_verb(text))
     best: tuple[int, str, str, str] | None = None  # (index, lhs, rhs, canon)
     for start, after, canon in _find_inequality_ops(cleaned):
         left = start

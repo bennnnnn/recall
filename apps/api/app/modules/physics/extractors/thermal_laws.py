@@ -7,12 +7,12 @@ import re
 from collections.abc import Callable
 
 from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _MASS_UNITS,
-    _NUMBER,
-    _find_value_with_specific_unit,
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+    NUMBER,
+    find_value_with_specific_unit,
 )
-from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
+from app.modules.physics.extractors.fluid_readings import AREA_PATTERN
 from app.modules.physics.extractors.thermal_readings import (
     _REJECTED_WORDS,
     _SUPPLIED_WORDS,
@@ -43,7 +43,7 @@ def _carnot(cleaned: str) -> PhysicsIntent | None:
 
 def _entropy(cleaned: str) -> PhysicsIntent | None:
     """The entropy change for heat added at a temperature in kelvin."""
-    heat = _find_value_with_specific_unit(cleaned, r"kilojoules?|joules?|kJ|J", ("heat", "energy"))
+    heat = find_value_with_specific_unit(cleaned, r"kilojoules?|joules?|kJ|J", ("heat", "energy"))
     temp = _temperature_value(cleaned, ("temperature", "at"))
     if heat is None or temp is None or temp[1] != "K":
         return None
@@ -58,14 +58,14 @@ def _entropy(cleaned: str) -> PhysicsIntent | None:
 
 def _conduction(cleaned: str) -> PhysicsIntent | None:
     """The rate of heat conduction through a slab."""
-    conductivity = _find_value_with_specific_unit(
+    conductivity = find_value_with_specific_unit(
         cleaned,
         r"W/m/K|W/\(m\s*K\)|watts?\s+per\s+met(?:er|re)\s+per\s+kelvin",
         ("thermal conductivity", "conductivity"),
     )
-    area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN, ("area",))
-    thickness = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("thickness", "length"), require_keyword=True
+    area = find_value_with_specific_unit(cleaned, AREA_PATTERN, ("area",))
+    thickness = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("thickness", "length"), require_keyword=True
     )
     rise = _temperature_change(cleaned, ("temperature difference", "difference", "delta t"))
     if conductivity is None or area is None or thickness is None or rise is None:
@@ -91,12 +91,12 @@ def _conduction(cleaned: str) -> PhysicsIntent | None:
 
 def _expansion(cleaned: str) -> PhysicsIntent | None:
     """Linear thermal expansion: dL = alpha L0 dT."""
-    length = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("rod", "wire", "length", "long")
+    length = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("rod", "wire", "length", "long")
     )
     alpha_match = re.search(
         rf"(?:coefficient(?:\s+of\s+linear\s+expansion)?|alpha|\u03b1)\s*"
-        rf"(?:of|is|=|:)?\s*({_NUMBER})\s*(1/K|/K|K\^?-?1|1/°C|/°C)",
+        rf"(?:of|is|=|:)?\s*({NUMBER})\s*(1/K|/K|K\^?-?1|1/°C|/°C)",
         cleaned,
         re.IGNORECASE,
     )
@@ -122,8 +122,8 @@ def _expansion(cleaned: str) -> PhysicsIntent | None:
 
 def _latent_heat(cleaned: str) -> PhysicsIntent | None:
     """A phase change: Q = mL."""
-    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
-    latent = _find_value_with_specific_unit(
+    mass = find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass", "of"))
+    latent = find_value_with_specific_unit(
         cleaned,
         r"J/kg|kJ/kg|joules?\s+per\s+kilogram|kilojoules?\s+per\s+kilogram",
         ("latent heat",),
@@ -142,13 +142,13 @@ def _latent_heat(cleaned: str) -> PhysicsIntent | None:
 def _first_law(cleaned: str) -> PhysicsIntent | None:
     """The first law: dU = Q - W, with the work done by the system positive."""
     heat_match = re.search(
-        rf"(?:heat|energy)\s+(?:added|absorbed|supplied)\D{{0,20}}?({_NUMBER})\s*"
+        rf"(?:heat|energy)\s+(?:added|absorbed|supplied)\D{{0,20}}?({NUMBER})\s*"
         r"(kilojoules?|joules?|kJ|J)",
         cleaned,
         re.IGNORECASE,
     )
     work_match = re.search(
-        rf"work\s+(?:done\s+)?by\s+(?:the\s+)?(?:system|gas)\D{{0,20}}?({_NUMBER})\s*"
+        rf"work\s+(?:done\s+)?by\s+(?:the\s+)?(?:system|gas)\D{{0,20}}?({NUMBER})\s*"
         r"(kilojoules?|joules?|kJ|J)",
         cleaned,
         re.IGNORECASE,

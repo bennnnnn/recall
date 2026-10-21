@@ -10,11 +10,11 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-    _detect_gravity,
-    _find_value_with_specific_unit,
+    LENGTH_UNIT_PATTERN,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+    detect_gravity,
+    find_value_with_specific_unit,
     labeled_value,
 )
 from app.modules.physics.schemas import PhysicsIntent
@@ -96,8 +96,8 @@ def _work_energy(cleaned: str) -> PhysicsIntent | None:
     params: dict[str, float] = {}
     units: dict[str, str] = {}
     from_to = re.search(
-        rf"\bfrom\s+({_NUMBER})\s*({_VELOCITY_UNIT_PATTERN})\s+to\s+"
-        rf"({_NUMBER})\s*({_VELOCITY_UNIT_PATTERN})\b",
+        rf"\bfrom\s+({NUMBER})\s*({VELOCITY_UNIT_PATTERN})\s+to\s+"
+        rf"({NUMBER})\s*({VELOCITY_UNIT_PATTERN})\b",
         cleaned,
         re.IGNORECASE,
     )
@@ -109,25 +109,25 @@ def _work_energy(cleaned: str) -> PhysicsIntent | None:
     if _FROM_REST_RE.search(cleaned):
         params["v1"] = 0.0
         units["v1"] = "m/s"
-    initial = labeled_value(cleaned, r"initial (?:speed|velocity)", _VELOCITY_UNIT_PATTERN)
-    final = labeled_value(cleaned, r"final (?:speed|velocity)", _VELOCITY_UNIT_PATTERN)
+    initial = labeled_value(cleaned, r"initial (?:speed|velocity)", VELOCITY_UNIT_PATTERN)
+    final = labeled_value(cleaned, r"final (?:speed|velocity)", VELOCITY_UNIT_PATTERN)
     if initial is not None:
         params["v1"], units["v1"] = initial
     if final is not None:
         params["v2"], units["v2"] = final
-    mass = _find_value_with_specific_unit(
+    mass = find_value_with_specific_unit(
         cleaned, _MASS_UNIT, ("mass", "block", "object", "cart", "box")
     )
     if mass is not None:
         params["m"], units["m"] = mass
     work = re.search(
-        rf"\bnet work(?:\s+done)?(?:\s+\w+){{0,6}}?\s+(?:is\s+)?({_NUMBER})\s*({_ENERGY_UNIT})\b",
+        rf"\bnet work(?:\s+done)?(?:\s+\w+){{0,6}}?\s+(?:is\s+)?({NUMBER})\s*({_ENERGY_UNIT})\b",
         cleaned,
         re.IGNORECASE,
     )
     if work is None:
         work = re.search(
-            rf"({_NUMBER})\s*({_ENERGY_UNIT})\s+(?:of\s+)?net work\b",
+            rf"({NUMBER})\s*({_ENERGY_UNIT})\s+(?:of\s+)?net work\b",
             cleaned,
             re.IGNORECASE,
         )
@@ -167,10 +167,10 @@ def _gravity(cleaned: str) -> PhysicsIntent | None:
         params["v1"] = 0.0
         units["v1"] = "m/s"
     for key, label, unit in (
-        ("v1", r"initial (?:speed|velocity)", _VELOCITY_UNIT_PATTERN),
-        ("v2", r"final (?:speed|velocity)", _VELOCITY_UNIT_PATTERN),
-        ("h1", r"initial height", _LENGTH_UNIT_PATTERN),
-        ("h2", r"final height", _LENGTH_UNIT_PATTERN),
+        ("v1", r"initial (?:speed|velocity)", VELOCITY_UNIT_PATTERN),
+        ("v2", r"final (?:speed|velocity)", VELOCITY_UNIT_PATTERN),
+        ("h1", r"initial height", LENGTH_UNIT_PATTERN),
+        ("h2", r"final height", LENGTH_UNIT_PATTERN),
     ):
         found = labeled_value(cleaned, label, unit)
         if found is not None:
@@ -192,14 +192,14 @@ def _gravity(cleaned: str) -> PhysicsIntent | None:
         units.setdefault("h2", "m")
     if len({"v1", "h1", "v2", "h2"} - params.keys()) != 1:
         return None
-    params["g"] = _detect_gravity(cleaned)
+    params["g"] = detect_gravity(cleaned)
     units["g"] = "m/s^2"
     return _intent("mechanical_energy_gravity", params, units)
 
 
 def _spring(cleaned: str) -> PhysicsIntent | None:
-    stiffness = re.search(rf"({_NUMBER})\s*N/m\b", cleaned, re.IGNORECASE)
-    mass = _find_value_with_specific_unit(cleaned, _MASS_UNIT, ("mass", "object", "block"))
+    stiffness = re.search(rf"({NUMBER})\s*N/m\b", cleaned, re.IGNORECASE)
+    mass = find_value_with_specific_unit(cleaned, _MASS_UNIT, ("mass", "object", "block"))
     if stiffness is None or mass is None:
         return None
     params: dict[str, float] = {"k": float(stiffness.group(1)), "m": mass[0]}
@@ -213,7 +213,7 @@ def _spring(cleaned: str) -> PhysicsIntent | None:
         ("x1", r"initial (?:compression|extension|displacement)"),
         ("x2", r"final (?:compression|extension|displacement)"),
     ):
-        unit = _VELOCITY_UNIT_PATTERN if key.startswith("v") else _LENGTH_UNIT_PATTERN
+        unit = VELOCITY_UNIT_PATTERN if key.startswith("v") else LENGTH_UNIT_PATTERN
         found = labeled_value(cleaned, label, unit)
         if found is not None:
             params[key], units[key] = found

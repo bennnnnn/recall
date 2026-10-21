@@ -11,7 +11,7 @@ import re
 from app.models.orm import User
 from app.modules.account import profile as profile_service
 from app.modules.chat.prompt_constants import is_email_or_message_request
-from app.services.prompt_safety import wrap_user_preferences
+from app.services import prompt_safety
 
 # Account email is PII — only inject when the turn clearly needs it.
 _PROFILE_EMAIL_ASK = re.compile(
@@ -102,8 +102,4 @@ def format_user_name_only_block(user: User) -> str:
 
 def custom_instructions_block(user: User) -> str | None:
     """The user's own instructions, marked as their preferences; None when they wrote none."""
-    ci = user.custom_instructions
-    custom = ci.strip() if isinstance(ci, str) and ci.strip() else ""
-    if not custom:
-        return None
-    return wrap_user_preferences(f"User's personal instructions:\n{custom[:2000]}")
+    return prompt_safety.custom_instructions_block(user.custom_instructions)

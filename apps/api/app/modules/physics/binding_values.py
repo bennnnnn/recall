@@ -18,7 +18,7 @@ from app.modules.physics.bodies import (
     names_only_water,
 )
 from app.modules.physics.display import si_symbol
-from app.modules.physics.extractors.common import _detect_gravity
+from app.modules.physics.extractors.common import detect_gravity
 from app.services.law_binding.spec import VariableSpec
 from app.services.text_match import word_index
 
@@ -27,7 +27,7 @@ def fallback_value(variable: VariableSpec, text: str, lower: str) -> float | Non
     """A setting an unstated input takes: g, a named planet's mass, an electron's charge."""
     fallback = variable.fallback
     if fallback == "gravity":
-        return _detect_gravity(text)
+        return detect_gravity(text)
     if fallback in {"body_mass", "body_radius"}:
         body = named_body(lower)
         return None if body is None else body[0 if fallback == "body_mass" else 1]

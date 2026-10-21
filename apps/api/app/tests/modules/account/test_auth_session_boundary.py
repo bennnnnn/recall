@@ -6,8 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.config import Settings
-from app.exceptions import RedisUnavailableError
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.schemas import AppleAuthRequest, DevAuthRequest, GoogleAuthRequest
 from app.modules.account import api as auth_router
 from app.modules.account import service as auth_service
@@ -94,7 +93,7 @@ async def test_apple_login_hands_the_raw_nonce_to_token_verification():
         patch("app.modules.account.api._enforce_login_rate_limit", AsyncMock()),
         patch(
             "app.modules.account.service.verify_apple_id_token",
-            AsyncMock(side_effect=GoogleAuthError("Invalid Apple ID token")),
+            AsyncMock(side_effect=AuthenticationError("Invalid Apple ID token")),
         ) as verify,
         pytest.raises(HTTPException) as caught,
     ):

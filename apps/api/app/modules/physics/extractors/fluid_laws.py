@@ -6,9 +6,9 @@ import re
 from collections.abc import Callable
 
 from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _detect_gravity,
-    _find_value_with_specific_unit,
+    LENGTH_UNIT_PATTERN,
+    detect_gravity,
+    find_value_with_specific_unit,
 )
 from app.modules.physics.extractors.fluid_readings import _PRESSURE_PATTERN, FluidReading
 from app.modules.physics.givens import scan_givens, unit_dimension, unit_expression
@@ -81,8 +81,8 @@ def _laplace(f: FluidReading) -> PhysicsIntent | None:
 
 
 def _surface_tension(f: FluidReading) -> PhysicsIntent | None:
-    length = _find_value_with_specific_unit(
-        f.cleaned, _LENGTH_UNIT_PATTERN, ("length", "edge", "contact")
+    length = find_value_with_specific_unit(
+        f.cleaned, LENGTH_UNIT_PATTERN, ("length", "edge", "contact")
     )
     if f.force is None or length is None:
         return None
@@ -101,7 +101,7 @@ def _torricelli(f: FluidReading) -> PhysicsIntent | None:
     return PhysicsIntent(
         kind="fluids",
         physics_op="torricelli_speed",
-        physics_params={"depth": f.depth[0], "g": _detect_gravity(f.cleaned)},
+        physics_params={"depth": f.depth[0], "g": detect_gravity(f.cleaned)},
         physics_units={"depth": f.depth[1] or "m", "g": "m/s^2"},
         operation="solve",
     )
@@ -223,19 +223,19 @@ def _hydraulic(f: FluidReading) -> PhysicsIntent | None:
 def _bernoulli(f: FluidReading) -> PhysicsIntent | None:
     """Bernoulli. Heights only when both are stated; otherwise horizontal."""
     # Height terms are not guessed. Both heights, or the word horizontal.
-    initial_height = _find_value_with_specific_unit(
+    initial_height = find_value_with_specific_unit(
         f.cleaned,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("initial height", "starting height"),
         require_keyword=True,
     )
-    final_height = _find_value_with_specific_unit(
+    final_height = find_value_with_specific_unit(
         f.cleaned,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("final height", "ending height"),
         require_keyword=True,
     )
-    pressure = _find_value_with_specific_unit(f.cleaned, _PRESSURE_PATTERN)
+    pressure = find_value_with_specific_unit(f.cleaned, _PRESSURE_PATTERN)
     rho = f.fluid_density()
     if (
         initial_height is not None
@@ -254,7 +254,7 @@ def _bernoulli(f: FluidReading) -> PhysicsIntent | None:
                 "v2": f.speed[1][0],
                 "h1": initial_height[0],
                 "h2": final_height[0],
-                "g": _detect_gravity(f.cleaned),
+                "g": detect_gravity(f.cleaned),
             },
             physics_units={
                 "pres1": pressure[1] or "Pa",

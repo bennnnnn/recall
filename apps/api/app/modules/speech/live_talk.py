@@ -20,7 +20,10 @@ from app.modules.memory.switch import memory_switch_on
 from app.modules.speech.schemas import SpeechLiveStatusOut
 from app.modules.speech.service import LIVE_TALK_ALIAS
 from app.modules.todos.service import list_owned_todos
-from app.services.prompt_safety import wrap_untrusted, wrap_user_preferences
+from app.services.prompt_safety import (
+    custom_instructions_block,
+    wrap_untrusted,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -171,11 +174,7 @@ class LiveTalkSessionContext:
 
 
 def voice_custom_instructions(user: User) -> str:
-    raw = user.custom_instructions
-    custom = raw.strip() if isinstance(raw, str) and raw.strip() else ""
-    if not custom:
-        return ""
-    return wrap_user_preferences(f"User's personal instructions:\n{custom[:2000]}")
+    return custom_instructions_block(user.custom_instructions) or ""
 
 
 def _history_lines(history: list[tuple[str, str]] | None) -> list[str]:

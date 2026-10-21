@@ -12,7 +12,7 @@ from app.modules.physics.schemas import (
     SimulationBlockSpec,
     SimulationVector,
 )
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
+from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, params_in_si
 from app.services.solving import SolveServiceError
 
 
@@ -71,7 +71,7 @@ def _given(value: float) -> str:
 
 
 def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or "torque"
 
     solve = _TORQUE_OPS.get(op)

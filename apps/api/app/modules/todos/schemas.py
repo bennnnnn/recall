@@ -8,6 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.models.schemas.text import UserText
 
+# The longest to-do text; the chat and voice readers cut a title to it too.
+TODO_TEXT_MAX_CHARS = 1000
+
 RecurrenceRule = Literal["daily", "weekdays", "weekly", "monthly"]
 
 
@@ -43,7 +46,7 @@ class TodoPageOut(BaseModel):
 class TodoCreate(BaseModel):
     model_config = ConfigDict(title="TodoCreate")
 
-    content: UserText = Field(min_length=1, max_length=1000)
+    content: UserText = Field(min_length=1, max_length=TODO_TEXT_MAX_CHARS)
     topic: UserText = Field(default="General", min_length=1, max_length=200)
     chat_id: UUID | None = None
     due_at: datetime | None = None
@@ -67,7 +70,7 @@ class TodoCreate(BaseModel):
 class TodoUpdate(BaseModel):
     model_config = ConfigDict(title="TodoUpdate")
 
-    content: UserText | None = Field(default=None, min_length=1, max_length=1000)
+    content: UserText | None = Field(default=None, min_length=1, max_length=TODO_TEXT_MAX_CHARS)
     topic: UserText | None = Field(default=None, min_length=1, max_length=200)
     checked: bool | None = None
     due_at: datetime | None = None
@@ -114,7 +117,7 @@ class TodoActionItem(BaseModel):
     ]
     # Creates may omit a topic; the server selects General or Reminders from due_at.
     topic: str = Field(default="", max_length=200)
-    content: str = Field(default="", max_length=1000)
+    content: str = Field(default="", max_length=TODO_TEXT_MAX_CHARS)
     due_at: datetime | None = None
     recurrence_rule: RecurrenceRule | None = None
 

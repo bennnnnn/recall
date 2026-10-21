@@ -5,14 +5,14 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
-    _DEGREE_WORD,
-    _MASS_UNITS,
-    _NUMBER,
-    _find_value_with_specific_unit,
-    _strip_param_assignments,
+    DEGREE_WORD,
+    MASS_UNITS,
+    NUMBER,
+    find_value_with_specific_unit,
+    strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
 from app.modules.physics.extractors.school_extensions import blocks_thermal
 from app.modules.physics.extractors.thermal_laws import NAMED_THERMAL_LAWS
@@ -83,7 +83,7 @@ _THERMAL_CUE_RES: tuple[re.Pattern[str], ...] = (
 
 def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _THERMAL_CUES, _THERMAL_CUE_RES):
+    if not has_cue(lower, _THERMAL_CUES, _THERMAL_CUE_RES):
         return None
     # Isothermal work is W = nRT ln(V2/V1). The same n, V and T would otherwise
     # be read as the pressure of an ideal gas.
@@ -91,7 +91,7 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
         return None
     if blocks_thermal(cleaned):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
     for names, law in NAMED_THERMAL_LAWS:
@@ -99,7 +99,7 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
             return law(cleaned)
 
     # A stated amount of gas is PV = nRT; anything else left is Q = mc dT.
-    moles = _find_value_with_specific_unit(cleaned, r"mol|moles?")
+    moles = find_value_with_specific_unit(cleaned, r"mol|moles?")
     if moles is not None or "ideal gas" in lower:
         return _ideal_gas(cleaned, moles)
     return _heat_energy(cleaned)
@@ -107,7 +107,7 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
 
 def _ideal_gas(cleaned: str, moles: tuple[float, str] | None) -> PhysicsIntent | None:
     """PV = nRT for the pressure, from moles, a volume and an absolute temperature."""
-    volume = _find_value_with_specific_unit(cleaned, r"m\^?3|cm\^?3|litres?|liters?|l|ml")
+    volume = find_value_with_specific_unit(cleaned, r"m\^?3|cm\^?3|litres?|liters?|l|ml")
     temp = _temperature_value(cleaned, ("temperature", "at"))
     if moles is None or volume is None or temp is None:
         return None
@@ -129,7 +129,7 @@ def _ideal_gas(cleaned: str, moles: tuple[float, str] | None) -> PhysicsIntent |
 
 
 _STATED_CAPACITY = re.compile(
-    rf"(?:specific\s+heat(?:\s+capacity)?|\bc)\s*(?:=|is|of)\s*{_NUMBER}", re.IGNORECASE
+    rf"(?:specific\s+heat(?:\s+capacity)?|\bc)\s*(?:=|is|of)\s*{NUMBER}", re.IGNORECASE
 )
 
 
@@ -140,7 +140,7 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
         # Boiling it away or melting it takes latent heat as well: mcΔT alone
         # answered 83.7 kJ for the 649 kJ that warming and boiling 250 g take.
         return None
-    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
+    mass = find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass", "of"))
     readings = _TEMPERATURE_SPAN.search(cleaned)
     rise = None if readings else _temperature_change(cleaned, ("by", "rise", "raise", "change"))
     if rise is None and readings is None:
@@ -148,8 +148,8 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
         # so a bare "by 10 degrees" is unambiguous here in a way an absolute
         # "at 300 degrees" is not. Only the interval may be loose.
         bare = re.search(
-            rf"(?:by|rises?|raise[sd]?|warms?|cools?)\s+(?:by\s+)?({_NUMBER})\s*"
-            rf"{_DEGREE_WORD}(?![A-Za-z0-9])",
+            rf"(?:by|rises?|raise[sd]?|warms?|cools?)\s+(?:by\s+)?({NUMBER})\s*"
+            rf"{DEGREE_WORD}(?![A-Za-z0-9])",
             cleaned,
             re.IGNORECASE,
         )
@@ -157,7 +157,7 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
             rise = (float(bare.group(1)), "K")
     if mass is None or (rise is None and readings is None):
         return None
-    capacity = _find_value_with_specific_unit(
+    capacity = find_value_with_specific_unit(
         cleaned, _SPECIFIC_HEAT_UNIT, ("specific heat", "capacity", "c =", "c is")
     )
     if capacity is not None:

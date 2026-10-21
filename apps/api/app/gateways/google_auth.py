@@ -8,6 +8,7 @@ from google.oauth2 import id_token
 
 from app.core.blocking import run_blocking
 from app.core.config import Settings
+from app.exceptions import AuthenticationError
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +28,8 @@ def _shared_google_request() -> requests.Request:
     return _google_request
 
 
-class GoogleAuthError(Exception):
-    pass
+class GoogleAuthError(AuthenticationError):
+    """A Google ID token the server does not accept."""
 
 
 class GoogleAuthUnavailableError(Exception):

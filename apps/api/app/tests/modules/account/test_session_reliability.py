@@ -9,8 +9,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from sqlalchemy.exc import OperationalError
 
 from app.core.config import Settings
-from app.exceptions import RedisUnavailableError
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.modules.account import tokens as tokens
 from app.tests.api_support import api_user
 
@@ -65,7 +64,7 @@ async def test_refresh_cannot_restore_session_after_logout_during_database_read(
                 await tokens.revoke_refresh_token(fake_redis, refresh)
         finally:
             lookup_resume.set()
-        with pytest.raises(GoogleAuthError, match="Invalid refresh token"):
+        with pytest.raises(AuthenticationError, match="Invalid refresh token"):
             await task
 
     assert await fake_redis.smembers(f"refresh_user:{user.id}") == set()
@@ -149,7 +148,7 @@ async def test_concurrent_refresh_has_one_winner_and_detects_replay(fake_redis):
             timeout=2,
         )
     assert sum(isinstance(result, tuple) for result in results) == 1
-    assert sum(isinstance(result, GoogleAuthError) for result in results) == 1
+    assert sum(isinstance(result, AuthenticationError) for result in results) == 1
     assert await fake_redis.smembers(f"refresh_user:{user.id}") == set()
 
 

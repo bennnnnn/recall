@@ -28,6 +28,7 @@ from app.modules.attachments.content_types import is_image_content_type as is_im
 from app.modules.attachments.content_types import (
     normalize_content_type as normalize_content_type,
 )
+from app.modules.attachments.models import ORIGINAL_FILENAME_MAX_CHARS
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,7 +66,7 @@ async def add_server_images(
     ``message_id`` they are already on that message. ``label`` (the prompt or the search)
     names them in the Library.
     """
-    filename = label.replace("\n", " ").strip()[:255] or None
+    filename = label.replace("\n", " ").strip()[:ORIGINAL_FILENAME_MAX_CHARS] or None
     for image in images:
         await _repo.insert_verified(
             session,

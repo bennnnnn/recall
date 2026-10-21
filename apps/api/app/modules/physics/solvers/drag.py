@@ -11,7 +11,7 @@ from functools import lru_cache
 
 from app.modules.physics.display import latex_number
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
+from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, params_in_si
 from app.services.solving import SolveServiceError
 
 _LINEAR_V = r"v(t)=\frac{mg}{k}\left(1-e^{-(k/m)t}\right)"
@@ -72,7 +72,7 @@ def _n(value: float) -> str:
 def solve_linear_drag_fall(intent: PhysicsIntent) -> PhysicsResult:
     """Downward positive. From rest, v(t) = (mg/k)(1 - e^{-(k/m)t}) and lim = gt."""
     _require_identities()
-    params = _params_in_si(intent)
+    params = params_in_si(intent)
     show = params.get("show_motion", 0) >= 1 or "t" in params or "v0" in params
     if "m" not in params:
         if not show:
@@ -137,7 +137,7 @@ def _symbolic_terminal_only() -> PhysicsResult:
 def solve_linear_drag_upward(intent: PhysicsIntent) -> PhysicsResult:
     """Upward positive. v approaches -mg/k, and the zero-drag limit is v0 - gt."""
     _require_identities()
-    params = _params_in_si(intent)
+    params = params_in_si(intent)
     if "m" not in params:
         card = rf"{_UP_V},\quad {_LINEAR_VT},\quad {_UP_LIMIT}"
         return PhysicsResult(
@@ -171,7 +171,7 @@ def solve_linear_drag_upward(intent: PhysicsIntent) -> PhysicsResult:
 def solve_quadratic_drag_fall(intent: PhysicsIntent) -> PhysicsResult:
     """Downward positive, from rest: v = v_T tanh(gt/v_T), v_T = sqrt(mg/b)."""
     _require_identities()
-    params = _params_in_si(intent)
+    params = params_in_si(intent)
     show = params.get("show_motion", 0) >= 1 or "t" in params
     if "m" not in params:
         if not show:
@@ -216,7 +216,7 @@ def solve_quadratic_drag_fall(intent: PhysicsIntent) -> PhysicsResult:
 
 def solve_stokes_terminal(intent: PhysicsIntent) -> PhysicsResult:
     """Terminal speed of a sphere. Buoyancy uses the fluid density."""
-    params = _params_in_si(intent)
+    params = params_in_si(intent)
     _positive(params, "r", "viscosity", "g", "rho_body")
     if params["rho"] < 0:
         raise SolveServiceError("fluid density cannot be negative")

@@ -22,7 +22,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.modules.todos.schemas import RecurrenceRule
+from app.modules.todos.schemas import TODO_TEXT_MAX_CHARS, RecurrenceRule
 from app.modules.todos.spoken_when import DAY_NAMES, due_on_day, read_clock
 from app.services import time_context as time_context_service
 from app.services.md_fence_scan import block_end, iter_fences
@@ -206,7 +206,7 @@ def parse_spoken_remind(
     due = due_on_day(day_token, clock.hour, clock.minute, when)
     if due is None:
         return None
-    return title[:500], due
+    return title[:TODO_TEXT_MAX_CHARS], due
 
 
 def explicit_user_remind(user_text: str | None, user_timezone: str | None) -> ReminderFence | None:

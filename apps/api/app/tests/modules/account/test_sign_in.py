@@ -99,7 +99,7 @@ async def test_login_with_google_existing_user():
 
 @pytest.mark.asyncio
 async def test_login_with_google_rejects_missing_email_on_new_user():
-    from app.gateways.google_auth import GoogleAuthError
+    from app.exceptions import AuthenticationError
     from app.modules.account import service as auth_service
 
     settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
@@ -115,7 +115,7 @@ async def test_login_with_google_rejects_missing_email_on_new_user():
             "app.modules.account.service.users_repo.get_by_google_sub", AsyncMock(return_value=None)
         ),
     ):
-        with pytest.raises(GoogleAuthError, match="did not share an email"):
+        with pytest.raises(AuthenticationError, match="did not share an email"):
             await auth_service.login_with_google(AsyncMock(), settings_obj, "id-token", AsyncMock())
 
 
@@ -336,7 +336,7 @@ async def test_login_with_apple_links_existing_account_by_email():
 
 @pytest.mark.asyncio
 async def test_login_with_apple_requires_email_on_first_sign_in():
-    from app.gateways.google_auth import GoogleAuthError
+    from app.exceptions import AuthenticationError
     from app.modules.account import service as auth_service
 
     settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
@@ -354,7 +354,7 @@ async def test_login_with_apple_requires_email_on_first_sign_in():
         ),
         patch("app.modules.account.service.users_repo.get_by_email", AsyncMock(return_value=None)),
     ):
-        with pytest.raises(GoogleAuthError, match="did not share an email"):
+        with pytest.raises(AuthenticationError, match="did not share an email"):
             await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", AsyncMock())
 
 
@@ -363,7 +363,7 @@ async def test_login_with_apple_rejects_string_false_email_verified():
     # Apple ships `email_verified` as the string "false" (not a bool). The old
     # `is False` check let this through — an unverified identity could create
     # or link an account.
-    from app.gateways.google_auth import GoogleAuthError
+    from app.exceptions import AuthenticationError
     from app.modules.account import service as auth_service
 
     settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
@@ -375,14 +375,14 @@ async def test_login_with_apple_rejects_string_false_email_verified():
         "app.modules.account.service.verify_apple_id_token",
         AsyncMock(return_value=payload),
     ):
-        with pytest.raises(GoogleAuthError, match="not verified"):
+        with pytest.raises(AuthenticationError, match="not verified"):
             await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", AsyncMock())
 
 
 @pytest.mark.asyncio
 async def test_login_with_apple_rejects_missing_email_verified():
     # A missing claim must not silently pass as "verified".
-    from app.gateways.google_auth import GoogleAuthError
+    from app.exceptions import AuthenticationError
     from app.modules.account import service as auth_service
 
     settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
@@ -394,7 +394,7 @@ async def test_login_with_apple_rejects_missing_email_verified():
         "app.modules.account.service.verify_apple_id_token",
         AsyncMock(return_value=payload),
     ):
-        with pytest.raises(GoogleAuthError, match="not verified"):
+        with pytest.raises(AuthenticationError, match="not verified"):
             await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", AsyncMock())
 
 
@@ -447,7 +447,8 @@ async def test_login_with_apple_accepts_string_true_email_verified():
 async def test_verify_google_id_token_rejects_string_false_email_verified():
     # Google ships a bool, but a string "false" from an intermediary must
     # not be truthy.
-    from app.gateways.google_auth import GoogleAuthError, _verify_google_id_token_sync
+    from app.exceptions import AuthenticationError
+    from app.gateways.google_auth import _verify_google_id_token_sync
 
     settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
         google_client_id="client-id"
@@ -456,19 +457,19 @@ async def test_verify_google_id_token_rejects_string_false_email_verified():
         "app.gateways.google_auth.id_token.verify_oauth2_token",
         return_value={"sub": "g", "email": "g@x.com", "email_verified": "false"},
     ):
-        with pytest.raises(GoogleAuthError, match="not verified"):
+        with pytest.raises(AuthenticationError, match="not verified"):
             _verify_google_id_token_sync("tok", settings_obj)
 
 
 @pytest.mark.asyncio
 async def test_login_dev_raises_when_disabled():
-    from app.gateways.google_auth import GoogleAuthError
+    from app.exceptions import AuthenticationError
     from app.modules.account import service as auth_service
 
     settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
         dev_auth_enabled=False
     )
-    with pytest.raises(GoogleAuthError):
+    with pytest.raises(AuthenticationError):
         await auth_service.login_dev(
             AsyncMock(), settings_obj, email="x@x.com", name="X", redis=redis_mock()
         )

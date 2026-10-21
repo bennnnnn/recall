@@ -5,14 +5,14 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
-    _DEGREE_WORD,
-    _MASS_UNITS,
-    _VELOCITY_UNIT_PATTERN,
-    _ordered_values,
-    _strip_param_assignments,
+    DEGREE_WORD,
+    MASS_UNITS,
+    VELOCITY_UNIT_PATTERN,
+    ordered_values,
+    strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
 from app.modules.physics.givens import Given, scan_givens
 from app.modules.physics.schemas import PhysicsIntent
@@ -70,7 +70,7 @@ _COLLISION_SUBJECT_RE = re.compile(
 _TWO_DIMENSIONAL_RE = re.compile(
     r"\b2-?d\b|\btwo[- ]dimensional\b|\bdeflect(?:s|ed|ion)?\b"
     r"|\bat an angle\b|\bglancing\b|\boblique\b"
-    rf"|\d\s*{_DEGREE_WORD}",
+    rf"|\d\s*{DEGREE_WORD}",
     re.IGNORECASE,
 )
 
@@ -179,19 +179,19 @@ def _explosion_intent(cleaned: str) -> PhysicsIntent | None:
 
 def _extract_momentum_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _MOMENTUM_CUES, _MOMENTUM_CUE_RES):
+    if not has_cue(lower, _MOMENTUM_CUES, _MOMENTUM_CUE_RES):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
     if _EXPLODES_RE.search(cleaned):
         return _explosion_intent(cleaned)
 
-    masses = _ordered_values(cleaned, _MASS_UNITS)
-    velocities = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)
+    masses = ordered_values(cleaned, MASS_UNITS)
+    velocities = ordered_values(cleaned, VELOCITY_UNIT_PATTERN)
 
     # --- Centre of mass: x_cm = sum(m_i x_i) / sum(m_i) ---------------
     if "center of mass" in lower or "centre of mass" in lower:
-        positions = _ordered_values(cleaned, r"km|cm|mm|m|ft|yd|in|mi")
+        positions = ordered_values(cleaned, r"km|cm|mm|m|ft|yd|in|mi")
         if len(masses) == 3 and len(positions) == 3:
             return PhysicsIntent(
                 kind="momentum",
@@ -282,8 +282,8 @@ def _extract_momentum_intent(cleaned: str) -> PhysicsIntent | None:
 
     # --- Impulse: J = F dt, or J = m (v2 - v1) ---
     if "impulse" in lower:
-        forces = _ordered_values(cleaned, r"N")
-        times = _ordered_values(cleaned, _MOMENTUM_TIME_UNITS)
+        forces = ordered_values(cleaned, r"N")
+        times = ordered_values(cleaned, _MOMENTUM_TIME_UNITS)
         if forces and times:
             f, f_unit = forces[0]
             dt, dt_unit = times[0]

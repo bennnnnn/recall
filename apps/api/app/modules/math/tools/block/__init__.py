@@ -25,7 +25,7 @@ from app.modules.math.tools.block.canonical import (
     _diagram_block as _diagram_block,
 )
 from app.modules.math.tools.block.canonical import (
-    _finish_with_answer as _finish_with_answer,
+    finish_with_answer as finish_with_answer,
 )
 from app.modules.math.tools.block.common import (
     _format_equation_answer as _format_equation_answer,

@@ -10,7 +10,7 @@ from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.function_names import TRIG, function_name_alternation
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.school.coordinate import extract_sas_area, sas_area_block
 from app.modules.math.tools.school.teaching import _attach_picture
@@ -299,7 +299,7 @@ def _verified_block_trig(
     if intent.expr:
         answer = math_school.evaluate_trig_expr(intent.expr)
         lines.append(f"Result: {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     return None
 
 
@@ -313,9 +313,9 @@ def _angle_value_block(
 
         from app.modules.math import solve as math_solve
 
-        answer = latex(together(simplify(math_solve._parse_expression(intent.expr, []))))
+        answer = latex(together(simplify(math_solve.parse_expression(intent.expr, []))))
     lines.append(f"{op}({degrees:g}°) = {answer}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     if op in {"sin", "cos", "tan"} and float(degrees).is_integer():
         from app.modules.math.solve.teaching_algebra import standard_degrees, unit_circle_spec
 

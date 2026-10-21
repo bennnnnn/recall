@@ -30,7 +30,7 @@ from app.modules.math.schemas import (
     TriangleSidesGeometryBlockSpec,
     TriangleSidesInput,
 )
-from app.modules.math.tools.block.canonical import _diagram_block, _finish_with_answer
+from app.modules.math.tools.block.canonical import _diagram_block, finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import Workout, math_line, render_workout
@@ -189,7 +189,7 @@ def _verified_block_solid(
         answer, unit = geo.labels["surface_area"].rsplit(" ", 1)
     else:
         answer, unit = geo.labels["volume"].rsplit(" ", 1)
-    return _finish_with_answer(lines, format_quantity(answer, unit))
+    return finish_with_answer(lines, format_quantity(answer, unit))
 
 
 def _verified_block_circle(
@@ -226,7 +226,7 @@ def _verified_block_circle(
             f"{answer} {intent.unit}",
         )
         return replace(
-            _finish_with_answer(lines, answer),
+            finish_with_answer(lines, answer),
             display_answer=f"{answer} {intent.unit}",
             direct_reply=direct,
         )

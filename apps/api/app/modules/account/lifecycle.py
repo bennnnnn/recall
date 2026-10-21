@@ -13,8 +13,8 @@ from app.core.config import Settings
 from app.core.jobs import enqueue
 from app.core.redis import get_redis_client
 from app.core.validation import normalize_avatar_url
+from app.exceptions import AuthenticationError
 from app.gateways import apple_revoke
-from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.account import quota_carryover
@@ -131,7 +131,7 @@ async def _session_user(
     if access_token:
         try:
             return await tokens_service.verify_access_token(redis, access_token, settings)
-        except GoogleAuthError:
+        except AuthenticationError:
             pass  # expired: the refresh token still proves the session
     return await tokens_service.refresh_token_user(redis, refresh_token) if refresh_token else None
 
@@ -246,7 +246,6 @@ async def purge_user_redis_keys(redis: Redis, user_id: UUID) -> int:
 
 
 __all__ = [
-    "GoogleAuthError",
     "SessionPurgeError",
     "delete_account",
     "logout",

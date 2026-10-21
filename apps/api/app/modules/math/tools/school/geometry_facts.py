@@ -11,7 +11,7 @@ import re
 from dataclasses import replace
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.number_text import DECIMAL
 from app.services.workout import Workout, math_line, render_workout
 
@@ -127,7 +127,7 @@ def geometry_fact_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlo
         answer = _degrees(360 / n)
         note = "the exterior angles add to 360 degrees"
     lines.append(f"Working: ${working}$ ({note})")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     return replace(block, worked_reply=f"{math_line(working, note)}\n\n```answer\n{answer}\n```\n")
 
 
@@ -157,4 +157,4 @@ def _missing_leg(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | No
         ),
         answer,
     )
-    return replace(_finish_with_answer(lines, answer), worked_reply=working)
+    return replace(finish_with_answer(lines, answer), worked_reply=working)

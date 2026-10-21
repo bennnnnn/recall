@@ -5,14 +5,14 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
-    _AMP_PATTERN,
     _OHM_PATTERN,
+    AMP_PATTERN,
 )
 from app.modules.physics.extractors.school_common import (
     _FARAD,
     _HENRY,
     _HERTZ,
-    _NUMBER,
+    NUMBER,
     _henry_unit,
     _intent,
     _one,
@@ -49,7 +49,7 @@ def extract_ac(text: str, lower: str) -> PhysicsIntent | None:
                 return None
             params, units = _rms_params(given[0], given[1] or "V", text)
             return _intent("circuit", "rms_voltage", params, units)
-        given = _one(text, _AMP_PATTERN)
+        given = _one(text, AMP_PATTERN)
         if given is None:
             return None
         params = {"I": given[0]}
@@ -75,12 +75,12 @@ def extract_ac(text: str, lower: str) -> PhysicsIntent | None:
             },
         )
     inductive = re.search(
-        rf"inductive reactance(?:\s+of)?\s+({_NUMBER})\s*({_OHM_PATTERN})",
+        rf"inductive reactance(?:\s+of)?\s+({NUMBER})\s*({_OHM_PATTERN})",
         text,
         re.IGNORECASE,
     )
     capacitive = re.search(
-        rf"capacitive reactance(?:\s+of)?\s+({_NUMBER})\s*({_OHM_PATTERN})",
+        rf"capacitive reactance(?:\s+of)?\s+({NUMBER})\s*({_OHM_PATTERN})",
         text,
         re.IGNORECASE,
     )
@@ -131,7 +131,7 @@ def extract_ac(text: str, lower: str) -> PhysicsIntent | None:
             {"capacitance": capacitance[1] or "F", "freq": frequency[1] or "Hz"},
         )
     if "average power" in lower and resistance is not None:
-        current = _one(text, _AMP_PATTERN)
+        current = _one(text, AMP_PATTERN)
         if current is None:
             return None
         return _intent(

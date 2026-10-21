@@ -18,6 +18,7 @@ from app.core.deps import (
 from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis_lock import acquire_lock, release_lock
+from app.exceptions import AuthenticationError
 from app.models.orm import User
 from app.models.schemas import (
     AccountDeleteRequest,
@@ -104,7 +105,7 @@ async def google_login(
             detail=str(exc),
             headers={"Retry-After": "5"},
         ) from exc
-    except auth_service.GoogleAuthError as exc:
+    except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
 
@@ -129,7 +130,7 @@ async def apple_login(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except auth_service.GoogleAuthError as exc:
+    except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
 
@@ -166,7 +167,7 @@ async def dev_login(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except auth_service.GoogleAuthError as exc:
+    except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
 
@@ -221,7 +222,7 @@ async def refresh_session(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except auth_service.GoogleAuthError as exc:
+    except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(
         request,
@@ -264,7 +265,7 @@ async def logout(
             refresh_token=refresh_token,
             expo_push_token=body.expo_push_token,
         )
-    except auth_service.GoogleAuthError as exc:
+    except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     if web_session.is_web_origin(request, settings):

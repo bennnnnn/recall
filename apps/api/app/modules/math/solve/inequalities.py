@@ -27,7 +27,7 @@ from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.parse import (
     SolveServiceError,
     _expr_needs_real_domain,
-    _parse_expression,
+    parse_expression,
 )
 
 
@@ -37,9 +37,9 @@ def compound_solution_set(
     """The real solution set of ``low OP mid OP high``: the answer card's and the number
     line's (``solve/graph.py``), solved once here (they were copies that could drift)."""
     sym = Symbol(variable, real=True)
-    low_e = _parse_expression(low, [variable], real=True)
-    mid_e = _parse_expression(mid, [variable], real=True)
-    high_e = _parse_expression(high, [variable], real=True)
+    low_e = parse_expression(low, [variable], real=True)
+    mid_e = parse_expression(mid, [variable], real=True)
+    high_e = parse_expression(high, [variable], real=True)
     lower_rel, upper_rel = _compound_relations(
         low, low_op, mid, high_op, high, low_e, mid_e, high_e
     )
@@ -84,9 +84,9 @@ def solve_compound_inequality(
     """Solve ``low OP mid OP high`` (e.g. ``1 < x <= 3``) as an And of relations."""
     sym = Symbol(variable, real=True)
     sol = compound_solution_set(low, low_op, mid, high_op, high, variable)
-    low_e = _parse_expression(low, [variable], real=True)
-    mid_e = _parse_expression(mid, [variable], real=True)
-    high_e = _parse_expression(high, [variable], real=True)
+    low_e = parse_expression(low, [variable], real=True)
+    mid_e = parse_expression(mid, [variable], real=True)
+    high_e = parse_expression(high, [variable], real=True)
     sol_latex = inequality_solution_latex(sol, sym)
     cmp_latex = {"<": "<", ">": ">", "<=": "\\leq", ">=": "\\geq"}
     return MathSolveResult(
@@ -154,8 +154,8 @@ def inequality_solution_set(lhs: str, rhs: str, comparator: str, variable: str) 
     number line's, solved once here (the number line used to solve it its own way)."""
     real = _expr_needs_real_domain(lhs, rhs)
     sym = Symbol(variable, real=True) if real else Symbol(variable)
-    left = _parse_expression(lhs, [variable], real=real)
-    right = _parse_expression(rhs, [variable], real=real)
+    left = parse_expression(lhs, [variable], real=real)
+    right = parse_expression(rhs, [variable], real=real)
     rel_cls = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}.get(comparator)
     if rel_cls is None:
         raise SolveServiceError(f"Unknown inequality comparator: {comparator}")
@@ -179,8 +179,8 @@ def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> Math
     """
     real = _expr_needs_real_domain(lhs, rhs)
     sym = Symbol(variable, real=True) if real else Symbol(variable)
-    left = _parse_expression(lhs, [variable], real=real)
-    right = _parse_expression(rhs, [variable], real=real)
+    left = parse_expression(lhs, [variable], real=real)
+    right = parse_expression(rhs, [variable], real=real)
     sol = inequality_solution_set(lhs, rhs, comparator, variable)
     sol_latex = inequality_solution_latex(sol, sym)
     cmp_latex = {"<": "<", ">": ">", "<=": "\\leq", ">=": "\\geq"}[comparator]

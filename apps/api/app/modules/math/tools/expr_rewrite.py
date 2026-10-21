@@ -12,9 +12,9 @@ from app.services.text_normalize import collapse_ws
 
 def _normalize_latex_expr(expr: str) -> str:
     """Delegate to math_solve so limit/series paths share frac/abs handling."""
-    from app.modules.math.solve import _normalize_latex_to_sympy
+    from app.modules.math.solve import normalize_latex_to_sympy
 
-    return _normalize_latex_to_sympy(expr)
+    return normalize_latex_to_sympy(expr)
 
 
 def _strip_trailing_differential(expr: str) -> str:

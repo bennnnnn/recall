@@ -18,7 +18,7 @@ from sympy.parsing.sympy_parser import (
 from app.core.config import get_settings
 from app.core.sympy_notation import use_school_log_notation
 from app.modules.math.schemas import EquationInput
-from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
+from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
 from app.modules.math.solve.number_size import reject_huge_numbers
 from app.modules.math.solve.written_names import lone_quantity, reject_unwritten_symbols
 from app.services.solving import SolveServiceError
@@ -105,7 +105,7 @@ def _lift_glued_exponents(text: str) -> str:
 
 def _normalize_expr(text: str) -> str:
     s = text.strip()
-    s = _normalize_latex_to_sympy(s)
+    s = normalize_latex_to_sympy(s)
     # Lift `x2` before `^` becomes `**`, so a real caret (`x2^3`) is not
     # reread as a glued exponent.
     s = _lift_glued_exponents(s)
@@ -162,7 +162,7 @@ def _reject_unsafe_expr(normalized: str) -> None:
         raise SolveServiceError("Invalid expression")
 
 
-def _parse_expression(
+def parse_expression(
     expr: str,
     variable_names: list[str] | None = None,
     *,
@@ -202,6 +202,6 @@ def _expr_needs_real_domain(*parts: str) -> bool:
 
 def parse_equation(data: EquationInput) -> tuple[Any, Any, list[Any]]:
     real = _expr_needs_real_domain(data.lhs, data.rhs)
-    lhs = _parse_expression(data.lhs, data.variables, real=real)
-    rhs = _parse_expression(data.rhs, data.variables, real=real)
+    lhs = parse_expression(data.lhs, data.variables, real=real)
+    rhs = parse_expression(data.rhs, data.variables, real=real)
     return Eq(lhs, rhs), lhs, rhs

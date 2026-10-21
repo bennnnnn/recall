@@ -103,11 +103,11 @@ def _parse_values(raw: str, var: Any) -> Line | None:
 
 
 def _parse_side(text: str, var: Any) -> tuple[Any, Any] | None:
-    from app.modules.math.solve.parse import _parse_expression
+    from app.modules.math.solve.parse import parse_expression
 
     with sympy_decline() as declined:
-        value = _parse_expression(text, [str(var)])
-        written = _parse_expression(text, [str(var)], evaluate=False)
+        value = parse_expression(text, [str(var)])
+        written = parse_expression(text, [str(var)], evaluate=False)
     if declined:
         return None
     value = exact(value)

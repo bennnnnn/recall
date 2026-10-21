@@ -12,9 +12,9 @@ from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
-    _params_in_si,
     gravity_of,
     one_unknown,
+    params_in_si,
 )
 from app.services.solving import SolveServiceError
 
@@ -26,7 +26,7 @@ def _positive_speed(disc: float) -> float:
 
 
 def solve_energy_conservation(intent: PhysicsIntent) -> PhysicsResult:
-    params = _params_in_si(intent)
+    params = params_in_si(intent)
     operation = intent.physics_op or ""
     if operation == "work_energy":
         return _work_energy(params)

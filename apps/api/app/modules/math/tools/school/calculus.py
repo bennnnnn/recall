@@ -12,7 +12,7 @@ from app.modules.math import school as math_school
 from app.modules.math.ode import solve_ode
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.workout import Workout, math_line, note_from_label, render_workout, text_line
 
 _ODE_START_RE = re.compile(r"dy\s*/\s*dx|d\^?2\s*y\s*/\s*dx\^?2|[A-Za-z]'")
@@ -30,7 +30,7 @@ def _ode_equation(cleaned: str) -> str | None:
     derivative and the ``=`` must be math: ``Find dy/dx if y = x^2`` is a
     derivative ask, not an ODE, and the word ``if`` is what says so.
     """
-    from app.modules.math.tools.request_text import _strip_trailing_filler
+    from app.modules.math.tools.request_text import strip_trailing_filler
 
     match = _ODE_START_RE.search(cleaned)
     if match is None:
@@ -44,7 +44,7 @@ def _ode_equation(cleaned: str) -> str | None:
         word = token.strip(".,?!:;()[]").lower()
         if word.isalpha() and len(word) >= 2:
             return None
-    return _strip_trailing_filler(rest)
+    return strip_trailing_filler(rest)
 
 
 def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
@@ -170,9 +170,9 @@ def _average_value_working(intent: MathIntent, answer: str) -> str | None:
 
     variable = intent.variable or "x"
     with sympy_decline() as declined:
-        expr = math_solve._parse_expression(intent.expr or "", [variable])
-        low = math_solve._parse_expression(str(intent.integral_lower), [])
-        high = math_solve._parse_expression(str(intent.integral_upper), [])
+        expr = math_solve.parse_expression(intent.expr or "", [variable])
+        low = math_solve.parse_expression(str(intent.integral_lower), [])
+        high = math_solve.parse_expression(str(intent.integral_upper), [])
     if declined:
         return None
     x = Symbol(variable)
@@ -222,7 +222,7 @@ def _direct_integration_working(intent: MathIntent) -> tuple[str, str] | None:
         return None
     variable = intent.variable or "x"
     with sympy_decline() as declined:
-        rate = math_solve._parse_expression(match["rhs"], [variable])
+        rate = math_solve.parse_expression(match["rhs"], [variable])
     if declined:
         return None
     x = Symbol(variable)
@@ -273,7 +273,7 @@ def apply_calculus_extension(
             nonzero_terms=intent.combo_n,
         )
         lines.append(f"Taylor: {out.latex}")
-        return _finish_with_answer(lines, out.latex)
+        return finish_with_answer(lines, out.latex)
     if (
         intent.operation == "partial"
         and intent.expr
@@ -287,7 +287,7 @@ def apply_calculus_extension(
     ):
         out = math_school.partial_derivative(intent.expr, intent.variable)
         lines.append(f"Partial: {out.latex}")
-        return _finish_with_answer(lines, out.latex)
+        return finish_with_answer(lines, out.latex)
     if intent.operation == "dsolve" and intent.expr:
         out = solve_ode(
             intent.expr,
@@ -296,13 +296,13 @@ def apply_calculus_extension(
             initial_y=intent.initial_y,
         )
         lines.append(f"ODE: {out.latex}")
-        block = _finish_with_answer(lines, out.latex)
+        block = finish_with_answer(lines, out.latex)
         if not out.steps:
             integrated = _direct_integration_working(intent)
             if integrated is None:
                 return block
             working, answer = integrated
-            return replace(_finish_with_answer(lines, answer), direct_reply=working)
+            return replace(finish_with_answer(lines, answer), direct_reply=working)
         labels = ["Separate variables", "Integrate both sides", "Write the general solution"]
         if len(out.steps) == 4:
             labels.append("Use the initial condition")
@@ -319,12 +319,12 @@ def apply_calculus_extension(
     if intent.operation == "critical_points" and intent.expr:
         out = math_school.critical_points(intent.expr, intent.variable)
         lines.append(f"Critical points: {out.latex}")
-        return _finish_with_answer(lines, out.latex)
+        return finish_with_answer(lines, out.latex)
     if intent.school_op == "identity" and intent.lhs and intent.rhs:
         holds, condition, counterexample = math_school.analyze_identity(intent.lhs, intent.rhs)
         if holds:
             lines.append("Identity holds for every real value in its domain.")
-            return _finish_with_answer(lines, "true")
+            return finish_with_answer(lines, "true")
         lines.append("The equality is not an identity over the real numbers.")
         details: list[str] = []
         if condition:
@@ -342,7 +342,7 @@ def apply_calculus_extension(
             answer,
         )
         return replace(
-            _finish_with_answer(lines, answer),
+            finish_with_answer(lines, answer),
             direct_reply=direct,
             direct_answer_binding=answer,
         )
@@ -355,7 +355,7 @@ def apply_calculus_extension(
             intent.expr, intent.variable, intent.integral_lower, intent.integral_upper
         )
         lines.append(f"Average value: {answer}")
-        block = _finish_with_answer(lines, answer)
+        block = finish_with_answer(lines, answer)
         average_working = _average_value_working(intent, answer)
         return replace(block, worked_reply=average_working) if average_working else block
     if intent.school_op == "linear_approx" and intent.expr and intent.limit_point is not None:
@@ -363,31 +363,31 @@ def apply_calculus_extension(
             intent.expr, intent.variable, intent.limit_point
         )
         lines.append(f"Linear approximation: {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if intent.school_op == "gradient" and intent.expr:
         answer = math_formulas.gradient_of(intent.expr)
         lines.append(f"Gradient: {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if intent.school_op == "directional" and intent.expr and intent.vec_a and intent.vec_b:
         answer = math_formulas.directional_derivative(
             intent.expr, tuple(intent.vec_a), intent.vec_b
         )
         lines.append(f"Directional derivative: {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if intent.school_op == "divergence" and intent.expr:
         answer = math_formulas.divergence_of(intent.expr)
         lines.append(f"Divergence: {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if intent.school_op == "curl" and intent.expr:
         answer = math_formulas.curl_of(intent.expr)
         lines.append(f"Curl: {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if intent.school_op == "implicit" and intent.lhs and intent.rhs:
         from app.modules.math import solve as math_solve
 
         answer = math_formulas.implicit_derivative(intent.lhs, intent.rhs)
         lines.append(f"dy/dx = {answer}")
-        block = _finish_with_answer(lines, answer)
+        block = finish_with_answer(lines, answer)
         with sympy_decline():
             from sympy import Derivative, Expr, Function, Symbol, diff, latex
 
@@ -395,7 +395,7 @@ def apply_calculus_extension(
             dependent = Symbol("y", real=True)
             dependent_fn = Function("y")(independent)
             sides = [
-                math_solve._parse_expression(side, [str(independent), "y"], real=True)
+                math_solve.parse_expression(side, [str(independent), "y"], real=True)
                 for side in (intent.lhs, intent.rhs)
             ]
             if not all(isinstance(side, Expr) for side in sides):

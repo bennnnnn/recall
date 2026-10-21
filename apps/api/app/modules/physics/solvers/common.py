@@ -110,7 +110,7 @@ def quadratic_roots(a: float, b: float, c: float) -> tuple[float, ...]:
     return tuple(sorted({q / a, c / q}))
 
 
-def _latex_num(value: float, *, square: bool = False) -> str:
+def latex_num(value: float, *, square: bool = False) -> str:
     """Format a number for LaTeX so ``-5^2`` is not read as ``-(5^2)``."""
     text = f"{value:g}"
     if value < 0:
@@ -274,7 +274,7 @@ def _split_scale(ureg: Any, reading: str) -> tuple[float, float] | None:
     return numerator, denominator
 
 
-def _params_in_si(intent: PhysicsIntent) -> dict[str, float]:
+def params_in_si(intent: PhysicsIntent) -> dict[str, float]:
     """Convert all physics_params to SI base units using Pint."""
     params = intent.physics_params or {}
     units = intent.physics_units or {}

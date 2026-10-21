@@ -35,7 +35,7 @@ from app.modules.math.solve.traces import (
     inequality_trace,
     system_trace,
 )
-from app.modules.math.tools.block.canonical import _diagram_block, _finish_with_answer
+from app.modules.math.tools.block.canonical import _diagram_block, finish_with_answer
 from app.modules.math.tools.block.common import (
     _format_equation_answer,
     _format_system_answer,
@@ -69,8 +69,8 @@ def _rational_interval_is_clearer(intent: MathIntent) -> bool:
     """Use intervals for sign-chart problems with both zeros and poles."""
     from sympy import Expr
 
-    lhs = math_solve._parse_expression(intent.lhs or "", [intent.variable], real=True)
-    rhs = math_solve._parse_expression(intent.rhs or "", [intent.variable], real=True)
+    lhs = math_solve.parse_expression(intent.lhs or "", [intent.variable], real=True)
+    rhs = math_solve.parse_expression(intent.rhs or "", [intent.variable], real=True)
     if not (isinstance(lhs, Expr) and isinstance(rhs, Expr)):
         return False
     parsed = lhs - rhs
@@ -218,7 +218,7 @@ def _verified_block_equation(
     alt = None
     if used_factor_trace(key_steps):
         alt = "Another method is the quadratic formula; it gives the same two solutions."
-    block = _finish_with_answer(
+    block = finish_with_answer(
         lines,
         answer,
         key_step=math_solve.factored_key_step(eq.lhs, eq.rhs, intent.variable or "x"),
@@ -338,7 +338,7 @@ def _verified_block_inequality(
             key_steps=tuple(key_steps),
             given_latex=given,
         )
-    return _finish_with_answer(lines, answer, key_steps=key_steps, given_latex=given)
+    return finish_with_answer(lines, answer, key_steps=key_steps, given_latex=given)
 
 
 def _verified_block_system(
@@ -362,7 +362,7 @@ def _verified_block_system(
     answer = _format_system_answer(sys_result.solutions, sys_result.solution_kind)
     key_steps, given, check = system_trace(capped_equations, sys_input.variables)
     lines.extend(stringify_key_steps(key_steps))
-    return _finish_with_answer(
+    return finish_with_answer(
         lines, answer, key_steps=key_steps, given_latex=given, check_latex=check
     )
 
@@ -398,7 +398,7 @@ def _verified_block_numerical_method(
     )
     answer = f"{newton_result.root:g}"
     return replace(
-        _finish_with_answer(lines, answer),
+        finish_with_answer(lines, answer),
         # A numerical root is an approximation of the variable; its card says so.
         display_answer=rf"{newton_input.variable} \approx {answer}",
         newton_input=newton_input.model_copy(deep=True),

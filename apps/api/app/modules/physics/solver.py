@@ -10,7 +10,7 @@ from app.modules.physics.solvers.circuits import solve_circuit
 from app.modules.physics.solvers.circular import solve_circular
 from app.modules.physics.solvers.common import (
     PhysicsResult,
-    _params_in_si,
+    params_in_si,
 )
 from app.modules.physics.solvers.energy import solve_energy
 from app.modules.physics.solvers.fluids import solve_fluids
@@ -42,7 +42,7 @@ def _accepts_si_params(
     fn: Callable[[dict[str, float]], PhysicsResult],
 ) -> Callable[[PhysicsIntent], PhysicsResult]:
     def run(intent: PhysicsIntent) -> PhysicsResult:
-        return fn(_params_in_si(intent))
+        return fn(params_in_si(intent))
 
     return run
 
@@ -119,7 +119,7 @@ def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     result = attach_recorded_working(solver(intent), intent)
     # A law solved as arithmetic has no solver of its own to draw it.
     if result.quantities and not result.simulation_specs and not result.graph_specs:
-        scene = catalog_scene(intent, _params_in_si(intent), result.quantities[0].value)
+        scene = catalog_scene(intent, params_in_si(intent), result.quantities[0].value)
         if scene:
             result = replace(result, simulation_specs=scene)
     return result

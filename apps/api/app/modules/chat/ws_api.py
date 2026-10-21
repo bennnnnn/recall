@@ -23,8 +23,7 @@ from app.core.config import Settings, get_settings
 from app.core.log_context import bound_log_ids
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
-from app.exceptions import RedisUnavailableError
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry, turn_deps
 from app.modules.chat.stream_events import (
@@ -271,7 +270,7 @@ async def _authenticate(
         # 1013 Try Again Later — client should back off, not treat as auth failure.
         await websocket.close(code=1013)
         return None
-    except (GoogleAuthError, json.JSONDecodeError, KeyError, TypeError, AttributeError):
+    except (AuthenticationError, json.JSONDecodeError, KeyError, TypeError, AttributeError):
         await safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
         await websocket.close()
         return None
@@ -403,7 +402,7 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
         )
         await websocket.close(code=1013)
         return False
-    except GoogleAuthError:
+    except AuthenticationError:
         await safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
         await websocket.close(code=1008)
         return False

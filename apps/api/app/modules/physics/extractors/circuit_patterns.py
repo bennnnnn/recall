@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
-    _AMP_PATTERN,
     _OHM_PATTERN,
-    _ordered_values,
+    AMP_PATTERN,
+    ordered_values,
 )
 from app.services.number_text import count_word_pattern, number_word_value
 
@@ -55,8 +55,8 @@ def _circuit_pair(first: str, second: str) -> re.Pattern[str]:
 
 
 _CHARGE_FLOW_RE = re.compile(
-    rf"\bcharge\b.{{0,60}}?\d\s*(?:{_AMP_PATTERN})(?![A-Za-z0-9])"
-    rf"|\d\s*(?:{_AMP_PATTERN})(?![A-Za-z0-9]).{{0,60}}?\bcharge\b",
+    rf"\bcharge\b.{{0,60}}?\d\s*(?:{AMP_PATTERN})(?![A-Za-z0-9])"
+    rf"|\d\s*(?:{AMP_PATTERN})(?![A-Za-z0-9]).{{0,60}}?\bcharge\b",
     re.IGNORECASE,
 )
 
@@ -143,7 +143,7 @@ def _resistor_values(text: str) -> list[float]:
     counted = counted_resistors(text)
     if counted is not None:
         count, value = counted
-        others = _ordered_values(text, _OHM_PATTERN)
+        others = ordered_values(text, _OHM_PATTERN)
         if len(others) != 1:
             # Other resistors beside the counted ones: a network this does not read.
             return []
@@ -151,4 +151,4 @@ def _resistor_values(text: str) -> list[float]:
     listed = _RESISTOR_LIST_RE.search(text)
     if listed is not None:
         return [float(n) for n in re.findall(r"\d+(?:\.\d+)?", listed.group(1))]
-    return [value for value, _ in _ordered_values(text, _OHM_PATTERN)]
+    return [value for value, _ in ordered_values(text, _OHM_PATTERN)]

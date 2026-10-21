@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.angular_momentum import _angular_impulse, _angular_momentum
-from app.modules.physics.solvers.common import PhysicsResult, _params_in_si
+from app.modules.physics.solvers.common import PhysicsResult, params_in_si
 from app.modules.physics.solvers.rolling import (
     _parallel_axis,
     _rolling_acceleration,
@@ -24,7 +24,7 @@ from app.services.solving import SolveServiceError
 
 
 def solve_rotational_dynamics(intent: PhysicsIntent) -> PhysicsResult:
-    params = _params_in_si(intent)
+    params = params_in_si(intent)
     operation = intent.physics_op or ""
     if operation == "rotational_omega":
         return _omega(params)

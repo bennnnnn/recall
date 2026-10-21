@@ -10,7 +10,7 @@ from fractions import Fraction
 from app.core.config import Settings
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.extractors.readings import read
 from app.modules.math.tools.school.probability_formulas import (
     extract_probability_formulas,
@@ -149,7 +149,7 @@ def _at_least_one_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlo
         ),
         answer,
     )
-    return replace(_finish_with_answer(lines, answer), worked_reply=direct)
+    return replace(finish_with_answer(lines, answer), worked_reply=direct)
 
 
 def binomial_trials_direct_request(text: str) -> bool:
@@ -347,7 +347,7 @@ def _binomial_trials_block(intent: MathIntent, lines: list[str]) -> VerifiedMath
         ),
         answer,
     )
-    return replace(_finish_with_answer(lines, answer), worked_reply=direct)
+    return replace(finish_with_answer(lines, answer), worked_reply=direct)
 
 
 def _verified_block_probability(
@@ -426,7 +426,7 @@ def _verified_block_probability(
             ),
             answer,
         )
-        return replace(_finish_with_answer(lines, answer), direct_reply=direct)
+        return replace(finish_with_answer(lines, answer), direct_reply=direct)
     if (
         intent.school_op == "binomial_trials"
         and intent.combo_n is not None
@@ -448,7 +448,7 @@ def _verified_block_probability(
     ):
         answer = math_school.binomial_pmf(intent.combo_n, intent.combo_k, intent.percent_base)
         lines.append(f"P(X={intent.combo_k}) = {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if intent.school_op == "expected" and intent.stats_numbers:
         probabilities = intent.stats_numbers_b
         if probabilities is not None:
@@ -474,5 +474,5 @@ def _verified_block_probability(
                 return VerifiedMathBlock(text="\n".join(lines), direct_reply=message)
         answer = math_school.expected_value(intent.stats_numbers, probabilities)
         lines.append(f"E[X] = {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     return probability_formula_block(intent, lines)
