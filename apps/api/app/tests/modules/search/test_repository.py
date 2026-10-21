@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.modules.search import repository as search_repo
+from app.repositories.keyset import encode_cursor
 
 
 def _title_row(*, chat_id, title: str, created_at: datetime):
@@ -42,9 +43,9 @@ async def test_search_includes_title_only_match():
     ]
     session.execute = AsyncMock(return_value=page_result)
 
-    results, has_more = await search_repo.search_conversations(session, user_id, "trip")
+    results, next_cursor = await search_repo.search_conversations(session, user_id, "trip")
 
-    assert has_more is False
+    assert next_cursor is None
     assert len(results) == 1
     assert results[0]["match_type"] == "title"
     assert results[0]["chat_id"] == chat_id
@@ -53,29 +54,31 @@ async def test_search_includes_title_only_match():
 
 @pytest.mark.asyncio
 async def test_search_pages_the_merged_union_once():
-    """Offset/limit apply to the union, not to title and message streams separately,
-    and nothing counts every hit."""
+    """The cursor and limit apply to the union, not to title and message streams
+    separately; nothing counts every hit, and nothing skips by offset."""
     session = AsyncMock()
     page_result = MagicMock()
     page_result.all.return_value = []
     session.execute = AsyncMock(return_value=page_result)
+    cursor = encode_cursor(datetime(2026, 9, 4, tzinfo=UTC), uuid4(), uuid4())
 
-    results, has_more = await search_repo.search_conversations(
-        session, uuid4(), "trip", limit=20, offset=60
+    results, next_cursor = await search_repo.search_conversations(
+        session, uuid4(), "trip", limit=20, cursor=cursor
     )
 
     assert results == []
-    assert has_more is False
+    assert next_cursor is None
     session.execute.assert_awaited_once()
     sql = str(session.execute.await_args.args[0]).lower()
     assert "union all" in sql
     assert sql.count("limit") == 1
-    assert sql.count("offset") == 1
+    assert "offset" not in sql
+    assert "(search_hits.created_at, search_hits.chat_id, coalesce(" in sql
     assert "count(" not in sql
 
 
 @pytest.mark.asyncio
-async def test_search_reads_one_row_past_the_page_for_has_more():
+async def test_search_reads_one_row_past_the_page_for_the_cursor():
     now = datetime.now(UTC)
     page = MagicMock()
     page.all.return_value = [
@@ -87,12 +90,11 @@ async def test_search_reads_one_row_past_the_page_for_has_more():
     session = AsyncMock()
     session.execute = AsyncMock(return_value=page)
 
-    results, has_more = await search_repo.search_conversations(
-        session, uuid4(), "trip", limit=1, offset=0
-    )
+    results, next_cursor = await search_repo.search_conversations(session, uuid4(), "trip", limit=1)
 
-    assert has_more is True
     assert [row["match_type"] for row in results] == ["message"]
+    first = page.all.return_value[0]
+    assert next_cursor == encode_cursor(now, first.chat_id, first.message_id)
 
 
 # ── search repository snippet ───────────────────────────────────────────────

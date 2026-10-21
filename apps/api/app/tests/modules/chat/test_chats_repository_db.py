@@ -147,3 +147,36 @@ async def test_pin_archive_races_preserve_archived_unpinned_state(db_session):
     await chats_repo.set_pinned(db_session, chat, True)
     assert chat.archived is True
     assert chat.pinned is False
+
+
+@pytest.mark.asyncio
+async def test_the_drawer_pages_every_dated_chat_by_cursor(db_session):
+    """CLAR-12: past the first page the drawer reads on; pinned and archived chats stay out."""
+    from datetime import UTC, datetime, timedelta
+
+    owner = await _make_user(db_session)
+    dated = [await _make_chat_with_message(db_session, owner.id) for _ in range(5)]
+    pinned = await _make_chat_with_message(db_session, owner.id)
+    archived = await _make_chat_with_message(db_session, owner.id)
+    base = datetime(2026, 10, 1, tzinfo=UTC)
+    # Two chats share a time, so the id breaks the tie.
+    times = {chat.id: base + timedelta(minutes=min(index, 3)) for index, chat in enumerate(dated)}
+    for chat_id, at in times.items():
+        await db_session.execute(update(Chat).where(Chat.id == chat_id).values(updated_at=at))
+    await db_session.execute(update(Chat).where(Chat.id == pinned.id).values(pinned=True))
+    await db_session.execute(update(Chat).where(Chat.id == archived.id).values(archived=True))
+    await db_session.commit()
+
+    read: list = []
+    cursor = None
+    for _ in range(3):
+        page, cursor = await chats_repo.list_recent_page(
+            db_session, owner.id, limit=2, cursor=cursor
+        )
+        read += [chat.id for chat in page]
+        if cursor is None:
+            break
+
+    assert read == sorted(times, key=lambda chat_id: (times[chat_id], chat_id), reverse=True)
+    assert cursor is None
+    assert [chat.id for chat in await chats_repo.list_pinned(db_session, owner.id)] == [pinned.id]

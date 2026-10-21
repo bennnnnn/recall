@@ -70,6 +70,9 @@ export const chatsApi = {
       request<void>(`/chats/${chatId}?if_empty=true`, token, { method: "DELETE" }),
     ),
   listChats: (token: string) => requestRevalidated<ChatList>("/chats", token),
+  /** The dated chats after the first page; `cursor` is the list's `next_cursor`. */
+  listOlderChats: (token: string, cursor: string) =>
+    request<ChatList>(`/chats?cursor=${encodeURIComponent(cursor)}`, token),
   listMessages,
   listAllMessages: async (token: string, chatId: string): Promise<Message[]> => {
     const batch = 100;

@@ -59,22 +59,28 @@ async def list_chats_grouped(
     user: User,
     *,
     limit: int = DEFAULT_CHAT_LIST_LIMIT,
+    cursor: str | None = None,
 ) -> ChatListOut:
-    async def _archived() -> list[Chat]:
-        async with SessionLocal() as archived_session:
-            return await chats_repo.list_archived_for_user(
-                archived_session, user.id, limit=ARCHIVED_CHAT_LIST_LIMIT
-            )
+    """The drawer's chats by recency; ``cursor`` reads the dated chats after a page.
 
-    chats, archived = await gather_or_cancel(
-        chats_repo.list_for_user(session, user.id, limit=limit),
-        _archived(),
+    The first page also holds every pinned chat and the newest archived ones.
+    """
+
+    async def _pinned_and_archived() -> tuple[list[Chat], list[Chat]]:
+        if cursor is not None:
+            return [], []
+        async with SessionLocal() as side_session:
+            pinned = await chats_repo.list_pinned(side_session, user.id)
+            archived = await chats_repo.list_archived_for_user(
+                side_session, user.id, limit=ARCHIVED_CHAT_LIST_LIMIT
+            )
+        return pinned, archived
+
+    (dated, next_cursor), (pinned, archived) = await gather_or_cancel(
+        chats_repo.list_recent_page(session, user.id, limit=limit, cursor=cursor),
+        _pinned_and_archived(),
     )
-    pinned = [c for c in chats if c.pinned]
-    grouped = chats_repo.group_by_recency(
-        [c for c in chats if not c.pinned],
-        user_timezone=user.timezone,
-    )
+    grouped = chats_repo.group_by_recency(dated, user_timezone=user.timezone)
     return ChatListOut(
         pinned=[ChatOut.model_validate(c) for c in pinned],
         today=[ChatOut.model_validate(c) for c in grouped["today"]],
@@ -83,6 +89,7 @@ async def list_chats_grouped(
         this_month=[ChatOut.model_validate(c) for c in grouped["this_month"]],
         older=[ChatOut.model_validate(c) for c in grouped["older"]],
         archived=[ChatOut.model_validate(c) for c in archived],
+        next_cursor=next_cursor,
     )
 
 

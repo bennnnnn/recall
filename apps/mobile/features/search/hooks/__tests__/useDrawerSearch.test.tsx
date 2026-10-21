@@ -9,7 +9,7 @@ jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/lib/api", () => ({ api: { search: jest.fn() } }));
 const search = api.search as jest.Mock;
 const hit = (id: string): SearchResult => ({ match_type: "message", chat_id: "chat", chat_title: "Title", message_id: id, content: id, role: "user", created_at: "2026-09-04T00:00:00Z" });
-const page = (ids: string[], hasMore = false) => ({ results: ids.map(hit), has_more: hasMore });
+const page = (ids: string[], hasMore = false) => ({ items: ids.map(hit), next_cursor: hasMore ? `after-${ids.at(-1) ?? "none"}` : null });
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => { resolve = done; });
@@ -91,7 +91,7 @@ it("deduplicates consecutive load-more taps before React rerenders", async () =>
   expect(current.searchResults.map((result) => result.message_id)).toEqual(["first", "second"]);
 });
 
-it("keeps successful pages and retries a failed page at the same offset", async () => {
+it("keeps successful pages and retries a failed page at the same cursor", async () => {
   search.mockResolvedValueOnce(page(["first"], true));
   await mount();
   await query("alpha");
@@ -102,8 +102,8 @@ it("keeps successful pages and retries a failed page at the same offset", async 
   expect(current.searchError).toBe(false);
   search.mockResolvedValueOnce(page(["second"], true));
   await act(async () => { await current.loadMore(); });
-  expect(search.mock.calls[1][4]).toBe(1);
-  expect(search.mock.calls[2][4]).toBe(1);
+  expect(search.mock.calls[1][4]).toBe("after-first");
+  expect(search.mock.calls[2][4]).toBe("after-first");
   expect(current.loadingMoreError).toBe(false);
 });
 
@@ -165,7 +165,7 @@ it("does not request empty, short or over-limit queries", async () => {
   expect(current.searchLoading).toBe(false);
 });
 
-it("deduplicates overlapping page rows without reusing their consumed offset", async () => {
+it("deduplicates overlapping rows and reads on from the server's cursor", async () => {
   search.mockResolvedValueOnce(page(["first", "second"], true));
   await mount();
   await query("alpha");
@@ -174,7 +174,7 @@ it("deduplicates overlapping page rows without reusing their consumed offset", a
   expect(current.searchResults.map((result) => result.message_id)).toEqual(["first", "second", "third"]);
   search.mockResolvedValueOnce(page(["fourth"], true));
   await act(async () => { await current.loadMore(); });
-  expect(search.mock.calls[2][4]).toBe(4);
+  expect(search.mock.calls[2][4]).toBe("after-third");
 });
 
 it("stops after an empty page even when the server still says more rows follow", async () => {
@@ -188,6 +188,15 @@ it("stops after an empty page even when the server still says more rows follow",
   expect(search).toHaveBeenCalledTimes(2);
 });
 
+
+it("stops when the server's cursor does not move past the page it sent", async () => {
+  search.mockResolvedValueOnce(page(["first"], true));
+  await mount();
+  await query("alpha");
+  search.mockResolvedValueOnce(page(["first"], true));
+  await act(async () => { await current.loadMore(); });
+  expect(current.hasMore).toBe(false);
+});
 
 it.each(["query", "account", "drawer", "unmount"])("invalidates retained result callbacks after %s changes", async (change) => {
   search.mockResolvedValue(page(["first"], true));

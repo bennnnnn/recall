@@ -56,8 +56,9 @@ async def list_chats(
         ge=1,
         le=chats_service.DEFAULT_CHAT_LIST_LIMIT,
     ),
+    cursor: str | None = Query(default=None, max_length=200),
 ) -> Response:
-    chats = await chats_service.list_chats_grouped(session, user, limit=limit)
+    chats = await chats_service.list_chats_grouped(session, user, limit=limit, cursor=cursor)
     return conditional_json(request, chats)
 
 

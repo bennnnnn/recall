@@ -12,6 +12,7 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.models.orm import Attachment, Chat, Message, User
+from app.repositories.keyset import after, decode_cursor, encode_cursor, page_of
 
 # Library is the user's archive. Reference-photo lookup copies (`search`)
 # stay on the chat and are never listed.
@@ -259,11 +260,11 @@ async def list_for_gallery(
     source: str | None = None,
     q: str | None = None,
     limit: int = 30,
-    offset: int = 0,
-) -> tuple[list[Attachment], bool]:
-    """Paginated attachments for the gallery.
+    cursor: str | None = None,
+) -> tuple[list[Attachment], str | None]:
+    """One page of the gallery, newest first, and the cursor for the next (None: the last).
 
-    Returns ``(rows, has_more)``. ``category`` narrows by content family:
+    ``category`` narrows by content family:
 
     * ``"images"`` — ``content_type LIKE 'image/%'``
     * ``"files"``  — ``content_type NOT LIKE 'image/%'``
@@ -315,13 +316,13 @@ async def list_for_gallery(
                 _contains(prev_user_content, q),
             )
         )
+    if cursor is not None:
+        at, ids = decode_cursor(cursor, ids=1)
+        stmt = stmt.where(after((Attachment.created_at, Attachment.id), at, ids))
     stmt = stmt.order_by(Attachment.created_at.desc(), Attachment.id.desc())
     page_size = max(limit, 1)
-    stmt = stmt.offset(max(offset, 0)).limit(page_size + 1)
-    result = await session.execute(stmt)
-    rows = list(result.scalars().all())
-    has_more = len(rows) > page_size
-    return rows[:page_size], has_more
+    rows = list((await session.execute(stmt.limit(page_size + 1))).scalars().all())
+    return page_of(rows, page_size, lambda row: encode_cursor(row.created_at, row.id))
 
 
 async def chat_meta_for_message_ids(

@@ -20,7 +20,7 @@ def test_search_rejects_invalid_normalized_query(query):
     app.dependency_overrides[get_current_user] = lambda: MagicMock(id=uuid4())
     app.dependency_overrides[get_db] = lambda: AsyncMock()
     with patch(
-        "app.modules.search.service.search_conversations", AsyncMock(return_value=([], False))
+        "app.modules.search.service.search_conversations", AsyncMock(return_value=([], None))
     ) as search:
         response = TestClient(app).get("/search", params={"q": query})
 
@@ -35,7 +35,7 @@ def test_search_passes_normalized_query(query):
     app.dependency_overrides[get_current_user] = lambda: MagicMock(id=user_id)
     app.dependency_overrides[get_db] = lambda: AsyncMock()
     with patch(
-        "app.modules.search.service.search_conversations", AsyncMock(return_value=([], False))
+        "app.modules.search.service.search_conversations", AsyncMock(return_value=([], None))
     ) as search:
         response = TestClient(app).get("/search", params={"q": query})
 
@@ -65,7 +65,7 @@ def test_search_returns_results():
     ]
     with patch(
         "app.modules.search.api.search_service.search_conversations",
-        AsyncMock(return_value=(fake_results, False)),
+        AsyncMock(return_value=(fake_results, None)),
     ):
         client = TestClient(app)
         r = client.get(
@@ -74,9 +74,9 @@ def test_search_returns_results():
         )
     assert r.status_code == 200
     data = r.json()
-    assert data["has_more"] is False
-    assert len(data["results"]) == 1
-    assert data["results"][0]["chat_title"] == "Test Chat"
+    assert data["next_cursor"] is None
+    assert len(data["items"]) == 1
+    assert data["items"][0]["chat_title"] == "Test Chat"
 
 
 def test_search_returns_empty():
@@ -86,7 +86,7 @@ def test_search_returns_empty():
     app = app_with_user(user)
     with patch(
         "app.modules.search.api.search_service.search_conversations",
-        AsyncMock(return_value=([], False)),
+        AsyncMock(return_value=([], None)),
     ):
         client = TestClient(app)
         r = client.get(
@@ -95,8 +95,8 @@ def test_search_returns_empty():
         )
     assert r.status_code == 200
     data = r.json()
-    assert data["has_more"] is False
-    assert data["results"] == []
+    assert data["next_cursor"] is None
+    assert data["items"] == []
 
 
 def test_search_empty_query_fails():
@@ -140,7 +140,7 @@ def test_search_respects_limit():
     ]
     with patch(
         "app.modules.search.api.search_service.search_conversations",
-        AsyncMock(return_value=(fake_results, True)),
+        AsyncMock(return_value=(fake_results, "next-page")),
     ):
         client = TestClient(app)
         r = client.get(
@@ -149,5 +149,5 @@ def test_search_respects_limit():
         )
     assert r.status_code == 200
     data = r.json()
-    assert data["has_more"] is True
-    assert len(data["results"]) == 5
+    assert data["next_cursor"] == "next-page"
+    assert len(data["items"]) == 5

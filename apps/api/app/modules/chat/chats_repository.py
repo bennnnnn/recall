@@ -10,6 +10,7 @@ from sqlalchemy.orm import load_only
 from app.core.timezone import resolve_timezone
 from app.core.ttl_cache import TtlCache
 from app.models.orm import Chat, Message
+from app.repositories.keyset import after, decode_cursor, encode_cursor, page_of
 
 # Same process just created this chat. The send that follows should not pay
 # another Neon round trip to prove the caller owns it.
@@ -112,6 +113,45 @@ async def list_for_user(
         stmt = stmt.limit(limit)
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+
+async def list_pinned(session: AsyncSession, user_id: UUID) -> list[Chat]:
+    """The user's pinned, unarchived chats with messages, newest first; list columns only."""
+    has_messages = exists().where(Message.chat_id == Chat.id)
+    result = await session.execute(
+        select(Chat)
+        .options(_LIST_COLUMNS)
+        .where(Chat.user_id == user_id, Chat.pinned.is_(True), Chat.archived.is_(False))
+        .where(has_messages)
+        .order_by(Chat.updated_at.desc(), Chat.id.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def list_recent_page(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    limit: int,
+    cursor: str | None = None,
+) -> tuple[list[Chat], str | None]:
+    """One page of the drawer's dated chats (unpinned, unarchived), newest first.
+
+    Returns the chats and the cursor for the next page (None: the last).
+    """
+    has_messages = exists().where(Message.chat_id == Chat.id)
+    stmt = (
+        select(Chat)
+        .options(_LIST_COLUMNS)
+        .where(Chat.user_id == user_id, Chat.pinned.is_(False), Chat.archived.is_(False))
+        .where(has_messages)
+    )
+    if cursor is not None:
+        at, ids = decode_cursor(cursor, ids=1)
+        stmt = stmt.where(after((Chat.updated_at, Chat.id), at, ids))
+    stmt = stmt.order_by(Chat.updated_at.desc(), Chat.id.desc()).limit(limit + 1)
+    rows = list((await session.execute(stmt)).scalars().all())
+    return page_of(rows, limit, lambda chat: encode_cursor(chat.updated_at, chat.id))
 
 
 async def list_archived_for_user(

@@ -72,21 +72,13 @@ def test_list_chats():
 
     with (
         patch(
-            "app.modules.chat.service.chats_repo.list_for_user", AsyncMock(return_value=empty_list)
+            "app.modules.chat.service.chats_repo.list_recent_page",
+            AsyncMock(return_value=(empty_list, None)),
         ),
+        patch("app.modules.chat.service.chats_repo.list_pinned", AsyncMock(return_value=[])),
         patch(
             "app.modules.chat.service.chats_repo.list_archived_for_user",
             AsyncMock(return_value=empty_list),
-        ),
-        patch(
-            "app.modules.chat.service.chats_repo.group_by_recency",
-            return_value={
-                "today": [],
-                "yesterday": [],
-                "last_7_days": [],
-                "this_month": [],
-                "older": [],
-            },
         ),
     ):
         client = TestClient(app)
@@ -100,6 +92,7 @@ def test_list_chats():
         "this_month": [],
         "older": [],
         "archived": [],
+        "next_cursor": None,
     }
 
 
@@ -107,14 +100,16 @@ def test_list_chats_answers_an_unchanged_list_with_304():
     """NET-16: the phone sends back the list's ETag and gets no body when nothing changed."""
     user = api_user()
     app = app_with_user(user)
-    groups = {"today": [], "yesterday": [], "last_7_days": [], "this_month": [], "older": []}
     with (
-        patch("app.modules.chat.service.chats_repo.list_for_user", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.chat.service.chats_repo.list_recent_page",
+            AsyncMock(return_value=([], None)),
+        ),
+        patch("app.modules.chat.service.chats_repo.list_pinned", AsyncMock(return_value=[])),
         patch(
             "app.modules.chat.service.chats_repo.list_archived_for_user",
             AsyncMock(return_value=[]),
         ),
-        patch("app.modules.chat.service.chats_repo.group_by_recency", return_value=groups),
     ):
         client = TestClient(app)
         first = client.get("/chats", headers={"Authorization": "Bearer tok"})
@@ -128,7 +123,7 @@ def test_list_chats_answers_an_unchanged_list_with_304():
 
 
 def test_list_chats_never_overlaps_ops_on_one_session():
-    """The active + archived queries run concurrently, and an AsyncSession can
+    """The dated page and the pinned + archived queries run concurrently, and an AsyncSession can
     only run one operation at a time (asyncpg raises InterfaceError on
     overlap) — so each concurrent query must get its own session. Simulate
     asyncpg's guard: mark a session busy across a yield point and record a
@@ -140,7 +135,7 @@ def test_list_chats_never_overlaps_ops_on_one_session():
     busy: set[int] = set()
     violations: list[str] = []
 
-    def tracked(name: str, result: list):
+    def tracked(name: str, result: object):
         async def impl(s, *args, **kwargs):
             sid = id(s)
             if sid in busy:
@@ -154,22 +149,16 @@ def test_list_chats_never_overlaps_ops_on_one_session():
 
     with (
         patch(
-            "app.modules.chat.service.chats_repo.list_for_user",
-            AsyncMock(side_effect=tracked("active", [])),
+            "app.modules.chat.service.chats_repo.list_recent_page",
+            AsyncMock(side_effect=tracked("dated", ([], None))),
+        ),
+        patch(
+            "app.modules.chat.service.chats_repo.list_pinned",
+            AsyncMock(side_effect=tracked("pinned", [])),
         ),
         patch(
             "app.modules.chat.service.chats_repo.list_archived_for_user",
             AsyncMock(side_effect=tracked("archived", [])),
-        ),
-        patch(
-            "app.modules.chat.service.chats_repo.group_by_recency",
-            return_value={
-                "today": [],
-                "yesterday": [],
-                "last_7_days": [],
-                "this_month": [],
-                "older": [],
-            },
         ),
     ):
         client = TestClient(app)

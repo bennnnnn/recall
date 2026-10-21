@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.models.schemas.page import Page
 from app.models.schemas.text import UserText
 
 # The longest to-do text; the chat and voice readers cut a title to it too.
@@ -36,9 +37,7 @@ class TodoOut(BaseModel):
         return None
 
 
-class TodoPageOut(BaseModel):
-    items: list[TodoOut]
-    next_cursor: UUID | None
+class TodoPageOut(Page[TodoOut]):
     # Asked for recent completed rows only: the first page says whether older ones exist.
     older_completed: bool = False
 

@@ -28,7 +28,6 @@ from app.models.schemas.chats import (
     MessagePageOut,
     PinUpdate,
     SearchResultItem,
-    SearchResults,
 )
 from app.models.schemas.classification import ConversationReference
 from app.models.schemas.common import (
@@ -66,7 +65,6 @@ __all__ = [
     "PushTokenIn",
     "RefreshRequest",
     "SearchResultItem",
-    "SearchResults",
     "SettingsConfirmOut",
     "UsageOut",
     "UserOut",

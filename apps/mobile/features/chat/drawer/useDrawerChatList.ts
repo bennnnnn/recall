@@ -13,6 +13,7 @@ import {
 } from "@/features/chat/model/listSections";
 import {
   fetchChatList,
+  fetchOlderChats,
   getCachedChatList,
   getChatListFetchedAt,
   isChatListFresh,
@@ -34,6 +35,7 @@ import {
 } from "@/features/chat/drawer/drawerChatList";
 import { Chat, ChatList } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { isExpectedReadFailure } from "@/lib/cache/sessionResource";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { useReadFailureReport } from "@/hooks/useReadFailureReport";
 
@@ -112,6 +114,24 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     if (!background) setLoading(false);
   }, [account, getToken, current, hydrateFromCache, applyChatList, reportFailure]);
 
+  const olderInFlightRef = useRef(false);
+  /** The next page of older dated chats, when the list's end comes into view (CLAR-12). */
+  const loadOlderChats = useCallback(async () => {
+    const token = getToken();
+    if (!account || !token || !current() || olderInFlightRef.current) return;
+    olderInFlightRef.current = true;
+    try {
+      const grown = await fetchOlderChats(token);
+      if (grown && current()) applyChatList(grown, false);
+    } catch (caught) {
+      // The rows shown stay; the next scroll to the end tries again.
+      const error = caught instanceof Error ? caught : new Error(String(caught));
+      if (current() && !isExpectedReadFailure(error)) reportFailure(error);
+    } finally {
+      olderInFlightRef.current = false;
+    }
+  }, [account, getToken, current, applyChatList, reportFailure]);
+
   const handleRefresh = useCallback(async () => {
     if (!account || !current()) return;
     setRefreshing(true);
@@ -175,6 +195,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
 
   return {
     loading, error, refreshing, groups, allChats, load, handleRefresh,
+    hasOlderChats: Boolean(groups.next_cursor), loadOlderChats,
     patchChatInGroups, insertChatInGroups, isSectionCollapsed, toggleSectionCollapsed,
     moveChatPinState, moveChatArchiveState, removeChatFromGroupsById,
   };

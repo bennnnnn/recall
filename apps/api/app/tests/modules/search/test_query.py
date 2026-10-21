@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models.orm import Chat, Message
 from app.modules.search import repository as search_repo
+from app.repositories.keyset import encode_cursor
 
 
 def _id(index: int) -> UUID:
@@ -56,9 +57,9 @@ async def test_search_treats_substring_metacharacters_literally(
         )
     sync_session.commit()
 
-    results, has_more = await search_repo.search_conversations(session, owner_id, query)
+    results, next_cursor = await search_repo.search_conversations(session, owner_id, query)
 
-    assert has_more is False
+    assert next_cursor is None
     assert [result["chat_id"] for result in results] == [matching.id]
 
 
@@ -76,11 +77,11 @@ async def test_search_message_hit_requires_chat_owner(search_session):
     )
     sync_session.commit()
 
-    assert await search_repo.search_conversations(session, owner_id, "needle") == ([], False)
+    assert await search_repo.search_conversations(session, owner_id, "needle") == ([], None)
 
 
 @pytest.mark.asyncio
-async def test_search_orders_equal_timestamps_before_offset(search_session):
+async def test_search_pages_equal_timestamps_by_cursor(search_session):
     sync_session, session = search_session
     owner_id = uuid4()
     now = datetime(2026, 9, 4, tzinfo=UTC)
@@ -103,12 +104,16 @@ async def test_search_orders_equal_timestamps_before_offset(search_session):
     )
     sync_session.commit()
 
-    pages = [
-        await search_repo.search_conversations(session, owner_id, "needle", limit=1, offset=offset)
-        for offset in range(3)
-    ]
+    pages = []
+    cursor = None
+    for _ in range(3):
+        page = await search_repo.search_conversations(
+            session, owner_id, "needle", limit=1, cursor=cursor
+        )
+        pages.append(page)
+        cursor = page[1]
 
-    assert [has_more for _, has_more in pages] == [True, True, False]
+    assert [next_cursor is not None for _, next_cursor in pages] == [True, True, False]
     assert [(rows[0]["chat_id"], rows[0]["message_id"]) for rows, _ in pages] == [
         (title_chat.id, None),
         (messages_chat.id, _id(2)),
@@ -117,20 +122,22 @@ async def test_search_orders_equal_timestamps_before_offset(search_session):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("offset", [0, 1, 10])
-async def test_search_page_and_has_more_share_one_statement(search_session, offset):
+@pytest.mark.parametrize("after_the_hit", [False, True])
+async def test_search_page_and_cursor_share_one_statement(search_session, after_the_hit):
     sync_session, session = search_session
     owner_id = uuid4()
-    chat = Chat(user_id=owner_id, title="needle")
+    at = datetime(2026, 9, 4, tzinfo=UTC)
+    chat = Chat(user_id=owner_id, title="needle", updated_at=at)
     sync_session.add(chat)
     sync_session.commit()
+    cursor = encode_cursor(at, chat.id, UUID(int=0)) if after_the_hit else None
 
-    results, has_more = await search_repo.search_conversations(
-        session, owner_id, "needle", limit=1, offset=offset
+    results, next_cursor = await search_repo.search_conversations(
+        session, owner_id, "needle", limit=1, cursor=cursor
     )
 
-    assert len(results) == (1 if offset == 0 else 0)
-    assert has_more is False
+    assert len(results) == (0 if after_the_hit else 1)
+    assert next_cursor is None
     # One statement reads the page and the row past it; nothing counts every hit.
     session.execute.assert_awaited_once()
     assert "count(" not in str(session.execute.await_args.args[0]).lower()
@@ -139,4 +146,4 @@ async def test_search_page_and_has_more_share_one_statement(search_session, offs
 @pytest.mark.asyncio
 async def test_search_empty_result_has_no_more(search_session):
     _, session = search_session
-    assert await search_repo.search_conversations(session, uuid4(), "absent") == ([], False)
+    assert await search_repo.search_conversations(session, uuid4(), "absent") == ([], None)

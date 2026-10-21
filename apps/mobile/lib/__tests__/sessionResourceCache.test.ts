@@ -168,7 +168,7 @@ const caches: CacheUnderTest[] = [
   {
     name: "Library pages",
     read: api.listAttachments as jest.Mock,
-    response: (ids) => ({ items: ids.map(file), has_more: false }),
+    response: (ids) => ({ items: ids.map(file), next_cursor: null }),
     seed: (ids) => setGalleryPage("all", "", { items: ids.map(file), hasMore: false }),
     fetch: (force) => fetchGalleryPage("token", "all", "", { force }),
     ids: (data) => (data as { items: AttachmentListItem[] }).items.map((row) => row.id),

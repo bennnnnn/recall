@@ -45,7 +45,7 @@ const result: SearchResult = { chat_id: "chat", message_id: "message", chat_titl
 
 beforeEach(() => {
   jest.clearAllMocks(); jest.useFakeTimers(); mockSession = 0; mockToken = "token"; mockDrawerOpen = true;
-  jest.mocked(api.search).mockResolvedValue({ results: [result], has_more: false });
+  jest.mocked(api.search).mockResolvedValue({ items: [result], next_cursor: null });
 });
 afterEach(() => { jest.useRealTimers(); });
 async function search() {

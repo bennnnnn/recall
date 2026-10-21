@@ -1,11 +1,11 @@
 import { request, requestRevalidated } from "@/lib/api/client";
-import type { Todo } from "@/lib/api/types";
+import type { Page, Todo } from "@/lib/api/types";
 
 const TODO_PAGE_SIZE = 1000;
 /** Completed to-dos older than this stay on the server until asked for. */
 const RECENT_COMPLETED_DAYS = 30;
 
-type TodoPage = { items: Todo[]; next_cursor: string | null; older_completed?: boolean };
+type TodoPage = Page<Todo> & { older_completed?: boolean };
 
 /** The list, and whether older completed to-dos were left out of it. */
 export type TodoList = { todos: Todo[]; olderCompleted: boolean };

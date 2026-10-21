@@ -67,6 +67,8 @@ type Props = {
   searchLoadingMore?: boolean;
   searchLoadingMoreError?: boolean;
   onSearchLoadMore?: () => void;
+  /** Read the next page of older chats; omitted when the list holds them all. */
+  onLoadOlderChats?: () => void;
 };
 
 export function DrawerChatFlashList({
@@ -95,6 +97,7 @@ export function DrawerChatFlashList({
   searchLoadingMore = false,
   searchLoadingMoreError = false,
   onSearchLoadMore,
+  onLoadOlderChats,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -270,6 +273,8 @@ export function DrawerChatFlashList({
       ListHeaderComponent={listHeader}
       ListEmptyComponent={listEmpty}
       refreshControl={refreshControl}
+      onEndReached={searchOpen ? undefined : onLoadOlderChats}
+      onEndReachedThreshold={0.5}
     />
   );
 }

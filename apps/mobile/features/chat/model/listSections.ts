@@ -84,6 +84,7 @@ export function patchChatListGroups(
 export function removeChatFromGroups(groups: ChatList, chatId: string): ChatList {
   const drop = (list: Chat[]) => list.filter((c) => c.id !== chatId);
   return {
+    ...groups,
     pinned: drop(groups.pinned),
     today: drop(groups.today),
     yesterday: drop(groups.yesterday),
@@ -106,6 +107,16 @@ export function chatRecencySection(chat: Chat, now = new Date()): ChatDateSectio
   if (updated >= week.getTime()) return "last_7_days";
   if (updated >= month.getTime()) return "this_month";
   return "older";
+}
+
+/** A page of older dated chats joins the list below what it already shows (CLAR-12). */
+export function appendOlderChats(groups: ChatList, older: ChatList): ChatList {
+  const shown = new Set(allChatsFromGroups(groups).map((chat) => chat.id));
+  const next: ChatList = { ...groups, next_cursor: older.next_cursor ?? null };
+  for (const key of CHAT_DATE_SECTIONS) {
+    next[key] = [...groups[key], ...older[key].filter((chat) => !shown.has(chat.id))];
+  }
+  return next;
 }
 
 export function insertChatByRecency(groups: ChatList, chat: Chat): ChatList {

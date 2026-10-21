@@ -51,7 +51,7 @@ async def list_todos_page(
     )
     page = TodoPageOut(
         items=[TodoOut.model_validate(item) for item in items],
-        next_cursor=next_cursor,
+        next_cursor=str(next_cursor) if next_cursor else None,
         older_completed=older,
     )
     return conditional_json(request, page)

@@ -44,8 +44,3 @@ class AttachmentListItemOut(BaseModel):
     message_id: UUID | None = None
     original_filename: str | None = None
     chat_title: str | None = None
-
-
-class AttachmentListOut(BaseModel):
-    items: list[AttachmentListItemOut]
-    has_more: bool = False
