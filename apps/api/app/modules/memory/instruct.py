@@ -13,7 +13,8 @@ from app.modules.memory import llm as memory_llm
 from app.modules.memory import locks
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
-from app.modules.memory.extraction_workflow import load_memory_snapshot, writes_from_ops
+from app.modules.memory.extraction_workflow import load_memory_snapshot
+from app.modules.memory.pass_writes import writes_from_ops
 from app.modules.memory.topics import parse_topic
 
 logger = logging.getLogger(__name__)

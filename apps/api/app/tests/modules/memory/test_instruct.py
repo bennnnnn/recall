@@ -7,7 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.memory import instruct as instruct_service
 from app.modules.memory import locks
-from app.modules.memory.extraction_workflow import MemorySnapshot
+from app.modules.memory.pass_writes import MemorySnapshot
 from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.tests.fakes import FakeSessionCM
