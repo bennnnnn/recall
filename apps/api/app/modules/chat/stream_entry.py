@@ -281,6 +281,9 @@ async def stream_regenerate_response(
             omit_message_ids=turn.omit_message_ids,
             turn_mode=turn.turn_mode,
             has_image_attachment=bool(current_image_ids),
+            recent_messages=turn.recent,
+            prior_count=turn.prior_count,
+            unhealthy_models=turn.unhealthy,
         )
         bundle = await build_stream_prompt_context(request, settings, redis)
         if current_image_ids:

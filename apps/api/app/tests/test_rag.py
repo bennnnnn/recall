@@ -1,11 +1,6 @@
-"""Semantic memory helpers."""
+"""The query-embedding cache's encoding."""
 
-from app.gateways.embedding_gateway import cosine_similarity, parse_embedding, serialize_embedding
-
-
-def test_cosine_similarity_identical():
-    vec = [1.0, 0.0, 0.0]
-    assert cosine_similarity(vec, vec) == 1.0
+from app.gateways.embedding_gateway import parse_embedding, serialize_embedding
 
 
 def test_embedding_json_roundtrip():

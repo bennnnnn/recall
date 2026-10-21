@@ -77,18 +77,15 @@ async def is_access_revoked(redis: Redis, jti: str) -> bool:
     return bool(await redis.get(revoked_key(jti)))
 
 
-async def is_session_revoked(redis: Redis, session_id: str) -> bool:
-    return bool(await redis.get(revoked_session_key(session_id)))
+# Stands in for a claim the token lacks, so MGET keeps its three slots; never written.
+_NO_KEY = "revoked:none"
 
 
-async def _is_access_revoked_since(redis: Redis, user_id: UUID, issued_at: float | None) -> bool:
-    if issued_at is None:
+def _issued_before(issued_at: object, revoked_since_raw: str | bytes | None) -> bool:
+    """Whether a token issued at ``issued_at`` predates the account's revocation cutoff."""
+    if not isinstance(issued_at, int | float) or revoked_since_raw is None:
         return False
-    revoked_since_raw = await redis.get(revoked_since_key(user_id))
-    if revoked_since_raw is None:
-        return False
-    revoked_since = float(redis_str(revoked_since_raw))
-    return issued_at <= revoked_since
+    return float(issued_at) <= float(redis_str(revoked_since_raw))
 
 
 async def verify_access_token(redis: Redis, token: str, settings: Settings) -> UUID:
@@ -99,12 +96,21 @@ async def verify_access_token(redis: Redis, token: str, settings: Settings) -> U
     jti = payload.get("jti")
     sid = payload.get("sid")
     try:
-        if jti and await is_access_revoked(redis, str(jti)):
-            raise GoogleAuthError("Token revoked")
-        if isinstance(sid, str) and sid and await is_session_revoked(redis, sid):
-            raise GoogleAuthError("Token revoked")
         user_id = UUID(payload["sub"])
-        if await _is_access_revoked_since(redis, user_id, payload.get("iat")):
+    except (ValueError, KeyError, TypeError) as exc:
+        raise GoogleAuthError("Invalid access token") from exc
+    try:
+        # One round trip for the three revocation keys (every authenticated request).
+        revoked_jti, revoked_sid, revoked_since_raw = await redis.mget(
+            revoked_key(str(jti)) if jti else _NO_KEY,
+            revoked_session_key(sid) if isinstance(sid, str) and sid else _NO_KEY,
+            revoked_since_key(user_id),
+        )
+        if jti and revoked_jti:
+            raise GoogleAuthError("Token revoked")
+        if isinstance(sid, str) and sid and revoked_sid:
+            raise GoogleAuthError("Token revoked")
+        if _issued_before(payload.get("iat"), revoked_since_raw):
             raise GoogleAuthError("Token revoked")
     except GoogleAuthError:
         raise

@@ -28,7 +28,7 @@ def search_session(monkeypatch):
         session.execute.side_effect = sync_session.execute
         session.__aenter__.return_value = session
         # Only replace the PostgreSQL operator; execute the real substring,
-        # ownership, merged ordering, limit and count SQL.
+        # ownership, merged ordering and limit SQL.
         monkeypatch.setattr(search_repo, "_trgm_match", lambda *_: false())
         monkeypatch.setattr(search_repo, "SessionLocal", lambda: session, raising=False)
         yield sync_session, session
@@ -56,9 +56,9 @@ async def test_search_treats_substring_metacharacters_literally(
         )
     sync_session.commit()
 
-    results, total = await search_repo.search_conversations(session, owner_id, query)
+    results, has_more = await search_repo.search_conversations(session, owner_id, query)
 
-    assert total == 1
+    assert has_more is False
     assert [result["chat_id"] for result in results] == [matching.id]
 
 
@@ -76,7 +76,7 @@ async def test_search_message_hit_requires_chat_owner(search_session):
     )
     sync_session.commit()
 
-    assert await search_repo.search_conversations(session, owner_id, "needle") == ([], 0)
+    assert await search_repo.search_conversations(session, owner_id, "needle") == ([], False)
 
 
 @pytest.mark.asyncio
@@ -108,7 +108,7 @@ async def test_search_orders_equal_timestamps_before_offset(search_session):
         for offset in range(3)
     ]
 
-    assert [total for _, total in pages] == [3, 3, 3]
+    assert [has_more for _, has_more in pages] == [True, True, False]
     assert [(rows[0]["chat_id"], rows[0]["message_id"]) for rows, _ in pages] == [
         (title_chat.id, None),
         (messages_chat.id, _id(2)),
@@ -118,25 +118,25 @@ async def test_search_orders_equal_timestamps_before_offset(search_session):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("offset", [0, 1, 10])
-async def test_search_page_and_total_share_one_statement(search_session, offset):
+async def test_search_page_and_has_more_share_one_statement(search_session, offset):
     sync_session, session = search_session
     owner_id = uuid4()
     chat = Chat(user_id=owner_id, title="needle")
     sync_session.add(chat)
     sync_session.commit()
 
-    results, total = await search_repo.search_conversations(
+    results, has_more = await search_repo.search_conversations(
         session, owner_id, "needle", limit=1, offset=offset
     )
 
     assert len(results) == (1 if offset == 0 else 0)
-    assert total == 1
-    # A single SQL statement gives both values one database snapshot, including
-    # out-of-range offsets; no independently racing count connection.
+    assert has_more is False
+    # One statement reads the page and the row past it; nothing counts every hit.
     session.execute.assert_awaited_once()
+    assert "count(" not in str(session.execute.await_args.args[0]).lower()
 
 
 @pytest.mark.asyncio
-async def test_search_empty_result_keeps_zero_total(search_session):
+async def test_search_empty_result_has_no_more(search_session):
     _, session = search_session
-    assert await search_repo.search_conversations(session, uuid4(), "absent") == ([], 0)
+    assert await search_repo.search_conversations(session, uuid4(), "absent") == ([], False)

@@ -310,12 +310,15 @@ async def _load_unsummarized_gap(
     recent_limit: int,
     token_budget: int,
     current_user_message_id: UUID | None,
+    prior_count: int | None = None,
 ) -> list[Any]:
     """Messages after the summary and before the messages the prompt kept.
 
     ``tail`` is that kept list. A synthetic current user row can push one
     stored message out of a full window; that row is included here, then the
     whole gap is cut to the tokens the recent window did not already use.
+    ``prior_count`` is the chat's count read with the window; without it the chat is
+    counted here (a count that could race the current line's insert).
     """
     tail_ids = {message.id for message in tail}
     dropped = [
@@ -332,7 +335,9 @@ async def _load_unsummarized_gap(
         if created_at is not None and oldest_id is not None:
             summarized = int(getattr(chat, "summary_message_count", 0) or 0)
             async with SessionLocal() as session:
-                total = await messages_repo.count_for_chat(session, chat_id)
+                total = prior_count
+                if total is None:
+                    total = await messages_repo.count_for_chat(session, chat_id)
                 bounds = unsummarized_gap_bounds(
                     total=total,
                     summarized=summarized,

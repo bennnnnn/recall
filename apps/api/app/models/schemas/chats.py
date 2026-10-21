@@ -141,4 +141,5 @@ class SearchResultItem(BaseModel):
 
 class SearchResults(BaseModel):
     results: list[SearchResultItem] = Field(default_factory=list)
-    total: int = 0
+    # More hits follow this page (one row past it was read; hits are not counted).
+    has_more: bool = False

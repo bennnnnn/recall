@@ -42,9 +42,9 @@ async def test_search_literal_symbols_with_real_trigram_operator(
         )
     await db_session.commit()
 
-    rows, total = await search_repo.search_conversations(db_session, owner.id, query)
+    rows, has_more = await search_repo.search_conversations(db_session, owner.id, query)
 
-    assert total == 1
+    assert has_more is False
     assert [row["chat_id"] for row in rows] == [matching.id]
 
 
@@ -55,9 +55,9 @@ async def test_search_preserves_fuzzy_title_matching(db_session):
     db_session.add(chat)
     await db_session.commit()
 
-    rows, total = await search_repo.search_conversations(db_session, owner.id, "vacaton")
+    rows, has_more = await search_repo.search_conversations(db_session, owner.id, "vacaton")
 
-    assert total == 1
+    assert has_more is False
     assert [row["chat_id"] for row in rows] == [chat.id]
 
 
@@ -78,15 +78,15 @@ async def test_search_scopes_both_message_and_chat_owners_and_excludes_archived(
     )
     await db_session.commit()
 
-    rows, total = await search_repo.search_conversations(db_session, owner.id, "needle")
+    rows, has_more = await search_repo.search_conversations(db_session, owner.id, "needle")
 
-    assert total == 1
+    assert has_more is False
     assert [row["chat_id"] for row in rows] == [allowed.id]
     assert rows[0]["match_type"] == "message"
 
 
 @pytest.mark.asyncio
-async def test_search_equal_timestamp_pages_have_stable_order_and_total(db_session):
+async def test_search_equal_timestamp_pages_have_stable_order_and_has_more(db_session):
     owner = await _user(db_session)
     now = datetime(2026, 9, 4, tzinfo=UTC)
     chat_ids = sorted([uuid4(), uuid4()])
@@ -117,7 +117,7 @@ async def test_search_equal_timestamp_pages_have_stable_order_and_total(db_sessi
         for offset in range(3)
     ]
 
-    assert [total for _, total in pages] == [3, 3, 3]
+    assert [has_more for _, has_more in pages] == [True, True, False]
     assert [(rows[0]["chat_id"], rows[0]["message_id"]) for rows, _ in pages] == [
         (title_chat.id, None),
         (messages_chat.id, message_ids[1]),
@@ -125,8 +125,8 @@ async def test_search_equal_timestamp_pages_have_stable_order_and_total(db_sessi
     ]
     assert await search_repo.search_conversations(
         db_session, owner.id, "needle", limit=1, offset=99
-    ) == ([], 3)
+    ) == ([], False)
     assert await search_repo.search_conversations(db_session, owner.id, "unrelated", limit=1) == (
         [],
-        0,
+        False,
     )

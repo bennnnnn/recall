@@ -27,7 +27,7 @@ from app.modules.attachments.content import (
 from app.modules.attachments.content_types import bytes_match_claimed, is_image_content_type
 from app.modules.attachments.lifecycle import delete_storage_keys, enqueue_failed_storage_deletes
 from app.modules.attachments.markers import strip_attachment_from_content
-from app.modules.attachments.quota import has_current_upload_reservation
+from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
 from app.modules.attachments.thumbnails import thumbnail_bytes, thumbnail_edge
 from app.modules.attachments.upload import AttachmentUploadError, cancel_pending_upload
 from app.repositories import messages as messages_repo
@@ -51,12 +51,12 @@ class FileAccess:
     body: bytes | None = None
 
 
-async def _refund_image(
+async def _refund_upload(
     user: User,
     row: Attachment,
 ) -> None:
-    if is_image_content_type(row.content_type) and has_current_upload_reservation(row):
-        await counters.refund("image_upload", get_redis_client(), user.id)
+    if has_current_upload_reservation(row):
+        await counters.refund(upload_counter(row.content_type), get_redis_client(), user.id)
 
 
 async def _verified_row(
@@ -66,6 +66,9 @@ async def _verified_row(
     attachment_id: UUID,
 ):
     row = await attachments_repo.get_by_id(session, attachment_id, user.id)
+    # End the read before any storage I/O: a thumbnail (R2 reads, a resize queued two at
+    # a time, an R2 write) held this pooled connection idle in transaction throughout.
+    await session.commit()
     if row is None:
         raise AttachmentWorkflowError(404, "Not found")
     gateway = get_storage_gateway(settings)
@@ -82,7 +85,7 @@ async def _verified_row(
         )
         if error:
             if removed:
-                await _refund_image(user, row)
+                await _refund_upload(user, row)
             raise AttachmentWorkflowError(400, error)
     return row, gateway
 
@@ -241,7 +244,7 @@ async def store_local_upload(
             storage_key=row.storage_key,
         )
         if removed:
-            await _refund_image(user, row)
+            await _refund_upload(user, row)
         raise AttachmentWorkflowError(400, detail)
 
     await gateway.write_bytes(row.storage_key, data)
@@ -255,6 +258,7 @@ async def confirm_upload(
     attachment_id: UUID,
 ) -> None:
     row = await attachments_repo.get_by_id(session, attachment_id, user.id)
+    await session.commit()  # the check below downloads the whole object: no transaction open
     if row is None:
         raise AttachmentWorkflowError(404, "Not found")
     gateway = get_storage_gateway(settings)
@@ -272,7 +276,7 @@ async def confirm_upload(
     )
     if error:
         if removed:
-            await _refund_image(user, row)
+            await _refund_upload(user, row)
         raise AttachmentWorkflowError(400, error)
 
 

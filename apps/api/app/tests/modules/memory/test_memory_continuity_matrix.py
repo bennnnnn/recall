@@ -9,6 +9,7 @@ from app.models.orm import Memory
 from app.modules.chat.prompt_constants import writing_request_kind
 from app.modules.memory import is_memory_candidate, select_memories_semantic
 from app.modules.memory import llm as memory_llm
+from app.tests.modules.memory.scoring import scored
 
 CURRENT_EMPLOYER_QUERIES = [
     "I work at Uber but I want to move to Google",
@@ -159,8 +160,7 @@ def test_current_employer_remains_available_for_related_google_questions(query: 
     unrelated = _memory("fact", "Bini enjoys landscape photography", "[0,1]")
 
     selected = select_memories_semantic(
-        [current_job, unrelated],
-        [1.0, 0.0],
+        scored([current_job, unrelated], [1.0, 0.0]),
         settings,
         query_text=query,
         with_profile=True,
@@ -180,7 +180,9 @@ def test_job_and_city_stay_out_of_an_unrelated_question() -> None:
     concise = _memory("preference", "Bini prefers concise answers", "[0,1]")
 
     selected = select_memories_semantic(
-        [name, job, city, concise], [1.0, 0.0], settings, query_text="what should I cook tonight?"
+        scored([name, job, city, concise], [1.0, 0.0]),
+        settings,
+        query_text="what should I cook tonight?",
     )
 
     assert selected == [name, concise]

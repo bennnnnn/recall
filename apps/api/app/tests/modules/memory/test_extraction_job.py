@@ -688,15 +688,7 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
     settings = Settings(memory_min_confidence=0.4)
     extraction = _ops(_add("fact", "Owns a bicycle."))
     memory_id = uuid4()
-    listed = SimpleNamespace(
-        id=memory_id,
-        type="fact",
-        text="Owns a bicycle",
-        status="active",
-        embedding=None,
-        embedding_json=None,
-        embedding_text_hash=None,
-    )
+    listed = SimpleNamespace(id=memory_id, text="Owns a bicycle")
     vector = [0.4, 0.5, 0.6]
     apply_writes = AsyncMock(return_value=[memory_id])
     _session, session_locals = _extraction_sessions(count=3)
@@ -708,7 +700,11 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
         ),
         patch(
             "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
-            AsyncMock(side_effect=[[], [listed]]),
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.modules.memory.extraction_workflow.memories_repo.list_embed_state",
+            AsyncMock(return_value=[(listed.id, listed.text, False, None)]),
         ),
         patch(
             "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
@@ -718,10 +714,6 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
         patch("app.modules.home.service.invalidate_home_cache", AsyncMock()),
         patch(EMBED_MANY, embed_each(AsyncMock(return_value=vector))),
-        patch(
-            "app.gateways.embedding_gateway.serialize_embedding",
-            return_value="[0.4,0.5,0.6]",
-        ),
     ):
         await extract_and_store_memories(
             settings, user_id=uuid4(), chat_id=uuid4(), transcript=_CANDIDATE
@@ -732,7 +724,6 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
         memory_id,
         listed.text,
         vector,
-        "[0.4,0.5,0.6]",
         embedding_text_hash(listed.text),
     )
     assert embedding_write.await_args.kwargs == {"commit": False}

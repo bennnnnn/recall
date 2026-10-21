@@ -67,6 +67,10 @@ _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
 }
 
 
+# Every event name the app records (the CHECK constraint on product_events matches).
+EVENT_NAMES: tuple[str, ...] = tuple(_ALLOWED_PROPERTIES)
+
+
 def _validate_properties(event: ProductEventIn) -> None:
     allowed = _ALLOWED_PROPERTIES[event.name]
     if set(event.properties) != set(allowed):

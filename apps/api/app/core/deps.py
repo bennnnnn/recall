@@ -55,6 +55,7 @@ async def get_current_user(
     if cached is not None:
         return cached
 
+    generation = await user_cache.read_generation(redis, user_id)
     user = await users_repo.get_by_id(session, user_id)
     # End the read now. FastAPI closes the request's session only after the response is sent,
     # so an SSE reply or a slow upload kept this connection idle in transaction throughout.
@@ -62,8 +63,7 @@ async def get_current_user(
     await session.commit()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    user_cache.remember_user(user)
-    await user_cache.note_generation(redis, user_id)
+    user_cache.remember_read(user, generation)
     return user
 
 

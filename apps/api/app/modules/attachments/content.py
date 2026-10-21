@@ -289,11 +289,12 @@ async def purge_invalid_upload(
 ) -> bool:
     from app.modules.attachments import repository as attachments_repo
 
-    removed = await attachments_repo.delete_rows(session, [attachment_id])
-    if not removed:
-        return False
+    removed = await attachments_repo.delete_rows(session, [attachment_id], commit=False)
     # Commit row deletion before irreversible object removal. Failed storage
     # cleanup must survive the loss of its attachment row.
+    await session.commit()
+    if not removed:
+        return False
     try:
         await gateway.delete_bytes(storage_key)
     except Exception:

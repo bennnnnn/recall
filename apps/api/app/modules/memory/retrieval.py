@@ -64,13 +64,12 @@ async def semantic_memories_from_vec(
 ) -> list[Memory]:
     from app.modules.memory import repository as memories_repo
 
-    all_memories = await memories_repo.list_for_user(session, user.id)
+    scored = await memories_repo.list_scored_for_user(session, user.id, query_vec)
     # Nothing near the question means nothing to add: never the whole store.
     return cast(
         list[Memory],
         seams.select_memories_semantic(
-            all_memories,
-            query_vec,
+            scored,
             settings,
             query_text=query_text,
             with_profile=with_profile,

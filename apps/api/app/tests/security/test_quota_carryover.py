@@ -27,7 +27,7 @@ from app.services.quota import carryover, counters
 from .conftest import World, delete_accounts
 
 # Every per-user daily counter, named independently of the code under test.
-DAILY_PREFIXES = ("usage", "imgup", "speech", "tts", "tavily", "imggen", "imgsearch")
+DAILY_PREFIXES = ("usage", "imgup", "docup", "speech", "tts", "tavily", "imggen", "imgsearch")
 
 
 def _pro_caps(cap: int) -> Settings:
@@ -61,6 +61,8 @@ async def _use_quota(redis: Any, user_id: UUID) -> None:
     for _ in range(2):
         assert await counters.reserve("image_upload", redis, user, caps)
     for _ in range(3):
+        assert await counters.reserve("document_upload", redis, user, caps)
+    for _ in range(3):
         assert await counters.reserve("speech_transcription", redis, user, caps)
     assert await counters.reserve("speech_tts", redis, user, caps)
     for _ in range(4):
@@ -81,6 +83,7 @@ async def _use_quota(redis: Any, user_id: UUID) -> None:
 _USED = {
     "usage": 1234,
     "imgup": 2,
+    "docup": 3,
     "speech": 3,
     "tts": 1,
     "tavily": 4,

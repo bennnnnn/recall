@@ -60,24 +60,18 @@ async def apply_memory_facts(
             )
             if manual_edit and any(write.op != "add" for write in writes):
                 await memories.note_manual_edit(session, user_id)
-            updated = await memories.list_for_user(
-                session, user_id, include_muted=False, include_superseded=False
-            )
             touched_set = set(touched)
             backfill_left = max(0, settings.memory_embed_backfill_per_pass)
-            for memory in updated:
-                needs_embed = (
-                    memory.embedding is None
-                    or memory.embedding_json is None
-                    or memory.embedding_text_hash != embedding_text_hash(memory.text)
-                )
-                if not needs_embed:
+            for fact_id, text, has_vector, text_hash in await memories.list_embed_state(
+                session, user_id
+            ):
+                if has_vector and text_hash == embedding_text_hash(text):
                     continue
-                if memory.id not in touched_set:
+                if fact_id not in touched_set:
                     if backfill_left <= 0:
                         continue
                     backfill_left -= 1
-                embed_needed.append((memory.id, memory.text))
+                embed_needed.append((fact_id, text))
             await session.commit()
         except Exception:
             await session.rollback()
@@ -90,25 +84,18 @@ async def apply_memory_facts(
     vectors = await embedding_gateway.embed_many(
         settings, [text for _, text in embed_needed], concurrency=settings.embedding_concurrency
     )
-    to_write: list[tuple[UUID, str, list[float], str, str]] = []
-    for (memory_id, text), vec in zip(embed_needed, vectors, strict=True):
-        if vec:
-            to_write.append(
-                (
-                    memory_id,
-                    text,
-                    vec,
-                    embedding_gateway.serialize_embedding(vec),
-                    embedding_text_hash(text),
-                )
-            )
+    to_write = [
+        (memory_id, text, vec, embedding_text_hash(text))
+        for (memory_id, text), vec in zip(embed_needed, vectors, strict=True)
+        if vec
+    ]
 
     if to_write:
         async with session_factory() as session:
             try:
-                for memory_id, text, vec, vec_json, text_hash in to_write:
+                for memory_id, text, vec, text_hash in to_write:
                     await memories.update_embedding_if_current(
-                        session, user_id, memory_id, text, vec, vec_json, text_hash, commit=False
+                        session, user_id, memory_id, text, vec, text_hash, commit=False
                     )
                 await session.commit()
             except Exception:

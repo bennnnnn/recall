@@ -47,7 +47,7 @@ from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
     stream_context_from_bundle,
 )
-from app.modules.chat.turn_prep.mode import _classify_turn_mode
+from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
@@ -267,7 +267,6 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     )
     chat = Chat(id=uuid4(), user_id=user.id, title=None)
     rows = _rows(case)
-    prior_users = [row.content for row in rows if row.role == "user"]
     last_assistant = next((row for row in reversed(rows) if row.role == "assistant"), None)
     text = case.prompt
     prior_user, prior_model = last_user_turn(rows)
@@ -321,14 +320,9 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
         stub("app.repositories.messages.list_recent", AsyncMock(return_value=list(rows)))
         stub("app.repositories.messages.get_last_assistant", AsyncMock(return_value=last_assistant))
-        stub("app.repositories.messages.recent_user_contents", AsyncMock(return_value=prior_users))
         stub("app.modules.memory.list_for_user", AsyncMock(return_value=[]))
         stub("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
         stub("app.modules.billing.plan.chat_fallback_models", lambda *_a, **_k: [])
-        stub(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            AsyncMock(return_value=prior_users),
-        )
         stub("app.modules.web_search.search_cache.run_cached_search", run_search)
         stub("app.gateways.web_search_gateway.search_web", AsyncMock(return_value=[]))
         stub("app.gateways.pubchem_gateway.lookup_by_name", _pubchem_lookup)
@@ -337,7 +331,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stub("app.modules.chat.tool_loop.run_tool_rounds", tool_rounds)
         stub("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False))
 
-        turn_mode = await _classify_turn_mode(AsyncMock(), chat, text)
+        turn_mode = classify_turn_mode(list(rows), text)
         bundle = await build_stream_prompt_context(
             TurnRequest(
                 user_id=user.id,

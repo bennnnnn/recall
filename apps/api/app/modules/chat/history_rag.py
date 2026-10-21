@@ -6,6 +6,7 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
+from app.core import presence_cache
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways import embedding_gateway
@@ -89,6 +90,8 @@ async def _embed_and_store(settings: Settings, user_id: UUID, messages: list[Mes
             )
             stored += len(pieces)
         await session.commit()
+    if stored:
+        await presence_cache.mark_present(presence_cache.history_key(user_id))
     return stored
 
 
@@ -182,6 +185,11 @@ def _said_after(created_at: datetime | None, edited_at: datetime | None) -> bool
     return created_at > edited_at
 
 
+async def _user_has_chunks(user_id: UUID) -> bool:
+    async with SessionLocal() as session:
+        return await chunks_repo.has_chunks_for_user(session, user_id)
+
+
 async def embed_query_for_prompt(
     settings: Settings,
     *,
@@ -199,9 +207,10 @@ async def embed_query_for_prompt(
     if not query:
         return None
     try:
-        async with SessionLocal() as probe_session:
-            if not await chunks_repo.has_chunks_for_user(probe_session, user_id):
-                return None
+        if not await presence_cache.cached_presence(
+            presence_cache.history_key(user_id), lambda: _user_has_chunks(user_id)
+        ):
+            return None
     except Exception:
         logger.warning("Chat-history RAG chunk probe failed user_id=%s", user_id, exc_info=True)
         return None
@@ -251,25 +260,14 @@ async def retrieve_for_prompt(
                 search_session,
                 user_id,
                 query_vec,
+                window=settings.chat_history_rag_search_window,
                 exclude_message_ids=exclude_message_ids,
                 limit=settings.chat_history_rag_chunk_limit,
-                max_distance=max_distance if len(query_vec) == chunks_repo.EMBEDDING_DIM else None,
+                max_distance=max_distance,
             )
     except Exception:
         logger.warning("Chat-history RAG retrieval failed user_id=%s", user_id, exc_info=True)
         return ""
-
-    if len(query_vec) != chunks_repo.EMBEDDING_DIM and rows:
-        scored: list[tuple[float, MessageChunk]] = []
-        for row in rows:
-            stored = embedding_gateway.parse_embedding(row.embedding_json)
-            if not stored:
-                continue
-            score = embedding_gateway.cosine_similarity(query_vec, stored)
-            if score >= settings.chat_history_rag_min_similarity:
-                scored.append((score, row))
-        scored.sort(key=lambda item: item[0], reverse=True)
-        rows = [item[1] for item in scored[: settings.chat_history_rag_chunk_limit]]
 
     if not rows:
         return ""

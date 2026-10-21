@@ -23,7 +23,6 @@ class TodoItem(Base):
     __tablename__ = "todo_items"
     __table_args__ = (
         Index("ix_todo_user_created", "user_id", "created_at"),
-        Index("ix_todo_user_topic", "user_id", "topic"),
         Index("ix_todo_user_topic_sort", "user_id", "topic", "sort_order"),
         # DB index (migration 0021) is actually a partial index:
         #   CREATE INDEX ix_todo_user_open_due ON todo_items (user_id, due_at)

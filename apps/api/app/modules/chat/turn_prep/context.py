@@ -24,7 +24,7 @@ from app.modules.chat.turn_prep.instant import (
     settings_card,
 )
 from app.modules.chat.turn_prep.intents import plan_turn
-from app.modules.chat.turn_prep.mode import _classify_turn_mode
+from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.request import (
     ClientGeoContext,
     TurnIdentity,
@@ -33,6 +33,7 @@ from app.modules.chat.turn_prep.request import (
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.repositories import chats as chats_repo
+from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
 from app.services import model_health as model_health_service
 from app.services import time_context as time_context_service
@@ -224,7 +225,7 @@ async def await_user_message_persist(ctx: StreamContext) -> None:
             ctx.user_message_persist = None
 
 
-async def _load_turn_identity(request: TurnRequest) -> TurnIdentity:
+async def _load_turn_identity(request: TurnRequest, settings: Settings) -> TurnIdentity:
     """The user, chat and turn mode, with the turn's geo and clock resolved in memory.
 
     Prepare and regenerate pass all three, so a turn skips a Neon checkout; one
@@ -242,7 +243,12 @@ async def _load_turn_identity(request: TurnRequest) -> TurnIdentity:
                 if chat is None:
                     raise ChatNotFoundError("Chat not found.")
             if mode is None:
-                mode = await _classify_turn_mode(session, chat, request.content)
+                recent = request.recent_messages
+                if recent is None:
+                    recent = await messages_repo.list_recent(
+                        session, request.chat_id, limit=settings.recent_message_window
+                    )
+                mode = classify_turn_mode(recent, request.content)
     if request.force_rich_context and not mode.rich_context:
         mode = replace(mode, rich_context=True)
     geo = resolve_client_geo(
@@ -316,7 +322,7 @@ async def build_stream_prompt_context(
     timing = request.timing
     if timing is not None:
         timing.mark_phase("prepare_start")
-    identity = await _load_turn_identity(request)
+    identity = await _load_turn_identity(request, settings)
     pay_reply = recurring_pay_reply(request, identity.local_tz)
     if pay_reply is not None:
         if timing is not None:
@@ -361,6 +367,7 @@ async def build_stream_prompt_context(
             probe_attachment_rag=request.probe_attachment_rag,
             recent_messages=request.recent_messages,
             current_user_message_id=request.current_user_message_id,
+            prior_count=request.prior_count,
             turn_plan=plan if plan.multi else None,
         ),
         resolve_instant_reply(request, identity, settings, redis, plan),

@@ -46,6 +46,8 @@ class AttachmentSettings(BaseModel):
     attachment_rag_chunk_chars: int = 900
     attachment_rag_chunk_overlap: int = 120
     attachment_rag_max_chunks_per_file: int = 256
+    # A search ranks the chat's newest document chunks exactly (no vector index).
+    attachment_rag_search_window: int = 2000
     # Per-image token reserve added to the quota reservation for vision turns,
     # so a near-limit user can't start a heavy image call that blows past the
     # daily cap. Real usage is still reconciled from the provider's usage chunk.

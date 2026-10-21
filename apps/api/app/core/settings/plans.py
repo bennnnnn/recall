@@ -17,6 +17,11 @@ class PlanAllowanceSettings(BaseModel):
     daily_image_limit: int = 5
     daily_image_limit_plus: int = 30
     daily_image_limit_pro: int = 30
+    # Daily document (PDF, Word, text) uploads, for the same reason: each is read and
+    # parsed on the API machine. Also enforced at presign.
+    daily_document_limit: int = 10
+    daily_document_limit_plus: int = 50
+    daily_document_limit_pro: int = 100
     # Paid Tavily queries per user per UTC day; when exceeded, fall back to DuckDuckGo.
     daily_tavily_searches: int = 20
     daily_tavily_searches_plus: int = 150

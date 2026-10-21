@@ -48,7 +48,6 @@ async def test_load_new_turn_hands_model_health_to_routing(content: str) -> None
     failing = frozenset({"smart-chat"})
     with (
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch("app.modules.chat.turn_load._classify_turn_mode", AsyncMock()),
         patch.object(model_health, "unhealthy_aliases", AsyncMock(return_value=failing)) as read,
     ):
         turn = await load_new_turn(

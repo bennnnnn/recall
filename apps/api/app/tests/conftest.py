@@ -65,6 +65,22 @@ def _hermetic_redis():
     redis_module.get_jobs_redis_client.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _fresh_db_pool():
+    """Each test starts with an empty connection pool.
+
+    A pooled asyncpg connection belongs to the event loop that opened it, and each test
+    (and each ``TestClient``) runs its own loop. The per-checkout ping used to discard a
+    connection another loop left behind; the app pings only idle connections now
+    (``core/db_ping.py``: production has one loop per process), so tests drop them here.
+    """
+    from app.core.db import engine
+
+    engine.sync_engine.dispose(close=False)
+    yield
+    engine.sync_engine.dispose(close=False)
+
+
 @pytest.fixture
 def real_redis(_hermetic_redis):
     """The configured Redis, for a test that needs a real server (none today)."""

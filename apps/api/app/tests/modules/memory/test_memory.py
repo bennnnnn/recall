@@ -22,6 +22,7 @@ from app.modules.memory import (
     select_memories_semantic,
     strip_memory_as_of,
 )
+from app.tests.modules.memory.scoring import scored, scored_reader
 
 
 def _closing_background_task(coro, **_kwargs) -> MagicMock:
@@ -435,14 +436,12 @@ def test_select_memories_semantic_scores_unembedded_facts_by_words():
     chess.embedding_json = None
 
     off_topic = select_memories_semantic(
-        [profile, fact, chess],
-        [1.0, 0.0, 0.0],
+        scored([profile, fact, chess], [1.0, 0.0, 0.0]),
         settings,
         query_text="how should I structure auth in my app?",
     )
     on_topic = select_memories_semantic(
-        [profile, fact, chess],
-        [1.0, 0.0, 0.0],
+        scored([profile, fact, chess], [1.0, 0.0, 0.0]),
         settings,
         query_text="what's my favorite color?",
     )
@@ -468,8 +467,7 @@ def test_semantic_tech_query_omits_offtopic_location_and_job():
     concise.embedding_json = "[0.0, 1.0, 0.0]"
 
     selected = select_memories_semantic(
-        [name, job, city, chess, concise],
-        [1.0, 0.0, 0.0],
+        scored([name, job, city, chess, concise], [1.0, 0.0, 0.0]),
         settings,
         query_text="How should I structure auth?",
     )
@@ -485,7 +483,7 @@ def test_select_memories_semantic_ranks_by_similarity():
     python.embedding_json = "[1.0, 0.0, 0.0]"
     cooking = _memory("fact", "Cooking recipes", 1.0)
     cooking.embedding_json = "[0.0, 1.0, 0.0]"
-    selected = select_memories_semantic([python, cooking], [0.95, 0.05, 0.0], settings)
+    selected = select_memories_semantic(scored([python, cooking], [0.95, 0.05, 0.0]), settings)
     assert selected[0].text == "Python programming"
 
 
@@ -500,8 +498,7 @@ def test_select_memories_semantic_keeps_profile_drops_off_topic_fact():
     cooking = _memory("fact", "Loves Italian cooking and pasta", 1.0)
     cooking.embedding_json = "[1.0, 0.0, 0.0]"
     selected = select_memories_semantic(
-        [profile, health, cooking],
-        [1.0, 0.0, 0.0],
+        scored([profile, health, cooking], [1.0, 0.0, 0.0]),
         settings,
     )
     texts = [m.text for m in selected]
@@ -525,8 +522,7 @@ def test_select_memories_semantic_injects_diet_fact_on_milk_query():
     salary = _memory("fact", "Salary is $200k", 1.0)
     salary.embedding_json = "[0.0, 1.0, 0.0]"
     selected = select_memories_semantic(
-        [profile, oat, salary],
-        [1.0, 0.0, 0.0],
+        scored([profile, oat, salary], [1.0, 0.0, 0.0]),
         settings,
         query_text="What milk do I drink.",
     )
@@ -598,7 +594,7 @@ async def test_load_relevant_memories_ranks_in_process_from_list():
     db_hit.embedding_json = "[0.1, 0.2, 0.3]"
 
     with (
-        patch("app.modules.memory.repository.list_for_user", AsyncMock(return_value=[db_hit])),
+        patch("app.modules.memory.repository.list_scored_for_user", scored_reader([db_hit])),
         patch(
             "app.gateways.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.1, 0.2, 0.3]),
@@ -634,8 +630,8 @@ async def test_load_relevant_memories_applies_similarity_cutoff_in_process():
 
     with (
         patch(
-            "app.modules.memory.repository.list_for_user",
-            AsyncMock(return_value=[unembedded_profile, unembedded_fact]),
+            "app.modules.memory.repository.list_scored_for_user",
+            scored_reader([unembedded_profile, unembedded_fact]),
         ),
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
@@ -664,7 +660,7 @@ async def test_load_relevant_memories_includes_low_score_when_cutoff_disabled():
     fact.embedding_json = "[1.0, 0.0, 0.0]"
 
     with (
-        patch("app.modules.memory.repository.list_for_user", AsyncMock(return_value=[fact])),
+        patch("app.modules.memory.repository.list_scored_for_user", scored_reader([fact])),
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.0, 1.0, 0.0])
 
@@ -690,8 +686,8 @@ async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
 
     with (
         patch(
-            "app.modules.memory.repository.list_for_user",
-            AsyncMock(return_value=[in_memory_hit]),
+            "app.modules.memory.repository.list_scored_for_user",
+            scored_reader([in_memory_hit]),
         ),
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.95, 0.05, 0.0])
@@ -717,14 +713,14 @@ async def test_load_relevant_memories_keeps_profile_when_vectors_populated_but_n
     profile = _memory("profile", "Name is Sam", 0.9)
     fact = _memory("fact", "Off-topic allergy detail", 0.9)
     fact.embedding_json = "[1.0, 0.0, 0.0]"
-    list_mock = AsyncMock(return_value=[profile, fact])
+    read = AsyncMock(side_effect=scored_reader([profile, fact]))
     with (
-        patch("app.modules.memory.repository.list_for_user", list_mock),
+        patch("app.modules.memory.repository.list_scored_for_user", read),
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.0, 1.0, 0.0])
 
     assert result == [profile]
-    list_mock.assert_awaited()
+    read.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -1105,7 +1101,6 @@ async def test_update_memory_rewrites_text_and_reembeds():
         memory_id,
         text,
         embedding,
-        embedding_json,
         *,
         embedding_text_hash=None,
         commit=True,
@@ -1113,7 +1108,6 @@ async def test_update_memory_rewrites_text_and_reembeds():
         assert commit is False
         memory.text = text
         memory.embedding = embedding
-        memory.embedding_json = embedding_json
         memory.embedding_text_hash = embedding_text_hash
         return memory
 
@@ -1125,10 +1119,6 @@ async def test_update_memory_rewrites_text_and_reembeds():
         patch(
             "app.gateways.embedding_gateway.embed_text",
             AsyncMock(return_value=vector),
-        ),
-        patch(
-            "app.gateways.embedding_gateway.serialize_embedding",
-            return_value="[0.1,0.2,0.3]",
         ),
         patch(
             "app.modules.memory.repository.update_text_and_embedding",
@@ -1156,7 +1146,8 @@ async def test_update_memory_rolls_back_without_invalidating_on_commit_failure()
 
     user_id = uuid4()
     session = AsyncMock()
-    session.commit.side_effect = RuntimeError("commit failed")
+    # The first commit ends the read before the embedding call; the write's fails.
+    session.commit.side_effect = [None, RuntimeError("commit failed")]
     settings = Settings(mock_llm_enabled=True)
     memory = _memory("fact", "Old fact", 0.9)
     memory.id = uuid4()
@@ -1249,10 +1240,6 @@ async def test_delete_memory_fact_re_embeds_updated_text():
             AsyncMock(return_value=fake_vec),
         ) as embed,
         patch(
-            "app.gateways.embedding_gateway.serialize_embedding",
-            return_value="[0.1,0.2,0.3]",
-        ) as serialize,
-        patch(
             "app.modules.memory.repository.update_text_and_embedding",
             AsyncMock(return_value=memory),
         ) as update_embed,
@@ -1277,8 +1264,8 @@ async def test_delete_memory_fact_re_embeds_updated_text():
 
     assert ok is True
     embed.assert_awaited_once()
-    serialize.assert_called_once_with(fake_vec)
     update_embed.assert_awaited_once()
+    assert update_embed.await_args.args[4] == fake_vec
     # The text-only fallback must NOT be used when an embedding is available.
     update_text_only.assert_not_awaited()
 
@@ -1655,8 +1642,7 @@ def test_work_scope_reads_the_stack_and_what_the_user_builds():
 def test_profile_scope_keeps_the_profile_document():
     settings = Settings(memory_min_confidence=0.0, memory_min_similarity=0.35)
     selected = select_memories_semantic(
-        _store(),
-        [1.0, 0.0, 0.0],
+        scored(_store(), [1.0, 0.0, 0.0]),
         settings,
         query_text="should I ask for a promotion?",
         with_profile=True,

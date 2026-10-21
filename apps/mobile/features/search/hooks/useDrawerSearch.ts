@@ -99,7 +99,7 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
       if (!current(cycle)) return;
       cycle.results = mergeDrawerSearchResults(append ? cycle.results : [], data.results);
       cycle.nextOffset = offset + data.results.length;
-      cycle.hasMore = hasMoreDrawerSearchResults(cycle.nextOffset, data.total, data.results.length);
+      cycle.hasMore = hasMoreDrawerSearchResults(cycle.nextOffset, data.has_more, data.results.length);
       setSnapshot((prev) => prev.cycle === cycle ? { ...prev, searchResults: cycle.results, hasMore: cycle.hasMore } : prev);
     } catch (error: unknown) {
       if (current(cycle) && !isAbortError(error)) {

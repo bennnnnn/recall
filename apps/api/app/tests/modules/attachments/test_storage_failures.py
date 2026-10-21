@@ -114,7 +114,14 @@ async def test_invalid_upload_preserves_bytes_when_database_delete_fails():
 async def test_cancel_pending_uses_committed_unlinked_delete_before_storage(removed):
     user = SimpleNamespace(id=uuid4())
     row = SimpleNamespace(
-        id=uuid4(), message_id=None, content_type="text/plain", storage_key="u/file"
+        id=uuid4(),
+        message_id=None,
+        content_type="text/plain",
+        storage_key="u/file",
+        source="upload",
+        library_visible=True,
+        verified_at=None,
+        created_at=datetime(2020, 1, 1, tzinfo=UTC),
     )
     order = []
 

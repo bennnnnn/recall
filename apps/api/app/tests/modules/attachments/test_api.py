@@ -103,7 +103,7 @@ def test_presign_upload_stores_sanitized_filename():
             api_upload=True,
         )
     )
-    fake_redis = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     create_pending = AsyncMock()
 
     with (
@@ -220,7 +220,8 @@ def test_presign_upload_refunds_image_quota_when_create_pending_fails(quota_cloc
     refund_mock.assert_awaited_once_with("image_upload", fake_redis, user.id, day=quota_clock.day)
 
 
-def test_presign_upload_does_not_refund_for_non_image():
+def test_presign_upload_refunds_a_document_slot_when_the_row_fails():
+    """A document takes a daily slot of its own, given back when the upload fails."""
     user = _fake_user()
     app = _app_with_user(user)
     attachment_id = uuid4()
@@ -234,7 +235,7 @@ def test_presign_upload_does_not_refund_for_non_image():
             api_upload=True,
         )
     )
-    fake_redis = AsyncMock()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     refund_mock = AsyncMock()
 
     with (
@@ -257,7 +258,8 @@ def test_presign_upload_does_not_refund_for_non_image():
         )
 
     assert r.status_code == 500
-    refund_mock.assert_not_called()
+    refund_mock.assert_awaited_once()
+    assert refund_mock.await_args.args[0] == "document_upload"
 
 
 def test_cancel_pending_upload_refunds_image_quota():

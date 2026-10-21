@@ -9,7 +9,6 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
@@ -226,8 +225,7 @@ async def _context_plan(
     # entirely and the user gets no document context on follow-ups.
     if not rich_context and settings.attachment_rag_enabled and probe_attachment_rag:
         try:
-            async with SessionLocal() as s:
-                rich_context = await attachments_service.has_chunks_for_chat(s, user.id, chat_id)
+            rich_context = await attachments_service.chat_has_document_chunks(user.id, chat_id)
         except Exception:
             logger.debug("has_chunks_for_chat probe failed for chat_id=%s", chat_id, exc_info=True)
     # Personal continuity only when this turn is actually about the user.
@@ -297,6 +295,7 @@ async def build_prompt_messages(
     probe_attachment_rag: bool = True,
     recent_messages: list[Any] | None = None,
     current_user_message_id: UUID | None = None,
+    prior_count: int | None = None,
     turn_plan: TurnPlan | None = None,
 ) -> list[dict[str, str]]:
     """Assemble system + recent messages for a chat turn.
@@ -341,6 +340,7 @@ async def build_prompt_messages(
         query_text=query_text,
         omit_message_ids=omit_message_ids,
         current_user_message_id=current_user_message_id,
+        prior_count=prior_count if recent_messages is not None else None,
     )
     followup = followup_subject(query_text, window.exchange)
     chat_history_rag_block = await _history_rag_block(

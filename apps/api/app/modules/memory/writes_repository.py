@@ -232,7 +232,6 @@ async def update_embedding_if_current(
     memory_id: UUID,
     text: str,
     embedding: list[float],
-    embedding_json: str,
     embedding_text_hash: str,
     *,
     commit: bool = True,
@@ -242,7 +241,8 @@ async def update_embedding_if_current(
         .where(Memory.id == memory_id, Memory.user_id == user_id, Memory.text == text)
         .values(
             embedding=embedding,
-            embedding_json=embedding_json,
+            # The JSON copy is no longer read; clearing it frees the row's ~34 KB.
+            embedding_json=None,
             embedding_text_hash=embedding_text_hash,
         )
         .execution_options(synchronize_session=False)

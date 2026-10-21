@@ -245,21 +245,6 @@ async def get_last_user(session: AsyncSession, chat_id: UUID) -> Message | None:
     return result.scalar_one_or_none()
 
 
-async def recent_user_contents(
-    session: AsyncSession,
-    chat_id: UUID,
-    *,
-    limit: int = 8,
-) -> list[str]:
-    result = await session.execute(
-        select(Message.content)
-        .where(Message.chat_id == chat_id, Message.role == "user")
-        .order_by(Message.created_at.desc())
-        .limit(limit)
-    )
-    return [str(content) for content in reversed(result.scalars().all()) if str(content).strip()]
-
-
 async def list_recent_for_user(
     session: AsyncSession,
     user_id: UUID,

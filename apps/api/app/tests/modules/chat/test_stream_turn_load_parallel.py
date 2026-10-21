@@ -186,13 +186,8 @@ async def test_short_reply_loads_the_recent_window(
     chat = MagicMock()
     chat.id = uuid4()
 
-    prior = MagicMock()
-    prior.content = "It's good to act even after a delay. Understood?"
-    monkeypatch.setattr(
-        "app.modules.chat.turn_prep.mode.messages_repo.get_last_assistant",
-        AsyncMock(return_value=prior),
-    )
-    list_recent = AsyncMock(return_value=[])
+    prior = MagicMock(role="assistant", content="It's good to act even after a delay. Understood?")
+    list_recent = AsyncMock(return_value=[prior])
 
     deps = _deps(
         load_user=AsyncMock(return_value=user),

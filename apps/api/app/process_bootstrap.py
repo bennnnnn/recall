@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 
 from app.background import (
+    analytics_retention_scheduler,
     billing_reconcile_scheduler,
     email_reminder_scheduler,
     push_scheduler,
@@ -86,6 +87,10 @@ def _schedulers() -> tuple[tuple[_Start, _Stop], ...]:
         (
             billing_reconcile_scheduler.start_billing_reconcile_scheduler,
             billing_reconcile_scheduler.stop_billing_reconcile_scheduler,
+        ),
+        (
+            analytics_retention_scheduler.start_analytics_retention_scheduler,
+            analytics_retention_scheduler.stop_analytics_retention_scheduler,
         ),
     )
 

@@ -10,6 +10,7 @@ from app.core.database_url import (
     pool_recycle_seconds_for_url,
     prepare_asyncpg_url,
 )
+from app.core.db_ping import install_idle_ping
 
 
 class Base(DeclarativeBase):
@@ -26,7 +27,8 @@ engine = create_async_engine(
     _db_url,
     echo=False,
     connect_args=_connect_args,
-    pool_pre_ping=True,
+    # Pinged only after sitting idle (``install_idle_ping`` below), not on every checkout.
+    pool_pre_ping=False,
     pool_size=settings.db_pool_size,
     max_overflow=settings.db_max_overflow,
     # Fail fast under burst instead of the 30s default — a stalled checkout
@@ -37,6 +39,7 @@ engine = create_async_engine(
     # memory's text in the log line and the Sentry event.
     hide_parameters=True,
 )
+install_idle_ping(engine.sync_engine)
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

@@ -11,7 +11,6 @@ from sqlalchemy import (
     null,
     or_,
     select,
-    true,
     union_all,
 )
 from sqlalchemy import cast as sql_cast
@@ -27,22 +26,25 @@ def _trgm_match(column: Any, query: str) -> ColumnElement[bool]:
 
 async def search_conversations(
     session: AsyncSession, user_id: UUID, query: str, limit: int = 20, offset: int = 0
-) -> tuple[list[dict[str, Any]], int]:
+) -> tuple[list[dict[str, Any]], bool]:
     """Search chat titles and message bodies as one recency-ordered timeline.
 
-    Title and message hits are unioned, then offset/limit apply once. ``total``
-    counts that same database snapshot, including when the page is empty.
-    Title-only rows omit chats that already have a matching message.
+    Title and message hits are unioned, then offset/limit apply once. Returns the page
+    and whether more hits follow: one row past the page is read instead of counting
+    every hit, which no plan could stop early. Message bodies match by substring
+    through the user-scoped trigram index (``ix_messages_user_content_trgm``); trigram
+    similarity (``%``) almost never matches a long body and kept other users' rows in
+    the candidates. Title-only rows omit chats that already have a matching message.
     """
     q = query.strip()
     if not q:
-        return [], 0
+        return [], False
 
     escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     pattern = f"%{escaped}%"
     msg_where = (
         Message.user_id == user_id,
-        or_(_trgm_match(Message.content, q), Message.content.ilike(pattern, escape="\\")),
+        Message.content.ilike(pattern, escape="\\"),
     )
     title_match = or_(_trgm_match(Chat.title, q), Chat.title.ilike(pattern, escape="\\"))
     message_hit = exists(select(1).where(Message.chat_id == Chat.id, *msg_where))
@@ -76,31 +78,20 @@ async def search_conversations(
         .join(Chat, Message.chat_id == Chat.id)
         .where(Chat.user_id == user_id, Chat.archived.is_(False), *msg_where)
     )
-    combined = union_all(msg_stmt, title_stmt).cte("search_hits")
-    count = select(func.count().label("total")).select_from(combined).subquery("hit_count")
-    page = (
+    combined = union_all(msg_stmt, title_stmt).subquery("search_hits")
+    stmt = (
         select(combined)
         .order_by(
             combined.c.created_at.desc(), combined.c.chat_id.desc(), combined.c.message_id.desc()
         )
         .offset(offset)
-        .limit(limit)
-        .subquery("page_hits")
-    )
-    # The aggregate always yields one row. Its outer join retains total for an
-    # empty/out-of-range page while keeping the page and count in one snapshot.
-    stmt = (
-        select(page, count.c.total)
-        .select_from(count.outerjoin(page, true()))
-        .order_by(page.c.created_at.desc(), page.c.chat_id.desc(), page.c.message_id.desc())
+        .limit(limit + 1)
     )
     rows = (await session.execute(stmt)).all()
-    total = rows[0].total if rows else 0
+    has_more = len(rows) > limit
 
     results: list[dict[str, Any]] = []
-    for row in rows:
-        if row.match_type is None:
-            continue
+    for row in rows[:limit]:
         raw = row.content or ""
         content = _snippet(raw, q, 120) if row.match_type == "message" else raw
         created = row.created_at or datetime.now(UTC)
@@ -115,7 +106,7 @@ async def search_conversations(
                 "created_at": created,
             }
         )
-    return results, total
+    return results, has_more
 
 
 def _snippet(content: str, query: str, max_len: int = 120) -> str:

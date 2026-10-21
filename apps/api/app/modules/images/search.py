@@ -10,6 +10,7 @@ attachment upload), and attaches it to the chat as an ``[Image: …]`` marker
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from uuid import UUID
 
 import httpx
@@ -146,46 +147,69 @@ async def _find_photos(
     return fetched
 
 
-async def _store_photos(
-    session: AsyncSession,
+@dataclass(frozen=True)
+class _StoredPhoto:
+    attachment_id: UUID
+    storage_key: str
+    content_type: str
+    size_bytes: int
+
+
+async def _upload_photos(
     gateway: StorageGateway,
     user: User,
     fetched: list[tuple[bytes, str]],
     *,
-    label: str,
     written_keys: list[str],
-) -> list[UUID]:
-    """Write the photos and their pending attachment rows (not yet linked); no commit."""
-    attachment_ids: list[UUID] = []
+) -> list[_StoredPhoto]:
+    """Write the photos' bytes to storage, with no database transaction open."""
+    stored: list[_StoredPhoto] = []
     for data, content_type in fetched:
         presigned = await gateway.presign_upload(
             user_id=str(user.id),
             content_type=content_type,
             size_bytes=len(data),
         )
-        attachment_id = UUID(presigned.attachment_id)
         await gateway.write_bytes(presigned.storage_key, data)
         written_keys.append(presigned.storage_key)
+        stored.append(
+            _StoredPhoto(
+                attachment_id=UUID(presigned.attachment_id),
+                storage_key=presigned.storage_key,
+                content_type=content_type,
+                size_bytes=len(data),
+            )
+        )
+    return stored
+
+
+async def _insert_photo_rows(
+    session: AsyncSession, user: User, stored: list[_StoredPhoto], *, label: str
+) -> list[UUID]:
+    """The stored photos' pending attachment rows (not yet linked); no commit.
+
+    Inserted after every upload finished: the R2 writes for photos two and three used
+    to run inside the transaction holding photo one's row.
+    """
+    for photo in stored:
         await attachments_repo.create_pending(
             session,
-            attachment_id=attachment_id,
+            attachment_id=photo.attachment_id,
             user_id=user.id,
-            storage_key=presigned.storage_key,
-            content_type=content_type,
-            size_bytes=len(data),
+            storage_key=photo.storage_key,
+            content_type=photo.content_type,
+            size_bytes=photo.size_bytes,
             source="search",
             original_filename=(label.replace("\n", " ").strip()[:255] or None),
             library_visible=False,
             commit=False,
         )
-        attachment_ids.append(attachment_id)
-    return attachment_ids
+    return [photo.attachment_id for photo in stored]
 
 
 async def _mark_verified(session: AsyncSession, attachment_ids: list[UUID]) -> None:
-    for attachment_id in attachment_ids:
-        # Bytes were fetched and validated here — skip /file re-download.
-        await attachments_repo.mark_verified(session, attachment_id, commit=False)
+    # Bytes were fetched and validated here — skip /file re-download.
+    await attachments_repo.mark_verified_many(session, attachment_ids, commit=False)
 
 
 async def search_and_attach_for_chat(
@@ -243,10 +267,9 @@ async def search_and_attach_for_chat(
         fetched = await _find_photos(
             settings, cleaned, max_images=settings.image_search_max_results
         )
+        stored = await _upload_photos(gateway, user, fetched, written_keys=written_keys)
         async with SessionLocal() as session:
-            attachment_ids = await _store_photos(
-                session, gateway, user, fetched, label=cleaned, written_keys=written_keys
-            )
+            attachment_ids = await _insert_photo_rows(session, user, stored, label=cleaned)
 
             if create_user_message:
                 bubble = (user_message_content or f"{_USER_MESSAGE_PREFIX}{cleaned}").strip()
@@ -329,10 +352,9 @@ async def photos_for_answer(settings: Settings, *, user: User, query: str) -> li
     written_keys: list[str] = []
     try:
         fetched = await _find_photos(settings, cleaned, max_images=1)
+        stored = await _upload_photos(gateway, user, fetched, written_keys=written_keys)
         async with SessionLocal() as session:
-            attachment_ids = await _store_photos(
-                session, gateway, user, fetched, label=cleaned, written_keys=written_keys
-            )
+            attachment_ids = await _insert_photo_rows(session, user, stored, label=cleaned)
             await _mark_verified(session, attachment_ids)
             await session.commit()
     except ImageSearchError:
