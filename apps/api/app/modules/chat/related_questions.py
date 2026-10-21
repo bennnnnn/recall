@@ -12,7 +12,11 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from app.modules.chat.continuation_subject import is_new_problem_request, is_pure_continuation
+from app.modules.chat.continuation_subject import (
+    BIOLOGY_CUES,
+    is_new_problem_request,
+    is_pure_continuation,
+)
 from app.modules.chat.prompt_constants.routing import (
     is_lightweight_chat_turn,
     is_personal_disclosure_turn,
@@ -75,21 +79,6 @@ _FOLLOW_UP_LEADS = frozenset(
 _CONTENT_WORD = re.compile(r"[a-z]{5,}")
 _UNIT_TOKEN = re.compile(r"[a-z]+/[a-z]+")
 
-# Biology is not a solver subject. These cues only decide whether to ask the
-# model for follow-up questions. They are not a list of questions to show.
-_BIOLOGY_CUES = (
-    "dilution",
-    "punnett",
-    "hardy-weinberg",
-    "hardy weinberg",
-    "allele",
-    "enzyme kinetics",
-    "michaelis",
-    "population growth",
-    "photosynthesis",
-    "mitosis",
-)
-
 
 def subject_for_related(text: str) -> str | None:
     """Math, physics, chemistry, or biology. Anything else is skipped."""
@@ -100,7 +89,7 @@ def subject_for_related(text: str) -> str | None:
     if detected is not None:
         return detected
     lowered = cleaned.casefold()
-    if any(cue in lowered for cue in _BIOLOGY_CUES):
+    if any(cue in lowered for cue in BIOLOGY_CUES):
         return "biology"
     return None
 

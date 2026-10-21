@@ -256,18 +256,26 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
     # A tweet or an email about a migration is writing, not the migration.
     if needs_strong_model(content) and not is_writing_deliverable_request(content):
         return smart
-    physics_alias = physics_route(content, fast=fast, smart=smart, settings=settings)
-    if physics_alias is not None:
-        return physics_alias
+    from app.services.subject_solving import detect_subject
+
+    # The lane follows the subject whose solver answers the line (code-health audit
+    # DUP-05): a balanced equation or a molarity is chemistry's card, not the maths
+    # lane's algebra, and a curve's maximum is maths' though it cues physics.
+    chemistry_enabled = settings is None or settings.chemistry_enabled
+    subject = detect_subject(content, chemistry_enabled=chemistry_enabled)
+    if subject == "chemistry":
+        return fast
+    if subject != "math":
+        physics_alias = physics_route(content, fast=fast, smart=smart, settings=settings)
+        if physics_alias is not None:
+            return physics_alias
     # Math turns (equations, graphs, geometry, calculus, stats, …) go to the math-tuned
-    # strong model: a fast model's steps disagreed with the verified answer. needs_symbolic
-    # is the math pipeline's own gate, so routing agrees with it.
-    from app.modules.math.match import needs_symbolic
+    # strong model: a fast model's steps disagreed with the verified answer.
     from app.services.rate_problems import is_multi_step_rate_problem
 
     if is_multi_step_rate_problem(content):  # catch-up, meet, together: the maths lane won't think
         return smart
-    if needs_symbolic(content) and not _verified_math_stays_fast(content):
+    if subject == "math" and not _verified_math_stays_fast(content):
         return model_catalog.auto_math_alias()
     return fast
 
