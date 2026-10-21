@@ -1,4 +1,4 @@
-import { isSseAbortError, parseSseChunk, shouldAbortPriorSse, streamChatMessageSse } from "@/features/chat/model/sse";
+import { parseSseChunk, shouldAbortPriorSse, streamChatMessageSse } from "@/features/chat/model/sse";
 import { notifyUnauthorized, requestSse } from "@/lib/api/client";
 
 jest.mock("@/lib/config", () => ({
@@ -51,19 +51,6 @@ describe("parseSseChunk", () => {
       resolved_model: "smart-chat",
     };
     expect(events).toEqual([done, done]);
-  });
-});
-
-describe("isSseAbortError", () => {
-  it("detects AbortError from fetch cancellation", () => {
-    expect(isSseAbortError(new DOMException("aborted", "AbortError"))).toBe(true);
-    expect(isSseAbortError(new Error("network"))).toBe(false);
-  });
-
-  it("recognizes React Native cancellation errors without requiring DOMException", () => {
-    const error = new Error("cancelled");
-    error.name = "AbortError";
-    expect(isSseAbortError(error)).toBe(true);
   });
 });
 

@@ -14,6 +14,8 @@
  * top of the loop stays straight.
  */
 
+import { guard, optionalText, refuse, requireRecord } from "@/lib/fenceValidate";
+
 export type CircuitPartKind =
   | "resistor"
   | "bulb"
@@ -67,57 +69,35 @@ const SERIES_LIMITS = [2, 6] as const;
 const PARALLEL_LIMITS = [2, 4] as const;
 const MAX_LABEL = 24;
 
-class Invalid extends Error {}
-
-function fail(): never {
-  throw new Invalid();
-}
-
-function record(raw: unknown): Record<string, unknown> {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) fail();
-  return raw as Record<string, unknown>;
-}
-
-/**
- * An optional string of at most `max` code points (Pydantic counts code
- * points, not UTF-16 units). `null` and a missing key are both "absent"; an
- * empty string is absent too, since it would draw nothing.
- */
-function optionalText(value: unknown, max: number): string | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (typeof value !== "string" || [...value].length > max) fail();
-  return value.length > 0 ? value : undefined;
-}
-
 function role(value: unknown): CircuitRole {
   if (value === undefined || value === null || value === "given") return "given";
   if (value === "result") return "result";
-  return fail();
+  return refuse();
 }
 
 function parseNode(raw: unknown, level: number, count: { parts: number }): CircuitNode {
-  const row = record(raw);
+  const row = requireRecord(raw);
   const has = (key: string) => row[key] !== undefined && row[key] !== null;
   const kinds = [has("part"), has("series"), has("parallel")].filter(Boolean).length;
-  if (kinds !== 1) fail();
+  if (kinds !== 1) refuse();
   const label = optionalText(row.label, MAX_LABEL);
   const detail = optionalText(row.detail, MAX_LABEL);
   const nodeRole = role(row.role);
 
   if (has("part")) {
-    if (!CIRCUIT_PARTS.includes(row.part as CircuitPartKind)) fail();
+    if (!CIRCUIT_PARTS.includes(row.part as CircuitPartKind)) refuse();
     count.parts += 1;
-    if (count.parts > MAX_CIRCUIT_PARTS) fail();
+    if (count.parts > MAX_CIRCUIT_PARTS) refuse();
     return { kind: "part", part: row.part as CircuitPartKind, label, detail, role: nodeRole };
   }
 
   // A group one level deeper than the server allows is refused on the way
   // down, so a pathological fence never recurses far.
-  if (level > MAX_CIRCUIT_DEPTH) fail();
+  if (level > MAX_CIRCUIT_DEPTH) refuse();
   const kind = has("series") ? "series" : "parallel";
   const list = row[kind];
   const [min, max] = kind === "series" ? SERIES_LIMITS : PARALLEL_LIMITS;
-  if (!Array.isArray(list) || list.length < min || list.length > max) fail();
+  if (!Array.isArray(list) || list.length < min || list.length > max) refuse();
   const children = list.map((child) => parseNode(child, level + 1, count));
   return { kind, children, label, detail, role: nodeRole };
 }
@@ -130,21 +110,18 @@ function parseNode(raw: unknown, level: number, count: { parts: number }): Circu
  * whole rather than drawn in part.
  */
 export function parseCircuitSpec(raw: unknown): CircuitSpec | null {
-  try {
-    const row = record(raw);
-    const sourceRow = record(row.source);
+  return guard(() => {
+    const row = requireRecord(raw);
+    const sourceRow = requireRecord(row.source);
     const kind = sourceRow.kind ?? "battery";
-    if (kind !== "battery" && kind !== "ac") fail();
+    if (kind !== "battery" && kind !== "ac") refuse();
     const load = parseNode(row.load, 1, { parts: 0 });
     return {
       source: { kind, label: optionalText(sourceRow.label, MAX_LABEL) },
       load,
       current: optionalText(row.current, MAX_LABEL),
     };
-  } catch (error) {
-    if (error instanceof Invalid) return null;
-    throw error;
-  }
+  });
 }
 
 export function circuitPartCount(node: CircuitNode): number {

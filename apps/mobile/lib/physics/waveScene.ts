@@ -8,6 +8,7 @@
  * letter is. The renderer (`components/rich/diagrams/WaveDiagram.tsx`) only
  * draws this and steps the curve through the frames.
  */
+import { type Box } from "@/lib/physics/boxes";
 import {
   firstClearLabel,
   labelBox,
@@ -16,7 +17,6 @@ import {
   placeLabel,
   toScreen,
   worldTransform,
-  type Box,
   type LabelPlacement,
   type LabelSide,
   type MeasureLayout,

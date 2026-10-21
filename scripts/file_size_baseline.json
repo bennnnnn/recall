@@ -190,7 +190,7 @@
       "why": "Exception: One draft-node parser and editor"
     },
     "apps/mobile/lib/math/graphBlock.ts": {
-      "lines": 522,
+      "lines": 515,
       "why": "Over 500 before the standards; tracked in ES-40"
     },
     "apps/mobile/lib/math/keyboardCatalog.ts": {
@@ -205,12 +205,8 @@
       "lines": 533,
       "why": "Exception: One layout algorithm; ES-38 split `measureSegment` and moved the tree checks out"
     },
-    "apps/mobile/lib/physics/circuit.ts": {
-      "lines": 511,
-      "why": "Exception: One diagram's parsing and layout; tested by `circuit.test.ts`"
-    },
     "apps/mobile/lib/physics/optics.ts": {
-      "lines": 649,
+      "lines": 599,
       "why": "Exception: One diagram's parsing and pure geometry; tested by `optics.test.ts`"
     }
   }

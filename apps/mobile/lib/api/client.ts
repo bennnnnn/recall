@@ -1,3 +1,4 @@
+import { isAbortError } from "@/lib/api/abort";
 import { getApiUrl } from "@/lib/config";
 import {
   getRefreshToken,
@@ -85,7 +86,7 @@ export async function fetchWithTimeout(url: string, init: RequestInit): Promise<
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
+    if (isAbortError(error)) {
       throw new Error("Could not reach the Recall server. Check your connection and try again.");
     }
     throw error;

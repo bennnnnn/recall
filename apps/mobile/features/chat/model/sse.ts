@@ -7,10 +7,6 @@ import { parseChatWsPayload } from "@/features/chat/model/socketReduce";
 
 export type ChatSsePayload = NonNullable<ReturnType<typeof parseChatWsPayload>>;
 
-export function isSseAbortError(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "name" in err && err.name === "AbortError";
-}
-
 /** Abort the previous SSE only when replacing a stream in the same chat.
  * New chat / leave must not abort — Stop is the only hard cancel (WS drains
  * on disconnect; SSE Stop is abort, so a chat switch must leave the fetch

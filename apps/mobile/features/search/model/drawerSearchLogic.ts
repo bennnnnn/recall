@@ -13,11 +13,6 @@ export function isValidDrawerSearchQuery(query: string): boolean {
   return length >= DRAWER_SEARCH_MIN_LENGTH && length <= DRAWER_SEARCH_MAX_LENGTH;
 }
 
-export function isAbortError(error: unknown): boolean {
-  if (error instanceof Error && error.name === "AbortError") return true;
-  return typeof DOMException !== "undefined" && error instanceof DOMException && error.name === "AbortError";
-}
-
 /** Stable display identity; offsets still count every row consumed from the API. */
 export function mergeDrawerSearchResults(previous: SearchResult[], incoming: SearchResult[]): SearchResult[] {
   const byId = new Map<string, SearchResult>();

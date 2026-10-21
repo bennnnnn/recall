@@ -11,7 +11,7 @@
  * ray diagram's, in `optics.ts`.
  */
 
-import { finiteNumber } from "@/lib/physics/optics";
+import { finiteNumber } from "@/lib/fenceValidate";
 
 type WaveEnd = "none" | "fixed" | "open" | "closed";
 

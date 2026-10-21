@@ -2,6 +2,7 @@
  * Where a label goes: its box, the gap it keeps from what it names, and the
  * origins the renderer works out every frame for a label that moves.
  */
+import { type Box } from "@/lib/physics/boxes";
 import { ARROW_HEAD } from "@/lib/physics/simulation/arrows";
 import { type ScreenPoint } from "@/lib/physics/simulation/viewport";
 
@@ -163,7 +164,7 @@ export function derivedLabelOrigin(
 }
 
 /** A label's box: left, top, width and height in canvas pixels. */
-export type LabelBox = { x: number; y: number; width: number; height: number };
+export type LabelBox = Box;
 
 /** Skia text is drawn from its baseline, about this far down a line. */
 export const LABEL_ASCENT = 0.8;

@@ -6,23 +6,10 @@
  * a ~~~ block turned the rest of a reply inside out (code-health audit DUP-03). Read
  * markers with `readFenceMarker`, walk `scanFences` / `fencedLines` / `fenceAfterLine`,
  * or close with `closesFence`.
- *
- * The lib jest project pins `types: ["jest"]` and @types/node is not installed, so the
- * node shapes this needs are declared here (as in fileLocalExports.test.ts).
  */
 
-declare const __dirname: string;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { readdirSync, readFileSync, statSync } = require("node:fs") as {
-  readdirSync: (path: string) => string[];
-  readFileSync: (path: string, encoding: "utf8") => string;
-  statSync: (path: string) => { isDirectory: () => boolean };
-};
+import { appFiles, isTest, readSource, relative } from "@/lib/__tests__/support/sourceFiles";
 
-/** apps/mobile, spelled without ".." so test paths are recognisable. */
-const ROOT = __dirname.split("/").slice(0, -2).join("/");
-const SOURCE_DIRS = ["app", "components", "features", "lib", "hooks", "contexts", "ui"];
-const SKIPPED_DIRS = new Set(["node_modules", "vendor"]);
 const OWNER = "lib/mdFenceScan.ts";
 
 /** `file: line` → why that line may read a fence by hand. */
@@ -44,26 +31,6 @@ const HAND_READS = [
   /\.char\s*===\s*\w+\.char/,
 ];
 
-function sourceFiles(dir: string): string[] {
-  let names: string[];
-  try {
-    names = readdirSync(dir);
-  } catch {
-    return [];
-  }
-  return names.flatMap((name: string) => {
-    const path = `${dir}/${name}`;
-    if (statSync(path).isDirectory()) {
-      return SKIPPED_DIRS.has(name) ? [] : sourceFiles(path);
-    }
-    return /\.tsx?$/.test(name) ? [path] : [];
-  });
-}
-
-function isTest(path: string): boolean {
-  return path.includes("/__tests__/") || /\.test\.tsx?$/.test(path);
-}
-
 /** The trimmed code lines (not comments) that read a fence by hand. */
 function handReads(text: string): string[] {
   return text.split("\n").flatMap((line) => {
@@ -74,12 +41,9 @@ function handReads(text: string): string[] {
 }
 
 function productionReads(): string[] {
-  return SOURCE_DIRS.flatMap((dir) => sourceFiles(`${ROOT}/${dir}`))
-    .filter((file) => !isTest(file) && !file.endsWith(OWNER))
-    .flatMap((file) => {
-      const relative = file.slice(ROOT.length + 1);
-      return handReads(readFileSync(file, "utf8")).map((line) => `${relative}: ${line}`);
-    });
+  return appFiles()
+    .filter((file) => !isTest(file) && relative(file) !== OWNER)
+    .flatMap((file) => handReads(readSource(file)).map((line) => `${relative(file)}: ${line}`));
 }
 
 describe("one fence grammar", () => {

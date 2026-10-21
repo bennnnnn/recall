@@ -12,6 +12,19 @@
  * right. An `interface` is the line y = 0 instead, with its normal along x = 0.
  */
 
+import {
+  finiteNumber,
+  guard,
+  optionalBool,
+  optionalList,
+  optionalText,
+  refuse,
+  requireNumber,
+  requirePoint,
+  requireRecord,
+} from "@/lib/fenceValidate";
+import { boxesOverlap, type Box } from "@/lib/physics/boxes";
+
 type OpticsElement =
   | "converging_lens"
   | "diverging_lens"
@@ -69,78 +82,25 @@ const MAX_ANGLES = 4;
 const MAX_VECTORS = 6;
 const VECTOR_ROLES = ["force", "result", "measure", "motion"];
 
-class Invalid extends Error {}
-
-function fail(): never {
-  throw new Invalid();
-}
-
-/** Strictly a JSON number: `Number(null)` is 0, and a missing value is not the origin. */
-export function finiteNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function num(value: unknown): number {
-  const out = finiteNumber(value);
-  return out === null ? fail() : out;
-}
-
-function bool(value: unknown, fallback: boolean): boolean {
-  if (value === undefined || value === null) return fallback;
-  return typeof value === "boolean" ? value : fail();
-}
-
-function record(raw: unknown): Record<string, unknown> {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) fail();
-  return raw as Record<string, unknown>;
-}
-
-function point(raw: unknown): WorldPoint {
-  if (!Array.isArray(raw) || raw.length !== 2) fail();
-  return { x: num(raw[0]), y: num(raw[1]) };
-}
-
-/** An optional string of at most `max` code points; null, missing and "" are absent. */
-function text(value: unknown, max: number): string | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (typeof value !== "string" || [...value].length > max) fail();
-  return value.length > 0 ? value : undefined;
-}
-
-function list(value: unknown, max: number): unknown[] {
-  if (value === undefined || value === null) return [];
-  if (!Array.isArray(value) || value.length > max) fail();
-  return value;
-}
-
-function guard<T>(read: () => T): T | null {
-  try {
-    return read();
-  } catch (error) {
-    if (error instanceof Invalid) return null;
-    throw error;
-  }
-}
-
 function parseArrow(raw: unknown): OpticsArrow | undefined {
   if (raw === undefined || raw === null) return undefined;
-  const row = record(raw);
-  const height = num(row.height);
-  if (height === 0) fail();
+  const row = requireRecord(raw);
+  const height = requireNumber(row.height);
+  if (height === 0) refuse();
   return {
-    x: num(row.x),
+    x: requireNumber(row.x),
     height,
-    label: text(row.label, MAX_LABEL),
-    virtual: bool(row.virtual, false),
+    label: optionalText(row.label, MAX_LABEL),
+    virtual: optionalBool(row.virtual, false),
   };
 }
 
 function parseRay(raw: unknown): OpticsRay {
-  const row = record(raw);
+  const row = requireRecord(raw);
   if (!Array.isArray(row.points) || row.points.length < 2 || row.points.length > MAX_RAY_POINTS) {
-    fail();
+    refuse();
   }
-  return { points: row.points.map(point), virtual: bool(row.virtual, false) };
+  return { points: row.points.map(requirePoint), virtual: optionalBool(row.virtual, false) };
 }
 
 /**
@@ -150,28 +110,28 @@ function parseRay(raw: unknown): OpticsRay {
  */
 export function parseOpticsSpec(raw: unknown): OpticsSpec | null {
   return guard(() => {
-    const row = record(raw);
-    if (!OPTICS_ELEMENTS.includes(row.element as OpticsElement)) fail();
+    const row = requireRecord(raw);
+    if (!OPTICS_ELEMENTS.includes(row.element as OpticsElement)) refuse();
     const element = row.element as OpticsElement;
     let focal: number | undefined;
     if (row.focal !== undefined && row.focal !== null) {
-      focal = num(row.focal);
-      if (focal <= 0) fail();
+      focal = requireNumber(row.focal);
+      if (focal <= 0) refuse();
     }
     const curved = element !== "plane_mirror" && element !== "interface";
-    if (curved && focal === undefined) fail();
+    if (curved && focal === undefined) refuse();
     let media: [string, string] | undefined;
     if (row.media !== undefined && row.media !== null) {
-      if (!Array.isArray(row.media) || row.media.length !== 2) fail();
+      if (!Array.isArray(row.media) || row.media.length !== 2) refuse();
       const names = row.media.map((name) => {
-        if (typeof name !== "string" || [...name].length > MAX_MEDIUM) fail();
+        if (typeof name !== "string" || [...name].length > MAX_MEDIUM) refuse();
         return name;
       });
       media = [names[0], names[1]];
     }
-    const rays = list(row.rays, MAX_RAYS).map(parseRay);
+    const rays = optionalList(row.rays, MAX_RAYS).map(parseRay);
     const object = parseArrow(row.object);
-    if (rays.length === 0 && !object) fail();
+    if (rays.length === 0 && !object) refuse();
     return { element, focal, object, image: parseArrow(row.image), rays, media };
   });
 }
@@ -179,19 +139,19 @@ export function parseOpticsSpec(raw: unknown): OpticsSpec | null {
 /** The fence's `angles`, or null when any one is malformed. */
 export function parseDiagramAngles(raw: unknown): DiagramAngle[] | null {
   return guard(() =>
-    list(raw, MAX_ANGLES).map((entry) => {
-      const row = record(entry);
-      const startDeg = num(row.start_deg);
-      const endDeg = num(row.end_deg);
-      if (startDeg === endDeg) fail();
+    optionalList(raw, MAX_ANGLES).map((entry) => {
+      const row = requireRecord(entry);
+      const startDeg = requireNumber(row.start_deg);
+      const endDeg = requireNumber(row.end_deg);
+      if (startDeg === endDeg) refuse();
       const role = row.role ?? "given";
-      if (role !== "given" && role !== "result") fail();
+      if (role !== "given" && role !== "result") refuse();
       return {
-        vertex: point(row.vertex),
+        vertex: requirePoint(row.vertex),
         startDeg,
         endDeg,
-        label: text(row.label, MAX_LABEL),
-        arrow: bool(row.arrow, false),
+        label: optionalText(row.label, MAX_LABEL),
+        arrow: optionalBool(row.arrow, false),
         role,
       };
     }),
@@ -208,17 +168,17 @@ export function parseDiagramAngles(raw: unknown): DiagramAngle[] | null {
 export function parseMeasureVectors(raw: unknown): MeasureVector[] | null {
   return guard(() => {
     const out: MeasureVector[] = [];
-    for (const entry of list(raw, MAX_VECTORS)) {
-      const row = record(entry);
-      const anchor = point(row.anchor);
-      const dx = num(row.dx);
-      const dy = num(row.dy);
-      if (dx === 0 && dy === 0) fail();
+    for (const entry of optionalList(raw, MAX_VECTORS)) {
+      const row = requireRecord(entry);
+      const anchor = requirePoint(row.anchor);
+      const dx = requireNumber(row.dx);
+      const dy = requireNumber(row.dy);
+      if (dx === 0 && dy === 0) refuse();
       const role = row.role ?? "force";
-      if (!VECTOR_ROLES.includes(role as string)) fail();
+      if (!VECTOR_ROLES.includes(role as string)) refuse();
       // There is no body on a diagram for a vector to ride on.
-      if (row.body !== undefined && row.body !== null) fail();
-      const label = text(row.label, MAX_LABEL);
+      if (row.body !== undefined && row.body !== null) refuse();
+      const label = optionalText(row.label, MAX_LABEL);
       if (role === "measure") out.push({ anchor, dx, dy, label });
     }
     return out;
@@ -284,17 +244,7 @@ export function toScreen(x: number, y: number, t: WorldTransform): ScreenPoint {
   return { px: x * t.scale + t.offsetX, py: t.offsetY - y * t.scale };
 }
 
-export type Box = { x: number; y: number; width: number; height: number };
 export type Segment = { x1: number; y1: number; x2: number; y2: number };
-
-function boxesOverlap(a: Box, b: Box, gap = 0): boolean {
-  return (
-    a.x < b.x + b.width + gap &&
-    b.x < a.x + a.width + gap &&
-    a.y < b.y + b.height + gap &&
-    b.y < a.y + a.height + gap
-  );
-}
 
 /**
  * The part of a segment inside a rectangle (Liang–Barsky), or null when it

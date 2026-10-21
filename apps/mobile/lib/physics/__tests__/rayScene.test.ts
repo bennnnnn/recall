@@ -2,6 +2,7 @@
  * The ray diagram's scene as a pure function: where the element, the rays,
  * the focal marks, the object and image and every label land on the canvas.
  */
+import { type Box } from "@/lib/physics/boxes";
 import {
   elementExtent,
   labelBox,
@@ -16,7 +17,6 @@ import {
   toScreen,
   worldTransform,
   worldViewportHeight,
-  type Box,
 } from "@/lib/physics/optics";
 import { layoutRayScene, type RaySceneSpec } from "@/lib/physics/rayScene";
 
