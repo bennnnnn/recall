@@ -7,6 +7,8 @@ export type StreamingDraft = {
   status?: string;
   /** Activity context for the status label (e.g. the web-search query). */
   statusDetail?: string;
+  /** When the status's phase began, on this phone's clock (ms): "Thinking… 12s" counts from it. */
+  statusStartedAt?: number;
 };
 
 let draft: StreamingDraft | null = null;

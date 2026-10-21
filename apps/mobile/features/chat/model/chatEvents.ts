@@ -4,6 +4,7 @@ import { AccessibilityInfo } from "react-native";
 import type { Message } from "@/lib/api";
 import { CONSENT_REQUIRED_CODE, notifyConsentRequired } from "@/lib/api/consentRefusal";
 import type { StreamingDraft } from "@/lib/streamingDraftStore";
+import { phaseStartedAt } from "@/lib/streamStatusLabel";
 import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/latency";
 import type { PendingSend, RejectedSend } from "@/features/chat/model/sendLogic";
 import type { ChatSsePayload } from "@/features/chat/model/sse";
@@ -209,6 +210,7 @@ const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
       content: "",
       status: ctx.streamingDraftRef.current?.status,
       statusDetail: ctx.streamingDraftRef.current?.statusDetail,
+      statusStartedAt: ctx.streamingDraftRef.current?.statusStartedAt,
     });
     ctx.appendStreamingPlaceholder();
   },
@@ -216,11 +218,13 @@ const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
     ctx.streamCueRef.current.activity();
     if (typeof payload.phase !== "string") return;
     noteTurnActivity(payload.phase);
+    const previous = ctx.streamingDraftRef.current;
     ctx.updateStreamingDraft({
       content: ctx.assistantBufferRef.current,
-      search_sources: ctx.streamingDraftRef.current?.search_sources,
+      search_sources: previous?.search_sources,
       status: payload.phase,
       statusDetail: typeof payload.detail === "string" && payload.detail ? payload.detail : undefined,
+      statusStartedAt: phaseStartedAt(previous, payload.phase, payload.elapsed_ms),
     });
   },
   token: (payload, ctx, ttftTurnId) => {
@@ -235,7 +239,7 @@ const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
       statusDetail: undefined,
     });
   },
-  // CoT is not the answer; status/waiting already covers "the model is working".
+  // CoT is not the answer; the `thinking` status says the model is working.
   reasoning: () => {},
   stream_end: (payload, ctx) => {
     ctx.pendingSendRef.current = null;

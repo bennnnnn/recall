@@ -13,6 +13,7 @@ import { LazyCircularClockBlock } from "@/components/rich/LazyHeavyRich";
 import { ReplyMarkdown } from "@/components/markdown/ReplyMarkdown";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
+import { StreamProgressLabel } from "@/components/StreamProgressLabel";
 import { AssistantMessageScope } from "@/features/drafts/context/emailDraftPersist";
 import {
   AssistantActions,
@@ -25,7 +26,11 @@ import { SENDING_LABEL_DELAY_MS } from "@/features/chat/model/messageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
 import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
-import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
+import {
+  isProgressStreamPhase,
+  shouldShowWaitingIndicator,
+  useRotatingStreamStatus,
+} from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { useTranslation } from "react-i18next";
@@ -41,6 +46,8 @@ type Props = {
   liveSearchSources?: Message["search_sources"];
   streamStatus?: string;
   streamStatusDetail?: string;
+  /** When `streamStatus`'s phase began (phone clock); its progress label counts from it. */
+  streamStatusStartedAt?: number;
   isLastAssistant?: boolean;
   onRegenerate?: () => void;
   regenerating?: boolean;
@@ -63,6 +70,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   liveSearchSources,
   streamStatus,
   streamStatusDetail,
+  streamStatusStartedAt,
   isLastAssistant,
   onRegenerate,
   regenerating = false,
@@ -205,7 +213,15 @@ export const MessageBubble = React.memo(function MessageBubble({
               ) : (
                 <View style={b.waitingWrap}>
                   <RecallTypingIndicator phase={streamStatus} />
-                  {statusLabel ? <Text style={b.statusLabel}>{statusLabel}</Text> : null}
+                  {streamStatus && isProgressStreamPhase(streamStatus) ? (
+                    <StreamProgressLabel
+                      phase={streamStatus}
+                      startedAt={streamStatusStartedAt}
+                      style={b.statusLabel}
+                    />
+                  ) : statusLabel ? (
+                    <Text style={b.statusLabel}>{statusLabel}</Text>
+                  ) : null}
                 </View>
               )
             ) : null}
@@ -228,6 +244,15 @@ export const MessageBubble = React.memo(function MessageBubble({
                   />
                 </MarkdownErrorBoundary>
               </AssistantMessageScope>
+            ) : null}
+            {isStreaming && hasContent && streamStatus ? (
+              // Work after the last token (the answer check): the reply looks
+              // finished but has not saved yet.
+              <StreamProgressLabel
+                phase={streamStatus}
+                startedAt={streamStatusStartedAt}
+                style={b.afterTextStatus}
+              />
             ) : null}
             {message.generationStopped ? (
               <Text style={b.stoppedFooter}>{t("chat.generation_stopped")}</Text>
@@ -306,6 +331,11 @@ function makeStyles(t: Theme) {
     },
     statusLabel: {
       ...Type.secondary,
+      color: t.textTertiary,
+    },
+    afterTextStatus: {
+      marginTop: Space.xs,
+      ...Type.compact,
       color: t.textTertiary,
     },
     stoppedFooter: {

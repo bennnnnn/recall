@@ -128,6 +128,7 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
       search_sources: [{ title: "a", url: "u", snippet: "s" }],
       status: "searching",
       statusDetail: "weather",
+      statusStartedAt: NOW,
     });
     await send({ type: "status", phase: "thinking", detail: "" });
     expect(args.updateStreamingDraft).toHaveBeenLastCalledWith(expect.objectContaining({ status: "thinking", statusDetail: undefined }));
@@ -135,6 +136,19 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
     await send({ type: "status" });
     expect(args.updateStreamingDraft).not.toHaveBeenCalled();
     expect(cue.activity).toHaveBeenCalledTimes(3);
+  });
+
+  it("thinking starts when the model was asked, and keeps that start when sent again", async () => {
+    const { args, send } = await setup({ draft: { content: "", status: "composing", statusStartedAt: NOW - 50 } });
+    await send({ type: "status", phase: "thinking", elapsed_ms: 2300 });
+    expect(args.updateStreamingDraft).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: "thinking", statusStartedAt: NOW - 2300 }),
+    );
+    jest.advanceTimersByTime(4000);
+    await send({ type: "status", phase: "thinking", elapsed_ms: 100 });
+    expect(args.updateStreamingDraft).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: "thinking", statusStartedAt: NOW - 2300 }),
+    );
   });
 
   it("token appends to the buffer, clears the status and marks the first token", async () => {
