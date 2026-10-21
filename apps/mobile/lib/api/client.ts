@@ -206,6 +206,60 @@ export async function request<T>(
   });
 }
 
+/**
+ * Lists the server answers with an ETag (the to-do list, the chat list, a chat's
+ * newest messages): the reply is kept, and the next read of the same path sends its
+ * ETag back, so an unchanged list costs a 304 and no body (code-health audit NET-16).
+ * Only this sign-in's replies are used.
+ */
+const MAX_REVALIDATED = 40;
+const revalidated = new Map<string, { generation: number; etag: string; data: unknown }>();
+
+function responseEtag(response: Response): string | null {
+  // Test doubles and some transports have no headers object.
+  return typeof response.headers?.get === "function" ? response.headers.get("etag") : null;
+}
+
+export async function requestRevalidated<T>(
+  path: string,
+  token: string,
+  init?: RequestInit,
+  timeoutMs = 30_000,
+): Promise<T> {
+  const generation = getSessionGeneration();
+  const held = revalidated.get(path);
+  const kept = held?.generation === generation ? held : undefined;
+  return withDeadline(timeoutMs, init?.signal, async (signal) => {
+    const response = await requestRaw(path, token, {
+      ...init,
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+        ...(kept ? { "If-None-Match": kept.etag } : {}),
+      },
+    }, true, timeoutMs);
+    requireSession(generation);
+    if (response.status === 304 && kept) {
+      revalidated.delete(path);
+      revalidated.set(path, kept);
+      return kept.data as T;
+    }
+    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    const data = (await response.json()) as T;
+    requireSession(generation);
+    const etag = responseEtag(response);
+    revalidated.delete(path);
+    if (etag) {
+      revalidated.set(path, { generation, etag, data });
+      while (revalidated.size > MAX_REVALIDATED) {
+        revalidated.delete(revalidated.keys().next().value as string);
+      }
+    }
+    return data;
+  });
+}
+
 const EXPORT_TIMEOUT_MS = 120_000;
 
 export async function fetchExportText(

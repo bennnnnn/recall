@@ -86,13 +86,17 @@ async def test_spoken_reminder_is_a_card_until_tapped(db_session, fake_redis):
     assert "Set:" not in text
     assert await _rows(db_session, user.id) == []
 
-    items = await proposals.confirm_proposal(
+    confirmed = await proposals.confirm_proposal(
         db_session, fake_redis, user_id=user.id, proposal_id=card["proposal_id"]
     )
-    assert [item.action for item in items] == ["add"]
+    assert [item.action for item in confirmed.items] == ["add"]
     rows = await _rows(db_session, user.id)
     assert [row.content.lower() for row in rows] == ["call mom"]
     assert rows[0].due_at is not None and rows[0].due_at.hour == 18
+    # The phone applies the saved row instead of reading its list again (NET-16).
+    assert confirmed.rows is not None
+    assert [row.id for row in confirmed.rows] == [rows[0].id]
+    assert confirmed.deleted_ids == []
 
 
 @pytest.mark.asyncio
@@ -110,7 +114,9 @@ async def test_second_tap_saves_once_and_the_chat_shows_it_saved(db_session, fak
         db_session, fake_redis, user_id=user.id, proposal_id=proposal_id
     )
 
-    assert [item.title for item in again] == [item.title for item in first]
+    assert [item.title for item in again.items] == [item.title for item in first.items]
+    # Already saved: the phone reads its list instead.
+    assert again.rows is None
     assert len(await _rows(db_session, user.id)) == 1
     [message] = await messages_repo.list_recent(db_session, chat.id, limit=5)
     assert _card(message.content)["status"] == "saved"
@@ -205,14 +211,18 @@ async def test_a_change_to_a_saved_reminder_waits_for_the_tap(
     [row] = await _rows(db_session, user.id)
     assert row.id == saved.id and row.checked is False
 
-    await proposals.confirm_proposal(
+    confirmed = await proposals.confirm_proposal(
         db_session, fake_redis, user_id=user.id, proposal_id=card["proposal_id"]
     )
     rows = await _rows(db_session, user.id)
     if action == "delete":
         assert rows == []
+        assert confirmed.deleted_ids == [saved.id]
+        assert confirmed.rows == []
     else:
         assert rows[0].checked is True
+        assert confirmed.rows is not None
+        assert [(row.id, row.checked) for row in confirmed.rows] == [(saved.id, True)]
 
 
 @pytest.mark.asyncio

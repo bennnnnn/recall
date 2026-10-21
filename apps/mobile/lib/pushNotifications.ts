@@ -1,11 +1,12 @@
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
-import { AppState, type AppStateStatus, Platform } from "react-native";
+import { type AppStateStatus, Platform } from "react-native";
 
 import type { ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { cacheFile } from "@/lib/cache/cacheFile";
+import { FOREGROUND_STALE_MS, onAppStateChange } from "@/lib/foregroundRefresh";
 import { isExpoGo, isPhysicalDevice } from "@/lib/expoRuntime";
 import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
@@ -188,7 +189,7 @@ export async function unregisterRemotePushToken(
  * succeeds for this account and setting, later runs only re-check the OS
  * permission (local) until this long has passed; a failure retries next time.
  */
-const PUSH_RESYNC_INTERVAL_MS = 12 * 60 * 60_000;
+const PUSH_RESYNC_INTERVAL_MS = FOREGROUND_STALE_MS.pushRegistration;
 /**
  * The last sync that succeeded, on disk: in module memory it was lost with every
  * process, so each cold start asked Expo and our API again (code-health audit
@@ -272,12 +273,9 @@ export function attachPushForegroundSync(
   // actually stops (or starts) backend delivery, not just OS permission.
   sync();
 
-  const onChange = (state: AppStateStatus) => {
+  return onAppStateChange((state: AppStateStatus) => {
     if (state === "active") sync();
-  };
-
-  const sub = AppState.addEventListener("change", onChange);
-  return () => sub.remove();
+  });
 }
 
 type PushData = {

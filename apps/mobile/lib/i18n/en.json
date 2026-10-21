@@ -895,6 +895,7 @@
   "todos.error_toggle": "Could not update",
   "todos.group_anytime": "Anytime",
   "todos.group_completed": "Completed",
+  "todos.show_older_completed": "Show older completed",
   "todos.group_overdue": "Overdue",
   "todos.group_today": "Today",
   "todos.group_tomorrow": "Tomorrow",

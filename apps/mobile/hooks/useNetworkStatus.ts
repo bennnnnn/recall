@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import type { AppStateStatus } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 
+import { onAppStateChange } from "@/lib/foregroundRefresh";
 import { isNetworkOffline } from "@/lib/networkStatus";
 import {
   configureNetInfo,
@@ -73,6 +74,7 @@ export function useNetworkStatus(): {
     void NetInfo.fetch().then(onNetInfo);
     const unsubscribe = NetInfo.addEventListener(onNetInfo);
 
+    // Every return probes (FOREGROUND_STALE_MS.connectivity is 0).
     const onAppState = (next: AppStateStatus) => {
       setInBackground(next === "background");
       if (next === "active") {
@@ -80,12 +82,12 @@ export function useNetworkStatus(): {
         runProbe();
       }
     };
-    const appSub = AppState.addEventListener("change", onAppState);
+    const stopAppState = onAppStateChange(onAppState);
 
     return () => {
       probeGen.current += 1;
       unsubscribe();
-      appSub.remove();
+      stopAppState();
     };
   }, [probe]);
 

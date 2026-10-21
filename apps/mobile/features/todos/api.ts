@@ -1,19 +1,43 @@
-import { request } from "@/lib/api/client";
+import { request, requestRevalidated } from "@/lib/api/client";
 import type { Todo } from "@/lib/api/types";
 
 const TODO_PAGE_SIZE = 1000;
+/** Completed to-dos older than this stay on the server until asked for. */
+const RECENT_COMPLETED_DAYS = 30;
 
-type TodoPage = { items: Todo[]; next_cursor: string | null };
+type TodoPage = { items: Todo[]; next_cursor: string | null; older_completed?: boolean };
 
-async function listTodos(token: string, options?: { signal?: AbortSignal }): Promise<Todo[]> {
+/** The list, and whether older completed to-dos were left out of it. */
+export type TodoList = { todos: Todo[]; olderCompleted: boolean };
+
+/** The rows a confirmed reminder card wrote; `todos` is null when another tap saved it first. */
+type ReminderProposalSaved = { items: unknown[]; todos: Todo[] | null; deleted_ids: string[] };
+
+/**
+ * Open to-dos and those completed in the last 30 days, or every row with
+ * `allCompleted`. The whole list, completed rows of years ago included, was
+ * downloaded on every visit (code-health audit NET-16); each page is now also
+ * revalidated by its ETag, so an unchanged list costs a 304.
+ */
+async function listTodos(
+  token: string,
+  options?: { signal?: AbortSignal; allCompleted?: boolean },
+): Promise<TodoList> {
   const rows = new Map<string, Todo>();
   const visitedCursors = new Set<string>();
+  const window = options?.allCompleted ? "" : `&completed_days=${RECENT_COMPLETED_DAYS}`;
   let cursor: string | null = null;
+  let olderCompleted = false;
   for (;;) {
     const suffix: string = cursor === null ? "" : `&cursor=${encodeURIComponent(cursor)}`;
-    const page: TodoPage = await request<TodoPage>(`/todos/page?limit=${TODO_PAGE_SIZE}${suffix}`, token, options);
+    const page: TodoPage = await requestRevalidated<TodoPage>(
+      `/todos/page?limit=${TODO_PAGE_SIZE}${window}${suffix}`,
+      token,
+      { signal: options?.signal },
+    );
+    if (cursor === null) olderCompleted = page.older_completed === true;
     page.items.forEach((row) => rows.set(row.id, row));
-    if (page.next_cursor === null) return [...rows.values()];
+    if (page.next_cursor === null) return { todos: [...rows.values()], olderCompleted };
     if (visitedCursors.has(page.next_cursor)) throw new Error("Todo pagination did not advance");
     visitedCursors.add(page.next_cursor);
     cursor = page.next_cursor;
@@ -65,7 +89,7 @@ export const todosApi = {
     request<void>(`/todos/${id}`, token, { method: "DELETE" }),
   /** Save the reminder change a chat card offered. A second tap is a no-op. */
   confirmReminderProposal: (token: string, proposalId: string) =>
-    request<{ items: unknown[] }>(
+    request<ReminderProposalSaved>(
       `/todos/proposals/${encodeURIComponent(proposalId)}/confirm`,
       token,
       { method: "POST" },

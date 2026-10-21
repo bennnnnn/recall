@@ -840,6 +840,7 @@
   "todos.edit_todo": "Yapılacağı düzenle",
   "todos.group_anytime": "Her zaman",
   "todos.group_completed": "Tamamlanan",
+  "todos.show_older_completed": "Daha eski tamamlananları göster",
   "todos.group_overdue": "Gecikmiş",
   "todos.group_today": "Bugün",
   "todos.group_tomorrow": "Yarın",

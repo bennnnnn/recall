@@ -37,9 +37,13 @@ async def list_todos_page(
     *,
     limit: int = 1000,
     cursor: UUID | None = None,
+    completed_since: datetime | None = None,
 ) -> tuple[list[TodoItem], UUID | None]:
+    """A page of the user's to-dos; with ``completed_since``, older completed ones are left out."""
     user_id = user.id
-    selected = await todos_repo.list_after_id(session, user_id, limit=limit + 1, cursor=cursor)
+    selected = await todos_repo.list_after_id(
+        session, user_id, limit=limit + 1, cursor=cursor, completed_since=completed_since
+    )
     items = selected[:limit]
     page_ids = [item.id for item in items]
     # Preserve this boundary even when catch-up races a deletion of the last row.
@@ -49,6 +53,11 @@ async def list_todos_page(
     ):
         items = await todos_repo.list_by_ids(session, user_id, page_ids)
     return items, next_cursor
+
+
+async def has_older_completed(session: AsyncSession, user: User, since: datetime) -> bool:
+    """The user has completed to-dos last changed before ``since`` (a page left them out)."""
+    return await todos_repo.has_completed_before(session, user.id, since)
 
 
 async def create_todo(

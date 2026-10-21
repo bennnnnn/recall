@@ -599,6 +599,30 @@ def test_list_chats():
     }
 
 
+def test_list_chats_answers_an_unchanged_list_with_304():
+    """NET-16: the phone sends back the list's ETag and gets no body when nothing changed."""
+    user = _fake_user()
+    app = _app_with_user(user)
+    groups = {"today": [], "yesterday": [], "last_7_days": [], "this_month": [], "older": []}
+    with (
+        patch("app.modules.chat.service.chats_repo.list_for_user", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.chat.service.chats_repo.list_archived_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch("app.modules.chat.service.chats_repo.group_by_recency", return_value=groups),
+    ):
+        client = TestClient(app)
+        first = client.get("/chats", headers={"Authorization": "Bearer tok"})
+        again = client.get(
+            "/chats",
+            headers={"Authorization": "Bearer tok", "If-None-Match": first.headers["etag"]},
+        )
+    assert first.status_code == 200
+    assert again.status_code == 304
+    assert again.content == b""
+
+
 def test_list_chats_never_overlaps_ops_on_one_session():
     """The active + archived queries run concurrently, and an AsyncSession can
     only run one operation at a time (asyncpg raises InterfaceError on
@@ -710,10 +734,14 @@ def test_list_messages_enqueues_topic_backfill():
     ):
         client = TestClient(app)
         r = client.get(f"/chats/{chat_id}/messages", headers={"Authorization": "Bearer tok"})
-        r2 = client.get(f"/chats/{chat_id}/messages", headers={"Authorization": "Bearer tok"})
+        r2 = client.get(
+            f"/chats/{chat_id}/messages",
+            headers={"Authorization": "Bearer tok", "If-None-Match": r.headers["etag"]},
+        )
 
     assert r.status_code == 200
-    assert r2.status_code == 200
+    # The same page again: no body (NET-16).
+    assert r2.status_code == 304
     enqueue_job.assert_awaited_once()
     assert enqueue_job.call_args.args[1] == "topic"
     payload = enqueue_job.call_args.args[2]

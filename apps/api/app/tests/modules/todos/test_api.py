@@ -259,4 +259,58 @@ async def test_page_route_rejects_invalid_cursor_and_unbounded_limits(
 async def test_empty_page_has_no_cursor(page_client):
     response = await page_client.get("/todos/page")
     assert response.status_code == 200
-    assert response.json() == {"items": [], "next_cursor": None}
+    assert response.json() == {"items": [], "next_cursor": None, "older_completed": False}
+
+
+@pytest.mark.asyncio
+async def test_page_leaves_out_older_completed_rows_and_says_they_exist(page_sql, page_client):
+    """NET-16: the list is open rows plus the last days' completed ones."""
+    sync_session, _, user = page_sql
+    now = datetime.now(UTC)
+    open_row, recent, old = _seed(sync_session, user.id, count=3)
+    recent.checked = True
+    recent.updated_at = now - timedelta(days=2)
+    old.checked = True
+    old.updated_at = now - timedelta(days=90)
+    sync_session.commit()
+
+    response = await page_client.get("/todos/page", params={"completed_days": 30})
+    assert response.status_code == 200
+    body = response.json()
+    assert {item["id"] for item in body["items"]} == {str(open_row.id), str(recent.id)}
+    assert body["older_completed"] is True
+
+    everything = (await page_client.get("/todos/page")).json()
+    assert len(everything["items"]) == 3
+    assert everything["older_completed"] is False
+
+
+@pytest.mark.asyncio
+async def test_page_has_no_older_completed_when_none_exist(page_sql, page_client):
+    sync_session, _, user = page_sql
+    _seed(sync_session, user.id, count=2)
+    body = (await page_client.get("/todos/page", params={"completed_days": 30})).json()
+    assert body["older_completed"] is False
+
+
+@pytest.mark.asyncio
+async def test_page_answers_an_unchanged_list_with_304(page_sql, page_client):
+    sync_session, _, user = page_sql
+    rows = _seed(sync_session, user.id, count=2)
+    first = await page_client.get("/todos/page", params={"completed_days": 30})
+    etag = first.headers["etag"]
+    assert etag.startswith('W/"')
+
+    again = await page_client.get(
+        "/todos/page", params={"completed_days": 30}, headers={"If-None-Match": etag}
+    )
+    assert again.status_code == 304
+    assert again.content == b""
+
+    rows[0].content = "Changed"
+    sync_session.commit()
+    changed = await page_client.get(
+        "/todos/page", params={"completed_days": 30}, headers={"If-None-Match": etag}
+    )
+    assert changed.status_code == 200
+    assert changed.headers["etag"] != etag

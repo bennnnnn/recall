@@ -840,6 +840,7 @@
   "todos.edit_todo": "Modifier la tâche",
   "todos.group_anytime": "À tout moment",
   "todos.group_completed": "Terminées",
+  "todos.show_older_completed": "Afficher les terminées plus anciennes",
   "todos.group_overdue": "En retard",
   "todos.group_today": "Aujourd’hui",
   "todos.group_tomorrow": "Demain",

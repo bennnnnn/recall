@@ -840,6 +840,7 @@
   "todos.edit_todo": "Editar tarea",
   "todos.group_anytime": "En cualquier momento",
   "todos.group_completed": "Completadas",
+  "todos.show_older_completed": "Mostrar completadas anteriores",
   "todos.group_overdue": "Vencidas",
   "todos.group_today": "Hoy",
   "todos.group_tomorrow": "Mañana",

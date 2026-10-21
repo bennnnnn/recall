@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState } from "react-native";
 import { useFocusEffect } from "expo-router";
 
 import { useAccountSession } from "@/contexts/accountSession";
@@ -10,6 +9,7 @@ import {
   getCachedUsage,
   invalidateUsageCache,
 } from "@/lib/cache/usageCache";
+import { useOnForeground } from "@/lib/foregroundRefresh";
 
 type UsageState = {
   account: string | null;
@@ -78,15 +78,10 @@ export function useUsage() {
   );
 
   useEffect(() => {
-    if (!account) {
-      invalidateUsageCache();
-      return;
-    }
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") void refresh();
-    });
-    return () => subscription.remove();
-  }, [refresh, account]);
+    if (!account) invalidateUsageCache();
+  }, [account]);
+  // The usage cache reads again past FOREGROUND_STALE_MS.usage.
+  useOnForeground(() => void refresh(), Boolean(account));
 
   const isCurrentState = state.account === account && state.generation === generation;
   return {

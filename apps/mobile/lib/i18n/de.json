@@ -840,6 +840,7 @@
   "todos.edit_todo": "Aufgabe bearbeiten",
   "todos.group_anytime": "Jederzeit",
   "todos.group_completed": "Erledigt",
+  "todos.show_older_completed": "Ältere erledigte anzeigen",
   "todos.group_overdue": "Überfällig",
   "todos.group_today": "Heute",
   "todos.group_tomorrow": "Morgen",

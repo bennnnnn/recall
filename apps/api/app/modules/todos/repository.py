@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -75,13 +75,33 @@ async def list_after_id(
     *,
     limit: int,
     cursor: UUID | None = None,
+    completed_since: datetime | None = None,
 ) -> list[TodoItem]:
-    """Traverse immutable IDs so edits cannot move rows across page boundaries."""
+    """Traverse immutable IDs so edits cannot move rows across page boundaries.
+
+    With ``completed_since``, completed rows last changed before it are left out.
+    """
     statement = select(TodoItem).where(TodoItem.user_id == user_id)
+    if completed_since is not None:
+        statement = statement.where(
+            or_(TodoItem.checked.is_(False), TodoItem.updated_at >= completed_since)
+        )
     if cursor is not None:
         statement = statement.where(TodoItem.id > cursor)
     result = await session.execute(statement.order_by(TodoItem.id.asc()).limit(limit))
     return list(result.scalars().all())
+
+
+async def has_completed_before(session: AsyncSession, user_id: UUID, before: datetime) -> bool:
+    """The user has a completed row last changed before ``before``."""
+    statement = select(
+        exists().where(
+            TodoItem.user_id == user_id,
+            TodoItem.checked.is_(True),
+            TodoItem.updated_at < before,
+        )
+    )
+    return bool((await session.execute(statement)).scalar())
 
 
 async def list_by_ids(session: AsyncSession, user_id: UUID, ids: list[UUID]) -> list[TodoItem]:

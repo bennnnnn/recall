@@ -49,6 +49,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     markSeenIds,
     getTodos,
     isCurrentSession,
+    olderCompleted,
+    showOlderCompleted,
   } = useTodos();
   const [editorOpen, setEditorOpen] = useState(false);
   const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -276,6 +278,9 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         selecting={selecting}
         selectedIds={selected}
         onSelect={toggleSelected}
+        onShowOlder={olderCompleted && !selecting && (view === "all" || view === "completed")
+          ? () => void showOlderCompleted()
+          : undefined}
       />
       )}
 

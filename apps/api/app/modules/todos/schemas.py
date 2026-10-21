@@ -36,6 +36,8 @@ class TodoOut(BaseModel):
 class TodoPageOut(BaseModel):
     items: list[TodoOut]
     next_cursor: UUID | None
+    # Asked for recent completed rows only: the first page says whether older ones exist.
+    older_completed: bool = False
 
 
 class TodoCreate(BaseModel):

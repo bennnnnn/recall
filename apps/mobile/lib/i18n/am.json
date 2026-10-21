@@ -840,6 +840,7 @@
   "todos.edit_todo": "የሚደረግ አርትዕ",
   "todos.group_anytime": "ቀን የሌለው",
   "todos.group_completed": "የተጠናቀቁ",
+  "todos.show_older_completed": "የቆዩ የተጠናቀቁትን አሳይ",
   "todos.group_overdue": "ያለፉ",
   "todos.group_today": "ዛሬ",
   "todos.group_tomorrow": "ነገ",

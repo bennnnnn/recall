@@ -230,3 +230,12 @@ it("does not save a replaced reminder edit through a retained save callback", as
   expect(mockApi.updateTodo).not.toHaveBeenCalled();
   expect(actions.editingTodo?.id).toBe(B.id);
 });
+
+it("applies a change that worked as returned, without reading the list again (NET-16)", async () => {
+  mockApi.updateTodo.mockResolvedValueOnce({ ...A, checked: true });
+  await render(<Probe />);
+  await act(async () => { await actions.handleToggle(A); });
+  expect(mockApi.updateTodo).toHaveBeenCalledTimes(1);
+  expect(rows).toEqual([{ ...A, checked: true }, B]);
+  expect(refresh).not.toHaveBeenCalled();
+});

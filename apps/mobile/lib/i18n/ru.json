@@ -840,6 +840,7 @@
   "todos.edit_todo": "Изменить задачу",
   "todos.group_anytime": "Без даты",
   "todos.group_completed": "Выполнено",
+  "todos.show_older_completed": "Показать более ранние выполненные",
   "todos.group_overdue": "Просрочено",
   "todos.group_today": "Сегодня",
   "todos.group_tomorrow": "Завтра",

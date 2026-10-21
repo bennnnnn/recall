@@ -1,4 +1,4 @@
-import { request } from "@/lib/api/client";
+import { request, requestRevalidated } from "@/lib/api/client";
 import { shareEmptyChatCheck } from "@/features/chat/model/draftLogic";
 import type {
   Chat,
@@ -24,10 +24,11 @@ async function listMessages(
   if (opts?.limit != null) params.set("limit", String(opts.limit));
   if (opts?.before) params.set("before", opts.before);
   const qs = params.toString();
-  const data = await request<MessagePage | Message[]>(
-    `/chats/${chatId}/messages${qs ? `?${qs}` : ""}`,
-    token,
-  );
+  const path = `/chats/${chatId}/messages${qs ? `?${qs}` : ""}`;
+  // The newest page is read again on every visit; an older one, seldom.
+  const data = opts?.before
+    ? await request<MessagePage | Message[]>(path, token)
+    : await requestRevalidated<MessagePage | Message[]>(path, token);
   return normalizeMessagePage(data);
 }
 
@@ -65,7 +66,7 @@ export const chatsApi = {
     shareEmptyChatCheck(chatId, () =>
       request<void>(`/chats/${chatId}?if_empty=true`, token, { method: "DELETE" }),
     ),
-  listChats: (token: string) => request<ChatList>("/chats", token),
+  listChats: (token: string) => requestRevalidated<ChatList>("/chats", token),
   listMessages,
   listAllMessages: async (token: string, chatId: string): Promise<Message[]> => {
     const batch = 100;

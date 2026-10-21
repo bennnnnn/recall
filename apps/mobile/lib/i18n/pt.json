@@ -840,6 +840,7 @@
   "todos.edit_todo": "Editar tarefa",
   "todos.group_anytime": "A qualquer momento",
   "todos.group_completed": "Concluídas",
+  "todos.show_older_completed": "Mostrar concluídas mais antigas",
   "todos.group_overdue": "Atrasadas",
   "todos.group_today": "Hoje",
   "todos.group_tomorrow": "Amanhã",

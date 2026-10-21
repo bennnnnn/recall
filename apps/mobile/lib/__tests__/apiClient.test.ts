@@ -7,6 +7,7 @@ import {
   logoutSession,
   request,
   requestRaw,
+  requestRevalidated,
   requestSse,
   setTokenRefreshHandler,
   setUnauthorizedHandler,
@@ -621,5 +622,43 @@ describe("deadlines past the headers (NET-17)", () => {
     await jest.advanceTimersByTimeAsync(0);
     caller.abort();
     await expect(outcome).resolves.toMatchObject({ name: "AbortError" });
+  });
+});
+
+
+describe("revalidated reads (NET-16)", () => {
+  const withEtag = (body: unknown, etag: string) => ({
+    ok: true, status: 200, headers: { get: (name: string) => (name === "etag" ? etag : null) },
+    json: async () => body,
+  });
+
+  it("sends the kept ETag back and answers a 304 with the kept body", async () => {
+    mockFetch
+      .mockResolvedValueOnce(withEtag({ items: [1] }, 'W/"one"'))
+      .mockResolvedValueOnce({ ok: false, status: 304, headers: { get: () => 'W/"one"' } });
+    await expect(requestRevalidated("/todos/page?x=1", "access")).resolves.toEqual({ items: [1] });
+    await expect(requestRevalidated("/todos/page?x=1", "access")).resolves.toEqual({ items: [1] });
+    expect(mockFetch.mock.calls[0][1].headers["If-None-Match"]).toBeUndefined();
+    expect(mockFetch.mock.calls[1][1].headers["If-None-Match"]).toBe('W/"one"');
+  });
+
+  it("keeps the new body when the list changed", async () => {
+    mockFetch
+      .mockResolvedValueOnce(withEtag({ items: [1] }, 'W/"one"'))
+      .mockResolvedValueOnce(withEtag({ items: [2] }, 'W/"two"'))
+      .mockResolvedValueOnce({ ok: false, status: 304, headers: { get: () => 'W/"two"' } });
+    await requestRevalidated("/chats", "access");
+    await expect(requestRevalidated("/chats", "access")).resolves.toEqual({ items: [2] });
+    await expect(requestRevalidated("/chats", "access")).resolves.toEqual({ items: [2] });
+    expect(mockFetch.mock.calls[2][1].headers["If-None-Match"]).toBe('W/"two"');
+  });
+
+  it("never offers another sign-in's body", async () => {
+    mockFetch.mockResolvedValueOnce(withEtag({ items: ["a"] }, 'W/"a"'));
+    await requestRevalidated("/chats?who", "access");
+    mockSessionGeneration += 1;
+    mockFetch.mockResolvedValueOnce(withEtag({ items: ["b"] }, 'W/"b"'));
+    await expect(requestRevalidated("/chats?who", "access")).resolves.toEqual({ items: ["b"] });
+    expect(mockFetch.mock.calls[1][1].headers["If-None-Match"]).toBeUndefined();
   });
 });
