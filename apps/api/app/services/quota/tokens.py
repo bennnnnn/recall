@@ -130,39 +130,45 @@ async def heal_usage_drift(
         raise
 
 
-async def reserve_usage(
+async def reserve_usage_up_to(
     redis: Redis,
     user_id: str,
-    requested: int,
+    wanted: int,
     *,
     daily_limit: int,
-) -> bool:
-    """Atomically reserve tokens before generation. Refunds if over limit.
+) -> int:
+    """Take ``wanted`` of today's tokens, or all that is left; 0 when none is.
 
-    Redis outages fail closed (``RedisUnavailableError``) — never skip the
+    One INCRBY takes the whole estimate and returns the new total, so a turn
+    below the limit costs one round trip (the TTL is set in the same
+    transaction). Past the limit the excess goes back with one DECRBY. The
+    increment is atomic, so concurrent turns in different chats each see the
+    others' share and split what is left instead of each taking it.
+
+    Redis outages fail closed (``RedisUnavailableError``): never skip the
     reserve and allow unbounded generation.
     """
-    if requested <= 0:
-        return True
+    if wanted <= 0 or daily_limit <= 0:
+        return 0
     key = _usage_key(user_id, utc_today())
     try:
-        new_total = await redis.incrby(key, requested)
-        if new_total == requested:
-            await redis.expire(key, DAILY_TTL)
-        if new_total > daily_limit:
-            # Roll back the over-limit reservation. If this incrby fails
-            # (Redis blip after the first succeeded), the user would be
-            # permanently charged for a turn that was rejected — retry once
-            # so the charge doesn't stick.
-            try:
-                await redis.incrby(key, -requested)
-            except RedisError:
-                logger.warning(
-                    "Quota over-limit rollback failed; retrying user_id=%s", user_id, exc_info=True
-                )
-                await redis.incrby(key, -requested)
-            return False
-        return True
+        async with redis.pipeline(transaction=True) as pipe:
+            pipe.incrby(key, wanted)
+            pipe.expire(key, DAILY_TTL, nx=True)
+            new_total, _ = await pipe.execute()
+        excess = min(wanted, int(new_total) - daily_limit)
+        if excess <= 0:
+            return wanted
+        try:
+            await redis.decrby(key, excess)
+        except RedisError:
+            # A give-back that fails would charge the user for tokens this
+            # turn never holds: retry once so the charge doesn't stick.
+            logger.warning(
+                "Quota over-limit give-back failed; retrying user_id=%s", user_id, exc_info=True
+            )
+            await redis.decrby(key, excess)
+        return wanted - excess
     except RedisError as exc:
         logger.warning("Quota reserve failed; Redis unavailable user_id=%s", user_id, exc_info=True)
         raise RedisUnavailableError() from exc
@@ -206,7 +212,7 @@ async def record_usage(
     # estimate can push the daily counter past the limit. Clip at daily_limit
     # so one turn can't blow the cap (the over-limit tokens are forfeit —
     # they were genuinely used, but the counter must not exceed the limit
-    # or subsequent reserve_usage checks under-report remaining quota).
+    # or subsequent reserve_usage_up_to calls under-report remaining quota).
     if daily_limit is not None and new_total > daily_limit:
         await redis.set(key, daily_limit, ex=DAILY_TTL)
         new_total = daily_limit

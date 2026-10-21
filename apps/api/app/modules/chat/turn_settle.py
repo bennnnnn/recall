@@ -227,7 +227,7 @@ async def _settle_quota(
 
     The overshoot is capped at the user's daily limit so one turn's actual >
     reserved delta can't push the counter past the cap (which would make later
-    reserve_usage checks under-report remaining quota). A failure here must not
+    reserve_usage_up_to calls under-report remaining quota). A failure here must not
     refund the whole reservation: the reply already persisted.
     """
     daily_limit = (

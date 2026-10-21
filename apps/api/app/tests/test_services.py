@@ -848,19 +848,18 @@ async def test_topic_generate_chat_title_releases_db_before_llm():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("used", [100, 101], ids=["at-limit", "over-limit"])
-async def test_stream_chat_response_quota_exceeded(used: int) -> None:
+async def test_stream_chat_response_quota_exceeded(fake_redis, used: int) -> None:
     from app.exceptions import QuotaExceededError
     from app.modules import chat as chat_service
+    from app.services import quota as quota_service
 
     user_id = uuid4()
-    redis = AsyncMock()
+    await fake_redis.set(f"usage:{user_id}:{quota_service.utc_today().isoformat()}", used)
     settings = Settings(daily_token_limit=100)
     fake_user = MagicMock(
         id=user_id, plan="free", response_style="balanced", default_model="free-chat"
     )
-    usage = AsyncMock(return_value=used)
-    # Soft quota reads actual usage; mocking reserve_usage no longer rejects
-    # the turn. Fail immediately if the guard lets message persistence begin.
+    # Fail immediately if the guard lets message persistence begin.
     prepare = AsyncMock(side_effect=AssertionError("Over-limit turn reached preparation"))
     deps = turn_deps(
         session_factory=lambda: _FakeSessionCM(),
@@ -870,15 +869,12 @@ async def test_stream_chat_response_quota_exceeded(used: int) -> None:
     with (
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch("app.services.quota.has_daily_usage_key", AsyncMock(return_value=True)),
-        patch("app.services.quota.get_daily_usage", usage),
-        patch("app.services.quota.reserve_usage", AsyncMock()) as reserve,
         patch("app.modules.chat.stream_entry.prepare_chat_turn", prepare),
     ):
         with pytest.raises(QuotaExceededError):
             async for _t in chat_service.stream_chat_response(
                 deps,
-                redis,
+                fake_redis,
                 settings,
                 user_id=user_id,
                 chat_id=uuid4(),
@@ -886,8 +882,8 @@ async def test_stream_chat_response_quota_exceeded(used: int) -> None:
             ):
                 pass
 
-    usage.assert_awaited_once_with(redis, str(user_id))
-    reserve.assert_not_awaited()
+    # Refused without a charge: the counter is where it was.
+    assert await quota_service.get_daily_usage(fake_redis, str(user_id)) == used
     prepare.assert_not_awaited()
 
 

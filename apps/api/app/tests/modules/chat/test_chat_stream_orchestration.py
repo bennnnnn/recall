@@ -12,6 +12,7 @@ from app.tests.modules.chat.chat_test_support import (
     FakeSessionCM as _FakeSessionCM,
 )
 from app.tests.modules.chat.chat_test_support import (
+    grant_quota,
     offline_deps,
     stub_recent,
     turn_deps,
@@ -53,7 +54,7 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
@@ -102,7 +103,7 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.repositories.messages.list_recent", AsyncMock(return_value=stub_recent(3))),
@@ -171,7 +172,7 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
@@ -228,7 +229,7 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.repositories.messages.list_recent", AsyncMock(return_value=stub_recent(2))),
@@ -288,7 +289,7 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
@@ -348,7 +349,7 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
@@ -419,7 +420,7 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
         return cancel_after["n"] > 1  # let the first token through, then cancel
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
@@ -1741,7 +1742,7 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
         return cancel_after["n"] > 1
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
@@ -1795,7 +1796,7 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
     augment = AsyncMock(return_value=(None, []))
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
@@ -1851,7 +1852,7 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
         yield "answer"
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.users.update", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
@@ -1908,7 +1909,7 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
     finalize = AsyncMock()
 
     with ExitStack() as stack:
-        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(patch("app.services.quota.reserve_usage_up_to", grant_quota()))
         stack.enter_context(
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
@@ -1992,7 +1993,7 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
@@ -2124,7 +2125,7 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
         )
-        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(patch("app.services.quota.reserve_usage_up_to", grant_quota()))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
@@ -2247,7 +2248,7 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
                 side_effect=track_build,
             )
         )
-        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(patch("app.services.quota.reserve_usage_up_to", grant_quota()))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
@@ -2372,7 +2373,7 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
         )
-        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(patch("app.services.quota.reserve_usage_up_to", grant_quota()))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(

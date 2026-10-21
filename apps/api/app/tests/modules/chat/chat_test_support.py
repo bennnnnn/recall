@@ -37,6 +37,11 @@ class Overlay:
         return getattr(self._base, name)
 
 
+def grant_quota() -> AsyncMock:
+    """A ``reserve_usage_up_to`` with room for every turn: it takes all it is asked for."""
+    return AsyncMock(side_effect=lambda _redis, _user_id, wanted, **_kwargs: wanted)
+
+
 def turn_deps(**fields: Any) -> ChatTurnDeps:
     """``default_deps()`` with fields swapped for fakes.
 

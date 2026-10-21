@@ -67,23 +67,100 @@ def test_per_plan_daily_caps(plan, tokens, stt, tts, images):
 
 
 @pytest.mark.parametrize(
-    "used, requested, allowed",
+    "used, requested, reserved",
     [
-        (0, 1000, True),
-        (99_000, 2000, False),
-        (100_000, 1, False),
+        (0, 1000, 1000),
+        (99_000, 2000, 1000),  # what is left
+        (100_000, 1, 0),
+        (100_500, 1000, 0),  # over (the limit fell with a downgrade): nothing, no charge
     ],
 )
 @pytest.mark.asyncio
-async def test_quota_enforced(fake_redis, settings, used, requested, allowed):
-    from datetime import UTC, datetime
-
-    day = datetime.now(UTC).date().isoformat()
+async def test_quota_enforced(fake_redis, settings, used, requested, reserved):
+    key = _usage_key("u1", quota_service.utc_today())
     if used:
-        await fake_redis.set(f"usage:u1:{day}", used)
+        await fake_redis.set(key, used)
     limit = quota_service.daily_limit_for_user(_free_user(), settings)
-    result = await quota_service.reserve_usage(fake_redis, "u1", requested, daily_limit=limit)
-    assert result is allowed
+    result = await quota_service.reserve_usage_up_to(fake_redis, "u1", requested, daily_limit=limit)
+    assert result == reserved
+    assert int(await fake_redis.get(key) or 0) == used + reserved
+
+
+def _sent(redis) -> list[str]:
+    """Each round trip ``redis`` makes from here on: a command, or a pipeline of them."""
+    trips: list[str] = []
+    execute = redis.execute_command
+    pipeline = redis.pipeline
+
+    async def command(*args, **kwargs):
+        trips.append(str(args[0]).upper())
+        return await execute(*args, **kwargs)
+
+    def counted_pipeline(*args, **kwargs):
+        pipe = pipeline(*args, **kwargs)
+        run = pipe.execute
+
+        async def execute_pipe(*a, **k):
+            trips.append("PIPELINE[" + ",".join(str(c[0][0]) for c in pipe.command_stack) + "]")
+            return await run(*a, **k)
+
+        pipe.execute = execute_pipe
+        return pipe
+
+    redis.execute_command = command
+    redis.pipeline = counted_pipeline
+    return trips
+
+
+@pytest.mark.parametrize(
+    "used, trips",
+    [
+        (0, ["PIPELINE[INCRBY,EXPIRE]"]),
+        (99_000, ["PIPELINE[INCRBY,EXPIRE]"]),
+        (99_500, ["PIPELINE[INCRBY,EXPIRE]", "DECRBY"]),  # gives the excess back
+    ],
+)
+@pytest.mark.asyncio
+async def test_reserve_usage_up_to_checks_and_takes_in_one_round_trip_below_the_limit(
+    fake_redis, used, trips
+):
+    if used:
+        await fake_redis.set(_usage_key("u1", quota_service.utc_today()), used)
+    sent = _sent(fake_redis)
+
+    await quota_service.reserve_usage_up_to(fake_redis, "u1", 1000, daily_limit=100_000)
+
+    assert sent == trips
+
+
+@pytest.mark.asyncio
+async def test_reserve_usage_up_to_sets_the_ttl_once_and_keeps_it(fake_redis):
+    key = _usage_key("u1", quota_service.utc_today())
+    assert await quota_service.reserve_usage_up_to(fake_redis, "u1", 10, daily_limit=100) == 10
+    assert 0 < await fake_redis.ttl(key) <= counters.DAILY_TTL
+
+    await fake_redis.expire(key, 60)
+    assert await quota_service.reserve_usage_up_to(fake_redis, "u1", 10, daily_limit=100) == 10
+    assert await fake_redis.ttl(key) <= 60
+
+
+@pytest.mark.parametrize("turns", [2, 30])
+@pytest.mark.asyncio
+async def test_reserve_usage_up_to_concurrent_turns_split_what_is_left(fake_redis, turns):
+    import asyncio
+
+    key = _usage_key("u1", quota_service.utc_today())
+    await fake_redis.set(key, 9_000)
+
+    taken = await asyncio.gather(
+        *(
+            quota_service.reserve_usage_up_to(fake_redis, "u1", 700, daily_limit=10_000)
+            for _ in range(turns)
+        )
+    )
+
+    assert sum(taken) == min(1_000, 700 * turns)
+    assert int(await fake_redis.get(key)) == 9_000 + sum(taken)
 
 
 @pytest.mark.asyncio
@@ -97,7 +174,7 @@ async def test_record_usage_increments(fake_redis):
 @pytest.mark.asyncio
 async def test_record_usage_caps_overshoot_at_daily_limit(fake_redis):
     """A turn whose actual > reserved delta must not push the daily counter
-    past the limit — otherwise subsequent reserve_usage checks under-report
+    past the limit — otherwise subsequent reserve_usage_up_to calls under-report
     remaining quota and the user keeps getting turns past the cap."""
     await fake_redis.set(_usage_key("u1", quota_service.utc_today()), 99_500)
     total = await quota_tokens.record_usage(fake_redis, "u1", 2000, daily_limit=100_000)
@@ -125,23 +202,13 @@ async def test_record_usage_without_limit_does_not_cap(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_reserve_usage_rejects_over_limit(fake_redis, settings):
-    from datetime import UTC, datetime
-
-    day = datetime.now(UTC).date().isoformat()
-    await fake_redis.set(f"usage:u1:{day}", 99_500)
-    limit = quota_service.daily_limit_for_user(_free_user(), settings)
-
-    allowed = await quota_service.reserve_usage(fake_redis, "u1", 1000, daily_limit=limit)
-    assert allowed is False
-    assert int(await fake_redis.get(f"usage:u1:{day}")) == 99_500
-
-
-@pytest.mark.asyncio
 async def test_reserve_and_adjust(fake_redis, settings):
     limit = quota_service.daily_limit_for_user(_free_user(), settings)
     reserved = 1000
-    assert await quota_service.reserve_usage(fake_redis, "u1", reserved, daily_limit=limit) is True
+    assert (
+        await quota_service.reserve_usage_up_to(fake_redis, "u1", reserved, daily_limit=limit)
+        == reserved
+    )
     await quota_service.adjust_usage(fake_redis, "u1", reserved, 700)
     assert await quota_service.get_daily_usage(fake_redis, "u1") == 700
 
@@ -664,7 +731,7 @@ async def test_global_spend_redis_error_fails_closed():
     settings = Settings(daily_global_spend_usd=10.0)
 
     class _Boom:
-        async def get(self, _key: str) -> None:
+        async def mget(self, _keys: list[str]) -> None:
             from redis.exceptions import RedisError
 
             raise RedisError("down")
@@ -685,15 +752,21 @@ async def test_record_voice_spend_counts_toward_global_cap(fake_redis):
 
 def _down_redis():
     redis = AsyncMock()
-    for name in ("get", "set", "exists", "delete", "incrby", "expire", "eval"):
+    for name in ("get", "set", "exists", "delete", "incrby", "decrby", "expire", "eval"):
         getattr(redis, name).side_effect = RedisConnectionError("down")
+    pipe = MagicMock()
+    pipe.execute = AsyncMock(side_effect=RedisConnectionError("down"))
+    transaction = MagicMock()
+    transaction.__aenter__.return_value = pipe
+    redis.pipeline = MagicMock(return_value=transaction)
     return redis
 
 
 @pytest.mark.parametrize(
     "call, expected",
     [
-        (lambda r: quota_service.reserve_usage(r, "u1", 0, daily_limit=10), True),
+        (lambda r: quota_service.reserve_usage_up_to(r, "u1", 0, daily_limit=10), 0),
+        (lambda r: quota_service.reserve_usage_up_to(r, "u1", 10, daily_limit=0), 0),
         (lambda r: quota_service.refund_usage(r, "u1", 0), None),
         (lambda r: quota_service.heal_usage_drift(r, "u1", 0), None),
         (lambda r: quota_service.release_live_talk_seconds(r, uuid4(), seconds=0), None),
@@ -723,7 +796,7 @@ async def test_bookkeeping_survives_a_redis_outage(call, expected):
 @pytest.mark.parametrize(
     "call",
     [
-        lambda r: quota_service.reserve_usage(r, "u1", 10, daily_limit=100),
+        lambda r: quota_service.reserve_usage_up_to(r, "u1", 10, daily_limit=100),
         lambda r: quota_service.reserve_live_talk_seconds(
             r, uuid4(), allowance_seconds=600, max_session_seconds=60, min_session_seconds=1
         ),
@@ -741,29 +814,31 @@ async def test_heal_usage_drift_reraises_a_redis_outage():
         await quota_service.heal_usage_drift(_down_redis(), "u1", 500)
 
 
-@pytest.mark.parametrize("failed_rollbacks, refused", [(1, True), (2, False)])
+@pytest.mark.parametrize("failed_give_backs, gave_back", [(1, True), (2, False)])
 @pytest.mark.asyncio
-async def test_reserve_usage_retries_a_failed_over_limit_rollback(
-    fake_redis, failed_rollbacks, refused
+async def test_reserve_usage_up_to_retries_a_failed_give_back(
+    fake_redis, failed_give_backs, gave_back
 ):
     key = _usage_key("u1", quota_service.utc_today())
     await fake_redis.set(key, 950)
-    incrby = fake_redis.incrby
-    left = [failed_rollbacks]
+    decrby = fake_redis.decrby
+    left = [failed_give_backs]
 
     async def flaky(name, amount):
-        if amount < 0 and left[0]:
+        if left[0]:
             left[0] -= 1
             raise RedisConnectionError("blip")
-        return await incrby(name, amount)
+        return await decrby(name, amount)
 
-    fake_redis.incrby = flaky
-    if refused:
-        assert await quota_service.reserve_usage(fake_redis, "u1", 100, daily_limit=1000) is False
-        assert await fake_redis.get(key) == "950"
+    fake_redis.decrby = flaky
+    if gave_back:
+        assert (
+            await quota_service.reserve_usage_up_to(fake_redis, "u1", 100, daily_limit=1000) == 50
+        )
+        assert await fake_redis.get(key) == "1000"
     else:
         with pytest.raises(RedisUnavailableError):
-            await quota_service.reserve_usage(fake_redis, "u1", 100, daily_limit=1000)
+            await quota_service.reserve_usage_up_to(fake_redis, "u1", 100, daily_limit=1000)
         assert await fake_redis.get(key) == "1050"
 
 
