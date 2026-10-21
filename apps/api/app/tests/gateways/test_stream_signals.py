@@ -24,11 +24,19 @@ def chunk(content: str | None = None, reasoning: str | None = None) -> SimpleNam
 
 
 class FakeStream:
-    """A provider stream: each chunk after its delay, then it waits for ``finish``."""
+    """A provider stream: each chunk after its delay, then it waits for ``finish``
+    (or fails, when given an ``error``)."""
 
-    def __init__(self, chunks: list[SimpleNamespace], *, delay: float = 0.0) -> None:
+    def __init__(
+        self,
+        chunks: list[SimpleNamespace],
+        *,
+        delay: float = 0.0,
+        error: Exception | None = None,
+    ) -> None:
         self._chunks = list(chunks)
         self._delay = delay
+        self._error = error
         self.finish = asyncio.Event()
 
     def __aiter__(self) -> FakeStream:
@@ -36,6 +44,8 @@ class FakeStream:
 
     async def __anext__(self) -> SimpleNamespace:
         if not self._chunks:
+            if self._error is not None:
+                raise self._error
             await self.finish.wait()
             raise StopAsyncIteration
         if self._delay:
@@ -278,3 +288,56 @@ async def test_the_last_model_in_the_chain_is_not_capped() -> None:
     provider.finish.set()
     reply = await _reply("qwen-3.7-flash", [], _chain(provider), _fast_caps())
     assert reply == "qwen-3.7-flash: Late, but here."
+
+
+# ── what each model tried did ──────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_each_model_tried_is_recorded_with_its_outcome() -> None:
+    from app.gateways.stream_signals import StreamAttempt
+
+    attempts: list[StreamAttempt] = []
+    fake = _chain(FakeStream([]), _ready(chunk(content="Hello there, friend.")))
+    with patch.object(litellm_gateway, "acompletion", fake):
+        tokens = [
+            token
+            async for token in litellm_gateway.stream_chat_completion(
+                settings=_fast_caps(),
+                model_alias="qwen-3.7-flash",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=50,
+                fallback_aliases=["free-chat"],
+                thinking="off",
+                attempts=attempts,
+            )
+        ]
+    assert "".join(tokens) == "Hello there, friend."
+    assert [(a.alias, a.failed) for a in attempts] == [
+        ("qwen-3.7-flash", True),
+        ("free-chat", False),
+    ]
+    # The silent model never started; the one that answered did, quickly.
+    assert attempts[0].first_delta_ms is None
+    assert attempts[1].first_delta_ms is not None and attempts[1].first_delta_ms < 1000
+
+
+@pytest.mark.asyncio
+async def test_a_reply_that_fails_partway_is_recorded_as_failed() -> None:
+    from app.gateways.stream_signals import StreamAttempt
+
+    attempts: list[StreamAttempt] = []
+    broken = FakeStream([chunk(content="The first half of it")], error=RuntimeError("reset"))
+    with patch.object(litellm_gateway, "acompletion", _chain(broken)):
+        with pytest.raises(litellm_gateway.ModelUnavailableError):
+            async for _ in litellm_gateway.stream_chat_completion(
+                settings=_fast_caps(),
+                model_alias="qwen-3.7-flash",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=50,
+                fallback_aliases=["free-chat"],
+                thinking="off",
+                attempts=attempts,
+            ):
+                pass
+    assert [(a.alias, a.failed) for a in attempts] == [("qwen-3.7-flash", True)]

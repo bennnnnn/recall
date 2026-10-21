@@ -367,7 +367,7 @@ async def test_lock_redis_errors_never_cut_the_stream_or_skip_its_save(stream_of
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
-        patch("app.services.model_health.record_sample", AsyncMock()),
+        patch("app.services.model_health.record_samples", AsyncMock()),
         patch.object(turn_resources, "CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS", 0.005),
     ):
         async with turn_resources.turn_resources(
@@ -426,7 +426,7 @@ async def test_a_turn_handed_to_finalize_is_not_refunded_on_a_later_escape(strea
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
-        patch("app.services.model_health.record_sample", AsyncMock()),
+        patch("app.services.model_health.record_samples", AsyncMock()),
     ):
         with pytest.raises(RuntimeError, match="after the save"):
             async with turn_resources.turn_resources(

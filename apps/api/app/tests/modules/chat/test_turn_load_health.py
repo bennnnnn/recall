@@ -11,15 +11,18 @@ from app.core.config import Settings
 from app.modules.chat.turn_load import load_new_turn
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import model_health
+from app.services.model_health import HealthSample
 from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 
 @pytest.mark.asyncio
 async def test_unhealthy_aliases_reads_failing_providers_and_never_raises() -> None:
     redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    for _ in range(4):
-        await model_health.record_sample(redis, "smart-chat", latency_ms=900, success=False)
-    await model_health.record_sample(redis, "glm-5.2", latency_ms=900, success=True)
+    failures = [HealthSample("smart-chat", latency_ms=900, success=False) for _ in range(4)]
+    await model_health.record_samples(redis, failures)
+    await model_health.record_samples(
+        redis, [HealthSample("glm-5.2", latency_ms=900, success=True)]
+    )
     settings = Settings()
     found = await model_health.unhealthy_aliases(redis, settings, ["smart-chat", "glm-5.2"])
     assert found == frozenset({"smart-chat"})

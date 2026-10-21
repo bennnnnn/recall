@@ -13,7 +13,7 @@ told about), no cap ends it: a fallback then would start the reply over.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.config import Settings
@@ -77,20 +77,18 @@ class FirstReplyWatch:
 
     def __init__(self, caps: FirstReplyCaps) -> None:
         start = time.monotonic()
-        self._caps = caps
-        self._signal_deadline = _deadline(start, caps.signal)
-        self._text_deadline = _deadline(start, caps.text)
+        # (seconds, deadline) for each cap the attempt has.
+        self._signal = _cap(start, caps.signal)
+        self._text = _cap(start, caps.text)
         self.shown_text = False
         self.shown_thinking = False
 
     def _live(self) -> list[tuple[str, float, float]]:
         live: list[tuple[str, float, float]] = []
-        if self._signal_deadline is not None and self._caps.signal is not None:
-            if not (self.shown_text or self.shown_thinking):
-                live.append(("signal", self._caps.signal, self._signal_deadline))
-        if self._text_deadline is not None and self._caps.text is not None:
-            if not self.shown_text:
-                live.append(("text", self._caps.text, self._text_deadline))
+        if self._signal is not None and not (self.shown_text or self.shown_thinking):
+            live.append(("signal", *self._signal))
+        if self._text is not None and not self.shown_text:
+            live.append(("text", *self._text))
         return live
 
     def bound(self, limit: float) -> float:
@@ -122,5 +120,32 @@ class FirstReplyWatch:
         return True
 
 
-def _deadline(start: float, seconds: float | None) -> float | None:
-    return start + max(_MIN_CAP_SECONDS, seconds) if seconds is not None else None
+@dataclass
+class StreamAttempt:
+    """One model's try at a reply, as the caller's health record reads it."""
+
+    alias: str
+    failed: bool = False
+    # From the request to the provider's first reasoning or text; None if none came.
+    first_delta_ms: int | None = None
+    # From the request to the end of the try; None while it streams, or after a stop.
+    elapsed_ms: int | None = None
+    _started: float = field(default_factory=time.monotonic, init=False, repr=False)
+
+    def _ms(self) -> int:
+        return int((time.monotonic() - self._started) * 1000)
+
+    def delta(self) -> None:
+        """The provider sent reasoning or text."""
+        if self.first_delta_ms is None:
+            self.first_delta_ms = self._ms()
+
+    def end(self, *, failed: bool) -> None:
+        self.failed = failed
+        self.elapsed_ms = self._ms()
+
+
+def _cap(start: float, seconds: float | None) -> tuple[float, float] | None:
+    if seconds is None:
+        return None
+    return seconds, start + max(_MIN_CAP_SECONDS, seconds)

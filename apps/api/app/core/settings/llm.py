@@ -63,6 +63,9 @@ class LlmSettings(BaseModel):
     # its reasoning from the start: one that has sent neither reasoning nor
     # text after this long gives way to the next.
     chat_stream_first_thought_timeout_seconds: float = 4.0
+    # A model whose breaker opened (services/model_health) is skipped for this
+    # long after its last sample; then one turn may try it again.
+    model_health_cooldown_seconds: int = 30
 
     # Abort hung background (non-streaming) LLM calls after this many seconds.
     # Covers title generation, memory extraction, todos, summaries — a hung

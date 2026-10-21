@@ -1,0 +1,153 @@
+"""A turn's model health samples: one per model it tried, each blamed on its own model."""
+
+from __future__ import annotations
+
+from contextlib import ExitStack
+from typing import Any
+from unittest.mock import AsyncMock, patch
+from uuid import uuid4
+
+import pytest
+
+from app.core.config import Settings
+from app.gateways.litellm_gateway import ModelUnavailableError
+from app.gateways.stream_signals import StreamAttempt
+from app.modules.chat.stream_health import StreamEnd, health_samples
+from app.modules.chat.turn_outcome import TurnOutcome
+from app.tests.modules.chat.chat_test_support import offline_deps
+
+pytest_plugins = ("app.tests.modules.chat.chat_test_support",)
+
+
+def _end(**fields: Any) -> StreamEnd:
+    base: dict[str, Any] = {
+        "model": "free-chat",
+        "answered": True,
+        "failed": False,
+        "stopped": False,
+        "elapsed_ms": 900.0,
+        "first_token_ms": 400.0,
+    }
+    return StreamEnd(**{**base, **fields})
+
+
+def _read(samples: list[Any]) -> list[tuple[str, bool, float]]:
+    return [(sample.alias, sample.success, sample.latency_ms) for sample in samples]
+
+
+def test_a_failed_model_is_blamed_and_the_model_that_answered_is_not() -> None:
+    attempts = [
+        StreamAttempt("smart-chat", failed=True, elapsed_ms=8000),
+        StreamAttempt("glm-5.2", first_delta_ms=650),
+    ]
+    samples = health_samples(attempts, _end(model="glm-5.2"))
+    # Latency is how fast the provider started, not how long the reply ran.
+    assert _read(samples) == [("smart-chat", False, 8000), ("glm-5.2", True, 650)]
+
+
+def test_a_model_that_fails_partway_is_a_failure() -> None:
+    attempts = [StreamAttempt("free-chat", failed=True, first_delta_ms=300, elapsed_ms=5000)]
+    assert _read(health_samples(attempts, _end(failed=True))) == [("free-chat", False, 5000)]
+
+
+def test_a_stop_leaves_no_sample_for_the_model_it_cut_short() -> None:
+    attempts = [
+        StreamAttempt("qwen-3.7-flash", failed=True, elapsed_ms=3000),
+        StreamAttempt("free-chat"),
+    ]
+    samples = health_samples(attempts, _end(stopped=True, answered=False))
+    assert _read(samples) == [("qwen-3.7-flash", False, 3000)]
+
+
+@pytest.mark.parametrize(
+    "answered, failed, stopped, expected",
+    [
+        (True, False, False, [("free-chat", True, 400.0)]),
+        (True, True, False, [("free-chat", False, 900.0)]),
+        (False, False, False, [("free-chat", False, 900.0)]),
+        (False, False, True, []),
+        (True, False, True, []),
+    ],
+)
+def test_a_model_call_that_reports_no_tries_counts_as_one(
+    answered: bool, failed: bool, stopped: bool, expected: list[tuple[str, bool, float]]
+) -> None:
+    end = _end(answered=answered, failed=failed, stopped=stopped)
+    assert _read(health_samples([], end)) == expected
+
+
+def _ctx() -> Any:
+    from app.modules.chat.turn_prep import StreamContext
+
+    return StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="smart-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+
+
+async def _run(fake_stream: Any) -> AsyncMock:
+    from app.modules.chat.stream_pipeline import stream_and_finalize
+
+    record = AsyncMock()
+    outcome = TurnOutcome()
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.model_health.record_samples", record))
+        stack.enter_context(
+            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock())
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        async for _ in stream_and_finalize(
+            offline_deps(),
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            _ctx(),
+            should_cancel=None,
+            outcome=outcome,
+        ):
+            pass
+        if outcome.finalize_db_task is not None:
+            await outcome.finalize_db_task
+    return record
+
+
+@pytest.mark.asyncio
+async def test_the_turn_records_every_model_it_tried(stream_offline_io: None) -> None:
+    async def fake_stream(**kwargs: Any) -> Any:
+        kwargs["attempts"].extend(
+            [
+                StreamAttempt("smart-chat", failed=True, elapsed_ms=8000),
+                StreamAttempt("glm-5.2", first_delta_ms=700),
+            ]
+        )
+        kwargs["stream_meta"]["model_alias"] = "glm-5.2"
+        yield "answer"
+
+    record = await _run(fake_stream)
+    record.assert_awaited_once()
+    assert record.await_args is not None
+    samples = record.await_args.args[1]
+    assert [(s.alias, s.success) for s in samples] == [("smart-chat", False), ("glm-5.2", True)]
+
+
+@pytest.mark.asyncio
+async def test_a_reply_that_fails_partway_is_its_models_failure(stream_offline_io: None) -> None:
+    """Regression: a stream that died after its first token was sampled as a success."""
+
+    async def fake_stream(**_kwargs: Any) -> Any:
+        yield "partial "
+        raise ModelUnavailableError("provider died", failed_alias="smart-chat")
+
+    record = await _run(fake_stream)
+    assert record.await_args is not None
+    samples = record.await_args.args[1]
+    assert [(s.alias, s.success) for s in samples] == [("smart-chat", False)]

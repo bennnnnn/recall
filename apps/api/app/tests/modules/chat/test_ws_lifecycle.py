@@ -219,7 +219,7 @@ def _turn_io(stream_offline_io):
         patch("app.gateways.litellm_gateway.stream_chat_completion", _slow_model("a ", "b ", "c")),
         patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
-        patch("app.services.model_health.record_sample", AsyncMock()),
+        patch("app.services.model_health.record_samples", AsyncMock()),
     ):
         yield finalize
 

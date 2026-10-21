@@ -498,7 +498,7 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.services.model_health.record_sample", record))
+        stack.enter_context(patch("app.services.model_health.record_samples", record))
         stack.enter_context(
             patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock())
         )
@@ -639,7 +639,7 @@ async def test_failed_user_row_save_sends_no_reply(stream_offline_io):
             patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
         )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
-        stack.enter_context(patch("app.services.model_health.record_sample", health))
+        stack.enter_context(patch("app.services.model_health.record_samples", health))
         with pytest.raises(RuntimeError, match="database unavailable"):
             async for token in stream_and_finalize(
                 offline_deps(),
@@ -656,7 +656,7 @@ async def test_failed_user_row_save_sends_no_reply(stream_offline_io):
     assert outcome.finalize_db_task is None
     assert outcome.user_message_saved is False
     # The model answered; the failure was the save's.
-    assert health.await_args.kwargs["success"] is True
+    assert [sample.success for sample in health.await_args.args[1]] == [True]
 
 
 @pytest.mark.asyncio
@@ -731,7 +731,7 @@ async def test_stop_after_the_last_token_still_saves_the_reply(stream_offline_io
             patch("app.modules.chat.stream_pipeline.enrich_final_content", slow_enrich)
         )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
-        stack.enter_context(patch("app.services.model_health.record_sample", AsyncMock()))
+        stack.enter_context(patch("app.services.model_health.record_samples", AsyncMock()))
         task = asyncio.create_task(consume())
         await asyncio.wait_for(entered.wait(), 5)
         # The WS receive loop does exactly this on {"type": "cancel"}; twice, as
@@ -823,7 +823,7 @@ async def test_hard_cancel_before_tokens_skips_model_health_sample(stream_offlin
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.services.model_health.record_sample", record))
+        stack.enter_context(patch("app.services.model_health.record_samples", record))
         with pytest.raises(asyncio.CancelledError):
             async for _ in stream_and_finalize(
                 offline_deps(),
@@ -2525,7 +2525,7 @@ async def test_web_search_tool_round_streams_final_instead_of_regenerating(
         stack.enter_context(
             patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock())
         )
-        stack.enter_context(patch("app.services.model_health.record_sample", AsyncMock()))
+        stack.enter_context(patch("app.services.model_health.record_samples", AsyncMock()))
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         yielded: list[str] = []
         async for tok in stream_and_finalize(

@@ -3,7 +3,7 @@ import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
-from typing import Any, Self
+from typing import Any, NamedTuple, Self
 
 from litellm import acompletion
 
@@ -14,6 +14,7 @@ from app.gateways.reasoning import reasoning_body
 from app.gateways.stream_signals import (
     FirstReplyCaps,
     FirstReplyWatch,
+    StreamAttempt,
     first_reply_caps,
     reasoning_delta,
 )
@@ -194,7 +195,13 @@ async def stream_chat_completion(
     stream_meta: dict[str, str] | None = None,
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
     thinking: bool | str | None = None,
+    attempts: list[StreamAttempt] | None = None,
 ) -> AsyncIterator[str]:
+    """Stream one reply, moving down ``fallback_aliases`` until a model answers.
+
+    ``attempts`` gets one record per model tried, in order: which failed (before
+    its text, or partway), and how fast each provider started.
+    """
     if mock_llm.should_mock_llm(settings):
         logger.info("Using mock LLM stream for alias=%s", model_alias)
         if stream_meta is not None:
@@ -217,6 +224,9 @@ async def stream_chat_completion(
         # the attempt that actually produced content.
         attempt_usage: dict[str, int] = {}
         caps = first_reply_caps(settings, alias, thinking, has_next=index < len(aliases) - 1)
+        attempt = StreamAttempt(alias)
+        if attempts is not None:
+            attempts.append(attempt)
         try:
             if stream_meta is not None:
                 stream_meta.pop("finish_reason", None)
@@ -231,6 +241,7 @@ async def stream_chat_completion(
                 thinking=thinking,
                 first_content_timeout_seconds=caps.text,
                 first_signal_timeout_seconds=caps.signal,
+                attempt=attempt,
             ):
                 if not started:
                     pending.append(token)
@@ -243,6 +254,7 @@ async def stream_chat_completion(
                     continue
                 yield token
             if started:
+                attempt.end(failed=False)
                 _merge_attempt_usage(usage, attempt_usage)
                 if stream_meta is not None:
                     stream_meta["model_alias"] = alias
@@ -257,6 +269,7 @@ async def stream_chat_completion(
             raise ModelUnavailableError.for_alias(alias)
         except ModelUnavailableError as exc:
             last_error = exc
+            attempt.end(failed=True)
             # Mid-stream failure: client already has partial tokens — falling
             # back would concatenate partial + full into one persisted reply.
             if started:
@@ -287,19 +300,27 @@ async def _close_provider_stream(close: Callable[[], Awaitable[None]]) -> None:
         await asyncio.wait_for(close(), _PROVIDER_CLOSE_TIMEOUT_SECONDS)
 
 
+class _ChunkRead(NamedTuple):
+    # Reply text the chunk releases (the think filter may hold some back).
+    text: str
+    # The model is seen thinking: reasoning on its own channel, or text held as one.
+    thinking: bool
+    # The provider sent reasoning or text at all.
+    delta: bool
+
+
 def _read_chunk(
     chunk: Any,
     *,
     usage: dict[str, int] | None,
     stream_meta: dict[str, str] | None,
     stripper: ThinkStripper,
-) -> tuple[str, bool]:
-    """One provider chunk: the reply text it releases, and whether it shows the
-    model thinking (reasoning on its own channel, or text held as reasoning)."""
+) -> _ChunkRead:
+    """What one provider chunk shows."""
     _apply_usage(usage, chunk)
     choices = getattr(chunk, "choices", None) or []
     if not choices:
-        return "", False
+        return _ChunkRead("", thinking=False, delta=False)
     reason = getattr(choices[0], "finish_reason", None)
     if reason and stream_meta is not None:
         stream_meta["finish_reason"] = str(reason)
@@ -310,7 +331,7 @@ def _read_chunk(
     content = getattr(delta, "content", None) or "" if delta is not None else ""
     if content:
         text += stripper.feed(content)
-    return text, reasoning or stripper.holding_thought
+    return _ChunkRead(text, reasoning or stripper.holding_thought, reasoning or bool(content))
 
 
 async def _stream_chat_once(
@@ -325,6 +346,7 @@ async def _stream_chat_once(
     first_content_timeout_seconds: float | None = None,
     first_signal_timeout_seconds: float | None = None,
     thinking: bool | str | None = None,
+    attempt: StreamAttempt | None = None,
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=thinking)
@@ -382,12 +404,12 @@ async def _stream_chat_once(
                 raise ModelUnavailableError.for_alias(model_alias) from exc
             if chunk is None:
                 break
-            text, thinking_now = _read_chunk(
-                chunk, usage=usage, stream_meta=stream_meta, stripper=stripper
-            )
-            watch.saw(text=text, thinking=thinking_now)
-            if text:
-                yield text
+            read = _read_chunk(chunk, usage=usage, stream_meta=stream_meta, stripper=stripper)
+            if read.delta and attempt is not None:
+                attempt.delta()
+            watch.saw(text=read.text, thinking=read.thinking)
+            if read.text:
+                yield read.text
         tail = stripper.flush()
         if tail:
             yield tail

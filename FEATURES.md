@@ -554,9 +554,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`gateways/litellm_gateway.py`). Adding a model is a catalog entry + OpenRouter slug.
 - ✅ **Model availability + cost** — `GET /models` reports each model's availability (key present)
   and price; the picker shows available models with a per-1M-token cost hint.
-- ✅ **Live latency/health** — Redis rolling samples from stream outcomes; `GET /models` exposes
-  `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded on the model list;
-  detailed timing remains available through the API.
+- ✅ **Live latency/health** — a breaker per model over Redis rolling samples: every model a
+  turn tried leaves one, blamed on the model that failed (partway through a reply too), with
+  how fast its provider started; all models are read in one round trip per turn. An open
+  model is skipped by Auto and fallbacks, and after a 30 s cool-down one turn may try it
+  again. `GET /models` exposes `healthy`, `latency_p50_ms`, and sample count. Settings shows
+  degraded on the model list; detailed timing remains available through the API.
+- ✅ **Fast failover** — a model that shows nothing gives way to the next in its chain after
+  3 s on the everyday lane, or 4 s for a model that always thinks (its reasoning must start);
+  paid reasoning lanes keep 8 s to first text. Never once text or thinking has reached the
+  phone, and never for the last model in the chain.
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)
