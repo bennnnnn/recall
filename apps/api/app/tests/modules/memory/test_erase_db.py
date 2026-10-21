@@ -101,6 +101,8 @@ async def test_clearing_all_memory_empties_past_chat_recall(db_session):
         db_session, user.id, [_write("add", "User lives in Nairobi")], None, active_cap=150
     )
     await _chunk(db_session, user.id, "what's a good pasta recipe", _OTHER)
+    assert await _facts(db_session, user.id) != []
+    assert await _chunk_texts(db_session, user.id) != []
 
     await memories_repo.delete_all_for_user(db_session, user.id, commit=False)
 

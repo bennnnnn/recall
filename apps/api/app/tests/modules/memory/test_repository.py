@@ -64,8 +64,9 @@ async def test_upsert_sections_keeps_same_type_facts(fake_session):
 @pytest.mark.asyncio
 async def test_list_for_user_returns_memories(fake_session):
     user_id = uuid4()
+    row = MagicMock()
     mock_result = MagicMock()
-    mock_result.scalars.return_value.all.return_value = []
+    mock_result.scalars.return_value.all.return_value = [row]
     fake_session.execute.return_value = mock_result
     result = await memories_repo.list_for_user(fake_session, user_id)
-    assert result == []
+    assert result == [row]

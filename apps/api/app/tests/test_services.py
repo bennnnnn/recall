@@ -9,13 +9,12 @@ from app.core.config import Settings
 from app.modules.chat import titles as chat_titles
 from app.modules.memory import embedding_text_hash
 from app.modules.memory import llm as memory_llm
-from app.tests.fakes import FakeSessionCM, redis_mock
+from app.tests.fakes import FakeSessionCM, fake_session, redis_mock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 
 def _memory_extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[FakeSessionCM]]:
-    session = AsyncMock()
-    session.commit = AsyncMock()
+    session = fake_session()
     return session, [FakeSessionCM(session) for _ in range(count)]
 
 
@@ -355,12 +354,21 @@ async def test_extract_and_store_swallows_exception():
             )
 
 
+@pytest.mark.parametrize("memory_enabled", [False, True])
 @pytest.mark.asyncio
-async def test_extract_and_store_skips_when_memory_disabled():
+async def test_extract_and_store_learns_nothing_while_memory_is_off(memory_enabled):
+    """A job queued before memory was switched off reads and writes nothing. The same
+    lines with memory on are the control: they reach the model and the write."""
+    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
     from app.modules.memory.extraction_workflow import extract_and_store_memories
 
-    settings = Settings()
-    _, session_locals = _memory_extraction_sessions()
+    settings = Settings(memory_min_confidence=0.4)
+    learned = MemoryFactUpdateResult(
+        ops=[MemoryFactOp(op="add", type="fact", text="Works at Uber", confidence=0.9)]
+    )
+    revise = AsyncMock(return_value=learned)
+    write = AsyncMock(return_value=[])
+    _, session_locals = _memory_extraction_sessions(count=3)
     with (
         patch(
             "app.modules.memory.extraction_workflow.SessionLocal",
@@ -368,14 +376,20 @@ async def test_extract_and_store_skips_when_memory_disabled():
         ),
         patch(
             "app.modules.memory.extraction_workflow.users_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(memory_enabled=False)),
+            AsyncMock(return_value=MagicMock(memory_enabled=memory_enabled)),
         ),
-        patch(
-            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
-            AsyncMock(side_effect=AssertionError("should not be called")),
-        ),
+        patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
+        patch("app.modules.memory.extraction_workflow.apply_memory_facts", write),
     ):
-        await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="I live in Austin and work at Uber.",
+        )
+
+    assert revise.await_count == int(memory_enabled)
+    assert write.await_count == int(memory_enabled)
 
 
 @pytest.mark.asyncio

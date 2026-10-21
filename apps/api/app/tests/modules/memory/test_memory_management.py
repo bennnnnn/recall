@@ -98,6 +98,7 @@ async def test_memory_text_change_discards_stale_embeddings(
     assert row.embedding_json is None
     assert row.embedding_text_hash is None
     assert "bicycle" not in row.text
+    assert "scooter" in row.text
 
 
 @pytest.mark.asyncio

@@ -25,7 +25,7 @@ _SHARED = frozenset({_TESTS / "fakes.py", _TESTS / "conftest.py", Path(__file__)
 _BARE_SESSION = re.compile(r"^\s*(?:session|db|mock_session)\s*=\s*AsyncMock\(\)\s*$", re.M)
 _BARE_USER = re.compile(r"^\s*user\s*=\s*MagicMock\(\)\s*$", re.M)
 # The bare mocks left; lower these when a change replaces some.
-_BARE_SESSIONS = 199
+_BARE_SESSIONS = 198
 _BARE_USERS = 146
 
 

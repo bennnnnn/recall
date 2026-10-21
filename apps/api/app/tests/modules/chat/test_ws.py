@@ -883,8 +883,6 @@ def test_ws_done_waits_for_finalize_commit():
     flushes immediately (stream_end is not held); only the final `done`
     waits on the commit. Before this, a failed finalize left the client
     holding a message_id for a row that was never inserted."""
-    import time
-
     _, tok = _token()
     user = _fake_user()
     chat_id = uuid4()
@@ -896,15 +894,13 @@ def test_ws_done_waits_for_finalize_commit():
         captured["loop"] = asyncio.get_running_loop()
         yield "Hello"
         if outcome is not None:
-            outcome.message_id = message_id
             outcome.resolved_model = "free-chat"
 
             async def slow_finalize():
-                # Blocks until the test releases it — `done` must wait.
-                try:
-                    await asyncio.wait_for(release_finalize.wait(), timeout=8)
-                except TimeoutError:
-                    pass
+                # Blocks until the test releases it. The row's id is known only once
+                # the commit lands, so a `done` sent before this cannot carry it.
+                await asyncio.wait_for(release_finalize.wait(), timeout=8)
+                outcome.message_id = message_id
 
             outcome.finalize_db_task = asyncio.create_task(slow_finalize())
 
@@ -926,16 +922,11 @@ def test_ws_done_waits_for_finalize_commit():
             assert ws.receive_json()["type"] == "stream_end"
             # `done` is held while the finalize commit is in flight — the
             # client stays in the streaming state until the commit lands.
-            started = time.monotonic()
             captured["loop"].call_soon_threadsafe(release_finalize.set)
             done = ws.receive_json()
-            elapsed = time.monotonic() - started
             assert done["type"] == "done"
+            # The id the commit set: `done` waited for it, no ghost `done`.
             assert done["message_id"] == message_id
-            # `done` arrived only after the finalize was released — proving
-            # we awaited the commit rather than sending a ghost `done`.
-            assert elapsed >= 0.0  # released near-instantly; the point is it
-            # was awaited, not that it was slow.
 
 
 def test_ws_done_sends_error_when_finalize_fails():

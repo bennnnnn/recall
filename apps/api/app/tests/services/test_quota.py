@@ -786,7 +786,7 @@ async def test_reserve_usage_retries_a_failed_over_limit_rollback(
 
 @pytest.mark.asyncio
 async def test_record_usage_never_goes_below_zero(fake_redis):
-    await quota_tokens.record_usage(fake_redis, "u1", 50)
+    assert await quota_tokens.record_usage(fake_redis, "u1", 50) == 50
     assert await quota_tokens.record_usage(fake_redis, "u1", -80) == 0
     assert await quota_service.get_daily_usage(fake_redis, "u1") == 0
 
@@ -794,6 +794,7 @@ async def test_record_usage_never_goes_below_zero(fake_redis):
 @pytest.mark.asyncio
 async def test_reset_daily_usage_clears_todays_counter(fake_redis):
     await quota_tokens.record_usage(fake_redis, "u1", 50)
+    assert await quota_service.has_daily_usage_key(fake_redis, "u1") is True
     await quota_service.reset_daily_usage(fake_redis, "u1")
     assert await quota_service.has_daily_usage_key(fake_redis, "u1") is False
 
