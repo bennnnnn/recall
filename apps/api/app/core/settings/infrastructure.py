@@ -18,11 +18,16 @@ class InfrastructureSettings(BaseModel):
     db_max_overflow: int = 10
     db_pool_timeout_seconds: float = 5.0
     # asyncpg connect timeout (default 60s) and per-statement timeout (default
-    # none). pool_pre_ping runs a statement on every checkout, so without a
-    # statement timeout one half-open pooled connection hung a request
-    # forever. Generous: account delete is one cascading DELETE. 0 disables.
+    # none). Without a statement timeout one half-open pooled connection hung a
+    # request forever (the checkout ping included). Generous: account delete is
+    # one cascading DELETE. 0 disables.
     db_connect_timeout_seconds: float = 10.0
     db_command_timeout_seconds: float = 120.0
+    # A pooled connection idle this long is pinged on checkout (three round
+    # trips); one used more recently is trusted, and one the server closed is
+    # replaced for free (core/pool_liveness.py). 0 pings every checkout, as
+    # pool_pre_ping did. Well under Neon's 5 min suspend and NAT idle timeouts.
+    db_idle_ping_seconds: float = 60.0
     # Each migration transaction's lock wait and statement limit (Postgres
     # durations; core/migration_session.py). Under Fly's 5 min release timeout.
     migration_lock_timeout: str = "5s"

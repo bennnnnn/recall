@@ -49,7 +49,7 @@ def engine_connect_args(settings: "Settings", base: dict[str, Any]) -> dict[str,
     """asyncpg connect kwargs for the app engine: ``base`` plus bounded waits.
 
     ``timeout`` bounds opening a connection (asyncpg default 60s).
-    ``command_timeout`` bounds every statement, including ``pool_pre_ping``;
+    ``command_timeout`` bounds every statement, the checkout ping included;
     asyncpg cancels the query and raises ``TimeoutError``. Client-side, so it
     works through Neon's PgBouncer pooler. Not used by Alembic migrations.
     """
