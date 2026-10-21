@@ -54,6 +54,7 @@ from app.modules.todos import write_log
 from app.modules.todos.reply_check import NEED_A_TIME
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import USER_TIMEZONE, battery_settings, route_case
+from app.tests.fakes import fake_session
 
 CORPUS = Path(__file__).with_name("sweep_corpus")
 
@@ -168,7 +169,7 @@ def load(paths: list[Path] | None = None) -> list[Entry]:
 
 @asynccontextmanager
 async def _session() -> Any:
-    yield AsyncMock()
+    yield fake_session()
 
 
 def _user(*, pro: bool) -> User:

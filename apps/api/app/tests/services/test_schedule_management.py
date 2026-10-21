@@ -91,6 +91,7 @@ async def test_effective_reschedule_clears_delivery_markers(schedule_sql, path):
                 )
             ],
         )
+        await session.commit()  # the caller commits (code-health audit ARCH-07)
     else:
         await actions._apply_bulk_shift_due_today_to_tomorrow(
             session,

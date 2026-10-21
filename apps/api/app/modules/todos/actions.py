@@ -283,6 +283,11 @@ async def apply_todo_actions(
     chat_id: UUID | None = None,
     user_timezone: str | None = None,
 ) -> int:
+    """Apply the actions in the caller's session; how many rows changed. No commit.
+
+    The caller owns the transaction: it commits these writes with its own, or rolls
+    them back (code-health audit ARCH-07).
+    """
     if not actions:
         return 0
     items = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
@@ -303,7 +308,10 @@ async def apply_todo_actions(
         if handler is None:
             continue
         try:
-            applied += await handler(state, prepared)
+            # Each action in its own savepoint: one that fails leaves the others and
+            # the caller's transaction usable.
+            async with session.begin_nested():
+                applied += await handler(state, prepared)
         except Exception:
             logger.exception(
                 "Failed todo action %s for user_id=%s topic=%s",
@@ -318,5 +326,4 @@ async def apply_todo_actions(
             user_id,
             chat_id,
         )
-    await session.commit()
     return applied

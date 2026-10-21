@@ -157,11 +157,14 @@ async def create_one(state: ReminderWrites, draft: ReminderFence) -> tuple[str, 
                     match,
                     due_at=due_at,
                     recurrence_rule=draft.repeat,
+                    commit=False,
                 )
             else:
-                match = await todos_repo.update(state.session, match, due_at=due_at)
+                match = await todos_repo.update(state.session, match, due_at=due_at, commit=False)
         elif draft.repeat is not None and match.recurrence_rule != draft.repeat:
-            match = await todos_repo.update(state.session, match, recurrence_rule=draft.repeat)
+            match = await todos_repo.update(
+                state.session, match, recurrence_rule=draft.repeat, commit=False
+            )
         saved_due = match.due_at if match.due_at is not None else due_at
         return format_schedule_result(
             action="add",
@@ -172,19 +175,22 @@ async def create_one(state: ReminderWrites, draft: ReminderFence) -> tuple[str, 
             ok=True,
         ), True
     try:
-        new_todo = await todos_repo.create(
-            state.session,
-            user_id=state.user_id,
-            content=title,
-            topic=REMINDER_TOPIC if due_at is not None else todos_repo.DEFAULT_TOPIC,
-            chat_id=state.chat_id,
-            due_at=due_at,
-            recurrence_rule=draft.repeat,
-        )
+        # A savepoint: a duplicate (an open dated row outside the snapshot, or one saved
+        # concurrently) undoes this insert only, never the caller's turn (audit ARCH-07).
+        async with state.session.begin_nested():
+            new_todo = await todos_repo.create(
+                state.session,
+                user_id=state.user_id,
+                content=title,
+                topic=REMINDER_TOPIC if due_at is not None else todos_repo.DEFAULT_TOPIC,
+                chat_id=state.chat_id,
+                due_at=due_at,
+                recurrence_rule=draft.repeat,
+                commit=False,
+            )
     except IntegrityError as exc:
         if due_at is None or not todos_repo.is_open_content_due_conflict(exc):
             raise
-        await state.session.rollback()
         existing = await todos_repo.get_open_dated_duplicate(
             state.session, state.user_id, content=title, due_at=due_at
         )

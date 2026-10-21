@@ -357,14 +357,17 @@ async def persist_live_talk_turn(
                 if not isinstance(tz, str):
                     tz = None
                 try:
-                    updated, _applied = await todos_service.materialize_reminder_fences(
-                        session,
-                        user_id=user.id,
-                        chat_id=chat_id,
-                        assistant_text=assistant_content,
-                        user_timezone=tz,
-                        user_text=user_content or None,
-                    )
+                    # Its own savepoint: a reminder write that fails undoes only
+                    # itself, and both message rows still commit below.
+                    async with session.begin_nested():
+                        updated, _applied = await todos_service.materialize_reminder_fences(
+                            session,
+                            user_id=user.id,
+                            chat_id=chat_id,
+                            assistant_text=assistant_content,
+                            user_timezone=tz,
+                            user_text=user_content or None,
+                        )
                     if updated != assistant_content and assistant_message is not None:
                         assistant_message.content = updated
                         assistant_content = updated

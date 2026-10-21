@@ -90,6 +90,8 @@ async def _materialize(
             # A reminder change in chat is a card the user taps; nothing is written yet.
             confirm=True,
         )
+        # The pass never commits the session it is given; this one is the pass's own.
+        await session.commit()
     return materialized
 
 

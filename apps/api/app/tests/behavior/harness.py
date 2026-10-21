@@ -57,6 +57,7 @@ from app.modules.web_search.detection import needs_web_search
 from app.services.subject_solving import detect_subject
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
+from app.tests.fakes import fake_session
 
 EMOJI_RULE = "Do not decorate with emoji unless the user used them."
 
@@ -200,7 +201,7 @@ def battery_settings() -> Settings:
 
 class _Session:
     async def __aenter__(self) -> AsyncMock:
-        return AsyncMock()
+        return fake_session()
 
     async def __aexit__(self, *_args: object) -> None:
         return None

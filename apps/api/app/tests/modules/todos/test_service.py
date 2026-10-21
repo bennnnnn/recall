@@ -14,7 +14,7 @@ from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import format_todos_block, should_inject_todos_prompt
 from app.modules.todos.prompt_hint import TODO_HINT
 from app.modules.todos.schemas import TodoActionItem, TodoCreate, TodoUpdate
-from app.tests.fakes import FakeSessionCM
+from app.tests.fakes import FakeSessionCM, fake_session
 
 
 def _session_local_side_effect(session: AsyncMock):
@@ -28,7 +28,7 @@ async def _nested_savepoint():
 
 def _session_with_savepoint() -> AsyncMock:
     """AsyncMock session whose begin_nested() is sync, like SQLAlchemy's."""
-    session = AsyncMock()
+    session = fake_session()
     session.begin_nested = MagicMock(side_effect=_nested_savepoint)
     return session
 
@@ -55,7 +55,7 @@ def test_todo_update_accepts_cleared_due_at():
 
 @pytest.mark.asyncio
 async def test_update_todo_clears_due_at_and_recurrence():
-    session = AsyncMock()
+    session = fake_session()
     user = MagicMock()
     user.id = uuid4()
     item = MagicMock()
@@ -73,7 +73,7 @@ async def test_update_todo_clears_due_at_and_recurrence():
 
 @pytest.mark.asyncio
 async def test_update_todo_rejects_recurrence_without_due():
-    session = AsyncMock()
+    session = fake_session()
     user = MagicMock()
     user.id = uuid4()
     user.timezone = "UTC"
@@ -91,7 +91,7 @@ async def test_update_todo_rejects_recurrence_without_due():
 async def test_create_todo_unique_violation_returns_existing():
     from sqlalchemy.exc import IntegrityError
 
-    session = AsyncMock()
+    session = fake_session()
     user = MagicMock()
     user.id = uuid4()
     user.timezone = "UTC"
@@ -170,7 +170,7 @@ def _item_overdue(content: str, *, hours_ago: int = 3, tz_name: str = "UTC"):
 
 @pytest.mark.asyncio
 async def test_apply_bulk_shift_moves_all_due_today():
-    session = AsyncMock()
+    session = fake_session()
     items = [
         _item_due_today("Walk", hour=9),
         _item_due_today("Call mom", hour=14),
@@ -242,7 +242,7 @@ def test_format_todos_voice_block_is_plain_and_includes_undated():
 
 @pytest.mark.asyncio
 async def test_apply_todo_actions_complete():
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Buy milk", "Groceries")
     with (
         patch.object(
@@ -269,7 +269,7 @@ async def test_apply_todo_actions_complete():
 
 @pytest.mark.asyncio
 async def test_apply_todo_actions_set_due():
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Pay rent", "Home")
     due = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
     with (
@@ -303,7 +303,7 @@ async def test_apply_todo_actions_set_due():
 
 @pytest.mark.asyncio
 async def test_apply_todo_actions_set_due_forwards_recurrence():
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Pay rent", "Home")
     due = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
     with (
@@ -454,7 +454,7 @@ async def test_apply_todo_actions_reminder_without_topic():
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_creates_todo():
-    session = AsyncMock()
+    session = fake_session()
     due = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
     text = (
         "✅ Reminder set!\n\n"
@@ -498,7 +498,7 @@ async def test_materialize_reminder_fences_creates_todo():
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_respects_user_no_create_request():
-    session = AsyncMock()
+    session = fake_session()
     text = (
         "You could use a phone alarm.\n\n"
         "```reminder\n"
@@ -530,7 +530,7 @@ async def test_materialize_reminder_fences_respects_user_no_create_request():
 
 @pytest.mark.asyncio
 async def test_decline_drops_a_false_set_and_keeps_a_refusal():
-    session = AsyncMock()
+    session = fake_session()
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         lied, created = await todos_service.materialize_reminder_fences(
             session,
@@ -557,7 +557,7 @@ async def test_decline_drops_a_false_set_and_keeps_a_refusal():
 @pytest.mark.asyncio
 async def test_materialize_reminder_fence_dates_matching_plain_todo():
     """A dated add promotes the existing plain task instead of only claiming it did."""
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Water plants")
     existing.due_at = None
     existing.recurrence_rule = None
@@ -585,7 +585,7 @@ async def test_materialize_reminder_fence_dates_matching_plain_todo():
 @pytest.mark.asyncio
 async def test_materialize_reminder_fence_keeps_same_title_on_another_day():
     """Same-title reminders at different instants are not false duplicates."""
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Water plants")
     existing.due_at = datetime(2026, 9, 6, 18, 0, tzinfo=UTC)
     existing.recurrence_rule = None
@@ -613,7 +613,7 @@ async def test_materialize_reminder_fence_keeps_same_title_on_another_day():
 async def test_materialize_reminder_fences_unique_race_returns_existing():
     from sqlalchemy.exc import IntegrityError
 
-    session = AsyncMock()
+    session = fake_session()
     due = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
     existing = MagicMock()
     existing.content = "2026 FIFA World Cup Final"
@@ -649,12 +649,14 @@ async def test_materialize_reminder_fences_unique_race_returns_existing():
         )
     assert created == 1
     assert "Set: 2026 FIFA World Cup Final" in updated
-    session.rollback.assert_awaited_once()
+    # Only the insert's savepoint is undone; the caller's turn is never rolled back.
+    session.rollback.assert_not_awaited()
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_stores_repeat():
-    session = AsyncMock()
+    session = fake_session()
     text = (
         "```reminder\n"
         '{"title":"Practice Spanish","due_at":"2026-08-21T08:00:00-04:00","repeat":"daily"}\n'
@@ -677,7 +679,7 @@ async def test_materialize_reminder_fences_stores_repeat():
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_creates_plain_todo():
-    session = AsyncMock()
+    session = fake_session()
     text = 'Hello\n```reminder\n{"title":"x"}\n```\n'
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
@@ -699,7 +701,7 @@ async def test_materialize_reminder_fences_creates_plain_todo():
 
 @pytest.mark.asyncio
 async def test_add_milk_does_not_confirm_an_invented_time():
-    session = AsyncMock()
+    session = fake_session()
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -717,7 +719,7 @@ async def test_add_milk_does_not_confirm_an_invented_time():
 
 @pytest.mark.asyncio
 async def test_add_fence_with_a_time_the_user_did_not_say_is_not_saved():
-    session = AsyncMock()
+    session = fake_session()
     text = '```reminder\n{"title":"Buy milk","due_at":"2026-10-10T18:00:00-04:00"}\n```'
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
@@ -736,7 +738,7 @@ async def test_add_fence_with_a_time_the_user_did_not_say_is_not_saved():
 
 @pytest.mark.asyncio
 async def test_add_fence_keeps_a_clock_the_user_stated():
-    session = AsyncMock()
+    session = fake_session()
     # Tomorrow, as the user said: a fixed date passes and the fence rejects a past due time.
     new_york = ZoneInfo("America/New_York")
     nine = datetime.combine(datetime.now(new_york).date() + timedelta(days=1), time(9), new_york)
@@ -761,7 +763,7 @@ async def test_add_fence_keeps_a_clock_the_user_stated():
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_matches_uppercase_tag():
     """The linear scanner keeps the old regex's IGNORECASE language tag."""
-    session = AsyncMock()
+    session = fake_session()
     text = 'Sure!\n```REMINDER\n{"title":"Water plants","due_at":"2026-09-07T18:00:00"}\n```\n'
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
@@ -782,7 +784,7 @@ async def test_materialize_reminder_fences_matches_uppercase_tag():
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_ignores_unclosed_fence():
     """No closing triple backtick → no match, text untouched (regex parity)."""
-    session = AsyncMock()
+    session = fake_session()
     text = 'Here you go:\n```reminder\n{"title":"Water plants","due_at":"2026-09-07T18:00:00"}\n'
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
@@ -800,7 +802,7 @@ async def test_materialize_reminder_fences_ignores_unclosed_fence():
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_requires_newline_after_tag():
     """A one-line ```reminder {...}``` fence never matched the regex either."""
-    session = AsyncMock()
+    session = fake_session()
     text = '```reminder {"title":"Water plants","due_at":"2026-09-07T18:00:00"}```'
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
@@ -817,7 +819,7 @@ async def test_materialize_reminder_fences_requires_newline_after_tag():
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_rejects_date_only_due():
-    session = AsyncMock()
+    session = fake_session()
     text = '```reminder\n{"title":"Water plants","due_at":"2026-09-07"}\n```\n'
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
@@ -836,7 +838,7 @@ async def test_materialize_reminder_fences_rejects_date_only_due():
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_asks_when_for_a_repeat_with_no_start():
     # "always remind me to drink water" showed "the format was invalid".
-    session = AsyncMock()
+    session = fake_session()
     text = '```reminder\n{"title":"Drink water","recurrence_rule":"daily"}\n```\n'
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
@@ -855,7 +857,7 @@ async def test_materialize_reminder_fences_asks_when_for_a_repeat_with_no_start(
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_accepts_content_naive_iso_and_extra_keys():
-    session = AsyncMock()
+    session = fake_session()
     text = (
         "```reminder\n"
         '{"content":"Water plants","due_at":"2026-09-07T18:00:00",'
@@ -883,7 +885,7 @@ async def test_materialize_reminder_fences_accepts_content_naive_iso_and_extra_k
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_accepts_z_suffix_and_wrapped_json():
-    session = AsyncMock()
+    session = fake_session()
     text = '```reminder\nHere you go:\n{"title":"Call mom","due_at":"2026-09-07T18:00:00Z"}\n```\n'
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
@@ -903,7 +905,7 @@ async def test_materialize_reminder_fences_accepts_z_suffix_and_wrapped_json():
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_from_explicit_user_text_when_fence_missing():
-    session = AsyncMock()
+    session = fake_session()
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
@@ -928,7 +930,7 @@ async def test_materialize_reminder_from_explicit_user_text_when_fence_missing()
 @pytest.mark.asyncio
 async def test_invalid_reminder_fence_falls_back_to_explicit_user_text():
     """A broken ```reminder must not block 'remind me … tomorrow at 6pm'."""
-    session = AsyncMock()
+    session = fake_session()
     text = 'Hello\n```reminder\n{"title":"x","repeat":"daily"}\n```\n'
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
@@ -950,7 +952,7 @@ async def test_invalid_reminder_fence_falls_back_to_explicit_user_text():
 
 @pytest.mark.asyncio
 async def test_user_remind_without_clock_does_not_invent_a_due():
-    session = AsyncMock()
+    session = fake_session()
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -967,7 +969,7 @@ async def test_user_remind_without_clock_does_not_invent_a_due():
 
 @pytest.mark.asyncio
 async def test_add_without_a_clock_keeps_a_real_time_question():
-    session = AsyncMock()
+    session = fake_session()
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -984,7 +986,7 @@ async def test_add_without_a_clock_keeps_a_real_time_question():
 
 @pytest.mark.asyncio
 async def test_add_without_a_clock_does_not_keep_an_invented_set_line():
-    session = AsyncMock()
+    session = fake_session()
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -1003,7 +1005,7 @@ async def test_add_without_a_clock_does_not_keep_an_invented_set_line():
 async def test_clock_reply_saves_tomorrow_not_a_past_today():
     from zoneinfo import ZoneInfo
 
-    session = AsyncMock()
+    session = fake_session()
     previous = MagicMock()
     previous.role = "user"
     previous.content = "Add read for tommorrow"
@@ -1056,7 +1058,7 @@ async def _clock_reply(user_text: str, assistant_text: str) -> tuple[str, int, A
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
     ):
         updated, created = await todos_service.materialize_reminder_fences(
-            AsyncMock(),
+            fake_session(),
             user_id=uuid4(),
             chat_id=uuid4(),
             assistant_text=assistant_text,
@@ -1100,7 +1102,7 @@ async def test_a_reply_that_is_no_clock_saves_nothing(user_text):
 async def test_clock_reply_keeps_the_repeat_from_the_earlier_add():
     from zoneinfo import ZoneInfo
 
-    session = AsyncMock()
+    session = fake_session()
     previous = MagicMock()
     previous.role = "user"
     previous.content = "Add a todo walking for tomorrow wekkly"
@@ -1132,7 +1134,7 @@ async def test_clock_reply_keeps_the_repeat_from_the_earlier_add():
 
 @pytest.mark.asyncio
 async def test_past_fence_is_not_saved_when_the_user_only_said_a_clock():
-    session = AsyncMock()
+    session = fake_session()
     text = (
         "Set: Read — Saturday, Oct 10, 6:00 PM.\n"
         '```reminder\n{"title":"Read","due_at":"2026-10-10T18:00:00-04:00"}\n```'
@@ -1157,7 +1159,7 @@ async def test_past_fence_is_not_saved_when_the_user_only_said_a_clock():
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_caps_creates_per_reply():
-    session = AsyncMock()
+    session = fake_session()
     over = todos_service.MAX_TODO_ACTIONS_PER_TURN + 3
     fences = [
         f'```reminder\n{{"title":"Task {i}","due_at":"2026-07-19T15:00:00-04:00"}}\n```'
@@ -1190,7 +1192,7 @@ async def test_materialize_reminder_fences_caps_creates_per_reply():
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_deletes_and_confirms():
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Walk", topic=todos_service.REMINDER_TOPIC)
     text = '```reminder\n{"action":"delete","title":"Walk"}\n```'
     with (
@@ -1212,7 +1214,7 @@ async def test_materialize_reminder_fences_deletes_and_confirms():
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_delete_miss_says_so():
-    session = AsyncMock()
+    session = fake_session()
     text = '```reminder\n{"action":"delete","title":"Walk"}\n```'
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
@@ -1232,7 +1234,7 @@ async def test_materialize_reminder_fences_delete_miss_says_so():
 
 @pytest.mark.asyncio
 async def test_spoken_mark_done_checks_and_ignores_a_delete_fence():
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Call the bakery", topic=todos_service.REMINDER_TOPIC)
     text = 'Deleted!\n\n```reminder\n{"action":"delete","title":"Call the bakery"}\n```'
     with (
@@ -1256,7 +1258,7 @@ async def test_spoken_mark_done_checks_and_ignores_a_delete_fence():
 
 @pytest.mark.asyncio
 async def test_spoken_reopen_unchecks_and_does_not_create():
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Stretch", topic=todos_service.REMINDER_TOPIC, checked=True)
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
@@ -1279,7 +1281,7 @@ async def test_spoken_reopen_unchecks_and_does_not_create():
 
 @pytest.mark.asyncio
 async def test_spoken_reopen_of_a_missing_reminder_does_not_create():
-    session = AsyncMock()
+    session = fake_session()
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
@@ -1301,7 +1303,7 @@ async def test_spoken_reopen_of_a_missing_reminder_does_not_create():
 async def test_spoken_move_sets_the_clock_and_repeat():
     from zoneinfo import ZoneInfo
 
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Call the dentist", topic=todos_service.REMINDER_TOPIC)
     existing.due_at = datetime(2026, 10, 11, 20, 0, tzinfo=UTC)
     when = datetime(2026, 10, 10, 18, 0, tzinfo=ZoneInfo("America/New_York"))
@@ -1326,7 +1328,7 @@ async def test_spoken_move_sets_the_clock_and_repeat():
 
 @pytest.mark.asyncio
 async def test_spoken_delete_removes_the_named_reminder():
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Call the dentist", topic=todos_service.REMINDER_TOPIC)
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
@@ -1364,7 +1366,7 @@ def _read_item(
 
 @pytest.mark.asyncio
 async def test_make_it_everyday_sets_daily_and_keeps_the_clock():
-    session = AsyncMock()
+    session = fake_session()
     read = _read_item(
         "read",
         due=datetime(2026, 10, 11, 22, 0, tzinfo=UTC),
@@ -1391,7 +1393,7 @@ async def test_make_it_everyday_sets_daily_and_keeps_the_clock():
 
 @pytest.mark.asyncio
 async def test_make_it_weekly_replaces_the_repeat_only():
-    session = AsyncMock()
+    session = fake_session()
     read = _read_item(
         "read",
         due=datetime(2026, 10, 11, 22, 0, tzinfo=UTC),
@@ -1434,7 +1436,7 @@ async def test_make_it_changes_am_and_pm_on_the_same_day(
 ):
     from zoneinfo import ZoneInfo
 
-    session = AsyncMock()
+    session = fake_session()
     ny = ZoneInfo("America/New_York")
     read = _read_item(
         "read",
@@ -1466,7 +1468,7 @@ async def test_make_it_changes_am_and_pm_on_the_same_day(
 
 @pytest.mark.asyncio
 async def test_put_it_in_health_changes_the_topic():
-    session = AsyncMock()
+    session = fake_session()
     read = _read_item(
         "read",
         due=datetime(2026, 10, 11, 22, 0, tzinfo=UTC),
@@ -1492,7 +1494,7 @@ async def test_put_it_in_health_changes_the_topic():
 
 @pytest.mark.asyncio
 async def test_mark_it_done_checks_the_latest_reminder_only():
-    session = AsyncMock()
+    session = fake_session()
     bakery = _read_item(
         "call the bakery",
         due=datetime(2026, 10, 11, 13, 0, tzinfo=UTC),
@@ -1525,7 +1527,7 @@ async def test_mark_it_done_checks_the_latest_reminder_only():
 
 @pytest.mark.asyncio
 async def test_reopen_it_unchecks_the_latest_done_reminder():
-    session = AsyncMock()
+    session = fake_session()
     bakery = _read_item(
         "call the bakery",
         due=datetime(2026, 10, 11, 13, 0, tzinfo=UTC),
@@ -1559,7 +1561,7 @@ async def test_reopen_it_unchecks_the_latest_done_reminder():
 
 @pytest.mark.asyncio
 async def test_delete_it_removes_the_latest_reminder():
-    session = AsyncMock()
+    session = fake_session()
     bakery = _read_item(
         "call the bakery",
         due=datetime(2026, 10, 11, 13, 0, tzinfo=UTC),
@@ -1591,7 +1593,7 @@ async def test_delete_it_removes_the_latest_reminder():
 async def test_move_it_uses_the_latest_reminder():
     from zoneinfo import ZoneInfo
 
-    session = AsyncMock()
+    session = fake_session()
     ny = ZoneInfo("America/New_York")
     bakery = _read_item(
         "call the bakery",
@@ -1625,7 +1627,7 @@ async def test_move_it_uses_the_latest_reminder():
 
 @pytest.mark.asyncio
 async def test_reading_reminders_uses_saved_rows_only():
-    session = AsyncMock()
+    session = fake_session()
     bakery = _read_item(
         "call the bakery",
         due=datetime(2026, 10, 11, 13, 0, tzinfo=UTC),
@@ -1664,7 +1666,7 @@ async def test_reading_reminders_uses_saved_rows_only():
 
 @pytest.mark.asyncio
 async def test_make_it_with_nothing_saved_does_not_claim_success():
-    session = AsyncMock()
+    session = fake_session()
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "update", AsyncMock()) as update_mock,
@@ -1685,7 +1687,7 @@ async def test_make_it_with_nothing_saved_does_not_claim_success():
 
 @pytest.mark.asyncio
 async def test_added_claim_without_a_clock_asks_instead_of_confirming():
-    session = AsyncMock()
+    session = fake_session()
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -1704,7 +1706,7 @@ async def test_added_claim_without_a_clock_asks_instead_of_confirming():
 
 @pytest.mark.asyncio
 async def test_add_milk_does_not_claim_a_grocery_list():
-    session = AsyncMock()
+    session = fake_session()
     with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -1723,7 +1725,7 @@ async def test_add_milk_does_not_claim_a_grocery_list():
 async def test_weekdays_reminder_saves_the_morning_clock():
     from zoneinfo import ZoneInfo
 
-    session = AsyncMock()
+    session = fake_session()
     ny = ZoneInfo("America/New_York")
     when = datetime(2026, 10, 10, 22, 0, tzinfo=ny)
     with (
@@ -1747,7 +1749,7 @@ async def test_weekdays_reminder_saves_the_morning_clock():
 
 @pytest.mark.asyncio
 async def test_change_to_a_day_without_a_clock_asks():
-    session = AsyncMock()
+    session = fake_session()
     read = _read_item(
         "read",
         due=datetime(2026, 10, 11, 22, 0, tzinfo=UTC),
@@ -1772,7 +1774,7 @@ async def test_change_to_a_day_without_a_clock_asks():
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_set_due_confirms():
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Walk", topic=todos_service.REMINDER_TOPIC)
     existing.due_at = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
     text = (
@@ -1795,7 +1797,7 @@ async def test_materialize_reminder_fences_set_due_confirms():
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_set_due_forwards_repeat():
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Walk", topic=todos_service.REMINDER_TOPIC)
     existing.due_at = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
     text = (
@@ -1820,7 +1822,7 @@ async def test_materialize_reminder_fences_set_due_forwards_repeat():
 
 @pytest.mark.asyncio
 async def test_materialize_reminder_fences_clears_date_using_existing_topic():
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Walk", topic="Personal")
     existing.due_at = datetime.now(UTC) + timedelta(days=1)
     text = '```reminder\n{"action":"clear_due","title":"Walk"}\n```'
@@ -1927,7 +1929,7 @@ async def test_apply_todo_actions_defaults_plain_add_to_general():
 
 @pytest.mark.asyncio
 async def test_apply_todo_actions_dedupes_add():
-    session = AsyncMock()
+    session = fake_session()
     existing = _item("Buy milk", "Groceries")
     existing.due_at = datetime.now(UTC) + timedelta(days=1)
     with (
@@ -1982,8 +1984,10 @@ async def test_apply_todo_actions_add_appends_for_same_batch_dedupe():
     create_mock.assert_awaited_once()
     assert create_mock.await_args.kwargs.get("commit") is False
     assert list_mock.await_count == 1
-    session.commit.assert_awaited_once()
-    session.begin_nested.assert_called_once()
+    # The caller commits (code-health audit ARCH-07); each action and the first insert
+    # have their own savepoint, the duplicate add writes nothing.
+    session.commit.assert_not_awaited()
+    assert session.begin_nested.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -2017,12 +2021,13 @@ async def test_apply_todo_actions_unique_violation_counts_zero():
     assert applied == 0
     create_mock.assert_awaited_once()
     session.rollback.assert_not_awaited()
-    session.begin_nested.assert_called_once()
+    # The action's savepoint and the insert's.
+    assert session.begin_nested.call_count == 2
 
 
 @pytest.mark.asyncio
 async def test_apply_todo_actions_wildcard_set_due_today():
-    session = AsyncMock()
+    session = fake_session()
     due_today_a = _item_due_today("Walk", hour=9)
     due_today_b = _item_due_today("Call", hour=14)
     list_item = _item("Milk")
@@ -2058,7 +2063,7 @@ async def test_apply_todo_actions_wildcard_set_due_today():
 
 @pytest.mark.asyncio
 async def test_list_todos_advances_past_due_daily():
-    session = AsyncMock()
+    session = fake_session()
     past = datetime(2026, 8, 20, 8, 0, tzinfo=UTC)
     now = datetime(2026, 8, 22, 9, 0, tzinfo=UTC)
     item = MagicMock()
@@ -2080,7 +2085,7 @@ async def test_list_todos_advances_past_due_daily():
 
 @pytest.mark.asyncio
 async def test_update_todo_clears_sent_markers_when_due_changes():
-    session = AsyncMock()
+    session = fake_session()
     user = MagicMock()
     user.id = uuid4()
     user.timezone = "UTC"
@@ -2100,7 +2105,7 @@ async def test_update_todo_clears_sent_markers_when_due_changes():
 
 @pytest.mark.asyncio
 async def test_build_todos_system_section_skips_unrelated_query():
-    session = AsyncMock()
+    session = fake_session()
     user = MagicMock()
     user.id = uuid4()
     user.timezone = "UTC"
@@ -2118,7 +2123,7 @@ async def test_build_todos_system_section_skips_unrelated_query():
 
 @pytest.mark.asyncio
 async def test_build_todos_system_section_returns_hint_and_block():
-    session = AsyncMock()
+    session = fake_session()
     user = MagicMock()
     user.id = uuid4()
     user.timezone = "UTC"

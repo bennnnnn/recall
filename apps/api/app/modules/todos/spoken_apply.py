@@ -202,7 +202,7 @@ async def _apply_saved_fields(
             user_timezone=user_timezone,
             ok=False,
         ), False
-    await todos_repo.update(session, item, **fields)
+    await todos_repo.update(session, item, commit=False, **fields)
     if spoken.topic:
         when = format_schedule_when(due, user_timezone, repeat) if isinstance(due, datetime) else ""
         if when:

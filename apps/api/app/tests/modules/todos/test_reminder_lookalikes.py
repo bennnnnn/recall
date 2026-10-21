@@ -21,6 +21,7 @@ from app.modules.todos.reply_check import (
 )
 from app.modules.todos.spoken_add import parse_spoken_add
 from app.modules.todos.spoken_change import asks_to_read_reminders
+from app.tests.fakes import fake_session
 
 REACT_TODO_REPLY = (
     "Create a new array instead of mutating the old one:\n\n"
@@ -72,7 +73,7 @@ async def _finalize(
             patch.object(todos_repo, "get_open_dated_duplicate", AsyncMock(return_value=None))
         )
         text, applied = await todos_service.materialize_reminder_fences(
-            AsyncMock(),
+            fake_session(),
             user_id=uuid4(),
             chat_id=uuid4(),
             assistant_text=reply,
