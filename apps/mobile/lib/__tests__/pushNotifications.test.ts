@@ -34,6 +34,20 @@ jest.mock("@/lib/expoRuntime", () => ({
 
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableWarning: jest.fn() }));
 
+/** The file prefs `lib/syncRecords.ts` keeps, which outlive a cold start. */
+const mockSyncRecords = new Map<string, { account: string; variant: string; at: number }>();
+jest.mock("@/lib/syncRecords", () => ({
+  recentSyncAt: jest.fn(async (kind: string, account: string, maxAgeMs: number, variant = "") => {
+    const record = mockSyncRecords.get(kind);
+    if (!record || record.account !== account || record.variant !== variant) return null;
+    const age = Date.now() - record.at;
+    return age >= 0 && age < maxAgeMs ? record.at : null;
+  }),
+  recordSync: jest.fn(async (kind: string, account: string, variant = "", at = Date.now()) => {
+    mockSyncRecords.set(kind, { account, variant, at });
+  }),
+}));
+
 const mockAppStateHandlers = new Set<(state: string) => void>();
 
 jest.mock("react-native", () => ({
@@ -279,6 +293,62 @@ describe("push re-sync on launch, token refresh and foreground", () => {
     await foreground();
     expect(unregisterMock).toHaveBeenCalledTimes(2);
     cleanup();
+  });
+});
+
+describe("push sync across a cold start", () => {
+  const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+  /** A new app run: nothing in memory, the same files on disk. */
+  function coldStart() {
+    jest.resetModules();
+    mockAppStateHandlers.clear();
+    return {
+      push: jest.requireActual<typeof import("@/lib/pushNotifications")>("@/lib/pushNotifications"),
+      api: jest.requireMock<{ api: Record<string, jest.Mock> }>("@/lib/api").api,
+      notifications: jest.requireMock<Record<string, jest.Mock>>("expo-notifications"),
+    };
+  }
+
+  async function launch(account: string, enabled = true) {
+    const run = coldStart();
+    run.push.attachPushForegroundSync("tok", enabled, undefined, 1, null, account)();
+    await settle();
+    return run;
+  }
+
+  beforeEach(() => {
+    mockSyncRecords.clear();
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("does not register again when this account synced within the last 12 hours", async () => {
+    const first = await launch("user-1");
+    expect(first.api.registerPushToken).toHaveBeenCalledTimes(1);
+
+    const second = await launch("user-1");
+    expect(second.api.registerPushToken).not.toHaveBeenCalled();
+    expect(second.notifications.getExpoPushTokenAsync).not.toHaveBeenCalled();
+    // The OS permission is still read: turning it off must reach the server.
+    expect(second.notifications.getPermissionsAsync).toHaveBeenCalled();
+  });
+
+  it("registers again for another account, another setting, or after 12 hours", async () => {
+    await launch("user-1");
+    expect((await launch("user-2")).api.registerPushToken).toHaveBeenCalledTimes(1);
+    expect((await launch("user-2", false)).api.unregisterPushToken).toHaveBeenCalledTimes(1);
+
+    await launch("user-1");
+    const now = Date.now();
+    jest.spyOn(Date, "now").mockReturnValue(now + 13 * 60 * 60_000);
+    expect((await launch("user-1")).api.registerPushToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps no record without the account, as the Settings switch calls it", async () => {
+    await launch("");
+    expect(mockSyncRecords.size).toBe(0);
   });
 });
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useAuthOptional } from "@/contexts/AuthContext";
 import type { ComposerSendDraft } from "@/features/chat/model/sendLogic";
 import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
 import { resolveChatError, type ResolvedChatError } from "@/features/chat/model/errorMessage";
@@ -96,6 +97,8 @@ export function useChatStreamLifecycle({
     prevStreamActiveRef.current = streamActive;
   }, [streamActive]);
 
-  const quotaNudge = useQuotaNudge({ token, isPaid, refreshKey: quotaRefreshKey });
+  // A paid plan painted from the launch cache reads "free" until /auth/me answers.
+  const planKnown = useAuthOptional()?.profileValidated ?? true;
+  const quotaNudge = useQuotaNudge({ token, isPaid, planKnown, refreshKey: quotaRefreshKey });
   return quotaNudge;
 }

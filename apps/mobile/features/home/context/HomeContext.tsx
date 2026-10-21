@@ -35,6 +35,11 @@ export function HomeProvider({ children }: { children: ReactNode }) {
   // not bearer token, so the 401->refresh path cannot launch a second /home
   // request while the first request is already retrying with fresh auth.
   const resourceKey = userId ?? token;
+  // For the same reason the fetch reads the newest token instead of starting
+  // over (placeholder greeting and a second /home) each time it rotates.
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const signedIn = Boolean(token);
   const [screen, setScreen] = useState<HomeScreen | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -46,7 +51,8 @@ export function HomeProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
-      if (!token || !resourceKey) {
+      const accessToken = tokenRef.current;
+      if (!signedIn || !accessToken || !resourceKey) {
         setScreen(null);
         setHasFetched(false);
         setLoading(false);
@@ -69,7 +75,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
           resourceKey,
           async () => {
             try {
-              return await api.getHomeScreen(token, getDeviceTimezone());
+              return await api.getHomeScreen(accessToken, getDeviceTimezone());
             } catch {
           // Keep a good screen on silent refresh failure — only fall back when
           // we have nothing to show yet.
@@ -87,11 +93,11 @@ export function HomeProvider({ children }: { children: ReactNode }) {
         if (!opts?.silent) setLoading(false);
       }
     },
-    [resourceKey, token],
+    [resourceKey, signedIn],
   );
 
   useEffect(() => {
-    if (!token) {
+    if (!signedIn) {
       setScreen(null);
       setHasFetched(false);
       setLoading(false);
@@ -102,25 +108,25 @@ export function HomeProvider({ children }: { children: ReactNode }) {
     // blank ActivityIndicator while /home is in flight.
     setScreen(instantHomePlaceholder());
     void refresh({ force: true });
-  }, [refresh, token]);
+  }, [refresh, signedIn]);
 
   // Greeting comes from /home. Don't force a second fetch when the name
   // arrives — join the in-flight login request or wait for the stale window.
   useEffect(() => {
-    if (!token || !userName) return;
+    if (!signedIn || !userName) return;
     void refresh({ silent: true });
-  }, [refresh, token, userName]);
+  }, [refresh, signedIn, userName]);
 
   // Focus refresh lives on the chat screen — this provider wraps the
   // whole stack and must not refetch on every route change.
   useEffect(() => {
-    if (!token) return;
+    if (!signedIn) return;
     const onAppState = (state: AppStateStatus) => {
       if (state === "active") void refresh({ silent: true });
     };
     const sub = AppState.addEventListener("change", onAppState);
     return () => sub.remove();
-  }, [refresh, token]);
+  }, [refresh, signedIn]);
 
   const value = useMemo<HomeContextValue>(
     () => ({

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import { usageUsedPercent } from "@/lib/quota";
@@ -26,6 +26,8 @@ function today(): string {
 type Options = {
   token: string | null;
   isPaid: boolean;
+  /** The plan came from the server, not the launch cache (which says "free"). */
+  planKnown: boolean;
   /** Bump to refetch (e.g. when a chat turn finishes and usage likely changed). */
   refreshKey: number;
 };
@@ -33,20 +35,27 @@ type Options = {
 /**
  * Fetches today's usage and decides whether to show a "you're nearing the free
  * limit, go Pro" nudge. Only fires for free users at/above the threshold, and
- * only once per day until dismissed. Pro users never see it.
+ * only once per day until dismissed. Pro users never see it, so their usage is
+ * never fetched for it: the launch cache paints every plan as free, so this
+ * waits for the server's word on the plan (`planKnown`).
  */
-export function useQuotaNudge({ token, isPaid, refreshKey }: Options) {
+export function useQuotaNudge({ token, isPaid, planKnown, refreshKey }: Options) {
   const [show, setShow] = useState(false);
   const [usedPct, setUsedPct] = useState(0);
+  // The hourly token rotation is not a reason to fetch usage again.
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const signedIn = Boolean(token);
 
   useEffect(() => {
-    if (!token || isPaid) {
+    const accessToken = tokenRef.current;
+    if (!signedIn || !accessToken || isPaid || !planKnown) {
       setShow(false);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const usage = await api.todayUsage(token).catch(() => null);
+      const usage = await api.todayUsage(accessToken).catch(() => null);
       if (cancelled || !usage) return;
       const pct = Math.round(usageUsedPercent(usage));
       setUsedPct(pct);
@@ -57,7 +66,7 @@ export function useQuotaNudge({ token, isPaid, refreshKey }: Options) {
     return () => {
       cancelled = true;
     };
-  }, [token, isPaid, refreshKey]);
+  }, [signedIn, isPaid, planKnown, refreshKey]);
 
   const dismiss = useCallback(() => {
     dismissedDate = today();

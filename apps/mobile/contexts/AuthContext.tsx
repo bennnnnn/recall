@@ -45,6 +45,9 @@ type AuthContextValue = {
   user: User | null;
   token: string | null;
   loading: boolean;
+  /** The user came from the server this run (sign-in, /auth/me or a profile
+   * write), not only the launch cache, whose plan always reads "free". */
+  profileValidated: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithDev: () => Promise<void>;
@@ -301,6 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       loading,
+      profileValidated,
       signInWithGoogle,
       signInWithApple,
       signInWithDev,
@@ -316,6 +320,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       loading,
+      profileValidated,
       signInWithGoogle,
       signInWithApple,
       signInWithDev,
