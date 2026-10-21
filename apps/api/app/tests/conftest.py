@@ -199,6 +199,16 @@ def _tool_registry_restored():
         registry.register(adapter)
 
 
+@pytest.fixture(autouse=True)
+def _model_health_verdicts_forgotten():
+    """Each test reads model health for itself. A verdict an earlier test cached (3 s)
+    skipped the read, so a test that handed the turn a bare ``AsyncMock()`` Redis passed
+    or failed by the suite's order and speed: locally green, red in CI."""
+    from app.services import model_health
+
+    model_health.forget_verdicts()
+
+
 @pytest.fixture
 def quota_clock():
     """The UTC day the daily counters see, 2026-10-16 until a test sets ``.day``.

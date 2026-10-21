@@ -23,7 +23,7 @@ from app.modules.chat.turn_prep.context import build_stream_prompt_context
 from app.modules.chat.turn_prep.mode import _TurnMode
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.services.time_context import format_date_answer, format_year_answer
-from app.tests.fakes import FakeSessionCM
+from app.tests.fakes import FakeSessionCM, redis_mock
 
 
 def _make_user() -> MagicMock:
@@ -346,7 +346,7 @@ async def test_injects_the_subject_block_before_the_last_user_message():
                 math_tools_enabled=True,
                 web_search_enabled=True,
             ),
-            MagicMock(),
+            redis_mock(),
         )
 
     messages = bundle.prompt_messages
@@ -400,7 +400,7 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
                 math_tools_enabled=True,
                 web_search_enabled=True,
             ),
-            MagicMock(),
+            redis_mock(),
         )
 
     fetch_subject_mock.assert_not_awaited()
@@ -451,7 +451,7 @@ async def test_web_augment_takes_priors_from_the_prompt():
                 math_tools_enabled=True,
                 web_search_enabled=True,
             ),
-            MagicMock(),
+            redis_mock(),
         )
 
     assert fetch_subject_mock.await_args.kwargs["prior_user_messages"] == ["earlier question"]

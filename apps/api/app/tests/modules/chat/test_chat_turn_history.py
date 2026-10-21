@@ -10,6 +10,7 @@ import pytest
 from app.core.config import Settings
 from app.exceptions import ChatBusyError
 from app.modules.chat import finalize_registry, stream_entry
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 
@@ -64,7 +65,7 @@ async def test_next_turn_history_includes_pending_assistant_after_finalize():
             token
             async for token in stream_entry.stream_chat_response(
                 deps,
-                AsyncMock(),
+                redis_mock(),
                 Settings(_env_file=None),
                 user_id=user.id,
                 chat_id=chat_id,
