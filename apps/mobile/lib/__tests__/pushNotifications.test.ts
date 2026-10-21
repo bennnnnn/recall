@@ -9,6 +9,12 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
+// Analytics reads the session's token when it sends.
+jest.mock("@/lib/auth", () => ({
+  getToken: jest.fn(async () => "tok"),
+  getSessionGeneration: () => 1,
+}));
+
 jest.mock("@/lib/installationId", () => ({
   getInstallationId: jest.fn().mockResolvedValue("dev-1"),
 }));
@@ -103,7 +109,7 @@ describe("push gating on user.push_notifications_enabled", () => {
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
     (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
 
-    await expect(ensureNotificationPermission("tok")).resolves.toBe(false);
+    await expect(ensureNotificationPermission()).resolves.toBe(false);
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
     expect(api.recordProductEvents).toHaveBeenCalledWith(

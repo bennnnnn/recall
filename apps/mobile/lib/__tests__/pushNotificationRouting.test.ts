@@ -7,6 +7,12 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
+// Analytics reads the session's token when it sends.
+jest.mock("@/lib/auth", () => ({
+  getToken: jest.fn(async () => "tok"),
+  getSessionGeneration: () => 1,
+}));
+
 jest.mock("@/lib/installationId", () => ({
   getInstallationId: jest.fn().mockResolvedValue("dev-1"),
 }));

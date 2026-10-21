@@ -27,13 +27,13 @@ export async function getNotificationPermissionGranted(): Promise<boolean> {
   return status === "granted";
 }
 
-export async function ensureNotificationPermission(analyticsToken?: string): Promise<boolean> {
+export async function ensureNotificationPermission(): Promise<boolean> {
   if (Platform.OS === "web") return false;
   await ensureAndroidChannel();
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === "granted") return true;
   const { status } = await Notifications.requestPermissionsAsync();
-  trackProductEvent(analyticsToken ?? null, "push_permission", {
+  trackProductEvent("push_permission", {
     status: status === "granted" ? "granted" : "denied",
   });
   return status === "granted";
@@ -127,7 +127,7 @@ export async function registerRemotePushToken(
 ): Promise<PushRegisterResult> {
   if (Platform.OS === "web") return "skipped";
   if (!pushNotificationsEnabled) return "skipped";
-  const granted = await ensureNotificationPermission(apiToken);
+  const granted = await ensureNotificationPermission();
   if (!granted) {
     await api.updateMe(apiToken, { push_notifications_enabled: false });
     return "disabled_permission";

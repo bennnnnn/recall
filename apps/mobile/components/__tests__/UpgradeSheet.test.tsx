@@ -95,7 +95,7 @@ it("offers free users both plans with store prices and server numbers", async ()
   expect(screen.getByText('upgrade.per_month {"price":"$13.99"}')).toBeOnTheScreen();
   expect(screen.getByText('upgrade.feature_images {"count":10}')).toBeOnTheScreen();
   expect(screen.getByText('upgrade.feature_live_talk {"count":60}')).toBeOnTheScreen();
-  expect(mockTrack).toHaveBeenCalledWith("tok", "paywall_viewed", { source: "live_talk" });
+  expect(mockTrack).toHaveBeenCalledWith("paywall_viewed", { source: "live_talk" });
 });
 
 it("offers a Plus subscriber only the step up to Pro", async () => {
@@ -115,7 +115,7 @@ it("buys the chosen plan, then asks the server to re-read the store", async () =
   });
   expect(mockPurchase.mock.calls[0][0].plan).toBe("plus");
   expect(mockSyncSubscription).toHaveBeenCalledTimes(1);
-  expect(mockTrack).toHaveBeenCalledWith("tok", "purchase_succeeded", { plan: "plus" });
+  expect(mockTrack).toHaveBeenCalledWith("purchase_succeeded", { plan: "plus" });
 });
 
 it("does not call a paid purchase failed when only the server refresh fails", async () => {
@@ -147,7 +147,7 @@ it("shows nothing when the shopper cancels the store sheet", async () => {
   });
   expect(screen.queryByText("upgrade.purchase_failed")).toBeNull();
   expect(mockSyncSubscription).not.toHaveBeenCalled();
-  expect(mockTrack).toHaveBeenCalledWith("tok", "purchase_failed", {
+  expect(mockTrack).toHaveBeenCalledWith("purchase_failed", {
     plan: "plus",
     reason: "cancelled",
   });

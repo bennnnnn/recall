@@ -20,7 +20,7 @@ from app.modules.analytics import retention
 from app.repositories import users as users_repo
 
 TODAY = date(2026, 10, 20)
-_TTFT = {"latency_bucket": "lt500", "transport": "ws", "has_attachment": "no"}
+_TTFT = {"latency_bucket": "lt500", "transport": "ws", "has_attachment": "no", "sample_rate": "0.2"}
 
 
 async def _user(session):

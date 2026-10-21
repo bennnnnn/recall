@@ -87,11 +87,11 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
 
   useEffect(() => {
     if (visible && !wasVisible.current) {
-      trackProductEvent(getToken(), "paywall_viewed", { source });
+      trackProductEvent("paywall_viewed", { source });
       setError(null);
     }
     wasVisible.current = visible;
-  }, [source, getToken, visible]);
+  }, [source, visible]);
 
   useEffect(() => {
     const token = getToken();
@@ -140,13 +140,13 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     if (!token || !pkg || busy) return;
     setBusy(plan);
     setError(null);
-    trackProductEvent(token, "purchase_started", { plan });
+    trackProductEvent("purchase_started", { plan });
     let purchased: PlanId = "free";
     try {
       purchased = await purchasePlanPackage(pkg);
     } catch (purchaseError) {
       const cancelled = isPurchaseCancelled(purchaseError);
-      trackProductEvent(token, "purchase_failed", {
+      trackProductEvent("purchase_failed", {
         plan,
         reason: cancelled ? "cancelled" : "error",
       });
@@ -155,12 +155,12 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       return;
     }
     if (PLAN_RANK[purchased] < PLAN_RANK[plan]) {
-      trackProductEvent(token, "purchase_failed", { plan, reason: "error" });
+      trackProductEvent("purchase_failed", { plan, reason: "error" });
       setError(t("upgrade.purchase_failed"));
       setBusy(null);
       return;
     }
-    trackProductEvent(token, "purchase_succeeded", { plan });
+    trackProductEvent("purchase_succeeded", { plan });
     try {
       await syncAfterStore();
     } catch {

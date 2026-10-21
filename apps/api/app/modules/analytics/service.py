@@ -6,6 +6,10 @@ from app.models.orm import ProductEvent
 from app.models.schemas import ProductEventBatchIn, ProductEventIn
 from app.repositories import product_events as product_events_repo
 
+# The phone sends the two chat events for a sample of turns and says which share
+# (code-health audit NET-15): a count divided by its rate is the whole.
+_SAMPLE_RATES = frozenset({"1", "0.5", "0.2", "0.1"})
+
 _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
     "paywall_viewed": {
         "source": frozenset({"quota", "model_gate", "settings", "voice", "live_talk", "other"}),
@@ -29,6 +33,7 @@ _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
         ),
         "transport": frozenset({"ws", "sse"}),
         "has_attachment": frozenset({"yes", "no"}),
+        "sample_rate": _SAMPLE_RATES,
     },
     # How a chat turn ended, from the phone at done or error. Metadata only:
     # never the prompt, the reply, a query, a chat id or a provider message.
@@ -63,6 +68,7 @@ _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
                 "image_gen",
             }
         ),
+        "sample_rate": _SAMPLE_RATES,
     },
 }
 

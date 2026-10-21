@@ -72,6 +72,7 @@ const SCOPED_TO_SESSION = [
   "lib/api/client.ts#refreshInFlight",
   "lib/drawer.ts#chatMutationRevisions",
   "lib/drawer.ts#mutationSession",
+  "lib/productAnalytics.ts#waiting",
   "lib/pushNotifications.ts#lastPushSync",
 ];
 
@@ -83,6 +84,7 @@ const IN_FLIGHT = [
   "features/chat/model/latency.ts#pending",
   "features/chat/model/mutationLock.ts#pendingMutations",
   "features/chat/model/turnOutcome.ts#open",
+  "features/chat/model/turnOutcome.ts#sampled",
   "features/chat/model/turnOutcome.ts#tool",
   "features/drafts/model/emailDraftFlush.ts#flushers",
   "features/speech/model/pronunciation.ts#backgroundStop",
@@ -137,6 +139,8 @@ const NO_ACCOUNT_DATA = [
   "lib/math/svgMath.ts#rendererPromise",
   "lib/networkProbe.ts#netInfoConfigured",
   "lib/pdfPreviewHtml.ts#viewerHtml",
+  "lib/productAnalytics.ts#flushOnBackground",
+  "lib/productAnalytics.ts#flushTimer",
   "lib/purchases.ts#purchasesModule",
   "lib/pushNotifications.ts#androidChannelReady",
   "lib/pushNotifications.ts#pushTokenFailureReported",
