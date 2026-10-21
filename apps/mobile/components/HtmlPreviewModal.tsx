@@ -15,7 +15,6 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import RenderHtml, { defaultSystemFonts } from "react-native-render-html";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -24,19 +23,13 @@ import { CodeBlock } from "@/components/CodeBlock";
 import type { IconName } from "@/ui/icons/names";
 import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
-import { Italic, Type, Weight } from "@/lib/type";
-import { UI_FONT } from "@/lib/uiFont";
-import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
+import { Type } from "@/lib/type";
 import {
   looksLikeInteractiveHtml,
   shareHtmlPreview,
   wrapFullDocument,
 } from "@/lib/openHtmlPreview";
-import {
-  prepareHtmlRunDocument,
-  stripScripts,
-} from "@/lib/previewSandbox";
-import { CODE_FONT } from "@/lib/fonts";
+import { prepareHtmlRunDocument } from "@/lib/previewSandbox";
 import { Space } from "@/lib/space";
 import { Radius } from "@/lib/radius";
 import {
@@ -45,6 +38,14 @@ import {
   HTML_RUN_ORIGIN_WHITELIST,
 } from "@/lib/webView";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
+
+// Expo Go has no react-native-webview: a static render (scripts stripped) stands in
+// there. A build with the WebView never needs it, so a production bundle leaves the
+// renderer and its CSS engine out (`__DEV__` folds to false; code-health audit DEAD-08).
+const StaticHtmlPreview = __DEV__
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+    (require("@/components/StaticHtmlPreview") as typeof import("@/components/StaticHtmlPreview")).StaticHtmlPreview
+  : null;
 
 const EMPTY_CHECK_SCRIPT =
   "<script>(function(){function chk(){var b=document.body;if(!b)return;var txt=(b.innerText||'').trim();var imgs=b.querySelectorAll('img,svg,canvas,video,iframe').length;var els=b.querySelectorAll('div,section,main,article,p,span,ul,ol,table,pre,code,h1,h2,h3,h4,h5,h6').length;if(!txt&&!imgs&&els<=1){try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({kind:'preview-empty'}));}catch(e){}}}if(document.readyState==='complete'){chk();}else{window.addEventListener('load',function(){setTimeout(chk,300);});}})();</script>";
@@ -101,50 +102,6 @@ type Props = {
 };
 
 type PreviewTab = "run" | "code";
-
-// render-html drops any fontFamily not in this list, which turned every
-// Source Sans role below back into the system font.
-const PREVIEW_FONTS = [...defaultSystemFonts, ...Object.values(UI_FONT), CODE_FONT];
-
-function makeTagStyles(theme: Theme) {
-  return {
-    body: { color: theme.text },
-    p: { marginTop: 0, marginBottom: Space.sm },
-    h1: { ...Type.display, marginBottom: Space.sm, color: theme.text },
-    h2: { ...Type.h1, marginBottom: Space.sm, color: theme.text },
-    h3: { ...Type.h2, marginBottom: Space.xs, color: theme.text },
-    a: { color: theme.primary },
-    // One file per weight: a bold or italic slot on the regular file draws
-    // Roboto on Android and a faux face on iOS.
-    b: Weight.bold,
-    strong: Weight.bold,
-    em: Italic.regular,
-    i: Italic.regular,
-    div: { color: theme.text },
-    span: { color: theme.text },
-    table: {
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      marginVertical: Space.xs,
-    },
-    th: {
-      backgroundColor: theme.surface,
-      padding: Space.xs,
-      ...Weight.bold,
-    },
-    td: { padding: Space.xs },
-    pre: {
-      backgroundColor: theme.codeBg,
-      padding: Space.sm,
-      borderRadius: Radius.xs,
-      ...Type.meta,
-      fontFamily: CODE_FONT,
-      lineHeight: 18,
-    },
-    code: { ...Type.secondary, fontFamily: CODE_FONT },
-    img: { marginVertical: Space.xs },
-  };
-}
 
 /**
  * Sandboxed HTML Run tab (RNC WebView only).
@@ -242,40 +199,6 @@ function LiveWebPreview({
   );
 }
 
-function StaticHtmlPreview({
-  html,
-  contentWidth,
-  theme,
-  styles: s,
-}: {
-  html: string;
-  contentWidth: number;
-  theme: Theme;
-  styles: ReturnType<typeof makeStyles>;
-}) {
-  const previewHtml = useMemo(
-    () => htmlForInlinePreview(stripScripts(html)),
-    [html],
-  );
-  const tagStyles = useMemo(() => makeTagStyles(theme), [theme]);
-
-  return (
-    <ScrollView
-      style={s.scroll}
-      contentContainerStyle={s.scrollContent}
-      showsVerticalScrollIndicator
-    >
-      <RenderHtml
-        contentWidth={contentWidth}
-        source={{ html: previewHtml }}
-        baseStyle={s.base}
-        tagsStyles={tagStyles}
-        systemFonts={PREVIEW_FONTS}
-      />
-    </ScrollView>
-  );
-}
-
 function ToolbarItem({
   icon,
   label,
@@ -359,13 +282,10 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
             >
               <LiveWebPreview html={html} theme={theme} styles={s} />
             </PreviewRenderBoundary>
+          ) : StaticHtmlPreview ? (
+            <StaticHtmlPreview html={html} contentWidth={contentWidth} theme={theme} styles={s} />
           ) : (
-            <StaticHtmlPreview
-              html={html}
-              contentWidth={contentWidth}
-              theme={theme}
-              styles={s}
-            />
+            <LiveWebPreview html={html} theme={theme} styles={s} />
           )}
         </View>
 
