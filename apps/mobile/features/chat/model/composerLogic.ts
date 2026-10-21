@@ -228,10 +228,15 @@ export function composerShowsSend(options: {
 /**
  * Stop is for a reply or a picture under way. A send still on its way (its
  * picture check, location, file or new chat not done) shows a busy Send instead:
- * nothing has gone out yet for Stop to stop.
+ * nothing has gone out yet for Stop to stop. Neither does a reply whose text is
+ * all in (`stream_end`) and only saving: Send works again from then.
  */
-export function composerShowsStop(options: { streaming: boolean; sendBusy: boolean }): boolean {
-  return options.streaming && !options.sendBusy;
+export function composerShowsStop(options: {
+  streaming: boolean;
+  sendBusy: boolean;
+  replySaving: boolean;
+}): boolean {
+  return options.streaming && !options.sendBusy && !options.replySaving;
 }
 
 /** True while the last row is the in-flight placeholder (no action icons yet). */

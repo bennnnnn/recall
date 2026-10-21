@@ -180,9 +180,11 @@ export function useChat(
     setMessages((prev) => withStreamingPlaceholder(prev));
   }, []);
   const { showDots, leaveStoppedTurn, takeEarlyDots, sendStart } = useTurnStart({
-    canStart: Boolean(token && chatId), isCurrentView, streamingRef, finalizingRef, sendAttemptRef,
-    stoppedStreamedIdRef, setStreaming, setSendingMessageId, updateStreamingDraft, appendStreamingPlaceholder,
-    clearStreamingBubble, dropSocket,
+    canStart: Boolean(token && chatId), isCurrentView, streaming, finalizing, streamingRef, finalizingRef,
+    sendAttemptRef, stoppedStreamedIdRef, setStreaming, setSendingMessageId, updateStreamingDraft,
+    appendStreamingPlaceholder, clearStreamingBubble, dropSocket,
+    // A late `done` then reaches nothing: the socket and stream it would come on are closed.
+    settleUnconfirmedReply: () => { dropSocket(); abortSse(); payloadHandlerRef.current(chatId, { type: "done" }); },
   });
 
   /** Server never saved this user turn — drop the optimistic bubble and keep Retry. */

@@ -54,6 +54,8 @@ export interface ChatScreenListProps {
 export interface ChatScreenComposerProps {
   animatedStyle?: AnimatedStyle<ViewStyle>;
   streaming: boolean;
+  /** The reply's text is all in and only its save is left: Send works, Stop is gone. */
+  replySaving: boolean;
   attachPicking: boolean;
   sendBusy: boolean;
   sendStatus?: string;

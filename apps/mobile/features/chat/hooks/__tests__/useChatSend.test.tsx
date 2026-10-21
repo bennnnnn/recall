@@ -120,7 +120,8 @@ const onGenerateImage = jest.fn();
 let dotsUp = true;
 const beginDots = jest.fn((): (() => boolean) | null => () => dotsUp);
 const cancelDots = jest.fn();
-const sendStart = { beginDots, cancelDots };
+const whenReplySettled = jest.fn((_waitingId?: string) => Promise.resolve());
+const sendStart = { beginDots, cancelDots, whenReplySettled };
 
 function Probe({
   offline = false,
@@ -1566,6 +1567,48 @@ describe("useChatSend send steps", () => {
     await send();
     expect(sendMessage).toHaveBeenCalledWith("hello", expect.objectContaining({ skipUserBubble: true }));
     expect(current.sendPhase).toBe("idle");
+  });
+
+  it("sends a turn made while the last reply saves once that reply's done is in", async () => {
+    beginDots.mockReturnValueOnce(null);
+    let replySaved!: () => void;
+    whenReplySettled.mockReturnValueOnce(new Promise<void>((resolve) => { replySaved = resolve; }));
+    const setMessages = jest.fn();
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
+    let sending!: Promise<void>;
+    await act(async () => { sending = current.handleSend(); });
+    // The bubble is up and the composer free; the turn waits, its bubble saying so.
+    const [bubble] = setMessages.mock.calls[0][0]([]);
+    expect(mockSetInput).toHaveBeenCalledWith("");
+    expect(whenReplySettled).toHaveBeenCalledWith(bubble.id);
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(current.sendPhase).toBe("preparing");
+    await act(async () => { replySaved(); await sending; });
+    expect(sendMessage).toHaveBeenCalledWith("hello", expect.objectContaining({ trackSendingMessageId: bubble.id }));
+    expect(current.sendPhase).toBe("idle");
+  });
+
+  it("draws a picture asked for while the last reply saves once that reply's done is in", async () => {
+    inputRef.current = "draw me a cat";
+    mockImageIntent.mockResolvedValue(verdict({ generate_prompt: "cat" }));
+    beginDots.mockReturnValueOnce(null);
+    let replySaved!: () => void;
+    whenReplySettled.mockReturnValueOnce(new Promise<void>((resolve) => { replySaved = resolve; }));
+    await render(<Probe chatId="chat-1" />);
+    let sending!: Promise<void>;
+    await act(async () => { sending = current.handleSend(); });
+    expect(onGenerateImage).not.toHaveBeenCalled();
+    await act(async () => { replySaved(); await sending; });
+    expect(onGenerateImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not wait for any reply when the dots went up with the bubble", async () => {
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    await send();
+    expect(whenReplySettled).not.toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 
   it("moves from locating to uploading for a geo question with a photo", async () => {

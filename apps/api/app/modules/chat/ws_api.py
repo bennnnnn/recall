@@ -1,6 +1,7 @@
 """The chat WebSocket: handshake limits, auth, then one frame at a time.
 
-A message or regenerate frame becomes a turn (``ws_turn``); the socket's own
+A message or regenerate frame becomes a turn (``ws_turn``); one that arrives
+while the last turn saves runs as soon as that turn is done. The socket's own
 limits (frames, sockets per user, idle time) are ``ws_limits``.
 """
 
@@ -44,7 +45,7 @@ from app.modules.chat.ws_limits import (
     safe_send_json,
     user_socket_slot,
 )
-from app.modules.chat.ws_turn import run_chat_stream
+from app.modules.chat.ws_turn import TURN_FRAME_TYPES, run_chat_stream
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
@@ -54,7 +55,6 @@ _WS_CONNECT_RATE_LIMIT = 30
 _WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
 # Drop sockets that connect but never send the auth frame (resource leak).
 _WS_AUTH_TIMEOUT_SECONDS = 10.0
-_CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate"})
 
 
 async def _ws_rate_limit(redis: Redis, user_id: UUID) -> bool:
@@ -127,12 +127,12 @@ async def _handle_regenerate(
     emit_status: StreamStatusFn,
     emit_reasoning: StreamReasoningFn,
     frame_budget: FrameBudget | None = None,
-) -> None:
+) -> dict[str, Any] | None:
     try:
         request = ChatMessageRequest.model_validate(payload)
     except ValidationError:
         await websocket.send_json({"type": "error", "message": "Invalid regenerate request"})
-        return
+        return None
 
     def _regen_stream(outcome: TurnOutcome) -> AsyncIterator[str]:
         return stream_entry.stream_regenerate_response(
@@ -149,7 +149,7 @@ async def _handle_regenerate(
             **_client_geo_kwargs(request, client_timezone=client_timezone),
         )
 
-    await run_chat_stream(
+    return await run_chat_stream(
         websocket,
         cancel_event=cancel_event,
         stream_factory=_regen_stream,
@@ -171,14 +171,14 @@ async def _handle_message(
     emit_status: StreamStatusFn,
     emit_reasoning: StreamReasoningFn,
     frame_budget: FrameBudget | None = None,
-) -> None:
+) -> dict[str, Any] | None:
     try:
         request = ChatMessageRequest.model_validate(payload)
     except ValidationError:
         await websocket.send_json(
             turn_error_payload(None, user_message_saved=False, message="Invalid message")
         )
-        return
+        return None
 
     # Reject an empty text-only message at the WS layer so the client gets an
     # explicit error frame immediately, rather than the stream raising
@@ -188,7 +188,7 @@ async def _handle_message(
         await websocket.send_json(
             turn_error_payload(None, user_message_saved=False, message="Message cannot be empty.")
         )
-        return
+        return None
 
     def _message_stream(outcome: TurnOutcome) -> AsyncIterator[str]:
         return stream_entry.stream_chat_response(
@@ -207,7 +207,7 @@ async def _handle_message(
             **_client_geo_kwargs(request, client_timezone=client_timezone),
         )
 
-    await run_chat_stream(
+    return await run_chat_stream(
         websocket,
         cancel_event=cancel_event,
         stream_factory=_message_stream,
@@ -229,6 +229,8 @@ class _ChatSocket:
     client_timezone: str | None
     cancel_event: asyncio.Event
     frame_budget: FrameBudget
+    # A turn sent while the last one saved: it runs before the socket is read again.
+    next_turn: dict[str, Any] | None = None
 
 
 async def _authenticate(
@@ -327,6 +329,12 @@ async def _serve_frames(conn: _ChatSocket) -> None:
     websocket, chat_id = conn.websocket, conn.chat_id
     try:
         while True:
+            held, conn.next_turn = conn.next_turn, None
+            if held is not None:
+                # Counted against the frame budget when it arrived.
+                if not await _dispatch(conn, held):
+                    return
+                continue
             try:
                 payload = await receive_frame(websocket, conn.settings.ws_idle_timeout_seconds)
             except TimeoutError:
@@ -377,7 +385,7 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
     if msg_type == "cancel":
         conn.cancel_event.set()
         return True
-    if msg_type not in _CHARGEABLE_WS_TYPES:
+    if msg_type not in TURN_FRAME_TYPES:
         return True
     if shutdown.stopping():
         # A turn begun now would be stopped before its first token.
@@ -412,7 +420,7 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
 
     handle = _handle_regenerate if msg_type == "regenerate" else _handle_message
     emit_status, emit_reasoning = _status_emitters(websocket)
-    await handle(
+    conn.next_turn = await handle(
         websocket,
         redis=conn.redis,
         settings=conn.settings,

@@ -255,7 +255,8 @@ function ChatScreen() {
     router,
     draft,
     scroll,
-    streaming: streamActive,
+    // A reply that is only saving (after `stream_end`) does not hold the next send.
+    streaming: (streaming && !finalizing) || imageGen.generating,
     sendMessage,
     sendStart,
     setMessages,
@@ -484,6 +485,7 @@ function ChatScreen() {
     dismissChatError,
     composerAnimatedStyle,
     streaming: streamActive,
+    replySaving: finalizing,
     sendBusy: chatLoading || sendPhase !== "idle",
     sendStatus: sendPhase === "locating" ? t("chat.locating") : undefined,
     stopGeneration: stopTurn,
