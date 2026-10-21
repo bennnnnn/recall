@@ -334,7 +334,7 @@ async def _augment_chemistry(
     )
     if not settings.chemistry_enabled:
         return SubjectAugmentation(None, None, None)
-    from app.modules.chat.prompt_constants.visuals import attach_chemistry_fence_hint
+    from app.modules.chat import attach_chemistry_fence_hint
     from app.modules.chemistry.context import build_chemistry_augmentation
     from app.modules.chemistry.reading import chemistry_text_for_solve
 

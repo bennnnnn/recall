@@ -48,9 +48,15 @@ _MODULE_EXPORTS = (
     "match",
     "ocr",
     "reply_policy",
+    # The verified block's types (services/solving).
+    "response_intent",
+    "solve.key_steps",
     "sympy_warmup",
     "text_plot",
     "tool_check",
+    # The subject dispatcher (services/subject_solving): direct replies and curve points.
+    "tools.direct",
     "tools.extract",
     "tools.prompt",
+    "tools.school.curve_points",
 )

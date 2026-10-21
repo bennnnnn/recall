@@ -18,6 +18,7 @@ from typing import Any
 
 _EXPORTS = {
     "RegenerateBackup": ("turn_prep", "RegenerateBackup"),
+    "attach_chemistry_fence_hint": ("prompt_constants.visuals", "attach_chemistry_fence_hint"),
     "StreamContext": ("turn_prep", "StreamContext"),
     "StreamStatusFn": ("stream_status", "StreamStatusFn"),
     "clip_status_detail": ("stream_status", "clip_status_detail"),

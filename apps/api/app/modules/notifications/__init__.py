@@ -13,7 +13,9 @@ _EXPORTS = {
     "enqueue_welcome_email": ("jobs", "enqueue_welcome_email"),
     "enqueue_purchase_receipt": ("jobs", "enqueue_purchase_receipt"),
 }
-__all__ = list(_EXPORTS)
+# The schedulers in background/ run these: due reminders by push, and by email.
+_MODULE_EXPORTS = ("push", "reminder_email")
+__all__ = [*_EXPORTS, *_MODULE_EXPORTS]
 
 
 def __getattr__(name: str) -> Any:
