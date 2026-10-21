@@ -22,7 +22,7 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
-from app.modules.chat.stream_status import StreamStatusFn
+from app.modules.chat.stream_status import StreamStatusFn, announced_if_slow
 from app.modules.chat.tool_loop.calls import _execute_calls, _Round
 from app.modules.chat.tool_loop.forced_search import _force_web_search_if_needed
 from app.modules.chat.tool_loop.results import TerminalImageResult, ToolResults
@@ -205,7 +205,9 @@ async def _select_tool_calls(
     """
     if turn.cancelled():
         return []
-    msg = await _complete_selection(turn, tools, working, usage)
+    msg = await announced_if_slow(
+        _complete_selection(turn, tools, working, usage), turn.on_status, "planning"
+    )
     if msg is None:
         if not turn.cancelled():
             working.append(_tool_selection_unavailable_message())

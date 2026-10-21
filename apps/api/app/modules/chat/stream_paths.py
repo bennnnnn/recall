@@ -26,7 +26,7 @@ from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.stream_health import StreamEnd, health_samples
 from app.modules.chat.stream_scaffold import ScaffoldFilter
-from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
+from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn, thinking_status
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.tool_loop.parts import classified_live_parts, open_parts, turn_plan
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
@@ -261,6 +261,7 @@ async def run_llm_token_stream(
         on_reasoning=on_reasoning,
         thinking=ctx.thinking,
         attempts=attempts,
+        on_thinking=thinking_status(on_status, started),
     )
     try:
         async for token in llm_stream:

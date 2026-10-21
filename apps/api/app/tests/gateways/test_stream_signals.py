@@ -341,3 +341,98 @@ async def test_a_reply_that_fails_partway_is_recorded_as_failed() -> None:
             ):
                 pass
     assert [(a.alias, a.failed) for a in attempts] == [("qwen-3.7-flash", True)]
+
+
+# ── the thinking signal ────────────────────────────────────────────────────────
+
+
+async def _signals(alias: str, *chunks: SimpleNamespace) -> list[str]:
+    """What the caller sees, in order: each text, and "THINKING" when it is told."""
+    seen: list[str] = []
+
+    async def on_thinking() -> None:
+        seen.append("THINKING")
+
+    provider = _ready(*chunks)
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(return_value=provider)):
+        async for token in litellm_gateway.stream_chat_completion(
+            settings=_SETTINGS,
+            model_alias=alias,
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=50,
+            on_thinking=on_thinking,
+        ):
+            seen.append(token)
+    return seen
+
+
+@pytest.mark.asyncio
+async def test_reasoning_on_its_own_channel_is_thinking_before_the_text() -> None:
+    seen = await _signals(
+        "smart-chat",
+        chunk(reasoning="Try x = 4."),
+        chunk(reasoning="Check: 4 + 4 = 8."),
+        chunk(content="So x = 4, since 4 + 4 = 8."),
+    )
+    assert seen[0] == "THINKING"
+    assert seen.count("THINKING") == 1
+    assert "".join(seen[1:]) == "So x = 4, since 4 + 4 = 8."
+
+
+@pytest.mark.asyncio
+async def test_a_think_block_in_the_text_is_thinking() -> None:
+    seen = await _signals(
+        "smart-chat", chunk(content="<think>Try x = 4."), chunk(content="</think>x = 4, done.")
+    )
+    assert seen[0] == "THINKING"
+    assert "".join(seen[1:]) == "x = 4, done."
+
+
+@pytest.mark.asyncio
+async def test_a_reply_that_never_thinks_sends_no_thinking() -> None:
+    seen = await _signals("qwen-3.7-flash", chunk(content="Hello there, friend."))
+    assert "THINKING" not in seen
+
+
+@pytest.mark.asyncio
+async def test_reasoning_after_the_text_has_started_is_not_thinking() -> None:
+    seen = await _signals(
+        "smart-chat",
+        chunk(content="Hello there, friend. "),
+        chunk(reasoning="an afterthought"),
+        chunk(content="How can I help?"),
+    )
+    assert "THINKING" not in seen
+
+
+@pytest.mark.asyncio
+async def test_a_thinking_status_that_fails_is_not_the_models_failure() -> None:
+    async def broken() -> None:
+        raise OSError("socket gone")
+
+    provider = _ready(chunk(reasoning="Try x = 4."), chunk(content="So x = 4, since 4 + 4 = 8."))
+    attempts: list[Any] = []
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(return_value=provider)):
+        tokens = [
+            token
+            async for token in litellm_gateway.stream_chat_completion(
+                settings=_SETTINGS,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=50,
+                fallback_aliases=["glm-5.2"],
+                on_thinking=broken,
+                attempts=attempts,
+            )
+        ]
+    assert "".join(tokens) == "So x = 4, since 4 + 4 = 8."
+    assert [(a.alias, a.failed) for a in attempts] == [("smart-chat", False)]
+
+
+@pytest.mark.asyncio
+async def test_a_held_start_on_a_model_that_always_thinks_is_thinking() -> None:
+    # GLM 5.3 with no reasoning channel: its start may be leaked reasoning.
+    seen = await _signals(
+        "glm-5.3-flash", chunk(content="Simple question."), chunk(content="</think>4")
+    )
+    assert seen == ["THINKING", "4"]

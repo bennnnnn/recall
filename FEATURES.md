@@ -98,7 +98,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Ordinary turns show typing dots only (no “loading memory / working on it” staircase).
   Status labels are reserved for real extra work while it runs: web search, files, math,
   a reference-photo lookup ("Finding a photo") and image gen; the server sends
-  `composing` once a tool is done, so its label never outlives it. After the first
+  `composing` once a tool is done, so its label never outlives it. Hard turns say what
+  they are doing once it has run a second: "Thinking… 12s" while a model reasons
+  (counted from when it was asked; its reasoning is never shown), "Planning the answer…"
+  for a slow tool-selection round, and "Checking the answer…" under a streamed reply
+  whose answer check runs before it saves. After the first
   token, 20 s without new text shows "Still working on it… Tap Stop". A card fence
   (quiz, steps, array, places, any data-bodied registry fence) is a quiet placeholder
   until it closes, a table waits for its delimiter row, and verified-solve markers or

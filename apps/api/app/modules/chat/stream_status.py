@@ -1,6 +1,9 @@
-"""Stream status phases emitted to clients during chat turn prep."""
+"""Stream status phases emitted to clients while a turn works on its reply."""
 
+import asyncio
+import time
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from typing import Literal, Protocol
 
 StreamStatusPhase = Literal[
@@ -11,11 +14,16 @@ StreamStatusPhase = Literal[
     "calculating",
     "physics",
     "chemistry",
+    # The model is reasoning (its reasoning streams, or text is held as reasoning).
     "thinking",
     "composing",
     # Tool-loop activity: AI image generation, and a real reference-photo lookup.
     "image_gen",
     "finding_photo",
+    # The tool-selection round: which tools, if any, the reply needs.
+    "planning",
+    # The streamed reply's answer is being checked before it saves.
+    "checking",
 ]
 
 _SUBJECT_STATUS_PHASE: dict[Literal["math", "physics", "chemistry"], StreamStatusPhase] = {
@@ -28,6 +36,9 @@ _SUBJECT_STATUS_PHASE: dict[Literal["math", "physics", "chemistry"], StreamStatu
 # so keep it short on the wire.
 STATUS_DETAIL_MAX_CHARS = 80
 
+# A step that waits this long is worth a label; a quicker one never flashes one.
+SLOW_STEP_SECONDS = 1.0
+
 
 def status_phase_for_subject(
     subject: Literal["math", "physics", "chemistry"],
@@ -38,9 +49,13 @@ def status_phase_for_subject(
 
 class StreamStatusFn(Protocol):
     """Status emitter; `detail` optionally carries turn context (e.g. the
-    web-search query) so clients can render an activity-specific label."""
+    web-search query) so clients can render an activity-specific label, and
+    `elapsed_ms` how long the phase had already run when it was sent, so a
+    client can count on from it."""
 
-    def __call__(self, phase: str, detail: str | None = None) -> Awaitable[None]: ...
+    def __call__(
+        self, phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+    ) -> Awaitable[None]: ...
 
 
 # One chunk of a reasoning model's thinking text, as it streams.
@@ -57,3 +72,52 @@ def clip_status_detail(detail: str | None) -> str | None:
     if len(flattened) > STATUS_DETAIL_MAX_CHARS:
         return flattened[: STATUS_DETAIL_MAX_CHARS - 1].rstrip() + "…"
     return flattened
+
+
+def thinking_status(
+    on_status: StreamStatusFn | None, asked_at: float
+) -> Callable[[], Awaitable[None]] | None:
+    """The model stream's thinking signal as one ``thinking`` status per turn.
+
+    It carries how long the model has been working on the reply (since
+    ``asked_at``, a ``time.perf_counter`` reading), so the client's count starts
+    from the request, not from when the status reached it. A backup model that
+    thinks too sends nothing more: the client's count runs on.
+    """
+    if on_status is None:
+        return None
+    sent = False
+
+    async def emit() -> None:
+        nonlocal sent
+        if sent:
+            return
+        sent = True
+        await on_status("thinking", elapsed_ms=int((time.perf_counter() - asked_at) * 1000))
+
+    return emit
+
+
+async def announced_if_slow[T](
+    work: Awaitable[T],
+    on_status: StreamStatusFn | None,
+    phase: StreamStatusPhase,
+    *,
+    after_seconds: float | None = None,
+) -> T:
+    """Await ``work``, sending ``phase`` only once it has run ``after_seconds``
+    (``SLOW_STEP_SECONDS`` by default)."""
+    if on_status is None:
+        return await work
+    task = asyncio.ensure_future(work)
+    try:
+        wait = SLOW_STEP_SECONDS if after_seconds is None else after_seconds
+        done, _pending = await asyncio.wait({task}, timeout=wait)
+        if not done:
+            await on_status(phase)
+        return await task
+    finally:
+        if not task.done():
+            task.cancel()
+            with suppress(asyncio.CancelledError, Exception):
+                await task

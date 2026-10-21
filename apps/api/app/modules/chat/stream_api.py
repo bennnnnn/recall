@@ -85,7 +85,8 @@ async def _stream_tokens_sse(
     cancel_event: asyncio.Event | None = None,
 ) -> AsyncIterator[str]:
     outcome = TurnOutcome()
-    event_queue: asyncio.Queue[tuple[str, str, str | None] | None] = asyncio.Queue()
+    # (kind, text, status detail, status elapsed ms)
+    event_queue: asyncio.Queue[tuple[str, str, str | None, int | None] | None] = asyncio.Queue()
     producer_cancelled = False
     if cancel_event is None:
         cancel_event = asyncio.Event()
@@ -97,11 +98,13 @@ async def _stream_tokens_sse(
         return
     yield _sse(build_start_event())
 
-    async def on_status(phase: str, detail: str | None = None) -> None:
-        await event_queue.put(("status", phase, detail))
+    async def on_status(
+        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+    ) -> None:
+        await event_queue.put(("status", phase, detail, elapsed_ms))
 
     async def on_reasoning(chunk: str) -> None:
-        await event_queue.put(("reasoning", chunk, None))
+        await event_queue.put(("reasoning", chunk, None, None))
 
     def should_cancel() -> bool:
         return cancel_event.is_set()
@@ -112,7 +115,7 @@ async def _stream_tokens_sse(
             async for token_text in stream:
                 if should_cancel():
                     break
-                await event_queue.put(("token", token_text, None))
+                await event_queue.put(("token", token_text, None, None))
         except asyncio.CancelledError:
             # Cancel often lands in this task, not inside the generator.
             # The generator is then parked at yield and would never save.
@@ -169,9 +172,9 @@ async def _stream_tokens_sse(
             item = await event_queue.get()
             if item is None:
                 break
-            kind, payload, extra = item
+            kind, payload, extra, elapsed_ms = item
             if kind == "status":
-                yield _sse(build_status_event(payload, extra))
+                yield _sse(build_status_event(payload, extra, elapsed_ms=elapsed_ms))
             elif kind == "reasoning":
                 yield _sse(build_reasoning_event(payload))
             else:

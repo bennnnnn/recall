@@ -196,11 +196,13 @@ async def stream_chat_completion(
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
     thinking: bool | str | None = None,
     attempts: list[StreamAttempt] | None = None,
+    on_thinking: Callable[[], Awaitable[None]] | None = None,
 ) -> AsyncIterator[str]:
     """Stream one reply, moving down ``fallback_aliases`` until a model answers.
 
     ``attempts`` gets one record per model tried, in order: which failed (before
-    its text, or partway), and how fast each provider started.
+    its text, or partway), and how fast each provider started. ``on_thinking``
+    runs when a model is seen reasoning before any of its text.
     """
     if mock_llm.should_mock_llm(settings):
         logger.info("Using mock LLM stream for alias=%s", model_alias)
@@ -242,6 +244,7 @@ async def stream_chat_completion(
                 first_content_timeout_seconds=caps.text,
                 first_signal_timeout_seconds=caps.signal,
                 attempt=attempt,
+                on_thinking=on_thinking,
             ):
                 if not started:
                     pending.append(token)
@@ -334,6 +337,14 @@ def _read_chunk(
     return _ChunkRead(text, reasoning or stripper.holding_thought, reasoning or bool(content))
 
 
+async def _tell_thinking(on_thinking: Callable[[], Awaitable[None]], model_alias: str) -> None:
+    """Best-effort: a status that fails to reach the client is not the model's failure."""
+    try:
+        await on_thinking()
+    except Exception:
+        logger.warning("Thinking status failed for alias=%s", model_alias, exc_info=True)
+
+
 async def _stream_chat_once(
     *,
     settings: Settings,
@@ -347,6 +358,7 @@ async def _stream_chat_once(
     first_signal_timeout_seconds: float | None = None,
     thinking: bool | str | None = None,
     attempt: StreamAttempt | None = None,
+    on_thinking: Callable[[], Awaitable[None]] | None = None,
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=thinking)
@@ -407,7 +419,8 @@ async def _stream_chat_once(
             read = _read_chunk(chunk, usage=usage, stream_meta=stream_meta, stripper=stripper)
             if read.delta and attempt is not None:
                 attempt.delta()
-            watch.saw(text=read.text, thinking=read.thinking)
+            if watch.saw(text=read.text, thinking=read.thinking) and on_thinking is not None:
+                await _tell_thinking(on_thinking, model_alias)
             if read.text:
                 yield read.text
         tail = stripper.flush()
