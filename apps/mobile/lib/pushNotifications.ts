@@ -25,13 +25,11 @@ type AppRouter = {
 let androidChannelReady = false;
 
 export async function getNotificationPermissionGranted(): Promise<boolean> {
-  if (Platform.OS === "web") return false;
   const { status } = await Notifications.getPermissionsAsync();
   return status === "granted";
 }
 
 export async function ensureNotificationPermission(): Promise<boolean> {
-  if (Platform.OS === "web") return false;
   await ensureAndroidChannel();
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === "granted") return true;
@@ -128,7 +126,6 @@ export async function registerRemotePushToken(
   pushNotificationsEnabled: boolean,
   feedback?: ActionFeedbackApi | null,
 ): Promise<PushRegisterResult> {
-  if (Platform.OS === "web") return "skipped";
   if (!pushNotificationsEnabled) return "skipped";
   const granted = await ensureNotificationPermission();
   if (!granted) {
@@ -152,9 +149,8 @@ export async function registerRemotePushToken(
 }
 
 /** This device's Expo push token, for sign-out to hand the server; null when this device
- * cannot have registered one (web, Expo Go, no notification permission). */
+ * cannot have registered one (Expo Go, no notification permission). */
 export async function devicePushToken(): Promise<string | null> {
-  if (Platform.OS === "web") return null;
   if (!(await getNotificationPermissionGranted())) return null;
   return resolveExpoPushToken();
 }
@@ -170,7 +166,6 @@ export async function unregisterRemotePushToken(
   apiToken: string,
   feedback?: ActionFeedbackApi | null,
 ): Promise<boolean> {
-  if (Platform.OS === "web") return true;
   const expoPushToken = await resolveExpoPushToken(feedback);
   if (!expoPushToken) return false;
   try {

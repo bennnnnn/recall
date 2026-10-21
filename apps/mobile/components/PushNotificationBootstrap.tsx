@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
 import { usePathname, useRouter } from "expo-router";
-import { Platform } from "react-native";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import {
@@ -32,12 +31,6 @@ export function PushNotificationBootstrap() {
   }, []);
 
   useEffect(() => {
-    // getLastNotificationResponseAsync/addNotificationResponseReceivedListener
-    // are unimplemented on web (expo-notifications throws "not available on
-    // web" rather than resolving/no-op'ing), which otherwise crashes the
-    // whole app on load via an uncaught rejection.
-    if (Platform.OS === "web") return;
-
     let active = true;
 
     const navigate = (data: Record<string, unknown> | undefined) => {

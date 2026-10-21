@@ -27,7 +27,7 @@ type WaitingEvent = {
   generation: number;
   name: ProductEventName;
   properties: Record<string, string>;
-  platform: "ios" | "android" | "web";
+  platform: "ios" | "android";
   client_at: string;
 };
 
@@ -36,7 +36,7 @@ let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let flushOnBackground = false;
 
 function analyticsPlatform(): WaitingEvent["platform"] | null {
-  if (Platform.OS === "ios" || Platform.OS === "android" || Platform.OS === "web") {
+  if (Platform.OS === "ios" || Platform.OS === "android") {
     return Platform.OS;
   }
   return null;

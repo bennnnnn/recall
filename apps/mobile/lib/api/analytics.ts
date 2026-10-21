@@ -12,7 +12,7 @@ export type ProductEventName =
 type ProductEventInput = {
   name: ProductEventName;
   properties: Record<string, string>;
-  platform?: "ios" | "android" | "web";
+  platform?: "ios" | "android";
   app_version?: string;
   installation_id?: string;
   client_at: string;

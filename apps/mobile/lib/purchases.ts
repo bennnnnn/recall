@@ -52,7 +52,7 @@ function revenueCatApiKey(): string | null {
 }
 
 export function isPurchasesConfigured(): boolean {
-  if (Platform.OS === "web" || isExpoGo()) return false;
+  if (isExpoGo()) return false;
   return revenueCatApiKey() != null;
 }
 

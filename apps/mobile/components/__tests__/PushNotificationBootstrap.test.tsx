@@ -71,15 +71,7 @@ describe("PushNotificationBootstrap", () => {
     expect(handlePushNotificationResponse).not.toHaveBeenCalled();
   });
 
-  it("BUG FIX regression: does not call the native-only response APIs on web", async () => {
-    Platform.OS = "web";
-    await render(<PushNotificationBootstrap />);
-    expect(mockGetLastNotificationResponseAsync).not.toHaveBeenCalled();
-    expect(mockAddNotificationResponseReceivedListener).not.toHaveBeenCalled();
-    expect(mockAddNotificationReceivedListener).not.toHaveBeenCalled();
-  });
-
-  it("still wires up the response APIs on native platforms", async () => {
+  it("wires up the response APIs (the phone app has no web target, DEAD-10)", async () => {
     Platform.OS = "ios";
     await render(<PushNotificationBootstrap />);
     expect(mockGetLastNotificationResponseAsync).toHaveBeenCalled();
