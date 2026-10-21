@@ -31,20 +31,32 @@ from app.modules.math.solve.parse import (
 )
 
 
-def solve_compound_inequality(
-    low: str,
-    low_op: str,
-    mid: str,
-    high_op: str,
-    high: str,
-    variable: str,
-) -> MathSolveResult:
-    """Solve ``low OP mid OP high`` (e.g. ``1 < x <= 3``) as an And of relations."""
+def compound_solution_set(
+    low: str, low_op: str, mid: str, high_op: str, high: str, variable: str
+) -> Any:
+    """The real solution set of ``low OP mid OP high``: the answer card's and the number
+    line's (``solve/graph.py``), solved once here (they were copies that could drift)."""
     sym = Symbol(variable, real=True)
     low_e = _parse_expression(low, [variable], real=True)
     mid_e = _parse_expression(mid, [variable], real=True)
     high_e = _parse_expression(high, [variable], real=True)
+    lower_rel, upper_rel = _compound_relations(
+        low, low_op, mid, high_op, high, low_e, mid_e, high_e
+    )
+    try:
+        # solveset rejects And(...); solve each side and intersect on Reals.
+        return solveset(lower_rel, sym, domain=S.Reals).intersect(
+            solveset(upper_rel, sym, domain=S.Reals)
+        )
+    except Exception as exc:
+        raise SolveServiceError(
+            f"Could not solve compound inequality: {low} {low_op} {mid} {high_op} {high}"
+        ) from exc
 
+
+def _compound_relations(
+    low: str, low_op: str, mid: str, high_op: str, high: str, low_e: Any, mid_e: Any, high_e: Any
+) -> tuple[Any, Any]:
     ascending = low_op in ("<", "<=") and high_op in ("<", "<=")
     descending = low_op in (">", ">=") and high_op in (">", ">=")
     if ascending:
@@ -58,17 +70,23 @@ def solve_compound_inequality(
         raise SolveServiceError(
             f"Unsupported compound inequality direction: {low} {low_op} {mid} {high_op} {high}"
         )
+    return lower_rel, upper_rel
 
-    try:
-        # solveset rejects And(...); solve each side and intersect on Reals.
-        sol = solveset(lower_rel, sym, domain=S.Reals).intersect(
-            solveset(upper_rel, sym, domain=S.Reals)
-        )
-    except Exception as exc:
-        raise SolveServiceError(
-            f"Could not solve compound inequality: {low} {low_op} {mid} {high_op} {high}"
-        ) from exc
 
+def solve_compound_inequality(
+    low: str,
+    low_op: str,
+    mid: str,
+    high_op: str,
+    high: str,
+    variable: str,
+) -> MathSolveResult:
+    """Solve ``low OP mid OP high`` (e.g. ``1 < x <= 3``) as an And of relations."""
+    sym = Symbol(variable, real=True)
+    sol = compound_solution_set(low, low_op, mid, high_op, high, variable)
+    low_e = _parse_expression(low, [variable], real=True)
+    mid_e = _parse_expression(mid, [variable], real=True)
+    high_e = _parse_expression(high, [variable], real=True)
     sol_latex = inequality_solution_latex(sol, sym)
     cmp_latex = {"<": "<", ">": ">", "<=": "\\leq", ">=": "\\geq"}
     return MathSolveResult(
@@ -131,6 +149,26 @@ def inequality_solution_latex(solution: Any, sym: Any) -> str:
     return r" \text{ or } ".join(text for text in shown if text)
 
 
+def inequality_solution_set(lhs: str, rhs: str, comparator: str, variable: str) -> Any:
+    """The solution set of ``lhs CMP rhs``, an Interval/Union: the answer card's and the
+    number line's, solved once here (the number line used to solve it its own way)."""
+    real = _expr_needs_real_domain(lhs, rhs)
+    sym = Symbol(variable, real=True) if real else Symbol(variable)
+    left = _parse_expression(lhs, [variable], real=real)
+    right = _parse_expression(rhs, [variable], real=real)
+    rel_cls = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}.get(comparator)
+    if rel_cls is None:
+        raise SolveServiceError(f"Unknown inequality comparator: {comparator}")
+    try:
+        if real:
+            return solveset(rel_cls(left, right), sym, domain=S.Reals)
+        return solve_univariate_inequality(
+            rel_cls(simplify(left - right), 0), sym, relational=False
+        )
+    except Exception as exc:  # NotImplementedError / non-univariate / etc.
+        raise SolveServiceError(f"Could not solve inequality: {lhs} {comparator} {rhs}") from exc
+
+
 def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> MathSolveResult:
     """Solve a single-variable inequality, e.g. `x**2 - 1 > 0` → x < -1 or x > 1.
 
@@ -143,18 +181,7 @@ def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> Math
     sym = Symbol(variable, real=True) if real else Symbol(variable)
     left = _parse_expression(lhs, [variable], real=real)
     right = _parse_expression(rhs, [variable], real=real)
-    diff_expr = simplify(left - right)
-    rel_cls = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}.get(comparator)
-    if rel_cls is None:
-        raise SolveServiceError(f"Unknown inequality comparator: {comparator}")
-    rel = rel_cls(diff_expr, 0)
-    try:
-        if real:
-            sol = solveset(rel_cls(left, right), sym, domain=S.Reals)
-        else:
-            sol = solve_univariate_inequality(rel, sym)
-    except Exception as exc:  # NotImplementedError / non-univariate / etc.
-        raise SolveServiceError(f"Could not solve inequality: {lhs} {comparator} {rhs}") from exc
+    sol = inequality_solution_set(lhs, rhs, comparator, variable)
     sol_latex = inequality_solution_latex(sol, sym)
     cmp_latex = {"<": "<", ">": ">", "<=": "\\leq", ">=": "\\geq"}[comparator]
     return MathSolveResult(
