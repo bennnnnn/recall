@@ -4,7 +4,7 @@ import * as Clipboard from "expo-clipboard";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { useAuth, useAuthToken } from "@/contexts/AuthContext";
+import { useAuthToken, useAuthUserReader } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
@@ -133,7 +133,8 @@ export function UserActions({
  */
 function useReadAloud(messageId: string, markdown: string) {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  // Read on press, not subscribed: a profile or quota patch must not re-render every reply's row.
+  const readUser = useAuthUserReader();
   const token = useAuthToken();
   const feedbackApi = useActionFeedbackOptional();
   const [speakingId, setSpeakingId] = useState<string | null>(null);
@@ -169,6 +170,7 @@ function useReadAloud(messageId: string, markdown: string) {
     setSpeakingId(messageId);
     // The natural (cloud) voice is a paid feature the server enforces; other
     // plans read with the phone's own voice, which never reaches the server.
+    const user = readUser();
     const cloudVoice = hasPlanFeature(user, "speech_tts");
     const result = await speakPlainText(markdown, speechLocale(user?.locale), {
       token: cloudVoice ? token : null,

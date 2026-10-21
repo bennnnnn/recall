@@ -63,6 +63,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 /** Token-only bag so chat list cells don't re-render on every user/quota patch. */
 type AuthTokenBag = { token: string | null };
 const AuthTokenContext = createContext<AuthTokenBag | null>(null);
+/** Never changes: reads the signed-in user when called, for event handlers in list rows. */
+const AuthUserReaderContext = createContext<(() => User | null) | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -330,14 +332,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const tokenBag = useMemo(() => ({ token }), [token]);
+  const readUser = useCallback(() => userRef.current, []);
 
   return (
     <AuthTokenContext.Provider value={tokenBag}>
-      <AuthContext.Provider value={value}>
-        {loading || startupFailed
-          ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} />
-          : children}
-      </AuthContext.Provider>
+      <AuthUserReaderContext.Provider value={readUser}>
+        <AuthContext.Provider value={value}>
+          {loading || startupFailed
+            ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} />
+            : children}
+        </AuthContext.Provider>
+      </AuthUserReaderContext.Provider>
     </AuthTokenContext.Provider>
   );
 }
@@ -357,6 +362,19 @@ export function useAuthToken(): string | null {
     throw new Error("useAuthToken must be used within AuthProvider");
   }
   return bag.token;
+}
+
+/**
+ * The signed-in user as of the moment it is called. For a handler in a list
+ * row that needs the plan or locale on press: unlike `useAuth()`, it never
+ * re-renders the row when the profile or quota is patched.
+ */
+export function useAuthUserReader(): () => User | null {
+  const read = useContext(AuthUserReaderContext);
+  if (!read) {
+    throw new Error("useAuthUserReader must be used within AuthProvider");
+  }
+  return read;
 }
 
 export function useAuthOptional() {

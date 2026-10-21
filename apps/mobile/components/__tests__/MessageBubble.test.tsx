@@ -90,6 +90,7 @@ jest.mock("@/features/drafts/context/emailDraftPersist", () => ({
 let mockAuthUser: { plan: string; features: string[]; locale: string } | null = null;
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: mockAuthUser }),
+  useAuthUserReader: () => () => mockAuthUser,
   useAuthToken: () => "token",
 }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({

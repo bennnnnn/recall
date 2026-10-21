@@ -2,7 +2,7 @@ import React, { useLayoutEffect } from "react";
 import { Text } from "react-native";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth, useAuthUserReader } from "@/contexts/AuthContext";
 import { api, loginWithDev, logoutSession, setTokenRefreshHandler, type User } from "@/lib/api";
 import { getToken, setTokenPair } from "@/lib/auth";
 import { readCachedUser, writeCachedUser } from "@/lib/cachedUser";
@@ -65,6 +65,23 @@ beforeEach(() => {
   (api.me as jest.Mock).mockResolvedValue(userA);
   (logoutSession as jest.Mock).mockResolvedValue(undefined);
   (loginWithDev as jest.Mock).mockResolvedValue({ access_token: "access-b", refresh_token: "refresh-b", user: userB });
+});
+
+it("reads the current user for a row's handler without re-rendering the row on a profile patch", async () => {
+  const rowRendered = jest.fn<void, [() => User | null]>();
+  function Row() {
+    rowRendered(useAuthUserReader());
+    return null;
+  }
+  const row = <Row />;
+  await render(<AuthProvider><Probe />{row}</AuthProvider>);
+  const settled = rowRendered.mock.calls.length;
+  const reader = rowRendered.mock.calls.at(-1)![0];
+
+  await act(async () => { current.mergeUser({ name: "Alice B." }); });
+  expect(current.user?.name).toBe("Alice B.");
+  expect(rowRendered).toHaveBeenCalledTimes(settled);
+  expect(reader()?.name).toBe("Alice B.");
 });
 
 it("asks for consent again when the server refuses a turn for want of it", async () => {
