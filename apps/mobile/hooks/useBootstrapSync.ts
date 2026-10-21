@@ -61,15 +61,15 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       if (location && (await recentSyncAt("location", userId, LOCATION_SYNC_INTERVAL_MS)) !== null) return;
       if (!active()) return;
       const label = await getDeviceLocationLabel();
-      if (!active() || !label) return;
       const current = tokenRef.current;
-      if (location !== label && current) {
-        const updated = await api.updateMe(current, { location: label });
-        if (!active()) return;
-        setUser((latest) => latest?.id === userId
-          ? { ...latest, location: updated.location } : latest);
-      }
-      void recordSync("location", userId);
+      if (!active() || !label || !current) return;
+      const updated = location === label ? null : await api.updateMe(current, { location: label });
+      if (!active()) return;
+      // Recorded before the new label re-runs this effect, so that run finds it.
+      await recordSync("location", userId);
+      if (!active() || !updated) return;
+      setUser((latest) => latest?.id === userId
+        ? { ...latest, location: updated.location } : latest);
     })().catch(() => {
       if (active()) console.warn("[bootstrap] location sync failed");
     });

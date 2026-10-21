@@ -136,6 +136,16 @@ describe("location label", () => {
     expect(getDeviceLocationLabel).toHaveBeenCalledTimes(1);
   });
 
+  it("records the read before the new label shows, so that re-run finds it", async () => {
+    (getDeviceLocationLabel as jest.Mock).mockResolvedValue("Lyon");
+    (api.updateMe as jest.Mock).mockResolvedValue({ ...located, location: "Lyon" });
+    let recordedFirst: boolean | null = null;
+    setUser.mockImplementationOnce(() => { recordedFirst = mockSyncRecords.has("location"); });
+    await render(<Probe user={located} token="a" />);
+    await act(async () => {});
+    expect(recordedFirst).toBe(true);
+  });
+
   it("reads it now when the server has no label, even after a read today", async () => {
     mockSyncRecords.set("location", { account: "a", at: Date.now() });
     (getDeviceLocationLabel as jest.Mock).mockResolvedValue("Lyon");
