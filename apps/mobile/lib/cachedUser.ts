@@ -8,8 +8,9 @@ const cachedUserFile = cacheFile("cached-user.json");
  * The subset of ``User`` persisted to the filesystem cache.
  *
  * Only non-sensitive display fields are cached — enough to paint the app
- * instantly on cold start (name, avatar, plan for gating) without blocking
- * on an ``api.me()`` round trip. PII (email, age, country, job, location,
+ * instantly on cold start (name, avatar, plan for gating, and the language
+ * the app is drawn in) without blocking on an ``api.me()`` round trip.
+ * PII (email, age, country, job, location,
  * custom_instructions) and prefs (push/email reminder flags, reminder lead,
  * memory enabled, response style/tone, etc.) are deliberately NOT cached:
  * the cache directory can be read by a backup tool or another app with
@@ -18,7 +19,7 @@ const cachedUserFile = cacheFile("cached-user.json");
  * from the API on launch. The AI-consent time is kept too (not PII): without
  * it every cold start would show the consent screen until ``api.me()`` lands.
  */
-type CachedUser = Pick<User, "id" | "name" | "avatar_url" | "plan" | "ai_data_consent_at">;
+type CachedUser = Pick<User, "id" | "name" | "avatar_url" | "plan" | "ai_data_consent_at" | "locale">;
 
 /** Decode only to select cached display fields, never to authenticate or grant
  * access. A cache from a previous account can survive a failed file deletion. */
@@ -58,7 +59,6 @@ const DEFAULT_USER_FIELDS: Omit<User, keyof CachedUser> = {
   push_notifications_enabled: false,
   email_reminders_enabled: false,
   reminder_lead_minutes: 0,
-  locale: "",
   timezone: "",
   location: null,
   location_enabled: false,
@@ -100,7 +100,23 @@ export async function readCachedUser(): Promise<CachedUser | null> {
       avatar_url: parsed.avatar_url ?? null,
       plan: planOf(parsed),
       ai_data_consent_at: cachedConsentAt(parsed.ai_data_consent_at),
+      // A cache written before the field: English until /auth/me answers.
+      locale: typeof parsed.locale === "string" ? parsed.locale : "",
     };
+  } catch {
+    return null;
+  }
+}
+
+/** The cached account's language, read before the first render so the first
+ * frame is drawn in it (`lib/launchPrefs.ts`); null without one. */
+export function readCachedLocaleSync(): string | null {
+  const raw = cachedUserFile.readSync();
+  if (raw === null) return null;
+  try {
+    const parsed = JSON.parse(raw) as { locale?: unknown } | null;
+    const locale = parsed?.locale;
+    return typeof locale === "string" && locale.trim() ? locale.trim() : null;
   } catch {
     return null;
   }
@@ -120,6 +136,7 @@ export function writeCachedUser(user: User): Promise<void> {
     avatar_url: user.avatar_url,
     plan: user.plan,
     ai_data_consent_at: user.ai_data_consent_at,
+    locale: user.locale,
   };
   return cachedUserFile.write(JSON.stringify(cached));
 }

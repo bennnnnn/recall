@@ -22,6 +22,7 @@ import { PushNotificationBootstrap } from "@/components/PushNotificationBootstra
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
+import { restoreLaunchPrefs } from "@/lib/launchPrefs";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { useStackHeaderOptions } from "@/lib/stackHeader";
 import {
@@ -35,6 +36,8 @@ import { useTheme } from "@/lib/theme";
 import { UI_FONT } from "@/lib/uiFont";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+// Before the first render: the user's appearance, accent and language.
+void restoreLaunchPrefs();
 
 function RootNavigator() {
   const { t } = useTranslation();
