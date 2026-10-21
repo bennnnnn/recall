@@ -1,5 +1,5 @@
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -13,6 +13,9 @@ from app.services.quota import counters
 from app.services.quota import tokens as quota_tokens
 from app.services.quota.tokens import _usage_key
 from app.tests.fakes import redis_mock
+
+# Every read of today, here and in the quota code, sees one fixed day (quota_clock).
+pytestmark = pytest.mark.usefixtures("quota_clock")
 
 
 @pytest.fixture
@@ -77,9 +80,7 @@ def test_per_plan_daily_caps(plan, tokens, stt, tts, images):
 )
 @pytest.mark.asyncio
 async def test_quota_enforced(fake_redis, settings, used, requested, allowed):
-    from datetime import UTC, datetime
-
-    day = datetime.now(UTC).date().isoformat()
+    day = quota_service.utc_today().isoformat()
     if used:
         await fake_redis.set(f"usage:u1:{day}", used)
     limit = quota_service.daily_limit_for_user(_free_user(), settings)
@@ -127,9 +128,7 @@ async def test_record_usage_without_limit_does_not_cap(fake_redis):
 
 @pytest.mark.asyncio
 async def test_reserve_usage_rejects_over_limit(fake_redis, settings):
-    from datetime import UTC, datetime
-
-    day = datetime.now(UTC).date().isoformat()
+    day = quota_service.utc_today().isoformat()
     await fake_redis.set(f"usage:u1:{day}", 99_500)
     limit = quota_service.daily_limit_for_user(_free_user(), settings)
 
@@ -174,7 +173,7 @@ async def test_has_daily_usage_key(fake_redis):
 
 @pytest.mark.asyncio
 async def test_seed_usage_from_db_skips_db_when_redis_key_warm(fake_redis):
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import AsyncMock
     from uuid import uuid4
 
     from app.modules.chat.turn_settle import seed_usage_from_db
@@ -200,7 +199,7 @@ async def test_seed_usage_from_db_skips_db_when_redis_key_warm(fake_redis):
 @pytest.mark.asyncio
 async def test_seed_usage_from_db_does_not_heal_warm_redis(fake_redis):
     """Warm Redis skips Neon even if the counter is below the DB total."""
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import AsyncMock
     from uuid import uuid4
 
     from app.modules.chat.turn_settle import seed_usage_from_db
@@ -233,7 +232,7 @@ async def test_heal_usage_drift_does_not_lower_live_redis(fake_redis):
 
 @pytest.mark.asyncio
 async def test_seed_usage_from_db_heals_when_flag_set(fake_redis):
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import AsyncMock
     from uuid import uuid4
 
     from app.modules.chat.turn_settle import seed_usage_from_db
@@ -255,9 +254,7 @@ async def test_seed_usage_from_db_heals_when_flag_set(fake_redis):
 @pytest.mark.asyncio
 async def test_seed_usage_if_missing_seeds_from_db_when_key_absent(fake_redis):
     """After a Redis flush the counter is gone; seeding restores the DB total."""
-    from datetime import UTC, datetime
-
-    day = datetime.now(UTC).date().isoformat()
+    day = quota_service.utc_today().isoformat()
     await quota_service.seed_usage_if_missing(fake_redis, "u1", 12_000)
     assert int(await fake_redis.get(f"usage:u1:{day}")) == 12_000
 
@@ -265,9 +262,7 @@ async def test_seed_usage_if_missing_seeds_from_db_when_key_absent(fake_redis):
 @pytest.mark.asyncio
 async def test_seed_usage_if_missing_does_not_overwrite_live_counter(fake_redis):
     """SET NX must never overwrite a live (non-zero) counter — no double-count."""
-    from datetime import UTC, datetime
-
-    day = datetime.now(UTC).date().isoformat()
+    day = quota_service.utc_today().isoformat()
     await fake_redis.set(f"usage:u1:{day}", 3_000)
     await quota_service.seed_usage_if_missing(fake_redis, "u1", 12_000)
     # Live counter wins; the DB total is NOT applied.
@@ -276,9 +271,7 @@ async def test_seed_usage_if_missing_does_not_overwrite_live_counter(fake_redis)
 
 @pytest.mark.asyncio
 async def test_seed_usage_if_missing_noop_when_db_total_zero(fake_redis):
-    from datetime import UTC, datetime
-
-    day = datetime.now(UTC).date().isoformat()
+    day = quota_service.utc_today().isoformat()
     await quota_service.seed_usage_if_missing(fake_redis, "u1", 0)
     assert await fake_redis.get(f"usage:u1:{day}") is None
 
@@ -824,3 +817,23 @@ async def test_read_carried_usage_skips_an_unreadable_counter(fake_redis):
     await fake_redis.set(f"imgup:{user_id}:{today}", 2)
     carried = await quota_service.read_carried_usage(fake_redis, user_id)
     assert carried.daily == {"imgup": 2}
+
+
+# ── quota service ──────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_daily_usage_when_nothing_used(fake_redis):
+    from app.services import quota as quota_service
+
+    assert await quota_service.get_daily_usage(fake_redis, "u1") == 0
+
+
+@pytest.mark.asyncio
+async def test_record_usage_accumulates(fake_redis):
+    from app.services import quota as quota_service
+    from app.services.quota import tokens as quota_tokens
+
+    await quota_tokens.record_usage(fake_redis, "u1", 500)
+    await quota_tokens.record_usage(fake_redis, "u1", 300)
+    assert await quota_service.get_daily_usage(fake_redis, "u1") == 800

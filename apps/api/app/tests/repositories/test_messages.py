@@ -132,3 +132,25 @@ async def test_list_user_contents_since_sql_is_user_only():
     sql = str(compiled).lower()
     assert "role" in sql
     assert "user" in sql
+
+
+# ── messages.count_for_chat — SQL scalar path ─────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_count_for_chat_uses_scalar():
+    from unittest.mock import MagicMock
+
+    from app.repositories import messages as messages_repo
+
+    session = AsyncMock()
+    # scalar_one is a sync call on the execute result
+    result_mock = MagicMock()
+    result_mock.scalar_one.return_value = 42
+    session.execute.return_value = result_mock
+
+    count = await messages_repo.count_for_chat(session, uuid4())
+
+    assert count == 42
+    session.execute.assert_awaited_once()
+    result_mock.scalar_one.assert_called_once()

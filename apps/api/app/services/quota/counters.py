@@ -1,6 +1,7 @@
 """Per-user daily counters in Redis, and the table of per-feature daily caps."""
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Literal
@@ -30,8 +31,17 @@ from app.services.quota.messages import (
 logger = logging.getLogger(__name__)
 
 
-def utc_today() -> date:
+def _utc_date() -> date:
     return datetime.now(UTC).date()
+
+
+# The day every daily counter is keyed by. Every reader goes through ``utc_today``,
+# however it imported it, so a test that fixes this (``quota_clock``) fixes them all.
+clock: Callable[[], date] = _utc_date
+
+
+def utc_today() -> date:
+    return clock()
 
 
 def daily_key(prefix: str, owner: str | UUID, day: date | None = None) -> str:

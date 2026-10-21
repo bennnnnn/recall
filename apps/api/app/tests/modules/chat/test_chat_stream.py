@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
-from app.tests.test_routers import _app_with_user, _fake_user
+from app.tests.api_support import api_user, app_with_user
 
 
 async def _fake_sse_stream(*_args, **_kwargs):
@@ -44,8 +44,8 @@ async def test_sse_attachment_rejection_is_explicit_and_never_done():
 
 
 def test_stream_message_sse_returns_event_stream():
-    user = _fake_user()
-    app = _app_with_user(user)
+    user = api_user()
+    app = app_with_user(user)
     chat_id = uuid4()
 
     with (
@@ -291,7 +291,7 @@ async def test_stream_message_sse_passes_cancel_event_as_should_cancel():
     from app.models.schemas import ChatMessageRequest
     from app.modules.chat.stream_api import stream_message_sse
 
-    user = _fake_user()
+    user = api_user()
     settings = Settings()
     request = AsyncMock()
     request.is_disconnected = AsyncMock(return_value=True)
@@ -338,8 +338,8 @@ def test_stream_routes_return_429_when_chat_rate_limited(path: str, body: dict):
     entry point could silently ship without it. This pins the throttle to the
     routes themselves rather than to any one handler.
     """
-    user = _fake_user()
-    app = _app_with_user(user)
+    user = api_user()
+    app = app_with_user(user)
     chat_id = uuid4()
 
     with (

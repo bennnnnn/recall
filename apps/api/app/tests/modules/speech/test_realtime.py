@@ -13,8 +13,8 @@ from app.gateways.openai_speech_gateway import RealtimeClientSecretResult
 from app.main import create_app
 from app.modules.speech.live_talk import LiveTalkSessionContext
 from app.modules.speech.realtime import _realtime_instructions
+from app.tests.api_support import api_user
 from app.tests.fakes import redis_mock
-from app.tests.test_routers import _fake_user
 
 
 def test_realtime_instructions_include_bounded_chat_history():
@@ -59,7 +59,7 @@ def test_realtime_instructions_omit_empty_memory():
 def test_realtime_instructions_include_custom_instructions():
     from app.modules.speech.live_talk import voice_custom_instructions
 
-    wrapped = voice_custom_instructions(_fake_user(custom_instructions="Keep answers short."))
+    wrapped = voice_custom_instructions(api_user(custom_instructions="Keep answers short."))
     prompt = _realtime_instructions(None, custom_instructions=wrapped)
     assert "[BEGIN USER PREFERENCES]" in prompt
     assert "Keep answers short." in prompt
@@ -157,7 +157,7 @@ def _session_mint_patches(
 
 
 def test_persist_requires_issued_realtime_session():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     settings = Settings(
         openai_api_key="sk-test",
         speech_live_talk_enabled=True,
@@ -180,7 +180,7 @@ def test_persist_requires_issued_realtime_session():
 
 
 def test_persist_ignores_assistant_only_phantom_turn():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     settings = Settings(
         openai_api_key="sk-test",
         speech_live_talk_enabled=True,
@@ -205,7 +205,7 @@ def test_persist_ignores_assistant_only_phantom_turn():
 def test_voice_sources_persist_in_the_canonical_chat_fence():
     import json
 
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     client = TestClient(_realtime_app(user, Settings()))
     sources = [{"title": "Official score", "url": "https://example.com/score"}]
     persist = AsyncMock(return_value=(None, None))
@@ -247,7 +247,7 @@ def test_voice_sources_persist_in_the_canonical_chat_fence():
 @pytest.mark.parametrize("plan", ["free", "plus"])
 def test_persist_stops_when_the_plan_no_longer_has_live_talk(plan):
     """Pro ended mid-call: the very next turn is refused, not saved."""
-    user = _fake_user(plan=plan)
+    user = api_user(plan=plan)
     settings = Settings(speech_live_talk_enabled=True, speech_realtime_voice_enabled=True)
     chat_id = uuid4()
     persist = AsyncMock(return_value=(None, None))
@@ -281,7 +281,7 @@ def test_persist_stops_when_the_plan_no_longer_has_live_talk(plan):
 def test_persist_rejects_when_global_spend_cap_is_hit():
     from app.services.quota import VOICE_SPEND_CAP_MESSAGE
 
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     settings = Settings(
         speech_live_talk_enabled=True,
         speech_realtime_voice_enabled=True,
@@ -313,7 +313,7 @@ def test_persist_rejects_when_global_spend_cap_is_hit():
 
 
 def test_persist_rejects_chat_id_that_is_not_bound_to_the_session():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     client = TestClient(_realtime_app(user, Settings()))
     persist = AsyncMock(return_value=(None, None))
     with (
@@ -355,7 +355,7 @@ def _minutes_settings(**overrides: object) -> Settings:
 @pytest.mark.parametrize("plan", ["free", "plus"])
 def test_realtime_session_mint_is_refused_without_live_talk_in_the_plan(plan):
     mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
-    client = TestClient(_realtime_app(_fake_user(plan=plan), _minutes_settings()))
+    client = TestClient(_realtime_app(api_user(plan=plan), _minutes_settings()))
     with _session_mint_patches(mint=mint) as fake_redis:
         r = client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
         assert r.status_code == 403
@@ -364,7 +364,7 @@ def test_realtime_session_mint_is_refused_without_live_talk_in_the_plan(plan):
 
 
 def test_realtime_session_mint_reserves_a_capped_session_from_the_month():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
     client = TestClient(_realtime_app(user, _minutes_settings()))
     with _session_mint_patches(mint=mint) as fake_redis:
@@ -380,7 +380,7 @@ def test_realtime_session_mint_reserves_a_capped_session_from_the_month():
 
 
 def test_realtime_session_mint_gets_only_what_is_left():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
     client = TestClient(_realtime_app(user, _minutes_settings()))
     with _session_mint_patches(mint=mint) as fake_redis:
@@ -396,7 +396,7 @@ def test_realtime_session_mint_gets_only_what_is_left():
 
 
 def test_realtime_session_mint_refused_below_the_minimum_session():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
     client = TestClient(_realtime_app(user, _minutes_settings()))
     with _session_mint_patches(mint=mint) as fake_redis:
@@ -413,7 +413,7 @@ def test_realtime_session_mint_refused_below_the_minimum_session():
 
 
 def test_realtime_session_mint_failure_gives_the_minutes_back():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     mint = AsyncMock(return_value=None)
     client = TestClient(_realtime_app(user, _minutes_settings()))
     with _session_mint_patches(mint=mint):
@@ -424,7 +424,7 @@ def test_realtime_session_mint_failure_gives_the_minutes_back():
 
 
 def test_live_end_settles_to_the_time_used_and_closes_saving():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
     client = TestClient(_realtime_app(user, _minutes_settings()))
     headers = {"Authorization": "Bearer tok"}
@@ -444,7 +444,7 @@ def test_live_end_settles_to_the_time_used_and_closes_saving():
 
 
 def test_live_end_cannot_refund_a_session_it_does_not_own():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
     client = TestClient(_realtime_app(user, _minutes_settings()))
     with _session_mint_patches(mint=mint):
@@ -459,7 +459,7 @@ def test_live_end_cannot_refund_a_session_it_does_not_own():
 
 
 def test_realtime_session_returns_ephemeral_key_and_recall_session_id():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     settings = Settings(
         openai_api_key="sk-test",
         speech_live_talk_enabled=True,
@@ -485,7 +485,7 @@ def test_realtime_session_returns_ephemeral_key_and_recall_session_id():
 
 
 def test_realtime_session_uses_the_users_voice():
-    user = _fake_user(plan="pro", tts_voice="sage")
+    user = api_user(plan="pro", tts_voice="sage")
     settings = Settings(
         openai_api_key="sk-test",
         speech_live_talk_enabled=True,
@@ -501,7 +501,7 @@ def test_realtime_session_uses_the_users_voice():
 
 
 def test_realtime_session_injects_memory_and_custom_instructions():
-    user = _fake_user(plan="pro", custom_instructions="Keep answers short.")
+    user = api_user(plan="pro", custom_instructions="Keep answers short.")
     settings = Settings(
         openai_api_key="sk-test",
         speech_live_talk_enabled=True,
@@ -525,7 +525,7 @@ def test_realtime_session_injects_memory_and_custom_instructions():
 
 
 def test_realtime_session_injects_schedule_snapshot():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     settings = Settings(
         openai_api_key="sk-test",
         speech_live_talk_enabled=True,
@@ -550,7 +550,7 @@ def test_realtime_session_injects_schedule_snapshot():
 
 
 def test_realtime_session_mints_when_memory_load_returns_empty():
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     user.memory_enabled = False
     settings = Settings(
         openai_api_key="sk-test",
@@ -584,7 +584,7 @@ def test_realtime_session_mints_when_memory_load_returns_empty():
 )
 def test_voice_tools_enforce_session_ownership_plan_and_read_only_allowlist(case, expected):
     chat_id = uuid4()
-    user = _fake_user(plan=case if case in {"free", "plus"} else "pro")
+    user = api_user(plan=case if case in {"free", "plus"} else "pro")
     client = TestClient(
         _realtime_app(
             user, Settings(speech_live_talk_enabled=True, speech_realtime_voice_enabled=True)
@@ -648,7 +648,7 @@ def test_live_talk_spend_follows_reserved_time_not_posted_turns():
     from app.services import quota as quota_service
     from app.services.quota.spend import live_talk_spend_usd
 
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
     client = TestClient(_realtime_app(user, _minutes_settings()))
     headers = {"Authorization": "Bearer tok"}
@@ -693,7 +693,7 @@ def test_live_talk_persist_is_bounded_per_session_and_per_user(
 
     from app.services import quota as quota_service
 
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
     client = TestClient(_realtime_app(user, _minutes_settings()))
     headers = {"Authorization": "Bearer tok"}

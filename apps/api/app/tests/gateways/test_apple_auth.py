@@ -129,15 +129,15 @@ async def test_verify_apple_id_token_requires_server_config():
 
 
 @pytest.mark.asyncio
-async def test_public_key_for_kid_refetches_jwks_on_kid_miss():
+async def test_public_key_for_kid_refetches_jwks_on_kid_miss(monkeypatch: pytest.MonkeyPatch):
     import time
 
     import app.gateways.apple_auth as apple_auth
 
     _, kid, jwk = _make_apple_token()
     jwks = {"keys": [{**jwk, "kid": kid, "alg": "RS256", "use": "sig"}]}
-    apple_auth._jwks_cache = {"keys": []}
-    apple_auth._jwks_fetched_at = time.time()
+    monkeypatch.setattr(apple_auth, "_jwks_cache", {"keys": []})
+    monkeypatch.setattr(apple_auth, "_jwks_fetched_at", time.time())
 
     with patch(
         "app.gateways.apple_auth._fetch_apple_jwks",
@@ -152,14 +152,14 @@ async def test_public_key_for_kid_refetches_jwks_on_kid_miss():
 
 
 @pytest.mark.asyncio
-async def test_fetch_apple_jwks_uses_cache_within_ttl():
+async def test_fetch_apple_jwks_uses_cache_within_ttl(monkeypatch: pytest.MonkeyPatch):
     import time
 
     import app.gateways.apple_auth as apple_auth
 
     cached = {"keys": [{"kid": "cached"}]}
-    apple_auth._jwks_cache = cached
-    apple_auth._jwks_fetched_at = time.time()
+    monkeypatch.setattr(apple_auth, "_jwks_cache", cached)
+    monkeypatch.setattr(apple_auth, "_jwks_fetched_at", time.time())
 
     with patch("app.gateways.apple_auth.get_pooled_client") as mock_client_cls:
         result = await apple_auth._fetch_apple_jwks()
@@ -169,13 +169,13 @@ async def test_fetch_apple_jwks_uses_cache_within_ttl():
 
 
 @pytest.mark.asyncio
-async def test_fetch_apple_jwks_force_refresh_bypasses_cache():
+async def test_fetch_apple_jwks_force_refresh_bypasses_cache(monkeypatch: pytest.MonkeyPatch):
     import time
 
     import app.gateways.apple_auth as apple_auth
 
-    apple_auth._jwks_cache = {"keys": [{"kid": "stale"}]}
-    apple_auth._jwks_fetched_at = time.time()
+    monkeypatch.setattr(apple_auth, "_jwks_cache", {"keys": [{"kid": "stale"}]})
+    monkeypatch.setattr(apple_auth, "_jwks_fetched_at", time.time())
 
     fresh = {"keys": [{"kid": "fresh"}]}
     client_instance = AsyncMock()

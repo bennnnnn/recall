@@ -10,7 +10,7 @@ from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.main import create_app
 from app.models.schemas import UserOut
-from app.tests.test_routers import _fake_user
+from app.tests.api_support import api_user
 
 
 @pytest.mark.parametrize(
@@ -36,7 +36,7 @@ def test_user_payload_lists_plan_features(plan_id, has_live_talk, has_voice):
 
 def test_plans_endpoint_returns_the_catalog_and_current_plan():
     app = create_app()
-    app.dependency_overrides[get_current_user] = lambda: _fake_user(plan="plus")
+    app.dependency_overrides[get_current_user] = lambda: api_user(plan="plus")
     app.dependency_overrides[get_settings_dep] = lambda: Settings()
     r = TestClient(app).get("/billing/plans", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200

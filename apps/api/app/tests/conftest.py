@@ -186,6 +186,19 @@ def production_declines(monkeypatch):
         monkeypatch.setenv("RECALL_STRICT_DECLINES", "0")
 
 
+@pytest.fixture(autouse=True)
+def _tool_registry_restored():
+    """A test that fills or clears the model's tool registry leaves it as it found it,
+    so the suite passes in any order (code-health audit TEST-10)."""
+    from app.gateways.mcp import registry
+
+    before = registry.list_adapters()
+    yield
+    registry.clear()
+    for adapter in before:
+        registry.register(adapter)
+
+
 @pytest.fixture
 def quota_clock():
     """The UTC day the daily counters see, 2026-10-16 until a test sets ``.day``.
@@ -193,8 +206,10 @@ def quota_clock():
     A provider fake that sets ``quota_clock.day = quota_clock.next_day`` makes
     its request run past UTC midnight.
     """
+    from app.services.quota import counters
+
     clock = SimpleNamespace(day=date(2026, 10, 16), next_day=date(2026, 10, 17))
-    with patch("app.services.quota.counters.utc_today", side_effect=lambda: clock.day):
+    with patch.object(counters, "clock", lambda: clock.day):
         yield clock
 
 

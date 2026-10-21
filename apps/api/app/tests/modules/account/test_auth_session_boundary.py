@@ -11,8 +11,8 @@ from app.gateways.google_auth import GoogleAuthError
 from app.models.schemas import AppleAuthRequest, DevAuthRequest, GoogleAuthRequest
 from app.modules.account import api as auth_router
 from app.modules.account import service as auth_service
+from app.tests.api_support import api_user
 from app.tests.fakes import redis_mock
-from app.tests.test_routers import _fake_user
 
 
 @pytest.mark.asyncio
@@ -20,7 +20,7 @@ from app.tests.test_routers import _fake_user
 async def test_email_match_cannot_replace_another_provider_identity(provider):
     # Even an address the provider owns cannot move the account to another id.
     email = "shared@gmail.com" if provider == "google" else "shared@icloud.com"
-    existing = _fake_user(email=email, google_sub=None, apple_sub=None)
+    existing = api_user(email=email, google_sub=None, apple_sub=None)
     setattr(existing, f"{provider}_sub", "existing-subject")
     payload = {"sub": "different-subject", "email": existing.email, "email_verified": True}
     with (

@@ -15,9 +15,9 @@ from app.modules.account import tokens as tokens_service
 @pytest.mark.asyncio
 async def test_issue_and_refresh_token_pair(fake_redis):
     settings = Settings(jwt_secret="x" * 32)
-    from app.tests.test_routers import _fake_user
+    from app.tests.api_support import api_user
 
-    user = _fake_user()
+    user = api_user()
     session = AsyncMock()
     access, refresh = await tokens_service.issue_token_pair(fake_redis, user.id, settings)
 
@@ -69,9 +69,9 @@ async def test_reused_refresh_token_revokes_every_session(fake_redis):
     signal: it must kill every refresh token for that user, not just fail
     the one request."""
     settings = Settings(jwt_secret="x" * 32)
-    from app.tests.test_routers import _fake_user
+    from app.tests.api_support import api_user
 
-    user = _fake_user()
+    user = api_user()
     session = AsyncMock()
 
     _access1, refresh1 = await tokens_service.issue_token_pair(fake_redis, user.id, settings)
@@ -99,9 +99,9 @@ async def test_revoked_since_blocks_existing_access_tokens(fake_redis):
     """An access token issued before a detected-reuse event must stop
     verifying, even though it hasn't naturally expired yet."""
     settings = Settings(jwt_secret="x" * 32)
-    from app.tests.test_routers import _fake_user
+    from app.tests.api_support import api_user
 
-    user = _fake_user()
+    user = api_user()
     session = AsyncMock()
 
     access_before_reuse = create_access_token(user.id, settings)
@@ -231,9 +231,9 @@ async def test_sign_in_drops_sessions_whose_refresh_token_expired(fake_redis):
 @pytest.mark.asyncio
 async def test_issue_stores_a_json_session_that_refreshes(fake_redis):
     settings = Settings(jwt_secret="x" * 32)
-    from app.tests.test_routers import _fake_user
+    from app.tests.api_support import api_user
 
-    user = _fake_user()
+    user = api_user()
     session = AsyncMock()
     access, refresh = await tokens_service.issue_token_pair(
         fake_redis, user.id, settings, device_label="Pixel 8", platform="android"

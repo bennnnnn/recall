@@ -20,7 +20,7 @@ import pytest
 from app.core.client_ip import client_ip
 from app.core.config import Settings, validate_production_settings
 
-_FLY_TOML = Path(__file__).resolve().parents[4] / "fly.toml"
+_FLY_TOML = Path(__file__).resolve().parents[5] / "fly.toml"
 
 
 def _fly_env_settings() -> Settings:

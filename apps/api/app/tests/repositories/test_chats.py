@@ -6,6 +6,8 @@ from uuid import uuid4
 
 import pytest
 
+from app.repositories.chats import RECENCY_BUCKETS, group_by_recency
+
 
 @pytest.mark.asyncio
 async def test_create_chat(fake_session):
@@ -77,40 +79,6 @@ async def test_set_pinned(fake_session):
     fake_session.execute.assert_awaited_once()
     fake_session.commit.assert_awaited_once()
     fake_session.refresh.assert_awaited_once()
-
-
-def test_group_by_recency_today():
-    """Chats updated today should be grouped under 'today'."""
-    from app.repositories.chats import group_by_recency
-
-    now = datetime.now(UTC)
-    chat = MagicMock()
-    chat.updated_at = now
-
-    result = group_by_recency([chat])
-
-    assert len(result["today"]) == 1
-    assert len(result["yesterday"]) == 0
-    assert len(result["last_7_days"]) == 0
-    assert len(result["this_month"]) == 0
-    assert len(result["older"]) == 0
-
-
-def test_group_by_recency_older():
-    """Chats from before this month should be grouped under 'older'."""
-    from datetime import timedelta
-
-    from app.repositories.chats import group_by_recency
-
-    now = datetime(2026, 7, 15, 12, 0, 0, tzinfo=UTC)
-    old = now - timedelta(days=20)
-    chat = MagicMock()
-    chat.updated_at = old
-
-    result = group_by_recency([chat], now=now)
-
-    assert len(result["today"]) == 0
-    assert len(result["older"]) == 1
 
 
 def test_group_by_recency_last_7_days():
@@ -205,3 +173,47 @@ def test_recent_chat_cache_forgets_chats_nobody_reads_again(monkeypatch):
     assert chats_repo.peek_recent_chat(fresh.id, fresh.user_id) is fresh
     assert chats_repo.peek_recent_chat(fresh.id, uuid4()) is None
     chats_repo._chat_cache.clear()
+
+
+# ── group_by_recency: pure-function O(n) grouper ─────────────────────────────
+
+
+def _chat(updated_at: datetime):
+    c = MagicMock()
+    c.updated_at = updated_at
+    return c
+
+
+def test_group_by_recency_today():
+    now = datetime.now(UTC)
+    chat = _chat(now)
+    groups = group_by_recency([chat])
+    assert len(groups["today"]) == 1
+    assert groups["yesterday"] == []
+    assert groups["last_7_days"] == []
+    assert groups["this_month"] == []
+    assert groups["older"] == []
+
+
+def test_group_by_recency_older():
+    from datetime import timedelta
+
+    now = datetime(2026, 7, 15, 12, 0, 0, tzinfo=UTC)
+    old = now - timedelta(days=20)
+    chat = _chat(old)
+    groups = group_by_recency([chat], now=now)
+    assert groups["today"] == []
+    assert groups["older"] == [chat]
+
+
+def test_group_by_recency_empty():
+    groups = group_by_recency([])
+    assert groups == {key: [] for key in RECENCY_BUCKETS}
+
+
+def test_group_by_recency_naive_datetime():
+    """Naive datetimes (no tzinfo) must be handled without raising."""
+    naive = datetime(2024, 1, 1, 12, 0, 0)  # no tzinfo
+    chat = _chat(naive)
+    groups = group_by_recency([chat])  # should not raise
+    assert isinstance(groups, dict)

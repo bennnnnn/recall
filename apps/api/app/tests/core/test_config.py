@@ -14,7 +14,7 @@ PROD_URLS = dict(
 
 
 def test_example_env_keeps_long_response_ceiling_in_sync():
-    example = (Path(__file__).resolve().parents[2] / ".env.example").read_text()
+    example = (Path(__file__).resolve().parents[3] / ".env.example").read_text()
     configured = next(
         line.split("=", 1)[1]
         for line in example.splitlines()

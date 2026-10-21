@@ -139,3 +139,26 @@ def test_trim_and_cap_summary():
     assert "[truncated]" in trimmed
     capped = cap_summary("x" * 7000, max_chars=100)
     assert capped.endswith("...")
+
+
+# ── estimate_tokens — O(1) ────────────────────────────────────────────────────
+
+
+def test_estimate_tokens_empty():
+    from app.services.context_window import estimate_tokens
+
+    assert estimate_tokens("") == 1
+
+
+def test_estimate_tokens_short():
+    from app.services.context_window import estimate_tokens
+
+    # "hello" → len=5 // 4 = 1, max(1,1)=1
+    assert estimate_tokens("hello") == 1
+
+
+def test_estimate_tokens_long():
+    from app.services.context_window import estimate_tokens
+
+    text = "a" * 400
+    assert estimate_tokens(text) == 111

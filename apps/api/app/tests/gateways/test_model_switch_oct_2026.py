@@ -245,7 +245,7 @@ async def test_the_photo_fallback_shares_the_budget_instead_of_a_fresh_one() -> 
 
 
 def _migration(name: str = "0108_model_aliases_oct_2026.py") -> ModuleType:
-    path = Path(__file__).resolve().parents[2] / "alembic/versions" / name
+    path = Path(__file__).resolve().parents[3] / "alembic/versions" / name
     spec = importlib.util.spec_from_file_location(f"migration_{name[:4]}", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

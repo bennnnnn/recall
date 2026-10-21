@@ -93,3 +93,32 @@ async def test_search_reads_one_row_past_the_page_for_has_more():
 
     assert has_more is True
     assert [row["match_type"] for row in results] == ["message"]
+
+
+# ── search repository snippet ───────────────────────────────────────────────
+
+
+def test_search_snippet_exact_match():
+    from app.modules.search.repository import _snippet
+
+    content = "The quick brown fox jumps over the lazy dog"
+    result = _snippet(content, "fox", 120)
+    assert "fox" in result
+
+
+def test_search_snippet_no_match():
+    from app.modules.search.repository import _snippet
+
+    content = "Hello world"
+    result = _snippet(content, "zzz", 120)
+    assert len(result) <= 120
+
+
+def test_search_snippet_truncation():
+    from app.modules.search.repository import _snippet
+
+    content = "a" * 300 + "needle" + "b" * 300
+    result = _snippet(content, "needle", 120)
+    assert "needle" in result
+    # Expect at most: 40 (prefix) + len(query) + 80 (suffix) + 2 (… markers) ≈ 128
+    assert len(result) <= 130

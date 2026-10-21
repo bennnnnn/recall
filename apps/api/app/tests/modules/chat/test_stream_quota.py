@@ -10,7 +10,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat import stream_entry
 from app.modules.chat.turn_resources import TurnResources
-from app.tests.fakes import redis_mock
+from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -297,3 +297,49 @@ async def test_stream_counts_when_recent_window_is_full():
             pass
 
     count.assert_awaited_once()
+
+
+# ── chat service: quota guard ──────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("used", [100, 101], ids=["at-limit", "over-limit"])
+async def test_stream_chat_response_quota_exceeded(used: int) -> None:
+    from app.exceptions import QuotaExceededError
+    from app.modules import chat as chat_service
+
+    user_id = uuid4()
+    redis = redis_mock()
+    settings = Settings(daily_token_limit=100)
+    fake_user = MagicMock(id=user_id, plan="free", default_model="free-chat")
+    usage = AsyncMock(return_value=used)
+    # Soft quota reads actual usage; mocking reserve_usage no longer rejects
+    # the turn. Fail immediately if the guard lets message persistence begin.
+    prepare = AsyncMock(side_effect=AssertionError("Over-limit turn reached preparation"))
+    deps = turn_deps(
+        session_factory=lambda: FakeSessionCM(),
+        chats={"get_by_id": AsyncMock(return_value=MagicMock(summary=None))},
+        messages={"list_recent": AsyncMock(return_value=[])},
+    )
+    with (
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
+        patch("app.services.quota.has_daily_usage_key", AsyncMock(return_value=True)),
+        patch("app.services.quota.get_daily_usage", usage),
+        patch("app.services.quota.reserve_usage", AsyncMock()) as reserve,
+        patch("app.modules.chat.stream_entry.prepare_chat_turn", prepare),
+    ):
+        with pytest.raises(QuotaExceededError):
+            async for _t in chat_service.stream_chat_response(
+                deps,
+                redis,
+                settings,
+                user_id=user_id,
+                chat_id=uuid4(),
+                content="hi",
+            ):
+                pass
+
+    usage.assert_awaited_once_with(redis, str(user_id))
+    reserve.assert_not_awaited()
+    prepare.assert_not_awaited()
