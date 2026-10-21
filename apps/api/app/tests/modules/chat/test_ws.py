@@ -235,15 +235,16 @@ def test_ws_invalid_token_closes():
 
 def test_ws_auth_timeout_closes():
     """Sockets that never send an auth frame must not hang forever."""
+    from app.core.deps import get_settings_dep
+
     app = _app(None)
+    app.dependency_overrides[get_settings_dep] = lambda: _settings().model_copy(
+        update={"ws_auth_timeout_seconds": 0.05}
+    )
     client = TestClient(app)
 
-    with patch(
-        "app.modules.chat.ws_api.asyncio.wait_for",
-        side_effect=TimeoutError(),
-    ):
-        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
-            msg = ws.receive_json()
+    with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+        msg = ws.receive_json()
     assert msg["type"] == "error"
     assert "timeout" in msg["message"].lower()
 

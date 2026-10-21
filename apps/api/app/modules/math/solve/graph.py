@@ -37,6 +37,7 @@ from app.modules.math.solve.extract_eq import (
     try_extract_inequality_from_text,
 )
 from app.modules.math.solve.graph_expr_text import graph_expr_text
+from app.modules.math.solve.graph_sampling import sample_at
 from app.modules.math.solve.inequalities import compound_solution_set, inequality_solution_set
 from app.modules.math.solve.parse import _parse_expression
 from app.services.solving import SolveServiceError
@@ -218,11 +219,6 @@ def _adapt_sample_window(
     return mid - half, mid + half, zoom_n
 
 
-def _sampled(fn: Any, inputs: Any) -> Any:
-    """``fn`` at every input. A constant (``y = 5``) evaluates to one number, so spread it."""
-    return np.broadcast_to(np.asarray(fn(inputs), dtype=float), inputs.shape)
-
-
 def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     if data.x_max <= data.x_min:
         raise SolveServiceError("x_max must be greater than x_min")
@@ -238,7 +234,7 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     )
     xs = np.linspace(x_min, x_max, n)
     try:
-        ys = _sampled(numpy_fn, xs)
+        ys = sample_at(numpy_fn, xs)
     except Exception as exc:
         raise SolveServiceError(f"Could not sample function: {data.expr}") from exc
     points: list[list[float]] = []
@@ -290,7 +286,7 @@ def sample_polar_curve(expr: str, variable: str = "theta", n: int = 96) -> Graph
     thetas = np.linspace(0.0, 2.0 * math.pi, count, endpoint=True)
     points: list[list[float]] = []
     try:
-        radii = _sampled(numpy_fn, thetas)
+        radii = sample_at(numpy_fn, thetas)
     except Exception as exc:
         raise SolveServiceError(f"Could not sample polar curve: {expr}") from exc
     for theta, radius in zip(thetas, radii, strict=False):
@@ -328,8 +324,8 @@ def sample_parametric_curve(
     ts = np.linspace(0.0, 2.0 * math.pi, count, endpoint=True)
     points: list[list[float]] = []
     try:
-        xs = _sampled(fx, ts)
-        ys = _sampled(fy, ts)
+        xs = sample_at(fx, ts)
+        ys = sample_at(fy, ts)
     except Exception as exc:
         raise SolveServiceError(f"Could not sample parametric curve: {x_expr}, {y_expr}") from exc
     for x_val, y_val in zip(xs, ys, strict=False):

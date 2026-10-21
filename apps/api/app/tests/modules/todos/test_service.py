@@ -14,21 +14,11 @@ from app.modules.todos import crud as todos_crud
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import format_todos_block, should_inject_todos_prompt
 from app.modules.todos.schemas import TodoCreate, TodoUpdate
-
-
-class _FakeSessionCM:
-    def __init__(self, session: AsyncMock):
-        self._session = session
-
-    async def __aenter__(self) -> AsyncMock:
-        return self._session
-
-    async def __aexit__(self, *args: object) -> None:
-        return None
+from app.tests.fakes import FakeSessionCM
 
 
 def _session_local_side_effect(session: AsyncMock):
-    return [_FakeSessionCM(session), _FakeSessionCM(session)]
+    return [FakeSessionCM(session), FakeSessionCM(session)]
 
 
 @asynccontextmanager

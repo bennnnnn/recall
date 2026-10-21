@@ -11,14 +11,7 @@ from app.modules.chat.prompt_builder import PromptStats, fetch_subject, inject_s
 from app.modules.chat.turn_deps import ChatTurnDeps, default_deps
 from app.modules.chat.turn_prep import ClientGeoContext, TurnPromptBundle
 from app.services.solving import VerifiedSolveBlock
-
-
-class FakeSessionCM:
-    async def __aenter__(self):
-        return AsyncMock()
-
-    async def __aexit__(self, *args):
-        return False
+from app.tests.fakes import FakeSessionCM
 
 
 class Overlay:

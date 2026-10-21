@@ -5,10 +5,6 @@ import { act, render } from "@testing-library/react-native";
 import { useChatRegenerate } from "@/features/chat/hooks/useChatRegenerate";
 import type { Message } from "@/lib/api";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 jest.mock("@/lib/resolveClientGeoForQuery", () => ({
   resolveClientGeoForQuery: jest.fn(async () => ({ ok: true, clientGeo: null })),
 }));

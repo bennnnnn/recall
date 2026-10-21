@@ -6,7 +6,6 @@ let mockToken: string | null = "token-a";
 let mockFocused = true;
 let mockRouteParams: Record<string, string> = {};
 const mockRefresh = jest.fn(async () => {});
-const mockT = (key: string) => key;
 const mockNavigation = { setOptions: jest.fn() };
 let mockAdd: { onPress: () => void };
 let mockSheet: { visible: boolean; onClose: () => void };
@@ -49,7 +48,6 @@ jest.mock("expo-router", () => ({
   },
 }));
 jest.mock("react-native-gesture-handler", () => ({ GestureHandlerRootView: ({ children }: { children: React.ReactNode }) => children }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("@/lib/i18n", () => ({
   __esModule: true,
   default: { t: (key: string) => key },

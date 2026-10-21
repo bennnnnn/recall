@@ -9,24 +9,14 @@ from app.core.config import Settings
 from app.modules.chat import titles as chat_titles
 from app.modules.memory import embedding_text_hash
 from app.modules.memory import llm as memory_llm
+from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 
-class _FakeSessionCM:
-    def __init__(self, session: AsyncMock | None = None) -> None:
-        self._session = session or AsyncMock()
-
-    async def __aenter__(self) -> AsyncMock:
-        return self._session
-
-    async def __aexit__(self, *args: object) -> None:
-        return None
-
-
-def _memory_extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSessionCM]]:
+def _memory_extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[FakeSessionCM]]:
     session = AsyncMock()
     session.commit = AsyncMock()
-    return session, [_FakeSessionCM(session) for _ in range(count)]
+    return session, [FakeSessionCM(session) for _ in range(count)]
 
 
 @pytest.fixture(autouse=True)
@@ -67,7 +57,7 @@ def _memory_write_lock_always_free():
         ),
         patch(
             "app.modules.memory.extract_backlog.get_redis_client",
-            MagicMock(return_value=AsyncMock(get=AsyncMock(return_value=None))),
+            MagicMock(return_value=redis_mock(get=None)),
         ),
     ):
         yield
@@ -672,19 +662,18 @@ async def test_extract_and_store_releases_db_before_provider_io_without_write_co
     session.commit = AsyncMock()
     db_open_during_extract: list[bool] = []
 
-    class _FakeSessionCM:
-        def __init__(self) -> None:
-            self.open = False
+    class _OpenTrackingSessionCM(FakeSessionCM):
+        open = False
 
         async def __aenter__(self) -> AsyncMock:
             self.open = True
-            return session
+            return await super().__aenter__()
 
-        async def __aexit__(self, *args: object) -> None:
+        async def __aexit__(self, *args: object) -> bool:
             self.open = False
-            return None
+            return False
 
-    load_cm = _FakeSessionCM()
+    load_cm = _OpenTrackingSessionCM(session)
 
     async def fake_revise(*_args: object, **_kwargs: object) -> None:
         db_open_during_extract.append(load_cm.open)
@@ -749,7 +738,7 @@ async def test_topic_service_scopes_chat_by_user_id():
     session = AsyncMock()
 
     with (
-        patch("app.services.topic.SessionLocal", side_effect=[_FakeSessionCM(session)]),
+        patch("app.services.topic.SessionLocal", side_effect=[FakeSessionCM(session)]),
         patch(
             "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value="Fresh title"),
@@ -774,7 +763,7 @@ async def test_topic_service_saves_when_title_returned():
     session = AsyncMock()
 
     with (
-        patch("app.services.topic.SessionLocal", side_effect=[_FakeSessionCM(session)]),
+        patch("app.services.topic.SessionLocal", side_effect=[FakeSessionCM(session)]),
         patch(
             "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value="Cool chat title"),
@@ -823,7 +812,7 @@ async def test_topic_service_skips_when_chat_already_titled():
     session = AsyncMock()
 
     with (
-        patch("app.services.topic.SessionLocal", side_effect=[_FakeSessionCM(session)]),
+        patch("app.services.topic.SessionLocal", side_effect=[FakeSessionCM(session)]),
         patch(
             "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value="Fresh title"),
@@ -847,7 +836,7 @@ async def test_topic_generate_chat_title_releases_db_before_llm():
     session.commit = AsyncMock()
     db_open_during_generate: list[bool] = []
 
-    class _TrackingSessionCM(_FakeSessionCM):
+    class _TrackingSessionCM(FakeSessionCM):
         def __init__(self) -> None:
             super().__init__(session)
             self.open = False
@@ -856,9 +845,9 @@ async def test_topic_generate_chat_title_releases_db_before_llm():
             self.open = True
             return await super().__aenter__()
 
-        async def __aexit__(self, *args: object) -> None:
+        async def __aexit__(self, *args: object) -> bool:
             self.open = False
-            await super().__aexit__(*args)
+            return await super().__aexit__(*args)
 
     apply_cm = _TrackingSessionCM()
 
@@ -890,7 +879,7 @@ async def test_stream_chat_response_quota_exceeded(used: int) -> None:
     from app.modules import chat as chat_service
 
     user_id = uuid4()
-    redis = AsyncMock()
+    redis = redis_mock()
     settings = Settings(daily_token_limit=100)
     fake_user = MagicMock(id=user_id, plan="free", default_model="free-chat")
     usage = AsyncMock(return_value=used)
@@ -898,7 +887,7 @@ async def test_stream_chat_response_quota_exceeded(used: int) -> None:
     # the turn. Fail immediately if the guard lets message persistence begin.
     prepare = AsyncMock(side_effect=AssertionError("Over-limit turn reached preparation"))
     deps = turn_deps(
-        session_factory=lambda: _FakeSessionCM(),
+        session_factory=lambda: FakeSessionCM(),
         chats={"get_by_id": AsyncMock(return_value=MagicMock(summary=None))},
         messages={"list_recent": AsyncMock(return_value=[])},
     )
@@ -957,7 +946,7 @@ async def test_login_dev_creates_user():
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_dev(
-            AsyncMock(), settings, email="dev@test.local", name="Dev", redis=AsyncMock()
+            AsyncMock(), settings, email="dev@test.local", name="Dev", redis=redis_mock()
         )
     assert result.access_token == "tok"
     assert result.user.email == "dev@test.local"
@@ -992,7 +981,7 @@ async def test_login_dev_returns_existing_user():
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_dev(
-            AsyncMock(), settings, email="existing@test.local", name="Old", redis=AsyncMock()
+            AsyncMock(), settings, email="existing@test.local", name="Old", redis=redis_mock()
         )
     assert result.user.email == "existing@test.local"
 
@@ -1036,7 +1025,7 @@ async def test_login_dev_updates_name_for_existing_user():
             settings,
             email="dev@recall.local",
             name="bini",
-            redis=AsyncMock(),
+            redis=redis_mock(),
         )
     mock_update.assert_awaited_once()
     assert result.user.name == "bini"

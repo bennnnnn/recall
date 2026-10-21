@@ -1,23 +1,10 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
 
 from app.modules.memory import repository as memories_repo
 from app.tests.modules.memory.sections_support import upsert_sections
-
-
-@pytest.fixture
-def fake_session():
-    session = AsyncMock()
-    mock_result = MagicMock()
-    mock_result.scalars.return_value.all.return_value = []
-    mock_result.scalar_one_or_none.return_value = None
-    session.execute = AsyncMock(return_value=mock_result)
-    session.commit = AsyncMock()
-    session.add = MagicMock()
-    session.delete = MagicMock()
-    return session
 
 
 @pytest.mark.asyncio

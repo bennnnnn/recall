@@ -12,18 +12,11 @@ from app.background import handlers as job_handlers
 from app.core import jobs
 from app.core.config import Settings
 from app.core.jobs import admin, dedupe, delayed, queue, worker
-
-
-class _FakeSessionCM:
-    async def __aenter__(self):
-        return AsyncMock()
-
-    async def __aexit__(self, *args):
-        return False
+from app.tests.fakes import FakeSessionCM
 
 
 def _patch_session():
-    return patch("app.background.handlers.SessionLocal", lambda: _FakeSessionCM())
+    return patch("app.background.handlers.SessionLocal", lambda: FakeSessionCM())
 
 
 @pytest.fixture(autouse=True)

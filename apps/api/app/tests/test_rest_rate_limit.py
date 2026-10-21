@@ -7,6 +7,7 @@ from starlette.requests import Request
 from app.core.config import Settings
 from app.core.rest_rate_limit import _client_key
 from app.main import create_app
+from app.tests.fakes import redis_mock
 
 
 def test_client_key_uses_user_from_bearer():
@@ -82,8 +83,9 @@ def test_middleware_fails_closed_when_redis_check_fails():
     # A Redis outage must not let the rate limiter silently disappear — that
     # would expose every protected endpoint to unbounded traffic. Fail closed
     # with 429 + Retry-After so clients back off and the limit re-engages.
-    broken = AsyncMock()
-    broken.incr = AsyncMock(side_effect=RuntimeError("redis down"))
+    broken = redis_mock()
+    # The limiter counts in a pipeline: its INCR is what fails.
+    broken.incr.side_effect = RuntimeError("redis down")
     with patch("app.core.rest_rate_limit.get_redis_client", return_value=broken):
         client = TestClient(create_app())
         response = client.get("/openapi.json")

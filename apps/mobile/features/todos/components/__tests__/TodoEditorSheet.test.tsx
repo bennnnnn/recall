@@ -3,11 +3,6 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import { TodoEditorSheet } from "@/features/todos/components/TodoEditorSheet";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
 jest.mock("@/lib/i18n", () => ({
   __esModule: true,
   default: { t: (key: string) => key },
@@ -24,10 +19,6 @@ jest.mock("@/lib/haptics", () => ({
 }));
 jest.mock("@/features/todos/model/todoReminders", () => ({
   ensureNotificationPermission: jest.fn(async () => true),
-}));
-
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 jest.mock("@/ui/overlay/Sheet", () => {

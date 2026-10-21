@@ -27,7 +27,6 @@ const mockWarn = jest.fn();
 jest.mock("@/lib/reportRecoverableError", () => ({
   reportRecoverableWarning: (_feedback: unknown, message: string) => mockWarn(message),
 }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 function fact(id: string) {
   return {

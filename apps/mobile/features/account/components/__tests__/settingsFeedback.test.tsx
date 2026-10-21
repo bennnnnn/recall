@@ -6,9 +6,6 @@ import { SettingsMenuRow, SettingsSwitchRow } from "@/features/account/component
 jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token" }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/ui/overlay/Sheet", () => {
   const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
   return {

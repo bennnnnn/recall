@@ -25,7 +25,6 @@ const mockWarn = jest.fn();
 jest.mock("@/lib/reportRecoverableError", () => ({
   reportRecoverableWarning: (_feedback: unknown, message: string) => mockWarn(message),
 }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 const chat = { id: "old", title: "Original", model: "free-chat", pinned: false, updated_at: "2026-01-01T00:00:00Z", created_at: "2026-01-01T00:00:00Z" };
 const initial = { ...emptyChatList(), older: [chat] };
 let current: ReturnType<typeof useDrawerChatList>;
@@ -91,7 +90,6 @@ it("preserves visible history and allows retry after a failed refresh", async ()
   await act(async () => { await current.handleRefresh(); });
   expect(current.error).toBe(false);
 });
-
 
 it.each([
   ["a server error", Object.assign(new Error("Request failed: 500"), { status: 500 }), ["common.error"]],

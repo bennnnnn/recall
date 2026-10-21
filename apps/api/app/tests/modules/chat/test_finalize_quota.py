@@ -11,24 +11,14 @@ from app.core.config import Settings
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup, StreamContext
 from app.modules.chat.turn_settle import finalize_stream_turn_db
-
-
-class _FakeSessionCM:
-    def __init__(self, session: AsyncMock):
-        self._session = session
-
-    async def __aenter__(self):
-        return self._session
-
-    async def __aexit__(self, *args):
-        return False
+from app.tests.fakes import FakeSessionCM, redis_mock
 
 
 @pytest.mark.asyncio
 async def test_adjust_usage_failure_after_commit_does_not_refund():
     user_id = uuid4()
     chat_id = uuid4()
-    redis = AsyncMock()
+    redis = redis_mock()
     session = AsyncMock()
     session.commit = AsyncMock()
     session.refresh = AsyncMock()
@@ -53,7 +43,7 @@ async def test_adjust_usage_failure_after_commit_does_not_refund():
     mark_heal = AsyncMock()
 
     with (
-        patch("app.modules.chat.turn_settle.SessionLocal", lambda: _FakeSessionCM(session)),
+        patch("app.modules.chat.turn_settle.SessionLocal", lambda: FakeSessionCM(session)),
         patch(
             "app.modules.chat.turn_settle.messages_repo.create",
             AsyncMock(return_value=assistant),
@@ -89,7 +79,7 @@ async def test_finalize_persists_estimated_cost_usd():
     """Known model + usage → est_cost_usd written on the usage row."""
     user_id = uuid4()
     chat_id = uuid4()
-    redis = AsyncMock()
+    redis = redis_mock()
     session = AsyncMock()
     session.commit = AsyncMock()
     session.refresh = AsyncMock()
@@ -111,7 +101,7 @@ async def test_finalize_persists_estimated_cost_usd():
 
     add_tokens = AsyncMock()
     with (
-        patch("app.modules.chat.turn_settle.SessionLocal", lambda: _FakeSessionCM(session)),
+        patch("app.modules.chat.turn_settle.SessionLocal", lambda: FakeSessionCM(session)),
         patch(
             "app.modules.chat.turn_settle.messages_repo.create",
             AsyncMock(return_value=assistant),
@@ -162,7 +152,7 @@ async def test_failed_regenerate_preserves_original_attachment_bytes(failure_ste
     delete_bytes = AsyncMock()
     refund = AsyncMock()
     with (
-        patch("app.modules.chat.turn_settle.SessionLocal", lambda: _FakeSessionCM(session)),
+        patch("app.modules.chat.turn_settle.SessionLocal", lambda: FakeSessionCM(session)),
         patch("app.modules.chat.turn_settle.messages_repo.get_by_id", AsyncMock(return_value=old)),
         patch("app.modules.chat.turn_settle.messages_repo.create", create),
         patch("app.modules.chat.turn_settle.chats_repo.touch_by_id", AsyncMock()),
@@ -179,7 +169,7 @@ async def test_failed_regenerate_preserves_original_attachment_bytes(failure_ste
     ):
         with pytest.raises(RuntimeError, match="database unavailable"):
             await finalize_stream_turn_db(
-                AsyncMock(), ctx, "replacement", {"input": 10, "output": 5}, outcome=TurnOutcome()
+                redis_mock(), ctx, "replacement", {"input": 10, "output": 5}, outcome=TurnOutcome()
             )
     delete_bytes.assert_not_awaited()
     refund.assert_awaited_once()
@@ -204,7 +194,7 @@ async def test_finalize_success_does_not_depend_on_post_commit_refresh():
     outcome = TurnOutcome()
     assistant_id = uuid4()
     with (
-        patch("app.modules.chat.turn_settle.SessionLocal", lambda: _FakeSessionCM(session)),
+        patch("app.modules.chat.turn_settle.SessionLocal", lambda: FakeSessionCM(session)),
         patch(
             "app.modules.chat.turn_settle.messages_repo.create",
             AsyncMock(return_value=MagicMock(id=assistant_id)),
@@ -216,7 +206,7 @@ async def test_finalize_success_does_not_depend_on_post_commit_refresh():
         patch("app.modules.chat.turn_settle.get_settings", return_value=Settings(_env_file=None)),
     ):
         await finalize_stream_turn_db(
-            AsyncMock(), ctx, "reply", {"input": 10, "output": 5}, outcome=outcome
+            redis_mock(), ctx, "reply", {"input": 10, "output": 5}, outcome=outcome
         )
     session.commit.assert_awaited_once()
     assert outcome.message_id == str(assistant_id)
@@ -246,7 +236,7 @@ async def test_finalize_links_the_answer_photo_to_the_reply():
 
     link = AsyncMock(return_value=1)
     with (
-        patch("app.modules.chat.turn_settle.SessionLocal", lambda: _FakeSessionCM(session)),
+        patch("app.modules.chat.turn_settle.SessionLocal", lambda: FakeSessionCM(session)),
         patch(
             "app.modules.chat.turn_settle.messages_repo.create",
             AsyncMock(return_value=assistant),
@@ -263,7 +253,7 @@ async def test_finalize_links_the_answer_photo_to_the_reply():
         patch("app.modules.chat.turn_settle.clear_pending_finalize", AsyncMock()),
     ):
         await finalize_stream_turn_db(
-            AsyncMock(),
+            redis_mock(),
             ctx,
             "[Image: x]\n\nEthiopia.",
             {"input": 1, "output": 1},

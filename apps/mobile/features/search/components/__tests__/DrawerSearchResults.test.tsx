@@ -15,7 +15,6 @@ jest.mock("@shopify/flash-list", () => ({ FlashList: ({ data, renderItem }: {
     React.createElement(React.Fragment, { key: item.key }, renderItem({ item }))));
 } }));
 jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/lib/theme", () => {
   const actual = jest.requireActual<typeof import("@/lib/theme")>("@/lib/theme");

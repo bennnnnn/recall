@@ -20,26 +20,9 @@ jest.mock("expo-file-system/legacy", () => ({
   EncodingType: { UTF8: "utf8" },
 }));
 
-// CodeBlock's header (rendered for the Code tab) pulls in CopyButton, which
-// wraps native modules this plain jest-preset environment doesn't stub.
-jest.mock("expo-clipboard", () => ({
-  setStringAsync: jest.fn(),
-}));
+// expo-web-browser is a native module this plain jest-preset environment doesn't stub.
 jest.mock("expo-web-browser", () => ({
   openBrowserAsync: jest.fn(),
-}));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  ImpactFeedbackStyle: { Light: "Light" },
-  NotificationFeedbackType: { Success: "Success", Warning: "Warning" },
-}));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
 }));
 
 // A settings-style demo page: a decorative gear icon sits in static markup,

@@ -15,9 +15,6 @@ let mockDraft: { content: string } | null = null;
 jest.mock("@/contexts/StreamingDraftContext", () => ({
   useStreamingDraft: () => mockDraft,
 }));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({ textSecondary: "#666" }) }));
 
 const item = {

@@ -29,7 +29,6 @@ jest.mock("@/lib/cachedUser", () => ({
   readCachedUser: jest.fn(), writeCachedUser: jest.fn(), clearCachedUser: jest.fn(),
   mergeCachedUser: (value: User) => value,
 }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({ bg: "white", primary: "blue" }) }));
 jest.mock("@/lib/i18n", () => ({ ensureLocale: jest.fn() }));
 jest.mock("@/hooks/useBootstrapSync", () => ({ useBootstrapSync: jest.fn() }));

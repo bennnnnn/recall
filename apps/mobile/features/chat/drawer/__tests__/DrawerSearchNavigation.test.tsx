@@ -18,7 +18,6 @@ jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
 jest.mock("@/contexts/DrawerContext", () => ({ useDrawer: () => ({ isOpen: mockDrawerOpen }) }));
 jest.mock("expo-router", () => ({ useRouter: () => ({ setParams: mockSetParams, push: mockPush }) }));
 jest.mock("expo-linear-gradient", () => ({ LinearGradient: () => null }));
-jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({ bg: "#ffffff" }), withAlpha: (color: string) => color }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/lib/api", () => ({ api: { search: jest.fn() } }));

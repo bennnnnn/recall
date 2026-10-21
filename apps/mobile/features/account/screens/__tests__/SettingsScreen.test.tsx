@@ -13,12 +13,6 @@ const mockUpdateUser = jest.fn();
 const mockSignOut = jest.fn();
 let mockIsPro = true;
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
 jest.mock("expo-router", () => {
   const React = jest.requireActual<typeof import("react")>("react");
   return {

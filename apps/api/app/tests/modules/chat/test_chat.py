@@ -20,6 +20,7 @@ from app.modules.chat.prompt_profile import (
 )
 from app.modules.chat.turn_prep import resolve_client_geo
 from app.services.context_window import estimate_tokens
+from app.tests.fakes import FakeSessionCM
 
 
 def test_resolve_client_geo_ignores_client_when_location_disabled():
@@ -1317,16 +1318,6 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
     assert "does not connect to calendars or email inboxes" in system
 
 
-class _FakeSessionCM:
-    """Keep this unit test off the process-wide asyncpg pool."""
-
-    async def __aenter__(self):
-        return AsyncMock()
-
-    async def __aexit__(self, *args):
-        return False
-
-
 @pytest.mark.asyncio
 async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks():
     """A casual follow-up after uploading a PDF may not trigger needs_rich_context,
@@ -1348,8 +1339,8 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
     rag_block = "ATTACHED DOCUMENT CONTEXT"
 
     with (
-        patch("app.modules.attachments.rag.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.prompt_context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.attachments.rag.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.prompt_context.chats_repo.get_by_id",
             AsyncMock(return_value=None),
@@ -1407,8 +1398,8 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
     has_chunks = AsyncMock(return_value=True)
 
     with (
-        patch("app.modules.attachments.rag.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.prompt_context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.attachments.rag.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.prompt_context.chats_repo.get_by_id",
             AsyncMock(return_value=None),
@@ -1475,8 +1466,8 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
     list_recent = AsyncMock(return_value=[])
 
     with (
-        patch("app.modules.attachments.rag.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.prompt_context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.attachments.rag.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
         patch("app.repositories.messages.list_recent", list_recent),
         patch(
             "app.modules.memory.get_memory_block",

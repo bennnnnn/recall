@@ -1,14 +1,9 @@
 """Tests for app.modules.attachments.repository."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-
-
-@pytest.fixture
-def fake_session():
-    return AsyncMock()
 
 
 @pytest.mark.asyncio

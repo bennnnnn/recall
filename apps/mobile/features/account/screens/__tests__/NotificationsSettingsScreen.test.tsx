@@ -10,7 +10,6 @@ let mockSession = 0;
 let mockFocused = true;
 const mockUpdate = jest.fn();
 const mockFeedback = { error: jest.fn() };
-const mockT = (key: string) => key;
 const mockSwitches: Record<string, { onValueChange: (value: boolean) => Promise<void>; disabled: boolean; value?: boolean }> = {};
 const mockLinks: Record<string, { onPress: () => void; value: string }> = {};
 let mockPicker: { onSelect: (key: string) => void };
@@ -28,8 +27,6 @@ let mockUser: {
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token", user: mockUser, updateUser: mockUpdate }) }));
 jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ todos: [{ id: "stale-row" }] }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
-jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/features/account/components/settingsUi", () => ({
   SettingsPage: ({ children }: { children: React.ReactNode }) => children,

@@ -23,14 +23,7 @@ from app.modules.chat.turn_prep.context import build_stream_prompt_context
 from app.modules.chat.turn_prep.mode import _TurnMode
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.services.time_context import format_date_answer, format_year_answer
-
-
-class _FakeSessionCM:
-    async def __aenter__(self):
-        return AsyncMock()
-
-    async def __aexit__(self, *args):
-        return False
+from app.tests.fakes import FakeSessionCM
 
 
 def _make_user() -> MagicMock:
@@ -251,7 +244,7 @@ async def test_fetches_run_concurrently_not_serially():
         return SubjectFetch(None, None, False, None, None)
 
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(side_effect=slow_prompt),
@@ -315,7 +308,7 @@ async def test_injects_the_subject_block_before_the_last_user_message():
         return list(base_messages)
 
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(side_effect=fast_prompt),
@@ -371,7 +364,7 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
     fetch_subject_mock = AsyncMock(return_value=SubjectFetch(None, None, False, None, None))
 
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(base_messages)),
@@ -425,7 +418,7 @@ async def test_web_augment_takes_priors_from_the_prompt():
     fetch_subject_mock = AsyncMock(return_value=SubjectFetch(None, None, False, None, None))
 
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(base_messages)),
@@ -486,7 +479,7 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
     )
     messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(messages)),
@@ -579,7 +572,7 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
     messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
 
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(messages)),
@@ -651,7 +644,7 @@ async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None
     )
     messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(messages)),
@@ -704,7 +697,7 @@ async def _graph_it_bundle(fake_redis, priors: list[str]):
         {"role": "user", "content": content}
     ]
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=messages),

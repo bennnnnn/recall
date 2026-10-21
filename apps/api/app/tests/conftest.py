@@ -1,5 +1,6 @@
 import os
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -36,6 +37,18 @@ os.environ["WEB_SEARCH_FALLBACK_ENABLED"] = "false"
 # the environment wins: RECALL_STRICT_DECLINES=0 runs the suite with production's declines.
 _STRICT_DECLINES_ASKED = "RECALL_STRICT_DECLINES" in os.environ
 os.environ.setdefault("RECALL_STRICT_DECLINES", "1")
+
+# Helper modules under app/tests (fakes, chat_test_support, the sweeps) get pytest's assert
+# messages as test files and conftests do. This works only before any of them is imported:
+# a helper a test imports first would otherwise run with plain asserts.
+_TESTS = Path(__file__).parent
+pytest.register_assert_rewrite(
+    *(
+        ".".join(path.relative_to(_TESTS.parents[1]).with_suffix("").parts)
+        for path in _TESTS.rglob("*.py")
+        if not path.name.startswith("test_") and path.name not in {"conftest.py", "__init__.py"}
+    )
+)
 
 # Before any test module imports the app (and with it SymPy's names): a reading or a SymPy
 # call made on the event loop by production code fails the test (app/tests/loop_guard.py).
@@ -140,6 +153,15 @@ def _no_network(monkeypatch):
             raise RuntimeError("no network in tests (DuckDuckGo)")
 
     monkeypatch.setattr("ddgs.DDGS", _NoDuckDuckGo)
+
+
+@pytest.fixture(name="fake_session")
+def fake_session_fixture():
+    """An ``AsyncSession`` over empty tables, specced so ``add`` stays synchronous
+    (``app.tests.fakes.fake_session``; code-health audit TEST-07)."""
+    from app.tests import fakes  # after loop_guard.install(): fakes imports the app
+
+    return fakes.fake_session()
 
 
 @pytest.fixture

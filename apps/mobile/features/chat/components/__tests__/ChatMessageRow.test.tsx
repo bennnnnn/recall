@@ -19,9 +19,6 @@ jest.mock("@/features/chat/components/MessageBubble", () => {
 jest.mock("@/contexts/StreamingDraftContext", () => ({
   useStreamingDraft: () => null,
 }));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 
 const message = (id: string, content: string): Message =>
   ({

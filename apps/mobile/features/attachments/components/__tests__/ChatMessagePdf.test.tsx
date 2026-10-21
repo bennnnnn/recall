@@ -4,9 +4,6 @@ import { StyleSheet } from "react-native";
 import { ChatMessagePdf } from "@/features/attachments/components/ChatMessagePdf";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => "tok" }));
 jest.mock("@/features/attachments/hooks/useAttachmentIndexed", () => ({
   useAttachmentIndexed: () => ({ indexed: true, failed: false }),

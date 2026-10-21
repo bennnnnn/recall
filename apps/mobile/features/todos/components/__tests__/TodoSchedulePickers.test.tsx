@@ -9,14 +9,12 @@ type TimeDialog = { visible: boolean; value: TimeOfDay; onConfirm: (time: TimeOf
 let mockDate: DateDialog;
 let mockTime: TimeDialog;
 let mockForm: { onSave: () => void };
-const mockT = (key: string) => key;
 jest.mock("@/ui/pickers/DatePickerDialog", () => ({
   DatePickerDialog: (props: DateDialog) => { mockDate = props; return null; },
 }));
 jest.mock("@/ui/pickers/TimePickerDialog", () => ({
   TimePickerDialog: (props: TimeDialog) => { mockTime = props; return null; },
 }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("@/lib/i18n", () => ({
   __esModule: true,
   default: { t: (key: string) => key },

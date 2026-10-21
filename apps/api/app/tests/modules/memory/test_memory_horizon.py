@@ -14,6 +14,7 @@ from app.modules.memory import format_memory_block, is_memory_candidate
 from app.modules.memory.extraction_workflow import extract_and_store_memories
 from app.modules.memory.facts import is_active_memory
 from app.modules.memory.text import memory_extract_user_text
+from app.tests.fakes import redis_mock
 
 
 def _row(text: str, *, memory_type: str = "fact", status: str = "active") -> SimpleNamespace:
@@ -183,7 +184,7 @@ async def test_extract_remember_max_persists_via_ops():
         ),
         patch(
             "app.modules.memory.extract_backlog.get_redis_client",
-            MagicMock(return_value=AsyncMock(get=AsyncMock(return_value=None))),
+            MagicMock(return_value=redis_mock(get=None)),
         ),
     ):
         await extract_and_store_memories(

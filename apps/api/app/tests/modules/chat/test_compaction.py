@@ -8,17 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat import compaction
-
-
-class _SessionCM:
-    def __init__(self, session):
-        self._session = session
-
-    async def __aenter__(self):
-        return self._session
-
-    async def __aexit__(self, *args):
-        return False
+from app.tests.fakes import FakeSessionCM
 
 
 def _msg(content="x"):
@@ -46,7 +36,7 @@ async def test_compress_noop_when_tail_fits_budget():
     redis = _fake_redis()
     with (
         patch("app.modules.chat.compaction.get_redis_client", return_value=redis),
-        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
         patch(
             "app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=10)
         ),
@@ -75,7 +65,7 @@ async def test_compress_summarizes_when_over_window_cap():
     redis = _fake_redis()
     with (
         patch("app.modules.chat.compaction.get_redis_client", return_value=redis),
-        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
         patch(
             "app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=60)
         ),
@@ -114,7 +104,7 @@ async def test_compress_runs_under_token_pressure_before_full_batch():
     redis = _fake_redis()
     with (
         patch("app.modules.chat.compaction.get_redis_client", return_value=redis),
-        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
         patch(
             "app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=11)
         ),
@@ -150,7 +140,7 @@ async def test_compress_runs_under_token_pressure_before_full_batch():
 def _over_window_patches(session, summarize):
     return (
         patch("app.modules.chat.compaction.get_redis_client", return_value=_fake_redis()),
-        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
         patch(
             "app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=60)
         ),
@@ -171,7 +161,7 @@ _OVER_WINDOW = Settings(
 )
 
 
-class _TrackedSessionCM(_SessionCM):
+class _TrackedSessionCM(FakeSessionCM):
     open = 0
 
     async def __aenter__(self):
@@ -230,7 +220,7 @@ async def test_compress_missing_chat_is_noop():
     redis = _fake_redis()
     with (
         patch("app.modules.chat.compaction.get_redis_client", return_value=redis),
-        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
         patch("app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock()) as count,
     ):
         await compaction.compress_chat_history(Settings(), uuid4())
@@ -246,7 +236,7 @@ async def test_compress_skips_when_another_worker_holds_the_lock():
     redis = _fake_redis(acquired=False)
     with (
         patch("app.modules.chat.compaction.get_redis_client", return_value=redis),
-        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
         patch("app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock()) as count,
     ):
         await compaction.compress_chat_history(Settings(), uuid4())

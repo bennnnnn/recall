@@ -7,7 +7,6 @@ import { syncTodoReminders, cancelTodoReminder } from "@/features/todos/model/to
 
 let mockSession = 0;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/lib/i18n", () => ({
   __esModule: true,
   default: { t: (key: string) => key },

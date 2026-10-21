@@ -2,12 +2,6 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 jest.mock("@/lib/reduceMotion", () => ({
   useReduceMotion: () => false,
 }));

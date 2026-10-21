@@ -7,17 +7,7 @@ import pytest
 
 from app.background import billing_reconcile_scheduler
 from app.core.config import Settings
-
-
-class _FakeSessionCM:
-    def __init__(self, session: AsyncMock) -> None:
-        self._session = session
-
-    async def __aenter__(self) -> AsyncMock:
-        return self._session
-
-    async def __aexit__(self, *args: object) -> None:
-        return None
+from app.tests.fakes import FakeSessionCM
 
 
 def _rows(by_plan: dict[str, list[UUID]]):
@@ -41,7 +31,7 @@ async def _run(by_plan: dict[str, list[UUID]], resolved: dict[str, str | None]):
     with (
         patch(
             "app.background.billing_reconcile_scheduler.SessionLocal",
-            return_value=_FakeSessionCM(session),
+            return_value=FakeSessionCM(session),
         ),
         patch(
             "app.background.billing_reconcile_scheduler.users_repo.list_ids_by_plan",

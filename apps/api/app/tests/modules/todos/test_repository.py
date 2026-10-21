@@ -1,8 +1,6 @@
 """Tests for app.modules.todos.repository."""
 
-from unittest.mock import AsyncMock, MagicMock
-
-import pytest
+from unittest.mock import MagicMock
 
 
 def _todo(todo_id, *, sort_order=None, topic="General"):
@@ -11,8 +9,3 @@ def _todo(todo_id, *, sort_order=None, topic="General"):
     item.sort_order = sort_order
     item.topic = topic
     return item
-
-
-@pytest.fixture
-def fake_session():
-    return AsyncMock()

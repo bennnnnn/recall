@@ -26,11 +26,6 @@ jest.mock("@shopify/flash-list", () => {
     },
   };
 });
-// A stable `t`, like react-i18next's own between renders.
-const mockT = (key: string) => key;
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: mockT }),
-}));
 let mockPick: string | undefined;
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ pick: mockPick }),

@@ -7,12 +7,6 @@ import {
   EmailDraftPersistProvider,
 } from "@/features/drafts/context/emailDraftPersist";
 
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-}));
 jest.mock("react-native-svg", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
   return {
@@ -30,9 +24,6 @@ jest.mock("react-native-svg", () => {
     Mask: View,
   };
 });
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 
 const MESSAGE_ID = "11111111-1111-1111-1111-111111111111";
 

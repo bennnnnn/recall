@@ -22,6 +22,7 @@ from app.modules.memory import (
     select_memories_semantic,
     strip_memory_as_of,
 )
+from app.tests.fakes import FakeSessionCM, fake_session
 from app.tests.modules.memory.scoring import scored, scored_reader
 
 
@@ -47,17 +48,6 @@ def _memory(type_: str, text: str, confidence: float | None):
     m.updated_at = 0
     m.last_confirmed_at = None
     return m
-
-
-class _FakeSessionCM:
-    def __init__(self, session: AsyncMock) -> None:
-        self._session = session
-
-    async def __aenter__(self) -> AsyncMock:
-        return self._session
-
-    async def __aexit__(self, *args: object) -> None:
-        return None
 
 
 def test_normalize_memory_text_strips_trailing_period():
@@ -587,7 +577,7 @@ async def test_load_relevant_memories_ranks_in_process_from_list():
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_min_confidence=0.4)
 
     db_hit = _memory("fact", "Hikes every weekend", 0.9)
@@ -614,7 +604,7 @@ async def test_load_relevant_memories_applies_similarity_cutoff_in_process():
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(
         semantic_memory_enabled=True,
         memory_min_confidence=0.4,
@@ -648,7 +638,7 @@ async def test_load_relevant_memories_includes_low_score_when_cutoff_disabled():
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(
         semantic_memory_enabled=True,
         memory_min_confidence=0.4,
@@ -675,7 +665,7 @@ async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(
         semantic_memory_enabled=True, memory_min_confidence=0.0, memory_inject_limit=5
     )
@@ -705,7 +695,7 @@ async def test_load_relevant_memories_keeps_profile_when_vectors_populated_but_n
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(
         semantic_memory_enabled=True, memory_min_confidence=0.0, memory_inject_limit=5
     )
@@ -730,7 +720,7 @@ async def test_load_relevant_memories_priority_fallback_when_no_query():
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(
         semantic_memory_enabled=True, memory_min_confidence=0.0, memory_inject_limit=5
     )
@@ -763,14 +753,14 @@ async def test_load_relevant_memories_returns_empty_on_db_exception(query_vec):
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True)
 
+    unavailable = AsyncMock(side_effect=RuntimeError("db unavailable"))
     with (
-        patch(
-            "app.modules.memory.repository.list_for_user",
-            AsyncMock(side_effect=RuntimeError("db unavailable")),
-        ),
+        patch("app.modules.memory.repository.list_for_user", unavailable),
+        # With a query the facts are ranked in the database: that read fails too.
+        patch("app.modules.memory.repository.list_scored_for_user", unavailable),
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=query_vec)
 
@@ -788,7 +778,7 @@ async def test_get_memory_block_degrades_to_empty_on_db_exception(fake_redis):
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=False)
 
     with (
@@ -817,7 +807,7 @@ async def test_get_memory_block_warms_semantic_cache_via_tracked_background_task
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
     fake_task = MagicMock()
@@ -857,7 +847,7 @@ async def test_get_memory_block_live_embed_on_cache_miss(fake_redis):
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
     query_vec = [0.1, 0.2, 0.3]
 
@@ -887,7 +877,7 @@ async def test_get_memory_block_query_cache(fake_redis):
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
     with (
@@ -919,7 +909,7 @@ async def test_invalidate_memory_block_bumps_generation_and_clears_block_keys(fa
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
     load_mock = AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)])
@@ -953,7 +943,7 @@ async def test_invalidate_memory_block_makes_query_cache_unreachable(fake_redis)
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
     load_mock = AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)])
@@ -992,7 +982,7 @@ async def test_warm_semantic_cache_write_racing_invalidation_is_never_served(fak
     user = AsyncMock()
     user.id = user_id
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
     stale_memories = [_memory("fact", "Stale — computed before invalidation", 0.9)]
@@ -1026,7 +1016,7 @@ async def test_warm_semantic_cache_write_racing_invalidation_is_never_served(fak
             "app.modules.memory._semantic_memories_from_vec",
             AsyncMock(return_value=stale_memories),
         ),
-        patch("app.core.db.SessionLocal", return_value=_FakeSessionCM(session)),
+        patch("app.core.db.SessionLocal", return_value=FakeSessionCM(session)),
     ):
         await _warm_semantic_memory_cache(settings, user_id, "outdoor hobbies")
 
@@ -1050,7 +1040,7 @@ async def test_memory_reenable_loads_fresh_after_invalidation(fake_redis):
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(memory_cache_ttl=120)
 
     load_mock = AsyncMock(
@@ -1089,7 +1079,7 @@ async def test_update_memory_rewrites_text_and_reembeds():
     from app.modules.memory import update_memory
 
     user_id = uuid4()
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(mock_llm_enabled=True)
     memory = _memory("fact", "Old fact about hiking", 0.9)
     memory.id = uuid4()
@@ -1145,7 +1135,7 @@ async def test_update_memory_rolls_back_without_invalidating_on_commit_failure()
     from app.modules.memory import update_memory
 
     user_id = uuid4()
-    session = AsyncMock()
+    session = fake_session()
     # The first commit ends the read before the embedding call; the write's fails.
     session.commit.side_effect = [None, RuntimeError("commit failed")]
     settings = Settings(mock_llm_enabled=True)
@@ -1180,7 +1170,7 @@ async def test_delete_memory_releases_lock_even_when_delete_fails():
     from app.modules.memory import delete_memory
 
     user_id = uuid4()
-    session = AsyncMock()
+    session = fake_session()
 
     with (
         patch(
@@ -1204,7 +1194,7 @@ async def test_delete_all_memories_releases_lock():
     from app.modules.memory import delete_all_memories
 
     user_id = uuid4()
-    session = AsyncMock()
+    session = fake_session()
 
     with (
         patch(
@@ -1306,7 +1296,7 @@ async def test_warm_repairs_the_scope_the_turn_read(fake_redis):
             "app.modules.memory._semantic_memories_from_vec",
             AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)]),
         ),
-        patch("app.core.db.SessionLocal", return_value=_FakeSessionCM(AsyncMock())),
+        patch("app.core.db.SessionLocal", return_value=FakeSessionCM(AsyncMock())),
     ):
         await _warm_semantic_memory_cache(
             settings, user.id, "outdoor hobbies", exclude_sensitive=True
@@ -1329,19 +1319,19 @@ async def test_a_failed_read_is_reported_and_never_cached(fake_redis, semantic):
     user.memory_enabled = True
     settings = Settings(semantic_memory_enabled=semantic)
     report = MemoryLoadReport()
+    unavailable = AsyncMock(side_effect=RuntimeError("db unavailable"))
     with (
         patch("app.modules.memory.get_redis_client", return_value=fake_redis),
         patch(
             "app.gateways.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=[1.0, 0.0, 0.0]),
         ),
-        patch(
-            "app.modules.memory.repository.list_for_user",
-            AsyncMock(side_effect=RuntimeError("db unavailable")),
-        ),
+        patch("app.modules.memory.repository.list_for_user", unavailable),
+        # A semantic read ranks the facts in the database: that read fails too.
+        patch("app.modules.memory.repository.list_scored_for_user", unavailable),
     ):
         block = await get_memory_block(
-            AsyncMock(), user, settings, query_text="what's my job?", report=report
+            fake_session(), user, settings, query_text="what's my job?", report=report
         )
 
     assert block == ""

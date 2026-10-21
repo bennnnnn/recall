@@ -14,26 +14,16 @@ from app.models.schemas.common import MemoryType
 from app.modules.memory import embedding_text_hash
 from app.modules.memory.extraction_workflow import extract_and_store_memories, extract_history_chat
 from app.modules.memory.writes_repository import MemoryFactWrite
+from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 
 _CANDIDATE = "I like using Vim every day at work."
 
 
-class _FakeSessionCM:
-    def __init__(self, session: AsyncMock) -> None:
-        self._session = session
-
-    async def __aenter__(self) -> AsyncMock:
-        return self._session
-
-    async def __aexit__(self, *args: object) -> None:
-        return None
-
-
-def _extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSessionCM]]:
+def _extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[FakeSessionCM]]:
     session = AsyncMock()
     session.commit = AsyncMock()
-    return session, [_FakeSessionCM(session) for _ in range(count)]
+    return session, [FakeSessionCM(session) for _ in range(count)]
 
 
 def _ops(*ops: MemoryFactOp) -> MemoryFactUpdateResult:
@@ -74,7 +64,7 @@ def _memory_extract_backlog_noop():
         ),
         patch(
             "app.modules.memory.extract_backlog.get_redis_client",
-            MagicMock(return_value=AsyncMock(get=AsyncMock(return_value=None))),
+            MagicMock(return_value=redis_mock(get=None)),
         ),
     ):
         yield
@@ -98,7 +88,7 @@ def _memory_write_lock_always_free(request: pytest.FixtureRequest):
 @contextmanager
 def _extract_patches(
     *,
-    session_locals: list[_FakeSessionCM],
+    session_locals: list[FakeSessionCM],
     extraction: MemoryFactUpdateResult | None,
     apply: AsyncMock,
     listed: list | None = None,
@@ -772,11 +762,11 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
         patch("app.modules.memory.get_redis_client", return_value=fake_redis),
         patch(
             "app.modules.memory.extraction_workflow.SessionLocal",
-            side_effect=lambda: _FakeSessionCM(extraction_session),
+            side_effect=lambda: FakeSessionCM(extraction_session),
         ),
         patch(
             "app.modules.memory.consolidation_workflow.SessionLocal",
-            side_effect=lambda: _FakeSessionCM(consolidation_session),
+            side_effect=lambda: FakeSessionCM(consolidation_session),
         ),
         patch(
             "app.modules.memory.extraction_workflow.users_repo.get_by_id",

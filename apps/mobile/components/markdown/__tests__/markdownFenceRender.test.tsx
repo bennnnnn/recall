@@ -6,33 +6,24 @@ import { render, waitFor } from "@testing-library/react-native";
 
 import { renderFence, type FenceNode } from "../markdownFenceRender";
 import { renderRichFenceById } from "@/components/rich/RichFence";
+import "@/lib/i18n";
+
+// These check the English copy, so they read the real react-i18next over lib/i18n.
+jest.unmock("react-i18next");
 
 /** The React key a fence was drawn under; null when it drew nothing keyed. */
 const keyOf = (rendered: ReactNode) => (isValidElement(rendered) ? rendered.key : null);
 
-// markdownFenceRender.tsx statically imports CodeBlock/CopyBlock (both pull
-// in expo-clipboard) regardless of which fence branch
-// actually runs — this plain @react-native/jest-preset environment (no
-// jest-expo) doesn't stub expo-modules-core, so these need simple no-op
-// fakes to keep import-time safe. Same pattern as MermaidBlock.test.tsx.
-jest.mock("expo-clipboard", () => ({
-  setStringAsync: jest.fn(),
-}));
+// markdownFenceRender.tsx statically imports CodeBlock/CopyBlock whichever
+// fence branch runs; no-op fakes for the native modules they reach keep the
+// import safe. Same pattern as MermaidBlock.test.tsx.
 jest.mock("expo-web-browser", () => ({
   openBrowserAsync: jest.fn(),
-}));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  selectionAsync: jest.fn(),
 }));
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),
   EncodingType: { UTF8: "utf8" },
-}));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 // This suite's jest env cannot evaluate React.lazy dynamic import(). Eager
 // stand-ins keep geometry/graph dispatch coverage without vm-modules.

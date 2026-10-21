@@ -66,7 +66,7 @@
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/solve/graph.py": {
-      "lines": 554,
+      "lines": 550,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/solve/key_steps.py": {

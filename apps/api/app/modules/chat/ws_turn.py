@@ -152,6 +152,7 @@ async def stream_over_ws(
         # map — stream_chat_response gather-waits that map as a child Task
         # and would deadlock 10s on itself.
         register_inflight_stream(chat_id, producer, stop=stop)
+    receiver: asyncio.Task[Any] | None = None
     try:
         while not producer.done():
             receiver = asyncio.create_task(websocket.receive_json())
@@ -209,6 +210,10 @@ async def stream_over_ws(
             except asyncio.CancelledError:
                 pass
     finally:
+        # A disconnect or shutdown that cancels this handler mid-wait leaves the frame
+        # read it just started; it must not outlive the turn.
+        if receiver is not None and not receiver.done():
+            receiver.cancel()
         heartbeat.cancel()
         # Same as SSE M10: client close must not orphan the DB commit that
         # persists the (partial) assistant row and enqueues the title job.

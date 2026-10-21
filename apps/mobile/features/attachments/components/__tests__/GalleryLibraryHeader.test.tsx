@@ -3,12 +3,6 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { GalleryLibraryHeader } from "@/features/attachments/components/GalleryLibraryHeader";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
   useTheme: () => mockLightTheme,

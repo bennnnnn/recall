@@ -4,13 +4,6 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
-
-@pytest.fixture
-def fake_session():
-    """Return a mocked AsyncSession."""
-    return AsyncMock(spec=AsyncSession)
 
 
 @pytest.mark.asyncio

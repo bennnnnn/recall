@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.images.generation import ImageGenerationError, generate_for_chat
 from app.services.quota import counters
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
@@ -46,7 +47,7 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
             AsyncMock(return_value=prior),
         ),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
-        patch("app.modules.images.generation.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.generation.get_redis_client", return_value=redis_mock()),
         patch("app.modules.images.generation.load_reference_images", load),
         patch(
             "app.modules.images.generation.counters.reserve",
@@ -119,7 +120,7 @@ async def test_generate_for_chat_refunds_on_cancelled_error():
             AsyncMock(return_value=object()),
         ),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
-        patch("app.modules.images.generation.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.generation.get_redis_client", return_value=redis_mock()),
         patch("app.modules.images.generation.load_reference_images", AsyncMock(return_value=[])),
         patch(
             "app.modules.images.generation.counters.reserve",
@@ -190,7 +191,7 @@ async def test_generate_for_chat_skips_reserve_when_spend_capped():
             AsyncMock(return_value=object()),
         ),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
-        patch("app.modules.images.generation.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.generation.get_redis_client", return_value=redis_mock()),
         patch("app.modules.images.generation.load_reference_images", AsyncMock(return_value=[])),
         patch(
             "app.modules.images.generation.quota_service.global_spend_exceeded",
@@ -246,7 +247,7 @@ def _patched_generation(
         patch("app.modules.images.generation.messages_repo.get_by_id", get_in_chat),
         patch("app.modules.images.generation.messages_repo.create", create),
         patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
-        patch("app.modules.images.generation.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.generation.get_redis_client", return_value=redis_mock()),
         patch("app.modules.images.generation.load_reference_images", load),
         patch(
             "app.modules.images.generation.counters.reserve",

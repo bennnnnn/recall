@@ -10,6 +10,7 @@ from app.gateways.storage_gateway import LocalStorageGateway
 from app.modules.chat.turn_prep import TurnPromptBundle
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.math.schemas import MathImageExtract
+from app.tests.fakes import FakeSessionCM
 from app.tests.modules.chat.chat_test_support import prompt_bundle
 
 
@@ -60,16 +61,14 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
     session = AsyncMock()
     gateway = MagicMock()
 
-    class SessionCM:
-        async def __aenter__(self):
-            return session
-
-        async def __aexit__(self, *_args: object) -> None:
-            return None
-
     with (
-        patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
+        patch(
+            "app.modules.chat.turn_prep.attachments.SessionLocal",
+            return_value=FakeSessionCM(session),
+        ),
+        patch(
+            "app.modules.chat.turn_prep.persist.SessionLocal", return_value=FakeSessionCM(session)
+        ),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch(
             "app.modules.attachments.repository.get_by_ids",
@@ -144,13 +143,6 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
     user_message = MagicMock()
     user_message.id = message_id
 
-    class SessionCM:
-        async def __aenter__(self):
-            return session
-
-        async def __aexit__(self, *_args: object) -> None:
-            return None
-
     captured: dict[str, object] = {}
 
     async def _fake_build_stream_prompt_context(request: TurnRequest, *_args: object):
@@ -158,8 +150,13 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
         return prompt_bundle()
 
     with (
-        patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
+        patch(
+            "app.modules.chat.turn_prep.attachments.SessionLocal",
+            return_value=FakeSessionCM(session),
+        ),
+        patch(
+            "app.modules.chat.turn_prep.persist.SessionLocal", return_value=FakeSessionCM(session)
+        ),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
         patch(
@@ -275,19 +272,17 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
     user_message = MagicMock()
     user_message.id = message_id
 
-    class SessionCM:
-        async def __aenter__(self):
-            return session
-
-        async def __aexit__(self, *_args: object) -> None:
-            return None
-
     async def _fake_build_stream_prompt_context(*_args: object, **kwargs: object):
         return prompt_bundle()
 
     with (
-        patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
+        patch(
+            "app.modules.chat.turn_prep.attachments.SessionLocal",
+            return_value=FakeSessionCM(session),
+        ),
+        patch(
+            "app.modules.chat.turn_prep.persist.SessionLocal", return_value=FakeSessionCM(session)
+        ),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
         patch(
@@ -438,16 +433,12 @@ async def test_process_attachments_reuses_verified_bytes_for_format():
     session = AsyncMock()
     gateway = MagicMock()  # not LocalStorageGateway → R2 verify path
 
-    class SessionCM:
-        async def __aenter__(self):
-            return session
-
-        async def __aexit__(self, *_args: object) -> None:
-            return None
-
     format_mock = AsyncMock(return_value=(["[File: x]"], False))
     with (
-        patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
+        patch(
+            "app.modules.chat.turn_prep.attachments.SessionLocal",
+            return_value=FakeSessionCM(session),
+        ),
         patch("app.modules.attachments.repository.get_by_ids", AsyncMock(return_value=[row])),
         patch(
             "app.gateways.storage_gateway.get_storage_gateway",
@@ -506,15 +497,11 @@ async def test_process_attachments_skips_verify_when_already_verified():
     session = AsyncMock()
     gateway = MagicMock()
 
-    class SessionCM:
-        async def __aenter__(self):
-            return session
-
-        async def __aexit__(self, *_args: object) -> None:
-            return None
-
     with (
-        patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
+        patch(
+            "app.modules.chat.turn_prep.attachments.SessionLocal",
+            return_value=FakeSessionCM(session),
+        ),
         patch("app.modules.attachments.repository.get_by_ids", AsyncMock(return_value=[row])),
         patch(
             "app.gateways.storage_gateway.get_storage_gateway",
@@ -573,15 +560,11 @@ async def test_process_attachments_image_only_does_not_flag_document():
     session = AsyncMock()
     gateway = MagicMock()
 
-    class SessionCM:
-        async def __aenter__(self):
-            return session
-
-        async def __aexit__(self, *_args: object) -> None:
-            return None
-
     with (
-        patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
+        patch(
+            "app.modules.chat.turn_prep.attachments.SessionLocal",
+            return_value=FakeSessionCM(session),
+        ),
         patch("app.modules.attachments.repository.get_by_ids", AsyncMock(return_value=[row])),
         patch("app.gateways.storage_gateway.get_storage_gateway", return_value=gateway),
         patch(
@@ -629,15 +612,11 @@ async def test_process_attachments_document_flags_document():
     session = AsyncMock()
     gateway = MagicMock()
 
-    class SessionCM:
-        async def __aenter__(self):
-            return session
-
-        async def __aexit__(self, *_args: object) -> None:
-            return None
-
     with (
-        patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
+        patch(
+            "app.modules.chat.turn_prep.attachments.SessionLocal",
+            return_value=FakeSessionCM(session),
+        ),
         patch("app.modules.attachments.repository.get_by_ids", AsyncMock(return_value=[row])),
         patch("app.gateways.storage_gateway.get_storage_gateway", return_value=gateway),
         patch(
@@ -692,15 +671,8 @@ async def test_prepare_overlap_returns_before_persist_commit():
         day_reflection=False,
     )
 
-    class SessionCM:
-        async def __aenter__(self) -> AsyncMock:
-            return AsyncMock()
-
-        async def __aexit__(self, *_args: object) -> None:
-            return None
-
     with (
-        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
+        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=FakeSessionCM()),
         patch("app.repositories.messages.create", side_effect=slow_create),
         patch(
             "app.modules.chat.turn_prep.prepare.build_stream_prompt_context",

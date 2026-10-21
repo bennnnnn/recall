@@ -10,19 +10,12 @@ from app.background import push_scheduler
 from app.core.config import Settings
 from app.gateways import expo_push_gateway
 from app.modules.notifications.push import OutboundPush, PushPage
+from app.tests.fakes import FakeSessionCM
 
 
 def test_push_lock_outlives_one_expo_request():
     """Refreshed before each request, so it only has to outlast one."""
     assert push_scheduler.LOCK_TTL_SECONDS > 2 * expo_push_gateway.EXPO_TIMEOUT_SECONDS
-
-
-class _SessionCM:
-    async def __aenter__(self) -> object:
-        return object()
-
-    async def __aexit__(self, *args: object) -> None:
-        return None
 
 
 def _messages(count: int) -> list[OutboundPush]:
@@ -52,7 +45,7 @@ async def _cycle(pages: list[PushPage], lock: MagicMock) -> list[str]:
 
     notifications = "app.background.push_scheduler.push_notifications"
     with (
-        patch("app.background.push_scheduler.SessionLocal", side_effect=_SessionCM),
+        patch("app.background.push_scheduler.SessionLocal", FakeSessionCM()),
         patch("app.background.push_scheduler.get_redis_client", return_value=AsyncMock()),
         patch(f"{notifications}.log_aged_unsent_reminders", AsyncMock()),
         patch(f"{notifications}.advance_tokenless_recurring", AsyncMock()),
@@ -116,7 +109,7 @@ async def test_an_empty_page_sends_nothing():
 async def test_receipts_are_polled_by_their_own_cycle():
     poll = AsyncMock()
     with (
-        patch("app.background.push_scheduler.SessionLocal", side_effect=_SessionCM),
+        patch("app.background.push_scheduler.SessionLocal", FakeSessionCM()),
         patch("app.background.push_scheduler.get_redis_client", return_value=AsyncMock()),
         patch("app.background.push_scheduler.push_notifications.poll_deferred_push_receipts", poll),
     ):

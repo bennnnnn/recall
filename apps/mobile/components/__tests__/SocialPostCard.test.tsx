@@ -4,12 +4,6 @@ import { render } from "@testing-library/react-native";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { lightTheme } from "@/lib/theme";
 
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-}));
 jest.mock("react-native-svg", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
   return {
@@ -27,9 +21,6 @@ jest.mock("react-native-svg", () => {
     Mask: View,
   };
 });
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 
 describe("SocialPostCard", () => {
   it("does not paint a brand left stripe (same chrome as the SMS draft)", async () => {

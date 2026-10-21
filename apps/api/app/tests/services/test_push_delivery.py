@@ -10,6 +10,7 @@ import pytest
 from app.core.config import Settings
 from app.models.orm import User
 from app.modules.notifications import push as push_service
+from app.tests.fakes import fake_session, redis_mock
 from app.tests.services.push_cycle_support import run_push_cycle
 
 
@@ -23,8 +24,8 @@ def schedule_write():
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_skips_expo_in_dev_mock():
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         mock_llm_enabled=True,
         environment="development",
@@ -58,8 +59,8 @@ def _users_execute_result(users):
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_disabled():
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(push_enabled=False)
 
     count = await run_push_cycle(session, redis, settings)
@@ -68,8 +69,8 @@ async def test_run_push_cycle_disabled():
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_sends_expo_in_production():
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         push_enabled=True,
         mock_llm_enabled=False,
@@ -106,8 +107,8 @@ async def test_run_push_cycle_sends_expo_in_production():
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok(schedule_write):
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         push_enabled=True,
         mock_llm_enabled=False,
@@ -245,8 +246,8 @@ async def test_finalize_advances_recurring_todo_and_clears_sent(schedule_write):
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         push_enabled=True,
         mock_llm_enabled=False,
@@ -310,7 +311,7 @@ async def _ready_ticket(redis, ticket_id: str, token: str, *, at: float) -> None
 
 @pytest.mark.asyncio
 async def test_poll_deferred_push_receipts_prunes_invalid_token(fake_redis):
-    session = AsyncMock()
+    session = fake_session()
     await _ready_ticket(fake_redis, "ticket-1", "ExponentPushToken[dead]", at=1_000.0)
     receipts = {"ticket-1": {"status": "error", "details": {"error": "DeviceNotRegistered"}}}
     with (
@@ -331,7 +332,7 @@ async def test_poll_deferred_push_receipts_prunes_invalid_token(fake_redis):
 
 @pytest.mark.asyncio
 async def test_poll_deferred_push_receipts_keeps_pending_receipts(fake_redis):
-    session = AsyncMock()
+    session = fake_session()
     await _ready_ticket(fake_redis, "ticket-1", "ExponentPushToken[ok]", at=1_000.0)
     with (
         patch(
@@ -365,8 +366,8 @@ async def test_receipt_polling_reads_a_bounded_batch(fake_redis):
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_enqueues_receipt_tickets():
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         push_enabled=True,
         mock_llm_enabled=False,
@@ -417,8 +418,8 @@ async def test_run_push_cycle_enqueues_receipt_tickets():
 @pytest.mark.asyncio
 async def test_run_push_cycle_marks_sent_on_ticket_without_receipt_poll(schedule_write):
     """Ticket accept marks delivery; receipt polling is deferred for token pruning only."""
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         push_enabled=True,
         mock_llm_enabled=False,
@@ -488,7 +489,7 @@ def test_append_outbound_dedupes_duplicate_tokens():
 async def test_upsert_prunes_stale_tokens_for_device():
     from app.repositories import push_tokens as repo
 
-    session = AsyncMock()
+    session = fake_session()
     user_id = uuid4()
     existing = MagicMock()
     existing.user_id = user_id
@@ -512,7 +513,7 @@ async def test_upsert_rejects_cross_user_rebind_without_device_id():
     from app.exceptions import PushTokenBindError
     from app.repositories import push_tokens as repo
 
-    session = AsyncMock()
+    session = fake_session()
     prior = MagicMock()
     prior.user_id = uuid4()
     prior.device_id = "device-a"
@@ -533,7 +534,7 @@ async def test_upsert_rejects_cross_user_rebind_with_mismatched_device():
     from app.exceptions import PushTokenBindError
     from app.repositories import push_tokens as repo
 
-    session = AsyncMock()
+    session = fake_session()
     prior = MagicMock()
     prior.user_id = uuid4()
     prior.device_id = "device-a"
@@ -555,7 +556,7 @@ async def test_upsert_rejects_cross_user_rebind_of_a_row_without_device_id():
     from app.exceptions import PushTokenBindError
     from app.repositories import push_tokens as repo
 
-    session = AsyncMock()
+    session = fake_session()
     owner = uuid4()
     prior = MagicMock()
     prior.user_id = owner
@@ -579,7 +580,7 @@ async def test_upsert_rejects_cross_user_rebind_of_a_row_without_device_id():
 async def test_upsert_allows_cross_user_rebind_with_matching_device():
     from app.repositories import push_tokens as repo
 
-    session = AsyncMock()
+    session = fake_session()
     prior_user = uuid4()
     new_user = uuid4()
     prior = MagicMock()

@@ -10,24 +10,14 @@ from app.models.schemas import MemorySectionItem
 from app.modules.memory import embedding_text_hash
 from app.modules.memory.consolidation_workflow import consolidate_user_memory_sections
 from app.modules.memory.writes_repository import MemoryFactWrite
+from app.tests.fakes import FakeSessionCM
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 
 
-class _FakeSessionCM:
-    def __init__(self, session: AsyncMock) -> None:
-        self._session = session
-
-    async def __aenter__(self) -> AsyncMock:
-        return self._session
-
-    async def __aexit__(self, *args: object) -> None:
-        return None
-
-
-def _consolidation_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSessionCM]]:
+def _consolidation_sessions(*, count: int = 1) -> tuple[AsyncMock, list[FakeSessionCM]]:
     session = AsyncMock()
     session.commit = AsyncMock()
-    return session, [_FakeSessionCM(session) for _ in range(count)]
+    return session, [FakeSessionCM(session) for _ in range(count)]
 
 
 def _fact(
@@ -328,7 +318,7 @@ async def test_consolidate_releases_db_before_llm():
     session.commit = AsyncMock()
     db_open_during_merge: list[bool] = []
 
-    class _TrackingSessionCM(_FakeSessionCM):
+    class _TrackingSessionCM(FakeSessionCM):
         def __init__(self) -> None:
             super().__init__(session)
             self.open = False
@@ -337,9 +327,9 @@ async def test_consolidate_releases_db_before_llm():
             self.open = True
             return await super().__aenter__()
 
-        async def __aexit__(self, *args: object) -> None:
+        async def __aexit__(self, *args: object) -> bool:
             self.open = False
-            await super().__aexit__(*args)
+            return await super().__aexit__(*args)
 
     load_cm = _TrackingSessionCM()
     apply_cm = _TrackingSessionCM()

@@ -13,6 +13,7 @@ from app.modules.images.search import (
     photos_for_answer,
     search_and_attach_for_chat,
 )
+from app.tests.fakes import redis_mock
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"0" * 32
 _HIT = ImageSearchHit(
@@ -123,7 +124,7 @@ async def test_no_hits_refunds_quota_and_raises_502():
             "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
         patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_redis_client", return_value=redis_mock()),
         patch(
             "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=True),
@@ -191,7 +192,7 @@ async def test_all_candidates_fail_fetch_refunds_and_raises_502():
             "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
         patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_redis_client", return_value=redis_mock()),
         patch(
             "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=True),
@@ -242,7 +243,7 @@ async def test_successful_lookup_persists_attachment_and_message():
             "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
         patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_redis_client", return_value=redis_mock()),
         patch(
             "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=True),
@@ -296,7 +297,7 @@ async def test_link_failure_rolls_back_bytes_and_refunds():
             "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
         patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_redis_client", return_value=redis_mock()),
         patch(
             "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=True),
@@ -339,7 +340,7 @@ async def test_spend_cap_skips_reserve_and_provider():
             "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
         patch("app.modules.images.search.get_storage_gateway", return_value=_fake_gateway()),
-        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_redis_client", return_value=redis_mock()),
         patch(
             "app.modules.images.search.quota_service.global_spend_exceeded",
             AsyncMock(return_value=True),
@@ -383,7 +384,7 @@ async def test_lookup_reply_is_image_markers_only():
             "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
         patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_redis_client", return_value=redis_mock()),
         patch(
             "app.modules.images.search.counters.reserve",
             AsyncMock(return_value=True),

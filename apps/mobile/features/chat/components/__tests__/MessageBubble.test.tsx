@@ -10,12 +10,6 @@ let mockShowLiveClock = false;
 let mockMarkdownPresented = false;
 let mockHasContent = true;
 
-jest.mock("expo-clipboard", () => ({
-  setStringAsync: jest.fn(async () => undefined),
-}));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/ui/icons/Icon", () => {
   const { Text: MockText } =
     jest.requireActual("react-native") as typeof import("react-native");

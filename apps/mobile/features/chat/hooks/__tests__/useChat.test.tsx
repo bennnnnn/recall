@@ -23,10 +23,6 @@ async function waitOutReconcile(polls = DROPPED_TURN_POLLS) {
   }
 }
 
-jest.mock("react-i18next", () => {
-  const t = (key: string) => key;
-  return { useTranslation: () => ({ t }) };
-});
 jest.mock("@/lib/api", () => ({
   chatWebSocketUrl: (id: string) => `wss://test/${id}`,
   api: { listMessages: jest.fn() },

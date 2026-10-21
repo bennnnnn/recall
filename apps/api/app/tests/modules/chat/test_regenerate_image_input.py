@@ -21,6 +21,7 @@ from app.modules.chat.turn_prep.context import (
 )
 from app.modules.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
 from app.modules.chat.turn_prep.request import ClientGeoContext
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 _MODULE = "app.modules.chat.turn_prep.regenerate_vision"
@@ -236,7 +237,7 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         result = [
             token
             async for token in stream_entry.stream_regenerate_response(
-                deps, AsyncMock(), _SETTINGS, user_id=owner, chat_id=chat_id
+                deps, redis_mock(), _SETTINGS, user_id=owner, chat_id=chat_id
             )
         ]
     assert result == ["Regenerated answer"]

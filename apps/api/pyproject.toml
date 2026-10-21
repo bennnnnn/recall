@@ -54,6 +54,7 @@ dev = [
     "pytest>=9.1.1,<10",
     "pytest-asyncio>=0.24.0,<1.5",
     "pytest-cov>=6.0.0,<8",
+    "pytest-timeout>=2.3,<3",
     "ruff>=0.8.0,<0.18",
 ]
 
@@ -73,6 +74,15 @@ testpaths = ["app/tests"]
 # Assertion rewriting is on: a failure shows the values that differed. Plain asserts
 # worked around a collection segfault that was CPython 3.12.3 (see requires-python).
 addopts = ["--import-mode=importlib"]
+# A test that hangs fails after a minute, with every thread's stack, instead of holding
+# CI until the job's limit (code-health audit TEST-09).
+timeout = 60
+# A coroutine nobody awaited, or an exception raised where nothing could catch it, is a
+# bug the test would otherwise pass over.
+filterwarnings = [
+    "error::RuntimeWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.ruff]
 line-length = 100

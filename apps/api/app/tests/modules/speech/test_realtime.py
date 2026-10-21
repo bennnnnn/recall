@@ -13,6 +13,7 @@ from app.gateways.openai_speech_gateway import RealtimeClientSecretResult
 from app.main import create_app
 from app.modules.speech.live_talk import LiveTalkSessionContext
 from app.modules.speech.realtime import _realtime_instructions
+from app.tests.fakes import redis_mock
 from app.tests.test_routers import _fake_user
 
 
@@ -589,7 +590,7 @@ def test_voice_tools_enforce_session_ownership_plan_and_read_only_allowlist(case
             user, Settings(speech_live_talk_enabled=True, speech_realtime_voice_enabled=True)
         )
     )
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get.return_value = str(uuid4() if case == "wrong_chat" else chat_id)
     invoke = AsyncMock(return_value={"content": "verified"})
     with (

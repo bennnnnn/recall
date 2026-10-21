@@ -13,6 +13,7 @@ from app.modules.speech.live_talk import (
     load_live_talk_session_context,
     persist_live_talk_turn,
 )
+from app.tests.fakes import fake_session, redis_mock
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +37,7 @@ async def test_persist_live_talk_turn_writes_both_roles_and_enqueues_topic():
     asst_row = MagicMock()
     asst_row.id = uuid4()
 
-    session = AsyncMock()
+    session = fake_session()
     session.__aenter__ = AsyncMock(return_value=session)
     session.__aexit__ = AsyncMock(return_value=None)
 
@@ -56,7 +57,7 @@ async def test_persist_live_talk_turn_writes_both_roles_and_enqueues_topic():
             assistant_text="Hi there",
             untitled=True,
             settings=MagicMock(chat_history_rag_enabled=False),
-            redis=AsyncMock(),
+            redis=redis_mock(),
         )
 
     assert result == (user_row, asst_row)
@@ -71,7 +72,7 @@ async def test_persist_live_talk_turn_saves_the_presented_reply():
     user = MagicMock()
     user.id = uuid4()
     user.memory_enabled = False
-    session = AsyncMock()
+    session = fake_session()
     session.__aenter__ = AsyncMock(return_value=session)
     session.__aexit__ = AsyncMock(return_value=None)
 
@@ -94,7 +95,7 @@ async def test_persist_live_talk_turn_saves_the_presented_reply():
             assistant_text="It goes at**40 km/h**, so $v = d/t = 80/2 = 40$.",
             untitled=False,
             settings=MagicMock(chat_history_rag_enabled=False),
-            redis=AsyncMock(),
+            redis=redis_mock(),
         )
 
     saved = create.await_args_list[1].kwargs["content"]
@@ -111,7 +112,7 @@ async def test_persist_live_talk_turn_titles_when_assistant_transcript_missing()
     user_row = MagicMock()
     user_row.id = uuid4()
 
-    session = AsyncMock()
+    session = fake_session()
     session.__aenter__ = AsyncMock(return_value=session)
     session.__aexit__ = AsyncMock(return_value=None)
 
@@ -131,7 +132,7 @@ async def test_persist_live_talk_turn_titles_when_assistant_transcript_missing()
             assistant_text="",
             untitled=True,
             settings=MagicMock(chat_history_rag_enabled=False),
-            redis=AsyncMock(),
+            redis=redis_mock(),
         )
 
     topic = next(call for call in enqueue.await_args_list if call.args[1] == "topic")
@@ -149,7 +150,7 @@ async def test_persist_live_talk_turn_skips_user_row_on_follow_up():
     asst_row = MagicMock()
     asst_row.id = uuid4()
 
-    session = AsyncMock()
+    session = fake_session()
     session.__aenter__ = AsyncMock(return_value=session)
     session.__aexit__ = AsyncMock(return_value=None)
 
@@ -169,7 +170,7 @@ async def test_persist_live_talk_turn_skips_user_row_on_follow_up():
             assistant_text="Hi there",
             untitled=True,
             settings=MagicMock(chat_history_rag_enabled=False),
-            redis=AsyncMock(),
+            redis=redis_mock(),
             write_user=False,
         )
 
@@ -191,7 +192,7 @@ def test_last_user_line_skips_empty_and_assistant_rows():
 
 
 def _memory_session() -> AsyncMock:
-    session = AsyncMock()
+    session = fake_session()
     session.__aenter__ = AsyncMock(return_value=session)
     session.__aexit__ = AsyncMock(return_value=None)
     return session
@@ -417,7 +418,7 @@ async def test_persist_live_talk_turn_materializes_clocked_reminder():
     asst_row.content = "Sure."
     updated = "Sure.\n\nSet: call mom · tomorrow 5:00 PM"
 
-    session = AsyncMock()
+    session = fake_session()
     session.__aenter__ = AsyncMock(return_value=session)
     session.__aexit__ = AsyncMock(return_value=None)
 
@@ -441,7 +442,7 @@ async def test_persist_live_talk_turn_materializes_clocked_reminder():
             assistant_text="Sure.",
             untitled=True,
             settings=MagicMock(chat_history_rag_enabled=False),
-            redis=AsyncMock(),
+            redis=redis_mock(),
         )
 
     materialize.assert_awaited_once()
@@ -461,7 +462,7 @@ async def _persist_voice_turn(
     user.timezone = "UTC"
     user_row = MagicMock(id=uuid4())
     asst_row = MagicMock(id=uuid4())
-    session = AsyncMock()
+    session = fake_session()
     session.__aenter__ = AsyncMock(return_value=session)
     session.__aexit__ = AsyncMock(return_value=None)
     with (
@@ -491,7 +492,7 @@ async def _persist_voice_turn(
             assistant_text=assistant_text,
             untitled=False,
             settings=settings,
-            redis=AsyncMock(),
+            redis=redis_mock(),
         )
     return {call.args[1]: call.args[2] for call in enqueue.await_args_list}
 
