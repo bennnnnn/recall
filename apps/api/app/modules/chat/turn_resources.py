@@ -264,8 +264,8 @@ async def reserve_turn_quota(
     or a page of code would stop mid-fence), and finalize clips the counter
     at the limit, so one turn is the most a user can go over.
 
-    Today's total was read back from the DB, when Redis had lost it, as the
-    turn loaded (``turn_load``), in a session it had open anyway.
+    When Redis had lost today's total, the turn read it back from the DB as it
+    loaded (``turn_load``).
     """
     if await deps.quota.global_spend_exceeded(redis, settings):
         raise SpendCapReachedError(CHAT_SPEND_CAP_MESSAGE)

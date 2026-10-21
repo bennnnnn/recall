@@ -107,10 +107,11 @@ async def update(session: AsyncSession, user: User, *, commit: bool = True, **fi
         if hasattr(bound, key):
             setattr(bound, key, value)
     if commit:
+        user_id = bound.id  # before the commit, which may expire it
         await session.commit()
         # Every machine drops its copy before the row is read back, so the copy
         # kept here under the new generation already holds this write.
-        generation = await publish_change(bound.id)
+        generation = await publish_change(user_id)
         await session.refresh(bound)
         if generation is not None:
             remember_user(bound, generation)
