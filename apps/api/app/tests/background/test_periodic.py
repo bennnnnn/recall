@@ -6,11 +6,12 @@ import pytest
 
 from app.background import periodic
 from app.core.config import Settings
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
 async def test_run_locked_cycle_skips_lock_when_disabled():
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.set = AsyncMock(return_value=True)
     fn = AsyncMock()
     settings = Settings()

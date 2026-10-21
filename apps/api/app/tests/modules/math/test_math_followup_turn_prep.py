@@ -18,6 +18,7 @@ from app.modules.chat.turn_prep.prepare import prepare_chat_turn
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.tests.fakes import redis_mock
 
 _QUERY = "Sum 1/n^2 from n=1 to infinity"
 _RESULT = r"\frac{\pi^{2}}{6}"
@@ -100,7 +101,7 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
                 content="how",
                 model_alias=None,
                 settings=settings,
-                redis=AsyncMock(),
+                redis=redis_mock(),
                 reserved_tokens=100,
                 user=user,
                 chat=chat,

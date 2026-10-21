@@ -11,6 +11,7 @@ from app.gateways.google_auth import GoogleAuthError
 from app.models.schemas import AppleAuthRequest, DevAuthRequest, GoogleAuthRequest
 from app.modules.account import api as auth_router
 from app.modules.account import service as auth_service
+from app.tests.fakes import redis_mock
 from app.tests.test_routers import _fake_user
 
 
@@ -80,7 +81,7 @@ async def test_login_session_store_outage_reaches_the_retryable_503_handler(
                 request,
                 session=AsyncMock(),
                 settings=Settings(jwt_secret="x" * 32, dev_auth_enabled=True),
-                redis=AsyncMock(),
+                redis=redis_mock(),
             )
 
 
@@ -102,7 +103,7 @@ async def test_apple_login_hands_the_raw_nonce_to_token_verification():
             request,
             session=AsyncMock(),
             settings=Settings(jwt_secret="x" * 32),
-            redis=AsyncMock(),
+            redis=redis_mock(),
         )
     assert caught.value.status_code == 401
     assert verify.await_args.kwargs["nonce"] == "raw-nonce"

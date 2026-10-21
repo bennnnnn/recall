@@ -230,17 +230,23 @@ async def test_fetches_run_concurrently_not_serially():
     chat = _make_chat()
 
     base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
+    # Each Phase A fetch waits for the other to start: run one after the other, the
+    # first times out alone.
+    phase_a = asyncio.Barrier(2)
+    finished: list[str] = []
 
     async def slow_prompt(*_a, **_kw):
-        await asyncio.sleep(0.25)
+        await asyncio.wait_for(phase_a.wait(), timeout=1)
+        finished.append("prompt")
         return list(base_messages)
 
     async def slow_health(*_a, **_kw):
-        await asyncio.sleep(0.25)
+        await asyncio.wait_for(phase_a.wait(), timeout=1)
+        finished.append("health")
         return {}
 
     async def slow_subject(*_a, **_kw):
-        await asyncio.sleep(0.30)
+        finished.append("subject")
         return SubjectFetch(None, None, False, None, None)
 
     with (
@@ -264,8 +270,6 @@ async def test_fetches_run_concurrently_not_serially():
             return_value=[],
         ),
     ):
-        loop = asyncio.get_event_loop()
-        start = loop.time()
         bundle = await build_stream_prompt_context(
             TurnRequest(
                 user_id=user.id,
@@ -288,11 +292,9 @@ async def test_fetches_run_concurrently_not_serially():
             ),
             MagicMock(),
         )
-        elapsed = loop.time() - start
 
-    # Serial would be 0.25 + 0.25 (A) + 0.30 (B) ~= 0.80s. Overlapped, A costs
-    # max(0.25, 0.25), so ~0.55s. Allow slack for slow CI.
-    assert elapsed < 0.75, f"fetches ran serially (elapsed={elapsed:.2f}s)"
+    assert sorted(finished[:2]) == ["health", "prompt"]
+    assert finished[2:] == ["subject"]
     assert bundle.instant_reply is None
 
 

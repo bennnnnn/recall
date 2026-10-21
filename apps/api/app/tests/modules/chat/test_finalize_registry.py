@@ -1,13 +1,15 @@
 """Per-chat pending-finalize registry tests."""
 
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
 
 from app.exceptions import RedisUnavailableError
 from app.modules.chat import finalize_registry
+from app.tests.fakes import redis_mock
+from app.tests.waiting import wait_until
 
 
 @pytest.mark.asyncio
@@ -171,13 +173,23 @@ async def test_redis_marker_blocks_cross_process_wait(fake_redis):
     order: list[str] = []
 
     await finalize_registry.mark_pending_finalize(fake_redis, chat_id)
+    # The waiter checks the marker each poll; twice seen and still waiting is the
+    # proof, where a fixed sleep could end before the first check.
+    checks: list[int] = []
+    real_exists = fake_redis.exists
+
+    async def counting_exists(*keys):
+        checks.append(1)
+        return await real_exists(*keys)
+
+    fake_redis.exists = counting_exists
 
     async def next_turn():
         await finalize_registry.wait_for_pending_finalize(chat_id, fake_redis)
         order.append("next-turn")
 
     waiter = asyncio.create_task(next_turn())
-    await asyncio.sleep(0.05)
+    await wait_until(lambda: len(checks) >= 2)
     assert order == []
 
     await finalize_registry.clear_pending_finalize(fake_redis, chat_id)
@@ -222,7 +234,7 @@ async def test_history_timeout_remains_bounded_without_cancelling_finalize(
 
 @pytest.mark.asyncio
 async def test_strict_finalize_wait_fails_closed_when_redis_is_unavailable():
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.exists.side_effect = RuntimeError("Redis unavailable")
     with pytest.raises(RedisUnavailableError):
         await finalize_registry.wait_for_pending_finalize(uuid4(), redis, require_complete=True)

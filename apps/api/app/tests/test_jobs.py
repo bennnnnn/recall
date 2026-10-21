@@ -12,7 +12,8 @@ from app.background import handlers as job_handlers
 from app.core import jobs
 from app.core.config import Settings
 from app.core.jobs import admin, dedupe, delayed, queue, worker
-from app.tests.fakes import FakeSessionCM
+from app.tests.fakes import FakeSessionCM, redis_mock
+from app.tests.waiting import wait_until
 
 
 def _patch_session():
@@ -47,7 +48,7 @@ async def test_enqueue_adds_to_stream(fake_redis):
 
 @pytest.mark.asyncio
 async def test_enqueue_swallows_errors():
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.xadd = AsyncMock(side_effect=RuntimeError("redis down"))
     await jobs.enqueue(redis, "memory", {"a": 1})  # must not raise
 
@@ -56,7 +57,7 @@ async def test_enqueue_swallows_errors():
 async def test_enqueue_failure_reports_to_sentry():
     """A failed enqueue must be reported to Sentry (when available) so silent
     job loss is observable — not just logged."""
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.xadd = AsyncMock(side_effect=RuntimeError("redis down"))
     with patch("sentry_sdk.capture_exception") as capture:
         await jobs.enqueue(redis, "memory", {"a": 1})
@@ -67,7 +68,7 @@ async def test_enqueue_failure_reports_to_sentry():
 async def test_enqueue_failure_still_swallows_when_sentry_unavailable():
     """If sentry-sdk isn't importable, enqueue still swallows the redis error
     (the helper's internal import is guarded)."""
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.xadd = AsyncMock(side_effect=RuntimeError("redis down"))
     import sys
 
@@ -415,7 +416,7 @@ async def test_handle_memory_consolidate_discards_after_lock_retries():
 
 @pytest.mark.asyncio
 async def test_process_entries_dispatches_and_acks():
-    redis = AsyncMock()
+    redis = redis_mock()
     seen = []
 
     async def handler(settings, payload):
@@ -498,7 +499,7 @@ async def test_the_last_attempt_goes_to_the_dlq(fake_redis):
 @pytest.mark.asyncio
 async def test_process_entries_runs_batch_concurrently():
     """A batch of slow jobs must overlap — not drain strictly sequentially."""
-    redis = AsyncMock()
+    redis = redis_mock()
     started: list[int] = []
     release = asyncio.Event()
 
@@ -521,31 +522,6 @@ async def test_process_entries_runs_batch_concurrently():
     release.set()
     await task
     assert redis.xack.await_count == 5
-
-
-@pytest.mark.asyncio
-async def test_process_entries_parallel_drain_faster_than_serial():
-    """Drain-time smoke: 4x150ms jobs with concurrency 4 finish near one slot."""
-    redis = AsyncMock()
-
-    async def handler(_settings, _payload):
-        await asyncio.sleep(0.15)
-
-    jobs.register("slow-job", handler)
-    entries = [(f"{i}-0", {"type": "slow-job", "payload": "{}"}) for i in range(4)]
-
-    t0 = time.perf_counter()
-    await worker._process_entries(redis, Settings(jobs_worker_concurrency=4), entries)
-    parallel_s = time.perf_counter() - t0
-
-    t1 = time.perf_counter()
-    await worker._process_entries(redis, Settings(jobs_worker_concurrency=1), entries)
-    serial_s = time.perf_counter() - t1
-
-    # Parallel should be closer to one sleep than four; leave headroom for CI.
-    assert parallel_s < 0.45
-    assert serial_s > 0.50
-    assert parallel_s < serial_s * 0.7
 
 
 # ── DLQ inspection / replay ───────────────────────────────────────────────────
@@ -584,7 +560,7 @@ async def test_list_and_replay_dlq_roundtrip(fake_redis):
 
 @pytest.mark.asyncio
 async def test_worker_loop_processes_then_cancels():
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.xgroup_create = AsyncMock()
     redis.xautoclaim = AsyncMock(return_value=("0-0", [], []))
     batch = [(jobs.JOBS_STREAM, [("1-0", {"type": "wl-job", "payload": "{}"})])]
@@ -623,6 +599,10 @@ async def test_start_and_stop_worker():
         await jobs.start_worker(Settings())
         await jobs.stop_worker()
     assert worker._worker_task is None
+
+
+async def _group_pending_is(redis, count: int) -> bool:
+    return int((await redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP))["pending"]) == count
 
 
 @pytest.mark.asyncio
@@ -665,7 +645,8 @@ async def test_stopped_worker_removes_its_consumer_from_the_group(
     with patch("app.core.jobs.worker.get_jobs_redis_client", return_value=fake_redis):
         await jobs.start_worker(Settings(jobs_worker_concurrency=1))
         await asyncio.wait_for(processed.wait(), timeout=5)
-        await asyncio.sleep(0.05)  # let the ack land
+        # The new entry is acked; one delivered earlier and never acked stays ours.
+        await wait_until(lambda: _group_pending_is(fake_redis, int(owns_pending_entry)))
         await jobs.stop_worker()
 
     consumers = await fake_redis.xinfo_consumers(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
@@ -724,7 +705,7 @@ async def test_collect_queue_metrics_sees_a_backlog_no_worker_has_read(fake_redi
 @pytest.mark.asyncio
 async def test_collect_queue_metrics_redis_error_is_unknown_not_zero():
     """Never raises into the worker loop, but a count it could not read is None."""
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.xlen = AsyncMock(side_effect=RuntimeError("redis down"))
     redis.xpending = AsyncMock(side_effect=RuntimeError("redis down"))
     metrics = await admin.collect_queue_metrics(redis)
@@ -772,7 +753,7 @@ async def test_only_one_worker_reports_per_interval(fake_redis):
 
 @pytest.mark.asyncio
 async def test_report_queue_metrics_warns_when_pending_exceeds_threshold():
-    redis = AsyncMock()
+    redis = redis_mock()
     with (
         patch.object(
             admin,
@@ -811,7 +792,7 @@ async def test_report_queue_metrics_warns_on_a_backlog(overrides, words):
 
 @pytest.mark.asyncio
 async def test_report_queue_metrics_quiet_below_thresholds():
-    redis = AsyncMock()
+    redis = redis_mock()
     with (
         patch.object(
             admin,
@@ -832,7 +813,7 @@ async def test_report_queue_metrics_quiet_below_thresholds():
 async def test_report_queue_metrics_noop_without_sentry():
     """If sentry-sdk isn't importable, report_queue_metrics still returns the
     metrics and never raises into the worker loop."""
-    redis = AsyncMock()
+    redis = redis_mock()
     import sys
 
     original = sys.modules.get("sentry_sdk")
@@ -857,7 +838,7 @@ async def test_report_queue_metrics_noop_without_sentry():
 async def test_reclaim_pending_jobs_processes_claimed_entries():
     """_reclaim_pending_jobs must process entries returned by XAUTOCLAIM,
     so a crashed worker's stuck entries are picked up by a live peer."""
-    redis = AsyncMock()
+    redis = redis_mock()
     claimed_entries = [("1-0", {"type": "reclaim-job", "payload": "{}"})]
     redis.xautoclaim = AsyncMock(return_value=("0-0", claimed_entries, []))
     redis.xack = AsyncMock()
@@ -880,7 +861,7 @@ async def test_reclaim_pending_jobs_processes_claimed_entries():
 @pytest.mark.asyncio
 async def test_reclaim_pending_jobs_swallows_xautoclaim_errors():
     """A Redis error during reclaim must not crash the worker loop."""
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.xautoclaim = AsyncMock(side_effect=Exception("redis down"))
 
     # Must not raise.

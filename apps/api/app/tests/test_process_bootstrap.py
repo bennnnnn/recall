@@ -7,6 +7,7 @@ import pytest
 
 from app import process_bootstrap
 from app.core.config import Settings
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
@@ -136,7 +137,7 @@ async def test_worker_runtime_starts_and_stops_every_scheduler_in_order():
 @pytest.mark.asyncio
 async def test_shutdown_process_stops_worker_before_closing_resources():
     stop_worker = AsyncMock()
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.aclose = AsyncMock()
     engine = MagicMock()
     engine.dispose = AsyncMock()

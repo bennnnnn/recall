@@ -10,7 +10,7 @@ from app.gateways.storage_gateway import LocalStorageGateway
 from app.modules.chat.turn_prep import TurnPromptBundle
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.math.schemas import MathImageExtract
-from app.tests.fakes import FakeSessionCM
+from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.chat.chat_test_support import prompt_bundle
 
 
@@ -57,7 +57,7 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
     row.verified_at = None
 
     settings = Settings(attachments_enabled=True)
-    redis = AsyncMock()
+    redis = redis_mock()
     session = AsyncMock()
     gateway = MagicMock()
 
@@ -136,7 +136,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
     row.size_bytes = 128
 
     settings = Settings(attachments_enabled=True)
-    redis = AsyncMock()
+    redis = redis_mock()
     session = AsyncMock()
     gateway = MagicMock(spec=LocalStorageGateway)
     extracted = MathImageExtract(lhs="f(x,2)", rhs="7", variables=["x"], found=True)
@@ -265,7 +265,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
     row.size_bytes = 128
 
     settings = Settings(attachments_enabled=True)
-    redis = AsyncMock()
+    redis = redis_mock()
     session = AsyncMock()
     gateway = MagicMock(spec=LocalStorageGateway)
     extracted = MathImageExtract(lhs="2*x+3", rhs="7", variables=["x"], found=True)
@@ -429,7 +429,7 @@ async def test_process_attachments_reuses_verified_bytes_for_format():
     payload = b"hello"
 
     settings = Settings(attachments_enabled=True)
-    redis = AsyncMock()
+    redis = redis_mock()
     session = AsyncMock()
     gateway = MagicMock()  # not LocalStorageGateway → R2 verify path
 
@@ -493,7 +493,7 @@ async def test_process_attachments_skips_verify_when_already_verified():
     row.verified_at = datetime(2026, 8, 1, tzinfo=UTC)
 
     settings = Settings(attachments_enabled=True)
-    redis = AsyncMock()
+    redis = redis_mock()
     session = AsyncMock()
     gateway = MagicMock()
 
@@ -556,7 +556,7 @@ async def test_process_attachments_image_only_does_not_flag_document():
     row.verified_at = datetime(2026, 8, 1, tzinfo=UTC)
 
     settings = Settings(attachments_enabled=True)
-    redis = AsyncMock()
+    redis = redis_mock()
     session = AsyncMock()
     gateway = MagicMock()
 
@@ -608,7 +608,7 @@ async def test_process_attachments_document_flags_document():
     row.verified_at = datetime(2026, 8, 1, tzinfo=UTC)
 
     settings = Settings(attachments_enabled=True)
-    redis = AsyncMock()
+    redis = redis_mock()
     session = AsyncMock()
     gateway = MagicMock()
 
@@ -686,7 +686,7 @@ async def test_prepare_overlap_returns_before_persist_commit():
                 content="hi",
                 model_alias=None,
                 settings=Settings(),
-                redis=AsyncMock(),
+                redis=redis_mock(),
                 reserved_tokens=100,
                 user=user,
                 chat=chat,

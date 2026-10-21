@@ -9,6 +9,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.modules.speech.live_talk_tools import _key, execute_tool, search_sources_for_turn
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
@@ -69,7 +70,7 @@ async def test_memory_disabled_does_not_call_memory_service():
 
 @pytest.mark.asyncio
 async def test_tools_fail_closed_if_reservation_store_is_down():
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get.side_effect = RuntimeError("offline")
     with patch("app.modules.speech.live_talk_tools.WebSearchAdapter.invoke", AsyncMock()) as search:
         result = await execute_tool(
@@ -93,7 +94,7 @@ async def _sources_with(redis, caplog, user_id):
 
 @pytest.mark.asyncio
 async def test_turn_sources_redis_error_logs_and_saves_the_turn_without_sources(caplog):
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get = AsyncMock(side_effect=ConnectionError("redis down"))
     sources, warnings = await _sources_with(redis, caplog, uuid4())
     assert sources == []

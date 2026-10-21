@@ -16,6 +16,7 @@ from app.modules.account import api as auth_router
 from app.modules.account import tokens as tokens_service
 from app.modules.chat.stream_events import error_payload_for_exception
 from app.services import quota as quota_service
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
@@ -32,7 +33,7 @@ async def test_reserve_usage_raises_when_redis_down(fake_redis):
 async def test_verify_access_token_raises_when_redis_down():
     settings = Settings(jwt_secret="x" * 32)
     token = create_access_token(uuid4(), settings)
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.mget = AsyncMock(side_effect=RedisConnectionError("down"))
     with pytest.raises(RedisUnavailableError):
         await tokens_service.verify_access_token(redis, token, settings)
@@ -41,7 +42,7 @@ async def test_verify_access_token_raises_when_redis_down():
 @pytest.mark.asyncio
 async def test_refresh_token_pair_raises_when_redis_down():
     settings = Settings(jwt_secret="x" * 32)
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get = AsyncMock(side_effect=RedisConnectionError("down"))
     with pytest.raises(RedisUnavailableError):
         await tokens_service.refresh_token_pair(redis, "rtok", AsyncMock(), settings)
@@ -51,7 +52,7 @@ async def test_refresh_token_pair_raises_when_redis_down():
 async def test_revoke_access_token_raises_when_redis_down():
     settings = Settings(jwt_secret="x" * 32)
     token = create_access_token(uuid4(), settings)
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.set = AsyncMock(side_effect=RedisConnectionError("down"))
     with pytest.raises(RedisUnavailableError):
         await tokens_service.revoke_access_token(redis, token, settings)
@@ -70,7 +71,7 @@ async def test_get_current_user_maps_redis_outage_to_503():
             await deps.get_current_user(
                 credentials=credentials,
                 settings=settings,
-                redis=AsyncMock(),
+                redis=redis_mock(),
             )
     assert exc.value.status_code == 503
     assert exc.value.headers is not None
@@ -99,7 +100,7 @@ async def test_refresh_session_leaves_a_redis_outage_to_the_503_handler():
                 request,
                 session=AsyncMock(),
                 settings=settings,
-                redis=AsyncMock(),
+                redis=redis_mock(),
             )
 
 
@@ -118,7 +119,7 @@ async def test_logout_leaves_a_redis_outage_to_the_503_handler():
                 LogoutRequest(refresh_token="rtok"),
                 request=request,
                 settings=settings,
-                redis=AsyncMock(),
+                redis=redis_mock(),
                 session=AsyncMock(),
             )
 

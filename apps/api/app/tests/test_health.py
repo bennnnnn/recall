@@ -2,6 +2,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
@@ -27,7 +28,7 @@ async def test_health_ready_ok():
         session.__aexit__ = AsyncMock(return_value=None)
         session.execute = AsyncMock()
         session_local.return_value = session
-        redis = AsyncMock()
+        redis = redis_mock()
         redis.ping = AsyncMock()
         get_redis.return_value = redis
 

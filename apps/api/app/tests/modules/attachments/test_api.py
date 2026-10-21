@@ -19,6 +19,7 @@ from app.gateways.storage_gateway import (
 from app.main import create_app
 from app.models.orm import User
 from app.services.quota import counters
+from app.tests.fakes import redis_mock
 
 
 def _fake_user() -> User:
@@ -129,7 +130,7 @@ def test_presign_upload_stores_sanitized_filename():
 def test_presign_upload_returns_503_when_storage_unconfigured():
     user = _fake_user()
     app = _app_with_user(user)
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     fake_redis.incrby = AsyncMock(return_value=1)
     fake_redis.expire = AsyncMock()
 
@@ -286,7 +287,7 @@ def test_cancel_pending_upload_refunds_image_quota():
 
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund_mock = AsyncMock()
 
     with (
@@ -361,7 +362,7 @@ def test_confirm_upload_rejects_spoofed_r2_bytes():
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"not-a-png")
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund_mock = AsyncMock()
 
     with (
@@ -624,7 +625,7 @@ def test_serve_file_rejects_spoofed_r2_bytes():
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"not-a-png")
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund_mock = AsyncMock()
 
     with (
@@ -844,7 +845,7 @@ def test_download_url_rejects_spoofed_r2_bytes():
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"not-a-png")
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund_mock = AsyncMock()
 
     with (

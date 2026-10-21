@@ -216,21 +216,19 @@ async def test_retrieve_for_prompt_uses_precomputed_vec_without_reembed():
 @pytest.mark.asyncio
 async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent():
     """Recent-window load must not sit behind the RAG query embed."""
-    import time
-
     from app.modules.chat.prompt_builder import _load_context_blocks
 
+    recent_read = asyncio.Event()
+
     async def slow_embed(*_args, **_kwargs):
-        await asyncio.sleep(0.2)
+        # Finishes only once the recent window is read: awaited first, it times out.
+        await asyncio.wait_for(recent_read.wait(), timeout=1)
         return [0.2]
 
-    recent_at: dict[str, float] = {}
-
     async def fast_recent(*_args, **_kwargs):
-        recent_at["t"] = time.perf_counter()
+        recent_read.set()
         return []
 
-    t0 = time.perf_counter()
     user = MagicMock()
     user.id = uuid4()
     with (
@@ -252,7 +250,6 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
             client_timezone=None,
             history_rag=True,
         )
-    assert recent_at["t"] - t0 < 0.1
     assert blocks.history_rag_query_vec == [0.2]
 
 

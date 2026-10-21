@@ -25,6 +25,7 @@ from app.modules.account.email_authority import (
     google_owns_email,
     previous_sign_in,
 )
+from app.tests.fakes import redis_mock
 from app.tests.test_routers import _fake_user
 
 _SETTINGS = Settings(jwt_secret="x" * 32)
@@ -229,7 +230,7 @@ async def test_login_api_answers_409_naming_the_earlier_sign_in(provider, body, 
     ):
         login = getattr(auth_router, f"{provider}_login")
         with pytest.raises(AccountExistsError) as caught:
-            await login(body, request, session=AsyncMock(), settings=_SETTINGS, redis=AsyncMock())
+            await login(body, request, session=AsyncMock(), settings=_SETTINGS, redis=redis_mock())
     assert caught.value.status_code == 409
     assert caught.value.body() == {
         "code": "account_exists",

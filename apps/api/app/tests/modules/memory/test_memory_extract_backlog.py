@@ -14,6 +14,7 @@ from app.modules.memory.extract_backlog import (
     note_failed_extract_pass,
     parse_extract_cursor,
 )
+from app.tests.fakes import redis_mock
 
 
 def test_parse_extract_cursor_round_trip():
@@ -51,7 +52,7 @@ async def test_expand_includes_unprocessed_user_lines():
         created_at=datetime(2026, 9, 3, 10, 1, tzinfo=UTC),
         content="Keep the meals simple.",
     )
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get = AsyncMock(return_value=None)
     with (
         patch(

@@ -8,6 +8,8 @@ the user, and ``conftest.py`` the fixtures. This guard:
 
 - keeps ``fake_session`` and the session context manager in that one place: a test that
   needs more (it tracks whether a session is open, say) subclasses ``FakeSessionCM``;
+- allows no bare ``AsyncMock()`` Redis: it makes redis-py's synchronous ``pipeline()`` a
+  coroutine nobody awaits, and the code under test swallowed the error;
 - holds the bare session and user mocks still in the suite at their count, so it only
   goes down: ``fake_session()`` and ``make_user()`` answer as the real objects do.
 """
@@ -24,6 +26,9 @@ _TESTS = APP_ROOT / "tests"
 _SHARED = frozenset({_TESTS / "fakes.py", _TESTS / "conftest.py", Path(__file__).resolve()})
 _BARE_SESSION = re.compile(r"^\s*(?:session|db|mock_session)\s*=\s*AsyncMock\(\)\s*$", re.M)
 _BARE_USER = re.compile(r"^\s*user\s*=\s*MagicMock\(\)\s*$", re.M)
+_BARE_REDIS = re.compile(
+    r"^\s*(?:redis|fake_redis|mock_redis)\s*=\s*AsyncMock\(\)\s*$|\bredis=AsyncMock\(\)", re.M
+)
 # The bare mocks left; lower these when a change replaces some.
 _BARE_SESSIONS = 198
 _BARE_USERS = 146
@@ -49,6 +54,15 @@ def test_session_fakes_live_in_fakes_py() -> None:
                 if "FakeSessionCM" not in {ast.unparse(base) for base in node.bases}:
                     copies.append(f"{where} class {node.name}")
     assert copies == [], "use fake_session / FakeSessionCM from app/tests/fakes.py"
+
+
+def test_no_bare_redis_mock() -> None:
+    bare = [
+        f"{path.relative_to(_TESTS)}:{source.count(chr(10), 0, match.start()) + 1}"
+        for path, source in _test_sources().items()
+        for match in _BARE_REDIS.finditer(source)
+    ]
+    assert bare == [], "use redis_mock() from app/tests/fakes.py, or the fake_redis fixture"
 
 
 def test_bare_session_and_user_mocks_only_go_down() -> None:

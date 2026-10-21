@@ -12,6 +12,7 @@ from app.services import quota as quota_service
 from app.services.quota import counters
 from app.services.quota import tokens as quota_tokens
 from app.services.quota.tokens import _usage_key
+from app.tests.fakes import redis_mock
 
 
 @pytest.fixture
@@ -346,7 +347,7 @@ async def test_counter_reserve_always_leaves_a_ttl(
 async def test_counter_reserve_refuses_a_plan_without_it(counter):
     user = _free_user()
     user.id = uuid4()
-    redis = AsyncMock()
+    redis = redis_mock()
     assert await counters.reserve(counter, redis, user, _capped(counter, 0, "free")) is None
     assert redis.mock_calls == []
 
@@ -439,7 +440,7 @@ async def test_no_refund_creates_a_counter(fake_redis, refund):
 @pytest.mark.asyncio
 async def test_counter_refund_is_one_script_when_redis_runs_lua():
     """Real Redis checks, lowers and floors in one EVAL; nothing else is sent."""
-    redis = AsyncMock()
+    redis = redis_mock()
     user_id = uuid4()
     await counters.refund("image_search", redis, user_id, day=date(2026, 10, 16))
     script, numkeys, key, amount = redis.eval.await_args.args
@@ -700,7 +701,7 @@ class _DownPipeline:
 
 
 def _down_redis():
-    redis = AsyncMock()
+    redis = redis_mock()
     for name in ("get", "set", "exists", "delete", "incrby", "expire", "eval"):
         getattr(redis, name).side_effect = RedisConnectionError("down")
     redis.pipeline = MagicMock(side_effect=lambda **_kwargs: _DownPipeline())
@@ -718,7 +719,7 @@ def _down_redis():
 )
 @pytest.mark.asyncio
 async def test_nothing_to_count_never_touches_redis(call, expected):
-    redis = AsyncMock()
+    redis = redis_mock()
     assert await call(redis) == expected
     assert redis.mock_calls == []
 

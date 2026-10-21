@@ -22,6 +22,7 @@ from app.modules.images import search as image_search
 from app.modules.math import fence as math_fence
 from app.repositories import chats, messages, users
 from app.services import conversation_reference, quota
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 _REAL_MODULES = {
@@ -85,7 +86,7 @@ async def test_websocket_turns_run_on_the_default_deps(entry: str) -> None:
     with patch(f"app.modules.chat.ws_api.stream_entry.{entry}", _captured_stream(captured)):
         await handle(
             AsyncMock(),
-            redis=AsyncMock(),
+            redis=redis_mock(),
             settings=Settings(),
             user_id=uuid4(),
             chat_id=uuid4(),
@@ -118,7 +119,7 @@ async def test_sse_turns_run_on_the_default_deps(entry: str) -> None:
             request=request,
             user=MagicMock(id=uuid4()),
             settings=Settings(),
-            redis=AsyncMock(),
+            redis=redis_mock(),
         )
         async for _ in response.body_iterator:
             pass

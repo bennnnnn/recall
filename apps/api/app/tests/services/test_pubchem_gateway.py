@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.gateways import pubchem_gateway
+from app.tests.fakes import redis_mock
 
 
 def _mock_response(status_code: int, json_data: dict | None = None, text: str = "") -> MagicMock:
@@ -88,7 +89,7 @@ async def test_lookup_by_name_quotes_path() -> None:
 
 @pytest.mark.asyncio
 async def test_lookup_by_name_cache_hit_skips_http() -> None:
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get = AsyncMock(
         return_value=(
             '{"cid": 2244, "name": "aspirin", "smiles": "CC(=O)Oc1ccccc1C(=O)O",'
@@ -122,7 +123,7 @@ async def test_lookup_by_name_cache_stores_success() -> None:
     )
     client = AsyncMock()
     client.get = AsyncMock(return_value=mock_resp)
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get = AsyncMock(return_value=None)
     redis.set = AsyncMock()
     with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
@@ -137,7 +138,7 @@ async def test_lookup_by_name_cache_stores_success() -> None:
 async def test_a_missing_compound_is_remembered_for_an_hour_not_a_day() -> None:
     client = AsyncMock()
     client.get = AsyncMock(return_value=_mock_response(404))
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get = AsyncMock(return_value=None)
     redis.set = AsyncMock()
     with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
@@ -149,7 +150,7 @@ async def test_a_missing_compound_is_remembered_for_an_hour_not_a_day() -> None:
 
 @pytest.mark.asyncio
 async def test_a_remembered_missing_compound_skips_http() -> None:
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get = AsyncMock(return_value=b"missing")
     with patch.object(pubchem_gateway, "get_pooled_client") as mock_client:
         result = await pubchem_gateway.lookup_by_name("nope", redis=redis)
@@ -184,7 +185,7 @@ async def test_a_busy_pubchem_is_retried_once_and_never_remembered(
     busy.headers = {"Retry-After": "30"}
     client = AsyncMock()
     client.get = AsyncMock(return_value=busy)
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get = AsyncMock(return_value=None)
     redis.set = AsyncMock()
     with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
@@ -225,7 +226,7 @@ async def test_a_record_without_a_usable_cid_smiles_or_weight_is_an_error_not_a_
 ) -> None:
     client = AsyncMock()
     client.get = AsyncMock(return_value=_mock_response(200, _properties(**overrides)))
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get = AsyncMock(return_value=None)
     redis.set = AsyncMock()
     with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
@@ -259,7 +260,7 @@ async def test_an_invalid_json_body_is_an_error() -> None:
 
 @pytest.mark.asyncio
 async def test_names_that_differ_only_in_spacing_and_case_share_a_cache_key() -> None:
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get = AsyncMock(return_value=b"missing")
     await pubchem_gateway.lookup_by_name("  Benzoic   ACID ", redis=redis)
     redis.get.assert_awaited_once_with("pubchem:name:benzoic acid")
@@ -273,7 +274,7 @@ async def test_an_iupac_name_is_cached_and_a_missing_one_is_not() -> None:
             200, {"PropertyTable": {"Properties": [{"IUPACName": "ethanol"}]}}
         )
     )
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.get = AsyncMock(return_value=None)
     redis.set = AsyncMock()
     with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):

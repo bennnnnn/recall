@@ -10,6 +10,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat import stream_entry
 from app.modules.chat.turn_resources import TurnResources
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -69,7 +70,7 @@ async def test_stream_chat_response_refunds_pre_reserved_on_image_gen():
     """Edit reserves before stream_chat_response; image-gen must refund that hold."""
     user = _pro_user()
     chat_id = uuid4()
-    redis = AsyncMock()
+    redis = redis_mock()
     refund = AsyncMock()
     deps = _deps(quota={"refund_usage": refund})
 
@@ -103,7 +104,7 @@ async def test_stream_chat_response_refunds_pre_reserved_on_image_gen():
 async def test_stream_chat_response_refunds_on_cancelled_error():
     """Hard cancel (CancelledError) must refund — except Exception would miss it."""
     user = _pro_user()
-    redis = AsyncMock()
+    redis = redis_mock()
     refund = AsyncMock()
 
     async def boom_stream(*_a, **_k):
@@ -143,7 +144,7 @@ async def test_stream_chat_response_refunds_on_cancelled_error():
 @pytest.mark.asyncio
 async def test_stream_chat_response_reserves_max_output_ceiling():
     user = _pro_user()
-    redis = AsyncMock()
+    redis = redis_mock()
     reserve = AsyncMock(return_value=3400)
 
     async def empty_stream(*_a, **_k):
@@ -216,7 +217,7 @@ async def test_prior_count_queries_when_recent_window_is_full():
 @pytest.mark.asyncio
 async def test_stream_skips_count_when_recent_window_has_room():
     user = _pro_user()
-    redis = AsyncMock()
+    redis = redis_mock()
     count = AsyncMock(return_value=99)
 
     async def fake_stream(*_a, **_k):
@@ -257,7 +258,7 @@ async def test_stream_skips_count_when_recent_window_has_room():
 @pytest.mark.asyncio
 async def test_stream_counts_when_recent_window_is_full():
     user = _pro_user()
-    redis = AsyncMock()
+    redis = redis_mock()
     count = AsyncMock(return_value=40)
 
     async def fake_stream(*_a, **_k):

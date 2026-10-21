@@ -8,7 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat import compaction
-from app.tests.fakes import FakeSessionCM
+from app.tests.fakes import FakeSessionCM, redis_mock
 
 
 def _msg(content="x"):
@@ -20,7 +20,7 @@ def _msg(content="x"):
 
 def _fake_redis(*, acquired: bool = True) -> AsyncMock:
     """Matches the redis_lock (SET NX EX + Lua compare-and-delete) contract."""
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.set = AsyncMock(return_value=acquired)
     redis.eval = AsyncMock(return_value=1)
     return redis

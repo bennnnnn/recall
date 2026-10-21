@@ -522,10 +522,12 @@ async def test_login_dev_raises_when_disabled():
     )
     with pytest.raises(GoogleAuthError):
         await auth_service.login_dev(
-            AsyncMock(), settings_obj, email="x@x.com", name="X", redis=AsyncMock()
+            AsyncMock(), settings_obj, email="x@x.com", name="X", redis=redis_mock()
         )
 
 
 # ── MagicMock import for test_login_with_google ────────────────────────────────
 
 from unittest.mock import MagicMock
+
+from app.tests.fakes import redis_mock
