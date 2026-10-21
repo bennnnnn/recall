@@ -1,7 +1,6 @@
 import { useCallback, type MutableRefObject } from "react";
 
 import { api, type Message } from "@/lib/api";
-import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import {
   knownServerIds,
   pollDroppedTurn,
@@ -38,8 +37,7 @@ export function useDroppedTurnReconcile({
       }
       const attempt = sendAttemptRef.current;
       void pollDroppedTurn({
-        fetchPage: async () =>
-          (await api.listMessages(token, chatId, { limit: MESSAGE_PAGE_SIZE })).messages,
+        fetchPage: async (limit) => (await api.listMessages(token, chatId, { limit })).messages,
         known: knownServerIds(messagesRef.current),
         stillWaiting: () =>
           isCurrentView() && sendAttemptRef.current === attempt && streamingRef.current,

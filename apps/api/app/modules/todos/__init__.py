@@ -33,7 +33,6 @@ _EXPORTS = {
     "next_recurring_due": ("recurrence", "next_recurring_due"),
     "snap_first_due": ("recurrence", "snap_first_due"),
     "update_schedule_if_current": ("schedule_repository", "update_schedule_if_current"),
-    "transcript_implies_todo_sync": ("classification", "transcript_implies_todo_sync"),
 }
 
 _MODULE_EXPORTS = ("repository",)

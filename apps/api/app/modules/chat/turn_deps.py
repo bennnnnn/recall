@@ -218,15 +218,12 @@ class Todos(Protocol):
         confirm: bool = ...,
     ) -> tuple[str, int]: ...
 
-    def transcript_implies_todo_sync(self, transcript: str) -> bool: ...
-
 
 @dataclass(frozen=True)
 class _PackageTodos:
     """``app.modules.todos`` exports these lazily, which a protocol check cannot see."""
 
     materialize_reminder_fences: Callable[..., Coroutine[Any, Any, tuple[str, int]]]
-    transcript_implies_todo_sync: Callable[[str], bool]
 
 
 class WebSearchFences(Protocol):
@@ -295,7 +292,6 @@ def default_deps() -> ChatTurnDeps:
         references=conversation_reference,
         todos=_PackageTodos(
             materialize_reminder_fences=todos.materialize_reminder_fences,
-            transcript_implies_todo_sync=todos.transcript_implies_todo_sync,
         ),
         web_search=web_search,
         math_fence=math_fence,

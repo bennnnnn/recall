@@ -247,7 +247,8 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
 @pytest.mark.asyncio
 async def test_a_reminder_reply_enqueues_no_background_write(stream_offline_io):
     """A reminder change in chat waits for a tap on its card: no job writes it behind
-    the user's back (the background repair job is gone)."""
+    the user's back (the background repair job is gone), and with nothing written the
+    phone is not told to reload its list (code-health audit NET-14)."""
     from app.modules import chat as chat_module
 
     async def fake_stream(**kwargs):
@@ -293,7 +294,7 @@ async def test_a_reminder_reply_enqueues_no_background_write(stream_offline_io):
 
     job_types = [call.args[1] for call in enqueue_job.call_args_list]
     assert "todos" not in job_types
-    assert outcome.todos_changed
+    assert not outcome.todos_changed
 
 
 @pytest.mark.asyncio

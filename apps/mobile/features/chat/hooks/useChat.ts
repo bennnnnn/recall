@@ -1,3 +1,4 @@
+import type { TurnUsage } from "@/features/chat/model/socketReduce";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Message } from "@/lib/api";
@@ -27,6 +28,8 @@ type UseChatOptions = {
   onError?: (message: string, code?: string) => void;
   /** Refresh lists/reminders after chat may have synced todos */
   onTodosSync?: () => void;
+  /** The day's usage a finished turn reports. */
+  onUsage?: (usage: TurnUsage) => void;
 };
 
 export function useChat(
@@ -137,17 +140,11 @@ export function useChat(
   const onFirstReplyRef = useRef(options.onFirstReply);
   const onErrorRef = useRef(options.onError);
   const onTodosSyncRef = useRef(options.onTodosSync);
-  // Pending todo-sync follow-up timers (the post-done 2.5s/7s refreshes). Held
-  // here so they can be cancelled on chat switch / unmount — otherwise a slow
-  // timer from chat A fires `onTodosSync` after we've moved to chat B.
-  const todoSyncTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const clearTodoSyncTimers = useCallback(() => {
-    for (const id of todoSyncTimersRef.current) clearTimeout(id);
-    todoSyncTimersRef.current = [];
-  }, []);
+  const onUsageRef = useRef(options.onUsage);
   onFirstReplyRef.current = options.onFirstReply;
   onErrorRef.current = options.onError;
   onTodosSyncRef.current = options.onTodosSync;
+  onUsageRef.current = options.onUsage;
 
   const reportError = useCallback((message: string, code?: string) => {
     onErrorRef.current?.(message, code);
@@ -210,12 +207,11 @@ export function useChat(
       if (draftRafRef.current != null) {
         cancelAnimationFrame(draftRafRef.current);
       }
-      clearTodoSyncTimers();
       updateStreamingDraft(null);
       // The transport hook closes the socket. Do not abort SSE — New chat
       // must drain like a WebSocket disconnect.
     };
-  }, [clearTodoSyncTimers, updateStreamingDraft]);
+  }, [updateStreamingDraft]);
 
   // Close and reset socket when chat changes. Do not abort SSE — Stop is the
   // only hard cancel. Leftover SSE events are ignored via viewingChatIdRef.
@@ -240,14 +236,13 @@ export function useChat(
     regenerateUiActiveRef.current = false;
     ttftTurnIdRef.current = null;
     clearPendingChatTtft();
-    clearTodoSyncTimers();
     updateStreamingDraft(null);
     setStreaming(false);
     setFinalizing(false);
     streamingRef.current = false;
     finalizingRef.current = false;
     setSendingMessageId(null);
-  }, [viewIdentity, chatId, sessionGeneration, updateStreamingDraft, clearTodoSyncTimers, detach]);
+  }, [viewIdentity, chatId, sessionGeneration, updateStreamingDraft, detach]);
 
   const {
     handleChatPayloadForChat,
@@ -272,7 +267,6 @@ export function useChat(
     restoreRegenerateBackup,
     clearStreamingBubble,
     reportError,
-    clearTodoSyncTimers,
     streamingRef,
     finalizingRef,
     streamCueRef,
@@ -287,7 +281,7 @@ export function useChat(
     firstReplyRef,
     onFirstReplyRef,
     onTodosSyncRef,
-    todoSyncTimersRef,
+    onUsageRef,
     viewingChatIdRef,
     rejectedSendsRef,
   });

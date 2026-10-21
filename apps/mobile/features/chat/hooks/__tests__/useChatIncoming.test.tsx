@@ -12,6 +12,7 @@ import {
 } from "@/features/chat/hooks/useChatIncoming";
 import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/latency";
 import { setConsentRequiredHandler } from "@/lib/api/consentRefusal";
+import type { TurnUsage } from "@/features/chat/model/socketReduce";
 
 jest.mock("@/features/chat/model/latency", () => ({
   clearPendingChatTtft: jest.fn(),
@@ -28,7 +29,6 @@ async function setup(start: { messages?: Message[]; streaming?: boolean; draft?:
   });
   const cue = { reset: jest.fn(), activity: jest.fn(), complete: jest.fn(), stopped: jest.fn(), error: jest.fn() };
   const streamingDraftRef = { current: start.draft ?? null };
-  const todoSyncTimersRef = { current: [] as ReturnType<typeof setTimeout>[] };
   const args = {
     t: (key: string) => key,
     token: "token",
@@ -47,10 +47,6 @@ async function setup(start: { messages?: Message[]; streaming?: boolean; draft?:
     restoreRegenerateBackup: jest.fn(),
     clearStreamingBubble: jest.fn(),
     reportError: jest.fn(),
-    clearTodoSyncTimers: jest.fn(() => {
-      for (const id of todoSyncTimersRef.current) clearTimeout(id);
-      todoSyncTimersRef.current = [];
-    }),
     streamingRef: { current: start.streaming ?? true },
     finalizingRef: { current: false },
     streamCueRef: { current: cue },
@@ -65,7 +61,7 @@ async function setup(start: { messages?: Message[]; streaming?: boolean; draft?:
     firstReplyRef: { current: false },
     onFirstReplyRef: { current: jest.fn() as (() => void) | undefined },
     onTodosSyncRef: { current: jest.fn() as (() => void) | undefined },
-    todoSyncTimersRef,
+    onUsageRef: { current: jest.fn() as ((usage: TurnUsage) => void) | undefined },
     viewingChatIdRef: { current: "chat-1" as string | null },
     rejectedSendsRef: { current: new Map<string, RejectedSend[]>() },
   };
@@ -202,7 +198,7 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
     ]);
     expect(args.onFirstReplyRef.current).toHaveBeenCalledTimes(1);
     expect(args.onTodosSyncRef.current).not.toHaveBeenCalled();
-    expect(args.clearTodoSyncTimers).not.toHaveBeenCalled();
+    expect(args.onUsageRef.current).not.toHaveBeenCalled();
 
     await send({ type: "done", message_id: "m-2", final_content: "again" });
     expect(args.onFirstReplyRef.current).toHaveBeenCalledTimes(1);
@@ -219,46 +215,23 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
     expect(messages()).toEqual([expect.objectContaining({ id: "m-1", content: "Hello", generationStopped: true })]);
   });
 
-  it("done with a to-do change syncs now and again at 2.5 s and 7 s", async () => {
+  it("done with a to-do change reloads the list once", async () => {
+    // The turn wrote the rows before `done`; nothing writes after it, so there is
+    // nothing to wait for (code-health audit NET-14).
     const { args, send } = await setup({ messages: [streamingBubble] });
     const sync = jest.fn();
     args.onTodosSyncRef.current = sync;
-    const stale = setTimeout(() => sync("stale"), 1_000);
-    args.todoSyncTimersRef.current.push(stale);
-
     await send({ type: "done", message_id: "m-1", final_content: "Added", todos_changed: true });
     expect(sync).toHaveBeenCalledTimes(1);
-    expect(args.clearTodoSyncTimers).toHaveBeenCalledTimes(1);
-    expect(args.todoSyncTimersRef.current).toHaveLength(2);
-
-    await act(async () => { jest.advanceTimersByTime(2_499); });
+    await act(async () => { jest.advanceTimersByTime(30_000); });
     expect(sync).toHaveBeenCalledTimes(1);
-    await act(async () => { jest.advanceTimersByTime(1); });
-    expect(sync).toHaveBeenCalledTimes(2);
-    // The timers read the ref when they fire, so a newer callback wins.
-    const later = jest.fn();
-    args.onTodosSyncRef.current = later;
-    await act(async () => { jest.advanceTimersByTime(4_499); });
-    expect(later).not.toHaveBeenCalled();
-    await act(async () => { jest.advanceTimersByTime(1); });
-    expect(later).toHaveBeenCalledTimes(1);
-    expect(sync).not.toHaveBeenCalledWith("stale");
   });
 
-  it("a second to-do change restarts the re-sync waits", async () => {
+  it("done hands the day's usage to the screen", async () => {
     const { args, send } = await setup({ messages: [streamingBubble] });
-    const sync = jest.fn();
-    args.onTodosSyncRef.current = sync;
-    await send({ type: "done", message_id: "m-1", final_content: "Added", todos_changed: true });
-    await act(async () => { jest.advanceTimersByTime(2_000); });
-    await send({ type: "done", message_id: "m-2", final_content: "Moved", todos_changed: true });
-    expect(sync).toHaveBeenCalledTimes(2);
-    await act(async () => { jest.advanceTimersByTime(2_499); });
-    expect(sync).toHaveBeenCalledTimes(2);
-    await act(async () => { jest.advanceTimersByTime(1); });
-    expect(sync).toHaveBeenCalledTimes(3);
-    await act(async () => { jest.advanceTimersByTime(10_000); });
-    expect(sync).toHaveBeenCalledTimes(4);
+    const usage: TurnUsage = { used_tokens: 81_000, daily_limit: 100_000 };
+    await send({ type: "done", message_id: "m-1", final_content: "Hi", usage });
+    expect(args.onUsageRef.current).toHaveBeenCalledWith(usage);
   });
 
   it("related_prompts attaches follow-ups to their message only", async () => {

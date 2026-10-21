@@ -54,7 +54,6 @@ def _deps() -> Any:
         users=SimpleNamespace(get_by_id=AsyncMock(return_value=MagicMock())),
         todos=SimpleNamespace(
             materialize_reminder_fences=AsyncMock(side_effect=_reminders),
-            transcript_implies_todo_sync=MagicMock(return_value=False),
         ),
         math_fence=math_fence_service,
         web_search=web_search_service,

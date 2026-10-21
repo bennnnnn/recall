@@ -10,7 +10,6 @@ from app.core.config import Settings
 from app.models.schemas import TodoActionItem
 from app.modules import todos as todos_service
 from app.modules.todos import actions as todos_actions
-from app.modules.todos import classification as todos_classification
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import format_todos_block, should_inject_todos_prompt
@@ -177,22 +176,6 @@ def _item_overdue(content: str, *, hours_ago: int = 3, tz_name: str = "UTC"):
     item = _item(content, topic="Reminders")
     item.due_at = due_local.astimezone(UTC)
     return item
-
-
-def test_transcript_implies_bulk_shift_to_tomorrow():
-    assert todos_classification._transcript_implies_bulk_shift_to_tomorrow(
-        "User: move all my reminders due today to tomorrow\nAssistant: Done."
-    )
-    # Vague complaints must not silently bulk-move every reminder due today.
-    assert not todos_classification._transcript_implies_bulk_shift_to_tomorrow(
-        "User: you only moved one, fix them\nAssistant: Moving the rest now."
-    )
-    assert not todos_classification._transcript_implies_bulk_shift_to_tomorrow(
-        "User: the reminder didn't work — try again\nAssistant: Ok."
-    )
-    assert not todos_classification._transcript_implies_bulk_shift_to_tomorrow(
-        "User: move Walk to tomorrow\nAssistant: Done."
-    )
 
 
 @pytest.mark.asyncio
@@ -440,81 +423,6 @@ def test_todo_hint_does_not_promise_unapplied_changes():
     assert "shows the change under your reply for the user to confirm" in hint
     assert "ask when" in hint
     assert "whole-list delete" not in hint
-
-
-def test_transcript_implies_todo_sync():
-    assert todos_service.transcript_implies_todo_sync(
-        "User: remind me to call mom tomorrow\nAssistant: I'll set a reminder."
-    )
-    assert todos_service.transcript_implies_todo_sync(
-        "User: move all reminders due today to tomorrow\nAssistant: Done."
-    )
-    assert not todos_service.transcript_implies_todo_sync("User: hello\nAssistant: Hi there!")
-
-
-def test_transcript_implies_todo_sync_overdue_delete():
-    """Bare 'Delete' + future-tense claim must enqueue the todos job."""
-    assert todos_service.transcript_implies_todo_sync(
-        "User: Delete\nAssistant: I'll delete the 'Prosecutor's Soccer Clinic' reminder now."
-    )
-    assert todos_service.transcript_implies_todo_sync(
-        "User: delete it\nAssistant: I'll delete that reminder now."
-    )
-    assert todos_service.transcript_implies_todo_sync(
-        "User: yes\nAssistant: I deleted Pay rent from your reminders."
-    )
-    assert todos_service.transcript_implies_todo_sync(
-        "User: Delete overdue\nAssistant: I've removed the two overdue reminders."
-    )
-    assert todos_classification._transcript_implies_delete_overdue(
-        "User: Delete overdue\nAssistant: Done."
-    )
-    assert todos_classification._transcript_implies_delete_overdue(
-        "User: yes\nAssistant: I've removed the two overdue reminders: Dd and midnight check."
-    )
-    # Unrelated chat must not fire a todo sync LLM call.
-    assert not todos_service.transcript_implies_todo_sync(
-        "User: how do I delete a file in Python?\nAssistant: Use os.remove."
-    )
-    assert not todos_classification._transcript_implies_delete_overdue(
-        "User: delete the Walk reminder\nAssistant: I'll delete Walk."
-    )
-
-
-def test_transcript_implies_todo_sync_reminder_confirm():
-    """Past-tense / emoji confirms and Yes+reminder must enqueue sync."""
-    assert todos_service.transcript_implies_todo_sync(
-        "User: Yes\nAssistant: ✅ Reminder set!\n\n**2026 FIFA World Cup Final**"
-    )
-    assert todos_service.transcript_implies_todo_sync(
-        "User: sure\nAssistant: I've set a reminder for the match on Sunday."
-    )
-    assert todos_service.transcript_implies_todo_sync(
-        "User: yes\nAssistant: I'll set a reminder for July 19 at 3 PM ET."
-    )
-    assert not todos_service.transcript_implies_todo_sync(
-        "User: yes\nAssistant: Sounds good — anything else?"
-    )
-    assert not todos_service.transcript_implies_todo_sync(
-        "User: Don't create a reminder—just tell me how to remember.\n"
-        "Assistant: You could set a reminder in your phone."
-    )
-
-
-def test_transcript_implies_todo_sync_ignores_schedule_listings():
-    """Day-plan / status reads list due times — that is not a To-do write."""
-    assert not todos_service.transcript_implies_todo_sync(
-        "User: What's still open for me to finish tonight?\n"
-        "Assistant: You have **Ggg** due at 7:00 PM. Today's Spanish lesson "
-        "is still open.\n\n*Google Calendar is not connected — connect it in "
-        "Settings → Google Calendar.*"
-    )
-    assert not todos_service.transcript_implies_todo_sync(
-        "User: Anything left tonight?\nAssistant: Reminder for Ggg at 7:00 PM. Spanish still open."
-    )
-    assert not todos_service.transcript_implies_todo_sync(
-        "User: How's my day?\nAssistant: Nothing overdue. Ggg is due today at 7:00 PM."
-    )
 
 
 @pytest.mark.asyncio

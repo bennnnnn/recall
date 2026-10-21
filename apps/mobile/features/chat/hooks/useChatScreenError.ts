@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { ComposerSendDraft } from "@/features/chat/model/sendLogic";
-import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
 import { resolveChatError, type ResolvedChatError } from "@/features/chat/model/errorMessage";
 
 export function useChatErrorHandlers(isPaid: boolean) {
@@ -68,34 +67,9 @@ export function useChatErrorRecovery({
     restoreComposerDraft, regenerate, selectedModel]);
 }
 
-type StreamLifecycleParams = {
-  streamActive: boolean;
-  dismissChatError: () => void;
-  token: string | null;
-  isPaid: boolean;
-};
-
-/** Clear inline errors while streaming and refresh quota after each turn. */
-export function useChatStreamLifecycle({
-  streamActive,
-  dismissChatError,
-  token,
-  isPaid,
-}: StreamLifecycleParams) {
-  const [quotaRefreshKey, setQuotaRefreshKey] = useState(0);
-  const prevStreamActiveRef = useRef(false);
-
+/** Clear the inline error once a reply starts streaming. */
+export function useDismissErrorWhileStreaming(streamActive: boolean, dismissChatError: () => void) {
   useEffect(() => {
     if (streamActive) dismissChatError();
   }, [streamActive, dismissChatError]);
-
-  useEffect(() => {
-    if (prevStreamActiveRef.current && !streamActive) {
-      setQuotaRefreshKey((k) => k + 1);
-    }
-    prevStreamActiveRef.current = streamActive;
-  }, [streamActive]);
-
-  const quotaNudge = useQuotaNudge({ isPaid, refreshKey: quotaRefreshKey });
-  return quotaNudge;
 }

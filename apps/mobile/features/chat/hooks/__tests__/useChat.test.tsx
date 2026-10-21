@@ -3,9 +3,11 @@ import { AccessibilityInfo, AppState } from "react-native";
 import { act, cleanup, render } from "@testing-library/react-native";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { streamChatMessageSse, streamChatRegenerateSse } from "@/features/chat/model/sse";
+import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import {
-  DROPPED_TURN_POLL_MS,
+  DROPPED_TURN_MAX_WAIT_MS,
   DROPPED_TURN_POLLS,
+  DROPPED_TURN_PROBE_ROWS,
   SSE_DROPPED_TURN_POLLS,
 } from "@/features/chat/model/turnReconcile";
 import { WS_FIRST_EVENT_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
@@ -14,10 +16,10 @@ import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraf
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
 const SERVER_REPLY_ID = "0190a000-0000-7000-8000-000000000002";
 
-/** Let a dropped turn's reloads run out (each waits DROPPED_TURN_POLL_MS). */
+/** Let a dropped turn's reloads run out (each waits at most DROPPED_TURN_MAX_WAIT_MS). */
 async function waitOutReconcile(polls = DROPPED_TURN_POLLS) {
   for (let poll = 0; poll < polls; poll += 1) {
-    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
   }
 }
 
@@ -361,9 +363,13 @@ describe("useChat transport lifecycle", () => {
     const socket = await openSocket();
     await sendAndStream(socket, "partial");
     await act(async () => { socket.onclose(); });
-    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
     expect(current.streaming).toBe(false);
     expect(current.messages).toEqual(saved);
+    // A few rows per poll; the whole page once, to settle.
+    expect(listMessages.mock.calls.map(([, , opts]) => opts.limit)).toEqual([
+      DROPPED_TURN_PROBE_ROWS, MESSAGE_PAGE_SIZE,
+    ]);
     expect(current.rejectedSend).toBeNull();
     expect(onError).not.toHaveBeenCalled();
   });

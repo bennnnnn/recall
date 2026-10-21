@@ -1,6 +1,9 @@
 import type { Message, SearchSource } from "@/lib/api";
 import { parseSearchSources, searchSourcesFromField, stripSearchSourcesFromContent } from "@/lib/searchSources";
 
+/** The day's usage a `done` reports (code-health audit NET-14). */
+export type TurnUsage = { used_tokens: number; daily_limit: number };
+
 export type ChatWsPayload = {
   type: string;
   content?: string;
@@ -14,6 +17,8 @@ export type ChatWsPayload = {
   final_content?: string;
   /** The turn changed the to-do list. */
   todos_changed?: boolean;
+  /** On `done`: the day's usage after the turn, for the quota nudge. */
+  usage?: TurnUsage;
   search_sources?: SearchSource[];
   resolved_model?: string;
   completion?: string;
@@ -41,15 +46,36 @@ export function shouldIgnoreStoppedStreamEvent(
 
 /**
  * `done` carries `search_sources` as JSON text and `todos_sync: "1"` today; ES-45 sends an
- * array and `todos_changed: true`. Either reads the same past this point.
+ * array and `todos_changed: true`. Either reads the same past this point. The day's usage
+ * comes as the strings `used_tokens` and `daily_limit`, read into `usage`.
  */
+function wholeNumber(value: unknown): number | null {
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const number = typeof value === "number" ? value : Number(value.trim() || Number.NaN);
+  return Number.isSafeInteger(number) && number >= 0 ? number : null;
+}
+
+function turnUsageFrom(usedTokens: unknown, dailyLimit: unknown): TurnUsage | null {
+  const used = wholeNumber(usedTokens);
+  const limit = wholeNumber(dailyLimit);
+  return used !== null && limit !== null && limit > 0 ? { used_tokens: used, daily_limit: limit } : null;
+}
+
 function normalizeChatWsPayload(wire: Record<string, unknown>): ChatWsPayload {
-  const { search_sources: sources, todos_sync: todosSync, todos_changed: todosChanged, ...rest } =
-    wire;
+  const {
+    search_sources: sources,
+    todos_sync: todosSync,
+    todos_changed: todosChanged,
+    used_tokens: usedTokens,
+    daily_limit: dailyLimit,
+    ...rest
+  } = wire;
   const payload = rest as ChatWsPayload;
   const searchSources = searchSourcesFromField(sources);
   if (searchSources.length > 0) payload.search_sources = searchSources;
   if (todosChanged === true || todosSync === "1") payload.todos_changed = true;
+  const usage = turnUsageFrom(usedTokens, dailyLimit);
+  if (usage) payload.usage = usage;
   return payload;
 }
 

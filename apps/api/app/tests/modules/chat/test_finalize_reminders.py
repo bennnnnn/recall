@@ -59,3 +59,31 @@ async def test_a_reply_emptied_by_the_reminder_pass_asks_when() -> None:
         deps, AsyncMock(), Settings(), cast(StreamContext, ctx), _CLOSED, None
     )
     assert text == "When should I remind you?"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("created", "changed"), [(0, False), (2, True)])
+async def test_the_list_is_flagged_changed_only_when_rows_were_written(
+    created: int, changed: bool
+) -> None:
+    """``todos_changed`` sent the phone to reload its list three times for a background
+    extraction that no longer exists (code-health audit NET-14)."""
+    from app.modules.chat.turn_outcome import TurnOutcome
+
+    deps = turn_deps(
+        todos={"materialize_reminder_fences": AsyncMock(return_value=("Done.", created))}
+    )
+    ctx = SimpleNamespace(
+        user=MagicMock(timezone="UTC"),
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        user_timezone="UTC",
+        user_message_content="yes, move them all to tomorrow",
+        prompt_messages=[],
+        skip_memory_jobs=False,
+    )
+    outcome = TurnOutcome()
+    await apply_reminder_pass(
+        deps, AsyncMock(), Settings(), cast(StreamContext, ctx), "Done.", outcome
+    )
+    assert outcome.todos_changed is changed

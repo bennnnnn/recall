@@ -22,6 +22,7 @@ import {
   mergeDoneIntoMessages,
   relatedPromptsFromEvent,
   shouldIgnoreStoppedStreamEvent,
+  type TurnUsage,
 } from "@/features/chat/model/socketReduce";
 
 /** What a chat event may read and change: useChat's state setters, refs and callbacks. */
@@ -37,7 +38,6 @@ export type ChatEventContext = {
   restoreRegenerateBackup: () => void;
   clearStreamingBubble: () => void;
   reportError: (message: string, code?: string) => void;
-  clearTodoSyncTimers: () => void;
   streamingRef: MutableRefObject<boolean>;
   finalizingRef: MutableRefObject<boolean>;
   streamCueRef: MutableRefObject<ReturnType<typeof createStreamCueGate>>;
@@ -55,7 +55,7 @@ export type ChatEventContext = {
   firstReplyRef: MutableRefObject<boolean>;
   onFirstReplyRef: MutableRefObject<(() => void) | undefined>;
   onTodosSyncRef: MutableRefObject<(() => void) | undefined>;
-  todoSyncTimersRef: MutableRefObject<ReturnType<typeof setTimeout>[]>;
+  onUsageRef: MutableRefObject<((usage: TurnUsage) => void) | undefined>;
   viewingChatIdRef: MutableRefObject<string | null>;
   rejectedSendsRef: MutableRefObject<Map<string, RejectedSend[]>>;
 };
@@ -75,9 +75,6 @@ type ChatEventHandler = (
   ctx: ChatEventContext,
   ttftTurnId?: string | null,
 ) => void;
-
-/** Background Schedule extraction can finish after `done`, so the to-do list refreshes again. */
-const TODO_RESYNC_DELAYS_MS = [2_500, 7_000] as const;
 
 const done: ChatEventHandler = (payload, ctx) => {
   ctx.pendingSendRef.current = null;
@@ -108,15 +105,10 @@ const done: ChatEventHandler = (payload, ctx) => {
     ctx.firstReplyRef.current = true;
     ctx.onFirstReplyRef.current?.();
   }
-  if (payload.todos_changed) {
-    ctx.onTodosSyncRef.current?.();
-    // Tracked so they're cancelled on chat switch / unmount (no firing on the
-    // wrong chat after navigating away).
-    ctx.clearTodoSyncTimers();
-    for (const delay of TODO_RESYNC_DELAYS_MS) {
-      ctx.todoSyncTimersRef.current.push(setTimeout(() => ctx.onTodosSyncRef.current?.(), delay));
-    }
-  }
+  // Rows the turn wrote: one reload. Nothing writes to-dos after the reply any more,
+  // so the reloads at 2.5 s and 7 s found nothing (code-health audit NET-14).
+  if (payload.todos_changed) ctx.onTodosSyncRef.current?.();
+  if (payload.usage) ctx.onUsageRef.current?.(payload.usage);
 };
 
 /** Errors whose own action (upgrade, change model) stands in for Retry. */

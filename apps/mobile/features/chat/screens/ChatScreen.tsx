@@ -37,7 +37,8 @@ import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
 import { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
-import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } from "@/features/chat/hooks/useChatScreenError";
+import { useChatErrorHandlers, useChatErrorRecovery, useDismissErrorWhileStreaming } from "@/features/chat/hooks/useChatScreenError";
+import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
 import { useChatScreenBodyProps } from "@/features/chat/hooks/useChatScreenBodyProps";
 import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/features/chat/model/composerLogic";
@@ -62,6 +63,7 @@ function ChatScreen() {
   const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { chatError, handleChatError, handleStreamBusy, dismissChatError, handleRejectedSendChange } =
     useChatErrorHandlers(isPaid);
+  const quotaNudge = useQuotaNudge({ isPaid });
   const activeChatId = draft.activeChatId;
 
   const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
@@ -93,6 +95,7 @@ function ChatScreen() {
     onFirstReply: () => onFirstReplyRef.current(),
     onError: handleChatError,
     onTodosSync: handleTodosSync,
+    onUsage: quotaNudge.applyTurnUsage,
   });
 
   const llmBusy = streaming || finalizing;
@@ -236,12 +239,7 @@ function ChatScreen() {
     if (!streamActive) handleRejectedSendChange(rejectedSend?.reason ?? null);
   }, [streamActive, rejectedSend, handleRejectedSendChange]);
 
-  const quotaNudge = useChatStreamLifecycle({
-    streamActive,
-    dismissChatError,
-    token,
-    isPaid,
-  });
+  useDismissErrorWhileStreaming(streamActive, dismissChatError);
 
   const send = useChatSend({
     token,

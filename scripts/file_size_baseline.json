@@ -162,7 +162,7 @@
       "why": "Over 500 before the standards; ES-38 split DraftPiece; split by responsibility after the ticketed files"
     },
     "apps/mobile/features/chat/hooks/useChat.ts": {
-      "lines": 580,
+      "lines": 574,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/features/chat/hooks/useChatRouteLoader.ts": {
@@ -174,7 +174,7 @@
       "why": "Over 500 before the standards; tracked in ES-05"
     },
     "apps/mobile/features/chat/screens/ChatScreen.tsx": {
-      "lines": 569,
+      "lines": 567,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/lib/codeTokenize.ts": {

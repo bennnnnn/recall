@@ -47,7 +47,6 @@ def test_default_deps_wire_the_real_modules() -> None:
         assert getattr(deps, name) is module, name
     assert deps.session_factory is SessionLocal
     assert deps.todos.materialize_reminder_fences is todos.materialize_reminder_fences
-    assert deps.todos.transcript_implies_todo_sync is todos.transcript_implies_todo_sync
     # A new field gets its wiring checked here too.
     assert {field.name for field in fields(ChatTurnDeps)} == {
         *_REAL_MODULES,
