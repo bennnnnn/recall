@@ -327,3 +327,43 @@ it("restores an unvalidated cache flag when a failed edit rolls back after token
   expect(current.user).toEqual(userA);
   expect(useBootstrapSync.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ token: null, user: null }));
 });
+
+describe("launch restore", () => {
+  it("reports the restore from the cache before /auth/me answers", async () => {
+    const me = deferred<User>();
+    (api.me as jest.Mock).mockReturnValue(me.promise);
+    const onRestored = jest.fn();
+    await render(<AuthProvider onRestored={onRestored}><Probe /></AuthProvider>);
+    expect(onRestored).toHaveBeenCalled();
+    expect(current.user?.id).toBe(userA.id);
+    expect(current.profileValidated).toBe(false);
+
+    await act(async () => { me.resolve(userA); });
+    expect(current.profileValidated).toBe(true);
+  });
+
+  it("reports a signed-out launch, and one whose restore failed, so the splash can go", async () => {
+    (getToken as jest.Mock).mockResolvedValueOnce(null);
+    const signedOut = jest.fn();
+    const first = await render(<AuthProvider onRestored={signedOut}><Probe /></AuthProvider>);
+    expect(signedOut).toHaveBeenCalled();
+    await first.unmount();
+
+    (readCachedUser as jest.Mock).mockResolvedValue(null);
+    (api.me as jest.Mock).mockRejectedValue(new Error("offline"));
+    const failed = jest.fn();
+    await render(<AuthProvider onRestored={failed}><Probe /></AuthProvider>);
+    expect(failed).toHaveBeenCalled();
+  });
+
+  it("waits for /auth/me without a cached account", async () => {
+    const me = deferred<User>();
+    (readCachedUser as jest.Mock).mockResolvedValue(null);
+    (api.me as jest.Mock).mockReturnValue(me.promise);
+    const onRestored = jest.fn();
+    await render(<AuthProvider onRestored={onRestored}><Probe /></AuthProvider>);
+    expect(onRestored).not.toHaveBeenCalled();
+    await act(async () => { me.resolve(userA); });
+    expect(onRestored).toHaveBeenCalled();
+  });
+});

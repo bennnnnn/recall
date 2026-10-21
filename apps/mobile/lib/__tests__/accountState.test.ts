@@ -135,6 +135,8 @@ const NO_ACCOUNT_DATA = [
   "lib/google-auth.ts#googleModule",
   "lib/haptics.ts#enabled",
   "lib/haptics.ts#unavailableOn",
+  "lib/launchSplash.ts#hidden",
+  "lib/launchSplash.ts#ready",
   "lib/math/svgMath.ts#rendererImpl",
   "lib/math/svgMath.ts#rendererPromise",
   "lib/pdfPreviewHtml.ts#viewerHtml",

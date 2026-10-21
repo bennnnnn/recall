@@ -67,7 +67,13 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 type AuthTokenBag = { token: string | null };
 const AuthTokenContext = createContext<AuthTokenBag | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+type AuthProviderProps = {
+  children: ReactNode;
+  /** The launch restore has settled: the app, the sign-in or the retry screen can show. */
+  onRestored?: () => void;
+};
+
+export function AuthProvider({ children, onRestored }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,6 +146,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
     return () => { cancelled = true; mountedRef.current = false; };
   }, [hydrationAttempt, isCurrent, setCurrentToken, setCurrentUser]);
+
+  const restored = !loading || startupFailed;
+  useEffect(() => {
+    if (restored) onRestored?.();
+  }, [restored, onRestored]);
 
   const retryStartup = useCallback(() => {
     setStartupFailed(false);

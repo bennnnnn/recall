@@ -4,8 +4,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import { useFonts } from "expo-font";
-import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { InteractionManager, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
@@ -23,6 +22,7 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
 import { restoreLaunchPrefs } from "@/lib/launchPrefs";
+import { markLaunchReady, SPLASH_MAX_MS } from "@/lib/launchSplash";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { useStackHeaderOptions } from "@/lib/stackHeader";
 import {
@@ -35,9 +35,10 @@ import { initMobileSentry } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
 import { UI_FONT } from "@/lib/uiFont";
 
-SplashScreen.preventAutoHideAsync().catch(() => {});
 // Before the first render: the user's appearance, accent and language.
-void restoreLaunchPrefs();
+void restoreLaunchPrefs().then(() => markLaunchReady("prefs"));
+
+const markSessionRestored = () => markLaunchReady("session");
 
 function RootNavigator() {
   const { t } = useTranslation();
@@ -100,8 +101,13 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
-  useFonts({
+/**
+ * The faces the app draws with. True once they are in, or failed, or slower
+ * than the splash may wait (a dev server): text laid out before its font is
+ * registered keeps the system face, so the app draws only after this.
+ */
+function useLaunchFonts(): boolean {
+  const [loaded, error] = useFonts({
     SpaceMono: SpaceMono_400Regular,
     KaTeX_Main: require("katex/dist/fonts/KaTeX_Main-Regular.ttf"),
     KaTeX_MathItalic: require("katex/dist/fonts/KaTeX_Math-Italic.ttf"),
@@ -116,10 +122,20 @@ export default function RootLayout() {
     [UI_FONT.semiboldItalic]: require("@expo-google-fonts/source-sans-3/600SemiBold_Italic/SourceSans3_600SemiBold_Italic.ttf"),
     [UI_FONT.boldItalic]: require("@expo-google-fonts/source-sans-3/700Bold_Italic/SourceSans3_700Bold_Italic.ttf"),
   });
-
+  const [waitedEnough, setWaitedEnough] = useState(false);
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
+    const timer = setTimeout(() => setWaitedEnough(true), SPLASH_MAX_MS);
+    return () => clearTimeout(timer);
   }, []);
+  const ready = loaded || error !== null || waitedEnough;
+  useEffect(() => {
+    if (ready) markLaunchReady("fonts");
+  }, [ready]);
+  return ready;
+}
+
+export default function RootLayout() {
+  const fontsReady = useLaunchFonts();
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
@@ -132,19 +148,21 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <AppearanceProvider>
         <ActionFeedbackProvider>
-          <AuthProvider>
-            <ModelsProvider>
-              <TodosProvider>
-                <HomeProvider>
-                  <NetworkProvider>
-                    <PushNotificationBootstrap />
-                    <AiConsentRedirect />
-                    <RootNavigator />
-                    <DialogHost />
-                  </NetworkProvider>
-                </HomeProvider>
-              </TodosProvider>
-            </ModelsProvider>
+          <AuthProvider onRestored={markSessionRestored}>
+            {fontsReady ? (
+              <ModelsProvider>
+                <TodosProvider>
+                  <HomeProvider>
+                    <NetworkProvider>
+                      <PushNotificationBootstrap />
+                      <AiConsentRedirect />
+                      <RootNavigator />
+                      <DialogHost />
+                    </NetworkProvider>
+                  </HomeProvider>
+                </TodosProvider>
+              </ModelsProvider>
+            ) : null}
           </AuthProvider>
         </ActionFeedbackProvider>
       </AppearanceProvider>
