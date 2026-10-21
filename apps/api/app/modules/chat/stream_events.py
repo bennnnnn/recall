@@ -106,6 +106,17 @@ REPLY_SAVE_FAILED_MESSAGE = "Failed to save the response. Please retry."
 SERVER_RESTARTING_MESSAGE = "The server is restarting. Send again in a moment."
 
 
+# A turn that is quiet this long (tool calls, a slow provider) sends a keepalive, so
+# the phone can tell a slow turn from a dead connection: it gives up on a stream
+# after 45 s with nothing (code-health audit NET-17).
+TURN_KEEPALIVE_SECONDS = 15.0
+
+
+def build_keepalive_event() -> dict[str, Any]:
+    """Sent while a turn is quiet; carries nothing."""
+    return {"type": "keepalive"}
+
+
 def build_start_event() -> dict[str, Any]:
     """First frame of a turn; tells the client generation has begun."""
     return {"type": "start"}

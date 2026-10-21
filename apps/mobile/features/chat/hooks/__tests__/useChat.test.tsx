@@ -10,7 +10,7 @@ import {
   DROPPED_TURN_PROBE_ROWS,
   SSE_DROPPED_TURN_POLLS,
 } from "@/features/chat/model/turnReconcile";
-import { WS_FIRST_EVENT_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
+import { STREAM_IDLE_TIMEOUT_MS, WS_FIRST_EVENT_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
 import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
 
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
@@ -229,7 +229,11 @@ describe("useChat transport lifecycle", () => {
     await act(async () => {
       await current.sendMessage("slow math");
       socket.emit(type === "status" ? { type, phase: "solving_math" } : { type });
-      jest.advanceTimersByTime(5 * 60_000);
+      // Five quiet minutes, with the server's keepalive every 15 s.
+      for (let tick = 0; tick < 20; tick += 1) {
+        jest.advanceTimersByTime(15_000);
+        socket.emit({ type: "keepalive" });
+      }
     });
     expect(current.streaming).toBe(true);
     expect(socket.close).not.toHaveBeenCalled();
@@ -371,6 +375,23 @@ describe("useChat transport lifecycle", () => {
       DROPPED_TURN_PROBE_ROWS, MESSAGE_PAGE_SIZE,
     ]);
     expect(current.rejectedSend).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("reloads the chat for the saved reply when a turn goes quiet past the idle deadline", async () => {
+    const saved = [
+      { id: SERVER_USER_ID, role: "user" as const, content: "question", model: null, created_at: "t1" },
+      { id: SERVER_REPLY_ID, role: "assistant" as const, content: "whole reply", model: "free-chat", created_at: "t2" },
+    ];
+    listMessages.mockResolvedValue({ messages: saved, has_more: false });
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await sendAndStream(socket, "partial");
+    await act(async () => { await jest.advanceTimersByTimeAsync(STREAM_IDLE_TIMEOUT_MS); });
+    expect(socket.close).toHaveBeenCalled();
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
+    expect(current.streaming).toBe(false);
+    expect(current.messages).toEqual(saved);
     expect(onError).not.toHaveBeenCalled();
   });
 

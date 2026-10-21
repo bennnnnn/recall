@@ -15,3 +15,11 @@ export const EAGER_CONNECT_DEBOUNCE_MS = 100;
 /** Server sends start before turn preparation. This bounds an OPEN but silent
  * connection without imposing a deadline on acknowledged model/tool work. */
 export const WS_FIRST_EVENT_TIMEOUT_MS = 30_000;
+
+/**
+ * Once a turn's stream has started (socket or SSE), the longest it may go with
+ * nothing. A quiet turn sends a `keepalive` every 15 s, so a longer silence is a
+ * dead connection: the phone gives up on the stream and reloads the chat for the
+ * reply the server saves (code-health audit NET-17).
+ */
+export const STREAM_IDLE_TIMEOUT_MS = 45_000;

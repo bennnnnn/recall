@@ -59,3 +59,17 @@ describe("login errors", () => {
     await expect(loginWithGoogle("id-token")).rejects.toThrow("Invalid");
   });
 });
+
+describe("sign-in deadline (NET-17)", () => {
+  afterEach(() => jest.useRealTimers());
+
+  it("gives up when the reply's body never finishes", async () => {
+    jest.useFakeTimers();
+    jest.mocked(fetchWithTimeout).mockResolvedValueOnce(
+      { ok: true, status: 200, json: () => new Promise(() => undefined) } as unknown as Response,
+    );
+    const outcome = loginWithGoogle("id-token").catch((caught: unknown) => caught);
+    await jest.advanceTimersByTimeAsync(15_000);
+    await expect(outcome).resolves.toMatchObject({ message: expect.stringContaining("Could not reach") });
+  });
+});
