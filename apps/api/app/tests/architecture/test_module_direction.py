@@ -1,0 +1,90 @@
+"""Modules depend one way; every import that runs upward is named (code-health audit ARCH-11).
+
+The cycle test reads files at load time, so a cycle between modules hid behind imports
+in functions, and nothing said which way modules may depend. Here every import that can
+run counts, inside a function too (one under ``if TYPE_CHECKING`` does not), collapsed
+to the components it joins (``modules.<name>``, ``services.<name>``), in four layers:
+
+0. the shared leaves in ``services/``;
+1. the subjects: maths, physics, chemistry;
+2. the product features, and the subject dispatcher;
+3. chat, which runs a turn over all of them.
+
+A component imports its own layer or a lower one. An import that runs upward is listed
+below with why it stays; the list only shrinks, and without it the graph has no cycle.
+"""
+
+from __future__ import annotations
+
+from .boundary_support import _import_cycles, _import_graph, _module_imports
+
+_SUBJECTS = frozenset({"math", "physics", "chemistry"})
+# The dispatcher sits over the subjects it sends a message to, under chat.
+_LAYER_OF = {"services.subject_solving": 2}
+# A composition root wires every module together (test_outside_modules.py).
+_ROOTS = frozenset({"app.services.mcp"})
+
+# Upward imports, each with why it stays. Take one off when its import goes.
+_UPWARD = {
+    ("modules.account", "modules.chat"): "the export reads the chats; deletion removes them",
+    ("modules.attachments", "modules.chat"): "a file's message is checked through chat.history",
+    ("modules.chemistry", "modules.account"): "the scan endpoint checks the AI-data consent",
+    ("modules.images", "modules.chat"): "a picture or photo turn saves through chat.turn_record",
+    ("modules.math", "modules.account"): "the scan endpoint checks the AI-data consent",
+    ("modules.math", "modules.chat"): "a follow-up reads chat's light-turn cue",
+    ("modules.memory", "modules.chat"): "the backlog reads user lines; forgetting drops snippets",
+    ("modules.physics", "modules.account"): "the scan endpoint checks the AI-data consent",
+    ("modules.physics", "modules.chat"): "a direct reply is presented as chat presents one",
+    ("modules.speech", "modules.chat"): "a voice turn saves through chat.turn_record",
+    ("modules.todos", "modules.chat"): "a to-do names its chat; a tapped card edits its reply",
+    ("modules.web_search", "modules.chat"): "search detection reads chat's turn cues",
+    ("services.quota", "modules.billing"): "a daily budget is the plan's number (entitlements)",
+    ("services.subject_solving", "modules.chat"): "the dispatcher reads chat's code cue",
+}
+
+
+def _component(module: str) -> str | None:
+    parts = module.split(".")
+    if len(parts) >= 3 and parts[1] in {"modules", "services"}:
+        return f"{parts[1]}.{parts[2]}"
+    return None
+
+
+def _layer(component: str) -> int:
+    if component in _LAYER_OF:
+        return _LAYER_OF[component]
+    kind, name = component.split(".", 1)
+    if kind == "services":
+        return 0
+    if name in _SUBJECTS:
+        return 1
+    return 3 if name == "chat" else 2
+
+
+def _edges() -> set[tuple[str, str]]:
+    edges: set[tuple[str, str]] = set()
+    for source, targets in _import_graph(_module_imports(load_time=False, runtime=True)).items():
+        start = _component(source)
+        if start is None or source in _ROOTS:
+            continue
+        for target in targets:
+            end = _component(target)
+            if end is not None and end != start:
+                edges.add((start, end))
+    return edges
+
+
+def test_every_upward_import_is_named() -> None:
+    upward = {edge for edge in _edges() if _layer(edge[0]) < _layer(edge[1])}
+    new = sorted(upward - set(_UPWARD))
+    assert not new, f"these import upward: depend downward, or name them with a reason: {new}"
+    gone = sorted(set(_UPWARD) - upward)
+    assert not gone, f"these imports are gone: take them off the list: {gone}"
+
+
+def test_without_the_named_imports_the_modules_form_no_cycle() -> None:
+    graph: dict[str, set[str]] = {}
+    for start, end in _edges() - set(_UPWARD):
+        graph.setdefault(start, set()).add(end)
+        graph.setdefault(end, set())
+    assert _import_cycles(graph) == []

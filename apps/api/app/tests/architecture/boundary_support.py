@@ -202,24 +202,42 @@ def _load_time_imports(nodes: Iterable[ast.AST]) -> list[ast.Import | ast.Import
     return found
 
 
+def _runtime_imports(nodes: Iterable[ast.AST]) -> list[ast.Import | ast.ImportFrom]:
+    """Imports that can run: inside functions too, never under ``if TYPE_CHECKING``."""
+    found: list[ast.Import | ast.ImportFrom] = []
+    for node in nodes:
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            found.append(node)
+        elif isinstance(node, ast.If) and _is_type_checking(node.test):
+            found.extend(_runtime_imports(node.orelse))
+        else:
+            found.extend(_runtime_imports(ast.iter_child_nodes(node)))
+    return found
+
+
 @cache
-def _module_imports(*, load_time: bool) -> dict[str, set[str]]:
+def _module_imports(*, load_time: bool, runtime: bool = False) -> dict[str, set[str]]:
     """Production module -> every module name its imports name, made absolute.
 
     ``from pkg import name`` names ``pkg`` and ``pkg.name``; a package is its ``__init__``.
     With ``load_time`` only imports that run when the module loads count: deferring an
-    import into a function is the accepted way to break a load-order cycle.
+    import into a function is the accepted way to break a load-order cycle. With
+    ``runtime`` every import that can run counts, in a function too, but not one under
+    ``if TYPE_CHECKING`` (an annotation is no dependency).
     """
     imports: dict[str, set[str]] = {}
     for path in _production_python():
         name = _module_name(path)
         package = name if path.name == "__init__.py" else name.rpartition(".")[0]
         tree = ast.parse(path.read_text(), filename=str(path))
-        nodes = (
-            _load_time_imports(tree.body)
-            if load_time
-            else [node for node in ast.walk(tree) if isinstance(node, ast.Import | ast.ImportFrom)]
-        )
+        if load_time:
+            nodes = _load_time_imports(tree.body)
+        elif runtime:
+            nodes = _runtime_imports(tree.body)
+        else:
+            nodes = [
+                node for node in ast.walk(tree) if isinstance(node, ast.Import | ast.ImportFrom)
+            ]
         targets: set[str] = set()
         for node in nodes:
             if isinstance(node, ast.Import):
