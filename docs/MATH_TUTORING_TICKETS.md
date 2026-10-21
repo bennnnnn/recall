@@ -66,4 +66,4 @@ the whole trace, and the turn keeps its normal model path.
 - The equation trace's final division cancels on both sides (`\cancel{-2}` over `\cancel{-2}`)
   when the right side equals the divisor.
 - A cold SymPy worker takes about 5 s to start in a fresh container, which is the solve
-  timeout; local runs of tests that spawn workers need `MATH_SOLVE_TIMEOUT_SECONDS=20`.
+  timeout; local runs of tests that spawn workers need `STEM_SOLVE_TIMEOUT_SECONDS=20`.

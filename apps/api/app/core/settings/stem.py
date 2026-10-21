@@ -1,6 +1,6 @@
 """Maths, physics and chemistry: SymPy bounds and pool, model extraction, scan OCR."""
 
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class StemSettings(BaseModel):
@@ -15,8 +15,13 @@ class StemSettings(BaseModel):
     math_graph_max_points: int = 96
     # SymPy solve/simplify/integrate run on a worker thread (they're sync, CPU-bound);
     # this bounds how long a single pathological expression can occupy that thread
-    # before the chat turn falls back to an unverified reply.
-    math_solve_timeout_seconds: float = 5.0
+    # before the chat turn falls back to an unverified reply. Every subject's solve:
+    # maths, physics and chemistry (it was math_solve_timeout_seconds; that env name
+    # is still read for one release).
+    stem_solve_timeout_seconds: float = Field(
+        default=5.0,
+        validation_alias=AliasChoices("stem_solve_timeout_seconds", "math_solve_timeout_seconds"),
+    )
     # Isolated 1-worker process slots (not one shared N-worker pool — a
     # timeout must SIGTERM only the runaway). Interactive slot wait is *not*
     # the 5s solve timeout; 1+1=x must not sit 60s behind an integral.
@@ -27,7 +32,7 @@ class StemSettings(BaseModel):
     # reads no subject and the model answers without a verified solve.
     subject_read_timeout_seconds: float = 3.0
     # modules/math/image_extract.py's vision-chat call is a network round trip, not
-    # local synchronous SymPy work — reusing math_solve_timeout_seconds's 5s
+    # local synchronous SymPy work — reusing stem_solve_timeout_seconds's 5s
     # budget (sized for CPU-bound solve/integrate) cut off OCR calls that
     # were still legitimately in flight.
     math_image_extract_timeout_seconds: float = 20.0
@@ -49,8 +54,14 @@ class StemSettings(BaseModel):
     math_word_problem_timeout_seconds: float = 3.0
     # POST /{math,physics,chemistry}/scan/read runs OCR (Mathpix, then vision)
     # so the student can confirm what the camera read before it is solved.
-    # Per user, per hour, shared by every subject's reader.
-    math_scan_read_rate_limit_per_hour: int = 60
+    # Per user, per hour, shared by every subject's reader (it was
+    # math_scan_read_rate_limit_per_hour; that env name is still read for one release).
+    scan_read_rate_limit_per_hour: int = Field(
+        default=60,
+        validation_alias=AliasChoices(
+            "scan_read_rate_limit_per_hour", "math_scan_read_rate_limit_per_hour"
+        ),
+    )
     # One read answers within this many seconds of arriving, every reader and
     # fallback included (later steps get what earlier ones left). It stays
     # below the phone's timeout (SCAN_READ_TIMEOUT_MS in lib/api/scan.ts,

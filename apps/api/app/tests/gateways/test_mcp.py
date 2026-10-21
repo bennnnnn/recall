@@ -409,7 +409,7 @@ async def test_sympy_adapter_simplify_times_out_instead_of_blocking(
     callable (closures aren't picklable across a subprocess boundary). The
     production ProcessPoolSympyExecutor's hard-kill-on-timeout is exercised
     separately in test_sympy_executor.py."""
-    settings = Settings(math_solve_timeout_seconds=0.05)
+    settings = Settings(stem_solve_timeout_seconds=0.05)
     adapter = SympyAdapter(settings)
 
     def _hang(expr, variable):
@@ -439,7 +439,7 @@ async def test_sympy_adapter_broken_pool_degrades_like_timeout(
         raise BrokenProcessPool("killed by sibling timeout")
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", boom)
-    adapter = SympyAdapter(Settings(math_solve_timeout_seconds=5))
+    adapter = SympyAdapter(Settings(stem_solve_timeout_seconds=5))
     result = await adapter.invoke(
         {"action": "simplify", "expr": "x + x", "variable": "x"}, tool_context()
     )
@@ -457,7 +457,7 @@ async def test_sympy_adapter_solve_times_out_instead_of_blocking(
 
     Uses the in-process thread executor so the local ``_hang`` closure is
     callable (closures aren't picklable across a subprocess boundary)."""
-    settings = Settings(math_solve_timeout_seconds=0.05)
+    settings = Settings(stem_solve_timeout_seconds=0.05)
     adapter = SympyAdapter(settings)
 
     def _hang(data):

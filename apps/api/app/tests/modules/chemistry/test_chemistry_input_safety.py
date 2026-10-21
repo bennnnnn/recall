@@ -242,7 +242,7 @@ async def test_a_slow_solve_is_stopped_and_declined(monkeypatch: pytest.MonkeyPa
         raise AssertionError("the timeout should have given up on this solve")
 
     monkeypatch.setattr(chemistry_context, "_solve_locally", slow_solve)
-    settings = Settings(math_solve_timeout_seconds=0.05)
+    settings = Settings(stem_solve_timeout_seconds=0.05)
     start = time.perf_counter()
     result = await chemistry_context.build_chemistry_augmentation(
         "Find the molar mass of H2O", settings

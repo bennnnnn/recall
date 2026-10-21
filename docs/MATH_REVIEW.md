@@ -481,7 +481,7 @@ MT18.
 ```bash
 cd apps/api
 uv sync --frozen
-MATH_SOLVE_TIMEOUT_SECONDS=20 uv run pytest app/tests/modules/math -q \
+STEM_SOLVE_TIMEOUT_SECONDS=20 uv run pytest app/tests/modules/math -q \
   --cov=app/modules/math --cov-report=term          # 3525 passed, 88%
 ```
 

@@ -42,15 +42,17 @@ class LlmSettings(BaseModel):
     embedding_batch_size: int = 64
     embedding_concurrency: int = 8
 
-    # Abort a provider stream after this many seconds with no new chunk (fly.toml
-    # sets 30). A stall mid-reply froze the bubble for 3 min; the phone says
-    # "still working" at 20 s. Reasoning chunks count, and the cap below applies.
-    chat_stream_timeout_seconds: int = 45
+    # Abort a provider stream after this many seconds with no new chunk. A stall
+    # mid-reply froze the bubble for 3 min; the phone says "still working" at 20 s.
+    # Reasoning chunks count, and the cap below applies. Production's value: no
+    # deploy file overrides it (test_config_sources.py).
+    chat_stream_timeout_seconds: int = 30
     # Hard cap on one provider stream (seconds). Stops a slow drip from holding
     # the chatprep lock, RAM, and the OpenRouter meter indefinitely.
     chat_stream_max_seconds: int = 600
-    # Fail fast when the provider never opens an SSE stream (separate from read timeout).
-    chat_stream_connect_timeout_seconds: int = 15
+    # Fail fast when the provider never opens an SSE stream (separate from read
+    # timeout), soon enough for the model fallback chain to help.
+    chat_stream_connect_timeout_seconds: int = 5
     # Reasoning models can keep sending hidden chain-of-thought while never
     # producing a user-visible token. When a fallback exists, stop that silent
     # attempt and move on rather than making the chat bubble wait indefinitely.

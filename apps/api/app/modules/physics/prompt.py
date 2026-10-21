@@ -97,11 +97,11 @@ async def build_physics_augmentation(
             user_content,
             settings,
             needs_subject,
-            timeout=settings.math_solve_timeout_seconds,
+            timeout=settings.stem_solve_timeout_seconds,
         )
     except TimeoutError:
         logger.warning(
-            "physics read and solve timed out after %ss", settings.math_solve_timeout_seconds
+            "physics read and solve timed out after %ss", settings.stem_solve_timeout_seconds
         )
         return _unverified_physics_note(), None, True
     except Exception:

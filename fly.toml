@@ -22,16 +22,12 @@ kill_timeout = 45
   PROCESS_ROLE = "api"
   # Fly's proxy is the TCP peer. Without this, every per-IP rate limit
   # (sign-in, WebSocket handshake, anonymous REST) keys on the proxy address
-  # and becomes one global bucket. The default TRUSTED_PROXY_CIDRS cover Fly's
-  # private ranges; Fly-Client-IP is preferred when present.
+  # and becomes one global bucket. The default TRUSTED_PROXY_CIDRS
+  # (apps/api/app/core/settings/edge.py) cover Fly's private ranges;
+  # Fly-Client-IP is preferred when present. Every other setting runs on its
+  # code default, which is the production value (apps/api/app/tests/core/
+  # test_config_sources.py).
   TRUST_X_FORWARDED_FOR = "true"
-  # Semantic memory remains enabled, but a slow query-embedding provider must
-  # fall back quickly to the type-priority memory block instead of holding TTFT.
-  MEMORY_QUERY_EMBED_TIMEOUT_SECONDS = "0.75"
-  # Fail a provider connection quickly enough for the existing model fallback
-  # chain to help. Once streaming starts, 30s without any chunk is unhealthy.
-  CHAT_STREAM_CONNECT_TIMEOUT_SECONDS = "5"
-  CHAT_STREAM_TIMEOUT_SECONDS = "30"
 
 # Run migrations once per deploy (not on every app machine boot), before any
 # Machine is replaced. Old code keeps running against the new schema while the

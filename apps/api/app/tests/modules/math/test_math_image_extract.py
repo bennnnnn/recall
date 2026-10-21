@@ -75,13 +75,13 @@ def test_math_image_extract_schema():
 
 @pytest.mark.asyncio
 async def test_extract_equation_uses_dedicated_ocr_timeout_not_solve_timeout():
-    """BUG FIX: this call used to reuse math_solve_timeout_seconds — a budget
+    """BUG FIX: this call used to reuse stem_solve_timeout_seconds — a budget
     documented for local, synchronous SymPy work — for a network vision-chat
     call. A real OCR round trip taking longer than the (much shorter) solve
     budget but well within a reasonable network timeout used to be cut off
     early. Must use the dedicated math_image_extract_timeout_seconds instead."""
     settings = Settings(
-        math_solve_timeout_seconds=0.05,
+        stem_solve_timeout_seconds=0.05,
         math_image_extract_timeout_seconds=2.0,
         mock_llm_enabled=False,
         openrouter_api_key="test-key",

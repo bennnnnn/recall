@@ -2457,7 +2457,7 @@ async def test_augment_prompt_times_out_gracefully(
     production ProcessPoolSympyExecutor's hard-kill-on-timeout is exercised
     separately in test_sympy_executor.py.
     """
-    settings = Settings(math_tools_enabled=True, math_solve_timeout_seconds=0.05)
+    settings = Settings(math_tools_enabled=True, stem_solve_timeout_seconds=0.05)
 
     def slow_build(intent, settings):  # type: ignore[no-untyped-def]
         import time

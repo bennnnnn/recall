@@ -466,7 +466,7 @@ async def read_direct_reply(
         user_text,
         has_image_attachment=has_image_attachment,
         verified_request_text=verified_request_text,
-        timeout=settings.math_solve_timeout_seconds,
+        timeout=settings.stem_solve_timeout_seconds,
     )
 
 

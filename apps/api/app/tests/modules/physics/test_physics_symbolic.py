@@ -180,7 +180,7 @@ async def test_symbolic_boundary_uses_worker_timeout_and_declines(monkeypatch) -
     text = "Physics: solve a=F/m for a"
     _prompt, verified, failed = await build_physics_augmentation(text, settings)
     assert verified is not None and not failed
-    assert calls == [settings.math_solve_timeout_seconds]
+    assert calls == [settings.stem_solve_timeout_seconds]
     _prompt, verified, failed = await build_physics_augmentation(
         "Physics: solve sin(x)=0 for x",
         settings,

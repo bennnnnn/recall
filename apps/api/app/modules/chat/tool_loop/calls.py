@@ -101,7 +101,7 @@ async def _tool_call_matches_user(raw_args: Any, user_texts: list[str], settings
             tool_call_matches_user_text,
             raw_args,
             user_texts,
-            timeout=settings.math_solve_timeout_seconds,
+            timeout=settings.stem_solve_timeout_seconds,
         )
     except Exception:
         logger.info("tool-call match check did not finish; result stays unverified", exc_info=True)

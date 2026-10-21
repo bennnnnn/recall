@@ -93,7 +93,7 @@ class SympyAdapter:
         from app.core.sympy_executor import run_sympy
 
         try:
-            return await run_sympy(fn, *args, timeout=self.settings.math_solve_timeout_seconds)
+            return await run_sympy(fn, *args, timeout=self.settings.stem_solve_timeout_seconds)
         except TimeoutError:
             logger.warning("sympy MCP tool call timed out")
             return None

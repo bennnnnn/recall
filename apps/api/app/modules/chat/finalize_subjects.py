@@ -140,7 +140,7 @@ async def check_math_fences(state: FinalizeState) -> str:
         math_fence.validate_math_fences_worker,
         state.text,
         verified,
-        timeout=state.settings.math_solve_timeout_seconds,
+        timeout=state.settings.stem_solve_timeout_seconds,
     )
 
 
@@ -216,5 +216,5 @@ async def enrich_chemistry_fences(state: FinalizeState) -> str:
     return await sympy_executor.run_sympy(
         chemistry_fence.enrich_chemistry_fences_worker,
         text,
-        timeout=state.settings.math_solve_timeout_seconds,
+        timeout=state.settings.stem_solve_timeout_seconds,
     )
