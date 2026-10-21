@@ -15,6 +15,7 @@ import {
 import { AttachmentError } from "@/features/attachments/model/attachmentErrors";
 import { registerEmailDraftFlusher } from "@/features/drafts/model/emailDraftFlush";
 import { notifyWarning, tap } from "@/lib/haptics";
+import * as latency from "@/features/chat/model/latency";
 import {
   queryNeedsClientGeo,
   resolveClientGeoForQuery,
@@ -1657,6 +1658,37 @@ describe("useChatSend send steps", () => {
     await render(<Probe chatId="chat-1" sendMessage={sendMessage} updateUser={updateUser} locationEnabled />);
     await send();
     expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts the time-to-first-token sample at the tap and marks the bubble's frame", async () => {
+    const start = jest.spyOn(latency, "markChatTtftStart");
+    const painted = jest.spyOn(latency, "markChatBubblePainted");
+    const setMessages = jest.fn();
+    await render(<Probe chatId="chat-1" setMessages={setMessages} />);
+    const before = Date.now();
+    await send();
+    const [bubble] = setMessages.mock.calls[0][0]([]);
+    const tappedAt = start.mock.calls[0][1];
+    expect(start).toHaveBeenCalledWith(bubble.id, tappedAt, false);
+    expect(tappedAt).toBeGreaterThanOrEqual(before);
+    expect(bubble.id).toBe(`local-${tappedAt}`);
+    expect(start.mock.invocationCallOrder[0]).toBeLessThan(setMessages.mock.invocationCallOrder[0]);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    expect(painted).toHaveBeenCalledWith(bubble.id);
+    start.mockRestore();
+    painted.mockRestore();
+  });
+
+  it("drops the sample of a picture, which never streams a token", async () => {
+    inputRef.current = "draw me a cat";
+    mockImageIntent.mockResolvedValue(verdict({ generate_prompt: "cat" }));
+    const clear = jest.spyOn(latency, "clearPendingChatTtft");
+    const setMessages = jest.fn();
+    await render(<Probe chatId="chat-1" setMessages={setMessages} />);
+    await send();
+    const [bubble] = setMessages.mock.calls[0][0]([]);
+    expect(clear).toHaveBeenCalledWith(bubble.id);
+    clear.mockRestore();
   });
 
   it("moves from locating to uploading for a geo question with a photo", async () => {

@@ -18,6 +18,7 @@ import {
   type SendMessageOptions,
 } from "@/features/chat/model/sendLogic";
 import { canSend } from "@/features/chat/model/sendGuards";
+import { markChatBubblePainted, markChatTtftStart } from "@/features/chat/model/latency";
 import { useComposerAttachmentSheet } from "@/features/chat/hooks/useComposerAttachmentSheet";
 import { useChatSendRoute, type PaintedSend } from "@/features/chat/hooks/useChatSendRoute";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
@@ -259,6 +260,8 @@ export function useChatSend({
 
     const optimisticId = `local-${tappedAt}`;
     const createdAt = new Date(tappedAt).toISOString();
+    // From the tap, not the paint: anything that ever delays the bubble counts.
+    markChatTtftStart(optimisticId, tappedAt, Boolean(attached));
     setPendingOutboundId(optimisticId);
     setMessages((prev) => [
       ...prev,
@@ -270,6 +273,7 @@ export function useChatSend({
       }),
     ]);
     newMessageCountRef.current += 1;
+    requestAnimationFrame(() => markChatBubblePainted(optimisticId));
     return { optimisticId, dotsCurrent: sendStart.beginDots() };
   }, [setInput, setPendingAttachment, setMessages, newMessageCountRef, sendStart]);
 

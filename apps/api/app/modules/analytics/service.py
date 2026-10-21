@@ -66,10 +66,28 @@ _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
     },
 }
 
+# Fields a newer app adds to an event; one that predates them still sends it
+# without. Bucketed like the rest: never a raw millisecond value.
+_OPTIONAL_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
+    # Tap on Send -> the user's bubble on screen.
+    "chat_ttft": {
+        "paint_bucket": frozenset({"lt50", "50_99", "100_249", "250_499", "500_999", "1000_plus"}),
+    },
+    # The reply's last token -> Send ready again (`stream_end`); "none" when the
+    # turn ended another way (Stop, an error).
+    "chat_turn_outcome": {
+        "send_ready_bucket": frozenset(
+            {"none", "lt100", "100_249", "250_499", "500_999", "1000_1999", "2000_plus"}
+        ),
+    },
+}
+
 
 def _validate_properties(event: ProductEventIn) -> None:
-    allowed = _ALLOWED_PROPERTIES[event.name]
-    if set(event.properties) != set(allowed):
+    required = _ALLOWED_PROPERTIES[event.name]
+    allowed = {**required, **_OPTIONAL_PROPERTIES.get(event.name, {})}
+    keys = set(event.properties)
+    if not set(required) <= keys or not keys <= set(allowed):
         raise ValueError(f"Invalid properties for product event {event.name}")
     for key, value in event.properties.items():
         if value not in allowed[key]:

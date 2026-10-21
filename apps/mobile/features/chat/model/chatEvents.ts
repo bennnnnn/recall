@@ -13,6 +13,8 @@ import {
   beginTurnOutcome,
   completionFromDone,
   noteTurnActivity,
+  noteTurnSendReady,
+  noteTurnToken,
   reportTurnOutcome,
 } from "@/features/chat/model/turnOutcome";
 import {
@@ -227,6 +229,7 @@ const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
     ctx.streamCueRef.current.activity();
     ctx.pendingSendRef.current = null;
     markChatFirstToken(ttftTurnId, payload.type);
+    noteTurnToken();
     ctx.assistantBufferRef.current += payload.content ?? "";
     ctx.updateStreamingDraft({
       content: ctx.assistantBufferRef.current,
@@ -239,6 +242,7 @@ const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
   reasoning: () => {},
   stream_end: (payload, ctx) => {
     ctx.pendingSendRef.current = null;
+    noteTurnSendReady();
     ctx.setFinalizing(true);
     if (typeof payload.resolved_model === "string" && payload.resolved_model) {
       ctx.setMessages((prev) => applyStreamEndModel(prev, payload.resolved_model));

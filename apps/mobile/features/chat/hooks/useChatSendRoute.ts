@@ -6,6 +6,7 @@ import type { SendTurn } from "@/features/chat/hooks/useRestoreFailedSend";
 import type { SendTurnStart } from "@/features/chat/hooks/useTurnStart";
 import { uploadSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import { buildPendingSendAfterCreate, type SendMessageOptions } from "@/features/chat/model/sendLogic";
+import { clearPendingChatTtft } from "@/features/chat/model/latency";
 import { resolveSendIntercept, type SendIntercept } from "@/features/chat/model/sendIntercept";
 import { shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
 import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
@@ -100,6 +101,8 @@ export function useChatSendRoute({
         feedback?.error(t("chat.restore_draft_blocked"));
       };
       sendStart.cancelDots();
+      // A picture has no first token: its time-to-first-token sample is dropped.
+      clearPendingChatTtft(send.optimisticId);
       onGenerateImage?.({
         prompt: intercept.prompt,
         userMessage: send.text,
@@ -192,9 +195,8 @@ export function useChatSendRoute({
       setSendPhase("idle");
     },
     [
-      chatId, messages, onGenerateImage, imageGenerating, token, sendStart, restoreFailedSend,
-      handToImageGeneration, t, updateUser, locationEnabled, setSendPhase, feedback, selectedModel, sendToNewChat,
-      sendMessage,
+      chatId, messages, onGenerateImage, imageGenerating, token, sendStart, restoreFailedSend, handToImageGeneration,
+      t, updateUser, locationEnabled, setSendPhase, feedback, selectedModel, sendToNewChat, sendMessage,
       setPendingOutboundId, sendInFlightRef,
     ],
   );
