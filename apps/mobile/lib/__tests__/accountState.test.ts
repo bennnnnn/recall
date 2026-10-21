@@ -57,6 +57,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/onboarding.ts#generation": "clearOnboarded",
   "lib/onboarding.ts#writes": "clearOnboarded",
   "lib/purchases.ts#configuredAppUserId": "signOutRevenueCat",
+  "lib/pushNotifications.ts#pushSyncFile": "clearPushSyncRecord",
   "lib/streamingDraftStore.ts#draft": "publishStreamingDraft",
 };
 
@@ -73,7 +74,6 @@ const SCOPED_TO_SESSION = [
   "lib/drawer.ts#chatMutationRevisions",
   "lib/drawer.ts#mutationSession",
   "lib/productAnalytics.ts#waiting",
-  "lib/pushNotifications.ts#lastPushSync",
 ];
 
 /** Work in progress for one chat, request or clip, keyed by ids another account never has. */

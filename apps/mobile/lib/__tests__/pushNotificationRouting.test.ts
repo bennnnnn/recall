@@ -13,6 +13,10 @@ jest.mock("@/lib/auth", () => ({
   getSessionGeneration: () => 1,
 }));
 
+jest.mock("@/lib/cache/cacheFile", () => ({
+  cacheFile: () => ({ read: async () => null, write: async () => undefined, clear: async () => undefined }),
+}));
+
 jest.mock("@/lib/installationId", () => ({
   getInstallationId: jest.fn().mockResolvedValue("dev-1"),
 }));

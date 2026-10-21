@@ -88,8 +88,9 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
           setUser((current) => current?.id === userId
             ? { ...current, push_notifications_enabled: enabled } : current);
         },
-        // Hourly token refreshes re-attach; one sync per sign-in is enough.
-        generation,
+        // Hourly token refreshes and cold starts re-attach; one sync per account
+        // every 12 hours is enough.
+        userId,
         feedback,
       );
     }).catch(() => {});

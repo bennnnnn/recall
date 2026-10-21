@@ -1,5 +1,6 @@
 /** Sign-out leaves nothing of the account for the next one (see accountState.test.ts). */
-import { requestRaw } from "@/lib/api/client";
+import { request } from "@/lib/api/client";
+import { clearPushSyncRecord } from "@/lib/pushNotifications";
 import { quizAttempt, saveQuizAttempt } from "@/lib/lesson/quizAttempts";
 import { fetchLinkPreview } from "@/lib/linkPreview";
 import { latexToSvgMath, peekSvgMath, setSvgMathRendererForTest } from "@/lib/math/svgMath";
@@ -22,11 +23,9 @@ jest.mock("expo-file-system/legacy", () => ({
   }),
 }));
 jest.mock("@/lib/api/client", () => ({
-  requestRaw: jest.fn(async () => ({
-    ok: true,
-    json: async () => ({ url: "https://a.example", title: "A", description: null, domain: "a.example" }),
-  })),
+  request: jest.fn(async () => ({ url: "https://a.example", title: "A", description: null, domain: "a.example" })),
 }));
+jest.mock("@/lib/pushNotifications", () => ({ clearPushSyncRecord: jest.fn(async () => undefined) }));
 jest.mock("@/lib/auth", () => ({ getToken: jest.fn(async () => "token") }));
 jest.mock("@/lib/cachedModels", () => ({ clearCachedModels: jest.fn(async () => undefined) }));
 jest.mock("@/lib/google-auth", () => ({ signOutGoogle: jest.fn(async () => undefined) }));
@@ -65,8 +64,10 @@ it("forgets the quiz answers, link previews, maths and the reply still streaming
   expect(peekSvgMath("x^2", false)).toBeUndefined();
   expect(getStreamingDraft()).toBeNull();
   await fetchLinkPreview("https://a.example");
-  expect(requestRaw).toHaveBeenCalledTimes(2);
+  expect(request).toHaveBeenCalledTimes(2);
   expect(clearSavedProposals).toHaveBeenCalled();
+  // The server forgets the device's push token with the session.
+  expect(clearPushSyncRecord).toHaveBeenCalled();
   expect(resetQuotaNudgeDismissal).toHaveBeenCalled();
 });
 

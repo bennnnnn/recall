@@ -26,8 +26,16 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,
 }));
+// The drawer's chat list cache, as its contract reads: the list, or the error.
 jest.mock("@/lib/cache/chatListCache", () => ({
   invalidateChatListCache: jest.fn(),
+  fetchChatList: async (...args: unknown[]) => {
+    try {
+      return { data: await mockListChats(...args), error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
 }));
 jest.mock("@/lib/api", () => ({
   api: {

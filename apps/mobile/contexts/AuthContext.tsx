@@ -50,7 +50,9 @@ type AuthContextValue = {
   signInWithApple: () => Promise<void>;
   signInWithDev: () => Promise<void>;
   signOut: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  /** Show the account `read` returns (`/auth/me` by default): a call that returns it,
+   * such as a subscription sync, passes itself and saves a second request. */
+  refreshUser: (read?: (token: string) => Promise<User>) => Promise<void>;
   updateUser: (patch: Partial<User>) => Promise<void>;
   mergeUser: (patch: Partial<User>) => void;
   onboarded: boolean;
@@ -255,10 +257,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Capturing the render's generation also fences callbacks retained by a
   // dismissed screen, including a fast account A → B → A transition.
   const sessionGeneration = getSessionGeneration();
-  const refreshUser = useCallback(async () => {
+  const refreshUser = useCallback(async (read: (token: string) => Promise<User> = api.me) => {
     if (!token || !isCurrent(sessionGeneration)) return;
     const revision = updateUserGenRef.current;
-    const me = await api.me(token);
+    const me = await read(token);
     if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
     setCurrentUser(me);
     setProfileValidated(true);
