@@ -5,11 +5,8 @@ import { act, renderHook } from "@testing-library/react-native";
 import type { Message } from "@/lib/api";
 import type { ChatSsePayload } from "@/features/chat/model/sse";
 import type { StreamingDraft } from "@/lib/streamingDraftStore";
-import {
-  useChatIncomingEvents,
-  type PendingSend,
-  type RejectedSend,
-} from "@/features/chat/hooks/useChatIncoming";
+import { useChatIncomingEvents } from "@/features/chat/hooks/useChatIncoming";
+import type { PendingSend, RejectedSend } from "@/features/chat/model/sendLogic";
 import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/latency";
 import { setConsentRequiredHandler } from "@/lib/api/consentRefusal";
 import type { TurnUsage } from "@/features/chat/model/socketReduce";
@@ -50,7 +47,7 @@ async function setup(start: { messages?: Message[]; streaming?: boolean; draft?:
     streamingRef: { current: start.streaming ?? true },
     finalizingRef: { current: false },
     streamCueRef: { current: cue },
-    wsAuthFallbackRef: { current: { transport: {} as never, retry: jest.fn() } } as never,
+    wsAuthFallbackRef: { current: { transport: {} as never, retry: jest.fn() } as { transport: never; retry: jest.Mock } | null },
     assistantBufferRef: { current: "" },
     streamingDraftRef,
     pendingSendRef: { current: null as PendingSend | null },
@@ -287,7 +284,7 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
     expect(turn.accepted).toBe(true);
   });
 
-  it.each([
+  it.each<[{ code?: string; message: string }, boolean, RejectedSend["reason"] | null]>([
     // Regression: every code-less error offered Regenerate, which re-answered
     // the previous message when this one was never saved.
     [{ message: "Redis down" }, false, "send_rejected"],

@@ -119,7 +119,7 @@ Correct maths, physics and chemistry is a release requirement.
 | Check | How | Runs in |
 |---|---|---|
 | Format and lint | `ruff check`, `ruff format`; ESLint | API CI, Mobile CI |
-| Types | mypy (strict per package, widening); `tsc` strict; ESLint `no-explicit-any` | API CI, Mobile CI |
+| Types | mypy (strict per package, widening); `tsc` strict, app and tests (`tsconfig.test.json`: jest runs through Babel, which strips types); ESLint `no-explicit-any` | API CI, Mobile CI |
 | Tests | pytest with 80 % coverage floor; jest; behavior and STEM sweeps | API CI, Mobile CI |
 | Import cycles | `app/tests/architecture/test_import_cycles.py`; `lib/__tests__/importCycles.test.ts` (type-only imports included) | API CI, Mobile CI |
 | Layer boundaries | `app/tests/architecture/` (module boundaries; `test_pure_solvers.py` keeps solvers off infrastructure and subjects apart); ESLint `no-restricted-imports` (`ui/` leaf, subject libraries) | API CI, Mobile CI |

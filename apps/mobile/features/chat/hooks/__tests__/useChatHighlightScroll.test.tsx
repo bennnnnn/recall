@@ -34,8 +34,8 @@ async function flushFrames() {
 }
 beforeEach(() => {
   jest.useFakeTimers(); jest.clearAllMocks(); frames.clear(); (getSessionGeneration as jest.Mock).mockReturnValue(0);
-  jest.spyOn(global, "requestAnimationFrame").mockImplementation((fn) => { frames.set(++nextFrame, fn); return nextFrame; });
-  jest.spyOn(global, "cancelAnimationFrame").mockImplementation((id) => { frames.delete(id); });
+  jest.spyOn(globalThis, "requestAnimationFrame").mockImplementation((fn) => { frames.set(++nextFrame, fn); return nextFrame; });
+  jest.spyOn(globalThis, "cancelAnimationFrame").mockImplementation((id) => { if (id != null) frames.delete(id); });
 });
 afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
 

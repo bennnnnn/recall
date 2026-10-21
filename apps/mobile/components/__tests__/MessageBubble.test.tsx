@@ -192,7 +192,7 @@ describe("MessageBubble copy feedback timers", () => {
   });
 
   it("cleans up the user copy reset timer on unmount", async () => {
-    const clearSpy = jest.spyOn(global, "clearTimeout");
+    const clearSpy = jest.spyOn(globalThis, "clearTimeout");
     const view = await render(<MessageBubble message={userMessage} />);
     await fireEvent(
       view.getByA11yHint("chat.user_message_actions_hint"),
@@ -214,7 +214,7 @@ describe("MessageBubble copy feedback timers", () => {
   });
 
   it("cleans up the assistant copy reset timer on unmount", async () => {
-    const clearSpy = jest.spyOn(global, "clearTimeout");
+    const clearSpy = jest.spyOn(globalThis, "clearTimeout");
     const view = await render(
       <MessageBubble
         message={assistantMessage}

@@ -77,7 +77,7 @@ it("immediately hides the previous account's usage and ignores its late response
   expect(result.current.usage?.used_tokens).toBe(1000);
   mockToken = "account-b";
   mockGeneration += 1;
-  await rerender();
+  await rerender(undefined);
   expect(result.current.usage).toBeNull();
   await act(async () => { accountA.resolve(usage(2000)); });
   expect(result.current.usage).toBeNull();
@@ -110,6 +110,6 @@ it("reads nothing again when the access token rotates (NET-11)", async () => {
   const { rerender } = await renderHook(useUsage);
   expect(mockFetchUsage).toHaveBeenCalledTimes(1);
   mockAccessToken = "token-2";
-  await rerender();
+  await rerender(undefined);
   expect(mockFetchUsage).toHaveBeenCalledTimes(1);
 });

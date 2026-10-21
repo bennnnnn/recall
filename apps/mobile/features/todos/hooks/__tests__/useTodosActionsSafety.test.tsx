@@ -173,7 +173,7 @@ it("applies a saved due date even when its original view is no longer active", a
   mockApi.updateTodo.mockReturnValue(updating.promise);
   await render(<Probe />);
   await act(async () => { actions.openTodoEditor(A); });
-  let pending!: Promise<void>;
+  let pending!: Promise<boolean>;
   await act(async () => {
     pending = actions.handleUpdateTodo(A, A.content, new Date("2026-09-06T18:00:00.000Z"), null);
   });

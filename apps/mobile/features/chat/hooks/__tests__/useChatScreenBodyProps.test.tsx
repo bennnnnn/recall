@@ -47,6 +47,7 @@ const toggleVoiceInput = jest.fn(async () => undefined);
 const handleHeaderHeightChange = jest.fn();
 const styles = {} as never;
 const listRef = { current: null };
+const menuAnchorRef = { current: null };
 const listBottomPadRef = { current: 0 };
 
 const router = {
@@ -80,12 +81,14 @@ function useHarness(streaming: boolean, messages: Message[], drawerOpen = false)
       startNewChat,
       setMenuVisible,
       menuOverlayOpen: false,
+      menuAnchorRef,
     },
     list: {
       listRef,
       messages,
       hasMoreOlder: false,
       loadingOlder: false,
+      newerPage: null,
       chatLoading: false,
       renderItem,
       loadOlderMessages,
@@ -141,7 +144,7 @@ describe("useChatScreenBodyProps", () => {
   it("keeps unaffected groups and FlashList callbacks stable while streaming changes", async () => {
     const firstMessages = [message];
     const { result, rerender } = await renderHook(
-      ({ streaming, messages }) => useHarness(streaming, messages),
+      ({ streaming, messages }: { streaming: boolean; messages: Message[] }) => useHarness(streaming, messages),
       { initialProps: { streaming: false, messages: firstMessages } },
     );
     const initial = result.current.bodyProps;
@@ -181,7 +184,7 @@ describe("useChatScreenBodyProps", () => {
   it("updates only the list group when the message collection changes", async () => {
     const firstMessages = [message];
     const { result, rerender } = await renderHook(
-      ({ messages }) => useHarness(false, messages),
+      ({ messages }: { messages: Message[] }) => useHarness(false, messages),
       { initialProps: { messages: firstMessages } },
     );
     const initial = result.current.bodyProps;

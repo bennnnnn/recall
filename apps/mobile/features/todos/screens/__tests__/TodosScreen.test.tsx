@@ -10,7 +10,7 @@ const mockT = (key: string) => key;
 const mockNavigation = { setOptions: jest.fn() };
 let mockAdd: { onPress: () => void };
 let mockSheet: { visible: boolean; onClose: () => void };
-let mockList: { onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[] };
+let mockList: { onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[]; onOpen: (row: { id: string; content: string }) => void };
 let mockHeader: { onRetry: () => void };
 const mockOpenTodo = jest.fn();
 const mockGetTodos = () => mockTodos;
@@ -155,7 +155,7 @@ it("deduplicates pull refresh before React rerenders", async () => {
 it("opens a to-do when its row is tapped", async () => {
   await render(<TodosScreen />);
   const todo = { id: "todo-1", content: "Walk" };
-  await act(() => { (mockList as { onOpen: (row: typeof todo) => void }).onOpen(todo); });
+  await act(() => { mockList.onOpen(todo); });
   expect(mockOpenTodo).toHaveBeenCalledWith(todo);
 });
 

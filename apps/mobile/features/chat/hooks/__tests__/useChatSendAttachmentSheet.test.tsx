@@ -44,7 +44,11 @@ jest.mock("@/features/attachments/model/attachments", () => ({
   NativePickerBusyError: class extends Error {},
   NativePickerTimeoutError: class extends Error {},
   PhotoLibraryPermissionError: class extends Error {
-    needsSettings = false;
+    readonly needsSettings: boolean;
+    constructor(needsSettings: boolean) {
+      super("PHOTO_LIBRARY_PERMISSION");
+      this.needsSettings = needsSettings;
+    }
   },
 }));
 jest.mock("@/lib/api", () => ({ api: { readScan: jest.fn(), imageIntent: jest.fn() } }));
@@ -125,7 +129,7 @@ it("opens the math scanner instead of a picker", async () => {
 it.each([
   ["a busy picker", new NativePickerBusyError(), "error", "chat.picker_busy"],
   ["a picker timeout", new NativePickerTimeoutError(), "error", "chat.picker_busy"],
-  ["a photo permission", new PhotoLibraryPermissionError(), "error", "chat.photos_permission"],
+  ["a photo permission", new PhotoLibraryPermissionError(false), "error", "chat.photos_permission"],
   ["a file too large says so", new AttachmentError("too_large"), "error", "chat.attach_too_large"],
   // Untyped failures get the generic message, never raw error text.
   ["any other error says attach failed", new Error("disk full"), "error", "chat.attach_failed"],
@@ -156,8 +160,7 @@ it("a pick being prepared shows as attachPicking until it lands", async () => {
 
 it("sends a denied photo permission to Settings when it needs them", async () => {
   const openSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
-  const denied = new PhotoLibraryPermissionError();
-  (denied as unknown as { needsSettings: boolean }).needsSettings = true;
+  const denied = new PhotoLibraryPermissionError(true);
   (pickFromPhotoLibrary as jest.Mock).mockRejectedValueOnce(denied);
   await render(<Probe />);
   await select("photo");

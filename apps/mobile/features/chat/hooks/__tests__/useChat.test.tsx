@@ -90,21 +90,21 @@ async function sendAndStream(socket: FakeSocket, text = "reply") {
 }
 
 describe("useChat transport lifecycle", () => {
-  const originalSocket = global.WebSocket;
+  const originalSocket = globalThis.WebSocket;
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     listMessages.mockReset();
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
-    global.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
     resetStreamingDraftStore();
   });
   afterEach(async () => {
     await cleanup();
     jest.clearAllTimers();
     jest.useRealTimers();
-    global.WebSocket = originalSocket;
+    globalThis.WebSocket = originalSocket;
   });
 
   it("surfaces an SSE transport AbortError without replaying uncertain delivery", async () => {
@@ -1028,7 +1028,7 @@ describe("useChat transport lifecycle", () => {
 });
 
 describe("useChat socket while the app is in the background", () => {
-  const originalSocket = global.WebSocket;
+  const originalSocket = globalThis.WebSocket;
   const addListener = AppState.addEventListener as unknown as jest.Mock;
   const defaultAddListener = addListener.getMockImplementation();
   const appStateHandlers = new Set<(state: string) => void>();
@@ -1044,7 +1044,7 @@ describe("useChat socket while the app is in the background", () => {
     listMessages.mockReset();
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
-    global.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
     resetStreamingDraftStore();
     appStateHandlers.clear();
     addListener.mockImplementation((event: string, handler: (state: string) => void) => {
@@ -1057,7 +1057,7 @@ describe("useChat socket while the app is in the background", () => {
     await cleanup();
     jest.clearAllTimers();
     jest.useRealTimers();
-    global.WebSocket = originalSocket;
+    globalThis.WebSocket = originalSocket;
     addListener.mockImplementation(defaultAddListener);
   });
 

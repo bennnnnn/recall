@@ -377,9 +377,9 @@ describe("FunctionGraphBlock", () => {
       getByTestId("graph-modal-keyboard-host").props.style,
     );
     const sheet = StyleSheet.flatten(getByTestId("graph-modal-sheet").props.style);
-    const handle = StyleSheet.flatten(
-      getByTestId("graph-sheet-handle").children[0].props.style,
-    );
+    const handleBar = getByTestId("graph-sheet-handle").children[0];
+    if (typeof handleBar === "string") throw new Error("the handle holds a bar, not text");
+    const handle = StyleSheet.flatten(handleBar.props.style);
     expect(backdrop.backgroundColor).toBe("rgba(0,0,0,0.40)");
     expect(keyboardHost.backgroundColor).toBeUndefined();
     expect(sheet.marginTop).toBeGreaterThan(0);

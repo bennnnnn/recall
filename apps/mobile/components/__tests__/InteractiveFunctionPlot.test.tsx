@@ -123,7 +123,7 @@ describe("InteractiveFunctionPlot", () => {
 
   it("scrolls an added series into view in the explorer", async () => {
     const scrollToEnd = jest.spyOn(ScrollView.prototype, "scrollToEnd").mockImplementation(() => undefined);
-    const frame = jest.spyOn(global, "requestAnimationFrame").mockImplementation((callback) => {
+    const frame = jest.spyOn(globalThis, "requestAnimationFrame").mockImplementation((callback) => {
       callback(0);
       return 0;
     });

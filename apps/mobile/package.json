@@ -99,7 +99,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:sim": "node scripts/ios-simulator.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "lint": "expo lint app components ui features hooks lib contexts",
     "test": "jest",
     "icons": "node scripts/generate-icons.mjs",

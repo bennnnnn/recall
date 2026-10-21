@@ -10,7 +10,7 @@ const mockDeleteDocument = jest.fn();
 const mockDeleteFact = jest.fn();
 const mockEditFact = jest.fn();
 const mockSetFactMuted = jest.fn();
-const mockConfirm = jest.fn(async () => true);
+const mockConfirm = jest.fn(async (..._args: unknown[]) => true);
 const mockFeedback = { error: jest.fn(), success: jest.fn() };
 const mockRouter = { back: jest.fn(), push: jest.fn() };
 let mockDocuments: MemoryDocument[] = [];
