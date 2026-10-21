@@ -36,10 +36,6 @@ from app.models.schemas.common import (
     ModelInfo,
     UsageOut,
 )
-from app.models.schemas.home import (
-    HomeScreenOut,
-    HomeUrgentTodo,
-)
 from app.models.schemas.push import PushTokenIn
 from app.modules.attachments.schemas import (
     AttachmentListItemOut,
@@ -88,8 +84,6 @@ __all__ = [
     "EmailDraftUpdate",
     "FeedbackUpdate",
     "GoogleAuthRequest",
-    "HomeScreenOut",
-    "HomeUrgentTodo",
     "LogoutRequest",
     "MemoryFactOp",
     "MemoryFactUpdateResult",

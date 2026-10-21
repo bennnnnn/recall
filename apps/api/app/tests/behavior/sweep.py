@@ -249,9 +249,6 @@ def _stores(outcome: Outcome, user: User) -> Iterator[None]:
             ("get_open_dated_duplicate", AsyncMock(return_value=None)),
         ):
             stack.enter_context(patch(f"{repo}.{name}", value))
-        stack.enter_context(
-            patch("app.modules.home.service.invalidate_home_cache", AsyncMock(return_value=None))
-        )
         yield
 
 

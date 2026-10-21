@@ -121,7 +121,6 @@ async def test_confirm_applies_tone_and_appearance(monkeypatch: pytest.MonkeyPat
     from app.modules.account import settings_proposal as svc
 
     monkeypatch.setattr(svc.users_repo, "update", AsyncMock(return_value=updated))
-    monkeypatch.setattr(svc.home_service, "invalidate_home_cache", AsyncMock())
     result = await confirm_proposal(session, redis, user, settings, "pid")  # type: ignore[arg-type]
 
     assert result["appearance"] == "dark"
@@ -187,7 +186,6 @@ async def test_confirming_a_memory_reset_applies_it(monkeypatch: pytest.MonkeyPa
     update = AsyncMock(return_value=_user(memory_enabled=False))
     clear = AsyncMock(return_value=3)
     monkeypatch.setattr(svc.users_repo, "update", update)
-    monkeypatch.setattr(svc.home_service, "invalidate_home_cache", AsyncMock())
     monkeypatch.setattr(svc.memory_service, "invalidate_memory_block", AsyncMock())
     monkeypatch.setattr(svc.memory_service, "delete_all_memories", clear)
 

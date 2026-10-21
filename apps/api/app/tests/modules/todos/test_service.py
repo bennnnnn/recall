@@ -9,7 +9,6 @@ import pytest
 from app.core.config import Settings
 from app.models.schemas import TodoActionItem
 from app.modules import todos as todos_service
-from app.modules.home import service as home_service
 from app.modules.todos import actions as todos_actions
 from app.modules.todos import classification as todos_classification
 from app.modules.todos import crud as todos_crud
@@ -77,7 +76,6 @@ async def test_update_todo_clears_due_at_and_recurrence():
     with (
         patch.object(todos_crud.todos_repo, "get_by_id", AsyncMock(return_value=item)),
         patch.object(todos_crud.todos_repo, "update", AsyncMock(return_value=updated)) as update,
-        patch.object(todos_crud.home_service, "invalidate_home_cache", AsyncMock()),
     ):
         result = await todos_crud.update_todo(session, user, uuid4(), {"due_at": None})
     assert result is updated
@@ -126,7 +124,6 @@ async def test_create_todo_unique_violation_returns_existing():
             "get_open_dated_duplicate",
             AsyncMock(return_value=existing),
         ) as lookup,
-        patch.object(todos_crud.home_service, "invalidate_home_cache", AsyncMock()) as invalidate,
     ):
         item = await todos_crud.create_todo(
             session,
@@ -138,7 +135,6 @@ async def test_create_todo_unique_violation_returns_existing():
         )
     assert item is existing
     lookup.assert_awaited_once()
-    invalidate.assert_not_awaited()
     session.rollback.assert_awaited_once()
 
 
@@ -579,11 +575,6 @@ async def test_materialize_reminder_fences_creates_todo():
             "create",
             AsyncMock(),
         ) as create_mock,
-        patch.object(
-            home_service,
-            "invalidate_home_cache",
-            AsyncMock(),
-        ) as invalidate_mock,
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -605,7 +596,6 @@ async def test_materialize_reminder_fences_creates_todo():
     assert kwargs["due_at"].tzinfo is not None
     # 3pm ET → 19:00 UTC
     assert kwargs["due_at"].hour == due.hour
-    invalidate_mock.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -620,7 +610,6 @@ async def test_materialize_reminder_fences_respects_user_no_create_request():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock()) as list_mock,
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()) as invalidate_mock,
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -639,7 +628,6 @@ async def test_materialize_reminder_fences_respects_user_no_create_request():
     assert "```reminder" not in updated
     list_mock.assert_not_awaited()
     create_mock.assert_not_awaited()
-    invalidate_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -680,7 +668,6 @@ async def test_materialize_reminder_fence_dates_matching_plain_todo():
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
         patch.object(todos_repo, "update", AsyncMock(return_value=existing)) as update_mock,
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -709,7 +696,6 @@ async def test_materialize_reminder_fence_keeps_same_title_on_another_day():
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
         patch.object(todos_repo, "update", AsyncMock()) as update_mock,
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         _updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -755,7 +741,6 @@ async def test_materialize_reminder_fences_unique_race_returns_existing():
             "get_open_dated_duplicate",
             AsyncMock(return_value=existing),
         ),
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -780,7 +765,6 @@ async def test_materialize_reminder_fences_stores_repeat():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         _updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -800,7 +784,6 @@ async def test_materialize_reminder_fences_creates_plain_todo():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -863,7 +846,6 @@ async def test_add_fence_keeps_a_clock_the_user_stated():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -886,7 +868,6 @@ async def test_materialize_reminder_fences_matches_uppercase_tag():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -986,7 +967,6 @@ async def test_materialize_reminder_fences_accepts_content_naive_iso_and_extra_k
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         _updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -1010,7 +990,6 @@ async def test_materialize_reminder_fences_accepts_z_suffix_and_wrapped_json():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         _updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -1030,7 +1009,6 @@ async def test_materialize_reminder_from_explicit_user_text_when_fence_missing()
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -1057,7 +1035,6 @@ async def test_invalid_reminder_fence_falls_back_to_explicit_user_text():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -1145,7 +1122,6 @@ async def test_clock_reply_saves_tomorrow_not_a_past_today():
         patch("app.modules.todos.spoken_add._now", return_value=when),
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -1180,7 +1156,6 @@ async def _clock_reply(user_text: str, assistant_text: str) -> tuple[str, int, A
         patch("app.modules.todos.spoken_add._now", return_value=when),
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             AsyncMock(),
@@ -1243,7 +1218,6 @@ async def test_clock_reply_keeps_the_repeat_from_the_earlier_add():
         patch("app.modules.todos.spoken_add._now", return_value=when),
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -1303,7 +1277,6 @@ async def test_materialize_reminder_fences_caps_creates_per_reply():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock(side_effect=_create)) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -1325,7 +1298,6 @@ async def test_materialize_reminder_fences_deletes_and_confirms():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
         patch.object(todos_repo, "delete_by_id", AsyncMock(return_value=True)) as delete_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -1369,7 +1341,6 @@ async def test_spoken_mark_done_checks_and_ignores_a_delete_fence():
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
         patch.object(todos_repo, "update", AsyncMock(return_value=existing)) as update_mock,
         patch.object(todos_repo, "delete_by_id", AsyncMock()) as delete_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -1393,7 +1364,6 @@ async def test_spoken_reopen_unchecks_and_does_not_create():
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
         patch.object(todos_repo, "update", AsyncMock(return_value=existing)) as update_mock,
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -1440,7 +1410,6 @@ async def test_spoken_move_sets_the_clock_and_repeat():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
         patch.object(todos_repo, "update", AsyncMock(return_value=existing)) as update_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
         patch("app.modules.todos.spoken_change._now", return_value=when),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
@@ -1464,7 +1433,6 @@ async def test_spoken_delete_removes_the_named_reminder():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
         patch.object(todos_repo, "delete_by_id", AsyncMock(return_value=True)) as delete_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -1507,7 +1475,6 @@ async def test_make_it_everyday_sets_daily_and_keeps_the_clock():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[read])),
         patch.object(todos_repo, "update", AsyncMock(return_value=read)) as update_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -1536,7 +1503,6 @@ async def test_make_it_weekly_replaces_the_repeat_only():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[read])),
         patch.object(todos_repo, "update", AsyncMock(return_value=read)) as update_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -1582,7 +1548,6 @@ async def test_make_it_changes_am_and_pm_on_the_same_day(
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[read])),
         patch.object(todos_repo, "update", AsyncMock(return_value=read)) as update_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
         patch("app.modules.todos.spoken_change._now", return_value=when),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
@@ -1612,7 +1577,6 @@ async def test_put_it_in_health_changes_the_topic():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[read])),
         patch.object(todos_repo, "update", AsyncMock(return_value=read)) as update_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -1645,7 +1609,6 @@ async def test_mark_it_done_checks_the_latest_reminder_only():
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[bakery, read])),
         patch.object(todos_repo, "update", AsyncMock(return_value=read)) as update_mock,
         patch.object(todos_repo, "delete_by_id", AsyncMock()) as delete_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -1680,7 +1643,6 @@ async def test_reopen_it_unchecks_the_latest_done_reminder():
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[bakery, read])),
         patch.object(todos_repo, "update", AsyncMock(return_value=read)) as update_mock,
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -1713,7 +1675,6 @@ async def test_delete_it_removes_the_latest_reminder():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[bakery, read])),
         patch.object(todos_repo, "delete_by_id", AsyncMock(return_value=True)) as delete_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -1748,7 +1709,6 @@ async def test_move_it_uses_the_latest_reminder():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[bakery, read])),
         patch.object(todos_repo, "update", AsyncMock(return_value=read)) as update_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
         patch("app.modules.todos.spoken_change._now", return_value=when),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
@@ -1872,7 +1832,6 @@ async def test_weekdays_reminder_saves_the_morning_clock():
         patch("app.modules.todos.spoken_add._now", return_value=when),
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
@@ -1924,7 +1883,6 @@ async def test_materialize_reminder_fences_set_due_confirms():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
         patch.object(todos_repo, "update", AsyncMock(return_value=existing)),
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -1949,7 +1907,6 @@ async def test_materialize_reminder_fences_set_due_forwards_repeat():
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
         patch.object(todos_repo, "update", AsyncMock(return_value=existing)) as update_mock,
-        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
     ):
         updated, applied = await todos_service.materialize_reminder_fences(
             session,
@@ -2236,7 +2193,6 @@ async def test_update_todo_clears_sent_markers_when_due_changes():
 
     with (
         patch.object(todos_crud.todos_repo, "get_by_id", AsyncMock(return_value=item)),
-        patch.object(todos_crud.home_service, "invalidate_home_cache", AsyncMock()),
     ):
         await todos_crud.update_todo(session, user, uuid4(), {"due_at": new_due})
 

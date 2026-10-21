@@ -55,11 +55,10 @@ def memory_services():
         ),
         patch.object(memory_service, "release_memory_write_lock", AsyncMock()),
         patch.object(memory_service, "invalidate_memory_block", AsyncMock()) as invalidate_memory,
-        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()) as invalidate_home,
         # SQLite has no pgvector; the chunk purge is covered against Postgres.
         patch("app.modules.memory.erase.purge_fact_chunks", AsyncMock()),
     ):
-        yield invalidate_memory, invalidate_home
+        yield invalidate_memory
 
 
 def _memory(sync_session):
@@ -117,10 +116,10 @@ async def test_manual_memory_change_invalidates_home_after_commit(
         else:
             await memory_service.delete_memory(session, owner_id, row.id)
 
-    _, invalidate_home = memory_services
+    invalidate_memory = memory_services
     # An edit first ends its read, before the embedding call.
     assert session.commit.await_count == (2 if operation == "edit" else 1)
-    invalidate_home.assert_awaited_once_with(owner_id)
+    invalidate_memory.assert_awaited_once_with(owner_id)
     # Stamped in the same commit, so the history scan cannot bring the old text back.
     edited_at = sync_session.execute(
         text("SELECT memory_edited_at FROM users WHERE id = :id"), {"id": owner_id.hex}

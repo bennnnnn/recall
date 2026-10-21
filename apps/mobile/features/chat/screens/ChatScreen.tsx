@@ -22,7 +22,6 @@ import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftP
 import { useAuth } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
 import { useDrawer } from "@/contexts/DrawerContext";
-import { useHomeRefreshOnChatFocus } from "@/features/home/hooks/useHomeRefreshOnChatFocus";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { useChatComposerState } from "@/features/chat/hooks/useChatComposerState";
@@ -60,7 +59,6 @@ function ChatScreen() {
   const [chatId, setChatId] = useState<string | null>(null);
   const draft = useDraftChat({ token, chatId });
   const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
-  useHomeRefreshOnChatFocus(routeChatId, chatId);
   const { chatError, handleChatError, handleStreamBusy, dismissChatError, handleRejectedSendChange } =
     useChatErrorHandlers(isPaid);
   const activeChatId = draft.activeChatId;

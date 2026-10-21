@@ -303,7 +303,6 @@ async def test_consolidate_stores_embedding_when_vector_present(embedding_write)
             AsyncMock(return_value=[keep.id]),
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()),
         patch(EMBED_MANY, embed_each(AsyncMock(return_value=vector))),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)

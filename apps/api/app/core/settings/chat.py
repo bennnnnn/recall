@@ -18,7 +18,6 @@ class ChatContextSettings(BaseModel):
     chat_history_rag_search_window: int = 2000
     recent_message_window: int = 20  # hard cap on verbatim messages
     link_preview_cache_ttl: int = 3600
-    home_cache_ttl: int = 120
     todo_inject_limit: int = 100
     # A reminder change from chat is a card the user taps to save (or mark
     # done, move, delete). Off: chat writes to-dos as soon as it reads them.

@@ -33,7 +33,6 @@ async def test_apply_memory_rows_commits_once_after_repository_writes():
 
     with (
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()),
     ):
         await apply_memory_section_rows(
             Settings(),
@@ -59,11 +58,9 @@ async def test_apply_memory_rows_rolls_back_when_post_write_read_fails():
         return _SessionContext(session)
 
     invalidate_memory = AsyncMock()
-    invalidate_home = AsyncMock()
 
     with (
         patch("app.modules.memory.invalidate_memory_block", invalidate_memory),
-        patch("app.modules.home.service.invalidate_home_cache", invalidate_home),
     ):
         with pytest.raises(RuntimeError, match="reload failed"):
             await apply_memory_section_rows(
@@ -78,7 +75,6 @@ async def test_apply_memory_rows_rolls_back_when_post_write_read_fails():
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
     invalidate_memory.assert_not_awaited()
-    invalidate_home.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -110,7 +106,6 @@ async def test_apply_memory_facts_bounds_embed_concurrency_and_backfill():
     with (
         patch("app.gateways.embedding_gateway.embed_text", embed),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()),
     ):
         await apply_memory_facts(
             Settings(embedding_concurrency=3, memory_embed_backfill_per_pass=4),
@@ -146,7 +141,6 @@ async def test_apply_memory_facts_stamps_a_hand_edit_in_the_same_commit(op, manu
 
     with (
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()),
     ):
         await apply_memory_facts(
             Settings(),

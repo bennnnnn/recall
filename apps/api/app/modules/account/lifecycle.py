@@ -22,7 +22,6 @@ from app.modules.account import tokens as tokens_service
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan as plan_service
 from app.modules.chat import service as chats_service
-from app.modules.home import service as home_service
 from app.repositories import push_tokens as push_tokens_repo
 from app.repositories import users as users_repo
 
@@ -76,7 +75,6 @@ async def update_account(
         updated = await users_repo.update(session, user, **fields)
     if memory_toggled:
         await memory_service.invalidate_memory_block(user.id)
-    await home_service.invalidate_home_cache(user.id)
     await user_cache.bump_generation(get_redis_client(), user.id)
     return updated
 
@@ -213,7 +211,7 @@ _PURGE_BATCH = 500
 async def purge_user_redis_keys(redis: Redis, user_id: UUID) -> int:
     """Delete every Redis key that names a deleted user. Returns the count.
 
-    Memory and home caches, reminder and settings cards, web-search and voice
+    Memory caches, reminder and settings cards, web-search and voice
     lookups, usage counters and history-scan state are all keyed by user id.
     One SCAN pass covers them, including key families added later. Runs in
     the worker (``storage_sweep``): a full keyspace scan does not belong on

@@ -152,21 +152,6 @@ export type HomeUrgentTodo = {
   minutes_until: number;
 };
 
-type HomeStarter = {
-  id?: string;
-  text: string;
-  prompt: string;
-  kind: "time" | "memory" | "chat" | "general" | "todo";
-  chat_id?: string;
-};
-
-export type HomeScreen = {
-  greeting: string;
-  subtitle: string | null;
-  urgent_todos: HomeUrgentTodo[];
-  starters: HomeStarter[];
-};
-
 export type ChatList = {
   pinned: Chat[];
   today: Chat[];

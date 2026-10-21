@@ -19,7 +19,6 @@ from app.modules.chat import api as chats
 from app.modules.chat import stream_api as chat_stream
 from app.modules.chat import ws_api as ws
 from app.modules.chemistry import api as chemistry_api
-from app.modules.home import api as home
 from app.modules.images import api as images
 from app.modules.link_preview import api as link_preview
 from app.modules.math import api as math_api
@@ -111,7 +110,6 @@ def create_app() -> FastAPI:
     app.include_router(webhooks.router)
     app.include_router(webhooks.plans_router)
     app.include_router(users.router)
-    app.include_router(home.router)
     app.include_router(link_preview.router)
     app.include_router(chats.router)
     app.include_router(chat_stream.router)

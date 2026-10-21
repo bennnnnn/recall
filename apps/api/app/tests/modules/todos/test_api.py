@@ -49,8 +49,7 @@ def page_sql():
                 push_notifications_enabled=True,
                 push_reminders_enabled=True,
             )
-            with patch("app.modules.home.service.invalidate_home_cache", AsyncMock()) as invalidate:
-                yield sync_session, session, user, invalidate
+            yield sync_session, session, user
     finally:
         engine.dispose()
         for column, original_type in zip(columns, original_types, strict=True):
@@ -84,7 +83,7 @@ def _seed(sync_session, owner, *, count=1001):
 async def test_traversal_keeps_all_1001_rows_when_mutable_fields_cross_boundary(
     page_sql, field, direction
 ):
-    sync_session, session, user, _ = page_sql
+    sync_session, session, user = page_sql
     rows = _seed(sync_session, user.id)
     if direction == "unseen_earlier" and field == "checked":
         for row in rows:
@@ -105,7 +104,7 @@ async def test_traversal_keeps_all_1001_rows_when_mutable_fields_cross_boundary(
 
 @pytest.mark.asyncio
 async def test_equal_timestamps_and_foreign_cursor_remain_owner_scoped(page_sql):
-    sync_session, session, user, _ = page_sql
+    sync_session, session, user = page_sql
     rows = _seed(sync_session, user.id, count=4)
     foreign_id = rows[1].id
     rows[1].user_id = uuid4()
@@ -122,7 +121,7 @@ async def test_equal_timestamps_and_foreign_cursor_remain_owner_scoped(page_sql)
 
 @pytest.mark.asyncio
 async def test_deleted_cursor_and_seen_rows_do_not_skip_remaining_rows(page_sql):
-    sync_session, session, user, _ = page_sql
+    sync_session, session, user = page_sql
     rows = _seed(sync_session, user.id, count=4)
     first, cursor = await crud.list_todos_page(session, user, limit=2)
     sync_session.execute(delete(TodoItem).where(TodoItem.id.in_([row.id for row in first])))
@@ -135,7 +134,7 @@ async def test_deleted_cursor_and_seen_rows_do_not_skip_remaining_rows(page_sql)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("change", ["delete", "owner"])
 async def test_catchup_reloads_original_ids_and_keeps_empty_page_cursor(page_sql, change):
-    sync_session, session, user, _ = page_sql
+    sync_session, session, user = page_sql
     rows = _seed(sync_session, user.id, count=3)
     user.push_notifications_enabled = False
     rows[0].recurrence_rule = "daily"
@@ -171,7 +170,7 @@ async def test_catchup_reloads_original_ids_and_keeps_empty_page_cursor(page_sql
     [(True, True), (False, True), (True, False)],
 )
 async def test_page_keeps_existing_delivery_owner_policy(page_sql, push_enabled, reminders_enabled):
-    sync_session, session, user, invalidate = page_sql
+    sync_session, session, user = page_sql
     row = _seed(sync_session, user.id, count=1)[0]
     due = datetime.now(UTC) - timedelta(days=2)
     row.due_at = due
@@ -186,17 +185,15 @@ async def test_page_keeps_existing_delivery_owner_policy(page_sql, push_enabled,
     if push_enabled and reminders_enabled:
         assert items[0].due_at == due
         session.commit.assert_not_awaited()
-        invalidate.assert_not_awaited()
     else:
         assert items[0].due_at > datetime.now(UTC)
         sync_session.refresh(row)
         assert items[0].due_at == row.due_at
-        invalidate.assert_awaited_once_with(user.id)
 
 
 @pytest.mark.asyncio
 async def test_catchup_page_returns_concurrent_reschedule_without_overwriting_it(page_sql):
-    sync_session, session, user, _ = page_sql
+    sync_session, session, user = page_sql
     row = _seed(sync_session, user.id, count=1)[0]
     row.due_at = datetime.now(UTC) - timedelta(days=2)
     row.recurrence_rule = "daily"
@@ -222,7 +219,7 @@ async def test_catchup_page_returns_concurrent_reschedule_without_overwriting_it
 
 @pytest.fixture
 async def page_client(page_sql):
-    _, session, user, _ = page_sql
+    _, session, user = page_sql
     app = FastAPI()
     app.include_router(todos_router.router)
     app.dependency_overrides[todos_router.get_current_user] = lambda: user
@@ -233,7 +230,7 @@ async def page_client(page_sql):
 
 @pytest.mark.asyncio
 async def test_page_route_serializes_cursor(page_sql, page_client):
-    sync_session, _, user, _ = page_sql
+    sync_session, _, user = page_sql
     rows = _seed(sync_session, user.id, count=3)
     response = await page_client.get("/todos/page", params={"limit": 2})
     assert response.status_code == 200

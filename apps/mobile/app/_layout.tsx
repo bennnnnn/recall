@@ -14,7 +14,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AiConsentRedirect } from "@/features/auth/components/AiConsentRedirect";
 import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
-import { HomeProvider } from "@/features/home/context/HomeContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
 import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
 import { TodosProvider } from "@/features/todos/context/TodosContext";
@@ -132,14 +131,12 @@ export default function RootLayout() {
           <AuthProvider>
             <ModelsProvider>
               <TodosProvider>
-                <HomeProvider>
-                  <NetworkProvider>
-                    <PushNotificationBootstrap />
-                    <AiConsentRedirect />
-                    <RootNavigator />
-                    <DialogHost />
-                  </NetworkProvider>
-                </HomeProvider>
+                <NetworkProvider>
+                  <PushNotificationBootstrap />
+                  <AiConsentRedirect />
+                  <RootNavigator />
+                  <DialogHost />
+                </NetworkProvider>
               </TodosProvider>
             </ModelsProvider>
           </AuthProvider>

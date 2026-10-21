@@ -22,7 +22,6 @@ from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.account.settings_intent import SettingsChange, SettingsField
 from app.modules.billing import plan as plan_service
-from app.modules.home import service as home_service
 from app.repositories import users as users_repo
 from app.services.response_tone import TONE_IDS
 
@@ -351,7 +350,6 @@ async def confirm_proposal(
             updated = await users_repo.update(session, user, **fields)
             if memory_toggled:
                 await memory_service.invalidate_memory_block(user.id)
-            await home_service.invalidate_home_cache(user.id)
             await user_cache.bump_generation(redis, user.id)
 
         return {

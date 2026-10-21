@@ -11,9 +11,6 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("@/contexts/ComposerDraftContext", () => ({
   useComposerDraftActivity: () => mockComposerActive,
 }));
-jest.mock("@/features/home/context/HomeContext", () => ({
-  useHome: () => ({ screen: { greeting: "Good morning" } }),
-}));
 jest.mock("@/features/todos/context/TodosContext", () => ({
   useTodos: () => ({
     todos: [],
@@ -24,7 +21,7 @@ jest.mock("@/features/todos/context/TodosContext", () => ({
   }),
 }));
 jest.mock("@/features/home/model/homeWelcome", () => ({
-  instantHomePlaceholder: () => ({ greeting: "Hello" }),
+  homeGreeting: () => "Good morning",
 }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/features/todos/model/dueDate", () => ({

@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.gateways import embedding_gateway
 from app.models.orm import Memory
-from app.modules.home import service as home_service
 from app.modules.memory import repository as memories_repo
 
 logger = logging.getLogger(__name__)
@@ -17,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 async def _invalidate_caches(seams: Any, user_id: UUID) -> None:
     await seams.invalidate_memory_block(user_id)
-    await home_service.invalidate_home_cache(user_id)
 
 
 @asynccontextmanager

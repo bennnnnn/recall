@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -45,8 +45,7 @@ def schedule_sql():
         session.get.side_effect = lambda model, ident: (
             SimpleNamespace(timezone="UTC") if model is User else sync_session.get(model, ident)
         )
-        with patch("app.modules.home.service.invalidate_home_cache", AsyncMock()) as invalidate:
-            yield sync_session, session, invalidate
+        yield sync_session, session
     engine.dispose()
     for column, original_type in zip(columns, original_types, strict=True):
         column.type = original_type
@@ -72,7 +71,7 @@ def _todo(sync_session, *, recurring=False, due=None):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path", ["patch_repeat", "chat", "bulk"])
 async def test_effective_reschedule_clears_delivery_markers(schedule_sql, path):
-    sync_session, session, _ = schedule_sql
+    sync_session, session = schedule_sql
     due = datetime.now(UTC).replace(hour=8, minute=0, second=0, microsecond=0)
     row = _todo(sync_session, due=due if path == "bulk" else None)
     user = SimpleNamespace(id=row.user_id, timezone="UTC")
@@ -107,7 +106,7 @@ async def test_effective_reschedule_clears_delivery_markers(schedule_sql, path):
 
 @pytest.mark.asyncio
 async def test_equivalent_weekday_due_keeps_sent_markers(schedule_sql):
-    sync_session, session, _ = schedule_sql
+    sync_session, session = schedule_sql
     row = _todo(sync_session, due=datetime(2026, 9, 7, 8, tzinfo=UTC))
     row.recurrence_rule = "weekdays"
     sync_session.commit()
@@ -124,7 +123,7 @@ async def test_equivalent_weekday_due_keeps_sent_markers(schedule_sql):
 
 @pytest.mark.asyncio
 async def test_push_enabled_list_does_not_skip_undelivered_occurrence(schedule_sql):
-    sync_session, session, _ = schedule_sql
+    sync_session, session = schedule_sql
     due = datetime.now(UTC) - timedelta(minutes=1)
     row = _todo(sync_session, recurring=True, due=due)
     row.notification_sent_at = None
@@ -144,7 +143,7 @@ async def test_push_enabled_list_does_not_skip_undelivered_occurrence(schedule_s
 
 @pytest.mark.asyncio
 async def test_read_catchup_cannot_overwrite_reschedule(schedule_sql):
-    sync_session, session, _ = schedule_sql
+    sync_session, session = schedule_sql
     now = datetime(2026, 9, 4, 12, tzinfo=UTC)
     row = _todo(sync_session, recurring=True, due=now - timedelta(days=1))
     manual_due = now + timedelta(days=10)
@@ -164,7 +163,7 @@ async def test_read_catchup_cannot_overwrite_reschedule(schedule_sql):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("change", ["reschedule", "complete", "repeat"])
 async def test_stale_push_does_not_mark_changed_schedule_sent(schedule_sql, change):
-    sync_session, session, _ = schedule_sql
+    sync_session, session = schedule_sql
     row = _todo(sync_session)
     row.notification_sent_at = None
     sync_session.commit()
@@ -204,7 +203,7 @@ async def test_stale_push_does_not_mark_changed_schedule_sent(schedule_sql, chan
 
 @pytest.mark.asyncio
 async def test_early_recurring_push_advances_from_delivered_occurrence(schedule_sql):
-    sync_session, session, _ = schedule_sql
+    sync_session, session = schedule_sql
     row = _todo(sync_session, recurring=True)
     row.notification_sent_at = None
     sync_session.commit()
@@ -222,7 +221,7 @@ async def test_early_recurring_push_advances_from_delivered_occurrence(schedule_
 
 @pytest.mark.asyncio
 async def test_local_reminder_list_advances_and_returns_persisted_schedule(schedule_sql):
-    sync_session, session, invalidate = schedule_sql
+    sync_session, session = schedule_sql
     row = _todo(sync_session, recurring=True, due=datetime.now(UTC) - timedelta(days=4))
     items, _cursor = await crud.list_todos_page(
         session,
@@ -232,14 +231,13 @@ async def test_local_reminder_list_advances_and_returns_persisted_schedule(sched
     sync_session.refresh(row)
     assert items[0].due_at == row.due_at
     assert row.notification_sent_at is None
-    invalidate.assert_awaited_once_with(row.user_id)
 
 
 @pytest.mark.asyncio
 async def test_schedule_pages_are_owned_and_stable_for_equal_timestamps(schedule_sql):
     from uuid import UUID
 
-    sync_session, session, _ = schedule_sql
+    sync_session, session = schedule_sql
     owner_id = uuid4()
     created = datetime(2026, 9, 4, tzinfo=UTC)
     for number in [3, 2, 1, 0]:
@@ -261,7 +259,7 @@ async def test_schedule_pages_are_owned_and_stable_for_equal_timestamps(schedule
 
 @pytest.mark.asyncio
 async def test_chat_weekday_reschedule_uses_effective_monday_due(schedule_sql):
-    sync_session, session, _ = schedule_sql
+    sync_session, session = schedule_sql
     row = _todo(sync_session, due=datetime(2026, 9, 7, 8, tzinfo=UTC))
     row.recurrence_rule = "weekdays"
     sync_session.commit()
