@@ -62,7 +62,7 @@ _TokenStream = Callable[
 async def require_chat_rate_limit(user: User = Depends(get_current_user)) -> Redis:
     """Throttle chat actions per user, then hand back the Redis handle.
 
-    The same check guards all three streaming routes (and ws.py's own
+    The same check guards all three streaming routes (and ws_api.py's own
     per-message limiter); as a dependency it is declared once instead of
     copy-pasted into every new streaming entry point.
     """

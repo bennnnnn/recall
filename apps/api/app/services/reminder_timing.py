@@ -59,10 +59,8 @@ def in_quiet_hours(user: User, now: datetime | None = None) -> bool:
     return minute >= start or minute < end
 
 
-# BUG FIX: reminder_emails.py used to hardcode "Reminder"/"Overdue reminder" in
-# English directly, never localizing it, even though push_notifications.py's
-# equivalent (title) was already locale-aware. Shared here — same reasoning as
-# the helpers above — so push and email can't drift on this either.
+# Push and email title a reminder from this one table (modules/notifications/push.py
+# and reminder_email.py), in the user's language, so the two channels cannot drift.
 _REMINDER_TITLES: dict[str, dict[str, str]] = {
     "en": {"reminder": "Reminder", "overdue": "Overdue reminder"},
     "es": {"reminder": "Recordatorio", "overdue": "Recordatorio atrasado"},

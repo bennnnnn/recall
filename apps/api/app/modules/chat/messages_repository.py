@@ -221,12 +221,9 @@ async def list_range(
 ) -> list[Message]:
     """Oldest-first slice of a chat's messages — used by history compression.
 
-    BUG FIX (was silent): ordering by created_at alone is not a stable sort —
-    two messages created in the same millisecond can be returned in either
-    order across calls, so offset/limit pagination could skip or double-count
-    a row at a page boundary. Other message-ordering queries in this repo
-    already tuple-order by (created_at, id) for exactly this reason; this one
-    didn't. Don't drop the id tiebreaker again.
+    Ordered by ``(created_at, id)``: two messages created in the same millisecond come
+    back in either order by time alone, and offset paging would then skip or repeat a
+    row at a page boundary. The id is the tiebreaker every message query here uses.
     """
     if limit <= 0:
         return []

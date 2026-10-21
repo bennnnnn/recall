@@ -81,8 +81,8 @@ def validate_production_settings(settings: Settings) -> None:
     if settings.environment == "development":
         # Don't fully fail-closed in dev, but surface dangerous combos so a
         # dev config accidentally exposed publicly is visible in the logs.
-        # The hard protection is the loopback guard on /auth/dev (see
-        # routers/auth.py) — this warning is defense-in-depth visibility.
+        # The hard protection is the loopback guard on /auth/dev (core/dev_guards.py,
+        # applied in modules/account/api.py) — this warning is defense-in-depth visibility.
         if settings.dev_auth_enabled and settings.dev_auth_allow_remote:
             logger.warning(
                 "DEV_AUTH_ALLOW_REMOTE=true with dev auth enabled — /auth/dev "

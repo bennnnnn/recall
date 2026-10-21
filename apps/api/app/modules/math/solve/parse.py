@@ -127,7 +127,7 @@ _LONG_EXPONENT = re.compile(r"\d[eE][+-]?\d{4}")
 
 
 def _reject_unsafe_expr(normalized: str) -> None:
-    """BUG FIX (was a live RCE): parse_expr/sympify evaluate the input via
+    """Refuse what could run code: parse_expr/sympify evaluate the input via
     Python's eval() internally. Restricting local_dict to declared variable
     names (as this module already did) only stops BARE names from resolving
     to something dangerous via auto_symbol — it does nothing to stop

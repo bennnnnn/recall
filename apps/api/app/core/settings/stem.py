@@ -26,7 +26,7 @@ class StemSettings(BaseModel):
     # pool (core/readings.py). Normal messages read in milliseconds; past this the turn
     # reads no subject and the model answers without a verified solve.
     subject_read_timeout_seconds: float = 3.0
-    # math_image_extract.py's vision-chat call is a network round trip, not
+    # modules/math/image_extract.py's vision-chat call is a network round trip, not
     # local synchronous SymPy work — reusing math_solve_timeout_seconds's 5s
     # budget (sized for CPU-bound solve/integrate) cut off OCR calls that
     # were still legitimately in flight.

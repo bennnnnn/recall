@@ -192,12 +192,9 @@ def rejected_equality_chain(text: str) -> bool:
 def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
     """Best-effort extraction of every `lhs=rhs` clause in the text.
 
-    BUG FIX (was the most severe correctness bug found in the math system
-    audit): this used to be a single re.search, so "solve x+y=5, x-y=1"
-    silently extracted only the first clause and answered with the same
-    "verified, do NOT recompute" confidence as a fully correct response.
-    Walking every ``=`` here returns every clause; callers decide whether 1
-    match means a single equation or 2+ means a system.
+    Every ``=`` is walked, so "solve x+y=5, x-y=1" returns both clauses (reading only
+    the first would answer half a system with full confidence); callers decide whether
+    one match is an equation and two or more a system.
     A chained equality returns no pairs; ``rejected_equality_chain`` tells
     that refusal apart from text that simply has no equation.
     """

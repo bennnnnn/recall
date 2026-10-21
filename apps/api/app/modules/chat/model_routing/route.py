@@ -93,20 +93,13 @@ _FOLLOWUP_OBJECT_TOKENS = frozenset(
 )
 
 _LONG_MESSAGE_CHARS = 800
-# BUG FIX: this used to only match a fixed language allowlist
-# (python/javascript/typescript/rust/go/java/c++/sql), so a bare ``` ```` ```
-# fence with no language tag, or any other language (bash, shell, C, Kotlin,
-# Swift, HTML, CSS, Ruby, PHP, ...), never escalated to the smart tier —
-# real pasted code silently stayed on the cheap model. Match any fence
-# opener (optionally followed by any language token) instead of an allowlist.
+# Any fence opener counts as code, with or without a language tag: an allowlist of
+# languages left a bare fence, or bash, Kotlin or HTML, on the cheap model.
 #
-# SECURITY FIX (CodeQL: polynomial regex on uncontrolled data): the first
-# version of this used `\s*` for the leading whitespace, which overlaps with
-# what `(?:^|\n)` already matches on — a message that's mostly newlines with
-# no closing fence (e.g. thousands of blank lines) let the engine retry the
-# same run of `\n`s from every line-start position, going quadratic. `[ \t]*`
-# can't consume `\n`, so each line's whitespace run is only ever scanned
-# once — linear in input length regardless of how many blank lines it has.
+# The leading whitespace is ``[ \t]*``, not ``\s*``: ``\s`` overlaps the ``\n`` that
+# ``(?:^|\n)`` matches, and a message of thousands of blank lines with no closing fence
+# went quadratic (CodeQL polynomial regex). ``[ \t]*`` cannot eat a newline, so each
+# line is scanned once.
 _CODE_FENCE = re.compile(r"(?:^|\n)[ \t]*```")
 
 

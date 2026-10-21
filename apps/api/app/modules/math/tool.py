@@ -82,14 +82,10 @@ class SympyAdapter:
         """Run synchronous, CPU-bound SymPy work in the bounded subprocess
         pool with a hard timeout + SIGTERM on timeout.
 
-        BUG FIX (was silent): math/tools chat-path callers already wrap
-        every SymPy call this way — its own docstring explains why (solve/
-        integrate/etc. are synchronous and can stall every concurrent chat
-        stream on this worker's single event loop on a pathological
-        expression). This adapter called math_solve functions directly,
-        synchronously, with none of that protection — a hung/expensive
-        expression reaching it via the model-callable "sympy" tool blocked
-        the whole worker with no timeout at all.
+        Through the SymPy pool, with its timeout, as every chat-path SymPy call:
+        solve and integrate are synchronous, and a pathological expression sent through
+        the model-callable "sympy" tool would otherwise stall every stream on this
+        worker's event loop.
 
         The function and args must be picklable (top-level functions + plain
         data) so they can cross the subprocess boundary.

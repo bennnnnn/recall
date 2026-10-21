@@ -69,18 +69,13 @@ type ScanState = {
   prevLineSafe: boolean;
   inBlankRun: boolean;
   /**
-   * BUG FIX: a closed rich block (fenced code, ```math, or $$ display math)
-   * sitting in the pending segment used to wait for MIN_SETTLED_CHUNK_CHARS
-   * like plain prose before it got cut into its own once-mounted chunk. A
-   * short step-by-step math reply (each step's fence is well under 320
-   * chars) could hold several ALREADY-CLOSED math blocks in that pending
-   * segment for many streaming flushes in a row — and since the pending
-   * segment re-parses from scratch on every flush (react-native-markdown-
-   * display re-keys its whole output per parse, per this file's own header
-   * comment), every KaTeX WebView inside it unmounted and remounted on every
-   * flush: a real, repeated blank-then-repaint flicker, not settled prose's
-   * merely-wasted re-parse cost. A rich block forces an eager cut at the
-   * next safe boundary regardless of size, so it only ever renders once.
+   * A closed rich block (fenced code, ```math, or $$ display math) is cut into its
+   * own once-mounted chunk at the next safe boundary, whatever its size, rather than
+   * waiting for MIN_SETTLED_CHUNK_CHARS like prose. The pending segment re-parses on
+   * every flush (react-native-markdown-display re-keys its output per parse, as this
+   * file's header says), so a short step-by-step maths reply whose closed blocks waited
+   * there would unmount and remount every KaTeX WebView on every flush: a blank-then-
+   * repaint flicker.
    */
   hasRichBlockSinceChunkStart: boolean;
 };

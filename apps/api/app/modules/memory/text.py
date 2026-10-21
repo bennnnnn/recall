@@ -292,7 +292,7 @@ def embedding_text_hash(text: str) -> str:
     """Hash of the exact text an embedding was computed from — stored
     alongside the vector so a later pass can tell "stale" from "current"
     without needing the specific prior-snapshot text that triggered this
-    particular embed call. See migration 0057 and its BUG FIX docstring."""
+    particular embed call. See migration 0057's docstring."""
     return hashlib.sha256(text.encode()).hexdigest()
 
 

@@ -78,11 +78,9 @@ async def generate_via_openrouter(
                 logger.warning("OpenRouter image generation returned invalid b64_json")
                 return None
             if raw:
-                # BUG FIX: every other attachment path (routers/attachments.py)
-                # enforces MAX_ATTACHMENT_SIZE on both presign and the actual
-                # bytes. Generated images skipped that cap entirely — an
-                # oversized provider response would get written straight to
-                # storage/DB with no guard.
+                # Every attachment is held to MAX_ATTACHMENT_SIZE, at presign and on its
+                # bytes (modules/attachments/upload.py); a generated image is too, or an
+                # oversized provider response would reach storage unchecked.
                 if len(raw) > MAX_ATTACHMENT_SIZE:
                     logger.warning(
                         "OpenRouter image generation b64_json exceeds size cap model=%s bytes=%s",

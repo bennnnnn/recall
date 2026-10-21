@@ -338,11 +338,9 @@ def _checked_image(generated: tuple[bytes, str] | None) -> tuple[bytes, str]:
         raise ImageGenerationError("Could not generate image", status_code=502)
     image_bytes, content_type = generated
     content_type = normalize_content_type(content_type)
-    # BUG FIX: last-line-of-defense size check, matching the presign +
-    # actual-bytes double-check every normal attachment upload gets in
-    # routers/attachments.py. The gateway already rejects an oversized
-    # provider response, but this keeps the invariant enforced here too
-    # rather than trusting it was applied upstream.
+    # The last check on size, as every upload gets at presign and on its bytes
+    # (modules/attachments/upload.py). The gateway already rejects an oversized
+    # response; this keeps the invariant here rather than trusting it upstream.
     if len(image_bytes) > MAX_ATTACHMENT_SIZE:
         raise ImageGenerationError(
             "Generated image exceeds the maximum allowed size",

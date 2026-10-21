@@ -1,6 +1,6 @@
 """Reference-photo lookup — search + SSRF-safe mirror + chat persistence.
 
-Separate product path from ``image_generation.py`` (AI creation). Finds a
+Separate product path from ``generation.py`` (AI creation). Finds a
 real photo via Tavily image search, mirrors the bytes into Recall's own
 storage (SSRF-safe fetch, size/type validated exactly like any other
 attachment upload), and attaches it to the chat as an ``[Image: …]`` marker

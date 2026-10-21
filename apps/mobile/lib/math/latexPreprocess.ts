@@ -234,7 +234,7 @@ export function preprocessLatex(latex: string): string {
   );
   s = s.replace(/\\\{/g, NATIVE_LITERAL_LEFT_BRACE_MARKER);
   s = s.replace(/\\\}/g, NATIVE_LITERAL_RIGHT_BRACE_MARKER);
-  // Undo markdownPreprocess.ts's PROTECTED_ESCAPE_MARKER substitution first,
+  // Undo lib/markdown/preprocess.ts's PROTECTED_ESCAPE_MARKER substitution first,
   // before any command table below runs — see the marker's own doc comment.
   s = rewriteSolutionSeparatorBars(s);
   // OCR / models often emit Unicode supers/subs (`x²`, `a₁₀`) instead of

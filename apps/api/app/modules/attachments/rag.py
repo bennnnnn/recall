@@ -335,12 +335,9 @@ async def retrieve_for_prompt(
     if settings.attachment_rag_min_similarity > 0:
         max_distance = 1.0 - settings.attachment_rag_min_similarity
 
-    # BUG FIX (was silent): a DB/pgvector-level error here (unlike an
-    # embedding-gateway failure, already handled above via the empty-vector
-    # check) had no catch anywhere in this call chain, so it propagated all
-    # the way up and failed the whole chat turn instead of just proceeding
-    # without attachment context — RAG is best-effort background context,
-    # same as memory and todos, and must degrade the same way.
+    # A database or pgvector error here costs the turn its attachment context, never the
+    # turn: RAG is best-effort context, like memory and to-dos. (A failed embedding is
+    # the empty vector checked above.)
     filenames: dict[UUID, str] = {}
     loaded_files: list[Attachment] = []
     try:
