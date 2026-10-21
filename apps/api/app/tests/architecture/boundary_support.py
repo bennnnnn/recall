@@ -91,6 +91,8 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.services.auth",
     "app.services.calendar",
     "app.services.calendar_nudges",
+    # Single-owner root files moved to their owner (code-health audit ARCH-03).
+    "app.services.context_window",
     "app.services.chat",
     "app.services.chats",
     "app.services.chemistry",
@@ -112,14 +114,19 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.services.mcp.sympy_adapter",
     "app.services.mcp.web_search_adapter",
     "app.services.memory",
+    "app.services.mermaid_sanitize",
     "app.services.notifications",
     "app.services.office_text",
+    "app.services.part_answers",
     "app.services.physics",
     "app.services.plan",
     "app.services.product_analytics",
+    "app.services.prompt_inject",
     "app.services.profile",
     # Model routing is chat's (``modules/chat/model_routing``, code-health audit ARCH-02).
     "app.services.rate_problems",
+    "app.services.recurring_pay",
+    "app.services.reply_labels",
     "app.services.revenuecat_webhook",
     "app.services.routing",
     "app.services.routing_physics",
@@ -132,12 +139,14 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.services.suggestion_generation",
     "app.services.sympy_executor",
     "app.services.thinking_effort",
+    "app.services.topic",
     "app.services.todos",
     "app.services.tokens",
     "app.services.tool_loop",
     "app.services.transcript_validation",
     "app.services.web_search",
     "app.services.web_session",
+    "app.services.working_check",
 )
 
 

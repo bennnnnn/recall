@@ -15,14 +15,14 @@ from uuid import UUID
 from app.core.config import Settings
 from app.models.orm import Chat
 from app.modules import todos as todos_service
-from app.modules.chat.prompt_context import _load_unsummarized_gap
-from app.modules.math.followup import readable_standalone_answer
-from app.services.answer_fence import answer_fence_value
-from app.services.context_window import (
+from app.modules.chat.context_window import (
     estimate_tokens,
     select_recent_window,
     trim_message_for_summary,
 )
+from app.modules.chat.prompt_context import _load_unsummarized_gap
+from app.modules.math.followup import readable_standalone_answer
+from app.services.answer_fence import answer_fence_value
 from app.services.md_fence_scan import map_closed_fences, strip_closed_fences
 from app.services.prompt_safety import wrap_persisted_attachment_excerpts
 

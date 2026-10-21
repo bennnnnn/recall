@@ -13,8 +13,8 @@ from app.core.config import Settings
 from app.models.orm import Chat, Message
 from app.models.schemas import ChatOut, SearchResultItem
 from app.modules.chat import service as chats_service
+from app.modules.chat import titles as topic
 from app.repositories import chats as chats_repo
-from app.services import topic
 
 
 @pytest.fixture
@@ -55,9 +55,7 @@ async def test_topic_preserves_manual_rename_after_stale_read(metadata_session):
     session.__aenter__.return_value = session
     with (
         patch.object(topic, "SessionLocal", return_value=session),
-        patch.object(
-            topic.chat_titles, "generate_title", AsyncMock(return_value="Generated title")
-        ),
+        patch.object(topic, "generate_title", AsyncMock(return_value="Generated title")),
     ):
         applied = await topic.generate_chat_title(
             Settings(), chat_id, "User question", "Assistant answer", user_id=owner_id

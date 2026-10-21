@@ -7,10 +7,10 @@ this to see the prompt a turn would send.
 from __future__ import annotations
 
 from app.core.config import Settings
+from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools import prompt as math_prompt
 from app.modules.math.tools.block import VerifiedMathBlock
-from app.services.prompt_inject import inject_before_last_user
 
 
 async def augment_prompt_messages(

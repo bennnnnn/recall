@@ -184,9 +184,9 @@ async def test_prompt_keeps_the_message_pushed_out_by_the_current_turn():
 @pytest.mark.asyncio
 async def test_continue_after_a_cut_long_reply_keeps_that_reply_whole():
     """A stopped code reply far over the token budget still reaches "continue" verbatim."""
+    from app.modules.chat.context_window import estimate_tokens
     from app.modules.chat.prompt_builder import build_prompt_messages
     from app.modules.chat.prompt_constants import CONTINUE_HINT
-    from app.services.context_window import estimate_tokens
 
     chat_id = uuid4()
     user = MagicMock(

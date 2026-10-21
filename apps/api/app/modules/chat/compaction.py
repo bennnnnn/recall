@@ -11,14 +11,14 @@ from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.core.redis_lock import acquire_lock, release_lock
 from app.models.orm import Chat
-from app.modules.chat.summarize import summarize_conversation
-from app.repositories import messages as messages_repo
-from app.services.context_window import (
+from app.modules.chat.context_window import (
     cap_summary,
     compute_history_split,
     should_run_compression,
     trim_message_for_summary,
 )
+from app.modules.chat.summarize import summarize_conversation
+from app.repositories import messages as messages_repo
 
 logger = logging.getLogger(__name__)
 

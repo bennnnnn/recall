@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.prompt_constants import (
     is_broad_self_question,
@@ -35,7 +36,6 @@ from app.modules.chat.prompt_profile import (
     should_include_profile_email,
 )
 from app.modules.chat.turn_prep import resolve_client_geo
-from app.services.context_window import estimate_tokens
 from app.tests.fakes import FakeSessionCM
 
 

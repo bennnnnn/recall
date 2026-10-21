@@ -16,15 +16,16 @@ _OWNER = uuid4()
 
 @pytest.mark.asyncio
 async def test_topic_service_skips_when_title_none():
-    from app.services import topic as topic_service
+    from app.modules.chat import titles as topic_service
 
     mock_set = AsyncMock()
     with (
-        patch(
-            "app.services.topic.chat_titles.generate_title",
+        patch.object(
+            topic_service,
+            "generate_title",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
+        patch.object(topic_service.chats_repo, "set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
     mock_set.assert_not_awaited()
@@ -33,7 +34,7 @@ async def test_topic_service_skips_when_title_none():
 @pytest.mark.asyncio
 async def test_topic_service_scopes_chat_by_user_id():
     """The atomic title write retains the job owner's scope."""
-    from app.services import topic as topic_service
+    from app.modules.chat import titles as topic_service
 
     other_user_id = uuid4()
     chat_id = uuid4()
@@ -41,12 +42,13 @@ async def test_topic_service_scopes_chat_by_user_id():
     session = AsyncMock()
 
     with (
-        patch("app.services.topic.SessionLocal", side_effect=[FakeSessionCM(session)]),
-        patch(
-            "app.services.topic.chat_titles.generate_title",
+        patch.object(topic_service, "SessionLocal", side_effect=[FakeSessionCM(session)]),
+        patch.object(
+            topic_service,
+            "generate_title",
             AsyncMock(return_value="Fresh title"),
         ),
-        patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
+        patch.object(topic_service.chats_repo, "set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(
             Settings(), chat_id, "hi", "hello", user_id=other_user_id
@@ -60,18 +62,19 @@ async def test_topic_service_scopes_chat_by_user_id():
 
 @pytest.mark.asyncio
 async def test_topic_service_saves_when_title_returned():
-    from app.services import topic as topic_service
+    from app.modules.chat import titles as topic_service
 
     mock_set = AsyncMock(return_value=True)
     session = AsyncMock()
 
     with (
-        patch("app.services.topic.SessionLocal", side_effect=[FakeSessionCM(session)]),
-        patch(
-            "app.services.topic.chat_titles.generate_title",
+        patch.object(topic_service, "SessionLocal", side_effect=[FakeSessionCM(session)]),
+        patch.object(
+            topic_service,
+            "generate_title",
             AsyncMock(return_value="Cool chat title"),
         ),
-        patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
+        patch.object(topic_service.chats_repo, "set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
     mock_set.assert_awaited_once()
@@ -81,15 +84,16 @@ async def test_topic_service_saves_when_title_returned():
 
 @pytest.mark.asyncio
 async def test_topic_service_rejects_boring_title():
-    from app.services import topic as topic_service
+    from app.modules.chat import titles as topic_service
 
     mock_set = AsyncMock()
     with (
-        patch(
-            "app.services.topic.chat_titles.generate_title",
+        patch.object(
+            topic_service,
+            "generate_title",
             AsyncMock(return_value="New chat"),
         ),
-        patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
+        patch.object(topic_service.chats_repo, "set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
     mock_set.assert_not_awaited()
@@ -97,10 +101,11 @@ async def test_topic_service_rejects_boring_title():
 
 @pytest.mark.asyncio
 async def test_topic_service_skips_empty_messages():
-    from app.services import topic as topic_service
+    from app.modules.chat import titles as topic_service
 
-    with patch(
-        "app.services.topic.chat_titles.generate_title",
+    with patch.object(
+        topic_service,
+        "generate_title",
         AsyncMock(return_value="Valid title here"),
     ) as mock_gen:
         await topic_service.generate_chat_title(Settings(), uuid4(), "  ", "hello", user_id=_OWNER)
@@ -109,18 +114,19 @@ async def test_topic_service_skips_empty_messages():
 
 @pytest.mark.asyncio
 async def test_topic_service_skips_when_chat_already_titled():
-    from app.services import topic as topic_service
+    from app.modules.chat import titles as topic_service
 
     mock_set = AsyncMock(return_value=False)
     session = AsyncMock()
 
     with (
-        patch("app.services.topic.SessionLocal", side_effect=[FakeSessionCM(session)]),
-        patch(
-            "app.services.topic.chat_titles.generate_title",
+        patch.object(topic_service, "SessionLocal", side_effect=[FakeSessionCM(session)]),
+        patch.object(
+            topic_service,
+            "generate_title",
             AsyncMock(return_value="Fresh title"),
         ) as mock_gen,
-        patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
+        patch.object(topic_service.chats_repo, "set_title_if_empty", mock_set),
     ):
         applied = await topic_service.generate_chat_title(
             Settings(), uuid4(), "hi", "hello", user_id=_OWNER
@@ -133,7 +139,7 @@ async def test_topic_service_skips_when_chat_already_titled():
 
 @pytest.mark.asyncio
 async def test_topic_generate_chat_title_releases_db_before_llm():
-    from app.services import topic as topic_service
+    from app.modules.chat import titles as topic_service
 
     session = AsyncMock()
     session.commit = AsyncMock()
@@ -159,12 +165,13 @@ async def test_topic_generate_chat_title_releases_db_before_llm():
         return "Generated title"
 
     with (
-        patch("app.services.topic.SessionLocal", side_effect=[apply_cm]),
-        patch(
-            "app.services.topic.chat_titles.generate_title",
+        patch.object(topic_service, "SessionLocal", side_effect=[apply_cm]),
+        patch.object(
+            topic_service,
+            "generate_title",
             AsyncMock(side_effect=fake_generate),
         ),
-        patch("app.services.topic.chats_repo.set_title_if_empty", AsyncMock()),
+        patch.object(topic_service.chats_repo, "set_title_if_empty", AsyncMock()),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
 

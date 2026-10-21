@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import pytest
 
+from app.modules.chat.working_check import _plain
 from app.modules.math.match.arithmetic import _to_ascii_arith
 from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
 from app.modules.math.tool_check import _normalize as tool_check_normalize
 from app.services.glyphs import OPERATOR_GLYPHS, fold_operator_glyphs
-from app.services.working_check import _plain
 
 
 @pytest.mark.parametrize(("glyph", "ascii_op"), sorted(OPERATOR_GLYPHS.items()))

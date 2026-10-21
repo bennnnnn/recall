@@ -18,13 +18,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models import model_catalog
+from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.finalize_registry import clear_pending_finalize
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome, TurnUsage
 from app.modules.chat.turn_prep import StreamContext
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
-from app.services.context_window import estimate_tokens
 from app.services.quota import utc_today
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
-from app.services.context_window import SUMMARY_SYSTEM_PROMPT, cap_summary
+from app.modules.chat.context_window import SUMMARY_SYSTEM_PROMPT, cap_summary
 
 
 async def summarize_conversation(

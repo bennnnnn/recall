@@ -13,6 +13,7 @@ import logging
 from typing import TYPE_CHECKING, TypeGuard
 
 from app.core import sympy_executor
+from app.modules.chat.working_check import is_worked_solution, working_note
 from app.modules.chemistry import fence as chemistry_fence
 from app.modules.chemistry.context import append_unverified_chemistry_note
 from app.modules.math.fence import append_unverified_math_note
@@ -33,7 +34,6 @@ from app.services.solving import (
     VerifiedSolveBlock,
     strip_verified_solve_markers,
 )
-from app.services.working_check import is_worked_solution, working_note
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState

@@ -11,10 +11,10 @@ from datetime import date
 
 import pytest
 
+from app.modules.chat.recurring_pay import _parse_target_date
 from app.modules.todos.spoken_when import find_when
 from app.services.calendar_dates import read_dates
 from app.services.calendar_facts import named_dates
-from app.services.recurring_pay import _parse_target_date
 
 _TODAY = date(2026, 10, 20)
 

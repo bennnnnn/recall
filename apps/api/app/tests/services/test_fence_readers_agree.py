@@ -9,12 +9,12 @@ from __future__ import annotations
 
 from app.modules.chat.finalize_parts import divide_sections
 from app.modules.chat.related_questions import answer_excerpt
+from app.modules.chat.reply_labels import one_answer_label
 from app.modules.images.answer_photo import strip_photo_fences
 from app.modules.math.text_plot import strip_text_plots
 from app.modules.todos.reminder_fence_parse import find_reminder_fences
 from app.modules.todos.reply_claims import without_claim_lines
 from app.services.draft_fences import draft_langs, has_draft
-from app.services.reply_labels import one_answer_label
 
 # A how-to: the ~~~ block shows a fence opener, and the reply goes on after it.
 _SHOWN = "~~~\n```python\n### not a heading\n~~~"

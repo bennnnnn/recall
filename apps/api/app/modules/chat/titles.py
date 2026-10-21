@@ -1,10 +1,16 @@
 """Shared helpers for chat title validation, display, and LLM generation."""
 
+import asyncio
+import logging
+from uuid import UUID
+
 from app.core.config import Settings
+from app.core.db import SessionLocal
 from app.core.validation import BORING_CHAT_TITLES as BORING_CHAT_TITLES
 from app.core.validation import normalize_chat_title as normalize_chat_title
 from app.core.validation import normalize_stored_chat_title, unwrap_chat_title
 from app.gateways import litellm_gateway, mock_llm
+from app.repositories import chats as chats_repo
 
 GREETING_CHAT_TITLE = "Greeting"
 
@@ -42,6 +48,8 @@ _CASUAL_OPENERS = frozenset(
         "hi recall",
     }
 )
+
+_logger = logging.getLogger(__name__)
 
 
 def needs_generated_title(title: str | None) -> bool:
@@ -107,3 +115,37 @@ async def generate_title(
     if raw is None:
         return None
     return finalize_generated_title(raw, user_message)
+
+
+async def generate_chat_title(
+    settings: Settings,
+    chat_id: UUID,
+    user_message: str,
+    assistant_message: str,
+    *,
+    user_id: UUID,
+) -> bool:
+    """Title the chat from its first exchange (the ``topic`` job); True when one applied.
+
+    False (nothing usable, or the chat already has a title) leaves the job not done,
+    so a later request may try again; the caller says so to the queue.
+    """
+    if not user_message.strip() or not assistant_message.strip():
+        return False
+    try:
+        title = await asyncio.wait_for(
+            generate_title(settings, user_message, assistant_message),
+            timeout=15.0,
+        )
+        title = normalize_chat_title(title)
+        if not title:
+            return False
+        async with SessionLocal() as session:
+            applied = await chats_repo.set_title_if_empty(
+                session, chat_id, title, user_id=user_id, commit=False
+            )
+            await session.commit()
+        return applied
+    except Exception:
+        _logger.exception("Topic generation failed for chat_id=%s", chat_id)
+        raise

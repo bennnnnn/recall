@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.reply_labels import one_answer_label
+from app.modules.chat.reply_labels import one_answer_label
 
 
 def test_a_label_under_the_heading_becomes_its_value_in_maths() -> None:

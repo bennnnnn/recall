@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.working_check import is_worked_solution, working_note, wrong_steps
+from app.modules.chat.working_check import is_worked_solution, working_note, wrong_steps
 
 
 @pytest.mark.parametrize(

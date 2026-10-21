@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.services.recurring_pay import (
+from app.modules.chat.recurring_pay import (
     format_recurring_pay_reply,
     maybe_recurring_pay_reply,
     parse_recurring_pay_request,

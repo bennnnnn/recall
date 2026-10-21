@@ -246,7 +246,7 @@ async def test_compress_skips_when_another_worker_holds_the_lock():
 
 
 def test_summary_system_prompt_preserves_uncertainty():
-    from app.services.context_window import SUMMARY_SYSTEM_PROMPT
+    from app.modules.chat.context_window import SUMMARY_SYSTEM_PROMPT
 
     assert "considering" in SUMMARY_SYSTEM_PROMPT
     assert "uses Postgres" in SUMMARY_SYSTEM_PROMPT

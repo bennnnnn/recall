@@ -251,7 +251,7 @@ async def test_handle_topic_delegates():
     with (
         _patch_session(),
         patch(
-            "app.background.handlers.topic_service.generate_chat_title",
+            "app.background.handlers.chat_titles.generate_chat_title",
             AsyncMock(return_value=True),
         ) as job,
     ):
@@ -267,7 +267,7 @@ async def test_a_title_not_applied_leaves_the_topic_job_not_done():
     with (
         _patch_session(),
         patch(
-            "app.background.handlers.topic_service.generate_chat_title",
+            "app.background.handlers.chat_titles.generate_chat_title",
             AsyncMock(return_value=False),
         ),
         pytest.raises(jobs.JobSkipped),

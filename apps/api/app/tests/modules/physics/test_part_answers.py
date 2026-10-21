@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.modules.chat.finalize_parts import divide_sections
-from app.services.part_answers import land_part_cards
+from app.modules.physics.part_answers import land_part_cards
 
 _CARDS = [r"10\,\mathrm{m/s}", r"25\,\mathrm{m}"]
 

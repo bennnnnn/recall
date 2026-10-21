@@ -70,7 +70,7 @@ async def _force_web_search_if_needed(
     user_text = _last_user_content(messages)
     if not user_text:
         return messages, search_hits
-    from app.services.prompt_inject import inject_before_last_user
+    from app.modules.chat.prompt_inject import inject_before_last_user
     from app.services.prompt_safety import wrap_untrusted
 
     already_searched = _web_search_was_called(messages)

@@ -10,9 +10,9 @@ import re
 
 import pytest
 
+from app.modules.chat.recurring_pay import _parse_interval_days
 from app.modules.math.tools.school.shopping import extract_change_intent
 from app.services.number_text import NUMBER_WORDS, count_word_pattern, number_word_value
-from app.services.recurring_pay import _parse_interval_days
 from app.services.time_context import relative_day_offset
 
 _ONE_TO_TWELVE = [word for word, value in NUMBER_WORDS.items() if 1 <= value <= 12]
