@@ -63,7 +63,7 @@ def test_per_plan_daily_caps(plan, tokens, stt, tts, images):
     user = MagicMock()
     user.plan = plan
     # The built-in defaults, not a developer's .env overrides.
-    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    settings = Settings(_env_file=None)
     assert quota_service.daily_limit_for_user(user, settings) == tokens
     assert counters.limit("speech_transcription", user, settings) == stt
     assert counters.limit("speech_tts", user, settings) == tts
@@ -663,7 +663,7 @@ async def test_global_spend_redis_error_fails_closed():
 
             raise RedisError("down")
 
-    assert await quota_service.global_spend_exceeded(_Boom(), settings) is True  # type: ignore[arg-type]
+    assert await quota_service.global_spend_exceeded(_Boom(), settings) is True
 
 
 @pytest.mark.asyncio

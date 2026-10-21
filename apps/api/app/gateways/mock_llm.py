@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections.abc import AsyncIterator
+from typing import Any
 
 from app.core.config import Settings
 from app.core.validation import normalize_chat_title
@@ -57,9 +58,9 @@ async def mock_stream(
 
 async def mock_complete_with_tools(
     *,
-    messages: list[dict],
-    tools: list[dict],
-) -> dict:
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+) -> dict[str, Any]:
     """Dev mock: one web_search tool call when the user asks to search, else no tools."""
     _ = tools
     last = _last_user_text(messages).lower()

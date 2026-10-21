@@ -336,7 +336,7 @@ def strip_cards(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", strip_closed_fences(text, FENCE_LANG)).strip()
 
 
-def cards_as_text(content: str) -> str:
+def reminder_cards_as_text(content: str) -> str:
     """A past reply's cards as the app's result lines, for the model's history.
 
     The model never sees card JSON it could copy. A card not yet tapped says so:

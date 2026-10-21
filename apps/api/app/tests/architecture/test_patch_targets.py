@@ -33,8 +33,11 @@ _CHAT_PATCHES = 521
 _PRIVATE_PATCHES = 106
 
 
-def _patch_targets() -> Iterator[tuple[str, str]]:
-    """``(file:line, target)`` for each string patch and each ``patch.object`` attribute."""
+def _patch_targets(*, setattr_objects: bool = False) -> Iterator[tuple[str, str]]:
+    """``(file:line, target)`` for each string patch and each ``patch.object`` attribute.
+
+    With ``setattr_objects``, ``monkeypatch.setattr(module.asyncio, "sleep", ...)`` too.
+    """
     for path in sorted(_TESTS.rglob("*.py")):
         if path.resolve() == Path(__file__).resolve():
             continue
@@ -49,7 +52,9 @@ def _patch_targets() -> Iterator[tuple[str, str]]:
             ):
                 if isinstance(first.value, str) and first.value.startswith("app."):
                     yield where, first.value
-            elif name.endswith("patch.object") and len(node.args) > 1:
+            elif (
+                name.endswith("patch.object") or (setattr_objects and name.endswith("setattr"))
+            ) and len(node.args) > 1:
                 attribute = node.args[1]
                 if isinstance(attribute, ast.Constant) and isinstance(attribute.value, str):
                     yield where, f"{ast.unparse(first)}.{attribute.value}"
@@ -62,7 +67,9 @@ def _private(target: str) -> bool:
 
 def test_no_patch_of_a_library_name_through_an_app_module() -> None:
     through = [
-        f"{where} {target}" for where, target in _patch_targets() if _SHARED_MODULE.search(target)
+        f"{where} {target}"
+        for where, target in _patch_targets(setattr_objects=True)
+        if _SHARED_MODULE.search(target)
     ]
     assert through == [], "this patches the library for the whole process"
 

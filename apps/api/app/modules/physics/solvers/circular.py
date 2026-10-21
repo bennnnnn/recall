@@ -59,6 +59,7 @@ def _orbit_scene(
         y_min=-margin,
         y_max=margin,
         arrows=["velocity", "centripetal"],
+        # The labels are keyed by the arrows listed above; the scene validates them.
         arrow_labels=arrow_labels or {},  # type: ignore[arg-type]
         centre=[0.0, 0.0],
         central_body=SimulationPlanet(radius=planet[0], label=planet[1]) if planet else None,

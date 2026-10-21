@@ -549,7 +549,7 @@ def test_normal_and_friction_arrows_require_a_slope() -> None:
     is a more confident lie than no arrow at all."""
     for arrow in ("normal", "friction"):
         with pytest.raises(ValidationError):
-            SimulationBlockSpec(type="incline", bodies=[_body()], arrows=[arrow])  # type: ignore[list-item]
+            SimulationBlockSpec(type="incline", bodies=[_body()], arrows=[arrow])
 
 
 def test_a_spring_scene_needs_its_wall() -> None:

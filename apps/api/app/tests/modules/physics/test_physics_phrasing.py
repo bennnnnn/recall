@@ -348,14 +348,14 @@ def test_downward_on_the_velocity_is_negative_and_a_later_question_is_not() -> N
     launched = extract_physics_intent(
         "A ball is dropped at 5 m/s downward from 20 m. Find the time to ground. Use g=10."
     )
-    assert launched is not None
+    assert launched is not None and launched.physics_params is not None
     assert launched.physics_params["v0"] == -5
 
     later = extract_physics_intent(
         "A ball is thrown upward at 20 m/s from 20 m. "
         "Find the downward velocity after 1 s. Use g=10."
     )
-    assert later is not None
+    assert later is not None and later.physics_params is not None
     assert later.physics_params["v0"] == 20
 
 
@@ -377,6 +377,7 @@ def test_cliff_max_height_builds_and_solves() -> None:
     intent = extract_physics_intent(text)
     assert intent is not None
     assert intent.physics_op == "max_height"
+    assert intent.physics_params is not None
     assert intent.physics_params["h0"] == 20
     result = solve_physics(intent)
     (scene,) = result.simulation_specs

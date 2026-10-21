@@ -76,14 +76,14 @@ async def test_revise_memory_facts_prompt_user_stated_only():
             existing_facts=[],
         )
 
-    system = captured["messages"][0]["content"]  # type: ignore[index]
+    system = captured["messages"][0]["content"]
     assert "Use only what the User lines state or clearly show about the user" in system
     assert "never assistant inferences, suggestions, or restatements" in system
     assert "Each op is ONE fact" in system
     assert "explicitly asks to remember a fact" in system
     assert "explicitly asks to forget a fact" in system
     assert "Rewrite the full section when updating" not in system
-    user = captured["messages"][1]["content"]  # type: ignore[index]
+    user = captured["messages"][1]["content"]
     assert "[BEGIN UNTRUSTED CONTENT — conversation transcript]" in user
     assert "User: I work at Acme" in user
     assert "[END UNTRUSTED CONTENT — conversation transcript]" in user

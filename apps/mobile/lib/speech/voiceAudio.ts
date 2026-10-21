@@ -31,7 +31,7 @@ export function loadExpoAudio(): ExpoAudioModule | null {
       audioModule = null;
       return null;
     }
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- sync, only once its native module is in this build
     audioModule = require("expo-audio") as ExpoAudioModule;
     return audioModule;
   } catch {

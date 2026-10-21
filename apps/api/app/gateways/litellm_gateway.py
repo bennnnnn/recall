@@ -6,7 +6,8 @@ from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Self
 
-from litellm import acompletion
+# Re-exported: the completion gateways call the provider through this module.
+from litellm import acompletion as acompletion
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings

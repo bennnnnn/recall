@@ -22,7 +22,12 @@ symbolic solver stack. Other modules import only the names in ``_EXPORTS``.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.modules.math.unit_conversion import (
+        get_unit_registry as get_unit_registry,
+    )
 
 _EXPORTS = {"get_unit_registry": ("unit_conversion", "get_unit_registry")}
 

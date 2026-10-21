@@ -47,7 +47,7 @@ class ReminderChannel:
     include_recurring: bool
 
 
-PUSH = ReminderChannel(
+PUSH_REMINDERS = ReminderChannel(
     name="push",
     sent_at=TodoItem.notification_sent_at,
     opted_in=(
@@ -60,7 +60,7 @@ PUSH = ReminderChannel(
     include_recurring=True,
 )
 # A recurring to-do moves to its next occurrence when pushed; email does not send them.
-EMAIL = ReminderChannel(
+EMAIL_REMINDERS = ReminderChannel(
     name="email",
     sent_at=TodoItem.email_sent_at,
     opted_in=(User.email_reminders_enabled.is_(True), User.email != ""),
@@ -105,7 +105,7 @@ async def due_reminder_page(
     return [(todo, user) for todo, user in (await session.execute(stmt)).all()]
 
 
-def page_key(rows: list[tuple[TodoItem, User]]) -> PageKey | None:
+def reminder_page_key(rows: list[tuple[TodoItem, User]]) -> PageKey | None:
     """Where the next page starts: after the last row of this one."""
     if not rows:
         return None

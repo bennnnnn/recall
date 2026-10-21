@@ -43,7 +43,7 @@ import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 // there. A build with the WebView never needs it, so a production bundle leaves the
 // renderer and its CSS engine out (`__DEV__` folds to false; code-health audit DEAD-08).
 const StaticHtmlPreview = __DEV__
-  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports -- development only, so production bundles leave it out
     (require("@/components/StaticHtmlPreview") as typeof import("@/components/StaticHtmlPreview")).StaticHtmlPreview
   : null;
 

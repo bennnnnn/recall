@@ -256,8 +256,6 @@ async def test_stream_tokens_sse_resumes_generator_parked_at_yield(monkeypatch):
                 await asyncio.Event().wait()
             await super().put(item)
 
-    monkeypatch.setattr(chat_stream.asyncio, "Queue", _HoldTokenQueue)
-
     async def stream_factory(_result, _on_status, _on_reasoning, should_cancel):
         yield "hello "
         if should_cancel():
@@ -271,6 +269,7 @@ async def test_stream_tokens_sse_resumes_generator_parked_at_yield(monkeypatch):
             stream_factory=stream_factory,
             request=request,
             cancel_event=asyncio.Event(),
+            queue_factory=_HoldTokenQueue,
         ):
             pass
 

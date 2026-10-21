@@ -162,7 +162,7 @@ def test_recent_chat_cache_forgets_chats_nobody_reads_again(monkeypatch):
 
     chats_repo._chat_cache.clear()
     now = [time.monotonic()]
-    monkeypatch.setattr(time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(chats_repo._chat_cache, "clock", lambda: now[0])
     for _ in range(50):
         chats_repo._remember_chat(Chat(id=uuid4(), user_id=uuid4(), model="auto"))
     now[0] += chats_repo._CHAT_CACHE_TTL_SECONDS + 1

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -107,7 +108,7 @@ async def update_todo(
     session: AsyncSession,
     user: User,
     todo_id: UUID,
-    fields: dict,
+    fields: dict[str, Any],
 ) -> TodoItem:
     item = await todos_repo.get_by_id(session, todo_id, user.id)
     if not item:

@@ -125,7 +125,7 @@ def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
         )
         return PhysicsIntent(
             kind="rotation",
-            physics_op=op,  # type: ignore[arg-type]
+            physics_op=op,
             physics_params={"inertia": inertia[0], "omega": float(omega.group(1))},
             physics_units={"inertia": "kg*m^2", "omega": "rad/s"},
             operation="solve",

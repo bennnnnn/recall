@@ -74,7 +74,7 @@ def test_live_talk_is_only_on_the_top_plan():
 )
 def test_default_numbers_per_plan(plan_id, numbers):
     # The built-in defaults, not a developer's .env overrides.
-    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    settings = Settings(_env_file=None)
     for name, value in numbers.items():
         assert entitlements.allowance(plan_id, name, settings) == value
 
@@ -150,5 +150,5 @@ def test_plan_catalog_lists_every_plan_with_its_numbers():
     catalog = entitlements.plan_catalog(Settings())
     assert [item["id"] for item in catalog] == ["free", "plus", "pro"]
     pro = catalog[2]
-    assert pro["allowances"]["monthly_live_talk_minutes"] == 60  # type: ignore[index]
-    assert "live_talk" in pro["features"]  # type: ignore[operator]
+    assert pro["allowances"]["monthly_live_talk_minutes"] == 60
+    assert "live_talk" in pro["features"]

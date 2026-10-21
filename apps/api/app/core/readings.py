@@ -86,6 +86,7 @@ def reading[F: Callable[..., Any]](*, declined: Any = None) -> Callable[[F], F]:
         for control in ("cache_clear", "cache_info"):
             if hasattr(fn, control):
                 setattr(read, control, getattr(fn, control))
+        # A function takes attributes; mypy models none.
         read._reading_key = lambda *args, **kwargs: _key(name, signature, args, kwargs)  # type: ignore[attr-defined]
         return cast(F, read)
 

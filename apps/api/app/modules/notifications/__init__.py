@@ -6,7 +6,18 @@ The package stays lazy so importing it does not load the push sender.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.modules.notifications.jobs import (
+        enqueue_purchase_receipt as enqueue_purchase_receipt,
+    )
+    from app.modules.notifications.jobs import (
+        enqueue_welcome_email as enqueue_welcome_email,
+    )
+    from app.modules.notifications.push import (
+        enqueue_push_receipts as enqueue_push_receipts,
+    )
 
 _EXPORTS = {
     "enqueue_push_receipts": ("push", "enqueue_push_receipts"),

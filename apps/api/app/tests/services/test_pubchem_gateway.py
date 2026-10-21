@@ -180,7 +180,7 @@ async def test_a_busy_pubchem_is_retried_once_and_never_remembered(
     async def record(seconds: float) -> None:
         sleeps.append(seconds)
 
-    monkeypatch.setattr(pubchem_gateway.asyncio, "sleep", record)
+    monkeypatch.setattr(pubchem_gateway, "wait_before_retry", record)
     busy = _mock_response(status)
     busy.headers = {"Retry-After": "30"}
     client = AsyncMock()
@@ -200,7 +200,7 @@ async def test_a_busy_pubchem_is_retried_once_and_never_remembered(
 async def test_a_busy_pubchem_that_recovers_on_the_retry_gives_the_compound(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(pubchem_gateway.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(pubchem_gateway, "wait_before_retry", AsyncMock())
     busy = _mock_response(503)
     busy.headers = {}
     client = AsyncMock()

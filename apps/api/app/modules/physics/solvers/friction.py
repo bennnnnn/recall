@@ -16,6 +16,7 @@ from app.modules.physics.schemas import (
     SimulationBody,
     SimulationVector,
 )
+from app.modules.physics.schemas.simulation import ArrowKind
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
@@ -288,11 +289,10 @@ def _incline_scene(
 ) -> list[SimulationBlockSpec]:
     """A block on a slope with its weight, normal and friction arrows.
 
-    The ticket's third named scene, and the one that is mostly a *diagram*: a
-    free-body picture is what an incline question wants, and for two of the
-    three ops the block is not moving at all. The arrows carry their values
-    when the mass is known, and the slope its angle. ``along`` is the
-    weight's component down the slope, drawn when that is what was asked.
+    Mostly a *diagram*: a free-body picture is what an incline question wants,
+    and for two of the three ops the block is not moving at all. The arrows
+    carry their values when the mass is known, and the slope its angle.
+    ``along`` is the weight's component down the slope, drawn when asked.
 
     A flat surface is `_floor_scene`'s.
     """
@@ -329,12 +329,12 @@ def _incline_scene(
         ]
         for s in distances
     ]
-    arrows: list[str] = ["gravity", "normal"]
+    arrows: list[ArrowKind] = ["gravity", "normal"]
     # Static friction holds a resting block whether or not μ was stated.
     if (mu > 0 or held) and not uphill:
         arrows.append("friction")
 
-    labels = {"gravity": "mg", "normal": "N", "friction": "f"}
+    labels: dict[ArrowKind, str] = {"gravity": "mg", "normal": "N", "friction": "f"}
     if mass and g:
         weight = mass * g
         normal = weight * math.cos(theta)
@@ -365,8 +365,8 @@ def _incline_scene(
             y_min=-margin,
             y_max=top_y + margin,
             ground=True,
-            arrows=arrows,  # type: ignore[arg-type]
-            arrow_labels={name: labels[name] for name in arrows},  # type: ignore[misc]
+            arrows=arrows,
+            arrow_labels={name: labels[name] for name in arrows},
             angles=[
                 SimulationAngle(
                     vertex=[foot, 0.0],

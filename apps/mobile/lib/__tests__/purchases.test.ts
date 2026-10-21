@@ -52,7 +52,7 @@ import {
 // Force the purchases module to be "configured" (API key present + not Expo Go).
 process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = "test-ios-key";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- the mocked module, read after the env above is set
 const purchasesMod = require("react-native-purchases");
 
 describe("isPurchaseCancelled", () => {

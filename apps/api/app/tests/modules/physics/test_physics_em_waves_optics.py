@@ -261,7 +261,8 @@ def test_a_stated_charge_beats_the_named_particle() -> None:
         "An electron with charge 1.6 × 10^-19 C is accelerated through a potential "
         "difference of 100 V. Find the kinetic energy gained."
     )
-    assert intent is not None and intent.physics_params["Q"] == pytest.approx(1.6e-19)
+    assert intent is not None and intent.physics_params is not None
+    assert intent.physics_params["Q"] == pytest.approx(1.6e-19)
 
 
 @pytest.mark.parametrize(

@@ -121,6 +121,8 @@ python_version = "3.12"
 strict = false
 ignore_missing_imports = true
 files = ["app"]
+# A suppression that no longer suppresses anything is reported (code-health audit CLAR-06).
+warn_unused_ignores = true
 
 # Incremental strict: expand package by package. Do not flip global `strict` —
 # in mypy <2.x, `strict = true` in overrides leaks globally. Use expanded
@@ -139,6 +141,12 @@ module = [
     "app.repositories.*",
     "app.services.quota",
     "app.services.quota.*",
+    "app.modules.billing",
+    "app.modules.billing.*",
+    "app.modules.todos",
+    "app.modules.todos.*",
+    "app.gateways",
+    "app.gateways.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

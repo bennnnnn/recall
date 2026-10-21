@@ -21,7 +21,7 @@ _TORQUE_UNIT = r"(?:N|newtons?)\s*(?:[·*]\s*)?(?:m|met(?:er|re)s?)"
 def _intent(operation: str, params: dict[str, float], units: dict[str, str]) -> PhysicsIntent:
     return PhysicsIntent(
         kind="rotation",
-        physics_op=operation,  # type: ignore[arg-type]
+        physics_op=operation,
         physics_params=params,
         physics_units=units,
         operation="solve",

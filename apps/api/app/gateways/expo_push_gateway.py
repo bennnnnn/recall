@@ -36,9 +36,7 @@ def _invalid_token_from_error(details: object) -> str | None:
     if not isinstance(details, dict):
         return None
     err = details.get("error", "")
-    if err not in _INVALID_TOKEN_ERRORS:
-        return None
-    return err
+    return err if isinstance(err, str) and err in _INVALID_TOKEN_ERRORS else None
 
 
 def _error_code(details: object) -> str | None:

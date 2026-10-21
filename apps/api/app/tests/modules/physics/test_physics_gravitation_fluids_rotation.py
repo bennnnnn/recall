@@ -321,7 +321,7 @@ def test_during_and_discuss_do_not_change_a_solid_sphere() -> None:
     noisy = f"{plain} during a discussion"
     assert _verified_answer(noisy) == _verified_answer(plain)
     intent = extract_physics_intent(noisy)
-    assert intent is not None
+    assert intent is not None and intent.physics_params is not None
     assert intent.physics_params["shape_factor"] == 0.4
 
 
@@ -330,6 +330,7 @@ def test_angular_velocity_from_a_period_needs_no_radius() -> None:
     intent = extract_physics_intent(text)
     assert intent is not None
     assert intent.physics_op == "angular_velocity"
+    assert intent.physics_params is not None
     assert "r" not in intent.physics_params
     assert intent.physics_params["period"] == 2
     assert _verified_answer(text) == "3.14 rad/s"

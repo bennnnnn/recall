@@ -85,7 +85,7 @@ def _nearest_ask(text: str, asks: tuple[tuple[str, str], ...]) -> str | None:
 def _intent(operation: str, params: dict[str, float], units: dict[str, str]) -> PhysicsIntent:
     return PhysicsIntent(
         kind="energy",
-        physics_op=operation,  # type: ignore[arg-type]
+        physics_op=operation,
         physics_params=params,
         physics_units=units,
         operation="solve",

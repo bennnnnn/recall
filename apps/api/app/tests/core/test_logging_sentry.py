@@ -252,7 +252,7 @@ def test_sentry_error_events_carry_no_frame_locals(monkeypatch):
     events: list[dict] = []
 
     class _Capture(Transport):
-        def capture_envelope(self, envelope):  # type: ignore[no-untyped-def]
+        def capture_envelope(self, envelope):
             for item in envelope.items:
                 if item.type == "event":
                     events.append(item.payload.json)
@@ -490,7 +490,7 @@ def test_logged_user_text_never_reaches_sentry():
     events: list[dict] = []
 
     class _Capture(Transport):
-        def capture_envelope(self, envelope):  # type: ignore[no-untyped-def]
+        def capture_envelope(self, envelope):
             for item in envelope.items:
                 if item.type == "event":
                     events.append(item.payload.json)

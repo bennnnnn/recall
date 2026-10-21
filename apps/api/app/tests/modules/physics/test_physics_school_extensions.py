@@ -297,6 +297,7 @@ def test_series_impedance_from_henry_farad_and_hertz() -> None:
     assert intent is not None
     assert intent.physics_op == "series_impedance"
     params = intent.physics_params
+    assert params is not None
     assert params["R"] == 3
     assert params["inductance"] == 1
     assert params["capacitance"] == 1e-6

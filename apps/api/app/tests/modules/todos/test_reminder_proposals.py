@@ -15,6 +15,7 @@ from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat import messages_repository as messages_repo
 from app.modules.todos import proposals, write_log
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.models import TodoItem
 from app.modules.todos.prompt_hint import TODO_HINT
 from app.modules.todos.reminder_fences import materialize_reminder_fences
 from app.repositories import users as users_repo
@@ -322,7 +323,7 @@ async def test_without_confirm_the_reminder_is_saved_at_once(db_session, fake_re
 
 
 def test_recorded_update_leaves_the_loaded_row_alone() -> None:
-    row = todos_repo.TodoItem(id=uuid4(), content="Gym", checked=False, topic="Reminders")
+    row = TodoItem(id=uuid4(), content="Gym", checked=False, topic="Reminders")
     with write_log.recording() as writes:
         planned = write_log.plan_update(writes, row, {"checked": True})
     assert row.checked is False
@@ -331,7 +332,7 @@ def test_recorded_update_leaves_the_loaded_row_alone() -> None:
 
 
 def test_deleting_a_row_planned_this_turn_drops_its_create() -> None:
-    todo = todos_repo.TodoItem(content="Gym", topic="Reminders")
+    todo = TodoItem(content="Gym", topic="Reminders")
     with write_log.recording() as writes:
         write_log.plan_create(writes, todo)
         assert write_log.plan_delete(writes, todo.id, None) is True
@@ -387,7 +388,7 @@ def test_history_reads_a_card_as_its_result_line(status, expected) -> None:
     }
     if status:
         card["status"] = status
-    text = proposals.cards_as_text(f"Sure.\n\n{_fence(card)}")
+    text = proposals.reminder_cards_as_text(f"Sure.\n\n{_fence(card)}")
     assert text == f"Sure.\n\n{expected}"
     assert "proposal_id" not in text
 
@@ -402,7 +403,7 @@ def test_history_names_each_kind_of_change() -> None:
             {"action": "move", "title": "Walk", "topic": "Health"},
         ],
     }
-    assert proposals.cards_as_text(_fence(card)) == (
+    assert proposals.reminder_cards_as_text(_fence(card)) == (
         "Done: Rent.\nDeleted: Gym.\nMoved: Walk — to Health."
     )
 

@@ -38,7 +38,7 @@ export function getPreviewWebView(): PreviewWebViewResult | null {
 
   if (isRncWebViewLinked()) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- only once the native module is linked; Expo Go has none
       const Component = require("react-native-webview").WebView as ComponentType<
         Record<string, unknown>
       >;
@@ -54,7 +54,7 @@ export function getPreviewWebView(): PreviewWebViewResult | null {
   // Node (the lib tests) has no __DEV__.
   if (typeof __DEV__ !== "undefined" && __DEV__) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- development only, so production bundles leave it out
       const Component = require("@expo/dom-webview").WebView as ComponentType<
         Record<string, unknown>
       >;

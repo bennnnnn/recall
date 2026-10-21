@@ -16,10 +16,10 @@ type SharingModule = {
 function loadSharing(): SharingModule | null {
   try {
     const { requireOptionalNativeModule } =
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy, like expo-sharing below
       require("expo-modules-core") as typeof import("expo-modules-core");
     if (!requireOptionalNativeModule("ExpoSharing")) return null;
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- only once its native module is in this build
     return require("expo-sharing") as SharingModule;
   } catch {
     return null;

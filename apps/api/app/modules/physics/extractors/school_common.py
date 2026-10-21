@@ -29,8 +29,9 @@ def _intent(
     units: dict[str, str],
 ) -> PhysicsIntent:
     return PhysicsIntent(
+        # The catalog's kind is a str; the model validates it against its Literal.
         kind=kind,  # type: ignore[arg-type]
-        physics_op=operation,  # type: ignore[arg-type]
+        physics_op=operation,
         physics_params=params,
         physics_units=units,
         operation="solve",

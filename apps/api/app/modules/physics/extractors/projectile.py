@@ -193,7 +193,7 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
             return None
         return PhysicsIntent(
             kind="projectile",
-            physics_op=op,  # type: ignore[arg-type]
+            physics_op=op,
             physics_params={"v0": v0, "d": ru[0], "g": g},
             physics_units={"v0": v0_unit or "m/s", "d": ru[1] or "m", "g": "m/s^2"},
             operation="solve",
@@ -224,7 +224,7 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
         units["h0"] = h0_unit or "m"
     return PhysicsIntent(
         kind="projectile",
-        physics_op=op,  # type: ignore[arg-type]
+        physics_op=op,
         physics_params=params,
         physics_units=units,
         operation="solve",

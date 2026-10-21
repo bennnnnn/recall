@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -53,7 +53,7 @@ def _find_item_any_state(items: list[TodoItem], topic: str, content: str) -> Tod
     return None
 
 
-def _due_local_date(item: TodoItem, user_timezone: str | None):
+def _due_local_date(item: TodoItem, user_timezone: str | None) -> date | None:
     tz = time_context_service.resolve_timezone(user_timezone)
     due = item.due_at
     if due is None:
@@ -67,7 +67,7 @@ def _shift_due_date_preserving_time(
     item: TodoItem,
     *,
     user_timezone: str | None,
-    target_date,
+    target_date: date,
 ) -> datetime:
     tz = time_context_service.resolve_timezone(user_timezone)
     due = item.due_at

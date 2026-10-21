@@ -2429,7 +2429,7 @@ async def test_sympy_solve_runs_off_event_loop(
 
     original = math_tools._build_verified_block
 
-    def spy(intent, settings):  # type: ignore[no-untyped-def]
+    def spy(intent, settings):
         seen_thread["thread"] = threading.current_thread()
         return original(intent, settings)
 
@@ -2459,7 +2459,7 @@ async def test_augment_prompt_times_out_gracefully(
     """
     settings = Settings(math_tools_enabled=True, stem_solve_timeout_seconds=0.05)
 
-    def slow_build(intent, settings):  # type: ignore[no-untyped-def]
+    def slow_build(intent, settings):
         import time
 
         time.sleep(0.5)
@@ -2490,7 +2490,7 @@ async def test_augment_prompt_math_service_error_injects_unverified_note(
     UX as a successful SymPy block. Inject honesty instead."""
     settings = Settings(math_tools_enabled=True)
 
-    def boom(intent, settings):  # type: ignore[no-untyped-def]
+    def boom(intent, settings):
         raise math_tools.math_solve.SolveServiceError("unsafe expr")
 
     monkeypatch.setattr(math_tools, "_build_verified_block", boom)

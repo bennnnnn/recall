@@ -177,7 +177,7 @@ async def transcribe_speech(
                 status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 detail="Audio payload too large",
             )
-        data = await upload.read()  # type: ignore[union-attr]
+        data = await upload.read()
         _reject_oversized_audio(data)
         filename = getattr(upload, "filename", None) or "speech.m4a"
 

@@ -55,6 +55,7 @@ class UserOut(BaseModel):
     google_sub: str | None = Field(default=None, exclude=True)
     apple_sub: str | None = Field(default=None, exclude=True)
 
+    # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def sign_in_provider(self) -> str:
@@ -68,6 +69,7 @@ class UserOut(BaseModel):
             return "dev"
         return "dev"
 
+    # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def apple_linked(self) -> bool:
@@ -75,6 +77,7 @@ class UserOut(BaseModel):
         iOS asks Apple once more so the server can revoke the Apple grant."""
         return isinstance(self.apple_sub, str) and bool(self.apple_sub)
 
+    # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def features(self) -> list[str]:
@@ -85,6 +88,7 @@ class UserOut(BaseModel):
 
         return list(features_for(self.plan, get_settings()))
 
+    # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def email_reminders_available(self) -> bool:

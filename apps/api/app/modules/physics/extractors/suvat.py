@@ -261,10 +261,11 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
             return None
         return PhysicsIntent(
             kind="suvat",
-            physics_op=listed[0],  # type: ignore[arg-type]
+            physics_op=listed[0],
             physics_params=params,
             physics_units=units,
             operation="solve",
+            # The ids are catalog strings; the model validates each one.
             requested_ops=listed,  # type: ignore[arg-type]
         )
 
@@ -276,7 +277,7 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
 
     return PhysicsIntent(
         kind="suvat",
-        physics_op=unknown,  # type: ignore[arg-type]
+        physics_op=unknown,
         physics_params=params,
         physics_units=units,
         operation="solve",

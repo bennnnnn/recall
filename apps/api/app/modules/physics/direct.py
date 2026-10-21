@@ -327,9 +327,9 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
 
 
 _SUPERSCRIPT_DIGITS = SUPERSCRIPT_SIGNED
-# The first value of a plain verified answer: "19.8 m/s", "3.97 × 10⁻¹⁹ J".  # noqa: RUF003
+# The first value of a plain verified answer: "19.8 m/s", "3.97 × 10⁻¹⁹ J".  # noqa: RUF003 - the answer's glyphs
 _PLAIN_ANSWER = re.compile(
-    r"^\s*(?P<number>-?\d+(?:\.\d+)?)(?:\s*×\s*10(?P<power>[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+))?"  # noqa: RUF001
+    r"^\s*(?P<number>-?\d+(?:\.\d+)?)(?:\s*×\s*10(?P<power>[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+))?"  # noqa: RUF001 - the answer's glyphs
     r"\s*(?P<unit>[^\s(;,]+)?"
 )
 

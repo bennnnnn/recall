@@ -224,7 +224,7 @@ def _extract_waves_intent(cleaned: str) -> PhysicsIntent | None:
     defaults = {"freq": "Hz", "wavelength": "m", "v_wave": "m/s"}
     return PhysicsIntent(
         kind="waves",
-        physics_op=op,  # type: ignore[arg-type]
+        physics_op=op,
         physics_params={key: value[0] for key, value in present.items()},
         physics_units={key: (value[1] or defaults[key]) for key, value in present.items()},
         operation="solve",

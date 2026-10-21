@@ -14,7 +14,57 @@ the names below.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.modules.chat.presentation import (
+        present_assistant_markdown as present_assistant_markdown,
+    )
+    from app.modules.chat.prompt_constants.coding import (
+        has_code_syntax as has_code_syntax,
+    )
+    from app.modules.chat.prompt_constants.locale_cues import (
+        has_locale_cue as has_locale_cue,
+    )
+    from app.modules.chat.prompt_constants.routing import (
+        is_lightweight_chat_turn as is_lightweight_chat_turn,
+    )
+    from app.modules.chat.prompt_constants.routing import (
+        is_personal_disclosure_turn as is_personal_disclosure_turn,
+    )
+    from app.modules.chat.prompt_constants.routing import (
+        is_short_confirmation as is_short_confirmation,
+    )
+    from app.modules.chat.prompt_constants.routing import (
+        prior_looks_like_offer as prior_looks_like_offer,
+    )
+    from app.modules.chat.prompt_constants.teaching import (
+        is_standing_preference as is_standing_preference,
+    )
+    from app.modules.chat.prompt_constants.visuals import (
+        attach_chemistry_fence_hint as attach_chemistry_fence_hint,
+    )
+    from app.modules.chat.stream_entry import (
+        stream_chat_response as stream_chat_response,
+    )
+    from app.modules.chat.stream_entry import (
+        stream_regenerate_response as stream_regenerate_response,
+    )
+    from app.modules.chat.stream_status import (
+        StreamStatusFn as StreamStatusFn,
+    )
+    from app.modules.chat.stream_status import (
+        clip_status_detail as clip_status_detail,
+    )
+    from app.modules.chat.titles import (
+        needs_generated_title as needs_generated_title,
+    )
+    from app.modules.chat.turn_prep import (
+        RegenerateBackup as RegenerateBackup,
+    )
+    from app.modules.chat.turn_prep import (
+        StreamContext as StreamContext,
+    )
 
 _EXPORTS = {
     "RegenerateBackup": ("turn_prep", "RegenerateBackup"),

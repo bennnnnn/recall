@@ -13,6 +13,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.todos.recurrence import is_recurrence_rule
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_change import (
     SpokenReminderChange,
@@ -311,6 +312,4 @@ def _due_with_clock(
 
 def _kept_repeat(item: Any) -> RecurrenceRule | None:
     rule = getattr(item, "recurrence_rule", None)
-    if rule == "daily" or rule == "weekdays" or rule == "weekly" or rule == "monthly":
-        return rule
-    return None
+    return rule if is_recurrence_rule(rule) else None

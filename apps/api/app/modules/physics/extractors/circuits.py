@@ -271,11 +271,12 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
     if len(params) != 2:
         return None
     missing = ({"V", "I", "R"} - set(params)).pop()
-    asked: Literal["voltage", "current", "resistance"] = {
+    asked_for: dict[str, Literal["voltage", "current", "resistance"]] = {
         "V": "voltage",
         "I": "current",
         "R": "resistance",
-    }[missing]  # type: ignore[assignment]
+    }
+    asked = asked_for[missing]
     return PhysicsIntent(
         kind="circuit",
         physics_op=asked,

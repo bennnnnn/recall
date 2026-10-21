@@ -69,9 +69,10 @@ class _BoundedRequest:
 def _verify_google_id_token_sync(id_token_str: str, settings: Settings) -> dict[str, Any]:
     request = _BoundedRequest(_shared_google_request(), settings.google_auth_timeout_seconds)
     try:
-        payload = id_token.verify_oauth2_token(
+        # google-auth ships no type hints for id_token.
+        payload: dict[str, Any] = id_token.verify_oauth2_token(  # type: ignore[no-untyped-call]
             id_token_str,
-            request,  # type: ignore[arg-type]
+            request,
             settings.google_client_id,
         )
     except google_exceptions.TransportError as exc:

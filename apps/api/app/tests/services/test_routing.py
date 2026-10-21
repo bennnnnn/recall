@@ -14,6 +14,8 @@ from app.modules.chat.model_routing.route import (
     resolve_alias_in_pool,
     route_chat_model,
 )
+from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solver import PhysicsResult
 
 
 @pytest.mark.parametrize(
@@ -431,10 +433,10 @@ def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) ->
     calls = 0
     real = physics.solve_physics
 
-    def counting(intent: object) -> object:
+    def counting(intent: PhysicsIntent) -> PhysicsResult:
         nonlocal calls
         calls += 1
-        return real(intent)  # type: ignore[arg-type]
+        return real(intent)
 
     monkeypatch.setattr(physics, "solve_physics", counting)
     routing_physics._physics_solves.cache_clear()

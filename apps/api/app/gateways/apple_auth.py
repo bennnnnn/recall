@@ -37,14 +37,16 @@ def _cache_is_fresh() -> bool:
 
 async def _fetch_apple_jwks(*, force_refresh: bool = False) -> dict[str, Any]:
     global _jwks_cache, _jwks_fetched_at
-    if not force_refresh and _cache_is_fresh():
-        return _jwks_cache  # type: ignore[return-value]
+    cached = _jwks_cache
+    if not force_refresh and cached is not None and _cache_is_fresh():
+        return cached
 
     async with _jwks_lock:
         # Re-check inside the lock: another coroutine may have just refreshed
         # it while we were waiting, so we don't fetch a second time in a row.
-        if not force_refresh and _cache_is_fresh():
-            return _jwks_cache  # type: ignore[return-value]
+        cached = _jwks_cache
+        if not force_refresh and cached is not None and _cache_is_fresh():
+            return cached
         response = await get_pooled_client(_JWKS_TIMEOUT_SECONDS).get(APPLE_JWKS_URL)
         response.raise_for_status()
         parsed: dict[str, Any] = response.json()
