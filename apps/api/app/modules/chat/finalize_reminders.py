@@ -93,7 +93,8 @@ async def _materialize(
             prior_assistant=_prior_text(ctx, "assistant"),
             prior_user=_prior_text(ctx, "user"),
             redis=redis,
-            confirm=settings.reminder_proposals_enabled,
+            # A reminder change in chat is a card the user taps; nothing is written yet.
+            confirm=True,
         )
     return materialized
 

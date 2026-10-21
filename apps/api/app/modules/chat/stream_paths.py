@@ -25,7 +25,7 @@ from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.tool_gate import should_classify_tool_web_search
-from app.modules.chat.tool_loop.parts import classified_live_parts, open_parts, turn_plan
+from app.modules.chat.tool_loop.parts import open_parts, searchable_parts, turn_plan
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -116,18 +116,16 @@ class _LoopGate:
         )
 
 
-async def _web_verdict(
+def _web_verdict(
     settings: Settings, ctx: StreamContext, gate: _LoopGate
 ) -> tuple[bool | None, list[str] | None]:
-    """Whether the turn needs live results, when only a classifier can say, and
-    the requests to search: the prefetched verdict, or each request of the message
-    classified for itself (``tool_loop.parts``). ``(None, None)``: no classifier."""
+    """Whether the turn needs live results when that alone decides the loop, and the
+    requests to search: each request of the message read for itself
+    (``tool_loop.parts``). ``(None, None)``: the verdict cannot change the gate."""
     if not gate.may_classify(settings, ctx.user):
         return None, None
-    if isinstance(ctx.web_search_classified, bool):
-        return ctx.web_search_classified, None
     prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
-    found = await classified_live_parts(
+    found = searchable_parts(
         open_parts(gate.content, has_verified_math=gate.has_verified_math, settings=settings),
         settings,
         prior_user_messages=collect_prior_user_messages(prompt, gate.content) or None,
@@ -173,7 +171,7 @@ async def run_tool_loop_path(
     # Sync heuristic first (math / news). Classifier only when
     # that gate is weak so we do not add an LLM round to already-needed turns.
     if not gate.needs_loop(settings, ctx.user):
-        web_search_flag, search_parts = await _web_verdict(settings, ctx, gate)
+        web_search_flag, search_parts = _web_verdict(settings, ctx, gate)
         if not gate.needs_loop(settings, ctx.user, web_search=web_search_flag):
             return
     rounds = await tool_loop.run_tool_rounds(

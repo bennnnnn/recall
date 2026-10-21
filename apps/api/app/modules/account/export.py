@@ -66,7 +66,6 @@ _PROFILE_FIELDS = (
     "plan",
     "default_model",
     "enabled_models",
-    "response_style",
     "response_tone",
     "custom_instructions",
     "locale",

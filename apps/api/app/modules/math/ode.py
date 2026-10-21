@@ -19,7 +19,7 @@ from sympy import (
 )
 
 from app.modules.math.schemas import MathExprResult
-from app.modules.math.solve import MathServiceError, _parse_expression, declines
+from app.modules.math.solve import SolveServiceError, _parse_expression, declines
 
 _ODE_PLACEHOLDERS = {"y''": "Dyy", "y'": "Dy"}
 
@@ -57,11 +57,11 @@ def solve_ode(
     text = expr.strip().replace("dy/dx", "y'").replace("d^2y/dx^2", "y''")
     eq_at = text.find("=")
     if eq_at == -1:
-        raise MathServiceError("could not solve ODE")
+        raise SolveServiceError("could not solve ODE")
     lhs_raw = text[:eq_at].strip()
     rhs_raw = text[eq_at + 1 :].strip()
     if "'" not in lhs_raw and "'" not in rhs_raw:
-        raise MathServiceError("could not solve ODE")
+        raise SolveServiceError("could not solve ODE")
     substitutions = {
         Symbol("Dyy"): Derivative(y(ivar), ivar, 2),
         Symbol("Dy"): Derivative(y(ivar), ivar),
@@ -80,10 +80,10 @@ def solve_ode(
             y0 = _parse_expression(initial_y, [variable])
             ics = {y(x0): y0}
         sol = dsolve(eq, y(ivar), ics=ics)
-    except MathServiceError:
+    except SolveServiceError:
         raise
     except Exception as exc:
-        raise MathServiceError("could not solve ODE") from exc
+        raise SolveServiceError("could not solve ODE") from exc
     tex = str(latex(sol))
     steps = _first_order_separable_ode_steps(eq, y, ivar, x0=x0, y0=y0)
     return MathExprResult(result=tex, latex=tex, solved=True, steps=steps)

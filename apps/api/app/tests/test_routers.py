@@ -21,7 +21,6 @@ def _fake_user(**kw) -> User:
     u.default_model = "auto"
     u.plan = kw.get("plan", "free")
     u.enabled_models = kw.get("enabled_models", None)
-    u.response_style = "balanced"
     u.response_tone = kw.get("response_tone", "funny")
     u.memory_enabled = True
     u.memory_include_sensitive = False
@@ -118,7 +117,7 @@ def test_me_patch_updates_user():
         r = client.patch(
             "/auth/me",
             headers={"Authorization": "Bearer tok"},
-            json={"response_style": "short"},
+            json={"response_tone": "professional"},
         )
     assert r.status_code == 200
 
@@ -380,7 +379,6 @@ def test_dev_login():
         default_model="auto",
         plan="free",
         enabled_models=None,
-        response_style="balanced",
         memory_enabled=True,
         created_at=datetime(2024, 1, 1),
     )
@@ -861,21 +859,6 @@ def test_list_memories_empty():
         r = client.get("/memories", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
     assert r.json() == []
-
-
-def test_consolidate_memories_skipped_when_memory_disabled():
-    user = _fake_user()
-    user.memory_enabled = False
-    app = _app_with_user(user)
-    with patch(
-        "app.modules.memory.enqueue_policy.memories_repo.list_for_user",
-        AsyncMock(),
-    ) as list_mock:
-        client = TestClient(app)
-        r = client.post("/memories/consolidate", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 202
-    assert r.json() == {"status": "skipped"}
-    list_mock.assert_not_awaited()
 
 
 def test_list_memories_skips_consolidation_scan_when_already_locked():
@@ -2468,7 +2451,7 @@ def test_speech_transcribe_cancelled_refunds():
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch("app.modules.speech.api.speech_service.transcribe_audio", boom),
         patch(
-            "app.modules.speech.api.counters.refund",
+            "app.services.quota.counters.refund",
             AsyncMock(),
         ) as refund,
     ):
@@ -2644,7 +2627,7 @@ def test_speech_tts_cancelled_refunds():
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch("app.modules.speech.api.speech_service.synthesize_speech", boom),
         patch(
-            "app.modules.speech.api.counters.refund",
+            "app.services.quota.counters.refund",
             AsyncMock(),
         ) as refund,
     ):
@@ -2870,67 +2853,11 @@ def test_speech_tts_disabled():
     assert r.status_code == 404
 
 
-def test_speech_tts_stream_ok():
-    import fakeredis.aioredis
-
-    async def _chunks(*_args, **_kwargs):
-        yield b"pcm"
-        yield b"-hi"
-
-    user = _fake_user(plan="plus")
-    client = TestClient(_app_with_user(user))
-    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    with (
-        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
-        patch(
-            "app.modules.speech.api.speech_service.iter_tts_pcm",
-            _chunks,
-        ),
-    ):
-        r = client.post(
-            "/speech/tts/stream",
-            headers={"Authorization": "Bearer tok"},
-            json={"text": "hello", "language": "en-US"},
-        )
-    assert r.status_code == 200
-    assert r.content == b"pcm-hi"
-    assert "L16" in r.headers.get("content-type", "")
-
-
-def test_speech_tts_stream_empty_refunds():
-    import fakeredis.aioredis
-
-    async def _empty(*_args, **_kwargs):
-        if False:
-            yield b"x"
-
-    user = _fake_user(plan="plus")
-    client = TestClient(_app_with_user(user))
-    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    with (
-        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
-        patch("app.modules.speech.api.speech_service.iter_tts_pcm", _empty),
-        patch(
-            "app.modules.speech.api.counters.refund",
-            AsyncMock(),
-        ) as refund,
-    ):
-        r = client.post(
-            "/speech/tts/stream",
-            headers={"Authorization": "Bearer tok"},
-            json={"text": "hello"},
-        )
-    assert r.status_code == 200
-    assert r.content == b""
-    refund.assert_awaited()
-
-
 @pytest.mark.parametrize(
     "path, provider, prefix, status_code",
     [
         ("/speech/transcribe", "transcribe_audio", "speech", 502),
         ("/speech/tts", "synthesize_speech", "tts", 502),
-        ("/speech/tts/stream", "iter_tts_pcm", "tts", 200),
     ],
 )
 def test_speech_refunds_the_day_it_reserved(quota_clock, path, provider, prefix, status_code):
@@ -2942,18 +2869,12 @@ def test_speech_refunds_the_day_it_reserved(quota_clock, path, provider, prefix,
     async def fails_after_midnight(*_args, **_kwargs):
         quota_clock.day = quota_clock.next_day
 
-    async def no_audio_after_midnight(*_args, **_kwargs):
-        quota_clock.day = quota_clock.next_day
-        if False:
-            yield b"x"
-
     user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    fake = no_audio_after_midnight if provider == "iter_tts_pcm" else fails_after_midnight
     with (
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
-        patch(f"app.modules.speech.api.speech_service.{provider}", fake),
+        patch(f"app.modules.speech.api.speech_service.{provider}", fails_after_midnight),
     ):
         if path == "/speech/transcribe":
             files = {"file": ("speech.m4a", b"fake-audio", "audio/m4a")}
@@ -2970,7 +2891,6 @@ def test_speech_refunds_the_day_it_reserved(quota_clock, path, provider, prefix,
     [
         ("/speech/transcribe", None),
         ("/speech/tts", {"text": "hello"}),
-        ("/speech/tts/stream", {"text": "hello"}),
     ],
 )
 def test_free_plan_is_refused_voice_input_and_read_aloud(path, body):
@@ -3043,43 +2963,6 @@ def test_speech_live_status_plus_not_entitled():
     assert r.json()["limit"] == 0
 
 
-def test_speech_live_turn_gone():
-    user = _fake_user(plan="free")
-    client = TestClient(_app_with_user(user))
-    r = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 410
-    assert "minutes" in r.json()["detail"].lower()
-
-
-def test_speech_live_turn_pro_also_gone():
-    user = _fake_user(plan="pro")
-    client = TestClient(_app_with_user(user))
-    r = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 410
-
-
-def test_speech_live_refund_is_gone():
-    """Minutes settle on /speech/live/end; a per-turn refund would double-credit."""
-    user = _fake_user(plan="pro")
-    client = TestClient(_app_with_user(user))
-    r = client.post("/speech/live/refund", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 410
-
-
-def test_speech_live_commit_gone():
-    user = _fake_user(plan="pro")
-    client = TestClient(_app_with_user(user))
-    r = client.post("/speech/live/commit", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 410
-
-
-def test_speech_live_speak_gone():
-    user = _fake_user(plan="pro")
-    client = TestClient(_app_with_user(user))
-    r = client.post("/speech/live/speak", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 410
-
-
 def test_speech_live_disabled():
     from app.core.deps import get_current_user, get_settings_dep
 
@@ -3091,7 +2974,3 @@ def test_speech_live_disabled():
     r = client.get("/speech/live", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
     assert r.json()["enabled"] is False
-    denied = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
-    assert denied.status_code == 404
-    speak = client.post("/speech/live/speak", headers={"Authorization": "Bearer tok"})
-    assert speak.status_code == 404

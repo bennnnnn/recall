@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING, TypeGuard
 
 from app.core.config import Settings
 from app.exceptions import UnknownModelOverrideError
+from app.models import model_catalog
 from app.modules.billing.entitlements import can_use, is_paid
-from app.services import model_catalog, routing
+from app.services import model_health, routing
 
 if TYPE_CHECKING:
     from app.models.orm import User
@@ -38,11 +39,11 @@ def free_pool(settings: Settings) -> list[str]:
     candidates = [
         m
         for m in model_catalog.selectable_models()
-        if m.plan_access == "free" and model_catalog.is_available(m, settings)
+        if m.plan_access == "free" and model_health.is_available(m, settings)
     ]
     if not candidates:
         fallback = model_catalog.get(model_catalog.auto_fast_alias())
-        if model_catalog.is_available(fallback, settings):
+        if model_health.is_available(fallback, settings):
             return [fallback.id]
         return [model_catalog.auto_fast_alias()]
     candidates.sort(key=model_catalog.price_sort_key)
@@ -51,7 +52,7 @@ def free_pool(settings: Settings) -> list[str]:
 
 def default_pro_enabled(settings: Settings) -> list[str]:
     return [
-        m.id for m in model_catalog.selectable_models() if model_catalog.is_available(m, settings)
+        m.id for m in model_catalog.selectable_models() if model_health.is_available(m, settings)
     ]
 
 
@@ -60,7 +61,7 @@ def allowed_model_ids(user: User, settings: Settings) -> set[str]:
         return {
             m.id
             for m in model_catalog.selectable_models()
-            if model_catalog.is_available(m, settings)
+            if model_health.is_available(m, settings)
         }
     return set(free_pool(settings))
 
@@ -275,7 +276,7 @@ def chat_fallback_models(
             continue
         if needs_vision and not model.supports_vision:
             continue
-        if model_catalog.is_available(model, settings):
+        if model_health.is_available(model, settings):
             candidates.append(model_id)
 
     primary_rank = model_catalog.tier_rank(primary_model) if primary_model is not None else 0
@@ -296,7 +297,7 @@ def chat_fallback_models(
         if (
             backup.id not in skip
             and backup.model not in used
-            and model_catalog.is_available(backup, settings)
+            and model_health.is_available(backup, settings)
         ):
             candidates.append(backup.id)
     return candidates[:max_fallbacks]

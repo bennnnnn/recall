@@ -14,7 +14,6 @@ _EXPORTS = {
     "REMINDER_TOPIC": ("actions", "REMINDER_TOPIC"),
     "TODO_HINT": ("prompt_hint", "TODO_HINT"),
     "apply_todo_actions": ("actions", "apply_todo_actions"),
-    "build_todo_sync_transcript": ("sync", "build_todo_sync_transcript"),
     "build_todos_system_section": ("prompt_context", "build_todos_system_section"),
     "format_todos_voice_block": ("prompt_context", "format_todos_voice_block"),
     "materialize_reminder_fences": ("reminder_fences", "materialize_reminder_fences"),
@@ -33,9 +32,7 @@ _EXPORTS = {
     "mark_email_sent_if_current": ("email_repository", "mark_email_sent_if_current"),
     "next_recurring_due": ("recurrence", "next_recurring_due"),
     "snap_first_due": ("recurrence", "snap_first_due"),
-    "sync_todos_from_transcript": ("sync", "sync_todos_from_transcript"),
     "update_schedule_if_current": ("schedule_repository", "update_schedule_if_current"),
-    "should_recover_todo_writes": ("classification", "should_recover_todo_writes"),
     "transcript_implies_todo_sync": ("classification", "transcript_implies_todo_sync"),
 }
 

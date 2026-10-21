@@ -41,7 +41,6 @@ def _fake_user(uid=None):
     user = MagicMock()
     user.id = uid or uuid4()
     user.default_model = "free-chat"
-    user.response_style = "balanced"
     user.memory_enabled = True
     return user
 

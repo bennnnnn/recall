@@ -63,22 +63,6 @@ async def request_consolidation(
     return "queued"
 
 
-async def request_user_consolidation(
-    session: AsyncSession,
-    redis: Redis,
-    user: User,
-) -> str:
-    if not user.memory_enabled:
-        return "skipped"
-    memories = await memories_repo.list_for_user(session, user.id)
-    return await request_consolidation(
-        redis,
-        user,
-        memories,
-        skip_if_already_queued=False,
-    )
-
-
 async def list_user_memories(
     session: AsyncSession,
     redis: Redis,

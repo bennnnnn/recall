@@ -1,8 +1,6 @@
 import asyncio
 import logging
-import re
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime, timedelta
 from typing import cast, get_args
 
 from app.core.config import Settings
@@ -136,65 +134,6 @@ async def mock_merge_memory_section(section_type: str, prior_text: str):
         summary=summary or prior_text[:300],
         confidence=0.9,
     )
-
-
-_MOCK_FACTUAL_LOOKUP = re.compile(
-    r"\b("
-    r"who is|who was|what is the price|price of|how much|how many|"
-    r"population of|net worth|market cap|stock price|when did|when was|"
-    r"ceo of|current president|latest version|where can i buy"
-    r")\b",
-    re.IGNORECASE,
-)
-
-
-async def mock_web_search_classification(
-    user_message: str,
-    *,
-    prior_user_messages: list[str] | None = None,
-):
-    from app.models.schemas import WebSearchClassification
-
-    del prior_user_messages
-    if _MOCK_FACTUAL_LOOKUP.search(user_message):
-        return WebSearchClassification(needs_search=True, query=user_message.strip()[:120])
-    return WebSearchClassification(needs_search=False)
-
-
-async def mock_todo_actions(user_message: str, current_todos: list[dict[str, object]]):
-    from app.models.schemas import TodoActionItem, TodoExtractionResult
-
-    text = user_message.lower()
-    actions: list[TodoActionItem] = []
-    if "add" in text or "remind me" in text:
-        # crude: extract after "add" or use whole user line
-        for line in user_message.splitlines():
-            if line.lower().startswith("user:"):
-                content = line.split(":", 1)[-1].strip()
-                if len(content) > 3:
-                    actions.append(
-                        TodoActionItem(
-                            action="add",
-                            topic="Reminders",
-                            content=content[:200],
-                            due_at=datetime.now(UTC) + timedelta(hours=1),
-                        )
-                    )
-                    break
-    if "done" in text or "complete" in text or "finished" in text:
-        open_items = [t for t in current_todos if not t.get("checked")]
-        if open_items:
-            first = open_items[0]
-            actions.append(
-                TodoActionItem(
-                    action="complete",
-                    topic=str(first.get("topic") or "General"),
-                    content=str(first["content"]),
-                )
-            )
-    if not actions:
-        return None
-    return TodoExtractionResult(actions=actions)
 
 
 async def mock_summary(prior_summary: str | None, messages: list[dict[str, str]]) -> str:

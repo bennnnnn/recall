@@ -14,13 +14,13 @@ from app.modules.math.solve.inequalities import solve_inequality
 from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
 
 
-async def _reply(text: str, style: str = "balanced") -> tuple[str | None, str | None]:
+async def _reply(text: str) -> tuple[str | None, str | None]:
     """(canonical answer, direct reply) for one turn."""
     settings = Settings(math_llm_extract_enabled=False, math_word_problems_enabled=False)
     augmentation = await build_subject_augmentation(text, settings)
     verified = augmentation.verified
     answer = getattr(verified, "canonical_answer", None) if verified is not None else None
-    return answer, maybe_direct_subject_reply(verified, text, response_style=style)
+    return answer, maybe_direct_subject_reply(verified, text)
 
 
 @pytest.mark.parametrize(

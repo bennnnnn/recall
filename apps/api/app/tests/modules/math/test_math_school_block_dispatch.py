@@ -12,7 +12,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.math.schemas import MathIntent
-from app.modules.math.solve import MathServiceError
+from app.modules.math.solve import SolveServiceError
 from app.modules.math.tools.school.arithmetic import _verified_block_arithmetic
 from app.modules.math.tools.school.trig import _verified_block_trig
 
@@ -86,9 +86,9 @@ def test_trig_bounded_equation_and_its_fall_through() -> None:
     assert block.canonical_answer == r"x = 30^\circ,\;150^\circ"
     assert lines[1] == r"Domain: 0^\circ \le x \le 360^\circ"
     # Without its equation the op reaches the angle reader, which has no such function.
-    with pytest.raises(MathServiceError, match="unsupported trig function"):
+    with pytest.raises(SolveServiceError, match="unsupported trig function"):
         _trig(school_op="bounded_degree_equation", percent_base=30)
-    with pytest.raises(MathServiceError, match="unsupported trig function"):
+    with pytest.raises(SolveServiceError, match="unsupported trig function"):
         _trig(school_op="sas_area", percent_base=30)
     fallback, _ = _trig(school_op="bounded_radian_equation", expr="sin(pi/6)")
     assert fallback.canonical_answer == r"\frac{1}{2}"

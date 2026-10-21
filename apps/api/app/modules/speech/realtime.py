@@ -51,17 +51,6 @@ class RealtimeEndIn(BaseModel):
     call_id: str = Field(min_length=8, max_length=128)
 
 
-class RealtimeOfferIn(BaseModel):
-    sdp: str = Field(min_length=20, max_length=200_000)
-    chat_id: UUID | None = None
-
-
-class RealtimeOfferOut(BaseModel):
-    sdp: str
-    call_id: str | None = None
-    model: str
-
-
 class RealtimePersistIn(BaseModel):
     chat_id: UUID
     call_id: str = Field(min_length=8, max_length=128)
@@ -219,22 +208,6 @@ async def end_realtime_session(
     if charged is not None:
         await live_talk_service.close_realtime_session(redis, user.id, body.call_id)
     return await live_talk_service.live_talk_status(redis, user, settings)
-
-
-@router.post("/live/webrtc", response_model=RealtimeOfferOut)
-async def create_realtime_webrtc_call(
-    body: RealtimeOfferIn,
-    user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings_dep),
-) -> RealtimeOfferOut:
-    """Reject stale clients that still use the removed server-proxied SDP transport."""
-    raise HTTPException(
-        status_code=status.HTTP_426_UPGRADE_REQUIRED,
-        detail=(
-            "Legacy Live Talk client detected. Pull the latest main branch, restart Metro "
-            "with a cleared cache, and reopen the dev client."
-        ),
-    )
 
 
 async def _take_persist_slot_or_raise(redis: Redis, user: User, call_id: str) -> None:

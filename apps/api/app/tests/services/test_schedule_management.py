@@ -129,7 +129,7 @@ async def test_push_enabled_list_does_not_skip_undelivered_occurrence(schedule_s
     row = _todo(sync_session, recurring=True, due=due)
     row.notification_sent_at = None
     sync_session.commit()
-    listed = await crud.list_todos(
+    listed, _cursor = await crud.list_todos_page(
         session,
         SimpleNamespace(
             id=row.user_id,
@@ -224,7 +224,7 @@ async def test_early_recurring_push_advances_from_delivered_occurrence(schedule_
 async def test_local_reminder_list_advances_and_returns_persisted_schedule(schedule_sql):
     sync_session, session, invalidate = schedule_sql
     row = _todo(sync_session, recurring=True, due=datetime.now(UTC) - timedelta(days=4))
-    items = await crud.list_todos(
+    items, _cursor = await crud.list_todos_page(
         session,
         SimpleNamespace(id=row.user_id, timezone="UTC", push_notifications_enabled=False),
     )

@@ -297,26 +297,6 @@ async def _acquire_memory_write_lock_or_raise(user_id: UUID) -> str:
     return await _locks.acquire_memory_write_lock_or_raise(_seams(), user_id)
 
 
-async def delete_memory_fact(
-    session: AsyncSession,
-    settings: Settings,
-    user_id: UUID,
-    memory_id: UUID,
-    fact_index: int,
-    *,
-    expected_text: str | None = None,
-) -> bool:
-    return await _crud.delete_memory_fact(
-        _seams(),
-        session,
-        settings,
-        user_id,
-        memory_id,
-        fact_index,
-        expected_text=expected_text,
-    )
-
-
 async def update_memory(
     session: AsyncSession,
     settings: Settings,
@@ -333,10 +313,6 @@ async def update_memory(
 
 async def delete_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -> bool:
     return await _crud.delete_memory(_seams(), session, user_id, memory_id)
-
-
-async def delete_memory_section(session: AsyncSession, user_id: UUID, memory_type: str) -> bool:
-    return await _crud.delete_memory_section(_seams(), session, user_id, memory_type)
 
 
 async def delete_memory_document(session: AsyncSession, user_id: UUID, topic: str) -> bool:

@@ -5,9 +5,10 @@ from types import SimpleNamespace
 import pytest
 
 from app.core.config import Settings
+from app.models import model_catalog
 from app.modules.billing import entitlements, plan
 from app.modules.billing.subscription import _plan_from_revenuecat_payload
-from app.services import model_catalog
+from app.services import model_health
 
 
 def _user(plan_id: str) -> SimpleNamespace:
@@ -100,7 +101,7 @@ def test_unknown_plans_are_never_paid(raw):
 def test_paid_plans_get_every_model_and_free_gets_the_free_pool():
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     selectable = {
-        m.id for m in model_catalog.selectable_models() if model_catalog.is_available(m, settings)
+        m.id for m in model_catalog.selectable_models() if model_health.is_available(m, settings)
     }
     assert plan.allowed_model_ids(_user("plus"), settings) == selectable
     assert plan.allowed_model_ids(_user("pro"), settings) == selectable

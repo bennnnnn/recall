@@ -1220,7 +1220,8 @@
    ]
   ],
   "reply": "The **Red Terror Martyrs' Memorial Museum** is generally open **every day from about 8:30 AM to 6:00 PM**, including weekends.\n\n- **Where:** at Meskel Square, on Bole Road (easy to combine with a walk around the square)\n- **Entry:** free — donations are welcome\n- **Tip:** many visitors are guided by survivors or volunteers, and the visit takes about an hour\n\nHours can change around public holidays, so it's worth calling ahead if you're going on one.",
-  "expect": "search"
+  "expect": "search",
+  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
  },
  {
   "id": "hf-072",

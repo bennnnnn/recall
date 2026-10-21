@@ -1,6 +1,6 @@
 """Math-only answer-formatting helpers (fence body text).
 
-The verified-block primitive itself (``VerifiedMathBlock``, ``MathServiceError``,
+The verified-block primitive itself (``VerifiedMathBlock``, ``SolveServiceError``,
 the ``[BEGIN/END VERIFIED MATH]`` wrapping) moved to ``app.services.solving`` —
 it is shared with physics, not math-only. See docs/SUBJECT_SEPARATION_TICKETS.md
 (S2). What is left here is genuinely math-specific: how to render an equation's

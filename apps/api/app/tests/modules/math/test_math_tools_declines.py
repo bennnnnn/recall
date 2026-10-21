@@ -15,7 +15,7 @@ from sympy import Symbol
 
 from app.core.config import Settings
 from app.modules.math.schemas import MathIntent
-from app.modules.math.solve import MathServiceError
+from app.modules.math.solve import SolveServiceError
 from app.modules.math.tool_check import _parse, tool_call_matches_user_text
 from app.modules.math.tools.block.algebra import _rational_interval_is_clearer
 from app.modules.math.tools.block.integrals import (
@@ -86,7 +86,7 @@ def test_implicit_derivative_refuses_a_side_that_is_a_truth_value() -> None:
     intent = MathIntent(
         kind="calculus", school_op="implicit", lhs="x == 1", rhs="25", operation="differentiate"
     )
-    with pytest.raises(MathServiceError, match="Could not parse expression"):
+    with pytest.raises(SolveServiceError, match="Could not parse expression"):
         apply_calculus_extension(intent, Settings(math_tools_enabled=True), [])
 
 

@@ -177,7 +177,6 @@ def _user(*, pro: bool) -> User:
         name="Bini",
         email="bini@example.com",
         plan="pro" if pro else "free",
-        response_style="balanced",
         response_tone="casual",
         locale="en",
         timezone=USER_TIMEZONE,

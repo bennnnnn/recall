@@ -48,7 +48,7 @@ export function isVoiceInputAvailable(): boolean {
   return loadExpoAudio() !== null;
 }
 
-export type MeterListener = (level: number) => void;
+type MeterListener = (level: number) => void;
 
 export type VoiceRecorder = {
   stop: () => Promise<string | null>;

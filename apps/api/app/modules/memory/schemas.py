@@ -14,7 +14,6 @@ from app.models.schemas.text import UserText
 
 MEMORY_TEXT_MAX_LENGTH = 4000
 # A persisted section may include the server's "As of YYYY-MM-DD: " prefix.
-MEMORY_FACT_TEXT_MAX_LENGTH = MEMORY_TEXT_MAX_LENGTH + 18
 
 
 class MemoryOut(BaseModel):

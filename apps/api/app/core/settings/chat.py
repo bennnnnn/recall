@@ -22,7 +22,6 @@ class ChatContextSettings(BaseModel):
     todo_inject_limit: int = 100
     # A reminder change from chat is a card the user taps to save (or mark
     # done, move, delete). Off: chat writes to-dos as soon as it reads them.
-    reminder_proposals_enabled: bool = True
     todo_prompt_limit: int = 48
 
     # History compression — keep recent turns verbatim within a token budget,

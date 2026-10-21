@@ -21,7 +21,7 @@ import pytest
 from sympy import N, Rational, Symbol
 
 from app.modules.math.schemas import GraphSampleInput
-from app.modules.math.solve import MathServiceError, _parse_expression, sample_function
+from app.modules.math.solve import SolveServiceError, _parse_expression, sample_function
 
 FIXTURE = Path(__file__).resolve().parents[6] / "docs" / "fixtures" / "graph_expr_cases.json"
 CONTRACT: dict[str, Any] = json.loads(FIXTURE.read_text())
@@ -62,7 +62,7 @@ def _fence_text(expr: str) -> str:
 def test_graph_expr_contract_matches_sympy(case: dict[str, Any]) -> None:
     if case.get("refused"):
         assert "fence" not in case, "a refused expression has no graph fence"
-        with pytest.raises(MathServiceError):
+        with pytest.raises(SolveServiceError):
             _parse_expression(case["expr"], [VARIABLE])
         return
     _assert_samples(case["expr"], case)

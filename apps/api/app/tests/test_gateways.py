@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from pydantic import BaseModel
 
 from app.core.access_tokens import (
     AccessTokenError,
@@ -21,8 +22,15 @@ from app.gateways.mock_llm import (
     mock_title,
     should_mock_llm,
 )
-from app.models.schemas import TodoExtractionResult
+from app.models.schemas import TodoActionItem
 from app.modules.chat import titles as chat_titles
+
+
+class _ActionList(BaseModel):
+    """A schema with one list field, as the structured-call wrapper expects for bare lists."""
+
+    actions: list[TodoActionItem]
+
 
 # ── mock_llm ───────────────────────────────────────────────────────────────────
 
@@ -224,10 +232,10 @@ async def test_complete_structured_wraps_bare_empty_list():
             settings=settings,
             model_alias="memory-model",
             messages=[{"role": "user", "content": "x"}],
-            schema=TodoExtractionResult,
+            schema=_ActionList,
         )
     assert result is not None
-    assert isinstance(result, TodoExtractionResult)
+    assert isinstance(result, _ActionList)
     assert result.actions == []
 
 
@@ -242,7 +250,7 @@ async def test_complete_structured_wraps_bare_list_with_items():
             settings=settings,
             model_alias="memory-model",
             messages=[{"role": "user", "content": "x"}],
-            schema=TodoExtractionResult,
+            schema=_ActionList,
         )
     assert result is not None
     assert len(result.actions) == 1
@@ -261,7 +269,7 @@ async def test_complete_structured_accepts_object_form():
             settings=settings,
             model_alias="memory-model",
             messages=[{"role": "user", "content": "x"}],
-            schema=TodoExtractionResult,
+            schema=_ActionList,
         )
     assert result is not None
     assert result.actions == []
@@ -289,7 +297,7 @@ async def test_complete_structured_retries_fallback_on_provider_outage():
             settings=settings,
             model_alias="memory-model",
             messages=[{"role": "user", "content": "x"}],
-            schema=TodoExtractionResult,
+            schema=_ActionList,
         )
     assert result is not None
     assert len(result.actions) == 1
@@ -314,7 +322,7 @@ async def test_complete_structured_no_retry_on_bad_output():
             settings=settings,
             model_alias="memory-model",
             messages=[{"role": "user", "content": "x"}],
-            schema=TodoExtractionResult,
+            schema=_ActionList,
         )
     assert result is None
     assert len(calls) == 1  # no fallback attempt
@@ -336,7 +344,7 @@ async def test_complete_structured_can_retry_invalid_output_for_verified_paths()
             settings=settings,
             model_alias="title-model",
             messages=[{"role": "user", "content": "x"}],
-            schema=TodoExtractionResult,
+            schema=_ActionList,
             fallback_on_invalid=True,
         )
     assert result is not None
@@ -359,7 +367,7 @@ async def test_complete_structured_returns_none_when_both_fail():
             settings=settings,
             model_alias="memory-model",
             messages=[{"role": "user", "content": "x"}],
-            schema=TodoExtractionResult,
+            schema=_ActionList,
         )
     assert result is None
     assert len(calls) == 2  # primary + fallback both tried
@@ -387,25 +395,6 @@ async def test_generate_title_retries_fallback_on_outage():
     assert result is not None
     assert len(result.ops) == 1
     assert result.ops[0].type == "focus"
-
-
-@pytest.mark.asyncio
-async def test_mock_todo_actions_add_and_complete():
-    from app.gateways.mock_llm import mock_todo_actions
-
-    result = await mock_todo_actions(
-        "User: add buy milk\nAssistant: ok",
-        [{"topic": "General", "content": "Old task", "checked": False}],
-    )
-    assert result is not None
-    assert any(a.action == "add" for a in result.actions)
-
-    done = await mock_todo_actions(
-        "User: mark it done",
-        [{"topic": "General", "content": "Old task", "checked": False}],
-    )
-    assert done is not None
-    assert any(a.action == "complete" for a in done.actions)
 
 
 @pytest.mark.asyncio
@@ -526,7 +515,7 @@ def test_litellm_kwargs_use_openrouter_key():
 
 
 def test_litellm_openrouter_model_prefix():
-    from app.services.model_catalog import litellm_openrouter_model
+    from app.models.model_catalog import litellm_openrouter_model
 
     assert litellm_openrouter_model("deepseek/deepseek-chat") == "openrouter/deepseek/deepseek-chat"
     assert litellm_openrouter_model("openrouter/auto") == "openrouter/openrouter/auto"
@@ -1184,7 +1173,7 @@ async def test_complete_structured_times_out_hung_provider():
             settings=settings,
             model_alias="memory-model",
             messages=[{"role": "user", "content": "x"}],
-            schema=TodoExtractionResult,
+            schema=_ActionList,
         )
     assert result is None
     # Primary timed out, then fallback also timed out.
@@ -1199,7 +1188,7 @@ async def test_complete_structured_no_fallback_when_disabled():
         mock_llm_enabled=False,
         openrouter_api_key="sk-or-test",
         background_llm_timeout_seconds=1,
-        web_search_classifier_timeout_seconds=0.05,
+        reference_resolve_timeout_seconds=0.05,
     )
     calls: list[str] = []
 
@@ -1213,8 +1202,8 @@ async def test_complete_structured_no_fallback_when_disabled():
             settings=settings,
             model_alias="memory-model",
             messages=[{"role": "user", "content": "x"}],
-            schema=TodoExtractionResult,
-            timeout_seconds=settings.web_search_classifier_timeout_seconds,
+            schema=_ActionList,
+            timeout_seconds=settings.reference_resolve_timeout_seconds,
             allow_fallback=False,
         )
     assert result is None

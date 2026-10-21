@@ -9,7 +9,7 @@ from __future__ import annotations
 from app.core.config import get_settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import GraphBlockSpec, GraphSampleInput
-from app.modules.math.solve import MathServiceError
+from app.modules.math.solve import SolveServiceError
 
 # Below this count a continuous y=f(x) fence is treated as "sparse key points"
 # the model listed for prose, not a renderable curve sample.
@@ -94,7 +94,7 @@ def _resample_curve(
                 n=n,
             )
         )
-    except (MathServiceError, ValueError, TypeError):
+    except (SolveServiceError, ValueError, TypeError):
         return None
     if len(sample.points) < 2:
         return None

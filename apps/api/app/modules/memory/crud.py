@@ -54,91 +54,6 @@ async def _commit_hand_delete[T: int](
     return removed
 
 
-async def delete_memory_fact(
-    seams: Any,
-    session: AsyncSession,
-    settings: Settings,
-    user_id: UUID,
-    memory_id: UUID,
-    fact_index: int,
-    *,
-    expected_text: str | None = None,
-) -> bool:
-    """Legacy sentence-index delete. Atomic rows delete the whole fact."""
-
-    def delete_row() -> Awaitable[bool]:
-        return memories_repo.delete_by_id(session, user_id, memory_id, commit=False)
-
-    async with _write_locked(seams, user_id):
-        memory = await memories_repo.get_by_id(session, user_id, memory_id)
-        if memory is None:
-            return False
-        facts = seams.split_memory_facts(memory.text)
-        if len(facts) <= 1:
-            if expected_text is not None:
-                expected = seams.normalize_memory_text(expected_text).lower()
-                actual = seams.normalize_memory_text(memory.text).lower()
-                if expected and expected not in actual and actual not in expected:
-                    return False
-            return await _commit_hand_delete(seams, session, user_id, delete_row)
-
-        target_index = fact_index
-        if expected_text is not None:
-            normalized_expected = seams.normalize_memory_text(expected_text).lower()
-            matches = [
-                index
-                for index, fact in enumerate(facts)
-                if seams.normalize_memory_text(fact).lower() == normalized_expected
-            ]
-            if not matches:
-                return False
-            target_index = fact_index if fact_index in matches else matches[0]
-        if target_index < 0 or target_index >= len(facts):
-            return False
-        facts.pop(target_index)
-        if not facts:
-            return await _commit_hand_delete(seams, session, user_id, delete_row)
-
-        new_text = seams.join_memory_facts(facts)
-        stored = seams.normalize_memory_text(new_text)
-        await session.commit()  # end the read before the embedding call (write lock held)
-        try:
-            new_vec = await embedding_gateway.embed_text(settings, stored)
-        except Exception:
-            # The fact's vector stays empty until its next edit: recall misses it.
-            logger.warning("Memory re-embed on fact delete failed", exc_info=True)
-            new_vec = None
-        try:
-            if new_vec is not None:
-                updated = await memories_repo.update_text_and_embedding(
-                    session,
-                    user_id,
-                    memory_id,
-                    stored,
-                    new_vec,
-                    embedding_text_hash=seams.embedding_text_hash(stored),
-                    commit=False,
-                )
-            else:
-                updated = await memories_repo.update_text(
-                    session,
-                    user_id,
-                    memory_id,
-                    stored,
-                    commit=False,
-                )
-            if updated is not None:
-                await memories_repo.note_manual_edit(session, user_id)
-                await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        if updated is not None:
-            await _invalidate_caches(seams, user_id)
-            return True
-        return False
-
-
 async def update_memory(
     seams: Any,
     session: AsyncSession,
@@ -221,22 +136,6 @@ async def delete_memory(
             user_id,
             lambda: memories_repo.delete_by_id(session, user_id, memory_id, commit=False),
         )
-
-
-async def delete_memory_section(
-    seams: Any,
-    session: AsyncSession,
-    user_id: UUID,
-    memory_type: str,
-) -> bool:
-    async with _write_locked(seams, user_id):
-        removed = await _commit_hand_delete(
-            seams,
-            session,
-            user_id,
-            lambda: memories_repo.delete_by_type(session, user_id, memory_type, commit=False),
-        )
-    return removed > 0
 
 
 async def delete_memory_document(

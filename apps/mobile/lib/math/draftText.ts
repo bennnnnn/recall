@@ -76,7 +76,7 @@ export function sentMessageShowsMathPreview(input: string): boolean {
 const COMMAND_ARGUMENT = /\\[A-Za-z]+\{[^{}]*\}/g;
 
 /** Drop TeX grouping braces, but keep `\{` and `\}` as the braces the user typed. */
-export function composerTextLabel(raw: string): string {
+function composerTextLabel(raw: string): string {
   let label = "";
   let last = 0;
   for (const found of raw.matchAll(COMMAND_ARGUMENT)) {
@@ -107,7 +107,7 @@ export function scriptSize(size: number): number {
 }
 
 /** Text between `$`s is math: a lone `x` is the italic variable, not prose. */
-export function insideInlineMath(input: string, index: number): boolean {
+function insideInlineMath(input: string, index: number): boolean {
   let open = false;
   for (let i = 0; i < index; i += 1) {
     if (input[i] === "$" && input[i - 1] !== "\\") open = !open;

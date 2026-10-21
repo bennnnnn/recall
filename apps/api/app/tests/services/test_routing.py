@@ -5,8 +5,9 @@ import time
 import pytest
 
 from app.core.config import Settings
+from app.models import model_catalog
 from app.modules.billing import plan as plan_service
-from app.services import model_catalog, routing
+from app.services import routing
 from app.services.routing import (
     message_needs_thinking,
     resolve_alias_in_pool,
@@ -288,7 +289,7 @@ def test_code_fence_detection_is_linear_time_not_quadratic():
 
 
 def test_is_reasoning_alias() -> None:
-    from app.services.model_catalog import is_reasoning_alias, quota_multiplier
+    from app.models.model_catalog import is_reasoning_alias, quota_multiplier
 
     assert is_reasoning_alias("smart-chat") is True
     assert is_reasoning_alias("glm-5.2") is True

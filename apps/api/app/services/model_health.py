@@ -11,6 +11,8 @@ from typing import Protocol
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.gateways import mock_llm
+from app.models.model_catalog import ChatModel
 
 logger = logging.getLogger(__name__)
 
@@ -166,3 +168,10 @@ async def unhealthy_aliases(redis: Redis, settings: Settings, aliases: list[str]
 def forget_verdicts() -> None:
     """Drop the per-process verdict cache (tests)."""
     _verdicts.clear()
+
+
+def is_available(model: ChatModel, settings: Settings) -> bool:
+    """Whether this process can serve ``model``: mock mode, or its provider key is set."""
+    if mock_llm.should_mock_llm(settings):
+        return True
+    return bool(getattr(settings, model.api_key_field, ""))

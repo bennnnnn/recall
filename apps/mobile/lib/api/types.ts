@@ -26,7 +26,6 @@ export type User = {
   /** What the plan includes (display only; the server checks every request). */
   features?: PlanFeature[];
   enabled_models: string[] | null;
-  response_style: string;
   /** Three follow-up questions under a reply; on unless the user turned it off. */
   follow_up_suggestions_enabled?: boolean;
   /** Web search and photo lookups (Settings → Data controls); on unless turned off. */
@@ -153,7 +152,7 @@ export type HomeUrgentTodo = {
   minutes_until: number;
 };
 
-export type HomeStarter = {
+type HomeStarter = {
   id?: string;
   text: string;
   prompt: string;

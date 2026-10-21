@@ -25,7 +25,6 @@ def test_user_payload_lists_plan_features(plan_id, has_live_talk, has_voice):
         avatar_url=None,
         default_model="auto",
         plan=plan_id,
-        response_style="balanced",
         memory_enabled=True,
         created_at=datetime(2026, 1, 1),
     )

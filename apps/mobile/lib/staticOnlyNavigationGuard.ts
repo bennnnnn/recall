@@ -1,4 +1,4 @@
-export type NavigationGuardRequest = {
+type NavigationGuardRequest = {
   url?: string;
   isTopFrame?: boolean;
   /** iOS: click | formsubmit | backforward | reload | formresubmit | other */

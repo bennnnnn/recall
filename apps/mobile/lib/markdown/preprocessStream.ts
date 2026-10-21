@@ -163,7 +163,7 @@ function countOccurrences(text: string, needle: string): number {
 
 const CALLOUT_MARKER_LINE_RE = /^>\s*\[!\w+\]/i;
 
-export type StableScanState = {
+type StableScanState = {
   /** Absolute offset into `content` already folded into the fields below. */
   scannedLen: number;
   /** Parity of ``` fence-marker lines seen so far (true = inside a fence). */

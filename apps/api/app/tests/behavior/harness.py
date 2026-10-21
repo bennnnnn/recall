@@ -3,8 +3,9 @@
 The turn runs the way ``stream_entry`` runs it: the photo-lookup and image-generation
 intercepts, the turn mode, the real prompt builder and pre-solvers, then the tool-loop
 gate. Only IO is stubbed: the database, model health, the web and image
-search providers, PubChem, and the model calls. The classifier and the tool rounds are
-recorded instead of called, so the route says whether a model would have been asked.
+search providers, PubChem, and the model calls. The tool rounds are recorded instead of
+called, so the route says whether a model would have been asked. Settings are
+production's: the battery certifies what users get.
 """
 
 from __future__ import annotations
@@ -181,7 +182,6 @@ def battery_settings() -> Settings:
         openai_api_key="",
         tavily_api_key="",
         web_search_enabled=True,
-        web_search_classifier_enabled=True,
         web_search_fallback_enabled=False,
         image_search_enabled=True,
         image_generation_enabled=True,
@@ -257,7 +257,6 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         name=USER_NAME,
         email="bini@example.com",
         plan="pro" if case.pro else "free",
-        response_style="balanced",
         response_tone="casual",
         locale="en",
         timezone=USER_TIMEZONE,
@@ -296,7 +295,6 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         hit = WebSearchHit(title="Result", url="https://example.com", snippet="A result.")
         return [hit], [text]
 
-    classifier = AsyncMock(return_value=None)
     tool_rounds = AsyncMock(side_effect=lambda **kw: (kw["messages"], None, None, []))
     # What the prompt builder asked to load: the memory scope, and earlier chats.
     loaded: dict[str, Any] = {}
@@ -327,7 +325,6 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stub("app.gateways.web_search_gateway.search_web", AsyncMock(return_value=[]))
         stub("app.gateways.pubchem_gateway.lookup_by_name", _pubchem_lookup)
         stub("app.gateways.pubchem_gateway.lookup_iupac_name", AsyncMock(return_value=None))
-        stub("app.modules.web_search.detection.classify_web_search", classifier)
         stub("app.modules.chat.tool_loop.run_tool_rounds", tool_rounds)
         stub("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False))
 
@@ -360,7 +357,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
             user=user,
             prior_count=len(rows),
         )
-        prefetch_searched = bool(searched) or bool(bundle.search_sources)
+        prefetch_searched = bool(searched)
         await run_tool_loop_path(
             default_deps(), AsyncMock(), settings, ctx, usage={}, on_status=None, should_cancel=None
         )
@@ -374,7 +371,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     )
     if prefetch_searched or direct or (loop_ran and needs_web_search(text)):
         search = "yes"
-    elif classifier.await_count or loop_ran:
+    elif loop_ran:
         search = "ask"
     else:
         search = "no"

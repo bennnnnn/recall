@@ -24,7 +24,6 @@ _CAPPED = {
     "memory_consolidate": (
         "app.background.handlers.memory_consolidation.consolidate_user_memory_sections"
     ),
-    "todos": "app.background.handlers.todo_jobs.sync_todos_from_chat",
     "compress": "app.background.handlers.compaction.compress_chat_history",
     "topic": "app.background.handlers.topic_service.generate_chat_title",
     "attachment_index": "app.background.handlers.attachment_indexing.index_attachment_job",

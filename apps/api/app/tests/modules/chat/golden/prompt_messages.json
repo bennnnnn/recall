@@ -4,7 +4,6 @@
    "name": "Bini",
    "email": "bini@example.com",
    "plan": "free",
-   "response_style": "balanced",
    "response_tone": "casual",
    "locale": "en",
    "timezone": "Africa/Nairobi",
@@ -1024,10 +1023,7 @@
    }
   },
   {
-   "id": "branch:short-code",
-   "user": {
-    "response_style": "short"
-   },
+   "id": "branch:code",
    "history": [
     [
      "user",
@@ -1057,10 +1053,7 @@
    }
   },
   {
-   "id": "branch:short-day-learning-plan",
-   "user": {
-    "response_style": "short"
-   },
+   "id": "branch:day-learning-plan",
    "history": [
     [
      "user",
@@ -1086,10 +1079,7 @@
    }
   },
   {
-   "id": "branch:short-walkthrough",
-   "user": {
-    "response_style": "short"
-   },
+   "id": "branch:walkthrough",
    "history": [
     [
      "user",
@@ -1115,10 +1105,7 @@
    }
   },
   {
-   "id": "branch:short-lesson-continue",
-   "user": {
-    "response_style": "short"
-   },
+   "id": "branch:lesson-continue",
    "history": [
     [
      "user",
@@ -1160,10 +1147,7 @@
    }
   },
   {
-   "id": "branch:short-teaching-math",
-   "user": {
-    "response_style": "short"
-   },
+   "id": "branch:teaching-math",
    "history": [
     [
      "user",
@@ -1189,10 +1173,7 @@
    }
   },
   {
-   "id": "branch:short-rewrite",
-   "user": {
-    "response_style": "short"
-   },
+   "id": "branch:rewrite",
    "history": [
     [
      "user",
@@ -1218,10 +1199,7 @@
    }
   },
   {
-   "id": "branch:short-chemistry-followup",
-   "user": {
-    "response_style": "short"
-   },
+   "id": "branch:chemistry-followup",
    "history": [
     [
      "user",

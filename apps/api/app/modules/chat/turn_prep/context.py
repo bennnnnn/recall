@@ -103,8 +103,6 @@ class StreamContext:
     # finalize and stream teardown await it so the assistant insert cannot
     # commit first and so a failed prompt still keeps what the user sent.
     user_message_persist: asyncio.Task[None] | None = None
-    # None means no verdict was prefetched; False is a completed negative.
-    web_search_classified: bool | None = None
     # Set when the tool loop's generate_image persisted the assistant row —
     # stream_and_finalize skips the LLM + second insert.
     terminal_image_message_id: str | None = None
@@ -128,7 +126,6 @@ class TurnPromptBundle:
     prompt_messages: list[dict[str, str]]
     stats: PromptStats
     instant_reply: str | None
-    search_sources: list[WebSearchHit]
     local_places: bool
     max_out: int
     fallback_models: list[str]
@@ -139,7 +136,6 @@ class TurnPromptBundle:
     verified_subject: VerifiedSolveBlock | None = None
     solver_unverified: bool = False
     unverified_subject: str | None = None
-    web_search_classified: bool | None = None
     # A multi-part message's settings card, added under the model's reply.
     settings_card: str | None = None
 
@@ -187,7 +183,6 @@ def stream_context_from_bundle(
         memory_hints=list(bundle.stats.memory_hints),
         context_summarized=bundle.stats.context_summarized,
         instant_reply=bundle.instant_reply,
-        search_sources=bundle.search_sources,
         local_places=bundle.local_places,
         skip_memory_jobs=skip_memory_jobs,
         prior_count=prior_count,
@@ -201,7 +196,6 @@ def stream_context_from_bundle(
         # prior assistant would mark "yes"/"go" as greetings again.
         lightweight_turn=bundle.lightweight,
         rich_context_turn=bundle.rich_context,
-        web_search_classified=bundle.web_search_classified,
         settings_card=bundle.settings_card,
         user_message_persist=user_message_persist,
         thinking=thinking,
@@ -297,7 +291,6 @@ def _bundle(
         prompt_messages=augmented.prompt_messages,
         stats=stats,
         instant_reply=instant_reply,
-        search_sources=augmented.search_sources,
         local_places=identity.geo.local_places,
         # One high ceiling for every turn — brevity is driven by the STYLE_HINTS
         # prompt guidance, not a hard token cap. Capping by style truncated large
@@ -311,7 +304,6 @@ def _bundle(
         verified_subject=augmented.verified_subject,
         solver_unverified=augmented.solver_unverified,
         unverified_subject=augmented.unverified_subject,
-        web_search_classified=augmented.web_search_classified,
     )
 
 

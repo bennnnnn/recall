@@ -13,11 +13,11 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.models import model_catalog
 from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult
 from app.modules.chat.turn_prep.context import await_user_message_persist
 from app.modules.chat.turn_prep.persist import UserTurn, turn_model
 from app.modules.chat.turn_prep.vision import inject_turn_images
-from app.services import model_catalog
 from app.tests.modules.chat.chat_test_support import prompt_bundle
 
 _SETTINGS = Settings(attachments_enabled=True, mock_llm_enabled=True, openrouter_api_key="")

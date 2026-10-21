@@ -90,6 +90,12 @@ class Case:
 
 
 NO_PHOTO = ""
+# Turns production does not search (the classifier that did was off in production).
+_PRODUCTION_SEARCH_GAP = (
+    "Production never searches this: the LLM classifier that decided these was off in "
+    "production (fly.toml), and the deterministic gate does not catch it. Needs a routing "
+    "decision (search on live cues, or a model round)."
+)
 NONE = ""
 
 # A story cut off mid-sentence, and code with its bug report, for the follow-up turns.
@@ -443,6 +449,7 @@ CASES: tuple[Case, ...] = (
         # A question about the world reaches the classifier, which needs no search here.
         Expect(search="ask", photo=NO_PHOTO),
         "Nairobi, in one line.",
+        gap=_PRODUCTION_SEARCH_GAP,
     ),
     Case(
         "search-bare-command",
@@ -462,6 +469,7 @@ CASES: tuple[Case, ...] = (
         # No live word, yet the answer is a number that changes: the classifier decides.
         Expect(search="ask"),
         "A recent figure from a search with its year, never a remembered guess.",
+        gap=_PRODUCTION_SEARCH_GAP,
     ),
     Case(
         "search-claim-about-a-leader",
@@ -474,6 +482,7 @@ CASES: tuple[Case, ...] = (
             ("user", "tell me about the war in ethiopia"),
             ("assistant", "The Tigray war began in November 2020 and ended with a 2022 truce."),
         ),
+        gap=_PRODUCTION_SEARCH_GAP,
     ),
     Case(
         "search-officeholder-followup",

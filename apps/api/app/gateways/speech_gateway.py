@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 import logging
 import wave
-from collections.abc import AsyncIterator
 from pathlib import Path
 
 from app.core.config import Settings
@@ -216,47 +215,3 @@ async def synthesize_via_openai(
     except Exception:
         logger.exception("Speech TTS failed model=%s chars=%s", model, len(text))
         return None
-
-
-async def stream_pcm_via_openai(
-    settings: Settings,
-    text: str,
-    *,
-    model: str,
-    voice: str,
-    language: str | None = None,
-) -> AsyncIterator[bytes]:
-    """Yield PCM (or raw audio) as OpenAI produces it — do not buffer the clip."""
-    payload = _tts_request_payload(
-        model=model,
-        text=text,
-        voice=voice,
-        response_format="pcm",
-        language=language,
-    )
-    try:
-        client = get_pooled_client(_TTS_TIMEOUT)
-        async with client.stream(
-            "POST",
-            _OPENAI_SPEECH_URL,
-            headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        ) as response:
-            if response.status_code >= 400:
-                error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
-                logger.warning(
-                    "OpenAI TTS stream failed model=%s status=%s body=%s",
-                    model,
-                    response.status_code,
-                    error_body,
-                )
-                return
-            async for chunk in response.aiter_bytes():
-                if chunk:
-                    yield chunk
-    except Exception:
-        logger.exception("Speech TTS stream failed model=%s chars=%s", model, len(text))
-        return

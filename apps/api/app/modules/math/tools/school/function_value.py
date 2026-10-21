@@ -205,11 +205,11 @@ def _parse(expression: str, variable: str) -> Any | None:
 
 def _parse_in(expression: str, variables: list[str]) -> Any | None:
     from app.modules.math import solve as math_solve
-    from app.services.solving import MathServiceError
+    from app.services.solving import SolveServiceError
 
     try:
         parsed = math_solve._parse_expression(expression, variables)
-    except (MathServiceError, SyntaxError, TypeError, ValueError):
+    except (SolveServiceError, SyntaxError, TypeError, ValueError):
         return None
     if isinstance(parsed, tuple):
         return None

@@ -99,20 +99,6 @@ class TodoUpdate(BaseModel):
         return self
 
 
-class TodoReorderItem(BaseModel):
-    model_config = ConfigDict(title="TodoReorderItem")
-
-    id: UUID
-    sort_order: int = Field(ge=0)
-    topic: UserText | None = Field(default=None, min_length=1, max_length=200)
-
-
-class TodoReorderBody(BaseModel):
-    model_config = ConfigDict(title="TodoReorderBody")
-
-    items: list[TodoReorderItem] = Field(min_length=1, max_length=100)
-
-
 class TodoActionItem(BaseModel):
     model_config = ConfigDict(title="TodoActionItem")
 
@@ -143,9 +129,3 @@ class TodoActionItem(BaseModel):
         if not self.topic.strip():
             raise ValueError("topic is required for this action")
         return self
-
-
-class TodoExtractionResult(BaseModel):
-    model_config = ConfigDict(title="TodoExtractionResult")
-
-    actions: list[TodoActionItem] = Field(default_factory=list)

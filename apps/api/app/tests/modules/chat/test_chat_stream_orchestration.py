@@ -47,8 +47,6 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
     fake_user = MagicMock()
     fake_user.id = user_id
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -60,10 +58,6 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
         patch("app.repositories.messages.create", AsyncMock()),
         patch("app.modules.chat.turn_prep.context.build_prompt_messages", mock_build),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
@@ -95,8 +89,6 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -111,10 +103,6 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-        ),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -162,7 +150,6 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.memory_enabled = False
 
     fake_chat = MagicMock()
@@ -178,10 +165,6 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-        ),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -219,8 +202,6 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -235,10 +216,6 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-        ),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -268,67 +245,9 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
-    """Todo LLM extraction must not block the chat path before streaming."""
-    from app.modules import chat as chat_module
-
-    async def fake_stream(**kwargs):
-        yield "ok"
-
-    fake_user = MagicMock()
-    fake_user.id = MagicMock()
-    fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
-    fake_chat = MagicMock()
-    fake_chat.model = "free-chat"
-    fake_chat.summary = None
-
-    with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
-        patch("app.repositories.messages.create", AsyncMock()),
-        patch(
-            "app.modules.chat.turn_prep.context.build_prompt_messages",
-            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-        ),
-        patch(
-            "app.modules.todos.extract.extract_todo_actions",
-            AsyncMock(),
-        ) as extract_mock,
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
-        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.quota.adjust_usage", AsyncMock()),
-        patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
-    ):
-        async for _ in chat_module.stream_chat_response(
-            offline_deps(),
-            AsyncMock(),
-            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
-            user_id=fake_user.id,
-            chat_id=MagicMock(),
-            content="remind me to call mom tomorrow",
-        ):
-            pass
-
-    extract_mock.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("proposals", [False, True])
-async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offline_io, proposals):
-    """A reminder the model confirmed still enqueues the background repair.
-
-    "Remind me tomorrow" with no clock is not that case: the reply asks for a
-    time, and the extractor does not invent one. While reminder changes wait
-    for a tap on a card, the repair (which writes without one) stays off.
-    """
+async def test_a_reminder_reply_enqueues_no_background_write(stream_offline_io):
+    """A reminder change in chat waits for a tap on its card: no job writes it behind
+    the user's back (the background repair job is gone)."""
     from app.modules import chat as chat_module
 
     async def fake_stream(**kwargs):
@@ -337,8 +256,6 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -353,10 +270,6 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
@@ -367,11 +280,7 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
             AsyncMock(),
-            Settings(
-                max_output_tokens=100,
-                mcp_tool_loop_enabled=False,
-                reminder_proposals_enabled=proposals,
-            ),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="Sounds good for tomorrow",
@@ -383,7 +292,7 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
             await finalize
 
     job_types = [call.args[1] for call in enqueue_job.call_args_list]
-    assert ("todos" in job_types) is not proposals
+    assert "todos" not in job_types
     assert outcome.todos_changed
 
 
@@ -401,8 +310,6 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -422,10 +329,6 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-        ),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -1709,8 +1612,6 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -1751,10 +1652,6 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", tracked),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
@@ -1784,15 +1681,12 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.location = ""  # no location set
     fake_user.location_enabled = False
 
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
-
-    augment = AsyncMock(return_value=(None, []))
 
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
@@ -1804,7 +1698,6 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", AsyncMock()),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
@@ -1822,29 +1715,26 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
         ):
             yielded.append(tok)
 
-    # The instant reply is the enable-location prompt.
+    # The instant reply is the enable-location prompt (no guessing "near me").
     assert any("Settings" in t and "location" in t.lower() for t in yielded), yielded
-    # Web search must be skipped (no guessing "near me").
-    augment.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_stream_places_query_uses_client_location_without_profile(stream_offline_io):
-    """Opted-in client GPS (no saved profile city) should run web search."""
+async def test_stream_places_query_with_client_location_skips_the_settings_prompt(
+    stream_offline_io,
+):
+    """Opted-in client GPS (no saved profile city) answers, without the settings prompt."""
     from app.modules import chat as chat_module
 
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.location = ""
     fake_user.location_enabled = True
 
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
-
-    augment = AsyncMock(return_value=(None, []))
 
     async def fake_stream(**kwargs):
         yield "answer"
@@ -1860,7 +1750,6 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
@@ -1880,8 +1769,6 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
             yielded.append(tok)
 
     assert not any("Settings" in t for t in yielded), yielded
-    augment.assert_awaited_once()
-    assert augment.await_args.kwargs["user_location"] == "San Francisco, CA"
 
 
 @pytest.mark.asyncio
@@ -1897,8 +1784,6 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -1921,12 +1806,6 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
             patch(
                 "app.modules.chat.turn_prep.context.build_prompt_messages",
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.web_search.build_search_augmentation",
-                AsyncMock(return_value=(None, [])),
             )
         )
         stack.enter_context(
@@ -1980,8 +1859,6 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -1995,10 +1872,6 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-        ),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -2033,7 +1906,6 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.timezone = None
 
     fake_chat = MagicMock()
@@ -2095,18 +1967,6 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
                 MagicMock(return_value=False),
             )
         )
-        stack.enter_context(
-            patch(
-                "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
-                AsyncMock(return_value=(None, None, [], None, False, None, None)),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.chat.turn_prep.augment.inject_web_and_tools",
-                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-            )
-        )
         stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
@@ -2156,7 +2016,6 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.timezone = None
 
     fake_chat = MagicMock()
@@ -2179,7 +2038,6 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
             prompt_messages=[{"role": "system", "content": "sys"}],
             stats=PromptStats(),
             instant_reply=None,
-            search_sources=[],
             local_places=False,
             max_out=100,
             fallback_models=[],
@@ -2268,13 +2126,13 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
 
 
 @pytest.mark.asyncio
-async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
+async def test_regenerate_passes_client_geo_to_the_turn(fake_redis):
+    """The device's place reaches the turn a regenerate builds (its searches use it)."""
     from app.modules import chat as chat_module
 
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.timezone = None
     fake_user.locale = "en"
 
@@ -2292,11 +2150,14 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
     fake_last_user.role = "user"
     fake_last_user.content = "Best restaurants near me"
 
-    fetch_web = AsyncMock(return_value=(None, None, [], None, False, None, None))
+    class _Built(Exception):
+        pass
 
-    async def empty_stream(**kwargs):
-        if False:
-            yield ""
+    captured: dict[str, Any] = {}
+
+    async def build(request, *_args):
+        captured["request"] = request
+        raise _Built
 
     with ExitStack() as stack:
         for patcher in _offline_session_patches():
@@ -2310,8 +2171,6 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         stack.enter_context(
             patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
-        # Every plan can generate images now, so a short regenerate reads the
-        # thread for an image follow-up before it searches.
         stack.enter_context(
             patch(
                 "app.repositories.messages.list_recent",
@@ -2319,50 +2178,11 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
             )
         )
         stack.enter_context(
-            patch(
-                "app.modules.chat.turn_prep.context.build_prompt_messages",
-                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.web_search.is_short_letter_answer",
-                MagicMock(return_value=False),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
-                fetch_web,
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.chat.turn_prep.augment.inject_web_and_tools",
-                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-            )
+            patch("app.modules.chat.stream_entry.build_stream_prompt_context", build)
         )
         stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
-        stack.enter_context(
-            patch(
-                "app.modules.attachments.lifecycle.detach_attachments_for_messages",
-                AsyncMock(return_value=[]),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.attachments.lifecycle.delete_storage_keys",
-                AsyncMock(),
-            )
-        )
-        stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
-        stack.enter_context(
-            patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
-        )
-        from app.gateways.litellm_gateway import ModelUnavailableError
-
-        with pytest.raises(ModelUnavailableError):
+        with pytest.raises(_Built):
             async for _ in chat_module.stream_regenerate_response(
                 offline_deps(),
                 fake_redis,
@@ -2375,10 +2195,9 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
             ):
                 pass
 
-    fetch_web.assert_awaited_once()
-    assert fetch_web.await_args.kwargs["latitude"] == 37.77
-    assert fetch_web.await_args.kwargs["longitude"] == -122.42
-    assert fetch_web.await_args.kwargs["user_location"] == "San Francisco, CA"
+    request = captured["request"]
+    assert (request.client_latitude, request.client_longitude) == (37.77, -122.42)
+    assert request.client_location == "San Francisco, CA"
 
 
 @pytest.mark.asyncio

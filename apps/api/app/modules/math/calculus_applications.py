@@ -19,7 +19,7 @@ from sympy import Eq, FiniteSet, Integral, Interval, S, Symbol, pi, simplify, so
 from sympy.calculus.util import continuous_domain
 
 from app.modules.math.solve import (
-    MathServiceError,
+    SolveServiceError,
     _parse_expression,
     definite_integral,
     format_verified_latex,
@@ -32,16 +32,16 @@ _MAX_CROSSINGS = 32
 
 def _expression(expr: str, variable: str):
     if not (expr or "").strip():
-        raise MathServiceError("an expression is required")
+        raise SolveServiceError("an expression is required")
     try:
         parsed = _parse_expression(expr, [variable], real=True)
-    except MathServiceError:
+    except SolveServiceError:
         raise
     except Exception as exc:
-        raise MathServiceError("could not parse the expression") from exc
+        raise SolveServiceError("could not parse the expression") from exc
     extra = {str(symbol) for symbol in parsed.free_symbols if str(symbol) != variable}
     if extra:
-        raise MathServiceError("calculus applications support one variable at a time")
+        raise SolveServiceError("calculus applications support one variable at a time")
     return parsed
 
 
@@ -51,11 +51,11 @@ def _ordered_bounds(lower: str, upper: str):
     try:
         width = float((high - low).evalf())
     except (TypeError, ValueError, OverflowError) as exc:
-        raise MathServiceError("the bounds must be finite real values") from exc
+        raise SolveServiceError("the bounds must be finite real values") from exc
     if not math.isfinite(width):
-        raise MathServiceError("the bounds must be finite")
+        raise SolveServiceError("the bounds must be finite")
     if width <= 0:
-        raise MathServiceError("the upper bound must be greater than the lower bound")
+        raise SolveServiceError("the upper bound must be greater than the lower bound")
     return low, high
 
 
@@ -68,16 +68,16 @@ def _require_continuous(expr, variable: Symbol, low, high) -> None:
     try:
         domain = continuous_domain(expr, variable, S.Reals)
     except (NotImplementedError, TypeError) as exc:
-        raise MathServiceError("could not verify continuity on that interval") from exc
+        raise SolveServiceError("could not verify continuity on that interval") from exc
     if Interval(low, high).is_subset(domain) is not True:
-        raise MathServiceError("the expression is not continuous on that interval")
+        raise SolveServiceError("the expression is not continuous on that interval")
 
 
 def _closed_form(value, label: str):
     if value.has(Integral):
-        raise MathServiceError(f"no closed form for this {label} was found")
+        raise SolveServiceError(f"no closed form for this {label} was found")
     if value in {S.NaN, S.ComplexInfinity, S.Infinity, S.NegativeInfinity}:
-        raise MathServiceError(f"this {label} is not finite")
+        raise SolveServiceError(f"this {label} is not finite")
     return simplify(value)
 
 
@@ -93,16 +93,16 @@ def _integrate_absolute(expr, variable: Symbol, low, high):
     try:
         roots = solveset(Eq(expr, 0), variable, domain=Interval(low, high))
     except (NotImplementedError, TypeError) as exc:
-        raise MathServiceError("could not locate the crossings symbolically") from exc
+        raise SolveServiceError("could not locate the crossings symbolically") from exc
     if roots is S.EmptySet:
         # No crossing at all (y = 3x^2 + 1 stays above the axis): one piece.
         found: list[Any] = []
     elif isinstance(roots, FiniteSet):
         found = list(roots)
     else:
-        raise MathServiceError("could not enumerate every crossing on that interval")
+        raise SolveServiceError("could not enumerate every crossing on that interval")
     if len(found) > _MAX_CROSSINGS:
-        raise MathServiceError("too many crossings to verify")
+        raise SolveServiceError("too many crossings to verify")
 
     low_f = float(low.evalf())
     high_f = float(high.evalf())
@@ -127,12 +127,12 @@ def _integrate_absolute(expr, variable: Symbol, low, high):
         try:
             sign = float(expr.subs(variable, midpoint).evalf())
         except (TypeError, ValueError, OverflowError) as exc:
-            raise MathServiceError("could not determine the sign between crossings") from exc
+            raise SolveServiceError("could not determine the sign between crossings") from exc
         if not math.isfinite(sign):
-            raise MathServiceError("the integrand is not finite on that interval")
+            raise SolveServiceError("the integrand is not finite on that interval")
         piece = definite_integral(expr, variable, left, right)
         if piece.has(Integral):
-            raise MathServiceError("no closed form for this area was found")
+            raise SolveServiceError("no closed form for this area was found")
         total += -piece if sign < 0 else piece
     return simplify(total)
 
@@ -184,9 +184,9 @@ def volume_of_revolution(
         return format_verified_latex(_closed_form(value, "volume"))
 
     if axis != "y":
-        raise MathServiceError("only the x and y axes are supported")
+        raise SolveServiceError("only the x and y axes are supported")
     if float(start.evalf()) < 0 < float(stop.evalf()):
-        raise MathServiceError(
+        raise SolveServiceError(
             "a shell volume needs an interval on one side of the axis of revolution"
         )
     shells = _integrate_absolute(sym * parsed, sym, start, stop)

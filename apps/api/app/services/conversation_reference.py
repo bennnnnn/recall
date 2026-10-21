@@ -114,7 +114,7 @@ async def resolve_reference(
     lines = _conversation(turns, request)
     if not lines:
         return None
-    budget = settings.web_search_classifier_timeout_seconds
+    budget = settings.reference_resolve_timeout_seconds
     if budget <= 0:
         return None
     if mock_llm.should_mock_llm(settings):

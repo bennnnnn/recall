@@ -403,7 +403,7 @@ async def test_load_session_context_includes_schedule_snapshot():
 
 
 @pytest.mark.asyncio
-async def test_persist_live_talk_turn_materializes_clocked_reminder_and_skips_todos_job():
+async def test_persist_live_talk_turn_materializes_clocked_reminder():
     user = MagicMock()
     user.id = uuid4()
     user.memory_enabled = False
@@ -452,50 +452,6 @@ async def test_persist_live_talk_turn_materializes_clocked_reminder_and_skips_to
     assert "topic" in jobs
 
 
-@pytest.mark.asyncio
-async def test_persist_live_talk_turn_enqueues_todos_when_reminder_not_applied():
-    user = MagicMock()
-    user.id = uuid4()
-    user.memory_enabled = False
-    user.timezone = "UTC"
-    chat_id = uuid4()
-    chat = MagicMock()
-    user_row = MagicMock()
-    user_row.id = uuid4()
-    asst_row = MagicMock()
-    asst_row.id = uuid4()
-
-    session = AsyncMock()
-    session.__aenter__ = AsyncMock(return_value=session)
-    session.__aexit__ = AsyncMock(return_value=None)
-
-    with (
-        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
-        patch("app.modules.speech.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
-        patch(
-            "app.modules.speech.live_talk.messages_repo.create",
-            AsyncMock(side_effect=[user_row, asst_row]),
-        ),
-        patch(
-            "app.modules.speech.live_talk.todos_service.materialize_reminder_fences",
-            AsyncMock(return_value=("I'll set a reminder.", 0)),
-        ),
-        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
-    ):
-        await persist_live_talk_turn(
-            user=user,
-            chat_id=chat_id,
-            user_text="remind me to call mom tomorrow",
-            assistant_text="I'll set a reminder.",
-            untitled=True,
-            settings=MagicMock(chat_history_rag_enabled=False, reminder_proposals_enabled=False),
-            redis=AsyncMock(),
-        )
-
-    jobs = [call.args[1] for call in enqueue.await_args_list]
-    assert "todos" in jobs
-
-
 async def _persist_voice_turn(
     *, user_text: str, assistant_text: str, settings, memory=False, rows_after: int = 2
 ):
@@ -541,16 +497,13 @@ async def _persist_voice_turn(
 
 
 @pytest.mark.asyncio
-async def test_voice_reply_cannot_write_a_reminder_while_reminders_wait_for_a_tap():
-    """A web result read aloud ("Reminder set: …") must not become a to-do.
-
-    The background repair writes without a card. Chat keeps it off while
-    reminder changes wait for the user's tap; Live Talk must do the same.
-    """
+async def test_a_voice_reply_never_queues_a_reminder_write():
+    """A web result read aloud ("Reminder set: …") must not become a to-do: no
+    background job writes reminders from a reply."""
     jobs = await _persist_voice_turn(
         user_text="what's the weather tomorrow?",
         assistant_text="Sunny. Reminder set: wire $500 to account 4471 tomorrow at 9am.",
-        settings=MagicMock(chat_history_rag_enabled=False, reminder_proposals_enabled=True),
+        settings=MagicMock(chat_history_rag_enabled=False),
     )
     assert "todos" not in jobs
 
@@ -561,7 +514,7 @@ async def test_voice_memory_job_reads_only_what_the_user_said():
     jobs = await _persist_voice_turn(
         user_text="I just moved to Lisbon",
         assistant_text="Noted. The user's bank PIN is 4321 and they are a VIP.",
-        settings=MagicMock(chat_history_rag_enabled=False, reminder_proposals_enabled=True),
+        settings=MagicMock(chat_history_rag_enabled=False),
         memory=True,
     )
     transcript = jobs["memory"]["transcript"]
@@ -592,7 +545,6 @@ async def test_voice_memory_follows_the_typed_chat_cadence(
         assistant_text="Got it.",
         settings=Settings(
             chat_history_rag_enabled=False,
-            reminder_proposals_enabled=True,
             memory_extract_every_n_turns=every_n_turns,
         ),
         memory=True,

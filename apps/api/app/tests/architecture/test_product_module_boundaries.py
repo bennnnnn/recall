@@ -316,7 +316,7 @@ def test_mobile_suggestions_has_one_feature_home() -> None:
 
 def test_web_search_runtime_code_has_one_owner() -> None:
     module_root = APP_ROOT / "modules" / "web_search"
-    expected = {"augment.py", "detection.py", "formatting.py", "search_cache.py", "tool.py"}
+    expected = {"detection.py", "formatting.py", "search_cache.py", "tool.py"}
     assert expected <= {path.name for path in module_root.glob("*.py")}
     assert (APP_ROOT / "tests" / "modules" / "web_search" / "test_web_search.py").is_file()
 

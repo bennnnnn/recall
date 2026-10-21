@@ -10,7 +10,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.math.solve.parse import _parse_expression
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
 
 
@@ -48,7 +48,7 @@ def test_parse_reads_written_function_shorthand(text: str, expected: str) -> Non
 @pytest.mark.parametrize("text", ["5 kg", "3 cm", "20 mol", "sinx^2", "log(x) + 2kg"])
 def test_parse_refuses_letters_taken_from_a_word(text: str) -> None:
     """A symbol that exists only inside a function or unit word is a misread."""
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         _parse_expression(text, ["x"])
 
 

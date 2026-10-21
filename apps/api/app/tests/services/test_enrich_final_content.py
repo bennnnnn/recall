@@ -661,7 +661,7 @@ _DENTIST_ASK = "add dentist tomorrow at 3pm to my reminders"
 
 
 async def _reminder_turn(
-    db_session: Any, fake_redis: Any, reply: str, *, proposals: bool, was_cancelled: bool = False
+    db_session: Any, fake_redis: Any, reply: str, *, was_cancelled: bool = False
 ) -> tuple[str, TurnOutcome, list[Any], Any]:
     """Finalize ``reply`` to ``_DENTIST_ASK`` with the real reminder pass on Postgres."""
     user = await users_repo.create(
@@ -688,7 +688,7 @@ async def _reminder_turn(
     persisted = await enrich_final_content(
         deps,
         fake_redis,
-        Settings(chemistry_enabled=False, reminder_proposals_enabled=proposals),
+        Settings(chemistry_enabled=False),
         ctx,
         assistant_text=reply,
         usage={"input": 4, "output": 8},
@@ -702,21 +702,15 @@ async def _reminder_turn(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("proposals", [True, False], ids=["card offered", "row written"])
 @pytest.mark.parametrize("text_pass_fails", [False, True], ids=["passes ok", "text pass fails"])
-async def test_a_failed_text_pass_keeps_the_reminder_change(
+async def test_a_failed_text_pass_keeps_the_reminder_card(
     monkeypatch: pytest.MonkeyPatch,
     db_session: Any,
     fake_redis: Any,
-    proposals: bool,
     text_pass_fails: bool,
 ) -> None:
-    """A text pass that failed after the reminder pass persisted the raw reply.
-
-    The card was lost while its proposal sat in Redis, or the row was written
-    while the reply showed only the hidden fence, and ``todos_sync`` never told
-    the phone to refresh its list.
-    """
+    """A text pass that failed after the reminder pass persisted the raw reply: the card
+    was lost while its proposal sat in Redis."""
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     if text_pass_fails:
         _fail_mermaid_pass(monkeypatch)
@@ -724,27 +718,20 @@ async def test_a_failed_text_pass_keeps_the_reminder_change(
     fence = json.dumps({"title": "Dentist", "due_at": due.isoformat()})
     reply = f"Good idea to book early. I'll set a reminder.\n\n```reminder\n{fence}\n```"
 
-    persisted, outcome, rows, user = await _reminder_turn(
-        db_session, fake_redis, reply, proposals=proposals
-    )
+    persisted, outcome, rows, user = await _reminder_turn(db_session, fake_redis, reply)
 
     assert persisted.startswith("Good idea to book early.")
     # A card waits for the tap, so the model's "I'll set a reminder" goes with it.
-    assert ("I'll set a reminder" in persisted) is not proposals
+    assert "I'll set a reminder" not in persisted
     assert "```reminder\n" not in persisted
     assert outcome.final_content == persisted
-    # The list changes only when a row is written; a card refreshes it on the tap.
-    assert outcome.todos_changed is not proposals
-    if proposals:
-        card = _CARD.search(persisted)
-        assert card is not None, persisted
-        assert json.loads(card.group(1))["items"][0]["title"] == "Dentist"
-        assert await fake_redis.keys(f"todos:proposal:{user.id}:*")
-        assert rows == []
-    else:
-        assert "Dentist" in persisted
-        assert "```reminder_proposal" not in persisted
-        assert [row.content for row in rows] == ["Dentist"]
+    # Nothing is written yet: the list refreshes on the tap.
+    assert outcome.todos_changed is False
+    card = _CARD.search(persisted)
+    assert card is not None, persisted
+    assert json.loads(card.group(1))["items"][0]["title"] == "Dentist"
+    assert await fake_redis.keys(f"todos:proposal:{user.id}:*")
+    assert rows == []
 
 
 @pytest.mark.asyncio
@@ -758,7 +745,7 @@ async def test_a_reply_cut_inside_its_reminder_fence_still_offers_the_card(
     reply = 'Sure, I\'ll set a reminder.\n\n```reminder\n{"title": "Den'
 
     persisted, _outcome, rows, _user = await _reminder_turn(
-        db_session, fake_redis, reply, proposals=True, was_cancelled=was_cancelled
+        db_session, fake_redis, reply, was_cancelled=was_cancelled
     )
 
     card = _CARD.search(persisted)

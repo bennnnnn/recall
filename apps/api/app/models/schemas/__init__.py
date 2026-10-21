@@ -30,7 +30,7 @@ from app.models.schemas.chats import (
     SearchResultItem,
     SearchResults,
 )
-from app.models.schemas.classification import ConversationReference, WebSearchClassification
+from app.models.schemas.classification import ConversationReference
 from app.models.schemas.common import (
     MemoryType,
     ModelInfo,
@@ -60,10 +60,8 @@ from app.modules.memory.schemas import (
 from app.modules.todos.schemas import (
     TodoActionItem,
     TodoCreate,
-    TodoExtractionResult,
     TodoOut,
     TodoPageOut,
-    TodoReorderBody,
     TodoUpdate,
 )
 
@@ -113,13 +111,10 @@ __all__ = [
     "SettingsConfirmOut",
     "TodoActionItem",
     "TodoCreate",
-    "TodoExtractionResult",
     "TodoOut",
     "TodoPageOut",
-    "TodoReorderBody",
     "TodoUpdate",
     "UsageOut",
     "UserOut",
     "UserUpdate",
-    "WebSearchClassification",
 ]

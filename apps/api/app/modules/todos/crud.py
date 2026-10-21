@@ -34,21 +34,6 @@ def _reminder_pushes_on(user: User) -> bool:
     return bool(user.push_notifications_enabled and user.push_reminders_enabled)
 
 
-async def list_todos(
-    session: AsyncSession, user: User, *, limit: int = 1000, offset: int = 0
-) -> list[TodoItem]:
-    items = await todos_repo.list_for_user(session, user.id, limit=limit, offset=offset)
-    if not _reminder_pushes_on(user) and await _advance_past_recurring(
-        session, items, timezone=user.timezone
-    ):
-        # Reload both successful advances and concurrent edits/deletions.
-        items = await todos_repo.list_for_user(
-            session, user.id, limit=limit, offset=offset, populate_existing=True
-        )
-        await home_service.invalidate_home_cache(user.id)
-    return items
-
-
 async def list_todos_page(
     session: AsyncSession,
     user: User,
@@ -68,10 +53,6 @@ async def list_todos_page(
         items = await todos_repo.list_by_ids(session, user_id, page_ids)
         await home_service.invalidate_home_cache(user_id)
     return items, next_cursor
-
-
-async def list_topics(session: AsyncSession, user: User) -> list[str]:
-    return await todos_repo.list_topics(session, user.id)
 
 
 async def create_todo(
@@ -115,16 +96,6 @@ async def create_todo(
         return existing
     await home_service.invalidate_home_cache(user.id)
     return item
-
-
-async def reorder_todos(
-    session: AsyncSession,
-    user: User,
-    items: list[tuple[UUID, int, str | None]],
-) -> list[TodoItem]:
-    reordered = await todos_repo.reorder(session, user.id, items)
-    await home_service.invalidate_home_cache(user.id)
-    return reordered
 
 
 async def update_todo(
@@ -193,11 +164,4 @@ async def delete_todo(session: AsyncSession, user: User, todo_id: UUID) -> None:
     deleted = await todos_repo.delete_by_id(session, todo_id, user.id)
     if not deleted:
         raise TodosError("Todo not found", status_code=404)
-    await home_service.invalidate_home_cache(user.id)
-
-
-async def delete_topic(session: AsyncSession, user: User, topic: str) -> None:
-    removed = await todos_repo.delete_by_topic(session, user.id, topic)
-    if not removed:
-        raise TodosError("List not found", status_code=404)
     await home_service.invalidate_home_cache(user.id)

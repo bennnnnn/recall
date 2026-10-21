@@ -9,7 +9,7 @@ export const CHAT_DATE_SECTIONS = [
   "older",
 ] as const;
 
-export type ChatDateSection = (typeof CHAT_DATE_SECTIONS)[number];
+type ChatDateSection = (typeof CHAT_DATE_SECTIONS)[number];
 
 export const PINNED_CHAT_SECTION = "pinned" as const;
 export const ARCHIVED_CHAT_SECTION = "archived" as const;

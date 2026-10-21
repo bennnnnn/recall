@@ -41,7 +41,7 @@ type CircuitGroupNode = {
   role: CircuitRole;
 };
 
-export type CircuitNode = CircuitPartNode | CircuitGroupNode;
+type CircuitNode = CircuitPartNode | CircuitGroupNode;
 
 export type CircuitSourceKind = "battery" | "ac";
 
@@ -203,8 +203,8 @@ export const PART_HALF_SPAN: Record<CircuitPartKind, number> = {
 
 /** A label: `x` is its left edge and `y` its baseline, in layout units. */
 export type TextMark = { text: string; x: number; y: number; width: number };
-export type WireSegment = { x1: number; y1: number; x2: number; y2: number };
-export type PartMark = {
+type WireSegment = { x1: number; y1: number; x2: number; y2: number };
+type PartMark = {
   part: CircuitPartKind;
   cx: number;
   cy: number;
@@ -213,10 +213,10 @@ export type PartMark = {
   detail?: TextMark;
 };
 /** A light bracket over a group, with its combined value above it. */
-export type GroupMark = { x1: number; x2: number; y: number; role: CircuitRole; text: TextMark };
-export type SourceMark = { kind: CircuitSourceKind; cx: number; cy: number; label?: TextMark };
+type GroupMark = { x1: number; x2: number; y: number; role: CircuitRole; text: TextMark };
+type SourceMark = { kind: CircuitSourceKind; cx: number; cy: number; label?: TextMark };
 /** An upward arrow on the left wire: current leaving the source's top terminal. */
-export type CurrentMark = { x: number; tailY: number; tipY: number; label: TextMark };
+type CurrentMark = { x: number; tailY: number; tipY: number; label: TextMark };
 
 export type CircuitLayout = {
   /** Size of the drawing before it is scaled to fit. */

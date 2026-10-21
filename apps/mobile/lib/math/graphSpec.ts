@@ -9,7 +9,7 @@ export type NumberLineInterval = {
 
 type TrajectoryType = "position_vs_time" | "velocity_vs_time" | "parametric";
 
-export type SampledGraphSpec = {
+type SampledGraphSpec = {
   type: "function" | "vertical" | "number_line" | "trajectory";
   expr: string;
   variable?: string;

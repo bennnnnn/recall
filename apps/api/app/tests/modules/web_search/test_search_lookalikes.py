@@ -3,31 +3,8 @@
 import pytest
 
 from app.modules.web_search import names_its_place
-from app.modules.web_search.detection import _live_lookup_cue, needs_web_search_heuristic
+from app.modules.web_search.detection import needs_web_search_heuristic
 from app.modules.web_search.patterns import is_correspondence_request
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "Finish line results from Sunday's Chicago Marathon?",
-        "What time is sunset tomorrow in Cape Town?",
-        "How much is an iPhone 17 in Ethiopia?",
-        "Can you get me a cheap flight to Nairobi?",
-        "Do I need a visa for Kenya with an Ethiopian passport?",
-        "What's scheduled at the Hollywood Bowl this weekend?",
-    ],
-)
-def test_live_facts_ask_the_search_classifier(text: str) -> None:
-    assert _live_lookup_cue(text)
-
-
-@pytest.mark.parametrize(
-    "text",
-    ["how much is 3 + 4", "what is a derivative", "priceless memories", "her visage"],
-)
-def test_schoolbook_questions_have_no_live_cue(text: str) -> None:
-    assert not _live_lookup_cue(text)
 
 
 @pytest.mark.parametrize(
@@ -65,17 +42,16 @@ def test_names_its_place(text: str, named: bool) -> None:
 
 
 def test_math_and_code_follow_ups_do_not_search() -> None:
-    from app.modules.web_search.detection import _continues_searchable_topic, needs_web_search
+    from app.modules.web_search.detection import needs_web_search
 
     assert not needs_web_search("add 25 and 38 by breaking them into tens and ones")
-    assert not _continues_searchable_topic(
-        "can you add 12 and 15 the same way?", ["add 25 + 38 by breaking them into tens"]
+    assert not needs_web_search(
+        "can you add 12 and 15 the same way?",
+        prior_user_messages=["add 25 + 38 by breaking them into tens"],
     )
-    assert not _continues_searchable_topic(
-        "ok move this into a function", ["scores = [78, 92, 65, 88] why does this print 80.8"]
-    )
-    assert _continues_searchable_topic(
-        "and the red terror martyrs museum?", ["what time does the national museum in addis open"]
+    assert not needs_web_search(
+        "ok move this into a function",
+        prior_user_messages=["scores = [78, 92, 65, 88] why does this print 80.8"],
     )
 
 
@@ -109,7 +85,6 @@ def test_a_glued_speed_unit_is_motion_and_a_kick_off_is_a_place(text: str, geo: 
 def test_more_live_cues() -> None:
     from app.modules.web_search.detection import needs_web_search
 
-    assert _live_lookup_cue("usd to etb rate rn")
     assert needs_web_search("is it gonna rain tomorrow evening? i have gym at 6pm")
     assert needs_web_search("breaking news from Gaza")
     assert is_correspondence_request("add a line reminding him the rent for this month is paid")
@@ -276,20 +251,14 @@ def test_a_forecast_that_also_mentions_a_planet_still_searches() -> None:
         "the pressure in my head is through the roof today",
     ],
 )
-@pytest.mark.asyncio
-async def test_a_statement_about_the_user_is_not_news(text: str) -> None:
-    """Its "today" tells how the user is; the classifier is not asked either."""
-    from unittest.mock import AsyncMock, patch
-
+def test_a_statement_about_the_user_is_not_news(text: str) -> None:
+    """Its "today" tells how the user is."""
     from app.core.config import Settings
     from app.modules.web_search.detection import needs_web_search, should_web_search
 
     assert not needs_web_search(text)
     settings = Settings(_env_file=None, web_search_enabled=True)  # type: ignore[call-arg]
-    classify = AsyncMock(return_value=None)
-    with patch("app.modules.web_search.detection.classify_web_search", classify):
-        assert not await should_web_search(text, settings)
-    classify.assert_not_awaited()
+    assert not should_web_search(text, settings)
 
 
 @pytest.mark.parametrize(

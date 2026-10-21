@@ -75,7 +75,6 @@ async def test_history_load_overlaps_account_and_chat_load() -> None:
         user.plan = "pro"
         user.timezone = "UTC"
         user.default_model = "free-chat"
-        user.response_style = "balanced"
         user.memory_enabled = True
         return user
 
@@ -123,7 +122,6 @@ async def test_user_and_chat_ownership_loads_overlap() -> None:
     user.plan = "pro"
     user.timezone = "UTC"
     user.default_model = "free-chat"
-    user.response_style = "balanced"
     user.memory_enabled = True
 
     chat = MagicMock()
@@ -180,7 +178,6 @@ async def test_short_reply_loads_the_recent_window(
     user.plan = "pro"
     user.timezone = "UTC"
     user.default_model = "free-chat"
-    user.response_style = "balanced"
     user.memory_enabled = True
 
     chat = MagicMock()

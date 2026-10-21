@@ -16,7 +16,7 @@ export const SSE_DROPPED_TURN_POLLS = 3;
 const SERVER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** answered: the reply is saved. saved: the message is, its reply not yet. missing: neither. */
-export type DroppedTurnState = "answered" | "saved" | "missing";
+type DroppedTurnState = "answered" | "saved" | "missing";
 
 export type DroppedTurnResult = {
   /** "unknown" when no reload succeeded. */

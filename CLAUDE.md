@@ -14,7 +14,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 ## Golden Rules (read first)
 
 1. **Never put provider API keys in the mobile app.** Keys live only in the backend `.env`. The app only ever talks to our API.
-2. **Use product model aliases, never provider names**, in app/business code: `free-chat`, `smart-chat`, `title-model`, `memory-model`. Alias → provider mapping lives in `services/model_catalog.py` (LiteLLM calls go through `gateways/litellm_gateway.py`).
+2. **Use product model aliases, never provider names**, in app/business code: `free-chat`, `smart-chat`, `title-model`, `memory-model`. Alias → provider mapping lives in `models/model_catalog.py` (runtime availability: `services/model_health.is_available`) (LiteLLM calls go through `gateways/litellm_gateway.py`).
 3. **Never send full chat history to the model.** Build context from injected memory + the recent window (default hard cap 20 messages; token budget also trims) only.
 4. **Topic generation, memory extraction, and other post-turn work are best-effort background jobs.** They must never raise into the chat request path or block streaming. Enqueue from `modules/chat/post_turn.py` via `core/jobs/`.
 5. **No arbitrary code execution — one sandboxed exception.** Code in messages is rendered/highlighted only, with a single exception: **HTML/CSS/JS may be previewed in a sandboxed WebView** (and charts/diagrams rendered from model output). Never execute Python, shell, or any other language, and never run code anywhere except inside the isolated preview WebView (no app token is ever exposed to it). The preview WebView requires a dev build — it does not work in Expo Go.
@@ -41,7 +41,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 **Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry SVG, native Skia math graphs (SVG fallback), physics scenes, free-body diagrams, circuit schematics, ray diagrams and waves (`simulation`, schema v2: [docs/physics.md](./docs/physics.md#pictures)), chemistry (SMILES), lesson cards (`quiz` with Check answer, `array` index boxes, `steps` trace). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
 
-**Owned tool loop, on by default:** module-owned adapters (`web_search`, `sympy`, `generate_image`, `search_image`) register through `gateways/mcp/` and run via `modules/chat/tool_loop/`. `mcp_tool_loop_enabled` defaults to `true`. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
+**Owned tool loop, on by default:** module-owned adapters (`web_search`, `sympy`, `generate_image`, `search_image`) register through `gateways/mcp/` and run via `modules/chat/tool_loop/`. `mcp_tool_loop_enabled` defaults to `true` (it is the loop's kill switch: off, nothing searches). Heuristic SymPy still runs before the stream; web search is the loop's. See `docs/math.md` and `FEATURES.md` §16.
 
 **Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; full duplex / interruptible voice; arbitrary user MCP servers. Attachment RAG, chat-history RAG, and live talk (Pro, monthly minutes) are shipped. `apps/web` is slice 1 only (login + chat SSE); remaining web surfaces are deferred.
 
@@ -158,7 +158,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | MCP / model tools | module `tool.py` or legacy `services/mcp/`; `gateways/mcp/` registry | `register(Adapter)` implementing `ToolAdapter`; `invoke(args, ctx: ToolContext)` gets the turn as an argument | Unregister; `mcp_tool_loop_enabled` defaults **on** |
 | Background job | module `jobs.py` or legacy `background/handlers.py`; `core/jobs/` queue | Register handler; enqueue off the stream path | Unregister + stop enqueue |
 | Feature flag / setting | `core/settings/<section>.py` (joined into `Settings` in `core/config.py`) | One field in its section; gate service entry | Default false; then delete path |
-| Model | `services/model_catalog.py`; which alias does which job (Auto's lanes, photos, tool selection) in `models/routing_lanes.py` | Catalog entry + OpenRouter slug + capability flags (`supports_vision`, `supports_tools`, `json_mode`, `context_tokens`; unconfirmed = false). Route by capability, never by name | Remove alias; don’t leave provider names in app code |
+| Model | `models/model_catalog.py`; which alias does which job (Auto's lanes, photos, tool selection) in `models/routing_lanes.py` | Catalog entry + OpenRouter slug + capability flags (`supports_vision`, `supports_tools`, `json_mode`, `context_tokens`; unconfirmed = false). Route by capability, never by name | Remove alias; don’t leave provider names in app code |
 | Mobile network | feature `api.ts` or legacy `lib/api/<domain>.ts`, composed in `lib/api.ts` | Add typed API slice using the shared client | Delete API slice; no raw `fetch` in screens |
 | Rich fence | `lib/fenceRegistry.ts` (`FENCES`) | Add a `FenceSpec`; one block component; wire render | Delete the spec + component |
 | UI primitive | `apps/mobile/ui/` (see `ui/README.md`) | Add or extend one kit component; features import it by path | Delete the component and its callers' use; never fork it inside a feature |
@@ -166,7 +166,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |
 | Banned UX | `.cursor/rules/chat-ux-bans.mdc` | — | If replacing UX, **delete** the old path |
 
-**Flags (defaults in `core/settings/`):** `mcp_tool_loop_enabled` (on), `math_tools_enabled`, `chemistry_enabled` (on), `math_word_problems_enabled` (on), `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `image_search_enabled` (on; real reference-photo lookup, separate from AI generation), `speech_*_enabled`, `reminder_proposals_enabled` (on: a chat to-do change is a card the user taps), `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
+**Flags (defaults in `core/settings/`):** `mcp_tool_loop_enabled` (on), `math_tools_enabled`, `chemistry_enabled` (on), `math_word_problems_enabled` (on), `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `image_search_enabled` (on; real reference-photo lookup, separate from AI generation), `speech_*_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
 
 ## The chat loop
 
@@ -176,15 +176,15 @@ New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` w
 2. Check + reserve daily quota (Redis)
 3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation. `modules/images/intent.py` reads both; the phone's composer asks it too (`POST /images/intent`)
 4. `turn_prep/`: the turn's plan (`intents.py`: the separate requests one message holds, deterministic, no model call; two or more get a multi-part prompt contract, a settings card under the reply and a picture drawn above it, `finalize_parts.py`), memory + recent window, attachments/RAG, chat-history RAG, web search, SymPy pre-solve, physics and chemistry context
-5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on); its search gates, classifier and forced search run per request (`tool_loop/parts.py`)
+5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on); its search gate and forced search run per request (`tool_loop/parts.py`). A chat to-do change is always a card the user taps
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
 7. Post-stream fence finalization: math (`math/fence.py`), physics (`modules/physics/fence.py`), chemistry (`modules/chemistry/fence.py`)
 8. Persist assistant + usage in a finalize task (`turn_settle.py`)
-9. `enqueue_post_turn_jobs` (`post_turn.POST_TURN_JOBS`, in order) — memory, lesson_progress (after a lesson reply: the chat's one "Learning X: reached Lesson N" memory line, no LLM), todos (only with reminder cards off: it writes without a tap), topic, compress, message_index (best-effort; must not raise into the stream). A turn's documents get `attachment_index` earlier, as soon as the user's message commits (`turn_prep/persist.py`), so a turn that ends without a reply still indexes them
+9. `enqueue_post_turn_jobs` (`post_turn.POST_TURN_JOBS`, in order) — memory, lesson_progress (after a lesson reply: the chat's one "Learning X: reached Lesson N" memory line, no LLM), topic, compress, message_index (best-effort; must not raise into the stream). A turn's documents get `attachment_index` earlier, as soon as the user's message commits (`turn_prep/persist.py`), so a turn that ends without a reply still indexes them
 
 Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job.
 
-**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `lesson_progress`, `todos`, `compress`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
+**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `lesson_progress`, `compress`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
 
 **Worker** (`worker_main.py`): consumes that stream and runs schedulers (push, email reminders, attachment orphan reaper).
 

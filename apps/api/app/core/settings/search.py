@@ -7,9 +7,9 @@ class SearchSettings(BaseModel):
     tavily_api_key: str = ""
 
     web_search_enabled: bool = True
-    web_search_classifier_enabled: bool = True
-    # Foreground TTFT path — keep this short; no model-fallback retry on timeout.
-    web_search_classifier_timeout_seconds: float = 4.0
+    # Reading what "search that" or "show me one" refers to in the conversation (one
+    # small model call before the search). Foreground: kept short, no retry.
+    reference_resolve_timeout_seconds: float = 4.0
     web_search_fallback_enabled: bool = True
     web_search_max_results: int = 5
     web_search_cache_ttl: int = 300

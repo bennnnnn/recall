@@ -1,6 +1,6 @@
 import { isQuotaErrorMessage } from "@/lib/quota";
 
-export type ChatErrorKind = "quota" | "model_unavailable" | "busy" | "send_rejected" | "attachment_rejected" | "generic";
+type ChatErrorKind = "quota" | "model_unavailable" | "busy" | "send_rejected" | "attachment_rejected" | "generic";
 
 export type ResolvedChatError = {
   kind: ChatErrorKind;

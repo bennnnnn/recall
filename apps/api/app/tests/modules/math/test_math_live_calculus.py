@@ -12,7 +12,7 @@ from app.modules.math.schemas import EquationInput
 from app.modules.math.solve.trig_equations import _complete_solution_latex
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.extract import extract_math_intent
-from app.services.solving import MathServiceError, VerifiedMathBlock
+from app.services.solving import SolveServiceError, VerifiedMathBlock
 
 
 def _verified(prompt: str) -> VerifiedMathBlock:
@@ -126,7 +126,7 @@ def test_trig_solution_parameter_does_not_reuse_the_solved_variable() -> None:
 
 
 def test_unresolved_trig_equation_never_returns_only_principal_roots() -> None:
-    with pytest.raises(MathServiceError, match="unresolved"):
+    with pytest.raises(SolveServiceError, match="unresolved"):
         math_solve.solve_equation(EquationInput(lhs="sin(x)", rhs="x/2"))
 
 

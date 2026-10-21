@@ -25,7 +25,7 @@ from sympy import (
 from app.modules.math.schemas import MathSolveResult
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.parse import (
-    MathServiceError,
+    SolveServiceError,
     _expr_needs_real_domain,
     _parse_expression,
 )
@@ -55,7 +55,7 @@ def solve_compound_inequality(
         lower_rel = Lt(mid_e, low_e) if low_op == ">" else Le(mid_e, low_e)
         upper_rel = Gt(mid_e, high_e) if high_op == ">" else Ge(mid_e, high_e)
     else:
-        raise MathServiceError(
+        raise SolveServiceError(
             f"Unsupported compound inequality direction: {low} {low_op} {mid} {high_op} {high}"
         )
 
@@ -65,7 +65,7 @@ def solve_compound_inequality(
             solveset(upper_rel, sym, domain=S.Reals)
         )
     except Exception as exc:
-        raise MathServiceError(
+        raise SolveServiceError(
             f"Could not solve compound inequality: {low} {low_op} {mid} {high_op} {high}"
         ) from exc
 
@@ -146,7 +146,7 @@ def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> Math
     diff_expr = simplify(left - right)
     rel_cls = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}.get(comparator)
     if rel_cls is None:
-        raise MathServiceError(f"Unknown inequality comparator: {comparator}")
+        raise SolveServiceError(f"Unknown inequality comparator: {comparator}")
     rel = rel_cls(diff_expr, 0)
     try:
         if real:
@@ -154,7 +154,7 @@ def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> Math
         else:
             sol = solve_univariate_inequality(rel, sym)
     except Exception as exc:  # NotImplementedError / non-univariate / etc.
-        raise MathServiceError(f"Could not solve inequality: {lhs} {comparator} {rhs}") from exc
+        raise SolveServiceError(f"Could not solve inequality: {lhs} {comparator} {rhs}") from exc
     sol_latex = inequality_solution_latex(sol, sym)
     cmp_latex = {"<": "<", ">": ">", "<=": "\\leq", ">=": "\\geq"}[comparator]
     return MathSolveResult(

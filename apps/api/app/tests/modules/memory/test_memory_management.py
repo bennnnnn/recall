@@ -14,7 +14,6 @@ from app.models.orm import Memory
 from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules import memory as memory_service
 from app.modules.memory import extraction_workflow
-from app.modules.memory.text import embedding_text_hash
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 from app.tests.modules.memory.sections_support import apply_memory_section_rows
 
@@ -81,23 +80,17 @@ def _memory(sync_session):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("operation", ["edit", "delete_fact"])
 @pytest.mark.parametrize("failure", [None, RuntimeError("embedding unavailable")])
 async def test_memory_text_change_discards_stale_embeddings(
-    memory_session, memory_services, operation, failure
+    memory_session, memory_services, failure
 ):
     sync_session, session = memory_session
     row = _memory(sync_session)
     embed = AsyncMock(return_value=None, side_effect=failure)
     with patch("app.gateways.embedding_gateway.embed_text", embed):
-        if operation == "edit":
-            await memory_service.update_memory(
-                session, Settings(), row.user_id, row.id, "Owns a scooter."
-            )
-        else:
-            assert await memory_service.delete_memory_fact(
-                session, Settings(), row.user_id, row.id, 0
-            )
+        await memory_service.update_memory(
+            session, Settings(), row.user_id, row.id, "Owns a scooter."
+        )
 
     sync_session.refresh(
         row, attribute_names=["text", "embedding", "embedding_json", "embedding_text_hash"]
@@ -109,18 +102,7 @@ async def test_memory_text_change_discards_stale_embeddings(
 
 
 @pytest.mark.asyncio
-async def test_fact_delete_stores_hash_for_its_new_embedding(memory_session, memory_services):
-    sync_session, session = memory_session
-    row = _memory(sync_session)
-    with patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=[0.2] * 1536)):
-        assert await memory_service.delete_memory_fact(session, Settings(), row.user_id, row.id, 0)
-
-    sync_session.refresh(row)
-    assert row.embedding_text_hash == embedding_text_hash(row.text)
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("operation", ["edit", "delete_fact", "delete_row", "delete_section"])
+@pytest.mark.parametrize("operation", ["edit", "delete_row"])
 async def test_manual_memory_change_invalidates_home_after_commit(
     memory_session, memory_services, operation
 ):
@@ -132,16 +114,12 @@ async def test_manual_memory_change_invalidates_home_after_commit(
             await memory_service.update_memory(
                 session, Settings(), owner_id, row.id, "Owns a scooter."
             )
-        elif operation == "delete_fact":
-            await memory_service.delete_memory_fact(session, Settings(), owner_id, row.id, 0)
-        elif operation == "delete_row":
-            await memory_service.delete_memory(session, owner_id, row.id)
         else:
-            await memory_service.delete_memory_section(session, owner_id, row.type)
+            await memory_service.delete_memory(session, owner_id, row.id)
 
     _, invalidate_home = memory_services
-    # An edit and a fact delete first end their read, before the embedding call.
-    assert session.commit.await_count == (2 if operation in {"edit", "delete_fact"} else 1)
+    # An edit first ends its read, before the embedding call.
+    assert session.commit.await_count == (2 if operation == "edit" else 1)
     invalidate_home.assert_awaited_once_with(owner_id)
     # Stamped in the same commit, so the history scan cannot bring the old text back.
     edited_at = sync_session.execute(

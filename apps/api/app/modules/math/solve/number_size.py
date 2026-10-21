@@ -14,7 +14,7 @@ from typing import Any
 
 from sympy import Add, Basic, Mul, Pow, factorial, parse_expr
 
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 # More digits than any exact answer a student asks for (1000! has 2,568).
 MAX_EXACT_DIGITS = 10_000
@@ -84,5 +84,5 @@ def _value(node: Basic, size: float) -> float:
 
 def _checked(digits: float) -> float:
     if digits > MAX_EXACT_DIGITS:
-        raise MathServiceError("Number out of range")
+        raise SolveServiceError("Number out of range")
     return digits

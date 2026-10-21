@@ -9,10 +9,8 @@ from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.circuits import solve_circuit
 from app.modules.physics.solvers.circular import solve_circular
 from app.modules.physics.solvers.common import (
-    _PARAM_SI_DIMENSIONS,
     PhysicsResult,
     _params_in_si,
-    _to_si,
 )
 from app.modules.physics.solvers.energy import solve_energy
 from app.modules.physics.solvers.fluids import solve_fluids
@@ -36,34 +34,8 @@ from app.modules.physics.solvers.torque import solve_torque
 from app.modules.physics.solvers.waves import solve_waves
 from app.services.solving import SolveServiceError
 
-__all__ = [
-    "PHYSICS_SOLVERS",
-    "_PARAM_SI_DIMENSIONS",
-    "PhysicsResult",
-    "_params_in_si",
-    "_to_si",
-    "solve_circuit",
-    "solve_circular",
-    "solve_energy",
-    "solve_fluids",
-    "solve_force",
-    "solve_friction",
-    "solve_gravitation",
-    "solve_kinematics",
-    "solve_magnetism",
-    "solve_materials",
-    "solve_modern",
-    "solve_momentum",
-    "solve_optics",
-    "solve_physics",
-    "solve_projectile",
-    "solve_rotation",
-    "solve_spring",
-    "solve_suvat",
-    "solve_thermal",
-    "solve_torque",
-    "solve_waves",
-]
+# What callers import; the subject solvers stay reachable as module attributes for tests.
+__all__ = ["PHYSICS_SOLVERS", "PhysicsResult", "solve_physics"]
 
 
 def _accepts_si_params(

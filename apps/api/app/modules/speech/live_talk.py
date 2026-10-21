@@ -324,7 +324,6 @@ async def persist_live_talk_turn(
 
     user_message: Message | None = None
     assistant_message: Message | None = None
-    reminder_applied = 0
     # This turn's place in the chat, as a typed turn counts it (None: nothing written here).
     turn_number: int | None = None
     should_write_user = write_user and bool(user_content)
@@ -358,7 +357,7 @@ async def persist_live_talk_turn(
                 if not isinstance(tz, str):
                     tz = None
                 try:
-                    updated, reminder_applied = await todos_service.materialize_reminder_fences(
+                    updated, _applied = await todos_service.materialize_reminder_fences(
                         session,
                         user_id=user.id,
                         chat_id=chat_id,
@@ -371,7 +370,6 @@ async def persist_live_talk_turn(
                         assistant_content = updated
                 except Exception:
                     logger.exception("Live talk reminder materialize failed chat_id=%s", chat_id)
-                    reminder_applied = 0
             chat.updated_at = datetime.now(UTC)
             await session.commit()
             if user_message is not None:
@@ -390,7 +388,6 @@ async def persist_live_talk_turn(
             assistant_text=assistant_content,
             assistant_message_id=assistant_message.id if assistant_message is not None else None,
             untitled=untitled,
-            reminder_applied=reminder_applied,
             turn_number=turn_number,
         )
     return user_message, assistant_message
@@ -406,10 +403,8 @@ async def _enqueue_live_talk_jobs(
     assistant_text: str,
     assistant_message_id: UUID | None,
     untitled: bool,
-    reminder_applied: int = 0,
     turn_number: int | None = None,
 ) -> None:
-    transcript = f"User: {user_text}\nAssistant: {assistant_text}"
     specs: list[tuple[str, dict[str, str], str | None]] = []
     turn_key = str(assistant_message_id) if assistant_message_id is not None else f"live:{chat_id}"
     topic_user = user_text or assistant_text
@@ -451,26 +446,6 @@ async def _enqueue_live_talk_jobs(
                     "assistant_message_id": turn_key,
                 },
                 f"memory:{turn_key}",
-            )
-        )
-    # The background repair reads the spoken reply too and writes without a
-    # card, so it stays off while reminder changes wait for the user's tap
-    # (as in chat's post_turn). A reminder the user said with a clock is
-    # still applied from their own words in persist_live_talk_turn.
-    if (
-        not settings.reminder_proposals_enabled
-        and reminder_applied <= 0
-        and todos_service.should_recover_todo_writes(user_text, transcript)
-    ):
-        specs.append(
-            (
-                "todos",
-                {
-                    "user_id": str(user.id),
-                    "chat_id": str(chat_id),
-                    "transcript": transcript,
-                },
-                f"todosync:{chat_id}:{turn_key}",
             )
         )
     if settings.chat_history_rag_enabled and assistant_message_id is not None:

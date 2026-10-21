@@ -24,10 +24,6 @@ from app.tests.test_routers import _fake_user
 _AUTH = {"Authorization": "Bearer tok"}
 
 
-async def _pcm(*_args: object, **_kwargs: object):
-    yield b"pcm"
-
-
 # path -> (request kwargs, provider patched on speech_service, provider value,
 #          plan feature setting, refusal message for the plan, rate key prefix,
 #          rate-limit message, daily cap setting)
@@ -36,15 +32,6 @@ _ROUTES = {
         {"json": {"text": "hello"}},
         "synthesize_speech",
         AsyncMock(return_value=(b"mp3", "audio/mpeg")),
-        "daily_speech_tts_plus",
-        quota_service.SPEECH_TTS_NOT_IN_PLAN_MESSAGE,
-        "speech_tts_rl",
-        quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
-    ),
-    "/speech/tts/stream": (
-        {"json": {"text": "hello"}},
-        "iter_tts_pcm",
-        _pcm,
         "daily_speech_tts_plus",
         quota_service.SPEECH_TTS_NOT_IN_PLAN_MESSAGE,
         "speech_tts_rl",
@@ -140,7 +127,6 @@ def test_speech_route_with_rate_limit_off_takes_no_rate_key(path):
     "path, cap_setting, counter",
     [
         ("/speech/tts", "daily_speech_tts_plus", "speech_tts"),
-        ("/speech/tts/stream", "daily_speech_tts_plus", "speech_tts"),
         ("/speech/transcribe", "daily_speech_transcriptions_plus", "speech_transcription"),
     ],
 )

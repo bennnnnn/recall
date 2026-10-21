@@ -435,10 +435,10 @@ async def _build_verified_block_async(
             intent.kind,
         )
         return None
-    except math_solve.MathServiceError as exc:
+    except math_solve.SolveServiceError as exc:
         # Sync builder also catches this; keep the async boundary honest if a
         # patched/edge path raises through the executor.
-        # The class only: a MathServiceError's message quotes the user's expression.
+        # The class only: a SolveServiceError's message quotes the user's expression.
         logger.info("math_tools skipped: %s", type(exc).__name__)
         return None
     except Exception:

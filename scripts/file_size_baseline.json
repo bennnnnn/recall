@@ -89,10 +89,6 @@
       "lines": 532,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
-    "apps/api/app/modules/math/tools/direct.py": {
-      "lines": 501,
-      "why": "Over 500 before the standards; split by responsibility after the ticketed files"
-    },
     "apps/api/app/modules/math/tools/extractors/geometry.py": {
       "lines": 603,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"

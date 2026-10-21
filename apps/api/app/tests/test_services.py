@@ -892,9 +892,7 @@ async def test_stream_chat_response_quota_exceeded(used: int) -> None:
     user_id = uuid4()
     redis = AsyncMock()
     settings = Settings(daily_token_limit=100)
-    fake_user = MagicMock(
-        id=user_id, plan="free", response_style="balanced", default_model="free-chat"
-    )
+    fake_user = MagicMock(id=user_id, plan="free", default_model="free-chat")
     usage = AsyncMock(return_value=used)
     # Soft quota reads actual usage; mocking reserve_usage no longer rejects
     # the turn. Fail immediately if the guard lets message persistence begin.
@@ -944,7 +942,6 @@ async def test_login_dev_creates_user():
         name="Dev",
         avatar_url=None,
         default_model="free-chat",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )
@@ -979,7 +976,6 @@ async def test_login_dev_returns_existing_user():
         name="Old",
         avatar_url=None,
         default_model="free-chat",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )
@@ -1016,7 +1012,6 @@ async def test_login_dev_updates_name_for_existing_user():
         name="bini",
         avatar_url=None,
         default_model="free-chat",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )

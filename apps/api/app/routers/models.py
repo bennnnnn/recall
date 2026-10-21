@@ -3,9 +3,10 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_redis_dep, get_settings_dep
+from app.models import model_catalog
 from app.models.orm import User
 from app.models.schemas import ModelInfo
-from app.services import model_catalog, model_health
+from app.services import model_health
 
 router = APIRouter(prefix="/models", tags=["models"])
 
@@ -31,7 +32,7 @@ async def list_models(
             description=m.description,
             tier=m.tier,
             plan_access=m.plan_access,
-            available=model_catalog.is_available(m, settings),
+            available=model_health.is_available(m, settings),
             input_price_per_m=m.input_price_per_m,
             output_price_per_m=m.output_price_per_m,
             quota_multiplier=m.quota_multiplier,

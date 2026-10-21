@@ -4,8 +4,8 @@ import pytest
 
 from app.core.config import Settings
 from app.exceptions import UnknownModelOverrideError
+from app.models import model_catalog
 from app.modules.billing import plan as plan_service
-from app.services import model_catalog
 
 
 class FakeUser:

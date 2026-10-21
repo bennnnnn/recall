@@ -15,7 +15,7 @@ from functools import lru_cache
 from typing import Any
 
 from app.core.config import Settings
-from app.services import model_catalog
+from app.models import model_catalog
 from app.services.routing_signals import SMART_TRIGGERS, needs_strong_model
 
 logger = logging.getLogger(__name__)

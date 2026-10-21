@@ -570,23 +570,6 @@ def test_realtime_session_mints_when_memory_load_returns_empty():
     assert "UNTRUSTED CONTENT — memory" not in instructions
 
 
-def test_legacy_webrtc_endpoint_requires_current_mobile_bundle():
-    user = _fake_user(plan="pro")
-    settings = Settings(
-        openai_api_key="sk-test",
-        speech_live_talk_enabled=True,
-        speech_realtime_voice_enabled=True,
-    )
-    client = TestClient(_realtime_app(user, settings))
-    r = client.post(
-        "/speech/live/webrtc",
-        headers={"Authorization": "Bearer tok"},
-        json={"sdp": "v=0\r\n" + "o=recall 1 1 IN IP4 127.0.0.1\r\n"},
-    )
-    assert r.status_code == 426
-    assert "Legacy Live Talk client detected" in r.json()["detail"]
-
-
 @pytest.mark.parametrize(
     "case,expected",
     [

@@ -18,7 +18,7 @@ import {
 } from "@/lib/math/glyphs";
 
 /** The size a run draws at: layout pixels per em, and the device font scale. */
-export type RunMetrics = { em: number; fontScale: number };
+type RunMetrics = { em: number; fontScale: number };
 
 /** Operator spacing for a run; `space: false` keeps a script's operators tight. */
 export type RunPad = RunMetrics & { leadingAtom: boolean; space?: boolean };
