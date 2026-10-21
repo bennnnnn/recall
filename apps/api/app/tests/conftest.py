@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import fakeredis.aioredis
 import pytest
+from hypothesis import settings as hypothesis_settings
 
 # Match local `.env.example` — Settings.environment defaults to production
 # (fail-closed). Tests that construct Settings() without an env file need this.
@@ -37,6 +38,12 @@ os.environ["WEB_SEARCH_FALLBACK_ENABLED"] = "false"
 # the environment wins: RECALL_STRICT_DECLINES=0 runs the suite with production's declines.
 _STRICT_DECLINES_ASKED = "RECALL_STRICT_DECLINES" in os.environ
 os.environ.setdefault("RECALL_STRICT_DECLINES", "1")
+
+# Hypothesis explores new examples on every local run. CI sets HYPOTHESIS_PROFILE=ci:
+# the same examples every run, so an unrelated change never turns a property red
+# (code-health audit TEST-08); a failure found locally is pinned with @example.
+hypothesis_settings.register_profile("ci", derandomize=True, database=None)
+hypothesis_settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
 
 # Helper modules under app/tests (fakes, chat_test_support, the sweeps) get pytest's assert
 # messages as test files and conftests do. This works only before any of them is imported:
