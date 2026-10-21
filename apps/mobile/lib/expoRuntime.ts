@@ -48,11 +48,3 @@ export function isPhysicalDevice(): boolean | null {
 export function canUseDeviceLocation(): boolean {
   return !isExpoGo();
 }
-
-/**
- * Dictation uses expo-audio, which is included in Expo Go. Live Talk still
- * needs WebRTC in a custom Recall build — that is gated separately.
- */
-export function canUseVoiceInput(): boolean {
-  return true;
-}

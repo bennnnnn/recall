@@ -1,18 +1,4 @@
-import {
-  deleteLegacySecureStore,
-  deletePrefFile,
-  prefFilePath,
-  readLegacySecureStore,
-  readPrefFile,
-  safePrefUserId,
-  writePrefFile,
-} from "@/lib/filePrefs";
-
-const LEGACY_KEY_PREFIX = "reminder-seen-";
-
-function legacyKey(userId: string): string {
-  return `${LEGACY_KEY_PREFIX}${userId}`;
-}
+import { deletePrefFile, prefFilePath, readPrefFile, safePrefUserId, writePrefFile } from "@/lib/filePrefs";
 
 function filePath(userId: string): string | null {
   return prefFilePath(`recall.reminder-seen.${safePrefUserId(userId)}.json`);
@@ -26,22 +12,9 @@ function parseIds(raw: string): Set<string> {
 
 export async function loadSeenReminderIds(userId: string): Promise<Set<string>> {
   const fromFile = await readPrefFile(filePath(userId));
-  if (fromFile !== null) {
-    try {
-      return parseIds(fromFile);
-    } catch {
-      return new Set();
-    }
-  }
-
-  const legacy = await readLegacySecureStore(legacyKey(userId));
-  if (!legacy) return new Set();
+  if (fromFile === null) return new Set();
   try {
-    const ids = parseIds(legacy);
-    if (ids.size > 0) {
-      await saveSeenReminderIds(userId, ids);
-    }
-    return ids;
+    return parseIds(fromFile);
   } catch {
     return new Set();
   }
@@ -66,5 +39,4 @@ export async function markReminderIdsSeen(userId: string, ids: string[]): Promis
 
 export async function clearSeenReminderIds(userId: string): Promise<void> {
   await deletePrefFile(filePath(userId));
-  await deleteLegacySecureStore(legacyKey(userId));
 }

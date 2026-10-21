@@ -54,14 +54,8 @@ import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { presentAssistantMarkdown } from "@/lib/markdown/presentation";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 
-export {
-  markdownHasNestedMathView,
-  splitInlineMath,
-} from "@/lib/markdown/inlineMath";
-export {
-  breakAttachedMathFences,
-  unwrapProseMathBackticks,
-} from "@/lib/markdown/preprocessMathFences";
+export { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/inlineMath";
+export { breakAttachedMathFences, unwrapProseMathBackticks } from "@/lib/markdown/preprocessMathFences";
 export { layoutCheckVerificationLines } from "@/lib/markdown/preprocessMathChecks";
 export { normalizeBoldInlineMath } from "@/lib/markdown/preprocessMathInline";
 export {
@@ -71,10 +65,7 @@ export {
   stripBoldListLabelContinuationColons,
   trimBoldDelimiterWhitespace,
 } from "@/lib/markdown/preprocessNormalize";
-export {
-  isPipeTable,
-  normalizeMarkdownTables,
-} from "@/lib/markdown/preprocessTables";
+export { normalizeMarkdownTables } from "@/lib/markdown/preprocessTables";
 
 export type PreprocessOptions = {
   /** The server presented this text before saving it (isServerPresentedRow):

@@ -1,6 +1,5 @@
 jest.mock("@/lib/expoRuntime", () => ({
   isExpoGo: () => false,
-  canUseVoiceInput: () => true,
 }));
 
 jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));

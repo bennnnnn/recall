@@ -19,7 +19,7 @@ import {
   NativePickerBusyError,
 } from "@/features/attachments/model/attachments";
 import { MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
-import { ownsLocalCopy } from "@/features/attachments/model/localAttachmentFile";
+import { discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator } from "expo-image-manipulator";
@@ -364,7 +364,9 @@ describe("every picked image leaves as something the API takes", () => {
       expect(picked.fileName).toMatch(/\.jpg$/);
       // The picker's copy is the intermediate: it goes once the JPEG replaces it.
       expect(mockDeleted).toEqual([asset.uri]);
-      expect(ownsLocalCopy(picked.localUri)).toBe(true);
+      // The JPEG is this pick's own copy: it goes once nothing needs it.
+      discardLocalCopy(picked.localUri);
+      expect(mockDeleted).toEqual([asset.uri, picked.localUri]);
     } else {
       expect(picked.localUri).toBe(asset.uri);
       expect(mockSave).not.toHaveBeenCalled();

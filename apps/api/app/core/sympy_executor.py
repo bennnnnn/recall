@@ -452,13 +452,6 @@ def shutdown_sympy_executor() -> None:
     set_sympy_executor(None)
 
 
-def reset_sympy_executor() -> None:
-    """Test helper — drop the current executor so the next call creates a
-    fresh default (picking up any monkeypatches, since the pool forks after
-    the patch is applied)."""
-    set_sympy_executor(None)
-
-
 async def warm_sympy_pool(warmup: Callable[[], None]) -> None:
     """Create every worker and import SymPy so early chats are not cold.
 

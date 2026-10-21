@@ -88,35 +88,35 @@ async def test_wait_blocks_until_pending_finalize_completes():
 @pytest.mark.asyncio
 async def test_registry_clears_after_completion():
     chat_id = uuid4()
-    baseline = finalize_registry.pending_finalize_count()
+    baseline = len(finalize_registry._pending)
 
     async def finalize():
         return None
 
     task = asyncio.create_task(finalize())
     finalize_registry.register_pending_finalize(chat_id, task)
-    assert finalize_registry.pending_finalize_count() == baseline + 1
+    assert len(finalize_registry._pending) == baseline + 1
     await task
     # done callbacks run soon after completion
     await asyncio.sleep(0)
-    assert finalize_registry.pending_finalize_count() == baseline
+    assert len(finalize_registry._pending) == baseline
     await finalize_registry.wait_for_pending_finalize(chat_id)
 
 
 @pytest.mark.asyncio
 async def test_inflight_registry_clears_after_completion():
     chat_id = uuid4()
-    baseline = finalize_registry.inflight_stream_count()
+    baseline = len(finalize_registry._inflight)
 
     async def producer() -> None:
         return None
 
     task = asyncio.create_task(producer())
     finalize_registry.register_inflight_stream(chat_id, task)
-    assert finalize_registry.inflight_stream_count() == baseline + 1
+    assert len(finalize_registry._inflight) == baseline + 1
     await task
     await asyncio.sleep(0)
-    assert finalize_registry.inflight_stream_count() == baseline
+    assert len(finalize_registry._inflight) == baseline
 
 
 @pytest.mark.asyncio
@@ -139,7 +139,7 @@ async def test_wait_swallows_finalize_failure():
 @pytest.mark.asyncio
 async def test_newer_registration_replaces_older():
     chat_id = uuid4()
-    baseline = finalize_registry.pending_finalize_count()
+    baseline = len(finalize_registry._pending)
     first_gate = asyncio.Event()
 
     async def first():
@@ -156,12 +156,12 @@ async def test_newer_registration_replaces_older():
     await second_task
     await asyncio.sleep(0)
     # The old still-running task must not linger in (or resurrect) the registry.
-    assert finalize_registry.pending_finalize_count() == baseline
+    assert len(finalize_registry._pending) == baseline
 
     first_gate.set()
     await first_task
     await asyncio.sleep(0)
-    assert finalize_registry.pending_finalize_count() == baseline
+    assert len(finalize_registry._pending) == baseline
 
 
 @pytest.mark.asyncio

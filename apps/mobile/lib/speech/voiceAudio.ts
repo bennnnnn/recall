@@ -4,7 +4,6 @@ import type { PermissionResponse } from "expo-audio";
 import { requireOptionalNativeModule } from "expo-modules-core";
 import { deleteAsync, getInfoAsync, readAsStringAsync } from "expo-file-system/legacy";
 
-import { canUseVoiceInput } from "@/lib/expoRuntime";
 
 type ExpoAudioModule = typeof import("expo-audio");
 
@@ -22,12 +21,9 @@ const MIME_BY_EXT: Record<string, string> = {
   wav: "audio/wav",
 };
 
-/** Sync require keeps expo-audio in the main bundle (async import() breaks Metro module IDs). */
+/** Sync require keeps expo-audio in the main bundle (async import() breaks Metro module IDs).
+ * Dictation works in Expo Go too; Live Talk's WebRTC is gated separately. */
 export function loadExpoAudio(): ExpoAudioModule | null {
-  if (!canUseVoiceInput()) {
-    audioModule = null;
-    return null;
-  }
   if (audioModule === null) return null;
   if (audioModule) return audioModule;
   try {

@@ -10,20 +10,9 @@
  * ellipse and a 30° launch into some other angle — a picture that contradicts
  * the verified number printed beside it.
  */
-import {
-  clampCanvasLabelBaseline,
-  clampCanvasLabelX,
-  derivedArrowGeometry,
-  inclineDirections,
-  maxTrackSpeed,
-  inclineSurface,
-  parseSimulationSpec,
-  projectPath,
-  simulationTransform,
-  simulationViewportHeight,
-  tangentAt,
-  worldToScreen,
-} from "@/lib/physics/simulation";
+import { clampCanvasLabelBaseline, clampCanvasLabelX, derivedArrowGeometry, inclineDirections, inclineSurface, parseSimulationSpec, simulationTransform, simulationViewportHeight, tangentAt, worldToScreen } from "@/lib/physics/simulation";
+import { maxTrackSpeed } from "@/lib/physics/simulation/paths";
+import { projectPath } from "@/lib/physics/simulation/viewport";
 
 const PROJECTILE = {
   type: "projectile_motion",

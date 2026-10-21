@@ -211,13 +211,13 @@ async def delete_accounts(*user_ids: UUID) -> None:
 
 
 def isolated_settings(monkeypatch: pytest.MonkeyPatch, storage_root: Path) -> Settings:
-    from app.gateways.storage_gateway import reset_storage_gateway_cache
+    from app.gateways import storage_gateway
 
     monkeypatch.setenv("STORAGE_BACKEND", "local")
     monkeypatch.setenv("STORAGE_LOCAL_PATH", str(storage_root))
     monkeypatch.setenv("MOCK_LLM_ENABLED", "true")
     get_settings.cache_clear()
-    reset_storage_gateway_cache()
+    storage_gateway._gateway_cache = None
     return get_settings()
 
 
@@ -229,11 +229,11 @@ def use_fake_redis(monkeypatch: pytest.MonkeyPatch, fake: Any) -> None:
 
 
 def reset_process_caches() -> None:
-    from app.gateways.storage_gateway import reset_storage_gateway_cache
+    from app.gateways import storage_gateway
 
     core_redis.get_redis_client.cache_clear()
     get_settings.cache_clear()
-    reset_storage_gateway_cache()
+    storage_gateway._gateway_cache = None
 
 
 @pytest.fixture

@@ -40,14 +40,12 @@ class SpeechTtsOut(BaseModel):
 
 class SpeechLiveStatusOut(BaseModel):
     """Live talk for this user. ``remaining`` / ``limit`` are whole minutes this
-    UTC month; the ``*_seconds`` fields are exact. ``refunded`` is kept for old
-    clients and is always false now that sessions settle on ``/live/end``."""
+    UTC month; the ``*_seconds`` fields are exact."""
 
     enabled: bool
     entitled: bool
     remaining: int
     limit: int
-    refunded: bool = False
     remaining_seconds: int = 0
     limit_seconds: int = 0
     min_session_seconds: int = 0

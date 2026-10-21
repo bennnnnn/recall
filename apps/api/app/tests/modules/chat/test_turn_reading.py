@@ -17,7 +17,7 @@ import pytest
 
 from app.core.config import Settings
 from app.core.readings import begin_turn, read_off_loop
-from app.core.sympy_executor import reset_sympy_executor, set_sympy_executor
+from app.core.sympy_executor import set_sympy_executor
 from app.modules.chat.related_questions import follow_up_topic
 from app.modules.chat.turn_plan import TurnPlan, single_plan
 from app.modules.chat.turn_prep.followups import read_prompt_inputs
@@ -112,7 +112,7 @@ class _PicklingExecutor(ThreadSympyExecutor):
 def pickling_pool() -> Iterator[None]:
     set_sympy_executor(_PicklingExecutor(max_workers=1))
     yield
-    reset_sympy_executor()
+    set_sympy_executor(None)
 
 
 async def test_every_read_crosses_the_process_boundary(pickling_pool: None) -> None:

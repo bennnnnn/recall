@@ -1,18 +1,5 @@
-import {
-  normalizeBoldInlineMath,
-  normalizeMarkdownTables,
-  isPipeTable,
-  preprocessMarkdown,
-  splitInlineMath,
-  layoutCheckVerificationLines,
-  breakAttachedMathFences,
-  unwrapProseMathBackticks,
-  mergeStrandedColons,
-  separateStandaloneBoldLines,
-  stripBoldListLabelContinuationColons,
-  trimBoldDelimiterWhitespace,
-  breakMidlineAtxHeadings,
-} from "@/lib/markdown/preprocess";
+import { normalizeBoldInlineMath, normalizeMarkdownTables, preprocessMarkdown, splitInlineMath, layoutCheckVerificationLines, breakAttachedMathFences, unwrapProseMathBackticks, mergeStrandedColons, separateStandaloneBoldLines, stripBoldListLabelContinuationColons, trimBoldDelimiterWhitespace, breakMidlineAtxHeadings } from "@/lib/markdown/preprocess";
+import { isPipeTable } from "@/lib/markdown/preprocessTables";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { markdownItInstance } from "@/lib/markdown/parser";
 import {

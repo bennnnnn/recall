@@ -377,11 +377,6 @@ def _r2_configured(settings: Settings) -> bool:
 _gateway_cache: tuple[tuple[object, ...], StorageGateway] | None = None
 
 
-def reset_storage_gateway_cache() -> None:
-    global _gateway_cache
-    _gateway_cache = None
-
-
 def get_storage_gateway(settings: Settings) -> StorageGateway:
     global _gateway_cache
     key = (

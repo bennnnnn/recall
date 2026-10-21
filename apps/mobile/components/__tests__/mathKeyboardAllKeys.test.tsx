@@ -3,16 +3,8 @@ import { createRoot, type JsonNode } from "test-renderer";
 
 import { MathDraftPreview } from "@/features/chat/components/MathDraftPreview";
 import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
-import {
-  MATH_KEYBOARD_GROUPS,
-  MATH_KEYBOARD_SYMBOLS,
-  MATH_PAD_KEYS,
-  autoAdvanceNextEmptySlot,
-  caretStepRight,
-  spliceMathInsert,
-  tapAdvancesToNextSlot,
-  type MathKeyboardSymbol,
-} from "@/lib/math/keyboardSymbols";
+import { MATH_KEYBOARD_GROUPS, MATH_KEYBOARD_SYMBOLS, autoAdvanceNextEmptySlot, caretStepRight, spliceMathInsert, tapAdvancesToNextSlot, type MathKeyboardSymbol } from "@/lib/math/keyboardSymbols";
+import { MATH_PAD_KEYS } from "@/lib/math/keyboardCatalog";
 import { spliceMathBackspace } from "@/lib/math/draftSlots";
 import { appendConverterDigit, CONVERTER_DEFAULT_DIGITS } from "@/lib/unitConverter";
 

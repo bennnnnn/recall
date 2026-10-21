@@ -1,7 +1,6 @@
 /**
- * Non-secret preference persistence. Filesystem is primary; SecureStore is
- * a one-shot migration read. Keychain writes fail on unsigned simulator
- * builds (errSecMissingEntitlement / -34018).
+ * Non-secret preference persistence, on the filesystem: Keychain writes fail on
+ * unsigned simulator builds (errSecMissingEntitlement / -34018).
  */
 import {
   deleteAsync,
@@ -10,7 +9,6 @@ import {
   readAsStringAsync,
   writeAsStringAsync,
 } from "expo-file-system/legacy";
-import * as SecureStore from "expo-secure-store";
 
 export function prefFilePath(fileName: string): string | null {
   if (!documentDirectory) return null;
@@ -45,22 +43,6 @@ export async function deletePrefFile(path: string | null): Promise<void> {
   if (!path) return;
   try {
     await deleteAsync(path, { idempotent: true });
-  } catch {
-    /* best-effort */
-  }
-}
-
-export async function readLegacySecureStore(key: string): Promise<string | null> {
-  try {
-    return await SecureStore.getItemAsync(key);
-  } catch {
-    return null;
-  }
-}
-
-export async function deleteLegacySecureStore(key: string): Promise<void> {
-  try {
-    await SecureStore.deleteItemAsync(key);
   } catch {
     /* best-effort */
   }

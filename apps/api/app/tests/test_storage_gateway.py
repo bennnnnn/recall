@@ -6,13 +6,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.core.config import Settings
+from app.gateways import storage_gateway
 from app.gateways.storage_gateway import (
     LocalStorageGateway,
     R2StorageGateway,
     StorageUnavailableError,
     UnconfiguredStorageGateway,
     get_storage_gateway,
-    reset_storage_gateway_cache,
 )
 
 
@@ -39,9 +39,9 @@ async def test_local_storage_roundtrip(tmp_path: Path):
 
 @pytest.fixture(autouse=True)
 def _clear_storage_gateway_cache():
-    reset_storage_gateway_cache()
+    storage_gateway._gateway_cache = None
     yield
-    reset_storage_gateway_cache()
+    storage_gateway._gateway_cache = None
 
 
 def test_get_storage_gateway_defaults_to_local(monkeypatch, tmp_path: Path):

@@ -148,6 +148,11 @@ which tests ran, and any risk or exception left. Never claim a check passed that
 Do not rewrite broadly to make code look cleaner. Preserve working behavior, keep unrelated
 changes out, and refactor in small tested steps.
 
+Compatibility code (an old app build's field, a storage migration, a route kept for old
+clients) names the released version it serves and the date it can go. Before the first store
+build nothing has shipped, so there is nothing to stay compatible with: such code is deleted,
+not kept.
+
 ## Definition of done
 
 - Ownership is clear, and existing implementations were reused where they fit.

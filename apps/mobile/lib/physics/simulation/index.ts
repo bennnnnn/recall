@@ -11,23 +11,13 @@
  * does — this package only maps those samples onto the screen and reads
  * directions off them.
  */
-export {
-  SCENE_TITLE_KEYS,
-  type SimulationArrow,
-  type SimulationKind,
-  type SimulationSpec,
-} from "@/lib/physics/simulation/spec";
+export { type SimulationArrow, type SimulationSpec } from "@/lib/physics/simulation/spec";
 export { parseSimulationSpec } from "@/lib/physics/simulation/parse";
-export {
-  describeSimulation,
-  sceneTitle,
-  simulationAccessibilityLabel,
-} from "@/lib/physics/simulation/describe";
+export { sceneTitle, simulationAccessibilityLabel } from "@/lib/physics/simulation/describe";
 export {
   clampCanvasLabelBaseline,
   clampCanvasLabelX,
   FLUID_TINT,
-  projectPath,
   SIMULATION_HEIGHT,
   SIMULATION_MIN_HEIGHT,
   SIMULATION_PAD,
@@ -36,68 +26,27 @@ export {
   worldToScreen,
   type ScreenPoint,
 } from "@/lib/physics/simulation/viewport";
+export { simulationIsAnimated, tangentAt } from "@/lib/physics/simulation/paths";
 export {
-  isClosedPath,
-  maxTrackSpeed,
-  simulationIsAnimated,
-  strobeIndices,
-  tangentAt,
-} from "@/lib/physics/simulation/paths";
-export {
-  ARROW_EDGE_INSET,
-  ARROW_MAX_LENGTH,
-  ARROW_MIN_LENGTH,
   arrowHeadSize,
-  bodyBoxAngle,
-  bodyEdgeDistance,
-  bodyExtent,
-  clipArrowAtCircle,
-  clipArrowLength,
   derivedArrowGeometry,
-  fitArrowLength,
-  leverLoadAnchor,
-  MIN_CLIPPED_ARROW,
   PIVOT_SIZE,
   riddenVectorGeometry,
-  vectorScreenLengths,
   vectorStroke,
-  velocityArrowLength,
-  VELOCITY_MIN_LENGTH,
 } from "@/lib/physics/simulation/arrows";
 export {
-  bodyLabelOffset,
-  clearanceAlong,
   derivedLabelOrigin,
   placeNudgedLabel,
-  segmentHitsBox,
-  tipLabelOrigin,
   vectorLabelOrigin,
-  type LabelBox,
   type PlacedLabel,
 } from "@/lib/physics/simulation/labels";
+export { tetherEnd, type SupportLayout } from "@/lib/physics/simulation/parts";
 export {
-  ANGLE_MAX_RADIUS,
-  ANGLE_RADIUS,
-  angleArcPoints,
-  angleArrowHead,
-  angleLabelBox,
-  angleRadius,
-  onPulleyRim,
-  pulleyRope,
-  supportGeometry,
-  tetherEnd,
-  type SupportLayout,
-} from "@/lib/physics/simulation/parts";
-export { inclineDirections, inclineSurface, inclineWedge } from "@/lib/physics/simulation/incline";
+  inclineDirections,
+  inclineSurface,
+  inclineWedge,
+} from "@/lib/physics/simulation/incline";
 export { layoutSimulationScene, type SceneLayout } from "@/lib/physics/simulation/layout";
-export {
-  type AngleLayout,
-} from "@/lib/physics/simulation/layoutShapes";
-export {
-  type BodyLabelLayout,
-  type SolidLayout,
-} from "@/lib/physics/simulation/layoutLabels";
-export {
-  type ArrowLabelLayout,
-  type VectorLayout,
-} from "@/lib/physics/simulation/layoutNudgedLabels";
+export { type AngleLayout } from "@/lib/physics/simulation/layoutShapes";
+export { type BodyLabelLayout, type SolidLayout } from "@/lib/physics/simulation/layoutLabels";
+export { type ArrowLabelLayout, type VectorLayout } from "@/lib/physics/simulation/layoutNudgedLabels";
