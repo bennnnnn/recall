@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { randomUUID } from "expo-crypto";
 import { Message } from "@/lib/api";
 import type { ChatSsePayload } from "@/features/chat/model/sse";
 import { clearPendingChatTtft } from "@/features/chat/model/latency";
@@ -12,7 +13,7 @@ import { publishStreamingDraft, type StreamingDraft } from "@/lib/streamingDraft
 import { popLastAssistantMessage, restoreAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import { reportTurnOutcome } from "@/features/chat/model/turnOutcome";
 import { withStreamingPlaceholder } from "@/features/chat/model/partialStream";
-import type { ChatWsFallbackSignal, ChatWsTransport } from "@/features/chat/model/wsTransport";
+import type { ChatWsFallbackSignal, ChatWsTransport, WsSendFallback } from "@/features/chat/model/wsTransport";
 import type {
   ComposerSendDraft,
   PendingSend,
@@ -41,10 +42,7 @@ export function useChat(
   const [streaming, setStreaming] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [sendingMessageId, setSendingMessageId] = useState<string | null>(null);
-  const wsAuthFallbackRef = useRef<{
-    transport: ChatWsTransport;
-    retry: () => Promise<void>;
-  } | null>(null);
+  const wsAuthFallbackRef = useRef<WsSendFallback | null>(null);
   const sendAttemptRef = useRef(0);
   const pendingSendRef = useRef<PendingSend | null>(null);
   // Only explicit pre-persistence rejections belong here. Keep them across
@@ -336,11 +334,14 @@ export function useChat(
           },
         ]);
       }
+      // One name for every send of this message (a replay, Retry): the server runs it once.
+      const clientMessageId = rejectedRetry?.clientMessageId ?? randomUUID();
       pendingSendRef.current = {
         content,
         messageId: trackedId,
         retryingRejected: rejectedRetry != null,
         dispatched: false,
+        clientMessageId,
         options: {
           ...options,
           skipUserBubble: false,
@@ -383,30 +384,25 @@ export function useChat(
       }
       if (pendingSendRef.current) pendingSendRef.current.dispatched = true;
 
+      const sse = {
+        attachmentIds: options?.attachmentIds,
+        model: options?.model,
+        clientGeo: options?.clientGeo,
+        ttftTurnId: trackedId,
+        clientMessageId,
+      };
       const transport = currentSocket();
       if (!transport?.isOpen() || transport.shouldUseSse()) {
-        await sendViaSse(content, {
-          attachmentIds: options?.attachmentIds,
-          model: options?.model,
-          clientGeo: options?.clientGeo,
-          ttftTurnId: trackedId,
-        });
+        await sendViaSse(content, sse);
         return;
       }
 
-      wsAuthFallbackRef.current = {
-        transport,
-        retry: () => sendViaSse(content, {
-          attachmentIds: options?.attachmentIds,
-          model: options?.model,
-          clientGeo: options?.clientGeo,
-          ttftTurnId: trackedId,
-        }),
-      };
+      wsAuthFallbackRef.current = { transport, retry: () => sendViaSse(content, sse), idempotent: true };
       transport.sendMessage({
         content,
         attachment_ids: options?.attachmentIds ?? [],
         model: options?.model ?? null,
+        client_message_id: clientMessageId,
         ...clientGeoWsFields(options?.clientGeo),
       });
     },

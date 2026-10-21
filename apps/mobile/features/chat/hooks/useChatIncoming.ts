@@ -106,14 +106,6 @@ export function useChatIncomingEvents({
     ],
   );
 
-  const handleChatPayloadForChat = useCallback(
-    (boundChatId: string | null, payload: ChatSsePayload, ttftTurnId?: string | null) => {
-      if (!isCurrentView() || viewingChatIdRef.current !== boundChatId) return;
-      handleChatPayload(payload, ttftTurnId);
-    },
-    [handleChatPayload, isCurrentView, viewingChatIdRef],
-  );
-
   const preservePartialStream = useCallback((): boolean => {
     const draft = streamingDraftRef.current;
     const partial = (draft?.content ?? assistantBufferRef.current).trim();
@@ -261,6 +253,25 @@ export function useChatIncomingEvents({
     updateStreamingDraft,
   ]);
 
+  /** `duplicate`: an earlier send of this message reached the server, which runs
+   * that turn. Follow it until its reply lands; no second turn is asked for. */
+  const followDuplicateSend = useCallback(() => {
+    if (!streamingRef.current) return;
+    const pending = pendingSendRef.current;
+    pendingSendRef.current = null;
+    wsAuthFallbackRef.current = null;
+    followTakenSend((messageSaved) => settleDroppedSocketTurn(pending, messageSaved));
+  }, [followTakenSend, pendingSendRef, settleDroppedSocketTurn, streamingRef, wsAuthFallbackRef]);
+
+  const handleChatPayloadForChat = useCallback(
+    (boundChatId: string | null, payload: ChatSsePayload, ttftTurnId?: string | null) => {
+      if (!isCurrentView() || viewingChatIdRef.current !== boundChatId) return;
+      if (payload.type === "duplicate") followDuplicateSend();
+      else handleChatPayload(payload, ttftTurnId);
+    },
+    [followDuplicateSend, handleChatPayload, isCurrentView, viewingChatIdRef],
+  );
+
   const handleWsFallback = useCallback((
     transport: ChatWsTransport,
     signal: ChatWsFallbackSignal,
@@ -292,7 +303,18 @@ export function useChatIncomingEvents({
       }
     }
 
-    if (signal.reason === "first_event_timeout") {
+    // A probe found the socket dead before `start`: the send may or may not have
+    // arrived. A message carries its name, so the server runs a replay of it once.
+    const armed = wsAuthFallbackRef.current;
+    const unacknowledged =
+      signal.reason === "unresponsive" && signal.duringTurn && armed?.transport === transport;
+    if (unacknowledged && armed.idempotent) {
+      wsAuthFallbackRef.current = null;
+      void armed.retry();
+      return;
+    }
+
+    if (signal.reason === "first_event_timeout" || unacknowledged) {
       // No event does not prove the server missed the request. Retain the user
       // bubble and never replay this uncertain turn.
       wsAuthFallbackRef.current = null;

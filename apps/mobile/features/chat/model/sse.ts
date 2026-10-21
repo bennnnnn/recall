@@ -36,7 +36,12 @@ type StreamChatSseClient = {
 type StreamChatMessageOptions = StreamChatSseClient & {
   content: string;
   attachmentIds?: string[];
+  /** The message's name from its socket send: the server runs one turn per name. */
+  clientMessageId?: string;
 };
+
+/** The last event of a stream; `duplicate`: an earlier send of the message took the turn. */
+const TERMINAL_EVENT_TYPES = new Set(["done", "error", "duplicate"]);
 
 async function streamChatSseRequest(
   path: string,
@@ -72,7 +77,7 @@ async function streamChatSseRequest(
   let completed = false;
   const deliver = (events: ChatSsePayload[]) => {
     for (const event of events) {
-      if (event.type === "done" || event.type === "error") completed = true;
+      if (TERMINAL_EVENT_TYPES.has(event.type)) completed = true;
       options.onEvent(event);
     }
   };
@@ -119,6 +124,7 @@ export async function streamChatMessageSse(
   await streamChatSseRequest(`/chats/${options.chatId}/messages/stream`, options, {
     content: options.content,
     attachment_ids: options.attachmentIds ?? [],
+    ...(options.clientMessageId ? { client_message_id: options.clientMessageId } : {}),
   });
 }
 

@@ -8,7 +8,7 @@ import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/
 import type { PendingSend, RejectedSend } from "@/features/chat/model/sendLogic";
 import type { ChatSsePayload } from "@/features/chat/model/sse";
 import type { createStreamCueGate } from "@/features/chat/model/streamFeedback";
-import type { ChatWsTransport } from "@/features/chat/model/wsTransport";
+import type { WsSendFallback } from "@/features/chat/model/wsTransport";
 import {
   beginTurnOutcome,
   completionFromDone,
@@ -41,10 +41,7 @@ export type ChatEventContext = {
   streamingRef: MutableRefObject<boolean>;
   finalizingRef: MutableRefObject<boolean>;
   streamCueRef: MutableRefObject<ReturnType<typeof createStreamCueGate>>;
-  wsAuthFallbackRef: MutableRefObject<{
-    transport: ChatWsTransport;
-    retry: () => Promise<void>;
-  } | null>;
+  wsAuthFallbackRef: MutableRefObject<WsSendFallback | null>;
   assistantBufferRef: MutableRefObject<string>;
   streamingDraftRef: MutableRefObject<StreamingDraft | null>;
   pendingSendRef: MutableRefObject<PendingSend | null>;

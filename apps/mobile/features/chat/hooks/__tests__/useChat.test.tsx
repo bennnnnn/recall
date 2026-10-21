@@ -8,7 +8,12 @@ import {
   DROPPED_TURN_POLLS,
   SSE_DROPPED_TURN_POLLS,
 } from "@/features/chat/model/turnReconcile";
-import { WS_FIRST_EVENT_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
+import { WS_RETRY_BASE_MS } from "@/features/chat/model/wsBackoff";
+import {
+  WS_ACK_PROBE_MS,
+  WS_FIRST_EVENT_TIMEOUT_MS,
+  WS_PROBE_TIMEOUT_MS,
+} from "@/features/chat/model/wsConnect";
 import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
 
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
@@ -31,6 +36,8 @@ jest.mock("@/lib/api", () => ({
 }));
 const listMessages = jest.requireMock("@/lib/api").api.listMessages as jest.Mock;
 jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "UTC" }));
+let mockClientMessageIds = 0;
+jest.mock("expo-crypto", () => ({ randomUUID: () => `name-${++mockClientMessageIds}` }));
 jest.mock("@/features/chat/model/sse", () => ({
   streamChatMessageSse: jest.fn(),
   streamChatRegenerateSse: jest.fn(),
@@ -304,6 +311,7 @@ describe("useChat transport lifecycle", () => {
     await act(async () => { old.open(); await sending; });
     expect(active.send.mock.calls.map(([data]) => JSON.parse(data))).toEqual([
       { token: "token", client_timezone: "UTC" },
+      { type: "ping" },
     ]);
     expect(streamChatMessageSse).not.toHaveBeenCalled();
   });
@@ -906,7 +914,7 @@ describe("useChat transport lifecycle", () => {
     expect(current.rejectedSend).toBeNull();
     await act(async () => { expect(current.restoreRejectedAttachmentDraft(restore)).toBe(false); });
     expect(restore).toHaveBeenCalledTimes(2);
-    if (socket) expect(socket.send.mock.calls.map(([data]) => JSON.parse(data).type)).toEqual([undefined, "message"]);
+    if (socket) expect(socket.send.mock.calls.map(([data]) => JSON.parse(data).type)).toEqual([undefined, "ping", "message"]);
     else expect(streamChatMessageSse).toHaveBeenCalledTimes(1);
   });
 
@@ -1067,10 +1075,148 @@ describe("useChat socket while the app is in the background", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it("probes the socket a turn kept through the background when the app returns", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => { socket.emit({ type: "pong" }); });
+    await sendAndStream(socket, "partial");
+    await setAppState("background");
+    await setAppState("active");
+    expect(JSON.parse(socket.send.mock.calls.at(-1)?.[0])).toEqual({ type: "ping" });
+    expect(FakeSocket.instances).toHaveLength(1);
+  });
+
   it("does not open a second socket when the first was never released", async () => {
     await render(<Probe chatId="a" />);
     await openSocket();
     await setAppState("active");
     expect(FakeSocket.instances).toHaveLength(1);
+  });
+});
+
+describe("useChat socket recovery", () => {
+  const originalSocket = global.WebSocket;
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    listMessages.mockReset();
+    FakeSocket.instances = [];
+    mockSessionGeneration = 0;
+    // Earlier tests can leave a queued one-off stream behind.
+    (streamChatMessageSse as jest.Mock).mockReset();
+    (streamChatRegenerateSse as jest.Mock).mockReset();
+    global.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    resetStreamingDraftStore();
+  });
+  afterEach(async () => {
+    await cleanup();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    global.WebSocket = originalSocket;
+  });
+
+  const frames = (socket: FakeSocket) =>
+    socket.send.mock.calls.map(([data]) => JSON.parse(data) as Record<string, unknown>);
+  const latestSocket = () => FakeSocket.instances[FakeSocket.instances.length - 1];
+  const answeredSse = (reply: string) => async ({ onEvent }: { onEvent: (payload: object) => void }) => {
+    onEvent({ type: "start" });
+    onEvent({ type: "token", content: reply });
+    onEvent({ type: "done", message_id: `saved-${reply}`, final_content: reply });
+  };
+
+  /** A socket whose server answers pings, as every server with resend dedupe does. */
+  async function openProbedSocket() {
+    const socket = await openSocket();
+    await act(async () => { socket.emit({ type: "pong" }); });
+    return socket;
+  }
+
+  it("names each message, and Retry sends the same name again", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("first");
+      socket.emit({ type: "error", code: "busy" });
+    });
+    await act(async () => {
+      await current.retryRejectedSend();
+      socket.emit({ type: "done", message_id: "saved-first", final_content: "answer" });
+    });
+    await act(async () => { await current.sendMessage("second"); });
+    const names = frames(socket).filter((frame) => frame.type === "message").map((frame) => frame.client_message_id);
+    expect(names).toHaveLength(3);
+    expect(typeof names[0]).toBe("string");
+    expect(names[1]).toBe(names[0]);
+    expect(names[2]).not.toBe(names[0]);
+  });
+
+  it("replays a send its dead socket never acknowledged over SSE, under the same name", async () => {
+    (streamChatMessageSse as jest.Mock).mockImplementationOnce(answeredSse("recovered"));
+    await render(<Probe chatId="a" />);
+    const socket = await openProbedSocket();
+    await act(async () => { await current.sendMessage("question"); });
+    const name = frames(socket).find((frame) => frame.type === "message")?.client_message_id;
+    await act(async () => { jest.advanceTimersByTime(WS_ACK_PROBE_MS); });
+    expect(frames(socket).at(-1)).toEqual({ type: "ping" });
+    expect(streamChatMessageSse).not.toHaveBeenCalled();
+
+    await act(async () => { jest.advanceTimersByTime(WS_PROBE_TIMEOUT_MS); });
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    expect(streamChatMessageSse).toHaveBeenCalledTimes(1);
+    expect(streamChatMessageSse).toHaveBeenCalledWith(expect.objectContaining({
+      content: "question", clientMessageId: name,
+    }));
+    expect(current.messages.filter((message) => message.role === "user")).toHaveLength(1);
+    expect(current.messages).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "saved-recovered", content: "recovered" }),
+    ]));
+    expect(current.streaming).toBe(false);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("follows the first send when the server says the replay is a duplicate", async () => {
+    (streamChatMessageSse as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
+      onEvent({ type: "duplicate" });
+    });
+    const saved = [
+      { id: SERVER_USER_ID, role: "user" as const, content: "question", model: null, created_at: "t1" },
+      { id: SERVER_REPLY_ID, role: "assistant" as const, content: "first turn's reply", model: null, created_at: "t2" },
+    ];
+    listMessages.mockResolvedValue({ messages: saved, has_more: false });
+    await render(<Probe chatId="a" />);
+    await openProbedSocket();
+    await act(async () => { await current.sendMessage("question"); });
+    await act(async () => { jest.advanceTimersByTime(WS_ACK_PROBE_MS + WS_PROBE_TIMEOUT_MS); });
+    expect(current.streaming).toBe(true);
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    expect(current.messages).toEqual(saved);
+    expect(current.streaming).toBe(false);
+    expect(streamChatMessageSse).toHaveBeenCalledTimes(1);
+    expect(current.rejectedSend).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("sends over SSE while the dead socket's wait runs, then over a new socket", async () => {
+    (streamChatMessageSse as jest.Mock)
+      .mockImplementationOnce(answeredSse("replayed"))
+      .mockImplementationOnce(answeredSse("over SSE"));
+    await render(<Probe chatId="a" />);
+    await openProbedSocket();
+    await act(async () => { await current.sendMessage("lost"); });
+    await act(async () => { jest.advanceTimersByTime(WS_ACK_PROBE_MS + WS_PROBE_TIMEOUT_MS); });
+    expect(streamChatMessageSse).toHaveBeenCalledTimes(1);
+
+    await act(async () => { await current.sendMessage("soon after"); });
+    expect(streamChatMessageSse).toHaveBeenCalledTimes(2);
+    expect(FakeSocket.instances).toHaveLength(1);
+
+    await act(async () => { jest.advanceTimersByTime(WS_RETRY_BASE_MS); });
+    let sending!: Promise<void>;
+    await act(async () => { sending = current.sendMessage("later"); });
+    const next = latestSocket();
+    expect(FakeSocket.instances).toHaveLength(2);
+    await act(async () => { next.open(); await sending; });
+    expect(frames(next).at(-1)).toMatchObject({ type: "message", content: "later" });
+    expect(streamChatMessageSse).toHaveBeenCalledTimes(2);
   });
 });

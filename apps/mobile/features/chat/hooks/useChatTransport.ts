@@ -5,6 +5,7 @@ import { chatWebSocketUrl } from "@/lib/api";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { shouldAbortPriorSse, streamChatMessageSse, streamChatRegenerateSse, type ChatSsePayload } from "@/features/chat/model/sse";
+import { createWsBackoff } from "@/features/chat/model/wsBackoff";
 import { EAGER_CONNECT_DEBOUNCE_MS } from "@/features/chat/model/wsConnect";
 import { ChatWsTransport, type ChatWsFallbackSignal } from "@/features/chat/model/wsTransport";
 
@@ -13,6 +14,8 @@ type SendSseOptions = {
   model?: string | null;
   clientGeo?: ClientGeo | null;
   ttftTurnId?: string | null;
+  /** The message's name from its socket send, so a replay of it runs once. */
+  clientMessageId?: string;
 };
 
 type Options = {
@@ -41,6 +44,9 @@ export function useChatTransport({
   onRegenerateFailure,
 }: Options) {
   const wsTransportRef = useRef<ChatWsTransport | null>(null);
+  // A view's sockets share it, so a socket rebuilt after Stop keeps the
+  // wait; opening a chat starts with none (`detach`).
+  const backoffRef = useRef(createWsBackoff());
   const sseAbortRef = useRef<AbortController | null>(null);
   const sseAbortChatIdRef = useRef<string | null>(null);
   const isCurrentViewRef = useRef(isCurrentView);
@@ -87,6 +93,7 @@ export function useChatTransport({
         url: chatWebSocketUrl(chatId),
         token,
         clientTimezone: getDeviceTimezone(),
+        backoff: backoffRef.current,
         onPayload: (payload) => {
           if (wsTransportRef.current !== transport) return;
           onPayloadRef.current(chatId, payload, ttftTurnIdRef.current());
@@ -126,6 +133,9 @@ export function useChatTransport({
       }
       if (state !== "active") return;
       backgroundedRef.current = false;
+      // A turn kept its socket in the background, where the radio may have dropped it.
+      const kept = wsTransportRef.current;
+      if (kept?.isTurnActive()) kept.probe();
       if (!releasedInBackgroundRef.current) return;
       releasedInBackgroundRef.current = false;
       // Same head start as opening the chat: the handshake overlaps reading.
@@ -148,6 +158,7 @@ export function useChatTransport({
           model: options?.model,
           clientGeo: options?.clientGeo,
           ttftTurnId: turnId,
+          clientMessageId: options?.clientMessageId,
           signal,
           onEvent: (payload) => {
             if (!signal.aborted && sseAbortRef.current?.signal === signal) {
@@ -201,9 +212,11 @@ export function useChatTransport({
   }, []);
 
   /** Close the socket and forget an in-flight SSE without aborting it.
-   * Stop is the only hard cancel; leaving a chat must let finalize drain. */
+   * Stop is the only hard cancel; leaving a chat must let finalize drain.
+   * The next view tries the socket at once, whatever failed in this one. */
   const detach = useCallback(() => {
     dropSocket();
+    backoffRef.current = createWsBackoff();
     sseAbortRef.current = null;
     sseAbortChatIdRef.current = null;
   }, [dropSocket]);
