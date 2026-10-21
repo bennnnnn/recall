@@ -14,6 +14,12 @@ jest.mock("@/lib/auth", () => ({
   SessionChangedError: class SessionChangedError extends Error {},
 }));
 jest.mock("@/lib/api", () => ({ api: { listChats: jest.fn() } }));
+// The signed-in account (per session) and its access token, which rotates hourly.
+let mockToken: string | null = "token";
+const mockGetToken = () => mockToken;
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => ({ account: mockToken ? `account:${mockSession}` : null, getToken: mockGetToken }),
+}));
 jest.mock("@/lib/scheduleIdle", () => ({ scheduleIdleTask: () => jest.fn() }));
 const mockWarn = jest.fn();
 jest.mock("@/lib/reportRecoverableError", () => ({
@@ -23,13 +29,13 @@ jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) =>
 const chat = { id: "old", title: "Original", model: "free-chat", pinned: false, updated_at: "2026-01-01T00:00:00Z", created_at: "2026-01-01T00:00:00Z" };
 const initial = { ...emptyChatList(), older: [chat] };
 let current: ReturnType<typeof useDrawerChatList>;
-function Probe({ token = "token", open = true }: { token?: string | null; open?: boolean }) {
-  const result = useDrawerChatList({ token, isDrawerOpen: open });
+function Probe({ open = true }: { open?: boolean }) {
+  const result = useDrawerChatList({ isDrawerOpen: open });
   React.useLayoutEffect(() => { current = result; });
   return <Text>{result.allChats.map((row) => row.title).join(",")}</Text>;
 }
 beforeEach(() => {
-  jest.clearAllMocks(); mockSession = 0; invalidateChatListCache();
+  jest.clearAllMocks(); mockSession = 0; mockToken = "token"; invalidateChatListCache();
 });
 
 it("hides account A immediately and rejects its late read after account B signs in", async () => {
@@ -38,7 +44,8 @@ it("hides account A immediately and rejects its late read after account B signs 
   const view = await render(<Probe />);
   mockSession++;
   (api.listChats as jest.Mock).mockResolvedValueOnce({ ...emptyChatList(), today: [{ ...chat, id: "b", title: "Account B" }] });
-  await view.rerender(<Probe token="b-token" />);
+  mockToken = "b-token";
+  await view.rerender(<Probe />);
   expect(current.allChats.map((row) => row.id)).toEqual(["b"]);
   await act(async () => { finish(initial); });
   expect(current.allChats.map((row) => row.id)).toEqual(["b"]);
@@ -48,7 +55,8 @@ it("hides account A immediately and rejects its late read after account B signs 
 it("retains loaded rows through access-token refresh without another list request", async () => {
   setChatListCache(initial);
   const view = await render(<Probe />);
-  await view.rerender(<Probe token="rotated-token" />);
+  mockToken = "rotated-token";
+  await view.rerender(<Probe />);
   expect(current.allChats).toEqual([chat]);
   expect(api.listChats).not.toHaveBeenCalled();
 });

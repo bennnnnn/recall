@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cacheDirectory, EncodingType, readAsStringAsync } from "expo-file-system/legacy";
 
-import { useAuthToken } from "@/contexts/AuthContext";
+import { useAccountSession } from "@/contexts/accountSession";
 import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
 import { pdfViewerFile } from "@/features/attachments/model/pdfViewerFile";
 import {
@@ -38,7 +38,7 @@ export function usePdfPreview(options: {
   allPages: boolean;
 }): PdfPreview {
   const { uri, fileName, enabled, allPages } = options;
-  const token = useAuthToken();
+  const { account, getToken } = useAccountSession();
   const theme = useTheme();
   const [fileUnreadable, setFileUnreadable] = useState(false);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -56,7 +56,7 @@ export function usePdfPreview(options: {
     setFailedKey(null);
     void (async () => {
       try {
-        const pdf = await ensureLocalAttachmentFile({ uri, token, fileName, signal: controller.signal });
+        const pdf = await ensureLocalAttachmentFile({ uri, token: getToken(), fileName, signal: controller.signal });
         const next: Loaded = useFile
           ? { key, kind: "file", viewer: await pdfViewerFile(), pdf }
           : { key, kind: "html", base64: await readAsStringAsync(pdf, { encoding: EncodingType.Base64 }) };
@@ -66,7 +66,7 @@ export function usePdfPreview(options: {
       }
     })();
     return () => controller.abort();
-  }, [enabled, uri, token, fileName, useFile, key]);
+  }, [enabled, uri, account, getToken, fileName, useFile, key]);
 
   const onMessage = useCallback((event: { nativeEvent?: { data?: unknown } }) => {
     const data = event.nativeEvent?.data;

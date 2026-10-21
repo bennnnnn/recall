@@ -22,6 +22,11 @@ jest.mock("@/ui/overlay/Sheet", () => {
       visible ? <RNView>{children}</RNView> : null,
   };
 });
+// One object, as the provider keeps it.
+const mockAccountSession = { account: "user-1:0", getToken: () => "tok" };
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => mockAccountSession,
+}));
 jest.mock("@/hooks/useSubscriptionActions", () => ({
   useSubscriptionActions: () => ({
     token: "tok",

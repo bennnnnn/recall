@@ -31,7 +31,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/attachments/model/downloadChatAttachment.ts#localFileCache": "clearLocalAttachmentFileCache",
   "features/attachments/model/downloadChatAttachment.ts#refetch": "clearLocalAttachmentFileCache",
   "features/attachments/model/galleryListCache.ts#resource": "invalidateGalleryCache",
-  "features/chat/hooks/useQuotaNudge.ts#dismissedDate": "resetQuotaNudgeDismissal",
+  "features/chat/model/quotaNudgeDismissal.ts#dismissedDate": "resetQuotaNudgeDismissal",
   "features/chat/model/draftLogic.ts#knownAssistantChats": "invalidateChatListCache",
   "features/chat/model/messageCache.ts#chatClearGenerations": "clearAllCachedChatMessages",
   "features/chat/model/messageCache.ts#clearGeneration": "clearAllCachedChatMessages",

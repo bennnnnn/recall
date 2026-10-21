@@ -82,7 +82,7 @@ export function ConversationList() {
     moveChatPinState,
     moveChatArchiveState,
     removeChatFromGroupsById,
-  } = useDrawerChatList({ token, isDrawerOpen: isOpen });
+  } = useDrawerChatList({ isDrawerOpen: isOpen });
 
   const {
     menuChat,

@@ -92,7 +92,6 @@ export function useChat(
   const sendFailureRef = useRef<(error: unknown, turnId: string | null) => void>(() => {});
   const regenerateFailureRef = useRef<() => void>(() => {});
   const chatTransport = useChatTransport({
-    token,
     chatId,
     isCurrentView,
     ttftTurnId: () => ttftTurnIdRef.current,

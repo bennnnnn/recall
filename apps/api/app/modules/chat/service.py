@@ -148,11 +148,19 @@ async def delete_chat(
     chat_id: UUID,
     *,
     settings: Settings,
+    if_empty: bool = False,
 ) -> None:
-    """Remove the conversation. Library attachments stay (message_id SET NULL)."""
+    """Remove the conversation. Library attachments stay (message_id SET NULL).
+
+    ``if_empty`` keeps a chat that holds any message: the phone drops an unused draft
+    with this one request, where it read a page of messages and deleted twice
+    (code-health audit NET-13).
+    """
     chat = await chats_repo.get_by_id(session, chat_id, user.id)
     if chat is None:
         raise ChatsError("Chat not found", status_code=404)
+    if if_empty and await messages_repo.count_for_chat(session, chat_id):
+        return
     # Do not detach rows or delete bytes — explicit Library delete owns that.
     # attachments.message_id SET NULLs when messages cascade.
     _ = settings

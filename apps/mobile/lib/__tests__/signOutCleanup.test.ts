@@ -6,7 +6,7 @@ import { latexToSvgMath, peekSvgMath, setSvgMathRendererForTest } from "@/lib/ma
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { getStreamingDraft, publishStreamingDraft } from "@/lib/streamingDraftStore";
 import { clearSavedProposals } from "@/features/todos/model/reminderProposal";
-import { resetQuotaNudgeDismissal } from "@/features/chat/hooks/useQuotaNudge";
+import { resetQuotaNudgeDismissal } from "@/features/chat/model/quotaNudgeDismissal";
 
 const mockFiles: Record<string, string[]> = {};
 const mockDeleted: string[] = [];
@@ -32,7 +32,7 @@ jest.mock("@/lib/cachedModels", () => ({ clearCachedModels: jest.fn(async () => 
 jest.mock("@/lib/google-auth", () => ({ signOutGoogle: jest.fn(async () => undefined) }));
 jest.mock("@/features/chat/model/composerDraftReset", () => ({ resetComposerDraftsForAccount: jest.fn() }));
 jest.mock("@/features/todos/model/reminderProposal", () => ({ clearSavedProposals: jest.fn() }));
-jest.mock("@/features/chat/hooks/useQuotaNudge", () => ({ resetQuotaNudgeDismissal: jest.fn() }));
+jest.mock("@/features/chat/model/quotaNudgeDismissal", () => ({ resetQuotaNudgeDismissal: jest.fn() }));
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({ clearLocalAttachmentFileCache: jest.fn() }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn() }));
 jest.mock("@/features/todos/model/reminderPrefs", () => ({ clearReminderLeadPrefs: jest.fn() }));

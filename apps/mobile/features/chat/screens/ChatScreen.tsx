@@ -17,7 +17,7 @@ import { makeChatScreenStyles } from "@/features/chat/components/chatScreenStyle
 import { COMPOSER_HEIGHT } from "@/features/chat/components/ChatComposer";
 import { composerAttachmentExtra } from "@/features/attachments/components/ComposerAttachmentPreview";
 import { DrawerShell } from "@/components/DrawerShell";
-import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
+import { ComposerDraftProvider, useComposerDraftActivity } from "@/contexts/ComposerDraftContext";
 import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
@@ -57,7 +57,8 @@ function ChatScreen() {
     useLocalSearchParams<{ chatId?: string; highlightMessage?: string }>();
 
   const [chatId, setChatId] = useState<string | null>(null);
-  const draft = useDraftChat({ token, chatId });
+  const composerActive = useComposerDraftActivity();
+  const draft = useDraftChat({ chatId, intent: composerActive });
   const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { chatError, handleChatError, handleStreamBusy, dismissChatError, handleRejectedSendChange } =
     useChatErrorHandlers(isPaid);
@@ -363,7 +364,6 @@ function ChatScreen() {
   const { draftChatId } = draft;
 
   useChatDraftWarmup({
-    token,
     chatId,
     streaming: streamActive,
     draftChatId,

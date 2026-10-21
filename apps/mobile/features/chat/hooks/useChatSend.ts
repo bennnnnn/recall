@@ -26,10 +26,7 @@ import { useRestoreFailedSend, type SendTurn } from "@/features/chat/hooks/useRe
 import { uploadSendAttachment, useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
 import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
-import {
-  queryNeedsClientGeo,
-  resolveClientGeoForQuery,
-} from "@/lib/resolveClientGeoForQuery";
+import { queryNeedsClientGeo, resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
 import {
@@ -193,15 +190,16 @@ export function useChatSend({
     composerThread, session, switchThread, getThreadKey, switchAttachmentThread, resetForNewSession,
     resetAttachmentDrafts, setAttachSheetOpen, setMathScannerOpen,
   ]);
+  const signedIn = Boolean(token);
   useEffect(() => {
     const applyQueued = () => {
-      if (!token || session !== getSessionGeneration()) return;
+      if (!signedIn || session !== getSessionGeneration()) return;
       const next = takeQueuedComposerAttachment(composerThread);
       if (next) replacePendingAttachment(next);
     };
     applyQueued();
     return subscribeComposerAttachmentQueue(applyQueued);
-  }, [composerThread, token, session, replacePendingAttachment]);
+  }, [composerThread, signedIn, session, replacePendingAttachment]);
   useEffect(() => {
     if (
       pendingSend &&

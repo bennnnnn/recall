@@ -10,6 +10,11 @@ jest.mock("react-i18next", () => ({
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
+// One object, as the provider keeps it: a new getter per render re-runs every effect.
+const mockAccountSession = { account: "user-1:0", getToken: () => "tok" };
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => mockAccountSession,
+}));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "tok",
 }));

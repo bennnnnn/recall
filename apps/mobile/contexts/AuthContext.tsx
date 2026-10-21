@@ -37,6 +37,7 @@ import {
   setTokenPair,
 } from "@/lib/auth";
 import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
+import { AccountSessionContext } from "@/contexts/accountSession";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { AuthLoadingShell } from "@/components/AuthLoadingShell";
@@ -337,14 +338,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const tokenBag = useMemo(() => ({ token }), [token]);
+  // Not `getToken`: that name is the stored-credential reader startup uses.
+  const latestToken = useCallback(() => tokenRef.current, []);
+  const account = token && user ? `${user.id}:${sessionGeneration}` : null;
+  const accountSession = useMemo(
+    () => ({ account, getToken: latestToken }),
+    [account, latestToken],
+  );
 
   return (
     <AuthTokenContext.Provider value={tokenBag}>
-      <AuthContext.Provider value={value}>
-        {loading || startupFailed
-          ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} />
-          : children}
-      </AuthContext.Provider>
+      <AccountSessionContext.Provider value={accountSession}>
+        <AuthContext.Provider value={value}>
+          {loading || startupFailed
+            ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} />
+            : children}
+        </AuthContext.Provider>
+      </AccountSessionContext.Provider>
     </AuthTokenContext.Provider>
   );
 }

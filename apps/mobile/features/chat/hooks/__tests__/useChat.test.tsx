@@ -56,6 +56,11 @@ let current: ReturnType<typeof useChat>;
 const onError = jest.fn();
 let mockSessionGeneration = 0;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSessionGeneration }));
+// One object, as the provider keeps it.
+const mockAccountSession = { account: "user-1:0", getToken: () => "token" };
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => mockAccountSession,
+}));
 function Probe({ chatId, token = "token" }: { chatId: string; token?: string }) {
   const chat = useChat(token, chatId, { onError });
   React.useLayoutEffect(() => { current = chat; });

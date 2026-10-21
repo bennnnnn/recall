@@ -10,6 +10,11 @@ import { AttachmentImageViewer } from "@/features/attachments/components/Attachm
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 import { alertDialog } from "@/ui/overlay/dialogs";
 
+// One object, as the provider keeps it: a new getter per render re-runs every effect.
+const mockAccountSession = { account: "user-1:0", getToken: () => "tok" };
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => mockAccountSession,
+}));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "tok",
 }));

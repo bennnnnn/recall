@@ -136,6 +136,19 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+/**
+ * `token`, or a refreshed one when it is about to expire: the same single-flight refresh
+ * a request makes. A long-lived WebSocket kept the token it was made with, so a return
+ * after an hour authenticated with an expired one and fell back to SSE for good
+ * (code-health audit NET-12); it reads its token through this before it connects.
+ */
+export async function freshAccessToken(token: string | null): Promise<string | null> {
+  if (!token || !accessTokenNeedsRefresh(token)) return token;
+  const generation = getSessionGeneration();
+  const refreshed = await refreshAccessToken();
+  return generation === getSessionGeneration() ? (refreshed ?? token) : null;
+}
+
 /** `pushToken` is this device's Expo push token: the server forgets it with the session, so
  * the signed-out account's reminders stop reaching this lock screen. */
 export async function logoutSession(

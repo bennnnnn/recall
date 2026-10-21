@@ -96,6 +96,6 @@ export function useChatStreamLifecycle({
     prevStreamActiveRef.current = streamActive;
   }, [streamActive]);
 
-  const quotaNudge = useQuotaNudge({ token, isPaid, refreshKey: quotaRefreshKey });
+  const quotaNudge = useQuotaNudge({ isPaid, refreshKey: quotaRefreshKey });
   return quotaNudge;
 }

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import { AppState } from "react-native";
 
+import { useAccountSession } from "@/contexts/accountSession";
 import { chatWebSocketUrl } from "@/lib/api";
+import { accessTokenNeedsRefresh, freshAccessToken } from "@/lib/api/client";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { shouldAbortPriorSse, streamChatMessageSse, streamChatRegenerateSse, type ChatSsePayload } from "@/features/chat/model/sse";
@@ -16,7 +18,6 @@ type SendSseOptions = {
 };
 
 type Options = {
-  token: string | null;
   chatId: string | null;
   isCurrentView: () => boolean;
   ttftTurnId: () => string | null;
@@ -31,7 +32,6 @@ type Options = {
  * this hook only opens, sends, and tears down the connection.
  */
 export function useChatTransport({
-  token,
   chatId,
   isCurrentView,
   ttftTurnId,
@@ -40,6 +40,9 @@ export function useChatTransport({
   onSendFailure,
   onRegenerateFailure,
 }: Options) {
+  // Keyed on the account, not the bearer token: the token rotates hourly, and the
+  // socket reads the newest one when it connects (code-health audit NET-11, NET-12).
+  const { account, getToken } = useAccountSession();
   const wsTransportRef = useRef<ChatWsTransport | null>(null);
   const sseAbortRef = useRef<AbortController | null>(null);
   const sseAbortChatIdRef = useRef<string | null>(null);
@@ -79,13 +82,13 @@ export function useChatTransport({
     transport.close();
   }, []);
 
-  const connect = useCallback((): Promise<void> => {
-    if (!token || !chatId || !isCurrentViewRef.current()) return Promise.resolve();
+  const openSocket = useCallback((): Promise<void> => {
+    if (!account || !chatId || !isCurrentViewRef.current()) return Promise.resolve();
     let transport = wsTransportRef.current;
     if (!transport) {
       transport = new ChatWsTransport({
         url: chatWebSocketUrl(chatId),
-        token,
+        getToken,
         clientTimezone: getDeviceTimezone(),
         onPayload: (payload) => {
           if (wsTransportRef.current !== transport) return;
@@ -97,17 +100,25 @@ export function useChatTransport({
       wsTransportRef.current = transport;
     }
     return transport.connect();
-  }, [token, chatId, releaseIdleInBackground]);
+  }, [account, chatId, getToken, releaseIdleInBackground]);
+
+  const connect = useCallback((): Promise<void> => {
+    const token = getToken();
+    if (!account || !token) return Promise.resolve();
+    // An expired token is refreshed before the handshake, not refused after it.
+    if (!accessTokenNeedsRefresh(token)) return openSocket();
+    return freshAccessToken(token).then((fresh) => (fresh ? openSocket() : undefined));
+  }, [account, getToken, openSocket]);
 
   // Handshake overlaps reading. Debounced so flicking the chat list does not
   // open a socket per glance (each handshake counts against the connect limit).
   useEffect(() => {
-    if (!token || !chatId) return;
+    if (!account || !chatId) return;
     const timer = setTimeout(() => {
       void connect();
     }, EAGER_CONNECT_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [token, chatId, connect]);
+  }, [account, chatId, connect]);
 
   useEffect(() => {
     return () => {
@@ -136,6 +147,7 @@ export function useChatTransport({
 
   const sendViaSse = useCallback(
     async (content: string, options?: SendSseOptions) => {
+      const token = getToken();
       if (!token || !chatId) return;
       const signal = beginSseStream();
       const turnId = options?.ttftTurnId ?? null;
@@ -162,11 +174,12 @@ export function useChatTransport({
         onSendFailureRef.current(err, turnId);
       }
     },
-    [token, chatId, beginSseStream],
+    [getToken, chatId, beginSseStream],
   );
 
   const regenerateViaSse = useCallback(
     async (model?: string | null, clientGeo?: ClientGeo | null) => {
+      const token = getToken();
       if (!token || !chatId) return;
       const signal = beginSseStream();
       try {
@@ -189,7 +202,7 @@ export function useChatTransport({
         onRegenerateFailureRef.current();
       }
     },
-    [token, chatId, beginSseStream],
+    [getToken, chatId, beginSseStream],
   );
 
   const currentSocket = useCallback(() => wsTransportRef.current, []);

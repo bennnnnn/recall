@@ -1,3 +1,4 @@
+import { useAccountSession } from "@/contexts/accountSession";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -36,17 +37,19 @@ import { getSessionGeneration } from "@/lib/auth";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { useReadFailureReport } from "@/hooks/useReadFailureReport";
 
-type Params = { token: string | null; isDrawerOpen: boolean };
+type Params = { isDrawerOpen: boolean };
 
 function initialCollapsedSections(): Record<string, boolean> {
   return Object.fromEntries([...CHAT_DATE_SECTIONS, ARCHIVED_CHAT_SECTION]
     .map((key) => [key, defaultChatSectionCollapsed(key)]));
 }
 
-export function useDrawerChatList({ token, isDrawerOpen }: Params) {
+/** The drawer's chats, kept per account: the hourly token rotation reads nothing (NET-11). */
+export function useDrawerChatList({ isDrawerOpen }: Params) {
+  const { account, getToken } = useAccountSession();
   const session = getSessionGeneration();
   const [snapshot, setSnapshot] = useState(() => ({ session, groups: emptyChatList() }));
-  const groups = useMemo(() => snapshot.session === session && token ? snapshot.groups : emptyChatList(), [snapshot, session, token]);
+  const groups = useMemo(() => snapshot.session === session && account ? snapshot.groups : emptyChatList(), [snapshot, session, account]);
   const [loading, setLoading] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState(initialCollapsedSections);
   const [error, setError] = useState(false);
@@ -88,16 +91,17 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     if (fetched) hasLoadedOnceRef.current = true;
   }, [current, session]);
   const hydrateFromCache = useCallback(() => {
-    if (!token || !current()) return false;
+    if (!account || !current()) return false;
     const cached = getCachedChatList();
     if (!cached) return false;
     const fetched = getChatListFetchedAt() != null;
     applyChatList(cached, fetched);
     return fetched;
-  }, [token, current, applyChatList]);
+  }, [account, current, applyChatList]);
 
   const load = useCallback(async (background = false, force = false) => {
-    if (!token || !current()) return;
+    const token = getToken();
+    if (!account || !token || !current()) return;
     if (!force && isChatListFresh() && hydrateFromCache()) return;
     const loadId = ++loadIdRef.current;
     if (!background) setLoading(true);
@@ -107,19 +111,20 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     if (result.data) applyChatList(getCachedChatList() ?? result.data);
     if (result.error && !background) setError(true);
     if (!background) setLoading(false);
-  }, [token, current, hydrateFromCache, applyChatList, reportFailure]);
+  }, [account, getToken, current, hydrateFromCache, applyChatList, reportFailure]);
 
   const handleRefresh = useCallback(async () => {
-    if (!token || !current()) return;
+    if (!account || !current()) return;
     setRefreshing(true);
     try { await load(false, true); }
     finally { if (current()) setRefreshing(false); }
-  }, [token, current, load]);
+  }, [account, current, load]);
 
   // Idle warm is only for first paint. Closing the drawer never triggers a read.
   useEffect(() => {
     hydrateFromCache();
-    if (!shouldWarmClosedDrawerChatList({ hasToken: Boolean(token), isDrawerOpen, hasLoadedOnce: hasLoadedOnceRef.current })) return;
+    if (!shouldWarmClosedDrawerChatList({ hasToken: Boolean(account), isDrawerOpen, hasLoadedOnce: hasLoadedOnceRef.current })) return;
+    const token = getToken();
     if (!token) return;
     let cancelled = false;
     const cancelIdle = scheduleIdleTask(() => {
@@ -129,18 +134,18 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
       });
     });
     return () => { cancelled = true; cancelIdle(); };
-  }, [token, isDrawerOpen, current, hydrateFromCache, applyChatList]);
+  }, [account, getToken, isDrawerOpen, current, hydrateFromCache, applyChatList]);
 
   useEffect(() => {
     hydrateFromCache();
-    if (drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(token), hasLoadedOnce: hasLoadedOnceRef.current }) !== "skip") void load();
-  }, [isDrawerOpen, token, load, hydrateFromCache]);
+    if (drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(account), hasLoadedOnce: hasLoadedOnceRef.current }) !== "skip") void load();
+  }, [isDrawerOpen, account, load, hydrateFromCache]);
 
   const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
-    if (!token || !current()) return;
+    if (!account || !current()) return;
     applyChatList(updateChatListCache(update), false);
     publishChatChange(chatId, patch);
-  }, [token, current, applyChatList]);
+  }, [account, current, applyChatList]);
   const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
     const normalized = patch.archived === true ? { ...patch, pinned: false } : patch;
     updateGroups(chatId, normalized, (prev) => patchChatListGroups(prev, chatId, normalized));

@@ -273,13 +273,7 @@ export function useChatRouteLoader({
         if (streamingRef.current || Boolean(imageGeneratingRef?.current)) {
           wasStreamingWhenBackgroundedRef.current = true;
         }
-        const draftId = draftChatIdRef.current;
-        if (!draftId) return;
-        // Empty pre-created drafts should not survive backgrounding.
-        if (messages.length === 0 && chatId == null) {
-          discardEmptyChat(draftId);
-          clearDraftChat();
-        }
+        // An unused draft is dropped by useDraftChat, once, on background.
         return;
       }
       // Backgrounding mid-stream kills the socket; onclose commits a truncated

@@ -64,13 +64,13 @@ export function shouldProbePreviousChat(opts: {
 }
 
 export function shouldWarmDraftSocket(options: {
-  token: string | null;
+  account: string | null;
   draftChatId: string | null;
   chatId: string | null;
   streaming: boolean;
 }): boolean {
   return Boolean(
-    options.token &&
+    options.account &&
       options.draftChatId &&
       !options.chatId &&
       !options.streaming,

@@ -111,11 +111,12 @@ async def archive_chat(
 @router.delete("/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_chat(
     chat_id: UUID,
+    if_empty: bool = False,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
-    await chats_service.delete_chat(session, user, chat_id, settings=settings)
+    await chats_service.delete_chat(session, user, chat_id, settings=settings, if_empty=if_empty)
 
 
 @router.get("/usage/today", response_model=UsageOut)

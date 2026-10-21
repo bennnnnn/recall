@@ -1,3 +1,4 @@
+import { useAccountSession } from "@/contexts/accountSession";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -73,6 +74,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const theme = useTheme();
   const s = makeStyles(theme);
   const { token, user, syncSubscription, devUpgrade } = useSubscriptionActions();
+  const { account, getToken } = useAccountSession();
   const current = planOf(user);
   const targets = upgradeTargets(current);
   const [packages, setPackages] = useState<Partial<Record<PaidPlanId, PlanPackage>>>({});
@@ -85,14 +87,15 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
 
   useEffect(() => {
     if (visible && !wasVisible.current) {
-      trackProductEvent(token, "paywall_viewed", { source });
+      trackProductEvent(getToken(), "paywall_viewed", { source });
       setError(null);
     }
     wasVisible.current = visible;
-  }, [source, token, visible]);
+  }, [source, getToken, visible]);
 
   useEffect(() => {
-    if (!visible || !token) return;
+    const token = getToken();
+    if (!visible || !account || !token) return;
     let cancelled = false;
     void api
       .listPlans(token)
@@ -105,7 +108,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [visible, token]);
+  }, [visible, account, getToken]);
 
   useEffect(() => {
     if (!visible || !purchasesReady) {

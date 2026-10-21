@@ -1,5 +1,5 @@
 import { request } from "@/lib/api/client";
-import { chatHasThreadContent, shareEmptyChatCheck } from "@/features/chat/model/draftLogic";
+import { shareEmptyChatCheck } from "@/features/chat/model/draftLogic";
 import type {
   Chat,
   ChatList,
@@ -60,20 +60,11 @@ export const chatsApi = {
     request<void>("/chats/archive-all", token, { method: "POST" }),
   deleteAllChats: (token: string) =>
     request<void>("/chats", token, { method: "DELETE" }),
+  /** One request: the server keeps a chat that holds any message (a turn left mid-stream). */
   deleteChatIfEmpty: (token: string, chatId: string) =>
-    shareEmptyChatCheck(chatId, async () => {
-      const page = normalizeMessagePage(
-        await request<MessagePage | Message[]>(
-          `/chats/${chatId}/messages?limit=20`,
-          token,
-        ),
-      );
-      // A user turn with no assistant yet is a real chat (left mid-stream).
-      // Only unused empty drafts should be deleted.
-      if (!chatHasThreadContent(page.messages)) {
-        await request<void>(`/chats/${chatId}`, token, { method: "DELETE" });
-      }
-    }),
+    shareEmptyChatCheck(chatId, () =>
+      request<void>(`/chats/${chatId}?if_empty=true`, token, { method: "DELETE" }),
+    ),
   listChats: (token: string) => request<ChatList>("/chats", token),
   listMessages,
   listAllMessages: async (token: string, chatId: string): Promise<Message[]> => {

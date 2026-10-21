@@ -74,7 +74,8 @@ export type ChatWsFallbackSignal =
 
 type ChatWsTransportOptions = {
   url: string;
-  token: string;
+  /** The newest bearer token, read when the socket authenticates. */
+  getToken: () => string | null;
   clientTimezone: string;
   onPayload: (payload: ChatWsPayload) => void;
   onFallback: (signal: ChatWsFallbackSignal) => void;
@@ -94,6 +95,8 @@ export class ChatWsTransport {
   private turnActive = false;
   private preferSse = false;
   private closed = false;
+  /** The server refused this socket's token once: a second refusal falls back to SSE. */
+  private refusedOnce = false;
 
   constructor(private readonly options: ChatWsTransportOptions) {}
 
@@ -144,7 +147,7 @@ export class ChatWsTransport {
         return;
       }
       this.sendFrame({
-        token: this.options.token,
+        token: this.options.getToken() ?? "",
         client_timezone: this.options.clientTimezone,
       } satisfies ChatWsAuthFrame);
       this.finishConnect();
@@ -184,7 +187,10 @@ export class ChatWsTransport {
         const duringTurn = this.turnActive;
         this.socket = null;
         this.turnActive = false;
-        this.preferSse = true;
+        // The turn replays over SSE, whose request refreshes the token; the next
+        // connect authenticates with the new one. Only a second refusal stays on SSE.
+        this.preferSse = this.refusedOnce;
+        this.refusedOnce = true;
         this.options.onFallback({
           reason: "unauthorized",
           duringTurn,
@@ -197,6 +203,7 @@ export class ChatWsTransport {
       if (payload.type === "done" || payload.type === "error") {
         this.turnActive = false;
       }
+      if (payload.type === "done") this.refusedOnce = false;
       this.options.onPayload(payload);
     };
 

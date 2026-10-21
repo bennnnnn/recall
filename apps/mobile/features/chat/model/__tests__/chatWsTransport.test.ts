@@ -31,7 +31,7 @@ function setupTransport() {
   const onFallback = jest.fn<void, [ChatWsFallbackSignal]>();
   const transport = new ChatWsTransport({
     url: "wss://test/chat",
-    token: "token",
+    getToken: () => "token",
     clientTimezone: "UTC",
     onPayload,
     onFallback,
@@ -177,6 +177,41 @@ describe("ChatWsTransport", () => {
       duringTurn: true,
       payload: { type: "error", message: "Unauthorized" },
     });
+    // The turn replays over SSE, which refreshes the token; the socket tries again.
+    expect(transport.shouldUseSse()).toBe(false);
+  });
+
+  it("authenticates a new socket with the newest token, and stays on SSE after a second refusal", async () => {
+    const sockets: FakeSocket[] = [];
+    let token = "expired";
+    const onFallback = jest.fn<void, [ChatWsFallbackSignal]>();
+    const transport = new ChatWsTransport({
+      url: "wss://test/chat",
+      getToken: () => token,
+      clientTimezone: "UTC",
+      onPayload: jest.fn(),
+      onFallback,
+      createSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+    });
+    let connecting = transport.connect();
+    sockets[0]!.open();
+    await connecting;
+    sockets[0]!.emit({ type: "error", message: "Unauthorized" });
+    expect(transport.shouldUseSse()).toBe(false);
+
+    token = "fresh";
+    connecting = transport.connect();
+    sockets[1]!.open();
+    await connecting;
+    expect(sockets[1]!.send).toHaveBeenNthCalledWith(
+      1,
+      JSON.stringify({ token: "fresh", client_timezone: "UTC" }),
+    );
+    sockets[1]!.emit({ type: "error", message: "Unauthorized" });
     expect(transport.shouldUseSse()).toBe(true);
   });
 
