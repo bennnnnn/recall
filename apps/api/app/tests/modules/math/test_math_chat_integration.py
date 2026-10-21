@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.services.solving import VERIFIED_MATH_BEGIN
 from app.tests.modules.chat.chat_test_support import augment_subject
 
 
@@ -20,7 +21,7 @@ async def test_augment_subject_injects_math_for_solve() -> None:
 
     assert len(updated) == 3
     assert updated[1]["role"] == "system"
-    assert "[BEGIN VERIFIED MATH]" in updated[1]["content"]
+    assert VERIFIED_MATH_BEGIN in updated[1]["content"]
     assert "SymPy" not in updated[1]["content"]
     assert verified_math is not None
     assert verified_math.canonical_fence is not None

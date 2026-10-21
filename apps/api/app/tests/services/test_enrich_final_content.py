@@ -18,13 +18,15 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
 from app.modules.chat.finalize_passes import enrich_final_content
+from app.modules.chat.prompt_constants.format import MERMAID_FORMAT_HINT
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.prompt_hint import TODO_HINT
 from app.modules.web_search.formatting import format_sources_fence
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.services.answer_fence import mark_server_answer_fences
-from app.services.solving import VerifiedPhysicsBlock
+from app.services.solving import VERIFIED_PHYSICS_END, VerifiedPhysicsBlock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 _CARD = re.compile(r"```reminder_proposal\n(.*?)\n```", re.DOTALL)
@@ -357,7 +359,7 @@ async def test_mermaid_parenthetical_labels_quoted_on_persist(
     )
 
     assert 'E["Grind Beans (Medium Grind)"]' in persisted
-    assert "E[Grind Beans (Medium Grind)]" not in persisted
+    assert MERMAID_FORMAT_HINT not in persisted
 
 
 @pytest.mark.asyncio
@@ -388,7 +390,7 @@ async def test_verified_math_markers_are_stripped_from_final_content(
     )
 
     assert "BEGIN VERIFIED" not in persisted
-    assert "END VERIFIED" not in persisted
+    assert VERIFIED_PHYSICS_END not in persisted
     assert "So it lands after about 2 seconds." in persisted
 
 
@@ -722,7 +724,7 @@ async def test_a_failed_text_pass_keeps_the_reminder_card(
     assert persisted.startswith("Good idea to book early.")
     # A card waits for the tap, so the model's "I'll set a reminder" goes with it.
     assert "I'll set a reminder" not in persisted
-    assert "```reminder\n" not in persisted
+    assert TODO_HINT not in persisted
     assert outcome.final_content == persisted
     # Nothing is written yet: the list refreshes on the tap.
     assert outcome.todos_changed is False
@@ -751,7 +753,7 @@ async def test_a_reply_cut_inside_its_reminder_fence_still_offers_the_card(
     assert card is not None, persisted
     assert json.loads(card.group(1))["items"][0]["title"].lower() == "dentist"
     assert "Could not save" not in persisted
-    assert "```reminder\n" not in persisted
+    assert TODO_HINT not in persisted
     assert rows == []
 
 

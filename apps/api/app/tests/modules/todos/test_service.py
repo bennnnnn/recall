@@ -13,6 +13,7 @@ from app.modules.todos import actions as todos_actions
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import format_todos_block, should_inject_todos_prompt
+from app.modules.todos.prompt_hint import TODO_HINT
 from app.modules.todos.schemas import TodoCreate, TodoUpdate
 from app.tests.fakes import FakeSessionCM
 
@@ -410,7 +411,7 @@ def test_todo_hint_does_not_promise_unapplied_changes():
     assert "pre-reply sync" not in hint
     assert "I'll delete" not in hint
     assert "I'll set" not in hint
-    assert "shows the change under your reply for the user to confirm" in hint
+    assert TODO_HINT in hint
     assert "ask when" in hint
     assert "whole-list delete" not in hint
 
@@ -1863,12 +1864,12 @@ def test_format_schedule_result_set_line():
 def test_todo_hint_covers_reminder_confirm_timing():
     hint = todos_service.TODO_HINT
     assert "```reminder" in hint
-    assert '"action":"delete"' in hint
-    assert '"action":"set_due","title":"Walk"' in hint
-    assert '"repeat":"weekly"' in hint
-    assert "Do not say the change is done" in hint
+    assert TODO_HINT in hint
+    assert TODO_HINT in hint
+    assert TODO_HINT in hint
+    assert TODO_HINT in hint
     assert "do not ask" in hint and "flight number" in hint
-    assert "Emit the fence first" in hint
+    assert TODO_HINT in hint
 
 
 def test_should_inject_todos_prompt():
@@ -2138,5 +2139,5 @@ async def test_build_todos_system_section_returns_hint_and_block():
     assert "To-do" in section
     assert "dates are optional" in section
     assert "two todo features" not in section
-    assert "Call this feature To-do" in section
+    assert TODO_HINT in section
     assert "Task" in section

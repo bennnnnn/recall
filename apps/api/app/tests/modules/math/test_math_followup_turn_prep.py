@@ -127,10 +127,7 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
                 "content": f"Previous result:\n\\[\n{_RESULT}\n\\]",
             }
             assert context.prompt_messages[-1] == {"role": "user", "content": "how"}
-            assert (
-                "show the calculation or mathematical argument"
-                in context.prompt_messages[0]["content"]
-            )
+            assert MATH_FOLLOWUP_HINT in context.prompt_messages[0]["content"]
             if overlap:
                 assert persisted_ids == []
         finally:

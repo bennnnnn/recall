@@ -195,10 +195,10 @@ def test_the_saved_memory_block_says_it_may_be_stale():
 
     memory = wrap_saved_memory("Known facts about the user:\n- Uses FastAPI")
     assert memory.startswith("[BEGIN UNTRUSTED CONTENT — saved memory]")
-    assert "what the user says in this conversation overrides it" in memory
-    assert "comes from the current source" in memory
+    assert "what the user says in this conversation overrides it" in memory  # safety phrase
+    assert "comes from the current source" in memory  # safety phrase
     chats = wrap_earlier_chats("[1] (2026-05-03) User: we picked Neon")
-    assert "not this conversation and not saved memory" in chats
+    assert "not this conversation and not saved memory" in chats  # safety phrase
 
 
 @pytest.mark.parametrize(

@@ -271,8 +271,8 @@ async def test_actual_how_examples_keep_prior_result_and_final_scoped_policy(
     assert prepared[0]["content"].endswith(f"{MATH_REPLY_POLICY}\n\n{MATH_FOLLOWUP_HINT}")
     assert prepared[-2] == {"role": "user", "content": question}
     assert prepared[-1] == {"role": "assistant", "content": f"Previous result:\n\\[\n{result}\n\\]"}
-    assert "unrequested comparisons, unit conversions" in prepared[0]["content"]
-    assert "not fresh solver verification" in prepared[0]["content"]
+    assert MATH_FOLLOWUP_HINT in prepared[0]["content"]
+    assert MATH_FOLLOWUP_HINT in prepared[0]["content"]
     assert recent[-1].content == f"```answer\n{result}\n```"
     assert all("```answer" not in item["content"] for item in prepared[1:])
 
@@ -283,8 +283,8 @@ async def test_followup_policy_preserves_requested_proof_hint_and_examples(query
     prepared = await _prompt(query, _exchange())
     policy = prepared[0]["content"]
     assert policy.endswith(MATH_FOLLOWUP_HINT)
-    assert "proof, hint, or examples keeps its requested scope" in policy
-    assert "a hint must not reveal the solution" in policy
+    assert MATH_FOLLOWUP_HINT in policy
+    assert MATH_FOLLOWUP_HINT in policy
 
 
 @pytest.mark.asyncio

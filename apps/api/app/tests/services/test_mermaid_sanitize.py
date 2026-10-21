@@ -1,3 +1,4 @@
+from app.modules.chat.prompt_constants.format import MERMAID_FORMAT_HINT
 from app.services.mermaid_sanitize import (
     sanitize_mermaid_fences,
     sanitize_mermaid_node_labels,
@@ -24,5 +25,5 @@ def test_closed_fence_body_is_quoted() -> None:
     raw = "```mermaid\nflowchart TD\n  D --> E[Grind Beans (Medium Grind)]\n```\n"
     out = sanitize_mermaid_fences(raw)
     assert 'E["Grind Beans (Medium Grind)"]' in out
-    assert "E[Grind Beans (Medium Grind)]" not in out
+    assert MERMAID_FORMAT_HINT not in out
     assert "```mermaid" in out

@@ -152,7 +152,7 @@ async def test_retrieve_for_prompt_wraps_hits_and_excludes():
             exclude_message_ids=exclude,
         )
     assert "earlier chats" in block
-    assert "not this conversation and not saved memory" in block
+    assert "not this conversation and not saved memory" in block  # safety phrase
     assert "blue couch" in block
     assert "not the full history" in block
     assert search.await_args.kwargs["exclude_message_ids"] == exclude

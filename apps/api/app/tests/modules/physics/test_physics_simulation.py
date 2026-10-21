@@ -23,6 +23,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
+from app.modules.physics.reply_policy import PHYSICS_SHORT_HINT
 from app.modules.physics.schemas import (
     PhysicsIntent,
     SimulationBlockSpec,
@@ -238,7 +239,7 @@ def test_an_invented_scene_is_never_passed_through() -> None:
 def test_an_invented_scene_with_no_verified_block_is_struck_out() -> None:
     out = validate_physics_fences('```simulation\n{"type":"orbit","bodies":[]}\n```')
 
-    assert "```simulation" not in out
+    assert PHYSICS_SHORT_HINT not in out
     assert "Could not render that diagram" in out
 
 

@@ -121,7 +121,7 @@ async def test_unavailable_current_image_gets_honest_note_without_fabricated_vis
     messages = [{"role": "user", "content": "Solve this image."}]
     result, _lookup, storage, *_ = await _inject(messages, [uid], rows)
     assert not result
-    assert "not available to look at again" in messages[-1]["content"]
+    assert "not available to look at again" in messages[-1]["content"]  # safety phrase
     assert "Do not guess" in messages[-1]["content"]
     if kind != "unreadable":
         storage.assert_not_called()

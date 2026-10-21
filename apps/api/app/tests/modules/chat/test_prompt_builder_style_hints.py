@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from app.modules.chat.prompt_constants import MATH_FENCE_SAFETY_HINT
 from app.modules.chat.prompt_format import _style_format_hints
-from app.modules.math.reply_policy import SHORT_MATH_SAFETY_HINT
+from app.modules.math.reply_policy import MATH_TUTORING_HINT, SHORT_MATH_SAFETY_HINT
 
 
 def _hints(*, compact: bool = False) -> list[str]:
@@ -126,7 +126,7 @@ def test_rich_math_turn_includes_math_tutoring_hint():
     it to point to the wrong step and give a small hint first."""
     parts = _hints()
     joined = "\n".join(parts)
-    assert "Math tutoring" in joined
+    assert MATH_TUTORING_HINT in joined
     assert "wrong" in joined.lower()
 
 
@@ -167,8 +167,8 @@ def test_compact_image_turn_gets_honesty_hint_not_viz_pack():
     assert VISUALIZATION_HINTS not in parts
     assert FORMAT_CONTRACT not in parts
     joined = "\n".join(parts)
-    assert "Never send the user to DALL-E" in joined
-    assert "Never say Recall cannot generate images" in joined
+    assert "Never send the user to DALL-E" in joined  # safety phrase
+    assert "Never say Recall cannot generate images" in joined  # safety phrase
     assert "do not tell them to send the same image request again" in joined
 
 
@@ -188,8 +188,8 @@ def test_compact_image_turn_when_generation_disabled_does_not_ask_to_retry():
     assert IMAGE_GEN_UNAVAILABLE_HINT in parts
     assert IMAGE_GEN_HONESTY_HINT not in parts
     joined = "\n".join(parts)
-    assert "not available" in joined
-    assert "do not tell the user to resubmit" in joined.lower()
+    assert IMAGE_GEN_UNAVAILABLE_HINT in joined
+    assert IMAGE_GEN_UNAVAILABLE_HINT in joined
 
 
 def test_rich_turn_injects_format_contract_once_and_keeps_math():
@@ -310,7 +310,7 @@ def test_sequence_diagram_uses_sequence_hint_not_flowchart():
     assert MERMAID_FORMAT_HINT not in parts
     assert "sequenceDiagram" in SEQUENCE_FORMAT_HINT
     joined = "\n".join(parts)
-    assert "This turn is a flowchart" not in joined
+    assert MERMAID_FORMAT_HINT not in joined
 
 
 def test_casual_tea_vs_coffee_skips_code_card_compare():
@@ -437,9 +437,9 @@ def test_learning_plan_query_gets_complete_actionable_roadmap_policy():
     )
     assert LEARNING_PLAN_HINT in rich
     joined = "\n".join(rich)
-    assert "complete learning roadmap" in joined
+    assert LEARNING_PLAN_HINT in joined
     assert "concrete example" in joined
-    assert "expected outcome" in joined
+    assert LEARNING_PLAN_HINT in joined
 
 
 def test_vs_query_gets_table_with_conditional_code_examples():

@@ -557,5 +557,5 @@ async def test_voice_memory_follows_the_typed_chat_cadence(
 def test_live_talk_schedule_hint_does_not_confirm_unverified_writes():
     text = build_realtime_instructions()
     assert "Confirm in one short sentence" not in text
-    assert "Do not say the reminder is saved" in text
+    assert "Do not say the reminder is saved" in text  # safety phrase
     assert "weekday" in text.lower()

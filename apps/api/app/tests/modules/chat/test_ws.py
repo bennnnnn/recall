@@ -12,6 +12,7 @@ from app.core.access_tokens import create_access_token
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatNotFoundError, QuotaExceededError
 from app.main import create_app
+from app.modules.chat.stream_events import REPLY_SAVE_FAILED_MESSAGE
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.services.quota.messages import QUOTA_EXCEEDED_MESSAGE_FREE
 
@@ -966,7 +967,7 @@ def test_ws_done_sends_error_when_finalize_fails():
             assert ws.receive_json()["type"] == "stream_end"
             msg = ws.receive_json()
             assert msg["type"] == "error"
-            assert "Failed to save" in msg["message"]
+            assert REPLY_SAVE_FAILED_MESSAGE in msg["message"]
 
 
 def test_ws_done_sends_persisting_when_finalize_times_out():

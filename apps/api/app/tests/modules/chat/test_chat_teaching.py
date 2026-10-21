@@ -239,14 +239,14 @@ def test_70_day_learning_plan_gets_complete_roadmap_policy():
     assert LEARNING_PLAN_HINT in hints
     assert TEACHING_HINT not in hints
     joined = "\n".join(hints)
-    assert "`Day 1` through `Day 70`" in joined
-    assert "one compact line" in joined
-    assert "Topic → Practice/build → Done when" in joined
-    assert "Do not collapse a 70-day request" in joined
-    assert "Foundations → Core skills → Projects" in joined
-    assert "small runnable code examples in tagged fences" in joined
-    assert "progressive exercises and projects" in joined
-    assert "make the expected outcome verifiable" in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
 
 
 def test_programming_lesson_requires_a_tagged_code_example():

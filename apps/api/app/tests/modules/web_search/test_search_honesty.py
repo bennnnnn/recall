@@ -172,7 +172,7 @@ def test_results_that_miss_may_say_so_and_facts_are_attributed() -> None:
     assert "you MUST answer from those results" not in WEB_SEARCH_HINT
     assert "don't cover that" in WEB_SEARCH_HINT
     assert "According to" in WEB_SEARCH_HINT
-    assert "link only pages from the results" in WEB_SEARCH_HINT
+    assert "link only pages from the results" in WEB_SEARCH_HINT  # safety phrase
     team = format_search_block(
         [WebSearchHit(title="T", url="https://a.example", snippet="s")], team="Kenya"
     )

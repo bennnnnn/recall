@@ -5,6 +5,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat.prompt_builder import build_prompt_messages
+from app.modules.web_search.formatting import WEB_SEARCH_HINT
 
 
 @pytest.mark.asyncio
@@ -33,4 +34,4 @@ async def test_build_prompt_includes_web_search_hint():
     ):
         messages = await build_prompt_messages(user, uuid4(), Settings())
 
-    assert "Web search results" in messages[0]["content"]
+    assert WEB_SEARCH_HINT in messages[0]["content"]

@@ -270,9 +270,15 @@ async def test_extractor_prompt_keeps_everyday_profile_facts_normal(
     # Profile is not described as "identity", so job and place facts are not
     # labelled with the sensitive identity category and dropped.
     assert "own identity" not in system_prompt
-    assert "normal: name, job, employer, school, city, home country, languages" in system_prompt
-    assert "identity: gender identity, immigration status, or disability" in system_prompt
-    assert "building a dating app or a health tracker is a normal project fact" in system_prompt
+    assert (
+        "normal: name, job, employer, school, city, home country, languages" in system_prompt
+    )  # safety phrase
+    assert (
+        "identity: gender identity, immigration status, or disability" in system_prompt
+    )  # safety phrase
+    assert (
+        "building a dating app or a health tracker is a normal project fact" in system_prompt
+    )  # safety phrase
 
 
 @pytest.mark.asyncio

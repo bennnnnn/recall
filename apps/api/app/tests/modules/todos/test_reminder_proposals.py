@@ -13,6 +13,7 @@ import pytest
 
 from app.modules.todos import proposals, write_log
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.prompt_hint import TODO_HINT
 from app.modules.todos.reminder_fences import materialize_reminder_fences
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
@@ -444,7 +445,7 @@ async def test_a_bare_clock_already_past_is_offered_for_tomorrow(db_session, fak
     text = await _nairobi_turn(
         db_session, fake_redis, "remind me to plate the dinner at 7pm", _PAST_FENCE
     )
-    assert "```reminder\n" not in text
+    assert TODO_HINT not in text
     item = _card(text)["items"][0]
     assert item["title"] == "Plate the dinner"
     assert item["due_at"] == "2026-10-19T16:00:00Z"

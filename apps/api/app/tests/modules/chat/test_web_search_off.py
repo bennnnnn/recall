@@ -69,4 +69,4 @@ async def test_only_a_user_who_turned_search_off_is_told_so(user_on, server_on, 
 
 def test_search_off_hint_points_to_the_setting_and_never_offers_a_search():
     assert "Settings, Data controls" in WEB_SEARCH_OFF_HINT
-    assert "Never offer to search" in WEB_SEARCH_OFF_HINT
+    assert "Never offer to search" in WEB_SEARCH_OFF_HINT  # safety phrase

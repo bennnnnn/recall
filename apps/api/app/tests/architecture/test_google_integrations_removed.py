@@ -107,10 +107,14 @@ def test_stream_has_no_calendar_or_inbox_status() -> None:
 
 
 def test_prompts_say_recall_has_no_calendar_or_inbox() -> None:
-    assert "does not connect to the user's calendar or email inbox" in PRIVACY_HINT
-    assert "does not connect to calendars or email inboxes" in CAPABILITIES_FORMAT_HINT
-    assert "does not connect to the user's calendar or email" in DAY_PLANNING_ANSWER_HINT
-    assert "does not connect to any calendar" in TODO_HINT
+    assert "does not connect to the user's calendar or email inbox" in PRIVACY_HINT  # safety phrase
+    assert (
+        "does not connect to calendars or email inboxes" in CAPABILITIES_FORMAT_HINT
+    )  # safety phrase
+    assert (
+        "does not connect to the user's calendar or email" in DAY_PLANNING_ANSWER_HINT
+    )  # safety phrase
+    assert "does not connect to any calendar" in TODO_HINT  # safety phrase
 
 
 def test_no_runtime_code_points_users_to_connect_google() -> None:

@@ -33,11 +33,11 @@ def _hints(**settings) -> str:
 
 
 def test_search_hint_forbids_claiming_no_browsing() -> None:
-    assert "never say you can't browse" in WEB_SEARCH_HINT
+    assert "never say you can't browse" in WEB_SEARCH_HINT  # safety phrase
     assert WEB_SEARCH_HINT in _hints(web_search_enabled=True)
 
 
 def test_photo_hint_follows_the_photo_lookup_flag() -> None:
-    assert "Never say you can't display, show or send images" in PHOTO_LOOKUP_HINT
+    assert "Never say you can't display, show or send images" in PHOTO_LOOKUP_HINT  # safety phrase
     assert PHOTO_LOOKUP_HINT in _hints(image_search_enabled=True)
     assert PHOTO_LOOKUP_HINT not in _hints(image_search_enabled=False)

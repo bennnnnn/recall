@@ -20,6 +20,7 @@ from app.modules.math.schemas import (
     NumberTheoryInput,
     StatisticsInput,
 )
+from app.services.solving import VERIFIED_MATH_BEGIN
 from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
@@ -240,7 +241,7 @@ class TestAugmentPromptMessagesForNewKinds:
         updated, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert "mean=5" in verified.text
-        assert "[BEGIN VERIFIED MATH]" in verified.text
+        assert VERIFIED_MATH_BEGIN in verified.text
         assert "COPYING" not in verified.text
         assert len(updated) == 3
         assert verified.canonical_fence is not None
