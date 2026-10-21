@@ -7,6 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.notifications import reminder_email as reminder_emails
 from app.modules.todos.occurrences import TodoEmailSnapshot
+from app.tests.fakes import make_user
 
 
 @pytest.fixture
@@ -25,15 +26,12 @@ def _settings(**kwargs: object) -> Settings:
 
 
 def _user(*, email_reminders: bool = True, email: str = "u@test.local") -> MagicMock:
-    user = MagicMock()
-    user.id = uuid4()
-    user.email = email
-    user.name = "Ada"
-    user.locale = "en"
-    user.timezone = "UTC"
-    user.email_reminders_enabled = email_reminders
-    user.reminder_lead_minutes = 10
-    return user
+    return make_user(
+        email=email,
+        name="Ada",
+        email_reminders_enabled=email_reminders,
+        reminder_lead_minutes=10,
+    )
 
 
 def _todo(*, due_at: datetime, user_id=None) -> MagicMock:

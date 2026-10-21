@@ -6,6 +6,7 @@ import pytest
 
 from app.modules.notifications import push as push_service
 from app.modules.todos import due_reminders
+from app.tests.fakes import make_user
 
 
 def test_android_channel_follows_push_type():
@@ -41,7 +42,7 @@ async def test_process_todo_reminders_due_soon():
     todo.due_at = now + timedelta(minutes=5)
     todo.notification_sent_at = None
 
-    user = MagicMock()
+    user = make_user()
     user.push_notifications_enabled = True
     user.reminder_lead_minutes = 10
 
@@ -83,7 +84,7 @@ async def test_process_todo_reminders_skips_quiet_hours():
     todo.due_at = now + timedelta(minutes=5)
     todo.notification_sent_at = None
 
-    user = MagicMock()
+    user = make_user()
     user.push_notifications_enabled = True
     user.reminder_lead_minutes = 10
     user.quiet_hours_enabled = True
@@ -117,7 +118,7 @@ async def test_process_todo_reminders_respects_user_lead():
     todo.due_at = now + timedelta(minutes=20)
     todo.notification_sent_at = None
 
-    user = MagicMock()
+    user = make_user()
     user.push_notifications_enabled = True
     user.reminder_lead_minutes = 5
 
@@ -169,7 +170,7 @@ async def test_process_todo_reminders_logs_when_user_has_no_token(caplog):
     todo.notification_sent_at = None
     todo.recurrence_rule = None
 
-    user = MagicMock()
+    user = make_user()
     user.push_notifications_enabled = True
     user.reminder_lead_minutes = 10
     user.timezone = "UTC"
@@ -212,7 +213,7 @@ async def test_process_todo_reminders_advances_tokenless_overdue_recurring():
     todo.notification_sent_at = None
     todo.recurrence_rule = "daily"
 
-    user = MagicMock()
+    user = make_user()
     user.push_notifications_enabled = True
     user.reminder_lead_minutes = 10
     user.timezone = "UTC"

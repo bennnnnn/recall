@@ -20,6 +20,7 @@ from app.modules.memory import acquire_memory_write_lock, release_memory_write_l
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
 from app.modules.memory.ops import is_active_memory, normalize_memory_text
+from app.modules.memory.switch import memory_switch_on
 from app.modules.memory.topics import fact_topic, topic_memory_type
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.repositories import users as users_repo
@@ -56,7 +57,7 @@ async def record_learning_progress(
         try:
             async with SessionLocal() as session:
                 user = await users_repo.get_by_id(session, user_id)
-                if user is None or not getattr(user, "memory_enabled", True):
+                if user is None or not memory_switch_on(user):
                     return None
                 facts = await memories_repo.list_for_user(
                     session, user_id, include_muted=True, include_superseded=False
@@ -84,7 +85,7 @@ async def record_learning_progress(
                 )
                 expected = {current.id: current.text}
             else:
-                edited_at = getattr(user, "memory_edited_at", None)
+                edited_at = user.memory_edited_at
                 if edited_at and started_at and edited_at > started_at:
                     return None
                 write = MemoryFactWrite(

@@ -257,7 +257,7 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(
         _always,
         lambda t: [
-            response_tone_service.tone_hint(getattr(t.user, "response_tone", None)),
+            response_tone_service.tone_hint(t.user.response_tone),
             TONE_FORMAT_GUARD,
         ],
     ),
@@ -268,7 +268,7 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(lambda t: not t.lightweight, lambda _t: [FACT_GROUNDING_HINT]),
     PromptSection(
         # The user's own choice, not a server without search: only then point to Settings.
-        lambda t: not t.lightweight and getattr(t.user, "web_search_enabled", True) is False,
+        lambda t: not t.lightweight and t.user.web_search_enabled is False,
         lambda _t: [WEB_SEARCH_OFF_HINT],
     ),
     PromptSection(_always, lambda t: _present(custom_instructions_block(t.user))),

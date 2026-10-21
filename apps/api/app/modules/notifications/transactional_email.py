@@ -25,7 +25,7 @@ _SUPPORTED_LOCALES = frozenset(locale_service.LOCALE_NAMES.keys())
 
 
 def _locale_for(user: User) -> str:
-    code = locale_service.normalize_locale_code(getattr(user, "locale", None))
+    code = locale_service.normalize_locale_code(user.locale)
     return code if code in _SUPPORTED_LOCALES else "en"
 
 

@@ -23,6 +23,7 @@ from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.account.settings_intent import SettingsChange, SettingsField
 from app.modules.billing import plan as plan_service
+from app.modules.memory.switch import memory_switch_on
 from app.repositories import users as users_repo
 from app.services.response_tone import TONE_IDS
 
@@ -171,7 +172,7 @@ def validate_changes(
                 apply.append(change)
             continue
         if change.field == "memory" and change.value in _MEMORY_LABELS:
-            if change.value == "off" and not user.memory_enabled:
+            if change.value == "off" and not memory_switch_on(user):
                 already.append(change)
             else:
                 apply.append(change)

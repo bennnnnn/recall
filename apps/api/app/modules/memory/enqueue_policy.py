@@ -13,6 +13,7 @@ from app.core import jobs
 from app.models.orm import Chat, Memory, User
 from app.modules import memory as memory_service
 from app.modules.memory import repository as memories_repo
+from app.modules.memory.switch import memory_switch_on
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ async def request_consolidation(
     skip_if_already_queued: bool,
 ) -> str:
     memory_list = list(memories)
-    if not user.memory_enabled or not memory_list:
+    if not memory_switch_on(user) or not memory_list:
         return "skipped"
 
     lock_key = _lock_key(user.id)

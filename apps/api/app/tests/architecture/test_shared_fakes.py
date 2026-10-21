@@ -31,7 +31,7 @@ _BARE_REDIS = re.compile(
 )
 # The bare mocks left; lower these when a change replaces some.
 _BARE_SESSIONS = 128
-_BARE_USERS = 146
+_BARE_USERS = 139
 
 
 def _test_sources() -> dict[Path, str]:

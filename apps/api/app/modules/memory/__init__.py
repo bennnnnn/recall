@@ -20,8 +20,9 @@ def __getattr__(name: str) -> Any:
     return value
 
 
-# The chat turn answers "what do you know about me" from here.
-_MODULE_EXPORTS = ("profile_reply",)
+# The chat turn answers "what do you know about me" from here; every reader of the
+# Settings → Memory switch asks ``switch``.
+_MODULE_EXPORTS = ("profile_reply", "switch")
 # Names other modules import from this package (resolved through ``surface``).
 __all__ = [
     "MemoryLoadReport",

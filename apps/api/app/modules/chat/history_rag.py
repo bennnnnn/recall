@@ -18,6 +18,7 @@ from app.models.orm import Message, MessageChunk
 from app.modules.attachments.rag import chunk_text
 from app.modules.chat import chunks_repository as chunks_repo
 from app.modules.chat import messages_repository as messages_repo
+from app.modules.memory.switch import memory_switch_on
 from app.repositories import users as users_repo
 from app.services.prompt_safety import text_before_attachment_markers, wrap_earlier_chats
 
@@ -161,7 +162,7 @@ async def index_turn_messages(
 
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
-        if user is None or not user.memory_enabled:
+        if user is None or not memory_switch_on(user):
             return 0
         has_chunks = await chunks_repo.has_chunks_for_user(session, user_id)
         assistant = await messages_repo.get_by_id(session, assistant_message_id, chat_id)
@@ -174,7 +175,7 @@ async def index_turn_messages(
             settings,
             user_id,
             skip_ids={row.id for row in turn},
-            edited_at=getattr(user, "memory_edited_at", None),
+            edited_at=user.memory_edited_at,
         )
     return total
 
@@ -285,7 +286,7 @@ async def retrieve_for_prompt(
 
 
 def _snippet_date(row: MessageChunk) -> str:
-    created_at = getattr(row, "created_at", None)
+    created_at = row.created_at
     return f" ({created_at:%Y-%m-%d})" if isinstance(created_at, datetime) else ""
 
 

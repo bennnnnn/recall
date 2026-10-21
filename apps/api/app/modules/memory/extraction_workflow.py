@@ -41,6 +41,7 @@ from app.modules.memory.forget_match import phrase_names_fact
 from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX
 from app.modules.memory.self_facts import stated_fact_writes
+from app.modules.memory.switch import memory_switch_on
 from app.modules.memory.text import (
     classify_memory_sensitivity,
     normalize_memory_text,
@@ -79,7 +80,7 @@ async def load_memory_snapshot(
     user_id: UUID,
 ) -> MemorySnapshot:
     user = await users_repo.get_by_id(session, user_id)
-    if user is None or not getattr(user, "memory_enabled", True):
+    if user is None or not memory_switch_on(user):
         return MemorySnapshot(
             memory_enabled=False,
             include_sensitive=False,
@@ -93,7 +94,7 @@ async def load_memory_snapshot(
     areas = await memories_repo.list_areas(session, user_id)
     return MemorySnapshot(
         memory_enabled=True,
-        include_sensitive=bool(getattr(user, "memory_include_sensitive", False)),
+        include_sensitive=user.memory_include_sensitive,
         existing_facts={memory.id: memory.text for memory in existing},
         prompt_facts=[
             {
@@ -107,11 +108,11 @@ async def load_memory_snapshot(
         prompt_areas=[
             {"topic": area.key, "title": area.title, "summary": area.summary} for area in areas
         ],
-        edited_at=getattr(user, "memory_edited_at", None),
+        edited_at=user.memory_edited_at,
         active_facts=tuple(
             FactView(
                 text=memory.text,
-                confirmed_at=getattr(memory, "last_confirmed_at", None),
+                confirmed_at=memory.last_confirmed_at,
             )
             for memory in existing
         ),

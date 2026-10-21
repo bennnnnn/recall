@@ -21,6 +21,7 @@ from app.modules.memory.apply import apply_memory_facts
 from app.modules.memory.consolidation import fact_text_jaccard
 from app.modules.memory.fact_quality import FactView, texts_to_drop
 from app.modules.memory.facts import is_active_memory
+from app.modules.memory.switch import memory_switch_on
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.repositories import users as users_repo
 
@@ -86,7 +87,7 @@ async def _load_pairs(
     session: AsyncSession, user_id: UUID
 ) -> tuple[dict[UUID, str], list[_Pair], list[str]] | None:
     user = await users_repo.get_by_id(session, user_id)
-    if user is None or not getattr(user, "memory_enabled", True):
+    if user is None or not memory_switch_on(user):
         return None
     existing = await memories_repo.list_for_user(
         session, user_id, include_muted=False, include_superseded=False

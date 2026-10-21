@@ -80,7 +80,7 @@ async def _materialize(
             user_id=ctx.user_id,
             chat_id=ctx.chat_id,
             assistant_text=text,
-            user_timezone=ctx.user_timezone or getattr(user, "timezone", None),
+            user_timezone=ctx.user_timezone or user.timezone,
             user_text=ctx.user_message_content,
             # "Mark it done" points at a reminder only after a reply about
             # reminders, or right after a message that asked about them.

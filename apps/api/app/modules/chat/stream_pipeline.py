@@ -84,7 +84,7 @@ async def register_and_enqueue_finalize(
         outcome.memory_hints = list(ctx.memory_hints)
         outcome.context_summarized = ctx.context_summarized
         # Settings → Personalization can turn the suggestions, and their model call, off.
-        wants_follow_ups = getattr(ctx.user, "follow_up_suggestions_enabled", True) is not False
+        wants_follow_ups = ctx.user is None or ctx.user.follow_up_suggestions_enabled is not False
         outcome.related_task = (
             None
             if not wants_follow_ups

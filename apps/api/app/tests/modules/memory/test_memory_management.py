@@ -1,6 +1,5 @@
 """Memory management regressions using local SQL and mocked external services."""
 
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -14,6 +13,7 @@ from app.models.orm import Memory
 from app.modules import memory as memory_service
 from app.modules.memory import extraction_workflow
 from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
+from app.tests.fakes import make_user
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 from app.tests.modules.memory.sections_support import apply_memory_section_rows
 
@@ -186,7 +186,7 @@ async def test_extraction_cannot_restore_memory_after_manual_change(
         patch.object(
             extraction_workflow.users_repo,
             "get_by_id",
-            AsyncMock(return_value=SimpleNamespace(memory_enabled=True)),
+            AsyncMock(return_value=make_user(memory_enabled=True)),
         ),
         patch.object(
             extraction_workflow,

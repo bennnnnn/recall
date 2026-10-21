@@ -60,7 +60,7 @@ def format_user_profile_block(
         lines.append(f"- Name: {user.name.strip()}")
     if include_email and user.email and user.email.strip():
         lines.append(f"- Email: {user.email.strip()}")
-    plan = (getattr(user, "plan", None) or "free").strip().lower()
+    plan = (user.plan or "free").strip().lower()
     if plan not in {"free", "pro"}:
         plan = "free"
     lines.append(f"- Plan: {plan}")
@@ -102,7 +102,7 @@ def format_user_name_only_block(user: User) -> str:
 
 def custom_instructions_block(user: User) -> str | None:
     """The user's own instructions, marked as their preferences; None when they wrote none."""
-    ci = getattr(user, "custom_instructions", None)
+    ci = user.custom_instructions
     custom = ci.strip() if isinstance(ci, str) and ci.strip() else ""
     if not custom:
         return None

@@ -104,10 +104,12 @@ def _extract_patches(
                 AsyncMock(return_value=user or _user()),
             )
         )
+        # A saved fact row has every column the snapshot reads.
+        rows = [SimpleNamespace(**{"last_confirmed_at": None, **vars(row)}) for row in listed or []]
         stack.enter_context(
             patch(
                 "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
-                AsyncMock(return_value=listed or []),
+                AsyncMock(return_value=rows),
             )
         )
         stack.enter_context(

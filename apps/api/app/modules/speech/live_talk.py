@@ -16,6 +16,7 @@ from app.modules import todos as todos_service
 from app.modules.billing import can_use
 from app.modules.chat import history as chat_history
 from app.modules.chat import needs_generated_title, present_assistant_markdown, turn_record
+from app.modules.memory.switch import memory_switch_on
 from app.modules.speech.schemas import SpeechLiveStatusOut
 from app.modules.speech.service import LIVE_TALK_ALIAS
 from app.modules.todos.service import list_owned_todos
@@ -170,7 +171,7 @@ class LiveTalkSessionContext:
 
 
 def voice_custom_instructions(user: User) -> str:
-    raw = getattr(user, "custom_instructions", None)
+    raw = user.custom_instructions
     custom = raw.strip() if isinstance(raw, str) and raw.strip() else ""
     if not custom:
         return ""
@@ -224,7 +225,7 @@ async def _memory_block_best_effort(
     settings: Settings,
     history: list[tuple[str, str]] | None,
 ) -> str:
-    if not getattr(user, "memory_enabled", False):
+    if not memory_switch_on(user):
         return ""
     try:
         from app.modules import memory as memory_service
@@ -246,9 +247,7 @@ async def _memory_block_best_effort(
 async def _schedule_block_best_effort(user: User, settings: Settings) -> str:
     """Compact Schedule snapshot. Failures yield empty so the session can still mint."""
     try:
-        tz = getattr(user, "timezone", None)
-        if not isinstance(tz, str):
-            tz = None
+        tz = user.timezone
         async with SessionLocal() as session:
             items = await list_owned_todos(session, user.id, limit=settings.todo_inject_limit)
         selected = todos_service.select_todos_for_prompt(items, settings, user_timezone=tz)
@@ -342,9 +341,7 @@ async def persist_live_talk_turn(
                     content=assistant_content,
                     model=LIVE_TALK_ALIAS,
                 )
-                tz = getattr(user, "timezone", None)
-                if not isinstance(tz, str):
-                    tz = None
+                tz = user.timezone
                 try:
                     # Its own savepoint: a reminder write that fails undoes only
                     # itself, and both message rows still commit below.

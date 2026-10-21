@@ -6,13 +6,14 @@ from typing import Any
 
 from app.core.config import Settings
 from app.core.validation import normalize_display_name as normalize_display_name
+from app.models.orm import User
 
 
-def user_location_label(user: object) -> str | None:
+def user_location_label(user: User) -> str | None:
     """Device-synced city/region when the user has location enabled."""
-    if not getattr(user, "location_enabled", False):
+    if not user.location_enabled:
         return None
-    text = str(getattr(user, "location", None) or "").strip()
+    text = (user.location or "").strip()
     return text or None
 
 
@@ -40,25 +41,26 @@ def normalize_client_coordinates(
     return latitude, longitude
 
 
-def effective_location_label(user: object, client_location: str | None = None) -> str | None:
+def effective_location_label(user: User, client_location: str | None = None) -> str | None:
     """Fresh client GPS label when location is enabled; otherwise profile city."""
-    if not getattr(user, "location_enabled", False):
+    if not user.location_enabled:
         return None
     normalized = normalize_client_location(client_location)
     if normalized:
         return normalized
-    text = str(getattr(user, "location", None) or "").strip()
+    text = (user.location or "").strip()
     return text or None
 
 
-def settings_for_user(settings: Settings, user: object | None) -> Settings:
+def settings_for_user(settings: Settings, user: User | None) -> Settings:
     """The server's switches narrowed by the user's own, for one of their turns.
 
     Every search path (forced search, the web_search tool, photo lookups, a photo
     above an answer, live talk) already reads these two server switches, so a user
     who turned web search off is covered everywhere by this one copy.
     """
-    if getattr(user, "web_search_enabled", True) is not False:
+    # ``is not False``: a row not saved yet holds None, and the column's default is on.
+    if user is None or user.web_search_enabled is not False:
         return settings
     return settings.model_copy(update={"web_search_enabled": False, "image_search_enabled": False})
 

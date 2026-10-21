@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import Memory, User
+from app.modules.memory.switch import memory_switch_on
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ async def load_relevant_memories(
     report: MemoryLoadReport | None = None,
 ) -> list[Memory]:
     """Facts for the prompt: by vector, by shared words (``lexical``), or by priority."""
-    if not user.memory_enabled:
+    if not memory_switch_on(user):
         return []
     from app.modules.memory import repository as memories_repo
 
@@ -203,7 +204,7 @@ async def warm_semantic_memory_cache(
         gen_before = await redis.get(seams._memory_generation_key(user_id))
         async with SessionLocal() as session:
             user = await users_repo.get_by_id(session, user_id)
-            if user is None or not user.memory_enabled:
+            if user is None or not memory_switch_on(user):
                 return
             report = MemoryLoadReport()
             block = await seams._semantic_block_from_vec(
@@ -243,7 +244,7 @@ async def get_memory_block(
     report: MemoryLoadReport | None = None,
 ) -> str:
     """Return the scoped prompt memory block, using semantic cache when enabled."""
-    if not user.memory_enabled:
+    if not memory_switch_on(user):
         return ""
     report = report if report is not None else MemoryLoadReport()
     if scope == "work":

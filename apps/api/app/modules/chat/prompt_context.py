@@ -334,7 +334,7 @@ async def _load_unsummarized_gap(
         created_at = getattr(oldest, "created_at", None)
         oldest_id = getattr(oldest, "id", None)
         if created_at is not None and oldest_id is not None:
-            summarized = int(getattr(chat, "summary_message_count", 0) or 0)
+            summarized = (chat.summary_message_count or 0) if chat is not None else 0
             async with SessionLocal() as session:
                 total = prior_count
                 if total is None:

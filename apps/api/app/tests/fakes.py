@@ -9,6 +9,7 @@ column as truthy. These are specced against the real classes. Redis is the
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -115,9 +116,20 @@ def make_user(**columns: Any) -> MagicMock:
         "locale": "en",
         "timezone": "UTC",
         "memory_enabled": True,
+        "memory_include_sensitive": False,
+        "memory_edited_at": None,
+        "follow_up_suggestions_enabled": True,
         "web_search_enabled": True,
         "location_enabled": False,
+        "location": None,
+        "response_tone": "casual",
         "push_notifications_enabled": False,
+        "push_reminders_enabled": True,
+        "email_reminders_enabled": False,
+        "quiet_hours_enabled": False,
+        "quiet_hours_start_minute": 1320,
+        "quiet_hours_end_minute": 420,
+        "ai_data_consent_at": datetime(2026, 1, 1, tzinfo=UTC),
         "custom_instructions": None,
         "reminder_lead_minutes": None,
     }

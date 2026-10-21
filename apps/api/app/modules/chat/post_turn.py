@@ -21,12 +21,12 @@ from app.core import jobs
 from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat.prompt_constants.lesson_flow import lesson_step
-from app.modules.chat.prompt_memory import memory_switch_on
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import (
     memory_extract_user_text,
     memory_extraction_due,
 )
+from app.modules.memory.switch import memory_switch_on
 from app.services import quota as quota_service
 from app.services.text_normalize import cap_text_head_tail
 
