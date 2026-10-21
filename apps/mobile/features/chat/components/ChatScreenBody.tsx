@@ -12,6 +12,7 @@ import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import { ChatQuotaNudge } from "@/features/chat/components/ChatQuotaNudge";
 import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import { ChatScrollFab } from "@/features/chat/components/ChatScrollFab";
+import { composerShowsStop } from "@/features/chat/model/composerLogic";
 import { UpgradeSheet, type UpgradeSource } from "@/components/UpgradeSheet";
 import { StreamingDraftProvider } from "@/contexts/StreamingDraftContext";
 import { useTranslation } from "react-i18next";
@@ -178,7 +179,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
       <ChatComposer
         visible={!drawerOpen}
         animatedContainerStyle={composer.animatedStyle}
-        streaming={composer.streaming}
+        streaming={composerShowsStop(composer)}
         attachPicking={composer.attachPicking}
         sendBusy={composer.sendBusy}
         sendStatus={composer.sendStatus}

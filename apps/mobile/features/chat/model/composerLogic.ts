@@ -225,6 +225,15 @@ export function composerShowsSend(options: {
   return options.hasSendableContent;
 }
 
+/**
+ * Stop is for a reply or a picture under way. A send still on its way (its
+ * picture check, location, file or new chat not done) shows a busy Send instead:
+ * nothing has gone out yet for Stop to stop.
+ */
+export function composerShowsStop(options: { streaming: boolean; sendBusy: boolean }): boolean {
+  return options.streaming && !options.sendBusy;
+}
+
 /** True while the last row is the in-flight placeholder (no action icons yet). */
 export function shouldReserveComposerActionGap(lastMessageId?: string): boolean {
   return lastMessageId === "streaming" || lastMessageId === IMAGE_GEN_PENDING_ASSISTANT_ID;

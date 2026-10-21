@@ -82,6 +82,7 @@ function ChatScreen() {
     finalizing,
     sendingMessageId,
     sendMessage,
+    sendStart,
     rejectedSend,
     retryRejectedSend,
     restoreRejectedAttachmentDraft,
@@ -256,6 +257,7 @@ function ChatScreen() {
     scroll,
     streaming: streamActive,
     sendMessage,
+    sendStart,
     setMessages,
     messages,
     selectedModel,
@@ -265,17 +267,7 @@ function ChatScreen() {
     onOfflineBlocked: notifyOfflineBlocked,
     isOffline,
     imageGenerating: imageGen.generating,
-    onGenerateImage: (prompt, userMessage, reference, persistence) => {
-      void imageGen.submitPrompt({
-        prompt,
-        userMessage,
-        aspectRatio: null,
-        referenceAttachment: reference?.attachment,
-        referenceAttachmentIds: reference?.ids,
-        persistenceReady: persistence?.ready,
-        onPersistenceFailure: persistence?.onFailure,
-      });
-    },
+    onGenerateImage: (request) => void imageGen.submitPrompt(request),
   });
 
   const {

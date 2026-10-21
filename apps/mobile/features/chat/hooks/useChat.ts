@@ -8,6 +8,7 @@ import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getSessionGeneration } from "@/lib/auth";
 import { useChatTransport } from "@/features/chat/hooks/useChatTransport";
 import { useChatIncomingEvents } from "@/features/chat/hooks/useChatIncoming";
+import { useTurnStart } from "@/features/chat/hooks/useTurnStart";
 import { publishStreamingDraft, type StreamingDraft } from "@/lib/streamingDraftStore";
 import { popLastAssistantMessage, restoreAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import { reportTurnOutcome } from "@/features/chat/model/turnOutcome";
@@ -178,6 +179,11 @@ export function useChat(
   const appendStreamingPlaceholder = useCallback(() => {
     setMessages((prev) => withStreamingPlaceholder(prev));
   }, []);
+  const { showDots, leaveStoppedTurn, takeEarlyDots, sendStart } = useTurnStart({
+    canStart: Boolean(token && chatId), isCurrentView, streamingRef, finalizingRef, sendAttemptRef,
+    stoppedStreamedIdRef, setStreaming, setSendingMessageId, updateStreamingDraft, appendStreamingPlaceholder,
+    clearStreamingBubble, dropSocket,
+  });
 
   /** Server never saved this user turn — drop the optimistic bubble and keep Retry. */
   const queueUnsavedSend = useCallback((pending: PendingSend, reason: RejectedSend["reason"]) => {
@@ -307,15 +313,12 @@ export function useChat(
       options?: SendMessageOptions,
       rejectedRetry?: RejectedSend,
     ) => {
-      if (!token || !chatId || !isCurrentView() || streamingRef.current || finalizingRef.current) return;
+      const keepDots = takeEarlyDots();
+      const busy = streamingRef.current || finalizingRef.current;
+      if (!token || !chatId || !isCurrentView() || (busy && !keepDots)) return;
       streamCueRef.current.reset();
       const attempt = ++sendAttemptRef.current;
-      // Stop may still have a final frame in flight. A fresh connection keeps
-      // that old frame from finalizing the next turn's placeholder.
-      if (stoppedStreamedIdRef.current) {
-        dropSocket();
-        stoppedStreamedIdRef.current = null;
-      }
+      leaveStoppedTurn();
 
       let trackedId = options?.trackSendingMessageId ?? null;
       if (!options?.skipUserBubble) {
@@ -355,20 +358,9 @@ export function useChat(
       };
       ttftTurnIdRef.current = trackedId;
       assistantBuffer.current = "";
-      // Typing dots immediately — don't wait for the socket or server `start`,
-      // and don't leave "Sending" on the user bubble while we connect.
-      if (!streamingRef.current) {
-        setStreaming(true);
-        streamingRef.current = true;
-        setSendingMessageId(null);
-        updateStreamingDraft({
-          content: "",
-          status: options?.attachmentIds?.length ? "reading_files" : undefined,
-        });
-        appendStreamingPlaceholder();
-      } else if (trackedId) {
-        setSendingMessageId(trackedId);
-      }
+      // Typing dots now (or kept from the tap) — don't wait for the socket or
+      // server `start`, and don't leave "Sending" on the user bubble while we connect.
+      showDots(options?.attachmentIds?.length ? "reading_files" : undefined);
 
       await ensureConnected();
       if (!isCurrentView() || sendAttemptRef.current !== attempt) return;
@@ -410,7 +402,7 @@ export function useChat(
         ...clientGeoWsFields(options?.clientGeo),
       });
     },
-    [token, chatId, ensureConnected, appendStreamingPlaceholder, updateStreamingDraft, sendViaSse, isCurrentView, dropSocket, currentSocket],
+    [token, chatId, ensureConnected, takeEarlyDots, leaveStoppedTurn, showDots, sendViaSse, isCurrentView, currentSocket],
   );
 
   const sendMessage = useCallback((content: string, options?: SendMessageOptions) =>
@@ -472,10 +464,7 @@ export function useChat(
     async (model?: string | null, clientGeo?: ClientGeo | null) => {
       if (!token || !chatId || !isCurrentView()) return;
       streamCueRef.current.reset();
-      if (stoppedStreamedIdRef.current) {
-        dropSocket();
-        stoppedStreamedIdRef.current = null;
-      }
+      leaveStoppedTurn();
 
       if (!regenerateUiActiveRef.current) {
         beginRegenerateUi();
@@ -499,7 +488,7 @@ export function useChat(
         ...clientGeoWsFields(clientGeo),
       });
     },
-    [token, chatId, ensureConnected, beginRegenerateUi, regenerateViaSse, isCurrentView, dropSocket, currentSocket],
+    [token, chatId, ensureConnected, beginRegenerateUi, regenerateViaSse, isCurrentView, leaveStoppedTurn, currentSocket],
   );
 
   const stopGeneration = useCallback(() => {
@@ -569,6 +558,7 @@ export function useChat(
     finalizing,
     sendingMessageId,
     sendMessage,
+    sendStart,
     rejectedSend,
     retryRejectedSend,
     restoreRejectedAttachmentDraft,

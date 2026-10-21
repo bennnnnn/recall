@@ -976,6 +976,98 @@ describe("useChat transport lifecycle", () => {
     expect(current.rejectedSend).toBeNull();
   });
 
+  describe("typing dots before a send goes out", () => {
+    const bubble = { id: "local-1", role: "user" as const, content: "question", model: null, created_at: "now" };
+    const sentTypes = (socket: FakeSocket) =>
+      socket.send.mock.calls.map(([data]) => JSON.parse(data).type).filter(Boolean);
+
+    async function paint() {
+      let dots: (() => boolean) | null = null;
+      await act(async () => {
+        current.setMessages([bubble]);
+        dots = current.sendStart.beginDots();
+      });
+      return dots as (() => boolean) | null;
+    }
+
+    it("go up under the painted bubble and stay for its send", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      const dots = await paint();
+      expect(dots?.()).toBe(true);
+      expect(current.streaming).toBe(true);
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1", "streaming"]);
+      expect(sentTypes(socket)).toEqual([]);
+
+      await act(async () => {
+        await current.sendMessage("question", { skipUserBubble: true, trackSendingMessageId: "local-1" });
+      });
+      expect(sentTypes(socket)).toEqual(["message"]);
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1", "streaming"]);
+      await act(async () => {
+        socket.emit({ type: "start" });
+        socket.emit({ type: "token", content: "answer" });
+        socket.emit({ type: "stream_end" });
+        socket.emit({ type: "done", message_id: "saved", final_content: "answer" });
+      });
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1", "saved"]);
+      expect(current.streaming).toBe(false);
+    });
+
+    it("do not go up while a reply streams or saves", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await sendAndStream(socket);
+      expect(current.sendStart.beginDots()).toBeNull();
+      await act(async () => { socket.emit({ type: "stream_end" }); });
+      expect(current.sendStart.beginDots()).toBeNull();
+      await act(async () => { socket.emit({ type: "done", message_id: "saved", final_content: "reply" }); });
+      let dots: (() => boolean) | null = null;
+      await act(async () => { dots = current.sendStart.beginDots(); });
+      expect(dots).not.toBeNull();
+    });
+
+    it("come down when the send goes elsewhere, and a later send raises its own", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      const dots = await paint();
+      await act(async () => { current.sendStart.cancelDots(); });
+      expect(dots?.()).toBe(false);
+      expect(current.streaming).toBe(false);
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1"]);
+      await act(async () => { await current.sendMessage("next"); });
+      expect(current.messages.filter((message) => message.id === "streaming")).toHaveLength(1);
+      expect(sentTypes(socket)).toEqual(["message"]);
+    });
+
+    it("come down on Stop, which the send that raised them sees", async () => {
+      await render(<Probe chatId="a" />);
+      await openSocket();
+      const dots = await paint();
+      await act(async () => { current.stopGeneration(); });
+      expect(dots?.()).toBe(false);
+      expect(current.streaming).toBe(false);
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1"]);
+    });
+
+    it("leave a stopped turn's socket first, so its late frames reach nothing", async () => {
+      await render(<Probe chatId="a" />);
+      const old = await openSocket();
+      await sendAndStream(old, "partial");
+      await act(async () => { current.stopGeneration(); });
+      await act(async () => {
+        current.sendStart.beginDots();
+        old.emit({ type: "token", content: " late" });
+        old.emit({ type: "done", message_id: "old-id", final_content: "partial late" });
+        jest.advanceTimersByTime(20);
+      });
+      expect(old.close).toHaveBeenCalled();
+      expect(current.streaming).toBe(true);
+      expect(getStreamingDraft()?.content).toBe("");
+      expect(current.messages.at(-1)?.id).toBe("streaming");
+    });
+  });
+
   it("announces a finished reply once, not per token", async () => {
     const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => {});
     await render(<Probe chatId="a" />);

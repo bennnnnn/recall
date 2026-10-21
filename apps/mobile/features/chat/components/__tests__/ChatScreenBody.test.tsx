@@ -198,4 +198,16 @@ describe("ChatScreenBody", () => {
       }),
     );
   });
+
+  it("shows a busy Send, not Stop, while a send is on its way; the list still follows the dots", async () => {
+    const { getByTestId } = await render(
+      <ChatScreenBody
+        {...baseProps}
+        composer={{ ...baseProps.composer, streaming: true, sendBusy: true }}
+      />,
+    );
+    expect(getByTestId("composer-idle")).toBeTruthy();
+    expect(mockChatComposer).toHaveBeenLastCalledWith(expect.objectContaining({ streaming: false, sendBusy: true }));
+    expect(mockChatMessageList).toHaveBeenLastCalledWith(expect.objectContaining({ streamActive: true }));
+  });
 });

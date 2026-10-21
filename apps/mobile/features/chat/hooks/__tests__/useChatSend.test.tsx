@@ -20,7 +20,10 @@ import {
   resolveClientGeoForQuery,
 } from "@/lib/resolveClientGeoForQuery";
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: jest.fn(() => 0) }));
-beforeEach(() => { (getSessionGeneration as jest.Mock).mockReturnValue(0); });
+beforeEach(() => {
+  (getSessionGeneration as jest.Mock).mockReturnValue(0);
+  dotsUp = true;
+});
 
 const resolveGeo = resolveClientGeoForQuery as jest.Mock;
 const needsGeo = queryNeedsClientGeo as jest.Mock;
@@ -113,6 +116,11 @@ jest.mock("@/features/attachments/model/pendingComposerAttachment", () => ({
 let current: ReturnType<typeof useChatSend>;
 const onOfflineBlocked = jest.fn();
 const onGenerateImage = jest.fn();
+/** Typing dots under the painted bubble; true while they are still this send's. */
+let dotsUp = true;
+const beginDots = jest.fn((): (() => boolean) | null => () => dotsUp);
+const cancelDots = jest.fn();
+const sendStart = { beginDots, cancelDots };
 
 function Probe({
   offline = false,
@@ -162,6 +170,7 @@ function Probe({
     scroll: { newMessageCountRef: { current: 0 } } as never,
     streaming,
     sendMessage,
+    sendStart,
     setMessages,
     messages,
     selectedModel: "free-chat",
@@ -207,15 +216,15 @@ describe("useChatSend", () => {
       await current.handleSend();
     });
     expect(mockImageIntent).toHaveBeenCalledWith("token", intentRequest("Generate an image of a lighthouse"));
-    expect(onGenerateImage).toHaveBeenCalledWith(
-      "a lighthouse",
-      "Generate an image of a lighthouse",
-      undefined,
-      expect.objectContaining({
-        ready: expect.any(Promise),
-        onFailure: expect.any(Function),
-      }),
-    );
+    expect(onGenerateImage).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: "a lighthouse",
+      userMessage: "Generate an image of a lighthouse",
+      referenceAttachment: undefined,
+      referenceAttachmentIds: undefined,
+      persistenceReady: expect.any(Promise),
+      onPersistenceFailure: expect.any(Function),
+      userMessageId: expect.stringMatching(/^local-/),
+    }));
   });
 
   it.each([
@@ -298,12 +307,11 @@ describe("useChatSend", () => {
       await current.handleSend();
     });
     expect(mockImageIntent).toHaveBeenCalledWith("token", intentRequest("White", "chat-1"));
-    expect(onGenerateImage).toHaveBeenCalledWith(
-      "black cat, White",
-      "White",
-      { ids: ["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"] },
-      expect.anything(),
-    );
+    expect(onGenerateImage).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: "black cat, White",
+      userMessage: "White",
+      referenceAttachmentIds: ["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"],
+    }));
   });
 
   it("neither draws nor sends when the chat changes during the check", async () => {
@@ -329,7 +337,10 @@ describe("useChatSend", () => {
     });
     expect(onGenerateImage).not.toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
-    expect(mockSetInput).not.toHaveBeenCalledWith("");
+    // The bubble went up at the tap; the text waits on chat-1's composer.
+    expect(mockSetInput).toHaveBeenCalledWith("");
+    expect(mockStashFailedDraftForThread).toHaveBeenCalledWith("chat-1", "draw ethanol");
+    expect(cancelDots).toHaveBeenCalledTimes(1);
     expect(current.sendPhase).toBe("idle");
   });
 
@@ -355,7 +366,7 @@ describe("useChatSend", () => {
     });
     expect(onGenerateImage).not.toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
-    expect(mockSetInput).not.toHaveBeenCalledWith("");
+    expect(mockStashFailedDraftForThread).toHaveBeenCalledWith("chat-1", "draw me a cat");
     expect(current.sendPhase).toBe("idle");
   });
 
@@ -374,12 +385,12 @@ describe("useChatSend", () => {
 
       expect(mockSetInput).toHaveBeenCalledWith("");
       expect(onGenerateImage).toHaveBeenCalledTimes(1);
-      const persistence = onGenerateImage.mock.calls[0][3];
-      expect(persistence.ready).toBeInstanceOf(Promise);
+      const request = onGenerateImage.mock.calls[0][0];
+      expect(request.persistenceReady).toBeInstanceOf(Promise);
 
       await act(async () => {
         finishFlush(true);
-        await expect(persistence.ready).resolves.toBe(true);
+        await expect(request.persistenceReady).resolves.toBe(true);
       });
     } finally {
       unregisterFlush();
@@ -398,10 +409,10 @@ describe("useChatSend", () => {
         await current.handleSend();
       });
 
-      const persistence = onGenerateImage.mock.calls[0][3];
-      await expect(persistence.ready).resolves.toBe(false);
+      const request = onGenerateImage.mock.calls[0][0];
+      await expect(request.persistenceReady).resolves.toBe(false);
       await act(async () => {
-        persistence.onFailure();
+        request.onPersistenceFailure();
       });
       expect(mockSetInput).toHaveBeenLastCalledWith(
         "Generate an image of a lighthouse",
@@ -464,7 +475,7 @@ describe("useChatSend", () => {
     expect(current.sendPhase).toBe("idle");
   });
 
-  it("paints the user bubble only after geo resolves", async () => {
+  it("paints the user bubble before geo resolves, and sends once it has", async () => {
     inputRef.current = "coffee near me";
     needsGeo.mockReturnValue(true);
     let finishGeo: (value: { ok: true; clientGeo: null }) => void = () => undefined;
@@ -485,10 +496,11 @@ describe("useChatSend", () => {
       await Promise.resolve();
     });
 
-    // Nothing paints and the draft stays put while the OS permission sheet is
-    // up — a deny must never make a just-painted bubble vanish.
-    expect(setMessages).not.toHaveBeenCalled();
-    expect(mockSetInput).not.toHaveBeenCalledWith("");
+    // The bubble, an empty composer and the dots go up at the tap; the turn
+    // itself waits for the location.
+    expect(setMessages).toHaveBeenCalledTimes(1);
+    expect(mockSetInput).toHaveBeenCalledWith("");
+    expect(beginDots).toHaveBeenCalledTimes(1);
     expect(sendMessage).not.toHaveBeenCalled();
     expect(current.sendPhase).toBe("locating");
 
@@ -507,7 +519,7 @@ describe("useChatSend", () => {
     expect(current.sendPhase).toBe("idle");
   });
 
-  it("leaves the draft untouched when geo is cancelled", async () => {
+  it("gives the draft back when geo is cancelled", async () => {
     inputRef.current = "coffee near me";
     needsGeo.mockReturnValue(true);
     resolveGeo.mockResolvedValue({ ok: false });
@@ -524,10 +536,15 @@ describe("useChatSend", () => {
     });
 
     expect(sendMessage).not.toHaveBeenCalled();
-    // No bubble was painted and the composer was never cleared — nothing to
-    // roll back; the draft simply never left the composer.
-    expect(setMessages).not.toHaveBeenCalled();
-    expect(mockSetInput).not.toHaveBeenCalledWith("");
+    // The painted bubble and its dots go; the text is back in the composer.
+    const rows = setMessages.mock.calls.reduce(
+      (prev: Message[], [update]) => (typeof update === "function" ? update(prev) : update),
+      [],
+    );
+    expect(rows).toEqual([]);
+    expect(cancelDots).toHaveBeenCalledTimes(1);
+    expect(mockSetInput).toHaveBeenNthCalledWith(1, "");
+    expect(mockSetInput).toHaveBeenLastCalledWith("coffee near me");
     expect(current.sendPhase).toBe("idle");
   });
 
@@ -689,9 +706,8 @@ describe("useChatSend", () => {
       await sendPromise;
     });
 
-    // Geo resolves before the optimistic insert now, so the composer was never
-    // cleared — chat-1's draft is still intact and no stash is needed.
-    expect(mockStashFailedDraftForThread).not.toHaveBeenCalled();
+    // The composer was cleared at the tap, so chat-1 gets its text back.
+    expect(mockStashFailedDraftForThread).toHaveBeenCalledWith("chat-1", "hello");
     expect(mockSetInput).not.toHaveBeenCalledWith("hello");
     expect(current.sendPhase).toBe("idle");
   });
@@ -768,9 +784,7 @@ describe("useChatSend", () => {
       await sending;
     });
     expect(sendMessage).not.toHaveBeenCalled();
-    // The draft was never consumed (geo gates the optimistic insert), so it
-    // stays on chat-1's composer — no stash/restore dance.
-    expect(mockStashFailedDraftForThread).not.toHaveBeenCalled();
+    expect(mockStashFailedDraftForThread).toHaveBeenCalledWith("chat-1", "hello");
     expect(current.sendPhase).toBe("idle");
   });
 
@@ -844,7 +858,7 @@ it("retains the uploaded id when the draft flush fails after the upload", async 
   }
 });
 
-it("does not upload when geo fails before the optimistic insert", async () => {
+it("does not upload when geo fails, and gives the file back", async () => {
   // Top-level its sit outside the describe's clearAllMocks beforeEach — clear
   // the upload mock so the previous test's call doesn't leak in.
   uploadAttachment.mockClear();
@@ -855,8 +869,8 @@ it("does not upload when geo fails before the optimistic insert", async () => {
   });
   inputRef.current = "hello";
   await act(async () => { await current.handleSend(); });
-  // Geo gates the optimistic insert, so the upload never starts and the
-  // composer attachment stays put for a retry.
+  // Geo comes before the upload, so nothing uploads and the file is back in
+  // the composer for a retry.
   expect(uploadAttachment).not.toHaveBeenCalled();
   expect(current.pendingAttachment?.localUri).toBe("file://report.pdf");
   expect(current.pendingAttachment?.existingAttachmentId).toBeUndefined();
@@ -1255,7 +1269,10 @@ describe("useChatSend send steps", () => {
     expect(mockTap).toHaveBeenCalledTimes(1);
     expect(onGenerateImage).not.toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
-    expect(mockSetInput).not.toHaveBeenCalled();
+    // Painted at the tap, then given back: the request waits in the composer.
+    expect(mockSetInput).toHaveBeenNthCalledWith(1, "");
+    expect(mockSetInput).toHaveBeenLastCalledWith("draw me a cat");
+    expect(cancelDots).toHaveBeenCalledTimes(1);
     expect(current.sendPhase).toBe("idle");
   });
 
@@ -1276,7 +1293,9 @@ describe("useChatSend send steps", () => {
     await act(async () => { current.setPendingAttachment(image); });
     await send();
     expect(mockImageIntent).toHaveBeenCalledWith("token", intentRequest("make it blue", "chat-1", true));
-    expect(onGenerateImage).toHaveBeenCalledWith("make it blue", "make it blue", { attachment: image }, expect.anything());
+    expect(onGenerateImage).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: "make it blue", userMessage: "make it blue", referenceAttachment: image,
+    }));
     expect(current.pendingAttachment).toBeNull();
     expect(uploadAttachment).not.toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
@@ -1304,12 +1323,11 @@ describe("useChatSend send steps", () => {
     await render(<Probe chatId="chat-1" messages={lastImage} />);
     await send();
     expect(mockImageIntent).toHaveBeenCalledWith("token", intentRequest("make it blue", "chat-1"));
-    expect(onGenerateImage).toHaveBeenCalledWith(
-      "black cat, blue",
-      "make it blue",
-      { ids: ["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"] },
-      expect.anything(),
-    );
+    expect(onGenerateImage).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: "black cat, blue",
+      userMessage: "make it blue",
+      referenceAttachmentIds: ["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"],
+    }));
   });
 
   it("restores a failed image request on another thread by stashing it", async () => {
@@ -1317,9 +1335,9 @@ describe("useChatSend send steps", () => {
     mockImageIntent.mockResolvedValue(verdict({ generate_prompt: "cat" }));
     await render(<Probe chatId="chat-1" routeChatId="chat-1" />);
     await send();
-    const persistence = onGenerateImage.mock.calls[0][3];
+    const request = onGenerateImage.mock.calls[0][0];
     mockThreadKey = "chat-2";
-    await act(async () => { persistence.onFailure(); });
+    await act(async () => { request.onPersistenceFailure(); });
     expect(mockStashFailedDraftForThread).toHaveBeenCalledWith("chat-1", "draw me a cat");
   });
 
@@ -1328,10 +1346,10 @@ describe("useChatSend send steps", () => {
     mockImageIntent.mockResolvedValue(verdict({ generate_prompt: "cat" }));
     await render(<Probe chatId="chat-1" routeChatId="chat-1" />);
     await send();
-    const persistence = onGenerateImage.mock.calls[0][3];
+    const request = onGenerateImage.mock.calls[0][0];
     inputRef.current = "something newer";
     mockSetInput.mockClear();
-    await act(async () => { persistence.onFailure(); });
+    await act(async () => { request.onPersistenceFailure(); });
     expect(mockSetInput).not.toHaveBeenCalled();
     expect(mockFeedbackError).toHaveBeenCalledWith("chat.restore_draft_blocked");
   });
@@ -1476,6 +1494,80 @@ describe("useChatSend send steps", () => {
     expect(current.sendPhase).toBe("idle");
   });
 
+  it("paints the bubble, empties the composer and raises the dots before the server reads the send", async () => {
+    inputRef.current = "draw ethanol";
+    let answer!: (value: ReturnType<typeof verdict>) => void;
+    mockImageIntent.mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    const setMessages = jest.fn();
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
+    let sending!: Promise<void>;
+    await act(async () => { sending = current.handleSend(); });
+
+    expect(setMessages).toHaveBeenCalledTimes(1);
+    expect(mockSetInput).toHaveBeenCalledWith("");
+    expect(beginDots).toHaveBeenCalledTimes(1);
+    const [bubble] = setMessages.mock.calls[0][0]([]);
+    expect(bubble).toMatchObject({ role: "user", content: "draw ethanol" });
+    // Painted in the tap's own tick; the server is asked only after.
+    expect(mockTap.mock.invocationCallOrder[0]).toBeLessThan(setMessages.mock.invocationCallOrder[0]);
+    expect(beginDots.mock.invocationCallOrder[0]).toBeLessThan(mockImageIntent.mock.invocationCallOrder[0]);
+    expect(sendMessage).not.toHaveBeenCalled();
+
+    await act(async () => { answer(verdict({ subject: "chemistry" })); await sending; });
+    expect(sendMessage).toHaveBeenCalledWith("draw ethanol", expect.objectContaining({ trackSendingMessageId: bubble.id }));
+    // The dots stay up for the turn they announced.
+    expect(cancelDots).not.toHaveBeenCalled();
+    expect(setMessages).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws a picture under the bubble already painted, not a second one", async () => {
+    inputRef.current = "draw me a cat";
+    mockImageIntent.mockResolvedValue(verdict({ generate_prompt: "cat" }));
+    const setMessages = jest.fn();
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
+    await send();
+    const [bubble] = setMessages.mock.calls[0][0]([]);
+    expect(onGenerateImage).toHaveBeenCalledWith(expect.objectContaining({ userMessageId: bubble.id }));
+    expect(setMessages).toHaveBeenCalledTimes(1);
+    expect(cancelDots).toHaveBeenCalledTimes(1);
+    expect(cancelDots.mock.invocationCallOrder[0]).toBeLessThan(onGenerateImage.mock.invocationCallOrder[0]);
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(current.sendPhase).toBe("idle");
+    expect(current.pendingOutboundId).toBeNull();
+  });
+
+  it("gives the draft back when Stop took the dots down before the turn went out", async () => {
+    inputRef.current = "draw ethanol";
+    let answer!: (value: ReturnType<typeof verdict>) => void;
+    mockImageIntent.mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    const setMessages = jest.fn();
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
+    let sending!: Promise<void>;
+    await act(async () => { sending = current.handleSend(); });
+    dotsUp = false;
+    await act(async () => { answer(verdict()); await sending; });
+    expect(sendMessage).not.toHaveBeenCalled();
+    const rows = setMessages.mock.calls.reduce(
+      (prev: Message[], [update]) => (typeof update === "function" ? update(prev) : update),
+      [],
+    );
+    expect(rows).toEqual([]);
+    expect(mockSetInput).toHaveBeenLastCalledWith("draw ethanol");
+    expect(current.sendPhase).toBe("idle");
+  });
+
+  it("still sends when no dots could go up with the bubble", async () => {
+    beginDots.mockReturnValueOnce(null);
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    await send();
+    expect(sendMessage).toHaveBeenCalledWith("hello", expect.objectContaining({ skipUserBubble: true }));
+    expect(current.sendPhase).toBe("idle");
+  });
+
   it("moves from locating to uploading for a geo question with a photo", async () => {
     let finishGeo!: (value: { ok: true; clientGeo: null }) => void;
     let finishUpload!: (id: string) => void;
@@ -1488,10 +1580,10 @@ describe("useChatSend send steps", () => {
     let sending!: Promise<void>;
     await act(async () => { sending = current.handleSend(); });
     expect(current.sendPhase).toBe("locating");
-    expect(current.pendingAttachment).toEqual(image);
+    // The photo left the composer with the bubble.
+    expect(current.pendingAttachment).toBeNull();
     await act(async () => { finishGeo({ ok: true, clientGeo: null }); });
     expect(current.sendPhase).toBe("uploading");
-    expect(current.pendingAttachment).toBeNull();
     await act(async () => { finishUpload("att-1"); await sending; });
     expect(current.sendPhase).toBe("idle");
   });
