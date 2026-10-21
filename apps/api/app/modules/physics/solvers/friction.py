@@ -17,12 +17,8 @@ from app.modules.physics.schemas import (
     SimulationVector,
 )
 from app.modules.physics.schemas.simulation import ArrowKind
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    gravity_of,
-    params_in_si,
-)
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import gravity_of, params_in_si
 from app.services.solving import SolveServiceError
 
 

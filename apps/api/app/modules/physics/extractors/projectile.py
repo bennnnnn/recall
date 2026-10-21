@@ -4,20 +4,22 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    DECIMAL,
-    DEGREE_WORD,
-    LENGTH_UNIT_PATTERN,
-    VELOCITY_UNIT_PATTERN,
-    _find_value_with_unit,
-    detect_gravity,
-    find_value_with_specific_unit,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
 from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    find_value_with_unit,
+)
+from app.modules.physics.extractors.surface_gravity import detect_gravity
+from app.modules.physics.extractors.unit_patterns import (
+    DECIMAL,
+    DEGREE_WORD,
+    LENGTH_UNIT_PATTERN,
+    VELOCITY_UNIT_PATTERN,
+)
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -135,7 +137,7 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
         v0 = float(speed_m.group(1))
         v0_unit = speed_m.group(2)
     else:
-        vu = _find_value_with_unit(cleaned, ("speed of", "velocity of", "speed", "velocity"))
+        vu = find_value_with_unit(cleaned, ("speed of", "velocity of", "speed", "velocity"))
         if vu is not None:
             v0, v0_unit = vu
 

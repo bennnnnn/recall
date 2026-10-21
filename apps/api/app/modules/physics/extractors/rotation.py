@@ -4,13 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    DECIMAL,
-    LENGTH_UNIT_PATTERN,
-    MASS_UNITS,
-    find_value_with_specific_unit,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
@@ -20,6 +14,8 @@ from app.modules.physics.extractors.rotational_dynamics import (
     extract_rotational_dynamics,
 )
 from app.modules.physics.extractors.rotational_readings import _INERTIA_PATTERN
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.unit_patterns import DECIMAL, LENGTH_UNIT_PATTERN, MASS_UNITS
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation, word_index
 

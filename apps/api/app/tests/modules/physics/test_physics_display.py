@@ -14,7 +14,7 @@ from app.modules.physics.display import (
     typeset_numbers,
 )
 from app.modules.physics.solvers.chip import render_chip, render_chip_latex
-from app.modules.physics.solvers.common import QuantityResult
+from app.modules.physics.solvers.results import QuantityResult
 
 
 @pytest.mark.parametrize(

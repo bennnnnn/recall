@@ -6,13 +6,15 @@ import re
 from dataclasses import dataclass
 
 from app.modules.physics.bodies import WATER_DENSITY
-from app.modules.physics.extractors.common import (
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    ordered_values,
+)
+from app.modules.physics.extractors.unit_patterns import (
     LENGTH_UNIT_PATTERN,
     MASS_UNITS,
     NUMBER,
     VELOCITY_UNIT_PATTERN,
-    find_value_with_specific_unit,
-    ordered_values,
 )
 
 AREA_PATTERN = r"m\^?2|cm\^?2|mm\^?2|square\s+met(?:er|re)s?"

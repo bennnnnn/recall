@@ -6,13 +6,8 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from app.modules.physics.extractors.common import (
-    LENGTH_UNIT_PATTERN,
-    MASS_UNITS,
-    NUMBER,
-    find_value_with_specific_unit,
-)
 from app.modules.physics.extractors.fluid_readings import AREA_PATTERN
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.extractors.thermal_readings import (
     _REJECTED_WORDS,
     _SUPPLIED_WORDS,
@@ -23,6 +18,7 @@ from app.modules.physics.extractors.thermal_readings import (
     _temperature_change,
     _temperature_value,
 )
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, MASS_UNITS, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 
 

@@ -7,7 +7,8 @@ import math
 from app.modules.physics.display import latex_given, latex_number, latex_unit, plain_number
 from app.modules.physics.extractors.relative_motion import COMPASS_NAMES
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, params_in_si
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 RELATIVE_MOTION_OPERATIONS = frozenset({"catch_up_time", "displacement_two_legs"})

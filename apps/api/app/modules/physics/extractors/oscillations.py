@@ -5,17 +5,13 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.modules.physics.extractors.common import (
-    _G_DEFAULT,
-    DECIMAL,
-    LENGTH_UNIT_PATTERN,
-    detect_gravity,
-    find_value_with_specific_unit,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.surface_gravity import EARTH_G, detect_gravity
+from app.modules.physics.extractors.unit_patterns import DECIMAL, LENGTH_UNIT_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -78,7 +74,7 @@ def _extract_pendulum_intent(cleaned: str) -> PhysicsIntent | None:
     params: dict[str, float] = {"L": length[0]}
     units: dict[str, str] = {"L": length[1] or "m"}
     gravity = detect_gravity(cleaned)
-    if gravity != _G_DEFAULT:
+    if gravity != EARTH_G:
         params["g"], units["g"] = gravity, "m/s^2"
     return PhysicsIntent(
         kind="spring",

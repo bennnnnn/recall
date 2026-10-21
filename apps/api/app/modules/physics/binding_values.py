@@ -18,7 +18,7 @@ from app.modules.physics.bodies import (
     names_only_water,
 )
 from app.modules.physics.display import si_symbol
-from app.modules.physics.extractors.common import detect_gravity
+from app.modules.physics.extractors.surface_gravity import detect_gravity
 from app.services.law_binding.spec import VariableSpec
 from app.services.text_match import word_index
 

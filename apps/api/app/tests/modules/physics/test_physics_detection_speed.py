@@ -19,8 +19,8 @@ import pytest
 import app.modules.physics as physics_package
 from app.modules.physics import extract
 from app.modules.physics.extractors.circuit_patterns import _resistor_values
-from app.modules.physics.extractors.common import find_value_with_specific_unit
-from app.modules.physics.solvers.common import quadratic_roots
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.solvers.arithmetic import quadratic_roots
 from app.services.symbolic_text import _MAX_PHYSICS_REQUEST, _MAX_SUBJECT_TEXT
 
 _PATTERN_BUDGET_SECONDS = 0.15

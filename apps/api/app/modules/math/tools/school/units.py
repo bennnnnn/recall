@@ -10,7 +10,7 @@ from app.core.config import Settings
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
-from app.modules.math.tools.block.common import format_quantity
+from app.modules.math.tools.block.answer_text import format_quantity
 from app.modules.math.tools.extractors.readings import read
 from app.modules.math.unit_conversion import convert_unit
 from app.services.number_text import SIGNED_DECIMAL

@@ -5,12 +5,11 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.bodies import WATER_SPECIFIC_HEAT
-from app.modules.physics.extractors.common import (
-    DECIMAL,
-    NUMBER,
-    _positioned_values,
+from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
+    positioned_values,
 )
+from app.modules.physics.extractors.unit_patterns import DECIMAL, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.units import CELSIUS_OFFSET_K
 
@@ -88,10 +87,10 @@ def _reservoir_temperatures(
     value there gave 500 K twice.
     """
     readings = sorted(
-        [(start, value, "K") for start, value, _ in _positioned_values(cleaned, _KELVIN_PATTERN)]
+        [(start, value, "K") for start, value, _ in positioned_values(cleaned, _KELVIN_PATTERN)]
         + [
             (start, value, "degC")
-            for start, value, _ in _positioned_values(cleaned, r"°\s*C|degrees?\s+celsius")
+            for start, value, _ in positioned_values(cleaned, r"°\s*C|degrees?\s+celsius")
         ]
     )
     lower = cleaned.lower()

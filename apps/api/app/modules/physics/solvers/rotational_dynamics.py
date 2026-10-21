@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.angular_momentum import _angular_impulse, _angular_momentum
-from app.modules.physics.solvers.common import PhysicsResult, params_in_si
+from app.modules.physics.solvers.results import PhysicsResult
 from app.modules.physics.solvers.rolling import (
     _parallel_axis,
     _rolling_acceleration,
@@ -20,6 +20,7 @@ from app.modules.physics.solvers.rotational_kinematics import (
     _theta,
     _torque_inertia,
 )
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 

@@ -5,18 +5,17 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
-from app.modules.physics.extractors.common import (
-    DECIMAL,
-    DEGREE_WORD,
-    find_value_with_specific_unit,
-    ordered_values,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    ordered_values,
+)
+from app.modules.physics.extractors.unit_patterns import DECIMAL, DEGREE_WORD
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import _to_si
+from app.modules.physics.solvers.si import to_si
 from app.services.text_match import has_equation
 
 _TENSION_CUE_RES: tuple[re.Pattern[str], ...] = (
@@ -93,7 +92,7 @@ def _extract_tension_intent(cleaned: str) -> PhysicsIntent | None:
         # sentence. Its magnitude is what the question asks for either way.
         heavy, light = sorted(
             (masses[0], masses[1]),
-            key=lambda pair: _to_si(pair[0], pair[1] or "kg"),
+            key=lambda pair: to_si(pair[0], pair[1] or "kg"),
             reverse=True,
         )
         return PhysicsIntent(

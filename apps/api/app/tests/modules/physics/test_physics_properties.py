@@ -11,7 +11,7 @@ import pytest
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
-from app.modules.physics.solvers.common import quadratic_roots
+from app.modules.physics.solvers.arithmetic import quadratic_roots
 
 # What a question gives: zero, or a size from a micrometre to a megametre either way.
 # Near 1e-300, b² and 4ac underflow before the formula starts; no question goes there.

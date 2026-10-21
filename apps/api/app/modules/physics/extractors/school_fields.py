@@ -4,12 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _TESLA_PATTERN,
-    LENGTH_UNIT_PATTERN,
-    NUMBER,
-    ordered_values,
-)
 from app.modules.physics.extractors.school_common import (
     _SECOND,
     _WEBER,
@@ -17,6 +11,8 @@ from app.modules.physics.extractors.school_common import (
     _one,
     _turns,
 )
+from app.modules.physics.extractors.stated_values import ordered_values
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER, TESLA_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import word_index
 
@@ -111,11 +107,11 @@ def extract_faraday(text: str, lower: str) -> PhysicsIntent | None:
             {"turns": "", "delta_flux": flux[1] or "Wb", "dt": seconds[1] or "s"},
         )
     area = _one(text, r"m\^?2|cm\^?2")
-    fields = ordered_values(text, _TESLA_PATTERN)
+    fields = ordered_values(text, TESLA_PATTERN)
     if len(fields) == 1:
         # "drops from 0.5 T to 0": the second reading shares the first's unit.
         to_bare = re.search(
-            rf"\bfrom\s+{NUMBER}\s*(?P<unit>{_TESLA_PATTERN})\s+to\s+(?P<to>{NUMBER})"
+            rf"\bfrom\s+{NUMBER}\s*(?P<unit>{TESLA_PATTERN})\s+to\s+(?P<to>{NUMBER})"
             r"(?![\d.])",
             text,
         )

@@ -4,12 +4,9 @@ from __future__ import annotations
 
 import math
 
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    latex_num,
-    one_unknown,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import one_unknown
 from app.services.solving import SolveServiceError
 
 

@@ -5,12 +5,10 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from app.modules.physics.extractors.common import (
-    LENGTH_UNIT_PATTERN,
-    detect_gravity,
-    find_value_with_specific_unit,
-)
 from app.modules.physics.extractors.fluid_readings import _PRESSURE_PATTERN, FluidReading
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.surface_gravity import detect_gravity
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN
 from app.modules.physics.givens import scan_givens, unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.ask import ask_clause

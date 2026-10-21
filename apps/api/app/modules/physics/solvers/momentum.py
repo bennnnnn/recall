@@ -10,12 +10,9 @@ import math
 
 from app.modules.physics.display import GIVEN_FIGURES, latex_given, latex_number, plain_number
 from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationBody
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    latex_num,
-    params_in_si,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 

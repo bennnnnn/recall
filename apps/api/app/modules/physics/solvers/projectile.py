@@ -9,14 +9,10 @@ from __future__ import annotations
 import math
 
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    gravity_of,
-    latex_num,
-    params_in_si,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.motion_scenes import projectile_scene
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import gravity_of, params_in_si
 from app.services.solving import SolveServiceError
 
 

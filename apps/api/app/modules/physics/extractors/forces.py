@@ -5,13 +5,11 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.ask import asked_dimensions
-from app.modules.physics.extractors.common import (
-    find_value_with_specific_unit,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.givens import unit_dimension
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation

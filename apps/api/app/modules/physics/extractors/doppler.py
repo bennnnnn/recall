@@ -11,11 +11,8 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    NUMBER,
-    VELOCITY_UNIT_PATTERN,
-    find_value_with_specific_unit,
-)
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.unit_patterns import NUMBER, VELOCITY_UNIT_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 
 SOUND_SOURCE = r"siren|ambulance|police|horn|whistle|train|engine|speaker|source"

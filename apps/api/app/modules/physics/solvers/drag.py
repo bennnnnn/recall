@@ -11,7 +11,8 @@ from functools import lru_cache
 
 from app.modules.physics.display import latex_number
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, params_in_si
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 _LINEAR_V = r"v(t)=\frac{mg}{k}\left(1-e^{-(k/m)t}\right)"

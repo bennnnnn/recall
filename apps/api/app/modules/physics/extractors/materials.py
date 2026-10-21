@@ -4,17 +4,16 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    LENGTH_UNIT_PATTERN,
-    NUMBER,
-    find_value_with_specific_unit,
-    ordered_values,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
 from app.modules.physics.extractors.fluid_readings import _PRESSURE_PATTERN, AREA_PATTERN
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    ordered_values,
+)
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 

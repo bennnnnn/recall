@@ -7,24 +7,24 @@ import re
 from app.modules.physics.bodies import named_particle_mass
 from app.modules.physics.constants import ELEMENTARY_CHARGE
 from app.modules.physics.extractors.angles import _stated_angle
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.circuit_patterns import (
     _COULOMB_PATTERN,
-)
-from app.modules.physics.extractors.common import (
-    _TESLA_PATTERN,
-    AMP_PATTERN,
-    LENGTH_UNIT_PATTERN,
-    MASS_UNITS,
-    NUMBER,
-    VELOCITY_UNIT_PATTERN,
-    find_value_with_specific_unit,
-    strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )
 from app.modules.physics.extractors.fluid_readings import AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_field
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.unit_patterns import (
+    AMP_PATTERN,
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+    NUMBER,
+    TESLA_PATTERN,
+    VELOCITY_UNIT_PATTERN,
+)
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -41,17 +41,17 @@ _MAGNETISM_CUES = (
 _MAGNETISM_CUE_RES: tuple[re.Pattern[str], ...] = (
     # A tesla value beside a current or a charge is the signature itself.
     re.compile(
-        rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9]).{{0,80}}?"
+        rf"\d\s*(?:{TESLA_PATTERN})(?![A-Za-z0-9]).{{0,80}}?"
         rf"\d\s*(?:A|amps?|amperes?|C|coulombs?)(?![A-Za-z0-9])"
     ),
     re.compile(
         rf"\d\s*(?:A|amps?|amperes?|C|coulombs?)(?![A-Za-z0-9]).{{0,80}}?"
-        rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9])"
+        rf"\d\s*(?:{TESLA_PATTERN})(?![A-Za-z0-9])"
     ),
     # A named particle in a field: "a proton at 3e6 m/s in a 0.5 T field".
     re.compile(
         rf"\b(?:[Pp]roton|[Ee]lectron|[Aa]lpha particle)\b.{{0,80}}?"
-        rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9])"
+        rf"\d\s*(?:{TESLA_PATTERN})(?![A-Za-z0-9])"
     ),
 )
 
@@ -71,7 +71,7 @@ def _extract_magnetism_intent(cleaned: str) -> PhysicsIntent | None:
         return None
 
     lower = cleaned.lower()
-    field = find_value_with_specific_unit(cleaned, _TESLA_PATTERN)
+    field = find_value_with_specific_unit(cleaned, TESLA_PATTERN)
     current = find_value_with_specific_unit(cleaned, AMP_PATTERN)
     charge = find_value_with_specific_unit(cleaned, _COULOMB_PATTERN)
     speed = find_value_with_specific_unit(cleaned, VELOCITY_UNIT_PATTERN)

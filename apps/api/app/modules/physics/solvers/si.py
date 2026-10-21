@@ -1,123 +1,13 @@
-"""Shared result types and SI-unit conversion."""
+"""Givens in SI: the catalog's dimension for each, Pint's conversion, g, and the one unknown."""
 
 from __future__ import annotations
 
 import math
-import re
-from dataclasses import dataclass, field
 from typing import Any
 
-from app.modules.math.schemas import GraphBlockSpec
 from app.modules.physics.bodies import SCHOOL_GRAVITY
-from app.modules.physics.schemas import (
-    PhysicsIntent,
-    SimulationBlockSpec,
-)
-from app.modules.physics.solvers.chip import render_chip, render_chip_latex
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.solving import SolveServiceError
-
-
-@dataclass(frozen=True, slots=True)
-class QuantityResult:
-    """One measured result. Notes such as gauge pressure live in ``detail``.
-
-    The value is shown to three significant figures (``physics.display``);
-    a solver never chooses its own number format.
-    """
-
-    symbol: str
-    value: float
-    unit: str = ""
-    detail: str | None = None
-    # "paren" -> "12 Pa (gauge)"; "suffix" -> "4 A leaving"; "at" -> "5 N at 30°".
-    detail_style: str = "paren"
-
-
-@dataclass(frozen=True)
-class PhysicsResult:
-    """Solver output. The chip is rendered from ``quantities``, never parsed back."""
-
-    answer: str
-    answer_value: str = ""
-    answer_latex: str = ""
-    quantities: tuple[QuantityResult, ...] = ()
-    formulas: tuple[str, ...] = ()
-    substitutions: tuple[str, ...] = ()
-    joiner: str = " and "
-    graph_specs: list[GraphBlockSpec] = field(default_factory=list)
-    # A scene of moving bodies, where the graph is a plot of one. A solve may
-    # emit both: the projectile's parabola *and* the ball flying along it.
-    simulation_specs: list[SimulationBlockSpec] = field(default_factory=list)
-    # A question in parts: each requested quantity with the working that gives it.
-    parts: tuple[PartResult, ...] = ()
-
-    def __post_init__(self) -> None:
-        if self.quantities:
-            object.__setattr__(self, "answer_value", render_chip(self.quantities, self.joiner))
-            object.__setattr__(
-                self, "answer_latex", render_chip_latex(self.quantities, self.joiner)
-            )
-
-
-@dataclass(frozen=True)
-class PartResult:
-    """One quantity of a question in parts: its operation, its labelled value, its working."""
-
-    op: str
-    quantity: QuantityResult
-    result: PhysicsResult
-
-
-def solved(
-    *quantities: QuantityResult,
-    answer: str,
-    formula: str = "",
-    substitution: str = "",
-    formulas: tuple[str, ...] = (),
-    substitutions: tuple[str, ...] = (),
-    joiner: str = " and ",
-    graph_specs: list[GraphBlockSpec] | None = None,
-    simulation_specs: list[SimulationBlockSpec] | None = None,
-) -> PhysicsResult:
-    """Build the chip and keep the formula and the substitution unparsed."""
-    formula_rows = formulas or ((formula,) if formula else ())
-    substitution_rows = substitutions or ((substitution,) if substitution else ())
-    return PhysicsResult(
-        answer=answer,
-        quantities=quantities,
-        formulas=formula_rows,
-        substitutions=substitution_rows,
-        joiner=joiner,
-        graph_specs=list(graph_specs or []),
-        simulation_specs=list(simulation_specs or []),
-    )
-
-
-def quadratic_roots(a: float, b: float, c: float) -> tuple[float, ...]:
-    """Real roots of ``a·x² + b·x + c = 0``, ascending; linear when ``a`` is 0.
-
-    The closed form, in the cancellation-free arrangement: a plain quadratic
-    does not need a symbolic solver on the request path.
-    """
-    if a == 0:
-        return () if b == 0 else (-c / b,)
-    discriminant = b * b - 4 * a * c
-    if discriminant < 0:
-        return ()
-    q = -0.5 * (b + math.copysign(math.sqrt(discriminant), b))
-    if q == 0:
-        return (0.0,)
-    return tuple(sorted({q / a, c / q}))
-
-
-def latex_num(value: float, *, square: bool = False) -> str:
-    """Format a number for LaTeX so ``-5^2`` is not read as ``-(5^2)``."""
-    text = f"{value:g}"
-    if value < 0:
-        text = f"({text})"
-    if square:
-        return f"{text}^{{2}}"
-    return text
 
 
 def _dimensions_from_catalog() -> dict[str, str]:
@@ -139,11 +29,7 @@ def _dimensions_from_catalog() -> dict[str, str]:
     return dims
 
 
-_PARAM_SI_DIMENSIONS: dict[str, str] = _dimensions_from_catalog()
-
-# R1..R4 name a resistor network's members. Single-digit, so plain `sorted`
-# orders them correctly.
-_RESISTOR_KEY_RE = re.compile(r"R[1-9]")
+PARAM_SI_DIMENSIONS: dict[str, str] = _dimensions_from_catalog()
 
 
 # Words that count rather than measure: a dimensionless input written with one.
@@ -163,10 +49,13 @@ _COUNT_UNITS = frozenset(
     }
 )
 
+
 # Units whose zero is not zero. These must be constructed as a Quantity rather
 # than multiplied, and a *difference* in them is not the same as a value: a
 # rise of 50 °C is 50 K, not 323.15 K. A `delta_` input is a difference.
 _OFFSET_UNITS = frozenset({"degC", "degF", "celsius", "fahrenheit"})
+
+
 _OFFSET_DIFFERENCES = {
     "degC": "delta_degC",
     "celsius": "delta_degC",
@@ -188,7 +77,7 @@ def gravity_of(params: dict[str, float]) -> float:
     return params["g"] if "g" in params else SCHOOL_GRAVITY["earth"]
 
 
-def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
+def to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
     """Convert a value with a unit string to its SI base using Pint.
 
     Returns the value unchanged if the unit is empty (assumed already SI).
@@ -196,7 +85,7 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
     """
     if not unit:
         return value
-    dim_spec = _PARAM_SI_DIMENSIONS.get(expected_key) if expected_key else None
+    dim_spec = PARAM_SI_DIMENSIONS.get(expected_key) if expected_key else None
     # A count is a number with a name. Pint reads "turns" as the angle unit
     # (2π rad each), which made 500 solenoid turns 3142.
     if dim_spec == "dimensionless" and unit.strip().lower() in _COUNT_UNITS:
@@ -246,14 +135,14 @@ def si_factor(unit: str, *, expected_key: str | None = None) -> tuple[float, flo
 
     ureg = get_unit_registry()
     try:
-        whole = _to_si(1.0, unit, expected_key=expected_key)
+        whole = to_si(1.0, unit, expected_key=expected_key)
     except SolveServiceError:
         return None
     for reading in unit_readings(unit):
         if reading in _OFFSET_UNITS:
             return None
         split = _split_scale(ureg, reading)
-        # The reading _to_si used: its parts multiply out to the same scale.
+        # The reading to_si used: its parts multiply out to the same scale.
         if split is not None and math.isclose(split[0] / split[1], whole, rel_tol=1e-9):
             return split
     return None
@@ -282,12 +171,12 @@ def params_in_si(intent: PhysicsIntent) -> dict[str, float]:
     for key, val in params.items():
         unit = units.get(key, "")
         # `startswith`, not `==`: Snell's law carries `angle` and `angle2`, and
-        # an angle that skipped this branch would reach `_to_si` and convert
+        # an angle that skipped this branch would reach `to_si` and convert
         # only because Pint's `degree` happens to base-convert to radians.
         # Anything not in radians is degrees: "30 degree" (singular) was kept as
         # 30 rad, and Snell's law then refused a negative refraction angle.
         if key.startswith("angle"):
             out[key] = val if unit.lower().startswith("rad") else math.radians(val)
         else:
-            out[key] = _to_si(val, unit, expected_key=key)
+            out[key] = to_si(val, unit, expected_key=key)
     return out

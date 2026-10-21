@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import DECIMAL, DEGREE_WORD
+from app.modules.physics.extractors.unit_patterns import DECIMAL, DEGREE_WORD
 
 INCLINE_ANGLE_RE = re.compile(rf"({DECIMAL})\s*{DEGREE_WORD}(?![A-Za-z0-9])", re.IGNORECASE)
 

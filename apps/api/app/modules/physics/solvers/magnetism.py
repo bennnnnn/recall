@@ -10,13 +10,10 @@ from collections.abc import Callable
 from app.modules.physics.constants import COULOMB_K, MU_0
 from app.modules.physics.display import latex_given
 from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    latex_num,
-    params_in_si,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.field_scenes import charges_scene
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 

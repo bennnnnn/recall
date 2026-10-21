@@ -5,16 +5,12 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
-from app.modules.physics.extractors.common import (
-    LENGTH_UNIT_PATTERN,
-    MASS_UNITS,
-    NUMBER,
-    _positioned_values,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
+from app.modules.physics.extractors.stated_values import positioned_values
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, MASS_UNITS, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -136,8 +132,8 @@ def _extract_torque_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
 
-    placed_masses = _positioned_values(cleaned, MASS_UNITS)
-    placed_distances = _positioned_values(cleaned, LENGTH_UNIT_PATTERN)
+    placed_masses = positioned_values(cleaned, MASS_UNITS)
+    placed_distances = positioned_values(cleaned, LENGTH_UNIT_PATTERN)
     balancing = "balance" in lower or "see-saw" in lower or "seesaw" in lower
     if balancing and len(placed_masses) >= 2 and placed_distances:
         d_pos, d_val, d_unit = placed_distances[0]
@@ -159,8 +155,8 @@ def _extract_torque_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
 
-    placed_forces = _positioned_values(cleaned, r"N")
-    placed_distances = _positioned_values(cleaned, LENGTH_UNIT_PATTERN)
+    placed_forces = positioned_values(cleaned, r"N")
+    placed_distances = positioned_values(cleaned, LENGTH_UNIT_PATTERN)
     if not placed_forces or not placed_distances:
         return None
 

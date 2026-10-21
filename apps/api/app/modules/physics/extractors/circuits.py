@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.circuit_patterns import (
     _CHARGE_FLOW_RE,
     _CIRCUIT_CUE_RES,
@@ -21,19 +22,20 @@ from app.modules.physics.extractors.circuit_patterns import (
     _resistor_values,
     counted_resistors,
 )
-from app.modules.physics.extractors.common import (
-    _OHM_PATTERN,
-    AMP_PATTERN,
-    LENGTH_UNIT_PATTERN,
-    find_value_with_specific_unit,
-    ordered_values,
-    strip_param_assignments,
-)
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )
 from app.modules.physics.extractors.fluid_readings import AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_circuit
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    ordered_values,
+)
+from app.modules.physics.extractors.unit_patterns import (
+    AMP_PATTERN,
+    LENGTH_UNIT_PATTERN,
+    OHM_PATTERN,
+)
 from app.modules.physics.givens import scan_givens
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
@@ -80,7 +82,7 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
 
     volts = ordered_values(cleaned, _VOLT_PATTERN)
     amps = ordered_values(cleaned, AMP_PATTERN)
-    ohms = ordered_values(cleaned, _OHM_PATTERN)
+    ohms = ordered_values(cleaned, OHM_PATTERN)
     farads = ordered_values(cleaned, _FARAD_PATTERN)
 
     # --- parallel-plate capacitance: C = epsilon_0 A / d ----------------
@@ -193,7 +195,7 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
     # kind of guess a verified block must not make.
     if "internal resistance" in lower and _TERMINAL_ASK_RE.search(cleaned):
         r_internal = find_value_with_specific_unit(
-            cleaned, _OHM_PATTERN, ("internal",), require_keyword=True
+            cleaned, OHM_PATTERN, ("internal",), require_keyword=True
         )
         if r_internal is None or not volts or not amps:
             return None

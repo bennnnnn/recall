@@ -6,14 +6,10 @@ import math
 
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationVector
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    gravity_of,
-    latex_num,
-    params_in_si,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.force_scenes import _free_body_scene
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import gravity_of, params_in_si
 from app.services.solving import SolveServiceError
 
 

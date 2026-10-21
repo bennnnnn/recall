@@ -4,13 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    LENGTH_UNIT_PATTERN,
-    NUMBER,
-    VELOCITY_UNIT_PATTERN,
-    find_value_with_specific_unit,
-    labeled_value,
-)
 from app.modules.physics.extractors.rotational_readings import (
     _INERTIA_PATTERN,
     _OMEGA_UNIT,
@@ -21,6 +14,15 @@ from app.modules.physics.extractors.rotational_readings import (
     _mass_not_inertia,
     _time,
     _torque_value,
+)
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    labeled_value,
+)
+from app.modules.physics.extractors.unit_patterns import (
+    LENGTH_UNIT_PATTERN,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
 )
 from app.modules.physics.schemas import PhysicsIntent
 

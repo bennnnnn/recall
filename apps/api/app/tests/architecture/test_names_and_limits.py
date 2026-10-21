@@ -26,7 +26,7 @@ from app.services.prompt_safety import custom_instructions_block
 from .boundary_support import APP_ROOT
 
 # Imports of another file's ``_private`` names; lower it when a change removes some.
-_PRIVATE_IMPORTS = 769
+_PRIVATE_IMPORTS = 748
 
 
 def _production() -> list[tuple[str, ast.Module]]:
@@ -48,6 +48,17 @@ def test_imports_of_private_names_only_go_down() -> None:
     )
     assert count <= _PRIVATE_IMPORTS, "another file's _name: drop the underscore, it is shared"
     assert count == _PRIVATE_IMPORTS, f"fewer now: set _PRIVATE_IMPORTS = {count}"
+
+
+def test_no_module_is_named_for_being_shared() -> None:
+    """Physics kept two ``common.py`` files of unrelated helpers: patterns, value readers,
+    gravity, result types, SI conversion. Each part now lives in a file named for it."""
+    drawers = sorted(
+        str(path.relative_to(APP_ROOT))
+        for path in (APP_ROOT / "modules").rglob("*.py")
+        if path.stem in {"common", "utils", "helpers", "misc"}
+    )
+    assert drawers == [], "name the file for what it holds"
 
 
 def test_the_google_error_belongs_to_the_google_gateway() -> None:

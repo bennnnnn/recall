@@ -4,11 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _OHM_PATTERN,
-    AMP_PATTERN,
-    ordered_values,
-)
 from app.modules.physics.extractors.school_common import (
     _HENRY,
     _SECOND,
@@ -18,6 +13,8 @@ from app.modules.physics.extractors.school_common import (
     _one,
     _sum_directed,
 )
+from app.modules.physics.extractors.stated_values import ordered_values
+from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, OHM_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 
 
@@ -42,7 +39,7 @@ def extract_loop(text: str, lower: str) -> PhysicsIntent | None:
     if "loop" not in lower:
         return None
     volts = ordered_values(text, r"V|volts?")
-    resistors = [value for value, _unit in ordered_values(text, _OHM_PATTERN)]
+    resistors = [value for value, _unit in ordered_values(text, OHM_PATTERN)]
     if len(volts) != 1 or not 2 <= len(resistors) <= 4:
         return None
     params = {"V": volts[0][0]}
@@ -92,7 +89,7 @@ def extract_rl(text: str, lower: str) -> PhysicsIntent | None:
     if re.search(r"\brl\b", lower) is None and "inductor" not in lower:
         return None
     inductance = _one(text, _HENRY)
-    resistance = _one(text, _OHM_PATTERN)
+    resistance = _one(text, OHM_PATTERN)
     if inductance is None or resistance is None:
         return None
     henry = _henry_unit(inductance[1] or "H")

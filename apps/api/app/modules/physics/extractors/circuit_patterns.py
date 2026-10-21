@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _OHM_PATTERN,
-    AMP_PATTERN,
-    ordered_values,
-)
+from app.modules.physics.extractors.stated_values import ordered_values
+from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, OHM_PATTERN
 from app.services.number_text import count_word_pattern, number_word_value
 
 _CIRCUIT_CUES = (
@@ -143,7 +140,7 @@ def _resistor_values(text: str) -> list[float]:
     counted = counted_resistors(text)
     if counted is not None:
         count, value = counted
-        others = ordered_values(text, _OHM_PATTERN)
+        others = ordered_values(text, OHM_PATTERN)
         if len(others) != 1:
             # Other resistors beside the counted ones: a network this does not read.
             return []
@@ -151,4 +148,4 @@ def _resistor_values(text: str) -> list[float]:
     listed = _RESISTOR_LIST_RE.search(text)
     if listed is not None:
         return [float(n) for n in re.findall(r"\d+(?:\.\d+)?", listed.group(1))]
-    return [value for value, _ in ordered_values(text, _OHM_PATTERN)]
+    return [value for value, _ in ordered_values(text, OHM_PATTERN)]

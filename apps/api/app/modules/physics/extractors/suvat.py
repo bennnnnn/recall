@@ -7,16 +7,18 @@ from collections.abc import Sequence
 
 from app.modules.physics.ask import ask_clause, asked_phrases
 from app.modules.physics.catalog.suvat import TWO_BODIES
-from app.modules.physics.extractors.common import (
+from app.modules.physics.extractors.assignments import strip_param_assignments
+from app.modules.physics.extractors.cues import (
+    has_cue,
+)
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    ordered_values,
+)
+from app.modules.physics.extractors.unit_patterns import (
     LENGTH_UNIT_PATTERN,
     NUMBER,
     VELOCITY_UNIT_PATTERN,
-    find_value_with_specific_unit,
-    ordered_values,
-    strip_param_assignments,
-)
-from app.modules.physics.extractors.cues import (
-    has_cue,
 )
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.words import word_pattern

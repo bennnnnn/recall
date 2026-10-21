@@ -4,11 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    MASS_UNITS,
-    detect_gravity,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
@@ -22,6 +18,8 @@ from app.modules.physics.extractors.fluid_readings import (
     read_fluid,
 )
 from app.modules.physics.extractors.school_extensions import blocks_fluids
+from app.modules.physics.extractors.surface_gravity import detect_gravity
+from app.modules.physics.extractors.unit_patterns import MASS_UNITS
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 

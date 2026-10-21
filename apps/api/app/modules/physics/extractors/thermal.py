@@ -4,17 +4,12 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    DEGREE_WORD,
-    MASS_UNITS,
-    NUMBER,
-    find_value_with_specific_unit,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
 from app.modules.physics.extractors.school_extensions import blocks_thermal
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.extractors.thermal_laws import NAMED_THERMAL_LAWS
 from app.modules.physics.extractors.thermal_readings import (
     _CELSIUS_PATTERN,
@@ -25,6 +20,7 @@ from app.modules.physics.extractors.thermal_readings import (
     _temperature_change,
     _temperature_value,
 )
+from app.modules.physics.extractors.unit_patterns import DEGREE_WORD, MASS_UNITS, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 

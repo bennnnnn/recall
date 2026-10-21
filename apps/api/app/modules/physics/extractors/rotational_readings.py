@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    NUMBER,
+from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
     labeled_value,
 )
+from app.modules.physics.extractors.unit_patterns import NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 
 _INERTIA_PATTERN = r"kg\s*m\^?2|kg\s*\*\s*m\^?2|kilogram\s+met(?:er|re)\s+squared"

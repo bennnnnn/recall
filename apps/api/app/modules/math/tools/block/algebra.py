@@ -35,11 +35,11 @@ from app.modules.math.solve.traces import (
     inequality_trace,
     system_trace,
 )
-from app.modules.math.tools.block.canonical import _diagram_block, finish_with_answer
-from app.modules.math.tools.block.common import (
+from app.modules.math.tools.block.answer_text import (
     _format_equation_answer,
     _format_system_answer,
 )
+from app.modules.math.tools.block.canonical import _diagram_block, finish_with_answer
 from app.services.solving import VerifiedMathBlock
 
 

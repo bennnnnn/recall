@@ -7,11 +7,11 @@ import re
 
 from app.modules.physics.constants import ELECTRON_MASS
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
-from app.modules.physics.extractors.common import (
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.unit_patterns import (
     LENGTH_UNIT_PATTERN,
     MASS_UNITS,
     VELOCITY_UNIT_PATTERN,
-    find_value_with_specific_unit,
 )
 from app.modules.physics.extractors.waves import _HERTZ_PATTERN
 from app.modules.physics.schemas import PhysicsIntent

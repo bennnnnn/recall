@@ -5,16 +5,15 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.bodies import named_body
-from app.modules.physics.extractors.common import (
-    LENGTH_UNIT_PATTERN,
-    NUMBER,
-    find_value_with_specific_unit,
-    ordered_values,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    ordered_values,
+)
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -93,7 +92,7 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
             return None
         # An orbit is measured from the centre, so an altitude adds to the
         # radius - but the two are rarely in the same unit ("400 km above the
-        # earth"), so they are passed separately and added after `_to_si`
+        # earth"), so they are passed separately and added after `to_si`
         # rather than summed here in whatever units they arrived in.
         params: dict[str, float] = {"M": planet_mass, "radius_body": planet_radius}
         units: dict[str, str] = {"M": "kg", "radius_body": "m"}

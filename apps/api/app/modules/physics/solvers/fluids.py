@@ -9,13 +9,9 @@ from collections.abc import Callable
 
 from app.modules.physics.display import GIVEN_FIGURES, latex_given, latex_number, plain_number
 from app.modules.physics.schemas import PhysicsIntent, SimulationSolid, SimulationVector
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    gravity_of,
-    params_in_si,
-)
 from app.modules.physics.solvers.force_scenes import _free_body_scene
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import gravity_of, params_in_si
 from app.services.solving import SolveServiceError
 
 

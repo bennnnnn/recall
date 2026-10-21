@@ -30,8 +30,8 @@ from app.modules.math.schemas import (
     TriangleSidesGeometryBlockSpec,
     TriangleSidesInput,
 )
+from app.modules.math.tools.block.answer_text import format_quantity
 from app.modules.math.tools.block.canonical import _diagram_block, finish_with_answer
-from app.modules.math.tools.block.common import format_quantity
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import Workout, math_line, render_workout
 

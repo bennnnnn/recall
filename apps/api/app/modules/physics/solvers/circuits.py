@@ -7,14 +7,11 @@ from dataclasses import replace
 
 from app.modules.physics.constants import EPSILON_0
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.circuit_scenes import circuit_scene
-from app.modules.physics.solvers.common import (
-    _RESISTOR_KEY_RE,
-    PhysicsResult,
-    QuantityResult,
-    latex_num,
-    params_in_si,
-)
+from app.modules.physics.solvers.resistor_network import RESISTOR_KEY_RE
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 
@@ -83,7 +80,7 @@ def _combined_resistance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsR
     op = intent.physics_op or "current"
     # Every R the extractor found, not the first two. Reading three and
     # using two is how "2, 3 and 5 ohms in series" answered 5 ohms.
-    resistances = [p[key] for key in sorted(p) if _RESISTOR_KEY_RE.fullmatch(key)]
+    resistances = [p[key] for key in sorted(p) if RESISTOR_KEY_RE.fullmatch(key)]
     if len(resistances) < 2:
         raise SolveServiceError("a resistor network needs at least two resistances")
     if any(r <= 0 for r in resistances):

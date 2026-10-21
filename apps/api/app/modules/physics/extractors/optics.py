@@ -10,14 +10,12 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
-from app.modules.physics.extractors.common import (
-    NUMBER,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
 from app.modules.physics.extractors.optics_laws import NAMED_OPTICS_LAWS, image_distance
+from app.modules.physics.extractors.unit_patterns import NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.ask import ASK_VERBS
 from app.services.text_match import has_equation

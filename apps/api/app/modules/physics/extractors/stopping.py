@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import NUMBER, VELOCITY_UNIT_PATTERN
 from app.modules.physics.extractors.suvat import _SUVAT_TIME_UNITS
+from app.modules.physics.extractors.unit_patterns import NUMBER, VELOCITY_UNIT_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.unit_text import TIME_UNITS
 

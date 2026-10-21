@@ -8,7 +8,7 @@ from app.core.config import Settings
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.bodies import names_only_water
 from app.modules.physics.direct import maybe_direct_physics_reply
-from app.modules.physics.solvers.common import _to_si
+from app.modules.physics.solvers.si import to_si
 
 _SETTINGS = Settings(math_tools_enabled=True)
 
@@ -214,7 +214,7 @@ def test_a_question_the_catalog_cannot_read_exactly_declines(text: str) -> None:
     ],
 )
 def test_to_si_reads_differences_counts_and_c(value: float, unit: str, key: str, si: float) -> None:
-    assert _to_si(value, unit, expected_key=key) == pytest.approx(si)
+    assert to_si(value, unit, expected_key=key) == pytest.approx(si)
 
 
 @pytest.mark.parametrize(

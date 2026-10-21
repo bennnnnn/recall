@@ -11,18 +11,10 @@ from collections.abc import Callable, Collection
 from dataclasses import dataclass
 
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.arithmetic import latex_num, quadratic_roots
 from app.modules.physics.solvers.average_speed import (
     _AVERAGE_SPEED_OPERATIONS,
     solve_average_speed,
-)
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    gravity_of,
-    latex_num,
-    params_in_si,
-    quadratic_roots,
-    solved,
 )
 from app.modules.physics.solvers.motion_scenes import fall_scenes, fall_speed_pictures
 from app.modules.physics.solvers.rates import _RATE_OPERATIONS, _solve_distance_speed_time
@@ -30,6 +22,8 @@ from app.modules.physics.solvers.relative_motion import (
     RELATIVE_MOTION_OPERATIONS,
     solve_relative_motion,
 )
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult, solved
+from app.modules.physics.solvers.si import gravity_of, params_in_si
 from app.modules.physics.solvers.stopping import _solve_stopping_distance
 from app.modules.physics.solvers.two_stage import TWO_STAGE_OPERATIONS, solve_two_stage
 from app.services.solving import SolveServiceError

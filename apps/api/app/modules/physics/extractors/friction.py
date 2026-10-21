@@ -6,15 +6,13 @@ import re
 from typing import Literal
 
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
-from app.modules.physics.extractors.common import (
-    DEGREE_WORD,
-    detect_gravity,
-    find_value_with_specific_unit,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.surface_gravity import detect_gravity
+from app.modules.physics.extractors.unit_patterns import DEGREE_WORD
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 

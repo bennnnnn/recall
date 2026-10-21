@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import math
 
-from app.modules.physics.solvers.common import _RESISTOR_KEY_RE, PhysicsResult, QuantityResult
+from app.modules.physics.solvers.resistor_network import RESISTOR_KEY_RE
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
 from app.modules.physics.solvers.school_common import positive, result
 from app.services.solving import SolveServiceError
 
@@ -41,7 +42,7 @@ def _junction(params: dict[str, float]) -> PhysicsResult:
 
 
 def _loop(params: dict[str, float]) -> PhysicsResult:
-    resistors = [params[key] for key in sorted(params) if _RESISTOR_KEY_RE.fullmatch(key)]
+    resistors = [params[key] for key in sorted(params) if RESISTOR_KEY_RE.fullmatch(key)]
     if not resistors or any(value <= 0 for value in resistors):
         raise SolveServiceError("a loop needs positive resistances")
     total = sum(resistors)

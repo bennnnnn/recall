@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    AMP_PATTERN,
-    NUMBER,
-    _keyword_spans,
+from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
+    keyword_spans,
 )
+from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 
 _HENRY = r"mH|millihenrys?|millihenries|H|henrys?|henries"
@@ -99,7 +98,7 @@ def _kelvin(text: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
     ``300 K and a cold reservoir at 250 K`` sits closer to the word ``cold``
     than ``250 K`` does, so a nearest-either-side search would swap the reservoirs.
     """
-    for _start, end in _keyword_spans(text, keywords):
+    for _start, end in keyword_spans(text, keywords):
         window = text[end : end + 48]
         found = re.search(
             rf"({NUMBER})\s*(K|kelvins?)(?![A-Za-z0-9/^])",

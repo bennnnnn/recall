@@ -5,13 +5,10 @@ momentum. Constant-alpha, rolling and parallel-axis operations go to rotational_
 from __future__ import annotations
 
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    latex_num,
-    params_in_si,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
 from app.modules.physics.solvers.rotational_dynamics import solve_rotational_dynamics
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 

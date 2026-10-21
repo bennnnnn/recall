@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import DECIMAL, NUMBER, detect_gravity
+from app.modules.physics.extractors.surface_gravity import detect_gravity
+from app.modules.physics.extractors.unit_patterns import DECIMAL, NUMBER
 
 _H0_KEYWORDS = (
     "from",

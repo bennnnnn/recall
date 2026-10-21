@@ -22,10 +22,10 @@ import re
 from dataclasses import dataclass
 from itertools import combinations, product
 
-from app.modules.physics.extractors.common import NUMBER
+from app.modules.physics.extractors.unit_patterns import NUMBER
 from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
+from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS, to_si
 from app.services.number_text import count_word_pattern, number_word_value
 from app.services.solving import SolveServiceError
 
@@ -77,7 +77,7 @@ def _same(left: float, right: float) -> bool:
 
 
 def _param_dimension(key: str) -> str | None:
-    expression = _PARAM_SI_DIMENSIONS.get(key)
+    expression = PARAM_SI_DIMENSIONS.get(key)
     if expression is None:
         return None
     if key.startswith("angle") or expression in {"radian", "degree"}:
@@ -106,7 +106,7 @@ def _in_si(value: float, dimension: str, key: str, unit: str) -> float | None:
     if dimension == ANGLE:
         return value if unit.lower().startswith("rad") else math.radians(value)
     try:
-        return _to_si(value, unit, expected_key=key)
+        return to_si(value, unit, expected_key=key)
     except SolveServiceError:
         return None
 

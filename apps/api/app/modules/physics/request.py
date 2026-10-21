@@ -12,15 +12,14 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from app.modules.physics.extractors.common import (
+from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE, _TWO_DIMENSIONAL_RE
+from app.modules.physics.extractors.surface_gravity import detect_gravity, stated_gravity
+from app.modules.physics.extractors.unit_patterns import (
     LENGTH_UNIT_PATTERN,
     MASS_UNITS,
     NUMBER,
     VELOCITY_UNIT_PATTERN,
-    detect_gravity,
-    stated_gravity,
 )
-from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE, _TWO_DIMENSIONAL_RE
 from app.modules.physics.numbers import normalize_physics_numbers, normalize_physics_units
 from app.modules.physics.registry import has_supported_physics_cue
 from app.modules.physics.schemas import PhysicsIntent

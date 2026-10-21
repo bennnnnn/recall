@@ -4,10 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _OHM_PATTERN,
-    AMP_PATTERN,
-)
 from app.modules.physics.extractors.school_common import (
     _FARAD,
     _HENRY,
@@ -17,6 +13,7 @@ from app.modules.physics.extractors.school_common import (
     _intent,
     _one,
 )
+from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, OHM_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 
 _PEAK_ASK_RE = re.compile(
@@ -61,7 +58,7 @@ def extract_ac(text: str, lower: str) -> PhysicsIntent | None:
     frequency = _one(text, _HERTZ)
     inductance = _one(text, _HENRY)
     capacitance = _one(text, _FARAD)
-    resistance = _one(text, _OHM_PATTERN, ("resistance", "resistor"))
+    resistance = _one(text, OHM_PATTERN, ("resistance", "resistor"))
     if any(word in lower for word in ("resonant", "resonance")) and inductance and capacitance:
         if "string" in lower or "pipe" in lower:
             return None
@@ -75,12 +72,12 @@ def extract_ac(text: str, lower: str) -> PhysicsIntent | None:
             },
         )
     inductive = re.search(
-        rf"inductive reactance(?:\s+of)?\s+({NUMBER})\s*({_OHM_PATTERN})",
+        rf"inductive reactance(?:\s+of)?\s+({NUMBER})\s*({OHM_PATTERN})",
         text,
         re.IGNORECASE,
     )
     capacitive = re.search(
-        rf"capacitive reactance(?:\s+of)?\s+({NUMBER})\s*({_OHM_PATTERN})",
+        rf"capacitive reactance(?:\s+of)?\s+({NUMBER})\s*({OHM_PATTERN})",
         text,
         re.IGNORECASE,
     )

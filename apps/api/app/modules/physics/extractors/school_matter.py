@@ -4,11 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    LENGTH_UNIT_PATTERN,
-    NUMBER,
-    ordered_values,
-)
 from app.modules.physics.extractors.school_common import (
     _PRESSURE,
     _VOLUME,
@@ -16,7 +11,9 @@ from app.modules.physics.extractors.school_common import (
     _kelvin,
     _one,
 )
+from app.modules.physics.extractors.stated_values import ordered_values
 from app.modules.physics.extractors.thermal_readings import _reservoir_temperatures
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 
 

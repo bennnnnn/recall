@@ -8,13 +8,10 @@ from app.modules.physics.bodies import body_name
 from app.modules.physics.constants import BIG_G
 from app.modules.physics.display import plain_number
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.circular import _orbit_scene
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    latex_num,
-    params_in_si,
-)
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 

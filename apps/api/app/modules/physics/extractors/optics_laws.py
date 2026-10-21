@@ -8,13 +8,13 @@ import re
 from collections.abc import Callable
 
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
-from app.modules.physics.extractors.common import (
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.unit_patterns import (
     DECIMAL,
     DEGREE_WORD,
     LENGTH_UNIT_PATTERN,
     NUMBER,
     VELOCITY_UNIT_PATTERN,
-    find_value_with_specific_unit,
 )
 from app.modules.physics.schemas import PhysicsIntent
 

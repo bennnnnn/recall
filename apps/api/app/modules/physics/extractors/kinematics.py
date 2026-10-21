@@ -6,15 +6,7 @@ import re
 from typing import Literal
 
 from app.modules.physics.ask import asked_phrases
-from app.modules.physics.extractors.common import (
-    _T_ASSIGN_RE,
-    LENGTH_UNIT_PATTERN,
-    VELOCITY_UNIT_PATTERN,
-    _find_value_after_keyword,
-    detect_gravity,
-    find_value_with_specific_unit,
-    strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import T_ASSIGN_RE, strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
@@ -34,6 +26,12 @@ from app.modules.physics.extractors.kinematics_asks import (
     _velocity_is_downward,
 )
 from app.modules.physics.extractors.projectile import _PROJECTILE_CUE_RES
+from app.modules.physics.extractors.stated_values import (
+    find_value_after_keyword,
+    find_value_with_specific_unit,
+)
+from app.modules.physics.extractors.surface_gravity import detect_gravity
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, VELOCITY_UNIT_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -169,7 +167,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # not the problem to solve.
     stripped = strip_param_assignments(cleaned)
     if asks_speed or asks_velocity or asks_position:
-        stripped = _T_ASSIGN_RE.sub("", stripped)
+        stripped = T_ASSIGN_RE.sub("", stripped)
     if has_equation(stripped):
         return None
 
@@ -197,7 +195,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         ("velocity of", "speed of", "velocity", "speed", "initial velocity"),
     )
     if vu is None:
-        vu = _find_value_after_keyword(
+        vu = find_value_after_keyword(
             cleaned,
             ("velocity of", "speed of", "initial velocity", "velocity", "speed"),
         )

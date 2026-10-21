@@ -15,13 +15,9 @@ import math
 
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    latex_num,
-    params_in_si,
-    quadratic_roots,
-)
+from app.modules.physics.solvers.arithmetic import latex_num, quadratic_roots
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 

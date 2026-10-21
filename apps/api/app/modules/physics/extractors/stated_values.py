@@ -1,41 +1,13 @@
-"""Shared lexical, cue, numeric, and unit extraction helpers."""
+"""Reading a stated value and its unit from the question: by keyword, by label, in order."""
 
 from __future__ import annotations
 
-import logging
 import re
 from bisect import bisect_left, bisect_right
 
-from app.modules.physics.bodies import SCHOOL_GRAVITY
-from app.services.number_text import TEXT_DECIMAL, TEXT_NUMBER
-from app.services.text_match import word_index
+from app.modules.physics.extractors.unit_patterns import NUMBER
 
-logger = logging.getLogger(__name__)
-
-# The extractors' short names for the shared running-text number, and the same
-# number without an exponent, as an angle or a reading is written.
-NUMBER = TEXT_NUMBER
-DECIMAL = TEXT_DECIMAL
-# The unit after an angle in degrees.
-DEGREE_WORD = r"(?:degrees?|deg|\u00b0)"
-
-LENGTH_UNIT_PATTERN = (
-    r"kilometers?|km|centimeters?|cm|millimeters?|mm|"
-    r"nanometers?|nm|micrometers?|micrometres?|um|µm|"
-    r"miles?|mi|meters?|metres?|m|feet|ft|yards?|yd|inches?|in"
-)
-
-VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour"
-
-AMP_PATTERN = r"A|amps?|amperes?"
-
-_OHM_PATTERN = r"ohms?|\u03a9"
-
-_TESLA_PATTERN = r"T|tesla|teslas|mT|millitesla"
-
-_G_DEFAULT = SCHOOL_GRAVITY["earth"]
-
-_VALUE_UNIT_RE = re.compile(
+VALUE_UNIT_RE = re.compile(
     rf"({NUMBER})\s*"
     r"(m/s\^?2|m/s2|m/s|m\^?2/s\^?2|km/h|mph|miles\s+per\s+hour|cm/s|mm/s|"
     r"kilometers?|centimeters?|millimeters?|"
@@ -51,7 +23,7 @@ _VALUE_UNIT_RE = re.compile(
 )
 
 
-def _find_value_with_unit(text: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
+def find_value_with_unit(text: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
     """Find the first number near a keyword (e.g. "height of 20m", "20m high").
 
     Returns (value, unit) where unit is "" if no unit was found. The unit is
@@ -66,13 +38,13 @@ def _find_value_with_unit(text: str, keywords: tuple[str, ...]) -> tuple[float, 
         # "height of 20m", "velocity 15 m/s"). Also search a small window
         # *before* the keyword ("20m high", "15 m/s initial velocity").
         after = text[idx + len(kw) : idx + len(kw) + 40]
-        m = _VALUE_UNIT_RE.match(after.strip())
+        m = VALUE_UNIT_RE.match(after.strip())
         if m:
             val = float(m.group(1))
             unit = (m.group(2) or "").strip()
             return val, unit
         before = text[max(0, idx - 40) : idx]
-        m = _VALUE_UNIT_RE.search(before)
+        m = VALUE_UNIT_RE.search(before)
         if m:
             val = float(m.group(1))
             unit = (m.group(2) or "").strip()
@@ -80,7 +52,7 @@ def _find_value_with_unit(text: str, keywords: tuple[str, ...]) -> tuple[float, 
     return None
 
 
-def _find_value_after_keyword(text: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
+def find_value_after_keyword(text: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
     """Number immediately after a keyword — never the window before it.
 
     ``What`` / a preceding height must not bind as v0.
@@ -91,13 +63,13 @@ def _find_value_after_keyword(text: str, keywords: tuple[str, ...]) -> tuple[flo
         if idx == -1:
             continue
         after = text[idx + len(kw) : idx + len(kw) + 40]
-        m = _VALUE_UNIT_RE.match(after.strip())
+        m = VALUE_UNIT_RE.match(after.strip())
         if m:
             return float(m.group(1)), (m.group(2) or "").strip()
     return None
 
 
-def _keyword_spans(
+def keyword_spans(
     text: str, keywords: tuple[str, ...], *, whole_words: bool = True
 ) -> list[tuple[int, int]]:
     """Where each keyword appears, as a whole word or anywhere in a word."""
@@ -131,7 +103,7 @@ _LABEL_GAP = re.compile(
 def _value_the_keyword_names(
     text: str,
     matches: list[re.Match[str]],
-    keyword_spans: list[tuple[int, int]],
+    spans: list[tuple[int, int]],
 ) -> re.Match[str] | None:
     """The value a keyword introduces, when only a label sits between them.
 
@@ -142,7 +114,7 @@ def _value_the_keyword_names(
     named: list[tuple[int, int, re.Match[str]]] = []
     for candidate in matches:
         gap: int | None = None
-        for _start, end in keyword_spans:
+        for _start, end in spans:
             if end > candidate.start():
                 continue
             if any(
@@ -197,12 +169,12 @@ def find_value_with_specific_unit(
 
     match = matches[0]
     if keywords:
-        keyword_spans = _keyword_spans(text, keywords, whole_words=whole_words)
-        if require_keyword and not keyword_spans:
+        spans = keyword_spans(text, keywords, whole_words=whole_words)
+        if require_keyword and not spans:
             return None
-        if keyword_spans:
-            starts = sorted(start for start, _ in keyword_spans)
-            ends = sorted(end for _, end in keyword_spans)
+        if spans:
+            starts = sorted(start for start, _ in spans)
+            ends = sorted(end for _, end in spans)
 
             def distance_to_keyword(candidate: re.Match[str]) -> int:
                 # Every span lies wholly after the value, wholly before it, or
@@ -220,7 +192,7 @@ def find_value_with_specific_unit(
                     distances.append(candidate.start() - ends[before - 1])
                 return min(distances)
 
-            named = _value_the_keyword_names(text, matches, keyword_spans)
+            named = _value_the_keyword_names(text, matches, spans)
             match = named if named is not None else min(matches, key=distance_to_keyword)
         elif require_keyword:
             return None
@@ -240,68 +212,6 @@ def labeled_value(text: str, label: str, unit: str) -> tuple[float, str] | None:
     return float(match.group(1)), match.group(2)
 
 
-def stated_gravity(text: str) -> float | None:
-    """A gravity value the user wrote: "g = 1.6", "gravity = 1.62", "g = 1.6 m/s^2"."""
-    lower = text.lower()
-    m = re.search(r"\bg\s*=\s*(-?\d+(?:\.\d+)?)", lower)
-    if m:
-        return float(m.group(1))
-    m = re.search(r"\bgravity\s*(?:of|is|=)?\s*(-?\d+(?:\.\d+)?)", lower)
-    if m:
-        return float(m.group(1))
-    return None
-
-
-def detect_gravity(text: str) -> float:
-    """If the user named a gravity value, use it; else the named body's, else 9.81 m/s^2."""
-    stated = stated_gravity(text)
-    if stated is not None:
-        return stated
-    lower = text.lower()
-    for body in ("moon", "mars"):
-        if word_index(lower, body) != -1:
-            return SCHOOL_GRAVITY[body]
-    return _G_DEFAULT
-
-
-_PARAM_ASSIGN_RE = re.compile(
-    r"\b(?:gravity|theta|angle|h_?0|v_?0|omega|mu|rho|delta|"
-    r"[mqxv]_?[12]|[hFmgMRIcRx])\s*=\s*(?=-?\d)",
-    re.IGNORECASE,
-)
-
-_T_ASSIGN_RE = re.compile(r"\bt\s*=\s*(?=-?\d)", re.IGNORECASE)
-
-# A given named in words: "(specific heat capacity = 4200 J/kg C)",
-# "refractive index = 1.5", "mass of the Earth = 6 x 10^24 kg". Read as
-# algebra, the question was handed to the model.
-_NAMED_GIVEN_RE = re.compile(
-    r"\b(?:[a-z]+\s+){0,3}(?:capacity|heat|constant|density|index|mass|speed|velocity|"
-    r"acceleration|force|charge|resistance|current|voltage|frequency|wavelength|energy|"
-    r"power|pressure|volume|temperature|length|radius|height|distance|period|coefficient|"
-    r"tension|weight|momentum|area|capacitance|inductance|emf)"
-    r"(?:\s+of\s+(?:the\s+)?[a-z]+)?\s*=\s*(?=-?\d)",
-    re.IGNORECASE,
-)
-
-_NAMED_FORMULA_RE = re.compile(
-    r"\b(?:using|from|with)\s+E\s*=\s*m\s*c(?:\^?2|²)\b",
-    re.IGNORECASE,
-)
-
-
-def strip_param_assignments(text: str) -> str:
-    """Remove textbook labels such as ``h0 =``, ``m1 =``, ``x_2 =`` and
-    ``g =`` so has_equation does not mistake a list of givens for algebra.
-    The number and unit stay for the quantity scanners.
-
-    Do not strip ``t`` / ``v`` / ``a`` / ``d`` — those are often the unknown
-    (``find v when t = 1 s``) and stripping them silently solves the wrong op.
-    """
-    text = _NAMED_GIVEN_RE.sub("", _NAMED_FORMULA_RE.sub("", text))
-    return _PARAM_ASSIGN_RE.sub("", text)
-
-
 def ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
     """Every number carrying one of these units, left to right.
 
@@ -319,7 +229,7 @@ def ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
     ]
 
 
-def _positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, str]]:
+def positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, str]]:
     """Like ``ordered_values`` but keeps each match's offset.
 
     Torque balance needs to know *which* force a distance belongs to, which
@@ -333,6 +243,3 @@ def _positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, s
             re.IGNORECASE,
         )
     ]
-
-
-MASS_UNITS = r"kg|mg|g|lb|lbs|oz"
