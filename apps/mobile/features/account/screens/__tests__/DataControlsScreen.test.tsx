@@ -58,7 +58,7 @@ jest.mock("@/ui/overlay/dialogs", () => ({
   confirmDialog: (...args: unknown[]) => mockConfirm(...args),
   alertDialog: jest.fn(),
 }));
-jest.mock("@/lib/cache/chatListCache", () => ({ invalidateChatListCache: jest.fn() }));
+jest.mock("@/features/chat/model/chatListCache", () => ({ invalidateChatListCache: jest.fn() }));
 jest.mock("@/lib/reportRecoverableError", () => ({
   reportRecoverableError: (...args: unknown[]) => mockReportError(...args),
 }));

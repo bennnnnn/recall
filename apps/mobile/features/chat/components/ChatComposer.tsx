@@ -44,7 +44,7 @@ import { ComposerAttachmentPreview } from "@/features/attachments/components/Com
 import {
   useComposerDraftApiOptional,
   useComposerDraftValueOptional,
-} from "@/contexts/ComposerDraftContext";
+} from "@/features/chat/context/ComposerDraftContext";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useComposerFieldLayout } from "@/features/chat/hooks/useComposerFieldLayout";
 import { useMathKeyboardInsert } from "@/features/chat/hooks/useMathKeyboardInsert";

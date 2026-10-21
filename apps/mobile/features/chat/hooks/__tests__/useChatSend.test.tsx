@@ -37,7 +37,7 @@ const mockAdoptComposerThread = jest.fn();
 const mockStashFailedDraftForThread = jest.fn();
 let mockThreadKey = "new";
 const mockResetForNewSession = jest.fn();
-jest.mock("@/contexts/ComposerDraftContext", () => ({
+jest.mock("@/features/chat/context/ComposerDraftContext", () => ({
   useComposerDraftApi: () => ({
     setInput: mockSetInput,
     inputRef,

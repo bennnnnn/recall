@@ -6,7 +6,7 @@
 import { Platform } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
-import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
+import { PushNotificationBootstrap } from "@/features/todos/components/PushNotificationBootstrap";
 import { handlePushNotificationResponse } from "@/lib/pushNotifications";
 
 const mockGetLastNotificationResponseAsync = jest.fn().mockResolvedValue(null);

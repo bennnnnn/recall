@@ -1,12 +1,12 @@
 import React from "react";
 import { fireEvent, render } from "@testing-library/react-native";
 import { DrawerSearchLoadMore, DrawerSearchResultRow, DrawerSearchResultsChrome } from "@/features/search/components/DrawerSearchResults";
-import { DrawerListHeader } from "@/components/drawer/DrawerListHeader";
+import { DrawerListHeader } from "@/features/chat/drawer/DrawerListHeader";
 import type { SearchResult } from "@/lib/api";
-import { DrawerChatFlashList, type DrawerChatListItem } from "@/components/drawer/DrawerChatFlashList";
+import { DrawerChatFlashList, type DrawerChatListItem } from "@/features/chat/drawer/DrawerChatFlashList";
 import { emptyChatList } from "@/features/chat/model/listSections";
 
-jest.mock("@/lib/drawer", () => ({ isChatTitleGenerating: () => false }));
+jest.mock("@/features/chat/drawer/drawer", () => ({ isChatTitleGenerating: () => false }));
 jest.mock("@shopify/flash-list", () => ({ FlashList: ({ data, renderItem }: {
   data: DrawerChatListItem[]; renderItem: (args: { item: DrawerChatListItem }) => React.ReactNode;
 }) => {
@@ -51,7 +51,7 @@ it("keeps snippets as literal text and exposes result navigation as a button", a
   const content = '<script>alert("hi")</script> **literal** [click](https://example.com)';
   const result: SearchResult = { chat_id: "chat", message_id: "message", chat_title: "A title",
     content, match_type: "message", role: "user", created_at: "2026-01-01" };
-  const view = await render(<DrawerSearchResultRow result={result} onOpenChat={open} />);
+  const view = await render(<DrawerSearchResultRow result={result} title="A title" onOpenChat={open} />);
   expect(view.getByText(content)).toBeTruthy();
   await fireEvent.press(view.getByRole("button"));
   expect(open).toHaveBeenCalledWith("chat", "message");

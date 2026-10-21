@@ -18,7 +18,7 @@ import {
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: jest.fn(() => 0) }));
 const inputRef = { current: "" };
-jest.mock("@/contexts/ComposerDraftContext", () => ({
+jest.mock("@/features/chat/context/ComposerDraftContext", () => ({
   useComposerDraftApi: () => ({
     setInput: jest.fn(),
     inputRef,

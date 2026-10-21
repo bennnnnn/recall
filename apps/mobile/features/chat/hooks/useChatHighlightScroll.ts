@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 
 import type { Message } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
-import { registerChatHighlightClearer } from "@/lib/drawer";
+import { registerChatHighlightClearer } from "@/features/chat/drawer/drawer";
 
 type Router = ReturnType<typeof useRouter>;
 type ViewOwner = { session: number; chatId: string | null };

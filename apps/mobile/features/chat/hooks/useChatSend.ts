@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 
-import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+import { useComposerDraftApi } from "@/features/chat/context/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 
 import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";

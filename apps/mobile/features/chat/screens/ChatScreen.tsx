@@ -3,7 +3,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { registerNewChat, setActiveChatIdGlobal } from "@/lib/drawer";
+import { registerNewChat, setActiveChatIdGlobal } from "@/features/chat/drawer/drawer";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -16,8 +16,8 @@ import { LiveTalkOverlay } from "@/features/speech/components/LiveTalkOverlay";
 import { makeChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import { COMPOSER_HEIGHT } from "@/features/chat/components/ChatComposer";
 import { composerAttachmentExtra } from "@/features/attachments/components/ComposerAttachmentPreview";
-import { DrawerShell } from "@/components/DrawerShell";
-import { ComposerDraftProvider, useComposerDraftActivity } from "@/contexts/ComposerDraftContext";
+import { DrawerShell } from "@/features/chat/drawer/DrawerShell";
+import { ComposerDraftProvider, useComposerDraftActivity } from "@/features/chat/context/ComposerDraftContext";
 import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
@@ -25,6 +25,7 @@ import { useDrawer } from "@/contexts/DrawerContext";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { useChatComposerState } from "@/features/chat/hooks/useChatComposerState";
+import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
 import { useComposerDictation } from "@/features/chat/hooks/useComposerDictation";
 import { useChatDraftWarmup } from "@/features/chat/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
@@ -42,7 +43,7 @@ import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
 import { useChatScreenBodyProps } from "@/features/chat/hooks/useChatScreenBodyProps";
 import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/features/chat/model/composerLogic";
-import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
+import { useChatImageGeneration } from "@/features/chat/hooks/useChatImageGeneration";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
@@ -198,15 +199,11 @@ function ChatScreen() {
     showActionBannerRef.current(t("chat.offline_body"), "cloud-off");
   }, [t]);
 
-  const imageGen = useImageGeneration({
+  const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
+  const imageGen = useChatImageGeneration({
     token,
-    chatId,
-    setChatId,
-    setChatTitle,
+    ensureChatId,
     setMessages,
-    draft,
-    router,
-    selectedModel,
     streaming: llmBusy,
     isPaid,
     isOffline,
@@ -297,15 +294,13 @@ function ChatScreen() {
     cancelVoiceInput,
   } = useComposerDictation({ token, user, routeChatId, setInput, openUpgradeRef, t });
 
+  // Live talk runs without a saved chat when none can be made, as it always has.
+  const ensureLiveTalkChatId = useCallback(() => ensureChatId().catch(() => null), [ensureChatId]);
   const liveTalk = useLiveTalk({
     token,
     chatId,
-    setChatId,
-    setChatTitle,
+    ensureChatId: ensureLiveTalkChatId,
     setMessages,
-    draft,
-    router,
-    selectedModel,
     isOffline,
     onUpgrade: () => openUpgradeRef.current?.("live_talk"),
     onScrollToLatest: scroll.scrollToLatest,

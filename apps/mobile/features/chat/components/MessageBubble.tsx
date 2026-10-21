@@ -4,8 +4,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SettingsProposalCard } from "@/components/SettingsProposalCard";
 import { ReminderProposalCard } from "@/features/todos/components/ReminderProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
-import { UserMessageContent } from "@/components/UserMessageContent";
-import { ChatMessageImageStrip } from "@/components/ChatMessageImageStrip";
+import { UserMessageContent } from "@/features/chat/components/UserMessageContent";
+import { ChatMessageImageStrip } from "@/features/attachments/components/ChatMessageImageStrip";
 import { ImageGenPlaceholder } from "@/features/images/components/ImageGenPlaceholder";
 import { ActionShimmer } from "@/ui/feedback/ActionShimmer";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
@@ -18,7 +18,7 @@ import {
   AssistantActions,
   MESSAGE_ACTION_ROW_HEIGHT,
   UserActions,
-} from "@/components/MessageActions";
+} from "@/features/chat/components/MessageActions";
 import { Message } from "@/lib/api";
 import { selection } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/features/chat/model/messageLogic";

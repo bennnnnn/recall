@@ -2,7 +2,7 @@ import React from "react";
 import * as Clipboard from "expo-clipboard";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
-import { MessageBubble } from "@/components/MessageBubble";
+import { MessageBubble } from "@/features/chat/components/MessageBubble";
 import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
 import type { Message } from "@/lib/api";
 
@@ -25,7 +25,7 @@ jest.mock("@/ui/icons/Icon", () => {
     ),
   };
 });
-jest.mock("@/components/UserMessageContent", () => {
+jest.mock("@/features/chat/components/UserMessageContent", () => {
   const { Text: MockText } =
     jest.requireActual("react-native") as typeof import("react-native");
   return {
@@ -52,7 +52,7 @@ jest.mock("@/features/todos/components/ReminderProposalCard", () => ({
 jest.mock("@/components/PlacesListBlock", () => ({
   PlacesListBlock: () => null,
 }));
-jest.mock("@/components/ChatMessageImageStrip", () => ({
+jest.mock("@/features/attachments/components/ChatMessageImageStrip", () => ({
   ChatMessageImageStrip: () => null,
 }));
 jest.mock("@/features/images/components/ImageGenPlaceholder", () => {

@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render } from "@testing-library/react-native";
-import { DrawerSelectionBar } from "@/components/drawer/DrawerSelectionBar";
-import type { ConversationListStyles } from "@/components/drawer/conversationListStyles";
+import { DrawerSelectionBar } from "@/features/chat/drawer/DrawerSelectionBar";
+import type { ConversationListStyles } from "@/features/chat/drawer/conversationListStyles";
 import type { Theme } from "@/lib/theme";
 
 jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));

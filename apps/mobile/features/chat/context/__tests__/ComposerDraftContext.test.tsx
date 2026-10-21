@@ -7,7 +7,7 @@ import {
   useComposerDraftApi,
   useComposerDraftActivity,
   useComposerDraftValueOptional,
-} from "@/contexts/ComposerDraftContext";
+} from "@/features/chat/context/ComposerDraftContext";
 import { resetComposerDraftsForAccount } from "@/features/chat/model/composerDraftReset";
 
 function ValueProbe() {

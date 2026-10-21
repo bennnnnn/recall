@@ -5,9 +5,9 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
-import { getCachedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
-import { abandonActiveChatIfDeleted } from "@/lib/drawer";
+import { getCachedChat } from "@/features/chat/model/chatListCache";
+import { emitAppEvent } from "@/lib/appEvents";
+import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
 import type { IconName } from "@/ui/icons/names";
 import { beginChatMutation } from "@/features/chat/model/mutationLock";
 import { sanitizeManualChatTitle } from "@/features/chat/model/title";
@@ -180,7 +180,7 @@ export function useChatMenuActions({
         notifyDestructive();
         removeChatFromGroupsById(chat.id);
         void clearCachedChatMessages(chat.id);
-        invalidateGalleryCache();
+        emitAppEvent("chatsDeleted", { chatIds: [chat.id] });
         abandonActiveChatIfDeleted([chat.id]);
         showActionBanner(t("chat.deleted_toast"), "trash");
       } catch {

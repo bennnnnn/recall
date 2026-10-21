@@ -1,6 +1,6 @@
 import React from "react";
 import { act, render } from "@testing-library/react-native";
-import { ConversationList } from "@/components/ConversationList";
+import { ConversationList } from "@/features/chat/drawer/ConversationList";
 import { api, type SearchResult } from "@/lib/api";
 
 let mockSession = 0;
@@ -23,24 +23,24 @@ jest.mock("@/lib/theme", () => ({ useTheme: () => ({ bg: "#ffffff" }), withAlpha
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/lib/api", () => ({ api: { search: jest.fn() } }));
 jest.mock("@/features/attachments/model/galleryListCache", () => ({ prefetchGallery: jest.fn() }));
-jest.mock("@/lib/drawer", () => ({ clearChatHighlightGlobal: () => mockClearHighlight(), closeDrawer: () => mockCloseDrawer(), getActiveChatIdGlobal: () => null, startNewChatGlobal: jest.fn() }));
-jest.mock("@/hooks/useDrawerChatList", () => ({ useDrawerChatList: () => ({
+jest.mock("@/features/chat/drawer/drawer", () => ({ clearChatHighlightGlobal: () => mockClearHighlight(), closeDrawer: () => mockCloseDrawer(), getActiveChatIdGlobal: () => null, startNewChatGlobal: jest.fn() }));
+jest.mock("@/features/chat/drawer/useDrawerChatList", () => ({ useDrawerChatList: () => ({
   groups: { pinned: [], today: [], yesterday: [], last_7_days: [], this_month: [], older: [], archived: [] },
   allChats: [], load: jest.fn(), isSectionCollapsed: () => false,
 }) }));
 jest.mock("@/features/chat/hooks/useChatBulkActions", () => ({ useChatBulkActions: () => ({}) }));
 jest.mock("@/features/chat/hooks/useChatMenuActions", () => ({ useChatMenuActions: () => ({}) }));
-jest.mock("@/hooks/useDrawerChatSelection", () => ({ useDrawerChatSelection: () => ({ selectedIds: new Set(), selectedCount: 0 }) }));
+jest.mock("@/features/chat/drawer/useDrawerChatSelection", () => ({ useDrawerChatSelection: () => ({ selectedIds: new Set(), selectedCount: 0 }) }));
 jest.mock("@/features/todos/hooks/useReminderBadgeCount", () => ({ useReminderBadgeCount: () => ({}) }));
 jest.mock("@/ui/feedback/ActionBanner", () => ({ ActionBanner: () => null }));
 jest.mock("@/components/ChatActionsMenu", () => ({ ChatActionsMenu: () => null }));
 jest.mock("@/components/ChatRenameSheet", () => ({ ChatRenameSheet: () => null }));
-jest.mock("@/components/drawer/DrawerListHeader", () => ({ DrawerListHeader: () => null }));
-jest.mock("@/components/drawer/DrawerFooter", () => ({ DrawerFooter: (props: typeof mockFooter) => { mockFooter = props; return null; } }));
-jest.mock("@/components/drawer/DrawerNavLinks", () => ({ DrawerNavLinks: () => null }));
-jest.mock("@/components/drawer/DrawerSelectionBar", () => ({ DrawerSelectionBar: () => null }));
-jest.mock("@/components/drawer/DrawerHeader", () => ({ DrawerHeader: (props: typeof mockHeader) => { mockHeader = props; return null; } }));
-jest.mock("@/components/drawer/DrawerChatFlashList", () => ({ DrawerChatFlashList: (props: typeof mockList) => { mockList = props; return null; } }));
+jest.mock("@/features/chat/drawer/DrawerListHeader", () => ({ DrawerListHeader: () => null }));
+jest.mock("@/features/chat/drawer/DrawerFooter", () => ({ DrawerFooter: (props: typeof mockFooter) => { mockFooter = props; return null; } }));
+jest.mock("@/features/chat/drawer/DrawerNavLinks", () => ({ DrawerNavLinks: () => null }));
+jest.mock("@/features/chat/drawer/DrawerSelectionBar", () => ({ DrawerSelectionBar: () => null }));
+jest.mock("@/features/chat/drawer/DrawerHeader", () => ({ DrawerHeader: (props: typeof mockHeader) => { mockHeader = props; return null; } }));
+jest.mock("@/features/chat/drawer/DrawerChatFlashList", () => ({ DrawerChatFlashList: (props: typeof mockList) => { mockList = props; return null; } }));
 const result: SearchResult = { chat_id: "chat", message_id: "message", chat_title: "Chat", content: "match",
   match_type: "message", role: "user", created_at: "2026-01-01" };
 

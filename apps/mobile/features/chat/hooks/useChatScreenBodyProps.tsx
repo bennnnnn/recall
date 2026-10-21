@@ -28,7 +28,7 @@ import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
-import { openDrawer } from "@/lib/drawer";
+import { openDrawer } from "@/features/chat/drawer/drawer";
 import type { Theme } from "@/lib/theme";
 
 type Router = ReturnType<typeof useRouter>;

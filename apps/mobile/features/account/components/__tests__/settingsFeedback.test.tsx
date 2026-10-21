@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { SettingsFieldSheet } from "@/features/account/components/SettingsFieldSheet";
+import { FieldSheet } from "@/ui/overlay/FieldSheet";
 import { SettingsMenuRow, SettingsSwitchRow } from "@/features/account/components/settingsUi";
 
 jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
@@ -102,7 +102,7 @@ describe("settings action feedback", () => {
 
   it("locks the field editor while its save is pending", async () => {
     const { getByLabelText, getByPlaceholderText } = await render(
-      <SettingsFieldSheet
+      <FieldSheet
         visible
         title="Name"
         value="Ada"

@@ -7,7 +7,7 @@ import {
   type ResourceResult,
   type ResourceUpdate,
 } from "@/lib/cache/sessionResource";
-import { CHAT_LIST_STALE_MS } from "@/lib/drawerChatList";
+import { CHAT_LIST_STALE_MS } from "@/features/chat/drawer/drawerChatList";
 
 const LIST = "chats";
 const resource = new SessionResourceCache<typeof LIST, ChatList, { createdChat?: Chat }>({

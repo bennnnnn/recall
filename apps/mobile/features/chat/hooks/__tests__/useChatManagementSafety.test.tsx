@@ -4,8 +4,8 @@ import { act, render } from "@testing-library/react-native";
 
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { api, type Chat } from "@/lib/api";
-import { getCachedChat } from "@/lib/cache/chatListCache";
-import { abandonActiveChatIfDeleted, insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal } from "@/lib/drawer";
+import { getCachedChat } from "@/features/chat/model/chatListCache";
+import { abandonActiveChatIfDeleted, insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal } from "@/features/chat/drawer/drawer";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
 
 let mockSession = 0;
@@ -13,14 +13,13 @@ const mockError = jest.fn();
 const mockDestructive = jest.fn();
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ error: mockError }) }));
-jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: jest.fn(), peekCreatedChat: jest.fn() }));
+jest.mock("@/features/chat/model/chatListCache", () => ({ getCachedChat: jest.fn(), peekCreatedChat: jest.fn() }));
 jest.mock("@/lib/api", () => ({ api: { getChat: jest.fn(), renameChat: jest.fn(), setPin: jest.fn(), setArchive: jest.fn(), deleteChat: jest.fn() } }));
-jest.mock("@/lib/drawer", () => ({
+jest.mock("@/features/chat/drawer/drawer", () => ({
   insertChatGlobal: jest.fn(), moveChatArchiveGlobal: jest.fn(), patchChatGlobal: jest.fn(),
   removeChatGlobal: jest.fn(), abandonActiveChatIfDeleted: jest.fn(),
 }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
-jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 jest.mock("@/features/chat/model/exportMessagePdf", () => ({ exportConversationAsPdf: jest.fn() }));
 jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({

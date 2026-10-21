@@ -4,7 +4,7 @@ import {
   registerNewChat,
   setActiveChatIdGlobal,
   startNewChatGlobal,
-} from "@/lib/drawer";
+} from "@/features/chat/drawer/drawer";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 

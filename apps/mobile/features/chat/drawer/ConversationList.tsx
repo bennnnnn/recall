@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { clearChatHighlightGlobal, closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/lib/drawer";
+import { clearChatHighlightGlobal, closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/features/chat/drawer/drawer";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -14,8 +14,8 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useChatBulkActions } from "@/features/chat/hooks/useChatBulkActions";
 import { useChatMenuActions } from "@/features/chat/hooks/useChatMenuActions";
-import { useDrawerChatList } from "@/hooks/useDrawerChatList";
-import { useDrawerChatSelection } from "@/hooks/useDrawerChatSelection";
+import { useDrawerChatList } from "@/features/chat/drawer/useDrawerChatList";
+import { useDrawerChatSelection } from "@/features/chat/drawer/useDrawerChatSelection";
 import { useReminderBadgeCount } from "@/features/todos/hooks/useReminderBadgeCount";
 import { useDrawerSearch } from "@/features/search/hooks/useDrawerSearch";
 import { Chat } from "@/lib/api";
@@ -25,20 +25,20 @@ import {
   drawerHeaderFade,
 } from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
-import { chatsFromSelection } from "@/lib/drawerChatSelection";
+import { chatsFromSelection } from "@/features/chat/drawer/drawerChatSelection";
 import { prefetchGallery } from "@/features/attachments/model/galleryListCache";
-import { DrawerChatFlashList } from "@/components/drawer/DrawerChatFlashList";
-import { DrawerListHeader } from "@/components/drawer/DrawerListHeader";
-import { DrawerFooter } from "@/components/drawer/DrawerFooter";
-import { DrawerHeader } from "@/components/drawer/DrawerHeader";
-import { DrawerNavLinks } from "@/components/drawer/DrawerNavLinks";
-import { DrawerSelectionBar } from "@/components/drawer/DrawerSelectionBar";
+import { DrawerChatFlashList } from "@/features/chat/drawer/DrawerChatFlashList";
+import { DrawerListHeader } from "@/features/chat/drawer/DrawerListHeader";
+import { DrawerFooter } from "@/features/chat/drawer/DrawerFooter";
+import { DrawerHeader } from "@/features/chat/drawer/DrawerHeader";
+import { DrawerNavLinks } from "@/features/chat/drawer/DrawerNavLinks";
+import { DrawerSelectionBar } from "@/features/chat/drawer/DrawerSelectionBar";
 import {
   FADE_EXTRA,
   FOOTER_CHROME,
   makeConversationListStyles,
   TOP_CHROME,
-} from "@/components/drawer/conversationListStyles";
+} from "@/features/chat/drawer/conversationListStyles";
 
 export function ConversationList() {
   const token = useAuthToken();

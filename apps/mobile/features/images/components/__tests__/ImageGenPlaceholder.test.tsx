@@ -27,7 +27,7 @@ jest.mock("react-i18next", () => {
 });
 // A build where the repo probe allows Skia: the wave is the shader canvas.
 jest.mock("@/lib/skiaAvailability", () => ({ isSkiaAvailable: () => true }));
-jest.mock("@/components/ChatMessageImage", () => ({
+jest.mock("@/features/attachments/components/ChatMessageImage", () => ({
   useThumbnailSize: () => ({ width: 148, height: 189 }),
 }));
 jest.mock("@/lib/motion", () => ({

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
-import { ChatMessageImage } from "@/components/ChatMessageImage";
+import { ChatMessageImage } from "@/features/attachments/components/ChatMessageImage";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { LinkPreviewTrust } from "@/components/markdown/LinkPreviewTrust";
 import { MathDraftPreview } from "@/features/chat/components/MathDraftPreview";
@@ -28,7 +28,7 @@ import { IconSize } from "@/ui/icons/sizes";
 // Async-split pdf.js (~1.4MB) off the chat cold path — same pattern as
 // LazyHeavyRich / HtmlPreviewModal. Only a PDF attachment evaluates the vendor.
 const ChatMessagePdfLazy = React.lazy(() =>
-  import("@/components/ChatMessagePdf").then((m) => ({ default: m.ChatMessagePdf })),
+  import("@/features/attachments/components/ChatMessagePdf").then((m) => ({ default: m.ChatMessagePdf })),
 );
 
 type Props = {

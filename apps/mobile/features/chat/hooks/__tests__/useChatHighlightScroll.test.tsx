@@ -4,7 +4,7 @@ import { act, render } from "@testing-library/react-native";
 import { useChatHighlightScroll } from "@/features/chat/hooks/useChatHighlightScroll";
 import type { Message } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
-import { clearChatHighlightGlobal } from "@/lib/drawer";
+import { clearChatHighlightGlobal } from "@/features/chat/drawer/drawer";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: jest.fn(() => 0) }));
 const scroll = jest.fn();

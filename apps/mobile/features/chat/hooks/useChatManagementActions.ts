@@ -3,12 +3,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
-import { getCachedChat, peekCreatedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
+import { getCachedChat, peekCreatedChat } from "@/features/chat/model/chatListCache";
+import { emitAppEvent } from "@/lib/appEvents";
 import { beginChatMutation } from "@/features/chat/model/mutationLock";
 import { sanitizeManualChatTitle } from "@/features/chat/model/title";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
-import { abandonActiveChatIfDeleted, insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
+import { abandonActiveChatIfDeleted, insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/features/chat/drawer/drawer";
 import { notifyDestructive, tap } from "@/lib/haptics";
 import type { IconName } from "@/ui/icons/names";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
@@ -172,7 +172,7 @@ export function useChatManagementActions({
         notifyDestructive();
         removeChatGlobal(chatId);
         void clearCachedChatMessages(chatId);
-        invalidateGalleryCache();
+        emitAppEvent("chatsDeleted", { chatIds: [chatId] });
         if (currentView()) showActionBanner(t("chat.deleted_toast"), "trash");
         abandonActiveChatIfDeleted([chatId]);
       } catch {

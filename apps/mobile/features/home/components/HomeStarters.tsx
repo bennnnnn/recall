@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
-import { useComposerDraftActivity } from "@/contexts/ComposerDraftContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
 import type { HomeUrgentTodo } from "@/lib/api";
 import { describeDueAt } from "@/features/todos/model/dueDate";
@@ -82,11 +81,15 @@ function OverdueReminderRow({
   );
 }
 
-export function HomeStarters() {
+type Props = {
+  /** The composer holds a draft: the empty-chat canvas stays clear. The chat passes it. */
+  composerActive: boolean;
+};
+
+export function HomeStarters({ composerActive }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { user } = useAuth();
-  const composerActive = useComposerDraftActivity();
   const {
     todos,
     loading: todosLoading,

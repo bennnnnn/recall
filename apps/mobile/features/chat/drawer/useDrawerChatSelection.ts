@@ -6,7 +6,7 @@ import {
   clearChatSelection,
   selectAllChatIds,
   toggleChatSelection,
-} from "@/lib/drawerChatSelection";
+} from "@/features/chat/drawer/drawerChatSelection";
 
 type Params = {
   token: string | null;

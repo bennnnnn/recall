@@ -2,7 +2,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import { type ImageProps, StyleSheet } from "react-native";
 import * as Reanimated from "react-native-reanimated";
 
-import { ChatMessageImage } from "@/components/ChatMessageImage";
+import { ChatMessageImage } from "@/features/attachments/components/ChatMessageImage";
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
 import { fitAttachmentImage } from "@/features/attachments/model/attachmentImageSize";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";

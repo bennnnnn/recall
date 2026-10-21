@@ -7,13 +7,13 @@
 import { render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
-import { UserMessageContent } from "@/components/UserMessageContent";
+import { UserMessageContent } from "@/features/chat/components/UserMessageContent";
 import type { Message } from "@/lib/api/types";
 
-jest.mock("@/components/ChatMessageImage", () => ({
+jest.mock("@/features/attachments/components/ChatMessageImage", () => ({
   ChatMessageImage: "ChatMessageImage",
 }));
-jest.mock("@/components/ChatMessagePdf", () => {
+jest.mock("@/features/attachments/components/ChatMessagePdf", () => {
   const { Text: RNText } = jest.requireActual("react-native");
   return {
     ChatMessagePdf: ({ fileName }: { fileName: string }) => <RNText>{`pdf:${fileName}`}</RNText>,

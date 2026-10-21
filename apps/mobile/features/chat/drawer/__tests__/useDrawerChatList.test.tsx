@@ -1,11 +1,11 @@
 import React from "react";
 import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
-import { useDrawerChatList } from "@/hooks/useDrawerChatList";
+import { useDrawerChatList } from "@/features/chat/drawer/useDrawerChatList";
 import { api, type ChatList } from "@/lib/api";
-import { getCachedChatList, invalidateChatListCache, setChatListCache } from "@/lib/cache/chatListCache";
+import { getCachedChatList, invalidateChatListCache, setChatListCache } from "@/features/chat/model/chatListCache";
 import { emptyChatList } from "@/features/chat/model/listSections";
-import { patchChatGlobal, subscribeChatChanges } from "@/lib/drawer";
+import { patchChatGlobal, subscribeChatChanges } from "@/features/chat/drawer/drawer";
 
 let mockSession = 0;
 jest.mock("@/lib/auth", () => ({

@@ -10,7 +10,7 @@ import {
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { SettingsFieldSheet } from "@/features/account/components/SettingsFieldSheet";
+import { FieldSheet } from "@/ui/overlay/FieldSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { MemoryComposer } from "@/features/memory/components/MemoryComposer";
@@ -297,7 +297,7 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         ]}
         testID="memory-fact-menu"
       />
-      <SettingsFieldSheet
+      <FieldSheet
         visible={editing != null}
         title={t("memory.edit_title")}
         value={editing?.text ?? ""}

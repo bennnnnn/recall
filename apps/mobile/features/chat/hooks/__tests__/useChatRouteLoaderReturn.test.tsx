@@ -7,7 +7,7 @@ import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { api, type Message } from "@/lib/api";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
-jest.mock("@/lib/drawer", () => ({
+jest.mock("@/features/chat/drawer/drawer", () => ({
   getChatMutationRevision: () => 0,
   subscribeChatChanges: () => () => undefined,
   removeChatGlobal: jest.fn(),
@@ -15,7 +15,7 @@ jest.mock("@/lib/drawer", () => ({
 jest.mock("@/lib/api/client", () => ({ ApiRequestError: class extends Error {} }));
 jest.mock("expo-router", () => ({ useFocusEffect: () => undefined, useRouter: () => ({}) }));
 jest.mock("@/lib/api", () => ({ api: { getChat: jest.fn(), listMessages: jest.fn() } }));
-jest.mock("@/lib/cache/chatListCache", () => ({
+jest.mock("@/features/chat/model/chatListCache", () => ({
   getCachedChat: (id: string) => ({ id, title: id.toUpperCase(), pinned: false, archived: false }),
 }));
 jest.mock("@/features/chat/model/messageCache", () => ({

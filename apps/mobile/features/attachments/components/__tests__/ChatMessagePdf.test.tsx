@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
-import { ChatMessagePdf } from "@/components/ChatMessagePdf";
+import { ChatMessagePdf } from "@/features/attachments/components/ChatMessagePdf";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
 jest.mock("react-i18next", () => ({

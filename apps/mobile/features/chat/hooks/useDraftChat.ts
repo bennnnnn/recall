@@ -3,7 +3,7 @@ import { AppState } from "react-native";
 
 import { useAccountSession } from "@/contexts/accountSession";
 import { api } from "@/lib/api";
-import { rememberCreatedChat } from "@/lib/cache/chatListCache";
+import { rememberCreatedChat } from "@/features/chat/model/chatListCache";
 import { resolveActiveChatId } from "@/features/chat/model/draftLogic";
 
 type Options = {

@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { onAppEvent } from "@/lib/appEvents";
 import {
   SessionResourceCache,
   type FailureReporter,
@@ -37,6 +38,8 @@ export function updateMemoryDocuments(
 export function invalidateMemoryDocuments(): void {
   resource.invalidate();
 }
+// Memory cleared or turned off from a chat's settings card: the pages read fresh.
+onAppEvent("memoryChanged", invalidateMemoryDocuments);
 
 export function fetchMemoryDocuments(
   token: string,

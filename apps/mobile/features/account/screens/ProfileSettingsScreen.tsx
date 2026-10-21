@@ -2,7 +2,7 @@ import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { SettingsFieldSheet } from "@/features/account/components/SettingsFieldSheet";
+import { FieldSheet } from "@/ui/overlay/FieldSheet";
 import { SettingsProfile } from "@/features/account/components/SettingsProfile";
 import {
   SettingsGroup,
@@ -103,7 +103,7 @@ export default function ProfileSettingsScreen() {
         </SettingsGroup>
       </SettingsPage>
 
-      <SettingsFieldSheet
+      <FieldSheet
         visible={editField != null}
         title={t(copy.title)}
         value={fieldText}

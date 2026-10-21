@@ -10,7 +10,7 @@ jest.mock("@/features/chat/components/ChatHeader", () => ({
   ChatHeader: () => null,
 }));
 
-jest.mock("@/lib/drawer", () => ({
+jest.mock("@/features/chat/drawer/drawer", () => ({
   openDrawer: jest.fn(),
 }));
 

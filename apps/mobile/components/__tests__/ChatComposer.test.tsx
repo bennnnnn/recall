@@ -5,7 +5,7 @@ import { ChatComposer } from "@/features/chat/components/ChatComposer";
 import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/features/chat/components/chatComposerStyles";
 import { KEY_HEIGHT_MIN, mathPadHeight, padKeyHeight } from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
-import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+import { ComposerDraftProvider, useComposerDraftApi } from "@/features/chat/context/ComposerDraftContext";
 
 import { DraftHarness } from "./DraftHarness";
 

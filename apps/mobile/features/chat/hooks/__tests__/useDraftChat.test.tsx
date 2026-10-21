@@ -12,7 +12,7 @@ jest.mock("@/lib/api", () => ({
     deleteChatIfEmpty: jest.fn(async () => undefined),
   },
 }));
-jest.mock("@/lib/cache/chatListCache", () => ({
+jest.mock("@/features/chat/model/chatListCache", () => ({
   rememberCreatedChat: jest.fn(),
 }));
 // One object, as the provider keeps it.

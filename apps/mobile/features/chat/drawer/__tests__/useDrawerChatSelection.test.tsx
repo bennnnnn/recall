@@ -1,7 +1,7 @@
 import React from "react";
 import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
-import { useDrawerChatSelection } from "@/hooks/useDrawerChatSelection";
+import { useDrawerChatSelection } from "@/features/chat/drawer/useDrawerChatSelection";
 import type { Chat } from "@/lib/api";
 let mockSession = 0;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));

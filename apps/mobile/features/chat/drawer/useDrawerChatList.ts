@@ -17,7 +17,7 @@ import {
   getChatListFetchedAt,
   isChatListFresh,
   updateChatListCache,
-} from "@/lib/cache/chatListCache";
+} from "@/features/chat/model/chatListCache";
 import {
   publishChatChange,
   registerChatArchiveMover,
@@ -25,13 +25,13 @@ import {
   registerChatPatcher,
   registerChatRemover,
   subscribeChatTitleGenerating,
-} from "@/lib/drawer";
+} from "@/features/chat/drawer/drawer";
 import {
   drawerChatFetchMode,
   emptyChatList,
   insertChatIntoGroups,
   shouldWarmClosedDrawerChatList,
-} from "@/lib/drawerChatList";
+} from "@/features/chat/drawer/drawerChatList";
 import { Chat, ChatList } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";

@@ -9,6 +9,7 @@ import {
 } from "expo-file-system/legacy";
 
 import type { Message } from "@/lib/api";
+import { onAppEvent } from "@/lib/appEvents";
 import { getSessionGeneration } from "@/lib/auth";
 
 type CachedChatPage = {
@@ -146,6 +147,11 @@ export async function clearCachedChatMessages(chatId: string): Promise<void> {
     await deleteAsync(cachePath(chatId), { idempotent: true });
   });
 }
+
+// A photo or file deleted from the gallery leaves the chat that showed it.
+onAppEvent("attachmentDeleted", ({ chatId }) => {
+  if (chatId) void clearCachedChatMessages(chatId);
+});
 
 export async function clearAllCachedChatMessages(): Promise<void> {
   clearGeneration++;

@@ -1,4 +1,4 @@
-import { cappedDrawerWidth, DRAWER_MAX_WIDTH } from "@/lib/drawerPan";
+import { cappedDrawerWidth, DRAWER_MAX_WIDTH } from "@/features/chat/drawer/drawerPan";
 
 describe("cappedDrawerWidth", () => {
   it("keeps the 82% ratio on phones", () => {

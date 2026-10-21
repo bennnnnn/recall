@@ -13,7 +13,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useFocusedList } from "@/features/account/hooks/useFocusedList";
 import { api, type Chat } from "@/lib/api";
-import { fetchChatList, invalidateChatListCache } from "@/lib/cache/chatListCache";
+import { fetchChatList, invalidateChatListCache } from "@/features/chat/model/chatListCache";
 import { notifyDestructive } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 

@@ -1,6 +1,6 @@
 /**
- * Bottom-sheet text editor for settings (profile fields, custom instructions).
- * Matches ChatRenameSheet Sheet pattern.
+ * Bottom-sheet editor for one text value: a profile field, custom instructions, a
+ * memory. Matches ChatRenameSheet Sheet pattern.
  */
 import { useMemo } from "react";
 import {
@@ -38,7 +38,7 @@ type Props = {
   saving?: boolean;
 };
 
-export function SettingsFieldSheet({
+export function FieldSheet({
   visible,
   title,
   value,

@@ -26,7 +26,7 @@ jest.mock("react-i18next", () => {
   };
   return { useTranslation: () => ({ t }) };
 });
-jest.mock("@/components/ChatMessageImage", () => ({
+jest.mock("@/features/attachments/components/ChatMessageImage", () => ({
   useThumbnailSize: () => ({ width: 148, height: 189 }),
 }));
 jest.mock("@/lib/motion", () => ({

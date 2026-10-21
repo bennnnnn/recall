@@ -2,7 +2,7 @@ import {
   drawerChatFetchMode,
   insertChatIntoGroups,
   shouldWarmClosedDrawerChatList,
-} from "@/lib/drawerChatList";
+} from "@/features/chat/drawer/drawerChatList";
 import { chatRecencySection, patchChatListGroups, removeChatFromGroups } from "@/features/chat/model/listSections";
 import type { Chat, ChatList } from "@/lib/api";
 

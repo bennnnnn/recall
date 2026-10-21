@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
-import { getCachedChat, peekCreatedChat } from "@/lib/cache/chatListCache";
+import { getCachedChat, peekCreatedChat } from "@/features/chat/model/chatListCache";
 import { firstReplyTitlePlan } from "@/features/chat/model/titleRefresh";
 import {
   getChatMutationRevision,
@@ -10,7 +10,7 @@ import {
   isChatTitleGenerating,
   patchChatGlobal,
   setChatTitleGenerating,
-} from "@/lib/drawer";
+} from "@/features/chat/drawer/drawer";
 
 type Options = {
   token: string | null;

@@ -4,8 +4,8 @@ import {
   clearChatSelection,
   selectAllChatIds,
   toggleChatSelection,
-} from "@/lib/drawerChatSelection";
-import { emptyChatList } from "@/lib/drawerChatList";
+} from "@/features/chat/drawer/drawerChatSelection";
+import { emptyChatList } from "@/features/chat/drawer/drawerChatList";
 import type { Chat } from "@/lib/api";
 
 function chat(id: string, patch: Partial<Chat> = {}): Chat {

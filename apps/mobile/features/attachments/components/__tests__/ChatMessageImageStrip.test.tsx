@@ -1,8 +1,8 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { ChatMessageImageStrip } from "@/components/ChatMessageImageStrip";
+import { ChatMessageImageStrip } from "@/features/attachments/components/ChatMessageImageStrip";
 
-jest.mock("@/components/ChatMessageImage", () => {
+jest.mock("@/features/attachments/components/ChatMessageImage", () => {
   const { Pressable: MockPressable } = jest.requireActual("react-native");
   return {
     ChatMessageImage: ({

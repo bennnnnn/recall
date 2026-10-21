@@ -1,3 +1,5 @@
+import { emitAppEvent } from "@/lib/appEvents";
+
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "/mock-cache/",
   getInfoAsync: jest.fn(),
@@ -70,6 +72,14 @@ describe("chatMessageCache", () => {
     expect(deleteAsync).toHaveBeenCalledWith("/mock-cache/chat-pages/chat-1.json", {
       idempotent: true,
     });
+  });
+
+  it("forgets a chat whose photo the gallery deleted (ARCH-10)", async () => {
+    emitAppEvent("attachmentDeleted", { attachmentId: "a1", chatId: "chat-1" });
+    emitAppEvent("attachmentDeleted", { attachmentId: "a2", chatId: null });
+    await clearCachedChatMessages("chat-2");
+    expect(deleteAsync).toHaveBeenCalledTimes(2);
+    expect(deleteAsync).toHaveBeenNthCalledWith(1, "/mock-cache/chat-pages/chat-1.json", { idempotent: true });
   });
 
   it("patches one cached message without dropping has_more", async () => {

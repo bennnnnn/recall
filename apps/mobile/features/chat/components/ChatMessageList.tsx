@@ -4,6 +4,7 @@ import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list
 import { useTranslation } from "react-i18next";
 
 import { HomeStarters } from "@/features/home/components/HomeStarters";
+import { useComposerDraftActivity } from "@/features/chat/context/ComposerDraftContext";
 import { SkeletonChatBubbles } from "@/ui/feedback/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {
@@ -64,6 +65,7 @@ function ChatMessageListComponent({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const composerActive = useComposerDraftActivity();
   // Stable content-container style: the previous inline `{ paddingTop, paddingBottom }`
   // object was fresh every render, so FlashList re-laid out on every parent render
   // (including every composer keystroke). Memoize so it only changes when the
@@ -176,7 +178,7 @@ function ChatMessageListComponent({
             </View>
           ) : (
             <View style={[s.empty, { height: emptyHeight }]}>
-              <HomeStarters />
+              <HomeStarters composerActive={composerActive} />
             </View>
           )
         }

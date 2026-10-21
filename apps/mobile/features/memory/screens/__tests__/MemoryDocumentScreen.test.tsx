@@ -74,8 +74,8 @@ jest.mock("@/ui/overlay/Menu", () => ({
     );
   },
 }));
-jest.mock("@/features/account/components/SettingsFieldSheet", () => ({
-  SettingsFieldSheet: ({
+jest.mock("@/ui/overlay/FieldSheet", () => ({
+  FieldSheet: ({
     visible,
     value,
     onChangeText,

@@ -1,4 +1,5 @@
 import { api, type AttachmentListItem } from "@/lib/api";
+import { onAppEvent } from "@/lib/appEvents";
 import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
 import { asError, SessionResourceCache, sessionChanged, type ResourceResult } from "@/lib/cache/sessionResource";
 import { GALLERY_PAGE_SIZE, galleryListCacheKey, galleryListParams, mergeGalleryItems, type GalleryFilter } from "@/features/attachments/model/gallery";
@@ -59,6 +60,9 @@ export function setGalleryPage(filter: GalleryFilter, query: string, page: Galle
 export function invalidateGalleryCache(): void {
   resource.invalidate();
 }
+// Deleted chats take their photos with them; a picture saved into a chat joins the gallery.
+onAppEvent("chatsDeleted", invalidateGalleryCache);
+onAppEvent("attachmentAdded", invalidateGalleryCache);
 export function removeCachedGalleryItem(id: string): void {
   resource.state().removed.add(id);
   resource.updateEach((entry) => withoutItem(entry, id));

@@ -49,6 +49,11 @@ designed and a long one can be justified. What CI can check reliably, it checks 
   runtime. Calculations take inputs and return results; adapters fetch and store.
 - Screens render state and handle input; logic lives in hooks and models.
 - `core/` and `gateways/` never import `modules/`; `ui/` never imports product code.
+- A phone feature reaches another only through its public modules (its `api.ts`, `types.ts`
+  and the modules listed public in `lib/__tests__/featureBoundaries.test.ts`); shared folders
+  reach features only at named composition points; features depend on each other without a
+  cycle. A change another feature's cache must follow is an event (`lib/appEvents.ts`), never
+  a call into its storage.
 - No hidden coupling: no module-level mutable state that leaks between requests, no reaching
   into another module's private helpers, no undocumented side effects.
 - Shared modules are named by purpose (formula evaluation, unit conversion, dates, error
@@ -122,7 +127,7 @@ Correct maths, physics and chemistry is a release requirement.
 | Types | mypy (strict per package, widening); `tsc` strict, app and tests (`tsconfig.test.json`: jest runs through Babel, which strips types); ESLint `no-explicit-any` | API CI, Mobile CI |
 | Tests | pytest with 80 % coverage floor; jest; behavior and STEM sweeps | API CI, Mobile CI |
 | Import cycles | `app/tests/architecture/test_import_cycles.py`; `lib/__tests__/importCycles.test.ts` (type-only imports included) | API CI, Mobile CI |
-| Layer boundaries | `app/tests/architecture/` (module boundaries; `test_pure_solvers.py` keeps solvers off infrastructure and subjects apart); ESLint `no-restricted-imports` (`ui/` leaf, subject libraries) | API CI, Mobile CI |
+| Layer boundaries | `app/tests/architecture/` (module boundaries; `test_pure_solvers.py` keeps solvers off infrastructure and subjects apart); `lib/__tests__/featureBoundaries.test.ts` (phone features: public modules, composition points, no feature cycles); ESLint `no-restricted-imports` (`ui/` leaf, subject libraries) | API CI, Mobile CI |
 | File size | `scripts/check_file_sizes.py` against `scripts/file_size_baseline.json` | API CI, Mobile CI |
 | Event loop | `app/tests/loop_guard.py` fails any test in which production code runs SymPy or computes a reading on the loop; `test_sympy_worker_imports.py` keeps the pool's workers free of the web stack | API CI |
 | Migrations | `app/tests/architecture/test_migration_safety.py`: one alembic head; no drop or rename in `upgrade()` without an `# expand-contract:` reason | API CI |

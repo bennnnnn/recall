@@ -27,10 +27,10 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { ConversationList } from "@/components/ConversationList";
+import { ConversationList } from "@/features/chat/drawer/ConversationList";
 import { DrawerProvider } from "@/contexts/DrawerContext";
-import { registerDrawer } from "@/lib/drawer";
-import { cappedDrawerWidth } from "@/lib/drawerPan";
+import { registerDrawer } from "@/features/chat/drawer/drawer";
+import { cappedDrawerWidth } from "@/features/chat/drawer/drawerPan";
 import { tap } from "@/lib/haptics";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { shadowOverlay } from "@/lib/shadow";

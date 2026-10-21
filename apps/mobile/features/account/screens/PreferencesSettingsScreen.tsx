@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { SettingsFieldSheet } from "@/features/account/components/SettingsFieldSheet";
+import { FieldSheet } from "@/ui/overlay/FieldSheet";
 import {
   SettingsGroup,
   SettingsLinkRow,
@@ -96,7 +96,7 @@ export default function PreferencesSettingsScreen() {
         </SettingsGroup>
       </SettingsPage>
 
-      <SettingsFieldSheet
+      <FieldSheet
         visible={instructionsOpen}
         title={t("settings.custom_instructions")}
         hint={t("settings.custom_instructions_hint")}

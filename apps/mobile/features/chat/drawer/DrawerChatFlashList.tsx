@@ -8,12 +8,12 @@ import { StateView } from "@/ui/feedback/StateView";
 import {
   ConversationRow,
   makeConversationRowStyles,
-} from "@/components/drawer/ConversationRow";
+} from "@/features/chat/drawer/ConversationRow";
 import {
   DrawerSearchLoadMore,
   DrawerSearchResultRow,
 } from "@/features/search/components/DrawerSearchResults";
-import { makeConversationListStyles } from "@/components/drawer/conversationListStyles";
+import { makeConversationListStyles } from "@/features/chat/drawer/conversationListStyles";
 import {
   ARCHIVED_CHAT_SECTION,
   CHAT_DATE_SECTIONS,
@@ -22,7 +22,8 @@ import {
   PINNED_CHAT_SECTION,
   type ChatListSectionKey,
 } from "@/features/chat/model/listSections";
-import { isChatTitleGenerating } from "@/lib/drawer";
+import { isChatTitleGenerating } from "@/features/chat/drawer/drawer";
+import { displayChatTitle } from "@/features/chat/model/title";
 import { Chat, ChatList, type SearchResult } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
@@ -153,7 +154,11 @@ export function DrawerChatFlashList({
     ({ item }: { item: DrawerChatListItem }) => {
       if (item.type === "searchRow") {
         return (
-          <DrawerSearchResultRow result={item.result} onOpenChat={onOpenSearchResult} />
+          <DrawerSearchResultRow
+            result={item.result}
+            title={displayChatTitle(item.result.chat_title, {}, t)}
+            onOpenChat={onOpenSearchResult}
+          />
         );
       }
       if (item.type === "searchLoadMore") {
@@ -221,6 +226,7 @@ export function DrawerChatFlashList({
       searchLoadingMore,
       searchLoadingMoreError,
       onSearchLoadMore,
+      t,
     ],
   );
 

@@ -6,10 +6,10 @@ import { api, Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { beginChatMutation } from "@/features/chat/model/mutationLock";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
-import { getCachedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
-import { abandonActiveChatIfDeleted } from "@/lib/drawer";
-import { archiveBulkTargets } from "@/lib/drawerChatSelection";
+import { getCachedChat } from "@/features/chat/model/chatListCache";
+import { emitAppEvent } from "@/lib/appEvents";
+import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
+import { archiveBulkTargets } from "@/features/chat/drawer/drawerChatSelection";
 import { notifyDestructive } from "@/lib/haptics";
 import type { IconName } from "@/ui/icons/names";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
@@ -128,7 +128,7 @@ export function useChatBulkActions({
             }
           }
           if (deletedIds.length > 0) {
-            invalidateGalleryCache();
+            emitAppEvent("chatsDeleted", { chatIds: deletedIds });
             abandonActiveChatIfDeleted(deletedIds);
           }
           if (deletedIds.length !== targets.length) {

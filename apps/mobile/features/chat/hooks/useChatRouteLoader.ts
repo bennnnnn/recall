@@ -8,7 +8,7 @@ import type { IconName } from "@/ui/icons/names";
 import { api, type Chat, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
 import { getSessionGeneration } from "@/lib/auth";
-import { getCachedChat } from "@/lib/cache/chatListCache";
+import { getCachedChat } from "@/features/chat/model/chatListCache";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
 import {
   shouldForceForegroundChatRecovery,
@@ -32,7 +32,7 @@ import {
   shouldProbePreviousChat,
 } from "@/features/chat/model/draftLogic";
 import { shouldInsertDrawerRowOnLeave } from "@/features/chat/model/titleRefresh";
-import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/lib/drawer";
+import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/features/chat/drawer/drawer";
 import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/features/chat/hooks/useChatHighlightScroll";
 import { useChatPaging } from "@/features/chat/hooks/useChatPaging";

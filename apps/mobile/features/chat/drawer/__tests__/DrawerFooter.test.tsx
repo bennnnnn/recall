@@ -1,7 +1,7 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { DrawerFooter } from "@/components/drawer/DrawerFooter";
-import { makeConversationListStyles } from "@/components/drawer/conversationListStyles";
+import { DrawerFooter } from "@/features/chat/drawer/DrawerFooter";
+import { makeConversationListStyles } from "@/features/chat/drawer/conversationListStyles";
 import { lightTheme } from "@/lib/theme";
 
 let mockUser: { name: string; avatar_url: string | null };

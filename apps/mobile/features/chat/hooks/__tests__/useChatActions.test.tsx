@@ -4,11 +4,11 @@ import { act, render } from "@testing-library/react-native";
 
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { api, type Message } from "@/lib/api";
-import { insertChatGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
+import { insertChatGlobal, patchChatGlobal, removeChatGlobal } from "@/features/chat/drawer/drawer";
 import { exportConversationAsPdf } from "@/features/chat/model/exportMessagePdf";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
-jest.mock("@/lib/cache/chatListCache", () => ({
+jest.mock("@/features/chat/model/chatListCache", () => ({
   getCachedChat: () => ({ id: "chat-1", title: "Old title" }),
   peekCreatedChat: () => undefined,
 }));
@@ -25,7 +25,7 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-jest.mock("@/lib/drawer", () => ({
+jest.mock("@/features/chat/drawer/drawer", () => ({
   insertChatGlobal: jest.fn(),
   moveChatArchiveGlobal: jest.fn(),
   patchChatGlobal: jest.fn(),
