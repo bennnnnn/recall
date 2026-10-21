@@ -4,9 +4,11 @@ from uuid import uuid4
 
 import pytest
 
+from app.models import model_catalog
 from app.modules.account.settings_intent import SettingsChange
 from app.modules.account.settings_proposal import (
     SettingsProposalError,
+    change_label,
     confirm_proposal,
     format_proposal_reply,
     materialize_memory_reset_reply,
@@ -201,3 +203,11 @@ async def test_confirming_a_memory_reset_applies_it(monkeypatch: pytest.MonkeyPa
     else:
         clear.assert_awaited_once()
         update.assert_not_awaited()
+
+
+def test_a_model_card_shows_the_name_settings_shows() -> None:
+    # The card read its own labels ("Flash", "Pro") while Settings → Models showed the
+    # catalog's (code-health audit ARCH-06).
+    assert change_label("default_model", "auto") == "Auto"
+    for model in model_catalog.selectable_models():
+        assert change_label("default_model", model.id) == model.label

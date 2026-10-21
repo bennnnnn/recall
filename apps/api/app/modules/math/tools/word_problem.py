@@ -20,17 +20,13 @@ import re
 from fractions import Fraction
 
 from app.core.config import Settings
+from app.models.routing_lanes import ROUTING
 from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.schemas import MathIntent
 from app.modules.math.schemas.word_problem import WordProblemSetup
 from app.services.number_text import NUMBER_WORDS
 
 logger = logging.getLogger(__name__)
-
-# The user-facing fast route has materially lower latency and follows informal
-# school wording more reliably than the background title model. Its output is
-# still only a candidate: number grounding and SymPy remain the trust boundary.
-_TRANSLATOR_MODEL_ALIAS = "gpt-6-luna"
 
 _MIN_CHARS = 25
 _MAX_CHARS = 600
@@ -298,7 +294,7 @@ async def word_problem_intent(text: str, settings: Settings) -> MathIntent | Non
     from app.gateways import litellm_gateway
     from app.models import model_catalog
 
-    aliases = [_TRANSLATOR_MODEL_ALIAS]
+    aliases = [ROUTING.word_problems]
     fallback = model_catalog.structured_fallback_alias()
     if fallback and fallback not in aliases:
         aliases.append(fallback)

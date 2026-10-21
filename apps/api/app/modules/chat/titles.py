@@ -10,6 +10,7 @@ from app.core.validation import BORING_CHAT_TITLES as BORING_CHAT_TITLES
 from app.core.validation import normalize_chat_title as normalize_chat_title
 from app.core.validation import normalize_stored_chat_title, unwrap_chat_title
 from app.gateways import litellm_gateway, mock_llm
+from app.models.routing_lanes import ROUTING
 from app.repositories import chats as chats_repo
 
 GREETING_CHAT_TITLE = "Greeting"
@@ -108,7 +109,7 @@ async def generate_title(
     ]
     raw = await litellm_gateway.complete_text(
         settings=settings,
-        model_alias="title-model",
+        model_alias=ROUTING.titles,
         messages=messages,
         max_tokens=20,
     )

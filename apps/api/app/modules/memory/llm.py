@@ -7,6 +7,7 @@ from typing import Any
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
+from app.models.routing_lanes import ROUTING
 from app.modules.memory.offline import offline_memory_facts, offline_section_merge
 from app.modules.memory.schemas import MemoryFactUpdateResult, MemorySectionItem
 from app.modules.memory.topics import STANDARD_TOPICS
@@ -178,7 +179,7 @@ async def revise_memory_facts(
     ]
     return await litellm_gateway.complete_structured(
         settings=settings,
-        model_alias="memory-model",
+        model_alias=ROUTING.background,
         messages=messages,
         schema=MemoryFactUpdateResult,
         # Room for several ops; a reply cut off mid-JSON is discarded whole.
@@ -244,7 +245,7 @@ async def instruct_memory(
     ]
     return await litellm_gateway.complete_structured(
         settings=settings,
-        model_alias="memory-model",
+        model_alias=ROUTING.background,
         messages=messages,
         schema=MemoryFactUpdateResult,
         max_tokens=2048,
@@ -293,7 +294,7 @@ async def merge_memory_section(
     ]
     return await litellm_gateway.complete_structured(
         settings=settings,
-        model_alias="memory-model",
+        model_alias=ROUTING.background,
         messages=messages,
         schema=MemorySectionItem,
         max_tokens=1024,

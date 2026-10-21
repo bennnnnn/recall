@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
+from app.models.routing_lanes import ROUTING
 from app.modules.chat.context_window import SUMMARY_SYSTEM_PROMPT, cap_summary
 
 
@@ -27,7 +28,7 @@ async def summarize_conversation(
     ]
     text = await litellm_gateway.complete_text(
         settings=settings,
-        model_alias="memory-model",
+        model_alias=ROUTING.background,
         messages=msgs,
         max_tokens=settings.summary_max_tokens,
     )

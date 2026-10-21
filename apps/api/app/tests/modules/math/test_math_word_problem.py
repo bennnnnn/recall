@@ -8,6 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
+from app.models.routing_lanes import ROUTING
 from app.modules.math import tools as mt
 from app.modules.math.schemas import MathIntent
 from app.modules.math.schemas.word_problem import WordProblemSetup
@@ -463,7 +464,7 @@ async def test_intent_uses_resilient_bounded_structured_call(
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
     intent = await word_problem_intent(AGES, _settings())
     assert intent is not None and intent.kind == "word_problem"
-    assert seen["model_alias"] == "gpt-6-luna"
+    assert seen["model_alias"] == ROUTING.word_problems
     assert seen["schema"] is WordProblemSetup
     assert seen["allow_fallback"] is False
 
@@ -483,7 +484,7 @@ async def test_intent_retries_semantic_decline_on_independent_provider(
     intent = await word_problem_intent(AGES, _settings())
 
     assert intent is not None and intent.kind == "word_problem"
-    assert aliases == ["gpt-6-luna", "fallback-memory-model"]
+    assert aliases == [ROUTING.word_problems, ROUTING.structured_fallback]
 
 
 @pytest.mark.asyncio
