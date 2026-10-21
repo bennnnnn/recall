@@ -191,3 +191,38 @@ describe("mergeLocalAttachmentUris", () => {
   });
 
 });
+
+const uuid = (n: number) => `0190a000-0000-7000-8000-${String(n).padStart(12, "0")}`;
+const row = (id: string, role: Message["role"], content = id, extra: Partial<Message> = {}): Message => ({
+  id, role, content, model: null, created_at: "2026-01-01T00:00:00Z", ...extra,
+});
+
+describe("mergeLocalAttachmentUris keeps what did not change", () => {
+  it("keeps each row's object, and the list itself, when the server's copy draws the same", () => {
+    const previous = [row(uuid(1), "user", "Hi"), row(uuid(2), "assistant", "Hello", { search_sources: [] })];
+    const incoming = previous.map((message) => JSON.parse(JSON.stringify(message)) as Message);
+    expect(mergeLocalAttachmentUris(previous, incoming)).toBe(previous);
+  });
+
+  it("swaps in only the row that changed, keeping its list key", () => {
+    const previous = [row(uuid(1), "user", "Hi"), row(uuid(2), "assistant", "Hel", { renderKey: "stream-1" })];
+    const incoming = [{ ...previous[0] }, row(uuid(2), "assistant", "Hello")];
+    const merged = mergeLocalAttachmentUris(previous, incoming);
+    expect(merged[0]).toBe(previous[0]);
+    expect(merged[1]).toEqual({ ...incoming[1], renderKey: "stream-1" });
+  });
+
+  it("reads a missing field, null and undefined as the same", () => {
+    const previous = [row(uuid(1), "assistant", "Hi", { feedback: null, related_prompts: undefined })];
+    expect(mergeLocalAttachmentUris(previous, [row(uuid(1), "assistant", "Hi")])).toBe(previous);
+  });
+
+  it("gives a sent picture's preview only to the new row, not to an older picture already shown", () => {
+    const older = row(uuid(1), "user", "[Image: /attachments/a/file]");
+    const previous = [older, row(uuid(2), "assistant"), row("local-3", "user", "Look", { local_image_uri: "file:///new.jpg" })];
+    const saved = row(uuid(3), "user", "[Image: /attachments/b/file]\n\nLook");
+    const merged = mergeLocalAttachmentUris(previous, [{ ...older }, row(uuid(2), "assistant"), saved, row(uuid(4), "assistant")]);
+    expect(merged[0]).toBe(older);
+    expect(merged[2].local_image_uri).toBe("file:///new.jpg");
+  });
+});
