@@ -108,6 +108,7 @@ const NO_ACCOUNT_DATA = [
   "features/attachments/model/attachments.ts#nativePickerActive",
   "features/attachments/model/attachments.ts#nativePickerGeneration",
   "features/attachments/model/downloadChatAttachment.ts#swept",
+  "features/chat/model/messageCache.ts#swept",
   "features/attachments/model/galleryLayout.ts#cachedLayout",
   "features/attachments/model/pdfViewerFile.ts#written",
   "features/chat/hooks/useMathKeyboardInsert.ts#lastSystemKeyboardHeight",

@@ -5,6 +5,7 @@ jest.mock("expo-file-system/legacy", () => ({
   readAsStringAsync: jest.fn(),
   writeAsStringAsync: jest.fn(),
   deleteAsync: jest.fn(),
+  readDirectoryAsync: jest.fn(async () => []),
 }));
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
@@ -16,6 +17,7 @@ import {
   clearCachedChatMessages,
   patchCachedChatMessage,
   readCachedChatMessages,
+  sweepCachedChatPages,
   writeCachedChatMessages,
 } from "@/features/chat/model/messageCache";
 import type { Message } from "@/lib/api";
@@ -23,6 +25,7 @@ import {
   deleteAsync,
   getInfoAsync,
   readAsStringAsync,
+  readDirectoryAsync,
   writeAsStringAsync,
 } from "expo-file-system/legacy";
 
@@ -185,5 +188,30 @@ describe("saved history invalidation", () => {
       messages: [{ ...messages[0], content: "Updated" }], has_more: true,
       cached_at: "2026-01-01T00:00:00Z",
     });
+  });
+});
+
+
+describe("chat page sweep (LEAK-07)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("keeps the newest 100 chats and none older than 30 days", async () => {
+    const now = Date.parse("2026-10-21T00:00:00Z");
+    const day = 24 * 60 * 60_000;
+    // chat-0 is the newest, then chat-1 and so on; chat-5 was last opened 31 days ago,
+    // so the newest 100 are chat-0 to chat-100 without it.
+    const names = Array.from({ length: 102 }, (_, index) => `chat-${index}.json`);
+    (readDirectoryAsync as jest.Mock).mockResolvedValueOnce(names);
+    (getInfoAsync as jest.Mock).mockImplementation(async (path: string) => {
+      const index = Number(path.match(/chat-(\d+)\.json$/)?.[1]);
+      const age = index === 5 ? 31 * day : index * 60_000;
+      return { exists: true, modificationTime: (now - age) / 1000 };
+    });
+    await sweepCachedChatPages(now);
+    const deleted = (deleteAsync as jest.Mock).mock.calls.map(([path]) => path).sort();
+    expect(deleted).toEqual([
+      "/mock-cache/chat-pages/chat-101.json",
+      "/mock-cache/chat-pages/chat-5.json",
+    ]);
   });
 });

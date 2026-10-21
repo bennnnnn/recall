@@ -4,6 +4,7 @@ import {
   getInfoAsync,
   makeDirectoryAsync,
   readAsStringAsync,
+  readDirectoryAsync,
   writeAsStringAsync,
 } from "expo-file-system/legacy";
 
@@ -17,6 +18,13 @@ type CachedChatPage = {
 };
 
 const CACHE_DIR = `${cacheDirectory ?? ""}chat-pages/`;
+/**
+ * Pages kept on disk: the newest this many chats, none older than 30 days. One file
+ * per chat ever opened grew for years (code-health audit LEAK-07).
+ */
+const MAX_CACHED_CHATS = 100;
+const MAX_CACHED_AGE_MS = 30 * 24 * 60 * 60_000;
+let swept = false;
 let diskWrites: Promise<void> = Promise.resolve();
 let clearGeneration = 0;
 const chatClearGenerations = new Map<string, number>();
@@ -71,12 +79,34 @@ export async function readCachedChatMessages(chatId: string): Promise<CachedChat
   }
 }
 
+/** Drop pages past the age limit, then all but the newest `MAX_CACHED_CHATS`. */
+export async function sweepCachedChatPages(now: number = Date.now()): Promise<void> {
+  if (!cacheDirectory) return;
+  return mutateDisk(async () => {
+    const names = await readDirectoryAsync(CACHE_DIR).catch(() => [] as string[]);
+    const files = (await Promise.all(names.map(async (name) => {
+      const path = `${CACHE_DIR}${name}`;
+      const info = await getInfoAsync(path).catch(() => null);
+      // Legacy file info reports seconds.
+      return info?.exists ? { path, modifiedAt: (info.modificationTime ?? 0) * 1000 } : null;
+    }))).filter((file): file is { path: string; modifiedAt: number } => file !== null)
+      .sort((a, b) => b.modifiedAt - a.modifiedAt);
+    const old = files.filter((file, index) => index >= MAX_CACHED_CHATS || now - file.modifiedAt > MAX_CACHED_AGE_MS);
+    await Promise.allSettled(old.map((file) => deleteAsync(file.path, { idempotent: true })));
+  });
+}
+
 export async function writeCachedChatMessages(
   chatId: string,
   messages: Message[],
   hasMore: boolean,
 ): Promise<void> {
   if (!cacheDirectory) return;
+  // Once per run, before the first write: earlier runs' pages are bounded here.
+  if (!swept) {
+    swept = true;
+    void sweepCachedChatPages();
+  }
   const isCurrent = cacheIsCurrent(chatId);
   return mutateDisk(async () => {
     if (!isCurrent()) return;

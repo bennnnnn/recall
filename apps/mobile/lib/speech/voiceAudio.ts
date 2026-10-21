@@ -2,7 +2,7 @@
 
 import type { PermissionResponse } from "expo-audio";
 import { requireOptionalNativeModule } from "expo-modules-core";
-import { getInfoAsync, readAsStringAsync } from "expo-file-system/legacy";
+import { deleteAsync, getInfoAsync, readAsStringAsync } from "expo-file-system/legacy";
 
 import { canUseVoiceInput } from "@/lib/expoRuntime";
 
@@ -159,6 +159,20 @@ export async function yieldMicToWebRtc(): Promise<void> {
   }
 }
 
+function releaseRecorder(recorder: { release?: () => void }): void {
+  try {
+    recorder.release?.();
+  } catch {
+    /* already released */
+  }
+}
+
+/** Delete a recording once it has been sent or dropped: the app keeps no voice on disk. */
+export async function deleteVoiceRecording(uri: string | null | undefined): Promise<void> {
+  if (!uri) return;
+  await deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+}
+
 export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
   const mod = loadExpoAudio();
   if (!mod) return null;
@@ -209,10 +223,16 @@ export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
         }
       }
       const rawUri = recorder.uri;
+      // The native recorder is done with; its file is the caller's to delete
+      // (deleteVoiceRecording): expo-audio keeps every one (code-health audit LEAK-04).
+      releaseRecorder(recorder);
       if (!rawUri) return null;
       const uri = normalizeRecordingUri(rawUri);
       const size = await waitForRecordingFile(uri);
-      if (!size) return null;
+      if (!size) {
+        await deleteVoiceRecording(uri);
+        return null;
+      }
       return uri;
     },
     subscribeMetering: (listener) => {

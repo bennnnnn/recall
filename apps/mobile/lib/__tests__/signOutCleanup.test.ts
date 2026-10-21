@@ -81,10 +81,15 @@ it("deletes the account's export, previews, read-aloud audio and PDFs, and nothi
     "Print",
   ];
   mockFiles["file:///cache/Print/"] = ["0A1B.pdf", "notes.txt"];
+  // Voice recordings expo-audio wrote (iOS, Android): never kept past sign-out (LEAK-04).
+  mockFiles["file:///cache/ExpoAudio/"] = ["recording-1.m4a", "other.caf"];
+  mockFiles["file:///cache/Audio/"] = ["recording-2.m4a"];
 
   await clearSignedOutAccount("user-1");
 
   expect(mockDeleted.sort()).toEqual([
+    "file:///cache/Audio/recording-2.m4a",
+    "file:///cache/ExpoAudio/recording-1.m4a",
     "file:///cache/Print/0A1B.pdf",
     "file:///cache/recall-export-1.json",
     "file:///cache/recall-preview-2.html",
