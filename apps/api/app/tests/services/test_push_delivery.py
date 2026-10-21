@@ -320,9 +320,8 @@ async def test_poll_deferred_push_receipts_prunes_invalid_token(fake_redis):
             AsyncMock(return_value=receipts),
         ),
         patch.object(push_service.push_repo, "delete_by_token", AsyncMock()) as delete_mock,
-        patch("app.modules.notifications.push.time.time", return_value=10_000.0),
     ):
-        await push_service.poll_deferred_push_receipts(session, fake_redis)
+        await push_service.poll_deferred_push_receipts(session, fake_redis, now=10_000.0)
 
     delete_mock.assert_awaited_once_with(session, "ExponentPushToken[dead]")
     session.commit.assert_awaited_once()
@@ -340,9 +339,8 @@ async def test_poll_deferred_push_receipts_keeps_pending_receipts(fake_redis):
             AsyncMock(return_value={"ticket-1": {"status": "pending"}}),
         ),
         patch.object(push_service.push_repo, "delete_by_token", AsyncMock()) as delete_mock,
-        patch("app.modules.notifications.push.time.time", return_value=10_000.0),
     ):
-        await push_service.poll_deferred_push_receipts(session, fake_redis)
+        await push_service.poll_deferred_push_receipts(session, fake_redis, now=10_000.0)
 
     delete_mock.assert_not_awaited()
     session.commit.assert_not_awaited()
@@ -358,9 +356,8 @@ async def test_receipt_polling_reads_a_bounded_batch(fake_redis):
     with (
         patch("app.modules.notifications.push.expo_push_gateway.fetch_push_receipts", fetch),
         patch.object(push_service, "RECEIPT_POLL_BATCH", 5),
-        patch("app.modules.notifications.push.time.time", return_value=10_000.0),
     ):
-        await push_service.poll_deferred_push_receipts(AsyncMock(), fake_redis)
+        await push_service.poll_deferred_push_receipts(AsyncMock(), fake_redis, now=10_000.0)
     assert len(fetch.await_args.args[0]) == 5
 
 

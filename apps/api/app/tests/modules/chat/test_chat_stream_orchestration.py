@@ -653,7 +653,7 @@ async def test_stop_after_the_last_token_still_saves_the_reply(fake_redis, strea
 
     assert tokens == ["full ", "answer"]
     finalize.assert_awaited_once()
-    assert finalize.await_args.args[2] == "full answer"
+    assert finalize.await_args.kwargs["assistant_text"] == "full answer"
     assert outcome.message_id is not None
     # The reply was complete; the Stop only came during its finishing passes.
     assert outcome.completion is None
@@ -1852,7 +1852,7 @@ async def test_stream_persists_raw_text_when_enrichment_fails(fake_redis, stream
 
     assert collected == ["hello ", "world"]
     finalize.assert_awaited()
-    assert finalize.await_args.args[2] == "hello world"
+    assert finalize.await_args.kwargs["assistant_text"] == "hello world"
 
 
 @pytest.mark.asyncio
@@ -2220,7 +2220,7 @@ async def test_instant_reply_usage_uses_input_output_keys(fake_redis, stream_off
 
     captured: dict[str, object] = {}
 
-    async def capture_finalize(_redis, _ctx, assistant_text, usage, _outcome):
+    async def capture_finalize(*_args, assistant_text, usage, outcome):
         captured["usage"] = dict(usage)
         captured["assistant_text"] = assistant_text
 

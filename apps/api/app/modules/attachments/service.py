@@ -10,6 +10,9 @@ import functools
 from collections.abc import Awaitable, Callable
 from types import ModuleType
 from typing import Any
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.attachment_limits import MAX_ATTACHMENT_SIZE as MAX_ATTACHMENT_SIZE
 from app.modules.attachments import jobs as _jobs
@@ -41,9 +44,26 @@ get_by_ids = _call_through(attachments_repo, "get_by_ids")
 chat_has_document_chunks = _call_through(_rag, "chat_has_document_chunks")
 hide_from_gallery = _call_through(attachments_repo, "hide_from_gallery")
 insert_verified_clone = _call_through(attachments_repo, "insert_verified_clone")
-link_to_message = _call_through(attachments_repo, "link_to_message")
 list_for_message_ids = _call_through(attachments_repo, "list_for_message_ids")
 list_for_user = _call_through(attachments_repo, "list_for_user")
 mark_verified = _call_through(attachments_repo, "mark_verified")
 mark_verified_many = _call_through(attachments_repo, "mark_verified_many")
 purge_attachments_for_user = _call_through(_lifecycle, "purge_attachments_for_user")
+
+
+async def link_to_message(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    attachment_ids: list[UUID],
+    message_id: UUID,
+    commit: bool = True,
+) -> int:
+    """Join the user's attachments to the message just created; how many were joined."""
+    return await attachments_repo.link_to_message(
+        session,
+        user_id=user_id,
+        attachment_ids=attachment_ids,
+        message_id=message_id,
+        commit=commit,
+    )

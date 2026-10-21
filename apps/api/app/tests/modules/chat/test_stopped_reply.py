@@ -167,7 +167,7 @@ def _saved_text(finalize: AsyncMock) -> str:
     """The reply text the turn handed to the DB finalize."""
     call = finalize.await_args
     assert call is not None
-    return str(call.args[2])
+    return str(call.kwargs["assistant_text"])
 
 
 async def _stop_after_two_tokens(

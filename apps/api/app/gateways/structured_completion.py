@@ -92,8 +92,7 @@ async def _complete_structured_once[T: BaseModel](
     usage: dict[str, int] | None = None,
 ) -> T | None:
     """One structured attempt. Raises on provider outage; returns None on bad output."""
-    # Resolved at call time: litellm_gateway re-exports this module, and its
-    # provider seams (``acompletion``, ``resolve_route``) are patched there.
+    # Imported at call time: litellm_gateway re-exports this module.
     from app.gateways import litellm_gateway as gateway
 
     route = gateway.resolve_route(model_alias)

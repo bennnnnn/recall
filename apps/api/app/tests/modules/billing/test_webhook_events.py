@@ -33,6 +33,28 @@ async def _process(payload: dict) -> None:
     )
 
 
+async def test_an_event_claimed_by_another_delivery_is_busy_before_the_subscriber_lock():
+    """The event claim turns away a second delivery of an event in flight, before it
+    takes the subscriber lock or asks RevenueCat for the plan."""
+    subscriber_lock = AsyncMock(return_value="token")
+    resolve = AsyncMock(return_value="pro")
+    redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    payload = _payload("INITIAL_PURCHASE", app_user_id=str(uuid4()))
+    with patch(f"{_SUB}.resolve_plan_from_revenuecat", resolve):
+        with pytest.raises(revenuecat.SubscriberBusyError):
+            await revenuecat.process_event(
+                AsyncMock(),
+                redis,
+                _settings(),
+                payload,
+                event_claim=AsyncMock(return_value=False),
+                subscriber_lock=subscriber_lock,
+                receipt_enqueuer=AsyncMock(),
+            )
+    subscriber_lock.assert_not_awaited()
+    resolve.assert_not_awaited()
+
+
 async def test_transfer_without_app_user_id_moves_the_plan_to_transferred_to():
     """RevenueCat's TRANSFER body has no app_user_id: only transferred_from/_to.
 

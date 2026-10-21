@@ -1,7 +1,7 @@
 """Non-streaming image-input completion, with one fallback vision model.
 
-Provider calls go through ``litellm_gateway`` attributes so tests and routing
-patches on that module still apply.
+Provider calls go through ``litellm_gateway``, which re-exports this module, so
+it is imported at call time.
 """
 
 from __future__ import annotations

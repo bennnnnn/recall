@@ -69,12 +69,15 @@ class _Sample:
     first_content_ms: float
 
 
-async def record_attempts(redis: Redis, attempts: Sequence[_Attempt]) -> None:
-    """One sample per alias a stream tried, in one round trip. Failures are swallowed."""
+async def record_attempts(
+    redis: Redis, attempts: Sequence[_Attempt], *, now: float | None = None
+) -> None:
+    """One sample per alias a stream tried, in one round trip, timed ``now`` (the
+    current time by default). Failures are swallowed."""
     if not attempts:
         return
     try:
-        now = time.time()
+        now = time.time() if now is None else now
         async with redis.pipeline(transaction=False) as pipe:
             for attempt in attempts:
                 key = _SAMPLES_KEY.format(alias=attempt.alias)

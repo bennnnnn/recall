@@ -15,12 +15,13 @@ from app.gateways import litellm_gateway
 from app.models.schemas import ChatMessageRequest
 from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
+from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan
 from app.modules.chat.turn_deps import ChatTurnDeps, default_deps
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
 from app.modules.math import fence as math_fence
-from app.repositories import chats, messages, users
+from app.repositories import chats, messages, usage, users
 from app.services import conversation_reference, quota
 from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import turn_deps
@@ -29,6 +30,7 @@ _REAL_MODULES = {
     "users": users,
     "chats": chats,
     "messages": messages,
+    "usage": usage,
     "quota": quota,
     "plan": plan,
     "locks": redis_lock,
@@ -36,6 +38,7 @@ _REAL_MODULES = {
     "image_generation": image_generation,
     "image_search": image_search,
     "attachments": attachment_lifecycle,
+    "attachment_links": attachments_service,
     "references": conversation_reference,
     "web_search": web_search,
     "math_fence": math_fence,

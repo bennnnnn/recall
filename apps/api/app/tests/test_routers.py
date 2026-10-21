@@ -1698,14 +1698,17 @@ def test_revenuecat_webhook_pro_event_defers_when_entitlement_unresolved():
     apply_mock.assert_not_awaited()
 
 
-def test_revenuecat_webhook_concurrent_claim_only_processes_once():
-    """SET NX claim: two deliveries that both pass the done-marker check must
-    not both dispatch — only the lock winner processes."""
+@pytest.mark.asyncio
+async def test_revenuecat_webhook_concurrent_deliveries_process_once():
+    """Two deliveries of one event at once: the first is held while it owns the
+    event, and the second is turned away with 503 having processed nothing."""
+    import asyncio
+
     import fakeredis.aioredis
+    from httpx import ASGITransport, AsyncClient
 
     from app.core.config import get_settings
     from app.core.deps import get_redis
-    from app.modules.billing import api as webhooks_mod
 
     uid = uuid4()
     app = create_app()
@@ -1724,29 +1727,31 @@ def test_revenuecat_webhook_concurrent_claim_only_processes_once():
             "app_user_id": str(uid),
         }
     }
+    first_holds_claim = asyncio.Event()
+    finish_first = asyncio.Event()
+    resolved: list[int] = []
 
-    # First request claims; second sees lock held (simulate by pre-claiming).
-    claim_results = iter([True, False])
-
-    async def claim_side_effect(_redis, _event_id):
-        return next(claim_results)
+    async def resolve(*_args, **_kwargs):
+        resolved.append(1)
+        if len(resolved) == 1:  # only the first delivery is held
+            first_holds_claim.set()
+            await finish_first.wait()
+        return "pro"
 
     with (
-        patch.object(webhooks_mod, "_try_claim", side_effect=claim_side_effect),
-        patch.object(webhooks_mod, "_already_processed", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
-            AsyncMock(return_value="pro"),
-        ),
+        patch("app.modules.billing.subscription.resolve_plan_from_revenuecat", resolve),
         patch(
             "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
         patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
     ):
-        client = TestClient(app)
-        r1 = client.post("/webhooks/revenuecat", json=payload)
-        r2 = client.post("/webhooks/revenuecat", json=payload)
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            first = asyncio.create_task(client.post("/webhooks/revenuecat", json=payload))
+            await asyncio.wait_for(first_holds_claim.wait(), timeout=5)
+            r2 = await client.post("/webhooks/revenuecat", json=payload)
+            finish_first.set()
+            r1 = await first
 
     assert r1.status_code == 200
     assert r2.status_code == 503

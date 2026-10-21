@@ -121,7 +121,7 @@ async def _fetch_candidates(
     """
     deadline = settings.image_search_fetch_timeout_seconds
     fetched: list[tuple[bytes, str]] = []
-    async with httpx.AsyncClient(timeout=deadline, follow_redirects=False) as client:
+    async with safe_fetch.fetch_client(deadline) as client:
         pending = {
             asyncio.create_task(_fetch_one_image(client, hit, deadline_seconds=deadline))
             for hit in hits

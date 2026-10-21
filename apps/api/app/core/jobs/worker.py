@@ -53,6 +53,8 @@ _RECLAIM_INTERVAL_S = 30.0
 # Redis unreachable at boot: retry creating the group with this backoff, forever.
 _GROUP_RETRY_FIRST_S = 1.0
 _GROUP_RETRY_MAX_S = 30.0
+# A failed stream read waits this long before the next one.
+_READ_ERROR_BACKOFF_S = 2.0
 # How stale the worker-loop heartbeat can get before is_worker_alive() reports
 # the worker as dead even though its task hasn't crashed. The live loop never
 # waits on a job (jobs run as tasks, see ``inflight``) and touches the
@@ -420,7 +422,7 @@ async def _back_off_after_read_error(redis: Redis, exc: Exception) -> None:
     looked idle.
     """
     logger.debug("xreadgroup failed; backing off", exc_info=True)
-    await asyncio.sleep(2)
+    await asyncio.sleep(_READ_ERROR_BACKOFF_S)
     if "NOGROUP" in str(exc):
         logger.warning("Jobs consumer group is gone; creating it again")
         try:

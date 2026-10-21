@@ -6,11 +6,10 @@ import base64
 import binascii
 import logging
 
-import httpx
-
 from app.core.attachment_limits import MAX_ATTACHMENT_SIZE
 from app.core.config import Settings
 from app.gateways import safe_fetch
+from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
 
@@ -47,24 +46,23 @@ async def generate_via_openrouter(
         ]
 
     try:
-        async with httpx.AsyncClient(timeout=_GENERATE_TIMEOUT) as client:
-            response = await client.post(
-                _OPENROUTER_IMAGES_URL,
-                headers={
-                    "Authorization": f"Bearer {settings.openrouter_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
+        response = await get_pooled_client(_GENERATE_TIMEOUT).post(
+            _OPENROUTER_IMAGES_URL,
+            headers={
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        if response.status_code >= 400:
+            logger.warning(
+                "OpenRouter image generation failed model=%s status=%s body=%s",
+                model,
+                response.status_code,
+                response.text[:500],
             )
-            if response.status_code >= 400:
-                logger.warning(
-                    "OpenRouter image generation failed model=%s status=%s body=%s",
-                    model,
-                    response.status_code,
-                    response.text[:500],
-                )
-            response.raise_for_status()
-            data = response.json()
+        response.raise_for_status()
+        data = response.json()
         items = data.get("data")
         if not isinstance(items, list) or not items:
             logger.warning("OpenRouter image generation returned no data model=%s", model)
@@ -96,9 +94,7 @@ async def generate_via_openrouter(
                 return raw, media_type if isinstance(media_type, str) else "image/png"
         url = first.get("url")
         if isinstance(url, str) and url.startswith(("http://", "https://")):
-            async with httpx.AsyncClient(
-                timeout=_GENERATE_TIMEOUT, follow_redirects=False
-            ) as client:
+            async with safe_fetch.fetch_client(_GENERATE_TIMEOUT) as client:
                 img_resp = await safe_fetch.fetch_safely(
                     client, url, deadline_seconds=_RESULT_DOWNLOAD_DEADLINE
                 )

@@ -23,7 +23,11 @@ def _rows(by_plan: dict[str, list[UUID]]):
 async def _run(by_plan: dict[str, list[UUID]], resolved: dict[str, str | None]):
     session = AsyncMock()
     lock: Any = SimpleNamespace(refresh=AsyncMock(return_value=True))
-    settings = Settings(revenuecat_secret_key="sk_test", billing_reconcile_batch_size=25)
+    settings = Settings(
+        revenuecat_secret_key="sk_test",
+        billing_reconcile_batch_size=25,
+        billing_reconcile_rest_gap_seconds=0,
+    )
 
     async def resolve(_settings, app_user_id):
         return resolved[app_user_id]
@@ -45,7 +49,6 @@ async def _run(by_plan: dict[str, list[UUID]], resolved: dict[str, str | None]):
             "app.background.billing_reconcile_scheduler.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply,
-        patch("app.background.billing_reconcile_scheduler.asyncio.sleep", AsyncMock()),
     ):
         await billing_reconcile_scheduler._billing_cycle(settings, lock)
     return resolve_mock, apply

@@ -136,7 +136,6 @@ async def check_math_fences(state: FinalizeState) -> str:
         return math_fence.validate_math_fences_worker(state.text, verified, False)
     if not math_fence.needs_math_fence_validate(state.text, verified):
         return state.text
-    # Through the module: tests swap the SymPy pool for an inline runner there.
     return await sympy_executor.run_sympy(
         math_fence.validate_math_fences_worker,
         state.text,

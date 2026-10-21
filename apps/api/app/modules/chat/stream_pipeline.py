@@ -66,6 +66,7 @@ def _prior_window(prompt_messages: Any) -> list[Any]:
 
 
 async def register_and_enqueue_finalize(
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
@@ -100,7 +101,9 @@ async def register_and_enqueue_finalize(
         )
     await mark_pending_finalize(redis, ctx.chat_id)
     finalize_db_task = create_background_task(
-        finalize_stream_turn_db(redis, ctx, assistant_text, usage, outcome),
+        finalize_stream_turn_db(
+            deps, redis, settings, ctx, assistant_text=assistant_text, usage=usage, outcome=outcome
+        ),
         name="finalize_stream_turn_db",
     )
     register_pending_finalize(ctx.chat_id, finalize_db_task)
@@ -328,6 +331,7 @@ async def _settle_reply(
         )
         await await_user_message_persist(ctx)
         await register_and_enqueue_finalize(
+            deps,
             redis,
             settings,
             ctx,

@@ -19,9 +19,13 @@ def _no_verdict_cache():
     model_health.forget_verdicts()
 
 
-async def _samples(redis: Any, alias: str, *outcomes: tuple[bool, float]) -> None:
+async def _samples(
+    redis: Any, alias: str, *outcomes: tuple[bool, float], now: float | None = None
+) -> None:
     await model_health.record_attempts(
-        redis, [StreamAttempt(alias=alias, ok=ok, first_content_ms=ms) for ok, ms in outcomes]
+        redis,
+        [StreamAttempt(alias=alias, ok=ok, first_content_ms=ms) for ok, ms in outcomes],
+        now=now,
     )
 
 
@@ -62,8 +66,7 @@ async def test_a_long_healthy_reply_is_not_slow(fake_redis: Any) -> None:
 async def test_an_alias_with_only_old_failures_is_routable_again(fake_redis: Any) -> None:
     """Unhealthy aliases get no new samples; the window lets them come back (half-open)."""
     an_hour_ago = time.time() - 3_600
-    with patch("app.services.model_health.time.time", return_value=an_hour_ago):
-        await _samples(fake_redis, "smart-chat", (False, 50), (False, 50), (False, 50))
+    await _samples(fake_redis, "smart-chat", (False, 50), (False, 50), (False, 50), now=an_hour_ago)
     assert await model_health.unhealthy_aliases(fake_redis, MagicMock(), ["smart-chat"]) == (
         frozenset()
     )

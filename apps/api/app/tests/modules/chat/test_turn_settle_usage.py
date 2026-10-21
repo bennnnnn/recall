@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any, cast
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -12,6 +12,8 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat import turn_settle
 from app.modules.chat.turn_outcome import TurnUsage
+from app.tests.fakes import redis_mock
+from app.tests.modules.chat.chat_test_support import turn_deps
 
 
 def _charge() -> Any:
@@ -21,24 +23,30 @@ def _charge() -> Any:
 @pytest.mark.asyncio
 async def test_the_settle_returns_the_days_usage() -> None:
     ctx = SimpleNamespace(user=MagicMock(), user_id=uuid4(), reserved_tokens=1000)
-    with (
-        patch.object(turn_settle.quota_service, "daily_limit_for_user", return_value=10_000),
-        patch.object(turn_settle.quota_service, "adjust_usage", AsyncMock(return_value=8_200)),
-    ):
-        usage = await turn_settle._settle_quota(AsyncMock(), cast(Any, ctx), Settings(), _charge())
+    deps = turn_deps(
+        quota={
+            "daily_limit_for_user": MagicMock(return_value=10_000),
+            "adjust_usage": AsyncMock(return_value=8_200),
+        }
+    )
+    usage = await turn_settle._settle_quota(
+        deps, redis_mock(), cast(Any, ctx), Settings(), _charge()
+    )
     assert usage == TurnUsage(used_tokens=8_200, daily_limit=10_000)
 
 
 @pytest.mark.asyncio
 async def test_a_failed_settle_reports_no_usage() -> None:
     ctx = SimpleNamespace(user=MagicMock(), user_id=uuid4(), reserved_tokens=1000)
-    with (
-        patch.object(turn_settle.quota_service, "daily_limit_for_user", return_value=10_000),
-        patch.object(
-            turn_settle.quota_service, "adjust_usage", AsyncMock(side_effect=OSError("down"))
-        ),
-        patch.object(turn_settle.quota_service, "mark_usage_needs_heal", AsyncMock()),
-        patch.object(turn_settle.asyncio, "sleep", AsyncMock()),
-    ):
-        usage = await turn_settle._settle_quota(AsyncMock(), cast(Any, ctx), Settings(), _charge())
+    deps = turn_deps(
+        quota={
+            "daily_limit_for_user": MagicMock(return_value=10_000),
+            "adjust_usage": AsyncMock(side_effect=OSError("down")),
+            "mark_usage_needs_heal": AsyncMock(),
+        }
+    )
+    # Three tries, 0.3 s of real pauses between them.
+    usage = await turn_settle._settle_quota(
+        deps, redis_mock(), cast(Any, ctx), Settings(), _charge()
+    )
     assert usage is None

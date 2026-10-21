@@ -201,7 +201,7 @@ async def test_all_candidates_fail_fetch_refunds_and_raises_502():
             "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=[_HIT]),
         ),
-        patch("app.modules.images.search.httpx.AsyncClient", return_value=fetch_client),
+        patch("app.gateways.safe_fetch.fetch_client", return_value=fetch_client),
         patch(
             "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=bad_response),
@@ -252,7 +252,7 @@ async def test_successful_lookup_persists_attachment_and_message():
             "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=[_HIT]),
         ),
-        patch("app.modules.images.search.httpx.AsyncClient", return_value=fetch_client),
+        patch("app.gateways.safe_fetch.fetch_client", return_value=fetch_client),
         patch(
             "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=good_response),
@@ -306,7 +306,7 @@ async def test_link_failure_rolls_back_bytes_and_refunds():
             "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=[_HIT]),
         ),
-        patch("app.modules.images.search.httpx.AsyncClient", return_value=fetch_client),
+        patch("app.gateways.safe_fetch.fetch_client", return_value=fetch_client),
         patch(
             "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=good_response),
@@ -393,7 +393,7 @@ async def test_lookup_reply_is_image_markers_only():
             "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=[evil_hit]),
         ),
-        patch("app.modules.images.search.httpx.AsyncClient", return_value=fetch_client),
+        patch("app.gateways.safe_fetch.fetch_client", return_value=fetch_client),
         patch(
             "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=good_response),

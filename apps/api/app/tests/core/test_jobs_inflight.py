@@ -107,7 +107,7 @@ async def test_consumer_recreates_a_lost_group() -> None:
     )
     with (
         patch("app.core.jobs.worker.get_jobs_redis_client", return_value=redis),
-        patch("app.core.jobs.worker.asyncio.sleep", AsyncMock()),
+        patch.object(worker, "_READ_ERROR_BACKOFF_S", 0.0),
     ):
         with pytest.raises(asyncio.CancelledError):
             await worker._worker_loop(Settings())

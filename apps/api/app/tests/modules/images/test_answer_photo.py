@@ -156,7 +156,7 @@ def _lookup_patches(gateway, *, reserve=True, hits=(_HIT,)):
             "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=list(hits)),
         ),
-        patch("app.modules.images.search.httpx.AsyncClient", return_value=client),
+        patch("app.gateways.safe_fetch.fetch_client", return_value=client),
         patch(
             "app.modules.images.search.safe_fetch.fetch_safely", AsyncMock(return_value=response)
         ),

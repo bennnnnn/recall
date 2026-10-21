@@ -2,12 +2,13 @@
 
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway as gateway
+from app.gateways import tool_completion
 from app.gateways.tool_completion import NO_TOOL_NAME
 
 TOOLS = [{"type": "function", "function": {"name": "calendar", "parameters": {}}}]
@@ -47,13 +48,20 @@ async def _complete(**kwargs):
     )
 
 
+def _asyncio_with(timeout: MagicMock) -> SimpleNamespace:
+    """asyncio as tool_completion sees it, with ``timeout`` recorded there alone."""
+    names = {name: getattr(asyncio, name) for name in dir(asyncio) if not name.startswith("_")}
+    return SimpleNamespace(**{**names, "timeout": timeout})
+
+
 @pytest.mark.asyncio
 async def test_selector_requires_explicit_no_tool_decision_and_retains_usage():
     usage = {"input": 10, "output": 20}
     complete = AsyncMock(return_value=_response([_call(NO_TOOL_NAME, "{}")]))
+    timeout = MagicMock(wraps=asyncio.timeout)
     with (
         patch.object(gateway, "acompletion", complete),
-        patch.object(gateway.asyncio, "timeout", wraps=asyncio.timeout) as timeout,
+        patch.object(tool_completion, "asyncio", _asyncio_with(timeout)),
     ):
         result = await _complete(usage=usage)
 
@@ -137,9 +145,10 @@ async def test_selector_retries_only_explicit_unsupported_choice_with_same_contr
         ]
     )
     usage = {}
+    timeout = MagicMock(wraps=asyncio.timeout)
     with (
         patch.object(gateway, "acompletion", complete),
-        patch.object(gateway.asyncio, "timeout", wraps=asyncio.timeout) as timeout,
+        patch.object(tool_completion, "asyncio", _asyncio_with(timeout)),
     ):
         result = await _complete(usage=usage)
     first, second = [call.kwargs for call in complete.await_args_list]

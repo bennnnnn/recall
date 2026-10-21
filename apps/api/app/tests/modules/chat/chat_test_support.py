@@ -88,7 +88,6 @@ def offline_session_patches():
         patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.persist.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.vision.SessionLocal", FakeSessionCM),
-        patch("app.modules.chat.turn_settle.SessionLocal", FakeSessionCM),
     )
 
 

@@ -92,9 +92,11 @@ async def enqueue_push_receipts(redis: Redis, tickets: list[tuple[str, str]]) ->
         await pipe.execute()
 
 
-async def poll_deferred_push_receipts(session: AsyncSession, redis: Redis) -> None:
+async def poll_deferred_push_receipts(
+    session: AsyncSession, redis: Redis, *, now: float | None = None
+) -> None:
     """Poll a batch of Expo receipts old enough to be ready; prune dead tokens."""
-    now = time.time()
+    now = time.time() if now is None else now
     # Token keys carry the same 24 h TTL, so stale tickets only need leaving the set.
     await redis.zremrangebyscore(RECEIPT_PENDING_ZSET, 0, now - RECEIPT_MAX_AGE_SECONDS)
     ticket_ids = _redis_str_members(
