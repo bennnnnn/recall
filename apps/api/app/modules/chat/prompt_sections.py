@@ -1,8 +1,13 @@
 """The system prompt as ordered sections, and the contracts placed beside the user turn.
 
 Each ``PromptSection`` says when it applies to a ``PromptTurn`` and what text it adds.
-The system prompt is every applying section in ``PROMPT_SECTIONS`` order, a blank line
-between parts. ``NEARBY_CONTRACTS`` go in one system message just before the user turn.
+The system prompt is two system messages, most stable first, so a provider can reuse
+the first from an earlier turn (prompt caching): ``STABLE_SECTIONS``, the instructions
+every turn of this kind and this user shares, then ``TURN_SECTIONS``, the chat's summary
+and this turn's clock, memory, files and follow-up. A section goes in the stable message
+only when its text stays the same from one turn to the next. Each is every applying
+section in table order, a blank line between parts. ``NEARBY_CONTRACTS`` go in one
+system message just before the user turn.
 """
 
 from __future__ import annotations
@@ -240,15 +245,11 @@ def _advice(turn: PromptTurn) -> list[str]:
     return [ADVICE_PERSONALIZE_HINT]
 
 
-PROMPT_SECTIONS: tuple[PromptSection, ...] = (
+# Fixed instructions first, then the user's own: profile, instructions, language. Tone
+# and the web-search switch are user settings with few values, kept beside the rules
+# they qualify.
+STABLE_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(_always, lambda _t: ["You are Recall, a helpful personal AI assistant."]),
-    PromptSection(
-        _always,
-        lambda t: [
-            time_context_service.format_now_awareness(t.local_tz, t.user.locale, t.query_text)
-        ],
-    ),
-    PromptSection(_always, _profile),
     PromptSection(_always, lambda t: [t.length_hint]),
     # Lightweight/chit-chat turns skipped the math guardrails entirely,
     # so incidental `$...$` rendered as raw ```latex. A two-line fence
@@ -275,8 +276,17 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
         lambda t: not t.lightweight and getattr(t.user, "web_search_enabled", True) is False,
         lambda _t: [WEB_SEARCH_OFF_HINT],
     ),
+    PromptSection(lambda t: not t.slim, lambda t: lookup_hints(t.settings)),
+    PromptSection(_always, _profile),
     PromptSection(_always, lambda t: _present(custom_instructions_block(t.user))),
     PromptSection(_always, lambda t: _present(locale_service.locale_system_hint(t.user.locale))),
+)
+
+
+# What changes from turn to turn: the chat's summary (rewritten every few turns of a
+# long chat), the clock, then what memory, files and the schedule returned for this
+# message, then the notes and contracts that hang on it.
+TURN_SECTIONS: tuple[PromptSection, ...] = (
     # M8: inject the rolling summary even on the slim path. A slim long thread
     # (lightweight / not rich_context) still drops everything older than the
     # recent window from the prompt — without the summary the model loses all
@@ -286,6 +296,12 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
         lambda t: bool(t.summary),
         lambda t: [
             wrap_untrusted("conversation summary", f"Summary of earlier conversation:\n{t.summary}")
+        ],
+    ),
+    PromptSection(
+        _always,
+        lambda t: [
+            time_context_service.format_now_awareness(t.local_tz, t.user.locale, t.query_text)
         ],
     ),
     PromptSection(lambda t: not t.slim, _integrations),
@@ -399,6 +415,16 @@ def slim_geo_hints(
     return parts + _geo_hints(query_text, prompt_location)
 
 
+def lookup_hints(settings: Settings) -> list[str]:
+    """What a rich turn may look up: the web and real photos. Fixed text, one per flag."""
+    parts: list[str] = []
+    if settings.web_search_enabled:
+        parts.append(web_search_service.WEB_SEARCH_HINT)
+    if settings.image_search_enabled:
+        parts.append(PHOTO_LOOKUP_HINT)
+    return parts
+
+
 def _integration_hints(
     *,
     settings: Settings,
@@ -412,15 +438,13 @@ def _integration_hints(
     todos_section: str | None,
     chat_history_rag_block: str = "",
 ) -> list[str]:
-    """Time / web / memory / todos hints (the summary is its own section)."""
+    """Time / place / memory / todos context (the summary and ``lookup_hints`` are
+    their own sections)."""
     parts: list[str] = [
         time_context_service.format_time_context(local_tz, user_locale, location_for_context)
     ]
     if settings.web_search_enabled:
-        parts.append(web_search_service.WEB_SEARCH_HINT)
         parts.extend(_geo_hints(query_text, prompt_location))
-    if settings.image_search_enabled:
-        parts.append(PHOTO_LOOKUP_HINT)
     if memory_block:
         parts.append(wrap_saved_memory(memory_block))
     if attachment_rag_block:

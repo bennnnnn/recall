@@ -65,6 +65,13 @@ async def augment_web_and_tools(
     return updated, fetched.search_sources, fetched.verified
 
 
+def system_prompt(messages: list[dict[str, Any]]) -> str:
+    """A built prompt's system prompt as one text: its stable message, then the turn's."""
+    stable, turn = messages[0], messages[1]
+    assert stable["role"] == turn["role"] == "system", (stable["role"], turn["role"])
+    return f"{stable['content']}\n\n{turn['content']}"
+
+
 def prompt_bundle(**fields: Any) -> TurnPromptBundle:
     """What a stubbed prompt build returns: an empty prompt unless ``fields`` say otherwise."""
     base: dict[str, Any] = {

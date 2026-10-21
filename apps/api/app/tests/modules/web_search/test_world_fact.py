@@ -21,6 +21,7 @@ from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import FACT_GROUNDING_HINT
 from app.modules.web_search import should_web_search
 from app.modules.web_search.world_fact import asks_about_the_world
+from app.tests.modules.chat.chat_test_support import system_prompt
 
 _ASKS = [
     "what's the population of Ethiopia",
@@ -146,7 +147,7 @@ async def _system_prompt(query: str, *, lightweight: bool) -> str:
             lightweight=lightweight,
             current_user_message_id=current.id,
         )
-    return messages[0]["content"]
+    return system_prompt(messages)
 
 
 @pytest.mark.asyncio

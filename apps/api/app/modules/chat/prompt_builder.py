@@ -24,7 +24,12 @@ from app.modules.chat.prompt_memory import (
     memory_switch_on,
     recalls_shared_past,
 )
-from app.modules.chat.prompt_sections import NEARBY_CONTRACTS, PROMPT_SECTIONS, PromptTurn
+from app.modules.chat.prompt_sections import (
+    NEARBY_CONTRACTS,
+    STABLE_SECTIONS,
+    TURN_SECTIONS,
+    PromptTurn,
+)
 from app.modules.chat.prompt_window import (
     PromptWindow,
     followup_subject,
@@ -302,10 +307,12 @@ async def build_prompt_messages(
     """Assemble system + recent messages for a chat turn.
 
     Context loading uses short-lived sessions so embeds cannot pin a caller
-    connection across the concurrent gather. The system prompt is
-    ``PROMPT_SECTIONS``; the history is ``prompt_window``. ``turn_plan``: the message's
-    separate requests, when it holds more than one (``turn_prep.intents``). ``stats``,
-    when given, is filled with what the prompt drew on.
+    connection across the concurrent gather. The system prompt is two messages: the
+    first is ``STABLE_SECTIONS``, the same text on every turn of this kind for this
+    user, so a provider can reuse it; the second is ``TURN_SECTIONS``. The history is
+    ``prompt_window``. ``turn_plan``: the message's separate requests, when it holds
+    more than one (``turn_prep.intents``). ``stats``, when given, is filled with what
+    the prompt drew on.
     """
     plan = await _context_plan(
         user,
@@ -382,7 +389,10 @@ async def build_prompt_messages(
         recalls_shared_past=plan.recalls_shared_past,
     )
     messages = [
-        {"role": "system", "content": "\n\n".join(render_rules(PROMPT_SECTIONS, turn))},
+        *(
+            {"role": "system", "content": "\n\n".join(render_rules(sections, turn))}
+            for sections in (STABLE_SECTIONS, TURN_SECTIONS)
+        ),
         *history_messages(window, math_followup=followup == "math"),
     ]
     nearby = render_rules(NEARBY_CONTRACTS, turn)
