@@ -106,7 +106,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   with user/quota load (regenerate still waits first so it does not miss that reply).
   Attachment-chunk probes run only when they can apply;
   time/location answers skip a database checkout.
-- ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button); the partial reply
+- ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button, until the
+  reply's text is all in: at `stream_end` Send works again, and a turn sent then goes out
+  once that reply's `done` lands); the partial reply
   is kept and marked incomplete (same “Generation stopped.” footer as a provider
   drop or token-limit cut). The kept text never changes after Stop: the cancel frame
   says how much the phone drew (`shown_chars`), the server saves that text made safe
@@ -248,7 +250,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   dotted cover in Expo Go), a stage line ("Sketching it out" … "Almost there") and an estimated
   percentage; tapping it starts a small dot game. Tap the result to
   view full-screen and save via the system share sheet. Only the server reads the request:
-  when a send might be a picture or a photo, the composer asks `POST /images/intent`, which
+  the tap paints the bubble and typing dots first, and when a send might be a picture or a
+  photo the composer then asks `POST /images/intent` (a picture is drawn under that bubble), which
   answers with the chat turn's own reading of the text and the chat's recent turns
   (`docs/fixtures/image_intent_cases.json`), and draws what it answers, so "show the steps"
   after a picture is chat. A maths, physics or chemistry turn is never a picture: "draw
