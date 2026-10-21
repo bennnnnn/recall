@@ -104,7 +104,8 @@ async def delete_memory_fact(
         try:
             new_vec = await embedding_gateway.embed_text(settings, stored)
         except Exception:
-            logger.debug("Memory re-embed on fact delete failed", exc_info=True)
+            # The fact's vector stays empty until its next edit: recall misses it.
+            logger.warning("Memory re-embed on fact delete failed", exc_info=True)
             new_vec = None
         try:
             if new_vec is not None:
@@ -171,7 +172,7 @@ async def update_memory(
                 try:
                     new_vec = await embedding_gateway.embed_text(settings, clean)
                 except Exception:
-                    logger.debug("Memory re-embed on edit failed", exc_info=True)
+                    logger.warning("Memory re-embed on edit failed", exc_info=True)
                     new_vec = None
                 if new_vec is not None:
                     updated = await memories_repo.update_text_and_embedding(

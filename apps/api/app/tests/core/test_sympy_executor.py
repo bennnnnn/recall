@@ -23,12 +23,12 @@ import pytest
 from app.core.sympy_executor import (
     BoundedSympyExecutor,
     ProcessPoolSympyExecutor,
-    ThreadSympyExecutor,
     run_sympy,
     set_sympy_executor,
     warm_sympy_pool,
 )
 from app.modules.math.sympy_warmup import warm_math_worker
+from app.tests.sympy_support import ThreadSympyExecutor
 
 
 def _add(a: int, b: int) -> int:

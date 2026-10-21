@@ -341,7 +341,7 @@ async def get_download(
         try:
             indexed = await chunks_repo.has_chunks_for_attachment(session, user.id, attachment_id)
         except Exception:
-            logger.debug("attachment indexed probe failed id=%s", attachment_id, exc_info=True)
+            logger.warning("attachment indexed probe failed id=%s", attachment_id, exc_info=True)
             indexed = False
     return AttachmentOut(
         id=row.id,

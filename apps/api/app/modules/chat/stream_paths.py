@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
 from dataclasses import dataclass, replace
@@ -18,6 +17,7 @@ from redis.asyncio import Redis
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
+from app.gateways.litellm_gateway import StreamAttempt
 from app.models.orm import User
 from app.modules.chat import tool_loop
 from app.modules.chat.stream_accum import StreamAccum
@@ -235,8 +235,6 @@ async def run_llm_token_stream(
 ) -> AsyncIterator[str]:
     stream_meta: dict[str, str] = {}
     requested_model = ctx.model
-    started = time.perf_counter()
-    stream_ok = False
     scaffold = ScaffoldFilter()
     if on_status is not None:
         # The model is writing now: a tool or search label must not linger.
@@ -245,6 +243,7 @@ async def run_llm_token_stream(
         # Reserve top-up and the tool loop have finished. The interval from
         # here includes gateway routing/retries, not only upstream inference.
         ctx.timing.mark_phase("gateway_request_start")
+    attempts: list[StreamAttempt] = []
     llm_stream = deps.llm.stream_chat_completion(
         settings=settings,
         model_alias=ctx.model,
@@ -255,6 +254,7 @@ async def run_llm_token_stream(
         stream_meta=stream_meta,
         on_reasoning=on_reasoning,
         thinking=ctx.thinking,
+        attempts=attempts,
     )
     try:
         async for token in llm_stream:
@@ -266,7 +266,6 @@ async def run_llm_token_stream(
                 # token. No token goes out before it has: a reply to a message
                 # that never saved would be neither stored nor charged. The
                 # model did answer, so a failed save is not its health sample.
-                stream_ok = True
                 await await_user_message_persist(ctx)
                 if ctx.timing is not None:
                     ctx.timing.mark_first_token()
@@ -286,7 +285,6 @@ async def run_llm_token_stream(
         if not accum.was_cancelled and (tail := scaffold.flush()):
             accum.shown.append(tail)
             yield tail
-        stream_ok = bool(accum.parts) or accum.was_cancelled
         finish = stream_meta.get("finish_reason")
         if finish in _INCOMPLETE_FINISH_REASONS and not accum.was_cancelled:
             accum.mark_truncated()
@@ -306,16 +304,8 @@ async def run_llm_token_stream(
                 )
             else:
                 await close()
-        if not accum.was_cancelled:
-            try:
-                await model_health_service.record_sample(
-                    redis,
-                    stream_meta.get("model_alias") or requested_model,
-                    latency_ms=(time.perf_counter() - started) * 1000,
-                    success=stream_ok,
-                )
-            except Exception:
-                logger.debug("model health sample failed", exc_info=True)
+        # One sample per alias the gateway tried, timed to its first content.
+        await model_health_service.record_attempts(redis, attempts)
     resolved = stream_meta.get("model_alias")
     if resolved:
         ctx.model = resolved

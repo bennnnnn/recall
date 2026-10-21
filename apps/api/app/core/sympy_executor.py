@@ -120,6 +120,10 @@ class BoundedSympyExecutor:
     def set_warmup(self, warmup: Callable[[], None]) -> None:
         """Remember the start-up solve; a slot that restarts runs it first."""
 
+    def free_slots(self) -> int | None:
+        """Slots idle right now (None when the executor does not know)."""
+        return None
+
     def shutdown(self) -> None:
         pass
 
@@ -159,6 +163,9 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
 
     def set_warmup(self, warmup: Callable[[], None]) -> None:
         self._warmup = warmup
+
+    def free_slots(self) -> int | None:
+        return self._max_workers if self._free is None else self._free.qsize()
 
     def _free_queue(self) -> asyncio.Queue[int]:
         q = self._free
@@ -368,53 +375,6 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         self._thread_pool = None
         if pool is not None:
             pool.shutdown(wait=False, cancel_futures=True)
-
-
-class ThreadSympyExecutor(BoundedSympyExecutor):
-    """In-process thread-based executor — for tests (monkeypatch-friendly).
-
-    Uses a dedicated thread pool (NOT the shared default) so SymPy work is
-    still isolated from other ``to_thread`` callers. No hard kill on
-    timeout — the thread keeps running — but tests verify the
-    timeout-fallback behavior, not the kill itself.
-    """
-
-    def __init__(
-        self,
-        max_workers: int = 1,
-        *,
-        queue_wait_seconds: float = DEFAULT_SYMPY_QUEUE_WAIT_SECONDS,
-    ) -> None:
-        self._max_workers = _clamp_workers(max_workers)
-        self._queue_wait_seconds = queue_wait_seconds
-        self._pool = ThreadPoolExecutor(max_workers=self._max_workers)
-
-    @property
-    def max_workers(self) -> int:
-        return self._max_workers
-
-    async def run(
-        self,
-        fn: Callable[..., _T],
-        *args: Any,
-        timeout: float,  # noqa: ASYNC109 - we IMPLEMENT the timeout, not consume it
-    ) -> _T:
-        t_submit = time.monotonic()
-        future = self._pool.submit(fn, *args)
-        while not future.running() and not future.done():
-            if time.monotonic() - t_submit >= self._queue_wait_seconds:
-                future.cancel()
-                raise TimeoutError("SymPy worker slot wait timed out")
-            await asyncio.sleep(_QUEUE_POLL_SECONDS)
-        afut = asyncio.wrap_future(future)
-        try:
-            async with asyncio.timeout(timeout):
-                return await afut
-        except TimeoutError:
-            raise
-
-    def shutdown(self) -> None:
-        self._pool.shutdown(wait=False, cancel_futures=True)
 
 
 _executor: BoundedSympyExecutor | None = None

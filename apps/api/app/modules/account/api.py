@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -16,6 +17,7 @@ from app.core.deps import (
 )
 from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
 from app.core.rate_limit import allow_request_fail_closed
+from app.core.redis_lock import acquire_lock, release_lock
 from app.models.orm import User
 from app.models.schemas import (
     AccountDeleteRequest,
@@ -438,14 +440,35 @@ async def sync_subscription(
     return UserOut.model_validate(updated)
 
 
+# One export at a time per user, and a few an hour: each reads up to a million rows.
+_EXPORTS_PER_HOUR = 3
+_EXPORT_LOCK_TTL_SECONDS = 600
+
+
 @router.get("/me/export")
 async def export_me(
     user: User = Depends(get_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> StreamingResponse:
-    return StreamingResponse(
-        export_service.iter_export_json(user),
-        media_type="application/json",
+    allowed = await allow_request_fail_closed(
+        redis, f"rate:export:{user.id}", limit=_EXPORTS_PER_HOUR, window_seconds=3600
     )
+    lock_key = f"export:running:{user.id}"
+    token = await acquire_lock(redis, lock_key, _EXPORT_LOCK_TTL_SECONDS) if allowed else None
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="An export is already running or was just made. Try again later.",
+        )
+
+    async def body() -> AsyncIterator[str]:
+        try:
+            async for chunk in export_service.iter_export_json(user):
+                yield chunk
+        finally:
+            await release_lock(redis, lock_key, token)
+
+    return StreamingResponse(body(), media_type="application/json")
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

@@ -23,7 +23,10 @@ async def acquire_memory_write_lock(seams: Any, user_id: UUID) -> str | None:
         redis = seams.get_redis_client()
         return await acquire_lock(redis, memory_write_lock_key(user_id), _MEMORY_WRITE_LOCK_TTL)
     except Exception:
-        logger.debug("Memory write lock acquire failed", exc_info=True)
+        # Not contention: the caller's "lock held" line follows, and this says why.
+        logger.warning(
+            "Memory write lock unavailable (Redis error) user_id=%s", user_id, exc_info=True
+        )
         return None
 
 

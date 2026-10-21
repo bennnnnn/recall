@@ -374,10 +374,15 @@ async def list_sessions(
     except RedisError as exc:
         logger.warning("Session list failed; Redis unavailable", exc_info=True)
         raise RedisUnavailableError() from exc
+    refresh_tokens = [_redis_str(raw_token) for raw_token in tokens]
+    # One MGET for every session, not a GET each.
+    records = (
+        await redis.mget([_refresh_key(token) for token in refresh_tokens])
+        if refresh_tokens
+        else []
+    )
     sessions: list[dict[str, Any]] = []
-    for raw_token in tokens:
-        refresh_token = _redis_str(raw_token)
-        raw = await redis.get(_refresh_key(refresh_token))
+    for refresh_token, raw in zip(refresh_tokens, records, strict=True):
         if raw is None:
             continue
         record = parse_refresh_record(raw, refresh_token)

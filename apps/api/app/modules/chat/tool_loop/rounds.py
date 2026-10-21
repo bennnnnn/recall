@@ -10,6 +10,7 @@ other answer streams.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from typing import Any, NamedTuple
 from uuid import UUID
@@ -102,6 +103,7 @@ async def run_tool_rounds(
         user_query=user_text,
         tavily_budget=TurnTavilyBudget(settings=settings, user=user),
         user_location=user_location,
+        deadline=time.monotonic() + settings.mcp_tool_loop_total_timeout_seconds,
     )
     # An obvious lookup used to spend a model round deciding to call
     # web_search, then a second round writing the answer. Search first

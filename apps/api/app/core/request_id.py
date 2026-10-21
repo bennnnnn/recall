@@ -17,9 +17,8 @@ import re
 import time
 from uuid import uuid4
 
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.requests import Request
-from starlette.responses import Response
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 REQUEST_ID_HEADER = "X-Request-ID"
 
@@ -37,13 +36,13 @@ request_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 )
 
 
-def route_path(request: Request) -> str:
+def route_path(scope: Scope) -> str:
     """The matched route's template (``/memories/documents/{topic}``), else the raw path.
 
     The raw path can carry the user's own words: a memory area's slug is made from its name.
     """
-    template = getattr(request.scope.get("route"), "path", None)
-    return template if isinstance(template, str) else request.url.path
+    template = getattr(scope.get("route"), "path", None)
+    return template if isinstance(template, str) else str(scope.get("path", ""))
 
 
 def _normalize_request_id(raw: str | None) -> str:
@@ -53,26 +52,43 @@ def _normalize_request_id(raw: str | None) -> str:
     return str(uuid4())
 
 
-class RequestIdMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        request_id = _normalize_request_id(request.headers.get(REQUEST_ID_HEADER))
-        request.state.request_id = request_id
+class RequestIdMiddleware:
+    """Pure ASGI, so WebSocket connections get a request id too (Starlette's
+    ``BaseHTTPMiddleware`` passed them straight through), and the access line is written
+    when the response has gone out, a stream included.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+        request_id = _normalize_request_id(Headers(scope=scope).get(REQUEST_ID_HEADER))
+        scope.setdefault("state", {})["request_id"] = request_id
         token = request_id_context.set(request_id)
         started = time.perf_counter()
         status_code = 500
-        try:
-            response = await call_next(request)
-            status_code = response.status_code
-            response.headers[REQUEST_ID_HEADER] = request_id
-            return response
-        finally:
-            # Lazy import: logging.py reads request_id_context from this module.
-            from app.core.logging import log_http_request
 
-            log_http_request(
-                method=request.method,
-                path=route_path(request),
-                status=status_code,
-                duration_ms=round((time.perf_counter() - started) * 1000, 1),
-            )
+        async def send_with_id(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = int(message["status"])
+                MutableHeaders(scope=message)[REQUEST_ID_HEADER] = request_id
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_with_id if scope["type"] == "http" else send)
+        finally:
+            if scope["type"] == "http":
+                # Lazy import: logging.py reads request_id_context from this module.
+                from app.core.logging import log_http_request
+
+                log_http_request(
+                    method=str(scope.get("method", "")),
+                    path=route_path(scope),
+                    status=status_code,
+                    duration_ms=round((time.perf_counter() - started) * 1000, 1),
+                )
             request_id_context.reset(token)

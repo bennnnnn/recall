@@ -60,8 +60,10 @@ async def _claim_dedupe(
             nx=True,
         )
     except Exception:
-        # Fail open: never drop work because Redis SET blipped.
-        logger.debug("job dedupe claim failed key=%s", dedupe_key, exc_info=True)
+        # Fail open: never drop work because Redis SET blipped (a duplicate may run).
+        logger.warning(
+            "job dedupe claim failed; running unclaimed key=%s", dedupe_key, exc_info=True
+        )
         return True
     return bool(claimed)
 
@@ -79,7 +81,7 @@ async def _dedupe_is_complete(redis: Redis, dedupe_key: str | None) -> bool:
             return False
         return False
     except Exception:
-        logger.debug("job dedupe state read failed key=%s", dedupe_key, exc_info=True)
+        logger.warning("job dedupe state read failed key=%s", dedupe_key, exc_info=True)
         return False
 
 

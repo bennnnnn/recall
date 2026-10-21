@@ -12,14 +12,19 @@ replace this module and keep its three functions.
 
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
+from redis.asyncio import Redis
 from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session, make_transient_to_detached
 
+from app.core.redis_counters import incr_with_ttl
 from app.core.ttl_cache import TtlCache
 from app.models.orm import User
+
+logger = logging.getLogger(__name__)
 
 USER_CACHE_TTL_SECONDS = 60.0
 # Users seen on one process within the TTL; far above normal traffic.
@@ -30,8 +35,61 @@ _user_cache: TtlCache[UUID, User] = TtlCache(
 )
 
 
+# A per-user counter in Redis that every privacy-relevant profile write bumps (consent,
+# memory, web search). An entry cached at generation N is stale on every machine once the
+# counter moves, so a withdrawal is honoured at once, not up to a TTL later. A missing
+# key reads as 0, which a bumped entry never matches: losing the key only costs a reload.
+_GENERATION_KEY = "usergen:{user_id}"
+_GENERATION_TTL_SECONDS = 86_400
+_generations: TtlCache[UUID, int] = TtlCache(
+    ttl_seconds=USER_CACHE_TTL_SECONDS,
+    max_entries=_USER_CACHE_MAX_ENTRIES,
+)
+
+
 def cached_user(user_id: UUID) -> User | None:
     return _user_cache.get(user_id)
+
+
+async def _read_generation(redis: Redis, user_id: UUID) -> int:
+    raw = await redis.get(_GENERATION_KEY.format(user_id=user_id))
+    return int(raw or 0)
+
+
+async def note_generation(redis: Redis, user_id: UUID) -> None:
+    """Remember which generation the row just cached was read at (best-effort)."""
+    try:
+        _generations.put(user_id, await _read_generation(redis, user_id))
+    except Exception:
+        _generations.pop(user_id)
+        logger.warning("User generation read failed user_id=%s", user_id, exc_info=True)
+
+
+async def is_current(redis: Redis, user_id: UUID) -> bool:
+    """Whether the cached row is still the account's latest privacy settings.
+
+    A row with no generation noted counts as generation 0, current until the account's
+    first privacy write. False when Redis fails: the caller re-reads the row.
+    """
+    known = _generations.get(user_id) or 0
+    try:
+        return await _read_generation(redis, user_id) == known
+    except Exception:
+        logger.warning("User generation check failed user_id=%s", user_id, exc_info=True)
+        return False
+
+
+async def bump_generation(redis: Redis, user_id: UUID) -> None:
+    """Mark every machine's cached row stale after a committed profile write."""
+    try:
+        generation = await incr_with_ttl(
+            redis, _GENERATION_KEY.format(user_id=user_id), 1, _GENERATION_TTL_SECONDS
+        )
+    except Exception:
+        # Without the bump, other machines keep the old row until their TTL.
+        logger.warning("User generation bump failed user_id=%s", user_id, exc_info=True)
+        return
+    _generations.put(user_id, generation)
 
 
 def _snapshot(user: User) -> User:
@@ -79,11 +137,13 @@ def remember_user_after_commit(session: Session, user: User) -> None:
 
 def forget_user(user_id: UUID) -> None:
     _user_cache.pop(user_id)
+    _generations.pop(user_id)
 
 
 def clear() -> None:
     """Drop every entry (tests)."""
     _user_cache.clear()
+    _generations.clear()
 
 
 def size() -> int:

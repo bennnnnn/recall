@@ -19,6 +19,17 @@ os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 # suite is written against. A developer's apps/api/.env key would turn it off and send those
 # tests to the real provider. A key exported in the shell still wins.
 os.environ.setdefault("OPENROUTER_API_KEY", "")
+# No paid or outside service is reachable from a test, whatever apps/api/.env holds: an empty
+# key is "not configured" to every gateway. A test of a gateway passes its own Settings.
+for _provider_key in (
+    "OPENAI_API_KEY",
+    "TAVILY_API_KEY",
+    "RESEND_API_KEY",
+    "MATHPIX_APP_KEY",
+    "REVENUECAT_SECRET_KEY",
+):
+    os.environ[_provider_key] = ""
+os.environ["WEB_SEARCH_FALLBACK_ENABLED"] = "false"
 
 # A maths decline that would hide a programming error (an AttributeError, NameError or our
 # own TypeError; see app/modules/math/solve/declines.py) raises under pytest. A value already in
@@ -27,9 +38,78 @@ _STRICT_DECLINES_ASKED = "RECALL_STRICT_DECLINES" in os.environ
 os.environ.setdefault("RECALL_STRICT_DECLINES", "1")
 
 
+_REAL_CONNECT: dict[str, object] = {}
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_redis():
+    """Every Redis client the app makes talks to one in-memory server per test.
+
+    Isolation used to be opt-in per consumer: 37 modules call ``get_redis_client()``,
+    four were faked, and the rest reached the developer's Redis (or a client bound to
+    an earlier test's event loop). ``real_redis`` opts a test out.
+    """
+    from app.core import redis as redis_module
+
+    _REAL_CONNECT.setdefault("connect", redis_module._connect)
+    server = fakeredis.FakeServer()
+
+    def connect(_socket_timeout: float) -> fakeredis.aioredis.FakeRedis:
+        return fakeredis.aioredis.FakeRedis(server=server, decode_responses=True)
+
+    redis_module.get_redis_client.cache_clear()
+    redis_module.get_jobs_redis_client.cache_clear()
+    with patch.object(redis_module, "_connect", connect):
+        yield server
+    redis_module.get_redis_client.cache_clear()
+    redis_module.get_jobs_redis_client.cache_clear()
+
+
 @pytest.fixture
-async def fake_redis():
-    client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+def real_redis(_hermetic_redis):
+    """The configured Redis, for a test that needs a real server (none today)."""
+    from app.core import redis as redis_module
+
+    redis_module.get_redis_client.cache_clear()
+    with patch.object(redis_module, "_connect", _REAL_CONNECT["connect"]):
+        yield
+
+
+_LOCAL_HOSTS = frozenset({"testserver", "test", "localhost", "127.0.0.1"})
+
+
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    """No test reaches the internet: an outside request fails as a refused connection.
+
+    Mock transports and the in-process app are allowed. DuckDuckGo's client is not httpx,
+    so it is refused by name.
+    """
+    import httpx
+
+    real_send = httpx.AsyncClient.send
+
+    async def guarded_send(self, request, *args, **kwargs):
+        transport = getattr(self, "_transport", None)
+        if request.url.host in _LOCAL_HOSTS or isinstance(
+            transport, httpx.MockTransport | httpx.ASGITransport
+        ):
+            return await real_send(self, request, *args, **kwargs)
+        raise httpx.ConnectError(f"no network in tests ({request.url.host})", request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "send", guarded_send)
+
+    class _NoDuckDuckGo:
+        def __init__(self, *_args, **_kwargs):
+            raise RuntimeError("no network in tests (DuckDuckGo)")
+
+    monkeypatch.setattr("ddgs.DDGS", _NoDuckDuckGo)
+
+
+@pytest.fixture
+async def fake_redis(_hermetic_redis):
+    """A client on the test's in-memory server: what the app's own clients see."""
+    client = fakeredis.aioredis.FakeRedis(server=_hermetic_redis, decode_responses=True)
     yield client
     await client.aclose()
 
@@ -145,11 +225,8 @@ def _reset_sympy_executor():
     a full suite. The thread worker also correctly observes monkeypatches;
     the production ``spawn`` context intentionally does not inherit them.
     """
-    from app.core.sympy_executor import (
-        ThreadSympyExecutor,
-        reset_sympy_executor,
-        set_sympy_executor,
-    )
+    from app.core.sympy_executor import reset_sympy_executor, set_sympy_executor
+    from app.tests.sympy_support import ThreadSympyExecutor
 
     set_sympy_executor(ThreadSympyExecutor(max_workers=1))
     yield
@@ -164,11 +241,8 @@ def thread_sympy_executor():
     subprocess boundary) or that spy on in-process state (a subprocess can't
     write back to the test's memory). The production executor's hard-kill
     behavior is exercised in test_sympy_executor.py."""
-    from app.core.sympy_executor import (
-        ThreadSympyExecutor,
-        reset_sympy_executor,
-        set_sympy_executor,
-    )
+    from app.core.sympy_executor import reset_sympy_executor, set_sympy_executor
+    from app.tests.sympy_support import ThreadSympyExecutor
 
     set_sympy_executor(ThreadSympyExecutor(max_workers=1))
     yield

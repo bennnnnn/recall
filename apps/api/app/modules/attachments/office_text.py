@@ -83,7 +83,9 @@ def extract_office_text(content_type: str, data: bytes, *, max_chars: int) -> st
                 break
         return "\n".join(parts)[:max_chars] or None
     except Exception:
-        logger.debug("Office text extraction failed", exc_info=True)
+        logger.warning(
+            "Office text extraction failed; the file has no text for search", exc_info=True
+        )
         return None
     finally:
         lines.close()

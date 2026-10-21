@@ -237,8 +237,8 @@ async def reap_orphan_attachments(settings: Settings) -> int:
                 try:
                     await counters.refund("image_upload", redis, row.user_id)
                 except Exception:
-                    logger.debug(
-                        "Image quota refund failed for user %s", row.user_id, exc_info=True
+                    logger.warning(
+                        "Image quota refund failed user_id=%s", row.user_id, exc_info=True
                     )
     logger.info("Reaped %d orphan attachment(s)", len(removed_keys))
     return len(removed_keys)

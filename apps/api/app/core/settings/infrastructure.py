@@ -9,6 +9,9 @@ class InfrastructureSettings(BaseModel):
 
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
     process_role: str = "all"
+    # Root log level (DEBUG, INFO, WARNING, ...). Failures that matter log at WARNING;
+    # DEBUG is for chasing one problem, never the default.
+    log_level: str = "INFO"
 
     # Per-instance DB pool. Keep (db_pool_size + db_max_overflow) * INSTANCE_COUNT
     # under the Neon pooler connection ceiling. The chat hot path opens several

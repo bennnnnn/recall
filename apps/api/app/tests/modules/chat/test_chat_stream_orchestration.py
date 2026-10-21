@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.core.config import Settings
+from app.gateways.litellm_gateway import StreamAttempt
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.tests.modules.chat.chat_test_support import (
     FakeSessionCM as _FakeSessionCM,
@@ -604,7 +605,13 @@ def _turn_ctx(**fields: Any):
 
 
 def _stream_of(*tokens: str):
-    async def fake_stream(**_kwargs: object):
+    async def fake_stream(**kwargs: object):
+        # As the gateway does: the alias that answers is one attempt, ok.
+        attempts = kwargs.get("attempts")
+        if isinstance(attempts, list):
+            attempts.append(
+                StreamAttempt(alias=str(kwargs["model_alias"]), ok=True, first_content_ms=1.0)
+            )
         for token in tokens:
             yield token
             await asyncio.sleep(0)
@@ -639,7 +646,7 @@ async def test_failed_user_row_save_sends_no_reply(stream_offline_io):
             patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
         )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
-        stack.enter_context(patch("app.services.model_health.record_sample", health))
+        stack.enter_context(patch("app.services.model_health.record_attempts", health))
         with pytest.raises(RuntimeError, match="database unavailable"):
             async for token in stream_and_finalize(
                 offline_deps(),
@@ -655,8 +662,9 @@ async def test_failed_user_row_save_sends_no_reply(stream_offline_io):
     finalize.assert_not_awaited()
     assert outcome.finalize_db_task is None
     assert outcome.user_message_saved is False
-    # The model answered; the failure was the save's.
-    assert health.await_args.kwargs["success"] is True
+    # The model answered; the failure was the save's, not the model's health sample.
+    attempts = health.await_args.args[1]
+    assert [(attempt.alias, attempt.ok) for attempt in attempts] == [("free-chat", True)]
 
 
 @pytest.mark.asyncio

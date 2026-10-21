@@ -145,7 +145,9 @@ def extract_text_details(
                 page_capped=page_capped,
             )
         except Exception:
-            logger.debug("PDF text extraction failed", exc_info=True)
+            logger.warning(
+                "PDF text extraction failed; the file has no text for search", exc_info=True
+            )
             return None
 
     if content_type == _DOCX_CONTENT_TYPE:
@@ -162,7 +164,9 @@ def extract_text_details(
                 return None
             return ExtractedText(text=joined[:max_chars], char_capped=len(joined) > max_chars)
         except Exception:
-            logger.debug("DOCX text extraction failed", exc_info=True)
+            logger.warning(
+                "DOCX text extraction failed; the file has no text for search", exc_info=True
+            )
             return None
 
     if content_type in _OFFICE_MARKERS.values() and content_type != _DOCX_CONTENT_TYPE:

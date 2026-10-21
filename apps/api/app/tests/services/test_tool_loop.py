@@ -1,5 +1,7 @@
 """Tool-loop rounds, image tools, and per-user tool lists."""
 
+import asyncio
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -234,24 +236,35 @@ async def test_tool_loop_invoke_timeout_skips_remaining(web_search_registered):
         },
     ]
     complete = AsyncMock(return_value={"content": None, "tool_calls": tool_calls})
-    invoke = AsyncMock(return_value=MagicMock(content="ok", data=None))
+    calls: list[str] = []
 
+    async def invoke(name: str, raw_args: str, _ctx: object) -> MagicMock:
+        calls.append(raw_args)
+        await asyncio.sleep(1)  # past the round's deadline
+        return MagicMock(content="late", data=None)
+
+    started = time.monotonic()
     with (
         patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
         patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
-        patch("app.modules.chat.tool_loop.calls.time.monotonic", side_effect=[0.0, 0.0, 30.0]),
     ):
         out, _verified, _terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(
                 mcp_tool_loop_enabled=True,
-                mcp_tool_loop_invoke_timeout_seconds=1.0,
+                mcp_tool_loop_invoke_timeout_seconds=0.2,
             ),
             messages=messages,
             usage={},
         )
 
-    assert invoke.await_count == 1
-    assert any(m.get("content") == "Tool round timed out." for m in out)
+    # The first call is cut off at the deadline (it used to run on its own httpx
+    # timeouts); the second never starts.
+    assert time.monotonic() - started < 1
+    assert calls == ['{"query": "a"}']
+    assert [m.get("content") for m in out if m.get("role") == "tool"] == [
+        "Tool round timed out.",
+        "Tool round timed out.",
+    ]
 
 
 @pytest.mark.asyncio

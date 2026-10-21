@@ -8,6 +8,7 @@ in that message and never runs.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -130,8 +131,8 @@ async def _execute_calls(
 ) -> None:
     """Append one tool message per call, in order, until the turn is cancelled."""
     max_calls = max(1, turn.settings.mcp_tool_loop_max_calls_per_round)
-    invoke_deadline = time.monotonic() + max(
-        0.0, turn.settings.mcp_tool_loop_invoke_timeout_seconds
+    invoke_deadline = time.monotonic() + turn.ctx.seconds_left(
+        turn.settings.mcp_tool_loop_invoke_timeout_seconds
     )
     announced = False
     for index, call in enumerate(tool_calls):
@@ -145,7 +146,9 @@ async def _execute_calls(
         )
         announced = announced or (refusal is None and _status_for_tool(name) is not None)
         content = (
-            refusal if refusal is not None else await _run_call(turn, name, raw_args, collected)
+            refusal
+            if refusal is not None
+            else await _run_call_by(invoke_deadline, turn, name, raw_args, collected)
         )
         working.append(
             {"role": "tool", "tool_call_id": str(call.get("id") or name), "content": content}
@@ -175,6 +178,22 @@ def _refusal(
         # Other computations and tool calls remain available.
         return _TRIG_DOMAIN_REFUSAL
     return None
+
+
+async def _run_call_by(
+    deadline: float, turn: _Round, name: str, raw_args: Any, collected: ToolResults
+) -> str:
+    """``_run_call``, cut off at the round's deadline.
+
+    The deadline used to stop only new calls from starting: a call that started in time
+    ran on its own httpx timeouts (Tavily 12 s per phase, image generation 120 s).
+    """
+    try:
+        async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
+            return await _run_call(turn, name, raw_args, collected)
+    except TimeoutError:
+        logger.warning("Tool call timed out tool=%s", name or "(unnamed)")
+        return "Tool round timed out."
 
 
 async def _run_call(turn: _Round, name: str, raw_args: Any, collected: ToolResults) -> str:

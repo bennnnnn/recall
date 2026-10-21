@@ -20,6 +20,7 @@ from starlette.websockets import WebSocketState
 from app.core import access_tokens, chat_rate_limit, shutdown
 from app.core.client_ip import client_ip_from_websocket
 from app.core.config import Settings, get_settings
+from app.core.log_context import bound_log_ids
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.exceptions import RedisUnavailableError
@@ -302,7 +303,10 @@ async def chat_websocket(
         await websocket.close()
         return
 
-    with user_socket_slot(user_id, settings.ws_max_sockets_per_user) as admitted:
+    with (
+        bound_log_ids(user_id=user_id),
+        user_socket_slot(user_id, settings.ws_max_sockets_per_user) as admitted,
+    ):
         if not admitted:
             logger.warning("Chat socket cap reached user_id=%s chat_id=%s", user_id, chat_id)
             await close_quietly(websocket, WS_TOO_MANY_SOCKETS_CLOSE_CODE)

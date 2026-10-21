@@ -176,6 +176,43 @@ def test_export_returns_data():
     assert r.json()["exported_at"] == "now"
 
 
+def test_export_runs_one_at_a_time_per_user():
+    """One account could start dozens of exports at once, each reading ~1M rows."""
+    user = _fake_user()
+    app = _app_with_user(user)
+
+    async def fake_iter(_user):
+        yield "{}"
+
+    with (
+        patch("app.modules.account.api.export_service.iter_export_json", fake_iter),
+        patch("app.modules.account.api.acquire_lock", AsyncMock(side_effect=["token", None])),
+        patch("app.modules.account.api.release_lock", AsyncMock()) as release,
+    ):
+        client = TestClient(app)
+        first = client.get("/auth/me/export", headers={"Authorization": "Bearer tok"})
+        second = client.get("/auth/me/export", headers={"Authorization": "Bearer tok"})
+    assert first.status_code == 200
+    assert second.status_code == 429
+    release.assert_awaited_once()
+
+
+def test_export_is_capped_per_hour():
+    user = _fake_user()
+    app = _app_with_user(user)
+
+    async def fake_iter(_user):
+        yield "{}"
+
+    with patch("app.modules.account.api.export_service.iter_export_json", fake_iter):
+        client = TestClient(app)
+        codes = [
+            client.get("/auth/me/export", headers={"Authorization": "Bearer tok"}).status_code
+            for _ in range(4)
+        ]
+    assert codes == [200, 200, 200, 429]
+
+
 @pytest.mark.asyncio
 async def test_delete_user_deletes_children_then_user():
     from app.repositories import users as users_repo

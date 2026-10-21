@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 TAVILY_SEARCH_URL = "https://api.tavily.com/search"
 DEFAULT_TIMEOUT_SECONDS = 12.0
+# The whole Tavily request, whatever its phases do.
+_TAVILY_OVERALL_SECONDS = 15.0
 # Bound the DuckDuckGo to_thread fallback — a stalled DDG socket must not hang
 # TTFT or pin a shared thread-pool worker indefinitely.
 _DDG_TIMEOUT_SECONDS = 8.0
@@ -161,7 +163,10 @@ async def _search_tavily(settings: Settings, query: str, max_results: int) -> li
 
     try:
         client = get_pooled_client(DEFAULT_TIMEOUT_SECONDS)
-        response = await client.post(TAVILY_SEARCH_URL, json=payload)
+        # httpx bounds each phase (connect, write, pool, every read) by itself, so a
+        # trickling response could take several times that; this bounds the whole call.
+        async with asyncio.timeout(_TAVILY_OVERALL_SECONDS):
+            response = await client.post(TAVILY_SEARCH_URL, json=payload)
         response.raise_for_status()
         data = response.json()
     except Exception as exc:
@@ -210,6 +215,11 @@ async def search_web(
     if not settings.web_search_enabled:
         return []
 
+    # Mock mode (development without keys, and the tests) searches nothing real: it ran
+    # DuckDuckGo first, so a test could reach the internet before getting mock results.
+    if settings.mock_llm_enabled:
+        return mock_search_results(cleaned, max_results=limit)
+
     # Tavily is the search of record: when it errored, DuckDuckGo finding nothing
     # does not show there is nothing (it comes back empty when it throttles).
     primary_failed = False
@@ -232,9 +242,6 @@ async def search_web(
         else:
             if hits:
                 return hits
-
-    if settings.mock_llm_enabled:
-        return mock_search_results(cleaned, max_results=limit)
 
     if primary_failed or (fallback_failed and not tavily_tried):
         raise WebSearchUnavailableError("the search of record failed")

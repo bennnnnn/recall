@@ -18,6 +18,7 @@ from app.core import shutdown
 from app.core.chat_rate_limit import allow_chat_message
 from app.core.config import Settings, get_settings
 from app.core.deps import get_current_user
+from app.core.log_context import bound_log_ids, new_turn_id
 from app.core.redis import get_redis_client
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
@@ -78,6 +79,25 @@ def _sse(payload: dict[str, Any]) -> str:
 
 
 async def _stream_tokens_sse(
+    *,
+    chat_id: UUID,
+    stream_factory: _TokenStream,
+    request: Request,
+    cancel_event: asyncio.Event | None = None,
+    user_id: UUID | None = None,
+) -> AsyncIterator[str]:
+    """The turn's events as SSE lines, every log line inside carrying the turn's ids."""
+    with bound_log_ids(chat_id=chat_id, user_id=user_id, turn=new_turn_id()):
+        async for line in _turn_sse_lines(
+            chat_id=chat_id,
+            stream_factory=stream_factory,
+            request=request,
+            cancel_event=cancel_event,
+        ):
+            yield line
+
+
+async def _turn_sse_lines(
     *,
     chat_id: UUID,
     stream_factory: _TokenStream,
@@ -272,6 +292,7 @@ async def stream_message_sse(
         _stream_tokens_sse(
             chat_id=chat_id,
             request=request,
+            user_id=user.id,
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_chat_response(
                     default_deps(),
@@ -307,6 +328,7 @@ async def stream_regenerate_sse(
         _stream_tokens_sse(
             chat_id=chat_id,
             request=request,
+            user_id=user.id,
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_regenerate_response(
                     default_deps(),

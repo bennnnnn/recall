@@ -16,12 +16,14 @@ from app.core.config import Settings, validate_production_settings
 from app.core.db import engine, warmup_db_pool
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
+from app.core.saturation import start_saturation_monitor, stop_saturation_monitor
 from app.core.sentry import init_sentry
 from app.core.sympy_executor import shutdown_sympy_executor, warm_sympy_pool
 from app.gateways import email_gateway
 from app.gateways.http_client import aclose_pooled_clients
 from app.modules.attachments import reaper as attachment_orphan_reaper
 from app.modules.chat.finalize_registry import stop_inflight_streams
+from app.modules.chat.ws_limits import open_socket_count
 from app.modules.math.sympy_warmup import warm_math_worker
 from app.services.mcp import setup_mcp_adapters
 
@@ -42,7 +44,7 @@ def validate_process_role(settings: Settings) -> str:
 
 
 async def initialize_process(settings: Settings) -> None:
-    setup_logging(json_output=settings.environment == "production")
+    setup_logging(json_output=settings.environment == "production", level=settings.log_level)
     init_sentry(settings)
     validate_production_settings(settings)
     warn_if_no_support_email(settings)
@@ -50,6 +52,7 @@ async def initialize_process(settings: Settings) -> None:
     role = validate_process_role(settings)
     setup_mcp_adapters(settings)
     await warmup_db_pool()
+    start_saturation_monitor({"sockets": open_socket_count})
     if role in ("all", "api"):
         await warm_sympy_pool(warm_math_worker)
         install_chat_stop_on_signal()
@@ -107,6 +110,7 @@ async def shutdown_process(
 ) -> None:
     # Already done at the signal when the hook is installed; a no-op then.
     shutdown.begin_stop()
+    await stop_saturation_monitor()
     if stop_worker and not drain_before_stop:
         await stop_worker_runtime()
     await drain_background_tasks(timeout_seconds=10.0)

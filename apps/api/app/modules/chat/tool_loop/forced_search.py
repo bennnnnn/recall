@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import itertools
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -19,6 +20,11 @@ from app.modules.web_search import (
     run_cached_search,
     search_queries_for_turn,
 )
+
+logger = logging.getLogger(__name__)
+
+# The longest a forced search may take when the turn has no budget of its own.
+_FORCED_SEARCH_MAX_SECONDS = 15.0
 
 
 def _web_search_was_called(messages: list[dict[str, Any]]) -> bool:
@@ -78,9 +84,17 @@ async def _force_web_search_if_needed(
         # Show the search before reading the chat for a follow-up's topic.
         if on_status is not None:
             await on_status("searching", None)
-        hits, tried = await _search_targets(
-            settings, messages, ctx, targets or [user_text], on_status
-        )
+        try:
+            # What is left of the turn's tool budget; a search that outlives it is a
+            # failed search, said so in the prompt, not a minute of "Searching…".
+            async with asyncio.timeout(ctx.seconds_left(_FORCED_SEARCH_MAX_SECONDS)):
+                hits, tried = await _search_targets(
+                    settings, messages, ctx, targets or [user_text], on_status
+                )
+        except TimeoutError:
+            logger.warning("Forced web search ran out of the turn's tool budget")
+            ctx.tavily_budget.record_search(failed=True)
+            hits, tried = [], targets or [user_text]
         if hits:
             block = wrap_untrusted("web search", format_search_block(hits))
             return inject_before_last_user(messages, block), hits
