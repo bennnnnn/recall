@@ -140,7 +140,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Link preview | `modules/link_preview/` (HTTP `/link-preview`; SSRF-safe fetch in `gateways/safe_fetch.py`) | `components/LinkPreviewCard.tsx`, `lib/linkPreview.ts` |
 | Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `features/account/screens/HelpScreen.tsx`, `AboutScreen.tsx`, `DataControlsScreen.tsx` |
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
-| i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
+| i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales; tests hold key parity, placeholders and translation: a value equals English only if `lib/__tests__/i18nTranslated.test.ts` allows it) |
 
 **HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Search, Chat history, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, Notifications push-token (`/users`), Analytics, and Link preview APIs plus the legacy health, legal, admin, and models routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
 
@@ -162,7 +162,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | Rich fence | `lib/fenceRegistry.ts` (`FENCES`) | Add a `FenceSpec`; one block component; wire render | Delete the spec + component |
 | UI primitive | `apps/mobile/ui/` (see `ui/README.md`) | Add or extend one kit component; features import it by path | Delete the component and its callers' use; never fork it inside a feature |
 | Chat UI behavior | `features/chat/hooks/useChat*.ts` | Hook owns logic; screen stays thin | Don’t add a second composer intercept |
-| i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |
+| i18n string | `lib/i18n/*.json` | Key in `en.json`, translated in every locale (English left in one fails a test) | Delete key from all locale files |
 | Banned UX | `.cursor/rules/chat-ux-bans.mdc` | — | If replacing UX, **delete** the old path |
 
 **Flags (defaults in `core/settings/`):** `mcp_tool_loop_enabled` (on), `math_tools_enabled`, `chemistry_enabled` (on), `math_word_problems_enabled` (on), `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `image_search_enabled` (on; real reference-photo lookup, separate from AI generation), `speech_*_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
@@ -198,7 +198,7 @@ Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Tod
 - Messages: FlashList; markdown + `components/rich/*` + `components/markdown/*`
 - Fences: `lib/fenceRegistry.ts` is the lang/id table; `RichFence` renders
 - UI kit: `ui/` — controls (Button, Chip, SegmentedControl, TextField, HeaderButton), `list/` ListRow, `overlay/` (Menu, SelectMenu, `confirmDialog`/`alertDialog`, Sheet), `pickers/` (clock time, calendar date), `share/` ShareSheet, `icons/` (Lucide line icons + BrandMark). Catalog: `ui/README.md`. Lint bans raw `Alert`/`Modal`/`Switch`, `@expo/vector-icons` and the native datetimepicker outside it.
-- i18n: `lib/i18n` (9 locales, key parity enforced by test)
+- i18n: `lib/i18n` (9 locales; key parity, placeholders and translation enforced by tests)
 
 ## Build / Run Commands
 
