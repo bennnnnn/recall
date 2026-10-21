@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.types import DateTime, TypeDecorator
 
 from app.models.orm import TodoItem, User
-from app.models.schemas import TodoActionItem
 from app.modules.notifications import push
 from app.modules.todos import actions, crud
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.schemas import TodoActionItem
 
 
 class _UTCDateTime(TypeDecorator):

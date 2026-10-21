@@ -161,3 +161,12 @@ async def delete_all_memories(seams: Any, session: AsyncSession, user_id: UUID) 
             user_id,
             lambda: memories_repo.delete_all_for_user(session, user_id, commit=False),
         )
+
+
+async def delete_user_rows(session: AsyncSession, user_id: UUID) -> None:
+    """Every fact, area and past-chat index row of a deleted account; no commit.
+
+    ``account.lifecycle`` calls it under the user's row lock, the order memory's writers
+    take, before the user row goes.
+    """
+    await memories_repo.delete_all_for_user(session, user_id, commit=False)

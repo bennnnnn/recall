@@ -10,7 +10,8 @@ from app.core.background_tasks import drain_background_tasks
 from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.gateways.structured_completion import invalid_output_key
-from app.models.schemas import MemoryFactUpdateResult, TodoActionItem
+from app.modules.memory.schemas import MemoryFactUpdateResult
+from app.modules.todos.schemas import TodoActionItem
 
 _SETTINGS = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
 _TODO = '{"actions": [{"action": "add", "topic": "T", "content": "C"}]}'

@@ -31,7 +31,7 @@ async def test_stream_chat_completion_mock():
 @pytest.mark.asyncio
 async def test_complete_structured_mock_returns_none():
     from app.gateways import litellm_gateway
-    from app.models.schemas import MemorySectionItem
+    from app.modules.memory.schemas import MemorySectionItem
 
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     result = await litellm_gateway.complete_structured(

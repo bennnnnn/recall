@@ -11,13 +11,13 @@ from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.gateways.storage_gateway import StorageUnavailableError
 from app.models.orm import User
-from app.models.schemas import (
+from app.modules.attachments import workflow as attachment_workflow
+from app.modules.attachments.schemas import (
     AttachmentListOut,
     AttachmentOut,
     AttachmentPresignIn,
     AttachmentPresignOut,
 )
-from app.modules.attachments import workflow as attachment_workflow
 from app.modules.attachments.upload import create_presigned_upload
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])

@@ -17,13 +17,13 @@ from app.core.config import Settings
 from app.gateways import litellm_gateway, think_stripper
 from app.gateways.google_auth import GoogleAuthError
 from app.gateways.mock_llm import (
-    mock_memory_facts,
     mock_stream,
     mock_title,
     should_mock_llm,
 )
-from app.models.schemas import TodoActionItem
 from app.modules.chat import titles as chat_titles
+from app.modules.memory.offline import offline_memory_facts
+from app.modules.todos.schemas import TodoActionItem
 
 
 class _ActionList(BaseModel):
@@ -201,8 +201,8 @@ async def test_mock_title_empty():
 
 
 @pytest.mark.asyncio
-async def test_mock_memory_facts_short_message():
-    result = await mock_memory_facts("hi", [])
+async def test_offline_memory_facts_short_message():
+    result = await offline_memory_facts("hi", [])
     assert result is None
 
 
@@ -388,7 +388,7 @@ async def test_generate_title_retries_fallback_on_outage():
         title = await chat_titles.generate_title(settings, "I love building AI apps", "hi there")
     assert title == "My Cool Chat"
     assert len(calls) == 2
-    result = await mock_memory_facts(
+    result = await offline_memory_facts(
         "I am working on a Python FastAPI project for my startup",
         [],
     )

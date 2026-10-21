@@ -404,6 +404,10 @@ def vision_backup_alias() -> str:
     return ROUTING.vision_backup
 
 
+def structured_fallback_alias() -> str:
+    return ROUTING.structured_fallback
+
+
 def reads_images(model_id: str) -> bool:
     """True when the alias is known and its model takes image input."""
     model = _BY_ID.get(model_id)

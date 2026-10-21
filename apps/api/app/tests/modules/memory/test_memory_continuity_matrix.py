@@ -9,6 +9,7 @@ from app.models.orm import Memory
 from app.modules.chat.prompt_constants import writing_request_kind
 from app.modules.memory import is_memory_candidate, select_memories_semantic
 from app.modules.memory import llm as memory_llm
+from app.modules.memory.schemas import MemoryFactUpdateResult
 from app.tests.modules.memory.scoring import scored
 
 CURRENT_EMPLOYER_QUERIES = [
@@ -373,9 +374,8 @@ async def test_instruct_prompt_names_the_open_document_and_asks_for_a_reply(
 
 
 def test_memory_op_salvage_keeps_the_reply() -> None:
-    from app.gateways.structured_completion import _parse_memory_facts_partial
 
-    parsed = _parse_memory_facts_partial(
+    parsed = MemoryFactUpdateResult.salvage_partial(
         {
             "ops": [
                 {"op": "add", "type": "fact", "text": "User likes tea", "confidence": 0.9},
@@ -388,6 +388,6 @@ def test_memory_op_salvage_keeps_the_reply() -> None:
     assert [op.text for op in parsed.ops] == ["User likes tea"]
     assert parsed.reply == "Saved that you like tea."
     # A reply alone is still an answer; nothing at all is a failure.
-    only_reply = _parse_memory_facts_partial({"ops": [], "reply": "Nothing to change."})
+    only_reply = MemoryFactUpdateResult.salvage_partial({"ops": [], "reply": "Nothing to change."})
     assert only_reply is not None and only_reply.reply == "Nothing to change."
-    assert _parse_memory_facts_partial({"ops": [{"op": "bad"}]}) is None
+    assert MemoryFactUpdateResult.salvage_partial({"ops": [{"op": "bad"}]}) is None

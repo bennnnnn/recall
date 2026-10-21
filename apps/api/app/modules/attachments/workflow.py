@@ -17,7 +17,6 @@ from app.gateways.storage_gateway import (
     get_storage_gateway,
 )
 from app.models.orm import Attachment, User
-from app.models.schemas import AttachmentListItemOut, AttachmentListOut, AttachmentOut
 from app.modules.attachments import chunks_repository as chunks_repo
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import (
@@ -29,6 +28,7 @@ from app.modules.attachments.content_types import bytes_match_claimed, is_image_
 from app.modules.attachments.lifecycle import delete_storage_keys, enqueue_failed_storage_deletes
 from app.modules.attachments.markers import strip_attachment_from_content
 from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
+from app.modules.attachments.schemas import AttachmentListItemOut, AttachmentListOut, AttachmentOut
 from app.modules.attachments.thumbnails import thumbnail_bytes, thumbnail_edge
 from app.modules.attachments.upload import AttachmentUploadError, cancel_pending_upload
 from app.repositories import messages as messages_repo

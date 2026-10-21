@@ -5,10 +5,10 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules import memory as memory_service
 from app.modules.memory import instruct as instruct_service
 from app.modules.memory.extraction_workflow import MemorySnapshot
+from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.tests.fakes import FakeSessionCM
 

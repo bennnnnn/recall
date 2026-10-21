@@ -232,3 +232,8 @@ async def delete_by_id(
     if commit:
         await session.commit()
     return result.rowcount > 0
+
+
+async def delete_all_for_user(session: AsyncSession, user_id: UUID) -> None:
+    """Every to-do of the user; no commit."""
+    await session.execute(delete(TodoItem).where(TodoItem.user_id == user_id))

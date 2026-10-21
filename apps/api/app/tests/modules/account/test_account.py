@@ -220,13 +220,12 @@ async def test_delete_user_deletes_children_then_user():
     session = AsyncMock()
     session.get = AsyncMock(return_value=MagicMock())
     await users_repo.delete_user(session, uuid4())
-    # Every user-owned table is purged before the user row itself, so the delete
-    # never fails on an FK to users.id without ON DELETE CASCADE. 8 tables are
-    # cleared explicitly (messages, memories, usage, todos, suggestions,
-    # push_tokens, attachments, chats). The account lock precedes every child
-    # delete to match memory writers.
+    # The core tables go before the user row itself, so the delete never fails on an
+    # FK to users.id without ON DELETE CASCADE: messages, usage, push tokens, chats.
+    # The modules' rows went first (account.lifecycle asks each module). The account
+    # lock precedes every delete to match memory writers.
     statements = [call.args[0] for call in session.execute.await_args_list]
-    assert len(statements) == 9
+    assert len(statements) == 5
     assert statements[0].is_select
     assert str(statements[0]).endswith("FOR UPDATE")
     assert all(statement.is_delete for statement in statements[1:])

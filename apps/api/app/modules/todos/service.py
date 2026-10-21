@@ -17,3 +17,8 @@ from app.modules.todos import repository as todos_repo
 async def list_owned_todos(session: AsyncSession, user_id: UUID, *, limit: int) -> list[TodoItem]:
     """Read a user's reminders without advancing recurrence."""
     return await todos_repo.list_for_user(session, user_id, limit=limit)
+
+
+async def delete_user_rows(session: AsyncSession, user_id: UUID) -> None:
+    """Every to-do of a deleted account; no commit (``account.lifecycle``)."""
+    await todos_repo.delete_all_for_user(session, user_id)

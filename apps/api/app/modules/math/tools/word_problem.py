@@ -296,9 +296,10 @@ async def word_problem_intent(text: str, settings: Settings) -> MathIntent | Non
     # Here, not at module top: the maths gate reads ``word_problem_candidate`` in the SymPy
     # pool's workers, which must not load the model client.
     from app.gateways import litellm_gateway
+    from app.models import model_catalog
 
     aliases = [_TRANSLATOR_MODEL_ALIAS]
-    fallback = settings.memory_fallback_model_alias.strip()
+    fallback = model_catalog.structured_fallback_alias()
     if fallback and fallback not in aliases:
         aliases.append(fallback)
     for alias in aliases:

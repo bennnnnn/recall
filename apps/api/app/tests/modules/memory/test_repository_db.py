@@ -12,8 +12,8 @@ from uuid import uuid4
 import pytest
 
 from app.models.orm import Memory
-from app.models.schemas import MemoryOut
 from app.modules.memory import repository as memories_repo
+from app.modules.memory.schemas import MemoryOut
 from app.repositories import users as users_repo
 
 

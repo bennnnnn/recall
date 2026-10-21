@@ -20,7 +20,7 @@ from app.gateways.think_stripper import (
     ThinkStripper,
 )
 from app.models import model_catalog
-from app.models.schemas import MemoryFactUpdateResult
+from app.modules.memory.schemas import MemoryFactUpdateResult
 
 _SETTINGS = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
 

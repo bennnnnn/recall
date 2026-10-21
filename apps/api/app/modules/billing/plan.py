@@ -170,12 +170,10 @@ def chat_fallback_models(
     allowed = allowed_model_ids(user, settings)
     candidates: list[str] = []
 
-    # M11: memory_fallback_model_alias is for background jobs (memory/todo/
-    # project extraction), not chat — it's non-selectable and never in
-    # ``allowed``, so the check below was always false. Removed it so the
-    # chat fallback pool is the user's other healthy selectable models,
-    # ordered by tier proximity to the primary (not cheapest-first, which
-    # failed a dead R1 over to the weakest fast model).
+    # The chat fallback pool is the user's other healthy selectable models, ordered
+    # by tier proximity to the primary (cheapest-first failed a dead R1 over to the
+    # weakest fast model). Background jobs' fallback is a lane of its own
+    # (``structured_fallback``), never selectable and never in ``allowed``.
     for model_id in model_pool(user, settings):
         if model_id == primary or model_id in candidates:
             continue

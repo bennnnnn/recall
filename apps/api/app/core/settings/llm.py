@@ -23,10 +23,6 @@ class LlmSettings(BaseModel):
     # for a minute while the turn keeps its lock, quota reservation and socket.
     mcp_tool_loop_total_timeout_seconds: float = 25.0
 
-    # Background LLM resilience: if the primary memory-model provider is down,
-    # retry background jobs (memory/todo/project extraction, titles, summaries)
-    # once against this alias. Empty disables the fallback.
-    memory_fallback_model_alias: str = "fallback-memory-model"
     # Hard ceiling on a single turn's output tokens. This is a safety backstop
     # against runaway generation and cost, NOT a response-style throttle —
     # brevity is driven by the STYLE_HINTS prompt guidance (short/balanced/

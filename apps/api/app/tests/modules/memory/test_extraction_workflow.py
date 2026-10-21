@@ -95,8 +95,8 @@ async def test_extract_and_store_no_result():
 
 @pytest.mark.asyncio
 async def test_extract_and_store_filters_confidence():
-    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
     from app.modules.memory.extraction_workflow import extract_and_store_memories
+    from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 
     settings = Settings(memory_min_confidence=0.7)
     extraction = MemoryFactUpdateResult(
@@ -170,8 +170,8 @@ async def test_extract_and_store_swallows_exception():
 async def test_extract_and_store_learns_nothing_while_memory_is_off(memory_enabled):
     """A job queued before memory was switched off reads and writes nothing. The same
     lines with memory on are the control: they reach the model and the write."""
-    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
     from app.modules.memory.extraction_workflow import extract_and_store_memories
+    from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 
     settings = Settings(memory_min_confidence=0.4)
     learned = MemoryFactUpdateResult(
@@ -240,8 +240,8 @@ async def test_extract_and_store_skips_when_write_lock_held():
 
 @pytest.mark.asyncio
 async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
-    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
     from app.modules.memory.extraction_workflow import extract_and_store_memories
+    from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 
     settings = Settings(memory_min_confidence=0.4)
     extraction = MemoryFactUpdateResult(
@@ -325,8 +325,8 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
 
 @pytest.mark.asyncio
 async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write):
-    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
     from app.modules.memory.extraction_workflow import extract_and_store_memories
+    from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 
     settings = Settings(memory_min_confidence=0.4)
     extraction = MemoryFactUpdateResult(
@@ -404,8 +404,8 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
 async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_this_pass(
     embedding_write,
 ):
-    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
     from app.modules.memory.extraction_workflow import extract_and_store_memories
+    from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 
     settings = Settings(memory_min_confidence=0.4)
     extraction = MemoryFactUpdateResult(

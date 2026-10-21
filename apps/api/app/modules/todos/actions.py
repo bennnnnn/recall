@@ -12,10 +12,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
-from app.models.schemas import TodoActionItem
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import _normalize, _topic_key
 from app.modules.todos.recurrence import RecurrenceRule, is_recurrence_rule, snap_first_due
+from app.modules.todos.schemas import TodoActionItem
 from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)

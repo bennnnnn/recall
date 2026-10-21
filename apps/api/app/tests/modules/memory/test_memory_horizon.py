@@ -9,10 +9,10 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules.memory import format_memory_block, is_memory_candidate
 from app.modules.memory.extraction_workflow import extract_and_store_memories
 from app.modules.memory.facts import is_active_memory
+from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules.memory.text import memory_extract_user_text
 from app.tests.fakes import redis_mock
 

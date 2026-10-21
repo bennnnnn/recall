@@ -11,7 +11,6 @@ from app.core.redis import get_redis_client
 from app.exceptions import DomainError
 from app.gateways.storage_gateway import UnconfiguredStorageGateway, get_storage_gateway
 from app.models.orm import User
-from app.models.schemas import AttachmentPresignOut
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import MAX_ATTACHMENT_SIZE
 from app.modules.attachments.content_types import (
@@ -19,6 +18,7 @@ from app.modules.attachments.content_types import (
     normalize_content_type,
 )
 from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
+from app.modules.attachments.schemas import AttachmentPresignOut
 from app.services.quota import counters
 
 

@@ -202,11 +202,11 @@ async def _seed(settings: Settings, storage_root: Path) -> tuple[UUID, UUID, Own
 async def delete_accounts(*user_ids: UUID) -> None:
     from app.core.db import SessionLocal
     from app.core.user_cache import forget_user
-    from app.repositories import users as users_repo
+    from app.modules.account import lifecycle
 
     for user_id in user_ids:
         async with SessionLocal() as session:
-            await users_repo.delete_user(session, user_id)
+            await lifecycle.erase_user_rows(session, user_id)
         forget_user(user_id)
 
 

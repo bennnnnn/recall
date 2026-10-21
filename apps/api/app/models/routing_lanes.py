@@ -28,6 +28,9 @@ class RoutingLanes:
     # The tool-selection round, in order: one fast tool-capable model, then one
     # from another company when the first fails.
     tool_selectors: tuple[str, ...]
+    # A background structured call (memory, titles, word problems) asks this once when
+    # its own model fails or answers out of shape. It must do JSON mode.
+    structured_fallback: str
 
 
 ROUTING = RoutingLanes(
@@ -37,4 +40,5 @@ ROUTING = RoutingLanes(
     vision="vision-chat",
     vision_backup="fallback-vision-model",
     tool_selectors=("gpt-6-luna", "free-chat"),
+    structured_fallback="fallback-memory-model",
 )

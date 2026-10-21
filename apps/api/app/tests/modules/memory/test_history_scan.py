@@ -8,10 +8,10 @@ from sqlalchemy import select
 
 from app.core.config import Settings
 from app.models.orm import Chat, Memory, Message
-from app.models.schemas import MemoryFactUpdateResult
 from app.modules import memory as memory_service
 from app.modules.memory import history_scan
 from app.modules.memory.extraction_workflow import extract_history_chat
+from app.modules.memory.schemas import MemoryFactUpdateResult
 from app.repositories import users as users_repo
 
 

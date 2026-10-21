@@ -10,7 +10,6 @@ from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.exceptions import DomainError
 from app.models.orm import Memory, User
-from app.models.schemas import MemoryOut, MemoryUpdate
 from app.modules import memory as memory_service
 from app.modules.memory import documents as documents_service
 from app.modules.memory import enqueue_policy, history_scan
@@ -20,6 +19,8 @@ from app.modules.memory.schemas import (
     MemoryDocumentsOut,
     MemoryInstructIn,
     MemoryInstructOut,
+    MemoryOut,
+    MemoryUpdate,
 )
 from app.modules.memory.topics import parse_topic
 from app.services import quota as quota_service

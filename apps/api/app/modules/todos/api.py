@@ -10,9 +10,9 @@ from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis
 from app.core.etag import conditional_json
 from app.models.orm import User
-from app.models.schemas import TodoCreate, TodoOut, TodoPageOut, TodoUpdate
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import proposals as reminder_proposals
+from app.modules.todos.schemas import TodoCreate, TodoOut, TodoPageOut, TodoUpdate
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 

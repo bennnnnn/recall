@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import String, and_, func, literal, or_, select
 from sqlalchemy import cast as sql_cast
+from sqlalchemy import delete as sa_delete
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -447,3 +448,8 @@ async def delete_unlinked_returning(
     result = await session.execute(statement.returning(Attachment.storage_key))
     await session.commit()
     return [row[0] for row in result.all()]
+
+
+async def delete_all_for_user(session: AsyncSession, user_id: UUID) -> None:
+    """Every attachment row of the user, bytes or not; no commit."""
+    await session.execute(sa_delete(Attachment).where(Attachment.user_id == user_id))

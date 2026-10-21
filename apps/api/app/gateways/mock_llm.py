@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from collections.abc import AsyncIterator
-from typing import cast, get_args
 
 from app.core.config import Settings
 from app.core.validation import normalize_chat_title
@@ -88,52 +87,6 @@ async def mock_title(user_message: str) -> str | None:
     if not words:
         return None
     return normalize_chat_title(" ".join(words))
-
-
-async def mock_memory_facts(user_message: str, existing_facts: list[dict[str, str]]):
-    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
-
-    del existing_facts
-    if len(user_message.strip()) < 10:
-        return None
-    return MemoryFactUpdateResult(
-        ops=[
-            MemoryFactOp(
-                op="add",
-                type="focus",
-                text=f"Recently discussed: {user_message[:200]}",
-                confidence=0.6,
-                sensitivity="normal",
-                importance=0.4,
-            )
-        ]
-    )
-
-
-async def mock_merge_memory_section(section_type: str, prior_text: str):
-    from app.models.schemas import MemorySectionItem, MemoryType
-
-    valid_memory_types = frozenset(get_args(MemoryType))
-    sentences = [part.strip() for part in prior_text.split(".") if part.strip()]
-    unique: list[str] = []
-    seen: set[str] = set()
-    for sentence in sentences:
-        key = sentence.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(sentence)
-    summary = ". ".join(unique).strip()
-    if summary and not summary.endswith("."):
-        summary += "."
-    return MemorySectionItem(
-        type=cast(
-            MemoryType,
-            section_type if section_type in valid_memory_types else "fact",
-        ),
-        summary=summary or prior_text[:300],
-        confidence=0.9,
-    )
 
 
 async def mock_summary(prior_summary: str | None, messages: list[dict[str, str]]) -> str:

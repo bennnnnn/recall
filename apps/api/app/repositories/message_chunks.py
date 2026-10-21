@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
-from app.models.orm import Memory, MessageChunk
+from app.models.orm import MessageChunk
 
 EMBEDDING_DIM = 1536
 
@@ -105,25 +107,25 @@ async def search_semantic(
     return list(result.scalars().all())
 
 
-async def delete_near_fact(
+async def delete_near(
     session: AsyncSession,
     user_id: UUID,
-    fact_id: UUID,
+    vector: ColumnElement[Any],
     *,
     max_distance: float,
 ) -> None:
-    """Drop the user's chunks within ``max_distance`` (cosine) of a memory fact's vector.
+    """Drop the user's chunks within ``max_distance`` (cosine) of ``vector``.
 
-    The fact's vector is read inside the statement, never loaded; a fact with no vector
-    deletes nothing. Every chunk of the user is compared, not only the window a search
-    reads: a chat deleted later must not bring an older copy back into it. No commit.
+    ``vector`` is a SQL expression (memory passes its fact's embedding as a subquery),
+    read inside the statement and never loaded; a NULL deletes nothing. Every chunk of
+    the user is compared, not only the window a search reads: a chat deleted later must
+    not bring an older copy back into it. No commit.
     """
-    fact_vector = select(Memory.embedding).where(Memory.id == fact_id).scalar_subquery()
     await session.execute(
         delete(MessageChunk).where(
             MessageChunk.user_id == user_id,
             MessageChunk.embedding.isnot(None),
-            MessageChunk.embedding.cosine_distance(fact_vector) <= max_distance,
+            MessageChunk.embedding.cosine_distance(vector) <= max_distance,
         )
     )
 

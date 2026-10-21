@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.models.orm import Memory
-from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules import memory as memory_service
 from app.modules.memory import extraction_workflow
+from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 from app.tests.modules.memory.sections_support import apply_memory_section_rows
 

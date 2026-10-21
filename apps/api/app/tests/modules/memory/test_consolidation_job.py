@@ -6,9 +6,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas import MemorySectionItem
 from app.modules.memory import embedding_text_hash
 from app.modules.memory.consolidation_workflow import consolidate_user_memory_sections
+from app.modules.memory.schemas import MemorySectionItem
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.tests.fakes import FakeSessionCM
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each

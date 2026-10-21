@@ -7,14 +7,13 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas import TodoActionItem
 from app.modules import todos as todos_service
 from app.modules.todos import actions as todos_actions
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import format_todos_block, should_inject_todos_prompt
 from app.modules.todos.prompt_hint import TODO_HINT
-from app.modules.todos.schemas import TodoCreate, TodoUpdate
+from app.modules.todos.schemas import TodoActionItem, TodoCreate, TodoUpdate
 from app.tests.fakes import FakeSessionCM
 
 

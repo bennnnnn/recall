@@ -67,3 +67,12 @@ async def link_to_message(
         message_id=message_id,
         commit=commit,
     )
+
+
+async def delete_user_rows(session: AsyncSession, user_id: UUID) -> None:
+    """The rows left of a deleted account's attachments; no commit (``account.lifecycle``).
+
+    ``purge_attachments_for_user`` deleted the bytes and their rows first; a row whose
+    bytes failed to delete goes here, its key already queued for the storage retry.
+    """
+    await attachments_repo.delete_all_for_user(session, user_id)

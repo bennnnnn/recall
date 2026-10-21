@@ -7,7 +7,8 @@ from typing import Any
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
-from app.models.schemas import MemoryFactUpdateResult, MemorySectionItem
+from app.modules.memory.offline import offline_memory_facts, offline_section_merge
+from app.modules.memory.schemas import MemoryFactUpdateResult, MemorySectionItem
 from app.modules.memory.topics import STANDARD_TOPICS
 from app.services.prompt_safety import wrap_untrusted
 
@@ -75,7 +76,7 @@ async def revise_memory_facts(
     from_history: bool = False,
 ) -> MemoryFactUpdateResult | None:
     if mock_llm.should_mock_llm(settings):
-        return await mock_llm.mock_memory_facts(transcript, existing_facts or [])
+        return await offline_memory_facts(transcript, existing_facts or [])
 
     existing = existing_facts or []
     history_rule = (
@@ -261,7 +262,7 @@ async def merge_memory_section(
     if not clean:
         return None
     if mock_llm.should_mock_llm(settings):
-        return await mock_llm.mock_merge_memory_section(section_type, clean)
+        return await offline_section_merge(section_type, clean)
 
     messages = [
         {

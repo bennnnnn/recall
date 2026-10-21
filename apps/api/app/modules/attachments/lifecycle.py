@@ -166,7 +166,7 @@ async def purge_attachments_for_user(
 
     Bytes are removed before rows (same ordering as the orphan reaper): if storage
     delete fails or the process dies mid-loop, rows remain so a retry can finish.
-    Call this before ``users_repo.delete_user``, which only clears attachment rows.
+    Call this before ``account.lifecycle.erase_user_rows``, which clears the rows left.
     """
     rows = await attachments_repo.list_for_user(session, user_id)
     if not rows:

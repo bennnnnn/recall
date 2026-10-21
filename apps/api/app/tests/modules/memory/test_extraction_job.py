@@ -9,10 +9,10 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Memory
-from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.models.schemas.common import MemoryType
 from app.modules.memory import embedding_text_hash
 from app.modules.memory.extraction_workflow import extract_and_store_memories, extract_history_chat
+from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
