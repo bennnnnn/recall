@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.redis import get_redis_client
+from app.exceptions import DomainError
 from app.gateways.storage_gateway import UnconfiguredStorageGateway, get_storage_gateway
 from app.models.orm import User
 from app.models.schemas import AttachmentPresignOut
@@ -21,13 +22,8 @@ from app.modules.attachments.quota import has_current_upload_reservation, upload
 from app.services.quota import counters
 
 
-class AttachmentUploadError(Exception):
-    """Typed failure for the attachments router to map to HTTPException."""
-
-    def __init__(self, detail: str, *, status_code: int) -> None:
-        self.detail = detail
-        self.status_code = status_code
-        super().__init__(detail)
+class AttachmentUploadError(DomainError):
+    """An upload refusal; the phone names the type, size and daily limit by code."""
 
 
 def sanitize_original_filename(name: str | None) -> str | None:
@@ -51,9 +47,11 @@ async def create_presigned_upload(
 ) -> AttachmentPresignOut:
     """Validate, reserve image quota, presign storage, and create a pending row."""
     if not is_allowed_content_type(content_type):
-        raise AttachmentUploadError("Unsupported content type", status_code=400)
+        raise AttachmentUploadError(
+            "Unsupported content type", status_code=400, code="unsupported_type"
+        )
     if size_bytes <= 0 or size_bytes > MAX_ATTACHMENT_SIZE:
-        raise AttachmentUploadError("Invalid file size", status_code=400)
+        raise AttachmentUploadError("Invalid file size", status_code=400, code="invalid_size")
 
     normalized = normalize_content_type(content_type)
 
@@ -68,7 +66,9 @@ async def create_presigned_upload(
     counter = upload_counter(normalized)
     reserved_day = await counters.reserve(counter, redis, user, settings)
     if not reserved_day:
-        raise AttachmentUploadError(counters.limit_message(counter, user), status_code=429)
+        raise AttachmentUploadError(
+            counters.limit_message(counter, user), status_code=429, code="daily_limit"
+        )
 
     try:
         presigned = await gateway.presign_upload(

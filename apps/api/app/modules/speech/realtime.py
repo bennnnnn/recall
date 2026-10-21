@@ -5,7 +5,7 @@ import json
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from redis.asyncio import Redis
@@ -22,6 +22,7 @@ from app.models.schemas.text import UserText
 from app.modules.account.consent import get_consented_user
 from app.modules.speech import live_talk as live_talk_service
 from app.modules.speech.gates import (
+    SpeechRefusedError,
     require_plan_feature,
     require_speech_rate,
     require_voice_spend_ok,
@@ -98,7 +99,7 @@ async def _load_session_context_or_404(
         settings=settings,
     )
     if loaded is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+        raise SpeechRefusedError("Chat not found", status_code=status.HTTP_404_NOT_FOUND)
     return loaded
 
 
@@ -109,12 +110,13 @@ def _require_live_talk_plan(user: User, settings: Settings) -> None:
 async def _reserve_realtime_or_raise(user: User, settings: Settings):
     """Gate a mint and reserve its session length. Returns (redis, seconds)."""
     if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
+        raise SpeechRefusedError(
+            "Not available", status_code=status.HTTP_404_NOT_FOUND, code="not_available"
+        )
     _require_live_talk_plan(user, settings)
     if not settings.openai_api_key.strip():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Realtime voice is not configured",
+        raise SpeechRefusedError(
+            "Realtime voice is not configured", status_code=status.HTTP_503_SERVICE_UNAVAILABLE
         )
 
     redis = get_redis_client()
@@ -134,9 +136,10 @@ async def _reserve_realtime_or_raise(user: User, settings: Settings):
         min_session_seconds=settings.live_talk_min_session_seconds,
     )
     if reserved <= 0:
-        raise HTTPException(
+        raise SpeechRefusedError(
+            quota_service.LIVE_TALK_MINUTES_USED_MESSAGE,
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=quota_service.LIVE_TALK_MINUTES_USED_MESSAGE,
+            code="live_talk_minutes_used",
         )
     return redis, reserved
 
@@ -170,9 +173,8 @@ async def create_realtime_session(
         raise
     if result is None:
         await quota_service.release_live_talk_seconds(redis, user.id, seconds=reserved)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Could not start realtime voice",
+        raise SpeechRefusedError(
+            "Could not start realtime voice", status_code=status.HTTP_502_BAD_GATEWAY
         )
 
     session_id = await live_talk_service.issue_realtime_session(
@@ -202,7 +204,9 @@ async def end_realtime_session(
     Idempotent. A session that is never reported keeps its full reservation.
     """
     if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
+        raise SpeechRefusedError(
+            "Not available", status_code=status.HTTP_404_NOT_FOUND, code="not_available"
+        )
     redis = get_redis_client()
     charged = await quota_service.settle_live_talk_session(redis, user.id, body.call_id)
     if charged is not None:
@@ -218,14 +222,15 @@ async def _take_persist_slot_or_raise(redis: Redis, user: User, call_id: str) ->
         limit=quota_service.LIVE_TALK_SAVES_PER_MINUTE,
         window_seconds=60,
     ):
-        raise HTTPException(
+        raise SpeechRefusedError(
+            quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
         )
     if not await quota_service.take_live_talk_save(redis, user.id, call_id):
-        raise HTTPException(
+        raise SpeechRefusedError(
+            quota_service.LIVE_TALK_SAVES_USED_MESSAGE,
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=quota_service.LIVE_TALK_SAVES_USED_MESSAGE,
+            code="live_talk_saves_used",
         )
 
 
@@ -236,7 +241,9 @@ async def persist_realtime_turn(
     settings: Settings = Depends(get_settings_dep),
 ) -> Response:
     if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
+        raise SpeechRefusedError(
+            "Not available", status_code=status.HTTP_404_NOT_FOUND, code="not_available"
+        )
     user_text = body.user_text.strip()
     assistant_text = body.assistant_text.strip()
     # Defense in depth: a Realtime assistant message is never a Recall turn
@@ -254,9 +261,8 @@ async def persist_realtime_turn(
         redis, user.id, body.call_id
     )
     if bound_chat_id is None or bound_chat_id != body.chat_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Realtime session is not active",
+        raise SpeechRefusedError(
+            "Realtime session is not active", status_code=status.HTTP_403_FORBIDDEN
         )
     await _take_persist_slot_or_raise(redis, user, body.call_id)
 
@@ -267,7 +273,7 @@ async def persist_realtime_turn(
             user_id=user.id,
         )
     if loaded is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+        raise SpeechRefusedError("Chat not found", status_code=status.HTTP_404_NOT_FOUND)
     _, untitled = loaded
 
     if body.turn_id and assistant_text:
@@ -313,21 +319,21 @@ async def execute_realtime_tool(
     from app.repositories import chats as chats_repo
 
     if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:
-        raise HTTPException(status_code=404, detail="Not available")
+        raise SpeechRefusedError("Not available", status_code=404, code="not_available")
     _require_live_talk_plan(user, settings)
     redis = get_redis_client()
     bound_chat = await redis.get(live_talk_service._realtime_session_key(user.id, body.call_id))
     if isinstance(bound_chat, bytes):
         bound_chat = bound_chat.decode()
     if bound_chat != str(body.chat_id):
-        raise HTTPException(status_code=403, detail="Realtime session is not active for this chat")
+        raise SpeechRefusedError("Realtime session is not active for this chat", status_code=403)
     if not await allow_request_fail_closed(
         redis, f"live_tools:{user.id}", limit=20, window_seconds=60
     ):
-        raise HTTPException(status_code=429, detail="Voice lookups are temporarily rate limited")
+        raise SpeechRefusedError("Voice lookups are temporarily rate limited", status_code=429)
     async with SessionLocal() as session:
         if await chats_repo.get_by_id(session, body.chat_id, user.id) is None:
-            raise HTTPException(status_code=404, detail="Chat not found")
+            raise SpeechRefusedError("Chat not found", status_code=404)
     return await execute_tool(
         settings,
         redis,

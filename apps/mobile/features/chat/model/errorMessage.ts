@@ -1,5 +1,3 @@
-import { isQuotaErrorMessage } from "@/lib/quota";
-
 type ChatErrorKind = "quota" | "model_unavailable" | "busy" | "send_rejected" | "attachment_rejected" | "generic";
 
 export type ResolvedChatError = {
@@ -7,39 +5,13 @@ export type ResolvedChatError = {
   message: string;
 };
 
-export function parseApiErrorDetail(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
-  try {
-    const parsed = JSON.parse(trimmed) as { detail?: unknown };
-    const detail = parsed.detail;
-    if (typeof detail === "string" && detail.trim()) return detail.trim();
-    if (Array.isArray(detail)) {
-      const parts = detail
-        .map((item) => {
-          if (typeof item === "string") return item;
-          if (item && typeof item === "object" && "msg" in item) {
-            return String((item as { msg?: string }).msg ?? "");
-          }
-          return "";
-        })
-        .filter(Boolean);
-      if (parts.length) return parts.join(", ");
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 export function resolveChatError(options: {
   message: string;
   code?: string;
   isPaid: boolean;
   t: (key: string) => string;
 }): ResolvedChatError {
-  const parsed = parseApiErrorDetail(options.message);
-  const text = (parsed ?? options.message).trim();
+  const text = options.message.trim();
 
   if (options.code === "attachment_rejected") {
     return { kind: "attachment_rejected", message: options.t("chat.attachment_rejected") };
@@ -53,7 +25,8 @@ export function resolveChatError(options: {
   if (options.code === "model_unavailable") {
     return { kind: "model_unavailable", message: options.t("chat.model_unavailable") };
   }
-  if (options.code === "quota_exceeded" || isQuotaErrorMessage(text)) {
+  // An image's daily limit is the plan's limit too.
+  if (options.code === "quota_exceeded" || options.code === "daily_limit") {
     return {
       kind: "quota",
       message: options.t(options.isPaid ? "chat.quota_exceeded_pro" : "chat.quota_exceeded_free"),

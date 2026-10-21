@@ -67,10 +67,7 @@ jest.mock("@/lib/api", () => ({ api: {
 } }));
 jest.mock("@/lib/api/client", () => ({
   requestRaw: jest.fn(),
-  ApiRequestError: class extends Error {
-    status: number;
-    constructor(status: number, message: string) { super(message); this.status = status; }
-  },
+  ApiRequestError: jest.requireActual("@/lib/api/errorBody").ApiRequestError,
 }));
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.test" }));
 jest.mock("@/lib/auth", () => ({
@@ -429,9 +426,9 @@ describe("the size cap is checked when a file is picked", () => {
 
 describe("upload failures carry a reason, not English", () => {
   it.each([
-    [400, { detail: "Unsupported content type" }, "unsupported_type"],
-    [400, { detail: "Invalid file size" }, "too_large"],
-    [429, { detail: "Daily image upload limit reached." }, "daily_limit"],
+    [400, { detail: { code: "unsupported_type", message: "Unsupported content type" } }, "unsupported_type"],
+    [400, { detail: { code: "invalid_size", message: "Invalid file size" } }, "too_large"],
+    [429, { detail: { code: "daily_limit", message: "Daily image upload limit reached." } }, "daily_limit"],
   ])("maps a presign %s %p to %s", async (status, body, reason) => {
     jest.mocked(api.presignAttachment).mockRejectedValueOnce(new ApiRequestError(status, JSON.stringify(body)));
     await expect(uploadChatAttachment("token", pending)).rejects.toMatchObject({ reason });

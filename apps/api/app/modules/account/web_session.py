@@ -9,11 +9,12 @@ from __future__ import annotations
 import hmac
 import secrets
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
 from app.core.config import Settings, cors_allow_origins
+from app.exceptions import DomainError
 from app.models.schemas import AuthResponse
 
 REFRESH_COOKIE = "recall_refresh"
@@ -88,10 +89,7 @@ def require_web_csrf(request: Request) -> None:
     cookie = cookie_value(request, CSRF_COOKIE) or ""
     header = request.headers.get(CSRF_HEADER) or ""
     if not cookie or not header or not hmac.compare_digest(cookie, header):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="CSRF check failed",
-        )
+        raise DomainError("CSRF check failed", status_code=403, code="csrf_failed")
 
 
 def auth_json_response(

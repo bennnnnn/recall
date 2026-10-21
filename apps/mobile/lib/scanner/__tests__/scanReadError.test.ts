@@ -1,5 +1,5 @@
 import { ApiRequestError } from "@/lib/api/client";
-import { scanFailureDetail, scanFailureMessageKey } from "@/lib/scanner/scanReadError";
+import { scanFailureMessage } from "@/lib/scanner/scanReadError";
 
 jest.mock("@/lib/config", () => ({
   getApiUrl: () => "http://test.local",
@@ -12,38 +12,27 @@ jest.mock("@/lib/auth", () => ({
   setTokenPair: jest.fn(),
 }));
 
-const refused = (status: number, detail: string) =>
+const t = (key: string) => key;
+const refused = (status: number, detail: unknown) =>
   new ApiRequestError(status, JSON.stringify({ detail }));
 
-describe("scanFailureDetail", () => {
-  it.each([
-    [404, "Not available"],
-    [413, "Image too large"],
-    [429, "Too many scans in a row. Try again in a few minutes."],
-    [429, "Reading photos is paused for now. Type the problem, or try again later."],
-  ])("keeps the detail of a %s", (status, detail) => {
-    expect(scanFailureDetail(refused(status, detail))).toBe(detail);
+describe("scanFailureMessage", () => {
+  it("words each coded refusal the phone's own way, whatever the English", () => {
+    expect(scanFailureMessage(refused(429, { code: "scan_rate_limited", message: "Reworded." }), t)).toBe(
+      "chat.scan_rate_limit",
+    );
+  });
+
+  it("shows the server's words for another refusal of a named status", () => {
+    expect(scanFailureMessage(refused(429, { code: "new_limit", message: "Slow down." }), t)).toBe(
+      "Slow down.",
+    );
   });
 
   it("stays generic for anything else", () => {
-    expect(scanFailureDetail(new Error("offline"))).toBeNull();
-    expect(scanFailureDetail(refused(500, "nope"))).toBeNull();
-    expect(scanFailureDetail(refused(400, "Invalid image payload"))).toBeNull();
-    expect(scanFailureDetail(new ApiRequestError(429, "not json"))).toBeNull();
-    expect(scanFailureDetail(refused(429, "  "))).toBeNull();
-  });
-});
-
-describe("scanFailureMessageKey", () => {
-  it("maps each detail the API sends to a locale key", () => {
-    expect(scanFailureMessageKey("Not available")).toBe("chat.scan_unavailable");
-    expect(scanFailureMessageKey("Image too large")).toBe("chat.scan_too_large");
-    expect(scanFailureMessageKey("Too many scans in a row. Try again in a few minutes.")).toBe(
-      "chat.scan_rate_limit",
-    );
-    expect(
-      scanFailureMessageKey("Reading photos is paused for now. Type the problem, or try again later."),
-    ).toBe("chat.scan_spend_cap");
-    expect(scanFailureMessageKey("something else")).toBeNull();
+    expect(scanFailureMessage(new Error("offline"), t)).toBeNull();
+    expect(scanFailureMessage(refused(500, "nope"), t)).toBeNull();
+    expect(scanFailureMessage(refused(400, { code: "invalid_image", message: "Bad" }), t)).toBeNull();
+    expect(scanFailureMessage(refused(429, "  "), t)).toBeNull();
   });
 });

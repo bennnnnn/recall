@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
+from app.exceptions import DomainError
 from app.gateways import image_search_gateway, safe_fetch
 from app.gateways.storage_gateway import (
     StorageGateway,
@@ -54,13 +55,8 @@ _FETCH_HEADERS = {
 }
 
 
-class ImageSearchError(Exception):
-    """Domain failure for reference-photo lookup; router maps status_code → HTTP."""
-
-    def __init__(self, detail: str, *, status_code: int) -> None:
-        self.detail = detail
-        self.status_code = status_code
-        super().__init__(detail)
+class ImageSearchError(DomainError):
+    """A reference-photo lookup refusal."""
 
 
 async def _rollback_written_bytes(gateway: StorageGateway, storage_keys: list[str]) -> None:
@@ -243,7 +239,7 @@ async def search_and_attach_for_chat(
     with no DB session held.
     """
     if not settings.image_search_enabled:
-        raise ImageSearchError("Not available", status_code=404)
+        raise ImageSearchError("Not available", status_code=404, code="not_available")
     if not settings.attachments_enabled:
         raise ImageSearchError("Attachments are disabled", status_code=503)
 
@@ -265,12 +261,14 @@ async def search_and_attach_for_chat(
         raise ImageSearchError(
             quota_service.IMAGE_SEARCH_SPEND_CAP_MESSAGE,
             status_code=429,
+            code="spend_cap",
         )
     day = await counters.reserve("image_search", redis, user, settings)
     if not day:
         raise ImageSearchError(
             counters.limit_message("image_search", user),
             status_code=429,
+            code="daily_limit",
         )
 
     written_keys: list[str] = []

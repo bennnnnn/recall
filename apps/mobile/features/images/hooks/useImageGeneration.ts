@@ -229,7 +229,8 @@ export function useImageGeneration({
           return;
         }
         const message = error instanceof Error ? error.message : t("common.error");
-        const resolved = resolveChatError({ message, isPaid, t });
+        const code = error instanceof ApiRequestError ? (error.code ?? undefined) : undefined;
+        const resolved = resolveChatError({ message, code, isPaid, t });
         setMessages((prev) => applyImageGenFailure(prev, "failed", resolved.message));
       } finally {
         if (abortRef.current === abort) abortRef.current = null;

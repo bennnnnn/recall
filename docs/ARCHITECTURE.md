@@ -62,7 +62,7 @@ roots are the only shared files it touches.
 | Step | Where | Notes |
 | --- | --- | --- |
 | Package | `modules/<domain>/__init__.py` | A docstring. Name any submodule other modules may import beyond `api`, `schemas`, `service` and `crud` in `_MODULE_EXPORTS`; keep the initializer free of service code (lazy `_EXPORTS` only when importing the package must not load the graph). |
-| HTTP | `modules/<domain>/api.py` | `router = APIRouter(prefix="/<domain>")`. Thin: validate, call the service, map domain errors to `HTTPException` (one `contextmanager` when several routes share the mapping, as in `attachments/api.py`). |
+| HTTP | `modules/<domain>/api.py` | `router = APIRouter(prefix="/<domain>")`. Thin: validate, call the service. A service refuses with a `DomainError` subclass (`app/exceptions.py`: a `code`, English, a status); the app's one handler (`core/domain_errors.py`) answers `{"detail": {"code", "message"}}`, so routes map nothing. Only the HTTP layer imports `HTTPException`. |
 | Rules and transactions | `modules/<domain>/service.py` | Owns the commit (repository writes with `commit=False`, one commit, roll back on failure), then cache invalidation and job enqueue. |
 | Queries | `modules/<domain>/repository.py` | Queries only; writes take `commit`. Tables several domains read stay in `repositories/`. |
 | Wire and ORM | `schemas.py`, `models.py` | ORM models are registered in `models/orm/__init__.py`; schema changes are expand-then-contract migrations. |

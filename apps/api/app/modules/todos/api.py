@@ -41,18 +41,15 @@ async def create_todo(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> TodoOut:
-    try:
-        item = await todos_crud.create_todo(
-            session,
-            user,
-            content=body.content,
-            topic=body.topic,
-            chat_id=body.chat_id,
-            due_at=body.due_at,
-            recurrence_rule=body.recurrence_rule,
-        )
-    except todos_crud.TodosError as exc:
-        raise _map_error(exc) from exc
+    item = await todos_crud.create_todo(
+        session,
+        user,
+        content=body.content,
+        topic=body.topic,
+        chat_id=body.chat_id,
+        due_at=body.due_at,
+        recurrence_rule=body.recurrence_rule,
+    )
     return TodoOut.model_validate(item)
 
 
@@ -68,12 +65,9 @@ async def confirm_reminder_proposal(
     redis: Redis = Depends(get_redis),
 ) -> ReminderProposalConfirmOut:
     """Save the reminder change a chat card offered. A second tap is a no-op."""
-    try:
-        items = await reminder_proposals.confirm_proposal(
-            session, redis, user_id=user.id, proposal_id=proposal_id
-        )
-    except reminder_proposals.ProposalError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    items = await reminder_proposals.confirm_proposal(
+        session, redis, user_id=user.id, proposal_id=proposal_id
+    )
     return ReminderProposalConfirmOut(items=items)
 
 
@@ -84,12 +78,9 @@ async def update_todo(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> TodoOut:
-    try:
-        updated = await todos_crud.update_todo(
-            session, user, todo_id, body.model_dump(exclude_unset=True)
-        )
-    except todos_crud.TodosError as exc:
-        raise _map_error(exc) from exc
+    updated = await todos_crud.update_todo(
+        session, user, todo_id, body.model_dump(exclude_unset=True)
+    )
     return TodoOut.model_validate(updated)
 
 
@@ -99,7 +90,4 @@ async def delete_todo(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    try:
-        await todos_crud.delete_todo(session, user, todo_id)
-    except todos_crud.TodosError as exc:
-        raise _map_error(exc) from exc
+    await todos_crud.delete_todo(session, user, todo_id)

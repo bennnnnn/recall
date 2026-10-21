@@ -22,6 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.timezone import resolve_timezone
+from app.exceptions import DomainError
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.recurrence import next_recurring_due
 from app.modules.todos.write_log import PlannedWrite
@@ -52,11 +53,8 @@ _TIMES = frozenset({"due_at", "notification_sent_at", "email_sent_at"})
 CardAction = Literal["add", "complete", "uncheck", "delete", "set_due", "clear_due", "move"]
 
 
-class ProposalError(Exception):
-    def __init__(self, detail: str, *, status_code: int = 400) -> None:
-        super().__init__(detail)
-        self.detail = detail
-        self.status_code = status_code
+class ProposalError(DomainError):
+    """A reminder card that can no longer be confirmed."""
 
 
 class CardItem(BaseModel):

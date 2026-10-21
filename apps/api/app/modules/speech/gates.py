@@ -1,6 +1,6 @@
 """The gates a paid speech request passes before it spends: plan, spend cap, rate, day.
 
-Each raises the HTTP error the phone already handles: 403 opens the paywall, 429
+Each raises a ``SpeechRefusedError`` (a ``DomainError``): 403 opens the paywall, 429
 says which limit it hit. Callers keep their own order of checks.
 """
 
@@ -11,11 +11,12 @@ from datetime import date
 from typing import Literal
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from fastapi import status
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.rate_limit import allow_request_fail_closed
+from app.exceptions import DomainError
 from app.models.orm import User
 from app.modules.billing import can_use
 from app.modules.billing.entitlements import Feature
@@ -28,18 +29,23 @@ SpeechCounter = Literal["speech_tts", "speech_transcription"]
 _RATE_WINDOW_SECONDS = 60
 
 
+class SpeechRefusedError(DomainError):
+    """A speech or live talk request refused before it spends."""
+
+
 def require_plan_feature(user: User, settings: Settings, feature: Feature, message: str) -> None:
     """Refuse a feature the user's plan does not include (403 opens the paywall)."""
     if not can_use(user, feature, settings):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message)
+        raise SpeechRefusedError(message, status_code=status.HTTP_403_FORBIDDEN, code="not_in_plan")
 
 
 async def require_voice_spend_ok(redis: Redis, settings: Settings) -> None:
     """Refuse while the global provider-spend breaker is open."""
     if await quota_service.global_spend_exceeded(redis, settings):
-        raise HTTPException(
+        raise SpeechRefusedError(
+            quota_service.VOICE_SPEND_CAP_MESSAGE,
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=quota_service.VOICE_SPEND_CAP_MESSAGE,
+            code="voice_spend_cap",
         )
 
 
@@ -55,7 +61,7 @@ async def require_speech_rate(redis: Redis, settings: Settings, key: str, messag
         redis, key, limit=rate_limit, window_seconds=_RATE_WINDOW_SECONDS
     )
     if not allowed:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
+        raise SpeechRefusedError(message, status_code=status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 async def reserve_day_or_raise(
@@ -64,9 +70,10 @@ async def reserve_day_or_raise(
     """Take one of today's *counter* slots; 429 with the plan's message at the cap."""
     day = await counters.reserve(counter, redis, user, settings)
     if not day:
-        raise HTTPException(
+        raise SpeechRefusedError(
+            counters.limit_message(counter, user),
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=counters.limit_message(counter, user),
+            code="daily_limit",
         )
     return day
 
@@ -74,8 +81,8 @@ async def reserve_day_or_raise(
 class RefundDayOnFailure:
     """``async with``: give a reserved slot back to its day when the block fails.
 
-    A 429 HTTPException keeps the slot (a cap refusal is not a failed request);
-    any other HTTPException, error or cancellation refunds it. Without a *day*
+    A 429 refusal keeps the slot (a cap refusal is not a failed request); any other
+    refusal, error or cancellation refunds it. Without a *day*
     (nothing was reserved) nothing is refunded. The block's exception always
     propagates. A class rather than ``@asynccontextmanager``, whose generator
     would turn a StopAsyncIteration out of Redis into a RuntimeError.
@@ -97,9 +104,9 @@ class RefundDayOnFailure:
     ) -> None:
         if exc is None or not self.day:
             return
-        if isinstance(exc, HTTPException):
-            if exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
-                return
-        elif not isinstance(exc, asyncio.CancelledError | Exception):
+        # A refusal from the gates or the route (an HTTPException) names its status.
+        if getattr(exc, "status_code", None) == status.HTTP_429_TOO_MANY_REQUESTS:
+            return
+        if not isinstance(exc, asyncio.CancelledError | Exception):
             return
         await counters.refund(self.counter, self.redis, self.user_id, day=self.day)

@@ -17,12 +17,13 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request, status
 from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
+from app.exceptions import DomainError
 from app.models.orm import User
 from app.models.schemas.scan import SCAN_MAX_IMAGE_BYTES, SCAN_MAX_REQUEST_BYTES, ScanPhotoIn
 from app.services import quota as quota_service
@@ -36,14 +37,20 @@ SCAN_SPEND_CAP_MESSAGE = "Reading photos is paused for now. Type the problem, or
 SCAN_RATE_LIMIT_KEY = "scan_read_rl"
 
 
+class ScanRefusedError(DomainError):
+    """A photo read refused before the reader runs; the phone keys its words on the code."""
+
+
 @dataclass(frozen=True, slots=True)
 class ScanPhoto:
     content_type: str
     data: bytes
 
 
-def _too_large() -> HTTPException:
-    return HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Image too large")
+def _too_large() -> ScanRefusedError:
+    return ScanRefusedError(
+        "Image too large", status_code=status.HTTP_413_CONTENT_TOO_LARGE, code="image_too_large"
+    )
 
 
 async def scan_photo(request: Request) -> ScanPhoto:
@@ -58,11 +65,13 @@ async def scan_photo(request: Request) -> ScanPhoto:
         payload = ScanPhotoIn.model_validate(json.loads(raw))
         data = base64.b64decode(payload.image_base64, validate=True)
     except (ValueError, ValidationError, binascii.Error) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image payload"
+        raise ScanRefusedError(
+            "Invalid image payload", status_code=status.HTTP_400_BAD_REQUEST, code="invalid_image"
         ) from exc
     if not data:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty image")
+        raise ScanRefusedError(
+            "Empty image", status_code=status.HTTP_400_BAD_REQUEST, code="invalid_image"
+        )
     if len(data) > SCAN_MAX_IMAGE_BYTES:
         raise _too_large()
     return ScanPhoto(content_type=payload.content_type, data=data)
@@ -89,15 +98,19 @@ async def read_scan[T](
     photo = await scan_photo(request)
     redis = get_redis_client()
     if await quota_service.global_spend_exceeded(redis, settings):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=SCAN_SPEND_CAP_MESSAGE
+        raise ScanRefusedError(
+            SCAN_SPEND_CAP_MESSAGE,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            code="scan_spend_cap",
         )
     limit = settings.math_scan_read_rate_limit_per_hour
     if limit > 0 and not await allow_request_fail_closed(
         redis, f"{SCAN_RATE_LIMIT_KEY}:{user.id}", limit=limit, window_seconds=3600
     ):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=SCAN_RATE_LIMIT_MESSAGE
+        raise ScanRefusedError(
+            SCAN_RATE_LIMIT_MESSAGE,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            code="scan_rate_limited",
         )
     try:
         async with asyncio.timeout_at(deadline):

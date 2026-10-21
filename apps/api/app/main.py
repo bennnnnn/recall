@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import process_bootstrap
 from app.core.body_limit import RequestBodyLimitMiddleware
 from app.core.config import cors_allow_origins, get_settings
+from app.core.domain_errors import register_domain_error_handler
 from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
@@ -100,6 +101,7 @@ def create_app() -> FastAPI:
         enable_hsts=settings.environment == "production",
     )
     register_unavailable_handlers(app)
+    register_domain_error_handler(app)
 
     app.include_router(health.router)
     app.include_router(legal.router)

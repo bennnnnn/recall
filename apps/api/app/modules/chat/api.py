@@ -37,14 +37,11 @@ async def create_chat(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ChatOut:
-    try:
-        chat = await chats_service.create_chat(
-            session,
-            user,
-            model=body.model,
-        )
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    chat = await chats_service.create_chat(
+        session,
+        user,
+        model=body.model,
+    )
     return ChatOut.model_validate(chat)
 
 
@@ -66,10 +63,7 @@ async def archive_all_chats(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    try:
-        await chats_service.archive_all_chats(session, user)
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    await chats_service.archive_all_chats(session, user)
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
@@ -78,10 +72,7 @@ async def delete_all_chats(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
-    try:
-        await chats_service.delete_all_chats(session, user, settings=settings)
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    await chats_service.delete_all_chats(session, user, settings=settings)
 
 
 @router.patch("/{chat_id}", response_model=ChatOut)
@@ -91,10 +82,7 @@ async def rename_chat(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ChatOut:
-    try:
-        chat = await chats_service.rename_chat(session, user, chat_id, body.title)
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    chat = await chats_service.rename_chat(session, user, chat_id, body.title)
     return ChatOut.model_validate(chat)
 
 
@@ -105,10 +93,7 @@ async def pin_chat(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ChatOut:
-    try:
-        chat = await chats_service.pin_chat(session, user, chat_id, pinned=body.pinned)
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    chat = await chats_service.pin_chat(session, user, chat_id, pinned=body.pinned)
     return ChatOut.model_validate(chat)
 
 
@@ -119,10 +104,7 @@ async def archive_chat(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ChatOut:
-    try:
-        chat = await chats_service.archive_chat(session, user, chat_id, archived=body.archived)
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    chat = await chats_service.archive_chat(session, user, chat_id, archived=body.archived)
     return ChatOut.model_validate(chat)
 
 
@@ -133,10 +115,7 @@ async def delete_chat(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
-    try:
-        await chats_service.delete_chat(session, user, chat_id, settings=settings)
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    await chats_service.delete_chat(session, user, chat_id, settings=settings)
 
 
 @router.get("/usage/today", response_model=UsageOut)
@@ -158,10 +137,7 @@ async def reset_today_usage(
     settings: Settings = Depends(get_settings_dep),
 ) -> UsageOut:
     require_dev_privilege_access(request, settings, user)
-    try:
-        return await chats_service.reset_today_usage(session, redis, settings, user)
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    return await chats_service.reset_today_usage(session, redis, settings, user)
 
 
 @router.get("/{chat_id}", response_model=ChatOut)
@@ -170,10 +146,7 @@ async def get_chat(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ChatOut:
-    try:
-        chat = await chats_service.get_chat(session, user, chat_id)
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    chat = await chats_service.get_chat(session, user, chat_id)
     return ChatOut.model_validate(chat)
 
 
@@ -186,12 +159,9 @@ async def list_messages(
     limit: int = Query(default=40, ge=1, le=200),
     before: UUID | None = None,
 ) -> MessagePageOut:
-    try:
-        return await chats_service.list_messages_page(
-            session, redis, user, chat_id, limit=limit, before=before
-        )
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    return await chats_service.list_messages_page(
+        session, redis, user, chat_id, limit=limit, before=before
+    )
 
 
 @router.patch("/{chat_id}/messages/{message_id}/feedback", response_model=MessageOut)
@@ -203,12 +173,9 @@ async def set_message_feedback(
     session: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ) -> MessageOut:
-    try:
-        message = await chats_service.set_message_feedback(
-            session, redis, user, chat_id, message_id, body.feedback
-        )
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    message = await chats_service.set_message_feedback(
+        session, redis, user, chat_id, message_id, body.feedback
+    )
     return MessageOut.model_validate(message)
 
 
@@ -221,17 +188,14 @@ async def update_message_email(
     session: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ) -> MessageOut:
-    try:
-        message = await chats_service.update_message_email(
-            session,
-            redis,
-            user,
-            chat_id,
-            message_id,
-            to=body.to,
-            subject=body.subject,
-            body=body.body,
-        )
-    except chats_service.ChatsError as exc:
-        raise _map_error(exc) from exc
+    message = await chats_service.update_message_email(
+        session,
+        redis,
+        user,
+        chat_id,
+        message_id,
+        to=body.to,
+        subject=body.subject,
+        body=body.body,
+    )
     return MessageOut.model_validate(message)

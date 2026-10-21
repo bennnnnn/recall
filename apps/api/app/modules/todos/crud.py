@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import DomainError
 from app.models.orm import TodoItem, User
 from app.modules.home import service as home_service
 from app.modules.todos import repository as todos_repo
@@ -22,11 +23,8 @@ from app.repositories import chats as chats_repo
 from app.services.time_context import normalize_due_at
 
 
-class TodosError(Exception):
-    def __init__(self, detail: str, *, status_code: int) -> None:
-        self.detail = detail
-        self.status_code = status_code
-        super().__init__(detail)
+class TodosError(DomainError):
+    """A to-do refusal."""
 
 
 def _reminder_pushes_on(user: User) -> bool:

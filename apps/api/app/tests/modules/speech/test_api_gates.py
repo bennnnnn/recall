@@ -79,7 +79,7 @@ def test_speech_route_refuses_a_plan_without_the_feature(path):
     with _speech(path) as (_fake_redis, _provider):
         response = client.post(path, headers=_AUTH, **request)
     assert response.status_code == 403
-    assert response.json() == {"detail": message}
+    assert response.json() == {"detail": {"code": "not_in_plan", "message": message}}
 
 
 @pytest.mark.parametrize("path", list(_ROUTES))
@@ -89,7 +89,10 @@ def test_speech_route_refuses_while_the_spend_breaker_is_open(path):
     with _speech(path, spend_capped=True) as (_fake_redis, _provider):
         response = client.post(path, headers=_AUTH, **request)
     assert response.status_code == 429
-    assert response.json() == {"detail": quota_service.VOICE_SPEND_CAP_MESSAGE}
+    assert response.json()["detail"] == {
+        "code": "voice_spend_cap",
+        "message": quota_service.VOICE_SPEND_CAP_MESSAGE,
+    }
 
 
 @pytest.mark.parametrize("path", list(_ROUTES))
@@ -105,7 +108,7 @@ def test_speech_route_rate_limits_per_user_and_minute(path):
         rate_key = asyncio.run(fake_redis.get(f"{rate_prefix}:{user.id}"))
     assert first.status_code == 200
     assert second.status_code == 429
-    assert second.json() == {"detail": rate_message}
+    assert second.json()["detail"] == {"code": "rate_limited", "message": rate_message}
     assert rate_key == "2"
 
 
@@ -141,7 +144,10 @@ def test_speech_route_refuses_past_the_days_cap(path, cap_setting, counter):
         second = client.post(path, headers=_AUTH, **request)
     assert first.status_code == 200
     assert second.status_code == 429
-    assert second.json() == {"detail": counters.limit_message(counter, user)}
+    assert second.json()["detail"] == {
+        "code": "daily_limit",
+        "message": counters.limit_message(counter, user),
+    }
 
 
 def test_tts_provider_failure_is_502_and_gives_the_slot_back():
@@ -208,7 +214,10 @@ def test_live_talk_mint_rate_limits_per_user_and_minute():
         rate_key = asyncio.run(fake_redis.get(f"speech_realtime_rl:{user.id}"))
     assert first.status_code == 200
     assert second.status_code == 429
-    assert second.json() == {"detail": quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE}
+    assert second.json()["detail"] == {
+        "code": "rate_limited",
+        "message": quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
+    }
     assert rate_key == "2"
     assert mint.await_count == 1
 
@@ -218,5 +227,8 @@ def test_live_talk_mint_refuses_while_the_spend_breaker_is_open():
     with _mint(spend_capped=True) as (_fake_redis, mint):
         response = client.post("/speech/live/session", headers=_AUTH, json={})
     assert response.status_code == 429
-    assert response.json() == {"detail": quota_service.VOICE_SPEND_CAP_MESSAGE}
+    assert response.json()["detail"] == {
+        "code": "voice_spend_cap",
+        "message": quota_service.VOICE_SPEND_CAP_MESSAGE,
+    }
     mint.assert_not_awaited()

@@ -22,11 +22,12 @@ const translate = (key: string, options?: Record<string, unknown>) =>
 
 describe("presignFailure", () => {
   it.each<[ApiRequestError, AttachmentFailure]>([
-    [refused(400, "Unsupported content type"), "unsupported_type"],
-    [refused(400, "Invalid file size"), "too_large"],
+    [refused(400, { code: "unsupported_type", message: "Unsupported content type" }), "unsupported_type"],
+    [refused(400, { code: "invalid_size", message: "Invalid file size" }), "too_large"],
     [refused(422, [{ loc: ["body", "size_bytes"], msg: "Input should be less than or equal to 10485760" }]), "too_large"],
-    [refused(429, "Daily image upload limit reached."), "daily_limit"],
-    [refused(503, "Attachment storage is not configured"), "upload_failed"],
+    [refused(429, { code: "daily_limit", message: "Reworded limit." }), "daily_limit"],
+    [refused(400, "Unsupported content type"), "upload_failed"],
+    [refused(503, { code: "unavailable", message: "Attachment storage is not configured" }), "upload_failed"],
     [refused(422, [{ loc: ["body", "filename"], msg: "String should have at most 255 characters" }]), "upload_failed"],
     [new ApiRequestError(500, "Internal Server Error"), "upload_failed"],
   ])("names the API's refusal %#", (error, reason) => {

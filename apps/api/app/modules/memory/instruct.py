@@ -8,6 +8,7 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.exceptions import DomainError
 from app.modules.memory import llm as memory_llm
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
@@ -17,12 +18,24 @@ from app.modules.memory.topics import parse_topic
 logger = logging.getLogger(__name__)
 
 
-class MemoryOffError(Exception):
+class MemoryOffError(DomainError):
     """Memory is turned off for this account."""
 
+    status_code = 409
+    default_code = "memory_off"
 
-class MemoryInstructionFailedError(Exception):
+    def __init__(self, message: str = "Memory is off.") -> None:
+        super().__init__(message)
+
+
+class MemoryInstructionFailedError(DomainError):
     """The model could not turn the instruction into edits."""
+
+    status_code = 502
+    default_code = "memory_edit_failed"
+
+    def __init__(self, message: str = "Memory couldn't be updated right now — try again.") -> None:
+        super().__init__(message)
 
 
 @dataclass(frozen=True)

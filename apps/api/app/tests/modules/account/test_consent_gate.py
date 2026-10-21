@@ -116,11 +116,11 @@ async def test_a_withdrawal_on_another_machine_is_honoured_at_once(fake_redis) -
     session = SimpleNamespace(refresh=AsyncMock(side_effect=withdrawn), commit=AsyncMock())
     await user_cache.bump_generation(fake_redis, user.id)  # another machine's PATCH /auth/me
     user_cache.forget_user(user.id)  # this machine noted the old generation
-    from fastapi import HTTPException
+    from app.modules.account.consent import ConsentRefusedError
 
-    with pytest.raises(HTTPException) as refused:
+    with pytest.raises(ConsentRefusedError) as refused:
         await get_consented_user(user=user, session=session, redis=fake_redis)  # type: ignore[arg-type]
-    assert refused.value.status_code == 403
+    assert (refused.value.status_code, refused.value.code) == (403, "consent_required")
 
 
 @pytest.mark.asyncio

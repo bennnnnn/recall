@@ -15,14 +15,14 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis_dep
 from app.core.user_cache import is_current, read_generation, remember_read
-from app.exceptions import ConsentRequiredError
+from app.exceptions import ConsentRequiredError, DomainError
 from app.models.orm import User
 
 # What a withdrawal elsewhere can change for the next outside-AI call.
@@ -34,10 +34,14 @@ def has_ai_data_consent(user: object) -> bool:
     return getattr(user, "ai_data_consent_at", None) is not None
 
 
-def consent_required_detail() -> dict[str, str]:
-    """The 403 body: ``{"detail": {"code": "consent_required", "message": …}}``."""
-    refused = ConsentRequiredError()
-    return {"code": refused.code, "message": refused.message}
+class ConsentRefusedError(DomainError):
+    """403 ``consent_required``: the phone opens its consent screen."""
+
+    status_code = 403
+    default_code = ConsentRequiredError.code
+
+    def __init__(self) -> None:
+        super().__init__(ConsentRequiredError().message)
 
 
 async def get_consented_user(
@@ -56,6 +60,6 @@ async def get_consented_user(
     await session.refresh(user, attribute_names=list(_PRIVACY_COLUMNS))
     await session.commit()  # the re-read's transaction ends here, as in get_current_user
     if not has_ai_data_consent(user):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=consent_required_detail())
+        raise ConsentRefusedError()
     remember_read(user, generation)
     return user

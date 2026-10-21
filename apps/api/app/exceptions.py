@@ -1,3 +1,67 @@
+"""Exceptions shared across modules, and the one shape every refusal takes."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+
+# The code a refusal falls back to when its raise site names none: what kind it is.
+_STATUS_CODES = {
+    400: "invalid",
+    403: "forbidden",
+    404: "not_found",
+    409: "conflict",
+    410: "expired",
+    413: "too_large",
+    415: "unsupported_type",
+    422: "invalid",
+    429: "rate_limited",
+    500: "failed",
+    501: "not_supported",
+    502: "upstream_failed",
+    503: "unavailable",
+}
+
+
+class DomainError(Exception):
+    """A refusal a service makes: English to show, and the code a client reads.
+
+    Modules raised errors carrying HTTP fields in four styles, and the phone recovered
+    their meaning by matching the English (code-health audit DUP-10). A module
+    subclasses this; the app's one handler (``core/domain_errors.py``) answers
+    ``status_code`` with ``{"detail": {"code": ..., "message": ..., **fields}}``. A
+    client switches on ``code``; rewording ``message`` breaks nothing.
+    """
+
+    status_code = 400
+    default_code: str | None = None
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        code: str | None = None,
+        headers: Mapping[str, str] | None = None,
+        **fields: object,
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        if status_code is not None:
+            self.status_code = status_code
+        self.code = code or self.default_code or _STATUS_CODES.get(self.status_code, "refused")
+        self.headers = dict(headers or {})
+        self.fields = fields
+
+    @property
+    def detail(self) -> str:
+        """The English, as a route's ``HTTPException`` carried it."""
+        return self.message
+
+    def body(self) -> dict[str, object]:
+        """The response's ``detail``."""
+        return {"code": self.code, "message": self.message, **self.fields}
+
+
 class ChatServiceError(Exception):
     def __init__(self, message: str) -> None:
         self.message = message

@@ -1,3 +1,4 @@
+import { ApiRequestError, readErrorBody } from "@/lib/api/errorBody";
 import { isAbortError } from "@/lib/api/abort";
 import { getApiUrl } from "@/lib/config";
 import {
@@ -8,7 +9,7 @@ import {
   setTokenPair,
 } from "@/lib/auth";
 
-import { isConsentRequiredBody, notifyConsentRequired } from "@/lib/api/consentRefusal";
+import { CONSENT_REQUIRED_CODE, notifyConsentRequired } from "@/lib/api/consentRefusal";
 import type { AuthResult, User } from "@/lib/api/types";
 import { deviceSessionFields } from "@/lib/deviceSession";
 
@@ -28,7 +29,7 @@ export function notifyUnauthorized(generation = getSessionGeneration()): void {
 async function readConsentRefusal(response: Response, generation: number): Promise<void> {
   try {
     const body = await response.clone().text();
-    if (generation === getSessionGeneration() && isConsentRequiredBody(body)) {
+    if (generation === getSessionGeneration() && readErrorBody(body).code === CONSENT_REQUIRED_CODE) {
       notifyConsentRequired();
     }
   } catch {
@@ -159,15 +160,7 @@ export async function logoutSession(
   }
 }
 
-export class ApiRequestError extends Error {
-  readonly status: number;
-
-  constructor(status: number, message: string) {
-    super(message || `Request failed: ${status}`);
-    this.name = "ApiRequestError";
-    this.status = status;
-  }
-}
+export { ApiRequestError };
 
 export function apiUrl(path: string) {
   return `${getApiUrl()}${path}`;

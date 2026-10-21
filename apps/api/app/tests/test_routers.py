@@ -2296,7 +2296,7 @@ def test_speech_transcribe_global_spend_cap():
             files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
         )
     assert r.status_code == 429
-    assert r.json()["detail"] == VOICE_SPEND_CAP_MESSAGE
+    assert r.json()["detail"]["message"] == VOICE_SPEND_CAP_MESSAGE
     transcribe.assert_not_awaited()
 
 
@@ -2670,7 +2670,7 @@ def test_speech_tts_daily_cap():
         )
     assert first.status_code == 200
     assert second.status_code == 429
-    assert "read-aloud" in second.json()["detail"].lower()
+    assert "read-aloud" in second.json()["detail"]["message"].lower()
 
 
 def test_speech_tts_lead_allows_multiple_rest_followups():
@@ -2834,7 +2834,7 @@ def test_speech_tts_rate_limit_message():
         )
     assert first.status_code == 200
     assert second.status_code == 429
-    assert "read-aloud" in second.json()["detail"].lower()
+    assert "read-aloud" in second.json()["detail"]["message"].lower()
 
 
 def test_speech_tts_disabled():
@@ -2912,7 +2912,7 @@ def test_free_plan_is_refused_voice_input_and_read_aloud(path, body):
         else:
             r = client.post(path, headers={"Authorization": "Bearer tok"}, json=body)
     assert r.status_code == 403
-    assert "Upgrade" in r.json()["detail"]
+    assert "Upgrade" in r.json()["detail"]["message"]
     redis_client.assert_not_called()
     stt.assert_not_awaited()
     tts.assert_not_awaited()
