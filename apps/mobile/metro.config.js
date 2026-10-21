@@ -43,6 +43,11 @@ config.resolver.blockList = [
   /\/lib\/__tests__\//,
 ];
 
+// The preview WebViews' web libraries (lib/vendor/*.txt: Mermaid, Vega, pdf.js,
+// SmilesDrawer, KaTeX CSS) ship as assets, read at run time by lib/vendorAssets.ts,
+// instead of as megabytes of strings inside the JS bundle.
+config.resolver.assetExts = [...config.resolver.assetExts, "txt"];
+
 // Bind IPv4 so iOS Simulator (127.0.0.1) can reach Metro when ::1-only would fail.
 config.server = {
   ...(config.server ?? {}),

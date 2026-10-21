@@ -1,0 +1,86 @@
+/**
+ * The Mermaid diagram page for the preview WebView: built once with the
+ * vendored library and loaded from a file (lib/previewPageFile.ts); each block
+ * hands it its diagram with `mermaidPreviewConfig`.
+ */
+import { previewPageStartScript, type PreviewPage } from "@/lib/previewPage";
+import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
+import type { Theme } from "@/lib/theme";
+
+type MermaidPreviewTheme = Pick<Theme, "bg" | "danger" | "isDark">;
+
+/** Runs in the WebView with one block's config. */
+const START = `function (config) {
+  var style = document.documentElement.style;
+  style.setProperty('--bg', config.colors.bg);
+  style.setProperty('--danger', config.colors.danger);
+  function reportError(msg) {
+    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'mermaid-error', message: msg })); } catch (e) {}
+    var el = document.getElementById('err');
+    el.textContent = 'Diagram error: ' + msg;
+    el.style.display = 'block';
+  }
+  function reportSize() {
+    var svg = document.querySelector('#diagram svg');
+    var h = 0;
+    if (svg) {
+      var box = svg.getBoundingClientRect();
+      h = box.height;
+    }
+    if (!h) h = document.body.scrollHeight;
+    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'mermaid-size', height: Math.ceil(h + 16) })); } catch (e) {}
+  }
+  var el = document.getElementById('diagram');
+  el.textContent = config.source;
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: config.theme,
+    securityLevel: 'strict',
+    flowchart: { useMaxWidth: true, htmlLabels: false },
+  });
+  mermaid.run({ nodes: [el] }).then(function() {
+    requestAnimationFrame(reportSize);
+  }).catch(function(err) { reportError(err && err.message ? err.message : String(err)); });
+}`;
+
+export function buildMermaidPageHtml(mermaidJs: string): string {
+  return injectPreviewCsp(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>${inlineScript(mermaidJs)}</script>
+<style>
+  body { margin: 0; padding: 8px; font-family: -apple-system, sans-serif; background: var(--bg); }
+  #err { color: var(--danger); font-size: 12px; display: none; white-space: pre-wrap; padding: 8px; }
+  .mermaid { display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+<pre class="mermaid" id="diagram"></pre>
+<div id="err"></div>
+<script>${previewPageStartScript(START)}</script>
+</body>
+</html>`);
+}
+
+export const MERMAID_PAGE: PreviewPage<"mermaid"> = {
+  name: "mermaid",
+  libraries: ["mermaid"],
+  build: ({ mermaid }) => buildMermaidPageHtml(mermaid),
+};
+
+/** What one diagram's WebView hands the page. */
+export type MermaidPreviewConfig = {
+  source: string;
+  theme: "dark" | "neutral";
+  colors: { bg: string; danger: string };
+};
+
+export function mermaidPreviewConfig(source: string, theme: MermaidPreviewTheme): MermaidPreviewConfig {
+  return {
+    source: source.trim(),
+    theme: theme.isDark ? "dark" : "neutral",
+    colors: { bg: theme.bg, danger: theme.danger },
+  };
+}

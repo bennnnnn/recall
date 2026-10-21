@@ -1,3 +1,7 @@
+const ASSET_FILE_TRANSFORMER = require.resolve(
+  "@react-native/jest-preset/jest/assetFileTransformer.js",
+);
+
 // Package-name prefixes that ship untranspiled source and must be run through
 // Babel instead of being treated as pre-built node_modules content. Used to
 // build transformIgnorePatterns for both possible on-disk layouts below.
@@ -26,6 +30,9 @@ module.exports = {
       ],
       preset: "ts-jest",
       testEnvironment: "node",
+      // lib/vendorAssets.ts requires the vendored web libraries as Metro
+      // assets; a test sees each as an asset stub, never runs it as a module.
+      transform: { "^.+\\.txt$": ASSET_FILE_TRANSFORMER },
       extensionsToTreatAsEsm: ['.ts', '.tsx'],
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/$1",
@@ -52,13 +59,12 @@ module.exports = {
       // project's `.test.ts` matcher above.
       testMatch: ["**/__tests__/**/*.test.tsx"],
       preset: "@react-native/jest-preset",
-      // The preset's asset transformer omits fonts; Skia's useFont() requires a
-      // .ttf asset, so extend the same transformer to font files.
+      // The preset's asset transformer omits fonts and text; Skia's useFont()
+      // requires a .ttf asset and lib/vendorAssets.ts .txt ones, so extend the
+      // same transformer to those files.
       transform: {
         "^.+\\.(js|ts|tsx)$": "babel-jest",
-        "^.+\\.(bmp|gif|jpg|jpeg|mp4|png|psd|svg|webp|ttf|otf)$": require.resolve(
-          "@react-native/jest-preset/jest/assetFileTransformer.js",
-        ),
+        "^.+\\.(bmp|gif|jpg|jpeg|mp4|png|psd|svg|webp|ttf|otf|txt)$": ASSET_FILE_TRANSFORMER,
       },
       // Sheet pan-to-dismiss imports RNGH + Reanimated (no native modules
       // in this env). Keep the RN preset setup and add those mocks.

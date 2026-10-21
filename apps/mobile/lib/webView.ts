@@ -112,6 +112,28 @@ export function allowHtmlRunNavigation(request?: unknown): boolean {
   }
 }
 
+/**
+ * A preview page loaded from its file (lib/previewPageFile.ts). Every URL
+ * reaches {@link allowPreviewPageNavigation}, so a link in a diagram or chart
+ * is refused in place instead of handed to the OS.
+ */
+export const PREVIEW_PAGE_ORIGIN_WHITELIST: string[] = ["*"];
+
+/** The page may load itself and nothing else: no other file, no web page. */
+export function allowPreviewPageNavigation(pageUri: string, request?: unknown): boolean {
+  const url = navigationRequestUrl(request).trim();
+  if (url.toLowerCase() === "about:blank") return true;
+  const page = previewPageFileKey(pageUri);
+  return page !== null && previewPageFileKey(url) === page;
+}
+
+/** A file URL's folder and name, which iOS keeps when it reports /var/… as /private/var/…. */
+function previewPageFileKey(url: string): string | null {
+  if (!/^file:\/\//i.test(url)) return null;
+  const path = url.split(/[?#]/, 1)[0] ?? "";
+  return path.split("/").slice(-2).join("/");
+}
+
 /** Pull URL from RN WebView's nativeEvent (or a plain `{ url }` test stub). */
 function navigationRequestUrl(request: unknown): string {
   if (request == null || typeof request !== "object") return "";

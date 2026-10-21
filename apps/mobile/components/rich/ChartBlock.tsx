@@ -10,21 +10,18 @@ import * as WebBrowser from "expo-web-browser";
 import { Icon } from "@/ui/icons/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
+import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
-import { buildVegaHtml } from "@/lib/chartPreviewHtml";
+import { CHART_PAGE, chartPreviewConfig } from "@/lib/chartPreviewHtml";
 import { CHART_HEIGHT_EPSILON_PX, CHART_PREVIEW_HEIGHT } from "@/lib/chartPreviewHeight";
 import { CODE_FONT } from "@/lib/fonts";
 import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
-import {
-  getPreviewWebView,
-  STATIC_HTML_ORIGIN_WHITELIST,
-  useStaticOnlyNavigation,
-} from "@/lib/webView";
+import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };
 
@@ -42,18 +39,18 @@ export function ChartBlock({ content }: Props) {
     });
 
   const plotWidth = viewWidth > 0 ? viewWidth - 16 : 320;
-  const vegaHtml = useMemo(
-    () => buildVegaHtml(content, theme, plotWidth),
+  const config = useMemo(
+    () => chartPreviewConfig(content, theme, plotWidth),
     [content, theme, plotWidth],
   );
-  const source = useMemo(() => ({ html: vegaHtml }), [vegaHtml]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInlineChart = previewWebView?.mode === "rnc";
+  const preview = usePreviewPage(CHART_PAGE, config, Boolean(WebView) && canRenderInlineChart);
   const { canMount, onLoaded } = useDeferredWebViewMount(
-    Boolean(WebView) && canRenderInlineChart,
+    Boolean(WebView) && canRenderInlineChart && preview.status === "ready",
   );
-  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(vegaHtml);
+  const previewError = preview.status === "failed" ? t("rich.chart_error") : null;
 
   const handleOpenVegaEditor = useCallback(async () => {
     await Clipboard.setStringAsync(content);
@@ -117,18 +114,18 @@ export function ChartBlock({ content }: Props) {
       }
     >
       <View style={[s.previewBox, { height }]}>
-        {renderError ? (
+        {renderError || previewError ? (
           <View style={[s.previewPlaceholder, { height }]}>
             <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
             <Text style={[s.previewPlaceholderText, { color: theme.danger }]}>
-              {renderError}
+              {renderError ?? previewError}
             </Text>
           </View>
         ) : WebView && canRenderInlineChart ? (
-          canMount ? (
+          canMount && preview.status === "ready" ? (
             <WebView
-              originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
-              source={source}
+              key={preview.webViewKey}
+              {...preview.webViewProps}
               style={{ height, width: viewWidth > 0 ? viewWidth : 320 }}
               scrollEnabled={clipped}
               nestedScrollEnabled={clipped}
@@ -137,7 +134,6 @@ export function ChartBlock({ content }: Props) {
               domStorageEnabled={false}
               onLoadEnd={onLoaded}
               onMessage={onMessage}
-              onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
             />
           ) : (
             <View style={[s.previewPlaceholder, { height }]}>

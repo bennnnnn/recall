@@ -256,15 +256,6 @@ export function injectPreviewCsp(html: string, csp: string = PREVIEW_CSP): strin
   return `<!DOCTYPE html><html><head>${meta}</head><body>${html}</body></html>`;
 }
 
-/** Escape a string embedded in a JS template literal inside a <script> block. */
-export function escapeForInlineJsTemplate(value: string): string {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/`/g, "\\`")
-    .replace(/\${/g, "\\${")
-    .replace(new RegExp(SCRIPT_END, "gi"), "<\\/script>");
-}
-
 /**
  * Make a raw JS source safe to inline inside a <script>...</script> block.
  */

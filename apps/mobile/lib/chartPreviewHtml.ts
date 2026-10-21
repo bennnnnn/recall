@@ -1,18 +1,13 @@
 /**
- * Self-contained Vega-Lite preview HTML for the chart WebView.
+ * The chart page for the preview WebView (vendored Vega / Vega-Lite /
+ * Vega-Embed): built once and loaded from a file (lib/previewPageFile.ts);
+ * each block hands it its spec with `chartPreviewConfig`.
  *
  * Extracted so CSP injection and spec layout are unit-testable without ChartBlock.
  */
-import {
-  CHART_PREVIEW_CSP,
-  escapeForInlineJsTemplate,
-  injectPreviewCsp,
-  inlineScript,
-} from "@/lib/previewSandbox";
+import { previewPageStartScript, type PreviewPage } from "@/lib/previewPage";
+import { CHART_PREVIEW_CSP, injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
-import { VEGA_EMBED_MIN_JS } from "@/lib/vendor/vegaEmbedMinJs";
-import { VEGA_LITE_MIN_JS } from "@/lib/vendor/vegaLiteMinJs";
-import { VEGA_MIN_JS } from "@/lib/vendor/vegaMinJs";
 import { parseChartBody, seriesChartToVegaLite } from "@/lib/chartSeriesSpec";
 
 type ChartPreviewTheme = Pick<
@@ -131,40 +126,14 @@ function specPayloadForEmbed(raw: string): string {
   return JSON.stringify(spec);
 }
 
-/** Build a page that renders a Vega / Vega-Lite spec via vendored Vega-Embed. */
-export function buildVegaHtml(
-  spec: string,
-  theme: ChartPreviewTheme,
-  plotWidth = 320,
-): string {
-  const safeSpec = escapeForInlineJsTemplate(specPayloadForEmbed(spec));
-  const vegaTheme = theme.isDark ? "dark" : "vox";
-  const axisColor = theme.textSecondary;
-  const textColor = theme.text;
-  const gridColor = theme.border;
-  const width = Math.max(120, Math.floor(plotWidth));
-  return injectPreviewCsp(
-    `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>${inlineScript(VEGA_MIN_JS)}</script>
-<script>${inlineScript(VEGA_LITE_MIN_JS)}</script>
-<script>${inlineScript(VEGA_EMBED_MIN_JS)}</script>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { overflow: hidden; }
-  body { padding: 8px; font-family: -apple-system, sans-serif; background: ${theme.bg}; }
-  #chart { width: 100%; max-width: 100%; overflow: hidden; }
-  #error { color: ${theme.danger}; padding: 16px; font-size: 13px; display: none; white-space: pre-wrap; word-break: break-word; }
-</style>
-</head>
-<body>
-<div id="chart"></div>
-<div id="error"></div>
-<script>
-  const spec = \`${safeSpec}\`;
+type VegaLibrary = "vega" | "vegaLite" | "vegaEmbed";
+
+/** Runs in the WebView with one chart's config. */
+const START = `function (config) {
+  var colors = config.colors;
+  var style = document.documentElement.style;
+  style.setProperty('--bg', colors.bg);
+  style.setProperty('--danger', colors.danger);
   function reportError(msg) {
     try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'chart-error', message: msg })); } catch (e) {}
     var el = document.getElementById('error');
@@ -182,13 +151,13 @@ export function buildVegaHtml(
     try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'chart-size', height: Math.ceil(h + 16) })); } catch (e) {}
   }
   try {
-    const parsed = JSON.parse(spec);
-    const themedConfig = {
-      background: ${JSON.stringify(theme.bg)},
-      axis: { domainColor: ${JSON.stringify(axisColor)}, labelColor: ${JSON.stringify(textColor)}, titleColor: ${JSON.stringify(textColor)}, tickColor: ${JSON.stringify(axisColor)}, gridColor: ${JSON.stringify(gridColor)} },
-      legend: { labelColor: ${JSON.stringify(textColor)}, titleColor: ${JSON.stringify(textColor)} },
-      title: { color: ${JSON.stringify(textColor)} },
-      view: { stroke: ${JSON.stringify(axisColor)} },
+    var parsed = JSON.parse(config.spec);
+    var themedConfig = {
+      background: colors.bg,
+      axis: { domainColor: colors.axis, labelColor: colors.text, titleColor: colors.text, tickColor: colors.axis, gridColor: colors.grid },
+      legend: { labelColor: colors.text, titleColor: colors.text },
+      title: { color: colors.text },
+      view: { stroke: colors.axis },
     };
     parsed.config = Object.assign({}, themedConfig, parsed.config || {});
     // The width is the card's, axes and labels included: a plain width sized only the
@@ -198,8 +167,8 @@ export function buildVegaHtml(
       actions: false,
       tooltip: false,
       renderer: 'svg',
-      width: ${width},
-      theme: ${JSON.stringify(vegaTheme)},
+      width: config.width,
+      theme: config.vegaTheme,
       config: themedConfig,
     }).then(function() {
       requestAnimationFrame(reportSize);
@@ -207,9 +176,67 @@ export function buildVegaHtml(
   } catch (e) {
     reportError(e && e.message ? e.message : String(e));
   }
-</script>
+}`;
+
+/** The page that renders a Vega / Vega-Lite spec via vendored Vega-Embed. */
+export function buildVegaPageHtml(sources: Readonly<Record<VegaLibrary, string>>): string {
+  return injectPreviewCsp(
+    `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>${inlineScript(sources.vega)}</script>
+<script>${inlineScript(sources.vegaLite)}</script>
+<script>${inlineScript(sources.vegaEmbed)}</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { overflow: hidden; }
+  body { padding: 8px; font-family: -apple-system, sans-serif; background: var(--bg); }
+  #chart { width: 100%; max-width: 100%; overflow: hidden; }
+  #error { color: var(--danger); padding: 16px; font-size: 13px; display: none; white-space: pre-wrap; word-break: break-word; }
+</style>
+</head>
+<body>
+<div id="chart"></div>
+<div id="error"></div>
+<script>${previewPageStartScript(START)}</script>
 </body>
 </html>`,
     CHART_PREVIEW_CSP,
   );
+}
+
+export const CHART_PAGE: PreviewPage<VegaLibrary> = {
+  name: "chart",
+  libraries: ["vega", "vegaLite", "vegaEmbed"],
+  build: buildVegaPageHtml,
+};
+
+/** What one chart's WebView hands the page: the spec laid out for a phone, and the theme. */
+export type ChartPreviewConfig = {
+  /** JSON text; the page parses it, so a body it cannot read shows as a chart error. */
+  spec: string;
+  width: number;
+  vegaTheme: "dark" | "vox";
+  colors: { bg: string; text: string; axis: string; grid: string; danger: string };
+};
+
+export function chartPreviewConfig(
+  spec: string,
+  theme: ChartPreviewTheme,
+  plotWidth = 320,
+): ChartPreviewConfig {
+  return {
+    spec: specPayloadForEmbed(spec),
+    width: Math.max(120, Math.floor(plotWidth)),
+    vegaTheme: theme.isDark ? "dark" : "vox",
+    colors: {
+      bg: theme.bg,
+      text: theme.text,
+      axis: theme.textSecondary,
+      grid: theme.border,
+      danger: theme.danger,
+    },
+  };
 }

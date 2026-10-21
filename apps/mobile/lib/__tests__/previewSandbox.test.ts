@@ -5,7 +5,6 @@ import {
   PREVIEW_CSP_INLINE,
   PREVIEW_CSP_LIVE,
   PREVIEW_VIEWPORT,
-  escapeForInlineJsTemplate,
   injectPreviewCsp,
   prepareHtmlRunDocument,
   stripScripts,
@@ -182,14 +181,6 @@ describe("CHART_PREVIEW_CSP", () => {
   it("does not leak eval onto the user-HTML preview CSP", () => {
     expect(PREVIEW_CSP).not.toContain("unsafe-eval");
     expect(PREVIEW_CSP).toContain("script-src 'unsafe-inline'");
-  });
-});
-
-describe("escapeForInlineJsTemplate", () => {
-  it("escapes backslashes before backticks so a trailing slash cannot break out", () => {
-    expect(escapeForInlineJsTemplate("a\\")).toBe("a\\\\");
-    expect(escapeForInlineJsTemplate("x`y")).toBe("x\\`y");
-    expect(escapeForInlineJsTemplate("${hi}")).toBe("\\${hi}");
   });
 });
 
