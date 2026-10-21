@@ -1,11 +1,13 @@
 """Prompt caching at the gateway: the stable system message is marked only for a model
-that caches a marked prefix."""
+that caches a marked prefix, and the provider's cached prompt tokens are counted."""
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 from litellm.llms.openrouter.chat.transformation import OpenrouterConfig
@@ -107,3 +109,76 @@ async def test_the_stream_sends_the_mark_for_its_route(alias: str, marked: bool)
     sent = acompletion.await_args.kwargs["messages"]
     assert isinstance(sent[0]["content"], list) is marked
     assert sent[1:] == _PROMPT[1:]
+
+
+def _usage(**details: Any) -> SimpleNamespace:
+    return SimpleNamespace(
+        usage=SimpleNamespace(
+            prompt_tokens=5000,
+            completion_tokens=40,
+            prompt_tokens_details=SimpleNamespace(**details) if details else None,
+        )
+    )
+
+
+def test_cached_and_written_prompt_tokens_are_counted() -> None:
+    usage: dict[str, int] = {}
+    litellm_gateway._apply_usage(usage, _usage(cached_tokens=4096, cache_write_tokens=0))
+    litellm_gateway._apply_usage(usage, _usage(cached_tokens=0, cache_write_tokens=4096))
+    assert usage == {"input": 10_000, "output": 80, "cached_input": 4096, "cache_write": 4096}
+
+
+def test_a_provider_without_cache_details_adds_no_cache_counts() -> None:
+    usage: dict[str, int] = {}
+    litellm_gateway._apply_usage(usage, _usage())
+    # A mock's attribute is not a count.
+    litellm_gateway._apply_usage(
+        usage,
+        SimpleNamespace(
+            usage=SimpleNamespace(
+                prompt_tokens=1, completion_tokens=1, prompt_tokens_details=MagicMock()
+            )
+        ),
+    )
+    assert usage == {"input": 5001, "output": 41}
+
+
+def test_a_kept_attempt_carries_its_cache_counts() -> None:
+    usage = {"input": 10, "output": 2}
+    litellm_gateway._merge_attempt_usage(usage, {"input": 5000, "output": 40, "cached_input": 4096})
+    assert usage == {"input": 5010, "output": 42, "cached_input": 4096}
+
+
+@pytest.mark.asyncio
+async def test_the_streamed_reply_reports_the_cache_hit() -> None:
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    chunk_usage = SimpleNamespace(
+        prompt_tokens=5000,
+        completion_tokens=40,
+        prompt_tokens_details=SimpleNamespace(cached_tokens=4096, cache_write_tokens=None),
+    )
+    usage: dict[str, int] = {}
+    with patch(
+        "app.gateways.litellm_gateway.acompletion", AsyncMock(return_value=_OneChunk(chunk_usage))
+    ):
+        async for _ in litellm_gateway.stream_chat_completion(
+            settings=settings,
+            model_alias="free-chat",
+            messages=_PROMPT,
+            max_tokens=10,
+            usage=usage,
+        ):
+            pass
+    assert usage == {"input": 5000, "output": 40, "cached_input": 4096}
+
+
+def test_the_turn_cost_line_shows_the_cache(caplog: pytest.LogCaptureFixture) -> None:
+    from app.modules.chat.turn_settle import _log_turn_cost, _turn_charge
+
+    ctx = SimpleNamespace(user_id=uuid4(), model="free-chat", prompt_messages=[])
+    usage = {"input": 5000, "output": 40, "cached_input": 4096, "cache_write": 12}
+    with caplog.at_level(logging.INFO, logger="app.modules.chat.turn_settle"):
+        _log_turn_cost(ctx, _turn_charge(ctx, "Hello", usage))  # type: ignore[arg-type]
+    assert "input_tokens=5000 output_tokens=40" in caplog.text
+    assert "cached_input_tokens=4096 cache_write_tokens=12" in caplog.text
+    assert "est_cost_usd=0.000520" in caplog.text
