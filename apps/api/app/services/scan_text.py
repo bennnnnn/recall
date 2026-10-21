@@ -8,11 +8,11 @@ the chat then solves that text like a typed question.
 from __future__ import annotations
 
 import base64
-import json
 import logging
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
+from app.gateways.model_output import parse_model_json, unwrap_model_fence
 from app.models.model_catalog import vision_alias
 
 logger = logging.getLogger(__name__)
@@ -23,17 +23,11 @@ _MATH_KINDS = frozenset({"equation", "system", "inequality"})
 
 def reading_from_vision(raw: str) -> str:
     """Plain problem text. A math-kind JSON object is not a reading."""
-    text = raw.strip()
-    if text.startswith("```"):
-        fence = text.split("```", 2)
-        text = fence[1] if len(fence) > 1 else ""
-        if text.lstrip().startswith("json"):
-            text = text.lstrip()[4:]
-        text = text.strip()
+    text = unwrap_model_fence(raw, "json")
     if text.startswith("{") and text.endswith("}"):
         try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
+            data = parse_model_json(text)
+        except ValueError:
             data = None
         if isinstance(data, dict):
             kind = data.get("kind")

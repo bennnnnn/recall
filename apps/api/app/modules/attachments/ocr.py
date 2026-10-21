@@ -11,6 +11,7 @@ from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.document_executor import run_document
 from app.gateways import litellm_gateway, mock_llm
+from app.gateways.model_output import unwrap_model_fence
 from app.models.model_catalog import vision_alias
 from app.modules.attachments.pdf_render import render_in_worker
 
@@ -37,13 +38,7 @@ def _page_text_from_response(response: Any) -> str | None:
         raw = (response.choices[0].message.content or "").strip()
     except Exception:
         return None
-    if raw.startswith("```"):
-        parts = raw.split("```", 2)
-        if len(parts) >= 2:
-            raw = parts[1]
-            if raw.startswith("text"):
-                raw = raw[4:]
-            raw = raw.strip()
+    raw = unwrap_model_fence(raw, "text")
     lowered = raw.lower()
     if not raw or lowered in {"[empty]", "empty", "(empty)"}:
         return None

@@ -18,6 +18,7 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
+from app.gateways.model_output import CURLY_QUOTES, TRAILING_COMMA
 from app.services.md_fence_scan import iter_closed_fences
 
 if TYPE_CHECKING:
@@ -48,8 +49,6 @@ _CODE_ASK = re.compile(
     r"|deserializ\w*|pars(?:e|es|ing|er)|library|module|regex|endpoint)\b",
     re.IGNORECASE,
 )
-_TRAILING_COMMA = re.compile(r",(\s*[}\]])")
-_CURLY_QUOTES = str.maketrans({"“": '"', "”": '"'})
 
 
 def is_json_request(text: str | None) -> bool:
@@ -70,7 +69,7 @@ def _parses(body: str) -> bool:
 def repair_json(body: str) -> str | None:
     """The body as valid JSON after one cheap repair, or None when that is not enough."""
     lines = [line for line in body.splitlines() if not line.strip().startswith("```")]
-    candidate = _TRAILING_COMMA.sub(r"\1", "\n".join(lines).translate(_CURLY_QUOTES)).strip()
+    candidate = TRAILING_COMMA.sub(r"\1", "\n".join(lines).translate(CURLY_QUOTES)).strip()
     try:
         data = json.loads(candidate)
     except ValueError:
