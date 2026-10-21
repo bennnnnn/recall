@@ -8,14 +8,6 @@ import { hasSettingsProposalFence } from "@/lib/settingsProposal";
 export const STREAM_LAYOUT_SETTLE_MS = 280;
 
 /**
- * Keep FlashList native autoscroll off until after chrome + suggestion chips
- * have grown, then JS-pin. Re-arming native at settle (same 280ms as the
- * growth) made two writers fight → spring. 80ms is one frame-or-two after
- * the layout commit, not a second visual hold.
- */
-export const STREAM_AUTOSCROLL_RESUME_MS = STREAM_LAYOUT_SETTLE_MS + 80;
-
-/**
  * Short threads stay under the header. FlashList's bottom start pads the top
  * until the rows fill the screen, so a few messages sit on the composer and
  * cannot scroll up. Only a thread that already has older pages is long enough

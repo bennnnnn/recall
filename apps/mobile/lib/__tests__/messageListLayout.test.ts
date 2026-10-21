@@ -4,7 +4,6 @@ import {
   latchStartRenderingFromBottom,
   messageListItemType,
   messageListKey,
-  STREAM_AUTOSCROLL_RESUME_MS,
   STREAM_LAYOUT_SETTLE_MS,
   shouldHoldStreamLayoutOnPersistedMount,
   shouldStartRenderingFromBottom,
@@ -116,18 +115,14 @@ describe("messageListLayout", () => {
     expect(isFreshStreamRenderKey(undefined)).toBe(false);
   });
 
-  it("keeps native autoscroll suppressed past the chrome settle tick", () => {
-    expect(STREAM_AUTOSCROLL_RESUME_MS).toBeGreaterThan(STREAM_LAYOUT_SETTLE_MS);
-  });
-
-  it("beginStreamLayoutHold honors a longer resume delay", () => {
+  it("beginStreamLayoutHold releases after the settle delay", () => {
     jest.useFakeTimers();
     const setHeld = jest.fn();
-    const cleanup = beginStreamLayoutHold(setHeld, STREAM_AUTOSCROLL_RESUME_MS);
+    const cleanup = beginStreamLayoutHold(setHeld);
     expect(setHeld).toHaveBeenCalledWith(true);
-    jest.advanceTimersByTime(STREAM_LAYOUT_SETTLE_MS);
+    jest.advanceTimersByTime(STREAM_LAYOUT_SETTLE_MS - 1);
     expect(setHeld).not.toHaveBeenCalledWith(false);
-    jest.advanceTimersByTime(STREAM_AUTOSCROLL_RESUME_MS - STREAM_LAYOUT_SETTLE_MS);
+    jest.advanceTimersByTime(1);
     expect(setHeld).toHaveBeenCalledWith(false);
     cleanup();
     jest.useRealTimers();

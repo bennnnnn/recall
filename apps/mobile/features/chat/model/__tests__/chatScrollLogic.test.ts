@@ -1,9 +1,8 @@
 import {
   formatScrollAwayBadge,
   getScrollThresholds,
-  nextStreamingScrollDelay,
+  opensChat,
   resolveScrollAtBottom,
-  shouldSchedulePostStreamScroll,
   resolveListAnchor,
   shouldScrollToEndWhenPinned,
 } from "@/features/chat/model/scrollLogic";
@@ -72,13 +71,6 @@ describe("chatScrollLogic", () => {
     expect(shouldScrollToEndWhenPinned(12)).toBe(true);
   });
 
-  it("shouldSchedulePostStreamScroll only when stream ends at bottom", () => {
-    expect(shouldSchedulePostStreamScroll(true, false, true)).toBe(true);
-    expect(shouldSchedulePostStreamScroll(false, false, true)).toBe(false);
-    expect(shouldSchedulePostStreamScroll(true, true, true)).toBe(false);
-    expect(shouldSchedulePostStreamScroll(true, false, false)).toBe(false);
-  });
-
   it("keeps a short thread at the top and opens a tall thread on the latest message once", () => {
     expect(
       resolveListAnchor({
@@ -118,17 +110,16 @@ describe("chatScrollLogic", () => {
     ).toEqual({ action: "none", pinnedOverflow: true });
   });
 
-  it("nextStreamingScrollDelay converges toward 0 instead of resetting on sustained calls", () => {
-    // A plain debounce recomputed from "now" on every call would return the
-    // full 64ms every time draft updates keep arriving — never firing. This
-    // must instead shrink as elapsed time grows, so a fast, steady stream
-    // still gets a periodic catch-up rather than freezing until it pauses.
-    expect(nextStreamingScrollDelay(0, 64)).toBe(64);
-    expect(nextStreamingScrollDelay(30, 64)).toBe(34);
-    expect(nextStreamingScrollDelay(60, 64)).toBe(4);
-    expect(nextStreamingScrollDelay(64, 64)).toBe(0);
-    // Already overdue (e.g. first call after a long pause, or a stale ref) —
-    // never returns a negative delay.
-    expect(nextStreamingScrollDelay(200, 64)).toBe(0);
+  it.each([
+    ["another chat", "chat-a", "chat-b", 6, 9, false, true],
+    ["a chat from home", null, "chat-b", 0, 9, false, true],
+    ["the open chat's messages after its load", "chat-b", "chat-b", 0, 9, false, true],
+    ["a new chat taking its id under its first message", null, "chat-c", 1, 1, false, false],
+    ["a new chat's first message", null, null, 0, 1, false, false],
+    ["more messages in the open chat", "chat-b", "chat-b", 9, 10, false, false],
+    ["anything while a reply streams", "chat-a", "chat-b", 6, 9, true, false],
+    ["a chat with no messages yet", "chat-a", "chat-b", 6, 0, false, false],
+  ] as const)("opensChat: %s", (_case, previousChatId, chatId, previousCount, count, streamActive, expected) => {
+    expect(opensChat({ previousChatId, chatId, previousCount, count, streamActive })).toBe(expected);
   });
 });

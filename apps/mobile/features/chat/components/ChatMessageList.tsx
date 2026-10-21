@@ -1,17 +1,16 @@
-import { memo, ReactElement, RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { memo, ReactElement, RefObject, useMemo, useRef } from "react";
 import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
 import { HomeStarters } from "@/features/home/components/HomeStarters";
+import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
 import { SkeletonChatBubbles } from "@/ui/feedback/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {
-  beginStreamLayoutHold,
   latchStartRenderingFromBottom,
   messageListItemType,
   messageListKey,
-  STREAM_AUTOSCROLL_RESUME_MS,
 } from "@/lib/messageListLayout";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -32,12 +31,13 @@ type Props = {
   onLoadOlder: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollEnd: () => void;
-  onContentSizeChange?: (width: number, height: number) => void;
-  onListLayout?: (height: number) => void;
+  /** useChatScroll's wiring: it alone pins the list to the bottom. */
+  scroll?: ChatListScroll;
   header?: ReactElement | null;
-  /** When true, disable FlashList autoscroll — useChatScroll owns bottom-pinning. */
-  streamActive?: boolean;
 };
+
+/** FlashList never scrolls to the bottom on its own: useChatScroll is the one writer. */
+const NO_AUTOSCROLL = -1;
 
 function ChatMessageListComponent({
   listRef,
@@ -53,10 +53,8 @@ function ChatMessageListComponent({
   onLoadOlder,
   onScroll,
   onScrollEnd,
-  onContentSizeChange,
-  onListLayout,
+  scroll,
   header,
-  streamActive = false,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -69,24 +67,6 @@ function ChatMessageListComponent({
     () => [s.listContent, { paddingTop: headerInset, paddingBottom: listBottomPad }],
     [s.listContent, headerInset, listBottomPad],
   );
-  // Two bottom-pin writers (FlashList autoscroll + JS scrollToEnd) fought at
-  // LLM burst boundaries → jitter. While streaming, disable native autoscroll
-  // (threshold < 0) and let useChatScroll own pinning exclusively.
-  //
-  // The same fight used to reappear at stream end: chrome unfreezes, chips
-  // land, and native autoscroll re-armed on the same STREAM_LAYOUT_SETTLE_MS
-  // tick as JS scrollToEnd — two writers, springy up/down. Keep native off
-  // until STREAM_AUTOSCROLL_RESUME_MS so the deferred JS pin is the only
-  // writer after the row has actually grown.
-  const [autoscrollSuppressed, setAutoscrollSuppressed] = useState(streamActive);
-  useEffect(() => {
-    if (streamActive) {
-      setAutoscrollSuppressed(true);
-      return;
-    }
-    return beginStreamLayoutHold(setAutoscrollSuppressed, STREAM_AUTOSCROLL_RESUME_MS);
-  }, [streamActive]);
-
   const startFromBottomState = useRef({ chatKey: "", value: false });
   const chatKey = `${routeChatId ?? "new"}:${messages.length === 0 ? "empty" : "live"}`;
   startFromBottomState.current = latchStartRenderingFromBottom({
@@ -98,39 +78,36 @@ function ChatMessageListComponent({
   });
   const startFromBottom = startFromBottomState.current.value;
   const maintainVisibleContentPosition = useMemo(
-    () =>
-      autoscrollSuppressed
-        ? {
-            disabled: false,
-            autoscrollToBottomThreshold: -1,
-            startRenderingFromBottom: startFromBottom,
-          }
-        : {
-            disabled: false,
-            autoscrollToBottomThreshold: 0.25,
-            startRenderingFromBottom: startFromBottom,
-          },
-    [autoscrollSuppressed, startFromBottom],
+    () => ({
+      disabled: false,
+      autoscrollToBottomThreshold: NO_AUTOSCROLL,
+      startRenderingFromBottom: startFromBottom,
+    }),
+    [startFromBottom],
   );
 
   return (
     <View
       style={s.messagesArea}
-      onLayout={(event) => onListLayout?.(event.nativeEvent.layout.height)}
+      onLayout={(event) => scroll?.onListLayout(event.nativeEvent.layout.height)}
     >
       <FlashList
         ref={listRef}
         data={messages}
-        style={s.list}
+        // An opened chat is drawn once it sits at its end, never top-then-jump.
+        style={scroll?.hidden ? s.listHidden : s.list}
         drawDistance={280}
         maintainVisibleContentPosition={maintainVisibleContentPosition}
         keyExtractor={messageListKey}
         getItemType={messageListItemType}
         renderItem={renderItem}
         onScroll={onScroll}
+        onScrollBeginDrag={scroll?.onReaderScrollBegin}
+        onMomentumScrollBegin={scroll?.onReaderScrollBegin}
         onScrollEndDrag={onScrollEnd}
         onMomentumScrollEnd={onScrollEnd}
-        onContentSizeChange={onContentSizeChange}
+        onContentSizeChange={scroll?.onContentSizeChange}
+        onCommitLayoutEffect={scroll?.onLayoutCommit}
         scrollEventThrottle={16}
         contentContainerStyle={contentContainerStyle}
         keyboardShouldPersistTaps="handled"
@@ -174,6 +151,7 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     messagesArea: { flex: 1 },
     list: { flex: 1 },
+    listHidden: { flex: 1, opacity: 0 },
     listContent: { paddingVertical: Space.xs },
     loadEarlier: {
       alignSelf: "center",

@@ -70,23 +70,20 @@ export function resolveListAnchor(options: {
   return { action: "end", pinnedOverflow: true };
 }
 
-/** Scroll once after stream ends — not on every draft clear / layout tick. */
-export function shouldSchedulePostStreamScroll(
-  wasStreamActive: boolean,
-  streamActive: boolean,
-  atBottom: boolean,
-): boolean {
-  return wasStreamActive && !streamActive && atBottom;
-}
-
 /**
- * Throttle (not debounce) delay for the streaming catch-up scroll. A plain
- * debounce — reset on every call — would never fire while draft updates keep
- * arriving faster than `throttleMs` (normal for a fast provider), freezing
- * the view mid-stream until generation paused. Recomputing the remaining
- * wait from elapsed time on every call instead makes it converge toward 0
- * (and then fire) rather than being pushed out indefinitely.
+ * A chat the reader opened has just shown its messages: another chat's, or the
+ * open chat's arriving after its load. A new chat taking its id is not one: its
+ * first message was already on screen, and the list must not blink under it.
+ * Nothing opens while a reply streams.
  */
-export function nextStreamingScrollDelay(elapsedMs: number, throttleMs: number): number {
-  return Math.max(0, throttleMs - elapsedMs);
+export function opensChat(options: {
+  previousChatId: string | null;
+  chatId: string | null;
+  previousCount: number;
+  count: number;
+  streamActive: boolean;
+}): boolean {
+  if (options.count === 0 || options.chatId === null || options.streamActive) return false;
+  if (options.chatId === options.previousChatId) return options.previousCount === 0;
+  return !(options.previousChatId === null && options.previousCount > 0);
 }

@@ -12,6 +12,7 @@ import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import { ChatQuotaNudge } from "@/features/chat/components/ChatQuotaNudge";
 import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import { ChatScrollFab } from "@/features/chat/components/ChatScrollFab";
+import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
 import { UpgradeSheet, type UpgradeSource } from "@/components/UpgradeSheet";
 import { StreamingDraftProvider } from "@/contexts/StreamingDraftContext";
 import { useTranslation } from "react-i18next";
@@ -45,8 +46,7 @@ export interface ChatScreenListProps {
   onLoadOlder: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollEnd: () => void;
-  onContentSizeChange?: (width: number, height: number) => void;
-  onListLayout?: (height: number) => void;
+  scroll?: ChatListScroll;
   header: ReactElement | null;
 }
 
@@ -168,10 +168,8 @@ export const ChatScreenBody = memo(function ChatScreenBody({
           onLoadOlder={list.onLoadOlder}
           onScroll={list.onScroll}
           onScrollEnd={list.onScrollEnd}
-          onContentSizeChange={list.onContentSizeChange}
-          onListLayout={list.onListLayout}
+          scroll={list.scroll}
           header={list.header}
-          streamActive={composer.streaming}
         />
       </StreamingDraftProvider>
 

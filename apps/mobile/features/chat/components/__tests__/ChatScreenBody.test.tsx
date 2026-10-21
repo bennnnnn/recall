@@ -79,6 +79,13 @@ const message: Message = {
   model: "free-chat",
   created_at: "2026-09-19T00:00:00Z",
 };
+const listScroll = {
+  onContentSizeChange: jest.fn(),
+  onListLayout: jest.fn(),
+  onLayoutCommit: jest.fn(),
+  onReaderScrollBegin: jest.fn(),
+  hidden: false,
+};
 const renderItem = jest.fn(({ item }: { item: Message }) => <Text>{item.content}</Text>);
 const onScroll = jest.fn();
 const onScrollEnd = jest.fn();
@@ -105,6 +112,7 @@ const baseProps: ChatScreenBodyProps = {
     onLoadOlder,
     onScroll,
     onScrollEnd,
+    scroll: listScroll,
     header: null,
   },
   composer: {
@@ -171,8 +179,8 @@ describe("ChatScreenBody", () => {
         onLoadOlder,
         onScroll,
         onScrollEnd,
+        scroll: listScroll,
         headerInset: 72,
-        streamActive: false,
       }),
     );
 
@@ -194,7 +202,6 @@ describe("ChatScreenBody", () => {
         onLoadOlder,
         onScroll,
         onScrollEnd,
-        streamActive: true,
       }),
     );
   });
