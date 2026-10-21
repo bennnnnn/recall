@@ -2,7 +2,6 @@ import "@/lib/i18n";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
 import { InteractionManager, StyleSheet } from "react-native";
@@ -21,6 +20,7 @@ import { PushNotificationBootstrap } from "@/components/PushNotificationBootstra
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
+import { APP_FONT_FACES } from "@/lib/appFonts";
 import { restoreLaunchPrefs } from "@/lib/launchPrefs";
 import { markLaunchReady, SPLASH_MAX_MS } from "@/lib/launchSplash";
 import { useReduceMotion } from "@/lib/reduceMotion";
@@ -33,7 +33,6 @@ import {
 } from "@/lib/stackTransitions";
 import { initMobileSentry } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
-import { UI_FONT } from "@/lib/uiFont";
 
 // Before the first render: the user's appearance, accent and language.
 void restoreLaunchPrefs().then(() => markLaunchReady("prefs"));
@@ -107,21 +106,8 @@ function RootNavigator() {
  * registered keeps the system face, so the app draws only after this.
  */
 function useLaunchFonts(): boolean {
-  const [loaded, error] = useFonts({
-    SpaceMono: SpaceMono_400Regular,
-    KaTeX_Main: require("katex/dist/fonts/KaTeX_Main-Regular.ttf"),
-    KaTeX_MathItalic: require("katex/dist/fonts/KaTeX_Math-Italic.ttf"),
-    KaTeX_AMS: require("katex/dist/fonts/KaTeX_AMS-Regular.ttf"),
-    // ∬ ∭ ∮ on the math keyboard live only in this face.
-    KaTeX_Size1: require("katex/dist/fonts/KaTeX_Size1-Regular.ttf"),
-    [UI_FONT.regular]: require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
-    [UI_FONT.medium]: require("@expo-google-fonts/source-sans-3/500Medium/SourceSans3_500Medium.ttf"),
-    [UI_FONT.semibold]: require("@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf"),
-    [UI_FONT.bold]: require("@expo-google-fonts/source-sans-3/700Bold/SourceSans3_700Bold.ttf"),
-    [UI_FONT.italic]: require("@expo-google-fonts/source-sans-3/400Regular_Italic/SourceSans3_400Regular_Italic.ttf"),
-    [UI_FONT.semiboldItalic]: require("@expo-google-fonts/source-sans-3/600SemiBold_Italic/SourceSans3_600SemiBold_Italic.ttf"),
-    [UI_FONT.boldItalic]: require("@expo-google-fonts/source-sans-3/700Bold_Italic/SourceSans3_700Bold_Italic.ttf"),
-  });
+  // Faces already embedded (every one, in an Android build) load nothing.
+  const [loaded, error] = useFonts(APP_FONT_FACES);
   const [waitedEnough, setWaitedEnough] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setWaitedEnough(true), SPLASH_MAX_MS);
