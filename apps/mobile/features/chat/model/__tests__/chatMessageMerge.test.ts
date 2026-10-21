@@ -255,6 +255,13 @@ describe("mergeOpenedPage", () => {
     expect(merged.recheck).toBe(true);
   });
 
+  it("leaves out the saved copy and its reply when the page got both before the reply landed here", () => {
+    const page = [...fresh(cached), row(uuid(3), "user", "Next question"), row(uuid(4), "assistant", "Reply")];
+    const merged = mergeOpenedPage([...cached, sent, streaming], page, painted);
+    expect(merged.messages.map((m) => m.id)).toEqual([uuid(1), uuid(2), "local-9", "streaming"]);
+    expect(merged.recheck).toBe(true);
+  });
+
   it("shows an unanswered message with other text, and still asks to read the chat again", () => {
     const page = [...fresh(cached), row(uuid(3), "user", "Typed on the laptop")];
     const merged = mergeOpenedPage([...cached, sent, streaming], page, painted);

@@ -178,9 +178,9 @@ type OpenedPageMerge = {
  *
  * The page was asked for before the view could send, so it almost never holds
  * a message sent meanwhile. If it ends with a message this view never showed
- * while one of its own sent messages waits, that message may be the saved copy:
- * one with the same text is left out so it does not show twice, and `recheck`
- * asks for the chat again when the turn settles.
+ * while one of its own sent messages waits, that message may be the saved copy,
+ * and `recheck` asks for the chat again when the turn settles. One with the
+ * same text is left out, with any reply after it, so neither shows twice.
  */
 export function mergeOpenedPage(
   previous: Message[],
@@ -193,9 +193,12 @@ export function mergeOpenedPage(
   const lastShared = previous.findLastIndex((m) => pageIds.has(m.id));
   const added = previous.slice(lastShared + 1).filter((m) => !painted.has(m.id));
   const waiting = added.filter((m) => m.role === "user" && !isServerMessageId(m.id));
+  const lastUser = kept.findLastIndex((m) => m.role === "user");
+  const unseenTail = lastUser >= 0 && kept.slice(lastUser).every((m) => !shown.has(m.id));
+  const savedCopy = unseenTail && waiting.some((sent) => savedAs(sent, kept[lastUser]));
   const last = kept[kept.length - 1];
-  const recheck = waiting.length > 0 && last?.role === "user" && !shown.has(last.id);
-  const rows = recheck && waiting.some((sent) => savedAs(sent, last)) ? kept.slice(0, -1) : kept;
+  const recheck = savedCopy || (waiting.length > 0 && last?.role === "user" && !shown.has(last.id));
+  const rows = savedCopy ? kept.slice(0, lastUser) : kept;
   const merged = [...rows.map((row) => settleRow(shown.get(row.id), row)), ...added];
   return { messages: unlessUnchanged(previous, merged), recheck };
 }
