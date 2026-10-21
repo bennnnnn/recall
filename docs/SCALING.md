@@ -59,7 +59,7 @@ Everything a turn or a request must agree on across machines lives in Redis or P
   pool: a burst opens a connection per concurrent command. Upstash limits concurrent
   connections per plan and bills per command.
 - **Redis commands per request.** An authenticated REST request costs the rate-limit
-  pipeline (INCR + EXPIRE) and up to three GETs for the token check. A finished chat turn
+  pipeline (INCR + EXPIRE) and one MGET for the token check. A finished chat turn
   enqueues up to seven jobs, each an XADD plus the soft trim (XPENDING, XTRIM).
 - **CPU.** One event loop per machine on a shared CPU. SymPy runs in its own processes and
   document parsing on threads, but prompt building, the maths/physics/chemistry readers
@@ -76,10 +76,9 @@ plugs in.
    `[http_service.concurrency] type = "requests"`, 200 open chat sockets may fill a machine.
    Seam: `fly.toml`. Do this first; it decides when a second `app` machine is needed.
 2. **Bound and trim Redis use.** Give both clients a `max_connections` (a blocking pool) sized
-   to Upstash's limit ÷ machines; read the three revocation keys in one MGET
-   (`core/access_tokens.verify_access_token`); trim the jobs stream from the worker on a
-   timer instead of on every enqueue (`core/jobs/queue.enqueue`). Seams: `core/redis.py`,
-   `core/access_tokens.py`, `core/jobs/queue.py`.
+   to Upstash's limit ÷ machines; trim the jobs stream from the worker on a timer instead of
+   on every enqueue (`core/jobs/queue.enqueue`). Seams: `core/redis.py`,
+   `core/jobs/queue.py`.
 3. **Size the Postgres pool per role** (smaller on workers) and per Neon compute, so
    (N + M) × pool stays under the server pool. Seam: `DB_POOL_SIZE` / `DB_MAX_OVERFLOW`
    (`core/settings/infrastructure.py`), set per process group.

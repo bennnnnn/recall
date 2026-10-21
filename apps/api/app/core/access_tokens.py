@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import secrets
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 import jwt
@@ -73,44 +74,48 @@ def decode_access_token(token: str, settings: Settings) -> UUID:
         raise AccessTokenError("Invalid access token") from exc
 
 
-async def is_access_revoked(redis: Redis, jti: str) -> bool:
-    return bool(await redis.get(revoked_key(jti)))
+def _revocation_keys(payload: dict[str, Any], user_id: UUID) -> tuple[list[str], str | None]:
+    """The keys that revoke this token when set, and its user's revoked-since cutoff key.
 
-
-async def is_session_revoked(redis: Redis, session_id: str) -> bool:
-    return bool(await redis.get(revoked_session_key(session_id)))
-
-
-async def _is_access_revoked_since(redis: Redis, user_id: UUID, issued_at: float | None) -> bool:
-    if issued_at is None:
-        return False
-    revoked_since_raw = await redis.get(revoked_since_key(user_id))
-    if revoked_since_raw is None:
-        return False
-    revoked_since = float(redis_str(revoked_since_raw))
-    return issued_at <= revoked_since
+    A token without a ``jti``, ``sid`` or ``iat`` claim has nothing of that kind to check.
+    """
+    markers: list[str] = []
+    jti = payload.get("jti")
+    if jti:
+        markers.append(revoked_key(str(jti)))
+    sid = payload.get("sid")
+    if isinstance(sid, str) and sid:
+        markers.append(revoked_session_key(sid))
+    since = revoked_since_key(user_id) if payload.get("iat") is not None else None
+    return markers, since
 
 
 async def verify_access_token(redis: Redis, token: str, settings: Settings) -> UUID:
+    """The token's user, once no revocation names it.
+
+    Every revocation key (this token, its signed-in device, the user's cutoff)
+    is read in one MGET: this runs before every authenticated request and every
+    chat frame, so it is one Redis round trip, not three.
+    """
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
     except (jwt.PyJWTError, ValueError, KeyError) as exc:
         raise GoogleAuthError("Invalid access token") from exc
-    jti = payload.get("jti")
-    sid = payload.get("sid")
+    user_id = UUID(payload["sub"])
+    markers, since = _revocation_keys(payload, user_id)
+    keys = [*markers, *([since] if since else [])]
+    if not keys:
+        return user_id
     try:
-        if jti and await is_access_revoked(redis, str(jti)):
-            raise GoogleAuthError("Token revoked")
-        if isinstance(sid, str) and sid and await is_session_revoked(redis, sid):
-            raise GoogleAuthError("Token revoked")
-        user_id = UUID(payload["sub"])
-        if await _is_access_revoked_since(redis, user_id, payload.get("iat")):
-            raise GoogleAuthError("Token revoked")
-    except GoogleAuthError:
-        raise
+        values = await redis.mget(keys)
     except RedisError as exc:
         # Fail closed: without Redis we cannot check jti / revoked_since.
         # Surface as 503 (not 401) so clients retry instead of forcing re-login.
         logger.warning("Access token revocation check failed; Redis unavailable", exc_info=True)
         raise RedisUnavailableError() from exc
+    if any(values[: len(markers)]):
+        raise GoogleAuthError("Token revoked")
+    since_raw = values[-1] if since else None
+    if since_raw is not None and payload["iat"] <= float(redis_str(since_raw)):
+        raise GoogleAuthError("Token revoked")
     return user_id

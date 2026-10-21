@@ -21,7 +21,6 @@ from redis.exceptions import RedisError, WatchError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.access_tokens import create_access_token
-from app.core.access_tokens import is_access_revoked as is_access_revoked
 from app.core.access_tokens import redis_str as _redis_str
 from app.core.access_tokens import revoked_key as _revoked_key
 from app.core.access_tokens import revoked_session_key as _revoked_session_key
