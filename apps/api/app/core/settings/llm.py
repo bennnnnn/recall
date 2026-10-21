@@ -54,6 +54,15 @@ class LlmSettings(BaseModel):
     # producing a user-visible token. When a fallback exists, stop that silent
     # attempt and move on rather than making the chat bubble wait indefinitely.
     chat_stream_first_content_timeout_seconds: float = 8.0
+    # Fail fast while another model can take over (the last one in the chain
+    # always gets the idle timeout above). Auto's everyday lane does not think
+    # and shows its first text in about a second: an attempt that has shown
+    # nothing (no text, no thinking) after this long gives way to the next.
+    chat_stream_first_text_timeout_seconds: float = 3.0
+    # A model that always thinks (the free plan's hard and maths lane) streams
+    # its reasoning from the start: one that has sent neither reasoning nor
+    # text after this long gives way to the next.
+    chat_stream_first_thought_timeout_seconds: float = 4.0
 
     # Abort hung background (non-streaming) LLM calls after this many seconds.
     # Covers title generation, memory extraction, todos, summaries — a hung

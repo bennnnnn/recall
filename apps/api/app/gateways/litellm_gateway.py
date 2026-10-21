@@ -11,7 +11,12 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.gateways import llm_spend, mock_llm
 from app.gateways.reasoning import reasoning_body
-from app.gateways.stream_signals import reasoning_delta
+from app.gateways.stream_signals import (
+    FirstReplyCaps,
+    FirstReplyWatch,
+    first_reply_caps,
+    reasoning_delta,
+)
 
 # The completion kinds split out of this module are part of its public surface
 # (callers use ``litellm_gateway.complete_structured`` and friends). They reach
@@ -211,6 +216,7 @@ async def stream_chat_completion(
         # daily quota. Tool-loop usage already lives on `usage`; only merge
         # the attempt that actually produced content.
         attempt_usage: dict[str, int] = {}
+        caps = first_reply_caps(settings, alias, thinking, has_next=index < len(aliases) - 1)
         try:
             if stream_meta is not None:
                 stream_meta.pop("finish_reason", None)
@@ -223,11 +229,8 @@ async def stream_chat_completion(
                 on_reasoning=on_reasoning,
                 stream_meta=stream_meta,
                 thinking=thinking,
-                first_content_timeout_seconds=(
-                    settings.chat_stream_first_content_timeout_seconds
-                    if index < len(aliases) - 1 and model_catalog.is_reasoning_alias(alias)
-                    else None
-                ),
+                first_content_timeout_seconds=caps.text,
+                first_signal_timeout_seconds=caps.signal,
             ):
                 if not started:
                     pending.append(token)
@@ -284,6 +287,32 @@ async def _close_provider_stream(close: Callable[[], Awaitable[None]]) -> None:
         await asyncio.wait_for(close(), _PROVIDER_CLOSE_TIMEOUT_SECONDS)
 
 
+def _read_chunk(
+    chunk: Any,
+    *,
+    usage: dict[str, int] | None,
+    stream_meta: dict[str, str] | None,
+    stripper: ThinkStripper,
+) -> tuple[str, bool]:
+    """One provider chunk: the reply text it releases, and whether it shows the
+    model thinking (reasoning on its own channel, or text held as reasoning)."""
+    _apply_usage(usage, chunk)
+    choices = getattr(chunk, "choices", None) or []
+    if not choices:
+        return "", False
+    reason = getattr(choices[0], "finish_reason", None)
+    if reason and stream_meta is not None:
+        stream_meta["finish_reason"] = str(reason)
+    delta = getattr(choices[0], "delta", None)
+    reasoning = reasoning_delta(delta)
+    # Reasoning on its own channel: the held start of the reply is the answer.
+    text = stripper.reasoning_streamed() if reasoning else ""
+    content = getattr(delta, "content", None) or "" if delta is not None else ""
+    if content:
+        text += stripper.feed(content)
+    return text, reasoning or stripper.holding_thought
+
+
 async def _stream_chat_once(
     *,
     settings: Settings,
@@ -294,6 +323,7 @@ async def _stream_chat_once(
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
     stream_meta: dict[str, str] | None = None,
     first_content_timeout_seconds: float | None = None,
+    first_signal_timeout_seconds: float | None = None,
     thinking: bool | str | None = None,
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
@@ -301,15 +331,13 @@ async def _stream_chat_once(
     stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD if route.stray_think_guard else 0)
     # Signature kept so WS/SSE callers stay unchanged; CoT is not forwarded.
     _ = on_reasoning
-    response = None
-    first_content_deadline = (
-        time.monotonic() + max(0.1, first_content_timeout_seconds)
-        if first_content_timeout_seconds is not None
-        else None
+    watch = FirstReplyWatch(
+        FirstReplyCaps(signal=first_signal_timeout_seconds, text=first_content_timeout_seconds)
     )
-    visible_content_started = False
+    response = None
     try:
-        async with asyncio.timeout(settings.chat_stream_connect_timeout_seconds):
+        # A first-reply cap also bounds the wait for the stream to open.
+        async with asyncio.timeout(watch.bound(settings.chat_stream_connect_timeout_seconds)):
             response = await acompletion(
                 model=route.model,
                 messages=messages,
@@ -330,90 +358,45 @@ async def _stream_chat_once(
             except StopAsyncIteration:
                 return None
 
+        def stop_reason() -> str | None:
+            if time.monotonic() >= deadline:
+                return f"wall-clock {max_seconds}s"
+            return watch.expired()
+
         while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                logger.warning(
-                    "LiteLLM stream wall-clock timed out for alias=%s (max=%ss)",
-                    model_alias,
-                    max_seconds,
-                )
+            if (stop := stop_reason()) is not None:
+                logger.warning("LiteLLM stream for alias=%s gave up: %s", model_alias, stop)
                 raise ModelUnavailableError.for_alias(model_alias)
-            first_content_remaining: float | None = None
-            if not visible_content_started and first_content_deadline is not None:
-                first_content_remaining = first_content_deadline - time.monotonic()
-                if first_content_remaining <= 0:
-                    logger.warning(
-                        "LiteLLM stream produced no visible content for alias=%s within %ss",
-                        model_alias,
-                        first_content_timeout_seconds,
-                    )
-                    raise ModelUnavailableError.for_alias(model_alias)
-            read_timeout = min(idle_seconds, remaining)
-            if first_content_remaining is not None:
-                read_timeout = min(read_timeout, first_content_remaining)
+            remaining = deadline - time.monotonic()
             try:
                 chunk = await asyncio.wait_for(
                     _next_chunk(),
-                    timeout=read_timeout,
+                    timeout=watch.bound(min(idle_seconds, remaining)),
                 )
             except TimeoutError as exc:
-                if (
-                    not visible_content_started
-                    and first_content_deadline is not None
-                    and time.monotonic() >= first_content_deadline
-                ):
-                    logger.warning(
-                        "LiteLLM stream produced no visible content for alias=%s within %ss",
-                        model_alias,
-                        first_content_timeout_seconds,
-                    )
-                elif time.monotonic() >= deadline:
-                    logger.warning(
-                        "LiteLLM stream wall-clock timed out for alias=%s (max=%ss)",
-                        model_alias,
-                        max_seconds,
-                    )
-                else:
-                    logger.warning(
-                        "LiteLLM stream idle timed out for alias=%s (idle=%ss)",
-                        model_alias,
-                        idle_seconds,
-                    )
+                logger.warning(
+                    "LiteLLM stream for alias=%s gave up: %s",
+                    model_alias,
+                    stop_reason() or f"idle {idle_seconds}s",
+                )
                 raise ModelUnavailableError.for_alias(model_alias) from exc
             if chunk is None:
                 break
-            _apply_usage(usage, chunk)
-            choices = getattr(chunk, "choices", None) or []
-            if not choices:
-                continue
-            reason = getattr(choices[0], "finish_reason", None)
-            if reason and stream_meta is not None:
-                stream_meta["finish_reason"] = str(reason)
-            delta = getattr(choices[0], "delta", None)
-            if reasoning_delta(delta) and (released := stripper.reasoning_streamed()):
-                # Reasoning on its own channel: the held start of the reply is the answer.
-                if released.strip():
-                    visible_content_started = True
-                yield released
-            content = getattr(delta, "content", None) or "" if delta is not None else ""
-            if content:
-                cleaned = stripper.feed(content)
-                if cleaned:
-                    if cleaned.strip():
-                        visible_content_started = True
-                    yield cleaned
+            text, thinking_now = _read_chunk(
+                chunk, usage=usage, stream_meta=stream_meta, stripper=stripper
+            )
+            watch.saw(text=text, thinking=thinking_now)
+            if text:
+                yield text
         tail = stripper.flush()
         if tail:
-            if tail.strip():
-                visible_content_started = True
             yield tail
     except TimeoutError as exc:
+        # Only the wait for the stream to open raises one here.
         logger.warning(
-            "LiteLLM stream timed out for alias=%s (connect=%ss idle=%ss)",
+            "LiteLLM stream for alias=%s did not open: %s",
             model_alias,
-            settings.chat_stream_connect_timeout_seconds,
-            settings.chat_stream_timeout_seconds,
+            watch.expired() or f"connect {settings.chat_stream_connect_timeout_seconds}s",
         )
         raise ModelUnavailableError.for_alias(model_alias) from exc
     except ModelUnavailableError:
