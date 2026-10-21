@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   useWindowDimensions,
   View,
@@ -138,8 +138,6 @@ function ChatScreen() {
     t,
   });
 
-  onFirstReplyRef.current = routeLoader.handleFirstReply;
-
   const {
     chatTitle, setChatTitle, titleGenerating, pinned, setPinned, archived, setArchived, chatLoading,
     hasMoreOlder, loadingOlder, loadOlderMessages, newerPage, jumpToLatest, highlightedMessageId, startNewChat,
@@ -158,8 +156,6 @@ function ChatScreen() {
     setMessages,
     t,
   });
-
-  showActionBannerRef.current = chatActions.showActionBanner;
 
   const {
     menuVisible,
@@ -213,12 +209,6 @@ function ChatScreen() {
     newMessageCountRef: scroll.newMessageCountRef,
     t,
   });
-  imageGeneratingRef.current = imageGen.generating;
-  stopTurnRef.current = () => {
-    imageGen.cancel();
-    stopGeneration();
-    dismissChatError();
-  };
   const streamActive = llmBusy || imageGen.generating;
 
   useEffect(() => {
@@ -497,7 +487,14 @@ function ChatScreen() {
         }
       : null,
   });
-  openUpgradeRef.current = chatScreenBody.openUpgradeSheet;
+  // Bound late for the hooks above, which need them before they exist; set once the render commits.
+  useLayoutEffect(() => {
+    onFirstReplyRef.current = routeLoader.handleFirstReply;
+    showActionBannerRef.current = chatActions.showActionBanner;
+    imageGeneratingRef.current = imageGen.generating;
+    stopTurnRef.current = () => { imageGen.cancel(); stopGeneration(); dismissChatError(); };
+    openUpgradeRef.current = chatScreenBody.openUpgradeSheet;
+  });
   const chatScreenBodyProps = chatScreenBody.bodyProps;
 
   if (!token) return <Redirect href="/login" />;

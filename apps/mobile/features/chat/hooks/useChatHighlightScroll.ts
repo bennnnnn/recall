@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FlashListRef } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 
 import type { Message } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { useLatestRef } from "@/lib/latestRef";
 import { registerChatHighlightClearer } from "@/features/chat/drawer/drawer";
 
 type Router = ReturnType<typeof useRouter>;
@@ -36,13 +37,10 @@ export function useChatHighlightScroll({
 }: Options) {
   const session = getSessionGeneration();
   const destination = routeChatId ?? chatId;
-  const ownerRef = useRef<ViewOwner>({ session, chatId: destination });
-  if (ownerRef.current.session !== session || ownerRef.current.chatId !== destination) {
-    ownerRef.current = { session, chatId: destination };
-  }
-  const owner = ownerRef.current;
-  const latest = useRef({ messages, chatId, token });
-  latest.current = { messages, chatId, token };
+  // A new owner for each chat and account: a request from another one does nothing.
+  const owner = useMemo<ViewOwner>(() => ({ session, chatId: destination }), [session, destination]);
+  const ownerRef = useLatestRef(owner);
+  const latest = useLatestRef({ messages, chatId, token });
   const mounted = useRef(true);
   const pending = useRef<HighlightRequest | null>(null);
   const [highlight, setHighlight] = useState<HighlightRequest | null>(null);
@@ -55,7 +53,7 @@ export function useChatHighlightScroll({
     timer.current = null;
   }, []);
   const current = useCallback(() => mounted.current && ownerRef.current === owner &&
-    session === getSessionGeneration() && Boolean(latest.current.token), [owner, session]);
+    session === getSessionGeneration() && Boolean(latest.current.token), [owner, session, ownerRef, latest]);
 
   const clearHighlight = useCallback(() => {
     pending.current = null;
@@ -116,7 +114,7 @@ export function useChatHighlightScroll({
       pending.current = null;
       if (current()) setHighlight((value) => (value === request ? null : value));
     });
-  }, [owner, current, chatId, messages, hasMoreOlder, hasMoreNewer, chatLoading, openAround, listRef]);
+  }, [owner, current, chatId, messages, hasMoreOlder, hasMoreNewer, chatLoading, openAround, listRef, latest]);
 
   return { highlightedMessageId: highlight?.owner === owner && token ? highlight.id : null };
 }

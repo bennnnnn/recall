@@ -1,11 +1,4 @@
-import {
-  useMemo,
-  useState,
-  useCallback,
-  type MutableRefObject,
-  type ReactElement,
-  type RefObject,
-} from "react";
+import { useCallback, useLayoutEffect, useMemo, useState, type MutableRefObject, type ReactElement, type RefObject } from "react";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type NativeScrollEvent, type NativeSyntheticEvent, type View, type ViewStyle } from "react-native";
 import { type AnimatedStyle } from "react-native-reanimated";
@@ -224,7 +217,9 @@ export function useChatScreenBodyProps({
     listBottomPad,
     emptyHeight,
   } = layout;
-  listBottomPadRef.current = listBottomPad;
+  useLayoutEffect(() => {
+    listBottomPadRef.current = listBottomPad;
+  }, [listBottomPadRef, listBottomPad]);
 
   // Keep list-facing callbacks identity-stable. Composer text lives in
   // ComposerDraftContext so keystrokes do not rebuild bodyProps.

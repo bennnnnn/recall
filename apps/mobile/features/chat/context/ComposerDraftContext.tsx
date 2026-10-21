@@ -20,6 +20,7 @@ import {
   stashFailedSendDraft,
   takeThreadDraft,
 } from "@/features/chat/model/composerThreadDraft";
+import { useLatestRef } from "@/lib/latestRef";
 
 type ComposerDraftApi = {
   setInput: Dispatch<SetStateAction<string>>;
@@ -45,8 +46,7 @@ const ComposerDraftActivityContext = createContext(false);
 export function ComposerDraftProvider({ children }: { children: ReactNode }) {
   const [input, setInput] = useState("");
   const [revision, setRevision] = useState(0);
-  const inputRef = useRef(input);
-  inputRef.current = input;
+  const inputRef = useLatestRef(input);
   const draftsRef = useRef(new Map<string, string>());
   const threadKeyRef = useRef(COMPOSER_NEW_THREAD_KEY);
 
@@ -58,7 +58,7 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
     inputRef.current = "";
     setInput("");
     setRevision((value) => value + 1);
-  }, []);
+  }, [inputRef]);
 
   useEffect(() => subscribeComposerDraftReset(resetForNewSession), [resetForNewSession]);
 
@@ -94,7 +94,7 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
       resetForNewSession,
       getThreadKey: () => threadKeyRef.current,
     }),
-    [resetForNewSession],
+    [resetForNewSession, inputRef],
   );
   const value = useMemo<ComposerDraftValue>(() => ({ input, revision }), [input, revision]);
   const hasContent = input.length > 0;

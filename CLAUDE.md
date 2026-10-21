@@ -194,7 +194,7 @@ Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Tod
 
 - Network: `lib/api.ts` barrel → `lib/api/{client,discover,connectivity,analytics,push,scan,types}.ts` plus feature slices (`features/chat/api.ts`, `features/auth/api.ts`, `features/account/api.ts`, `features/memory/api.ts`, `features/todos/api.ts`, `features/search/api.ts`, `features/attachments/api.ts`, `features/images/api.ts`, `features/speech/api.ts`)
 - Tokens: `expo-secure-store` only
-- Chat logic: `features/chat/hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — the screen stays thin
+- Chat logic: `features/chat/hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — the screen stays thin. The turn itself (send, socket and SSE frames, Stop, regenerate, dropped connections) is the pure reducer `features/chat/model/chatTurnState.ts`; `useChat` holds it and runs its commands. Chat code reads refs only in callbacks and effects (`react-hooks/refs` is on for `features/chat`)
 - Domain libs: `lib/<domain>/` — `math/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.
 - Messages: FlashList; markdown + `components/rich/*` + `components/markdown/*`
 - Fences: `lib/fenceRegistry.ts` is the lang/id table; `RichFence` renders

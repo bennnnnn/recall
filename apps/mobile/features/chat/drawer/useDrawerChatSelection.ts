@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { useViewOwner } from "@/lib/viewOwner";
 import {
   clearChatSelection,
   selectAllChatIds,
@@ -17,27 +18,26 @@ type Params = {
 export function useDrawerChatSelection({ token, isDrawerOpen, listedChats }: Params) {
   const session = getSessionGeneration();
   const signedIn = Boolean(token);
-  const viewRef = useRef({ session, signedIn, isDrawerOpen });
-  if (viewRef.current.session !== session || viewRef.current.signedIn !== signedIn || viewRef.current.isDrawerOpen !== isDrawerOpen) {
-    viewRef.current = { session, signedIn, isDrawerOpen };
-  }
-  const view = viewRef.current;
-  const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const { view, owns } = useViewOwner(`${session}:${signedIn}:${isDrawerOpen}`);
   const currentView = useCallback(
-    () => mounted.current && signedIn && isDrawerOpen && viewRef.current === view && session === getSessionGeneration(),
-    [signedIn, isDrawerOpen, view, session],
+    () => owns() && signedIn && isDrawerOpen && session === getSessionGeneration(),
+    [owns, signedIn, isDrawerOpen, session],
   );
   const [selectionMode, setSelectionMode] = useState(false);
   const [requestedIds, setRequestedIds] = useState<Set<string>>(() => new Set());
+  // Each enter, exit and new view starts a new selection; a callback from an older one does nothing.
   const selectionVersion = useRef(0);
-  const version = selectionVersion.current;
+  const [version, setVersion] = useState(0);
+  const nextSelection = useCallback(() => {
+    selectionVersion.current += 1;
+    setVersion(selectionVersion.current);
+  }, []);
 
   useEffect(() => {
-    selectionVersion.current++;
+    nextSelection();
     setSelectionMode(false);
     setRequestedIds(clearChatSelection());
-  }, [view]);
+  }, [view, nextSelection]);
 
   // Preserve intent through optimistic removal, so failed rows regain their
   // checkmark on rollback. Missing rows never inflate the actionable count.
@@ -47,17 +47,17 @@ export function useDrawerChatSelection({ token, isDrawerOpen, listedChats }: Par
 
   const enterSelectionMode = useCallback((initialChatId?: string) => {
     if (!currentView()) return;
-    selectionVersion.current++;
+    nextSelection();
     setSelectionMode(true);
     setRequestedIds(initialChatId ? new Set([initialChatId]) : clearChatSelection());
-  }, [currentView]);
+  }, [currentView, nextSelection]);
 
   const exitSelectionMode = useCallback(() => {
     if (!currentView() || version !== selectionVersion.current) return;
-    selectionVersion.current++;
+    nextSelection();
     setSelectionMode(false);
     setRequestedIds(clearChatSelection());
-  }, [currentView, version]);
+  }, [currentView, version, nextSelection]);
 
   const toggleSelected = useCallback((chatId: string) => {
     if (!currentView() || !selectionMode || version !== selectionVersion.current) return;

@@ -1,4 +1,4 @@
-import { memo, ReactElement, RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { memo, ReactElement, RefObject, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
@@ -92,16 +92,18 @@ function ChatMessageListComponent({
     return beginStreamLayoutHold(setAutoscrollSuppressed, STREAM_AUTOSCROLL_RESUME_MS);
   }, [streamActive]);
 
-  const startFromBottomState = useRef({ chatKey: "", value: false });
+  // Latched per chat: a value kept from earlier renders, adjusted while rendering.
+  const [startLatch, setStartLatch] = useState({ chatKey: "", value: false });
   const chatKey = `${routeChatId ?? "new"}:${messages.length === 0 ? "empty" : "live"}`;
-  startFromBottomState.current = latchStartRenderingFromBottom({
+  const latched = latchStartRenderingFromBottom({
     chatKey,
-    previousChatKey: startFromBottomState.current.chatKey,
-    previousValue: startFromBottomState.current.value,
+    previousChatKey: startLatch.chatKey,
+    previousValue: startLatch.value,
     messageCount: messages.length,
     hasMoreOlder,
   });
-  const startFromBottom = startFromBottomState.current.value;
+  if (latched.chatKey !== startLatch.chatKey || latched.value !== startLatch.value) setStartLatch(latched);
+  const startFromBottom = latched.value;
   // In a window the bottom is not the newest message: a newer page must not pull
   // the list down past what the user is reading.
   const holdPosition = autoscrollSuppressed || newerPage != null;

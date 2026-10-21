@@ -1,4 +1,4 @@
-import { useCallback, type MutableRefObject } from "react";
+import { useCallback } from "react";
 
 import { api, type Message } from "@/lib/api";
 import {
@@ -11,9 +11,11 @@ type Options = {
   token: string | null;
   chatId: string | null;
   isCurrentView: () => boolean;
-  messagesRef: MutableRefObject<Message[]>;
-  sendAttemptRef: MutableRefObject<number>;
-  streamingRef: MutableRefObject<boolean>;
+  /** The messages on screen now. */
+  messages: () => Message[];
+  /** The turn's attempt number, and whether it is still streaming. */
+  attempt: () => number;
+  streaming: () => boolean;
 };
 
 /**
@@ -21,31 +23,23 @@ type Options = {
  * until the reply lands. The streaming bubble stays up meanwhile; Stop, a new
  * send or leaving the chat ends the wait without a settle.
  */
-export function useDroppedTurnReconcile({
-  token,
-  chatId,
-  isCurrentView,
-  messagesRef,
-  sendAttemptRef,
-  streamingRef,
-}: Options) {
+export function useDroppedTurnReconcile({ token, chatId, isCurrentView, messages, attempt, streaming }: Options) {
   return useCallback(
     (settle: (result: DroppedTurnResult) => void, polls?: number) => {
       if (!token || !chatId) {
         settle({ state: "unknown", page: null });
         return;
       }
-      const attempt = sendAttemptRef.current;
+      const followed = attempt();
       void pollDroppedTurn({
         fetchPage: async (limit) => (await api.listMessages(token, chatId, { limit })).messages,
-        known: knownServerIds(messagesRef.current),
-        stillWaiting: () =>
-          isCurrentView() && sendAttemptRef.current === attempt && streamingRef.current,
+        known: knownServerIds(messages()),
+        stillWaiting: () => isCurrentView() && attempt() === followed && streaming(),
         polls,
       }).then((result) => {
         if (result) settle(result);
       });
     },
-    [token, chatId, isCurrentView, messagesRef, sendAttemptRef, streamingRef],
+    [token, chatId, isCurrentView, messages, attempt, streaming],
   );
 }

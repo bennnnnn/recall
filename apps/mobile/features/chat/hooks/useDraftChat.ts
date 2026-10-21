@@ -5,6 +5,7 @@ import { useAccountSession } from "@/contexts/accountSession";
 import { api } from "@/lib/api";
 import { rememberCreatedChat } from "@/features/chat/model/chatListCache";
 import { resolveActiveChatId } from "@/features/chat/model/draftLogic";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Options = {
   chatId: string | null;
@@ -25,10 +26,8 @@ export function useDraftChat({ chatId, intent }: Options) {
   const draftCreatePromiseRef = useRef<Promise<string | null> | null>(null);
   const skipLoadForChatIdRef = useRef<string | null>(null);
   const creatingRef = useRef(false);
-  const chatIdRef = useRef(chatId);
-  chatIdRef.current = chatId;
-  const intentRef = useRef(intent);
-  intentRef.current = intent;
+  const chatIdRef = useLatestRef(chatId);
+  const intentRef = useLatestRef(intent);
 
   /** Delete a chat the user never wrote in: one request, a no-op once it holds a message. */
   const discardEmptyChat = useCallback(
@@ -95,7 +94,7 @@ export function useDraftChat({ chatId, intent }: Options) {
       if (draftChatIdRef.current) clearDraftChat();
     });
     return () => sub.remove();
-  }, [clearDraftChat]);
+  }, [clearDraftChat, chatIdRef, intentRef]);
 
   return {
     draftChatId,

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { useLatestRef } from "@/lib/latestRef";
+import { useViewOwner } from "@/lib/viewOwner";
 import { getCachedChat, peekCreatedChat } from "@/features/chat/model/chatListCache";
 import { firstReplyTitlePlan } from "@/features/chat/model/titleRefresh";
 import {
@@ -26,10 +28,9 @@ const TITLE_POLL_MS = 2000;
 export function useChatTitlePolling({ token, chatId, setChatTitle, getFirstUserText }: Options) {
   const [titleGenerating, setTitleGenerating] = useState(false);
   const session = getSessionGeneration();
-  const view = useRef({ chatId, session, version: 0 });
-  if (view.current.chatId !== chatId || view.current.session !== session) {
-    view.current = { chatId, session, version: view.current.version + 1 };
-  }
+  // The header shows one chat's title; a poll from another view leaves it alone.
+  const { currentView } = useViewOwner(`${chatId}:${session}`);
+  const headerChatId = useLatestRef(chatId);
   const mounted = useRef(true);
   const polls = useRef(new Map<string, TitlePoll>());
   useEffect(() => {
@@ -47,12 +48,12 @@ export function useChatTitlePolling({ token, chatId, setChatTitle, getFirstUserT
     const existing = polls.current.get(cid);
     if (existing) return existing.task;
     const ownerSession = session;
-    const version = view.current.version;
+    const owner = currentView();
     let revision = getChatMutationRevision(cid);
     let cancelled = false;
     let wake: (() => void) | undefined;
     const isCurrent = () => mounted.current && !cancelled && ownerSession === getSessionGeneration();
-    const ownsHeader = () => isCurrent() && version === view.current.version && cid === view.current.chatId;
+    const ownsHeader = () => isCurrent() && owner === currentView() && cid === headerChatId.current;
     const poll: TitlePoll = {
       cancel: () => { cancelled = true; wake?.(); },
       task: Promise.resolve(),
@@ -99,18 +100,18 @@ export function useChatTitlePolling({ token, chatId, setChatTitle, getFirstUserT
       }
     })();
     return poll.task;
-  }, [session, setChatTitle]);
+  }, [session, setChatTitle, currentView, headerChatId]);
 
   const handleFirstReply = useCallback(async (explicitChatId?: string | null) => {
     const cid = explicitChatId ?? chatId;
     if (!token || !cid || !mounted.current || session !== getSessionGeneration()) return;
     const ownerSession = session;
-    const version = view.current.version;
+    const owner = currentView();
     const revision = getChatMutationRevision(cid);
     const isCurrent = () => mounted.current && ownerSession === getSessionGeneration() &&
       revision === getChatMutationRevision(cid);
     const ownsHeader = () => mounted.current && ownerSession === getSessionGeneration() &&
-      version === view.current.version && cid === view.current.chatId;
+      owner === currentView() && cid === headerChatId.current;
     const plan = firstReplyTitlePlan(peekCreatedChat(cid), getCachedChat(cid), getFirstUserText?.());
     let shouldPoll = plan.poll;
     if (plan.insert) {
@@ -131,7 +132,7 @@ export function useChatTitlePolling({ token, chatId, setChatTitle, getFirstUserT
       }
     }
     if (shouldPoll) await pollForTitle(token, cid);
-  }, [token, session, chatId, pollForTitle, setChatTitle, getFirstUserText]);
+  }, [token, session, chatId, pollForTitle, setChatTitle, getFirstUserText, currentView, headerChatId]);
 
   useEffect(() => {
     setTitleGenerating(false);

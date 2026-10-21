@@ -9,6 +9,7 @@ import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { shouldAbortPriorSse, streamChatMessageSse, streamChatRegenerateSse, type ChatSsePayload } from "@/features/chat/model/sse";
 import { EAGER_CONNECT_DEBOUNCE_MS } from "@/features/chat/model/wsConnect";
 import { ChatWsTransport, type ChatWsFallbackSignal } from "@/features/chat/model/wsTransport";
+import { useLatestRef } from "@/lib/latestRef";
 
 type SendSseOptions = {
   attachmentIds?: string[];
@@ -46,20 +47,14 @@ export function useChatTransport({
   const wsTransportRef = useRef<ChatWsTransport | null>(null);
   const sseAbortRef = useRef<AbortController | null>(null);
   const sseAbortChatIdRef = useRef<string | null>(null);
-  const isCurrentViewRef = useRef(isCurrentView);
-  const ttftTurnIdRef = useRef(ttftTurnId);
-  const onPayloadRef = useRef(onPayload);
-  const onFallbackRef = useRef(onFallback);
-  const onSendFailureRef = useRef(onSendFailure);
-  const onRegenerateFailureRef = useRef(onRegenerateFailure);
   const backgroundedRef = useRef(false);
   const releasedInBackgroundRef = useRef(false);
-  isCurrentViewRef.current = isCurrentView;
-  ttftTurnIdRef.current = ttftTurnId;
-  onPayloadRef.current = onPayload;
-  onFallbackRef.current = onFallback;
-  onSendFailureRef.current = onSendFailure;
-  onRegenerateFailureRef.current = onRegenerateFailure;
+  const isCurrentViewRef = useLatestRef(isCurrentView);
+  const ttftTurnIdRef = useLatestRef(ttftTurnId);
+  const onPayloadRef = useLatestRef(onPayload);
+  const onFallbackRef = useLatestRef(onFallback);
+  const onSendFailureRef = useLatestRef(onSendFailure);
+  const onRegenerateFailureRef = useLatestRef(onRegenerateFailure);
 
   const beginSseStream = useCallback(() => {
     if (shouldAbortPriorSse(sseAbortChatIdRef.current, chatId)) {
@@ -100,7 +95,7 @@ export function useChatTransport({
       wsTransportRef.current = transport;
     }
     return transport.connect();
-  }, [account, chatId, getToken, releaseIdleInBackground]);
+  }, [account, chatId, getToken, releaseIdleInBackground, isCurrentViewRef, onFallbackRef, onPayloadRef, ttftTurnIdRef]);
 
   const connect = useCallback((): Promise<void> => {
     const token = getToken();
@@ -174,7 +169,7 @@ export function useChatTransport({
         onSendFailureRef.current(err, turnId);
       }
     },
-    [getToken, chatId, beginSseStream],
+    [getToken, chatId, beginSseStream, isCurrentViewRef, onPayloadRef, onSendFailureRef],
   );
 
   const regenerateViaSse = useCallback(
@@ -202,7 +197,7 @@ export function useChatTransport({
         onRegenerateFailureRef.current();
       }
     },
-    [getToken, chatId, beginSseStream],
+    [getToken, chatId, beginSseStream, isCurrentViewRef, onPayloadRef, onRegenerateFailureRef],
   );
 
   const currentSocket = useCallback(() => wsTransportRef.current, []);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Animated, Easing, StyleSheet } from "react-native";
 
 import { Theme, useTheme } from "@/lib/theme";
@@ -13,7 +13,7 @@ type Props = {
 export function MathComposerCaret({ testID }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const opacity = useRef(new Animated.Value(1)).current;
+  const [opacity] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     if (process.env.NODE_ENV === "test") return;

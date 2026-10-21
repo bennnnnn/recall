@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { useViewOwner } from "@/lib/viewOwner";
 import { getCachedChat, peekCreatedChat } from "@/features/chat/model/chatListCache";
 import { emitAppEvent } from "@/lib/appEvents";
 import { beginChatMutation } from "@/features/chat/model/mutationLock";
@@ -37,17 +38,9 @@ export function useChatManagementActions({
   const feedback = useActionFeedbackOptional();
   const session = getSessionGeneration();
   const signedIn = Boolean(token);
-  const viewRef = useRef({ chatId, session, signedIn });
-  if (viewRef.current.chatId !== chatId || viewRef.current.session !== session || viewRef.current.signedIn !== signedIn) {
-    viewRef.current = { chatId, session, signedIn };
-  }
-  const view = viewRef.current;
-  const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const { view, owns } = useViewOwner(`${chatId}:${session}:${signedIn}`);
   const currentSession = useCallback(() => session === getSessionGeneration(), [session]);
-  const currentView = useCallback(
-    () => mounted.current && viewRef.current === view && currentSession(), [view, currentSession],
-  );
+  const currentView = useCallback(() => owns() && currentSession(), [owns, currentSession]);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameText, setRenameText] = useState("");
   useEffect(() => {

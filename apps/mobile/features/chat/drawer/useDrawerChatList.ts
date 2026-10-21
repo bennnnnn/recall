@@ -1,5 +1,5 @@
 import { useAccountSession } from "@/contexts/accountSession";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   activeChatsFromGroups,
@@ -55,16 +55,15 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedOnceRef = useRef(false);
-  const ownerRef = useRef(session);
   const mountedRef = useRef(true);
   const loadIdRef = useRef(0);
   const [, setTitlePendingTick] = useState(0);
   const reportFailure = useReadFailureReport();
-  if (ownerRef.current !== session) {
-    ownerRef.current = session;
+  // Another account starts unloaded, and a load the last one started lands nowhere.
+  useLayoutEffect(() => {
     hasLoadedOnceRef.current = false;
     loadIdRef.current++;
-  }
+  }, [session]);
   const current = useCallback(() => mountedRef.current && session === getSessionGeneration(), [session]);
   useEffect(() => {
     mountedRef.current = true;

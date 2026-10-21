@@ -14,6 +14,7 @@ import type { EmailDraft } from "@/lib/richBlocks";
 import { isServerMessageId } from "@/lib/serverMessageId";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Options = {
   token: string | null;
@@ -43,8 +44,7 @@ export function useChatActions({
   t,
 }: Options) {
   const feedback = useActionFeedbackOptional();
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
+  const messagesRef = useLatestRef(messages);
   const emailSavesRef = useRef(new Map<string, Promise<boolean>>());
   const [menuVisible, setMenuVisible] = useState(false);
   const [shareVisible, setShareVisible] = useState(false);
@@ -127,7 +127,7 @@ export function useChatActions({
       });
       return saving;
     },
-    [token, chatId, setMessages, feedback, t],
+    [token, chatId, setMessages, feedback, t, messagesRef],
   );
 
   /**

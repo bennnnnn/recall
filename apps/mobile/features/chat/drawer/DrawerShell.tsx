@@ -9,7 +9,7 @@
  * the panel itself moves it (vertical list scroll still wins).
  */
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BackHandler,
   Keyboard,
@@ -35,6 +35,7 @@ import { tap } from "@/lib/haptics";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { shadowOverlay } from "@/lib/shadow";
 import { type Theme, useTheme } from "@/lib/theme";
+import { useLatestRef } from "@/lib/latestRef";
 
 /** Left-edge hit slop for swipe-to-open (pt). Must stay a local const — Reanimated worklets cannot read imported names here. */
 const EDGE_WIDTH = 28;
@@ -69,15 +70,14 @@ export function DrawerShell({ children }: { children: ReactNode }) {
   const touchStartY = useSharedValue(0);
   const didActivate = useSharedValue(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const drawerOpenRef = useRef(false);
-  drawerOpenRef.current = drawerOpen;
+  const drawerOpenRef = useLatestRef(drawerOpen);
 
   useEffect(() => {
     widthSV.value = drawerWidth;
     if (!drawerOpenRef.current) {
       translateX.value = -drawerWidth;
     }
-  }, [drawerWidth, translateX, widthSV]);
+  }, [drawerWidth, translateX, widthSV, drawerOpenRef]);
 
   useEffect(() => {
     isOpenSV.value = drawerOpen ? 1 : 0;
@@ -105,25 +105,24 @@ export function DrawerShell({ children }: { children: ReactNode }) {
         }
       }
     },
-    [isOpenSV, overlayOpacity, reduceMotion, translateX, widthSV],
+    [isOpenSV, overlayOpacity, reduceMotion, translateX, widthSV, drawerOpenRef],
   );
 
-  const settleToRef = useRef(settleTo);
-  settleToRef.current = settleTo;
+  const settleToRef = useLatestRef(settleTo);
 
   const settleFromGesture = useCallback((openNext: boolean, withHaptic: boolean) => {
     settleToRef.current(openNext, withHaptic);
-  }, []);
+  }, [settleToRef]);
 
   const markOpen = useCallback(() => {
     setDrawerOpen(true);
     drawerOpenRef.current = true;
     isOpenSV.value = 1;
     Keyboard.dismiss();
-  }, [isOpenSV]);
+  }, [isOpenSV, drawerOpenRef]);
 
-  const open = useCallback(() => settleToRef.current(true, true), []);
-  const close = useCallback(() => settleToRef.current(false, false), []);
+  const open = useCallback(() => settleToRef.current(true, true), [settleToRef]);
+  const close = useCallback(() => settleToRef.current(false, false), [settleToRef]);
 
   useEffect(() => registerDrawer(open, close), [open, close]);
 
@@ -134,8 +133,11 @@ export function DrawerShell({ children }: { children: ReactNode }) {
       return true;
     });
     return () => sub.remove();
-  }, [close]);
+  }, [close, drawerOpenRef]);
 
+  // The builder runs in render, but its callbacks run on touch events; React's compiler
+  // cannot tell them apart, so it reads their ref use as a render read.
+  /* eslint-disable react-hooks/refs */
   const pan = useMemo(
     () =>
       Gesture.Pan()
@@ -226,6 +228,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
       widthSV,
     ],
   );
+  /* eslint-enable react-hooks/refs */
 
   const drawerStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],

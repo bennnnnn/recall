@@ -15,6 +15,7 @@ import {
 import { STREAM_AUTOSCROLL_RESUME_MS } from "@/lib/messageListLayout";
 import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
 import { tap } from "@/lib/haptics";
+import { useLatestRef } from "@/lib/latestRef";
 
 /**
  * While streaming, JS owns bottom-pinning (FlashList autoscroll is off).
@@ -48,7 +49,6 @@ export function useChatScroll({
   const atBottomRef = useRef(true);
   const newMessageCountRef = useRef(0);
   const showScrollBtnRef = useRef(false);
-  const messagesLenRef = useRef(0);
   const listBottomPadRef = useRef(0);
   const maxScrollOffsetRef = useRef(0);
   const scrollOffsetRef = useRef(0);
@@ -63,7 +63,7 @@ export function useChatScroll({
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [scrollAwayCount, setScrollAwayCount] = useState(0);
 
-  messagesLenRef.current = messagesLength;
+  const messagesLenRef = useLatestRef(messagesLength);
 
   const updateAtBottom = useCallback((atBottom: boolean) => {
     atBottomRef.current = atBottom;
@@ -72,7 +72,7 @@ export function useChatScroll({
     showScrollBtnRef.current = shouldShow;
     setShowScrollToBottom(shouldShow);
     if (!shouldShow) setScrollAwayCount(0);
-  }, []);
+  }, [messagesLenRef]);
 
   const measureScrollMetrics = useCallback(
     (event?: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -139,7 +139,7 @@ export function useChatScroll({
       });
       updateAtBottom(nextAtBottom);
     },
-    [readScrollThresholds, measureScrollMetrics, updateAtBottom],
+    [readScrollThresholds, measureScrollMetrics, updateAtBottom, messagesLenRef],
   );
 
   const scrollToEndIfAtBottom = useCallback((animated: boolean) => {
@@ -293,7 +293,7 @@ export function useChatScroll({
       );
       listRef.current?.scrollToEnd({ animated: false });
     }
-  }, [updateAtBottom]);
+  }, [updateAtBottom, messagesLenRef]);
 
   const handleContentSizeChange = useCallback(
     (_width: number, height: number) => {
