@@ -24,6 +24,7 @@ from app.modules.chat.prompt_memory import (
     memory_switch_on,
     recalls_shared_past,
 )
+from app.modules.chat.prompt_repeats import last_copies, policies_once
 from app.modules.chat.prompt_sections import (
     NEARBY_CONTRACTS,
     STABLE_SECTIONS,
@@ -178,13 +179,15 @@ async def inject_web_and_tools(
 ) -> list[dict[str, str]]:
     """Inject web → math blocks in the historical order.
 
-    Mutation order is what keeps prompt shape stable; fetch order is irrelevant.
+    Mutation order is what keeps prompt shape stable; fetch order is irrelevant. A
+    solve block closes with its subject's reply policy, so the system prompt's copy
+    goes (``prompt_repeats``).
     """
     updated = prompt_messages
     if web_block:
         updated = inject_before_last_user(updated, web_block)
     if math_block:
-        updated = inject_before_last_user(updated, math_block)
+        updated = policies_once(inject_before_last_user(updated, math_block))
     return updated
 
 
@@ -388,14 +391,16 @@ async def build_prompt_messages(
         ),
         recalls_shared_past=plan.recalls_shared_past,
     )
+    # An instruction stated twice keeps its copy closest to the user turn.
+    stable, turn_context, nearby = last_copies(
+        render_rules(STABLE_SECTIONS, turn),
+        render_rules(TURN_SECTIONS, turn),
+        render_rules(NEARBY_CONTRACTS, turn),
+    )
     messages = [
-        *(
-            {"role": "system", "content": "\n\n".join(render_rules(sections, turn))}
-            for sections in (STABLE_SECTIONS, TURN_SECTIONS)
-        ),
+        *({"role": "system", "content": "\n\n".join(parts)} for parts in (stable, turn_context)),
         *history_messages(window, math_followup=followup == "math"),
     ]
-    nearby = render_rules(NEARBY_CONTRACTS, turn)
     if nearby:
         messages = inject_before_last_user(messages, "\n\n".join(nearby))
     return messages

@@ -1,7 +1,8 @@
-"""The system prompt is ordered for prompt caching.
+"""The system prompt is ordered for prompt caching, and states each instruction once.
 
 The first system message is the same text on every turn of one kind for one user, so a
-provider can reuse it; the clock, memory and files of the turn come after it.
+provider can reuse it; the clock, memory and files of the turn come after it. A reply
+policy or contract that two places add keeps only its copy closest to the user turn.
 """
 
 from __future__ import annotations
@@ -12,14 +13,25 @@ from unittest.mock import patch
 
 import pytest
 
+from app.modules.chat.prompt_builder import inject_web_and_tools
 from app.modules.chat.prompt_constants import (
     FACT_GROUNDING_HINT,
     FORMAT_CONTRACT,
+    PERSONAL_DISCLOSURE_HINT,
     PHOTO_LOOKUP_HINT,
     STYLE_HINTS,
     UNCLEAR_MESSAGE_HINT,
+    learning_plan_daily_contract,
 )
+from app.modules.chat.prompt_repeats import REPLY_POLICIES, last_copies, policies_once
+from app.modules.chat.tool_loop.results import ToolResults
+from app.modules.chat.tool_loop.rounds import _hand_off
+from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.physics import PHYSICS_REPLY_POLICY
 from app.modules.web_search import WEB_SEARCH_HINT
+from app.tests.behavior.cases import Case, Expect
+from app.tests.behavior.harness import route_case
+from app.tests.modules.chat.chat_test_support import system_prompt
 from app.tests.modules.chat.test_prompt_golden import _DEFAULTS, render, resolve
 
 _NINE = datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
@@ -94,3 +106,138 @@ async def test_fixed_instructions_then_the_users_own_then_the_turns() -> None:
     assert [turn.index(text) for text in parts] == sorted(turn.index(t) for t in parts)
     # The user's latest message stays last.
     assert messages[-1] == {"role": "user", "content": _QUERY}
+
+
+@pytest.mark.asyncio
+async def test_the_disclosure_contract_is_stated_once_closest_to_the_user_turn() -> None:
+    query = "I work at Uber as a data analyst"
+    messages = await _prompt_at(
+        _NINE, history=[["user", query]], kwargs={"query_text": query, "current": 0}
+    )
+    prompt = system_prompt(messages)
+    assert prompt.count(PERSONAL_DISCLOSURE_HINT) == 1
+    assert messages[1]["content"].endswith(PERSONAL_DISCLOSURE_HINT)
+
+
+@pytest.mark.asyncio
+async def test_a_plan_contract_is_stated_once_beside_the_user_turn() -> None:
+    query = "make me a 7-day plan to learn SQL"
+    messages = await _prompt_at(
+        _NINE, history=[["user", query]], kwargs={"query_text": query, "current": 0}
+    )
+    contract = learning_plan_daily_contract(query)
+    assert contract
+    assert sum(message["content"].count(contract) for message in messages) == 1
+    assert messages[-2] == {"role": "system", "content": contract}
+
+
+def test_last_copies_keeps_a_repeated_part_only_where_it_comes_last() -> None:
+    stable, turn, nearby = last_copies(["A", "P", "B", "Q"], ["C", "P"], ["Q", "D"])
+    assert (stable, turn, nearby) == (["A", "B"], ["C", "P"], ["Q", "D"])
+    assert last_copies(["A", "B"], []) == [["A", "B"], []]
+
+
+def test_every_subject_reply_policy_is_kept_once() -> None:
+    assert set(REPLY_POLICIES) == {MATH_REPLY_POLICY, PHYSICS_REPLY_POLICY}
+
+
+@pytest.mark.parametrize("policy", [MATH_REPLY_POLICY, PHYSICS_REPLY_POLICY])
+def test_a_solve_block_keeps_the_policy_and_the_system_prompt_drops_its_copy(policy: str) -> None:
+    stable = f"You are Recall.\n\nFORMAT\n\n{policy}\n\nTone: casual."
+    block = (
+        f"[BEGIN VERIFIED]\nx = 6\n[END VERIFIED]\n\nReply guidance: data, not a lesson. {policy}"
+    )
+    prompt = [
+        {"role": "system", "content": stable},
+        {"role": "system", "content": "Current local time: 9:00 AM"},
+        {"role": "system", "content": block},
+        {"role": "user", "content": "solve 2x + 5 = 17 and explain"},
+    ]
+    once = policies_once(prompt)
+    assert once[0]["content"] == "You are Recall.\n\nFORMAT\n\nTone: casual."
+    assert once[1:] == prompt[1:]
+    # The prompt it was given is left as it was.
+    assert prompt[0]["content"] == stable
+
+
+def test_a_policy_left_alone_in_its_message_drops_the_message() -> None:
+    prompt = [
+        {"role": "system", "content": MATH_REPLY_POLICY},
+        {
+            "role": "system",
+            "content": f"Unverified: no solver result.\n\n{MATH_REPLY_POLICY} Check it.",
+        },
+        {"role": "user", "content": "x"},
+    ]
+    assert policies_once(prompt) == prompt[1:]
+
+
+def test_a_policy_joined_mid_sentence_leaves_the_sentence_whole() -> None:
+    note = f"Math note: not verified.\n\n{MATH_REPLY_POLICY} Check it yourself."
+    prompt = [
+        {"role": "system", "content": note},
+        {"role": "system", "content": MATH_REPLY_POLICY},
+    ]
+    assert policies_once(prompt)[0]["content"] == "Math note: not verified.\n\nCheck it yourself."
+
+
+@pytest.mark.asyncio
+async def test_injecting_a_solve_block_leaves_one_policy_in_the_prompt() -> None:
+    prompt = [
+        {"role": "system", "content": f"STYLE\n\n{MATH_REPLY_POLICY}"},
+        {"role": "system", "content": "Current local time: 9:00 AM"},
+        {"role": "user", "content": "solve 2x + 5 = 17 and explain"},
+    ]
+    block = f"[BEGIN VERIFIED MATH]\nx = 6\n[END VERIFIED MATH]\n\n{MATH_REPLY_POLICY}"
+    injected = await inject_web_and_tools(prompt, "WEB RESULTS", block)
+    assert [message["content"] for message in injected] == [
+        "STYLE",
+        "Current local time: 9:00 AM",
+        "WEB RESULTS",
+        block,
+        "solve 2x + 5 = 17 and explain",
+    ]
+    # Without a solve block nothing is taken out.
+    assert await inject_web_and_tools(prompt, "WEB RESULTS", None) == [
+        *prompt[:2],
+        {"role": "system", "content": "WEB RESULTS"},
+        prompt[2],
+    ]
+
+
+def test_a_sympy_round_keeps_the_policy_after_its_results_only() -> None:
+    working: list[dict[str, Any]] = [
+        {"role": "system", "content": f"STYLE\n\n{MATH_REPLY_POLICY}"},
+        {"role": "system", "content": f"BLOCK\n\n{MATH_REPLY_POLICY}"},
+        {"role": "user", "content": "integrate x e^x dx and explain"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"id": "1", "function": {"name": "sympy", "arguments": "{}"}}],
+        },
+        {"role": "tool", "tool_call_id": "1", "content": "x e^x - e^x + C"},
+    ]
+    outcome = _hand_off(working, 3, ToolResults())
+    contents = [message.get("content") for message in outcome.messages]
+    assert contents[:2] == ["STYLE", "BLOCK"]
+    assert contents[-1] == MATH_REPLY_POLICY
+    assert sum(MATH_REPLY_POLICY in (content or "") for content in contents) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "prompt, policy",
+    [
+        ("solve 2x + 5 = 17 and explain why each step works", MATH_REPLY_POLICY),
+        (
+            "Two 6 ohm resistors in parallel are in series with a 3 ohm resistor across a "
+            "12 V battery. Find the current from the battery.",
+            PHYSICS_REPLY_POLICY,
+        ),
+    ],
+)
+async def test_a_model_written_stem_turn_states_its_policy_once(prompt: str, policy: str) -> None:
+    """Through the real turn path: the subject pack and the solve block both carry it."""
+    route = await route_case(Case("policy-once", "stem", prompt, Expect(), ""))
+    assert not route.instant
+    assert route.system_prompt.count(policy) == 1

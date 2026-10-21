@@ -22,6 +22,7 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
+from app.modules.chat.prompt_repeats import policies_once
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.tool_loop.calls import _execute_calls, _Round
 from app.modules.chat.tool_loop.forced_search import _force_web_search_if_needed
@@ -245,7 +246,8 @@ def _hand_off(
     ):
         # Tool content is supporting data, not a request for a worked tutorial.
         # Append after completed results; cancelled/unanswered rounds were trimmed.
-        working.append({"role": "system", "content": MATH_REPLY_POLICY})
+        # An earlier copy (system prompt, solve block) goes: this one is closest.
+        working = policies_once([*working, {"role": "system", "content": MATH_REPLY_POLICY}])
     return ToolRoundsOutcome(working, verified, collected.terminal_image, collected.search_hits)
 
 

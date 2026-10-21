@@ -273,6 +273,8 @@ async def test_actual_how_examples_keep_prior_result_and_final_scoped_policy(
     recent = _exchange(question, result)
     prepared = await _prompt("how", recent, style)
     assert prepared[1]["content"].endswith(f"{MATH_REPLY_POLICY}\n\n{MATH_FOLLOWUP_HINT}")
+    # The math pack's own closing copy goes: the policy is stated once, last.
+    assert system_prompt(prepared).count(MATH_REPLY_POLICY) == 1
     assert prepared[-2] == {"role": "user", "content": question}
     assert prepared[-1] == {"role": "assistant", "content": f"Previous result:\n\\[\n{result}\n\\]"}
     assert "unrequested comparisons, unit conversions" in system_prompt(prepared)
