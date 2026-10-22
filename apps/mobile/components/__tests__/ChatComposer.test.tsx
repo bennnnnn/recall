@@ -18,31 +18,6 @@ jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "t",
 }));
 
-jest.mock("expo-clipboard", () => ({
-  setStringAsync: jest.fn(),
-  getStringAsync: jest.fn(async () => ""),
-  hasImageAsync: jest.fn(async () => false),
-  getImageAsync: jest.fn(),
-}));
-
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
-
-jest.mock("expo-haptics", () => ({
-  selectionAsync: jest.fn(async () => undefined),
-  impactAsync: jest.fn(async () => undefined),
-  notificationAsync: jest.fn(async () => undefined),
-  ImpactFeedbackStyle: { Light: "light" },
-  NotificationFeedbackType: { Success: "success", Warning: "warning" },
-}));
-
 jest.mock("@/features/speech/components/VoiceComposerWaveform", () => ({
   VoiceComposerWaveform: () => null,
 }));

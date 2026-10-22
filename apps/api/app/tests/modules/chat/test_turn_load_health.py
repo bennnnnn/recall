@@ -43,7 +43,7 @@ async def test_load_new_turn_hands_model_health_to_routing(content: str) -> None
         users={"get_by_id": AsyncMock(return_value=user)},
         chats={"get_by_id": AsyncMock(return_value=chat), "peek_recent_chat": lambda *_a: chat},
         messages={"list_recent": AsyncMock(return_value=[]), "count_for_chat": AsyncMock()},
-        plan={"resolve_user_model_override": resolve},
+        model_choice={"resolve_user_model_override": resolve},
     )
     failing = frozenset({"smart-chat"})
     with (

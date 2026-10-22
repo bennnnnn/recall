@@ -17,6 +17,10 @@ from sqlalchemy import cast as sql_cast
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Chat, Message
+from app.repositories.keyset import after, decode_cursor, encode_cursor, page_of
+
+# A title hit has no message; this id sorts it after any message hit in the same chat.
+_NO_MESSAGE = UUID(int=0)
 
 
 def _trgm_match(column: Any, query: str) -> ColumnElement[bool]:
@@ -25,20 +29,21 @@ def _trgm_match(column: Any, query: str) -> ColumnElement[bool]:
 
 
 async def search_conversations(
-    session: AsyncSession, user_id: UUID, query: str, limit: int = 20, offset: int = 0
-) -> tuple[list[dict[str, Any]], bool]:
+    session: AsyncSession, user_id: UUID, query: str, limit: int = 20, cursor: str | None = None
+) -> tuple[list[dict[str, Any]], str | None]:
     """Search chat titles and message bodies as one recency-ordered timeline.
 
-    Title and message hits are unioned, then offset/limit apply once. Returns the page
-    and whether more hits follow: one row past the page is read instead of counting
-    every hit, which no plan could stop early. Message bodies match by substring
-    through the user-scoped trigram index (``ix_messages_user_content_trgm``); trigram
-    similarity (``%``) almost never matches a long body and kept other users' rows in
-    the candidates. Title-only rows omit chats that already have a matching message.
+    Title and message hits are unioned, then the cursor and limit apply once. Returns
+    the page and the cursor for the next (None: the last): one row past the page is
+    read instead of counting every hit, which no plan could stop early. Message bodies
+    match by substring through the user-scoped trigram index
+    (``ix_messages_user_content_trgm``); trigram similarity (``%``) almost never matches
+    a long body and kept other users' rows in the candidates. Title-only rows omit
+    chats that already have a matching message.
     """
     q = query.strip()
     if not q:
-        return [], False
+        return [], None
 
     escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     pattern = f"%{escaped}%"
@@ -79,19 +84,23 @@ async def search_conversations(
         .where(Chat.user_id == user_id, Chat.archived.is_(False), *msg_where)
     )
     combined = union_all(msg_stmt, title_stmt).subquery("search_hits")
-    stmt = (
-        select(combined)
-        .order_by(
-            combined.c.created_at.desc(), combined.c.chat_id.desc(), combined.c.message_id.desc()
-        )
-        .offset(offset)
-        .limit(limit + 1)
+    message_key = func.coalesce(
+        combined.c.message_id, literal(_NO_MESSAGE, type_=combined.c.message_id.type)
     )
-    rows = (await session.execute(stmt)).all()
-    has_more = len(rows) > limit
+    order = (combined.c.created_at, combined.c.chat_id, message_key)
+    stmt = select(combined).order_by(*(column.desc() for column in order))
+    if cursor is not None:
+        at, ids = decode_cursor(cursor, ids=2)
+        stmt = stmt.where(after(order, at, ids))
+    rows = (await session.execute(stmt.limit(limit + 1))).all()
+    page, next_cursor = page_of(
+        rows,
+        limit,
+        lambda row: encode_cursor(row.created_at, row.chat_id, row.message_id or _NO_MESSAGE),
+    )
 
     results: list[dict[str, Any]] = []
-    for row in rows[:limit]:
+    for row in page:
         raw = row.content or ""
         content = _snippet(raw, q, 120) if row.match_type == "message" else raw
         created = row.created_at or datetime.now(UTC)
@@ -106,7 +115,7 @@ async def search_conversations(
                 "created_at": created,
             }
         )
-    return results, has_more
+    return results, next_cursor
 
 
 def _snippet(content: str, query: str, max_len: int = 120) -> str:

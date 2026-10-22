@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -16,7 +17,9 @@ from app.core.db import SessionLocal
 from app.exceptions import DomainError
 from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
+from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat import finalize_registry
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.email_fence import rewrite_first_email_fence
 from app.modules.chat.related_prompts import (
     RELATED_PROMPTS_TTL_SECONDS,
@@ -24,8 +27,6 @@ from app.modules.chat.related_prompts import (
     load_related_prompts,
 )
 from app.modules.chat.titles import sanitize_manual_chat_title
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services.quota import utc_today
@@ -58,22 +59,28 @@ async def list_chats_grouped(
     user: User,
     *,
     limit: int = DEFAULT_CHAT_LIST_LIMIT,
+    cursor: str | None = None,
 ) -> ChatListOut:
-    async def _archived() -> list[Chat]:
-        async with SessionLocal() as archived_session:
-            return await chats_repo.list_archived_for_user(
-                archived_session, user.id, limit=ARCHIVED_CHAT_LIST_LIMIT
-            )
+    """The drawer's chats by recency; ``cursor`` reads the dated chats after a page.
 
-    chats, archived = await gather_or_cancel(
-        chats_repo.list_for_user(session, user.id, limit=limit),
-        _archived(),
+    The first page also holds every pinned chat and the newest archived ones.
+    """
+
+    async def _pinned_and_archived() -> tuple[list[Chat], list[Chat]]:
+        if cursor is not None:
+            return [], []
+        async with SessionLocal() as side_session:
+            pinned = await chats_repo.list_pinned(side_session, user.id)
+            archived = await chats_repo.list_archived_for_user(
+                side_session, user.id, limit=ARCHIVED_CHAT_LIST_LIMIT
+            )
+        return pinned, archived
+
+    (dated, next_cursor), (pinned, archived) = await gather_or_cancel(
+        chats_repo.list_recent_page(session, user.id, limit=limit, cursor=cursor),
+        _pinned_and_archived(),
     )
-    pinned = [c for c in chats if c.pinned]
-    grouped = chats_repo.group_by_recency(
-        [c for c in chats if not c.pinned],
-        user_timezone=user.timezone,
-    )
+    grouped = chats_repo.group_by_recency(dated, user_timezone=user.timezone)
     return ChatListOut(
         pinned=[ChatOut.model_validate(c) for c in pinned],
         today=[ChatOut.model_validate(c) for c in grouped["today"]],
@@ -82,6 +89,7 @@ async def list_chats_grouped(
         this_month=[ChatOut.model_validate(c) for c in grouped["this_month"]],
         older=[ChatOut.model_validate(c) for c in grouped["older"]],
         archived=[ChatOut.model_validate(c) for c in archived],
+        next_cursor=next_cursor,
     )
 
 
@@ -343,3 +351,27 @@ async def update_message_email(
     if rewritten == message.content:
         return message
     return await messages_repo.update_content(session, message, rewritten)
+
+
+async def edit_recent_reply(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    containing: str,
+    edit: Callable[[str], str],
+    scan: int = 30,
+) -> bool:
+    """Rewrite the chat's recent reply that holds ``containing``; commits. Whether it changed.
+
+    A card the user acted on in another module (a reminder card saved by its tap) is
+    stored as acted on; chat keeps the only writes to its messages (audit ARCH-08).
+    """
+    for message in await messages_repo.list_recent(session, chat_id, limit=scan):
+        if message.role != "assistant" or containing not in (message.content or ""):
+            continue
+        updated = edit(message.content)
+        if updated == message.content:
+            return False
+        await messages_repo.update_content(session, message, updated)
+        return True
+    return False

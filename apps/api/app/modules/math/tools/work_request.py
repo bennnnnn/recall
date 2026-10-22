@@ -332,7 +332,8 @@ def _merge_final_values(lines: list[str]) -> list[str]:
     if len(lines) - tail < 2:
         return lines
     values = [part for line in lines[tail:] for part in line.split(" or ")]
-    names = {_EQUALS_VALUE.match(part)["var"] for part in values}  # type: ignore[index]
+    matches = [_EQUALS_VALUE.match(part) for part in values]
+    names = {match["var"] for match in matches if match is not None}
     if len(names) != 1:
         return lines
     return [*lines[:tail], " or ".join(values)]

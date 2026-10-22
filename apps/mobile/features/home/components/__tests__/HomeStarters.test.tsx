@@ -31,7 +31,6 @@ jest.mock("@/features/todos/model/homeUrgentTodos", () => ({
   listHomeUrgentTodos: () => [],
 }));
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 beforeEach(() => {
   mockOverdue = undefined;

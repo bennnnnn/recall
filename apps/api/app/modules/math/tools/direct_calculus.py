@@ -89,10 +89,10 @@ def _point(value: str | None) -> str | float | None:
         pass
     if re.fullmatch(_CONSTANT_POINT, value.strip(), re.IGNORECASE) is None:
         return None
-    from app.modules.math.solve.parse import _parse_expression
+    from app.modules.math.solve.parse import parse_expression
 
     with sympy_decline():
-        return float(_parse_expression(value.replace("π", "pi"), []))
+        return float(parse_expression(value.replace("π", "pi"), []))
     return None
 
 

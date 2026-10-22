@@ -11,11 +11,8 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-    _find_value_with_specific_unit,
-)
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.unit_patterns import NUMBER, VELOCITY_UNIT_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 
 SOUND_SOURCE = r"siren|ambulance|police|horn|whistle|train|engine|speaker|source"
@@ -30,13 +27,13 @@ _RECEDING_RE = re.compile(
 )
 _OBSERVER_ROLE_RE = re.compile(r"\b(?:observer|listener)\b", re.IGNORECASE)
 _ROLE_SPEED_RE = re.compile(
-    rf"\b(source|observer|listener)\b.{{0,60}}?({_NUMBER})\s*({_VELOCITY_UNIT_PATTERN})\b",
+    rf"\b(source|observer|listener)\b.{{0,60}}?({NUMBER})\s*({VELOCITY_UNIT_PATTERN})\b",
     re.IGNORECASE,
 )
 # "The speed of sound is 340 m/s." The window stops at a sentence end or a digit.
 _STATED_SOUND_RE = re.compile(
     r"\b(?:(?:speed|velocity)\s+of\s+sound|sound\s+(?:speed|travels\s+at))\b"
-    rf"[^.\d]{{0,30}}?({_NUMBER})\s*m/s\b",
+    rf"[^.\d]{{0,30}}?({NUMBER})\s*m/s\b",
     re.IGNORECASE,
 )
 _STILL = r"stationary|parked|standing\s+still|at\s+rest"
@@ -67,7 +64,7 @@ def doppler_intent(cleaned: str, freq: _Speed | None) -> PhysicsIntent | None:
         if roles is None:
             return None
         return _intent(freq, sound, source=roles[0], observer=roles[1])
-    speed = _find_value_with_specific_unit(rest, _VELOCITY_UNIT_PATTERN)
+    speed = find_value_with_specific_unit(rest, VELOCITY_UNIT_PATTERN)
     signed = None if speed is None else _signed(speed, rest)
     if signed is None:
         return None

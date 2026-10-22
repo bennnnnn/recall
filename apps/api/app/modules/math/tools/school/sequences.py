@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.number_text import DECIMAL_LITERAL
 from app.services.text_match import word_index
 
@@ -164,7 +164,7 @@ def _block_infinite_gp(intent: MathIntent, lines: list[str]) -> VerifiedMathBloc
         return None
     answer = math_formulas.infinite_geometric_sum(intent.stats_numbers)
     lines.append(f"Infinite GP sum = {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)
 
 
 def _block_sequence(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -176,4 +176,4 @@ def _block_sequence(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock |
     else:
         answer = math_school.sequence_sum(intent.stats_numbers, intent.combo_n)
         lines.append(f"Sum of first {intent.combo_n} terms = {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)

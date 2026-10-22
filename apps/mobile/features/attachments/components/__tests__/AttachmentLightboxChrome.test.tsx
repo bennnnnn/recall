@@ -4,9 +4,6 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { AttachmentLightboxChrome } from "@/features/attachments/components/AttachmentLightboxChrome";
 import { lightTheme as mockLightTheme, withAlpha } from "@/lib/theme";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
   useTheme: () => mockLightTheme,

@@ -25,7 +25,7 @@ _SUPPORTED_LOCALES = frozenset(locale_service.LOCALE_NAMES.keys())
 
 
 def _locale_for(user: User) -> str:
-    code = locale_service.normalize_locale_code(getattr(user, "locale", None))
+    code = locale_service.normalize_locale_code(user.locale)
     return code if code in _SUPPORTED_LOCALES else "en"
 
 
@@ -49,14 +49,12 @@ def _render(template: str, **kwargs: Any) -> str:
 def _esc(value: object) -> str:
     """HTML-escape a value bound for an `html` template variant.
 
-    BUG FIX (was silent): _render() used to interpolate values into the html
-    template exactly like the text one — no escaping. name/title/content/body
-    are all user-entered (todo content, display
-    name) and event_type/store/product_id come from RevenueCat webhook data.
-    Unescaped, a todo titled e.g. `<img src=x onerror=...>` renders as live
-    markup in the recipient's HTML email client. Never call this on values
-    going into the `text` variant — plain text doesn't need escaping and
-    `&amp;` etc. would just be visual noise.
+    Every value going into the HTML template is escaped: name, title, content and body
+    are user-entered (a to-do's text, a display name) and event_type, store and
+    product_id come from RevenueCat webhooks, so a to-do titled
+    ``<img src=x onerror=...>`` would otherwise be live markup in the recipient's mail
+    client. Not for the ``text`` variant: plain text needs no escaping, and ``&amp;``
+    would only be noise.
     """
     return html_lib.escape(str(value))
 

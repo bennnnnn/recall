@@ -7,9 +7,6 @@ import { api, type Todo } from "@/lib/api";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/lib/i18n", () => ({
   __esModule: true,
   default: { t: (key: string) => key },
@@ -36,7 +33,6 @@ jest.mock("@/lib/api", () => ({
     deleteTodo: jest.fn(),
   },
 }));
-
 
 function todo(partial: Partial<Todo> & Pick<Todo, "id" | "content">): Todo {
   return {

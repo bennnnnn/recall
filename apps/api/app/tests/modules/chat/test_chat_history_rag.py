@@ -152,7 +152,7 @@ async def test_retrieve_for_prompt_wraps_hits_and_excludes():
             exclude_message_ids=exclude,
         )
     assert "earlier chats" in block
-    assert "not this conversation and not saved memory" in block
+    assert "not this conversation and not saved memory" in block  # safety phrase
     assert "blue couch" in block
     assert "not the full history" in block
     assert search.await_args.kwargs["exclude_message_ids"] == exclude
@@ -216,21 +216,19 @@ async def test_retrieve_for_prompt_uses_precomputed_vec_without_reembed():
 @pytest.mark.asyncio
 async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent():
     """Recent-window load must not sit behind the RAG query embed."""
-    import time
-
     from app.modules.chat.prompt_builder import _load_context_blocks
 
+    recent_read = asyncio.Event()
+
     async def slow_embed(*_args, **_kwargs):
-        await asyncio.sleep(0.2)
+        # Finishes only once the recent window is read: awaited first, it times out.
+        await asyncio.wait_for(recent_read.wait(), timeout=1)
         return [0.2]
 
-    recent_at: dict[str, float] = {}
-
     async def fast_recent(*_args, **_kwargs):
-        recent_at["t"] = time.perf_counter()
+        recent_read.set()
         return []
 
-    t0 = time.perf_counter()
     user = MagicMock()
     user.id = uuid4()
     with (
@@ -252,7 +250,6 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
             client_timezone=None,
             history_rag=True,
         )
-    assert recent_at["t"] - t0 < 0.1
     assert blocks.history_rag_query_vec == [0.2]
 
 
@@ -308,7 +305,7 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
         patch("app.modules.attachments.rag.SessionLocal", _session_cm()),
         patch("app.modules.chat.prompt_context.SessionLocal", _session_cm()),
         patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
-        patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
+        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
         patch("app.modules.chat.history_rag.chunks_repo.has_chunks_for_user", probe),
         patch("app.modules.chat.history_rag.embedding_gateway.get_or_embed_query", embed),

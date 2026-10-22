@@ -5,7 +5,6 @@ import type { ConversationListStyles } from "@/features/chat/drawer/conversation
 import type { Theme } from "@/lib/theme";
 
 jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 it("disables Archive for an archived-only selection while keeping Delete available", async () => {
   const archive = jest.fn();

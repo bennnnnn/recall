@@ -1,6 +1,5 @@
 """Memory management regressions using local SQL and mocked external services."""
 
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -11,9 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.models.orm import Memory
-from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
-from app.modules import memory as memory_service
-from app.modules.memory import extraction_workflow
+from app.modules.memory import cache, crud, extraction_workflow, locks
+from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
+from app.tests.fakes import make_user
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 from app.tests.modules.memory.sections_support import apply_memory_section_rows
 
@@ -50,11 +49,9 @@ def memory_session():
 @pytest.fixture
 def memory_services():
     with (
-        patch.object(
-            memory_service, "_acquire_memory_write_lock_or_raise", AsyncMock(return_value="lease")
-        ),
-        patch.object(memory_service, "release_memory_write_lock", AsyncMock()),
-        patch.object(memory_service, "invalidate_memory_block", AsyncMock()) as invalidate_memory,
+        patch.object(locks, "acquire_memory_write_lock_or_raise", AsyncMock(return_value="lease")),
+        patch.object(locks, "release_memory_write_lock", AsyncMock()),
+        patch.object(cache, "invalidate_memory_block", AsyncMock()) as invalidate_memory,
         # SQLite has no pgvector; the chunk purge is covered against Postgres.
         patch("app.modules.memory.erase.purge_fact_chunks", AsyncMock()),
     ):
@@ -87,9 +84,7 @@ async def test_memory_text_change_discards_stale_embeddings(
     row = _memory(sync_session)
     embed = AsyncMock(return_value=None, side_effect=failure)
     with patch("app.gateways.embedding_gateway.embed_text", embed):
-        await memory_service.update_memory(
-            session, Settings(), row.user_id, row.id, "Owns a scooter."
-        )
+        await crud.update_memory(session, Settings(), row.user_id, row.id, "Owns a scooter.")
 
     sync_session.refresh(
         row, attribute_names=["text", "embedding", "embedding_json", "embedding_text_hash"]
@@ -98,6 +93,7 @@ async def test_memory_text_change_discards_stale_embeddings(
     assert row.embedding_json is None
     assert row.embedding_text_hash is None
     assert "bicycle" not in row.text
+    assert "scooter" in row.text
 
 
 @pytest.mark.asyncio
@@ -110,11 +106,9 @@ async def test_manual_memory_change_invalidates_home_after_commit(
     owner_id = row.user_id
     with patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=None)):
         if operation == "edit":
-            await memory_service.update_memory(
-                session, Settings(), owner_id, row.id, "Owns a scooter."
-            )
+            await crud.update_memory(session, Settings(), owner_id, row.id, "Owns a scooter.")
         else:
-            await memory_service.delete_memory(session, owner_id, row.id)
+            await crud.delete_memory(session, owner_id, row.id)
 
     invalidate_memory = memory_services
     # An edit first ends its read, before the embedding call.
@@ -132,10 +126,8 @@ async def test_memory_edit_rejects_a_date_stamp_without_facts(memory_session, me
     sync_session, session = memory_session
     row = _memory(sync_session)
     with patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=None)) as embed:
-        with pytest.raises(memory_service.MemoryEmptyTextError):
-            await memory_service.update_memory(
-                session, Settings(), row.user_id, row.id, "As of 2026-09-04: "
-            )
+        with pytest.raises(crud.MemoryEmptyTextError):
+            await crud.update_memory(session, Settings(), row.user_id, row.id, "As of 2026-09-04: ")
 
     embed.assert_not_awaited()
     session.commit.assert_not_awaited()
@@ -185,7 +177,7 @@ async def test_extraction_cannot_restore_memory_after_manual_change(
         patch.object(
             extraction_workflow.users_repo,
             "get_by_id",
-            AsyncMock(return_value=SimpleNamespace(memory_enabled=True)),
+            AsyncMock(return_value=make_user(memory_enabled=True)),
         ),
         patch.object(
             extraction_workflow,

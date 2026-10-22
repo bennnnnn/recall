@@ -10,7 +10,7 @@ def _has_cue_either_case(
     cues: tuple[str, ...],
     regexes: tuple[re.Pattern[str], ...] = (),
 ) -> bool:
-    """`_has_cue`, but the regexes see the text as written as well as lowered.
+    """`has_cue`, but the regexes see the text as written as well as lowered.
 
     A few cue regexes mean the SI symbols `V` and `A` and are case-sensitive on
     purpose - "12 V and 3 A" is a circuit, "12 v cards and 3 a piece" is not.
@@ -29,7 +29,7 @@ def _has_cue_either_case(
     )
 
 
-def _has_cue(
+def has_cue(
     lower: str,
     cues: tuple[str, ...],
     regexes: tuple[re.Pattern[str], ...] = (),

@@ -12,13 +12,7 @@ import { render } from "@testing-library/react-native";
 import { MarkdownContent } from "@/components/MarkdownContent";
 
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: "LinkPreviewCard" }));
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-}));
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),

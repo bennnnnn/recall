@@ -1,17 +1,13 @@
 """Tests for app.repositories.usage with mocked AsyncSession."""
 
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
-
-@pytest.fixture
-def fake_session():
-    """Return a mocked AsyncSession."""
-    return AsyncMock(spec=AsyncSession)
+# A fixed day: the date only passes through to the fakes.
+_DAY = date(2026, 10, 16)
 
 
 @pytest.mark.asyncio
@@ -20,7 +16,7 @@ async def test_get_for_date_returns_usage(fake_session):
     from app.repositories.usage import get_for_date
 
     user_id = uuid4()
-    today = date.today()
+    today = _DAY
     mock_usage = MagicMock()
     fake_session.get.return_value = mock_usage
 
@@ -41,7 +37,7 @@ async def test_add_tokens_uses_on_conflict_upsert(fake_session):
     result = await add_tokens(
         fake_session,
         uuid4(),
-        date.today(),
+        _DAY,
         input_tokens=100,
         output_tokens=200,
         est_cost_usd=0.0125,
@@ -62,9 +58,7 @@ async def test_add_tokens_flush_without_commit(fake_session):
 
     fake_session.execute.return_value = MagicMock(**{"one.return_value": (1, 2)})
 
-    await add_tokens(
-        fake_session, uuid4(), date.today(), input_tokens=1, output_tokens=2, commit=False
-    )
+    await add_tokens(fake_session, uuid4(), _DAY, input_tokens=1, output_tokens=2, commit=False)
 
     fake_session.flush.assert_awaited_once()
     fake_session.commit.assert_not_called()
@@ -82,7 +76,7 @@ async def test_get_total_for_date_returns_sum(fake_session):
     mock_result.scalar_one_or_none.return_value = mock_usage
     fake_session.execute.return_value = mock_result
 
-    result = await get_total_for_date(fake_session, uuid4(), date.today())
+    result = await get_total_for_date(fake_session, uuid4(), _DAY)
 
     assert result == 700
 
@@ -96,6 +90,6 @@ async def test_get_total_for_date_returns_zero_when_none(fake_session):
     mock_result.scalar_one_or_none.return_value = None
     fake_session.execute.return_value = mock_result
 
-    result = await get_total_for_date(fake_session, uuid4(), date.today())
+    result = await get_total_for_date(fake_session, uuid4(), _DAY)
 
     assert result == 0

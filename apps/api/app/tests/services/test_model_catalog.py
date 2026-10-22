@@ -300,6 +300,13 @@ def test_routing_lanes_point_at_models_that_can_do_their_job() -> None:
     selectors = model_catalog.tool_selector_aliases()
     assert selectors == lanes.tool_selectors
     assert all(model_catalog.get(alias).supports_tools for alias in selectors)
+    # Background structured calls ask in JSON mode, and the fallback is never a pick.
+    fallback = model_catalog.get(model_catalog.structured_fallback_alias())
+    assert fallback.json_mode
+    assert fallback.id not in selectable
+    for structured in (lanes.background, lanes.word_problems, lanes.math_extract):
+        assert model_catalog.get(structured).json_mode, structured
+    assert model_catalog.get(lanes.titles).context_tokens > 0
 
 
 def test_tool_selectors_drop_a_lane_entry_that_cannot_call_tools(

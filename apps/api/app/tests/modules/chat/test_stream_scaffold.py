@@ -168,6 +168,6 @@ async def test_live_tokens_carry_no_scaffolding_while_finalize_still_reads_it(
     assert statuses == [("composing", None)]
     call = finalize.await_args
     assert call is not None
-    saved = call.args[2]
+    saved = call.kwargs["assistant_text"]
     assert "VERIFIED" not in saved
     assert "function_call" not in saved

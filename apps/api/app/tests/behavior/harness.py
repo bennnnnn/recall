@@ -24,10 +24,11 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
-from app.modules.billing import plan as plan_service
 from app.modules.chat import prompt_constants as pc
 from app.modules.chat import prompt_memory
 from app.modules.chat.json_output import JSON_OUTPUT_HINT
+from app.modules.chat.model_routing import choice as model_choice
+from app.modules.chat.model_routing.route import last_user_turn
 from app.modules.chat.prompt_constants.coding import (
     CODE_DEBUG_HINT,
     CODE_EXPLAIN_HINT,
@@ -53,10 +54,10 @@ from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
-from app.services.routing import last_user_turn
 from app.services.subject_solving import detect_subject
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
+from app.tests.fakes import fake_session
 
 EMOJI_RULE = "Do not decorate with emoji unless the user used them."
 
@@ -188,7 +189,7 @@ def battery_settings() -> Settings:
         math_tools_enabled=True,
         # Coverage, not speed: a busy CI machine must not turn a 0.7s solve
         # into an unanswered turn at the production 5s limit.
-        math_solve_timeout_seconds=30.0,
+        stem_solve_timeout_seconds=30.0,
         chemistry_enabled=True,
         mcp_tool_loop_enabled=True,
         attachments_enabled=False,
@@ -200,7 +201,7 @@ def battery_settings() -> Settings:
 
 class _Session:
     async def __aenter__(self) -> AsyncMock:
-        return AsyncMock()
+        return fake_session()
 
     async def __aexit__(self, *_args: object) -> None:
         return None
@@ -269,7 +270,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     last_assistant = next((row for row in reversed(rows) if row.role == "assistant"), None)
     text = case.prompt
     prior_user, prior_model = last_user_turn(rows)
-    model = plan_service.resolve_user_model(
+    model = model_choice.resolve_user_model(
         user,
         text,
         settings,
@@ -316,9 +317,12 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
 
         stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
-        stub("app.repositories.messages.list_recent", AsyncMock(return_value=list(rows)))
-        stub("app.repositories.messages.get_last_assistant", AsyncMock(return_value=last_assistant))
-        stub("app.modules.memory.list_for_user", AsyncMock(return_value=[]))
+        stub("app.modules.chat.messages_repository.list_recent", AsyncMock(return_value=list(rows)))
+        stub(
+            "app.modules.chat.messages_repository.get_last_assistant",
+            AsyncMock(return_value=last_assistant),
+        )
+        stub("app.modules.memory.repository.list_for_user", AsyncMock(return_value=[]))
         stub("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
         stub("app.modules.billing.plan.chat_fallback_models", lambda *_a, **_k: [])
         stub("app.modules.web_search.search_cache.run_cached_search", run_search)

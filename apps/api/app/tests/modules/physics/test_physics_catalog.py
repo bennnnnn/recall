@@ -24,7 +24,7 @@ from app.modules.physics.solvers import (
     thermal,
     waves,
 )
-from app.modules.physics.solvers.common import PhysicsResult
+from app.modules.physics.solvers.results import PhysicsResult
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,

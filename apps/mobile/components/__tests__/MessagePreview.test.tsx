@@ -4,12 +4,6 @@ import { render } from "@testing-library/react-native";
 import { MessagePreview } from "@/components/rich/MessagePreview";
 import { lightTheme } from "@/lib/theme";
 
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-}));
 jest.mock("react-native-svg", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
   return {
@@ -27,9 +21,6 @@ jest.mock("react-native-svg", () => {
     Mask: View,
   };
 });
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 
 describe("MessagePreview", () => {
   it("renders draft copy on a white card, not a brand-blue bubble", async () => {

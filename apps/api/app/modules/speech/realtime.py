@@ -315,8 +315,8 @@ async def execute_realtime_tool(
     user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> dict:
+    from app.modules.chat import history as chat_history
     from app.modules.speech.live_talk_tools import execute_tool
-    from app.repositories import chats as chats_repo
 
     if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:
         raise SpeechRefusedError("Not available", status_code=404, code="not_available")
@@ -332,7 +332,7 @@ async def execute_realtime_tool(
     ):
         raise SpeechRefusedError("Voice lookups are temporarily rate limited", status_code=429)
     async with SessionLocal() as session:
-        if await chats_repo.get_by_id(session, body.chat_id, user.id) is None:
+        if await chat_history.get_chat(session, body.chat_id, user.id) is None:
             raise SpeechRefusedError("Chat not found", status_code=404)
     return await execute_tool(
         settings,

@@ -96,9 +96,6 @@ jest.mock("@/features/attachments/model/attachments", () => ({
   },
 }));
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
 }));
@@ -335,7 +332,6 @@ describe("MathEquationScanner", () => {
     expect(view.queryByTestId("math-scanner-preview")).toBeNull();
   });
 });
-
 
 describe("imported math scanner photos", () => {
   beforeEach(() => {

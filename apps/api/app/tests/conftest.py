@@ -1,10 +1,12 @@
 import os
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import fakeredis.aioredis
 import pytest
+from hypothesis import settings as hypothesis_settings
 
 # Match local `.env.example` — Settings.environment defaults to production
 # (fail-closed). Tests that construct Settings() without an env file need this.
@@ -36,6 +38,24 @@ os.environ["WEB_SEARCH_FALLBACK_ENABLED"] = "false"
 # the environment wins: RECALL_STRICT_DECLINES=0 runs the suite with production's declines.
 _STRICT_DECLINES_ASKED = "RECALL_STRICT_DECLINES" in os.environ
 os.environ.setdefault("RECALL_STRICT_DECLINES", "1")
+
+# Hypothesis explores new examples on every local run. CI sets HYPOTHESIS_PROFILE=ci:
+# the same examples every run, so an unrelated change never turns a property red
+# (code-health audit TEST-08); a failure found locally is pinned with @example.
+hypothesis_settings.register_profile("ci", derandomize=True, database=None)
+hypothesis_settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
+
+# Helper modules under app/tests (fakes, chat_test_support, the sweeps) get pytest's assert
+# messages as test files and conftests do. This works only before any of them is imported:
+# a helper a test imports first would otherwise run with plain asserts.
+_TESTS = Path(__file__).parent
+pytest.register_assert_rewrite(
+    *(
+        ".".join(path.relative_to(_TESTS.parents[1]).with_suffix("").parts)
+        for path in _TESTS.rglob("*.py")
+        if not path.name.startswith("test_") and path.name not in {"conftest.py", "__init__.py"}
+    )
+)
 
 # Before any test module imports the app (and with it SymPy's names): a reading or a SymPy
 # call made on the event loop by production code fails the test (app/tests/loop_guard.py).
@@ -142,6 +162,15 @@ def _no_network(monkeypatch):
     monkeypatch.setattr("ddgs.DDGS", _NoDuckDuckGo)
 
 
+@pytest.fixture(name="fake_session")
+def fake_session_fixture():
+    """An ``AsyncSession`` over empty tables, specced so ``add`` stays synchronous
+    (``app.tests.fakes.fake_session``; code-health audit TEST-07)."""
+    from app.tests import fakes  # after loop_guard.install(): fakes imports the app
+
+    return fakes.fake_session()
+
+
 @pytest.fixture
 async def fake_redis(_hermetic_redis):
     """A client on the test's in-memory server: what the app's own clients see."""
@@ -157,6 +186,29 @@ def production_declines(monkeypatch):
         monkeypatch.setenv("RECALL_STRICT_DECLINES", "0")
 
 
+@pytest.fixture(autouse=True)
+def _tool_registry_restored():
+    """A test that fills or clears the model's tool registry leaves it as it found it,
+    so the suite passes in any order (code-health audit TEST-10)."""
+    from app.gateways.mcp import registry
+
+    before = registry.list_adapters()
+    yield
+    registry.clear()
+    for adapter in before:
+        registry.register(adapter)
+
+
+@pytest.fixture(autouse=True)
+def _model_health_verdicts_forgotten():
+    """Each test reads model health for itself. A verdict an earlier test cached (3 s)
+    skipped the read, so a test that handed the turn a bare ``AsyncMock()`` Redis passed
+    or failed by the suite's order and speed: locally green, red in CI."""
+    from app.services import model_health
+
+    model_health.forget_verdicts()
+
+
 @pytest.fixture
 def quota_clock():
     """The UTC day the daily counters see, 2026-10-16 until a test sets ``.day``.
@@ -164,8 +216,10 @@ def quota_clock():
     A provider fake that sets ``quota_clock.day = quota_clock.next_day`` makes
     its request run past UTC midnight.
     """
+    from app.services.quota import counters
+
     clock = SimpleNamespace(day=date(2026, 10, 16), next_day=date(2026, 10, 17))
-    with patch("app.services.quota.counters.utc_today", side_effect=lambda: clock.day):
+    with patch.object(counters, "clock", lambda: clock.day):
         yield clock
 
 

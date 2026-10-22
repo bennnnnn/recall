@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.modules.math import school as math_school
 from app.modules.math.match.coordinate_vector import literal_math_tuples
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.text_match import word_index
 
 _ANGLE_BETWEEN_VECTORS = re.compile(
@@ -141,12 +141,12 @@ def _verified_block_vector(
     lines.append(f"{intent.school_op}: {answer}")
     working = _vector_working(intent)
     if working is None:
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
 
     from app.services.workout import math_line
 
     lines.append(f"Working: ${working}$")
     return replace(
-        _finish_with_answer(lines, answer),
+        finish_with_answer(lines, answer),
         worked_reply=f"{math_line(working)}\n\n```answer\n{answer}\n```\n",
     )

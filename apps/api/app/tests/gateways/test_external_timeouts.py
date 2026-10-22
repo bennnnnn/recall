@@ -66,6 +66,9 @@ class _RecordingSession:
         self._status = status
         self._delay = delay
 
+    def close(self) -> None:
+        """``google.auth``'s ``Request`` closes its session when it is collected."""
+
     def request(self, method: str, url: str, **kwargs: Any) -> Any:
         self.timeouts.append(kwargs.get("timeout"))
         if self._delay:

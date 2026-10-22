@@ -16,6 +16,8 @@ from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.modules.billing import plan as plan_service
+from app.modules.chat import chats_repository as chats_repo
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.turn_prep.augment import Augmentation, gather_and_inject
 from app.modules.chat.turn_prep.followups import (
@@ -39,8 +41,6 @@ from app.modules.chat.turn_prep.request import (
     resolve_client_geo,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
 from app.services import model_health as model_health_service
 from app.services import time_context as time_context_service

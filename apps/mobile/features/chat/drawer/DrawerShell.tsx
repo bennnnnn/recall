@@ -137,7 +137,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
 
   // The builder runs in render, but its callbacks run on touch events; React's compiler
   // cannot tell them apart, so it reads their ref use as a render read.
-  /* eslint-disable react-hooks/refs */
+  /* eslint-disable react-hooks/refs -- the gesture callbacks read refs on touch, not in render */
   const pan = useMemo(
     () =>
       Gesture.Pan()

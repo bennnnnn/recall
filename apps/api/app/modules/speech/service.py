@@ -83,7 +83,7 @@ def resolve_tts_model(settings: Settings, *, alias: str | None = None) -> str:
     if chosen == TTS_FAST_ALIAS:
         return openrouter_slug(TTS_FAST_ALIAS)
     raw = (settings.speech_tts_model or openrouter_slug(TTS_QUALITY_ALIAS)).strip()
-    if raw.removeprefix("openai/").startswith("gpt-4o-mini-tts"):
+    if speech_gateway.can_speak_with(raw):
         return raw
     return openrouter_slug(TTS_QUALITY_ALIAS)
 
@@ -118,7 +118,7 @@ async def transcribe_audio(
         return None
 
     model = (settings.speech_transcription_model or openrouter_slug(_STT_ALIAS)).strip()
-    if model.removeprefix("openai/") not in {"gpt-4o-mini-transcribe", "gpt-4o-transcribe"}:
+    if not speech_gateway.can_transcribe_with(model):
         model = openrouter_slug(_STT_ALIAS)
     text = await speech_gateway.transcribe_via_openai(
         settings,

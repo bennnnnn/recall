@@ -386,12 +386,12 @@ async def _build_verified_block_async(
             mt._build_verified_block,
             intent,
             settings,
-            timeout=settings.math_solve_timeout_seconds,
+            timeout=settings.stem_solve_timeout_seconds,
         )
     except TimeoutError:
         logger.warning(
             "math_tools solve timed out after %ss for kind=%s",
-            settings.math_solve_timeout_seconds,
+            settings.stem_solve_timeout_seconds,
             intent.kind,
         )
         return None

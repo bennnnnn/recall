@@ -9,31 +9,21 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Memory
-from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.models.schemas.common import MemoryType
-from app.modules.memory import embedding_text_hash
 from app.modules.memory.extraction_workflow import extract_and_store_memories, extract_history_chat
+from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
+from app.modules.memory.text import embedding_text_hash
 from app.modules.memory.writes_repository import MemoryFactWrite
+from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 
 _CANDIDATE = "I like using Vim every day at work."
 
 
-class _FakeSessionCM:
-    def __init__(self, session: AsyncMock) -> None:
-        self._session = session
-
-    async def __aenter__(self) -> AsyncMock:
-        return self._session
-
-    async def __aexit__(self, *args: object) -> None:
-        return None
-
-
-def _extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSessionCM]]:
+def _extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[FakeSessionCM]]:
     session = AsyncMock()
     session.commit = AsyncMock()
-    return session, [_FakeSessionCM(session) for _ in range(count)]
+    return session, [FakeSessionCM(session) for _ in range(count)]
 
 
 def _ops(*ops: MemoryFactOp) -> MemoryFactUpdateResult:
@@ -69,12 +59,12 @@ def embedding_write():
 def _memory_extract_backlog_noop():
     with (
         patch(
-            "app.modules.memory.extract_backlog.messages_repo.list_user_contents_since",
+            "app.modules.memory.extract_backlog.chat_history.user_lines_since",
             AsyncMock(return_value=[]),
         ),
         patch(
             "app.modules.memory.extract_backlog.get_redis_client",
-            MagicMock(return_value=AsyncMock(get=AsyncMock(return_value=None))),
+            MagicMock(return_value=redis_mock(get=None)),
         ),
     ):
         yield
@@ -98,7 +88,7 @@ def _memory_write_lock_always_free(request: pytest.FixtureRequest):
 @contextmanager
 def _extract_patches(
     *,
-    session_locals: list[_FakeSessionCM],
+    session_locals: list[FakeSessionCM],
     extraction: MemoryFactUpdateResult | None,
     apply: AsyncMock,
     listed: list | None = None,
@@ -114,10 +104,12 @@ def _extract_patches(
                 AsyncMock(return_value=user or _user()),
             )
         )
+        # A saved fact row has every column the snapshot reads.
+        rows = [SimpleNamespace(**{"last_confirmed_at": None, **vars(row)}) for row in listed or []]
         stack.enter_context(
             patch(
                 "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
-                AsyncMock(return_value=listed or []),
+                AsyncMock(return_value=rows),
             )
         )
         stack.enter_context(
@@ -711,7 +703,7 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
             AsyncMock(return_value=extraction),
         ),
         patch("app.modules.memory.extraction_workflow.memories_repo.apply_writes", apply_writes),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
         patch(EMBED_MANY, embed_each(AsyncMock(return_value=vector))),
     ):
         await extract_and_store_memories(
@@ -769,14 +761,13 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
     consolidation_session.commit = AsyncMock()
 
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
         patch(
             "app.modules.memory.extraction_workflow.SessionLocal",
-            side_effect=lambda: _FakeSessionCM(extraction_session),
+            side_effect=lambda: FakeSessionCM(extraction_session),
         ),
         patch(
             "app.modules.memory.consolidation_workflow.SessionLocal",
-            side_effect=lambda: _FakeSessionCM(consolidation_session),
+            side_effect=lambda: FakeSessionCM(consolidation_session),
         ),
         patch(
             "app.modules.memory.extraction_workflow.users_repo.get_by_id",
@@ -796,7 +787,7 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
         ),
         patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply),
         patch("app.modules.memory.consolidation_workflow.apply_memory_facts", apply),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
     ):
         await asyncio.gather(
             extract_and_store_memories(
@@ -918,7 +909,7 @@ def _history_patches(stack: ExitStack, *, lines: list[str], revise: AsyncMock, a
     )
     stack.enter_context(
         patch(
-            "app.modules.memory.extract_backlog.messages_repo.list_user_contents_since",
+            "app.modules.memory.extract_backlog.chat_history.user_lines_since",
             read_lines,
         )
     )

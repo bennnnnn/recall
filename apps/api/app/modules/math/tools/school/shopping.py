@@ -13,7 +13,7 @@ from dataclasses import replace
 from decimal import Decimal
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.number_text import count_word_pattern, number_word_value
 from app.services.workout import Workout, math_line, render_workout
 
@@ -124,4 +124,4 @@ def change_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | No
         ),
         answer,
     )
-    return replace(_finish_with_answer(lines, answer), worked_reply=worked)
+    return replace(finish_with_answer(lines, answer), worked_reply=worked)

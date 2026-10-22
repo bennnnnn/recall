@@ -17,6 +17,12 @@ from app.modules.math.tools.block.algebra import (
     _verified_block_numerical_method,
     _verified_block_system,
 )
+from app.modules.math.tools.block.answer_text import (
+    _format_equation_answer as _format_equation_answer,
+)
+from app.modules.math.tools.block.answer_text import (
+    _format_system_answer as _format_system_answer,
+)
 from app.modules.math.tools.block.calculus import _verified_block_calculus
 from app.modules.math.tools.block.canonical import (
     _answer_canonical as _answer_canonical,
@@ -25,13 +31,7 @@ from app.modules.math.tools.block.canonical import (
     _diagram_block as _diagram_block,
 )
 from app.modules.math.tools.block.canonical import (
-    _finish_with_answer as _finish_with_answer,
-)
-from app.modules.math.tools.block.common import (
-    _format_equation_answer as _format_equation_answer,
-)
-from app.modules.math.tools.block.common import (
-    _format_system_answer as _format_system_answer,
+    finish_with_answer as finish_with_answer,
 )
 from app.modules.math.tools.block.discrete import (
     _verified_block_combinatorics,

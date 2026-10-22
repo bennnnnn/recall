@@ -14,7 +14,7 @@ from typing import Any
 
 from app.modules.math.function_names import variable_letters
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.number_text import FRACTION_OR_DECIMAL as _NUMBER
 from app.services.workout import Workout, math_line, render_workout
 
@@ -219,7 +219,7 @@ def _parse(expr: str, variable: str) -> tuple[Any, Any] | None:
 
     symbol = Symbol(variable, real=True)
     try:
-        parsed = math_solve._parse_expression(expr, [variable], real=True)
+        parsed = math_solve.parse_expression(expr, [variable], real=True)
     except (SolveServiceError, SyntaxError, TypeError, ValueError):
         return None
     if isinstance(parsed, tuple) or parsed.free_symbols - {symbol}:
@@ -300,7 +300,7 @@ def _finish(
 
     name = "normal" if intent.school_op == "normal_line" else "tangent"
     lines.extend(steps)
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     working = render_workout(
         Workout(
             given=(
@@ -376,7 +376,7 @@ def _stationary_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock
             found.append(rf"\left({latex(point)}, {latex(y_value)}\right)\ \text{{{nature}}}")
         answer = r",\; ".join(found)
     lines.extend(steps)
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     working = render_workout(
         Workout(
             given=(math_line(f"y = {latex(curve)}"),),
@@ -392,7 +392,7 @@ def _workout_block(
     lines: list[str], answer: str, given: tuple[str, ...], find: str, rows: list[str]
 ) -> VerifiedMathBlock:
     lines.extend(rows)
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     working = render_workout(Workout(given=given, find=(find,), steps=tuple(rows)), answer)
     return replace(block, worked_reply=working)
 

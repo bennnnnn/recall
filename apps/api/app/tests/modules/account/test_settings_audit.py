@@ -7,12 +7,12 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.core.deps import get_redis
-from app.tests.test_routers import _app_with_user, _fake_user
+from app.tests.api_support import api_user, app_with_user
 
 
 def test_me_includes_sign_in_provider():
-    user = _fake_user(google_sub="google-abc")
-    client = TestClient(_app_with_user(user))
+    user = api_user(google_sub="google-abc")
+    client = TestClient(app_with_user(user))
     r = client.get("/auth/me", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
     assert r.json()["sign_in_provider"] == "google"
@@ -20,26 +20,26 @@ def test_me_includes_sign_in_provider():
 
 
 def test_me_dev_sign_in_provider():
-    user = _fake_user(google_sub="dev:dev@recall.local")
-    client = TestClient(_app_with_user(user))
+    user = api_user(google_sub="dev:dev@recall.local")
+    client = TestClient(app_with_user(user))
     r = client.get("/auth/me", headers={"Authorization": "Bearer tok"})
     assert r.json()["sign_in_provider"] == "dev"
 
 
 def test_me_apple_sign_in_provider():
-    user = _fake_user(google_sub=None, apple_sub="apple.sub")
-    client = TestClient(_app_with_user(user))
+    user = api_user(google_sub=None, apple_sub="apple.sub")
+    client = TestClient(app_with_user(user))
     r = client.get("/auth/me", headers={"Authorization": "Bearer tok"})
     assert r.json()["sign_in_provider"] == "apple"
 
 
 def test_patch_quiet_hours():
-    user = _fake_user()
-    updated = _fake_user()
+    user = api_user()
+    updated = api_user()
     updated.quiet_hours_enabled = True
     updated.quiet_hours_start_minute = 1320
     updated.quiet_hours_end_minute = 420
-    app = _app_with_user(user)
+    app = app_with_user(user)
     with patch(
         "app.modules.account.lifecycle.users_repo.update",
         AsyncMock(return_value=updated),
@@ -59,8 +59,8 @@ def test_patch_quiet_hours():
 
 
 def test_archive_all_chats():
-    user = _fake_user()
-    app = _app_with_user(user)
+    user = api_user()
+    app = app_with_user(user)
     with patch(
         "app.modules.chat.api.chats_service.archive_all_chats",
         AsyncMock(return_value=3),
@@ -72,8 +72,8 @@ def test_archive_all_chats():
 
 
 def test_delete_all_chats():
-    user = _fake_user()
-    app = _app_with_user(user)
+    user = api_user()
+    app = app_with_user(user)
     with patch(
         "app.modules.chat.api.chats_service.delete_all_chats",
         AsyncMock(return_value=2),
@@ -85,10 +85,10 @@ def test_delete_all_chats():
 
 
 def test_delete_all_memories():
-    user = _fake_user()
-    app = _app_with_user(user)
+    user = api_user()
+    app = app_with_user(user)
     with patch(
-        "app.modules.memory.api.memory_service.delete_all_memories",
+        "app.modules.memory.crud.delete_all_memories",
         AsyncMock(return_value=5),
     ) as clear:
         client = TestClient(app)
@@ -98,8 +98,8 @@ def test_delete_all_memories():
 
 
 def test_list_sessions():
-    user = _fake_user()
-    app = _app_with_user(user)
+    user = api_user()
+    app = app_with_user(user)
     app.dependency_overrides[get_redis] = lambda: AsyncMock()
     rows = [
         {
@@ -123,8 +123,8 @@ def test_list_sessions():
 
 
 def test_revoke_current_session_rejected():
-    user = _fake_user()
-    app = _app_with_user(user)
+    user = api_user()
+    app = app_with_user(user)
     app.dependency_overrides[get_redis] = lambda: AsyncMock()
     from app.modules.account.tokens import CurrentSessionError
 
@@ -144,8 +144,8 @@ def test_revoke_current_session_rejected():
 
 
 def test_logout_all():
-    user = _fake_user()
-    app = _app_with_user(user)
+    user = api_user()
+    app = app_with_user(user)
     app.dependency_overrides[get_redis] = lambda: AsyncMock()
     with (
         patch(
@@ -164,9 +164,9 @@ def test_logout_all():
 
 
 def test_patch_tone_keeps_stored_ids():
-    user = _fake_user()
-    updated = _fake_user(response_tone="funny")
-    app = _app_with_user(user)
+    user = api_user()
+    updated = api_user(response_tone="funny")
+    app = app_with_user(user)
     with patch(
         "app.modules.account.lifecycle.users_repo.update",
         AsyncMock(return_value=updated),

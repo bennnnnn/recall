@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -16,6 +16,7 @@ from sqlalchemy.types import DateTime, TypeDecorator
 from app.models.orm import TodoItem
 from app.modules.todos import api as todos_router
 from app.modules.todos import crud
+from app.tests.api_support import api_user, app_with_user
 
 
 class _UTCDateTime(TypeDecorator):
@@ -314,3 +315,375 @@ async def test_page_answers_an_unchanged_list_with_304(page_sql, page_client):
     )
     assert changed.status_code == 200
     assert changed.headers["etag"] != etag
+
+
+_DUE_AT = "2026-08-30T18:00:00Z"
+
+# ── todos router ────────────────────────────────────────────────────────────
+
+
+def test_create_todo():
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Test todo"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.sort_order = None
+    todo_mock.chat_id = None
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+
+    user = api_user()
+    app = app_with_user(user)
+    with (
+        patch("app.modules.todos.crud.todos_repo.create", AsyncMock(return_value=todo_mock)),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "Test todo", "due_at": _DUE_AT},
+        )
+    assert r.status_code == 201
+    assert r.json()["content"] == "Test todo"
+
+
+def test_create_todo_with_chat_id():
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    cid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "From chat"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.sort_order = None
+    todo_mock.chat_id = cid
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+
+    user = api_user()
+    app = app_with_user(user)
+    # The router now verifies chat ownership before linking a todo to it
+    # (cross-user FK guard). Mock the chat lookup so the owned-chat path
+    # reaches todo creation.
+    chat_mock = MagicMock()
+    chat_mock.id = cid
+    chat_mock.user_id = user.id
+    with (
+        patch("app.modules.todos.crud.todos_repo.create", AsyncMock(return_value=todo_mock)),
+        patch("app.modules.todos.crud.chat_history.get_chat", AsyncMock(return_value=chat_mock)),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "From chat", "chat_id": str(cid), "due_at": _DUE_AT},
+        )
+    assert r.status_code == 201
+
+
+def test_create_todo_empty_content_fails():
+    from fastapi.testclient import TestClient
+
+    user = api_user()
+    app = app_with_user(user)
+    client = TestClient(app)
+    r = client.post(
+        "/todos",
+        headers={"Authorization": "Bearer tok"},
+        json={"content": ""},
+    )
+    assert r.status_code == 422
+
+
+def test_create_todo_with_other_users_chat_id_rejected():
+    from fastapi.testclient import TestClient
+
+    cid = uuid4()
+    user = api_user()
+    app = app_with_user(user)
+    # chats_repo.get_by_id returns None → the chat doesn't belong to this user
+    # (or doesn't exist). The cross-user FK guard must reject with 400 rather
+    # than silently linking the todo to a foreign chat.
+    with patch("app.modules.todos.crud.chat_history.get_chat", AsyncMock(return_value=None)):
+        client = TestClient(app)
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "x", "chat_id": str(cid), "due_at": _DUE_AT},
+        )
+    assert r.status_code == 400
+    assert "Chat not found" in r.json()["detail"]["message"]
+
+
+def test_create_todo_with_unowned_chat_id_404s():
+    from fastapi.testclient import TestClient
+
+    user = api_user()
+    app = app_with_user(user)
+    with patch("app.modules.todos.crud.chat_history.get_chat", AsyncMock(return_value=None)):
+        client = TestClient(app)
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "x", "chat_id": str(uuid4()), "due_at": _DUE_AT},
+        )
+    assert r.status_code == 400
+
+
+def test_update_todo():
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Updated"
+    todo_mock.topic = "General"
+    todo_mock.checked = True
+    todo_mock.due_at = None
+    todo_mock.chat_id = None
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+
+    user = api_user()
+    app = app_with_user(user)
+    with (
+        patch("app.modules.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.modules.todos.crud.todos_repo.update", AsyncMock(return_value=todo_mock)),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            f"/todos/{tid}",
+            headers={"Authorization": "Bearer tok"},
+            json={"checked": True},
+        )
+    assert r.status_code == 200
+    assert r.json()["checked"] is True
+
+
+def test_update_todo_not_found():
+    from fastapi.testclient import TestClient
+
+    user = api_user()
+    app = app_with_user(user)
+    with patch("app.modules.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=None)):
+        client = TestClient(app)
+        r = client.patch(
+            f"/todos/{uuid4()}",
+            headers={"Authorization": "Bearer tok"},
+            json={"checked": True},
+        )
+    assert r.status_code == 404
+
+
+def test_delete_todo():
+    from fastapi.testclient import TestClient
+
+    user = api_user()
+    app = app_with_user(user)
+    with patch("app.modules.todos.crud.todos_repo.delete_by_id", AsyncMock(return_value=True)):
+        client = TestClient(app)
+        r = client.delete(
+            f"/todos/{uuid4()}",
+            headers={"Authorization": "Bearer tok"},
+        )
+    assert r.status_code == 204
+
+
+def test_delete_todo_not_found():
+    from fastapi.testclient import TestClient
+
+    user = api_user()
+    app = app_with_user(user)
+    with patch("app.modules.todos.crud.todos_repo.delete_by_id", AsyncMock(return_value=False)):
+        client = TestClient(app)
+        r = client.delete(
+            f"/todos/{uuid4()}",
+            headers={"Authorization": "Bearer tok"},
+        )
+    assert r.status_code == 404
+
+
+# ── todos router: due_at normalization ─────────────────────────────────────
+
+
+def test_create_todo_normalizes_naive_due_at_to_user_timezone():
+    """A naive due_at from the client must be interpreted in the user's
+    timezone, not server time. Without normalization, a naive "9am" is
+    stored as 9am UTC and reminders fire at the wrong wall-clock hour for
+    any user not on UTC.
+    """
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Test"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.sort_order = None
+    todo_mock.chat_id = None
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+
+    # User in America/New_York (UTC-5 in EST).
+    user = api_user(timezone="America/New_York")
+    app = app_with_user(user)
+    create_mock = AsyncMock(return_value=todo_mock)
+    with (
+        patch("app.modules.todos.crud.todos_repo.create", create_mock),
+    ):
+        client = TestClient(app)
+        # Naive 9:00 — should be interpreted as 9:00 America/New_York -> 14:00 UTC.
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "Test", "due_at": "2025-01-15T09:00:00"},
+        )
+    assert r.status_code == 201
+    # The repo must receive a tz-aware UTC datetime.
+    due_at = create_mock.await_args.kwargs["due_at"]
+    assert due_at is not None
+    assert due_at.tzinfo is not None
+    # 9:00 EST (UTC-5) = 14:00 UTC.
+    assert due_at.hour == 14
+
+
+def test_create_todo_accepts_plain_undated_item():
+    """A plain To-do is valid without a date."""
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Test"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.recurrence_rule = None
+    todo_mock.sort_order = None
+    todo_mock.chat_id = None
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+    user = api_user()
+    app = app_with_user(user)
+    create_mock = AsyncMock(return_value=todo_mock)
+    with (
+        patch("app.modules.todos.crud.todos_repo.create", create_mock),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "Test"},
+        )
+    assert r.status_code == 201
+    assert create_mock.await_args.kwargs["due_at"] is None
+    assert create_mock.await_args.kwargs["topic"] == "General"
+
+
+def test_update_todo_can_clear_due_at_and_repeat():
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Test"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = now
+    todo_mock.recurrence_rule = "weekly"
+    todo_mock.sort_order = None
+    todo_mock.chat_id = None
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+
+    user = api_user()
+    app = app_with_user(user)
+    updated_mock = MagicMock()
+    updated_mock.id = tid
+    updated_mock.content = "Test"
+    updated_mock.topic = "General"
+    updated_mock.checked = False
+    updated_mock.due_at = None
+    updated_mock.recurrence_rule = None
+    updated_mock.sort_order = None
+    updated_mock.chat_id = None
+    updated_mock.created_at = now
+    updated_mock.updated_at = now
+    update_mock = AsyncMock(return_value=updated_mock)
+    with (
+        patch("app.modules.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.modules.todos.crud.todos_repo.update", update_mock),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            f"/todos/{tid}",
+            headers={"Authorization": "Bearer tok"},
+            json={"due_at": None},
+        )
+    assert r.status_code == 200
+    assert update_mock.await_args.kwargs["due_at"] is None
+    assert update_mock.await_args.kwargs["recurrence_rule"] is None
+
+
+def test_update_todo_normalizes_naive_due_at():
+    """PATCH /todos/{id} must also normalize a naive due_at to the user's timezone."""
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Updated"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.chat_id = None
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+
+    user = api_user(timezone="Asia/Tokyo")  # UTC+9
+    app = app_with_user(user)
+    update_mock = AsyncMock(return_value=todo_mock)
+    with (
+        patch("app.modules.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.modules.todos.crud.todos_repo.update", update_mock),
+    ):
+        client = TestClient(app)
+        # Naive 9:00 — should be interpreted as 9:00 Asia/Tokyo -> 0:00 UTC.
+        r = client.patch(
+            f"/todos/{tid}",
+            headers={"Authorization": "Bearer tok"},
+            json={"due_at": "2025-01-15T09:00:00"},
+        )
+    assert r.status_code == 200
+    due_at = update_mock.await_args.kwargs["due_at"]
+    assert due_at is not None
+    assert due_at.tzinfo is not None
+    # 9:00 JST (UTC+9) = 0:00 UTC.
+    assert due_at.hour == 0
+
+
+def test_projects_routes_are_gone():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    assert client.get("/projects").status_code == 404
+    assert client.post("/projects", json={"title": "Spanish"}).status_code == 404

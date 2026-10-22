@@ -8,16 +8,16 @@ import pytest
 
 from app.core.access_tokens import create_access_token
 from app.core.config import Settings
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError
 from app.modules.account import tokens as tokens_service
 
 
 @pytest.mark.asyncio
 async def test_issue_and_refresh_token_pair(fake_redis):
     settings = Settings(jwt_secret="x" * 32)
-    from app.tests.test_routers import _fake_user
+    from app.tests.api_support import api_user
 
-    user = _fake_user()
+    user = api_user()
     session = AsyncMock()
     access, refresh = await tokens_service.issue_token_pair(fake_redis, user.id, settings)
 
@@ -36,7 +36,7 @@ async def test_refresh_rejects_unknown_token(fake_redis):
     settings = Settings(jwt_secret="x" * 32)
     session = AsyncMock()
 
-    with pytest.raises(GoogleAuthError):
+    with pytest.raises(AuthenticationError):
         await tokens_service.refresh_token_pair(
             fake_redis, "not-a-real-refresh-token", session, settings
         )
@@ -50,7 +50,7 @@ async def test_revoke_access_token_blocks_verify(fake_redis):
     await tokens_service.verify_access_token(fake_redis, token, settings)
 
     await tokens_service.revoke_access_token(fake_redis, token, settings)
-    with pytest.raises(GoogleAuthError, match="revoked"):
+    with pytest.raises(AuthenticationError, match="revoked"):
         await tokens_service.verify_access_token(fake_redis, token, settings)
 
 
@@ -69,9 +69,9 @@ async def test_reused_refresh_token_revokes_every_session(fake_redis):
     signal: it must kill every refresh token for that user, not just fail
     the one request."""
     settings = Settings(jwt_secret="x" * 32)
-    from app.tests.test_routers import _fake_user
+    from app.tests.api_support import api_user
 
-    user = _fake_user()
+    user = api_user()
     session = AsyncMock()
 
     _access1, refresh1 = await tokens_service.issue_token_pair(fake_redis, user.id, settings)
@@ -84,7 +84,7 @@ async def test_reused_refresh_token_revokes_every_session(fake_redis):
         assert await fake_redis.get(f"refresh:{refresh2}") is not None
 
         # Attacker (or a delayed retry) replays the now-superseded refresh1.
-        with pytest.raises(GoogleAuthError):
+        with pytest.raises(AuthenticationError):
             await tokens_service.refresh_token_pair(fake_redis, refresh1, session, settings)
 
     # The legitimate device's rotated-to token is dead too — the whole
@@ -99,9 +99,9 @@ async def test_revoked_since_blocks_existing_access_tokens(fake_redis):
     """An access token issued before a detected-reuse event must stop
     verifying, even though it hasn't naturally expired yet."""
     settings = Settings(jwt_secret="x" * 32)
-    from app.tests.test_routers import _fake_user
+    from app.tests.api_support import api_user
 
-    user = _fake_user()
+    user = api_user()
     session = AsyncMock()
 
     access_before_reuse = create_access_token(user.id, settings)
@@ -112,10 +112,10 @@ async def test_revoked_since_blocks_existing_access_tokens(fake_redis):
         _access2, _refresh2, _ = await tokens_service.refresh_token_pair(
             fake_redis, refresh1, session, settings
         )
-        with pytest.raises(GoogleAuthError):
+        with pytest.raises(AuthenticationError):
             await tokens_service.refresh_token_pair(fake_redis, refresh1, session, settings)
 
-    with pytest.raises(GoogleAuthError, match="revoked"):
+    with pytest.raises(AuthenticationError, match="revoked"):
         await tokens_service.verify_access_token(fake_redis, access_before_reuse, settings)
 
 
@@ -126,7 +126,7 @@ async def test_first_time_unknown_refresh_token_does_not_trigger_revocation(fake
     settings = Settings(jwt_secret="x" * 32)
     session = AsyncMock()
 
-    with pytest.raises(GoogleAuthError):
+    with pytest.raises(AuthenticationError):
         await tokens_service.refresh_token_pair(fake_redis, "never-issued-token", session, settings)
 
     # No user to revoke since the token was never associated with one — the
@@ -231,9 +231,9 @@ async def test_sign_in_drops_sessions_whose_refresh_token_expired(fake_redis):
 @pytest.mark.asyncio
 async def test_issue_stores_a_json_session_that_refreshes(fake_redis):
     settings = Settings(jwt_secret="x" * 32)
-    from app.tests.test_routers import _fake_user
+    from app.tests.api_support import api_user
 
-    user = _fake_user()
+    user = api_user()
     session = AsyncMock()
     access, refresh = await tokens_service.issue_token_pair(
         fake_redis, user.id, settings, device_label="Pixel 8", platform="android"
@@ -277,7 +277,7 @@ async def test_refreshing_an_unreadable_record_signs_that_device_out(fake_redis)
     await fake_redis.set("refresh:old", str(user_id))
     await fake_redis.sadd(f"refresh_user:{user_id}", "old")
 
-    with pytest.raises(GoogleAuthError):
+    with pytest.raises(AuthenticationError):
         await tokens_service.refresh_token_pair(fake_redis, "old", AsyncMock(), settings)
 
     assert await fake_redis.exists("refresh:old") == 0
@@ -327,7 +327,7 @@ async def test_revoke_session_signs_that_device_out_now(fake_redis):
         fake_redis, user_id, lost, current_session_id=current, settings=settings
     )
 
-    with pytest.raises(GoogleAuthError):
+    with pytest.raises(AuthenticationError):
         await tokens_service.verify_access_token(fake_redis, lost_phone, settings)
     assert await tokens_service.verify_access_token(fake_redis, mine, settings) == user_id
     ttl = await fake_redis.ttl(f"revoked:sid:{lost}")

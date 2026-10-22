@@ -25,11 +25,13 @@ from app.modules.attachments.workflow import AttachmentWorkflowError
 from app.modules.chat.service import ChatsError
 from app.modules.images.generation import ImageGenerationError
 from app.modules.images.search import ImageSearchError
+from app.modules.memory.crud import MemoryEmptyTextError
 from app.modules.memory.instruct import MemoryInstructionFailedError, MemoryOffError
-from app.modules.memory.surface import MemoryEmptyTextError, MemoryWriteLockBusyError
+from app.modules.memory.locks import MemoryWriteLockBusyError
 from app.modules.speech.gates import SpeechRefusedError
 from app.modules.todos.crud import TodosError
 from app.modules.todos.proposals import ProposalError
+from app.repositories.keyset import InvalidCursorError
 from app.services.scan_read import ScanRefusedError
 
 # (refusal, status, code) for every subclass.
@@ -50,6 +52,7 @@ CASES: list[tuple[DomainError, int, str]] = [
     (ScanRefusedError("Image too large", status_code=413, code="image_too_large"), 413, "image_too_large"),
     (ConsentRefusedError(), 403, "consent_required"),
     (AccountExistsError("apple"), 409, "account_exists"),
+    (InvalidCursorError(), 422, "invalid_cursor"),
 ]  # fmt: skip
 
 

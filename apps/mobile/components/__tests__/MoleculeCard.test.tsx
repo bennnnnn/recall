@@ -22,10 +22,6 @@ jest.mock("@/lib/theme", () => {
   return { ...actual, useTheme: () => actual.lightTheme };
 });
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 const VALID_SDF = `Ethanol
      RDKit          3D
 

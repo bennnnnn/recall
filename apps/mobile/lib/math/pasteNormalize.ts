@@ -1,7 +1,7 @@
 /**
  * Best-effort Unicode math → LaTeX for composer pastes.
  * Glyph set is the client counterpart of `_UNICODE_OP_SUBS` in
- * `apps/api/app/services/math_service/parse.py`.
+ * `apps/api/app/modules/math/solve/unicode_normalize.py`.
  */
 
 import { nativeEditRange } from "@/lib/math/composerChange";

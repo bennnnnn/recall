@@ -16,10 +16,9 @@ EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts"
 MAX_RECEIPTS_PER_REQUEST = 100
 EXPO_TIMEOUT_SECONDS = 15.0
-# BUG FIX (was fleet-wide token wipe): only DeviceNotRegistered proves this
-# token is dead. InvalidCredentials means our own APNs/FCM push credentials
-# are misconfigured — every send would return it, so treating it like a dead
-# token would mass-delete every user's token on the next cycle.
+# Only DeviceNotRegistered proves a token is dead. InvalidCredentials means our own
+# APNs/FCM credentials are misconfigured: every send returns it, so reading it as a
+# dead token would delete every user's token on the next cycle.
 _INVALID_TOKEN_ERRORS = frozenset({"DeviceNotRegistered"})
 _CREDENTIALS_ERROR = "InvalidCredentials"
 
@@ -37,9 +36,7 @@ def _invalid_token_from_error(details: object) -> str | None:
     if not isinstance(details, dict):
         return None
     err = details.get("error", "")
-    if err not in _INVALID_TOKEN_ERRORS:
-        return None
-    return err
+    return err if isinstance(err, str) and err in _INVALID_TOKEN_ERRORS else None
 
 
 def _error_code(details: object) -> str | None:

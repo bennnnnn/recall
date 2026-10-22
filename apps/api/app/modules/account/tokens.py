@@ -27,8 +27,7 @@ from app.core.access_tokens import revoked_session_key as _revoked_session_key
 from app.core.access_tokens import revoked_since_key as _revoked_since_key
 from app.core.access_tokens import verify_access_token as verify_access_token
 from app.core.config import Settings
-from app.exceptions import RedisUnavailableError
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.schemas import UserOut
 from app.repositories import users as users_repo
 
@@ -216,7 +215,7 @@ async def _reject_invalid_refresh(redis: Redis, refresh_token: str, settings: Se
             "Refresh token reuse detected for user_id=%s — revoking all sessions", user_id
         )
         await _revoke_all_refresh_tokens(redis, user_id, settings)
-    raise GoogleAuthError("Invalid refresh token")
+    raise AuthenticationError("Invalid refresh token")
 
 
 async def refresh_token_pair(
@@ -236,7 +235,7 @@ async def refresh_token_pair(
         record = parse_refresh_record(user_id_raw)
         if record is None:
             await revoke_refresh_token(redis, refresh_token)
-            raise GoogleAuthError("Invalid refresh token")
+            raise AuthenticationError("Invalid refresh token")
         user_id = UUID(str(record["user_id"]))
 
         # Finish fallible DB reads / response validation before consuming the
@@ -244,7 +243,7 @@ async def refresh_token_pair(
         user = await users_repo.get_by_id(session, user_id)
         if user is None:
             await revoke_refresh_token(redis, refresh_token)
-            raise GoogleAuthError("User not found")
+            raise AuthenticationError("User not found")
         user_out = UserOut.model_validate(user)
         session_id = str(record["session_id"])
         created_raw = record.get("created_at")
@@ -352,11 +351,11 @@ async def revoke_refresh_token(redis: Redis, refresh_token: str | None) -> None:
         raise RedisUnavailableError() from exc
 
 
-class SessionNotFoundError(GoogleAuthError):
+class SessionNotFoundError(AuthenticationError):
     """The requested refresh session is not in the live set."""
 
 
-class CurrentSessionError(GoogleAuthError):
+class CurrentSessionError(AuthenticationError):
     """Caller tried to revoke the session they are currently using."""
 
 

@@ -25,9 +25,6 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => mockFeedback,
 }));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/lib/apple-auth", () => ({
   formatAppleSignInError: jest.fn(),

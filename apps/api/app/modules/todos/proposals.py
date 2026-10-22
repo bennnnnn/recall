@@ -28,7 +28,6 @@ from app.modules.todos import repository as todos_repo
 from app.modules.todos.models import TodoItem
 from app.modules.todos.recurrence import next_recurring_due
 from app.modules.todos.write_log import PlannedWrite
-from app.repositories import messages as messages_repo
 from app.services.md_fence_scan import map_fence_blocks, strip_closed_fences
 
 logger = logging.getLogger(__name__)
@@ -267,14 +266,16 @@ def mark_saved(content: str, proposal_id: str) -> str:
 
 
 async def _mark_saved_in_chat(session: AsyncSession, chat_id: UUID, proposal_id: str) -> None:
-    messages = await messages_repo.list_recent(session, chat_id, limit=_MESSAGE_SCAN_LIMIT)
-    for message in messages:
-        if message.role != "assistant" or proposal_id not in (message.content or ""):
-            continue
-        updated = mark_saved(message.content, proposal_id)
-        if updated != message.content:
-            await messages_repo.update_content(session, message, updated)
-        return
+    # Here, not at the top: chat's service loads the stream's modules, which read to-dos.
+    from app.modules.chat import service as chat_service
+
+    await chat_service.edit_recent_reply(
+        session,
+        chat_id,
+        containing=proposal_id,
+        edit=lambda content: mark_saved(content, proposal_id),
+        scan=_MESSAGE_SCAN_LIMIT,
+    )
 
 
 async def confirm_proposal(
@@ -335,7 +336,7 @@ def strip_cards(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", strip_closed_fences(text, FENCE_LANG)).strip()
 
 
-def cards_as_text(content: str) -> str:
+def reminder_cards_as_text(content: str) -> str:
     """A past reply's cards as the app's result lines, for the model's history.
 
     The model never sees card JSON it could copy. A card not yet tapped says so:

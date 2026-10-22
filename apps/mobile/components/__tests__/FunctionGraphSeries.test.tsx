@@ -10,9 +10,6 @@ const mockPolyline = jest.fn((_props: Record<string, unknown>) => null);
 jest.mock("@/lib/colorScheme", () => ({
   useResolvedColorScheme: () => mockScheme,
 }));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
 jest.mock("@/lib/skiaAvailability", () => ({ isSkiaAvailable: () => false }));
 jest.mock("react-native-svg", () => ({
   ...jest.requireActual("react-native-svg"),

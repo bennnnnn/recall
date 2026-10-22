@@ -7,12 +7,6 @@ const mockListChats = jest.fn();
 const mockDeleteChat = jest.fn();
 const mockDestructive = jest.fn();
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ bottom: 0 }),
-}));
 jest.mock("expo-router", () => {
   const React = jest.requireActual<typeof import("react")>("react");
   return {

@@ -14,7 +14,7 @@ import pytest
 
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS
+from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS
 from app.services.units import get_unit_registry
 from app.tests.modules.physics.support import extract_physics_intent
 
@@ -77,7 +77,7 @@ def test_unit_checks_read_dimensions_from_the_catalog() -> None:
     for spec in CATALOG.values():
         for variable in spec.variables:
             dimension = "dimensionless" if variable.dimensionless else variable.dimension
-            assert _PARAM_SI_DIMENSIONS[variable.name] == dimension
+            assert PARAM_SI_DIMENSIONS[variable.name] == dimension
 
 
 @pytest.mark.parametrize("text", _solved_questions())

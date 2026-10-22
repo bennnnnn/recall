@@ -14,6 +14,7 @@ import json
 import logging
 import re
 
+from app.modules.physics.part_answers import land_part_cards
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.services.answer_check import asks_without_answering, correction_line, stated_verdict
 from app.services.answer_fence import ANSWER_FENCE_LANGS, land_answer_card
@@ -23,7 +24,6 @@ from app.services.md_fence_scan import (
     iter_fences,
     strip_closed_fences,
 )
-from app.services.part_answers import land_part_cards
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.workout import as_formula_heading
 

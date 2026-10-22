@@ -18,10 +18,12 @@ from app.core import user_cache
 from app.core.config import Settings
 from app.core.validation import LOCALE_NAMES
 from app.exceptions import DomainError
+from app.models import model_catalog
 from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.account.settings_intent import SettingsChange, SettingsField
 from app.modules.billing import plan as plan_service
+from app.modules.memory.switch import memory_switch_on
 from app.repositories import users as users_repo
 from app.services.response_tone import TONE_IDS
 
@@ -29,13 +31,6 @@ logger = logging.getLogger(__name__)
 
 PROPOSAL_TTL_SECONDS = 900
 _APPEARANCE_VALUES = frozenset({"light", "dark", "system"})
-_MODEL_LABELS = {
-    "auto": "Auto",
-    "free-chat": "Flash",
-    "smart-chat": "Pro",
-    "gpt-6-luna": "GPT-6 Luna",
-    "qwen-3.7-flash": "Qwen3.7 Flash",
-}
 _TONE_LABELS = {
     "funny": "Funny",
     "professional": "Professional",
@@ -85,11 +80,18 @@ def _proposal_key(user_id: UUID, proposal_id: str) -> str:
     return f"settings:proposal:{user_id}:{proposal_id}"
 
 
+def _model_label(value: str) -> str:
+    """The name Settings → Models shows for the model: the catalog's label."""
+    if value == plan_service.AUTO_ALIAS:
+        return "Auto"
+    return model_catalog.get(value).label if value in model_catalog.known_ids() else value
+
+
 def change_label(field: SettingsField, value: str) -> str:
     if field == "appearance":
         return _APPEARANCE_LABELS.get(value, value)
     if field == "default_model":
-        return _MODEL_LABELS.get(value, value)
+        return _model_label(value)
     if field == "response_tone":
         return _TONE_LABELS.get(value, value)
     if field == "locale":
@@ -170,7 +172,7 @@ def validate_changes(
                 apply.append(change)
             continue
         if change.field == "memory" and change.value in _MEMORY_LABELS:
-            if change.value == "off" and not user.memory_enabled:
+            if change.value == "off" and not memory_switch_on(user):
                 already.append(change)
             else:
                 apply.append(change)

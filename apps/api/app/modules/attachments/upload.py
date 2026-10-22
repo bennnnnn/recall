@@ -11,14 +11,15 @@ from app.core.redis import get_redis_client
 from app.exceptions import DomainError
 from app.gateways.storage_gateway import UnconfiguredStorageGateway, get_storage_gateway
 from app.models.orm import User
-from app.models.schemas import AttachmentPresignOut
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import MAX_ATTACHMENT_SIZE
 from app.modules.attachments.content_types import (
     is_allowed_content_type,
     normalize_content_type,
 )
+from app.modules.attachments.models import ORIGINAL_FILENAME_MAX_CHARS
 from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
+from app.modules.attachments.schemas import AttachmentPresignOut
 from app.services.quota import counters
 
 
@@ -27,13 +28,13 @@ class AttachmentUploadError(DomainError):
 
 
 def sanitize_original_filename(name: str | None) -> str | None:
-    """Basename only, max 255. Reject empty / traversal names."""
+    """Basename only, cut to the column's width. Reject empty / traversal names."""
     if name is None:
         return None
     base = name.strip().replace("\\", "/").rsplit("/", 1)[-1].strip()
     if not base or base in (".", ".."):
         return None
-    return base[:255]
+    return base[:ORIGINAL_FILENAME_MAX_CHARS]
 
 
 async def create_presigned_upload(

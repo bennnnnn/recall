@@ -36,6 +36,7 @@ from app.modules.account import lifecycle as account_lifecycle
 from app.modules.attachments import jobs as attachment_indexing
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.chat import compaction, lesson_progress
+from app.modules.chat import titles as chat_titles
 from app.modules.memory import consolidation_workflow as memory_consolidation
 from app.modules.memory import extraction_workflow as memory_extraction
 from app.modules.memory import history_scan as memory_history_scan
@@ -43,7 +44,6 @@ from app.modules.memory import learning_progress as memory_learning
 from app.modules.notifications import transactional_email as transactional_email_service
 from app.repositories import users as users_repo
 from app.services import quota as quota_service
-from app.services import topic as topic_service
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,7 @@ def _unless_spend_capped(handler: _Handler) -> _Handler:
 
 @_unless_spend_capped
 async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
-    applied = await topic_service.generate_chat_title(
+    applied = await chat_titles.generate_chat_title(
         settings,
         UUID(payload["chat_id"]),
         payload.get("user_message", ""),

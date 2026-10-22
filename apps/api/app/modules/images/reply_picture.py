@@ -20,7 +20,7 @@ from uuid import UUID
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import User
-from app.modules.attachments import service as attachments_repo
+from app.modules.attachments import service as attachments_service
 from app.modules.images import generation
 from app.services import quota as quota_service
 
@@ -54,7 +54,7 @@ async def draw_unlinked(settings: Settings, *, user: User, chat_id: UUID, prompt
     )
     written = generation._WrittenBytes(gateway)
     async with generation._ReservedQuota(redis, user, settings, undo=written.delete_all):
-        image = await generation._generate_and_store(
+        stored = await generation._generate_and_store(
             settings,
             written,
             user_id=user.id,
@@ -64,24 +64,19 @@ async def draw_unlinked(settings: Settings, *, user: User, chat_id: UUID, prompt
             copy_references=False,
         )
         async with SessionLocal() as session:
-            await attachments_repo.create_pending(
+            await attachments_service.add_server_images(
                 session,
-                attachment_id=image.attachment_id,
                 user_id=user.id,
-                storage_key=image.storage_key,
-                content_type=image.content_type,
-                size_bytes=image.size_bytes,
+                images=[stored.image],
                 source="generated",
-                original_filename=cleaned.replace("\n", " ")[:255] or None,
-                commit=False,
+                label=cleaned,
             )
-            await attachments_repo.mark_verified(session, image.attachment_id, commit=False)
             await session.commit()
     try:
         await quota_service.record_global_spend(redis, quota_service.IMAGE_GEN_SPEND_USD)
     except Exception:
         logger.exception("record_global_spend failed after a reply picture")
-    return image.attachment_id
+    return stored.image.attachment_id
 
 
 class ReplyPicture:

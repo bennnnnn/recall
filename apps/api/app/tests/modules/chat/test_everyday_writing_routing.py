@@ -217,7 +217,7 @@ def test_a_short_answer_goes_on_with_the_message_asked_for_earlier(text: str) ->
 def test_send_and_write_the_message_are_draft_requests_never_refused() -> None:
     assert writing_request_kind("Send the message asking money") == "message"
     assert writing_request_kind("U can't write the message asking for money?") == "message"
-    assert "never refuse because you cannot send" in COPY_DELIVERABLE_HINT
+    assert "never refuse because you cannot send" in COPY_DELIVERABLE_HINT  # safety phrase
 
 
 def test_a_new_question_in_between_ends_the_draft() -> None:

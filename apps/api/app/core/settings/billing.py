@@ -12,6 +12,8 @@ class BillingSettings(BaseModel):
     billing_reconcile_enabled: bool = True
     billing_reconcile_interval_seconds: int = 3600
     billing_reconcile_batch_size: int = 25
+    # Pause between the cycle's RevenueCat REST calls, to stay inside its rate limit.
+    billing_reconcile_rest_gap_seconds: float = 0.2
     # RevenueCat webhooks require a shared secret. In dev with no secret
     # configured, the webhook is 503 by default; set this true ONLY when
     # testing locally so a missing secret never silently accepts webhooks on

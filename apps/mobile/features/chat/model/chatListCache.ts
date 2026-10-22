@@ -1,6 +1,7 @@
 import { api, type Chat, type ChatList } from "@/lib/api";
+import { getSessionGeneration } from "@/lib/auth";
 import { clearKnownAssistantChats } from "@/features/chat/model/draftLogic";
-import { allChatsFromGroups, emptyChatList } from "@/features/chat/model/listSections";
+import { allChatsFromGroups, appendOlderChats, emptyChatList } from "@/features/chat/model/listSections";
 import {
   SessionResourceCache,
   type FailureReporter,
@@ -67,4 +68,18 @@ export function fetchChatList(
     const data = await api.listChats(token);
     return { ...data, archived: data.archived ?? [] };
   }, opts);
+}
+
+/**
+ * Read the next page of older dated chats into the cached list; null when there is none.
+ * A refresh that landed meanwhile changed the cursor, and the page is dropped.
+ */
+export async function fetchOlderChats(token: string): Promise<ChatList | null> {
+  const cursor = getCachedChatList()?.next_cursor;
+  if (!cursor) return null;
+  const session = getSessionGeneration();
+  const older = await api.listOlderChats(token, cursor);
+  // Another account signed in meanwhile: the page is not theirs.
+  return resource.update(LIST, (current) =>
+    current.next_cursor === cursor ? appendOlderChats(current, older) : current, session) ?? null;
 }

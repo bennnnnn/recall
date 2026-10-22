@@ -19,6 +19,7 @@ import pytest
 
 from app.models.orm import PushToken, TodoItem
 from app.modules.notifications import push as push_service
+from app.modules.todos import advance_recurring_without_device
 from app.repositories import users as users_repo
 from app.services.reminder_timing import OVERDUE_MAX_HOURS
 
@@ -116,6 +117,6 @@ async def test_an_overdue_recurring_reminder_of_a_tokenless_user_moves_on(db_ses
     item = _todo(db_session, tokenless, NOW - timedelta(minutes=5), "Water the plants")
     item.recurrence_rule = "daily"
     await db_session.flush()
-    assert await push_service.advance_tokenless_recurring(db_session, now=NOW) == 1
+    assert await advance_recurring_without_device(db_session, now=NOW) == 1
     await db_session.refresh(item)
     assert item.due_at is not None and item.due_at > NOW

@@ -446,7 +446,7 @@ export function useChatRouteLoader({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload for a new route chat or account, not a rotated token or a recreated callback
   }, [signedIn, session, routeChatId]);
 
   const { highlightedMessageId } = useChatHighlightScroll({

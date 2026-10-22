@@ -7,18 +7,12 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat import messages_repository
 from app.modules.chat.prompt_builder import PromptStats, fetch_subject, inject_subject_block
 from app.modules.chat.turn_deps import ChatTurnDeps, default_deps
 from app.modules.chat.turn_prep import ClientGeoContext, TurnPromptBundle
 from app.services.solving import VerifiedSolveBlock
-
-
-class FakeSessionCM:
-    async def __aenter__(self):
-        return AsyncMock()
-
-    async def __aexit__(self, *args):
-        return False
+from app.tests.fakes import FakeSessionCM
 
 
 class Overlay:
@@ -95,7 +89,6 @@ def offline_session_patches():
         patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.persist.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.vision.SessionLocal", FakeSessionCM),
-        patch("app.modules.chat.turn_settle.SessionLocal", FakeSessionCM),
     )
 
 
@@ -112,7 +105,7 @@ def stream_offline_io():
         stack.enter_context(patch("app.modules.chat.turn_settle.seed_usage_from_db", AsyncMock()))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
-            patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
+            patch.object(messages_repository, "list_recent", AsyncMock(return_value=[]))
         )
         stack.enter_context(
             patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock())

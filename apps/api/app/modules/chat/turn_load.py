@@ -22,6 +22,7 @@ from app.models import model_catalog
 from app.models.orm import Chat, User
 from app.modules.account import consent
 from app.modules.chat.finalize_registry import wait_for_pending_finalize
+from app.modules.chat.model_routing.route import last_user_turn
 from app.modules.chat.prompt_constants import (
     active_lesson_step,
     is_lightweight_chat_turn,
@@ -34,7 +35,6 @@ from app.modules.chat.turn_prep.reading import read_turn_message
 from app.modules.chat.turn_settle import seed_usage_from_db
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import model_health
-from app.services.routing import last_user_turn
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +288,7 @@ async def load_new_turn(
     # after a draft, used to read the messages again in a session of its own.
     turn_mode = classify_turn_mode(recent, content)
     prior_user, prior_model = last_user_turn(recent)
-    model = deps.plan.resolve_user_model_override(
+    model = deps.model_choice.resolve_user_model_override(
         loaded_user,
         model_alias,
         content,
@@ -339,7 +339,7 @@ async def load_regenerate_turn(
     last = recent[-1]
     # A regenerate routes the line on its own (``resolve_regenerate_model``): no prior line.
     await read_turn_message(last_user.content, [], settings)
-    model = deps.plan.resolve_regenerate_model(
+    model = deps.model_choice.resolve_regenerate_model(
         user, model_alias, last_user.content, last.model, settings
     )
     backup: RegenerateBackup | None = None

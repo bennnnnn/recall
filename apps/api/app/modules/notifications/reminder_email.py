@@ -23,7 +23,7 @@ from app.modules.todos import (
     TodoEmailSnapshot,
     due_reminder_page,
     is_due_now,
-    mark_email_sent_if_current,
+    mark_reminder_emailed,
     reminder_page_key,
 )
 from app.services.reminder_timing import reminder_title
@@ -116,7 +116,7 @@ async def _send_one(
         )
         if not ok:
             return 0
-        await mark_email_sent_if_current(session, occurrence, now)
+        await mark_reminder_emailed(session, occurrence, sent_at=now)
         await session.commit()
         return 1
     except Exception:

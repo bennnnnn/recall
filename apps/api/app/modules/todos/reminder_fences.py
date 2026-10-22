@@ -81,6 +81,10 @@ async def materialize_reminder_fences(
     With ``confirm`` the same rules run, but nothing is written: the reply ends
     with a ``reminder_proposal`` card in place of the result lines, and the
     writes wait in Redis for the user's tap. Returns (text, rows written).
+
+    The writes join the caller's session and are never committed or rolled back
+    here: the caller commits them with its own rows (live talk's voice turn) or
+    rolls them back (code-health audit ARCH-07).
     """
     turn = partial(
         _materialize,

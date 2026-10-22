@@ -23,8 +23,10 @@ class MemorySettings(BaseModel):
     # extract cursor.
     memory_extract_every_n_turns: int = 1
     memory_query_embed_cache_ttl: int = 3600
-    # Chat-path live embed budget. Background jobs use background_llm_timeout_seconds.
-    memory_query_embed_timeout_seconds: float = 2.0
+    # Chat-path live embed budget: a slow embedding provider falls back to the
+    # type-priority memory block instead of holding the first token. Background
+    # jobs use background_llm_timeout_seconds.
+    memory_query_embed_timeout_seconds: float = 0.75
     # Minimum cosine similarity for fact/focus/project injection (0 = disabled).
     # profile/preference always inject; 0.35 keeps off-topic sections out.
     memory_min_similarity: float = 0.35

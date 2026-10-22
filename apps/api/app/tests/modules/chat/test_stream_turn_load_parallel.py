@@ -9,6 +9,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat.stream_entry import stream_chat_response
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 
@@ -22,7 +23,7 @@ def _deps(*, load_user, load_chat, list_recent):
         users={"get_by_id": load_user},
         chats={"get_by_id": load_chat},
         messages={"list_recent": list_recent, "count_for_chat": AsyncMock(return_value=0)},
-        plan={"resolve_user_model_override": lambda *_args, **_kwargs: "free-chat"},
+        model_choice={"resolve_user_model_override": lambda *_args, **_kwargs: "free-chat"},
     )
 
 
@@ -96,7 +97,7 @@ async def test_history_load_overlaps_account_and_chat_load() -> None:
             token
             async for token in stream_chat_response(
                 deps,
-                AsyncMock(),
+                redis_mock(),
                 Settings(),
                 user_id=uuid4(),
                 chat_id=chat.id,
@@ -144,7 +145,7 @@ async def test_user_and_chat_ownership_loads_overlap() -> None:
             token
             async for token in stream_chat_response(
                 deps,
-                AsyncMock(),
+                redis_mock(),
                 Settings(),
                 user_id=user_id,
                 chat_id=chat_id,
@@ -196,7 +197,7 @@ async def test_short_reply_loads_the_recent_window(
             token
             async for token in stream_chat_response(
                 deps,
-                AsyncMock(),
+                redis_mock(),
                 Settings(),
                 user_id=user.id,
                 chat_id=chat.id,

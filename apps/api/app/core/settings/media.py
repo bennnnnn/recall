@@ -16,7 +16,8 @@ class MediaSettings(BaseModel):
     # Turn-taking live voice: WebRTC + OpenAI gpt-realtime (not OpenRouter).
     # Its minutes allowance per plan is monthly_live_talk_minutes (plans.py).
     speech_live_talk_enabled: bool = True
-    openai_realtime_model: str = "gpt-realtime-2.1"
+    # Operator override (OpenAI model); empty → catalog alias `live-talk-model`.
+    openai_realtime_model: str = ""
     speech_realtime_voice_enabled: bool = True
     # One session reserves up to this many seconds at mint (the phone hangs up
     # there), and a mint is refused when fewer than the minimum remain.

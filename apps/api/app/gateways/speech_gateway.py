@@ -17,6 +17,10 @@ _OPENAI_SPEECH_URL = "https://api.openai.com/v1/audio/speech"
 _TRANSCRIBE_TIMEOUT = 20.0
 _TTS_TIMEOUT = 60.0
 _DEFAULT_PCM_RATE = 24000
+# The OpenAI audio models this gateway calls. An operator override outside them is not
+# used (``speech.service``), so a stale Gemini or Kokoro name never reaches OpenAI.
+_TRANSCRIBE_MODELS = frozenset({"gpt-4o-mini-transcribe", "gpt-4o-transcribe"})
+_SPEECH_MODEL_FAMILY = "gpt-4o-mini-tts"
 _DEFAULT_PCM_CHANNELS = 1
 _PCM_SAMPLE_WIDTH = 2
 
@@ -30,6 +34,16 @@ _AUDIO_FORMAT_BY_SUFFIX: dict[str, str] = {
     ".caf": "m4a",
     ".3gp": "m4a",
 }
+
+
+def can_transcribe_with(model: str) -> bool:
+    """Whether ``model`` (``openai/`` or bare) is one this gateway transcribes with."""
+    return model.removeprefix("openai/") in _TRANSCRIBE_MODELS
+
+
+def can_speak_with(model: str) -> bool:
+    """Whether ``model`` (``openai/`` or bare) is one this gateway reads aloud with."""
+    return model.removeprefix("openai/").startswith(_SPEECH_MODEL_FAMILY)
 
 
 def audio_format_from_filename(filename: str) -> str:

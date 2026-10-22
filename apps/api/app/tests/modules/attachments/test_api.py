@@ -19,6 +19,7 @@ from app.gateways.storage_gateway import (
 from app.main import create_app
 from app.models.orm import User
 from app.services.quota import counters
+from app.tests.fakes import redis_mock
 
 
 def _fake_user() -> User:
@@ -129,7 +130,7 @@ def test_presign_upload_stores_sanitized_filename():
 def test_presign_upload_returns_503_when_storage_unconfigured():
     user = _fake_user()
     app = _app_with_user(user)
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     fake_redis.incrby = AsyncMock(return_value=1)
     fake_redis.expire = AsyncMock()
 
@@ -286,7 +287,7 @@ def test_cancel_pending_upload_refunds_image_quota():
 
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund_mock = AsyncMock()
 
     with (
@@ -361,7 +362,7 @@ def test_confirm_upload_rejects_spoofed_r2_bytes():
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"not-a-png")
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund_mock = AsyncMock()
 
     with (
@@ -624,7 +625,7 @@ def test_serve_file_rejects_spoofed_r2_bytes():
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"not-a-png")
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund_mock = AsyncMock()
 
     with (
@@ -844,7 +845,7 @@ def test_download_url_rejects_spoofed_r2_bytes():
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"not-a-png")
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund_mock = AsyncMock()
 
     with (
@@ -1172,7 +1173,7 @@ def test_list_attachments_returns_images():
     with (
         patch(
             "app.modules.attachments.workflow.attachments_repo.list_for_gallery",
-            AsyncMock(return_value=([row1, row2], False)),
+            AsyncMock(return_value=([row1, row2], None)),
         ),
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
@@ -1182,7 +1183,7 @@ def test_list_attachments_returns_images():
     assert r.status_code == 200
     body = r.json()
     assert len(body["items"]) == 2
-    assert body["has_more"] is False
+    assert body["next_cursor"] is None
     assert body["items"][0]["source"] == "generated"
     assert body["items"][0]["download_url"] == f"/attachments/{row1.id}/file"
     assert body["items"][1]["source"] == "upload"
@@ -1203,7 +1204,7 @@ def test_list_attachments_includes_chat_id():
     with (
         patch(
             "app.modules.attachments.workflow.attachments_repo.list_for_gallery",
-            AsyncMock(return_value=([row], False)),
+            AsyncMock(return_value=([row], None)),
         ),
         patch(
             "app.modules.attachments.workflow.attachments_repo.chat_meta_for_message_ids",
@@ -1227,7 +1228,7 @@ def test_list_attachments_source_filter():
     row = _attachment_row(source="generated")
     gateway = MagicMock()
     gateway.presign_download = AsyncMock(return_value="url1")
-    mock_list = AsyncMock(return_value=([row], False))
+    mock_list = AsyncMock(return_value=([row], None))
     with (
         patch(
             "app.modules.attachments.workflow.attachments_repo.list_for_gallery",
@@ -1247,6 +1248,31 @@ def test_list_attachments_source_filter():
     assert kwargs.get("source") == "generated"
 
 
+def test_list_attachments_passes_the_cursor_and_returns_the_next():
+    """GET /attachments?cursor=… reads the next page; the answer says where the one after starts."""
+    user = _fake_user()
+    row = _attachment_row(source="upload")
+    mock_list = AsyncMock(return_value=([row], "next-page"))
+    with (
+        patch("app.modules.attachments.workflow.attachments_repo.list_for_gallery", mock_list),
+        patch("app.modules.attachments.workflow.get_storage_gateway", return_value=MagicMock()),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get("/attachments?cursor=this-page", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 200
+    assert r.json()["next_cursor"] == "next-page"
+    assert mock_list.call_args.kwargs["cursor"] == "this-page"
+
+
+def test_list_attachments_refuses_a_cursor_it_did_not_write():
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    r = client.get("/attachments?cursor=not-ours", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 422
+    assert r.json()["detail"]["code"] == "invalid_cursor"
+
+
 def test_list_attachments_rejects_search_source():
     """Lookup photos are chat-only; Library cannot filter to source=search."""
     user = _fake_user()
@@ -1264,7 +1290,7 @@ def test_list_attachments_q_filter():
     row = _attachment_row()
     gateway = MagicMock()
     gateway.presign_download = AsyncMock(return_value="url1")
-    mock_list = AsyncMock(return_value=([row], False))
+    mock_list = AsyncMock(return_value=([row], None))
     with (
         patch(
             "app.modules.attachments.workflow.attachments_repo.list_for_gallery",
@@ -1290,7 +1316,7 @@ def test_list_attachments_category_filter():
     gateway = MagicMock()
     gateway.presign_download = AsyncMock(return_value="url1")
 
-    mock_list = AsyncMock(return_value=([row], False))
+    mock_list = AsyncMock(return_value=([row], None))
     with (
         patch(
             "app.modules.attachments.workflow.attachments_repo.list_for_gallery",
@@ -1320,7 +1346,7 @@ def test_list_attachments_local_backend():
     with (
         patch(
             "app.modules.attachments.workflow.attachments_repo.list_for_gallery",
-            AsyncMock(return_value=([row], False)),
+            AsyncMock(return_value=([row], None)),
         ),
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
@@ -1347,7 +1373,7 @@ def test_list_attachments_omits_local_rows_whose_blob_is_gone():
     with (
         patch(
             "app.modules.attachments.workflow.attachments_repo.list_for_gallery",
-            AsyncMock(return_value=([gone, present], False)),
+            AsyncMock(return_value=([gone, present], None)),
         ),
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch(
@@ -1373,7 +1399,7 @@ def test_list_attachments_empty():
     with (
         patch(
             "app.modules.attachments.workflow.attachments_repo.list_for_gallery",
-            AsyncMock(return_value=([], False)),
+            AsyncMock(return_value=([], None)),
         ),
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
@@ -1382,7 +1408,7 @@ def test_list_attachments_empty():
 
     assert r.status_code == 200
     assert r.json()["items"] == []
-    assert r.json()["has_more"] is False
+    assert r.json()["next_cursor"] is None
 
 
 def test_put_upload_empty_body_purges_row_and_refunds_quota():

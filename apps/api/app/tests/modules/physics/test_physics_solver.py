@@ -14,9 +14,9 @@ from app.modules.physics import block as physics_block
 from app.modules.physics import solver as physics_solver
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.average_speed import solve_average_speed
-from app.modules.physics.solvers.common import PhysicsResult
 from app.modules.physics.solvers.rates import _solve_distance_speed_time
 from app.modules.physics.solvers.relative_motion import solve_relative_motion
+from app.modules.physics.solvers.results import PhysicsResult
 from app.modules.physics.solvers.stopping import _solve_stopping_distance
 from app.modules.physics.solvers.two_stage import solve_two_stage
 

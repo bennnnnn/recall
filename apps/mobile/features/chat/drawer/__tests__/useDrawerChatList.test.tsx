@@ -13,7 +13,7 @@ jest.mock("@/lib/auth", () => ({
   requireTokenSession: jest.fn(),
   SessionChangedError: class SessionChangedError extends Error {},
 }));
-jest.mock("@/lib/api", () => ({ api: { listChats: jest.fn() } }));
+jest.mock("@/lib/api", () => ({ api: { listChats: jest.fn(), listOlderChats: jest.fn() } }));
 // The signed-in account (per session) and its access token, which rotates hourly.
 let mockToken: string | null = "token";
 const mockGetToken = () => mockToken;
@@ -25,7 +25,6 @@ const mockWarn = jest.fn();
 jest.mock("@/lib/reportRecoverableError", () => ({
   reportRecoverableWarning: (_feedback: unknown, message: string) => mockWarn(message),
 }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 const chat = { id: "old", title: "Original", model: "free-chat", pinned: false, updated_at: "2026-01-01T00:00:00Z", created_at: "2026-01-01T00:00:00Z" };
 const initial = { ...emptyChatList(), older: [chat] };
 let current: ReturnType<typeof useDrawerChatList>;
@@ -92,7 +91,6 @@ it("preserves visible history and allows retry after a failed refresh", async ()
   expect(current.error).toBe(false);
 });
 
-
 it.each([
   ["a server error", Object.assign(new Error("Request failed: 500"), { status: 500 }), ["common.error"]],
   ["being offline", new TypeError("Network request failed"), []],
@@ -128,4 +126,31 @@ it("does not paint a resolved response over an edit queued before the hook resum
   });
   expect(current.allChats[0].title).toBe("Newest edit");
   expect(getCachedChatList()).toEqual(current.groups);
+});
+
+
+it("reads older chats once at a time and appends them (CLAR-12)", async () => {
+  (api.listChats as jest.Mock).mockResolvedValueOnce({ ...initial, next_cursor: "after-old" });
+  let finish!: (value: ChatList) => void;
+  (api.listOlderChats as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+  await render(<Probe />);
+  await act(async () => {});
+  expect(current.hasOlderChats).toBe(true);
+  let first!: Promise<void>;
+  await act(async () => { first = current.loadOlderChats(); void current.loadOlderChats(); });
+  expect(api.listOlderChats).toHaveBeenCalledTimes(1);
+  await act(async () => { finish({ ...emptyChatList(), older: [{ ...chat, id: "older", title: "Older" }], next_cursor: null }); await first; });
+  expect(current.allChats.map((row) => row.id)).toEqual(["old", "older"]);
+  expect(current.hasOlderChats).toBe(false);
+});
+
+it("keeps the chats shown and warns when an older page fails", async () => {
+  (api.listChats as jest.Mock).mockResolvedValueOnce({ ...initial, next_cursor: "after-old" });
+  (api.listOlderChats as jest.Mock).mockRejectedValueOnce(Object.assign(new Error("Server error"), { status: 500 }));
+  await render(<Probe />);
+  await act(async () => {});
+  await act(async () => { await current.loadOlderChats(); });
+  expect(current.allChats.map((row) => row.id)).toEqual(["old"]);
+  expect(current.hasOlderChats).toBe(true);
+  expect(mockWarn).toHaveBeenCalledTimes(1);
 });

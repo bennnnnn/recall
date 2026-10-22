@@ -40,13 +40,7 @@ const mockIndexStatus = jest.fn(
 jest.mock("@/features/attachments/hooks/useAttachmentIndexed", () => ({
   useAttachmentIndexed: (attachmentId?: string | null) => mockIndexStatus(attachmentId),
 }));
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-}));
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),

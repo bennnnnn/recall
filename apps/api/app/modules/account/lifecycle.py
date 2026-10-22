@@ -13,8 +13,8 @@ from app.core.config import Settings
 from app.core.jobs import enqueue
 from app.core.redis import get_redis_client
 from app.core.validation import normalize_avatar_url
+from app.exceptions import AuthenticationError
 from app.gateways import apple_revoke
-from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.account import quota_carryover
@@ -22,6 +22,9 @@ from app.modules.account import tokens as tokens_service
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan as plan_service
 from app.modules.chat import service as chats_service
+from app.modules.memory import crud as memory_crud
+from app.modules.suggestions import service as suggestions_service
+from app.modules.todos import service as todos_service
 from app.repositories import push_tokens as push_tokens_repo
 from app.repositories import users as users_repo
 
@@ -51,20 +54,9 @@ async def update_account(
             if avatar_url is None:
                 raise ValueError("Choose an uploaded photo that has finished uploading.")
             attachment_id = UUID(avatar_url.split("/")[2])
-            photo = await attachments_service.get_by_id(
-                session, attachment_id, user.id, for_update=True
-            )
-            if (
-                photo is None
-                or photo.verified_at is None
-                or photo.message_id is not None
-                or photo.source != "upload"
-                or not attachments_service.is_image_content_type(photo.content_type)
-                or not 0 < photo.size_bytes <= attachments_service.MAX_ATTACHMENT_SIZE
-            ):
+            if not await attachments_service.claim_profile_photo(session, attachment_id, user.id):
                 raise ValueError("Choose an uploaded photo that has finished uploading.")
             fields["avatar_url"] = avatar_url
-            await attachments_service.hide_from_gallery(session, photo)
             updated = await users_repo.update(session, user, commit=False, **fields)
             await session.commit()
             await session.refresh(updated)
@@ -139,7 +131,7 @@ async def _session_user(
     if access_token:
         try:
             return await tokens_service.verify_access_token(redis, access_token, settings)
-        except GoogleAuthError:
+        except AuthenticationError:
             pass  # expired: the refresh token still proves the session
     return await tokens_service.refresh_token_user(redis, refresh_token) if refresh_token else None
 
@@ -172,7 +164,7 @@ async def delete_account(
     await attachments_service.purge_attachments_for_user(session, settings, user.id)
     user_id = user.id
     from app.core.user_cache import forget_user
-    from app.repositories.chats import forget_user_chats
+    from app.modules.chat.history import forget_user_chats
 
     try:
         # Keyed by reply id, not user id, so only the rows can find them.
@@ -184,7 +176,7 @@ async def delete_account(
     await quota_carryover.save_on_delete(redis, settings, user)
     forget_user(user_id)
     forget_user_chats(user_id)
-    await users_repo.delete_user(session, user.id)
+    await erase_user_rows(session, user_id)
     # The worker sweeps leftover storage objects and every Redis key that
     # names the user (caches, cards, usage); see purge_user_redis_keys.
     await enqueue(
@@ -206,6 +198,24 @@ async def delete_account(
 _KEEP_AFTER_DELETE_PREFIXES = (REVOKED_SINCE_PREFIX, "jobdone:")
 _PURGE_SCAN_COUNT = 1000
 _PURGE_BATCH = 500
+
+
+async def erase_user_rows(session: AsyncSession, user_id: UUID) -> None:
+    """Every row of the account, the user's own last, and commit.
+
+    Under the user's row lock (memory writers take it first) each module deletes its
+    rows, children before the chats and the user they hang from; ``users_repo`` then
+    deletes the core rows and the user.
+    """
+    await users_repo.lock_for_delete(session, user_id)
+    for delete_rows in (
+        memory_crud.delete_user_rows,
+        todos_service.delete_user_rows,
+        suggestions_service.delete_user_rows,
+        attachments_service.delete_user_rows,
+    ):
+        await delete_rows(session, user_id)
+    await users_repo.delete_user(session, user_id)
 
 
 async def purge_user_redis_keys(redis: Redis, user_id: UUID) -> int:
@@ -236,7 +246,6 @@ async def purge_user_redis_keys(redis: Redis, user_id: UUID) -> int:
 
 
 __all__ = [
-    "GoogleAuthError",
     "SessionPurgeError",
     "delete_account",
     "logout",

@@ -1,5 +1,4 @@
 import {
-  hasMoreDrawerSearchResults,
   isValidDrawerSearchQuery,
   mergeDrawerSearchResults,
 } from "@/features/search/model/drawerSearchLogic";
@@ -10,13 +9,6 @@ it.each([
   ["😀".repeat(200), true], ["😀".repeat(201), false],
 ])("enforces code-point query bounds for %s", (query, valid) => {
   expect(isValidDrawerSearchQuery(query)).toBe(valid);
-});
-
-it("allows the last legal offset and stops when the server has no more or a page is empty", () => {
-  expect(hasMoreDrawerSearchResults(10_000, true, 20)).toBe(true);
-  expect(hasMoreDrawerSearchResults(10_020, true, 20)).toBe(false);
-  expect(hasMoreDrawerSearchResults(3, false, 2)).toBe(false);
-  expect(hasMoreDrawerSearchResults(3, true, 0)).toBe(false);
 });
 
 it("keeps separate title/message hits and updates an overlapping message without duplicating it", () => {

@@ -9,12 +9,6 @@ const mockPickProfilePhoto = jest.fn();
 const mockUploadPhoto = jest.fn();
 let mockUser: Record<string, unknown>;
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
 jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "tok", user: mockUser, updateUser: mockUpdateUser }),

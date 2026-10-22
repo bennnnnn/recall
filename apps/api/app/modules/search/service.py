@@ -15,8 +15,8 @@ async def search_conversations(
     *,
     query: str,
     limit: int = 20,
-    offset: int = 0,
-) -> tuple[list[dict], bool]:
+    cursor: str | None = None,
+) -> tuple[list[dict], str | None]:
     return await search_repo.search_conversations(
-        session, user_id, query=query, limit=limit, offset=offset
+        session, user_id, query=query, limit=limit, cursor=cursor
     )

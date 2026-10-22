@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.modules.chat.prompt_constants.visuals import CHEMISTRY_FENCE_HINT
 from app.modules.chemistry import fence as chemistry_fence
 
 
@@ -59,7 +60,7 @@ def test_enrich_chemistry_alias_fence() -> None:
     result = chemistry_fence.enrich_chemistry_fences(content)
     # Should be normalized to ```smiles
     assert "```smiles" in result
-    assert "```chemistry" not in result
+    assert CHEMISTRY_FENCE_HINT not in result
 
 
 def test_enrich_no_smiles_fences_unchanged() -> None:

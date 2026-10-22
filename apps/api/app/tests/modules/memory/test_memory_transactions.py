@@ -32,7 +32,7 @@ async def test_apply_memory_rows_commits_once_after_repository_writes():
     user_id = uuid4()
 
     with (
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
     ):
         await apply_memory_section_rows(
             Settings(),
@@ -60,7 +60,7 @@ async def test_apply_memory_rows_rolls_back_when_post_write_read_fails():
     invalidate_memory = AsyncMock()
 
     with (
-        patch("app.modules.memory.invalidate_memory_block", invalidate_memory),
+        patch("app.modules.memory.cache.invalidate_memory_block", invalidate_memory),
     ):
         with pytest.raises(RuntimeError, match="reload failed"):
             await apply_memory_section_rows(
@@ -105,7 +105,7 @@ async def test_apply_memory_facts_bounds_embed_concurrency_and_backfill():
 
     with (
         patch("app.gateways.embedding_gateway.embed_text", embed),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
     ):
         await apply_memory_facts(
             Settings(embedding_concurrency=3, memory_embed_backfill_per_pass=4),
@@ -140,7 +140,7 @@ async def test_apply_memory_facts_stamps_a_hand_edit_in_the_same_commit(op, manu
         return _SessionContext(session)
 
     with (
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
     ):
         await apply_memory_facts(
             Settings(),

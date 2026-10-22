@@ -28,7 +28,7 @@ async def test_delete_library_attachment_strips_message_and_does_not_refund():
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.modules.attachments.workflow.messages_repo.get_for_user",
+            "app.modules.attachments.workflow.chat_history.message_for_user",
             AsyncMock(return_value=message),
         ),
         patch(
@@ -82,7 +82,7 @@ async def test_delete_library_attachment_deletes_empty_message():
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.modules.attachments.workflow.messages_repo.get_for_user",
+            "app.modules.attachments.workflow.chat_history.message_for_user",
             AsyncMock(return_value=message),
         ),
         patch(

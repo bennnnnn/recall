@@ -16,19 +16,15 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import Settings, get_settings
-from app.core.db import SessionLocal
+from app.core.config import Settings
 from app.models import model_catalog
-from app.modules.attachments import lifecycle as attachment_lifecycle
-from app.modules.attachments import service as attachments_service
+from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.finalize_registry import clear_pending_finalize
+from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome, TurnUsage
 from app.modules.chat.turn_prep import StreamContext
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
-from app.services.context_window import estimate_tokens
 from app.services.quota import utc_today
 
 logger = logging.getLogger(__name__)
@@ -141,6 +137,7 @@ def _log_turn_cost(ctx: StreamContext, charge: _TurnCharge) -> None:
 
 
 async def _write_reply_rows(
+    deps: ChatTurnDeps,
     session: AsyncSession,
     ctx: StreamContext,
     assistant_text: str,
@@ -156,17 +153,17 @@ async def _write_reply_rows(
     # Replace the prior assistant atomically with the new reply so a
     # crash cannot leave zero assistant messages after regenerate.
     if ctx.regenerate_backup is not None:
-        old = await messages_repo.get_by_id(session, ctx.regenerate_backup.message_id, ctx.chat_id)
+        old = await deps.messages.get_by_id(session, ctx.regenerate_backup.message_id, ctx.chat_id)
         if old is not None:
             # Detach rows in this transaction; delete bytes only after
             # commit so a failed finalize cannot orphan storage keys
             # that still have DB rows (or vice versa).
-            pending_storage_keys = await attachment_lifecycle.detach_attachments_for_messages(
+            pending_storage_keys = await deps.attachments.detach_attachments_for_messages(
                 session, [old.id], commit=False
             )
             await session.delete(old)
 
-    assistant_message = await messages_repo.create(
+    assistant_message = await deps.messages.create(
         session,
         chat_id=ctx.chat_id,
         user_id=ctx.user_id,
@@ -180,7 +177,7 @@ async def _write_reply_rows(
     )
     if ctx.answer_photo_ids:
         # The reply's photo was stored while it streamed; it belongs to this row.
-        await attachments_service.link_to_message(
+        await deps.attachment_links.link_to_message(
             session,
             user_id=ctx.user_id,
             attachment_ids=ctx.answer_photo_ids,
@@ -198,14 +195,14 @@ async def _write_reply_rows(
         outcome.memory_hints = outcome.memory_hints or list(ctx.memory_hints)
         outcome.context_summarized = outcome.context_summarized or ctx.context_summarized
 
-    await chats_repo.touch_by_id(session, ctx.chat_id, commit=False)
+    await deps.chats.touch_by_id(session, ctx.chat_id, commit=False)
 
     # Usage write is NOT swallowed: if the daily aggregate misses this
     # turn, a later Redis eviction re-seeds from the DB total and the
     # user gets free quota. Let the exception propagate so the caller
     # refunds the reservation and the commit never runs (the message
     # insert rolls back with the usage row).
-    await usage_repo.add_tokens(
+    await deps.usage.add_tokens(
         session,
         ctx.user_id,
         utc_today(),
@@ -221,7 +218,7 @@ async def _write_reply_rows(
 
 
 async def _settle_quota(
-    redis: Redis, ctx: StreamContext, settings: Settings, charge: _TurnCharge
+    deps: ChatTurnDeps, redis: Redis, ctx: StreamContext, settings: Settings, charge: _TurnCharge
 ) -> TurnUsage | None:
     """Settle the reservation to the turn's weighted usage, after the reply committed.
 
@@ -234,7 +231,7 @@ async def _settle_quota(
     refund the whole reservation: the reply already persisted.
     """
     daily_limit = (
-        quota_service.daily_limit_for_user(ctx.user, settings) if ctx.user is not None else None
+        deps.quota.daily_limit_for_user(ctx.user, settings) if ctx.user is not None else None
     )
     used = None
     try:
@@ -244,7 +241,7 @@ async def _settle_quota(
         # heal_usage_drift will correct the drift from the DB total.
         for _attempt in range(3):
             try:
-                used = await quota_service.adjust_usage(
+                used = await deps.quota.adjust_usage(
                     redis,
                     str(ctx.user_id),
                     ctx.reserved_tokens,
@@ -263,7 +260,7 @@ async def _settle_quota(
             exc_info=True,
         )
         try:
-            await quota_service.mark_usage_needs_heal(redis, str(ctx.user_id))
+            await deps.quota.mark_usage_needs_heal(redis, str(ctx.user_id))
         except Exception:
             logger.warning(
                 "mark_usage_needs_heal failed after adjust_usage; heal may not run",
@@ -271,7 +268,7 @@ async def _settle_quota(
             )
     if charge.est_cost:
         try:
-            await quota_service.record_global_spend(redis, charge.est_cost)
+            await deps.quota.record_global_spend(redis, charge.est_cost)
         except Exception:
             logger.exception("record_global_spend failed after successful finalize")
     if used is None or daily_limit is None:
@@ -280,7 +277,9 @@ async def _settle_quota(
 
 
 async def finalize_stream_turn_db(
+    deps: ChatTurnDeps,
     redis: Redis,
+    settings: Settings,
     ctx: StreamContext,
     assistant_text: str,
     usage: dict[str, int],
@@ -293,31 +292,30 @@ async def finalize_stream_turn_db(
     """
     charge = _turn_charge(ctx, assistant_text, usage)
     _log_turn_cost(ctx, charge)
-    settings = get_settings()
     pending_storage_keys: list[str] = []
     committed = False
 
     try:
-        async with SessionLocal() as session:
+        async with deps.session_factory() as session:
             pending_storage_keys = await _write_reply_rows(
-                session, ctx, assistant_text, charge, outcome
+                deps, session, ctx, assistant_text, charge, outcome
             )
             # The create flush already supplies the row identity. No refresh
             # is needed after commit: a failed read must not report a saved
             # reply as failed or refund its charged quota.
             await session.commit()
             committed = True
-        day_usage = await _settle_quota(redis, ctx, settings, charge)
+        day_usage = await _settle_quota(deps, redis, ctx, settings, charge)
         if outcome is not None:
             outcome.usage = day_usage
     except Exception:
         logger.exception("Stream-turn finalize failed; refunding reserved quota")
         try:
-            await quota_service.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+            await deps.quota.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
         except Exception:
             logger.exception("refund_usage failed after finalize error")
         raise
     finally:
         await clear_pending_finalize(redis, ctx.chat_id)
         if committed and pending_storage_keys:
-            await attachment_lifecycle.delete_storage_keys(settings, pending_storage_keys)
+            await deps.attachments.delete_storage_keys(settings, pending_storage_keys)

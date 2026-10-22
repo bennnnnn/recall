@@ -12,14 +12,14 @@ from typing import Any
 from sympy import Complement, Eq, FiniteSet, Intersection, S, Symbol, latex, simplify, solveset
 from sympy.calculus.util import continuous_domain, function_range
 
-from app.modules.math.solve import SolveServiceError, _parse_expression
+from app.modules.math.solve import SolveServiceError, parse_expression
 
 
 def _real_expression(expr: str, variable: str):
     if not (expr or "").strip():
         raise SolveServiceError("function expression is required")
     try:
-        parsed = _parse_expression(expr, [variable], real=True)
+        parsed = parse_expression(expr, [variable], real=True)
     except SolveServiceError:
         raise
     except Exception as exc:

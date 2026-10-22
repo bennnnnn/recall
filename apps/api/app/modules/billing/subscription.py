@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,7 +51,7 @@ async def advance_rc_event_watermark(
     await users_repo.update(session, user, rc_last_event_at_ms=event_timestamp_ms)
 
 
-def _plan_from_revenuecat_payload(payload: dict, settings: Settings) -> str:
+def _plan_from_revenuecat_payload(payload: dict[str, Any], settings: Settings) -> str:
     entitlement_ids = (
         settings.revenuecat_entitlement_id,
         settings.revenuecat_plus_entitlement_id,

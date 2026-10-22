@@ -1,4 +1,4 @@
-"""Tests for app.services.routing — pure functions, no I/O needed."""
+"""Tests for chat model routing (``modules/chat/model_routing``): pure functions, no I/O."""
 
 import time
 
@@ -6,13 +6,16 @@ import pytest
 
 from app.core.config import Settings
 from app.models import model_catalog
+from app.modules.billing import plan
 from app.modules.billing import plan as plan_service
-from app.services import routing, routing_physics
-from app.services.routing import (
+from app.modules.chat.model_routing import physics as routing_physics
+from app.modules.chat.model_routing.route import (
     message_needs_thinking,
     resolve_alias_in_pool,
     route_chat_model,
 )
+from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solver import PhysicsResult
 
 
 @pytest.mark.parametrize(
@@ -249,7 +252,7 @@ def test_route_chat_model_does_not_treat_short_text_as_a_lesson_without_state() 
 def test_last_user_turn_returns_newest_user_line() -> None:
     from types import SimpleNamespace
 
-    from app.services.routing import last_user_turn
+    from app.modules.chat.model_routing.route import last_user_turn
 
     recent = [
         SimpleNamespace(role="user", content="debug this algorithm", model="smart-chat"),
@@ -275,7 +278,7 @@ def test_code_fence_detection_is_linear_time_not_quadratic():
     length check well before an adversarial 200k-char input would ever
     reach the fence regex.
     """
-    from app.services.routing import _CODE_FENCE
+    from app.modules.chat.model_routing.route import _CODE_FENCE
 
     # No closing fence anywhere — the worst case for a backtracking engine
     # that overlaps whitespace-skipping with the newline it already matched.
@@ -382,7 +385,7 @@ def test_pick_smart_from_pool_prefers_strongest_not_cheapest() -> None:
     """With several smart models, pick the strongest — not the cheapest
     (smart-chat would win on price)."""
     pool = ["smart-chat", "glm-5.2"]
-    assert routing._pick_smart_from_pool(pool) == "glm-5.2"
+    assert plan.pick_smart_from_pool(pool) == "glm-5.2"
     cheap = model_catalog.price_sort_key(model_catalog.get("smart-chat"))
     dear = model_catalog.price_sort_key(model_catalog.get("glm-5.2"))
     assert cheap < dear
@@ -430,10 +433,10 @@ def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) ->
     calls = 0
     real = physics.solve_physics
 
-    def counting(intent: object) -> object:
+    def counting(intent: PhysicsIntent) -> PhysicsResult:
         nonlocal calls
         calls += 1
-        return real(intent)  # type: ignore[arg-type]
+        return real(intent)
 
     monkeypatch.setattr(physics, "solve_physics", counting)
     routing_physics._physics_solves.cache_clear()

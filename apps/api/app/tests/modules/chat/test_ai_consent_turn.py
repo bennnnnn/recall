@@ -20,6 +20,7 @@ from app.core.config import Settings
 from app.exceptions import ConsentRequiredError
 from app.modules.chat import stream_api, stream_entry, ws_turn
 from app.modules.chat.stream_events import turn_error_payload
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 pytestmark = pytest.mark.usefixtures("consent_enforced")
@@ -65,11 +66,11 @@ def _deps(fakes: dict[str, Any]) -> Any:
 def _turn(kind: str, deps: Any, *, user: MagicMock | None, outcome: Any = None) -> Any:
     if kind == "regenerate":
         return stream_entry.stream_regenerate_response(
-            deps, AsyncMock(), Settings(), user_id=user.id if user else uuid4(), chat_id=uuid4()
+            deps, redis_mock(), Settings(), user_id=user.id if user else uuid4(), chat_id=uuid4()
         )
     return stream_entry.stream_chat_response(
         deps,
-        AsyncMock(),
+        redis_mock(),
         Settings(),
         user_id=user.id if user else uuid4(),
         chat_id=uuid4(),

@@ -12,7 +12,7 @@ type DeviceSessionFields = {
 export function deviceSessionFields(): DeviceSessionFields {
   let platform: string | undefined;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy, so lib tests load this module in Node
     const { Platform } = require("react-native") as typeof import("react-native");
     platform = Platform.OS;
   } catch {
@@ -20,7 +20,7 @@ export function deviceSessionFields(): DeviceSessionFields {
   }
   try {
     const { requireOptionalNativeModule } =
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy, so lib tests load this module in Node
       require("expo-modules-core") as typeof import("expo-modules-core");
     const device = requireOptionalNativeModule<{
       deviceName?: string;

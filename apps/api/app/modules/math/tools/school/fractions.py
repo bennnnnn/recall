@@ -6,7 +6,7 @@ import re
 from dataclasses import replace
 
 from app.modules.math.schemas import FractionWorkSpec, MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school.teaching import _attach_picture
 from app.services.workout import math_line
 
@@ -26,7 +26,7 @@ def _block_fraction(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock |
         mixed = _mixed_number_block(intent, fraction_work, lines)
         if mixed is not None:
             return mixed
-        block = _finish_with_answer(lines, fraction_work.answer)
+        block = finish_with_answer(lines, fraction_work.answer)
         block = replace(block, canonical_fences=[fraction_work.model_dump()])
         bars = fraction_bar_spec(
             fraction_work.operation, fraction_work.operands, fraction_work.answer
@@ -58,5 +58,5 @@ def _mixed_number_block(
     if numerator is not None and denominator is not None and numerator > denominator > 1:
         answer = f"{work.answer} = {mixed_number_tex(numerator, denominator)}"
     lines.append(f"Working: ${working}$")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     return replace(block, worked_reply=f"{math_line(working)}\n\n```answer\n{answer}\n```\n")

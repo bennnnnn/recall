@@ -2,12 +2,6 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import { LiveTalkComposerControls } from "@/features/speech/components/LiveTalkComposerControls";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 describe("LiveTalkComposerControls", () => {
   it("puts mute next to close and turns red when muted", async () => {
     const onMutePress = jest.fn();

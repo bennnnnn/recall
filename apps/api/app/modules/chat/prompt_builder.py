@@ -14,11 +14,11 @@ from app.modules.attachments import service as attachments_service
 from app.modules.chat import history_rag as chat_history_rag_service
 from app.modules.chat.prompt_context import _load_context_blocks
 from app.modules.chat.prompt_format import render_rules
+from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.prompt_memory import (
     is_work_turn,
     memory_saving_paused,
     memory_scope_for,
-    memory_switch_on,
     recalls_shared_past,
 )
 from app.modules.chat.prompt_sections import NEARBY_CONTRACTS, PROMPT_SECTIONS, PromptTurn
@@ -32,8 +32,8 @@ from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.followups import read_prompt_inputs, role_content_dicts
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
+from app.modules.memory.switch import memory_switch_on
 from app.services import time_context as time_context_service
-from app.services.prompt_inject import inject_before_last_user
 from app.services.solving import VerifiedSolveBlock
 from app.services.subject_solving import (
     SubjectName,

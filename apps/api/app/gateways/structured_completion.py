@@ -19,13 +19,7 @@ from app.core.redis import get_redis_client
 from app.core.redis_counters import hincr_with_ttl
 from app.gateways import llm_spend, mock_llm
 from app.gateways.model_output import parse_model_json
-from app.models.schemas import (
-    MEMORY_REPLY_MAX_LENGTH,
-    MemoryFactOp,
-    MemoryFactUpdateResult,
-    MemorySectionItem,
-    MemorySectionUpdateResult,
-)
+from app.models import model_catalog
 
 logger = logging.getLogger(__name__)
 
@@ -70,15 +64,13 @@ def _list_field_name(schema: type[BaseModel]) -> str | None:
 def _fallback_alias(settings: Settings, primary: str) -> str | None:
     """The alias to retry against when the primary background model is down.
 
-    Returns None when mock mode is on, when no fallback is configured, or when
-    the primary IS the fallback (don't retry against itself).
+    Returns None when mock mode is on, or when the primary IS the fallback (don't
+    retry against itself). The alias is a routing lane (``models/routing_lanes.py``).
     """
     if mock_llm.should_mock_llm(settings):
         return None
-    fb = settings.memory_fallback_model_alias.strip()
-    if not fb or fb == primary:
-        return None
-    return fb
+    fallback = model_catalog.structured_fallback_alias()
+    return None if fallback == primary else fallback
 
 
 async def _complete_structured_once[T: BaseModel](
@@ -92,8 +84,7 @@ async def _complete_structured_once[T: BaseModel](
     usage: dict[str, int] | None = None,
 ) -> T | None:
     """One structured attempt. Raises on provider outage; returns None on bad output."""
-    # Resolved at call time: litellm_gateway re-exports this module, and its
-    # provider seams (``acompletion``, ``resolve_route``) are patched there.
+    # Imported at call time: litellm_gateway re-exports this module.
     from app.gateways import litellm_gateway as gateway
 
     route = gateway.resolve_route(model_alias)
@@ -127,52 +118,14 @@ async def _complete_structured_once[T: BaseModel](
     try:
         return schema.model_validate(data)
     except Exception:
-        if schema is MemoryFactUpdateResult and isinstance(data, dict):
-            fact_partial = _parse_memory_facts_partial(data)
-            if fact_partial is not None:
-                return cast(T, fact_partial)
-        if schema is MemorySectionUpdateResult and isinstance(data, dict):
-            section_partial = _parse_memory_sections_partial(data)
-            if section_partial is not None:
-                return cast(T, section_partial)
+        # A schema may keep what validates of a reply that does not, whole.
+        salvage = getattr(schema, "salvage_partial", None)
+        if callable(salvage) and isinstance(data, dict):
+            partial = salvage(data)
+            if partial is not None:
+                return cast(T, partial)
         _invalid_output(model_alias, schema, "schema validation failed")
         return None
-
-
-def _parse_memory_facts_partial(data: dict[str, object]) -> MemoryFactUpdateResult | None:
-    raw_ops = data.get("ops")
-    if not isinstance(raw_ops, list):
-        return None
-    valid: list[MemoryFactOp] = []
-    for item in raw_ops:
-        if not isinstance(item, dict):
-            continue
-        try:
-            valid.append(MemoryFactOp.model_validate(item))
-        except Exception:
-            logger.debug("Skipping invalid memory fact op", exc_info=True)
-    raw_reply = data.get("reply")
-    reply = raw_reply.strip()[:MEMORY_REPLY_MAX_LENGTH] if isinstance(raw_reply, str) else ""
-    if not valid and not reply:
-        return None
-    return MemoryFactUpdateResult(ops=valid, reply=reply)
-
-
-def _parse_memory_sections_partial(data: dict[str, object]) -> MemorySectionUpdateResult | None:
-    raw_sections = data.get("sections")
-    if not isinstance(raw_sections, list):
-        return None
-    valid: list[MemorySectionItem] = []
-    for item in raw_sections:
-        if not isinstance(item, dict):
-            continue
-        try:
-            valid.append(MemorySectionItem.model_validate(item))
-        except Exception:
-            logger.debug("Skipping invalid memory section item", exc_info=True)
-    if not valid:
-        return None
-    return MemorySectionUpdateResult(sections=valid)
 
 
 async def complete_structured[T: BaseModel](

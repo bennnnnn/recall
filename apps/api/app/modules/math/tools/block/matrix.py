@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent, MatrixInput
-from app.modules.math.tools.block.canonical import _finish_with_answer
+from app.modules.math.tools.block.canonical import finish_with_answer
 from app.services.solving import VerifiedMathBlock
 
 
@@ -49,7 +49,7 @@ def _verified_block_matrix(
         answer = f"{result.determinant:g}"
     else:
         return VerifiedMathBlock(text="\n".join(lines))
-    return _finish_with_answer(
+    return finish_with_answer(
         lines,
         answer,
     )

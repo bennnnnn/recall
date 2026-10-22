@@ -4,7 +4,7 @@ from app.core.config import Settings
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY, MATH_TUTORING_HINT
 from app.modules.physics.reply_policy import PHYSICS_INTENT_HINT, PHYSICS_REPLY_POLICY
-from app.services.solving import strip_verified_solve_markers
+from app.services.solving import VERIFIED_MATH_BEGIN, strip_verified_solve_markers
 from app.services.subject_solving import detect_subject
 from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
@@ -30,7 +30,7 @@ def test_physics_prompt_uses_physics_hints() -> None:
     assert MATH_REPLY_POLICY not in hints
     joined = "\n".join(hints)
     assert "Math / algebra" not in joined
-    assert "Math tutoring" not in joined
+    assert MATH_TUTORING_HINT not in joined
     assert "[BEGIN VERIFIED PHYSICS]" in joined
 
 
@@ -40,7 +40,7 @@ def test_verified_physics_block_is_not_wrapped_as_math() -> None:
     block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
     assert block.text.startswith("[BEGIN VERIFIED PHYSICS]")
-    assert "[BEGIN VERIFIED MATH]" not in block.text
+    assert VERIFIED_MATH_BEGIN not in block.text
     stripped = strip_verified_solve_markers(block.text)
     assert "2\\,\\mathrm{s}" in stripped
     assert "[BEGIN VERIFIED PHYSICS]" not in stripped

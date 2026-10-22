@@ -17,12 +17,6 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
   useTheme: () => mockLightTheme,

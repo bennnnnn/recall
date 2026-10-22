@@ -33,7 +33,7 @@ from app.modules.math.schemas import (
 )
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.display import derivative_latex, format_verified_latex
-from app.modules.math.solve.parse import SolveServiceError, _parse_expression
+from app.modules.math.solve.parse import SolveServiceError, parse_expression
 from app.modules.math.solve.root_latex import _expr_equal
 
 # A quadrature whose own error estimate is above _QUADRATURE_TRUST (relative) judges nothing; a
@@ -104,7 +104,7 @@ def differentiate_expression(expr: str, variable: str = "x", order: int = 1) -> 
     if order < 1 or order > 4:
         raise SolveServiceError("unsupported derivative order")
     sym = Symbol(variable)
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     result = diff(parsed, sym, order)
     result_latex = derivative_latex(result)
     if order == 1:
@@ -136,8 +136,8 @@ def differentiate_expression(expr: str, variable: str = "x", order: int = 1) -> 
 def differentiate_at_point(expr: str, variable: str, point: str) -> MathExprResult:
     """Evaluate the two-sided derivative definition at a named real point."""
     sym = Symbol(variable, real=True)
-    parsed = _parse_expression(expr, [variable], real=True)
-    at = _parse_expression(point, [variable], real=True)
+    parsed = parse_expression(expr, [variable], real=True)
+    at = parse_expression(point, [variable], real=True)
     quotient = simplify((parsed - parsed.subs(sym, at)) / (sym - at))
     try:
         left = limit(quotient, sym, at, dir="-")
@@ -185,7 +185,7 @@ def _absolute_logs(antiderivative: Any, integrand: Any, sym: Any) -> Any:
 
 def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     sym = Symbol(variable)
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     result = _absolute_logs(integrate(parsed, sym), parsed, sym)
     # integrate() can fail to find a closed form and hand back a result that
     # still contains an unevaluated Integral(...) rather than raising —
@@ -253,7 +253,7 @@ def integrate_definite(expr: str, variable: str, lower: str, upper: str) -> Math
     oo/-oo/zoo; that is reported as the result rather than raising.
     """
     sym = Symbol(variable)
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     a = _parse_infinity_aware_point(lower)
     b = _parse_infinity_aware_point(upper)
     try:
@@ -274,7 +274,7 @@ def integrate_double(
     upper2: str,
 ) -> MathExprResult:
     """Definite double integral over a named axis-aligned rectangle."""
-    parsed = _parse_expression(expr, [variable, variable2])
+    parsed = parse_expression(expr, [variable, variable2])
     a = _parse_infinity_aware_point(lower)
     b = _parse_infinity_aware_point(upper)
     c = _parse_infinity_aware_point(lower2)
@@ -304,7 +304,7 @@ def integrate_triple(
     upper3: str,
 ) -> MathExprResult:
     """Definite triple integral over a named axis-aligned box."""
-    parsed = _parse_expression(expr, [variable, variable2, variable3])
+    parsed = parse_expression(expr, [variable, variable2, variable3])
     a = _parse_infinity_aware_point(lower)
     b = _parse_infinity_aware_point(upper)
     c = _parse_infinity_aware_point(lower2)
@@ -331,7 +331,7 @@ def _parse_infinity_aware_point(raw: str) -> Any:
     """Limit/series bounds routinely use "infinity"/"inf"/"oo" (with an
     optional leading "-") instead of a plain number — map those directly to
     sympy's oo/-oo rather than routing the bare word through
-    _parse_expression, which would reject it as an unrecognized symbol name.
+    parse_expression, which would reject it as an unrecognized symbol name.
     Anything else still goes through the same safety-checked expression
     parser as every other numeric input in this module."""
     s = raw.strip().lower()
@@ -339,7 +339,7 @@ def _parse_infinity_aware_point(raw: str) -> Any:
     core = s[1:].strip() if negative else s
     if core in _INFINITY_WORDS:
         return -oo if negative else oo
-    return _parse_expression(raw)
+    return parse_expression(raw)
 
 
 def _is_limit_value(value: Any) -> bool:
@@ -361,7 +361,7 @@ def compute_limit(expr: str, variable: str, point: str, direction: str = "+-") -
     # Real assumptions are required for piecewise/absolute-value behavior:
     # without them SymPy cannot decide lim |x|/x at 0.
     sym = Symbol(variable, real=True)
-    parsed = _parse_expression(expr, [variable], real=True)
+    parsed = parse_expression(expr, [variable], real=True)
     point_val = _parse_infinity_aware_point(point)
     try:
         result = limit(parsed, sym, point_val, dir=direction)
@@ -396,7 +396,7 @@ def compute_limit(expr: str, variable: str, point: str, direction: str = "+-") -
 
 def evaluate_series_sum(expr: str, variable: str, start: str, end: str) -> MathSeriesResult:
     sym = Symbol(variable)
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     start_val = _parse_infinity_aware_point(start)
     end_val = _parse_infinity_aware_point(end)
     series = Sum(parsed, (sym, start_val, end_val))

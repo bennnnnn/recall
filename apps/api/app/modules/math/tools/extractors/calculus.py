@@ -27,7 +27,7 @@ from app.modules.math.tools.function_def import peel_function_definition
 from app.modules.math.tools.request_text import (
     _calc_expr_tail,
     _strip_series_prefix,
-    _strip_trailing_filler,
+    strip_trailing_filler,
 )
 
 _WRT_VARIABLE = re.compile(r"\b(?:with\s+respect\s+to|wrt)\s+([a-zA-Z])\b", re.IGNORECASE)
@@ -126,7 +126,7 @@ def _extract_critical_points_intent(cleaned: str) -> MathIntent | None:
     if expr is None:
         of_at = low.find(" of ")
         if of_at != -1:
-            expr = math_expr_or_none(_strip_trailing_filler(cleaned[of_at + 4 :]))
+            expr = math_expr_or_none(strip_trailing_filler(cleaned[of_at + 4 :]))
     return MathIntent(
         kind="calculus",
         expr=expr or "",
@@ -197,8 +197,8 @@ def _extract_identity_intent(cleaned: str) -> MathIntent | None:
         if idx != -1:
             lhs_raw = lhs_raw[idx + len(cue) :]
             break
-    lhs = math_expr_or_none(_normalize_latex_expr(_strip_trailing_filler(lhs_raw)))
-    rhs = math_expr_or_none(_normalize_latex_expr(_strip_trailing_filler(rhs_raw)))
+    lhs = math_expr_or_none(_normalize_latex_expr(strip_trailing_filler(lhs_raw)))
+    rhs = math_expr_or_none(_normalize_latex_expr(strip_trailing_filler(rhs_raw)))
     return MathIntent(
         kind="calculus",
         operation="simplify",
@@ -303,9 +303,9 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         if if_at != -1:
             tail = cleaned[if_at + 4 :]
     raw = (
-        _strip_trailing_filler(leading_bounds[0])
+        strip_trailing_filler(leading_bounds[0])
         if leading_bounds is not None
-        else (_strip_trailing_filler(tail) if tail is not None else cleaned)
+        else (strip_trailing_filler(tail) if tail is not None else cleaned)
     )
     evaluation_point: str | None = None
     if calc_op == "differentiate":
@@ -389,7 +389,7 @@ def _extract_limit_intent(cleaned: str) -> MathIntent | None:
     limit_hit = mtm.parse_limit(cleaned)
     if limit_hit is None:
         return None
-    expr = _normalize_latex_expr(_strip_trailing_filler(limit_hit.expr)).replace("^", "**")
+    expr = _normalize_latex_expr(strip_trailing_filler(limit_hit.expr)).replace("^", "**")
     limit_point = limit_hit.point.lstrip("\\")
     guarded = math_expr_or_none(expr)
     if guarded is None:
@@ -441,7 +441,7 @@ def _extract_series_intent(cleaned: str) -> MathIntent | None:
     if series_hit is None:
         return None
     expr = _normalize_latex_expr(
-        _strip_series_prefix(_strip_trailing_filler(series_hit.expr))
+        _strip_series_prefix(strip_trailing_filler(series_hit.expr))
     ).replace("^", "**")
     end = series_hit.end.lstrip("\\")
     guarded = math_expr_or_none(expr)

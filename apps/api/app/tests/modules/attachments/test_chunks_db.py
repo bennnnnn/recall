@@ -12,7 +12,8 @@ from app.models.orm import Attachment, AttachmentChunk, Chat, Message
 from app.modules.attachments import chunks_repository as attachment_chunks
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import workflow as attachment_workflow
-from app.repositories import chats, users
+from app.modules.chat import chats_repository as chats
+from app.repositories import users
 
 
 async def _seed(session):

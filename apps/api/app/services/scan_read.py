@@ -103,7 +103,7 @@ async def read_scan[T](
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             code="scan_spend_cap",
         )
-    limit = settings.math_scan_read_rate_limit_per_hour
+    limit = settings.scan_read_rate_limit_per_hour
     if limit > 0 and not await allow_request_fail_closed(
         redis, f"{SCAN_RATE_LIMIT_KEY}:{user.id}", limit=limit, window_seconds=3600
     ):

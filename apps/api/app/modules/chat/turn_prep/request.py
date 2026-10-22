@@ -86,7 +86,7 @@ def resolve_client_geo(
 ) -> ClientGeoContext:
     # Settings Location toggle is the opt-in. Ignore one-shot client geo when off
     # so a stale/malicious client cannot bypass the user's choice.
-    if not getattr(user, "location_enabled", False):
+    if not user.location_enabled:
         client_location = None
         client_latitude = None
         client_longitude = None

@@ -4,19 +4,18 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
-from app.modules.physics.extractors.common import (
-    _DECIMAL,
-    _DEGREE_WORD,
-    _find_value_with_specific_unit,
-    _ordered_values,
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    ordered_values,
+)
+from app.modules.physics.extractors.unit_patterns import DECIMAL, DEGREE_WORD
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import _to_si
+from app.modules.physics.solvers.si import to_si
 from app.services.text_match import has_equation
 
 _TENSION_CUE_RES: tuple[re.Pattern[str], ...] = (
@@ -74,14 +73,14 @@ _UNSUPPORTED_TENSION_CONTEXT = (
 
 def _extract_tension_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, (), _TENSION_CUE_RES):
+    if not has_cue(lower, (), _TENSION_CUE_RES):
         return None
     if any(word in lower for word in _UNSUPPORTED_TENSION_CONTEXT):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
-    masses = _ordered_values(cleaned, r"kg|lbs?|oz")
+    masses = ordered_values(cleaned, r"kg|lbs?|oz")
     if not masses:
         return None
 
@@ -93,7 +92,7 @@ def _extract_tension_intent(cleaned: str) -> PhysicsIntent | None:
         # sentence. Its magnitude is what the question asks for either way.
         heavy, light = sorted(
             (masses[0], masses[1]),
-            key=lambda pair: _to_si(pair[0], pair[1] or "kg"),
+            key=lambda pair: to_si(pair[0], pair[1] or "kg"),
             reverse=True,
         )
         return PhysicsIntent(
@@ -118,7 +117,7 @@ def _extract_tension_intent(cleaned: str) -> PhysicsIntent | None:
 
     params: dict[str, float] = {"m": masses[0][0]}
     units: dict[str, str] = {"m": masses[0][1] or "kg"}
-    accel = _find_value_with_specific_unit(
+    accel = find_value_with_specific_unit(
         cleaned,
         r"m/s\^?2|m/s2",
         ("acceleration", "accelerates", "accelerating", "accelerated"),
@@ -144,20 +143,20 @@ _VECTOR_FORCE_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bresultant\b.{0,80}?\d\s*N\b", re.IGNORECASE),
     re.compile(r"\d\s*N\b.{0,80}?\bresultant\b", re.IGNORECASE),
     re.compile(
-        rf"\A(?=.*\b(?:resolv\w*|components?)\b)(?=.*\d\s*N\b)(?=.*\d\s*{_DEGREE_WORD})",
+        rf"\A(?=.*\b(?:resolv\w*|components?)\b)(?=.*\d\s*N\b)(?=.*\d\s*{DEGREE_WORD})",
         re.IGNORECASE | re.DOTALL,
     ),
 )
 
 _PERPENDICULAR_RE = re.compile(
-    rf"\bperpendicular\b|\bright angles?\b|\bat 90\s*{_DEGREE_WORD}"
+    rf"\bperpendicular\b|\bright angles?\b|\bat 90\s*{DEGREE_WORD}"
     r"|\b(?:north|south)\b.{0,60}?\b(?:east|west)\b|\b(?:east|west)\b.{0,60}?\b(?:north|south)\b"
     r"|\bhorizontal\b.{0,60}?\bvertical\b|\bvertical\b.{0,60}?\bhorizontal\b",
     re.IGNORECASE,
 )
 
 _ANGLE_BETWEEN_RE = re.compile(
-    rf"({_DECIMAL})\s*{_DEGREE_WORD}(?:[^.]{{0,40}}?"
+    rf"({DECIMAL})\s*{DEGREE_WORD}(?:[^.]{{0,40}}?"
     r"(?:to each other|between them|apart|to one another))",
     re.IGNORECASE,
 )
@@ -166,12 +165,12 @@ _RESOLVE_RE = re.compile(r"\bresolv\w*\b|\bcomponents?\b", re.IGNORECASE)
 
 
 def _extract_vector_force_intent(cleaned: str) -> PhysicsIntent | None:
-    if not _has_cue(cleaned.lower(), (), _VECTOR_FORCE_CUE_RES):
+    if not has_cue(cleaned.lower(), (), _VECTOR_FORCE_CUE_RES):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
-    forces = _ordered_values(cleaned, r"N")
+    forces = ordered_values(cleaned, r"N")
 
     # --- resultant of two forces -------------------------------------------
     if "resultant" in cleaned.lower() and len(forces) >= 2:
@@ -194,7 +193,7 @@ def _extract_vector_force_intent(cleaned: str) -> PhysicsIntent | None:
 
     # --- one force split into components ------------------------------------
     if _RESOLVE_RE.search(cleaned) and forces:
-        angle = _INCLINE_ANGLE_RE.search(cleaned)
+        angle = INCLINE_ANGLE_RE.search(cleaned)
         if angle is None:
             return None
         return PhysicsIntent(

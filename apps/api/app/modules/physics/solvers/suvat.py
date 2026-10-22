@@ -15,26 +15,22 @@ import math
 
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    _latex_num,
-    _params_in_si,
-    quadratic_roots,
-)
+from app.modules.physics.solvers.arithmetic import latex_num, quadratic_roots
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 
 def _suvat_velocity(p: dict[str, float]) -> tuple[float, str, str, str]:
     u, a, t, d = p.get("u"), p.get("a"), p.get("t"), p.get("d")
     if u is not None and a is not None and t is not None:
-        plugged = rf"{u:g} + {_latex_num(a)} \cdot {t:g}"
+        plugged = rf"{u:g} + {latex_num(a)} \cdot {t:g}"
         return u + a * t, rf"v = u + at = {plugged}", r"v = u + at", rf"v = {plugged}"
     if u is not None and a is not None and d is not None:
         square = u * u + 2 * a * d
         if square < 0:
             raise SolveServiceError("no real final velocity: the body stops before that distance")
-        plugged = rf"\sqrt{{{_latex_num(u, square=True)} + 2 \cdot {_latex_num(a)} \cdot {d:g}}}"
+        plugged = rf"\sqrt{{{latex_num(u, square=True)} + 2 \cdot {latex_num(a)} \cdot {d:g}}}"
         return (
             math.sqrt(square),
             rf"v = \sqrt{{u^2 + 2as}} = {plugged}",
@@ -69,8 +65,8 @@ def _suvat_distance(p: dict[str, float]) -> tuple[float, str, str, str]:
             distance = (initial * initial + final * final) / (2 * abs(acceleration))
             formula = r"s = \int_0^t |u+a\tau|\,d\tau = \frac{u^2+v^2}{2|a|}"
             substitution = (
-                rf"s = \frac{{{_latex_num(initial, square=True)} + "
-                rf"{_latex_num(final, square=True)}}}{{2\cdot {abs(acceleration):g}}}"
+                rf"s = \frac{{{latex_num(initial, square=True)} + "
+                rf"{latex_num(final, square=True)}}}{{2\cdot {abs(acceleration):g}}}"
             )
             return (
                 distance,
@@ -79,9 +75,7 @@ def _suvat_distance(p: dict[str, float]) -> tuple[float, str, str, str]:
                 substitution,
             )
     if u is not None and a is not None and t is not None:
-        plugged = (
-            rf"{u:g} \cdot {t:g} + 0.5 \cdot {_latex_num(a)} \cdot {_latex_num(t, square=True)}"
-        )
+        plugged = rf"{u:g} \cdot {t:g} + 0.5 \cdot {latex_num(a)} \cdot {latex_num(t, square=True)}"
         return (
             u * t + 0.5 * a * t * t,
             rf"s = ut + \tfrac{{1}}{{2}}at^2 = {plugged}",
@@ -92,8 +86,8 @@ def _suvat_distance(p: dict[str, float]) -> tuple[float, str, str, str]:
         if a == 0:
             raise SolveServiceError("acceleration must be non-zero to find a distance this way")
         plugged = (
-            rf"\frac{{{_latex_num(v, square=True)} - {_latex_num(u, square=True)}}}"
-            rf"{{2 \cdot {_latex_num(a)}}}"
+            rf"\frac{{{latex_num(v, square=True)} - {latex_num(u, square=True)}}}"
+            rf"{{2 \cdot {latex_num(a)}}}"
         )
         return (
             (v * v - u * u) / (2 * a),
@@ -118,9 +112,7 @@ def _suvat_distance(p: dict[str, float]) -> tuple[float, str, str, str]:
             raise SolveServiceError(
                 "the body reverses direction, so this is not the distance traveled"
             )
-        plugged = (
-            rf"{v:g} \cdot {t:g} - 0.5 \cdot {_latex_num(a)} \cdot {_latex_num(t, square=True)}"
-        )
+        plugged = rf"{v:g} \cdot {t:g} - 0.5 \cdot {latex_num(a)} \cdot {latex_num(t, square=True)}"
         return (
             v * t - 0.5 * a * t * t,
             rf"s = vt - \tfrac{{1}}{{2}}at^2 = {plugged}",
@@ -135,7 +127,7 @@ def _suvat_time(p: dict[str, float]) -> tuple[float, str, str, str]:
     if u is not None and v is not None and a is not None:
         if a == 0:
             raise SolveServiceError("acceleration must be non-zero to find a time this way")
-        plugged = rf"\frac{{{v:g} - {u:g}}}{{{_latex_num(a)}}}"
+        plugged = rf"\frac{{{v:g} - {u:g}}}{{{latex_num(a)}}}"
         return (
             (v - u) / a,
             rf"v = u + at \Rightarrow t = \frac{{v - u}}{{a}} = {plugged}",
@@ -149,10 +141,10 @@ def _suvat_time(p: dict[str, float]) -> tuple[float, str, str, str]:
             raise SolveServiceError("the body never reaches that distance")
         return (
             candidates[0],
-            rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow 0.5 \cdot {_latex_num(a)} t^2 + "
+            rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow 0.5 \cdot {latex_num(a)} t^2 + "
             rf"{u:g}t = {d:g}",
             r"\tfrac{1}{2}at^2 + ut - s = 0",
-            rf"\tfrac{{1}}{{2}} \cdot {_latex_num(a)} t^2 + {_latex_num(u)} t - {d:g} = 0",
+            rf"\tfrac{{1}}{{2}} \cdot {latex_num(a)} t^2 + {latex_num(u)} t - {d:g} = 0",
         )
     if u is not None and v is not None and d is not None:
         if u + v == 0:
@@ -183,7 +175,7 @@ def _suvat_acceleration(p: dict[str, float]) -> tuple[float, str, str, str]:
         if d == 0:
             raise SolveServiceError("distance must be non-zero")
         plugged = (
-            rf"\frac{{{_latex_num(v, square=True)} - {_latex_num(u, square=True)}}}"
+            rf"\frac{{{latex_num(v, square=True)} - {latex_num(u, square=True)}}}"
             rf"{{2 \cdot {d:g}}}"
         )
         return (
@@ -195,7 +187,7 @@ def _suvat_acceleration(p: dict[str, float]) -> tuple[float, str, str, str]:
     if u is not None and t is not None and d is not None:
         if t == 0:
             raise SolveServiceError("time must be non-zero")
-        plugged = rf"\frac{{2({d:g} - {u:g} \cdot {t:g})}}{{{_latex_num(t, square=True)}}}"
+        plugged = rf"\frac{{2({d:g} - {u:g} \cdot {t:g})}}{{{latex_num(t, square=True)}}}"
         return (
             2 * (d - u * t) / (t * t),
             rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow a = \frac{{2(s - ut)}}{{t^2}} = {plugged}",
@@ -289,7 +281,7 @@ def _suvat_graph(op: str, p: dict[str, float], solved: dict[str, float]) -> list
 
 
 def solve_suvat(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or "suvat_velocity"
     entry = _SUVAT_OPS.get(op)
     if entry is None:

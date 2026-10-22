@@ -58,7 +58,7 @@ async def _embed_request(settings: Settings, texts: list[str]) -> list[list[floa
     if not api_key:
         return None
 
-    kwargs: dict = {"api_key": api_key}
+    kwargs: dict[str, Any] = {"api_key": api_key}
     if route.api_base:
         kwargs["api_base"] = route.api_base
 

@@ -72,6 +72,9 @@ export type Chat = {
   updated_at: string;
 };
 
+/** A page of a list: pass `next_cursor` back as `cursor` for the next; null after the last. */
+export type Page<T> = { items: T[]; next_cursor: string | null };
+
 export type Feedback = "up" | "down" | null;
 
 export type MessagePage = {
@@ -163,6 +166,8 @@ export type ChatList = {
   this_month: Chat[];
   older: Chat[];
   archived: Chat[];
+  /** Older dated chats follow: read them with `cursor`. Absent or null: none. */
+  next_cursor?: string | null;
 };
 
 export type Usage = {

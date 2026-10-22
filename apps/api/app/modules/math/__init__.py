@@ -22,7 +22,12 @@ symbolic solver stack. Other modules import only the names in ``_EXPORTS``.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.modules.math.unit_conversion import (
+        get_unit_registry as get_unit_registry,
+    )
 
 _EXPORTS = {"get_unit_registry": ("unit_conversion", "get_unit_registry")}
 
@@ -48,9 +53,15 @@ _MODULE_EXPORTS = (
     "match",
     "ocr",
     "reply_policy",
+    # The verified block's types (services/solving).
+    "response_intent",
+    "solve.key_steps",
     "sympy_warmup",
     "text_plot",
     "tool_check",
+    # The subject dispatcher (services/subject_solving): direct replies and curve points.
+    "tools.direct",
     "tools.extract",
     "tools.prompt",
+    "tools.school.curve_points",
 )

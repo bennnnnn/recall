@@ -9,7 +9,7 @@ from app.modules.physics import build_verified_physics_block, extract_physics_in
 from app.modules.physics.bodies import named_particle_charge
 from app.modules.physics.constants import ELEMENTARY_CHARGE
 from app.modules.physics.direct import maybe_direct_physics_reply
-from app.modules.physics.solvers.common import _to_si
+from app.modules.physics.solvers.si import to_si
 
 _SETTINGS = Settings(math_tools_enabled=True)
 
@@ -261,7 +261,8 @@ def test_a_stated_charge_beats_the_named_particle() -> None:
         "An electron with charge 1.6 × 10^-19 C is accelerated through a potential "
         "difference of 100 V. Find the kinetic energy gained."
     )
-    assert intent is not None and intent.physics_params["Q"] == pytest.approx(1.6e-19)
+    assert intent is not None and intent.physics_params is not None
+    assert intent.physics_params["Q"] == pytest.approx(1.6e-19)
 
 
 @pytest.mark.parametrize(
@@ -287,7 +288,7 @@ def test_named_particle_charge(text: str, charge: float | None) -> None:
     ],
 )
 def test_to_si_reads_counts_and_spelled_units(value: float, unit: str, key: str, si: float) -> None:
-    assert _to_si(value, unit, expected_key=key) == pytest.approx(si)
+    assert to_si(value, unit, expected_key=key) == pytest.approx(si)
 
 
 def test_givens_in_different_units_answer_in_si() -> None:

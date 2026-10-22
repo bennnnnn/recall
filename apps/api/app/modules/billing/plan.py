@@ -1,14 +1,17 @@
-"""Per-user model pools. Plan policy itself lives in ``entitlements``."""
+"""Per-user model pools, and picks within one by tier and price.
+
+Plan policy itself lives in ``entitlements``. Which model a message needs is chat's
+(``modules/chat/model_routing``): billing reads no message.
+"""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeGuard
 
 from app.core.config import Settings
-from app.exceptions import UnknownModelOverrideError
 from app.models import model_catalog
 from app.modules.billing.entitlements import can_use, is_paid
-from app.services import model_health, routing
+from app.services import model_health
 
 if TYPE_CHECKING:
     from app.models.orm import User
@@ -25,9 +28,12 @@ __all__ = [
     "is_explicit_pick",
     "is_paid",
     "model_pool",
-    "resolve_regenerate_model",
-    "resolve_user_model",
-    "resolve_user_model_override",
+    "override_pool",
+    "pick_cheapest_from_pool",
+    "pick_fast_from_pool",
+    "pick_preferred_tier",
+    "pick_smart_from_pool",
+    "pick_strongest_from_pool",
     "validate_enabled_models_for_update",
 ]
 
@@ -86,39 +92,7 @@ def model_pool(user: User, settings: Settings) -> list[str]:
     return list(allowed) or [model_catalog.auto_fast_alias()]
 
 
-def resolve_user_model(
-    user: User,
-    content: str,
-    settings: Settings,
-    *,
-    prior_user: str | None = None,
-    prior_model: str | None = None,
-    lesson_active: bool = False,
-    unhealthy: frozenset[str] = frozenset(),
-) -> str:
-    """Pick a concrete model from the user's Settings preferences.
-
-    Auto skips models whose provider is failing (``unhealthy``) while a healthy
-    one is left in the pool.
-    """
-    pool = model_pool(user, settings)
-    if is_auto_enabled(user):
-        return routing.resolve_alias_in_pool(
-            AUTO_ALIAS,
-            content,
-            pool,
-            settings,
-            prior_user=prior_user,
-            prior_model=prior_model,
-            lesson_active=lesson_active,
-            unhealthy=unhealthy,
-        )
-    if len(pool) == 1:
-        return pool[0]
-    return routing.pick_cheapest_from_pool(pool, settings)
-
-
-def _override_pool(user: User, settings: Settings) -> set[str]:
+def override_pool(user: User, settings: Settings) -> set[str]:
     """Models a per-message override may pick.
 
     This is ``model_pool`` (plan + the user's ``enabled_models`` preference),
@@ -128,39 +102,6 @@ def _override_pool(user: User, settings: Settings) -> set[str]:
     ``enabled_models`` is None, so default users keep the full plan pool.
     """
     return set(model_pool(user, settings))
-
-
-def resolve_user_model_override(
-    user: User,
-    model_alias: str | None,
-    content: str,
-    settings: Settings,
-    *,
-    prior_user: str | None = None,
-    prior_model: str | None = None,
-    lesson_active: bool = False,
-    unhealthy: frozenset[str] = frozenset(),
-) -> str:
-    """Pick a concrete model, honoring a per-message override when allowed.
-
-    A per-chat/per-message picker passes ``model_alias`` over the WS. Use it
-    only if it's a concrete alias the user has enabled (and their plan allows).
-    ``auto`` and ``None`` route within the Settings pool. A concrete alias
-    that is not in that pool raises rather than silently switching models.
-    """
-    if is_explicit_pick(model_alias):
-        if model_alias not in _override_pool(user, settings):
-            raise UnknownModelOverrideError(model_alias)
-        return model_alias
-    return resolve_user_model(
-        user,
-        content,
-        settings,
-        prior_user=prior_user,
-        prior_model=prior_model,
-        lesson_active=lesson_active,
-        unhealthy=unhealthy,
-    )
 
 
 def is_explicit_pick(model_alias: str | None) -> TypeGuard[str]:
@@ -198,38 +139,7 @@ def image_turn_model(
         and model_catalog.reads_images(model_id)
         and model_catalog.tier_rank(model_catalog.get(model_id)) > everyday
     ]
-    return routing.pick_strongest_from_pool(readers) if readers else vision
-
-
-def resolve_regenerate_model(
-    user: User,
-    model_alias: str | None,
-    content: str,
-    prior_assistant_model: str | None,
-    settings: Settings,
-) -> str:
-    """Pick a model for a regenerate turn.
-
-    Honors an explicit concrete override (a per-message picker pick) just like
-    ``resolve_user_model_override``. When the picker is ``auto`` (or absent),
-    reuse the model that produced the prior assistant reply so "try again"
-    reproduces the same conditions instead of re-running the routing heuristic
-    — a borderline query that auto-routed to a smart model the first time would
-    otherwise re-route to a weaker model on regenerate. Falls back to routing
-    if the prior model is unknown or no longer in the user's enabled pool.
-    """
-    pool = _override_pool(user, settings)
-    if is_explicit_pick(model_alias):
-        if model_alias not in pool:
-            raise UnknownModelOverrideError(model_alias)
-        return model_alias
-    if (
-        prior_assistant_model
-        and prior_assistant_model != AUTO_ALIAS
-        and prior_assistant_model in pool
-    ):
-        return prior_assistant_model
-    return resolve_user_model(user, content, settings)
+    return pick_strongest_from_pool(readers) if readers else vision
 
 
 def chat_fallback_models(
@@ -260,12 +170,10 @@ def chat_fallback_models(
     allowed = allowed_model_ids(user, settings)
     candidates: list[str] = []
 
-    # M11: memory_fallback_model_alias is for background jobs (memory/todo/
-    # project extraction), not chat — it's non-selectable and never in
-    # ``allowed``, so the check below was always false. Removed it so the
-    # chat fallback pool is the user's other healthy selectable models,
-    # ordered by tier proximity to the primary (not cheapest-first, which
-    # failed a dead R1 over to the weakest fast model).
+    # The chat fallback pool is the user's other healthy selectable models, ordered
+    # by tier proximity to the primary (cheapest-first failed a dead R1 over to the
+    # weakest fast model). Background jobs' fallback is a lane of its own
+    # (``structured_fallback``), never selectable and never in ``allowed``.
     for model_id in model_pool(user, settings):
         if model_id == primary or model_id in candidates:
             continue
@@ -324,3 +232,61 @@ def validate_enabled_models_for_update(
     if not has_auto and not model_ids:
         raise ValueError("Turn on Auto or at least one model.")
     return cleaned
+
+
+def _models_in_pool(pool: list[str]) -> list[model_catalog.ChatModel]:
+    known = model_catalog.known_ids()
+    return [model_catalog.get(model_id) for model_id in pool if model_id in known]
+
+
+def pick_cheapest_from_pool(pool: list[str], settings: Settings | None = None) -> str:
+    del settings
+    models = _models_in_pool(pool)
+    if not models:
+        return pool[0]
+    models.sort(key=model_catalog.price_sort_key)
+    return models[0].id
+
+
+def pick_fast_from_pool(pool: list[str]) -> str:
+    models = _models_in_pool(pool)
+    fast = [m for m in models if m.tier in {"fast", "standard"}]
+    if fast:
+        fast.sort(key=model_catalog.price_sort_key)
+        return fast[0].id
+    return pick_cheapest_from_pool(pool)
+
+
+def pick_strongest_from_pool(pool: list[str]) -> str:
+    """Best remaining model when the preferred smart/max alias is not in pool."""
+    models = _models_in_pool(pool)
+    if not models:
+        return pool[0]
+    models.sort(
+        key=lambda m: (
+            -model_catalog.tier_rank(m),
+            -m.quota_multiplier,
+            -model_catalog.price_sort_key(m)[0],
+            -model_catalog.price_sort_key(m)[1],
+            m.id,
+        )
+    )
+    return models[0].id
+
+
+def pick_smart_from_pool(pool: list[str]) -> str:
+    models = _models_in_pool(pool)
+    smart = [m.id for m in models if m.tier in {"smart", "max"}]
+    if smart:
+        return pick_strongest_from_pool(smart)
+    return pick_strongest_from_pool(pool)
+
+
+def pick_preferred_tier(preferred: str, pool: list[str]) -> str:
+    """``preferred`` when the pool has it, else the pool's best model of its tier."""
+    if preferred in pool:
+        return preferred
+    preferred_model = model_catalog.get(preferred)
+    if preferred_model.tier in {"smart", "max"}:
+        return pick_smart_from_pool(pool)
+    return pick_fast_from_pool(pool)

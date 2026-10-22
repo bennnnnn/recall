@@ -17,9 +17,9 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Chat
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.prompt_constants import is_teaching_request, lesson_step
 from app.modules.chat.prompt_constants.lesson_flow import lesson_titles, teach_subject
-from app.repositories import messages as messages_repo
 
 # A long course still finds its first "teach me" and every lesson heading.
 LESSON_HISTORY_LIMIT = 300

@@ -16,6 +16,7 @@ from uuid import uuid4
 import pytest
 
 from app.background import email_reminder_scheduler, periodic
+from app.background.email_reminder_scheduler import LOCK_KEY
 from app.core.config import Settings
 from app.gateways import email_gateway
 from app.models.schemas import UserOut
@@ -77,7 +78,7 @@ async def test_reminder_scheduler_does_not_start_without_a_provider() -> None:
     settings = Settings(environment="production", resend_api_key="")
     await email_reminder_scheduler.start_email_reminder_scheduler(settings)
     try:
-        assert "email_reminders" not in periodic._tasks
+        assert LOCK_KEY not in periodic._tasks
     finally:
         await email_reminder_scheduler.stop_email_reminder_scheduler()
 

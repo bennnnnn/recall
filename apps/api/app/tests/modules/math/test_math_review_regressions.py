@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.math.solve.parse import _parse_expression
+from app.modules.math.solve.parse import parse_expression
 from app.services.solving import SolveServiceError
 from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
 
@@ -42,14 +42,14 @@ async def _answer(text: str) -> tuple[str | None, str | None, str | None]:
     ],
 )
 def test_parse_reads_written_function_shorthand(text: str, expected: str) -> None:
-    assert str(_parse_expression(text, ["x"])) == expected
+    assert str(parse_expression(text, ["x"])) == expected
 
 
 @pytest.mark.parametrize("text", ["5 kg", "3 cm", "20 mol", "sinx^2", "log(x) + 2kg"])
 def test_parse_refuses_letters_taken_from_a_word(text: str) -> None:
     """A symbol that exists only inside a function or unit word is a misread."""
     with pytest.raises(SolveServiceError):
-        _parse_expression(text, ["x"])
+        parse_expression(text, ["x"])
 
 
 @pytest.mark.asyncio
@@ -87,7 +87,7 @@ async def test_equations_answer_what_was_written(text: str, answer: str) -> None
 )
 def test_parse_reads_a_bare_log_as_base_ten(text: str, expected: str) -> None:
     """School notation: ``log`` is base 10, ``ln`` is natural, a written base is kept."""
-    assert str(_parse_expression(text, ["x"])) == expected
+    assert str(parse_expression(text, ["x"])) == expected
 
 
 def test_natural_log_prints_as_ln_and_a_change_of_base_as_its_base() -> None:

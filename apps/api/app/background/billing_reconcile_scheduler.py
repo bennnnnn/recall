@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 _NAME = "billing_reconcile"
 LOCK_KEY = "recall:billing_reconcile:lock"
-_REST_GAP_SECONDS = 0.2
 
 
 def _scheduler_enabled(settings: Settings) -> bool:
@@ -66,7 +65,7 @@ async def _reconcile_plan(settings: Settings, lock: CycleLock, current_plan: str
             if not await lock.refresh():
                 logger.warning("Billing reconcile lock lost; stopping cycle")
                 return False
-            await asyncio.sleep(_REST_GAP_SECONDS)
+            await asyncio.sleep(settings.billing_reconcile_rest_gap_seconds)
         after_id = ids[-1]
 
 

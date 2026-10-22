@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent, MathSeriesResult
-from app.modules.math.tools.block.canonical import _finish_with_answer
+from app.modules.math.tools.block.canonical import finish_with_answer
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import Workout, math_line, render_workout
 
@@ -58,7 +58,7 @@ def _verified_block_series(
             "This series diverges to infinity — preserve its sign, do not "
             "treat it as an ordinary finite number."
         )
-    return _finish_with_answer(lines, series_out.latex)
+    return finish_with_answer(lines, series_out.latex)
 
 
 def _series_convergence(
@@ -78,7 +78,7 @@ def _series_convergence(
         else:
             status = "could not be classified"
         lines.append(f"Series {expression}: {status}; sum={outcome.latex}")
-        parsed = math_solve._parse_expression(expression, [variable], real=True)
+        parsed = math_solve.parse_expression(expression, [variable], real=True)
         rendered.append(math_line(f"\\sum_{{{variable}=1}}^{{\\infty}} {latex(parsed)}", status))
     direct = render_workout(Workout(steps=tuple(rendered))).removesuffix("\n\n**Answer**")
     return VerifiedMathBlock(text="\n".join(lines), direct_reply=direct)

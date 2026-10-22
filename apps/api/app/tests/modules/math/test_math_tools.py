@@ -10,8 +10,10 @@ from pydantic import ValidationError
 from app.core.config import Settings
 from app.modules.math import tools as math_tools
 from app.modules.math.schemas import MathImageExtract, MathIntent
+from app.modules.math.tools.prompt import NOTHING_TO_GRAPH
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.prompt import build_physics_augmentation
+from app.services.solving import VERIFIED_MATH_BEGIN
 from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
@@ -1378,7 +1380,6 @@ async def test_graph_it_uses_prior_quadratic_equation() -> None:
 @pytest.mark.asyncio
 async def test_graph_it_without_prior_does_not_stamp_unverified() -> None:
     """It asks which function to graph instead of letting the model sketch one."""
-    from app.modules.math.tools.prompt import NOTHING_TO_GRAPH
 
     note, verified = await math_tools.build_math_augmentation(
         "graph it",
@@ -2065,7 +2066,7 @@ async def test_augment_prompt_injects_single_point_graph_block() -> None:
     )
     assert len(out) == 2
     assert "```graph\n" not in out[0]["content"]
-    assert "[BEGIN VERIFIED MATH]" in out[0]["content"]
+    assert VERIFIED_MATH_BEGIN in out[0]["content"]
     assert verified is not None
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["points"] == [[2.0, 3.0]]
@@ -2079,7 +2080,7 @@ async def test_augment_prompt_injects_graph_block() -> None:
     assert len(out) == 2
     assert "```graph\n" not in out[0]["content"]
     assert "points" in out[0]["content"]
-    assert "[BEGIN VERIFIED MATH]" in out[0]["content"]
+    assert VERIFIED_MATH_BEGIN in out[0]["content"]
     assert verified is not None
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "function"
@@ -2235,7 +2236,7 @@ async def test_vertical_line_graph_builds_canonical_fence() -> None:
     assert "y = -10" not in verified.text
     assert "Recall will attach" not in verified.text
     assert "Do not mention attaching" not in verified.text
-    assert "[BEGIN VERIFIED MATH]" in verified.text
+    assert VERIFIED_MATH_BEGIN in verified.text
     assert verified.canonical_fence["x_min"] == 0.0
     assert verified.canonical_fence["x_max"] == 10.0
     assert verified.canonical_fence["y_min"] == -10.0
@@ -2345,7 +2346,7 @@ async def test_graph_sample_respects_math_graph_max_points_above_200() -> None:
     assert verified is not None
     assert verified.canonical_fence is not None
     assert len(verified.canonical_fence["points"]) == 220
-    assert "[BEGIN VERIFIED MATH]" in verified.text
+    assert VERIFIED_MATH_BEGIN in verified.text
     assert "Do not mention attaching" not in verified.text
     assert "Recall will attach" not in verified.text
     assert "```graph\n" not in verified.text
@@ -2399,7 +2400,7 @@ async def test_augment_prompt_injects_sympy_block() -> None:
     )
     assert len(out) == 3
     assert out[1]["role"] == "system"
-    assert "[BEGIN VERIFIED MATH]" in out[1]["content"]
+    assert VERIFIED_MATH_BEGIN in out[1]["content"]
     assert "SymPy" not in out[1]["content"]
     # Equation answers get a ```answer canonical fence for post-stream rewrite.
     assert verified is not None
@@ -2428,7 +2429,7 @@ async def test_sympy_solve_runs_off_event_loop(
 
     original = math_tools._build_verified_block
 
-    def spy(intent, settings):  # type: ignore[no-untyped-def]
+    def spy(intent, settings):
         seen_thread["thread"] = threading.current_thread()
         return original(intent, settings)
 
@@ -2456,9 +2457,9 @@ async def test_augment_prompt_times_out_gracefully(
     production ProcessPoolSympyExecutor's hard-kill-on-timeout is exercised
     separately in test_sympy_executor.py.
     """
-    settings = Settings(math_tools_enabled=True, math_solve_timeout_seconds=0.05)
+    settings = Settings(math_tools_enabled=True, stem_solve_timeout_seconds=0.05)
 
-    def slow_build(intent, settings):  # type: ignore[no-untyped-def]
+    def slow_build(intent, settings):
         import time
 
         time.sleep(0.5)
@@ -2489,7 +2490,7 @@ async def test_augment_prompt_math_service_error_injects_unverified_note(
     UX as a successful SymPy block. Inject honesty instead."""
     settings = Settings(math_tools_enabled=True)
 
-    def boom(intent, settings):  # type: ignore[no-untyped-def]
+    def boom(intent, settings):
         raise math_tools.math_solve.SolveServiceError("unsafe expr")
 
     monkeypatch.setattr(math_tools, "_build_verified_block", boom)

@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.main import create_app
+from app.tests.fakes import redis_mock
 
 pytestmark = pytest.mark.usefixtures("consent_enforced")
 
@@ -140,5 +141,5 @@ async def test_the_re_read_ends_its_transaction_before_the_route_runs() -> None:
     user = SimpleNamespace(id=uuid4(), ai_data_consent_at=None)
     session = SimpleNamespace(refresh=refresh, commit=commit)
     with patch("app.modules.account.consent.remember_read"):
-        assert await get_consented_user(user=user, session=session, redis=AsyncMock()) is user  # type: ignore[arg-type]
+        assert await get_consented_user(user=user, session=session, redis=redis_mock()) is user  # type: ignore[arg-type]
     assert calls == ["refresh", "commit"]

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import _DECIMAL, _NUMBER, _detect_gravity
+from app.modules.physics.extractors.surface_gravity import detect_gravity
+from app.modules.physics.extractors.unit_patterns import DECIMAL, NUMBER
 
 _H0_KEYWORDS = (
     "from",
@@ -83,7 +84,7 @@ def _asks_max_height(lower: str) -> bool:
     )
 
 
-_STATED_ACCELERATION_RE = re.compile(rf"({_DECIMAL})\s*m/s\^?2(?![0-9])", re.IGNORECASE)
+_STATED_ACCELERATION_RE = re.compile(rf"({DECIMAL})\s*m/s\^?2(?![0-9])", re.IGNORECASE)
 
 # The question has to ask for the acceleration. The bare word must not replace
 # a time, height, or speed question, and it must not drop that question.
@@ -130,7 +131,7 @@ def _velocity_is_downward(text: str, value: float, unit: str) -> bool:
     if value <= 0 or not unit:
         return False
     pattern = re.compile(
-        rf"({_NUMBER})\s*{re.escape(unit)}(?![A-Za-z0-9/^])",
+        rf"({NUMBER})\s*{re.escape(unit)}(?![A-Za-z0-9/^])",
         re.IGNORECASE,
     )
     for match in pattern.finditer(text):
@@ -174,10 +175,10 @@ def _states_a_non_gravity_acceleration(text: str) -> bool:
 
     A named gravity is the exception rather than a special case: "g = 1.6",
     "gravity of 1.62", "on the moon" all set the free-fall acceleration, and
-    ``_detect_gravity`` already knows what it is. Comparing against that value
+    ``detect_gravity`` already knows what it is. Comparing against that value
     keeps those questions here and sends only the genuinely different ones on.
     """
-    gravity = _detect_gravity(text)
+    gravity = detect_gravity(text)
     return any(
         abs(float(m.group(1)) - gravity) > 1e-9 for m in _STATED_ACCELERATION_RE.finditer(text)
     )

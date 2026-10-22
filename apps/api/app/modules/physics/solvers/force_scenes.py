@@ -53,6 +53,7 @@ def _free_body_scene(
                     path=[list(position), list(position)],
                     radius=reach * 0.16,
                     label=label,
+                    # A shape name from this file's table; the scene validates it.
                     shape=shape,  # type: ignore[arg-type]
                 )
             ],

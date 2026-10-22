@@ -11,7 +11,7 @@ from dataclasses import replace
 
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school.teaching import _attach_picture
 from app.services.workout import Workout, math_line, render_workout
 
@@ -28,7 +28,7 @@ def expression_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock 
     if factorials is not None:
         return factorials
     lines.append(f"Result: {answer}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     from app.modules.math.tools.direct_arithmetic import arithmetic_equation
 
     shown = arithmetic_equation(intent.expr or "", answer)
@@ -53,7 +53,7 @@ def _symbolic_power_block(intent: MathIntent, expr: str, lines: list[str]) -> Ve
 
     answer = math_solve.simplify_expression(expr, intent.variable).latex
     lines.append(f"Power notation: {answer}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     base, separator, exponent_text = expr.rpartition("^")
     if not separator or not exponent_text.isdigit():
         return block
@@ -90,7 +90,7 @@ def _exact_decimal_block(
     """The exact value and its decimal to six figures; declines an expression with a letter."""
     from app.modules.math import solve as math_solve
 
-    parsed = math_solve._parse_expression(expr, [intent.variable])
+    parsed = math_solve.parse_expression(expr, [intent.variable])
     if isinstance(parsed, tuple) or parsed.free_symbols:
         return None
     decimal = str(parsed.evalf(6))
@@ -101,7 +101,7 @@ def _exact_decimal_block(
         ),
         answer,
     )
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     return VerifiedMathBlock(
         text=block.text,
         canonical_fence=block.canonical_fence,
@@ -120,12 +120,12 @@ def _factorial_block(expr: str, answer: str, lines: list[str]) -> VerifiedMathBl
     from app.modules.math.solve.factorial_working import factorial_working
 
     working = factorial_working(expr)
-    parsed = math_solve._parse_expression(expr, ["x"])
+    parsed = math_solve.parse_expression(expr, ["x"])
     if working is None or isinstance(parsed, tuple):
         return None
     if parsed != Rational(working.value.numerator, working.value.denominator):
         return None
     lines.append(f"Working: ${working.tex}$")
     lines.append(f"Result: {answer}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     return replace(block, worked_reply=f"{math_line(working.tex)}\n\n```answer\n{answer}\n```\n")

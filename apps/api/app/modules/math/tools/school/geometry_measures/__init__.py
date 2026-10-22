@@ -24,7 +24,7 @@ from collections.abc import Callable
 from dataclasses import replace
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school.geometry_measures.circles import (
     _circle_from_area,
     _circle_from_area_pi,
@@ -118,7 +118,7 @@ def geometry_measure_block(intent: MathIntent, lines: list[str]) -> VerifiedMath
     if solved is None:
         return None
     lines.extend(row.split(" — ")[0] for row in solved.substitution)
-    block = _finish_with_answer(lines, solved.answer)
+    block = finish_with_answer(lines, solved.answer)
     working = render_workout(
         Workout(
             given=solved.given,

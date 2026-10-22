@@ -4,17 +4,13 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
-from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _MASS_UNITS,
-    _NUMBER,
-    _positioned_values,
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
+from app.modules.physics.extractors.stated_values import positioned_values
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, MASS_UNITS, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -38,26 +34,26 @@ _TORQUE_CUE_RES: tuple[re.Pattern[str], ...] = (
 _TORQUE_UNSUPPORTED = ("moment of inertia", "angular momentum", "rotational inertia")
 
 _TORQUE_VALUE_RE = re.compile(
-    rf"({_NUMBER})\s*(?:N|newtons?)\s*(?:[·*]\s*)?(?:m|met(?:er|re)s?)(?![A-Za-z0-9/^])",
+    rf"({NUMBER})\s*(?:N|newtons?)\s*(?:[·*]\s*)?(?:m|met(?:er|re)s?)(?![A-Za-z0-9/^])",
     re.IGNORECASE,
 )
 
 _PLAIN_FORCE_RE = re.compile(
-    rf"({_NUMBER})\s*(N|newtons?)(?!\s*(?:[·*]\s*)?(?:m|met(?:er|re)s?)\b)",
+    rf"({NUMBER})\s*(N|newtons?)(?!\s*(?:[·*]\s*)?(?:m|met(?:er|re)s?)\b)",
     re.IGNORECASE,
 )
 
 
 def _extract_torque_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _TORQUE_CUES, _TORQUE_CUE_RES):
+    if not has_cue(lower, _TORQUE_CUES, _TORQUE_CUE_RES):
         return None
     # τ = μB sinθ is a catalog law. A lever reading of "torque" would guess.
     if "magnetic moment" in lower:
         return None
     if any(word in lower for word in _TORQUE_UNSUPPORTED):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
     torque_values = [
@@ -136,8 +132,8 @@ def _extract_torque_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
 
-    placed_masses = _positioned_values(cleaned, _MASS_UNITS)
-    placed_distances = _positioned_values(cleaned, _LENGTH_UNIT_PATTERN)
+    placed_masses = positioned_values(cleaned, MASS_UNITS)
+    placed_distances = positioned_values(cleaned, LENGTH_UNIT_PATTERN)
     balancing = "balance" in lower or "see-saw" in lower or "seesaw" in lower
     if balancing and len(placed_masses) >= 2 and placed_distances:
         d_pos, d_val, d_unit = placed_distances[0]
@@ -159,8 +155,8 @@ def _extract_torque_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
 
-    placed_forces = _positioned_values(cleaned, r"N")
-    placed_distances = _positioned_values(cleaned, _LENGTH_UNIT_PATTERN)
+    placed_forces = positioned_values(cleaned, r"N")
+    placed_distances = positioned_values(cleaned, LENGTH_UNIT_PATTERN)
     if not placed_forces or not placed_distances:
         return None
 
@@ -229,7 +225,7 @@ def _extract_torque_intent(cleaned: str) -> PhysicsIntent | None:
     forces = [(f[1], f[2]) for f in placed_forces]
     distances = [(d[1], d[2]) for d in placed_distances]
 
-    angle_match = _INCLINE_ANGLE_RE.search(cleaned)
+    angle_match = INCLINE_ANGLE_RE.search(cleaned)
     params: dict[str, float] = {"F": forces[0][0], "d": distances[0][0]}
     units: dict[str, str] = {"F": forces[0][1] or "N", "d": distances[0][1] or "m"}
     if angle_match:

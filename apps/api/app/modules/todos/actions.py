@@ -5,17 +5,17 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
-from app.models.schemas import TodoActionItem
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import _normalize, _topic_key
 from app.modules.todos.recurrence import RecurrenceRule, is_recurrence_rule, snap_first_due
+from app.modules.todos.schemas import TodoActionItem
 from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ def _find_item_any_state(items: list[TodoItem], topic: str, content: str) -> Tod
     return None
 
 
-def _due_local_date(item: TodoItem, user_timezone: str | None):
+def _due_local_date(item: TodoItem, user_timezone: str | None) -> date | None:
     tz = time_context_service.resolve_timezone(user_timezone)
     due = item.due_at
     if due is None:
@@ -67,7 +67,7 @@ def _shift_due_date_preserving_time(
     item: TodoItem,
     *,
     user_timezone: str | None,
-    target_date,
+    target_date: date,
 ) -> datetime:
     tz = time_context_service.resolve_timezone(user_timezone)
     due = item.due_at
@@ -283,6 +283,11 @@ async def apply_todo_actions(
     chat_id: UUID | None = None,
     user_timezone: str | None = None,
 ) -> int:
+    """Apply the actions in the caller's session; how many rows changed. No commit.
+
+    The caller owns the transaction: it commits these writes with its own, or rolls
+    them back (code-health audit ARCH-07).
+    """
     if not actions:
         return 0
     items = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
@@ -303,7 +308,10 @@ async def apply_todo_actions(
         if handler is None:
             continue
         try:
-            applied += await handler(state, prepared)
+            # Each action in its own savepoint: one that fails leaves the others and
+            # the caller's transaction usable.
+            async with session.begin_nested():
+                applied += await handler(state, prepared)
         except Exception:
             logger.exception(
                 "Failed todo action %s for user_id=%s topic=%s",
@@ -318,5 +326,4 @@ async def apply_todo_actions(
             user_id,
             chat_id,
         )
-    await session.commit()
     return applied

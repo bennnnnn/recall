@@ -353,9 +353,9 @@ def test_link_preview_router_answers_429_when_fetches_are_busy():
     from fastapi.testclient import TestClient
 
     from app.modules.link_preview.service import LinkPreviewBusyError
-    from app.tests.test_routers import _app_with_user, _fake_user
+    from app.tests.api_support import api_user, app_with_user
 
-    user = _fake_user()
+    user = api_user()
     with (
         patch("app.modules.link_preview.api.get_redis_client", return_value=MagicMock()),
         patch(
@@ -367,7 +367,7 @@ def test_link_preview_router_answers_429_when_fetches_are_busy():
             AsyncMock(side_effect=LinkPreviewBusyError()),
         ),
     ):
-        client = TestClient(_app_with_user(user))
+        client = TestClient(app_with_user(user))
         r = client.get(
             "/link-preview",
             params={"url": "https://example.com/page"},
@@ -389,9 +389,9 @@ async def test_validate_external_url_unresolvable_hostname():
 def test_link_preview_router_rate_limit_fails_closed():
     from fastapi.testclient import TestClient
 
-    from app.tests.test_routers import _app_with_user, _fake_user
+    from app.tests.api_support import api_user, app_with_user
 
-    user = _fake_user()
+    user = api_user()
     with (
         patch("app.modules.link_preview.api.get_redis_client", return_value=MagicMock()),
         patch(
@@ -399,7 +399,7 @@ def test_link_preview_router_rate_limit_fails_closed():
             AsyncMock(return_value=False),
         ),
     ):
-        client = TestClient(_app_with_user(user))
+        client = TestClient(app_with_user(user))
         r = client.get(
             "/link-preview",
             params={"url": "https://example.com/page"},

@@ -7,7 +7,7 @@ import re
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.expr_rewrite import _normalize_latex_expr, math_expr_or_none
 from app.modules.math.tools.function_def import peel_function_definition
-from app.modules.math.tools.request_text import _strip_trailing_filler
+from app.modules.math.tools.request_text import strip_trailing_filler
 
 _FUNC_DEF_START = re.compile(r"\b([A-Za-z])\s*\(\s*([A-Za-z])\s*\)\s*=", re.IGNORECASE)
 _TRAILING_JOINER = re.compile(r"(?:\sand|[,;])\s*$", re.IGNORECASE)
@@ -48,7 +48,7 @@ def _function_definitions(text: str) -> list[tuple[str, str, str]]:
                 cut = at
         if cut is not None:
             body = body[:cut].strip()
-        guarded = math_expr_or_none(_normalize_latex_expr(_strip_trailing_filler(body)))
+        guarded = math_expr_or_none(_normalize_latex_expr(strip_trailing_filler(body)))
         if guarded is None:
             return []
         out.append((match.group(1), match.group(2), guarded))
@@ -121,7 +121,7 @@ def _single_function_intent(cleaned: str) -> MathIntent | None:
         match = _EVEN_ODD_FUNCTION_RE.search(cleaned)
         if match is None:
             return None
-        expr = math_expr_or_none(_normalize_latex_expr(_strip_trailing_filler(match.group(1))))
+        expr = math_expr_or_none(_normalize_latex_expr(strip_trailing_filler(match.group(1))))
         if not expr:
             return None
         return MathIntent(
@@ -164,7 +164,7 @@ def _single_function_intent(cleaned: str) -> MathIntent | None:
     else:
         at = lower.find(cue)
         raw = cleaned[at + len(cue) :].strip() if at != -1 else ""
-        raw = peel_function_definition(_strip_trailing_filler(raw))
+        raw = peel_function_definition(strip_trailing_filler(raw))
         # ``range of 1,2,3`` is descriptive statistics, not function range.
         # A comma also means this single-variable function extractor cannot
         # safely claim the whole request.

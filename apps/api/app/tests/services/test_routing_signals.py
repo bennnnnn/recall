@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from app.services.routing_signals import (
+from app.modules.chat.model_routing.signals import (
     has_structured_data,
     is_code_review,
     is_hard_reasoning,

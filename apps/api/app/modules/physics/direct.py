@@ -37,7 +37,7 @@ from app.modules.physics.law_titles import law_title
 from app.modules.physics.parts import asks_more_than_answered
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
-from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si, si_factor
+from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS, si_factor, to_si
 from app.modules.physics.working import result_symbol_for
 from app.modules.physics.working_steps import carried_to_answer
 from app.services.glyphs import SUPERSCRIPT_SIGNED
@@ -237,7 +237,7 @@ def _given_value(name: str, value: float, unit: str, substitution: str) -> str:
     rpm, whose formula converts.
     """
     written = f"{latex_given(value)}{latex_unit(unit)}"
-    dimension = _PARAM_SI_DIMENSIONS.get(name)
+    dimension = PARAM_SI_DIMENSIONS.get(name)
     if (
         not unit
         or dimension in (None, "dimensionless", "revolution / minute")
@@ -247,7 +247,7 @@ def _given_value(name: str, value: float, unit: str, substitution: str) -> str:
     ):
         return written
     try:
-        si_value = _to_si(value, unit, expected_key=name)
+        si_value = to_si(value, unit, expected_key=name)
     except SolveServiceError:
         return written
     si_unit = si_symbol(dimension)
@@ -327,9 +327,9 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
 
 
 _SUPERSCRIPT_DIGITS = SUPERSCRIPT_SIGNED
-# The first value of a plain verified answer: "19.8 m/s", "3.97 × 10⁻¹⁹ J".  # noqa: RUF003
+# The first value of a plain verified answer: "19.8 m/s", "3.97 × 10⁻¹⁹ J".  # noqa: RUF003 - the answer's glyphs
 _PLAIN_ANSWER = re.compile(
-    r"^\s*(?P<number>-?\d+(?:\.\d+)?)(?:\s*×\s*10(?P<power>[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+))?"  # noqa: RUF001
+    r"^\s*(?P<number>-?\d+(?:\.\d+)?)(?:\s*×\s*10(?P<power>[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+))?"  # noqa: RUF001 - the answer's glyphs
     r"\s*(?P<unit>[^\s(;,]+)?"
 )
 

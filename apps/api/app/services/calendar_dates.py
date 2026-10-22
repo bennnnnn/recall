@@ -79,6 +79,7 @@ def read_dates(text: str, *, slash: bool = False) -> list[NamedDate]:
                         start=match.start(),
                         end=match.end(),
                         text=match.group(0).strip(),
+                        # One of this module's date-pattern names; the model validates it.
                         form=form,  # type: ignore[arg-type]
                         month_word=match.group("month"),
                     )

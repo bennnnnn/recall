@@ -47,6 +47,9 @@ from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
 
+# What the stream's producer puts for the SSE writer: an event, or None when done.
+_EventQueue = asyncio.Queue[tuple[str, str, str | None] | None]
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chats", tags=["chat-stream"])
@@ -62,7 +65,7 @@ _TokenStream = Callable[
 async def require_chat_rate_limit(user: User = Depends(get_current_user)) -> Redis:
     """Throttle chat actions per user, then hand back the Redis handle.
 
-    The same check guards all three streaming routes (and ws.py's own
+    The same check guards all three streaming routes (and ws_api.py's own
     per-message limiter); as a dependency it is declared once instead of
     copy-pasted into every new streaming entry point.
     """
@@ -87,14 +90,20 @@ async def _stream_tokens_sse(
     request: Request,
     cancel_event: asyncio.Event | None = None,
     user_id: UUID | None = None,
+    queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
 ) -> AsyncIterator[str]:
-    """The turn's events as SSE lines, every log line inside carrying the turn's ids."""
+    """The turn's events as SSE lines, every log line inside carrying the turn's ids.
+
+    ``queue_factory`` makes the queue the producer fills; a test passes one that holds a
+    token, never by replacing ``asyncio.Queue`` for the whole process.
+    """
     with bound_log_ids(chat_id=chat_id, user_id=user_id, turn=new_turn_id()):
         async for line in _turn_sse_lines(
             chat_id=chat_id,
             stream_factory=stream_factory,
             request=request,
             cancel_event=cancel_event,
+            queue_factory=queue_factory,
         ):
             yield line
 
@@ -105,9 +114,10 @@ async def _turn_sse_lines(
     stream_factory: _TokenStream,
     request: Request,
     cancel_event: asyncio.Event | None = None,
+    queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
 ) -> AsyncIterator[str]:
     outcome = TurnOutcome()
-    event_queue: asyncio.Queue[tuple[str, str, str | None] | None] = asyncio.Queue()
+    event_queue = queue_factory()
     producer_cancelled = False
     if cancel_event is None:
         cancel_event = asyncio.Event()

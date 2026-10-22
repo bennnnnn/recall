@@ -23,14 +23,7 @@ from app.modules.chat.turn_prep.context import build_stream_prompt_context
 from app.modules.chat.turn_prep.mode import _TurnMode
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.services.time_context import format_date_answer, format_year_answer
-
-
-class _FakeSessionCM:
-    async def __aenter__(self):
-        return AsyncMock()
-
-    async def __aexit__(self, *args):
-        return False
+from app.tests.fakes import FakeSessionCM, redis_mock
 
 
 def _make_user() -> MagicMock:
@@ -237,21 +230,27 @@ async def test_fetches_run_concurrently_not_serially():
     chat = _make_chat()
 
     base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
+    # Each Phase A fetch waits for the other to start: run one after the other, the
+    # first times out alone.
+    phase_a = asyncio.Barrier(2)
+    finished: list[str] = []
 
     async def slow_prompt(*_a, **_kw):
-        await asyncio.sleep(0.25)
+        await asyncio.wait_for(phase_a.wait(), timeout=1)
+        finished.append("prompt")
         return list(base_messages)
 
     async def slow_health(*_a, **_kw):
-        await asyncio.sleep(0.25)
+        await asyncio.wait_for(phase_a.wait(), timeout=1)
+        finished.append("health")
         return {}
 
     async def slow_subject(*_a, **_kw):
-        await asyncio.sleep(0.30)
+        finished.append("subject")
         return SubjectFetch(None, None, False, None, None)
 
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(side_effect=slow_prompt),
@@ -271,8 +270,6 @@ async def test_fetches_run_concurrently_not_serially():
             return_value=[],
         ),
     ):
-        loop = asyncio.get_event_loop()
-        start = loop.time()
         bundle = await build_stream_prompt_context(
             TurnRequest(
                 user_id=user.id,
@@ -295,11 +292,9 @@ async def test_fetches_run_concurrently_not_serially():
             ),
             MagicMock(),
         )
-        elapsed = loop.time() - start
 
-    # Serial would be 0.25 + 0.25 (A) + 0.30 (B) ~= 0.80s. Overlapped, A costs
-    # max(0.25, 0.25), so ~0.55s. Allow slack for slow CI.
-    assert elapsed < 0.75, f"fetches ran serially (elapsed={elapsed:.2f}s)"
+    assert sorted(finished[:2]) == ["health", "prompt"]
+    assert finished[2:] == ["subject"]
     assert bundle.instant_reply is None
 
 
@@ -315,7 +310,7 @@ async def test_injects_the_subject_block_before_the_last_user_message():
         return list(base_messages)
 
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(side_effect=fast_prompt),
@@ -351,7 +346,7 @@ async def test_injects_the_subject_block_before_the_last_user_message():
                 math_tools_enabled=True,
                 web_search_enabled=True,
             ),
-            MagicMock(),
+            redis_mock(),
         )
 
     messages = bundle.prompt_messages
@@ -371,7 +366,7 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
     fetch_subject_mock = AsyncMock(return_value=SubjectFetch(None, None, False, None, None))
 
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(base_messages)),
@@ -405,7 +400,7 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
                 math_tools_enabled=True,
                 web_search_enabled=True,
             ),
-            MagicMock(),
+            redis_mock(),
         )
 
     fetch_subject_mock.assert_not_awaited()
@@ -425,7 +420,7 @@ async def test_web_augment_takes_priors_from_the_prompt():
     fetch_subject_mock = AsyncMock(return_value=SubjectFetch(None, None, False, None, None))
 
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(base_messages)),
@@ -456,7 +451,7 @@ async def test_web_augment_takes_priors_from_the_prompt():
                 math_tools_enabled=True,
                 web_search_enabled=True,
             ),
-            MagicMock(),
+            redis_mock(),
         )
 
     assert fetch_subject_mock.await_args.kwargs["prior_user_messages"] == ["earlier question"]
@@ -486,7 +481,7 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
     )
     messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(messages)),
@@ -579,7 +574,7 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
     messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
 
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(messages)),
@@ -651,7 +646,7 @@ async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None
     )
     messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(messages)),
@@ -704,7 +699,7 @@ async def _graph_it_bundle(fake_redis, priors: list[str]):
         {"role": "user", "content": content}
     ]
     with (
-        patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=messages),

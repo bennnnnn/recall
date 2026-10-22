@@ -29,9 +29,9 @@ from app.models.orm import User
 _PRIVACY_COLUMNS = ("ai_data_consent_at", "memory_enabled", "web_search_enabled")
 
 
-def has_ai_data_consent(user: object) -> bool:
+def has_ai_data_consent(user: User) -> bool:
     """The account agreed to the outside-AI disclosure and has not withdrawn."""
-    return getattr(user, "ai_data_consent_at", None) is not None
+    return user.ai_data_consent_at is not None
 
 
 class ConsentRefusedError(DomainError):

@@ -17,7 +17,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Memory
-from app.repositories import message_chunks as chunks_repo
+from app.modules.chat import history_rag as chat_history_rag
 
 # A snippet this close to a removed fact says the same thing (retrieval itself
 # reads snippets from 0.30 up, against the question rather than the fact).
@@ -57,14 +57,15 @@ async def delete_fact_rows(
 async def purge_fact_chunks(session: AsyncSession, user_id: UUID, facts: Iterable[Memory]) -> None:
     """Drop past-chat snippets that state these facts, so recall cannot bring them back."""
     for fact in facts:
-        await chunks_repo.delete_near_fact(
-            session, user_id, fact.id, max_distance=1.0 - _PURGE_MIN_SIMILARITY
+        vector = select(Memory.embedding).where(Memory.id == fact.id).scalar_subquery()
+        await chat_history_rag.forget_snippets_near(
+            session, user_id, vector, max_distance=1.0 - _PURGE_MIN_SIMILARITY
         )
         names = fact_names(str(getattr(fact, "text", "") or ""))
         if names:
             # The user's own words that name all of it; an assistant line repeating
             # it is caught by the vector above.
-            await chunks_repo.delete_mentioning_all(session, user_id, names, role="user")
+            await chat_history_rag.forget_snippets_naming(session, user_id, names, role="user")
 
 
 def fact_names(text: str) -> list[str]:

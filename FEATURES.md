@@ -730,7 +730,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Personalization** — tone labels and custom instructions. Stored tone ids stay
   `soft` / `casual` / `professional` / `funny`. There is no response-length setting:
   each message sets its own ("briefly", "in detail"), and how hard a turn thinks is
-  automatic (`services/thinking_effort.py`). The old `users.response_style` column is
+  automatic (`modules/chat/model_routing/thinking.py`). The old `users.response_style` column is
   neither read nor returned, and goes in a later release (docs/ROLLBACK.md).
 - ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
   talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,

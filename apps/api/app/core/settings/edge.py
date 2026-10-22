@@ -17,6 +17,8 @@ class EdgeSettings(BaseModel):
     # user, and seconds idle between turns before a close. 0 disables either.
     ws_max_sockets_per_user: int = 5
     ws_idle_timeout_seconds: float = 300.0
+    # Seconds a new chat socket has to send its auth frame before it is dropped.
+    ws_auth_timeout_seconds: float = 10.0
     # Request body caps (core/body_limit.py). A declared Content-Length over
     # the cap is refused before any byte is read; a chunked body is counted as
     # it streams. JSON routes stay far below 1 MiB (chat text is 32k chars).

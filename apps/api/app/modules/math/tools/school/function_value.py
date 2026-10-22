@@ -15,7 +15,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.workout import math_line
 
 _MAX = 300
@@ -208,7 +208,7 @@ def _parse_in(expression: str, variables: list[str]) -> Any | None:
     from app.services.solving import SolveServiceError
 
     try:
-        parsed = math_solve._parse_expression(expression, variables)
+        parsed = math_solve.parse_expression(expression, variables)
     except (SolveServiceError, SyntaxError, TypeError, ValueError):
         return None
     if isinstance(parsed, tuple):
@@ -356,7 +356,7 @@ def _block_function_value(intent: MathIntent, lines: list[str]) -> VerifiedMathB
     answer = format_verified_latex(value)
     lines.extend(f"Working: ${row}$" for row in rows)
     lines.append(f"Result: {answer}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
 
     shown = "  \n".join(math_line(row) for row in rows)
     return replace(block, worked_reply=f"{shown}\n\n```answer\n{answer}\n```\n")

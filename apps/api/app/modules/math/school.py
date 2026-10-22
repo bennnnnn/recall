@@ -39,7 +39,7 @@ from sympy import (
 )
 
 from app.modules.math.schemas import MathExprResult
-from app.modules.math.solve import SolveServiceError, _parse_expression
+from app.modules.math.solve import SolveServiceError, parse_expression
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def _defined_value_latex(value: Any) -> str:
 
 
 def evaluate_arithmetic(expr: str) -> str:
-    parsed = _parse_expression(expr, ["x"])
+    parsed = parse_expression(expr, ["x"])
     if isinstance(parsed, tuple):
         raise SolveServiceError("not a numeric arithmetic expression")
     if parsed.free_symbols:
@@ -241,8 +241,8 @@ def analyze_identity(lhs: str, rhs: str) -> tuple[bool, str | None, str | None]:
     from app.modules.math.solve.discrete import guess_variables
 
     names = list(dict.fromkeys([*guess_variables(f"{lhs} {rhs}"), "theta", "x", "y", "t"]))
-    left = _parse_expression(lhs, names, real=True)
-    right = _parse_expression(rhs, names, real=True)
+    left = parse_expression(lhs, names, real=True)
+    right = parse_expression(rhs, names, real=True)
     difference = simplify(trigsimp(expand_trig(expand(left - right))))
     if difference == 0:
         return True, None, None
@@ -376,7 +376,7 @@ def _imaginary_unit_to_sympy(expr: str) -> str:
 
 
 def evaluate_complex(expr: str) -> str:
-    parsed = _parse_expression(_imaginary_unit_to_sympy(expr), ["x"])
+    parsed = parse_expression(_imaginary_unit_to_sympy(expr), ["x"])
     value = simplify(parsed)
     if not getattr(value, "free_symbols", None) and _defined_value_latex(value) == UNDEFINED_LATEX:
         return UNDEFINED_LATEX
@@ -391,9 +391,9 @@ def taylor_series(
     "cos x to 4 terms" means four non-zero terms (up to x^6), not order 3. A
     series about 0 is written in ascending powers, as textbooks write it.
     """
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     var = Symbol(variable)
-    pt = _parse_expression(point, [variable])
+    pt = parse_expression(point, [variable])
     out = series(parsed, var, pt, order + 1).removeO()
     if nonzero_terms is not None:
         for longer in range(nonzero_terms, 31):
@@ -407,7 +407,7 @@ def taylor_series(
 
 
 def partial_derivative(expr: str, variable: str) -> MathExprResult:
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     out = diff(parsed, Symbol(variable))
     tex = str(latex(out))
     return MathExprResult(result=tex, latex=tex, solved=True)
@@ -418,7 +418,7 @@ def critical_points(expr: str, variable: str = "x") -> MathExprResult:
     if not (expr or "").strip():
         raise SolveServiceError("could not find critical points")
     sym = Symbol(variable)
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     deriv = diff(parsed, sym)
     try:
         sols = solve(deriv, sym)
@@ -432,7 +432,7 @@ def critical_points(expr: str, variable: str = "x") -> MathExprResult:
 
 
 def evaluate_trig_expr(expr: str) -> str:
-    parsed = _parse_expression(expr.replace("\u00b0", "*pi/180"), ["x"])
+    parsed = parse_expression(expr.replace("\u00b0", "*pi/180"), ["x"])
     if parsed.free_symbols:
         raise SolveServiceError("trig evaluation still has variables")
     return _defined_value_latex(simplify(parsed))

@@ -9,7 +9,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.physics import build_verified_physics_block, extract_physics_intent, needs_physics
 from app.modules.physics.block import _solve_requested_quantities
-from app.modules.physics.solvers.common import _to_si
+from app.modules.physics.solvers.si import to_si
 from app.tests.modules.physics.corpus import (
     ANSWERABLE,
     COVERAGE_FLOOR,
@@ -24,7 +24,7 @@ _RESULT_UNITS = {"D": "1/m", "deg": "degree"}
 
 
 def _si(value: float, unit: str) -> float:
-    return _to_si(value, _RESULT_UNITS.get(unit, unit))
+    return to_si(value, _RESULT_UNITS.get(unit, unit))
 
 
 def _verified_values(question: str) -> list[float] | None:

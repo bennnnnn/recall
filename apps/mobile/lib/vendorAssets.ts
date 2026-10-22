@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
  * previews work offline. scripts/vendor-cdn.mjs writes them; lib/vendor/manifest.json
  * pins their versions and hashes.
  */
-/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-require-imports -- Metro bundles an asset only through require() */
 const SOURCES = {
   katexCss: require("@/assets/vendor/katex.min.css.txt"),
   mermaid: require("@/assets/vendor/mermaid.min.js.txt"),
@@ -28,8 +28,7 @@ export type VendorTexts<N extends VendorName> = Record<N, string>;
 const loading = new Map<VendorName, Promise<string>>();
 
 async function read(name: VendorName): Promise<string> {
-  // Required on first read, not at startup: nothing needs them before a preview does.
-  /* eslint-disable @typescript-eslint/no-require-imports */
+  /* eslint-disable @typescript-eslint/no-require-imports -- on first read, not at startup: only a preview needs them */
   const { Asset } = require("expo-asset") as typeof import("expo-asset");
   const { readAsStringAsync } = require("expo-file-system/legacy") as typeof import("expo-file-system/legacy");
   /* eslint-enable @typescript-eslint/no-require-imports */

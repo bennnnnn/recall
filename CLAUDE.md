@@ -13,7 +13,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 ## Golden Rules (read first)
 
-1. **Never put provider API keys in the mobile app.** Keys live only in the backend `.env`. The app only ever talks to our API.
+1. **Never put provider API keys in the mobile app.** Keys live only in the backend `.env`. The app talks only to our API, with one exception: live talk sends its WebRTC offer to OpenAI's realtime endpoint with a short-lived client secret the backend mints (`apps/mobile/features/speech/model/realtimeSdp.ts`); the permanent key never leaves the server.
 2. **Use product model aliases, never provider names**, in app/business code: `free-chat`, `smart-chat`, `title-model`, `memory-model`. Alias → provider mapping lives in `models/model_catalog.py` (runtime availability: `services/model_health.is_available`) (LiteLLM calls go through `gateways/litellm_gateway.py`).
 3. **Never send full chat history to the model.** Build context from injected memory + the recent window (default hard cap 20 messages; token budget also trims) only.
 4. **Topic generation, memory extraction, and other post-turn work are best-effort background jobs.** They must never raise into the chat request path or block streaming. Enqueue from `modules/chat/post_turn.py` via `core/jobs/`.
@@ -61,9 +61,8 @@ recall/
   SECURITY.md
 ```
 
-Backend ownership (`apps/api/app/`) is migrating feature by feature to a modular monolith. New
-modules keep product behavior together; legacy domains retain `routers/` → `services/` until
-their dedicated migration:
+Backend ownership (`apps/api/app/`) is a modular monolith: every product domain is a module
+under `modules/`. Only the legacy admin, health, legal and models routers stay in `routers/`:
 
 ```
 app/
@@ -76,8 +75,8 @@ app/
     mcp/               # adapter protocol + registry (not the adapters)
   repositories/        # shared persistence still used while domains migrate
   routers/             # legacy HTTP until that domain is a module
-  services/            # legacy product code until that domain is a module
-    notifications/ web_search/ mcp/
+  services/            # leaves several owners share (quota, time, STEM text); not one module's code
+    law_binding/ mcp/ quota/
   exceptions.py        # shared domain exceptions
   models/              # orm/ (SQLAlchemy) + schemas/ (Pydantic: HTTP, math/, tools)
   background/          # job handlers + periodic schedulers
@@ -119,17 +118,17 @@ What exists in code today. Product caveats: FEATURES.md.
 |--------|-----|--------|
 | Auth / account | `modules/account/` (HTTP `/auth`: sign-in, sessions, profile, settings proposals, export, delete); per-request token check in `core/access_tokens.py` | `features/auth/` (login, onboarding), `features/account/` (settings screens); `app/login.tsx`, `onboarding.tsx`, `app/settings/*` routes only |
 | Chat history | `modules/chat/` (HTTP `/chats`) | drawer history; `features/chat/api.ts` |
-| Chat stream | `modules/chat/` (`ws_api.py` WebSocket, `stream_api.py` SSE; `stream_entry.py`, `turn_deps.py`, `turn_prep/`, `stream_pipeline.py`, `stream_paths.py`, `finalize_passes.py`, `turn_settle.py`, `post_turn.py`) | `features/chat/` (`screens/ChatScreen.tsx`, `hooks/useChat*.ts`, `components/`, `model/` stream, socket and cache); `app/index.tsx` route only |
+| Chat stream | `modules/chat/` (`ws_api.py` WebSocket, `stream_api.py` SSE; `stream_entry.py`, `turn_deps.py`, `turn_prep/`, `stream_pipeline.py`, `stream_paths.py`, `finalize_passes.py`, `turn_settle.py`, `post_turn.py`; a picture, photo lookup or voice turn saves through `turn_record.py`) | `features/chat/` (`screens/ChatScreen.tsx`, `hooks/useChat*.ts`, `components/`, `model/` stream, socket and cache); `app/index.tsx` route only |
 | Memory | `modules/memory/` (HTTP `/memories`, `/memories/documents`, `/memories/instruct`) | `features/memory/`; `app/memory/` routes only (list + `[key]` page) |
-| Models / quota | `routers/models.py`, `model_catalog.py`, `quota/`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
+| Models / quota | `routers/models.py`, `models/model_catalog.py`, `services/quota/`; the user's pool in `modules/billing/plan.py`, Auto's pick and the reasoning pass in `modules/chat/model_routing/` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
 | Follow-up questions | `modules/chat/related_prompts.py` (after `done`; rules in `related_questions.py`; the old `/suggestions` routes and job are removed; `modules/suggestions/` keeps only the table reads for export) | `features/suggestions/` (`RelatedPromptLines`) |
 | Todos / reminders | `modules/todos/` (HTTP `/todos`; chat changes wait for a tap: `write_log.py` + `proposals.py`, `POST /todos/proposals/{id}/confirm`; the reply above an untapped card claims nothing, `reply_claims.py`) | `features/todos/` (`ReminderProposalCard`); `app/todos.tsx` route only |
 | Home | (none: the phone builds it) | `features/home/`; a translated greeting with the first name + one overdue reminder, from the to-dos it already holds |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
-| Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
-| Image gen (every plan, daily cap) | `modules/images/` (HTTP `/images/generate`; `/images/intent` answers what a composer send is, read by `intent.py`, the chat turn's own reader) | `features/images/`; composer send only, when `/images/intent` answers a picture (`imageIntentPrefilter.ts` only decides whether to ask) |
-| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`, `answer_photo`: a photo above an answer about something worth seeing) | `features/images/`; a lookup is a chat send, read before image-gen intent by `images/intent.py` |
+| Chat-history RAG | `modules/chat/history_rag.py` (snippets in `modules/chat/chunks_repository.py`), `background/message_indexing.py` | (prompt inject only; no extra UI) |
+| Image gen (every plan, daily cap) | `modules/images/` (HTTP `/images/generate`; `/images/intent` answers what a composer send is, read by `intent.py`, the chat turn's own reader) | `features/images/`; composer send only, when `/images/intent` answers a picture (`features/images/model/imageIntentPrefilter.ts` only decides whether to ask) |
+| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`, `answer_photo`: a photo above an answer about something worth seeing) | `features/images/`; a lookup is a chat send, read before image-gen intent by `modules/images/intent.py` |
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `modules/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `modules/math/` (`match/`, `tools/`, `solve/`, `fence.py`; HTTP `/math/scan/read`; the SymPy process pool is `core/sympy_executor.py`). Lessons, check my work (`work_check`), word problems (`word_problem`) | `MathText` / `MathView` / `geometry` / `graph`; scanner review `components/mathScanner/` |
@@ -141,11 +140,11 @@ What exists in code today. Product caveats: FEATURES.md.
 | Link preview | `modules/link_preview/` (HTTP `/link-preview`; SSRF-safe fetch in `gateways/safe_fetch.py`) | `components/LinkPreviewCard.tsx`, `lib/linkPreview.ts` |
 | Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `features/account/screens/HelpScreen.tsx`, `AboutScreen.tsx`, `DataControlsScreen.tsx` |
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
-| i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
+| i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales; tests hold key parity, placeholders and translation: a value equals English only if `lib/__tests__/i18nTranslated.test.ts` allows it) |
 
 **HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Search, Chat history, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, Notifications push-token (`/users`), Analytics, and Link preview APIs plus the legacy health, legal, admin, and models routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
 
-**Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, model catalog, time context, …). New chat-loop code belongs in `modules/chat/`; new external IO belongs in a gateway, not an API surface.
+**Domain packages:** every product domain lives under `modules/`. `services/` holds only what several owners share (quota, time context, the STEM text leaves); a root file one owner uses moves into that owner (`apps/api/app/tests/architecture/test_services_root.py`). The model catalog is `models/model_catalog.py`. New chat-loop code belongs in `modules/chat/`; new external IO belongs in a gateway, not an API surface.
 
 ## Seams (plug in / plug out)
 
@@ -163,7 +162,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | Rich fence | `lib/fenceRegistry.ts` (`FENCES`) | Add a `FenceSpec`; one block component; wire render | Delete the spec + component |
 | UI primitive | `apps/mobile/ui/` (see `ui/README.md`) | Add or extend one kit component; features import it by path | Delete the component and its callers' use; never fork it inside a feature |
 | Chat UI behavior | `features/chat/hooks/useChat*.ts` | Hook owns logic; screen stays thin | Don’t add a second composer intercept |
-| i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |
+| i18n string | `lib/i18n/*.json` | Key in `en.json`, translated in every locale (English left in one fails a test) | Delete key from all locale files |
 | Banned UX | `.cursor/rules/chat-ux-bans.mdc` | — | If replacing UX, **delete** the old path |
 
 **Flags (defaults in `core/settings/`):** `mcp_tool_loop_enabled` (on), `math_tools_enabled`, `chemistry_enabled` (on), `math_word_problems_enabled` (on), `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `image_search_enabled` (on; real reference-photo lookup, separate from AI generation), `speech_*_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
@@ -182,11 +181,11 @@ New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` w
 8. Persist assistant + usage in a finalize task (`turn_settle.py`)
 9. `enqueue_post_turn_jobs` (`post_turn.POST_TURN_JOBS`, in order) — memory, lesson_progress (after a lesson reply: the chat's one "Learning X: reached Lesson N" memory line, no LLM), topic, compress, message_index (best-effort; must not raise into the stream). A turn's documents get `attachment_index` earlier, as soon as the user's message commits (`turn_prep/persist.py`), so a turn that ends without a reply still indexes them
 
-Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job.
+Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job. A turn chat does not stream (a picture or photo intercept, `/images/generate`, live talk) saves its rows through `turn_record.add_turn_message`, which moves the chat up the drawer, and `turn_record.finish_turn` enqueues the same step-9 jobs.
 
 **Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `lesson_progress`, `compress`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
 
-**Worker** (`worker_main.py`): consumes that stream and runs schedulers (push, email reminders, attachment orphan reaper).
+**Worker** (`worker_main.py`): consumes that stream and runs the schedulers `process_bootstrap.py` lists (push, email reminders, attachment orphan reaper, billing reconcile, analytics retention).
 
 ## Mobile map
 
@@ -195,11 +194,11 @@ Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Tod
 - Network: `lib/api.ts` barrel → `lib/api/{client,discover,connectivity,analytics,push,scan,types}.ts` plus feature slices (`features/chat/api.ts`, `features/auth/api.ts`, `features/account/api.ts`, `features/memory/api.ts`, `features/todos/api.ts`, `features/search/api.ts`, `features/attachments/api.ts`, `features/images/api.ts`, `features/speech/api.ts`)
 - Tokens: `expo-secure-store` only
 - Chat logic: `features/chat/hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — the screen stays thin. The turn itself (send, socket and SSE frames, Stop, regenerate, dropped connections) is the pure reducer `features/chat/model/chatTurnState.ts`; `useChat` holds it and runs its commands. Chat code reads refs only in callbacks and effects (`react-hooks/refs` is on for `features/chat`)
-- Domain libs: `lib/<domain>/` — `math/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.
+- Domain libs: `lib/<domain>/` — `math/`, `physics/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `datetime/`, `i18n/`, `speech/`. To-dos live in `features/todos/`, not `lib/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.
 - Messages: FlashList; markdown + `components/rich/*` + `components/markdown/*`
 - Fences: `lib/fenceRegistry.ts` is the lang/id table; `RichFence` renders
 - UI kit: `ui/` — controls (Button, Chip, SegmentedControl, TextField, HeaderButton), `list/` ListRow, `overlay/` (Menu, SelectMenu, `confirmDialog`/`alertDialog`, Sheet), `pickers/` (clock time, calendar date), `share/` ShareSheet, `icons/` (Lucide line icons + BrandMark). Catalog: `ui/README.md`. Lint bans raw `Alert`/`Modal`/`Switch`, `@expo/vector-icons` and the native datetimepicker outside it.
-- i18n: `lib/i18n` (9 locales, key parity enforced by test)
+- i18n: `lib/i18n` (9 locales; key parity, placeholders and translation enforced by tests)
 
 ## Build / Run Commands
 

@@ -31,11 +31,11 @@ def ask_turn_readings(
     earlier_lines: tuple[str, ...] = (),
 ) -> None:
     """Every reading the turn's sync code asks of its message. Runs in a pool worker."""
+    from app.modules.chat.model_routing.route import route_chat_model
     from app.modules.chat.turn_prep.intents import plan_turn
     from app.modules.math.tools.extract import extract_math_intent
     from app.modules.math.tools.prompt import needs_symbolic_math
     from app.modules.physics.extract import extract_physics_intent
-    from app.services.routing import route_chat_model
     from app.services.subject_solving import detect_subject
 
     chemistry = settings.chemistry_enabled
@@ -76,9 +76,9 @@ async def read_turn_message(
     Turn load reads it; turn prep asks again (a regenerate, the behavior harness) and
     pays only for what changed.
     """
+    from app.modules.chat.model_routing.route import last_user_turn
     from app.modules.chat.prompt_constants import active_lesson_step
     from app.services.problem_followup import message_role_content
-    from app.services.routing import last_user_turn
 
     earlier = list(recent)
     # The message's own row may already be in the window: it is not the line before it.

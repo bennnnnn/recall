@@ -32,10 +32,9 @@ from app.models.orm import (
 )
 from app.modules import memory as memory_service
 from app.modules.attachments import service as attachments_service
+from app.modules.chat import history as chat_history
 from app.modules.suggestions import service as suggestions_service
-from app.modules.todos import repository as todos_repo
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
+from app.modules.todos import service as todos_service
 from app.repositories import product_events as product_events_repo
 from app.repositories import push_tokens as push_tokens_repo
 from app.repositories import usage as usage_repo
@@ -120,9 +119,9 @@ def _chat_header(chat: Chat) -> dict[str, Any]:
         "title": chat.title,
         "model": chat.model,
         "pinned": chat.pinned,
-        "archived": _json_safe(getattr(chat, "archived", None)),
+        "archived": _json_safe(chat.archived),
         # Rolling summary of older messages kept for the model's context.
-        "summary": _json_safe(getattr(chat, "summary", None)),
+        "summary": _json_safe(chat.summary),
         "created_at": chat.created_at.isoformat(),
         "updated_at": chat.updated_at.isoformat(),
     }
@@ -133,7 +132,7 @@ def _message_payload(message: Message) -> dict[str, Any]:
         "role": message.role,
         "content": message.content,
         "model": message.model,
-        "feedback": _json_safe(getattr(message, "feedback", None)),
+        "feedback": _json_safe(message.feedback),
         "created_at": message.created_at.isoformat(),
     }
 
@@ -141,13 +140,13 @@ def _message_payload(message: Message) -> dict[str, Any]:
 def _memory_payload(memory: Memory) -> dict[str, Any]:
     return {
         "type": memory.type,
-        "topic": _json_safe(getattr(memory, "topic", None)),
-        "status": _json_safe(getattr(memory, "status", None)),
-        "sensitivity": _json_safe(getattr(memory, "sensitivity", None)),
+        "topic": _json_safe(memory.topic),
+        "status": _json_safe(memory.status),
+        "sensitivity": _json_safe(memory.sensitivity),
         "text": memory.text,
         "confidence": float(memory.confidence) if memory.confidence is not None else None,
         "created_at": memory.created_at.isoformat(),
-        "updated_at": _json_safe(getattr(memory, "updated_at", None)),
+        "updated_at": _json_safe(memory.updated_at),
     }
 
 
@@ -185,7 +184,7 @@ def _todo_payload(todo: TodoItem) -> dict[str, Any]:
         "topic": todo.topic,
         "checked": todo.checked,
         "due_at": todo.due_at.isoformat() if todo.due_at is not None else None,
-        "recurrence_rule": _json_safe(getattr(todo, "recurrence_rule", None)),
+        "recurrence_rule": _json_safe(todo.recurrence_rule),
         "chat_id": str(todo.chat_id) if todo.chat_id is not None else None,
         "sort_order": todo.sort_order,
         "created_at": todo.created_at.isoformat(),
@@ -238,7 +237,7 @@ async def _attachment_payload(
         "content_type": attachment.content_type,
         "size_bytes": attachment.size_bytes,
         "source": attachment.source,
-        "original_filename": _json_safe(getattr(attachment, "original_filename", None)),
+        "original_filename": _json_safe(attachment.original_filename),
         "created_at": attachment.created_at.isoformat(),
         "download_url": download_url,
         "download_url_expires_in_seconds": settings.r2_presign_expiry_seconds,
@@ -265,13 +264,7 @@ async def _iter_export_json(
     yield '"chats":['
 
     async with session_factory() as session:
-        chats = await chats_repo.list_for_user(
-            session,
-            user.id,
-            limit=EXPORT_MAX_CHATS,
-            include_archived=True,
-            with_summary=True,
-        )
+        chats = await chat_history.chats_for_export(session, user.id, limit=EXPORT_MAX_CHATS)
         chat_rows = [(_chat_header(chat), chat.id) for chat in chats]
 
     for chat_index, (header, chat_id) in enumerate(chat_rows):
@@ -285,7 +278,7 @@ async def _iter_export_json(
         while offset < EXPORT_MAX_MESSAGES_PER_CHAT:
             page_size = min(EXPORT_MESSAGE_PAGE_SIZE, EXPORT_MAX_MESSAGES_PER_CHAT - offset)
             async with session_factory() as session:
-                messages = await messages_repo.list_range(
+                messages = await chat_history.messages_page(
                     session,
                     chat_id,
                     offset=offset,
@@ -310,12 +303,8 @@ async def _iter_export_json(
     while memory_offset < EXPORT_MAX_MEMORIES:
         page_size = min(EXPORT_MEMORY_PAGE_SIZE, EXPORT_MAX_MEMORIES - memory_offset)
         async with session_factory() as session:
-            memories = await memory_service.list_range(
-                session,
-                user.id,
-                offset=memory_offset,
-                limit=page_size,
-                include_superseded=True,
+            memories = await memory_service.facts_for_export(
+                session, user.id, offset=memory_offset, limit=page_size
             )
             memory_chunks = [json.dumps(_memory_payload(memory)) for memory in memories]
         if not memory_chunks:
@@ -333,7 +322,7 @@ async def _iter_export_json(
     async with session_factory() as session:
         area_chunks = [
             json.dumps(_memory_area_payload(area))
-            for area in await memory_service.list_areas(session, user.id)
+            for area in await memory_service.areas_for_export(session, user.id)
         ]
     yield ",".join(area_chunks)
 
@@ -343,7 +332,7 @@ async def _iter_export_json(
     while todo_offset < EXPORT_MAX_TODOS:
         page_size = min(EXPORT_TODO_PAGE_SIZE, EXPORT_MAX_TODOS - todo_offset)
         async with session_factory() as session:
-            todos = await todos_repo.list_for_user(
+            todos = await todos_service.list_owned_todos(
                 session,
                 user.id,
                 limit=page_size,

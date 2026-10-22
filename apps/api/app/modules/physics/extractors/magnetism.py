@@ -7,24 +7,24 @@ import re
 from app.modules.physics.bodies import named_particle_mass
 from app.modules.physics.constants import ELEMENTARY_CHARGE
 from app.modules.physics.extractors.angles import _stated_angle
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.circuit_patterns import (
     _COULOMB_PATTERN,
-)
-from app.modules.physics.extractors.common import (
-    _AMP_PATTERN,
-    _LENGTH_UNIT_PATTERN,
-    _MASS_UNITS,
-    _NUMBER,
-    _TESLA_PATTERN,
-    _VELOCITY_UNIT_PATTERN,
-    _find_value_with_specific_unit,
-    _strip_param_assignments,
 )
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )
-from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
+from app.modules.physics.extractors.fluid_readings import AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_field
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.unit_patterns import (
+    AMP_PATTERN,
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+    NUMBER,
+    TESLA_PATTERN,
+    VELOCITY_UNIT_PATTERN,
+)
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -41,17 +41,17 @@ _MAGNETISM_CUES = (
 _MAGNETISM_CUE_RES: tuple[re.Pattern[str], ...] = (
     # A tesla value beside a current or a charge is the signature itself.
     re.compile(
-        rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9]).{{0,80}}?"
+        rf"\d\s*(?:{TESLA_PATTERN})(?![A-Za-z0-9]).{{0,80}}?"
         rf"\d\s*(?:A|amps?|amperes?|C|coulombs?)(?![A-Za-z0-9])"
     ),
     re.compile(
         rf"\d\s*(?:A|amps?|amperes?|C|coulombs?)(?![A-Za-z0-9]).{{0,80}}?"
-        rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9])"
+        rf"\d\s*(?:{TESLA_PATTERN})(?![A-Za-z0-9])"
     ),
     # A named particle in a field: "a proton at 3e6 m/s in a 0.5 T field".
     re.compile(
         rf"\b(?:[Pp]roton|[Ee]lectron|[Aa]lpha particle)\b.{{0,80}}?"
-        rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9])"
+        rf"\d\s*(?:{TESLA_PATTERN})(?![A-Za-z0-9])"
     ),
 )
 
@@ -67,21 +67,21 @@ def _extract_magnetism_intent(cleaned: str) -> PhysicsIntent | None:
         return None
     if blocks_field(cleaned):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
     lower = cleaned.lower()
-    field = _find_value_with_specific_unit(cleaned, _TESLA_PATTERN)
-    current = _find_value_with_specific_unit(cleaned, _AMP_PATTERN)
-    charge = _find_value_with_specific_unit(cleaned, _COULOMB_PATTERN)
-    speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
-    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "particle"))
-    length = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("wire", "conductor", "long", "length")
+    field = find_value_with_specific_unit(cleaned, TESLA_PATTERN)
+    current = find_value_with_specific_unit(cleaned, AMP_PATTERN)
+    charge = find_value_with_specific_unit(cleaned, _COULOMB_PATTERN)
+    speed = find_value_with_specific_unit(cleaned, VELOCITY_UNIT_PATTERN)
+    mass = find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass", "particle"))
+    length = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("wire", "conductor", "long", "length")
     )
-    area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
-    radius = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("distance", "from", "radius"), require_keyword=True
+    area = find_value_with_specific_unit(cleaned, AREA_PATTERN)
+    radius = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("distance", "from", "radius"), require_keyword=True
     )
 
     if charge is None and re.search(r"\b(?:proton|electron)\b", cleaned, re.IGNORECASE):
@@ -97,7 +97,7 @@ def _extract_magnetism_intent(cleaned: str) -> PhysicsIntent | None:
     # branch, which declines any other "magnetic field" that also has a length.
     if field is None and "solenoid" in lower and current is not None:
         density = re.search(
-            rf"({_NUMBER})\s*turns?\s+per\s+met(?:er|re)\b",
+            rf"({NUMBER})\s*turns?\s+per\s+met(?:er|re)\b",
             cleaned,
             re.IGNORECASE,
         )

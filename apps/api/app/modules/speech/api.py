@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 def _reject_oversized_audio(data: bytes) -> None:
     if len(data) > SPEECH_MAX_AUDIO_BYTES:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="Audio payload too large",
         )
 
@@ -168,16 +168,16 @@ async def transcribe_speech(
         upload = form.get("file")
         if upload is None or not hasattr(upload, "read"):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Missing audio file",
             )
         declared_size = getattr(upload, "size", None)
         if declared_size is not None and int(declared_size) > SPEECH_MAX_AUDIO_BYTES:
             raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 detail="Audio payload too large",
             )
-        data = await upload.read()  # type: ignore[union-attr]
+        data = await upload.read()
         _reject_oversized_audio(data)
         filename = getattr(upload, "filename", None) or "speech.m4a"
 

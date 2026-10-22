@@ -42,7 +42,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 | 5 | "What time is it?" detection | API `services/time_context.py`; phone `lib/timeQuestion.ts` (already drifted) | ES-04 |
 | 6 | Geo and location intent | API `modules/web_search/patterns.py`; phone `lib/localPlacesQuery.ts` | ES-07 |
 | 7 | Plot expression semantics | SymPy on the API; `lib/math/graphExpr.ts` on the phone | ES-07 |
-| 8 | Model catalog, prices and quota multipliers | `services/model_catalog.py`; `lib/modelCatalogFallback.ts` | ES-08 |
+| 8 | Model catalog, prices and quota multipliers | `models/model_catalog.py`; `lib/modelCatalogFallback.ts` | ES-08 |
 | 9 | Number-literal grammar | 16 private regexes in math and physics, plus two scientific-notation folders | ES-09 |
 | 10 | Cosine and sine rules | 3 math files | ES-10 |
 | 11 | Physical constants: 273.15, c, e, mₑ, Nₐ, R and F in display text | 9 places in chemistry and physics | ES-11 |
@@ -1307,6 +1307,9 @@ Not exceptions:
   `revenuecat_gateway.py` and `email_gateway.py` 15 s), each with a client per call. They now use
   `gateways/http_client.get_pooled_client` with a named timeout constant, like the other gateways;
   `image_gateway.py` and `safe_fetch` downloads keep their own client on purpose.
-- `chat/stream_pipeline.py:436-437` and about 8 other function-local imports exist to dodge import
-  order. They hide dependencies; ES-22 should make them module imports or remove the need.
+- 19 function-local imports close a load-order cycle between files (12 in `modules/math`, 3 in
+  the completion gateways, one each in `core/request_id.py`, chat's model routing, chemistry's
+  request and web search's subject). They hide dependencies; ES-22 should make them module
+  imports or remove the need. Between modules every import that runs counts:
+  `architecture/test_module_direction.py` names each upward one (audit ARCH-11).
 - CLAUDE.md's size table (API ~44k, phone ~50k) is about 3.8× and 2× low.

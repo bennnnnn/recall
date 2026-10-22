@@ -6,7 +6,8 @@ from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Self
 
-from litellm import acompletion
+# Re-exported: the completion gateways call the provider through this module.
+from litellm import acompletion as acompletion
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
@@ -14,9 +15,9 @@ from app.gateways import llm_spend, mock_llm
 from app.gateways.reasoning import reasoning_body
 
 # The completion kinds split out of this module are part of its public surface
-# (callers use ``litellm_gateway.complete_structured`` and friends). They reach
-# this module's provider seams (``acompletion``, ``resolve_route``,
-# ``_litellm_kwargs``) at call time, so a test patches each seam once, here.
+# (callers use ``litellm_gateway.complete_structured`` and friends). They make
+# their provider calls through this module (``acompletion``, ``resolve_route``,
+# ``_litellm_kwargs``), importing it at call time: at load it would be a cycle.
 from app.gateways.structured_completion import _fallback_alias
 from app.gateways.structured_completion import complete_structured as complete_structured
 from app.gateways.think_stripper import STRAY_THINK_LEAD_HOLD, ThinkStripper

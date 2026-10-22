@@ -87,7 +87,7 @@ function RevealingImage({
     // the kind of render-purity violation the immutability rule exists to
     // catch. The rule doesn't yet recognize SharedValue as an exempt
     // mutable-ref type (a known gap for Reanimated under React Compiler).
-    // eslint-disable-next-line react-hooks/immutability
+    // eslint-disable-next-line react-hooks/immutability -- a shared value written in an event handler, not in render
     reveal.value = withTiming(1, {
       duration: motionMs(REVEAL_DURATION_MS, reduceMotion),
       easing: Easing.out(Easing.ease),

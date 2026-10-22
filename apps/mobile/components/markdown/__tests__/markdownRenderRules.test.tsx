@@ -8,6 +8,10 @@ import { makeMdStyles, PARAGRAPH_GAP } from "@/components/markdown/markdownConte
 import { Space } from "@/lib/space";
 import { lightTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import "@/lib/i18n";
+
+// These check the English copy, so they read the real react-i18next over lib/i18n.
+jest.unmock("react-i18next");
 
 jest.mock("@/components/LinkPreviewCard", () => {
   const { Pressable, Text } = jest.requireActual("react-native") as typeof import("react-native");
@@ -23,13 +27,7 @@ jest.mock("@/components/LinkPreviewCard", () => {
     ),
   };
 });
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-}));
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),

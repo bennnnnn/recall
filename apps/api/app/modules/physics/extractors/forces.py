@@ -5,13 +5,11 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.ask import asked_dimensions
-from app.modules.physics.extractors.common import (
-    _find_value_with_specific_unit,
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.givens import unit_dimension
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
@@ -72,18 +70,18 @@ _F_MA_DIMENSIONS = frozenset(
 
 def _extract_force_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _FORCE_CUES, _FORCE_CUE_RES):
+    if not has_cue(lower, _FORCE_CUES, _FORCE_CUE_RES):
         return None
     if any(word in lower for word in _UNSUPPORTED_FORCE_CONTEXT):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
     # Mass (m): "mass of 5 kg", "5 kg mass", "5kg object" — use unit-specific
     # search so "20 N" (force) isn't picked up as the mass.
     mass: float | None = None
     mass_unit = "kg"
-    mu = _find_value_with_specific_unit(
+    mu = find_value_with_specific_unit(
         cleaned,
         r"kg|g|mg|lb|lbs|oz",
         ("mass", "object", "body"),
@@ -94,14 +92,14 @@ def _extract_force_intent(cleaned: str) -> PhysicsIntent | None:
     # Force (F): "force of 20 N", "20 N force" — use unit-specific search.
     force: float | None = None
     force_unit = "N"
-    fu = _find_value_with_specific_unit(cleaned, r"N", ("force",))
+    fu = find_value_with_specific_unit(cleaned, r"N", ("force",))
     if fu is not None:
         force, force_unit = fu
 
     # Acceleration (a): "acceleration of 2 m/s^2"
     accel: float | None = None
     accel_unit = "m/s^2"
-    au = _find_value_with_specific_unit(
+    au = find_value_with_specific_unit(
         cleaned,
         r"m/s\^?2|m/s2",
         ("acceleration", "accelerates", "accelerated"),

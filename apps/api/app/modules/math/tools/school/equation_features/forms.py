@@ -17,7 +17,7 @@ from app.services.workout import Workout
 def _parse(text: str, names: list[str]) -> Any:
     from app.modules.math import solve as math_solve
 
-    parsed = math_solve._parse_expression(text, names)
+    parsed = math_solve.parse_expression(text, names)
     if isinstance(parsed, tuple):
         raise ValueError("not one expression")
     from sympy import nsimplify

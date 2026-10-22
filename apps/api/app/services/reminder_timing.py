@@ -43,19 +43,15 @@ def should_notify_todo(
 def in_quiet_hours(user: User, now: datetime | None = None) -> bool:
     """True when the user has quiet hours on and ``now`` is inside the window.
 
-    ``quiet_hours_enabled is not True`` so MagicMocks in tests are not treated as
-    opted-in. A zero-length window (start == end) is never quiet. Ranges that
-    wrap midnight (e.g. 22:00–07:00) use the user's timezone.
+    A zero-length window (start == end) is never quiet. Ranges that wrap midnight
+    (e.g. 22:00–07:00) use the user's timezone.
     """
-    if getattr(user, "quiet_hours_enabled", False) is not True:
+    if not user.quiet_hours_enabled:
         return False
-    start = getattr(user, "quiet_hours_start_minute", None)
-    end = getattr(user, "quiet_hours_end_minute", None)
-    if not isinstance(start, int) or not isinstance(end, int):
-        return False
+    start, end = user.quiet_hours_start_minute, user.quiet_hours_end_minute
     if start == end or not (0 <= start <= 1439 and 0 <= end <= 1439):
         return False
-    tz = time_context_service.resolve_timezone(getattr(user, "timezone", None))
+    tz = time_context_service.resolve_timezone(user.timezone)
     instant = now.astimezone(tz) if now is not None else datetime.now(tz)
     minute = instant.hour * 60 + instant.minute
     if start < end:
@@ -63,10 +59,8 @@ def in_quiet_hours(user: User, now: datetime | None = None) -> bool:
     return minute >= start or minute < end
 
 
-# BUG FIX: reminder_emails.py used to hardcode "Reminder"/"Overdue reminder" in
-# English directly, never localizing it, even though push_notifications.py's
-# equivalent (title) was already locale-aware. Shared here — same reasoning as
-# the helpers above — so push and email can't drift on this either.
+# Push and email title a reminder from this one table (modules/notifications/push.py
+# and reminder_email.py), in the user's language, so the two channels cannot drift.
 _REMINDER_TITLES: dict[str, dict[str, str]] = {
     "en": {"reminder": "Reminder", "overdue": "Overdue reminder"},
     "es": {"reminder": "Recordatorio", "overdue": "Recordatorio atrasado"},

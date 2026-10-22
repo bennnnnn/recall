@@ -9,15 +9,13 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
-from app.modules.physics.extractors.common import (
-    _NUMBER,
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
 from app.modules.physics.extractors.optics_laws import NAMED_OPTICS_LAWS, image_distance
+from app.modules.physics.extractors.unit_patterns import NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.ask import ASK_VERBS
 from app.services.text_match import has_equation
@@ -82,7 +80,7 @@ def _reflection_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if "reflect" not in lower or _NOT_REFLECTION_RE.search(lower):
         return None
-    angles = list(_INCLINE_ANGLE_RE.finditer(cleaned))
+    angles = list(INCLINE_ANGLE_RE.finditer(cleaned))
     if len(angles) != 1:
         return None
     match = angles[0]
@@ -139,10 +137,10 @@ _DIVERGING_RE = re.compile(
 
 def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _OPTICS_CUES):
+    if not has_cue(lower, _OPTICS_CUES):
         return None
-    without_index_assignments = re.sub(r"\bn[12]\s*=\s*" + _NUMBER, "", cleaned, flags=re.I)
-    if has_equation(_strip_param_assignments(without_index_assignments)):
+    without_index_assignments = re.sub(r"\bn[12]\s*=\s*" + NUMBER, "", cleaned, flags=re.I)
+    if has_equation(strip_param_assignments(without_index_assignments)):
         return None
     if _DIVERGING_RE.search(cleaned):
         return None

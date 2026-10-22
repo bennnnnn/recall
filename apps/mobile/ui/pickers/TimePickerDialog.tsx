@@ -89,8 +89,7 @@ export function TimePickerDialog({
     setDraft(value);
     setMode("hour");
     setTyping(false);
-    // Open on the caller's value each time, not on the last draft.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open on the caller's value each time, not on the last draft
   }, [visible]);
 
   const cardWidth = Math.min(TIME_PICKER_WIDTH, screen.width - Space.lg * 2);

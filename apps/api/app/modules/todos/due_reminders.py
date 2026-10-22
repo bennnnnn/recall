@@ -6,19 +6,28 @@ what "due" means had to be made twice. The candidates come in pages ordered by
 ``(due_at, id)`` over a partial index per channel (migration 0117), so a minute's
 cycle reads only rows in the reminder window and stops at its bound; the rest
 come next cycle.
+
+What a send changes is here too (``mark_reminder_pushed``, ``mark_reminder_emailed``):
+notifications delivers and never writes a to-do row itself (code-health audit ARCH-05).
 """
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, false, select, tuple_
+from sqlalchemy import ColumnElement, false, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.models.orm import PushToken, TodoItem, User
+from app.modules.todos.crud import advance_past_recurring
+from app.modules.todos.email_repository import mark_email_sent_if_current
+from app.modules.todos.occurrences import TodoEmailSnapshot, TodoScheduleSnapshot
+from app.modules.todos.recurrence import is_recurrence_rule, next_recurring_due
+from app.modules.todos.schedule_repository import update_schedule_if_current
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
@@ -38,7 +47,7 @@ class ReminderChannel:
     include_recurring: bool
 
 
-PUSH = ReminderChannel(
+PUSH_REMINDERS = ReminderChannel(
     name="push",
     sent_at=TodoItem.notification_sent_at,
     opted_in=(
@@ -51,7 +60,7 @@ PUSH = ReminderChannel(
     include_recurring=True,
 )
 # A recurring to-do moves to its next occurrence when pushed; email does not send them.
-EMAIL = ReminderChannel(
+EMAIL_REMINDERS = ReminderChannel(
     name="email",
     sent_at=TodoItem.email_sent_at,
     opted_in=(User.email_reminders_enabled.is_(True), User.email != ""),
@@ -96,7 +105,7 @@ async def due_reminder_page(
     return [(todo, user) for todo, user in (await session.execute(stmt)).all()]
 
 
-def page_key(rows: list[tuple[TodoItem, User]]) -> PageKey | None:
+def reminder_page_key(rows: list[tuple[TodoItem, User]]) -> PageKey | None:
     """Where the next page starts: after the last row of this one."""
     if not rows:
         return None
@@ -140,3 +149,78 @@ async def tokenless_recurring_overdue(
         .limit(limit)
     )
     return [(todo, user) for todo, user in (await session.execute(stmt)).all()]
+
+
+async def aged_out_unsent(
+    session: AsyncSession, channel: ReminderChannel, *, now: datetime, window: timedelta
+) -> int:
+    """How many of the channel's reminders crossed the 48 h overdue line unsent in ``window``.
+
+    Only users the channel reaches count, so a row that aged out is a delivery failure.
+    """
+    cutoff = now - timedelta(hours=OVERDUE_MAX_HOURS)
+    raw = await session.scalar(
+        select(func.count())
+        .select_from(TodoItem)
+        .join(User, User.id == TodoItem.user_id)
+        .where(
+            TodoItem.checked == false(),
+            TodoItem.due_at.isnot(None),
+            channel.sent_at.is_(None),
+            TodoItem.due_at < cutoff,
+            TodoItem.due_at >= cutoff - window,
+            *channel.opted_in,
+        )
+    )
+    return raw if isinstance(raw, int) else 0
+
+
+async def mark_reminder_pushed(session: AsyncSession, todo: TodoItem, *, now: datetime) -> bool:
+    """After a push for ``todo`` went out; no commit. Whether the to-do changed.
+
+    A recurring to-do moves to its next occurrence, any other is stamped sent. Only the
+    occurrence that was read changes: one edited or completed meanwhile is left alone.
+    """
+    snapshot = TodoScheduleSnapshot.from_todo(todo)
+    rule, due = snapshot.recurrence_rule, snapshot.due_at
+    if is_recurrence_rule(rule) and due is not None:
+        user_row = await session.get(User, snapshot.user_id)
+        timezone = user_row.timezone if user_row is not None else None
+        # A lead-time notification already consumed this occurrence, even
+        # when its due time is still in the future.
+        nxt = next_recurring_due(due, rule, now=max(now, due), timezone=timezone)
+        return await update_schedule_if_current(
+            session, snapshot, due_at=nxt, notification_sent_at=None, email_sent_at=None
+        )
+    return await update_schedule_if_current(session, snapshot, notification_sent_at=now)
+
+
+async def mark_reminder_emailed(
+    session: AsyncSession, occurrence: TodoEmailSnapshot, *, sent_at: datetime
+) -> bool:
+    """After the reminder email for ``occurrence`` went out; no commit. Whether it was stamped.
+
+    Push keeps its own marker; a to-do changed since it was read is left alone.
+    """
+    return await mark_email_sent_if_current(session, occurrence, sent_at)
+
+
+async def advance_recurring_without_device(session: AsyncSession, *, now: datetime) -> int:
+    """Move push users' overdue recurring to-dos to their next occurrence when they have no
+    device to push to; commits. How many moved.
+
+    Push skips these users, so each would otherwise wait forever or fire late.
+    """
+    rows = [
+        (todo, user)
+        for todo, user in await tokenless_recurring_overdue(session, now=now)
+        if is_recurrence_rule(todo.recurrence_rule) and is_due_now(todo, user, now=now)
+    ]
+    if not rows:
+        return 0
+    by_timezone: dict[str | None, list[TodoItem]] = defaultdict(list)
+    for todo, user in rows:
+        by_timezone[user.timezone if isinstance(user.timezone, str) else None].append(todo)
+    for timezone, items in by_timezone.items():
+        await advance_past_recurring(session, items, timezone=timezone, now=now)
+    return len(rows)

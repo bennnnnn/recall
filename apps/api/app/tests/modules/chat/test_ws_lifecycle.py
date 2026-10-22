@@ -256,7 +256,7 @@ async def test_shutdown_stops_a_ws_turn_through_its_stop_and_saves_it(_turn_io, 
     await asyncio.wait_for(serve, 5)
 
     _turn_io.assert_awaited_once()
-    assert _turn_io.await_args.args[2] == "a"
+    assert _turn_io.await_args.kwargs["assistant_text"] == "a"
     assert outcome.completion == "interrupted"
     done = [frame for frame in sent if frame["type"] == "done"]
     assert done and done[0]["completion"] == "interrupted"

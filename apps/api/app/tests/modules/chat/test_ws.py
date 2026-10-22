@@ -12,6 +12,7 @@ from app.core.access_tokens import create_access_token
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatNotFoundError, QuotaExceededError
 from app.main import create_app
+from app.modules.chat.stream_events import REPLY_SAVE_FAILED_MESSAGE
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.services.quota.messages import QUOTA_EXCEEDED_MESSAGE_FREE
 
@@ -235,15 +236,16 @@ def test_ws_invalid_token_closes():
 
 def test_ws_auth_timeout_closes():
     """Sockets that never send an auth frame must not hang forever."""
+    from app.core.deps import get_settings_dep
+
     app = _app(None)
+    app.dependency_overrides[get_settings_dep] = lambda: _settings().model_copy(
+        update={"ws_auth_timeout_seconds": 0.05}
+    )
     client = TestClient(app)
 
-    with patch(
-        "app.modules.chat.ws_api.asyncio.wait_for",
-        side_effect=TimeoutError(),
-    ):
-        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
-            msg = ws.receive_json()
+    with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+        msg = ws.receive_json()
     assert msg["type"] == "error"
     assert "timeout" in msg["message"].lower()
 
@@ -882,8 +884,6 @@ def test_ws_done_waits_for_finalize_commit():
     flushes immediately (stream_end is not held); only the final `done`
     waits on the commit. Before this, a failed finalize left the client
     holding a message_id for a row that was never inserted."""
-    import time
-
     _, tok = _token()
     user = _fake_user()
     chat_id = uuid4()
@@ -895,15 +895,13 @@ def test_ws_done_waits_for_finalize_commit():
         captured["loop"] = asyncio.get_running_loop()
         yield "Hello"
         if outcome is not None:
-            outcome.message_id = message_id
             outcome.resolved_model = "free-chat"
 
             async def slow_finalize():
-                # Blocks until the test releases it — `done` must wait.
-                try:
-                    await asyncio.wait_for(release_finalize.wait(), timeout=8)
-                except TimeoutError:
-                    pass
+                # Blocks until the test releases it. The row's id is known only once
+                # the commit lands, so a `done` sent before this cannot carry it.
+                await asyncio.wait_for(release_finalize.wait(), timeout=8)
+                outcome.message_id = message_id
 
             outcome.finalize_db_task = asyncio.create_task(slow_finalize())
 
@@ -925,16 +923,11 @@ def test_ws_done_waits_for_finalize_commit():
             assert ws.receive_json()["type"] == "stream_end"
             # `done` is held while the finalize commit is in flight — the
             # client stays in the streaming state until the commit lands.
-            started = time.monotonic()
             captured["loop"].call_soon_threadsafe(release_finalize.set)
             done = ws.receive_json()
-            elapsed = time.monotonic() - started
             assert done["type"] == "done"
+            # The id the commit set: `done` waited for it, no ghost `done`.
             assert done["message_id"] == message_id
-            # `done` arrived only after the finalize was released — proving
-            # we awaited the commit rather than sending a ghost `done`.
-            assert elapsed >= 0.0  # released near-instantly; the point is it
-            # was awaited, not that it was slow.
 
 
 def test_ws_done_sends_error_when_finalize_fails():
@@ -974,7 +967,7 @@ def test_ws_done_sends_error_when_finalize_fails():
             assert ws.receive_json()["type"] == "stream_end"
             msg = ws.receive_json()
             assert msg["type"] == "error"
-            assert "Failed to save" in msg["message"]
+            assert REPLY_SAVE_FAILED_MESSAGE in msg["message"]
 
 
 def test_ws_done_sends_persisting_when_finalize_times_out():
@@ -1064,13 +1057,13 @@ def test_ws_status_event_carries_detail():
 
 def test_ws_rechecks_token_on_chargeable_message():
     """After purge/revoke, the next chargeable frame must close the socket."""
-    from app.gateways.google_auth import GoogleAuthError
+    from app.exceptions import AuthenticationError
 
     _, tok = _token()
     user = _fake_user()
     chat_id = uuid4()
     app = _app(user)
-    verify = AsyncMock(side_effect=[user.id, GoogleAuthError("Token revoked")])
+    verify = AsyncMock(side_effect=[user.id, AuthenticationError("Token revoked")])
 
     with patch("app.modules.chat.ws_api.access_tokens.verify_access_token", verify):
         client = TestClient(app)

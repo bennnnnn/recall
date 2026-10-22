@@ -60,14 +60,9 @@ def importance_value(memory: Any) -> float:
 
 def _last_confirmed(memory: Any) -> datetime | None:
     ts = getattr(memory, "last_confirmed_at", None) or getattr(memory, "updated_at", None)
-    if ts is None or isinstance(ts, int | float):
+    if not isinstance(ts, datetime):
         return None
-    if getattr(ts, "tzinfo", None) is None:
-        try:
-            return ts.replace(tzinfo=UTC)
-        except Exception:
-            return None
-    return ts
+    return ts if ts.tzinfo is not None else ts.replace(tzinfo=UTC)
 
 
 def recency_score(memory: Any, *, now: datetime | None = None) -> float:

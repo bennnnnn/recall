@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -10,15 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import DomainError
 from app.models.orm import TodoItem, User
+from app.modules.chat import history as chat_history
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.occurrences import TodoScheduleSnapshot
 from app.modules.todos.recurrence import (
     RecurrenceRule,
     is_recurrence_rule,
     next_recurring_due,
     snap_first_due,
 )
-from app.modules.todos.schedule_repository import TodoScheduleSnapshot, advance_schedules_if_current
-from app.repositories import chats as chats_repo
+from app.modules.todos.schedule_repository import advance_schedules_if_current
 from app.services.time_context import normalize_due_at
 
 
@@ -48,7 +50,7 @@ async def list_todos_page(
     page_ids = [item.id for item in items]
     # Preserve this boundary even when catch-up races a deletion of the last row.
     next_cursor = page_ids[-1] if len(selected) > limit else None
-    if not _reminder_pushes_on(user) and await _advance_past_recurring(
+    if not _reminder_pushes_on(user) and await advance_past_recurring(
         session, items, timezone=user.timezone
     ):
         items = await todos_repo.list_by_ids(session, user_id, page_ids)
@@ -71,7 +73,7 @@ async def create_todo(
     recurrence_rule: RecurrenceRule | None = None,
 ) -> TodoItem:
     if chat_id is not None:
-        chat = await chats_repo.get_by_id(session, chat_id, user.id)
+        chat = await chat_history.get_chat(session, chat_id, user.id)
         if chat is None:
             raise TodosError("Chat not found", status_code=400)
     normalized_due = normalize_due_at(due_at, user.timezone)
@@ -106,7 +108,7 @@ async def update_todo(
     session: AsyncSession,
     user: User,
     todo_id: UUID,
-    fields: dict,
+    fields: dict[str, Any],
 ) -> TodoItem:
     item = await todos_repo.get_by_id(session, todo_id, user.id)
     if not item:
@@ -131,13 +133,17 @@ async def update_todo(
     return updated
 
 
-async def _advance_past_recurring(
+async def advance_past_recurring(
     session: AsyncSession,
     items: list[TodoItem],
     *,
     timezone: str | None,
     now: datetime | None = None,
 ) -> bool:
+    """Move each overdue recurring item to its next occurrence; commits. Whether any moved.
+
+    Only an item still as it was read moves (``advance_schedules_if_current``).
+    """
     when = now or datetime.now(UTC)
     advances = []
     for item in items:

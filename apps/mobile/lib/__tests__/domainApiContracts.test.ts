@@ -26,10 +26,10 @@ describe("domain API contracts", () => {
       category: "images",
       source: "generated",
       limit: 30,
-      offset: 60,
+      cursor: "after-60",
     });
     expect(mockRequest).toHaveBeenCalledWith(
-      "/attachments?category=images&source=generated&limit=30&offset=60",
+      "/attachments?category=images&source=generated&limit=30&cursor=after-60",
       "token",
     );
   });

@@ -25,7 +25,8 @@ from app.modules.account.email_authority import (
     google_owns_email,
     previous_sign_in,
 )
-from app.tests.test_routers import _fake_user
+from app.tests.api_support import api_user
+from app.tests.fakes import redis_mock
 
 _SETTINGS = Settings(jwt_secret="x" * 32)
 
@@ -100,7 +101,7 @@ def test_claim_is_true(value: object, expected: bool) -> None:
     ],
 )
 def test_previous_sign_in(google_sub, apple_sub, attempted, expected) -> None:
-    existing = _fake_user(google_sub=google_sub, apple_sub=apple_sub)
+    existing = api_user(google_sub=google_sub, apple_sub=apple_sub)
     assert previous_sign_in(existing, attempted) == expected
 
 
@@ -149,7 +150,7 @@ async def _login(provider: str, payload: dict[str, Any], existing: Any) -> tuple
     ],
 )
 async def test_google_sign_in_joins_the_account_when_google_owns_the_email(email, claims):
-    existing = _fake_user(email=email, google_sub=None, apple_sub="apple-sub")
+    existing = api_user(email=email, google_sub=None, apple_sub="apple-sub")
     payload = {"sub": "google-new", "email": email, "email_verified": True, **claims}
     result, repo = await _login("google", payload, existing)
     assert not isinstance(result, AccountExistsError)
@@ -163,7 +164,7 @@ async def test_google_sign_in_joins_the_account_when_google_owns_the_email(email
     ids=["no-hosted-domain", "other-hosted-domain"],
 )
 async def test_google_sign_in_on_an_address_google_does_not_own_is_refused(claims):
-    existing = _fake_user(email="ceo@victim.example", google_sub=None, apple_sub="apple-sub")
+    existing = api_user(email="ceo@victim.example", google_sub=None, apple_sub="apple-sub")
     payload = {"sub": "attacker", "email": "ceo@victim.example", "email_verified": True, **claims}
     result, repo = await _login("google", payload, existing)
     assert isinstance(result, AccountExistsError)
@@ -183,7 +184,7 @@ async def test_google_sign_in_on_an_address_google_does_not_own_is_refused(claim
     ],
 )
 async def test_apple_sign_in_joins_the_account_when_apple_owns_the_email(email, claims):
-    existing = _fake_user(email=email, google_sub="google-sub", apple_sub=None)
+    existing = api_user(email=email, google_sub="google-sub", apple_sub=None)
     payload = {"sub": "apple-new", "email": email, "email_verified": "true", **claims}
     result, repo = await _login("apple", payload, existing)
     assert not isinstance(result, AccountExistsError)
@@ -193,7 +194,7 @@ async def test_apple_sign_in_joins_the_account_when_apple_owns_the_email(email, 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("email", ["someone@gmail.com", "ceo@victim.example"])
 async def test_apple_sign_in_on_an_address_apple_does_not_own_is_refused(email):
-    existing = _fake_user(email=email, google_sub="google-sub", apple_sub=None)
+    existing = api_user(email=email, google_sub="google-sub", apple_sub=None)
     payload = {"sub": "apple-new", "email": email, "email_verified": "true"}
     result, repo = await _login("apple", payload, existing)
     assert isinstance(result, AccountExistsError)
@@ -229,7 +230,7 @@ async def test_login_api_answers_409_naming_the_earlier_sign_in(provider, body, 
     ):
         login = getattr(auth_router, f"{provider}_login")
         with pytest.raises(AccountExistsError) as caught:
-            await login(body, request, session=AsyncMock(), settings=_SETTINGS, redis=AsyncMock())
+            await login(body, request, session=AsyncMock(), settings=_SETTINGS, redis=redis_mock())
     assert caught.value.status_code == 409
     assert caught.value.body() == {
         "code": "account_exists",

@@ -127,7 +127,7 @@ export function loadWebRtc(): NativeWebRtc | null {
   if (!isWebRtcLinked()) return null;
   try {
     // Native module: Live Talk requires a rebuilt dev client, not Expo Go.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded after the native probe; an import crashes Expo Go
     const webrtc = require("react-native-webrtc") as NativeWebRtc;
     if (webrtc.__WEBRTC_STUB__) return null;
     return webrtc;

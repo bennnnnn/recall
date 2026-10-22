@@ -58,8 +58,12 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.repositories.attachment_chunks",
     "app.repositories.attachments",
     "app.repositories.calendar_connections",
+    # Chat's own tables: chat.history reads them for other modules (audit ARCH-08).
+    "app.repositories.chats",
     "app.repositories.gmail_connections",
     "app.repositories.memories",
+    "app.repositories.message_chunks",
+    "app.repositories.messages",
     "app.repositories.memory_writes",
     "app.repositories.search",
     "app.repositories.suggested_reminders",
@@ -91,6 +95,8 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.services.auth",
     "app.services.calendar",
     "app.services.calendar_nudges",
+    # Single-owner root files moved to their owner (code-health audit ARCH-03).
+    "app.services.context_window",
     "app.services.chat",
     "app.services.chats",
     "app.services.chemistry",
@@ -112,13 +118,25 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.services.mcp.sympy_adapter",
     "app.services.mcp.web_search_adapter",
     "app.services.memory",
+    "app.services.mermaid_sanitize",
+    # A second import path for ``models.model_catalog`` (code-health audit ARCH-05).
+    "app.services.model_catalog",
     "app.services.notifications",
     "app.services.office_text",
+    "app.services.part_answers",
     "app.services.physics",
     "app.services.plan",
     "app.services.product_analytics",
+    "app.services.prompt_inject",
     "app.services.profile",
+    # Model routing is chat's (``modules/chat/model_routing``, code-health audit ARCH-02).
+    "app.services.rate_problems",
+    "app.services.recurring_pay",
+    "app.services.reply_labels",
     "app.services.revenuecat_webhook",
+    "app.services.routing",
+    "app.services.routing_physics",
+    "app.services.routing_signals",
     "app.services.search",
     "app.services.settings_intent",
     "app.services.settings_proposal",
@@ -126,12 +144,15 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.services.subscription",
     "app.services.suggestion_generation",
     "app.services.sympy_executor",
+    "app.services.thinking_effort",
+    "app.services.topic",
     "app.services.todos",
     "app.services.tokens",
     "app.services.tool_loop",
     "app.services.transcript_validation",
     "app.services.web_search",
     "app.services.web_session",
+    "app.services.working_check",
 )
 
 
@@ -181,24 +202,42 @@ def _load_time_imports(nodes: Iterable[ast.AST]) -> list[ast.Import | ast.Import
     return found
 
 
+def _runtime_imports(nodes: Iterable[ast.AST]) -> list[ast.Import | ast.ImportFrom]:
+    """Imports that can run: inside functions too, never under ``if TYPE_CHECKING``."""
+    found: list[ast.Import | ast.ImportFrom] = []
+    for node in nodes:
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            found.append(node)
+        elif isinstance(node, ast.If) and _is_type_checking(node.test):
+            found.extend(_runtime_imports(node.orelse))
+        else:
+            found.extend(_runtime_imports(ast.iter_child_nodes(node)))
+    return found
+
+
 @cache
-def _module_imports(*, load_time: bool) -> dict[str, set[str]]:
+def _module_imports(*, load_time: bool, runtime: bool = False) -> dict[str, set[str]]:
     """Production module -> every module name its imports name, made absolute.
 
     ``from pkg import name`` names ``pkg`` and ``pkg.name``; a package is its ``__init__``.
     With ``load_time`` only imports that run when the module loads count: deferring an
-    import into a function is the accepted way to break a load-order cycle.
+    import into a function is the accepted way to break a load-order cycle. With
+    ``runtime`` every import that can run counts, in a function too, but not one under
+    ``if TYPE_CHECKING`` (an annotation is no dependency).
     """
     imports: dict[str, set[str]] = {}
     for path in _production_python():
         name = _module_name(path)
         package = name if path.name == "__init__.py" else name.rpartition(".")[0]
         tree = ast.parse(path.read_text(), filename=str(path))
-        nodes = (
-            _load_time_imports(tree.body)
-            if load_time
-            else [node for node in ast.walk(tree) if isinstance(node, ast.Import | ast.ImportFrom)]
-        )
+        if load_time:
+            nodes = _load_time_imports(tree.body)
+        elif runtime:
+            nodes = _runtime_imports(tree.body)
+        else:
+            nodes = [
+                node for node in ast.walk(tree) if isinstance(node, ast.Import | ast.ImportFrom)
+            ]
         targets: set[str] = set()
         for node in nodes:
             if isinstance(node, ast.Import):
@@ -381,3 +420,14 @@ def _foreign_module_import_violations(tree: ast.AST, *, owner: str, label: str) 
             if ".".join(parts[1:]) not in _package_public_names(other):
                 violations.append(f"{label} imports {module_name}")
     return violations
+
+
+def served_paths() -> set[str]:
+    """Every HTTP path the app serves, read from its OpenAPI document.
+
+    FastAPI 0.14x wraps each included router, so ``app.routes`` lists only the docs
+    routes, and a "this route is gone" check over it passed whatever the app served.
+    """
+    from app.main import app
+
+    return set(app.openapi()["paths"])

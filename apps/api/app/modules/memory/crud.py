@@ -1,35 +1,49 @@
+"""Reading and editing the user's facts: their own edits, and the reads other modules make.
+
+Each holds the user's write lock and commits as one unit, then drops the cached blocks.
+Locks and the cache are called through their modules, so a test that patches
+``locks.acquire_memory_write_lock`` or ``cache.invalidate_memory_block`` reaches here.
+"""
+
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.exceptions import DomainError
 from app.gateways import embedding_gateway
-from app.models.orm import Memory
+from app.models.orm import Memory, MemoryArea
+from app.modules.memory import cache, locks
 from app.modules.memory import repository as memories_repo
+from app.modules.memory.ops import normalize_memory_text
+from app.modules.memory.text import embedding_text_hash, strip_memory_as_of
 
 logger = logging.getLogger(__name__)
 
 
-async def _invalidate_caches(seams: Any, user_id: UUID) -> None:
-    await seams.invalidate_memory_block(user_id)
+class MemoryEmptyTextError(DomainError):
+    """Edited memory text normalized to empty."""
+
+    default_code = "memory_empty"
+
+    def __init__(self, message: str = "Memory text cannot be empty") -> None:
+        super().__init__(message)
 
 
 @asynccontextmanager
-async def _write_locked(seams: Any, user_id: UUID) -> AsyncIterator[None]:
+async def _write_locked(user_id: UUID) -> AsyncIterator[None]:
     """Hold the user's memory write lock for the block (busy: ``MemoryWriteLockBusyError``)."""
-    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
+    lock_token = await locks.acquire_memory_write_lock_or_raise(user_id)
     try:
         yield
     finally:
-        await seams.release_memory_write_lock(user_id, lock_token)
+        await locks.release_memory_write_lock(user_id, lock_token)
 
 
 async def _commit_hand_delete[T: int](
-    seams: Any,
     session: AsyncSession,
     user_id: UUID,
     delete: Callable[[], Awaitable[T]],
@@ -48,12 +62,11 @@ async def _commit_hand_delete[T: int](
         await session.rollback()
         raise
     if removed:
-        await _invalidate_caches(seams, user_id)
+        await cache.invalidate_memory_block(user_id)
     return removed
 
 
 async def update_memory(
-    seams: Any,
     session: AsyncSession,
     settings: Settings,
     user_id: UUID,
@@ -64,12 +77,12 @@ async def update_memory(
 ) -> Memory | None:
     clean: str | None = None
     if text is not None:
-        clean = seams.normalize_memory_text(seams.strip_memory_as_of(text))
+        clean = normalize_memory_text(strip_memory_as_of(text))
         if not clean:
-            raise seams.MemoryEmptyTextError()
+            raise MemoryEmptyTextError()
     if clean is None and status is None:
-        raise seams.MemoryEmptyTextError()
-    async with _write_locked(seams, user_id):
+        raise MemoryEmptyTextError()
+    async with _write_locked(user_id):
         memory = await memories_repo.get_by_id(session, user_id, memory_id)
         if memory is None:
             return None
@@ -98,7 +111,7 @@ async def update_memory(
                         memory_id,
                         clean,
                         new_vec,
-                        embedding_text_hash=seams.embedding_text_hash(clean),
+                        embedding_text_hash=embedding_text_hash(clean),
                         commit=False,
                     )
                 else:
@@ -117,35 +130,23 @@ async def update_memory(
             await session.rollback()
             raise
         if updated is not None:
-            await _invalidate_caches(seams, user_id)
+            await cache.invalidate_memory_block(user_id)
         return updated
 
 
-async def delete_memory(
-    seams: Any,
-    session: AsyncSession,
-    user_id: UUID,
-    memory_id: UUID,
-) -> bool:
-    async with _write_locked(seams, user_id):
+async def delete_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -> bool:
+    async with _write_locked(user_id):
         return await _commit_hand_delete(
-            seams,
             session,
             user_id,
             lambda: memories_repo.delete_by_id(session, user_id, memory_id, commit=False),
         )
 
 
-async def delete_memory_document(
-    seams: Any,
-    session: AsyncSession,
-    user_id: UUID,
-    topic: str,
-) -> bool:
+async def delete_memory_document(session: AsyncSession, user_id: UUID, topic: str) -> bool:
     """Delete every fact in one document (and an area's title row)."""
-    async with _write_locked(seams, user_id):
+    async with _write_locked(user_id):
         removed = await _commit_hand_delete(
-            seams,
             session,
             user_id,
             lambda: memories_repo.delete_topic(session, user_id, topic, commit=False),
@@ -153,11 +154,41 @@ async def delete_memory_document(
     return removed > 0
 
 
-async def delete_all_memories(seams: Any, session: AsyncSession, user_id: UUID) -> int:
-    async with _write_locked(seams, user_id):
+async def delete_all_memories(session: AsyncSession, user_id: UUID) -> int:
+    async with _write_locked(user_id):
         return await _commit_hand_delete(
-            seams,
             session,
             user_id,
             lambda: memories_repo.delete_all_for_user(session, user_id, commit=False),
         )
+
+
+async def active_fact_texts(session: AsyncSession, user_id: UUID) -> list[str]:
+    """Each fact in use, as text: not muted, not superseded (a saved-detail reply)."""
+    rows = await memories_repo.list_for_user(
+        session, user_id, include_muted=False, include_superseded=False
+    )
+    return [row.text for row in rows]
+
+
+async def facts_for_export(
+    session: AsyncSession, user_id: UUID, *, offset: int, limit: int
+) -> list[Memory]:
+    """One page of every fact the user has, superseded ones included (the data export)."""
+    return await memories_repo.list_range(
+        session, user_id, offset=offset, limit=limit, include_superseded=True
+    )
+
+
+async def areas_for_export(session: AsyncSession, user_id: UUID) -> list[MemoryArea]:
+    """The user's areas, by title (the data export)."""
+    return await memories_repo.list_areas(session, user_id)
+
+
+async def delete_user_rows(session: AsyncSession, user_id: UUID) -> None:
+    """Every fact, area and past-chat index row of a deleted account; no commit.
+
+    ``account.lifecycle`` calls it under the user's row lock, the order memory's writers
+    take, before the user row goes.
+    """
+    await memories_repo.delete_all_for_user(session, user_id, commit=False)

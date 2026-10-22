@@ -26,6 +26,7 @@ from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.models.orm import Chat, Message, User
 from app.modules.memory.extraction_workflow import extract_history_chat
+from app.modules.memory.switch import memory_switch_on
 from app.repositories import users as users_repo
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ def _missed_passes_key(user_id: UUID) -> str:
 
 async def request_history_scan(redis: Redis, user: User) -> bool:
     """Queue the scan unless it already ran. True while it is queued or running."""
-    if not user.memory_enabled or user.memory_history_scanned_at is not None:
+    if not memory_switch_on(user) or user.memory_history_scanned_at is not None:
         return False
     key = _queued_key(user.id)
     try:
@@ -155,7 +156,7 @@ async def _clear_state(redis: Redis, user_id: UUID) -> None:
 async def scan_recent_chats(settings: Settings, *, user_id: UUID) -> None:
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
-        if user is None or not user.memory_enabled or user.memory_history_scanned_at:
+        if user is None or not memory_switch_on(user) or user.memory_history_scanned_at:
             return
     redis = get_redis_client()
     already_read = await _chats_read(redis, user_id)

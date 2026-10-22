@@ -16,15 +16,17 @@ async def test_search_web_uses_mock_without_api_key():
 
 @pytest.mark.asyncio
 async def test_run_search_parallelizes_queries():
+    """The queries run together: no search finishes until all three have started."""
     import asyncio
-    import time
 
     from app.modules.web_search.search_cache import _run_search
 
     settings = Settings(web_search_max_results=10, mock_llm_enabled=True)
+    all_started = asyncio.Barrier(3)
 
     async def mock_search(_settings, query, *, max_results, budget=None, user=None, redis=None):
-        await asyncio.sleep(0.04 if query == "slow" else 0.01)
+        # Run one at a time, the first search waits here alone and times out.
+        await asyncio.wait_for(all_started.wait(), timeout=1)
         return [
             WebSearchHit(
                 title=f"{query} hit",
@@ -34,13 +36,10 @@ async def test_run_search_parallelizes_queries():
         ]
 
     with patch("app.modules.web_search.search_cache._search_with_cache", side_effect=mock_search):
-        start = time.monotonic()
-        merged, tried = await _run_search(settings, ["slow", "fast-a", "fast-b"])
-        elapsed = time.monotonic() - start
+        merged, tried = await _run_search(settings, ["q1", "q2", "q3"])
 
-    assert tried == ["slow", "fast-a", "fast-b"]
+    assert tried == ["q1", "q2", "q3"]
     assert len(merged) == 3
-    assert elapsed < 0.08
 
 
 @pytest.mark.asyncio

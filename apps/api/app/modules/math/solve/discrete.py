@@ -49,11 +49,9 @@ _CONSTANT_NAMES_RE = re.compile(
 
 
 def guess_variables(text: str) -> list[str]:
-    """BUG FIX: a bare per-letter scan treated function-name letters as
-    candidate variables -- "cos(x) = 0" guessed 'c' (alphabetically first of
-    c/o/s/x) instead of 'x', silently solving for the wrong symbol. Strip
-    recognized function names AND multi-letter constants (pi, oo, ...) before
-    extracting letters, so "sin(pi*x) = 0" guesses 'x' not 'i'/'p'."""
+    """The letters that may be the unknowns, after function names and multi-letter
+    constants (pi, oo, ...) are removed: "cos(x) = 0" solves for 'x', not 'c', and
+    "sin(pi*x) = 0" for 'x', not 'i' or 'p'."""
     stripped = _FUNCTION_NAME_RE.sub(" ", text)
     stripped = _CONSTANT_NAMES_RE.sub(" ", stripped)
     greek = list(dict.fromkeys(_GREEK_NAME_RE.findall(stripped)))

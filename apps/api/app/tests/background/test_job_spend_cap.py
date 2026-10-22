@@ -25,7 +25,7 @@ _CAPPED = {
         "app.background.handlers.memory_consolidation.consolidate_user_memory_sections"
     ),
     "compress": "app.background.handlers.compaction.compress_chat_history",
-    "topic": "app.background.handlers.topic_service.generate_chat_title",
+    "topic": "app.background.handlers.chat_titles.generate_chat_title",
     "attachment_index": "app.background.handlers.attachment_indexing.index_attachment_job",
     "message_index": "app.background.handlers.message_indexing.index_message_job",
 }

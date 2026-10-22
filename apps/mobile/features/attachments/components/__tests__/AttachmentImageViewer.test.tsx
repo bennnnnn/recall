@@ -40,9 +40,6 @@ jest.mock("expo-status-bar", () => {
   return { StatusBar: ({ style }: { style: string }) => <Text testID="viewer-status-bar">{style}</Text> };
 });
 jest.mock("@/ui/overlay/dialogs", () => ({ alertDialog: jest.fn(), confirmDialog: jest.fn() }));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
   useTheme: () => mockLightTheme,

@@ -56,7 +56,7 @@ def _topic_key(topic: str) -> str:
     return _normalize(topic or DEFAULT_TOPIC)
 
 
-def _due_local(due_at: datetime, user_timezone: str | None):
+def _due_local(due_at: datetime, user_timezone: str | None) -> datetime:
     tz = time_context_service.resolve_timezone(user_timezone)
     due = due_at
     if due.tzinfo is None:

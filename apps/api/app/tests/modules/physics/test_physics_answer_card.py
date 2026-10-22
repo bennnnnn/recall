@@ -13,6 +13,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.fence import validate_physics_fences
+from app.modules.physics.reply_policy import PHYSICS_SHORT_HINT
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER
 from app.services.solving import VerifiedPhysicsBlock
 
@@ -105,7 +106,7 @@ def test_a_clarifying_question_with_no_result_still_gets_no_card(
     prose = "Is the ball launched from the ground or from a cliff?"
     out = validate_physics_fences(prose, verified=projectile)
     assert "```answer" not in out
-    assert "```simulation" not in out
+    assert PHYSICS_SHORT_HINT not in out
 
 
 def test_the_card_carries_the_server_marker(projectile: VerifiedPhysicsBlock) -> None:

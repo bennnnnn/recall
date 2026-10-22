@@ -11,7 +11,7 @@ import re
 from dataclasses import replace
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import _exactly_n_numbers
 from app.services.number_text import SIGNED_DECIMAL
 from app.services.text_match import word_index
@@ -146,7 +146,7 @@ def probability_formula_block(intent: MathIntent, lines: list[str]) -> VerifiedM
     ):
         answer = math_formulas.geometric_pmf(intent.combo_k, intent.percent_base)
         lines.append(f"P(X={intent.combo_k}) = {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if (
         intent.school_op == "poisson"
         and intent.combo_k is not None
@@ -154,11 +154,11 @@ def probability_formula_block(intent: MathIntent, lines: list[str]) -> VerifiedM
     ):
         answer = math_formulas.poisson_pmf(intent.combo_k, intent.percent_base)
         lines.append(f"P(X={intent.combo_k}) = {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if intent.school_op == "complement" and intent.percent_base is not None:
         answer = math_formulas.complement_probability(intent.percent_base)
         lines.append(f"1-P = {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if intent.school_op == "bayes" and intent.vec_a and len(intent.vec_a) == 3:
         prior, hit, false_positive = intent.vec_a
         posterior = math_formulas.bayes_probability(prior, hit, false_positive)
@@ -229,5 +229,5 @@ def probability_formula_block(intent: MathIntent, lines: list[str]) -> VerifiedM
                 answer,
             )
         lines.append(f"P(A|B) = {posterior}")
-        return replace(_finish_with_answer(lines, answer), direct_reply=direct)
+        return replace(finish_with_answer(lines, answer), direct_reply=direct)
     return None

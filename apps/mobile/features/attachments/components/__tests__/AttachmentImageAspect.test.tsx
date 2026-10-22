@@ -14,7 +14,6 @@ jest.mock("@/features/attachments/components/AttachmentImageViewer", () => {
   const { View: MockView } = jest.requireActual("react-native");
   return { AttachmentImageViewer: ({ visible }: { visible: boolean }) => visible ? <MockView testID="image-viewer" /> : null };
 });
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => "test-token" }));
 jest.mock("@/features/attachments/model/attachmentUri", () => ({
   resolveAttachmentUri: jest.fn(({ localUri, path, attachmentId }: { localUri?: string; path?: string; attachmentId?: string }) => localUri || path || (attachmentId ? `https://api.test/attachments/${attachmentId}/file` : null)),

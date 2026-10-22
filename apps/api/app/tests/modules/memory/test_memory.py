@@ -5,23 +5,27 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.memory import (
+    exclude_sensitive_for_query,
+    is_explicit_memory_command,
+    is_food_or_diet_query,
+)
+from app.modules.memory.commands import is_explicit_forget_command
+from app.modules.memory.consolidation import (
     accept_memory_section_rewrite,
     consolidation_rewrite_preserves_facts,
-    exclude_sensitive_for_query,
     extract_consolidation_anchors,
     facts_need_consolidation,
+)
+from app.modules.memory.ops import normalize_memory_text
+from app.modules.memory.selection import select_memories_for_prompt, select_memories_semantic
+from app.modules.memory.text import (
     is_diet_health_memory_text,
-    is_explicit_forget_command,
-    is_explicit_memory_command,
     is_food_or_diet_memory_text,
-    is_food_or_diet_query,
     is_memory_candidate,
     is_sensitive_memory_text,
-    normalize_memory_text,
-    select_memories_for_prompt,
-    select_memories_semantic,
     strip_memory_as_of,
 )
+from app.tests.fakes import FakeSessionCM, fake_session
 from app.tests.modules.memory.scoring import scored, scored_reader
 
 
@@ -47,17 +51,6 @@ def _memory(type_: str, text: str, confidence: float | None):
     m.updated_at = 0
     m.last_confirmed_at = None
     return m
-
-
-class _FakeSessionCM:
-    def __init__(self, session: AsyncMock) -> None:
-        self._session = session
-
-    async def __aenter__(self) -> AsyncMock:
-        return self._session
-
-    async def __aexit__(self, *args: object) -> None:
-        return None
 
 
 def test_normalize_memory_text_strips_trailing_period():
@@ -247,14 +240,9 @@ def test_exclude_sensitive_for_query_injects_only_on_matching_asks():
 def test_filter_surface_memories_keeps_allergy_on_food_query():
     from app.modules.memory.retrieval import filter_surface_memories
 
-    seams = MagicMock()
-    seams.is_sensitive_memory_text.side_effect = is_sensitive_memory_text
-    seams.is_food_or_diet_query.side_effect = is_food_or_diet_query
-    seams.is_diet_health_memory_text.side_effect = is_diet_health_memory_text
     allergy = _memory("preference", "Peanut allergy", 0.9)
     salary = _memory("fact", "Salary is $200k", 0.9)
     kept = filter_surface_memories(
-        seams,
         [allergy, salary],
         exclude_sensitive=True,
         query_text="what should I eat tonight",
@@ -262,7 +250,6 @@ def test_filter_surface_memories_keeps_allergy_on_food_query():
     assert allergy in kept
     assert salary not in kept
     weather = filter_surface_memories(
-        seams,
         [allergy, salary],
         exclude_sensitive=True,
         query_text="what's the weather",
@@ -533,7 +520,7 @@ def test_select_memories_semantic_injects_diet_fact_on_milk_query():
 
 
 def test_format_memory_block_respects_char_budget():
-    from app.modules.memory import format_memory_block
+    from app.modules.memory.selection import format_memory_block
 
     long_pref = _memory("preference", "x" * 2000, 1.0)
     other = _memory("focus", "Ship the quiz this week", 1.0)
@@ -545,7 +532,7 @@ def test_format_memory_block_respects_char_budget():
 
 
 def test_format_memory_block_keeps_relevant_focus_over_unread_tail():
-    from app.modules.memory import format_memory_block
+    from app.modules.memory.selection import format_memory_block
 
     profile = _memory("profile", "Name is Sam. " + ("bio " * 200), 1.0)
     focus = _memory("focus", "Ship the quiz this week", 1.0)
@@ -582,12 +569,12 @@ def test_facts_need_consolidation_detects_exact_and_near_duplicates():
 @pytest.mark.asyncio
 async def test_load_relevant_memories_ranks_in_process_from_list():
     """Semantic recall ranks the ≤5 list_for_user rows in-process."""
-    from app.modules.memory import load_relevant_memories
+    from app.modules.memory.retrieval import load_relevant_memories
 
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_min_confidence=0.4)
 
     db_hit = _memory("fact", "Hikes every weekend", 0.9)
@@ -609,12 +596,12 @@ async def test_load_relevant_memories_ranks_in_process_from_list():
 @pytest.mark.asyncio
 async def test_load_relevant_memories_applies_similarity_cutoff_in_process():
     """Unembedded facts need a word in common with the question; identity core stays."""
-    from app.modules.memory import load_relevant_memories
+    from app.modules.memory.retrieval import load_relevant_memories
 
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(
         semantic_memory_enabled=True,
         memory_min_confidence=0.4,
@@ -643,12 +630,12 @@ async def test_load_relevant_memories_applies_similarity_cutoff_in_process():
 @pytest.mark.asyncio
 async def test_load_relevant_memories_includes_low_score_when_cutoff_disabled():
     """When memory_min_similarity is 0, a gated section with any embedding injects."""
-    from app.modules.memory import load_relevant_memories
+    from app.modules.memory.retrieval import load_relevant_memories
 
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(
         semantic_memory_enabled=True,
         memory_min_confidence=0.4,
@@ -670,12 +657,12 @@ async def test_load_relevant_memories_includes_low_score_when_cutoff_disabled():
 @pytest.mark.asyncio
 async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
     """Ranks from embedding_json on the list_for_user rows — one round-trip."""
-    from app.modules.memory import load_relevant_memories
+    from app.modules.memory.retrieval import load_relevant_memories
 
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(
         semantic_memory_enabled=True, memory_min_confidence=0.0, memory_inject_limit=5
     )
@@ -700,12 +687,12 @@ async def test_load_relevant_memories_keeps_profile_when_vectors_populated_but_n
     """Empty db_hits with populated vectors means no gated section cleared the
     similarity bar — do not fall back to dumping facts, but still inject
     profile/preference."""
-    from app.modules.memory import load_relevant_memories
+    from app.modules.memory.retrieval import load_relevant_memories
 
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(
         semantic_memory_enabled=True, memory_min_confidence=0.0, memory_inject_limit=5
     )
@@ -725,12 +712,12 @@ async def test_load_relevant_memories_keeps_profile_when_vectors_populated_but_n
 
 @pytest.mark.asyncio
 async def test_load_relevant_memories_priority_fallback_when_no_query():
-    from app.modules.memory import load_relevant_memories
+    from app.modules.memory.retrieval import load_relevant_memories
 
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(
         semantic_memory_enabled=True, memory_min_confidence=0.0, memory_inject_limit=5
     )
@@ -758,19 +745,19 @@ async def test_load_relevant_memories_returns_empty_on_db_exception(query_vec):
     asyncio.gather(...), fail the ENTIRE chat turn over a memory lookup.
     Must degrade to an empty list instead, same as every Redis call in this
     file already does on failure."""
-    from app.modules.memory import load_relevant_memories
+    from app.modules.memory.retrieval import load_relevant_memories
 
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True)
 
+    unavailable = AsyncMock(side_effect=RuntimeError("db unavailable"))
     with (
-        patch(
-            "app.modules.memory.repository.list_for_user",
-            AsyncMock(side_effect=RuntimeError("db unavailable")),
-        ),
+        patch("app.modules.memory.repository.list_for_user", unavailable),
+        # With a query the facts are ranked in the database: that read fails too.
+        patch("app.modules.memory.repository.list_scored_for_user", unavailable),
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=query_vec)
 
@@ -788,11 +775,10 @@ async def test_get_memory_block_degrades_to_empty_on_db_exception(fake_redis):
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=False)
 
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
         patch(
             "app.modules.memory.repository.list_for_user",
             AsyncMock(side_effect=RuntimeError("db unavailable")),
@@ -817,7 +803,7 @@ async def test_get_memory_block_warms_semantic_cache_via_tracked_background_task
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
     fake_task = MagicMock()
@@ -833,9 +819,8 @@ async def test_get_memory_block_warms_semantic_cache_via_tracked_background_task
     create_task_mock = MagicMock(side_effect=_create_task_stub)
 
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
-        patch("app.modules.memory.load_relevant_memories", AsyncMock(return_value=[])),
-        patch("app.modules.memory.create_background_task", create_task_mock),
+        patch("app.modules.memory.retrieval.load_relevant_memories", AsyncMock(return_value=[])),
+        patch("app.core.background_tasks.create_background_task", create_task_mock),
         # Live embed fails → fall through to type-priority + background warm.
         patch(
             "app.gateways.embedding_gateway.embed_text",
@@ -857,21 +842,22 @@ async def test_get_memory_block_live_embed_on_cache_miss(fake_redis):
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
     query_vec = [0.1, 0.2, 0.3]
 
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
         patch(
             "app.gateways.embedding_gateway.embed_text",
             AsyncMock(return_value=query_vec),
         ) as embed_mock,
         patch(
-            "app.modules.memory.load_relevant_memories",
+            "app.modules.memory.retrieval.load_relevant_memories",
             AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)]),
         ) as load_mock,
-        patch("app.modules.memory.create_background_task", side_effect=_closing_background_task),
+        patch(
+            "app.core.background_tasks.create_background_task", side_effect=_closing_background_task
+        ),
     ):
         block = await get_memory_block(session, user, settings, query_text="outdoor hobbies")
 
@@ -887,16 +873,17 @@ async def test_get_memory_block_query_cache(fake_redis):
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.memory.load_relevant_memories",
+            "app.modules.memory.retrieval.load_relevant_memories",
             AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)]),
         ) as load_mock,
-        patch("app.modules.memory.create_background_task", side_effect=_closing_background_task),
+        patch(
+            "app.core.background_tasks.create_background_task", side_effect=_closing_background_task
+        ),
     ):
         first = await get_memory_block(session, user, settings, query_text="outdoor hobbies")
         second = await get_memory_block(session, user, settings, query_text="outdoor hobbies")
@@ -909,37 +896,34 @@ async def test_get_memory_block_query_cache(fake_redis):
 async def test_invalidate_memory_block_bumps_generation_and_clears_block_keys(fake_redis):
     """New generation + memblock DEL. Query keys are not SCAN-deleted — generation
     fold makes them unreachable; they expire via memory_query_cache_ttl."""
-    from app.modules.memory import (
-        _memory_block_key,
-        _memory_generation_key,
-        get_memory_block,
-        invalidate_memory_block,
-    )
+    from app.modules.memory import get_memory_block, invalidate_memory_block
+    from app.modules.memory.cache import memory_block_key, memory_generation_key
 
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
     load_mock = AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)])
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
-        patch("app.modules.memory.load_relevant_memories", load_mock),
-        patch("app.modules.memory.create_background_task", side_effect=_closing_background_task),
+        patch("app.modules.memory.retrieval.load_relevant_memories", load_mock),
+        patch(
+            "app.core.background_tasks.create_background_task", side_effect=_closing_background_task
+        ),
     ):
         await get_memory_block(session, user, settings)
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
 
-        assert await fake_redis.exists(_memory_block_key(user.id)) == 1
+        assert await fake_redis.exists(memory_block_key(user.id)) == 1
 
         await invalidate_memory_block(user.id)
 
-        assert await fake_redis.exists(_memory_block_key(user.id)) == 0
-        gen = await fake_redis.get(_memory_generation_key(user.id))
+        assert await fake_redis.exists(memory_block_key(user.id)) == 0
+        gen = await fake_redis.get(memory_generation_key(user.id))
         assert gen not in (None, "0")
         # One key per user: it must expire instead of staying forever.
-        assert await fake_redis.ttl(_memory_generation_key(user.id)) > 0
+        assert await fake_redis.ttl(memory_generation_key(user.id)) > 0
 
         load_mock.reset_mock()
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
@@ -953,14 +937,15 @@ async def test_invalidate_memory_block_makes_query_cache_unreachable(fake_redis)
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
     load_mock = AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)])
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
-        patch("app.modules.memory.load_relevant_memories", load_mock),
-        patch("app.modules.memory.create_background_task", side_effect=_closing_background_task),
+        patch("app.modules.memory.retrieval.load_relevant_memories", load_mock),
+        patch(
+            "app.core.background_tasks.create_background_task", side_effect=_closing_background_task
+        ),
     ):
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
         await get_memory_block(session, user, settings, query_text="weekend plans")
@@ -976,23 +961,21 @@ async def test_invalidate_memory_block_makes_query_cache_unreachable(fake_redis)
 
 @pytest.mark.asyncio
 async def test_warm_semantic_cache_write_racing_invalidation_is_never_served(fake_redis):
-    """BUG FIX regression: _warm_semantic_memory_cache checks the generation,
+    """BUG FIX regression: warm_semantic_memory_cache checks the generation,
     then does a separate write — a concurrent invalidation landing in that
     gap used to be able to resurrect a stale block under the current
     generation. The write is now scoped to the generation it was computed
     under, so even if a write lands after the gap, no later reader can
     retrieve it."""
-    from app.modules.memory import (
-        _memory_generation_key,
-        _warm_semantic_memory_cache,
-        get_memory_block,
-    )
+    from app.modules.memory import get_memory_block
+    from app.modules.memory.cache import memory_generation_key
+    from app.modules.memory.retrieval import warm_semantic_memory_cache
 
     user_id = uuid4()
     user = AsyncMock()
     user.id = user_id
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
     stale_memories = [_memory("fact", "Stale — computed before invalidation", 0.9)]
@@ -1004,34 +987,36 @@ async def test_warm_semantic_cache_write_racing_invalidation_is_never_served(fak
     async def racy_set(key: str, *args: object, **kwargs: object) -> object:
         # Fire exactly once, on the query-cache write — simulating a
         # concurrent memory write bumping the generation in the narrow gap
-        # between _warm_semantic_memory_cache's gen_after check (which
+        # between warm_semantic_memory_cache's gen_after check (which
         # already passed by the time .set() is called) and this write
         # actually landing.
         nonlocal triggered
         if not triggered and str(key).startswith("memquery:"):
             triggered = True
-            await fake_redis.incr(_memory_generation_key(user_id))
+            await fake_redis.incr(memory_generation_key(user_id))
         return await real_set(key, *args, **kwargs)
 
     fake_redis.set = racy_set
 
+    # The warm and the reader must use this client, whose ``set`` races.
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
+        patch("app.modules.memory.retrieval.get_redis_client", return_value=fake_redis),
+        patch("app.modules.memory.cache.get_redis_client", return_value=fake_redis),
         patch(
             "app.gateways.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.1, 0.2, 0.3]),
         ),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch(
-            "app.modules.memory._semantic_memories_from_vec",
+            "app.modules.memory.retrieval.semantic_memories_from_vec",
             AsyncMock(return_value=stale_memories),
         ),
-        patch("app.core.db.SessionLocal", return_value=_FakeSessionCM(session)),
+        patch("app.core.db.SessionLocal", return_value=FakeSessionCM(session)),
     ):
-        await _warm_semantic_memory_cache(settings, user_id, "outdoor hobbies")
+        await warm_semantic_memory_cache(settings, user_id, "outdoor hobbies")
 
         with patch(
-            "app.modules.memory.load_relevant_memories",
+            "app.modules.memory.retrieval.load_relevant_memories",
             AsyncMock(return_value=fresh_memories),
         ):
             block = await get_memory_block(session, user, settings, query_text="outdoor hobbies")
@@ -1039,7 +1024,7 @@ async def test_warm_semantic_cache_write_racing_invalidation_is_never_served(fak
     assert "Stale — computed before invalidation" not in block
     assert "Fresh — computed after invalidation" in block
     # The stale write did land — just under a generation nothing reads anymore.
-    current_gen = await fake_redis.get(_memory_generation_key(user_id))
+    current_gen = await fake_redis.get(memory_generation_key(user_id))
     assert current_gen == "1"
 
 
@@ -1050,7 +1035,7 @@ async def test_memory_reenable_loads_fresh_after_invalidation(fake_redis):
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(memory_cache_ttl=120)
 
     load_mock = AsyncMock(
@@ -1060,8 +1045,7 @@ async def test_memory_reenable_loads_fresh_after_invalidation(fake_redis):
         ]
     )
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
-        patch("app.modules.memory.load_relevant_memories", load_mock),
+        patch("app.modules.memory.retrieval.load_relevant_memories", load_mock),
     ):
         first = await get_memory_block(session, user, settings)
         user.memory_enabled = False
@@ -1076,7 +1060,7 @@ async def test_memory_reenable_loads_fresh_after_invalidation(fake_redis):
 
 
 def test_split_and_join_memory_facts():
-    from app.modules.memory import join_memory_facts, split_memory_facts
+    from app.modules.memory.text import join_memory_facts, split_memory_facts
 
     text = "Likes hiking. Prefers morning runs. Lives in Austin."
     facts = split_memory_facts(text)
@@ -1086,10 +1070,10 @@ def test_split_and_join_memory_facts():
 
 @pytest.mark.asyncio
 async def test_update_memory_rewrites_text_and_reembeds():
-    from app.modules.memory import update_memory
+    from app.modules.memory.crud import update_memory
 
     user_id = uuid4()
-    session = AsyncMock()
+    session = fake_session()
     settings = Settings(mock_llm_enabled=True)
     memory = _memory("fact", "Old fact about hiking", 0.9)
     memory.id = uuid4()
@@ -1124,12 +1108,12 @@ async def test_update_memory_rewrites_text_and_reembeds():
             "app.modules.memory.repository.update_text_and_embedding",
             AsyncMock(side_effect=fake_update_text_and_embedding),
         ) as update_embed,
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()) as invalidate,
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()) as invalidate,
         patch(
-            "app.modules.memory.acquire_memory_write_lock",
+            "app.modules.memory.locks.acquire_memory_write_lock",
             AsyncMock(return_value=True),
         ),
-        patch("app.modules.memory.release_memory_write_lock", AsyncMock()),
+        patch("app.modules.memory.locks.release_memory_write_lock", AsyncMock()),
     ):
         updated = await update_memory(session, settings, user_id, memory.id, "Likes hiking trails")
 
@@ -1142,10 +1126,10 @@ async def test_update_memory_rewrites_text_and_reembeds():
 
 @pytest.mark.asyncio
 async def test_update_memory_rolls_back_without_invalidating_on_commit_failure():
-    from app.modules.memory import update_memory
+    from app.modules.memory.crud import update_memory
 
     user_id = uuid4()
-    session = AsyncMock()
+    session = fake_session()
     # The first commit ends the read before the embedding call; the write's fails.
     session.commit.side_effect = [None, RuntimeError("commit failed")]
     settings = Settings(mock_llm_enabled=True)
@@ -1158,12 +1142,12 @@ async def test_update_memory_rolls_back_without_invalidating_on_commit_failure()
         patch("app.modules.memory.repository.get_by_id", AsyncMock(return_value=memory)),
         patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=None)),
         patch("app.modules.memory.repository.update_text", update_text),
-        patch("app.modules.memory.invalidate_memory_block", invalidate),
+        patch("app.modules.memory.cache.invalidate_memory_block", invalidate),
         patch(
-            "app.modules.memory.acquire_memory_write_lock",
+            "app.modules.memory.locks.acquire_memory_write_lock",
             AsyncMock(return_value=True),
         ),
-        patch("app.modules.memory.release_memory_write_lock", AsyncMock()),
+        patch("app.modules.memory.locks.release_memory_write_lock", AsyncMock()),
     ):
         with pytest.raises(RuntimeError, match="commit failed"):
             await update_memory(session, settings, user_id, memory.id, "New fact")
@@ -1177,19 +1161,19 @@ async def test_update_memory_rolls_back_without_invalidating_on_commit_failure()
 async def test_delete_memory_releases_lock_even_when_delete_fails():
     """A row delete takes the write lock and always releases it, even when the row
     is already gone."""
-    from app.modules.memory import delete_memory
+    from app.modules.memory.crud import delete_memory
 
     user_id = uuid4()
-    session = AsyncMock()
+    session = fake_session()
 
     with (
         patch(
-            "app.modules.memory.acquire_memory_write_lock",
+            "app.modules.memory.locks.acquire_memory_write_lock",
             AsyncMock(return_value=True),
         ) as acquire_lock,
-        patch("app.modules.memory.release_memory_write_lock", AsyncMock()) as release_lock,
+        patch("app.modules.memory.locks.release_memory_write_lock", AsyncMock()) as release_lock,
         patch("app.modules.memory.repository.delete_by_id", AsyncMock(return_value=False)),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()) as invalidate,
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()) as invalidate,
     ):
         ok = await delete_memory(session, user_id, uuid4())
 
@@ -1204,16 +1188,16 @@ async def test_delete_all_memories_releases_lock():
     from app.modules.memory import delete_all_memories
 
     user_id = uuid4()
-    session = AsyncMock()
+    session = fake_session()
 
     with (
         patch(
-            "app.modules.memory.acquire_memory_write_lock",
+            "app.modules.memory.locks.acquire_memory_write_lock",
             AsyncMock(return_value=True),
         ) as acquire_lock,
-        patch("app.modules.memory.release_memory_write_lock", AsyncMock()) as release_lock,
+        patch("app.modules.memory.locks.release_memory_write_lock", AsyncMock()) as release_lock,
         patch("app.modules.memory.repository.delete_all_for_user", AsyncMock(return_value=3)),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()) as invalidate,
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()) as invalidate,
     ):
         removed = await delete_all_memories(session, user_id)
 
@@ -1260,10 +1244,9 @@ async def test_embed_timeout_injects_only_identity_core(fake_redis):
     warm = MagicMock(side_effect=_closing_background_task)
 
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
         patch("app.gateways.embedding_gateway.get_or_embed_query", AsyncMock(return_value=None)),
         patch("app.modules.memory.repository.list_for_user", AsyncMock(return_value=_store())),
-        patch("app.modules.memory.create_background_task", warm),
+        patch("app.core.background_tasks.create_background_task", warm),
     ):
         block = await get_memory_block(
             AsyncMock(),
@@ -1286,34 +1269,31 @@ async def test_embed_timeout_injects_only_identity_core(fake_redis):
 @pytest.mark.asyncio
 async def test_warm_repairs_the_scope_the_turn_read(fake_redis):
     """M6: after an embed miss, the warm writes the key the next turn reads."""
-    from app.modules.memory import (
-        _memory_query_scoped_key,
-        _warm_semantic_memory_cache,
-    )
+    from app.modules.memory.cache import memory_query_scoped_key
+    from app.modules.memory.retrieval import warm_semantic_memory_cache
 
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
         patch(
             "app.gateways.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=[1.0, 0.0, 0.0]),
         ),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch(
-            "app.modules.memory._semantic_memories_from_vec",
+            "app.modules.memory.retrieval.semantic_memories_from_vec",
             AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)]),
         ),
-        patch("app.core.db.SessionLocal", return_value=_FakeSessionCM(AsyncMock())),
+        patch("app.core.db.SessionLocal", return_value=FakeSessionCM(AsyncMock())),
     ):
-        await _warm_semantic_memory_cache(
+        await warm_semantic_memory_cache(
             settings, user.id, "outdoor hobbies", exclude_sensitive=True
         )
 
-    read_key = _memory_query_scoped_key(user.id, None, "outdoor hobbies", exclude_sensitive=True)
-    other_key = _memory_query_scoped_key(user.id, None, "outdoor hobbies", exclude_sensitive=False)
+    read_key = memory_query_scoped_key(user.id, None, "outdoor hobbies", exclude_sensitive=True)
+    other_key = memory_query_scoped_key(user.id, None, "outdoor hobbies", exclude_sensitive=False)
     assert "Likes hiking" in (await fake_redis.get(read_key) or "")
     assert await fake_redis.get(other_key) is None
 
@@ -1329,19 +1309,18 @@ async def test_a_failed_read_is_reported_and_never_cached(fake_redis, semantic):
     user.memory_enabled = True
     settings = Settings(semantic_memory_enabled=semantic)
     report = MemoryLoadReport()
+    unavailable = AsyncMock(side_effect=RuntimeError("db unavailable"))
     with (
-        patch("app.modules.memory.get_redis_client", return_value=fake_redis),
         patch(
             "app.gateways.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=[1.0, 0.0, 0.0]),
         ),
-        patch(
-            "app.modules.memory.repository.list_for_user",
-            AsyncMock(side_effect=RuntimeError("db unavailable")),
-        ),
+        patch("app.modules.memory.repository.list_for_user", unavailable),
+        # A semantic read ranks the facts in the database: that read fails too.
+        patch("app.modules.memory.repository.list_scored_for_user", unavailable),
     ):
         block = await get_memory_block(
-            AsyncMock(), user, settings, query_text="what's my job?", report=report
+            fake_session(), user, settings, query_text="what's my job?", report=report
         )
 
     assert block == ""
@@ -1351,7 +1330,7 @@ async def test_a_failed_read_is_reported_and_never_cached(fake_redis, semantic):
 
 def test_work_scope_reads_the_stack_and_what_the_user_builds():
     """M2/M5: a programming turn gets the stack and the software areas, nothing else."""
-    from app.modules.memory import select_work_memories
+    from app.modules.memory.selection import select_work_memories
 
     settings = Settings(memory_min_confidence=0.0)
     texts = [memory.text for memory in select_work_memories(_store(), settings)]
@@ -1380,7 +1359,7 @@ def test_fact_lines_say_when_and_how_sure():
     """M18: a fact carries the month it was said, and a doubtful one says so."""
     from datetime import UTC, datetime
 
-    from app.modules.memory import format_memory_block
+    from app.modules.memory.selection import format_memory_block
 
     sure = _memory("profile", "Works at Stripe", 0.95)
     sure.last_confirmed_at = datetime(2026, 5, 2, tzinfo=UTC)

@@ -27,11 +27,15 @@ from app.gateways.litellm_gateway import StreamAttempt
 from app.models.orm import Chat, Message, User
 from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
+from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan
+from app.modules.chat import chats_repository as chats
+from app.modules.chat import messages_repository as messages
+from app.modules.chat.model_routing import choice as model_choice
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
 from app.modules.math import fence as math_fence
-from app.repositories import chats, messages, users
+from app.repositories import usage, users
 from app.services import conversation_reference, quota
 
 if TYPE_CHECKING:
@@ -60,6 +64,21 @@ class ChatsRepo(Protocol):
 
 
 class MessagesRepo(Protocol):
+    async def create(
+        self,
+        session: AsyncSession,
+        *,
+        chat_id: UUID,
+        user_id: UUID,
+        role: str,
+        content: str,
+        model: str | None = ...,
+        input_tokens: int = ...,
+        output_tokens: int = ...,
+        commit: bool = ...,
+        message_id: UUID | None = ...,
+    ) -> Message: ...
+
     async def list_recent(
         self, session: AsyncSession, chat_id: UUID, *, limit: int
     ) -> list[Message]: ...
@@ -94,11 +113,49 @@ class Quota(Protocol):
 
     async def refund_usage(self, redis: Redis, user_id: str, amount: int) -> None: ...
 
+    async def adjust_usage(
+        self,
+        redis: Redis,
+        user_id: str,
+        reserved: int,
+        actual: int,
+        *,
+        daily_limit: int | None = ...,
+    ) -> int: ...
+
+    async def mark_usage_needs_heal(
+        self, redis: Redis, user_id: str, *, day: date | None = ...
+    ) -> None: ...
+
     async def global_spend_exceeded(self, redis: Redis, settings: Settings) -> bool: ...
+
+    async def record_global_spend(
+        self, redis: Redis, usd: float, *, day: date | None = ...
+    ) -> int: ...
+
+
+class UsageRepo(Protocol):
+    """The day's usage row in the database, which reseeds Redis after an eviction."""
+
+    async def add_tokens(
+        self,
+        session: AsyncSession,
+        user_id: UUID,
+        day: date,
+        *,
+        input_tokens: int,
+        output_tokens: int,
+        est_cost_usd: float = ...,
+        commit: bool = ...,
+    ) -> object: ...
 
 
 class Plan(Protocol):
     def can_use(self, subject: User, feature: Feature, settings: Settings) -> bool: ...
+
+
+class ModelChoice(Protocol):
+    """The model a turn runs on (``model_routing.choice``): the user's pool, routed."""
 
     def resolve_user_model_override(
         self,
@@ -184,6 +241,28 @@ class AttachmentCleanup(Protocol):
         self, session: AsyncSession, settings: Settings, message_ids: list[UUID]
     ) -> int: ...
 
+    async def detach_attachments_for_messages(
+        self, session: AsyncSession, message_ids: list[UUID], *, commit: bool = ...
+    ) -> list[str]: ...
+
+    async def delete_storage_keys(
+        self, settings: Settings, storage_keys: list[str]
+    ) -> list[str]: ...
+
+
+class AttachmentLinks(Protocol):
+    """A reply's photo, stored while it streamed, joined to the saved reply."""
+
+    async def link_to_message(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: UUID,
+        attachment_ids: list[UUID],
+        message_id: UUID,
+        commit: bool = ...,
+    ) -> int: ...
+
 
 class ConversationReferences(Protocol):
     """Who "her" or "it" is, read from the chat by a model."""
@@ -262,13 +341,16 @@ class ChatTurnDeps:
     users: UsersRepo
     chats: ChatsRepo
     messages: MessagesRepo
+    usage: UsageRepo
     quota: Quota
     plan: Plan
+    model_choice: ModelChoice
     locks: TurnLocks
     llm: ChatModel
     image_generation: ImageGeneration
     image_search: ImageSearch
     attachments: AttachmentCleanup
+    attachment_links: AttachmentLinks
     references: ConversationReferences
     todos: Todos
     web_search: WebSearchFences
@@ -276,19 +358,22 @@ class ChatTurnDeps:
 
 
 def default_deps() -> ChatTurnDeps:
-    """The real modules. Built per turn, so a module patched in a test is the one used."""
+    """The real modules, as one turn uses them."""
     return ChatTurnDeps(
         session_factory=SessionLocal,
         users=users,
         chats=chats,
         messages=messages,
+        usage=usage,
         quota=quota,
         plan=plan,
+        model_choice=model_choice,
         locks=redis_lock,
         llm=litellm_gateway,
         image_generation=image_generation,
         image_search=image_search,
         attachments=attachment_lifecycle,
+        attachment_links=attachments_service,
         references=conversation_reference,
         todos=_PackageTodos(
             materialize_reminder_fences=todos.materialize_reminder_fences,

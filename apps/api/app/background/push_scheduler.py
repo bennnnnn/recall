@@ -19,6 +19,7 @@ from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.gateways.expo_push_gateway import MAX_MESSAGES_PER_REQUEST
 from app.modules.notifications import push as push_notifications
+from app.modules.todos import advance_recurring_without_device
 from app.repositories import push_tokens as push_repo
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ async def _push_cycle(settings: Settings, lock: CycleLock) -> None:
     now = datetime.now(UTC)
     async with SessionLocal() as session:
         await push_notifications.log_aged_unsent_reminders(session, now=now)
-        await push_notifications.advance_tokenless_recurring(session, now=now)
+        await advance_recurring_without_device(session, now=now)
     if not settings.server_todo_push_enabled:
         return
     sent = 0

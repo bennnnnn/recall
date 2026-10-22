@@ -14,6 +14,9 @@ from app.models.model_catalog import validate_user_alias
 from app.models.schemas.common import ResponseTone, UserVoice
 from app.models.schemas.text import UserText
 
+# The longest custom instructions a user may save; the prompt builders read this too.
+CUSTOM_INSTRUCTIONS_MAX_CHARS = 1000
+
 
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -52,6 +55,7 @@ class UserOut(BaseModel):
     google_sub: str | None = Field(default=None, exclude=True)
     apple_sub: str | None = Field(default=None, exclude=True)
 
+    # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def sign_in_provider(self) -> str:
@@ -65,6 +69,7 @@ class UserOut(BaseModel):
             return "dev"
         return "dev"
 
+    # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def apple_linked(self) -> bool:
@@ -72,6 +77,7 @@ class UserOut(BaseModel):
         iOS asks Apple once more so the server can revoke the Apple grant."""
         return isinstance(self.apple_sub, str) and bool(self.apple_sub)
 
+    # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def features(self) -> list[str]:
@@ -82,6 +88,7 @@ class UserOut(BaseModel):
 
         return list(features_for(self.plan, get_settings()))
 
+    # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def email_reminders_available(self) -> bool:
@@ -120,7 +127,9 @@ class UserUpdate(BaseModel):
     timezone: UserText | None = Field(default=None, max_length=64)
     location: UserText | None = Field(default=None, max_length=128)
     location_enabled: bool | None = None
-    custom_instructions: UserText | None = Field(default=None, max_length=1000)
+    custom_instructions: UserText | None = Field(
+        default=None, max_length=CUSTOM_INSTRUCTIONS_MAX_CHARS
+    )
     age: int | None = Field(default=None, ge=13, le=120)
     country: UserText | None = Field(default=None, max_length=64)
     job: UserText | None = Field(default=None, max_length=128)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.modules.physics.constants import COULOMB_K, EPSILON_0
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
 from app.modules.physics.solvers.school_common import positive, result
 from app.services.solving import SolveServiceError
 

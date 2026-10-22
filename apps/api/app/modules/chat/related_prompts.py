@@ -24,6 +24,7 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.readings import read_off_loop
 from app.gateways.litellm_gateway import complete_structured
+from app.models.routing_lanes import ROUTING
 from app.modules.chat.follow_up_prompts import GENERAL_SYSTEM as _GENERAL_SYSTEM
 from app.modules.chat.follow_up_prompts import SUBJECT_SYSTEM as _SYSTEM
 from app.modules.chat.related_questions import (
@@ -142,7 +143,7 @@ async def _ask_for_questions(
         parsed = await asyncio.wait_for(
             complete_structured(
                 settings=settings,
-                model_alias="memory-model",
+                model_alias=ROUTING.background,
                 messages=messages,
                 schema=RelatedQuestions,
                 max_tokens=_CANDIDATE_TOKENS,

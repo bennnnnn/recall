@@ -109,6 +109,7 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     _, chosen = strongest
     try:
         return PhysicsIntent(
+            # The catalog's kind is a str; the model validates it against its Literal.
             kind=chosen.spec.kind,  # type: ignore[arg-type]
             physics_op=chosen.spec.id,
             physics_params=chosen.params,

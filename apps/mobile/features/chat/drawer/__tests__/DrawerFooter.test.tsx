@@ -10,7 +10,6 @@ let mockToken: string;
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: mockUser, token: mockToken }) }));
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.recall.test" }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 const styles = makeConversationListStyles(lightTheme);
 

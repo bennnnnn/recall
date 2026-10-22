@@ -15,15 +15,15 @@ from app.models.orm import Chat, User
 from app.modules import memory as memory_service
 from app.modules import todos as todos_service
 from app.modules.attachments import rag as attachment_rag_service
+from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat import history_rag as chat_history_rag_service
-from app.modules.chat.prompt_constants import is_broad_self_question
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
-from app.services.context_window import (
+from app.modules.chat import messages_repository as messages_repo
+from app.modules.chat.context_window import (
     UNSUMMARIZED_GAP_MAX_MESSAGES,
     messages_within_token_budget,
     unsummarized_gap_bounds,
 )
+from app.modules.chat.prompt_constants import is_broad_self_question
 
 if TYPE_CHECKING:
     from app.modules.memory import MemoryScope
@@ -334,7 +334,7 @@ async def _load_unsummarized_gap(
         created_at = getattr(oldest, "created_at", None)
         oldest_id = getattr(oldest, "id", None)
         if created_at is not None and oldest_id is not None:
-            summarized = int(getattr(chat, "summary_message_count", 0) or 0)
+            summarized = (chat.summary_message_count or 0) if chat is not None else 0
             async with SessionLocal() as session:
                 total = prior_count
                 if total is None:

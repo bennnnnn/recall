@@ -25,21 +25,7 @@ jest.mock("expo-file-system/legacy", () => ({
   writeAsStringAsync: jest.fn(),
   EncodingType: { UTF8: "utf8" },
 }));
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  ImpactFeedbackStyle: { Light: "Light" },
-  NotificationFeedbackType: { Success: "Success", Warning: "Warning" },
-}));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 
 const HOSTILE_HTML = `<!DOCTYPE html><html><head></head><body>
 <script>location = "https://accounts-google.example/signin";</script>

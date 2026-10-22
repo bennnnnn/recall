@@ -185,7 +185,7 @@ def test_a_floating_body_is_not_read_as_fully_submerged() -> None:
 )
 def test_a_resting_block_does_not_invent_a_friction_coefficient(text: str) -> None:
     intent = extract_physics_intent(text)
-    assert intent is not None
+    assert intent is not None and intent.physics_params is not None
     assert "mu" not in intent.physics_params
 
 

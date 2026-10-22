@@ -17,7 +17,7 @@ from app.gateways.storage_gateway import (
     get_storage_gateway,
 )
 from app.models.orm import Attachment, User
-from app.models.schemas import AttachmentListItemOut, AttachmentListOut, AttachmentOut
+from app.models.schemas.page import Page
 from app.modules.attachments import chunks_repository as chunks_repo
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import (
@@ -29,9 +29,10 @@ from app.modules.attachments.content_types import bytes_match_claimed, is_image_
 from app.modules.attachments.lifecycle import delete_storage_keys, enqueue_failed_storage_deletes
 from app.modules.attachments.markers import strip_attachment_from_content
 from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
+from app.modules.attachments.schemas import AttachmentListItemOut, AttachmentOut
 from app.modules.attachments.thumbnails import thumbnail_bytes, thumbnail_edge
 from app.modules.attachments.upload import AttachmentUploadError, cancel_pending_upload
-from app.repositories import messages as messages_repo
+from app.modules.chat import history as chat_history
 from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
@@ -99,16 +100,17 @@ async def list_attachments(
     source: str | None,
     q: str | None,
     limit: int,
-    offset: int,
-) -> AttachmentListOut:
-    rows, has_more = await attachments_repo.list_for_gallery(
+    cursor: str | None,
+) -> Page[AttachmentListItemOut]:
+    # The cursor follows the last row read, a row dropped below for a lost file included.
+    rows, next_cursor = await attachments_repo.list_for_gallery(
         session,
         user.id,
         category=category,
         source=source,
         q=q,
         limit=limit,
-        offset=offset,
+        cursor=cursor,
     )
     message_ids = [row.message_id for row in rows if row.message_id is not None]
     chat_meta = await attachments_repo.chat_meta_for_message_ids(session, message_ids)
@@ -140,7 +142,7 @@ async def list_attachments(
                 chat_title=chat_title,
             )
         )
-    return AttachmentListOut(items=items, has_more=has_more)
+    return Page(items=items, next_cursor=next_cursor)
 
 
 async def delete_attachment(
@@ -173,7 +175,7 @@ async def _delete_library_attachment(
     message_id = row.message_id
     storage_key = row.storage_key
     if message_id is not None:
-        message = await messages_repo.get_for_user(session, message_id, user.id)
+        message = await chat_history.message_for_user(session, message_id, user.id)
         if message is not None:
             next_content = strip_attachment_from_content(message.content, row.id)
             if next_content:

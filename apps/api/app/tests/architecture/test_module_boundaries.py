@@ -1,5 +1,9 @@
 """Keep the modular-monolith ownership rules executable during migration."""
 
+import ast
+import importlib
+from pathlib import Path
+
 from .boundary_support import (
     APP_ROOT,
     MOBILE_ROOT,
@@ -38,13 +42,38 @@ def test_todos_runtime_code_has_one_owner() -> None:
 
 
 def test_infrastructure_does_not_depend_on_product_modules() -> None:
+    """Infrastructure imports no module, directly or through a ``models`` barrel.
+
+    ``from app.models.orm import Memory`` reached memory's table and
+    ``from app.models.schemas import MemoryFactOp`` its schema while this test only read
+    the literal ``app.modules`` prefix (code-health audit ARCH-04); a barrel name now
+    counts where it is defined.
+    """
     violations: list[str] = []
     for layer in ("core", "gateways", "repositories"):
         for path in (APP_ROOT / layer).rglob("*.py"):
             for imported in _imports(path):
                 if imported == "app.modules" or imported.startswith("app.modules."):
                     violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+            for barrel, name in _barrel_names(path):
+                defined_in = getattr(importlib.import_module(barrel), name).__module__
+                if defined_in.startswith("app.modules."):
+                    violations.append(
+                        f"{path.relative_to(APP_ROOT)} imports {name} ({defined_in}) via {barrel}"
+                    )
     assert not violations, "\n".join(violations)
+
+
+def _barrel_names(path: Path) -> list[tuple[str, str]]:
+    """``(barrel, name)`` for each name imported from ``app.models.orm`` or ``.schemas``."""
+    found: list[tuple[str, str]] = []
+    for node in ast.walk(ast.parse(path.read_text())):
+        if isinstance(node, ast.ImportFrom) and node.module in _BARRELS:
+            found.extend((node.module, alias.name) for alias in node.names)
+    return found
+
+
+_BARRELS = frozenset({"app.models.orm", "app.models.schemas"})
 
 
 def test_the_law_engine_does_not_depend_on_a_subject() -> None:

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, one_unknown
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import one_unknown
 from app.services.solving import SolveServiceError
 
 

@@ -70,8 +70,8 @@ def _client(
     get_chat = AsyncMock(return_value=MagicMock() if owned else None)
     list_recent = AsyncMock(return_value=_rows(messages or []))
     with (
-        patch("app.modules.images.intent.chats_repo.get_by_id", get_chat),
-        patch("app.modules.images.intent.messages_repo.list_recent", list_recent),
+        patch("app.modules.images.intent.chat_history.get_chat", get_chat),
+        patch("app.modules.images.intent.chat_history.recent_messages", list_recent),
     ):
         yield TestClient(app), get_chat, list_recent
 

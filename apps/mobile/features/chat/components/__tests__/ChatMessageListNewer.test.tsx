@@ -4,7 +4,6 @@ import { Text } from "react-native";
 import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import type { Message } from "@/lib/api";
 
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/features/home/components/HomeStarters", () => ({ HomeStarters: () => null }));
 
 const message: Message = { id: "m1", role: "user", content: "hello", model: null, created_at: "t" };

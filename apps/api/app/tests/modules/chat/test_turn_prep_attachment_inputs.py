@@ -19,6 +19,7 @@ from app.exceptions import AttachmentValidationError, ChatNotFoundError
 from app.modules.chat.turn_prep.attachments import _process_attachments
 from app.modules.math.image_extract import camera_math_user_suffix
 from app.modules.math.schemas import MathImageExtract
+from app.tests.fakes import redis_mock
 
 _EXTRACTED = MathImageExtract(lhs="2*x+3", rhs="7", variables=["x"], found=True)
 _SOLVE = "please solve this equation"
@@ -102,7 +103,7 @@ async def _run(
             content=content,
             attachment_ids=[row.id for row in rows] if ids is None else ids,
             settings=Settings(attachments_enabled=True),
-            redis=AsyncMock(),
+            redis=redis_mock(),
             on_status=on_status,
         )
     mocks["gateway_value"] = gateway
@@ -118,7 +119,7 @@ async def test_flag_off_rejects_ids_and_no_ids_pass_the_text_through() -> None:
             content="hi",
             attachment_ids=[uuid4()],
             settings=Settings(attachments_enabled=False),
-            redis=AsyncMock(),
+            redis=redis_mock(),
             on_status=None,
         )
     result = await _process_attachments(
@@ -127,7 +128,7 @@ async def test_flag_off_rejects_ids_and_no_ids_pass_the_text_through() -> None:
         content="hi",
         attachment_ids=[],
         settings=Settings(attachments_enabled=True),
-        redis=AsyncMock(),
+        redis=redis_mock(),
         on_status=None,
     )
     assert (result.user, result.user_content, result.content) == (None, "hi", "hi")

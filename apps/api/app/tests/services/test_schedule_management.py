@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.types import DateTime, TypeDecorator
 
 from app.models.orm import TodoItem, User
-from app.models.schemas import TodoActionItem
 from app.modules.notifications import push
 from app.modules.todos import actions, crud
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.schemas import TodoActionItem
 
 
 class _UTCDateTime(TypeDecorator):
@@ -91,6 +91,7 @@ async def test_effective_reschedule_clears_delivery_markers(schedule_sql, path):
                 )
             ],
         )
+        await session.commit()  # the caller commits (code-health audit ARCH-07)
     else:
         await actions._apply_bulk_shift_due_today_to_tomorrow(
             session,
@@ -155,7 +156,7 @@ async def test_read_catchup_cannot_overwrite_reschedule(schedule_sql):
         .execution_options(synchronize_session=False)
     )
     sync_session.commit()
-    await crud._advance_past_recurring(session, [row], timezone="UTC", now=now)
+    await crud.advance_past_recurring(session, [row], timezone="UTC", now=now)
     sync_session.refresh(row)
     assert row.due_at == manual_due
 

@@ -173,11 +173,10 @@ def test_the_same_numbers_still_route_by_the_question_asked() -> None:
     Only the noun separates them, and momentum now runs first — so this is the
     pair most likely to cross-fire.
     """
-    assert extract_physics_intent("momentum of a 2 kg object moving at 3 m/s").kind == "momentum"  # type: ignore[union-attr]
-    assert (
-        extract_physics_intent("kinetic energy of a 2 kg object moving at 3 m/s").kind  # type: ignore[union-attr]
-        == "energy"
-    )
+    momentum = extract_physics_intent("momentum of a 2 kg object moving at 3 m/s")
+    energy = extract_physics_intent("kinetic energy of a 2 kg object moving at 3 m/s")
+    assert momentum is not None and momentum.kind == "momentum"
+    assert energy is not None and energy.kind == "energy"
     assert _verified_answer("kinetic energy of a 2 kg object moving at 3 m/s") == "9 J"
 
 

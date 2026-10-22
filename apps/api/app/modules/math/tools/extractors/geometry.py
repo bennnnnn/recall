@@ -146,9 +146,8 @@ def _extract_square_intent(cleaned: str) -> MathIntent | None:
         return None
     if "square" not in lower:
         return None
-    # Algebraic uses of the word "square" must not become a geometry diagram.
-    # BUG FIX: "solve square root of x = 4" / "graph the square root" used to
-    # match here (substring "square") and inject a default 5 cm square.
+    # Algebraic uses of the word "square" must not become a geometry diagram:
+    # "solve square root of x = 4" or "graph the square root" is no 5 cm square.
     if any(
         phrase in lower
         for phrase in (
