@@ -4,6 +4,10 @@
  */
 import { LETTER } from "@/lib/markdown/unicodeChars";
 
+// A unit after a value ("km/h", "m/s²", "N.", "kg·m/s"): letter runs of three or fewer, so
+// "here" or "only" read as words.
+const UNIT_TAIL = /^[A-Za-zµμΩ°]{1,3}(?:[/·^][A-Za-zµμΩ°0-9²³⁻¹]{1,3}|[0-9²³⁻¹]{1,2}){0,3}[.,;:!?]*$/;
+
 /**
  * The laid-out rows of a line, then whatever followed the maths.
  *
@@ -18,10 +22,27 @@ export function finishInline(parts: string[], tail: string): string {
     const cut = last.indexOf("\n");
     parts[parts.length - 1] =
       `${last.slice(0, cut).trimEnd()} ${note}  \n${last.slice(cut + 1)}`;
+  } else if (parts.length > 0 && UNIT_TAIL.test(note)) {
+    // "$d = 120 + 60 = 180$ km": the unit stays with the last row's value.
+    parts[parts.length - 1] = `${last.trimEnd()} ${note}`;
   } else if (note) {
     parts.push(parts.length > 0 ? tail.trimStart() : tail);
   }
   return keepHardBreak(tail, parts.join("\n"));
+}
+
+/**
+ * Prose follows a maths span on its line: the span is part of a sentence.
+ *
+ * "has $\Delta = 9 - 8 = 1$, giving …" or "$v = 100/20 = 5$ m/s, so it is slow" split
+ * into rows broke the sentence into fragments, a unit or a clause alone on a line. A
+ * chain that ends its line ("**Step 1:** $x = 2 + 3 = 5$"), or whose line ends in a unit
+ * ("$d = 120 + 60 = 180$ km") or a note ("$h = …$ — Vertex of a parabola"), is a worked
+ * step and still splits.
+ */
+export function continuesSentence(after: string): boolean {
+  const rest = after.replace(/^[.,;:!?]+/, "").trim();
+  return rest.length > 0 && !rest.startsWith("— ") && !UNIT_TAIL.test(rest);
 }
 
 /** `laid` ends with `original`'s hard break, if it had one. */

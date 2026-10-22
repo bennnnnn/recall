@@ -31,6 +31,9 @@ if TYPE_CHECKING:
     from app.modules.physics.extract import (
         needs_physics as needs_physics,
     )
+    from app.modules.physics.force_pictures import (
+        is_picture_only as is_picture_only,
+    )
     from app.modules.physics.reply_policy import (
         PHYSICS_REPLY_POLICY as PHYSICS_REPLY_POLICY,
     )
@@ -48,6 +51,7 @@ _EXPORTS = {
     "PHYSICS_REPLY_POLICY": ("reply_policy", "PHYSICS_REPLY_POLICY"),
     "build_verified_physics_block": ("block", "build_verified_physics_block"),
     "extract_physics_intent": ("extract", "extract_physics_intent"),
+    "is_picture_only": ("force_pictures", "is_picture_only"),
     "is_symbol_givens_request": ("symbol_givens", "is_symbol_givens_request"),
     "needs_physics": ("extract", "needs_physics"),
     "physics_prompt_hints": ("reply_policy", "physics_prompt_hints"),

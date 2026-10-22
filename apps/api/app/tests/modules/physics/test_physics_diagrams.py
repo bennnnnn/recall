@@ -270,6 +270,47 @@ def test_a_parallel_network_names_each_resistor_and_the_total() -> None:
     assert circuit.load.label == "R = 2 Ω" and circuit.load.role == "result"
 
 
+@pytest.mark.parametrize(
+    ("text", "group", "parts", "total", "current"),
+    [
+        (
+            "Draw a circuit with a 9V battery and two 3 ohm resistors in parallel "
+            "and find the total current",
+            "parallel",
+            ["R₁ = 3 Ω", "R₂ = 3 Ω"],
+            "R = 1.5 Ω",
+            "I = 6 A",
+        ),
+        (
+            "A 12 V battery is connected to three 6 ohm resistors in parallel. "
+            "Find the total current.",
+            "parallel",
+            ["R₁ = 6 Ω", "R₂ = 6 Ω", "R₃ = 6 Ω"],
+            "R = 2 Ω",
+            "I = 6 A",
+        ),
+        (
+            "A 12 V battery is connected to a 4 Ω and an 8 Ω resistor in series. "
+            "What is the current?",
+            "series",
+            ["R₁ = 4 Ω", "R₂ = 8 Ω"],
+            "R = 12 Ω",
+            "I = 1 A",
+        ),
+    ],
+)
+def test_a_network_asked_for_its_current_keeps_every_resistor(
+    text: str, group: str, parts: list[str], total: str, current: str
+) -> None:
+    """Two 3 Ω in parallel were drawn as one 1.5 Ω resistor; the total is the group's label."""
+    circuit = _scene(text).circuit
+    assert circuit is not None
+    members = getattr(circuit.load, group)
+    assert members is not None and [part.label for part in members] == parts
+    assert circuit.load.label == total and circuit.load.role == "given"
+    assert circuit.current == current
+
+
 def test_opposing_forces_are_drawn_to_scale_with_what_is_left_over() -> None:
     scene = _scene(
         "A 10 kg box is pulled with 50 N to the right and 20 N to the left. What is its acceleration?"

@@ -143,6 +143,35 @@ SPECS: tuple[FormulaSpec, ...] = (
         "R_p",
         variables=(*_NETWORK,),
     ),
+    # Ohm's law across a whole network: its equivalent resistance first, then
+    # I = V/R. Two 3 Ω in parallel across 9 V draw 6 A, and the schematic keeps
+    # both resistors instead of one 1.5 Ω stand-in.
+    *(
+        formula(
+            operation,
+            "circuit",
+            "Ohm's law",
+            "I",
+            variables=(*_NETWORK, var("V", "V", "volt")),
+        )
+        for operation in ("series_current", "parallel_current")
+    ),
+    # One resistor in series with a parallel group (``extractors/series_parallel.py``):
+    # R = R₁ + R_p, where 1/R_p sums the group. 4 Ω with 6 Ω ∥ 12 Ω is 8 Ω.
+    formula(
+        "series_parallel_resistance",
+        "circuit",
+        "Series-parallel network",
+        "R",
+        variables=(*_NETWORK,),
+    ),
+    formula(
+        "series_parallel_current",
+        "circuit",
+        "Series-parallel network",
+        "I",
+        variables=(*_NETWORK, var("V", "V", "volt")),
+    ),
     formula(
         "charge",
         "circuit",

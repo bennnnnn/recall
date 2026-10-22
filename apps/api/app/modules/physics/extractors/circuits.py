@@ -19,14 +19,15 @@ from app.modules.physics.extractors.circuit_patterns import (
     _TERMINAL_ASK_RE,
     _VOLT_PATTERN,
     _WATT_PATTERN,
-    _resistor_values,
     counted_resistors,
+    resistor_values,
 )
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )
 from app.modules.physics.extractors.fluid_readings import AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_circuit
+from app.modules.physics.extractors.series_parallel import series_parallel_intent
 from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
     ordered_values,
@@ -67,6 +68,50 @@ def _network_equivalent(values: list[float], *, series: bool) -> float | None:
     if series:
         return sum(values)
     return 1.0 / sum(1.0 / value for value in values)
+
+
+def _network_intent(
+    lower: str,
+    network: list[float],
+    counted: tuple[int, float] | None,
+    volts: list[tuple[float, str]],
+    amps: list[tuple[float, str]],
+) -> PhysicsIntent | None:
+    """Two or more resistances in series or in parallel: their total, or the current
+    a stated supply drives through them."""
+    stated = 1 if counted is not None else len(network)
+    if stated > _MAX_NETWORK_RESISTORS or len(network) > _MAX_COUNTED_RESISTORS:
+        return None
+    series = "series" in lower
+    # "Find the current" with a supply voltage is Ohm's law on the
+    # equivalent resistance. Answering the resistance sum is a different law.
+    asks_current = re.search(r"\bcurrents?\b", lower) is not None
+    asks_resistance = re.search(r"\bresistances?\b", lower) is not None
+    if asks_current and not asks_resistance:
+        # Every resistor stays a parameter, so the working and the schematic
+        # show the network the user described, not one equivalent resistor.
+        if len(volts) != 1 or amps or _network_equivalent(network, series=series) is None:
+            return None
+        return PhysicsIntent(
+            kind="circuit",
+            physics_op="series_current" if series else "parallel_current",
+            physics_params={
+                **{f"R{n}": value for n, value in enumerate(network, start=1)},
+                "V": volts[0][0],
+            },
+            physics_units={
+                **{f"R{n}": "ohm" for n in range(1, len(network) + 1)},
+                "V": "volt",
+            },
+            operation="solve",
+        )
+    return PhysicsIntent(
+        kind="circuit",
+        physics_op="series_resistance" if series else "parallel_resistance",
+        physics_params={f"R{n}": value for n, value in enumerate(network, start=1)},
+        physics_units={f"R{n}": "ohm" for n in range(1, len(network) + 1)},
+        operation="solve",
+    )
 
 
 def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
@@ -132,50 +177,17 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
         )
 
     # --- resistor networks: two or more resistances and a stated topology ---
-    network = _resistor_values(cleaned)
+    if "series" in lower and "parallel" in lower:
+        # A series-parallel network is not one sum: 4 Ω in series with 6 Ω
+        # and 12 Ω in parallel is 8 Ω, and the all-series reading said 22 Ω.
+        return series_parallel_intent(cleaned, volts, amps)
+    network = resistor_values(cleaned)
     counted = counted_resistors(cleaned)
     if counted is not None and not network:
         # Counted resistors beside others: a network this does not read.
         return None
-    if "series" in lower and "parallel" in lower:
-        # A series-parallel network is not one sum: 4 Ω in series with 6 Ω
-        # and 12 Ω in parallel is 8 Ω, and the all-series reading said 22 Ω.
-        return None
     if len(network) >= 2 and ("series" in lower or "parallel" in lower):
-        stated = 1 if counted is not None else len(network)
-        if stated > _MAX_NETWORK_RESISTORS or len(network) > _MAX_COUNTED_RESISTORS:
-            return None
-        series = "series" in lower
-        # "Find the current" with a supply voltage is Ohm's law on the
-        # equivalent resistance. Answering the resistance sum is a different law.
-        asks_current = re.search(r"\bcurrents?\b", lower) is not None
-        asks_resistance = re.search(r"\bresistances?\b", lower) is not None
-        if asks_current and not asks_resistance:
-            equivalent = _network_equivalent(network, series=series)
-            if len(volts) != 1 or amps or equivalent is None:
-                return None
-            return PhysicsIntent(
-                kind="circuit",
-                physics_op="current",
-                physics_params={"V": volts[0][0], "R": equivalent},
-                physics_units={"V": "volt", "R": "ohm"},
-                operation="solve",
-            )
-        op: Literal[
-            "voltage",
-            "current",
-            "resistance",
-            "electrical_power",
-            "series_resistance",
-            "parallel_resistance",
-        ] = "series_resistance" if series else "parallel_resistance"
-        return PhysicsIntent(
-            kind="circuit",
-            physics_op=op,
-            physics_params={f"R{n}": value for n, value in enumerate(network, start=1)},
-            physics_units={f"R{n}": "ohm" for n in range(1, len(network) + 1)},
-            operation="solve",
-        )
+        return _network_intent(lower, network, counted, volts, amps)
 
     params: dict[str, float] = {}
     units: dict[str, str] = {}

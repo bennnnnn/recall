@@ -343,7 +343,10 @@ the samples and never re-derives motion. Two kinds of picture exist:
   - strobe ghosts;
   - vectors that ride on a body.
 - **Diagrams** have no bodies. The phone lays them out from the spec:
-  - `circuit`: a source and a load of parts, series or parallel groups;
+  - `circuit`: a source and a load of parts, series or parallel groups. A network is drawn
+    as the question states it: every resistor, its group's total as the group's label and,
+    when the current is asked, the battery and the current it drives. It is never one
+    equivalent resistor;
   - `rays`: lenses, mirrors and an interface, with rays traced here;
   - `wave`: frames of displacement over fixed samples, with nodes, antinodes and the ends that
     hold the wave.
@@ -361,6 +364,15 @@ solved as arithmetic has no solver to draw it, so `solvers/catalog_scenes.py` lo
 up by operation and reuses the same builders. A string's tension is the circular scene with
 its string, and a recoil is the collision scene started from rest. An operation not listed
 draws nothing.
+
+A request to see the forces on a body ("draw the forces on a box sliding down a 30°
+incline with friction", "show the forces on a hanging mass") needs no number: when nothing
+solves, `force_pictures.py` reads the situation (an incline, a hanging body, a body in the air,
+a box on a level surface pulled or pushed) and draws its free-body diagram with symbol labels
+(mg, N, f, T) and only the angle the user gave (θ otherwise). The turn carries that picture and
+no result: no card, no number. A plain-text sketch the model drew beside a server picture is
+removed. A situation it does not know (a pulley, a curve, a block pulled up a ramp) draws
+nothing.
 
 Where one formula covers different apparatus, a hidden variable that only the picture reads
 says which one it is:
@@ -469,8 +481,9 @@ with one photon's energy. The laws and their near misses are in
 `test_physics_investigation_gaps.py`; the everyday look-alikes are in
 `sweep_corpus/physics_investigation.json`.
 
-Still left to the model, by design or for now: series-parallel networks, heating through
-a phase change, a lap's average velocity (zero, not d/t), Doppler with both parties
+Still left to the model, by design or for now: series-parallel networks other than one
+resistor in series with a parallel group (that one is read, solved and drawn nested, from
+`extractors/series_parallel.py`), heating through a phase change, a lap's average velocity (zero, not d/t), Doppler with both parties
 moving, multi-part questions that need several laws, a plank balanced with its own weight
 at the pivot, and a string's tension at the top of a vertical circle.
 
@@ -485,7 +498,8 @@ pipeline refuses:
 - a statement that asks nothing, and a "what if …" that names no quantity;
 - a fall with no stated height (a horizontal throw, a roll off a table, a throw down a well),
   except a throw straight up that comes back to the hand; a throw whose direction is unsaid;
-- a chase whose chaser is not read or is the slower, a series-parallel network, heating
+- a chase whose chaser is not read or is the slower, a series-parallel network of any
+  other shape ("in parallel with both" is (R₁ + R₂) ∥ R₃, not R₁ + (R₂ ∥ R₃)), heating
   through boiling or melting, the average velocity of a lap, and a downward launch's peak
   height;
 - a trip in two stages answered for one stage, two legs that are not along compass axes

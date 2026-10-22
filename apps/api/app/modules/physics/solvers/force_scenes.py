@@ -17,7 +17,7 @@ from app.modules.physics.schemas import (
 from app.modules.physics.schemas.simulation import TitleKey
 
 
-def _free_body_scene(
+def free_body_scene(
     vectors: list[SimulationVector],
     *,
     label: str | None = None,

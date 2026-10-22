@@ -51,6 +51,18 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
                 r"R_p = 2\,\Omega",
             ],
         ),
+        # 1/R_p equals R_p (two 2 Ω in parallel): the working still ends on R_p.
+        (
+            [r"\frac{1}{R_p} = \frac{1}{2} + \frac{1}{2}"],
+            r"1\,\Omega",
+            [
+                r"\frac{1}{R_p} = \frac{1}{2} + \frac{1}{2}",
+                r"\frac{1}{R_p} = 0.5 + 0.5",
+                r"\frac{1}{R_p} = 1",
+                r"R_p = \frac{1}{1}",
+                r"R_p = 1\,\Omega",
+            ],
+        ),
         # Two values: each row is matched by its value, whatever it is named.
         (
             [r"a = \frac{2 \cdot 9.81}{5 + 2}", r"T = 5 \cdot \frac{2 \cdot 9.81}{5 + 2}"],

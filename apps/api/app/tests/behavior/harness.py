@@ -10,6 +10,7 @@ production's: the battery certifies what users get.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
@@ -61,6 +62,8 @@ from app.modules.money.block import (
     MONEY_RATES_MISSING,
     MONEY_REPLY_RULES,
 )
+from app.modules.physics import is_picture_only
+from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.web_search.detection import needs_web_search
 from app.services.mcp import setup_mcp_adapters
 from app.services.subject_solving import detect_subject
@@ -163,6 +166,8 @@ class Route:
     memory: bool = False
     memory_scope: str = ""
     history_rag: bool = False
+    # The scenes a verified block appends under a model-written reply, as fences.
+    server_pictures: str = ""
 
     def summary(self) -> str:
         parts = [f"search={self.search}"]
@@ -414,7 +419,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
 
     subject = detect_subject(text, chemistry_enabled=settings.chemistry_enabled) or ""
     verified = bundle.verified_subject
-    solved = verified is not None
+    # A free-body picture with no result behind it is drawn, not solved.
+    solved = verified is not None and not is_picture_only(verified)
     system = "\n\n".join(
         str(m.get("content")) for m in bundle.prompt_messages if m.get("role") == "system"
     )
@@ -445,6 +451,18 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         memory=bool(loaded.get("load_memory")),
         memory_scope=str(loaded.get("memory_scope") or "") if loaded.get("load_memory") else "",
         history_rag=bool(loaded.get("history_rag")),
+        server_pictures=_server_pictures(verified),
+    )
+
+
+def _server_pictures(verified: Any) -> str:
+    if verified is None:
+        return ""
+    specs = [verified.canonical_fence, *verified.canonical_fences]
+    return "\n\n".join(
+        f"```simulation\n{json.dumps(spec)}\n```"
+        for spec in specs
+        if isinstance(spec, dict) and spec.get("type") in SIMULATION_SPEC_TYPES
     )
 
 

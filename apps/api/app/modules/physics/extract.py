@@ -114,6 +114,11 @@ def needs_physics(text: str) -> bool:
         return True
     if _ERRAND_RE.search(text) is not None:
         return False
+    from app.modules.physics.force_pictures import force_picture
+
+    # "Draw the forces on a hanging mass" has no number and is physics all the same.
+    if force_picture(text) is not None:
+        return True
     if _named_symbol_request(text) is not None:
         return True
     normalized = normalize_symbolic_request(fold_scientific(text), limit=_MAX_SUBJECT_TEXT)
