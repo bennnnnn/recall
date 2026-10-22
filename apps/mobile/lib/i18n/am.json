@@ -761,6 +761,7 @@
   "settings.email_reminders": "የኢሜይል ማስታወሻዎች",
   "settings.experience": "ልምድ",
   "settings.export": "ውሂቤን ላክ",
+  "settings.export_busy": "ወደ ውጭ መላክ አሁን እየሄደ ነው ወይም አሁን ተደርጓል። ትንሽ ቆይተው እንደገና ይሞክሩ።",
   "settings.export_confirm": "ወደ ውጭ ላክ",
   "settings.export_confirm_body": "መገለጫዎን፣ ቅንብሮችዎን፣ ውይይቶችዎን፣ ትዝታዎችዎን፣ አስታዋሾችዎን እና የፋይሎችዎን ዝርዝሮች የያዘ አንድ ፋይል ያገኛሉ። አንድ ደቂቃ ሊወስድ ይችላል።",
   "settings.export_confirm_title": "ውሂብዎን ወደ ውጭ ይላኩ?",

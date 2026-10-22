@@ -764,6 +764,7 @@
   "settings.email_reminders": "Lembretes por e-mail",
   "settings.experience": "Experiência",
   "settings.export": "Exportar meus dados",
+  "settings.export_busy": "Já há uma exportação em andamento ou uma acabou de ser feita. Tente novamente daqui a pouco.",
   "settings.export_confirm": "Exportar",
   "settings.export_confirm_body": "Você vai receber um arquivo com seu perfil, configurações, conversas, memórias, lembretes e os detalhes dos seus arquivos. Pode levar um minuto.",
   "settings.export_confirm_title": "Exportar seus dados?",

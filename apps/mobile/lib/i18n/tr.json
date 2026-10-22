@@ -761,6 +761,7 @@
   "settings.email_reminders": "E-posta hatırlatmaları",
   "settings.experience": "Deneyim",
   "settings.export": "Verilerimi dışa aktar",
+  "settings.export_busy": "Bir dışa aktarma zaten sürüyor ya da az önce yapıldı. Biraz sonra tekrar deneyin.",
   "settings.export_confirm": "Dışa aktar",
   "settings.export_confirm_body": "Profilin, ayarların, sohbetlerin, anıların, hatırlatıcıların ve dosyalarının bilgileriyle tek bir dosya alacaksın. Bir dakika sürebilir.",
   "settings.export_confirm_title": "Verilerin dışa aktarılsın mı?",

@@ -767,6 +767,7 @@
   "settings.email_reminders": "Напоминания по email",
   "settings.experience": "Опыт",
   "settings.export": "Экспортировать мои данные",
+  "settings.export_busy": "Экспорт уже идёт или только что был сделан. Попробуйте чуть позже.",
   "settings.export_confirm": "Экспортировать",
   "settings.export_confirm_body": "Вы получите файл с профилем, настройками, чатами, воспоминаниями, напоминаниями и сведениями о ваших файлах. Это может занять минуту.",
   "settings.export_confirm_title": "Экспортировать ваши данные?",

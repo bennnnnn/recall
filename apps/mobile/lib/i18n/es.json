@@ -764,6 +764,7 @@
   "settings.email_reminders": "Recordatorios por correo",
   "settings.experience": "Experiencia",
   "settings.export": "Exportar mis datos",
+  "settings.export_busy": "Ya hay una exportación en curso o se acaba de hacer una. Inténtalo de nuevo en un rato.",
   "settings.export_confirm": "Exportar",
   "settings.export_confirm_body": "Recibirás un archivo con tu perfil, ajustes, chats, recuerdos, recordatorios y los datos de tus archivos. Puede tardar un minuto.",
   "settings.export_confirm_title": "¿Exportar tus datos?",

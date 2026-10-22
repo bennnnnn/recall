@@ -761,6 +761,7 @@
   "settings.email_reminders": "E-Mail-Erinnerungen",
   "settings.experience": "Erlebnis",
   "settings.export": "Meine Daten exportieren",
+  "settings.export_busy": "Ein Export läuft gerade oder wurde eben erstellt. Versuche es gleich noch einmal.",
   "settings.export_confirm": "Exportieren",
   "settings.export_confirm_body": "Du bekommst eine Datei mit deinem Profil, deinen Einstellungen, Chats, Erinnerungen, Erinnerungsaufgaben und den Angaben zu deinen Dateien. Das kann eine Minute dauern.",
   "settings.export_confirm_title": "Deine Daten exportieren?",

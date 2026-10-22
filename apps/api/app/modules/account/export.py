@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -216,6 +216,22 @@ def _export_limits(settings: Settings) -> dict[str, int]:
     }
 
 
+def _export_notes(settings: Settings) -> list[str]:
+    """What a reader of the file needs to know about it, in plain words."""
+    minutes = max(1, settings.r2_presign_expiry_seconds // 60)
+    return [
+        f"Each attachment's download_url works for {minutes} minutes after the export; "
+        "export again to get new links.",
+        'Lists are capped (export_limits); "truncated" at the end names any list that '
+        "had more than its cap, so that list is not complete.",
+    ]
+
+
+def _note_cut(truncated: list[str], name: str, cut: bool) -> None:
+    if cut and name not in truncated:
+        truncated.append(name)
+
+
 async def _attachment_payload(
     attachment: Any,
     *,
@@ -247,6 +263,51 @@ async def _attachment_payload(
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 
+# One page of a list: (session, offset, limit) -> rows.
+PageReader = Callable[[AsyncSession, int, int], Awaitable[Sequence[Any]]]
+
+
+def _messages_of(chat_id: UUID) -> PageReader:
+    """One chat's messages, a page at a time."""
+
+    async def read(session: AsyncSession, offset: int, limit: int) -> Sequence[Any]:
+        return await chat_history.messages_page(session, chat_id, offset=offset, limit=limit)
+
+    return read
+
+
+async def _paged_json(
+    read: PageReader,
+    payload: Callable[[Any], dict[str, Any]],
+    *,
+    cap: int,
+    page_size: int,
+    session_factory: SessionFactory,
+    on_cut: Callable[[bool], None],
+) -> AsyncIterator[str]:
+    """A list read page by page up to ``cap``, as comma-joined JSON objects.
+
+    A session per page, closed before yielding. At the cap one more row is read, and
+    ``on_cut`` says whether the cap cut the list short.
+    """
+    offset = 0
+    first = True
+    while offset < cap:
+        size = min(page_size, cap - offset)
+        async with session_factory() as session:
+            chunks = [json.dumps(payload(row)) for row in await read(session, offset, size)]
+        for chunk in chunks:
+            if not first:
+                yield ","
+            first = False
+            yield chunk
+        offset += len(chunks)
+        if len(chunks) < size:
+            return
+    async with session_factory() as session:
+        on_cut(bool(await read(session, offset, 1)))
+
+
 async def _iter_export_json(
     user: User,
     settings: Settings,
@@ -257,15 +318,19 @@ async def _iter_export_json(
     # slow client download cannot pin a Neon connection for the stream lifetime.
     snapshot_time = datetime.now(UTC)
     exported_at = snapshot_time.isoformat()
+    # The lists the caps in export_limits cut short, named at the end of the file.
+    truncated: list[str] = []
     yield "{"
     yield f'"exported_at":{json.dumps(exported_at)},'
+    yield f'"notes":{json.dumps(_export_notes(settings))},'
     yield f'"export_limits":{json.dumps(_export_limits(settings))},'
     yield f'"user":{json.dumps(_user_payload(user))},'
     yield '"chats":['
 
     async with session_factory() as session:
-        chats = await chat_history.chats_for_export(session, user.id, limit=EXPORT_MAX_CHATS)
-        chat_rows = [(_chat_header(chat), chat.id) for chat in chats]
+        chats = await chat_history.chats_for_export(session, user.id, limit=EXPORT_MAX_CHATS + 1)
+        chat_rows = [(_chat_header(chat), chat.id) for chat in chats[:EXPORT_MAX_CHATS]]
+    _note_cut(truncated, "chats", len(chats) > EXPORT_MAX_CHATS)
 
     for chat_index, (header, chat_id) in enumerate(chat_rows):
         if chat_index:
@@ -273,50 +338,29 @@ async def _iter_export_json(
         yield json.dumps(header)[:-1]
         yield ',"messages":['
 
-        offset = 0
-        first_message = True
-        while offset < EXPORT_MAX_MESSAGES_PER_CHAT:
-            page_size = min(EXPORT_MESSAGE_PAGE_SIZE, EXPORT_MAX_MESSAGES_PER_CHAT - offset)
-            async with session_factory() as session:
-                messages = await chat_history.messages_page(
-                    session,
-                    chat_id,
-                    offset=offset,
-                    limit=page_size,
-                )
-                message_chunks = [json.dumps(_message_payload(message)) for message in messages]
-            if not message_chunks:
-                break
-            for chunk in message_chunks:
-                if not first_message:
-                    yield ","
-                first_message = False
-                yield chunk
-            offset += len(message_chunks)
-            if len(message_chunks) < page_size:
-                break
+        async for chunk in _paged_json(
+            _messages_of(chat_id),
+            _message_payload,
+            cap=EXPORT_MAX_MESSAGES_PER_CHAT,
+            page_size=EXPORT_MESSAGE_PAGE_SIZE,
+            session_factory=session_factory,
+            on_cut=lambda cut: _note_cut(truncated, "messages", cut),
+        ):
+            yield chunk
         yield "]}"
 
     yield '],"memories":['
-    memory_offset = 0
-    first_memory = True
-    while memory_offset < EXPORT_MAX_MEMORIES:
-        page_size = min(EXPORT_MEMORY_PAGE_SIZE, EXPORT_MAX_MEMORIES - memory_offset)
-        async with session_factory() as session:
-            memories = await memory_service.facts_for_export(
-                session, user.id, offset=memory_offset, limit=page_size
-            )
-            memory_chunks = [json.dumps(_memory_payload(memory)) for memory in memories]
-        if not memory_chunks:
-            break
-        for chunk in memory_chunks:
-            if not first_memory:
-                yield ","
-            first_memory = False
-            yield chunk
-        memory_offset += len(memory_chunks)
-        if len(memory_chunks) < page_size:
-            break
+    async for chunk in _paged_json(
+        lambda session, offset, limit: memory_service.facts_for_export(
+            session, user.id, offset=offset, limit=limit
+        ),
+        _memory_payload,
+        cap=EXPORT_MAX_MEMORIES,
+        page_size=EXPORT_MEMORY_PAGE_SIZE,
+        session_factory=session_factory,
+        on_cut=lambda cut: _note_cut(truncated, "memories", cut),
+    ):
+        yield chunk
 
     yield '],"memory_areas":['
     async with session_factory() as session:
@@ -327,36 +371,27 @@ async def _iter_export_json(
     yield ",".join(area_chunks)
 
     yield '],"todos":['
-    todo_offset = 0
-    first_todo = True
-    while todo_offset < EXPORT_MAX_TODOS:
-        page_size = min(EXPORT_TODO_PAGE_SIZE, EXPORT_MAX_TODOS - todo_offset)
-        async with session_factory() as session:
-            todos = await todos_service.list_owned_todos(
-                session,
-                user.id,
-                limit=page_size,
-                offset=todo_offset,
-            )
-            todo_chunks = [json.dumps(_todo_payload(todo)) for todo in todos]
-        if not todo_chunks:
-            break
-        for chunk in todo_chunks:
-            if not first_todo:
-                yield ","
-            first_todo = False
-            yield chunk
-        todo_offset += len(todo_chunks)
-        if len(todo_chunks) < page_size:
-            break
+    async for chunk in _paged_json(
+        lambda session, offset, limit: todos_service.list_owned_todos(
+            session, user.id, limit=limit, offset=offset
+        ),
+        _todo_payload,
+        cap=EXPORT_MAX_TODOS,
+        page_size=EXPORT_TODO_PAGE_SIZE,
+        session_factory=session_factory,
+        on_cut=lambda cut: _note_cut(truncated, "todos", cut),
+    ):
+        yield chunk
 
     yield '],"attachments":['
     async with session_factory() as session:
         attachments = await attachments_service.list_for_user(
             session,
             user.id,
-            limit=EXPORT_MAX_ATTACHMENTS,
+            limit=EXPORT_MAX_ATTACHMENTS + 1,
         )
+        _note_cut(truncated, "attachments", len(attachments) > EXPORT_MAX_ATTACHMENTS)
+        attachments = attachments[:EXPORT_MAX_ATTACHMENTS]
         # Copy scalars before close — ORM instances expire with the session.
         attachment_rows = [
             SimpleNamespace(
@@ -408,8 +443,10 @@ async def _iter_export_json(
         product_events = await product_events_repo.list_for_user(
             session,
             user.id,
-            limit=EXPORT_MAX_PRODUCT_EVENTS,
+            limit=EXPORT_MAX_PRODUCT_EVENTS + 1,
         )
+        _note_cut(truncated, "product_events", len(product_events) > EXPORT_MAX_PRODUCT_EVENTS)
+        product_events = product_events[:EXPORT_MAX_PRODUCT_EVENTS]
         product_event_chunks = [
             json.dumps(_product_event_payload(event)) for event in product_events
         ]
@@ -418,7 +455,8 @@ async def _iter_export_json(
             yield ","
         yield event_payload
 
-    yield "]}"
+    # Known only once everything is read, so it closes the file.
+    yield f'],"truncated":{json.dumps(truncated)}}}'
 
 
 async def iter_export_json(
