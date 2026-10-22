@@ -11,7 +11,7 @@ import pytest
 from app.background import handlers as job_handlers
 from app.core import jobs
 from app.core.config import Settings
-from app.core.jobs import admin, dedupe, queue, worker
+from app.core.jobs import admin, dedupe, delayed, queue, worker
 
 
 class _FakeSessionCM:
@@ -177,8 +177,8 @@ async def test_dispatch_routes_to_handler():
 
 
 @pytest.mark.asyncio
-async def test_dispatch_unknown_type_raises_discard():
-    with pytest.raises(jobs.JobDiscardError, match="unknown job type"):
+async def test_dispatch_unknown_type_raises_unknown():
+    with pytest.raises(queue.UnknownJobTypeError, match="unknown job type"):
         await queue._dispatch(Settings(), {"type": "does-not-exist", "payload": "{}"})
 
 
@@ -196,15 +196,44 @@ async def test_dispatch_bad_payload_raises_discard():
 
 
 @pytest.mark.asyncio
-async def test_process_entries_moves_unknown_type_to_dlq(fake_redis):
+async def test_an_entry_of_an_unknown_type_waits_for_a_worker_that_knows_it(fake_redis):
+    """An old worker in a blue-green deploy (or after a rollback) dead-lettered new types."""
+    seen = []
+
+    async def handler(_settings, payload):
+        seen.append(payload)
+
     await worker._ensure_group(fake_redis)
-    entry_id = await fake_redis.xadd(
-        jobs.JOBS_STREAM,
-        {"type": "no-such-handler", "payload": "{}"},
-    )
-    entries = [(entry_id, {"type": "no-such-handler", "payload": "{}"})]
-    await worker._process_entries(fake_redis, Settings(), entries)
+    fields = {"type": "added-next-release", "payload": json.dumps({"n": 1})}
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await fake_redis.xreadgroup(jobs.JOBS_GROUP, "old", {jobs.JOBS_STREAM: ">"}, count=1)
+    with patch.dict(queue._HANDLERS):
+        await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+        assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 0
+        assert await delayed.delayed_depth(fake_redis) == 1
+
+        # The new release is up: the entry comes back and runs.
+        jobs.register("added-next-release", handler)
+        await delayed.move_due(fake_redis, now=time.time() + 3_600)
+        resp = await fake_redis.xreadgroup(jobs.JOBS_GROUP, "new", {jobs.JOBS_STREAM: ">"}, count=1)
+        entries = [entry for _stream, batch in resp for entry in batch]
+        await worker._process_entries(fake_redis, Settings(), entries)
+    assert seen == [{"n": 1}]
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_type_is_dead_lettered_after_a_day(fake_redis):
+    await worker._ensure_group(fake_redis)
+    fields = {
+        "type": "never-registered",
+        "payload": "{}",
+        "unknown_since": str(time.time() - 2 * 86_400),
+    }
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await fake_redis.xreadgroup(jobs.JOBS_GROUP, "w", {jobs.JOBS_STREAM: ">"}, count=1)
+    await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
     assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 1
+    assert await delayed.delayed_depth(fake_redis) == 0
 
 
 # ── handlers ─────────────────────────────────────────────────────────────────
@@ -212,24 +241,62 @@ async def test_process_entries_moves_unknown_type_to_dlq(fake_redis):
 
 @pytest.mark.asyncio
 async def test_handle_compress_delegates():
-    cid = uuid4()
+    cid, uid = uuid4(), uuid4()
     with patch("app.background.handlers.compaction.compress_chat_history", AsyncMock()) as job:
-        await job_handlers._handle_compress(Settings(), {"chat_id": str(cid)})
+        await job_handlers._handle_compress(Settings(), {"chat_id": str(cid), "user_id": str(uid)})
     job.assert_awaited_once()
     assert job.call_args.args[1] == cid
+    assert job.call_args.kwargs["user_id"] == uid
+
+
+_TOPIC_PAYLOAD = {"user_message": "hi", "assistant_message": "yo"}
 
 
 @pytest.mark.asyncio
 async def test_handle_topic_delegates():
     with (
         _patch_session(),
-        patch("app.background.handlers.topic_service.generate_chat_title", AsyncMock()) as job,
+        patch(
+            "app.background.handlers.topic_service.generate_chat_title",
+            AsyncMock(return_value=True),
+        ) as job,
     ):
         await job_handlers._handle_topic(
-            Settings(),
-            {"chat_id": str(uuid4()), "user_message": "hi", "assistant_message": "yo"},
+            Settings(), {"chat_id": str(uuid4()), "user_id": str(uuid4()), **_TOPIC_PAYLOAD}
         )
     job.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_a_title_not_applied_leaves_the_topic_job_not_done():
+    """The worker used to mark it done over the handler's own release of the key."""
+    with (
+        _patch_session(),
+        patch(
+            "app.background.handlers.topic_service.generate_chat_title",
+            AsyncMock(return_value=False),
+        ),
+        pytest.raises(jobs.JobSkipped),
+    ):
+        await job_handlers._handle_topic(
+            Settings(), {"chat_id": str(uuid4()), "user_id": str(uuid4()), **_TOPIC_PAYLOAD}
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_skipped_job_releases_its_key_so_a_later_request_runs(fake_redis):
+    async def skipped(_settings, _payload):
+        raise jobs.JobSkipped("nothing to do yet")
+
+    jobs.register("skipping-job", skipped)
+    await worker._ensure_group(fake_redis)
+    fields = {"type": "skipping-job", "payload": "{}", "dedupe_key": "topic:skip"}
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await fake_redis.xreadgroup(jobs.JOBS_GROUP, "w", {jobs.JOBS_STREAM: ">"}, count=1)
+    await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    assert await fake_redis.get(jobs.job_done_key("topic:skip")) is None
+    pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
+    assert _pending_count(pending) == 0
 
 
 @pytest.mark.asyncio
@@ -261,17 +328,17 @@ async def test_handle_memory_retries_skipped_lock_with_backoff():
             "app.background.handlers.memory_extraction.extract_and_store_memories",
             AsyncMock(return_value="skipped_lock"),
         ),
-        patch("app.background.handlers.enqueue", AsyncMock()) as enqueue_mock,
+        patch("app.background.handlers.enqueue_later", AsyncMock()) as enqueue_mock,
         patch("app.background.handlers.get_redis_client", MagicMock()),
-        patch("app.background.handlers.asyncio.sleep", AsyncMock()) as sleep_mock,
     ):
         await job_handlers._handle_memory(Settings(), payload)
 
-    sleep_mock.assert_awaited_once_with(2.0)
+    # The retry waits in the delayed queue, not asleep in this worker slot.
     enqueue_mock.assert_awaited_once()
     assert enqueue_mock.await_args.args[2]["lock_retries"] == 1
-    assert enqueue_mock.await_args.kwargs["dedupe_key"] == (
-        f"memory:{payload['assistant_message_id']}:lock1"
+    assert enqueue_mock.await_args.kwargs["delay_s"] >= 10
+    assert enqueue_mock.await_args.kwargs["dedupe_key"].startswith(
+        f"memory:{payload['assistant_message_id']}:lock1:"
     )
 
 
@@ -289,13 +356,11 @@ async def test_handle_memory_discards_after_lock_retries():
             "app.background.handlers.memory_extraction.extract_and_store_memories",
             AsyncMock(return_value="skipped_lock"),
         ),
-        patch("app.background.handlers.enqueue", AsyncMock()) as enqueue_mock,
-        patch("app.background.handlers.asyncio.sleep", AsyncMock()) as sleep_mock,
+        patch("app.background.handlers.enqueue_later", AsyncMock()) as enqueue_mock,
         pytest.raises(jobs.JobDiscardError, match="lock retries"),
     ):
         await job_handlers._handle_memory(Settings(), payload)
 
-    sleep_mock.assert_not_awaited()
     enqueue_mock.assert_not_awaited()
 
 
@@ -321,18 +386,17 @@ async def test_handle_memory_consolidate_retries_skipped_lock_with_backoff():
             "app.background.handlers.memory_consolidation.consolidate_user_memory_sections",
             AsyncMock(return_value="skipped_lock"),
         ),
-        patch("app.background.handlers.enqueue", AsyncMock()) as enqueue_mock,
+        patch("app.background.handlers.enqueue_later", AsyncMock()) as enqueue_mock,
         patch("app.background.handlers.get_redis_client", MagicMock()),
-        patch("app.background.handlers.asyncio.sleep", AsyncMock()) as sleep_mock,
     ):
         await job_handlers._handle_memory_consolidate(Settings(), payload)
 
-    sleep_mock.assert_awaited_once_with(2.0)
     enqueue_mock.assert_awaited_once()
     assert enqueue_mock.await_args.args[1] == "memory_consolidate"
     assert enqueue_mock.await_args.args[2]["lock_retries"] == 1
-    assert enqueue_mock.await_args.kwargs["dedupe_key"] == (
-        f"memory_consolidate:{payload['user_id']}:lock1"
+    # Unique per request: a later consolidation for this user is never skipped as done.
+    assert enqueue_mock.await_args.kwargs["dedupe_key"].startswith(
+        f"memory_consolidate:{payload['user_id']}:lock1:"
     )
 
 
@@ -345,13 +409,11 @@ async def test_handle_memory_consolidate_discards_after_lock_retries():
             "app.background.handlers.memory_consolidation.consolidate_user_memory_sections",
             AsyncMock(return_value="skipped_lock"),
         ),
-        patch("app.background.handlers.enqueue", AsyncMock()) as enqueue_mock,
-        patch("app.background.handlers.asyncio.sleep", AsyncMock()) as sleep_mock,
+        patch("app.background.handlers.enqueue_later", AsyncMock()) as enqueue_mock,
         pytest.raises(jobs.JobDiscardError, match="lock retries"),
     ):
         await job_handlers._handle_memory_consolidate(Settings(), payload)
 
-    sleep_mock.assert_not_awaited()
     enqueue_mock.assert_not_awaited()
 
 
@@ -377,8 +439,8 @@ async def test_process_entries_dispatches_and_acks():
 
 
 @pytest.mark.asyncio
-async def test_process_entries_failed_job_goes_to_dlq():
-    redis = AsyncMock()
+async def test_process_entries_failed_job_waits_for_a_later_attempt(fake_redis):
+    """One failure frees the slot and schedules the next attempt; nothing is dead-lettered."""
     calls = {"n": 0}
 
     async def handler(_settings, _payload):
@@ -386,36 +448,58 @@ async def test_process_entries_failed_job_goes_to_dlq():
         raise RuntimeError("boom")
 
     jobs.register("fail-job", handler)
-    entries = [("2-0", {"type": "fail-job", "payload": "{}"})]
-    # Retry backoff would slow the test; collapse sleeps to instant.
-    with patch("app.core.jobs.worker.asyncio.sleep", AsyncMock()):
-        await worker._process_entries(redis, Settings(), entries)
-    # Handler retried up to _MAX_ATTEMPTS, then went to the DLQ.
-    assert calls["n"] == worker._MAX_ATTEMPTS
-    redis.xadd.assert_awaited_once()
-    assert redis.xadd.call_args.args[0] == jobs.JOBS_DLQ_STREAM
-    redis.xack.assert_awaited_once()
+    await worker._ensure_group(fake_redis)
+    fields = {"type": "fail-job", "payload": "{}"}
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await fake_redis.xreadgroup(jobs.JOBS_GROUP, "w", {jobs.JOBS_STREAM: ">"}, count=1)
+    await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    assert calls["n"] == 1
+    assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 0
+    assert await delayed.delayed_depth(fake_redis) == 1
+    pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
+    assert _pending_count(pending) == 0
 
 
 @pytest.mark.asyncio
-async def test_process_entries_retries_then_succeeds_without_dlq():
-    redis = AsyncMock()
+async def test_a_job_failing_through_an_outage_runs_once_it_is_over(fake_redis):
+    """A 30 s provider outage dead-lettered every job that started in it."""
+    outage = {"over": False}
     calls = {"n": 0}
 
     async def handler(_settings, _payload):
         calls["n"] += 1
-        if calls["n"] < worker._MAX_ATTEMPTS:
-            raise RuntimeError("transient")
-        # succeeds on the final attempt
+        if not outage["over"]:
+            raise RuntimeError("provider down")
 
     jobs.register("retry-then-ok", handler)
-    entries = [("3-0", {"type": "retry-then-ok", "payload": "{}"})]
-    with patch("app.core.jobs.worker.asyncio.sleep", AsyncMock()):
-        await worker._process_entries(redis, Settings(), entries)
-    assert calls["n"] == worker._MAX_ATTEMPTS
-    # No DLQ write when the job eventually succeeds.
-    redis.xadd.assert_not_called()
-    redis.xack.assert_awaited_once()
+    await worker._ensure_group(fake_redis)
+    await jobs.enqueue(fake_redis, "retry-then-ok", {}, dedupe_key="retry:1")
+    clock = time.time()
+    for _ in range(3):
+        resp = await fake_redis.xreadgroup(jobs.JOBS_GROUP, "w", {jobs.JOBS_STREAM: ">"}, count=10)
+        entries = [entry for _stream, batch in resp or [] for entry in batch]
+        await worker._process_entries(fake_redis, Settings(), entries)
+        clock += 3_600
+        await delayed.move_due(fake_redis, now=clock)
+        outage["over"] = calls["n"] >= 2
+    assert calls["n"] == 3
+    assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 0
+    assert await fake_redis.get(jobs.job_done_key("retry:1")) == dedupe._DEDUPE_DONE
+
+
+@pytest.mark.asyncio
+async def test_the_last_attempt_goes_to_the_dlq(fake_redis):
+    async def handler(_settings, _payload):
+        raise RuntimeError("still down")
+
+    jobs.register("spent-job", handler)
+    await worker._ensure_group(fake_redis)
+    fields = {"type": "spent-job", "payload": "{}", "attempt": str(delayed.MAX_ATTEMPTS)}
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await fake_redis.xreadgroup(jobs.JOBS_GROUP, "w", {jobs.JOBS_STREAM: ">"}, count=1)
+    await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 1
+    assert await delayed.delayed_depth(fake_redis) == 0
 
 
 @pytest.mark.asyncio
@@ -600,20 +684,48 @@ async def test_stopped_worker_removes_its_consumer_from_the_group(
 # ── queue metrics / observability ────────────────────────────────────────────
 
 
+def _metrics(**overrides):
+    metrics = {
+        "dlq_depth": 0,
+        "pending_entries": 0,
+        "backlog": 0,
+        "oldest_undelivered_age_s": None,
+        "delayed": 0,
+        "stream_length": 0,
+        "metrics_error": None,
+    }
+    metrics.update(overrides)
+    return metrics
+
+
 @pytest.mark.asyncio
 async def test_collect_queue_metrics_empty(fake_redis):
     await worker._ensure_group(fake_redis)
     metrics = await admin.collect_queue_metrics(fake_redis)
-    assert metrics == {"dlq_depth": 0, "pending_entries": 0, "metrics_error": None}
+    assert metrics == _metrics()
 
 
 @pytest.mark.asyncio
 async def test_collect_queue_metrics_counts_dlq_depth(fake_redis):
+    await worker._ensure_group(fake_redis)
     await fake_redis.xadd(jobs.JOBS_DLQ_STREAM, {"type": "memory", "error": "x"})
     await fake_redis.xadd(jobs.JOBS_DLQ_STREAM, {"type": "topic", "error": "y"})
     await fake_redis.xadd(jobs.JOBS_DLQ_STREAM, {"type": "todos", "error": "z"})
     metrics = await admin.collect_queue_metrics(fake_redis)
     assert metrics["dlq_depth"] == 3
+
+
+@pytest.mark.asyncio
+async def test_collect_queue_metrics_sees_a_backlog_no_worker_has_read(fake_redis):
+    """The pending count could not see a backlog: a worker holds only what it runs."""
+    await worker._ensure_group(fake_redis)
+    for i in range(30):
+        await jobs.enqueue(fake_redis, "topic", {"chat_id": str(i)})
+    await fake_redis.xreadgroup(jobs.JOBS_GROUP, "w", {jobs.JOBS_STREAM: ">"}, count=5)
+    metrics = await admin.collect_queue_metrics(fake_redis)
+    assert metrics["backlog"] == 25
+    assert metrics["pending_entries"] == 5
+    assert metrics["oldest_undelivered_age_s"] is not None
 
 
 @pytest.mark.asyncio
@@ -623,35 +735,46 @@ async def test_collect_queue_metrics_redis_error_is_unknown_not_zero():
     redis.xlen = AsyncMock(side_effect=RuntimeError("redis down"))
     redis.xpending = AsyncMock(side_effect=RuntimeError("redis down"))
     metrics = await admin.collect_queue_metrics(redis)
-    assert metrics == {"dlq_depth": None, "pending_entries": None, "metrics_error": "RuntimeError"}
+    assert metrics == _metrics(
+        dlq_depth=None,
+        pending_entries=None,
+        backlog=None,
+        delayed=None,
+        stream_length=None,
+        metrics_error="RuntimeError",
+    )
 
 
 @pytest.mark.asyncio
-async def test_report_queue_metrics_warns_when_dlq_exceeds_threshold():
-    """A DLQ depth at/above the alert threshold must capture a Sentry warning
-    so queue growth is observable in prod (not just the dev-only admin endpoint)."""
-    redis = AsyncMock()
-    with (
-        patch.object(
-            admin,
-            "collect_queue_metrics",
-            AsyncMock(
-                return_value={
-                    "dlq_depth": admin._DLQ_ALERT_THRESHOLD,
-                    "pending_entries": 0,
-                    "metrics_error": None,
-                }
-            ),
-        ),
-        patch("sentry_sdk.add_breadcrumb") as breadcrumb,
-        patch("sentry_sdk.capture_message") as capture,
-    ):
-        await jobs.report_queue_metrics(redis)
+async def test_report_queue_metrics_warns_when_the_dlq_grows(fake_redis):
+    """Growth, not depth: the depth alerted every 5 minutes forever after one blip."""
+    await worker._ensure_group(fake_redis)
+    with patch("sentry_sdk.add_breadcrumb"), patch("sentry_sdk.capture_message") as capture:
+        await jobs.report_queue_metrics(fake_redis)
+        for _ in range(admin._DLQ_GROWTH_ALERT):
+            await fake_redis.xadd(jobs.JOBS_DLQ_STREAM, {"type": "memory", "error": "x"})
+        await fake_redis.delete(admin._METRICS_LOCK_KEY)
+        await jobs.report_queue_metrics(fake_redis)
+        assert capture.call_count == 1
+        assert "DLQ grew" in capture.call_args.args[0]
+        assert capture.call_args.kwargs.get("level") == "warning"
 
+        # The same depth next time is quiet.
+        await fake_redis.delete(admin._METRICS_LOCK_KEY)
+        await jobs.report_queue_metrics(fake_redis)
+        assert capture.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_only_one_worker_reports_per_interval(fake_redis):
+    await worker._ensure_group(fake_redis)
+    with (
+        patch("sentry_sdk.add_breadcrumb") as breadcrumb,
+        patch("sentry_sdk.capture_message"),
+    ):
+        await jobs.report_queue_metrics(fake_redis)
+        await jobs.report_queue_metrics(fake_redis)
     breadcrumb.assert_called_once()
-    capture.assert_called_once()
-    assert "DLQ depth" in capture.call_args.args[0]
-    assert capture.call_args.kwargs.get("level") == "warning"
 
 
 @pytest.mark.asyncio
@@ -661,13 +784,7 @@ async def test_report_queue_metrics_warns_when_pending_exceeds_threshold():
         patch.object(
             admin,
             "collect_queue_metrics",
-            AsyncMock(
-                return_value={
-                    "dlq_depth": 0,
-                    "pending_entries": admin._PENDING_ALERT_THRESHOLD,
-                    "metrics_error": None,
-                }
-            ),
+            AsyncMock(return_value=_metrics(pending_entries=admin._PENDING_ALERT_THRESHOLD)),
         ),
         patch("sentry_sdk.add_breadcrumb"),
         patch("sentry_sdk.capture_message") as capture,
@@ -679,19 +796,34 @@ async def test_report_queue_metrics_warns_when_pending_exceeds_threshold():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "overrides, words",
+    [
+        ({"backlog": 1_000}, "backlog"),
+        ({"oldest_undelivered_age_s": 900.0}, "Oldest undelivered"),
+        ({"stream_length": 49_000}, "cap"),
+    ],
+)
+async def test_report_queue_metrics_warns_on_a_backlog(overrides, words):
+    with (
+        patch.object(admin, "collect_queue_metrics", AsyncMock(return_value=_metrics(**overrides))),
+        patch.object(admin, "hard_maxlen", return_value=50_000),
+        patch("sentry_sdk.add_breadcrumb"),
+        patch("sentry_sdk.capture_message") as capture,
+    ):
+        await jobs.report_queue_metrics(AsyncMock())
+    capture.assert_called_once()
+    assert words in capture.call_args.args[0]
+
+
+@pytest.mark.asyncio
 async def test_report_queue_metrics_quiet_below_thresholds():
     redis = AsyncMock()
     with (
         patch.object(
             admin,
             "collect_queue_metrics",
-            AsyncMock(
-                return_value={
-                    "dlq_depth": admin._DLQ_ALERT_THRESHOLD - 1,
-                    "pending_entries": admin._PENDING_ALERT_THRESHOLD - 1,
-                    "metrics_error": None,
-                }
-            ),
+            AsyncMock(return_value=_metrics(pending_entries=admin._PENDING_ALERT_THRESHOLD - 1)),
         ),
         patch("sentry_sdk.add_breadcrumb") as breadcrumb,
         patch("sentry_sdk.capture_message") as capture,
@@ -714,15 +846,7 @@ async def test_report_queue_metrics_noop_without_sentry():
     sys.modules["sentry_sdk"] = None
     try:
         with patch.object(
-            admin,
-            "collect_queue_metrics",
-            AsyncMock(
-                return_value={
-                    "dlq_depth": admin._DLQ_ALERT_THRESHOLD,
-                    "pending_entries": 0,
-                    "metrics_error": None,
-                }
-            ),
+            admin, "collect_queue_metrics", AsyncMock(return_value=_metrics(dlq_depth=40))
         ):
             metrics = await jobs.report_queue_metrics(redis)
     finally:
@@ -730,7 +854,7 @@ async def test_report_queue_metrics_noop_without_sentry():
             sys.modules["sentry_sdk"] = original
         else:
             sys.modules.pop("sentry_sdk", None)
-    assert metrics["dlq_depth"] == admin._DLQ_ALERT_THRESHOLD
+    assert metrics["dlq_depth"] == 40
 
 
 # ── periodic reclaim ────────────────────────────────────────────────────────
@@ -821,10 +945,10 @@ async def test_process_entries_releases_dedupe_after_permanent_failure(fake_redi
         "type": "dedupe-fail-job",
         "payload": "{}",
         "dedupe_key": "welcome:user-1",
+        "attempt": str(delayed.MAX_ATTEMPTS),
     }
     entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
-    with patch("app.core.jobs.worker.asyncio.sleep", AsyncMock()):
-        await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
     assert await fake_redis.get(jobs.job_done_key("welcome:user-1")) is None
     assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 1
 
@@ -912,7 +1036,7 @@ async def test_process_entries_done_claim_skips_and_acks(fake_redis):
     await fake_redis.set(
         jobs.job_done_key("attach:index:2"),
         dedupe._DEDUPE_DONE,
-        ex=dedupe._JOB_DONE_TTL_SECONDS,
+        ex=queue.DEFAULT_DONE_TTL_SECONDS,
     )
     await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
     assert calls["n"] == 0
@@ -957,7 +1081,7 @@ async def test_process_entries_cancelled_job_stays_pending(fake_redis):
         # Another worker is running the job: the entry waits for that run.
         (dedupe._DEDUPE_RUNNING, dedupe._JOB_DONE_CLAIM_TTL_SECONDS, 1),
         # Another worker finished it: the duplicate is acked.
-        (dedupe._DEDUPE_DONE, dedupe._JOB_DONE_TTL_SECONDS, 0),
+        (dedupe._DEDUPE_DONE, queue.DEFAULT_DONE_TTL_SECONDS, 0),
     ],
 )
 async def test_cancel_after_losing_the_claim_keeps_the_other_runs_key(

@@ -13,7 +13,6 @@ Import this module once at startup, before the worker starts consuming
 list, not import-time discovery, so the set of live job types stays greppable.
 """
 
-import asyncio
 import functools
 import logging
 from collections.abc import Awaitable, Callable
@@ -23,7 +22,15 @@ from uuid import UUID
 from app.background import message_indexing
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.core.jobs import JobDiscardError, enqueue, purge_user_jobs, register
+from app.core.jobs import (
+    JobDiscardError,
+    JobSkipped,
+    enqueue_later,
+    purge_user_jobs,
+    register,
+    retry_delay_s,
+    unique_dedupe_key,
+)
 from app.core.redis import get_redis_client
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.attachments import jobs as attachment_indexing
@@ -46,9 +53,9 @@ HISTORY_SCANS_AT_ONCE = 3
 
 
 _MEMORY_LOCK_MAX_RETRIES = 3
-# Match core.jobs.worker._RETRY_BACKOFF_S. Instant re-enqueue cannot outlast a lock
-# held for an LLM round-trip; the worker is not latency-sensitive.
-_MEMORY_LOCK_RETRY_BACKOFF_S = 2.0
+# A finished welcome or receipt email, storage sweep or chat title must not run again
+# for a late duplicate; every other job's done marker lives the default hour.
+_ONCE_A_DAY = 86_400
 
 
 def _memory_lock_retries(payload: dict[str, Any]) -> int:
@@ -65,12 +72,14 @@ async def _reenqueue_after_memory_lock(
     dedupe_stem: str,
     warning: str,
 ) -> None:
-    """Re-enqueue a lock-busy memory job, or discard to the DLQ after the cap.
+    """Re-enqueue a lock-busy memory job for later, or discard to the DLQ after the cap.
 
-    Each attempt uses its own ``dedupe_key`` (``{stem}:lock{n}``) so a
-    reclaim of this entry plus the retry cannot double-run the same pass.
-    Exhausted retries raise ``JobDiscardError`` so the worker records the
-    drop in the DLQ instead of acking a silent success.
+    The retry waits in the delayed queue (the job retry pauses: 15 s, then 1 min,
+    4 min), not asleep in this worker slot. Each attempt has its own ``dedupe_key``,
+    unique per request, so a reclaim of this entry plus the retry cannot double-run
+    the same pass, and a later request is never skipped as already done. Exhausted
+    retries raise ``JobDiscardError`` so the worker records the drop in the DLQ
+    instead of acking a silent success.
     """
     retries = _memory_lock_retries(retry_payload)
     if retries >= _MEMORY_LOCK_MAX_RETRIES:
@@ -78,12 +87,12 @@ async def _reenqueue_after_memory_lock(
         raise JobDiscardError(warning)
 
     next_retries = retries + 1
-    await asyncio.sleep(_MEMORY_LOCK_RETRY_BACKOFF_S * next_retries)
-    await enqueue(
+    await enqueue_later(
         get_redis_client(),
         job_type,
         {**retry_payload, "lock_retries": next_retries},
-        dedupe_key=f"{dedupe_stem}:lock{next_retries}",
+        delay_s=retry_delay_s(next_retries + 1),
+        dedupe_key=unique_dedupe_key(f"{dedupe_stem}:lock{next_retries}"),
     )
 
 
@@ -117,7 +126,8 @@ def _unless_spend_capped(handler: _Handler) -> _Handler:
     @functools.wraps(handler)
     async def run(settings: Settings, payload: dict[str, Any]) -> None:
         if await _spend_capped(settings):
-            return
+            # Not done: a later request for the same work must still run.
+            raise JobSkipped("global spend cap")
         await handler(settings, payload)
 
     return run
@@ -125,15 +135,17 @@ def _unless_spend_capped(handler: _Handler) -> _Handler:
 
 @_unless_spend_capped
 async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
-    user_id_raw = payload.get("user_id")
-    user_id = UUID(user_id_raw) if user_id_raw else None
-    await topic_service.generate_chat_title(
+    applied = await topic_service.generate_chat_title(
         settings,
         UUID(payload["chat_id"]),
         payload.get("user_message", ""),
         payload.get("assistant_message", ""),
-        user_id=user_id,
+        user_id=UUID(payload["user_id"]),
     )
+    if not applied:
+        # No title this time (nothing usable, or the chat already has one): a later
+        # request (the message-list backfill) may still try.
+        raise JobSkipped("no title applied")
 
 
 @_unless_spend_capped
@@ -188,6 +200,7 @@ async def _handle_lesson_progress(settings: Settings, payload: dict[str, Any]) -
         retry_payload={
             "user_id": payload["user_id"],
             "chat_id": payload["chat_id"],
+            "assistant_message_id": payload.get("assistant_message_id") or "",
             "lock_retries": payload.get("lock_retries") or 0,
         },
         dedupe_stem=f"lesson_progress:{payload.get('assistant_message_id') or payload['chat_id']}",
@@ -233,9 +246,9 @@ async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
 
 @_unless_spend_capped
 async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
-    user_id_raw = payload.get("user_id")
-    user_id = UUID(user_id_raw) if user_id_raw else None
-    await compaction.compress_chat_history(settings, UUID(payload["chat_id"]), user_id=user_id)
+    await compaction.compress_chat_history(
+        settings, UUID(payload["chat_id"]), user_id=UUID(payload["user_id"])
+    )
 
 
 async def _handle_transactional_email(settings: Settings, payload: dict[str, Any]) -> None:
@@ -297,7 +310,7 @@ async def _handle_storage_sweep(settings: Settings, payload: dict[str, Any]) -> 
 
 def register_all() -> None:
     """Register every live job type. Idempotent — `register` overwrites by key."""
-    register("topic", _handle_topic)
+    register("topic", _handle_topic, done_ttl_seconds=_ONCE_A_DAY)
     register("memory", _handle_memory)
     register("memory_consolidate", _handle_memory_consolidate)
     register("lesson_progress", _handle_lesson_progress)
@@ -310,7 +323,7 @@ def register_all() -> None:
     )
     register("todos", _handle_todos)
     register("compress", _handle_compress)
-    register("transactional_email", _handle_transactional_email)
+    register("transactional_email", _handle_transactional_email, done_ttl_seconds=_ONCE_A_DAY)
     register("attachment_index", _handle_attachment_index)
     register("message_index", _handle_message_index)
-    register("storage_sweep", _handle_storage_sweep)
+    register("storage_sweep", _handle_storage_sweep, done_ttl_seconds=_ONCE_A_DAY)

@@ -35,6 +35,63 @@ def prepare_message_text(role: str, content: str) -> str | None:
     return f"{label}: {cleaned}"
 
 
+class HistoryEmbeddingUnavailable(Exception):
+    """The embedder gave no usable vector for a piece of the message.
+
+    Nothing is stored then: a chunk with no vector counted as indexed while search
+    skipped it, a permanent hole in chat-history recall. The job retries later.
+    """
+
+
+def _pieces(settings: Settings, message: Message) -> list[str]:
+    text = prepare_message_text(message.role, message.content)
+    if not text:
+        return []
+    return chunk_text(
+        text,
+        chunk_chars=settings.chat_history_rag_chunk_chars,
+        overlap=settings.chat_history_rag_chunk_overlap,
+    )[: settings.chat_history_rag_max_chunks_per_message]
+
+
+async def _embed_and_store(settings: Settings, user_id: UUID, messages: list[Message]) -> int:
+    """Embed every piece of ``messages`` in one request and store them in one transaction.
+
+    Never holds a session during the embed. Raises ``HistoryEmbeddingUnavailable``
+    unless every piece got a full vector, so a message is indexed whole or not at all.
+    """
+    planned = [(message, _pieces(settings, message)) for message in messages]
+    planned = [(message, pieces) for message, pieces in planned if pieces]
+    if not planned:
+        return 0
+    texts = [piece for _message, pieces in planned for piece in pieces]
+    vectors = await embedding_gateway.embed_many(
+        settings, texts, concurrency=settings.embedding_concurrency
+    )
+    if len(vectors) != len(texts) or any(
+        vec is None or len(vec) != chunks_repo.EMBEDDING_DIM for vec in vectors
+    ):
+        raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, not every one embedded")
+    stored = 0
+    async with SessionLocal() as session:
+        offset = 0
+        for message, pieces in planned:
+            chunk_vectors = vectors[offset : offset + len(pieces)]
+            offset += len(pieces)
+            await chunks_repo.replace_chunks(
+                session,
+                user_id=user_id,
+                message_id=message.id,
+                chat_id=message.chat_id,
+                role=message.role,
+                chunks=list(zip(range(len(pieces)), pieces, chunk_vectors, strict=True)),
+                commit=False,
+            )
+            stored += len(pieces)
+        await session.commit()
+    return stored
+
+
 async def index_message(
     settings: Settings,
     *,
@@ -44,30 +101,7 @@ async def index_message(
     """Chunk + embed one message. Returns chunk count. Never holds a session during embed."""
     if not settings.chat_history_rag_enabled:
         return 0
-    text = prepare_message_text(message.role, message.content)
-    if not text:
-        return 0
-    pieces = chunk_text(
-        text,
-        chunk_chars=settings.chat_history_rag_chunk_chars,
-        overlap=settings.chat_history_rag_chunk_overlap,
-    )[: settings.chat_history_rag_max_chunks_per_message]
-    if not pieces:
-        return 0
-    vectors = await embedding_gateway.embed_many(
-        settings, pieces, concurrency=settings.embedding_concurrency
-    )
-    embedded = list(zip(range(len(pieces)), pieces, vectors, strict=True))
-    async with SessionLocal() as session:
-        await chunks_repo.replace_chunks(
-            session,
-            user_id=user_id,
-            message_id=message.id,
-            chat_id=message.chat_id,
-            role=message.role,
-            chunks=embedded,
-        )
-    return len(embedded)
+    return await _embed_and_store(settings, user_id, [message])
 
 
 async def _backfill_recent(
@@ -111,6 +145,8 @@ async def index_turn_messages(
 ) -> int:
     """Index the finalized assistant row and the latest user message, then warm empty corpora.
 
+    Both lines go in one embedding request and one transaction. When the embedder
+    fails, ``HistoryEmbeddingUnavailable`` reaches the job, which retries later.
     Memory off means no personal recall, so nothing is indexed while it is off.
     """
     if not settings.chat_history_rag_enabled:
@@ -120,29 +156,17 @@ async def index_turn_messages(
         user = await users_repo.get_by_id(session, user_id)
         if user is None or not user.memory_enabled:
             return 0
-        existing = await chunks_repo.count_for_user(session, user_id)
+        has_chunks = await chunks_repo.has_chunks_for_user(session, user_id)
         assistant = await messages_repo.get_by_id(session, assistant_message_id, chat_id)
         user_msg = await messages_repo.get_last_user(session, chat_id)
 
-    indexed_ids: set[UUID] = set()
-    total = 0
-    for row in (user_msg, assistant):
-        if row is None:
-            continue
-        try:
-            count = await index_message(settings, user_id=user_id, message=row)
-        except Exception:
-            logger.warning("Chat-history RAG index failed message_id=%s", row.id, exc_info=True)
-            continue
-        if count:
-            total += count
-            indexed_ids.add(row.id)
-
-    if existing == 0:
+    turn = [row for row in (user_msg, assistant) if row is not None]
+    total = await _embed_and_store(settings, user_id, turn)
+    if not has_chunks:
         total += await _backfill_recent(
             settings,
             user_id,
-            skip_ids=indexed_ids,
+            skip_ids={row.id for row in turn},
             edited_at=getattr(user, "memory_edited_at", None),
         )
     return total

@@ -36,6 +36,24 @@ class TodoItem(Base):
         ),
         # A chat delete (FK SET NULL), migration 0116.
         Index("ix_todo_items_chat", "chat_id", postgresql_where=text("chat_id IS NOT NULL")),
+        # The per-minute push and email reminder scans, which name no user (migration 0117).
+        Index(
+            "ix_todo_push_due",
+            "due_at",
+            "id",
+            postgresql_where=text(
+                "checked = false AND notification_sent_at IS NULL AND due_at IS NOT NULL"
+            ),
+        ),
+        Index(
+            "ix_todo_email_due",
+            "due_at",
+            "id",
+            postgresql_where=text(
+                "checked = false AND email_sent_at IS NULL AND recurrence_rule IS NULL "
+                "AND due_at IS NOT NULL"
+            ),
+        ),
         # Partial unique on (user_id, lower(content), due_at) for open dated
         # rows lives in migration 0084 (`uq_todo_open_content_due`) so SQLite
         # `__table__.create()` fixtures are not bound to a Postgres expression.

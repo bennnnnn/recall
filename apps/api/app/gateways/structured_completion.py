@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.redis import get_redis_client
+from app.core.redis_counters import hincr_with_ttl
 from app.gateways import llm_spend, mock_llm
 from app.models.schemas import (
     MEMORY_REPLY_MAX_LENGTH,
@@ -100,10 +101,9 @@ def _invalid_output(model_alias: str, schema: type[BaseModel], reason: str) -> N
 async def _count_invalid(field: str) -> None:
     try:
         async with asyncio.timeout(_INVALID_COUNT_TIMEOUT_SECONDS):
-            redis = get_redis_client()
-            key = invalid_output_key()
-            await redis.hincrby(key, field, 1)
-            await redis.expire(key, _INVALID_COUNT_TTL_SECONDS)
+            await hincr_with_ttl(
+                get_redis_client(), invalid_output_key(), field, 1, _INVALID_COUNT_TTL_SECONDS
+            )
     except Exception:
         logger.debug("structured invalid count not recorded field=%s", field, exc_info=True)
 

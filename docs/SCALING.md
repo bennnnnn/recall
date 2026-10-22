@@ -27,7 +27,7 @@ Everything a turn or a request must agree on across machines lives in Redis or P
 | "Wait for the last reply to be saved" | Redis marker `chatfinal:{chat}` (`modules/chat/finalize_registry.py`) | Same machine awaits the task; another machine polls the marker (50 ms, up to 10 s) |
 | Memory, home, link-preview, web-search, query-embedding and follow-up caches; model health | Redis, keyed by user or query, with TTLs | Where a write must invalidate one, it bumps a Redis generation key (`core/cache_generation.py`), so every machine sees it |
 | Memory writes | Redis lock per user (`modules/memory/locks.py`) plus Postgres row locks (user row first) | A busy lock re-enqueues the job with a backoff |
-| Background jobs | One Redis Stream `recall:jobs`, consumer group `workers` (`core/jobs/`) | Each worker has its own consumer name; entries are leased and reclaimed after 60 s idle; `jobdone:<key>` dedupe keeps a job from running twice; poison entries and timeouts go to the DLQ; the stream is bounded (`JOBS_STREAM_MAX_LEN`) |
+| Background jobs | One Redis Stream `recall:jobs`, consumer group `workers` (`core/jobs/`) | Each worker has its own consumer name; entries are leased and reclaimed after 60 s idle; `jobdone:<key>` dedupe keeps a job from running twice; a failure retries later from `recall:jobs:delayed` (six attempts over about 50 minutes) before the DLQ; poison entries and timeouts go to the DLQ; the worker trims only delivered, acked entries, and `JOBS_STREAM_MAX_LEN` drops the oldest only when no worker reads for long (the queue metrics warn first) |
 | Periodic schedulers (push, reminder email, orphan reaper, billing reconcile) | Every worker runs every loop; a Redis lock per cycle lets one run it (`background/periodic.py`) | Adding workers adds lock attempts, not duplicate sends |
 | Files | R2 presigned URLs | Production refuses local storage (`validate_production_settings`) |
 | Deploys | Blue-green, then SIGINT: in-flight turns stop and save, locks release | Two workers overlap for a moment; leases, dedupe and scheduler locks cover it |
@@ -60,7 +60,7 @@ Everything a turn or a request must agree on across machines lives in Redis or P
   connections per plan and bills per command.
 - **Redis commands per request.** An authenticated REST request costs the rate-limit
   pipeline (INCR + EXPIRE) and up to three GETs for the token check. A finished chat turn
-  enqueues up to seven jobs, each an XADD plus the soft trim (XPENDING, XTRIM).
+  enqueues up to seven jobs, one XADD each; the worker trims the stream on its own cadence.
 - **CPU.** One event loop per machine on a shared CPU. SymPy runs in its own processes and
   document parsing on threads, but prompt building, the maths/physics/chemistry readers
   and the finalize passes run on the loop. Measure before moving any of it.

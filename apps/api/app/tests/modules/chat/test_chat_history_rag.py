@@ -12,6 +12,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.attachments.rag import chunk_text
 from app.modules.chat.history_rag import (
+    HistoryEmbeddingUnavailable,
     embed_query_for_prompt,
     index_message,
     index_turn_messages,
@@ -376,18 +377,18 @@ async def test_index_message_uses_short_lived_session():
         live += 1
         max_live = max(max_live, live)
         try:
-            yield MagicMock()
+            yield AsyncMock()
         finally:
             live -= 1
 
-    async def _embed(*_a, **_k):
+    async def _embed(_settings, texts, **_k):
         assert live == 0
-        return [0.1] * 8
+        return [[0.1] * 1536 for _ in texts]
 
     with (
         patch("app.modules.chat.history_rag.SessionLocal", _cm),
         patch(
-            "app.modules.chat.history_rag.embedding_gateway.embed_text",
+            "app.modules.chat.history_rag.embedding_gateway.embed_many",
             _embed,
         ),
         patch(
@@ -404,10 +405,10 @@ async def test_index_message_uses_short_lived_session():
 
 
 @pytest.mark.asyncio
-async def test_index_message_stores_failed_piece_as_null_under_shared_concurrency():
-    """Pieces embed under the shared ``embedding_concurrency`` (the gateway caps requests in
-    flight); a piece whose embed failed is still stored, in its place, with a null vector
-    (search skips it)."""
+async def test_a_failed_piece_stores_nothing_and_the_job_retries():
+    """Pieces embed under the shared ``embedding_concurrency``. A piece whose embed failed
+    used to be stored with a null vector and counted as indexed while search skipped it,
+    a permanent hole in recall; now nothing is stored and the job retries later."""
     settings = Settings(
         chat_history_rag_enabled=True,
         chat_history_rag_chunk_chars=30,
@@ -426,7 +427,7 @@ async def test_index_message_stores_failed_piece_as_null_under_shared_concurrenc
 
     async def _embed_many(_settings, texts, *, concurrency):
         seen["texts"], seen["concurrency"] = texts, concurrency
-        return [None if text == pieces[1] else [float(len(text))] for text in texts]
+        return [None if text == pieces[1] else [0.5] * 1536 for text in texts]
 
     with (
         patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
@@ -434,15 +435,12 @@ async def test_index_message_stores_failed_piece_as_null_under_shared_concurrenc
         patch(
             "app.modules.chat.history_rag.chunks_repo.replace_chunks", AsyncMock()
         ) as replace_mock,
+        pytest.raises(HistoryEmbeddingUnavailable),
     ):
-        count = await index_message(settings, user_id=uuid4(), message=message)
+        await index_message(settings, user_id=uuid4(), message=message)
 
-    assert count == len(pieces)
     assert seen == {"texts": pieces, "concurrency": 2}
-    assert replace_mock.call_args.kwargs["chunks"] == [
-        (index, piece, None if index == 1 else [float(len(piece))])
-        for index, piece in enumerate(pieces)
-    ]
+    replace_mock.assert_not_awaited()
 
 
 async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = True) -> int:
@@ -474,8 +472,8 @@ async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = 
             AsyncMock(return_value=account),
         ),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.count_for_user",
-            AsyncMock(return_value=0),
+            "app.modules.chat.history_rag.chunks_repo.has_chunks_for_user",
+            AsyncMock(return_value=False),
         ),
         patch(
             "app.modules.chat.history_rag.messages_repo.get_by_id",
@@ -486,8 +484,8 @@ async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = 
             AsyncMock(return_value=user_msg),
         ),
         patch(
-            "app.modules.chat.history_rag.index_message",
-            AsyncMock(return_value=1),
+            "app.modules.chat.history_rag._embed_and_store",
+            AsyncMock(side_effect=lambda _settings, _user, messages: len(messages)),
         ) as index_one,
         patch(
             "app.modules.chat.history_rag.messages_repo.list_recent_for_user",
@@ -509,7 +507,9 @@ async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = 
         assert count == 0
         index_one.assert_not_awaited()
         return count
-    indexed = {call.kwargs["message"].id for call in index_one.await_args_list}
+    # The turn's two lines go in one embedding request.
+    assert {m.id for m in index_one.await_args_list[0].args[2]} == {user_msg.id, assistant.id}
+    indexed = {m.id for call in index_one.await_args_list for m in call.args[2]}
     assert user_msg.id in indexed and assistant.id in indexed
     # After "clear all", the backfill skips what was said before it (M13).
     assert (older.id in indexed) is (edited_at is None)

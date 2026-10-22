@@ -683,10 +683,27 @@ async def test_record_voice_spend_counts_toward_global_cap(fake_redis):
 # ── Nothing to count, and Redis outages ──────────────────────────────────────
 
 
+class _DownPipeline:
+    """A MULTI that fails when it reaches Redis, as every command does here."""
+
+    async def __aenter__(self) -> "_DownPipeline":
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+    def __getattr__(self, _name: str) -> MagicMock:
+        return MagicMock()
+
+    async def execute(self) -> None:
+        raise RedisConnectionError("down")
+
+
 def _down_redis():
     redis = AsyncMock()
     for name in ("get", "set", "exists", "delete", "incrby", "expire", "eval"):
         getattr(redis, name).side_effect = RedisConnectionError("down")
+    redis.pipeline = MagicMock(side_effect=lambda **_kwargs: _DownPipeline())
     return redis
 
 

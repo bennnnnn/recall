@@ -97,7 +97,7 @@ def scan_env(db_session, fake_redis):
     with (
         patch("app.modules.memory.history_scan.SessionLocal", lambda: _Reuse(db_session)),
         patch("app.modules.memory.history_scan.get_redis_client", lambda: fake_redis),
-        patch("app.modules.memory.history_scan._LOCK_RETRY_SECONDS", 0),
+        patch("app.core.jobs.LOCK_RETRY_BACKOFF_S", 0),
     ):
         yield fake_redis
 

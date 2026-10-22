@@ -192,8 +192,7 @@ async def test_process_todo_reminders_logs_when_user_has_no_token(caplog):
 
     assert messages == []
     advance.assert_not_awaited()
-    # One quiet line per cycle, not a WARNING per to-do every minute for 48h.
-    assert "no push token users=1" in caplog.text
+    # Not a WARNING per to-do every minute for 48h (the scan leaves such users out).
     assert not [r for r in caplog.records if r.levelname == "WARNING"]
     session.commit.assert_not_awaited()
 

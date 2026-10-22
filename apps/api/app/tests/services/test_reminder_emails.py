@@ -178,3 +178,29 @@ async def test_run_email_reminder_cycle_respects_kill_switch():
         session, _settings(email_reminders_scheduler_enabled=False)
     )
     assert count == 0
+
+
+@pytest.mark.asyncio
+async def test_a_cycle_that_lost_its_lock_stops_sending(email_write):
+    """The fixed 600 s hold, never refreshed, let a peer take the lock and send again."""
+    now = datetime.now(UTC)
+    rows = []
+    for _ in range(3):
+        user = _user()
+        rows.append((_todo(due_at=now + timedelta(minutes=5), user_id=user.id), user))
+    session = AsyncMock()
+    result = MagicMock()
+    result.all.return_value = rows
+    session.execute = AsyncMock(return_value=result)
+    keep_lock = AsyncMock(side_effect=[True, False, True])
+
+    with patch(
+        "app.modules.notifications.reminder_email.tx_email.send_todo_reminder",
+        AsyncMock(return_value=True),
+    ) as send:
+        count = await reminder_emails.process_todo_reminder_emails(
+            session, _settings(), now=now, keep_lock=keep_lock
+        )
+
+    assert count == 1
+    send.assert_awaited_once()

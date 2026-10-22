@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import MessageChunk
@@ -22,13 +22,6 @@ async def has_chunks_for_user(session: AsyncSession, user_id: UUID) -> bool:
     return result.scalar_one_or_none() is not None
 
 
-async def count_for_user(session: AsyncSession, user_id: UUID) -> int:
-    result = await session.execute(
-        select(func.count()).select_from(MessageChunk).where(MessageChunk.user_id == user_id)
-    )
-    return int(result.scalar_one() or 0)
-
-
 async def indexed_message_ids(
     session: AsyncSession,
     user_id: UUID,
@@ -36,10 +29,12 @@ async def indexed_message_ids(
 ) -> set[UUID]:
     if not message_ids:
         return set()
+    # Only embedded rows count: one with no vector is never found by search.
     result = await session.execute(
         select(MessageChunk.message_id).where(
             MessageChunk.user_id == user_id,
             MessageChunk.message_id.in_(message_ids),
+            MessageChunk.embedding.isnot(None),
         )
     )
     return {row[0] for row in result.all()}
@@ -53,6 +48,7 @@ async def replace_chunks(
     chat_id: UUID,
     role: str,
     chunks: list[tuple[int, str, list[float] | None]],
+    commit: bool = True,
 ) -> None:
     await session.execute(delete(MessageChunk).where(MessageChunk.message_id == message_id))
     for index, text, vec in chunks:
@@ -68,7 +64,10 @@ async def replace_chunks(
                 embedding=vec if vec is not None and len(vec) == EMBEDDING_DIM else None,
             )
         )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
 
 
 async def search_semantic(

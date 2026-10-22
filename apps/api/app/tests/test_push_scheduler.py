@@ -1,100 +1,124 @@
-"""Push scheduler lock tests and the production two-session cycle."""
+"""The push cycle: pages of due reminders, one Expo request at a time, marked as it goes."""
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
 from app.background import push_scheduler
 from app.core.config import Settings
-from app.modules.notifications.push import OutboundPush
+from app.gateways import expo_push_gateway
+from app.modules.notifications.push import OutboundPush, PushPage
 
 
-def test_push_lock_ttl_exceeds_interval():
-    assert push_scheduler.LOCK_TTL_SECONDS > push_scheduler.INTERVAL_SECONDS
+def test_push_lock_outlives_one_expo_request():
+    """Refreshed before each request, so it only has to outlast one."""
+    assert push_scheduler.LOCK_TTL_SECONDS > 2 * expo_push_gateway.EXPO_TIMEOUT_SECONDS
 
 
 class _SessionCM:
-    def __init__(self, session: object) -> None:
-        self._session = session
-
     async def __aenter__(self) -> object:
-        return self._session
+        return object()
 
     async def __aexit__(self, *args: object) -> None:
         return None
 
 
-@pytest.mark.asyncio
-async def test_production_push_cycle_collects_then_finalizes_on_separate_sessions():
-    collect_session = object()
-    finalize_session = object()
-    sessions = iter([collect_session, finalize_session])
+def _messages(count: int) -> list[OutboundPush]:
+    return [OutboundPush(message={"to": f"ExponentPushToken[{i}]"}) for i in range(count)]
+
+
+def _lock(*refreshes: bool) -> MagicMock:
+    lock = MagicMock()
+    lock.refresh = AsyncMock(side_effect=list(refreshes))
+    return lock
+
+
+async def _cycle(pages: list[PushPage], lock: MagicMock) -> list[str]:
     order: list[str] = []
-    outbound = [OutboundPush(message={"to": "ExponentPushToken[x]"})]
+    page_iter = iter(pages)
 
-    async def collect(session: object, redis: object, settings: Settings) -> list[OutboundPush]:
-        order.append("collect")
-        assert session is collect_session
-        return outbound
+    async def collect(session: object, *, now: datetime, after: object) -> PushPage:
+        order.append(f"collect after={after}")
+        return next(page_iter)
 
-    async def dispatch(
-        items: list[OutboundPush], settings: Settings
-    ) -> tuple[list[bool], list[str], list[tuple[str, str]]]:
-        order.append("dispatch")
-        assert items is outbound
-        return [True], [], []
+    async def dispatch(items: list[OutboundPush], settings: Settings):
+        order.append(f"dispatch {len(items)}")
+        return [True] * len(items), [], []
 
-    async def finalize(
-        session: object,
-        items: list[OutboundPush],
-        delivered: list[bool],
-    ) -> None:
-        order.append("finalize")
-        assert session is finalize_session
-        assert delivered == [True]
+    async def finalize(session: object, items: list[OutboundPush], delivered: list[bool]):
+        order.append(f"mark {len(items)}")
 
+    notifications = "app.background.push_scheduler.push_notifications"
     with (
-        patch(
-            "app.background.push_scheduler.SessionLocal",
-            side_effect=lambda: _SessionCM(next(sessions)),
-        ),
+        patch("app.background.push_scheduler.SessionLocal", side_effect=_SessionCM),
         patch("app.background.push_scheduler.get_redis_client", return_value=AsyncMock()),
-        patch(
-            "app.background.push_scheduler.push_notifications.collect_push_outbound",
-            collect,
-        ),
-        patch("app.background.push_scheduler.push_notifications.dispatch_expo", dispatch),
-        patch(
-            "app.background.push_scheduler.push_notifications.finalize_push_deliveries",
-            finalize,
-        ),
+        patch(f"{notifications}.log_aged_unsent_reminders", AsyncMock()),
+        patch(f"{notifications}.advance_tokenless_recurring", AsyncMock()),
+        patch(f"{notifications}.collect_push_page", collect),
+        patch(f"{notifications}.dispatch_expo", dispatch),
+        patch(f"{notifications}.finalize_push_deliveries", finalize),
     ):
-        await push_scheduler._push_cycle(Settings(push_enabled=True), MagicMock())
-
-    assert order == ["collect", "dispatch", "finalize"]
+        await push_scheduler._push_cycle(Settings(push_enabled=True), lock)
+    return order
 
 
 @pytest.mark.asyncio
-async def test_production_push_cycle_skips_dispatch_when_collect_is_empty():
-    dispatch = AsyncMock()
-    finalize = AsyncMock()
-    with (
-        patch(
-            "app.background.push_scheduler.SessionLocal",
-            return_value=_SessionCM(object()),
-        ),
-        patch("app.background.push_scheduler.get_redis_client", return_value=AsyncMock()),
-        patch(
-            "app.background.push_scheduler.push_notifications.collect_push_outbound",
-            AsyncMock(return_value=[]),
-        ),
-        patch("app.background.push_scheduler.push_notifications.dispatch_expo", dispatch),
-        patch(
-            "app.background.push_scheduler.push_notifications.finalize_push_deliveries",
-            finalize,
-        ),
-    ):
-        await push_scheduler._push_cycle(Settings(push_enabled=True), MagicMock())
+async def test_each_expo_request_is_marked_before_the_next_one_goes():
+    """Marking only after the whole batch let a stopped worker or a lost lock resend."""
+    order = await _cycle(
+        [PushPage(messages=_messages(250), next_after=None)], _lock(True, True, True)
+    )
+    assert order == [
+        "collect after=None",
+        "dispatch 100",
+        "mark 100",
+        "dispatch 100",
+        "mark 100",
+        "dispatch 50",
+        "mark 50",
+    ]
 
-    dispatch.assert_not_awaited()
-    finalize.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def test_a_cycle_that_lost_its_lock_stops_sending():
+    """A peer that took the lock would send the same to-dos again."""
+    order = await _cycle([PushPage(messages=_messages(250), next_after=None)], _lock(True, False))
+    assert order == ["collect after=None", "dispatch 100", "mark 100"]
+
+
+@pytest.mark.asyncio
+async def test_the_cycle_reads_page_after_page():
+    key = (datetime(2026, 10, 20, 9, 0, tzinfo=UTC), uuid4())
+    pages = [
+        PushPage(messages=_messages(1), next_after=key),
+        PushPage(messages=_messages(1), next_after=None),
+    ]
+    order = await _cycle(pages, _lock(True, True))
+    assert order == [
+        "collect after=None",
+        "dispatch 1",
+        "mark 1",
+        f"collect after={key}",
+        "dispatch 1",
+        "mark 1",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_an_empty_page_sends_nothing():
+    order = await _cycle([PushPage(messages=[], next_after=None)], _lock())
+    assert order == ["collect after=None"]
+
+
+@pytest.mark.asyncio
+async def test_receipts_are_polled_by_their_own_cycle():
+    poll = AsyncMock()
+    with (
+        patch("app.background.push_scheduler.SessionLocal", side_effect=_SessionCM),
+        patch("app.background.push_scheduler.get_redis_client", return_value=AsyncMock()),
+        patch("app.background.push_scheduler.push_notifications.poll_deferred_push_receipts", poll),
+    ):
+        await push_scheduler._receipts_cycle(Settings(push_enabled=True), MagicMock())
+    poll.assert_awaited_once()
