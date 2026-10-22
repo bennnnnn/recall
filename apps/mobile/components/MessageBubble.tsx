@@ -24,6 +24,7 @@ import { selection } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/features/chat/model/messageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
+import { messageListKey } from "@/lib/messageListLayout";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -216,7 +217,9 @@ export const MessageBubble = React.memo(function MessageBubble({
                   resetKey={markdownResetKey}
                   content={markdownContent}
                 >
+                  {/* A row reused for another message starts afresh; renderKey survives `done`. */}
                   <ReplyMarkdown
+                    key={messageListKey(message)}
                     content={markdownContent}
                     streaming={markdownStreamMode}
                     presented={markdownPresented}
