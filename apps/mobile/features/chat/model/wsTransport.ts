@@ -7,6 +7,7 @@ import {
   WS_ACK_PROBE_MS,
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
+  WS_FOLLOW_UPS_WAIT_MS,
   WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
 
@@ -116,6 +117,10 @@ export class ChatWsTransport {
   private authRejected = false;
   /** The current socket's server answered the connect ping, so it can be probed. */
   private answersPing = false;
+  /** The send went quiet before that answer came: probe as soon as it does. */
+  private probeOnPong = false;
+  /** `related_prompts` for the last reply may still come on this socket until then. */
+  private followUpsUntil = 0;
   /** Frames the current socket delivered: a probe is answered when this moves. */
   private framesSeen = 0;
   private closed = false;
@@ -142,6 +147,11 @@ export class ChatWsTransport {
   /** A message or regenerate frame is still waiting for its done or error. */
   isTurnActive(): boolean {
     return this.turnActive;
+  }
+
+  /** The last reply's follow-up questions may still arrive: closing now would lose them. */
+  expectsFollowUps(): boolean {
+    return this.socket !== null && Date.now() < this.followUpsUntil;
   }
 
   connect(): Promise<void> {
@@ -217,6 +227,10 @@ export class ChatWsTransport {
       if (!payload) return;
       if (payload.type === "pong") {
         this.answersPing = true;
+        if (this.probeOnPong) {
+          this.probeOnPong = false;
+          this.probe();
+        }
         return;
       }
       if (WS_TURN_EVENT_TYPES.has(payload.type)) {
@@ -242,7 +256,12 @@ export class ChatWsTransport {
         this.turnActive = false;
         this.clearTurnTimers();
       }
-      if (payload.type === "done") this.backoff.succeed();
+      if (payload.type === "done") {
+        this.backoff.succeed();
+        // The server sends a saved reply's follow-up questions after its done.
+        this.followUpsUntil = payload.message_id ? Date.now() + WS_FOLLOW_UPS_WAIT_MS : 0;
+      }
+      if (payload.type === "related_prompts") this.followUpsUntil = 0;
       this.options.onPayload(payload);
     };
 
@@ -328,7 +347,9 @@ export class ChatWsTransport {
     // before the deadline above (a half-open socket used to mean 30 s of dots).
     this.ackProbeTimer = setTimeout(() => {
       this.ackProbeTimer = null;
-      this.probe();
+      // A fresh socket's connect pong can still be on its way.
+      if (this.answersPing) this.probe();
+      else this.probeOnPong = true;
     }, WS_ACK_PROBE_MS);
     this.sendFrame(frame);
     return true;
@@ -360,6 +381,7 @@ export class ChatWsTransport {
 
   /** The waits for a turn's first event: the deadline and the probe before it. */
   private clearAckTimers(): void {
+    this.probeOnPong = false;
     if (this.firstEventTimer != null) clearTimeout(this.firstEventTimer);
     if (this.ackProbeTimer != null) clearTimeout(this.ackProbeTimer);
     this.firstEventTimer = null;

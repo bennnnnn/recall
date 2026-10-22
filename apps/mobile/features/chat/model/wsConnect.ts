@@ -23,3 +23,7 @@ export const WS_ACK_PROBE_MS = 3_000;
 /** A probe's ping unanswered this long: the socket is dead (often half-open
  * after a Wi-Fi/cellular switch) and the send is replayed. */
 export const WS_PROBE_TIMEOUT_MS = 3_000;
+
+/** A saved reply's follow-up questions come on its socket after `done` (the
+ * server gives their model call 6 s): a socket being replaced waits this long. */
+export const WS_FOLLOW_UPS_WAIT_MS = 10_000;

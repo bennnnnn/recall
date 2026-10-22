@@ -20,6 +20,11 @@ type SendSseOptions = {
   clientMessageId?: string;
 };
 
+/** Nothing more is coming on this socket: no turn, and no follow-up questions due. */
+function isQuiet(transport: ChatWsTransport): boolean {
+  return !transport.isTurnActive() && !transport.expectsFollowUps();
+}
+
 type Options = {
   token: string | null;
   chatId: string | null;
@@ -92,17 +97,18 @@ export function useChatTransport({
     transport.close();
   }, []);
 
-  /** A token refreshed during a turn takes over once that turn ends. */
+  /** A token refreshed during a turn takes over once that turn, and the
+   * follow-up questions sent after its reply, are done. */
   const renewStaleToken = useCallback(() => {
     const transport = wsTransportRef.current;
-    if (backgroundedRef.current || !transport || transport.isTurnActive()) return;
+    if (backgroundedRef.current || !transport || !isQuiet(transport)) return;
     if (transportTokenRef.current !== tokenRef.current) void connectRef.current();
   }, []);
 
   const connect = useCallback((): Promise<void> => {
     if (!token || !chatId || !isCurrentViewRef.current()) return Promise.resolve();
     let transport = wsTransportRef.current;
-    if (transport && transportTokenRef.current !== token && !transport.isTurnActive()) {
+    if (transport && transportTokenRef.current !== token && isQuiet(transport)) {
       // The server checks a socket's own token on every send: after a refresh
       // the old one is refused and the send goes over SSE. A new socket instead.
       wsTransportRef.current = null;

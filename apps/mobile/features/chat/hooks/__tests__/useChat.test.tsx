@@ -14,6 +14,7 @@ import {
   WS_ACK_PROBE_MS,
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
+  WS_FOLLOW_UPS_WAIT_MS,
   WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
 import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
@@ -1214,6 +1215,20 @@ describe("useChat socket recovery", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it("neither drops the socket nor replays a send the user stopped while it was probed", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openProbedSocket();
+    await act(async () => { await current.sendMessage("question"); });
+    await act(async () => { jest.advanceTimersByTime(WS_ACK_PROBE_MS); });
+    expect(frames(socket).at(-1)).toEqual({ type: "ping" });
+    await act(async () => { current.stopGeneration(); });
+    await act(async () => { jest.advanceTimersByTime(WS_FIRST_EVENT_TIMEOUT_MS); });
+    expect(socket.close).not.toHaveBeenCalled();
+    expect(streamChatMessageSse).not.toHaveBeenCalled();
+    expect(current.streaming).toBe(false);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it("sends over SSE while the dead socket's wait runs, then over a new socket", async () => {
     (streamChatMessageSse as jest.Mock)
       .mockImplementationOnce(answeredSse("replayed"))
@@ -1238,7 +1253,7 @@ describe("useChat socket recovery", () => {
     expect(streamChatMessageSse).toHaveBeenCalledTimes(2);
   });
 
-  it("opens a new socket with a refreshed token, once the turn on the old one ends", async () => {
+  it("opens a new socket with a refreshed token once the old one's reply and follow-ups are in", async () => {
     const view = await render(<Probe chatId="a" token="token-1" />);
     const first = await openSocket();
     await act(async () => {
@@ -1250,7 +1265,15 @@ describe("useChat socket recovery", () => {
     expect(first.close).not.toHaveBeenCalled();
     expect(FakeSocket.instances).toHaveLength(1);
 
+    // The reply's follow-up questions come after its done, on this socket.
     await act(async () => { first.emit({ type: "done", message_id: "saved", final_content: "answer" }); });
+    await act(async () => { void current.connect(); });
+    expect(first.close).not.toHaveBeenCalled();
+    await act(async () => {
+      first.emit({ type: "related_prompts", message_id: "saved", prompts: ["Why does it work?"] });
+    });
+    expect(current.messages.find((message) => message.id === "saved")?.related_prompts)
+      .toEqual(["Why does it work?"]);
     expect(first.close).toHaveBeenCalledTimes(1);
     const second = latestSocket();
     expect(FakeSocket.instances).toHaveLength(2);
@@ -1263,6 +1286,23 @@ describe("useChat socket recovery", () => {
     expect(second.close).toHaveBeenCalledTimes(1);
     await act(async () => { latestSocket().open(); });
     expect(frames(latestSocket())[0]).toEqual({ token: "token-3", client_timezone: "UTC" });
+  });
+
+  it("replaces a refreshed token's socket on the next intent when no follow-ups come", async () => {
+    const view = await render(<Probe chatId="a" token="token-1" />);
+    const first = await openSocket();
+    await act(async () => {
+      await current.sendMessage("question");
+      first.emit({ type: "start" });
+    });
+    await view.rerender(<Probe chatId="a" token="token-2" />);
+    await act(async () => { first.emit({ type: "done", message_id: "saved", final_content: "answer" }); });
+    await act(async () => { jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS); });
+    expect(first.close).not.toHaveBeenCalled();
+    await act(async () => { void current.connect(); });
+    expect(first.close).toHaveBeenCalledTimes(1);
+    await act(async () => { latestSocket().open(); });
+    expect(frames(latestSocket())[0]).toEqual({ token: "token-2", client_timezone: "UTC" });
   });
 
   it("replaces an idle socket after a network switch and stays off it while offline", async () => {

@@ -3,6 +3,7 @@ import {
   WS_ACK_PROBE_MS,
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
+  WS_FOLLOW_UPS_WAIT_MS,
   WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
 import {
@@ -231,6 +232,62 @@ describe("ChatWsTransport", () => {
 
     jest.advanceTimersByTime(WS_FIRST_EVENT_TIMEOUT_MS);
     expect(onFallback).toHaveBeenCalledWith({ reason: "first_event_timeout", duringTurn: true });
+  });
+
+  it("probes a quiet send on a fresh socket as soon as its late connect pong comes", async () => {
+    const { socket, transport, onFallback } = await openTransport();
+    transport.sendMessage(MESSAGE);
+    jest.advanceTimersByTime(WS_ACK_PROBE_MS);
+    expect(sentFrames(socket).at(-1)).toMatchObject({ type: "message" });
+
+    socket.emit({ type: "pong" });
+    expect(sentFrames(socket).at(-1)).toEqual({ type: "ping" });
+    jest.advanceTimersByTime(WS_PROBE_TIMEOUT_MS);
+    expect(onFallback).toHaveBeenCalledWith({ reason: "unresponsive", duringTurn: true });
+  });
+
+  it("does not probe on a late pong once the send was acknowledged", async () => {
+    const { socket, transport, onFallback } = await openTransport();
+    transport.sendMessage(MESSAGE);
+    jest.advanceTimersByTime(WS_ACK_PROBE_MS);
+    socket.emit({ type: "start" });
+    socket.emit({ type: "pong" });
+    jest.advanceTimersByTime(WS_PROBE_TIMEOUT_MS);
+
+    expect(sentFrames(socket).at(-1)).toMatchObject({ type: "message" });
+    expect(onFallback).not.toHaveBeenCalled();
+  });
+
+  it("drops no socket for a probe the user's Stop overtook", async () => {
+    const { socket, transport, onFallback } = await openTransport(true);
+    transport.sendMessage(MESSAGE);
+    jest.advanceTimersByTime(WS_ACK_PROBE_MS);
+    expect(sentFrames(socket).at(-1)).toEqual({ type: "ping" });
+    transport.cancel();
+    jest.advanceTimersByTime(WS_FIRST_EVENT_TIMEOUT_MS);
+
+    expect(onFallback).not.toHaveBeenCalled();
+    expect(transport.isOpen()).toBe(true);
+    expect(sentFrames(socket).at(-1)).toEqual({ type: "cancel" });
+  });
+
+  it("expects a saved reply's follow-up questions until they come, or for 10 s", async () => {
+    const { socket, transport } = await openTransport();
+    expect(transport.expectsFollowUps()).toBe(false);
+    socket.emit({ type: "done", message_id: "saved" });
+    expect(transport.expectsFollowUps()).toBe(true);
+    socket.emit({ type: "related_prompts", message_id: "saved", prompts: ["Why?"] });
+    expect(transport.expectsFollowUps()).toBe(false);
+
+    socket.emit({ type: "done", message_id: "saved-2" });
+    jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS);
+    expect(transport.expectsFollowUps()).toBe(false);
+    // A reply still saving (no id) gets none; a closed socket brings none.
+    socket.emit({ type: "done", persisting: true });
+    expect(transport.expectsFollowUps()).toBe(false);
+    socket.emit({ type: "done", message_id: "saved-3" });
+    (socket.onclose as (event: { code: number }) => void)({ code: 4408 });
+    expect(transport.expectsFollowUps()).toBe(false);
   });
 
   it("does not probe a send the server acknowledged in time", async () => {
