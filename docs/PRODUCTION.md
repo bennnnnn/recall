@@ -4,9 +4,57 @@ Step-by-step guide to provision production infrastructure. Pair with [`README.md
 
 ---
 
+## 0. Accounts, plans and regions (decided 2026-10-22)
+
+Development runs on free tiers. **When we deploy, every account below moves to a paid
+plan first, then the sections that follow are worked through in order.** Everything
+sits in or beside Fly's `iad` (Ashburn, Virginia), so no request pays a cross-region
+hop: the database in Ohio cost about 10 ms per round trip, and a chat turn makes
+several. Check each provider's current pricing when buying, and set a spending limit
+or alert on every usage-billed account.
+
+| Service | What it runs | Production plan | Region | Today |
+|---------|--------------|-----------------|--------|-------|
+| Neon | Postgres + pgvector | Paid, usage-based, for the whole org | AWS `us-east-1` | Project `recall-us-east-1` (young-tree-05012126): `production` branch empty at migration head, `dev` branch used by the local API. Free plan. |
+| Upstash | Redis (jobs, quota, rate limits, sign-out) | Pay as you go | `us-east-1` | No production database yet; local dev uses Homebrew Redis. |
+| Fly.io | API and worker machines | Pay as you go (card on file) | `iad` | Not deployed. `recall-api.fly.dev` answers as an unrelated app, so the name `recall-api` may be taken: pick a free name and update `fly.toml` and the app's `EXPO_PUBLIC_API_URL`. |
+| Cloudflare R2 | Attachments | Pay as you go | Location hint: Eastern North America | Not created. |
+| OpenRouter | Chat models | Prepaid credits with auto top-up | — | Dev key in `apps/api/.env`. |
+| OpenAI | Speech to text, read aloud, live talk | Pay as you go with a monthly limit | — | |
+| Tavily | Web search, reference photos | A plan sized to search volume | — | |
+| Resend | Transactional email | Free tier until volume needs more; verify the sending domain | — | |
+| RevenueCat | Plus and Pro subscriptions | Free until its revenue threshold | — | |
+| Sentry | Errors (optional) | Free tier to start | — | |
+| Expo EAS | Store builds, over-the-air updates | Paid only if build or update volume needs it | — | |
+| Apple Developer, Google Play | Store accounts | Apple yearly, Google once | — | |
+
+**Lessons that set these rules:**
+
+- **Production never shares a free allowance with dev.** On 2026-10-21 the dev API's
+  schedulers kept the old Neon project's compute awake about 430 hours, spent the free
+  plan's compute allowance, and Neon suspended every branch of the project, production
+  included, until the month reset. On the paid plan, keep `dev` as a branch only with a
+  spending limit set; otherwise give dev its own project or the local Postgres.
+- **A Neon project's region cannot change.** Moving means a new project and a data copy
+  (done once, 2026-10-22). The old project `recall` (red-salad-87226210, us-east-2) is
+  kept until its quota resets on 2026-11-01 and can then be deleted.
+- **Neon, Upstash and Fly move together.** If the Fly region changes, recreate the
+  database and Redis beside it.
+
+**Order at deploy time:**
+
+1. Neon: upgrade the org's plan and set a spending limit; confirm `production` shows
+   `alembic heads` (§1). Its direct URL is the commented `DATABASE_URL` in `apps/api/.env`.
+2. Upstash: create the production database in `us-east-1`; take its `rediss://` URL (§2).
+3. R2: bucket and token (§3).
+4. Fly: install `flyctl`, choose the app name, deploy, set every secret (§4).
+5. Then §4b to §8, and the owner actions at the end.
+
+---
+
 ## 1. Database (Neon Postgres + pgvector)
 
-- [ ] Create Neon project (or Fly Postgres with pgvector)
+- [x] Create Neon project: `recall-us-east-1` in AWS `us-east-1` (§0)
 - [ ] Enable `vector` extension: `CREATE EXTENSION IF NOT EXISTS vector;`
 - [ ] Set `DATABASE_URL` as `postgresql+asyncpg://...?sslmode=require`, the
       project's **direct** endpoint (the app switches itself to the `-pooler`
@@ -681,6 +729,7 @@ Note: `input_tokens` / `output_tokens` on `usage_daily` are **quota-weighted**;
 These cannot be finished in a PR. Track them in the app under Lists → **Launch**
 (created for the local Dev User), or follow [`docs/PRODUCTION.md`](./docs/PRODUCTION.md).
 
+0. Move every account in §0 to its paid plan, with spending limits
 1. Install `flyctl` + `fly auth login`
 2. Confirm Neon `DATABASE_URL` + `uv run alembic current` matches `uv run alembic heads`
 3. Confirm Upstash `REDIS_URL` (`rediss://`) from the Fly region
