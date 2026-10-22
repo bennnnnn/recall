@@ -590,6 +590,10 @@
     {"text": "draw a tree in autumn", "generate": "tree in autumn", "revise": "black cat, draw a tree in autumn", "lookup": null},
     {"text": "draw a treasure map", "generate": "treasure map", "revise": "black cat, draw a treasure map", "lookup": null},
     {"text": "draw a cartoon decision tree poster", "generate": "cartoon decision tree poster", "revise": "black cat, draw a cartoon decision tree poster", "lookup": null},
+    {"text": "draw the learning curve for a new language", "generate": null, "revise": null, "lookup": null},
+    {"text": "draw a growth curve for my startup", "generate": null, "revise": null, "lookup": null},
+    {"text": "draw a winding mountain road with sharp curves at sunset", "generate": "winding mountain road with sharp curves at sunset", "revise": null, "lookup": null},
+    {"text": "draw a curved road at sunset", "generate": "curved road at sunset", "revise": "black cat, draw a curved road at sunset", "lookup": null},
     {"text": "make it a line drawing", "generate": null, "revise": "black cat, a line drawing", "lookup": null}
   ],
   "threads": [
