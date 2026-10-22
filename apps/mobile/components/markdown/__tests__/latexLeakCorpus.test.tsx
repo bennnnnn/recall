@@ -17,20 +17,11 @@ import { findLatexLeaks } from "@/lib/math/latexLeaks";
 import { subscribeUnknownLatexCommands } from "@/lib/math/latexNames";
 import { latexToSvgMath } from "@/lib/math/svgMath";
 
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-}));
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),
   EncodingType: { UTF8: "utf8" },
-}));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: () => null }));
 // Code is source a reader asked for, not prose: leave it out of the scan.
