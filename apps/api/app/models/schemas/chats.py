@@ -32,6 +32,23 @@ class ArchiveUpdate(BaseModel):
     archived: bool
 
 
+# The most chats one bulk request may name; the phone sends a longer selection in parts.
+BULK_CHAT_LIMIT = 200
+
+
+class ChatBulkAction(BaseModel):
+    """Archive, unarchive or delete many chats in one request (the drawer's selection)."""
+
+    action: Literal["archive", "unarchive", "delete"]
+    chat_ids: list[UUID] = Field(min_length=1, max_length=BULK_CHAT_LIMIT)
+
+
+class ChatBulkOut(BaseModel):
+    """The chats the action changed: the user's own, still there. Any other id was skipped."""
+
+    changed: list[UUID]
+
+
 class FeedbackUpdate(BaseModel):
     feedback: MessageFeedback | None = None
 

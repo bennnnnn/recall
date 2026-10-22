@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -143,6 +144,33 @@ async def archive_all_chats(session: AsyncSession, user: User) -> int:
         await session.rollback()
         raise
     return count
+
+
+async def bulk_chats(
+    session: AsyncSession,
+    user: User,
+    *,
+    action: Literal["archive", "unarchive", "delete"],
+    chat_ids: list[UUID],
+) -> list[UUID]:
+    """One transaction for the drawer's selection: the phone sent one request per chat,
+    and a few hundred at once passed the REST rate limit. Ids not the user's are skipped."""
+    unique = list(dict.fromkeys(chat_ids))
+    try:
+        if action == "delete":
+            changed = await chats_repo.delete_many(session, user.id, unique)
+        else:
+            changed = await chats_repo.set_archived_many(
+                session, user.id, unique, archived=action == "archive"
+            )
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    if action == "delete":
+        for chat_id in changed:
+            chats_repo.forget_chat(chat_id)
+    return changed
 
 
 async def delete_all_chats(

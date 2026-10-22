@@ -61,6 +61,12 @@ export const chatsApi = {
     }),
   deleteChat: (token: string, chatId: string) =>
     request<void>(`/chats/${chatId}`, token, { method: "DELETE" }),
+  /** Archive, unarchive or delete up to 200 chats at once; `changed` is what the server did. */
+  bulkChats: (token: string, action: "archive" | "unarchive" | "delete", chatIds: string[]) =>
+    request<{ changed: string[] }>("/chats/bulk", token, {
+      method: "POST",
+      body: JSON.stringify({ action, chat_ids: chatIds }),
+    }),
   archiveAllChats: (token: string) =>
     request<void>("/chats/archive-all", token, { method: "POST" }),
   deleteAllChats: (token: string) =>

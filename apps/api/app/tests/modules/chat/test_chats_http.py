@@ -471,3 +471,35 @@ def test_archived_chats_page_by_cursor_past_the_drawer():
     assert r.status_code == 200
     assert r.json() == {"items": [], "next_cursor": "next-page"}
     assert page.await_args.kwargs == {"limit": 20, "cursor": "abc"}
+
+
+def test_bulk_chats_runs_one_request_and_caps_the_selection():
+    """One request for the whole selection (it was one per chat, past the rate limit)."""
+    from app.modules.chat import service as chats_service
+
+    user = api_user()
+    app = app_with_user(user)
+    ids = [str(uuid4()) for _ in range(3)]
+    bulk = AsyncMock(return_value=[ids[0], ids[1]])
+    with patch.object(chats_service, "bulk_chats", bulk):
+        client = TestClient(app)
+        ok = client.post(
+            "/chats/bulk",
+            json={"action": "archive", "chat_ids": ids},
+            headers={"Authorization": "Bearer tok"},
+        )
+        too_many = client.post(
+            "/chats/bulk",
+            json={"action": "delete", "chat_ids": [str(uuid4()) for _ in range(201)]},
+            headers={"Authorization": "Bearer tok"},
+        )
+        wrong = client.post(
+            "/chats/bulk",
+            json={"action": "pin", "chat_ids": ids},
+            headers={"Authorization": "Bearer tok"},
+        )
+    assert ok.status_code == 200
+    assert ok.json() == {"changed": ids[:2]}
+    assert bulk.await_args.kwargs["action"] == "archive"
+    assert [str(i) for i in bulk.await_args.kwargs["chat_ids"]] == ids
+    assert (too_many.status_code, wrong.status_code) == (422, 422)

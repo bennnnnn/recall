@@ -323,6 +323,37 @@ async def archive_all_for_user(
     return int(result.rowcount or 0)
 
 
+async def set_archived_many(
+    session: AsyncSession, user_id: UUID, chat_ids: list[UUID], *, archived: bool
+) -> list[UUID]:
+    """Archive (and unpin) or unarchive the user's chats among ``chat_ids``; the ids changed.
+
+    The caller owns the commit (one transaction for the whole selection).
+    """
+    values: dict[str, bool] = {"archived": archived}
+    if archived:
+        values["pinned"] = False
+    result = await session.execute(
+        update(Chat)
+        .where(Chat.user_id == user_id, Chat.id.in_(chat_ids))
+        .values(**values)
+        .returning(Chat.id)
+        .execution_options(synchronize_session=False)
+    )
+    return list(result.scalars().all())
+
+
+async def delete_many(session: AsyncSession, user_id: UUID, chat_ids: list[UUID]) -> list[UUID]:
+    """Delete the user's chats among ``chat_ids`` (messages cascade); the ids deleted.
+
+    The caller owns the commit, then forgets each id (``forget_chat``).
+    """
+    result = await session.execute(
+        delete(Chat).where(Chat.user_id == user_id, Chat.id.in_(chat_ids)).returning(Chat.id)
+    )
+    return list(result.scalars().all())
+
+
 async def delete_all_for_user(
     session: AsyncSession,
     user_id: UUID,

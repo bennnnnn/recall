@@ -251,3 +251,33 @@ async def test_every_archived_chat_is_reachable_by_cursor(db_session):
         if cursor is None:
             break
     assert seen == list(reversed(made))
+
+
+@pytest.mark.asyncio
+async def test_bulk_archive_and_delete_change_only_the_users_own_chats(db_session):
+    """The drawer's selection in one request: another user's id in the list is skipped."""
+    owner = await _make_user(db_session)
+    other = await _make_user(db_session)
+    mine = [await _make_chat_with_message(db_session, owner.id) for _ in range(3)]
+    theirs = await _make_chat_with_message(db_session, other.id)
+    await chats_repo.set_pinned(db_session, mine[0], True)
+    ids = [chat.id for chat in mine] + [theirs.id]
+
+    archived = await chats_repo.set_archived_many(db_session, owner.id, ids, archived=True)
+    await db_session.commit()
+    assert set(archived) == {chat.id for chat in mine}
+    for chat in mine:
+        await db_session.refresh(chat)
+        assert chat.archived and not chat.pinned
+    await db_session.refresh(theirs)
+    assert not theirs.archived
+
+    restored = await chats_repo.set_archived_many(db_session, owner.id, ids[:1], archived=False)
+    await db_session.commit()
+    assert restored == [mine[0].id]
+
+    deleted = await chats_repo.delete_many(db_session, owner.id, ids)
+    await db_session.commit()
+    assert set(deleted) == {chat.id for chat in mine}
+    assert await chats_repo.get_by_id(db_session, theirs.id, other.id) is not None
+    assert await chats_repo.get_by_id(db_session, mine[1].id, owner.id) is None

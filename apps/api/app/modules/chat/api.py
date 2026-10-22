@@ -12,6 +12,8 @@ from app.core.etag import conditional_json
 from app.models.orm import User
 from app.models.schemas import (
     ArchiveUpdate,
+    ChatBulkAction,
+    ChatBulkOut,
     ChatCreate,
     ChatListOut,
     ChatOut,
@@ -80,6 +82,19 @@ async def archive_all_chats(
     session: AsyncSession = Depends(get_db),
 ) -> None:
     await chats_service.archive_all_chats(session, user)
+
+
+@router.post("/bulk", response_model=ChatBulkOut)
+async def bulk_chats(
+    body: ChatBulkAction,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> ChatBulkOut:
+    """Archive, unarchive or delete the drawer's selection in one request."""
+    changed = await chats_service.bulk_chats(
+        session, user, action=body.action, chat_ids=body.chat_ids
+    )
+    return ChatBulkOut(changed=changed)
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
