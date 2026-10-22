@@ -943,6 +943,7 @@
   "todos.menu_all": "Tüm görevler",
   "todos.menu_completed": "Tamamlanan",
   "todos.menu_open": "Tamamlanmayan",
+  "todos.added_shown_open": "Eklendi. Tamamlanmayan görevler gösteriliyor.",
   "todos.menu_select": "Görev seç",
   "todos.menu_today": "Bugün",
   "todos.detail_menu": "Görev işlemleri",

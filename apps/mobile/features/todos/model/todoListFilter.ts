@@ -18,6 +18,15 @@ export function todosForView(todos: Todo[], view: TodoView, now = new Date()): T
   return todos;
 }
 
+/**
+ * The view to show after adding a to-do due at `due`: this one when it lists the new item,
+ * else "open". An undated or later to-do added on Today used to vanish from sight.
+ */
+export function viewForNewTodo(view: TodoView, due: Date | null, now = new Date()): TodoView {
+  const added = { checked: false, due_at: due ? due.toISOString() : null } as Todo;
+  return todosForView([added], view, now).length > 0 ? view : "open";
+}
+
 /** Open first, then the soonest due (undated last), then the newest. */
 export function sortOpen(items: Todo[]): Todo[] {
   return [...items].sort((a, b) => {

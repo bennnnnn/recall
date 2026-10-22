@@ -584,3 +584,28 @@ async def test_the_card_names_the_zone_its_time_was_read_in(db_session, fake_red
     assert card["tz"] == "Africa/Nairobi"
     assert card["items"][0]["due_at"] == "2026-10-15T06:00:00Z"
     assert card["items"][0]["when"] == "Thursday, Oct 15, 9:00 AM"
+
+
+@pytest.mark.asyncio
+async def test_tapping_done_on_a_repeating_reminder_keeps_the_series(db_session, fake_redis):
+    user, chat = await _user_and_chat(db_session)
+    due = (datetime.now(UTC) + timedelta(days=2)).replace(microsecond=0)
+    saved = await todos_repo.create(
+        db_session,
+        user_id=user.id,
+        content="Gym",
+        topic="Reminders",
+        due_at=due,
+        recurrence_rule="weekly",
+    )
+    text = await _turn(db_session, fake_redis, user, chat, "mark gym as done", "Ok.")
+    card = _card(text)
+    assert card["items"] == [{"action": "complete", "title": "Gym"}]
+
+    await proposals.confirm_proposal(
+        db_session, fake_redis, user_id=user.id, proposal_id=card["proposal_id"]
+    )
+    [row] = await _rows(db_session, user.id)
+    # Done for this week: still open, due next week, still weekly.
+    assert row.id == saved.id and row.checked is False
+    assert row.due_at == due + timedelta(days=7) and row.recurrence_rule == "weekly"

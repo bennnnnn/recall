@@ -911,6 +911,7 @@
   "todos.menu_all": "All tasks",
   "todos.menu_completed": "Completed",
   "todos.menu_open": "Not completed",
+  "todos.added_shown_open": "Added. Showing tasks that aren't completed.",
   "todos.menu_select": "Select tasks",
   "todos.menu_today": "Today",
   "todos.detail_menu": "To-do actions",

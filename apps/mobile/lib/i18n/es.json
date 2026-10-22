@@ -946,6 +946,7 @@
   "todos.menu_all": "Todas las tareas",
   "todos.menu_completed": "Completadas",
   "todos.menu_open": "Sin completar",
+  "todos.added_shown_open": "Añadida. Mostrando las tareas sin completar.",
   "todos.menu_select": "Seleccionar tareas",
   "todos.menu_today": "Hoy",
   "todos.detail_menu": "Acciones de la tarea",

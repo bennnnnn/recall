@@ -943,6 +943,7 @@
   "todos.menu_all": "Alle Aufgaben",
   "todos.menu_completed": "Erledigt",
   "todos.menu_open": "Offen",
+  "todos.added_shown_open": "Hinzugefügt. Offene Aufgaben werden angezeigt.",
   "todos.menu_select": "Aufgaben auswählen",
   "todos.menu_today": "Heute",
   "todos.detail_menu": "Aufgabenaktionen",

@@ -26,7 +26,7 @@ from app.core.timezone import resolve_timezone
 from app.exceptions import DomainError
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.models import TodoItem
-from app.modules.todos.recurrence import next_recurring_due
+from app.modules.todos.recurrence import completed_fields, next_recurring_due
 from app.modules.todos.write_log import PlannedWrite
 from app.services.md_fence_scan import map_fence_blocks, strip_closed_fences
 
@@ -243,6 +243,13 @@ async def _apply(
             raise ProposalError(f"{write.title} is no longer in your to-dos.", status_code=409)
         if "due_at" in fields:
             fields = _upcoming(fields, stored.user_timezone)
+        fields = completed_fields(
+            fields,
+            due_at=fields.get("due_at", row.due_at),
+            rule=fields.get("recurrence_rule", row.recurrence_rule),
+            timezone=stored.user_timezone,
+            now=datetime.now(UTC),
+        )
         await todos_repo.update(session, row, commit=False, **fields)
         written.append(row.id)
     await session.commit()

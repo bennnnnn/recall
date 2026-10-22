@@ -949,6 +949,7 @@
   "todos.menu_all": "Все задачи",
   "todos.menu_completed": "Выполненные",
   "todos.menu_open": "Невыполненные",
+  "todos.added_shown_open": "Добавлено. Показаны невыполненные задачи.",
   "todos.menu_select": "Выбрать задачи",
   "todos.menu_today": "Сегодня",
   "todos.detail_menu": "Действия",

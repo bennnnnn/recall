@@ -946,6 +946,7 @@
   "todos.menu_all": "Tutte le attività",
   "todos.menu_completed": "Completate",
   "todos.menu_open": "Non completate",
+  "todos.added_shown_open": "Aggiunta. Ecco le attività non completate.",
   "todos.menu_select": "Seleziona attività",
   "todos.menu_today": "Oggi",
   "todos.detail_menu": "Azioni",
