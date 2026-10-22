@@ -65,7 +65,10 @@ def test_normalize_unicode_scripts_and_glyphs() -> None:
     assert math_solve.normalize_latex_to_sympy("x\u00b2") == "x**2"
     assert math_solve.normalize_latex_to_sympy("a\u2081") == "a_1"
     assert math_solve.normalize_latex_to_sympy("x\u00b9\u2070") == "x**(10)"
-    assert math_solve.normalize_latex_to_sympy("\u03c0") == "pi"
+    # Bracketed, so a letter beside π stays a factor: sin(πx) is sin(pi*x), not sin(pix).
+    assert math_solve.normalize_latex_to_sympy("\u03c0") == "(pi)"
+    assert str(math_solve.parse_expression("sin(\u03c0x)", ["x"])) == "sin(pi*x)"
+    assert str(math_solve.parse_expression("\u03c0r^2", ["r"])) == "pi*r**2"
     assert math_solve.normalize_latex_to_sympy("\u221a(4)") == "sqrt(4)"
     assert math_solve.normalize_latex_to_sympy("\u221a9") == "sqrt(9)"
     assert math_solve.normalize_latex_to_sympy("\u221ax") == "sqrt(x)"

@@ -488,7 +488,7 @@ _GRAPH_PAIR_TRAILING_FILLER = (
     " together",
 )
 _EXPR_CANDIDATE_CHARS = frozenset(
-    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/().^= ."
+    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπ+-*/().^= ."
 )
 # "plot sin(x) and explain it" must NOT be read as a second function named
 # "explain it" — an explicit denylist (matching this module's existing
