@@ -71,7 +71,13 @@ class ReminderFence(BaseModel):
         date_only = len(raw) == 10 and raw[4] == "-" and raw[7] == "-"
         if date_only:
             raise ValueError("due_at must include a time")
-        return raw
+        # The user's own clock, whatever offset the model wrote: models copied an
+        # example's -04:00 (9am became 1 PM in UTC) or added Z to a local time. The
+        # writer applies the user's time zone to this wall-clock time.
+        try:
+            return datetime.fromisoformat(raw).replace(tzinfo=None)
+        except ValueError:
+            return raw
 
     @model_validator(mode="after")
     def validate_date_and_repeat(self) -> Self:
