@@ -86,51 +86,93 @@ async def test_quota_enforced(fake_redis, settings, used, requested, reserved):
     assert int(await fake_redis.get(key) or 0) == used + reserved
 
 
-def _sent(redis) -> list[str]:
-    """Each round trip ``redis`` makes from here on: a command, or a pipeline of them."""
-    trips: list[str] = []
-    execute = redis.execute_command
+def _racing_settle(redis, settle) -> list[bool]:
+    """Run ``settle`` once, right after the reserve reads today's total and before it takes."""
+    ran: list[bool] = []
     pipeline = redis.pipeline
 
-    async def command(*args, **kwargs):
-        trips.append(str(args[0]).upper())
-        return await execute(*args, **kwargs)
-
-    def counted_pipeline(*args, **kwargs):
+    def racing_pipeline(*args, **kwargs):
         pipe = pipeline(*args, **kwargs)
-        run = pipe.execute
+        read = pipe.get
 
-        async def execute_pipe(*a, **k):
-            trips.append("PIPELINE[" + ",".join(str(c[0][0]) for c in pipe.command_stack) + "]")
-            return await run(*a, **k)
+        async def read_then_settle(*a, **k):
+            value = await read(*a, **k)
+            if not ran:
+                ran.append(True)
+                await settle()
+            return value
 
-        pipe.execute = execute_pipe
+        pipe.get = read_then_settle
         return pipe
 
-    redis.execute_command = command
-    redis.pipeline = counted_pipeline
-    return trips
+    redis.pipeline = racing_pipeline
+    return ran
 
 
-@pytest.mark.parametrize(
-    "used, trips",
-    [
-        (0, ["PIPELINE[INCRBY,EXPIRE]"]),
-        (99_000, ["PIPELINE[INCRBY,EXPIRE]"]),
-        (99_500, ["PIPELINE[INCRBY,EXPIRE]", "DECRBY"]),  # gives the excess back
-    ],
-)
 @pytest.mark.asyncio
-async def test_reserve_usage_up_to_checks_and_takes_in_one_round_trip_below_the_limit(
-    fake_redis, used, trips
-):
-    if used:
-        await fake_redis.set(_usage_key("u1", quota_service.utc_today()), used)
-    sent = _sent(fake_redis)
+async def test_a_settle_landing_inside_a_reserve_is_never_lost(fake_redis):
+    """Turn A held 20k of a full day and used 15k: its settle gives 5k back and clips at
+    the limit. Turn B's reserve used to take, then give its excess back: a settle in
+    between was clipped away, and the user kept 5k of quota that had been used."""
+    key = _usage_key("u1", quota_service.utc_today())
+    await fake_redis.set(key, 100_000, ex=counters.DAILY_TTL)
 
-    await quota_service.reserve_usage_up_to(fake_redis, "u1", 1000, daily_limit=100_000)
+    async def a_settles():
+        await quota_service.adjust_usage(fake_redis, "u1", 20_000, 15_000, daily_limit=100_000)
 
-    assert sent == trips
+    ran = _racing_settle(fake_redis, a_settles)
+
+    granted = await quota_service.reserve_usage_up_to(fake_redis, "u1", 10_000, daily_limit=100_000)
+
+    assert ran == [True]
+    # B ran before A's settle (nothing left: 0) or after it (5k): both add up.
+    assert granted in (0, 5_000)
+    assert int(await fake_redis.get(key)) == 95_000 + granted
+
+
+@pytest.mark.asyncio
+async def test_a_write_between_the_read_and_the_take_is_read_again(fake_redis):
+    """Turn A's settle (it used 5k more than it held) lands after turn B read 10k of
+    room: B takes the 5k now left, never 10k past the limit."""
+    key = _usage_key("u1", quota_service.utc_today())
+    await fake_redis.set(key, 90_000, ex=counters.DAILY_TTL)
+
+    async def a_settles():
+        await quota_service.adjust_usage(fake_redis, "u1", 20_000, 25_000, daily_limit=100_000)
+
+    ran = _racing_settle(fake_redis, a_settles)
+
+    granted = await quota_service.reserve_usage_up_to(fake_redis, "u1", 10_000, daily_limit=100_000)
+
+    assert ran == [True]
+    assert granted == 5_000
+    assert int(await fake_redis.get(key)) == 100_000
+
+
+@pytest.mark.asyncio
+async def test_a_reserve_that_never_wins_its_watch_fails_closed(fake_redis, monkeypatch):
+    key = _usage_key("u1", quota_service.utc_today())
+    await fake_redis.set(key, 0, ex=counters.DAILY_TTL)
+    monkeypatch.setattr(quota_tokens, "_WATCHED_RESERVE_ATTEMPTS", 3)
+    pipeline = fake_redis.pipeline
+
+    def always_raced(*args, **kwargs):
+        pipe = pipeline(*args, **kwargs)
+        read = pipe.get
+
+        async def read_then_write(*a, **k):
+            value = await read(*a, **k)
+            await fake_redis.incrby(key, 1)
+            return value
+
+        pipe.get = read_then_write
+        return pipe
+
+    fake_redis.pipeline = always_raced
+
+    with pytest.raises(RedisUnavailableError):
+        await quota_service.reserve_usage_up_to(fake_redis, "u1", 10, daily_limit=100)
+    assert int(await fake_redis.get(key)) == 3  # only the racing writes
 
 
 @pytest.mark.asyncio
@@ -812,34 +854,6 @@ async def test_reserves_fail_closed_when_redis_is_down(call):
 async def test_heal_usage_drift_reraises_a_redis_outage():
     with pytest.raises(RedisConnectionError):
         await quota_service.heal_usage_drift(_down_redis(), "u1", 500)
-
-
-@pytest.mark.parametrize("failed_give_backs, gave_back", [(1, True), (2, False)])
-@pytest.mark.asyncio
-async def test_reserve_usage_up_to_retries_a_failed_give_back(
-    fake_redis, failed_give_backs, gave_back
-):
-    key = _usage_key("u1", quota_service.utc_today())
-    await fake_redis.set(key, 950)
-    decrby = fake_redis.decrby
-    left = [failed_give_backs]
-
-    async def flaky(name, amount):
-        if left[0]:
-            left[0] -= 1
-            raise RedisConnectionError("blip")
-        return await decrby(name, amount)
-
-    fake_redis.decrby = flaky
-    if gave_back:
-        assert (
-            await quota_service.reserve_usage_up_to(fake_redis, "u1", 100, daily_limit=1000) == 50
-        )
-        assert await fake_redis.get(key) == "1000"
-    else:
-        with pytest.raises(RedisUnavailableError):
-            await quota_service.reserve_usage_up_to(fake_redis, "u1", 100, daily_limit=1000)
-        assert await fake_redis.get(key) == "1050"
 
 
 @pytest.mark.asyncio

@@ -20,6 +20,7 @@ raise the ceiling and say why in the change's description.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,7 @@ from app.models.orm import Memory, TodoItem, User
 from app.modules.chat import stream_api
 from app.modules.images import search as image_search
 from app.repositories import users as users_repo
+from app.services.quota import tokens as quota_tokens
 
 
 @dataclass(frozen=True)
@@ -145,9 +147,13 @@ async def _seed_user() -> UUID:
         return user.id
 
 
+# Set while a fallback that only fakeredis runs stands in for a Lua script.
+_IN_PLACE_OF_LUA: ContextVar[bool] = ContextVar("in_place_of_lua", default=False)
+
+
 def _count(trips: _Trips, field: str) -> Any:
     def record(*_args: Any, **_kwargs: Any) -> None:
-        if trips.counting:
+        if trips.counting and not _IN_PLACE_OF_LUA.get():
             setattr(trips, field, getattr(trips, field) + 1)
 
     return record
@@ -201,6 +207,19 @@ async def turns(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> AsyncIterato
 
     monkeypatch.setattr(fake_redis_class, "execute_command", counted_send)
     monkeypatch.setattr(Pipeline, "execute", counted_pipeline)
+    # fakeredis has no Lua, so the token reserve's script fails there and a WATCH
+    # fallback takes the tokens. Production's Redis runs the script in the one EVAL
+    # already counted: the fallback's commands are not.
+    reserve_watched = quota_tokens._reserve_up_to_watched
+
+    async def reserve_in_place_of_lua(*args: Any, **kwargs: Any) -> int:
+        token = _IN_PLACE_OF_LUA.set(True)
+        try:
+            return await reserve_watched(*args, **kwargs)
+        finally:
+            _IN_PLACE_OF_LUA.reset(token)
+
+    monkeypatch.setattr(quota_tokens, "_reserve_up_to_watched", reserve_in_place_of_lua)
     build_token_event = stream_api.build_token_event
 
     def first_token_stops_the_count(content: str) -> dict[str, Any]:

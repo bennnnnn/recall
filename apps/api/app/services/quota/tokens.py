@@ -4,7 +4,7 @@ import logging
 from datetime import date
 
 from redis.asyncio import Redis
-from redis.exceptions import RedisError
+from redis.exceptions import RedisError, ResponseError, WatchError
 
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
@@ -130,6 +130,24 @@ async def heal_usage_drift(
         raise
 
 
+# Take what is left of today, up to ARGV[1], in one atomic step: the counter
+# never holds more than the limit, so nothing is given back and no settle's
+# clip at the limit can land between a take and a give-back.
+_RESERVE_UP_TO_LUA = """
+local used = tonumber(redis.call('GET', KEYS[1]) or '0')
+local grant = math.min(tonumber(ARGV[1]), math.max(0, tonumber(ARGV[2]) - used))
+if grant > 0 then
+  redis.call('INCRBY', KEYS[1], grant)
+  if redis.call('TTL', KEYS[1]) == -1 then
+    redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3]))
+  end
+end
+return grant
+"""
+# Another write between the WATCH and the take: read again (fakeredis only).
+_WATCHED_RESERVE_ATTEMPTS = 100
+
+
 async def reserve_usage_up_to(
     redis: Redis,
     user_id: str,
@@ -139,39 +157,48 @@ async def reserve_usage_up_to(
 ) -> int:
     """Take ``wanted`` of today's tokens, or all that is left; 0 when none is.
 
-    One INCRBY takes the whole estimate and returns the new total, so a turn
-    below the limit costs one round trip (the TTL is set in the same
-    transaction). Past the limit the excess goes back with one DECRBY. The
-    increment is atomic, so concurrent turns in different chats each see the
-    others' share and split what is left instead of each taking it.
-
-    Redis outages fail closed (``RedisUnavailableError``): never skip the
-    reserve and allow unbounded generation.
+    One Lua script reads today's total and takes ``min(wanted, limit - used)``
+    in one round trip and one atomic step, so concurrent turns in different
+    chats split what is left instead of each taking it, and a settle's clip at
+    the limit can never land in the middle. Redis outages fail closed
+    (``RedisUnavailableError``): never skip the reserve and allow unbounded
+    generation.
     """
     if wanted <= 0 or daily_limit <= 0:
         return 0
     key = _usage_key(user_id, utc_today())
     try:
-        async with redis.pipeline(transaction=True) as pipe:
-            pipe.incrby(key, wanted)
-            pipe.expire(key, DAILY_TTL, nx=True)
-            new_total, _ = await pipe.execute()
-        excess = min(wanted, int(new_total) - daily_limit)
-        if excess <= 0:
-            return wanted
         try:
-            await redis.decrby(key, excess)
-        except RedisError:
-            # A give-back that fails would charge the user for tokens this
-            # turn never holds: retry once so the charge doesn't stick.
-            logger.warning(
-                "Quota over-limit give-back failed; retrying user_id=%s", user_id, exc_info=True
+            granted = await redis.eval(
+                _RESERVE_UP_TO_LUA, 1, key, str(wanted), str(daily_limit), str(DAILY_TTL)
             )
-            await redis.decrby(key, excess)
-        return wanted - excess
+        except ResponseError:
+            return await _reserve_up_to_watched(redis, key, wanted, daily_limit)
+        return int(granted)
     except RedisError as exc:
         logger.warning("Quota reserve failed; Redis unavailable user_id=%s", user_id, exc_info=True)
         raise RedisUnavailableError() from exc
+
+
+async def _reserve_up_to_watched(redis: Redis, key: str, wanted: int, daily_limit: int) -> int:
+    """``_RESERVE_UP_TO_LUA`` where EVAL is unavailable (some fakeredis setups):
+    WATCH the counter, then take the same share in one MULTI; a write in between
+    makes the EXEC fail and the share is read again."""
+    async with redis.pipeline(transaction=True) as pipe:
+        for _attempt in range(_WATCHED_RESERVE_ATTEMPTS):
+            try:
+                await pipe.watch(key)
+                grant = min(wanted, max(0, daily_limit - int(await pipe.get(key) or 0)))
+                if grant <= 0:
+                    return 0
+                pipe.multi()
+                pipe.incrby(key, grant)
+                pipe.expire(key, DAILY_TTL, nx=True)
+                await pipe.execute()
+                return grant
+            except WatchError:
+                continue
+    raise RedisError("Quota reserve kept losing its WATCH")
 
 
 async def refund_usage(redis: Redis, user_id: str, amount: int) -> None:
