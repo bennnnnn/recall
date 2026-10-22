@@ -43,12 +43,16 @@ _REQUEST = re.compile(
     r"looking\s+for)\b",
     re.IGNORECASE,
 )
-# Made, not found.
+# Made, not found. Sample, dummy or example data is made up on the spot.
 _PRODUCE = re.compile(
     r"(?:write|draft|compose|rewrite|edit|proofread|translate|summari[sz]e|teach|quiz|"
     r"test\s+me|make|create|generate|draw|plan|design|brainstorm|suggest|recommend|"
     r"help\s+me|give\s+me\s+(?:an?|some|\d+)\b(?!\s+(?:list|update|summary)\s+of\s+"
-    r"(?:the\s+)?(?:news|headlines)))\b",
+    r"(?:the\s+)?(?:news|headlines))|"
+    r"(?:give|show|send)\s+me\s+(?:some\s+|an?\s+)?(?:sample|example|dummy|mock|fake|"
+    r"placeholder|random|made[\s-]up)\s+\w+|"
+    r"(?:give|show|send)\s+me\s+(?:some\s+)?test\s+(?:data|rows|records|values|inputs|"
+    r"cases|users|accounts|emails)\b)\b",
     re.IGNORECASE,
 )
 _ABOUT_US = re.compile(
