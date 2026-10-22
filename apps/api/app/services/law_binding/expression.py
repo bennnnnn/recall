@@ -10,6 +10,10 @@ two can never disagree with the number.
 
 A subject brings its ``Notation``: the constants its expressions may name and how
 it prints a number. π is every subject's.
+
+One condition is allowed, ``a if x > 0 else b`` with a single comparison, for a
+formula with a special case (a loan at 0% pays amount ÷ months). ``to_tree`` writes
+the checked tree as JSON for a client that evaluates it (docs/money.md).
 """
 
 from __future__ import annotations
@@ -61,6 +65,20 @@ class Notation:
 
 _BINARY = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow)
 _UNARY = (ast.USub, ast.UAdd)
+_COMPARE: dict[type[ast.cmpop], str] = {
+    ast.Gt: ">",
+    ast.GtE: ">=",
+    ast.Lt: "<",
+    ast.LtE: "<=",
+    ast.Eq: "==",
+}
+_TREE_OPS: dict[type[ast.operator], str] = {
+    ast.Add: "+",
+    ast.Sub: "-",
+    ast.Mult: "*",
+    ast.Div: "/",
+    ast.Pow: "^",
+}
 
 
 class ExpressionError(ValueError):
@@ -74,8 +92,11 @@ def parse(expression: str) -> ast.expr:
         tree = ast.parse(expression, mode="eval").body
     except SyntaxError as exc:
         raise ExpressionError(f"not an expression: {expression}") from exc
+    tests = {id(node.test) for node in ast.walk(tree) if isinstance(node, ast.IfExp)}
     for node in ast.walk(tree):
         _check(node, expression)
+        if isinstance(node, ast.Compare) and id(node) not in tests:
+            raise ExpressionError(f"a comparison only chooses a branch in {expression}")
     return tree
 
 
@@ -96,6 +117,16 @@ def _check(node: ast.AST, expression: str) -> None:
     if isinstance(node, ast.Constant) and type(node.value) in {int, float}:
         return
     if isinstance(node, ast.operator | ast.unaryop):
+        return
+    if isinstance(node, ast.IfExp):
+        if not (
+            isinstance(node.test, ast.Compare)
+            and len(node.test.ops) == 1
+            and type(node.test.ops[0]) in _COMPARE
+        ):
+            raise ExpressionError(f"a condition is one comparison in {expression}")
+        return
+    if isinstance(node, ast.Compare | ast.cmpop):
         return
     raise ExpressionError(f"{type(node).__name__} not allowed in {expression}")
 
@@ -123,6 +154,9 @@ def _value(node: ast.expr, values: Mapping[str, float], notation: Notation) -> f
         return -operand if isinstance(node.op, ast.USub) else operand
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
         return _FUNCTIONS[node.func.id](_value(node.args[0], values, notation))
+    if isinstance(node, ast.IfExp) and isinstance(node.test, ast.Compare):
+        holds = _compares(node.test, values, notation)
+        return _value(node.body if holds else node.orelse, values, notation)
     if not isinstance(node, ast.BinOp):
         raise ExpressionError(f"cannot evaluate {type(node).__name__}")
     left, right = _value(node.left, values, notation), _value(node.right, values, notation)
@@ -140,6 +174,62 @@ def _value(node: ast.expr, values: Mapping[str, float], notation: Notation) -> f
     if isinstance(result, complex):
         raise ValueError("no real power")
     return float(result)
+
+
+def _compares(test: ast.Compare, values: Mapping[str, float], notation: Notation) -> bool:
+    left = _value(test.left, values, notation)
+    right = _value(test.comparators[0], values, notation)
+    sign = _COMPARE[type(test.ops[0])]
+    if sign == ">":
+        return left > right
+    if sign == ">=":
+        return left >= right
+    if sign == "<":
+        return left < right
+    if sign == "<=":
+        return left <= right
+    return left == right
+
+
+def to_tree(expression: str) -> dict[str, object]:
+    """The checked tree as JSON a client evaluates (docs/money.md): never text to parse.
+
+    ``{"n": 2}`` a number, ``{"v": "rate"}`` a name, ``{"op": "+", "a": [l, r]}`` an
+    operation (``neg`` for a minus sign), ``{"fn": "log", "a": [x]}`` a function and
+    ``{"op": "if", "a": [{"cmp": ">", "a": [l, r]}, then, else]}`` the one condition.
+    """
+    return _tree(parse(expression))
+
+
+def _tree(node: ast.expr) -> dict[str, object]:
+    if isinstance(node, ast.Constant):
+        return {"n": _number(node)}
+    if isinstance(node, ast.Name):
+        return {"v": node.id}
+    if isinstance(node, ast.UnaryOp):
+        operand = _tree(node.operand)
+        return {"op": "neg", "a": [operand]} if isinstance(node.op, ast.USub) else operand
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+        return {"fn": node.func.id, "a": [_tree(node.args[0])]}
+    if isinstance(node, ast.IfExp) and isinstance(node.test, ast.Compare):
+        test = node.test
+        compared = {
+            "cmp": _COMPARE[type(test.ops[0])],
+            "a": [_tree(test.left), _tree(test.comparators[0])],
+        }
+        return {"op": "if", "a": [compared, _tree(node.body), _tree(node.orelse)]}
+    if isinstance(node, ast.BinOp):
+        return {"op": _TREE_OPS[type(node.op)], "a": [_tree(node.left), _tree(node.right)]}
+    raise ExpressionError(f"cannot write {type(node).__name__} as a tree")
+
+
+def names(expression: str) -> frozenset[str]:
+    """Every name the expression reads (``pi`` included), not the functions it calls."""
+    tree = parse(expression)
+    called = {id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
+    return frozenset(
+        node.id for node in ast.walk(tree) if isinstance(node, ast.Name) and id(node) not in called
+    )
 
 
 def to_latex(
@@ -242,6 +332,9 @@ def _latex(
     if isinstance(node, ast.UnaryOp):
         operand = _wrapped(node.operand, symbols, values, 3, notation, degrees)
         return f"-{operand}" if isinstance(node.op, ast.USub) else operand
+    if isinstance(node, ast.IfExp):
+        # The general case is the formula; the special case is arithmetic.
+        return _latex(node.body, symbols, values, notation, degrees)
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
         inner = _latex(node.args[0], symbols, values, notation, degrees)
         name = node.func.id

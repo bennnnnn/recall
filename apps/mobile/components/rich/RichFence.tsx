@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 import i18n from "@/lib/i18n";
 
 import { PlacesListBlock } from "@/components/PlacesListBlock";
+import { CalculatorBlock } from "@/components/rich/CalculatorBlock";
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
 import { parsePlacesJson } from "@/lib/placesList";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
@@ -124,6 +125,8 @@ export function renderRichFenceById(
       return <ArrayBlock key={key} content={content} />;
     case "mermaid":
       return <LazyMermaidBlock key={key} content={content} />;
+    case "calculator":
+      return <CalculatorBlock key={key} content={content} />;
     case "chem_scene":
       return <ChemistrySceneBlock key={key} content={content} />;
     case "chemistry":

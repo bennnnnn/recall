@@ -52,6 +52,7 @@ const LEGACY_STRUCTURED = [
   "geometry",
   "graph",
   "simulation",
+  "calculator",
   "chem_scene",
   "smiles",
   "chemistry",
@@ -119,6 +120,7 @@ const LEGACY_NEVER_CODE_BLOCK = [
   "graph",
   "simulation",
   "geometry",
+  "calculator",
   "chem_scene",
   "smiles",
   "chemistry",
@@ -223,6 +225,8 @@ describe("fence registry lookups", () => {
       "answer",
       "arithmetic",
       "array",
+      // Server-owned: docs/money.md; the server writes it after the reply.
+      "calculator",
       "callout",
       "chart",
       "chem_scene",
@@ -296,6 +300,7 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
       geometry: "component",
       graph: "component",
       simulation: "component",
+      calculator: "component",
       chem_scene: "component",
       chemistry: "component",
       molecule: "component",
@@ -386,6 +391,7 @@ describe("per-fence predicates accept exactly these fences", () => {
 
   it("control fences, never copied or spoken", () => {
     expect(accepted(isControlFenceLang)).toEqual([
+      "calculator",
       "calendar_proposal",
       "photo",
       "places",

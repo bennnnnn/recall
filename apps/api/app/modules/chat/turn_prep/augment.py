@@ -7,14 +7,21 @@ its LLM classifier never ran in production and are gone.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.core.readings import read_off_loop
 from app.modules import web_search as web_search_service
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
 from app.modules.chat.turn_plan import TurnPlan
-from app.modules.chat.turn_prep.followups import SubjectFollowup
+from app.modules.chat.turn_prep.followups import (
+    SubjectFollowup,
+    resolve_subject_followup,
+    role_content_dicts,
+)
+from app.modules.chat.turn_prep.instant import location_not_set_reply
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
@@ -26,6 +33,9 @@ from app.modules.web_search.subject import (
 from app.modules.web_search.subject import last_assistant_content
 from app.services.solving import VerifiedSolveBlock
 from app.services.subject_solving import SubjectName, read_direct_reply, read_subject
+
+if TYPE_CHECKING:
+    from app.modules.money.service import MoneyTurn
 
 # Earlier user lines a follow-up may take its problem from.
 _PRIOR_USER_LINES = 8
@@ -70,8 +80,14 @@ async def gather_and_inject(
     followup: SubjectFollowup,
     *,
     instant_reply: str | None,
+    money: bool = False,
 ) -> Augmentation:
-    """Phase B/C for one turn. A turn the gate turns away keeps its prompt as built."""
+    """Phase B/C for one turn. A turn the gate turns away keeps its prompt as built.
+
+    A money turn (``turn_prep.money``) has its numbers worked already: no subject solve.
+    """
+    if money:
+        return Augmentation(prompt_messages)
     mode = identity.mode
     plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
     detected_subject = await read_subject(
@@ -174,3 +190,44 @@ async def _fetch_subject_with_priors(
         redis=redis,
         subject_text=subject_text,
     )
+
+
+async def augment_after_prompt(
+    request: TurnRequest,
+    identity: TurnIdentity,
+    settings: Settings,
+    redis: Redis,
+    prompt_messages: list[dict[str, str]],
+    instant_reply: str | None,
+    money: MoneyTurn | None,
+) -> tuple[Augmentation, str | None]:
+    """Phases B and C after the prompt: a follow-up's subject, the verified solve (none for a
+    money turn, whose numbers are worked already), and a reply the solve writes itself."""
+    followup = (
+        await read_off_loop(
+            resolve_subject_followup,
+            request.content,
+            role_content_dicts(prompt_messages),
+            timeout=settings.subject_read_timeout_seconds,
+        )
+        or SubjectFollowup()
+    )
+    if instant_reply is None:
+        instant_reply = location_not_set_reply(request.content, identity.geo, followup)
+    augmented = await gather_and_inject(
+        request,
+        identity,
+        settings,
+        redis,
+        prompt_messages,
+        followup,
+        instant_reply=instant_reply,
+        money=money is not None,
+    )
+    timing = request.timing
+    if timing is not None:
+        timing.mark_phase("augment_done")
+        timing.mark_prompt_ready()
+    if instant_reply is None:
+        instant_reply = await augmented.direct_reply(request, followup, settings)
+    return augmented, instant_reply
