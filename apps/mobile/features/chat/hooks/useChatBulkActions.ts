@@ -10,7 +10,7 @@ import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
 import { getCachedChat } from "@/features/chat/model/chatListCache";
 import { emitAppEvent } from "@/lib/appEvents";
 import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
-import { archiveBulkTargets } from "@/features/chat/drawer/drawerChatSelection";
+import { archiveBulkTargets, bulkInParts } from "@/features/chat/drawer/drawerChatSelection";
 import { notifyDestructive } from "@/lib/haptics";
 import type { IconName } from "@/ui/icons/names";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
@@ -60,18 +60,17 @@ export function useChatBulkActions({
         const snapshots = targets.map((chat) => ({ ...(getCachedChat(chat.id) ?? chat) }));
         try {
           for (const chat of targets) moveChatArchiveState(chat.id, true);
-          const results = await Promise.allSettled(
-            targets.map((chat) => api.setArchive(token, chat.id, true)),
+          // One request per 200 chats: one per chat passed the REST rate limit.
+          const archived = await bulkInParts(
+            targets.map((chat) => chat.id),
+            (part) => api.bulkChats(token, "archive", part),
           );
           if (!currentSession()) return;
-          const failed = snapshots.filter((_chat, index) => results[index].status === "rejected");
-          let archivedCount = 0;
-          for (const [index, result] of results.entries()) {
-            if (result.status !== "fulfilled") continue;
-            const saved = result.value;
-            patchChatInGroups(targets[index].id, { pinned: saved.pinned, archived: Boolean(saved.archived) });
-            if (saved.archived) archivedCount++;
+          const failed = snapshots.filter((chat) => !archived.has(chat.id));
+          for (const chat of targets) {
+            if (archived.has(chat.id)) patchChatInGroups(chat.id, { pinned: false, archived: true });
           }
+          const archivedCount = archived.size;
           // Archiving clears pins too. Restore the whole failed row, and
           // only after every sibling request has settled before reloading.
           for (const chat of failed) patchChatInGroups(chat.id, chat);
@@ -108,14 +107,14 @@ export function useChatBulkActions({
         const snapshots = targets.map((chat) => ({ ...(getCachedChat(chat.id) ?? chat) }));
         try {
           for (const chat of targets) removeChatFromGroupsById(chat.id);
-          const results = await Promise.allSettled(
-            targets.map((chat) => api.deleteChat(token, chat.id)),
+          const deleted = await bulkInParts(
+            targets.map((chat) => chat.id),
+            (part) => api.bulkChats(token, "delete", part),
           );
           if (!currentSession()) return;
           const deletedIds: string[] = [];
-          for (const [index, result] of results.entries()) {
-            const chat = snapshots[index];
-            if (result.status === "rejected") insertChatInGroups(chat);
+          for (const chat of snapshots) {
+            if (!deleted.has(chat.id)) insertChatInGroups(chat);
             else {
               removeChatFromGroupsById(chat.id);
               deletedIds.push(chat.id);

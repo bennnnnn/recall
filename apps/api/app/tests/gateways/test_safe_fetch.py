@@ -282,3 +282,38 @@ async def test_fetch_safely_returns_before_the_deadline():
     with patch("app.gateways.safe_fetch.resolve_external_host", resolve_mock):
         resp = await safe_fetch.fetch_safely(client, "https://example.com/", deadline_seconds=0.5)
     assert resp is final_resp
+
+
+# ── compressed bodies (a real client over a mock transport) ──────────────────
+
+
+def _compressed_page(encoding: str) -> httpx.MockTransport:
+    import gzip
+    import zlib
+
+    html = b"<html><head><title>Compressed page</title></head></html>"
+    body = gzip.compress(html) if encoding == "gzip" else zlib.compress(html)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html", "content-encoding": encoding},
+            content=body,
+        )
+
+    return httpx.MockTransport(handler)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("encoding", ["gzip", "deflate"])
+async def test_a_compressed_body_is_decoded_once(encoding):
+    """Most sites send gzip: the capped read decodes it, and the rebuilt response must not
+    try again (it raised DecodingError, and every such link preview came back empty)."""
+    resolve_mock = AsyncMock(return_value=("example.com", "93.184.216.34"))
+    async with httpx.AsyncClient(transport=_compressed_page(encoding)) as client:
+        with patch("app.gateways.safe_fetch.resolve_external_host", resolve_mock):
+            resp = await safe_fetch.fetch_safely(
+                client, "https://example.com/", deadline_seconds=5, max_body_bytes=4096
+            )
+    assert "<title>Compressed page</title>" in resp.text
+    assert "content-encoding" not in resp.headers

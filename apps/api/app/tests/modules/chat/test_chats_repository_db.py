@@ -180,3 +180,104 @@ async def test_the_drawer_pages_every_dated_chat_by_cursor(db_session):
     assert read == sorted(times, key=lambda chat_id: (times[chat_id], chat_id), reverse=True)
     assert cursor is None
     assert [chat.id for chat in await chats_repo.list_pinned(db_session, owner.id)] == [pinned.id]
+
+
+@pytest.mark.asyncio
+async def test_only_activity_moves_a_chat_up_the_drawer(db_session):
+    """Pin, unpin, rename, archive, unarchive and a generated title used to bump
+    updated_at (onupdate=now()), so tidying a chat moved it to Today."""
+    from datetime import UTC, datetime
+
+    user = await _make_user(db_session)
+    chat = await _make_chat_with_message(db_session, user.id)
+    long_ago = datetime(2025, 1, 1, tzinfo=UTC)
+
+    async def updated_at() -> datetime:
+        await db_session.execute(update(Chat).where(Chat.id == chat.id).values(updated_at=long_ago))
+        await db_session.commit()
+        return long_ago
+
+    steps = [
+        lambda: chats_repo.set_pinned(db_session, chat, True),
+        lambda: chats_repo.set_pinned(db_session, chat, False),
+        lambda: chats_repo.set_title(db_session, chat, "Renamed"),
+        lambda: chats_repo.set_archived(db_session, chat, True),
+        lambda: chats_repo.set_archived(db_session, chat, False),
+        lambda: chats_repo.archive_all_for_user(db_session, user.id),
+    ]
+    for step in steps:
+        before = await updated_at()
+        await step()
+        await db_session.refresh(chat)
+        assert chat.updated_at == before
+
+    await updated_at()
+    await chats_repo.set_title(db_session, chat, "")
+    await chats_repo.set_title_if_empty(db_session, chat.id, "Generated", user_id=user.id)
+    await db_session.refresh(chat)
+    assert chat.updated_at == long_ago
+
+    await chats_repo.touch_by_id(db_session, chat.id)
+    await db_session.refresh(chat)
+    assert chat.updated_at > long_ago
+
+
+@pytest.mark.asyncio
+async def test_every_archived_chat_is_reachable_by_cursor(db_session):
+    """Only the newest 50 archived chats were ever listed; "Archive all" put the rest
+    out of reach."""
+    from datetime import UTC, datetime, timedelta
+
+    user = await _make_user(db_session)
+    start = datetime(2025, 1, 1, tzinfo=UTC)
+    made = []
+    for step in range(7):
+        chat = await _make_chat_with_message(db_session, user.id)
+        await db_session.execute(
+            update(Chat)
+            .where(Chat.id == chat.id)
+            .values(archived=True, updated_at=start + timedelta(hours=step))
+        )
+        made.append(chat.id)
+    await db_session.commit()
+
+    seen = []
+    cursor = None
+    while True:
+        page, cursor = await chats_repo.list_archived_page(
+            db_session, user.id, limit=3, cursor=cursor
+        )
+        seen.extend(chat.id for chat in page)
+        if cursor is None:
+            break
+    assert seen == list(reversed(made))
+
+
+@pytest.mark.asyncio
+async def test_bulk_archive_and_delete_change_only_the_users_own_chats(db_session):
+    """The drawer's selection in one request: another user's id in the list is skipped."""
+    owner = await _make_user(db_session)
+    other = await _make_user(db_session)
+    mine = [await _make_chat_with_message(db_session, owner.id) for _ in range(3)]
+    theirs = await _make_chat_with_message(db_session, other.id)
+    await chats_repo.set_pinned(db_session, mine[0], True)
+    ids = [chat.id for chat in mine] + [theirs.id]
+
+    archived = await chats_repo.set_archived_many(db_session, owner.id, ids, archived=True)
+    await db_session.commit()
+    assert set(archived) == {chat.id for chat in mine}
+    for chat in mine:
+        await db_session.refresh(chat)
+        assert chat.archived and not chat.pinned
+    await db_session.refresh(theirs)
+    assert not theirs.archived
+
+    restored = await chats_repo.set_archived_many(db_session, owner.id, ids[:1], archived=False)
+    await db_session.commit()
+    assert restored == [mine[0].id]
+
+    deleted = await chats_repo.delete_many(db_session, owner.id, ids)
+    await db_session.commit()
+    assert set(deleted) == {chat.id for chat in mine}
+    assert await chats_repo.get_by_id(db_session, theirs.id, other.id) is not None
+    assert await chats_repo.get_by_id(db_session, mine[1].id, owner.id) is None

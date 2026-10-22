@@ -1,5 +1,6 @@
 import {
   activeChatsFromGroups,
+  appendArchivedChats,
   appendOlderChats,
   defaultChatSectionCollapsed,
   drawerSectionTitleKey,
@@ -73,5 +74,12 @@ describe("older chat pages (CLAR-12)", () => {
   it("keeps the cursor when a chat leaves the list", () => {
     const groups = { ...emptyChatList(), older: [chat("a")], next_cursor: "after-a" };
     expect(removeChatFromGroups(groups, "a").next_cursor).toBe("after-a");
+  });
+
+  it("appends a page of archived chats below the ones shown, with the next cursor", () => {
+    const shown = { ...emptyChatList(), archived: [chat("a")], archived_next_cursor: "after-a" };
+    const merged = appendArchivedChats(shown, { items: [chat("a"), chat("b")], next_cursor: null });
+    expect(merged.archived.map((row) => row.id)).toEqual(["a", "b"]);
+    expect(merged.archived_next_cursor).toBeNull();
   });
 });

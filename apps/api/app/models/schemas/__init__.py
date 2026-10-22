@@ -17,6 +17,8 @@ from app.models.schemas.auth import (
 )
 from app.models.schemas.chats import (
     ArchiveUpdate,
+    ChatBulkAction,
+    ChatBulkOut,
     ChatCreate,
     ChatListOut,
     ChatMessageRequest,
@@ -44,6 +46,8 @@ __all__ = [
     "AuthResponse",
     "AuthSessionListOut",
     "AuthSessionOut",
+    "ChatBulkAction",
+    "ChatBulkOut",
     "ChatCreate",
     "ChatListOut",
     "ChatMessageRequest",

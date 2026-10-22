@@ -51,9 +51,10 @@ class Chat(Base):
     summary: Mapped[str | None] = mapped_column(Text)
     summary_message_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+    # Last activity: a reply or a picture turn (chats_repository.touch_by_id). Pinning,
+    # renaming, archiving, a generated title or a compacted history is not activity,
+    # so none of them moves the chat to Today in the drawer.
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped[User] = relationship(back_populates="chats")
     # passive_deletes defers child removal to the DB's ON DELETE CASCADE

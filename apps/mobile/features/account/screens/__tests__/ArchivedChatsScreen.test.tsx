@@ -21,8 +21,36 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,
 }));
 // The drawer's chat list cache, as its contract reads: the list, or the error.
+const mockMoreArchived = jest.fn();
+// The shared FlashList double drops onEndReached; this one keeps it to call.
+let mockEndReached: (() => void) | undefined;
+jest.mock("@shopify/flash-list", () => {
+  const React = jest.requireActual<typeof import("react")>("react");
+  return {
+    FlashList: (props: {
+      data: unknown[];
+      renderItem: (args: { item: unknown; index: number }) => React.ReactNode;
+      keyExtractor: (item: unknown, index: number) => string;
+      onEndReached?: () => void;
+    }) => {
+      mockEndReached = props.onEndReached;
+      return React.createElement(
+        React.Fragment,
+        null,
+        ...props.data.map((item, index) =>
+          React.createElement(
+            React.Fragment,
+            { key: props.keyExtractor(item, index) },
+            props.renderItem({ item, index }),
+          ),
+        ),
+      );
+    },
+  };
+});
 jest.mock("@/features/chat/model/chatListCache", () => ({
   invalidateChatListCache: jest.fn(),
+  fetchMoreArchivedChats: (...args: unknown[]) => mockMoreArchived(...args),
   fetchChatList: async (...args: unknown[]) => {
     try {
       return { data: await mockListChats(...args), error: null };
@@ -124,4 +152,26 @@ it("haptics only after confirmed archived-chat deletion succeeds", async () => {
 
   await act(async () => { pending.resolve(); });
   expect(mockDestructive).toHaveBeenCalledTimes(1);
+});
+
+it("reads archived chats past the first page when the list end is reached", async () => {
+  const row = (id: string) => ({
+    id,
+    title: `Chat ${id}`,
+    model: "free-chat",
+    pinned: false,
+    archived: true,
+    created_at: "2026-01-01",
+    updated_at: "2026-01-01",
+  });
+  mockListChats.mockResolvedValue({ archived: [row("a1")], archived_next_cursor: "after-a1" });
+  mockMoreArchived.mockResolvedValueOnce({ archived: [row("a1"), row("a2")] });
+  const ui = await render(<ArchivedChatsScreen />);
+  expect(ui.queryByText("Chat a2")).toBeNull();
+
+  await act(async () => {
+    mockEndReached?.();
+  });
+  expect(mockMoreArchived).toHaveBeenCalledWith("token");
+  expect(ui.getByText("Chat a2")).toBeTruthy();
 });

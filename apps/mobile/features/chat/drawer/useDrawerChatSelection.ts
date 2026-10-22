@@ -13,9 +13,11 @@ type Params = {
   token: string | null;
   isDrawerOpen: boolean;
   listedChats: Chat[];
+  /** What "Select all" picks: the chats on screen (``selectableChats``). */
+  selectableChats: Chat[];
 };
 
-export function useDrawerChatSelection({ token, isDrawerOpen, listedChats }: Params) {
+export function useDrawerChatSelection({ token, isDrawerOpen, listedChats, selectableChats }: Params) {
   const session = getSessionGeneration();
   const signedIn = Boolean(token);
   const { view, owns } = useViewOwner(`${session}:${signedIn}:${isDrawerOpen}`);
@@ -66,8 +68,8 @@ export function useDrawerChatSelection({ token, isDrawerOpen, listedChats }: Par
 
   const selectAllListed = useCallback(() => {
     if (!currentView() || !selectionMode || version !== selectionVersion.current) return;
-    setRequestedIds(selectAllChatIds(listedChats));
-  }, [currentView, selectionMode, version, listedChats]);
+    setRequestedIds(selectAllChatIds(selectableChats));
+  }, [currentView, selectionMode, version, selectableChats]);
 
   return {
     selectionMode,

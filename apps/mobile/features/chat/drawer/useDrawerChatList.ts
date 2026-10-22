@@ -13,6 +13,7 @@ import {
 } from "@/features/chat/model/listSections";
 import {
   fetchChatList,
+  fetchMoreArchivedChats,
   fetchOlderChats,
   getCachedChatList,
   getChatListFetchedAt,
@@ -134,6 +135,24 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     }
   }, [account, getToken, current, applyChatList, reportFailure]);
 
+  const [archivedPaging, setArchivedPaging] = useState<"idle" | "loading" | "failed">("idle");
+  /** The next page of archived chats, from the archived section's "Show more" row. */
+  const loadMoreArchivedChats = useCallback(async () => {
+    const token = getToken();
+    if (!account || !token || !current()) return;
+    setArchivedPaging("loading");
+    try {
+      const grown = await fetchMoreArchivedChats(token);
+      if (grown && current()) applyChatList(grown, false);
+      if (current()) setArchivedPaging("idle");
+    } catch (caught) {
+      const error = caught instanceof Error ? caught : new Error(String(caught));
+      if (!current()) return;
+      setArchivedPaging("failed");
+      if (!isExpectedReadFailure(error)) reportFailure(error);
+    }
+  }, [account, getToken, current, applyChatList, reportFailure]);
+
   const handleRefresh = useCallback(async () => {
     if (!account || !current()) return;
     setRefreshing(true);
@@ -209,6 +228,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
   return {
     loading, error, refreshing, groups, allChats, load, handleRefresh,
     hasOlderChats: Boolean(groups.next_cursor), loadOlderChats,
+    hasMoreArchived: Boolean(groups.archived_next_cursor), loadMoreArchivedChats, archivedPaging,
     patchChatInGroups, insertChatInGroups, isSectionCollapsed, toggleSectionCollapsed,
     moveChatPinState, moveChatArchiveState, removeChatFromGroupsById,
   };
