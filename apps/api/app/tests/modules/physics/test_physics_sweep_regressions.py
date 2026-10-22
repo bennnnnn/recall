@@ -595,10 +595,11 @@ _ROUND5_DECLINED = [
     "incline. μk = 0.2. find the acceleration",
     # 8. A full lap ends where it started: the average velocity is not d/t.
     "a runner does one full lap of a 400 m track in 80 s. what is her average velocity?",
-    # 11. Series and parallel together are not one sum.
-    "a 4 Ω resistor is in series with a parallel pair of 6 Ω and 12 Ω. what's the total resistance",
-    "a 2 Ω resistor in series with two 4 Ω resistors in parallel. total resistance?",
-    "6 Ω and 3 Ω are in parallel, and that combination is in series with 5 Ω. total resistance",
+    # 11. Series and parallel together are not one sum. One resistor in series with a
+    # parallel group is now read and solved (test_physics_series_parallel.py); any other
+    # shape, or one written as R1 = … assignments, stays declined.
+    "A 4 Ω resistor is in series with a 6 Ω resistor, and a 12 Ω resistor is in parallel "
+    "with both. Find the total resistance.",
     "R1 = 10 ohm is in series with a parallel combination of R2 = 20 ohm and R3 = 20 ohm. "
     "Find the equivalent resistance",
     # 13. Boiling or melting takes latent heat as well.

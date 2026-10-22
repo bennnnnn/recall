@@ -529,7 +529,7 @@
       "id": "system-of-equations-comma",
       "area": "calculation",
       "input": "Solve the system $x + y = 10, 2x - y = 5$ for x and y.",
-      "expected": "Solve the system\n$x + y = 10$  \n$2x - y = 5$\nfor x and y."
+      "expected": "Solve the system $x + y = 10, 2x - y = 5$ for x and y."
     },
     {
       "id": "comma-list-of-values",
@@ -559,7 +559,25 @@
       "id": "chain-in-prose",
       "area": "calculation",
       "input": "The speed is $v = d/t = 100/20 = 5$ m/s, so it is slow.",
-      "expected": "The speed is\n$v = d/t$  \n$v = 100/20$  \n$v = 5$\nm/s, so it is slow."
+      "expected": "The speed is $v = d/t = 100/20 = 5$ m/s, so it is slow."
+    },
+    {
+      "id": "chain-mid-sentence",
+      "area": "calculation",
+      "input": "For example, $x^2 - 3x + 2 = 0$ has $\\Delta = 9 - 8 = 1$, giving $x = \\frac{3 \\pm 1}{2}$, so $x = 2$ or $x = 1$.",
+      "expected": "For example, $x^2 - 3x + 2 = 0$ has $\\Delta = 9 - 8 = 1$, giving $x = \\frac{3 \\pm 1}{2}$, so $x = 2$ or $x = 1$."
+    },
+    {
+      "id": "chain-then-word",
+      "area": "calculation",
+      "input": "Then $a = 120/2 = 60$ here.",
+      "expected": "Then $a = 120/2 = 60$ here."
+    },
+    {
+      "id": "chain-then-unit-power",
+      "area": "calculation",
+      "input": "So $a = (27.8 - 0)/8 = 3.47$ m/s².",
+      "expected": "So\n$a = (27.8 - 0)/8$  \n$a = 3.47$ m/s²."
     },
     {
       "id": "display-chain-one-line",
@@ -571,7 +589,7 @@
       "id": "display-chain-in-prose",
       "area": "calculation",
       "input": "The speed is $$v = d/t = 5$$ here.",
-      "expected": "The speed is\n$$v = d/t$$  \n$$v = 5$$\nhere."
+      "expected": "The speed is $$v = d/t = 5$$ here."
     },
     {
       "id": "display-chain-indented",
@@ -657,7 +675,7 @@
       "id": "paren-chain-in-prose",
       "area": "maths",
       "input": "Then \\(v = d/t = 50/10 = 5\\) m/s.",
-      "expected": "Then\n$v = d/t$  \n$v = 50/10$  \n$v = 5$\nm/s."
+      "expected": "Then\n$v = d/t$  \n$v = 50/10$  \n$v = 5$ m/s."
     },
     {
       "id": "paren-singles",
@@ -844,13 +862,13 @@
       "id": "numbered-chains",
       "area": "lists",
       "input": "1. Speed: $v = d/t = 50/10 = 5$ m/s\n2. Time: $t = d/v = 10/5 = 2$ s",
-      "expected": "1. Speed:\n   $v = d/t$  \n   $v = 50/10$  \n   $v = 5$\n   m/s\n2. Time:\n   $t = d/v$  \n   $t = 10/5$  \n   $t = 2$\n   s"
+      "expected": "1. Speed:\n   $v = d/t$  \n   $v = 50/10$  \n   $v = 5$ m/s\n2. Time:\n   $t = d/v$  \n   $t = 10/5$  \n   $t = 2$ s"
     },
     {
       "id": "nested-bullet-chains",
       "area": "lists",
       "input": "- $F = ma = 2 \\times 3 = 6$ N\n  - $a = F/m = 6/2 = 3$",
-      "expected": "- $F = ma$  \n  $F = 2 \\times 3$  \n  $F = 6$\n  N\n  - $a = F/m$  \n    $a = 6/2$  \n    $a = 3$"
+      "expected": "- $F = ma$  \n  $F = 2 \\times 3$  \n  $F = 6$ N\n  - $a = F/m$  \n    $a = 6/2$  \n    $a = 3$"
     },
     {
       "id": "two-digit-number",
@@ -971,7 +989,7 @@
       "id": "average-speed-steps",
       "area": "replies",
       "input": "A car drives**120 km** in**2 h**, then**60 km** in**1 h**.\n\n1. Total distance: $d = 120 + 60 = 180$ km\n2. Total time: $t = 2 + 1 = 3$ h\n3. Average speed: $v = d/t = 180/3 = 60$ km/h\n\nSo the average speed is**60 km/h**, not the mean of the two speeds.",
-      "expected": "A car drives **120 km** in **2 h**, then **60 km** in **1 h**.\n\n1. Total distance:\n   $d = 120 + 60$  \n   $d = 180$\n   km\n2. Total time:\n   $t = 2 + 1$  \n   $t = 3$\n   h\n3. Average speed:\n   $v = d/t$  \n   $v = 180/3$  \n   $v = 60$\n   km/h\n\nSo the average speed is **60 km/h**, not the mean of the two speeds."
+      "expected": "A car drives **120 km** in **2 h**, then **60 km** in **1 h**.\n\n1. Total distance:\n   $d = 120 + 60$  \n   $d = 180$ km\n2. Total time:\n   $t = 2 + 1$  \n   $t = 3$ h\n3. Average speed:\n   $v = d/t$  \n   $v = 180/3$  \n   $v = 60$ km/h\n\nSo the average speed is **60 km/h**, not the mean of the two speeds."
     },
     {
       "id": "code-walkthrough",
@@ -989,7 +1007,7 @@
       "id": "table-and-chain",
       "area": "replies",
       "input": "| Quantity | Value |\n|---|---|\n| Mass | **2 kg** |\n| Force | $F = ma = 6$ N |\n\nWith $a = 3$: $F = ma = 2 \\times 3 = 6$ N.",
-      "expected": "| Quantity | Value |\n|---|---|\n| Mass | **2 kg** |\n| Force | $F = ma = 6$ N |\n\nWith $a = 3$:\n$F = ma$  \n$F = 2 \\times 3$  \n$F = 6$\nN."
+      "expected": "| Quantity | Value |\n|---|---|\n| Mass | **2 kg** |\n| Force | $F = ma = 6$ N |\n\nWith $a = 3$:\n$F = ma$  \n$F = 2 \\times 3$  \n$F = 6$ N."
     },
     {
       "id": "price-explanation",

@@ -65,6 +65,9 @@ def test_extracts_lookup_subject(text: str, expected: str) -> None:
         "create an image of a sunset",
         "Show the structure of carbon dioxide.",
         "show the structure of carbon dioxide",
+        # A free-body diagram the app draws, not a photo.
+        "show the forces acting on a hanging mass",
+        "show me a free-body diagram of a box on a ramp",
         "show me a right triangle",
     ],
 )

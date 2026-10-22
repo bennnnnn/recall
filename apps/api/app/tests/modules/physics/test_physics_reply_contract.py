@@ -33,6 +33,9 @@ QUESTIONS = {
     "photon_energy": "Find the energy of a photon of wavelength 500 nm.",
     "launch_angles": "At what angle must a projectile be launched at 20 m/s to land 30 m away?",
     "parallel_resistance": "Find the total resistance of 4 ohm, 6 ohm and 12 ohm resistors in parallel.",
+    "parallel_current": (
+        "A 12 V battery is connected to three 6 ohm resistors in parallel. Find the total current."
+    ),
     "rebound_impulse": "A 0.2 kg ball hits a wall at 10 m/s and rebounds at 8 m/s. Find the impulse.",
     "heater_energy": "A 2 kW heater runs for 3 hours. How much energy does it use in kWh?",
     "machine_advantage": (

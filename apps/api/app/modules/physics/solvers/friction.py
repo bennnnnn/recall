@@ -129,7 +129,7 @@ def _normal_force(s: _Incline) -> PhysicsResult:
         formulas=(formula,),
         substitutions=(rf"N = {plugged}",),
         quantities=(QuantityResult("", normal, "N"),),
-        simulation_specs=_incline_scene(
+        simulation_specs=incline_scene(
             deg, mu=mu, held=bool(p.get("static_equilibrium")), mass=m, g=g
         )
         or _floor_scene(m, g, asked="normal"),
@@ -150,7 +150,7 @@ def _friction_force(s: _Incline) -> PhysicsResult:
             formulas=(r"f_s = mg|\sin\theta|", r"f_s \le \mu_s N"),
             substitutions=(rf"f_s = {m:g}\cdot {g:g}\cdot |\sin({deg:g}^\circ)|",),
             quantities=(QuantityResult("", f_val, "N"),),
-            simulation_specs=_incline_scene(deg, mu=mu, held=f_val > 0, mass=m, g=g),
+            simulation_specs=incline_scene(deg, mu=mu, held=f_val > 0, mass=m, g=g),
         )
     answer = rf"f = \mu N = {mu:g} \cdot {normal:.2f} \approx {f_val:.2f} \text{{ N}}"
     return PhysicsResult(
@@ -158,7 +158,7 @@ def _friction_force(s: _Incline) -> PhysicsResult:
         formulas=(r"f = \mu N",),
         substitutions=(rf"f = {mu:g} \cdot {normal:.2f}",),
         quantities=(QuantityResult("", f_val, "N"),),
-        simulation_specs=_incline_scene(
+        simulation_specs=incline_scene(
             deg, mu=mu, uphill=p.get("motion_sign") == -1, mass=m or None, g=g
         )
         or _floor_scene(m, g, friction=f_val, asked="friction"),
@@ -193,7 +193,7 @@ def _incline_acceleration(s: _Incline) -> PhysicsResult:
             quantities=(QuantityResult("a", 0.0, "m/s^2"),),
             # a = 0 is the answer, so the block stays put and the diagram
             # is the free body that explains why.
-            simulation_specs=_incline_scene(deg, mu=mu, mass=m or None, g=g),
+            simulation_specs=incline_scene(deg, mu=mu, mass=m or None, g=g),
         )
     sign = "+" if motion < 0 else "-"
     formula = rf"a = g(\sin\theta {sign} \mu\cos\theta)"
@@ -209,7 +209,7 @@ def _incline_acceleration(s: _Incline) -> PhysicsResult:
         quantities=(QuantityResult("", a_val, "m/s^2"),),
         # Initial rest is a supplied initial condition, not current
         # equilibrium. Other moving bodies have no stated initial speed.
-        simulation_specs=_incline_scene(
+        simulation_specs=incline_scene(
             deg,
             mu=mu,
             # Sliding down, it speeds up at a whatever speed it started
@@ -231,7 +231,7 @@ def _friction_coefficient(s: _Incline) -> PhysicsResult:
         formulas=(r"\mu = \tan(\theta)",),
         substitutions=(rf"\mu = \tan({deg:.1f}^\circ)",),
         quantities=(QuantityResult("", mu_val, ""),),
-        simulation_specs=_incline_scene(deg, mu=mu_val, asked="angle"),
+        simulation_specs=incline_scene(deg, mu=mu_val, asked="angle"),
     )
 
 
@@ -271,7 +271,7 @@ _FRICTION_OPS: dict[str, Callable[[_Incline], PhysicsResult]] = {
 _INCLINE_LENGTH = 6.0
 
 
-def _incline_scene(
+def incline_scene(
     deg: float,
     *,
     mu: float,

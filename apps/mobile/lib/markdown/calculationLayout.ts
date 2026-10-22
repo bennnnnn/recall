@@ -5,6 +5,7 @@
  */
 
 import {
+  continuesSentence,
   convertsUnits,
   finishInline,
   keepHardBreak,
@@ -315,7 +316,7 @@ function layoutInline(body: string): string {
       continue;
     }
     const rows = splitMathExpression(span.inner);
-    if (!rows) {
+    if (!rows || continuesSentence(body.slice(span.end))) {
       buf += body.slice(index, span.end);
       index = span.end;
       continue;
@@ -323,13 +324,9 @@ function layoutInline(body: string): string {
     changed = true;
     if (buf.trim()) parts.push(buf.trimEnd());
     buf = "";
-    let punct = "";
     let cursor = span.end;
-    while (cursor < body.length && TRAILING_PUNCT.has(body[cursor])) {
-      punct += body[cursor];
-      cursor += 1;
-    }
-    parts.push(joinRows(rows, span.delim, punct));
+    while (cursor < body.length && TRAILING_PUNCT.has(body[cursor])) cursor += 1;
+    parts.push(joinRows(rows, span.delim, body.slice(span.end, cursor)));
     index = cursor;
   }
   if (!changed) return body;

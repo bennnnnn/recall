@@ -533,6 +533,12 @@ def judge(entry: Entry, subject: str, route: Route) -> Outcome:
         if route.solved:
             answer = read_answer(route.instant_text)
             problems.append(Problem("wrong", f"gave a number to a question with none: {answer}"))
+        if entry.visual:
+            # "Draw the forces on a box on an incline": no number, still its picture.
+            outcome.visuals, visual_problems = check_visuals(route.server_pictures)
+            problems.extend(visual_problems)
+            if entry.visual not in outcome.visuals:
+                problems.append(Problem("no_visual", f"no {entry.visual} picture"))
         return outcome
     if not route.subject:
         problems.append(Problem("missed", f"not read as a {subject} question"))
@@ -598,11 +604,11 @@ def answered(outcomes: list[Outcome]) -> list[Outcome]:
 
 
 def drawn(outcomes: list[Outcome]) -> list[Outcome]:
-    """The ``answer`` turns that carry the picture a student would want."""
+    """The ``answer`` and ``explain`` turns that carry the picture a student would want."""
     return [
         o
         for o in outcomes
-        if o.entry.expect == "answer"
+        if o.entry.expect in {"answer", "explain"}
         and o.entry.visual
         and not any(p.kind == "no_visual" for p in o.problems)
     ]
@@ -612,7 +618,7 @@ def report(outcomes: list[Outcome], *, show: bool = False) -> str:
     kinds = Counter(problem.kind for outcome in outcomes for problem in outcome.problems)
     answers = [o for o in outcomes if o.entry.expect == "answer"]
     solved = answered(outcomes)
-    wanted = [o for o in answers if o.entry.visual]
+    wanted = [o for o in outcomes if o.entry.expect in {"answer", "explain"} and o.entry.visual]
     lines = [
         f"{len(outcomes)} turns: {len(solved)}/{len(answers)} answered, "
         f"{len(drawn(outcomes))}/{len(wanted)} with the picture a student would want",

@@ -1,0 +1,109 @@
+[
+ {
+  "id": "fb-01",
+  "area": "free_body",
+  "prompt": "Draw the forces on a box sliding down a 30 degree incline with friction",
+  "expect": "explain",
+  "visual": "incline"
+ },
+ {
+  "id": "fb-02",
+  "area": "free_body",
+  "prompt": "Draw a free-body diagram of a block at rest on an incline",
+  "expect": "explain",
+  "visual": "incline"
+ },
+ {
+  "id": "fb-03",
+  "area": "free_body",
+  "prompt": "show the forces on a skier going down a frictionless slope",
+  "expect": "explain",
+  "visual": "incline"
+ },
+ {
+  "id": "fb-04",
+  "area": "free_body",
+  "prompt": "What forces act on a crate resting on a 20° ramp?",
+  "expect": "explain",
+  "visual": "incline"
+ },
+ {
+  "id": "fb-05",
+  "area": "free_body",
+  "prompt": "show the forces acting on a hanging mass",
+  "expect": "explain",
+  "visual": "free_body"
+ },
+ {
+  "id": "fb-06",
+  "area": "free_body",
+  "prompt": "draw the forces on a lamp hanging from the ceiling by a cable",
+  "expect": "explain",
+  "visual": "free_body"
+ },
+ {
+  "id": "fb-07",
+  "area": "free_body",
+  "prompt": "What forces act on a book resting on a table?",
+  "expect": "explain",
+  "visual": "free_body"
+ },
+ {
+  "id": "fb-08",
+  "area": "free_body",
+  "prompt": "draw the forces on a block on a table pulled by a rope at 30 degrees above the horizontal",
+  "expect": "explain",
+  "visual": "free_body"
+ },
+ {
+  "id": "fb-09",
+  "area": "free_body",
+  "prompt": "draw a free-body diagram of a crate pushed across a rough floor",
+  "expect": "explain",
+  "visual": "free_body"
+ },
+ {
+  "id": "fb-10",
+  "area": "free_body",
+  "prompt": "sketch the forces on a ball falling with air resistance",
+  "expect": "explain",
+  "visual": "free_body"
+ },
+ {
+  "id": "fb-11",
+  "area": "free_body",
+  "prompt": "free body diagram of a sled pulled across the snow-covered ground by a rope",
+  "expect": "explain",
+  "visual": "free_body"
+ },
+ {
+  "id": "fb-l01",
+  "area": "free_body",
+  "prompt": "what are the forces of the market behind oil prices?",
+  "expect": "not_subject"
+ },
+ {
+  "id": "fb-l02",
+  "area": "free_body",
+  "prompt": "what forces shaped the French revolution?",
+  "expect": "not_subject"
+ },
+ {
+  "id": "fb-l03",
+  "area": "free_body",
+  "prompt": "tell me about the incline at Lalibela's rock churches",
+  "expect": "not_subject"
+ },
+ {
+  "id": "fb-l04",
+  "area": "free_body",
+  "prompt": "the forces of nature in Ethiopian poetry: give me examples",
+  "expect": "not_subject"
+ },
+ {
+  "id": "fb-l05",
+  "area": "free_body",
+  "prompt": "draw the slope of my sales chart",
+  "expect": "not_subject"
+ }
+]
