@@ -16,6 +16,7 @@ import {
 } from "@/lib/markdown/preprocessStream";
 import {
   advanceStreamBlocks,
+  settleStreamBlocks,
   type StreamBlocksState,
 } from "@/lib/markdown/streamBlocks";
 import {
@@ -114,11 +115,9 @@ export function MarkdownContent({
   // settles the chunks it still starts with stay, and the rest is one piece:
   // the same pieces under the same keys, so what was drawn is not drawn again.
   const cache = streaming ? streamPreprocessRef.current : null;
-  const blocks = advanceStreamBlocks(
-    streamBlocksRef.current,
-    prepared,
-    cache?.preparedStable.length ?? 0,
-  );
+  const blocks = streaming
+    ? advanceStreamBlocks(streamBlocksRef.current, prepared, cache?.preparedStable.length ?? 0)
+    : settleStreamBlocks(streamBlocksRef.current, prepared);
   streamBlocksRef.current = blocks;
   const settledEnd = blocks.settledText.length;
   const end: StreamingEnd = streaming

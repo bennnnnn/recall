@@ -204,10 +204,50 @@ ${FENCE}
 That is the whole story.
 `;
 
+const LONG_SENTENCE = "This sentence adds enough plain words to make the paragraph long enough for a cut. ";
+
+/** Reference-style links whose definitions come last: they resolve only in the piece that holds them. */
+export const REFERENCES_REPLY = [
+  `Here is a paragraph that cites a source with a [reference-style link][1] and another [second source][docs]. ${LONG_SENTENCE.repeat(5)}`,
+  "",
+  `Another paragraph in between so that a chunk can end before the definitions. ${LONG_SENTENCE.repeat(5)}`,
+  "",
+  "[1]: https://example.com/article",
+  "[docs]: https://docs.example.com/page",
+  "",
+].join("\n");
+
+/** A numbered list past 99: its number column is three digits wide, all the way up. */
+export const HUNDRED_ITEMS_REPLY = [
+  "Here are the words:",
+  "",
+  ...Array.from({ length: 105 }, (_, i) => `${i + 1}. word number ${i + 1} with a short gloss`),
+  "",
+  "That is all.",
+  "",
+].join("\n");
+
+/** From item 10 the sub-bullets sit left of the item's content, so they end the numbered list. */
+export const UNDER_INDENTED_REPLY = [
+  "Plan:",
+  "",
+  ...Array.from({ length: 21 }, (_, i) => [
+    `${i + 1}. Phase ${i + 1}`,
+    `   - sub point one of phase ${i + 1}`,
+    `   - sub point two of phase ${i + 1}`,
+  ]).flat(),
+  "",
+  "Done.",
+  "",
+].join("\n");
+
 export const STREAMING_REPLIES: Record<string, string> = {
   maths: MATHS_REPLY,
   tips: TIPS_REPLY,
   steps: STEPS_REPLY,
   nested: NESTED_REPLY,
   mixed: MIXED_REPLY,
+  references: REFERENCES_REPLY,
+  hundredItems: HUNDRED_ITEMS_REPLY,
+  underIndented: UNDER_INDENTED_REPLY,
 };

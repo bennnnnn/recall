@@ -1,5 +1,6 @@
 import {
   advanceStreamBlocks,
+  settleStreamBlocks,
   emptyStreamBlocksState,
   MIN_SETTLED_CHUNK_CHARS,
 } from "@/lib/markdown/streamBlocks";
@@ -70,7 +71,9 @@ describe("advanceStreamBlocks", () => {
     expect(prepared.slice(state.settledText.length).startsWith("11. ")).toBe(true);
     // The chunk ends inside the list: it is drawn as a list that goes on.
     expect(state.continued).toEqual([true]);
-    expect(state.listAfter[0]).toEqual({ marker: ".", next: 11, irregular: false });
+    expect(state.listAfter[0]).toEqual(
+      expect.objectContaining({ marker: ".", next: 11, irregular: false, wide: false }),
+    );
   });
 
   it("respects the safeLen bound", () => {
@@ -98,6 +101,7 @@ describe("advanceStreamBlocks", () => {
       continued: [],
       listAfter: [],
       settledText: "",
+      definition: null,
     });
   });
 
@@ -199,7 +203,9 @@ describe("advanceStreamBlocks between list items", () => {
       offset += chunk.length;
       if (state.continued[index]) {
         expect(prepared.slice(offset)).toMatch(/^- Item \d+:/);
-        expect(state.listAfter[index]).toEqual({ marker: "-", next: null, irregular: false });
+        expect(state.listAfter[index]).toEqual(
+          expect.objectContaining({ marker: "-", next: null, irregular: false }),
+        );
       }
     });
     expect(state.continued.some(Boolean)).toBe(true);
@@ -258,6 +264,55 @@ describe("advanceStreamBlocks between list items", () => {
     for (const after of ["Done.\n", "- a bullet\n", "12. skipped a number\n"]) {
       expect(advanceStreamBlocks(state, `${chunk}${after}`, 0).chunks).toEqual([]);
     }
+  });
+
+  it("draws a reply holding a link reference definition in one piece, from the line it arrives", () => {
+    const body = `${PARA("Cites [a source][1] here.")}\n\n${PARA("Second.")}\n\n${PARA("Third.")}\n\n`;
+    const before = advanceStreamBlocks(null, body, body.length);
+    expect(before.chunks.length).toBeGreaterThan(0);
+
+    const withDefinition = `${body}[1]: https://example.com/article\n`;
+    const after = advanceStreamBlocks(before, withDefinition, withDefinition.length);
+    expect(after.chunks).toEqual([]);
+    expect(after.definition).toEqual({ at: body.length, line: "[1]: https://example.com/article" });
+    // Later flushes find it where it was and cut nothing.
+    const later = `${withDefinition}\n${PARA("More text after it.")}\n\n${PARA("And more.")}\n\nend`;
+    expect(advanceStreamBlocks(after, later, later.length)).toBe(after);
+    // A reply whose definition is still in its last, open line settles in one piece too.
+    expect(settleStreamBlocks(before, `${body}[1]: https://example.com/article`).chunks).toEqual([]);
+  });
+
+  it("cuts a numbered list that reaches 100 nowhere, even after it was cut while shorter", () => {
+    const items = (from: number, to: number) =>
+      Array.from({ length: to - from + 1 }, (_, i) => `${from + i}. word number ${from + i} with a short gloss`).join("\n");
+    const short = `Words:\n\n${items(1, 60)}\n`;
+    const cut = advanceStreamBlocks(null, short, short.length);
+    expect(cut.continued.some(Boolean)).toBe(true);
+
+    const long = `Words:\n\n${items(1, 102)}\n`;
+    const grown = advanceStreamBlocks(cut, long, long.length);
+    expect(grown.continued.some(Boolean)).toBe(false);
+    expect(grown.settledText.length).toBeLessThan(long.indexOf("1. word"));
+    // And it stays uncut as it goes on.
+    const longer = `${long}${items(103, 110)}\n`;
+    expect(advanceStreamBlocks(grown, longer, longer.length).continued.some(Boolean)).toBe(false);
+
+    // A reply that only reaches 100 in its last line settles with the list whole.
+    const settled = settleStreamBlocks(cut, `Words:\n\n${items(1, 100)}`);
+    expect(settled.continued.some(Boolean)).toBe(false);
+  });
+
+  it("does not cut a numbered list after a line indented left of its item's content", () => {
+    const phases = Array.from({ length: 16 }, (_, i) =>
+      [`${i + 1}. Phase ${i + 1} ${"words ".repeat(8).trim()}`, `   - detail of phase ${i + 1}`].join("\n"),
+    );
+    const prepared = `Plan:\n\n${phases.join("\n")}\n\nDone.\n\ntail`;
+    // `10. ` puts item 10's content at column 4: its `   - detail` (column 3) is not inside it.
+    expect(advanceStreamBlocks(null, prepared, prepared.length).continued.some(Boolean)).toBe(false);
+
+    // Indented to the item's content, the detail is inside it and the list may be cut.
+    const aligned = prepared.replace(/\n   - detail of phase (\d\d)/g, "\n    - detail of phase $1");
+    expect(advanceStreamBlocks(null, aligned, aligned.length).continued.some(Boolean)).toBe(true);
   });
 
   it("drops only the chunks a rewrite changed", () => {
