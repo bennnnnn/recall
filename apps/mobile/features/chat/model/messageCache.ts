@@ -32,7 +32,7 @@ type KeptPage = {
   session: number;
   page: CachedChatPage;
   writtenAt: number;
-  /** Something since suggests the server moved on: a turn started, or the app went to the background. */
+  /** Something suggests the server moved on: a turn started, or the app went to the background after the read. */
   stale: boolean;
   /** The drawer row's `updated_at` when kept; a different one later means the chat changed elsewhere. */
   chatUpdatedAt: string | undefined;
@@ -44,6 +44,8 @@ const MAX_KEPT_PAGES = 12;
 /** Chats whose kept page waits for an idle moment to reach the file. */
 const unsavedChats = new Set<string>();
 let cancelSave: (() => void) | null = null;
+/** When the app last went to the background: a page read before it may miss another device's turns. */
+let backgroundAt = 0;
 
 function cacheIsCurrent(chatId: string): () => boolean {
   const session = getSessionGeneration();
@@ -95,6 +97,15 @@ export async function readCachedChatMessages(chatId: string): Promise<CachedChat
   }
 }
 
+/** A row as the file holds it: the picker's copy of a sent file may be gone by the next launch. */
+function diskRow(message: Message): Message {
+  if (message.local_image_uri == null && message.local_file_uri == null) return message;
+  const row = { ...message };
+  delete row.local_image_uri;
+  delete row.local_file_uri;
+  return row;
+}
+
 export async function writeCachedChatMessages(
   chatId: string,
   messages: Message[],
@@ -108,7 +119,7 @@ export async function writeCachedChatMessages(
     await ensureDir();
     if (!isCurrent()) return;
     const payload: CachedChatPage = {
-      messages,
+      messages: messages.map(diskRow),
       has_more: hasMore,
       cached_at: cachedAt,
     };
@@ -154,6 +165,7 @@ export async function clearAllCachedChatMessages(): Promise<void> {
   chatClearGenerations.clear();
   keptPages.clear();
   unsavedChats.clear();
+  backgroundAt = 0;
   cancelSave?.();
   cancelSave = null;
   if (!cacheDirectory) return;
@@ -197,8 +209,9 @@ export function markCachedChatPageStale(chatId: string): void {
   if (kept) kept.stale = true;
 }
 
-/** After the background another device may have written to any chat. */
+/** After the background another device may have written to any chat; only a later read clears that. */
 export function markCachedChatPagesStale(): void {
+  backgroundAt = Date.now();
   for (const kept of keptPages.values()) kept.stale = true;
 }
 
@@ -252,9 +265,10 @@ function saveKeptPages(): void {
 
 /**
  * Keep the open chat's settled thread as its page: in memory now, in the file
- * once the phone is idle. `fetchedAt` is the server read the thread rests on.
- * Keeping the page already held changes nothing, so reopening a chat never
- * makes its page fresher.
+ * once the phone is idle. `fetchedAt` is the server read the thread rests on;
+ * one from before the last background leaves the page stale. Keeping the page
+ * already held changes nothing, so reopening a chat never makes its page
+ * fresher, and a thread that shows a row twice is never kept.
  */
 export function keepCachedChatPage(
   chatId: string,
@@ -263,6 +277,10 @@ export function keepCachedChatPage(
   fetchedAt: number,
   chatUpdatedAt?: string,
 ): void {
+  if (new Set(messages.map((m) => m.id)).size !== messages.length) {
+    markCachedChatPageStale(chatId);
+    return;
+  }
   const { rows, cut } = newestPage(messages);
   const page: CachedChatPage = {
     messages: rows, has_more: cut || hasMoreOlder, cached_at: new Date(fetchedAt).toISOString(),
@@ -271,7 +289,7 @@ export function keepCachedChatPage(
   if (kept && samePage(kept.page, page)) return;
   keptPages.delete(chatId);
   keptPages.set(chatId, {
-    session: getSessionGeneration(), page, writtenAt: Date.now(), stale: false, chatUpdatedAt,
+    session: getSessionGeneration(), page, writtenAt: Date.now(), stale: fetchedAt <= backgroundAt, chatUpdatedAt,
   });
   for (const id of keptPages.keys()) {
     if (keptPages.size <= MAX_KEPT_PAGES) break;

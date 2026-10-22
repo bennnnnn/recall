@@ -33,6 +33,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/attachments/model/galleryListCache.ts#resource": "invalidateGalleryCache",
   "features/chat/hooks/useQuotaNudge.ts#dismissedDate": "resetQuotaNudgeDismissal",
   "features/chat/model/draftLogic.ts#knownAssistantChats": "invalidateChatListCache",
+  "features/chat/model/messageCache.ts#backgroundAt": "clearAllCachedChatMessages",
   "features/chat/model/messageCache.ts#cancelSave": "clearAllCachedChatMessages",
   "features/chat/model/messageCache.ts#chatClearGenerations": "clearAllCachedChatMessages",
   "features/chat/model/messageCache.ts#clearGeneration": "clearAllCachedChatMessages",

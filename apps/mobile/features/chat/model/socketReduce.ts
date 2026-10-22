@@ -119,6 +119,12 @@ export function mergeDoneIntoMessages(
     savedAsStopped,
   } = input;
 
+  // The saved reply is on screen already (a read brought it first): its stand-in goes, so it never shows twice.
+  if (messageId && prev.some((m) => m.id === messageId)) {
+    const rest = prev.filter((m) => m.id !== "streaming" && m.id !== stoppedStreamedId);
+    return rest.length === prev.length ? prev : rest;
+  }
+
   if (prev.some((m) => m.id === "streaming")) {
     if (!messageId && !draftContent.trim()) {
       return prev.filter((m) => m.id !== "streaming");

@@ -183,6 +183,34 @@ describe("chatSocketReduce", () => {
     expect(next[0].id).toBe("u1");
   });
 
+  describe("a done whose saved reply is already on screen", () => {
+    const user: Message = { id: "u1", role: "user", content: "Q", model: null, created_at: "t" };
+    const saved: Message = { id: "msg-1", role: "assistant", content: "A cat.", model: null, created_at: "t" };
+
+    it("drops the typing placeholder instead of showing the reply twice", () => {
+      const placeholder: Message = { id: "streaming", role: "assistant", content: "", model: null, created_at: "t" };
+      const next = mergeDoneIntoMessages([user, saved, placeholder], buildDoneMergeInput(
+        { type: "done", message_id: "msg-1", final_content: "A cat." }, { content: "A cat." },
+      ));
+      expect(next.map((m) => m.id)).toEqual(["u1", "msg-1"]);
+      expect(next[1]).toBe(saved);
+    });
+
+    it("drops a stopped bubble the same way", () => {
+      const stopped: Message = { id: "streamed-100", role: "assistant", content: "A c", model: null, created_at: "t" };
+      const next = mergeDoneIntoMessages([user, saved, stopped], {
+        finalId: "msg-1", messageId: "msg-1", draftContent: "", stoppedStreamedId: "streamed-100",
+      });
+      expect(next.map((m) => m.id)).toEqual(["u1", "msg-1"]);
+    });
+
+    it("does not append a second copy, and leaves the list as it was", () => {
+      const prev = [user, saved];
+      const next = mergeDoneIntoMessages(prev, { finalId: "msg-1", messageId: "msg-1", draftContent: "A cat." });
+      expect(next).toBe(prev);
+    });
+  });
+
   it("a later related_prompts event stores the full questions", () => {
     const prev: Message[] = [
       { id: "u1", role: "user", content: "what is the force?", model: null, created_at: "t" },

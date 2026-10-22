@@ -278,6 +278,41 @@ describe("kept chat pages", () => {
     expect(peekCachedChatPage("chat-2")?.messages).toEqual(turn(2));
   });
 
+  it("stays stale after the background until a read made after it, whatever changes here", () => {
+    keepCachedChatPage("chat-1", turn(1), false, FETCHED);
+    now = FETCHED + 1_000;
+    markCachedChatPagesStale();
+    now = FETCHED + 2_000;
+    // A thumbs-up on the reply changes the thread, but no read since the background backs it.
+    keepCachedChatPage("chat-1", [turn(1)[0], { ...turn(1)[1], feedback: "up" }], false, FETCHED);
+    expect(isCachedChatPageFresh("chat-1", undefined)).toBe(false);
+    keepCachedChatPage("chat-1", [...turn(1), ...turn(2)], false, FETCHED + 1_500);
+    expect(isCachedChatPageFresh("chat-1", undefined)).toBe(true);
+  });
+
+  it("never keeps a thread that shows a row twice, and leaves the page stale", () => {
+    keepCachedChatPage("chat-1", turn(1), false, FETCHED);
+    keepCachedChatPage("chat-1", [...turn(1), ...turn(2), { ...turn(2)[1] }], false, FETCHED);
+    expect(peekCachedChatPage("chat-1")?.messages).toEqual(turn(1));
+    expect(isCachedChatPageFresh("chat-1", undefined)).toBe(false);
+  });
+
+  it("keeps a sent picture's preview in memory but never in the file", async () => {
+    const sent = row("local-1", "user", { local_image_uri: "file:///picked.jpg" });
+    const file = row("local-2", "user", {
+      local_file_uri: "file:///picked.pdf", local_file_name: "notes.pdf", local_file_content_type: "application/pdf",
+    });
+    keepCachedChatPage("chat-1", [sent, row(uuid(1), "assistant"), file, row(uuid(2), "assistant")], false, FETCHED);
+    expect(peekCachedChatPage("chat-1")?.messages[0].local_image_uri).toBe("file:///picked.jpg");
+    mockIdle.splice(0).forEach((task) => task());
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    const written = JSON.parse((writeAsStringAsync as jest.Mock).mock.calls[0][1]).messages as Message[];
+    expect(written[0]).toEqual(row("local-1", "user"));
+    expect(written[2]).toEqual(row("local-2", "user", {
+      local_file_name: "notes.pdf", local_file_content_type: "application/pdf",
+    }));
+  });
+
   it("does not make a page fresher when the same thread is kept again", () => {
     keepCachedChatPage("chat-1", turn(1), false, FETCHED);
     now = FETCHED + 15_000;
