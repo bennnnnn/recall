@@ -26,8 +26,8 @@ from app.modules.physics.schemas import (
 )
 from app.modules.physics.solvers.circular import _orbit_scene
 from app.modules.physics.solvers.energy import height_scene
-from app.modules.physics.solvers.force_scenes import _free_body_scene
-from app.modules.physics.solvers.friction import _floor_scene, _incline_scene
+from app.modules.physics.solvers.force_scenes import free_body_scene
+from app.modules.physics.solvers.friction import _floor_scene, incline_scene
 from app.modules.physics.solvers.momentum import _collision_scene
 from app.modules.physics.solvers.motion_scenes import vertical_scene
 from app.modules.physics.solvers.optics_scenes import interface_scene, lens_scene
@@ -74,7 +74,7 @@ def _opposing(p: dict[str, float], value: float, *, net: bool) -> Scenes:
             )
         )
     leftover = f"a net {plain_number(abs(total))} N toward the larger" if total else "no net force"
-    return _free_body_scene(
+    return free_body_scene(
         vectors,
         label=_kg(p["m"]) if "m" in p else None,
         shape="box",
@@ -84,7 +84,7 @@ def _opposing(p: dict[str, float], value: float, *, net: bool) -> Scenes:
 
 def _pushed_box(force: float, *, mass: float, motion: str, alt: str) -> Scenes:
     """F = ma's picture: a push and the motion it gives, the same way round."""
-    return _free_body_scene(
+    return free_body_scene(
         [
             SimulationVector(anchor=[0.0, 0.0], dx=1.0, dy=0.0, label=f"F = {_given(force)} N"),
             SimulationVector(anchor=[0.0, -0.9], dx=1.0, dy=0.0, label=motion, role="motion"),
@@ -122,7 +122,7 @@ def _speed_from_net_force(p: dict[str, float], value: float) -> Scenes:
 def _terminal_drag(p: dict[str, float], value: float) -> Scenes:
     """Drag up, weight down, equal: steady speed is a balance."""
     shown = f"{plain_number(value)} N"
-    return _free_body_scene(
+    return free_body_scene(
         [
             SimulationVector(anchor=[0.0, 0.0], dx=0.0, dy=-1.0, label=f"W = {shown}"),
             SimulationVector(
@@ -143,7 +143,7 @@ def _applied_friction(p: dict[str, float], value: float) -> Scenes:
 
 
 def _weight_along_slope(p: dict[str, float], value: float) -> Scenes:
-    return _incline_scene(
+    return incline_scene(
         math.degrees(p["angle"]),
         mu=0.0,
         mass=p["m"],

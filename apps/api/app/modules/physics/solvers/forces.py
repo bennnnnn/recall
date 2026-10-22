@@ -10,8 +10,8 @@ from app.modules.physics.schemas import PhysicsIntent, SimulationVector
 from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.force_scenes import (
     _atwood_scene,
-    _free_body_scene,
     _vector_sum_scene,
+    free_body_scene,
 )
 from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
 from app.modules.physics.solvers.si import gravity_of, params_in_si
@@ -50,7 +50,7 @@ def _tension(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
         # Two arrows and a mass is the whole of this problem, and seeing
         # them is what makes T = m(g + a) rather than m*a obvious: the rope
         # carries the weight *and* the acceleration.
-        simulation_specs=_free_body_scene(
+        simulation_specs=free_body_scene(
             [
                 SimulationVector(
                     anchor=[0.0, 0.0],
@@ -271,7 +271,7 @@ def _newton_second_law(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsRes
     # that ma is one more force on the block.
     force = p.get("F", p.get("m", 0.0) * p.get("a", 0.0))
     accel = p.get("a", p.get("F", 0.0) / p["m"] if p.get("m") else 0.0)
-    scene = _free_body_scene(
+    scene = free_body_scene(
         [
             SimulationVector(
                 anchor=[0.0, 0.0],

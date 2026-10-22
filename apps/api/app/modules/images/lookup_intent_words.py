@@ -71,6 +71,10 @@ LOOKUP_ONLY_NON_IMAGE_WORDS = frozenset(
         "diagrams",
         "flowchart",
         "flowcharts",
+        # "Show the forces acting on a hanging mass": a free-body diagram the app draws.
+        "forces",
+        "free-body",
+        "fbd",
         "formula",
         "formulas",
         "calculation",
