@@ -26,8 +26,11 @@ export type SvgMathResult = {
 type SvgMathRenderer = (latex: string, display: boolean) => string;
 
 const cache = new Map<string, SvgMathResult | null>();
-/** What the view made of a formula's SVG in one color, by `color|latex` (`svgMathDrawing`). */
-const drawings = new Map<string, unknown>();
+/**
+ * What the view made of a converted formula in each color (`svgMathDrawing`),
+ * held by the conversion it was made from: it lives as long as that result.
+ */
+let drawings = new WeakMap<SvgMathResult, Map<string, unknown>>();
 let rendererImpl: SvgMathRenderer | null = null;
 let rendererPromise: Promise<SvgMathRenderer> | null = null;
 
@@ -44,18 +47,14 @@ function cacheGet(key: string): SvgMathResult | null | undefined {
   return value;
 }
 
-function lruSet<T>(store: Map<string, T>, key: string, value: T): void {
-  store.delete(key);
-  store.set(key, value);
-  while (store.size > CACHE_MAX) {
-    const oldest = store.keys().next().value;
-    if (oldest === undefined) break;
-    store.delete(oldest);
-  }
-}
-
 function cacheSet(key: string, value: SvgMathResult | null): void {
-  lruSet(cache, key, value);
+  cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > CACHE_MAX) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
 }
 
 /** Extract the `<svg>…</svg>` from a MathJax mjx-container, dropping the
@@ -165,20 +164,22 @@ export function warmSvgMath(): void {
 }
 
 /**
- * What `draw` makes of a display formula's SVG in one color (the view parses
- * it into react-native-svg's tree), kept so a formula drawn again — a list
- * row reused, a piece of a streaming reply cut off — is not parsed again.
+ * What `draw` makes of one converted formula in one color (the view parses
+ * its SVG into react-native-svg's tree), kept with that conversion so the
+ * formula drawn again — a list row reused, a piece of a streaming reply cut
+ * off — is not parsed again. Keyed by the result itself, never by a latex
+ * string, so a drawing can only ever belong to the formula it was made from.
  * Dropped with the SVG cache.
  */
-export function svgMathDrawing<T>(latex: string, color: string, draw: () => T): T {
-  const key = `${color}|${latex.trim()}`;
-  if (drawings.has(key)) {
-    const kept = drawings.get(key) as T;
-    lruSet(drawings, key, kept);
-    return kept;
+export function svgMathDrawing<T>(result: SvgMathResult, color: string, draw: () => T): T {
+  let byColor = drawings.get(result);
+  if (!byColor) {
+    byColor = new Map();
+    drawings.set(result, byColor);
   }
+  if (byColor.has(color)) return byColor.get(color) as T;
   const drawing = draw();
-  lruSet(drawings, key, drawing);
+  byColor.set(color, drawing);
   return drawing;
 }
 
@@ -224,7 +225,7 @@ export async function latexToSvgMath(
 /** Sign-out: the cache holds maths from the previous account's replies. */
 export function clearSvgMathCache(): void {
   cache.clear();
-  drawings.clear();
+  drawings = new WeakMap();
 }
 
 /** Test hook: inject a fake renderer (and clear the cache) without mathjax. */
@@ -232,5 +233,5 @@ export function setSvgMathRendererForTest(renderer: SvgMathRenderer | null): voi
   rendererImpl = renderer;
   rendererPromise = null;
   cache.clear();
-  drawings.clear();
+  drawings = new WeakMap();
 }

@@ -109,6 +109,51 @@ describe("MathSvgView does not stretch a short SVG to minHeight", () => {
   });
 });
 
+describe("MathSvgView whose latex changes while it is mounted", () => {
+  beforeEach(() => {
+    // Each formula's SVG names the formula it came from.
+    setSvgMathRendererForTest(
+      (latex: string) =>
+        `<mjx-container><svg xmlns="http://www.w3.org/2000/svg" width="2ex" height="1ex" viewBox="0 0 800 500"><path data-formula="${latex}" fill="currentColor" d="M0 0"></path></svg></mjx-container>`,
+    );
+  });
+
+  const drawnFormulas = () =>
+    mockSvgXml.mock.calls.map((call) => /data-formula="([^"]*)"/.exec(call[0].xml)?.[1]);
+
+  it("draws the new formula, never the old one under the new latex", async () => {
+    // A streaming answer's card, or a reused row: one view, a new formula.
+    const view = await render(<MathSvgView latex="a+b" textColor="#111111" />);
+    await waitFor(() => expect(drawnFormulas()).toEqual(["a+b"]));
+    mockSvgXml.mockClear();
+
+    await view.rerender(<MathSvgView latex="c+d" textColor="#111111" />);
+    await waitFor(() => expect(drawnFormulas().at(-1)).toBe("c+d"));
+    expect(drawnFormulas()).not.toContain("a+b");
+    await view.unmount();
+
+    // A fresh view of the new formula, later: its own drawing, not the old one.
+    mockSvgXml.mockClear();
+    await render(<MathSvgView latex="c+d" textColor="#111111" />);
+    await waitFor(() => expect(mockSvgXml).toHaveBeenCalled());
+    expect(drawnFormulas()).toEqual(["c+d"]);
+  });
+
+  it("draws a formula already converted at once when the latex switches to it", async () => {
+    const first = await render(<MathSvgView latex="c+d" textColor="#111111" />);
+    await waitFor(() => expect(mockSvgXml).toHaveBeenCalled());
+    await first.unmount();
+
+    const view = await render(<MathSvgView latex="a+b" textColor="#111111" />);
+    await waitFor(() => expect(drawnFormulas().at(-1)).toBe("a+b"));
+    mockSvgXml.mockClear();
+    await view.rerender(<MathSvgView latex="c+d" textColor="#111111" />);
+    // From the first frame of the new latex: no loading slot, no old formula.
+    expect(drawnFormulas()[0]).toBe("c+d");
+    expect(new Set(drawnFormulas())).toEqual(new Set(["c+d"]));
+  });
+});
+
 describe("MathSvgView keeps a formula's parsed drawing", () => {
   beforeEach(() => {
     setSvgMathRendererForTest(

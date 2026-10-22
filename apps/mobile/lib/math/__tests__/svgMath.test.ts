@@ -3,6 +3,7 @@ import {
   latexToSvgMath,
   parseExDimension,
   peekSvgMath,
+  clearSvgMathCache,
   setSvgMathRendererForTest,
   svgMathDrawing,
   svgPaintsGlyphs,
@@ -139,18 +140,27 @@ describe("warmSvgMath", () => {
 });
 
 describe("svgMathDrawing", () => {
-  it("draws a formula once per color, and again after the cache is cleared", () => {
+  it("draws a conversion once per color, and again after the cache is cleared", async () => {
     setSvgMathRendererForTest(() => CONTAINER);
+    const result = (await latexToSvgMath("x^2", true))!;
     const draw = jest.fn(() => ({ drawn: true }));
-    const first = svgMathDrawing("x^2", "#111", draw);
-    expect(svgMathDrawing(" x^2 ", "#111", draw)).toBe(first);
+    const first = svgMathDrawing(result, "#111", draw);
+    expect(svgMathDrawing(result, "#111", draw)).toBe(first);
     expect(draw).toHaveBeenCalledTimes(1);
 
-    svgMathDrawing("x^2", "#eee", draw);
+    svgMathDrawing(result, "#eee", draw);
     expect(draw).toHaveBeenCalledTimes(2);
 
-    setSvgMathRendererForTest(null);
-    svgMathDrawing("x^2", "#111", draw);
+    clearSvgMathCache();
+    svgMathDrawing(result, "#111", draw);
     expect(draw).toHaveBeenCalledTimes(3);
+  });
+
+  it("never hands one formula's drawing to another", async () => {
+    setSvgMathRendererForTest((latex) => CONTAINER.replace("M0 0", `M${latex.length} 0`));
+    const short = (await latexToSvgMath("a", true))!;
+    const long = (await latexToSvgMath("a+b", true))!;
+    expect(svgMathDrawing(short, "#111", () => "short")).toBe("short");
+    expect(svgMathDrawing(long, "#111", () => "long")).toBe("long");
   });
 });
