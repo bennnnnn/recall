@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from app.core.config import Settings
 from app.gateways.http_client import get_pooled_client
+from app.gateways.mock_llm import should_mock_search
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +94,9 @@ async def search_images(
 
     if not settings.image_search_enabled:
         return []
+    if should_mock_search(settings):
+        return mock_image_results(cleaned, max_results=limit)
     if not settings.tavily_api_key.strip():
-        if settings.mock_llm_enabled:
-            return mock_image_results(cleaned, max_results=limit)
         return []
 
     payload = {
