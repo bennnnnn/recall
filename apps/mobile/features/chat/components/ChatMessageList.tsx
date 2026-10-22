@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { HomeStarters } from "@/features/home/components/HomeStarters";
 import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
+import { useWarmMathRenderer } from "@/features/chat/hooks/useWarmMathRenderer";
 import { SkeletonChatBubbles } from "@/ui/feedback/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {
@@ -58,6 +59,7 @@ function ChatMessageListComponent({
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
+  useWarmMathRenderer();
   const s = useMemo(() => makeStyles(theme), [theme]);
   // Stable content-container style: the previous inline `{ paddingTop, paddingBottom }`
   // object was fresh every render, so FlashList re-laid out on every parent render

@@ -26,6 +26,8 @@ export type SvgMathResult = {
 type SvgMathRenderer = (latex: string, display: boolean) => string;
 
 const cache = new Map<string, SvgMathResult | null>();
+/** What the view made of a formula's SVG in one color, by `color|latex` (`svgMathDrawing`). */
+const drawings = new Map<string, unknown>();
 let rendererImpl: SvgMathRenderer | null = null;
 let rendererPromise: Promise<SvgMathRenderer> | null = null;
 
@@ -42,14 +44,18 @@ function cacheGet(key: string): SvgMathResult | null | undefined {
   return value;
 }
 
-function cacheSet(key: string, value: SvgMathResult | null): void {
-  cache.delete(key);
-  cache.set(key, value);
-  while (cache.size > CACHE_MAX) {
-    const oldest = cache.keys().next().value;
+function lruSet<T>(store: Map<string, T>, key: string, value: T): void {
+  store.delete(key);
+  store.set(key, value);
+  while (store.size > CACHE_MAX) {
+    const oldest = store.keys().next().value;
     if (oldest === undefined) break;
-    cache.delete(oldest);
+    store.delete(oldest);
   }
+}
+
+function cacheSet(key: string, value: SvgMathResult | null): void {
+  lruSet(cache, key, value);
 }
 
 /** Extract the `<svg>…</svg>` from a MathJax mjx-container, dropping the
@@ -144,6 +150,38 @@ function getRenderer(): Promise<SvgMathRenderer> {
   return rendererPromise;
 }
 
+/**
+ * Load MathJax before the first display formula needs it, so that formula
+ * draws at once instead of after the parser loads. A trivial formula runs
+ * through it too, so its first real one is not the slow first conversion.
+ * Safe to call more than once; a failure is left for the formula to retry.
+ */
+export function warmSvgMath(): void {
+  void getRenderer()
+    .then((render) => {
+      render("x", true);
+    })
+    .catch(() => {});
+}
+
+/**
+ * What `draw` makes of a display formula's SVG in one color (the view parses
+ * it into react-native-svg's tree), kept so a formula drawn again — a list
+ * row reused, a piece of a streaming reply cut off — is not parsed again.
+ * Dropped with the SVG cache.
+ */
+export function svgMathDrawing<T>(latex: string, color: string, draw: () => T): T {
+  const key = `${color}|${latex.trim()}`;
+  if (drawings.has(key)) {
+    const kept = drawings.get(key) as T;
+    lruSet(drawings, key, kept);
+    return kept;
+  }
+  const drawing = draw();
+  lruSet(drawings, key, drawing);
+  return drawing;
+}
+
 /** Cache lookup only: `undefined` = never attempted, `null` = known failure. */
 export function peekSvgMath(latex: string, display: boolean): SvgMathResult | null | undefined {
   return cacheGet(cacheKey(latex.trim(), display));
@@ -186,6 +224,7 @@ export async function latexToSvgMath(
 /** Sign-out: the cache holds maths from the previous account's replies. */
 export function clearSvgMathCache(): void {
   cache.clear();
+  drawings.clear();
 }
 
 /** Test hook: inject a fake renderer (and clear the cache) without mathjax. */
@@ -193,4 +232,5 @@ export function setSvgMathRendererForTest(renderer: SvgMathRenderer | null): voi
   rendererImpl = renderer;
   rendererPromise = null;
   cache.clear();
+  drawings.clear();
 }

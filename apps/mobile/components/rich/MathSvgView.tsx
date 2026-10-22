@@ -1,9 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SvgXml } from "react-native-svg";
+import { parse, SvgAst, type JsxAST } from "react-native-svg";
 
 import { MathText } from "@/components/rich/MathText";
-import { latexToSvgMath, peekSvgMath, type SvgMathResult } from "@/lib/math/svgMath";
+import {
+  latexToSvgMath,
+  peekSvgMath,
+  svgMathDrawing,
+  type SvgMathResult,
+} from "@/lib/math/svgMath";
 import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
 import { Space } from "@/lib/space";
 
@@ -50,17 +55,25 @@ export const MathSvgView = React.memo(function MathSvgView({
     };
   }, [latex]);
 
-  // react-native-svg does not resolve currentColor — substitute the theme color.
-  const xml = useMemo(
-    () => (result ? result.svg.split("currentColor").join(textColor) : null),
-    [result, textColor],
-  );
+  // react-native-svg does not resolve currentColor — substitute the theme
+  // color. The parsed tree is kept per formula and color: drawing the same
+  // formula again (a reused row, a re-cut streaming piece) parses nothing.
+  const ast = useMemo((): JsxAST | null => {
+    if (!result) return null;
+    try {
+      return svgMathDrawing(latex, textColor, () =>
+        parse(result.svg.split("currentColor").join(textColor)),
+      );
+    } catch {
+      return null;
+    }
+  }, [latex, result, textColor]);
 
   if (result === undefined) {
     return <View style={[styles.wrap, { minHeight }]} testID="math-svg-loading" />;
   }
 
-  if (result === null || xml == null) {
+  if (result === null || ast == null) {
     const hasNestedView = latexHasNestedMathView(latex);
     return (
       <View style={[styles.wrap, styles.fallbackBox]} testID="math-svg-fallback">
@@ -97,12 +110,9 @@ export const MathSvgView = React.memo(function MathSvgView({
         style={{ height }}
         contentContainerStyle={styles.lineScroll}
       >
-        <SvgXml
-          xml={xml}
-          width={width}
-          height={height}
-          preserveAspectRatio="xMidYMid meet"
-          testID="math-svg"
+        <SvgAst
+          ast={ast}
+          override={{ width, height, preserveAspectRatio: "xMidYMid meet", testID: "math-svg" }}
         />
       </ScrollView>
     </View>

@@ -4,7 +4,9 @@ import {
   parseExDimension,
   peekSvgMath,
   setSvgMathRendererForTest,
+  svgMathDrawing,
   svgPaintsGlyphs,
+  warmSvgMath,
 } from "@/lib/math/svgMath";
 
 const CONTAINER =
@@ -112,5 +114,43 @@ describe("latexToSvgMath", () => {
   it("peekSvgMath is undefined before any attempt", () => {
     setSvgMathRendererForTest(() => CONTAINER);
     expect(peekSvgMath("never-attempted", true)).toBeUndefined();
+  });
+});
+
+describe("warmSvgMath", () => {
+  it("loads the renderer and runs a formula through it, caching nothing", async () => {
+    const render = jest.fn(() => CONTAINER);
+    setSvgMathRendererForTest(render);
+    warmSvgMath();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(render).toHaveBeenCalledWith("x", true);
+    expect(peekSvgMath("x", true)).toBeUndefined();
+  });
+
+  it("leaves a renderer that fails for the formula to retry", async () => {
+    setSvgMathRendererForTest(() => {
+      throw new Error("not loaded");
+    });
+    expect(() => warmSvgMath()).not.toThrow();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+});
+
+describe("svgMathDrawing", () => {
+  it("draws a formula once per color, and again after the cache is cleared", () => {
+    setSvgMathRendererForTest(() => CONTAINER);
+    const draw = jest.fn(() => ({ drawn: true }));
+    const first = svgMathDrawing("x^2", "#111", draw);
+    expect(svgMathDrawing(" x^2 ", "#111", draw)).toBe(first);
+    expect(draw).toHaveBeenCalledTimes(1);
+
+    svgMathDrawing("x^2", "#eee", draw);
+    expect(draw).toHaveBeenCalledTimes(2);
+
+    setSvgMathRendererForTest(null);
+    svgMathDrawing("x^2", "#111", draw);
+    expect(draw).toHaveBeenCalledTimes(3);
   });
 });
