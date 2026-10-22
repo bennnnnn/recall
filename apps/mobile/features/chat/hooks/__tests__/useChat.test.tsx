@@ -35,7 +35,6 @@ jest.mock("@/features/chat/model/sse", () => ({
   streamChatMessageSse: jest.fn(),
   streamChatRegenerateSse: jest.fn(),
   shouldAbortPriorSse: (previous: string, next: string) => previous === next,
-  isSseAbortError: (error: Error) => error.name === "AbortError",
 }));
 
 class FakeSocket {

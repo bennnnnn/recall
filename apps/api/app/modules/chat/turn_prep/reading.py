@@ -16,6 +16,9 @@ from typing import Any
 from app.core.config import Settings
 from app.core.readings import first_read, read_off_loop
 
+# Exchanges a terse follow-up reaches back over (``math.followup``).
+_FOLLOWUP_EXCHANGES = 4
+
 
 def ask_turn_readings(
     content: str,
@@ -25,6 +28,7 @@ def ask_turn_readings(
     lesson_active: bool,
     has_image_attachment: bool,
     settings: Settings,
+    earlier_lines: tuple[str, ...] = (),
 ) -> None:
     """Every reading the turn's sync code asks of its message. Runs in a pool worker."""
     from app.modules.chat.turn_prep.intents import plan_turn
@@ -44,6 +48,13 @@ def ask_turn_readings(
             extract_math_intent(text)
     extract_math_intent(content)
     extract_physics_intent(content)
+    # The follow-up readers ask the subject of the user's earlier lines: a physics or
+    # chemistry problem is not replayed through maths. Routing asks the line before this
+    # one whenever the turn may inherit its lane.
+    for text in earlier_lines:
+        detect_subject(text)
+    if prior_user:
+        detect_subject(prior_user, chemistry_enabled=chemistry)
     route_chat_model(
         content,
         prior_user=prior_user,
@@ -66,9 +77,14 @@ async def read_turn_message(
     pays only for what changed.
     """
     from app.modules.chat.prompt_constants import active_lesson_step
+    from app.services.problem_followup import message_role_content
     from app.services.routing import last_user_turn
 
-    prior_user, prior_model = last_user_turn(list(recent))
+    earlier = list(recent)
+    # The message's own row may already be in the window: it is not the line before it.
+    if earlier and message_role_content(earlier[-1]) == ("user", content):
+        earlier.pop()
+    prior_user, prior_model = last_user_turn(earlier)
     if not first_read(("turn_message", content, prior_user, has_image_attachment)):
         return
     await read_off_loop(
@@ -79,8 +95,23 @@ async def read_turn_message(
         lesson_active=active_lesson_step(list(recent)) is not None,
         has_image_attachment=has_image_attachment,
         settings=settings,
+        earlier_lines=_earlier_user_lines(earlier),
         timeout=settings.subject_read_timeout_seconds,
     )
+
+
+def _earlier_user_lines(earlier: Sequence[Any]) -> tuple[str, ...]:
+    """The user's lines in the last four exchanges, as far back as a follow-up looks."""
+    from app.services.problem_followup import message_role_content
+
+    lines: list[str] = []
+    for message in reversed(earlier):
+        role, text = message_role_content(message)
+        if role == "user" and text and text.strip():
+            lines.append(text)
+            if len(lines) == _FOLLOWUP_EXCHANGES:
+                break
+    return tuple(lines)
 
 
 def warm_pool_worker() -> None:

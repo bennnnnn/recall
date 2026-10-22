@@ -11,6 +11,11 @@
 
 import type { RecurrenceRule } from "@/lib/api/types";
 import { RECURRENCE_RULES } from "@/lib/api/types";
+import {
+  collectClosedFenceBodies,
+  stripClosedLangFence,
+  stripUnclosedLangTail,
+} from "@/lib/mdFenceScan";
 
 export type ReminderProposalAction =
   | "add"
@@ -48,8 +53,6 @@ const ACTIONS = new Set<ReminderProposalAction>([
   "clear_due",
   "move",
 ]);
-const FENCE_RE = /```reminder_proposal[ \t]*\n([\s\S]*?)```/gi;
-const UNCLOSED_RE = /```reminder_proposal[\s\S]*$/i;
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -89,9 +92,9 @@ function normalizeProposal(raw: unknown): ReminderProposal | null {
 export function parseReminderProposals(content: string): ReminderProposal[] {
   if (!content.includes("```reminder_proposal")) return [];
   const proposals: ReminderProposal[] = [];
-  for (const match of content.matchAll(new RegExp(FENCE_RE.source, "gi"))) {
+  for (const body of collectClosedFenceBodies(content, "reminder_proposal")) {
     try {
-      const parsed = normalizeProposal(JSON.parse(match[1] ?? ""));
+      const parsed = normalizeProposal(JSON.parse(body));
       if (parsed) proposals.push(parsed);
     } catch {
       /* a broken card is dropped, not drawn */
@@ -102,9 +105,8 @@ export function parseReminderProposals(content: string): ReminderProposal[] {
 
 export function stripReminderProposalFences(content: string): string {
   if (!content.includes("```reminder_proposal")) return content;
-  return content
-    .replace(new RegExp(FENCE_RE.source, "gi"), "")
-    .replace(UNCLOSED_RE, "")
+  const closed = stripClosedLangFence(content, "reminder_proposal");
+  return stripUnclosedLangTail(closed, "reminder_proposal")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

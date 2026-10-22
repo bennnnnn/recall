@@ -21,9 +21,10 @@ import re
 from dataclasses import dataclass
 from decimal import InvalidOperation
 
+from app.services.glyphs import fold_operator_glyphs
+from app.services.md_fence_scan import map_fence_blocks
 from app.services.school_rounding import round_places
 
-_FENCE_BLOCK = re.compile(r"^[ \t>]*(`{3,}|~{3,})[^\n]*\n.*?^[ \t>]*\1[ \t]*$", re.DOTALL | re.M)
 _INLINE_CODE = re.compile(r"`[^`\n]*`")
 # A written result: 14.8, -3, or 1.204 * 10^24 once it is plain text.
 _SHOWN = re.compile(
@@ -120,14 +121,11 @@ def _plain(tex: str) -> str | None:
         text = _FRAC.sub(r"((\1)/(\2))", text)
         text = _SQRT.sub(r"sqrt(\1)", text)
         text = _POWER.sub(r"**(\1)", text)
+    text = fold_operator_glyphs(text)
     for latex, plain in (
         ("\\times", "*"),
         ("\\cdot", "*"),
-        ("\u00d7", "*"),  # multiplication sign
-        ("·", "*"),
         ("\\div", "/"),
-        ("÷", "/"),
-        ("\u2212", "-"),  # minus sign
         ("\\,", ""),
         ("\\;", ""),
         ("\\!", ""),
@@ -246,7 +244,7 @@ def _is_wrong(value: float, shown: float, rounding: float, approximate: bool) ->
 def wrong_steps(reply: str) -> list[WrongStep]:
     """The steps in ``reply`` whose arithmetic does not hold, in reading order."""
     found: list[WrongStep] = []
-    prose = _INLINE_CODE.sub(" ", _FENCE_BLOCK.sub("\n", reply))
+    prose = _INLINE_CODE.sub(" ", map_fence_blocks(reply, lambda _fence, _body: "\n"))
     for match in _INLINE_MATH.finditer(prose):
         segment = match.group(1)
         parts = _RELATION.split(segment)

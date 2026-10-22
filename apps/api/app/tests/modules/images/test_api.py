@@ -69,7 +69,7 @@ def test_generate_image_stops_at_each_plans_daily_cap(quota_clock, plan, cap):
             json={"chat_id": str(uuid4()), "prompt": "a cat"},
         )
     assert r.status_code == 429
-    assert ("Upgrade" in r.json()["detail"]) is (plan == "free")
+    assert ("Upgrade" in r.json()["detail"]["message"]) is (plan == "free")
 
 
 def test_generate_image_quota_exhausted(quota_clock):

@@ -25,6 +25,7 @@ from pydantic import (
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_when import DAY_NAMES, due_on_day, read_clock
 from app.services import time_context as time_context_service
+from app.services.md_fence_scan import block_end, iter_fences
 
 _DECLINES_REMINDER_CREATE_RE = re.compile(
     r"\b(?:do\s+not|don(?:'|\u2019)?t|dont|never)\s+"
@@ -111,38 +112,17 @@ def parse_fence(raw: str) -> ReminderFence | None:
 
 
 def find_reminder_fences(text: str) -> list[tuple[int, int, str]]:
-    """Linear scan for ```reminder fences → (start, end, body) spans.
+    """Each closed ```reminder fence: (start, end before its closer's line break, body).
 
-    CodeQL py/polynomial-redos flagged the old `` ```reminder\\s*\\n([\\s\\S]*?)``` ``
-    regex: on uncontrolled LLM output the ``\\s*\\n`` / lazy-any combination
-    backtracks over whitespace and backtick runs. This scan is ``str.find``
-    plus a whitespace walk only — every character is visited O(1) times.
-
-    Semantics match the regex: the language tag is case-insensitive, the
-    whitespace run after it must contain a newline, the body is everything
-    up to the next triple backtick, and unclosed fences do not match.
+    Read with the one fence grammar, linear (the regex before it was a CodeQL
+    py/polynomial-redos finding), which closes a fence only on a closer line: the scan
+    before it closed on the first triple backtick anywhere (code-health audit DUP-03).
     """
-    spans: list[tuple[int, int, str]] = []
-    lowered = text.lower()
-    pos = 0
-    length = len(text)
-    while True:
-        start = lowered.find("```reminder", pos)
-        if start < 0:
-            return spans
-        index = start + len("```reminder")
-        saw_newline = False
-        while index < length and text[index].isspace():
-            saw_newline = saw_newline or text[index] == "\n"
-            index += 1
-        if not saw_newline:
-            pos = start + 1
-            continue
-        end_ticks = text.find("```", index)
-        if end_ticks < 0:
-            return spans
-        spans.append((start, end_ticks + 3, text[index:end_ticks]))
-        pos = end_ticks + 3
+    return [
+        (fence.start, block_end(text, fence), text[fence.body_start : fence.body_end])
+        for fence in iter_fences(text)
+        if fence.closed and fence.lang == "reminder"
+    ]
 
 
 def _find_phrase(haystack: str, needle: str, *, start: int = 0) -> int:

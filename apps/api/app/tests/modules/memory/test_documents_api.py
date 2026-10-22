@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
+from app.core.domain_errors import register_domain_error_handler
 from app.models.orm import Memory
 from app.modules import memory as memory_service
 from app.modules.memory import instruct as instruct_service
@@ -23,6 +24,7 @@ from app.modules.memory.instruct import MemoryInstructionOutcome
 def _client() -> tuple[TestClient, SimpleNamespace]:
     app = FastAPI()
     app.include_router(router)
+    register_domain_error_handler(app)
     user = SimpleNamespace(id=uuid4(), memory_enabled=True, memory_history_scanned_at=None)
     app.dependency_overrides[get_db] = lambda: AsyncMock()
     app.dependency_overrides[get_current_user] = lambda: user

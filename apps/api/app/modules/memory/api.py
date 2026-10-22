@@ -25,7 +25,6 @@ from app.services import quota as quota_service
 
 router = APIRouter(prefix="/memories", tags=["memories"])
 
-_LOCK_BUSY_DETAIL = "Memory is being updated right now — try again in a moment."
 # Direct edits call the model; this bounds them per user per hour.
 _INSTRUCT_PER_HOUR = 30
 
@@ -91,10 +90,7 @@ async def delete_memory_document(
     key = parse_topic(topic)
     if key is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
-    try:
-        deleted = await memory_service.delete_memory_document(session, user.id, key)
-    except memory_service.MemoryWriteLockBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
+    deleted = await memory_service.delete_memory_document(session, user.id, key)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
 
@@ -119,22 +115,12 @@ async def instruct_memory(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many memory edits — try again later.",
         )
-    try:
-        outcome = await instruct_service.apply_memory_instruction(
-            settings,
-            user_id=user.id,
-            instruction=body.instruction.strip(),
-            focus_topic=body.topic,
-        )
-    except memory_service.MemoryWriteLockBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
-    except instruct_service.MemoryOffError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Memory is off.") from exc
-    except instruct_service.MemoryInstructionFailedError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Memory couldn't be updated right now — try again.",
-        ) from exc
+    outcome = await instruct_service.apply_memory_instruction(
+        settings,
+        user_id=user.id,
+        instruction=body.instruction.strip(),
+        focus_topic=body.topic,
+    )
     return MemoryInstructOut(
         reply=outcome.reply,
         applied=outcome.applied,
@@ -147,10 +133,7 @@ async def delete_all_memories(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    try:
-        await memory_service.delete_all_memories(session, user.id)
-    except memory_service.MemoryWriteLockBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
+    await memory_service.delete_all_memories(session, user.id)
 
 
 @router.patch("/{memory_id}", response_model=MemoryOut)
@@ -161,17 +144,9 @@ async def update_memory(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> MemoryOut:
-    try:
-        updated = await memory_service.update_memory(
-            session, settings, user.id, memory_id, body.text, status=body.status
-        )
-    except memory_service.MemoryWriteLockBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
-    except memory_service.MemoryEmptyTextError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Memory text cannot be empty",
-        ) from exc
+    updated = await memory_service.update_memory(
+        session, settings, user.id, memory_id, body.text, status=body.status
+    )
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
     return MemoryOut.model_validate(updated)
@@ -183,9 +158,6 @@ async def delete_memory(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    try:
-        deleted = await memory_service.delete_memory(session, user.id, memory_id)
-    except memory_service.MemoryWriteLockBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
+    deleted = await memory_service.delete_memory(session, user.id, memory_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")

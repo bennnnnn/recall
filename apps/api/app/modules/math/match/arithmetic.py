@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from app.services.glyphs import OPERATOR_GLYPHS
 from app.services.text_match import word_index
 from app.services.text_normalize import collapse_ws
 
@@ -45,18 +46,7 @@ _ARITH_CUES: tuple[str, ...] = (
 )
 # OCR / keyboard glyphs → ASCII before SymPy. Keep ÷ unambiguous *before* this
 # map so a lone ASCII `/` can still look like a date.
-_ARITH_OP_ASCII: tuple[tuple[str, str], ...] = (
-    ("\u00d7", "*"),
-    ("\u22c5", "*"),
-    ("\u00b7", "*"),
-    ("\u2217", "*"),
-    ("\u00f7", "/"),
-    ("\u2215", "/"),
-    ("\u2044", "/"),
-    ("\u2212", "-"),
-    ("\u2013", "-"),
-    ("\u2014", "-"),
-)
+_ARITH_OP_ASCII: tuple[tuple[str, str], ...] = tuple(OPERATOR_GLYPHS.items())
 _UNAMBIGUOUS_ARITH = frozenset("*^" + "".join(src for src, dst in _ARITH_OP_ASCII if dst in "*/"))
 _ARITH_ALLOWED = frozenset("0123456789.+-*/^()! " + "".join(src for src, _ in _ARITH_OP_ASCII))
 # Functions whose value at a number is one number in any unit system.

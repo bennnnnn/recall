@@ -13,9 +13,6 @@ import {
 import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/latency";
 import { setConsentRequiredHandler } from "@/lib/api/consentRefusal";
 
-jest.mock("@/features/chat/model/sse", () => ({
-  isSseAbortError: (error: Error) => error.name === "AbortError",
-}));
 jest.mock("@/features/chat/model/latency", () => ({
   clearPendingChatTtft: jest.fn(),
   markChatFirstToken: jest.fn(),

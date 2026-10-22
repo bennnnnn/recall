@@ -10,11 +10,7 @@ import numpy as np
 from sympy import (
     EmptySet,
     FiniteSet,
-    Ge,
-    Gt,
     Interval,
-    Le,
-    Lt,
     S,
     Symbol,
     Union,
@@ -23,7 +19,6 @@ from sympy import (
     limit,
     sin,
     solve,
-    solveset,
     tan,
 )
 from sympy.calculus.singularities import singularities
@@ -42,6 +37,7 @@ from app.modules.math.solve.extract_eq import (
     try_extract_inequality_from_text,
 )
 from app.modules.math.solve.graph_expr_text import graph_expr_text
+from app.modules.math.solve.inequalities import compound_solution_set, inequality_solution_set
 from app.modules.math.solve.parse import _parse_expression
 from app.services.solving import SolveServiceError
 
@@ -516,41 +512,15 @@ def _collect_number_line_intervals(sol: Any, out: list[NumberLineInterval]) -> b
 
 
 def _inequality_solution_set(expr: str, variable: str) -> Any:
-    """Solve a 1-variable inequality; returns a SymPy set (possibly empty)."""
+    """The set a number line draws: the answer card's own (``solve/inequalities.py``)."""
     compound = try_extract_compound_inequality_from_text(expr)
     if compound is not None:
-        low, low_op, mid, high_op, high = compound
-        sym = Symbol(variable, real=True)
-        low_e = _parse_expression(low, [variable], real=True)
-        mid_e = _parse_expression(mid, [variable], real=True)
-        high_e = _parse_expression(high, [variable], real=True)
-        ascending = low_op in ("<", "<=") and high_op in ("<", "<=")
-        descending = low_op in (">", ">=") and high_op in (">", ">=")
-        if ascending:
-            lower_rel = Gt(mid_e, low_e) if low_op == "<" else Ge(mid_e, low_e)
-            upper_rel = Lt(mid_e, high_e) if high_op == "<" else Le(mid_e, high_e)
-        elif descending:
-            lower_rel = Lt(mid_e, low_e) if low_op == ">" else Le(mid_e, low_e)
-            upper_rel = Gt(mid_e, high_e) if high_op == ">" else Ge(mid_e, high_e)
-        else:
-            raise SolveServiceError("Unsupported compound inequality direction")
-        return solveset(lower_rel, sym, domain=S.Reals).intersect(
-            solveset(upper_rel, sym, domain=S.Reals)
-        )
-
+        return compound_solution_set(*compound, variable)
     ineq = try_extract_inequality_from_text(expr)
     if ineq is None:
         raise SolveServiceError("Not a 1-variable inequality")
     lhs, rhs, comparator = ineq
-    # Number lines are real; solveset(..., Reals) returns Interval/Union,
-    # unlike solve_univariate_inequality which can return a Relational.
-    sym = Symbol(variable, real=True)
-    left = _parse_expression(lhs, [variable], real=True)
-    right = _parse_expression(rhs, [variable], real=True)
-    rel_cls = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}.get(comparator)
-    if rel_cls is None:
-        raise SolveServiceError(f"Unknown inequality comparator: {comparator}")
-    return solveset(rel_cls(left, right), sym, domain=S.Reals)
+    return inequality_solution_set(lhs, rhs, comparator, variable)
 
 
 def number_line_spec_from_expr(expr: str, variable: str = "x") -> GraphBlockSpec | None:

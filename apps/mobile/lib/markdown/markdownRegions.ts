@@ -5,7 +5,7 @@
  */
 
 import { escapedAt, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
-import { readFenceMarker } from "@/lib/mdFenceScan";
+import { closesFence, readFenceMarker, type OpenFence } from "@/lib/mdFenceScan";
 
 /** Restaurant price tiers, ($) to ($$$$), are not maths. */
 export const PRICE_TIER = /\(\s*\$+\s*\)/;
@@ -23,7 +23,7 @@ export function rewriteFenced(
   if (!text) return rewriteProse(text);
   const out: string[] = [];
   let prose: string[] = [];
-  let open: { char: "`" | "~"; len: number } | null = null;
+  let open: OpenFence | null = null;
   let opener = "";
   let body: string[] = [];
   const flush = () => {
@@ -34,7 +34,7 @@ export function rewriteFenced(
   for (const line of text.split("\n")) {
     const marker = readFenceMarker(line);
     if (open) {
-      if (marker && marker.char === open.char && marker.len >= open.len && marker.info === "") {
+      if (marker && closesFence(marker, open)) {
         const replacement = rewriteFence(opener, body.join("\n"), line);
         if (replacement == null) out.push(opener, ...body, line);
         else out.push(replacement);

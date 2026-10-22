@@ -3,9 +3,9 @@
  * not workletize imported functions, so every function here carries the
  * directive and the module imports nothing. They are plain pure functions too:
  * the JS thread takes the view clamp, zoom, pan and unmap and the tick step and
- * count from here. mapPointW, axisTicksW and formatTickW still have JS twins in
- * graphBlock.ts; formatTickW snaps within 1e-9 of a whole number, so the tick
- * pair is not the same function.
+ * count from here, and mapGraphPoint calls mapPointW. axisTicksW and formatTickW
+ * still have JS twins in graphBlock.ts: formatTickW snaps within 1e-9 of a whole
+ * number, so the tick pair is not the same function.
  */
 
 export type GraphViewW = {

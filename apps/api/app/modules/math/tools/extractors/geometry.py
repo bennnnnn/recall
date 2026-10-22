@@ -126,7 +126,7 @@ def _extract_rectangle_intent(cleaned: str) -> MathIntent | None:
             ),
         )
 
-    if mtm.has_draw_shape(lower, "rectangle") and not _requests_geometry_measurement(lower):
+    if mtm.has_draw_shape(cleaned, "rectangle") and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="rectangle",
             width=6,
@@ -182,7 +182,7 @@ def _extract_square_intent(cleaned: str) -> MathIntent | None:
         )
     # Default dimensions only when the user asked to draw/show the shape —
     # never invent a square for bare prose that merely contains "square".
-    if mtm.has_draw_shape(lower, "square") and not _requests_geometry_measurement(lower):
+    if mtm.has_draw_shape(cleaned, "square") and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="square",
             side=5,
@@ -273,7 +273,7 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     # Default radius only on an explicit draw/show/sketch — never invent a
     # 5 cm circle for "what is a circle?" / "unit circle" / algebra that
     # merely mentions the word (those used to ship as SymPy-verified).
-    if mtm.has_draw_shape(lower, "circle") and not _requests_geometry_measurement(lower):
+    if mtm.has_draw_shape(cleaned, "circle") and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="circle",
             radius=5,
@@ -337,7 +337,7 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
                 ),
             ),
         )
-    if mtm.has_draw_shape(lower, "right triangle") and not _requests_geometry_measurement(lower):
+    if mtm.has_draw_shape(cleaned, "right triangle") and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="right_triangle",
             base=6,
@@ -415,7 +415,7 @@ def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
             ),
         )
     shape = "trapezoid" if "trapezoid" in lower else "trapezium"
-    if mtm.has_draw_shape(lower, shape) and not _requests_geometry_measurement(lower):
+    if mtm.has_draw_shape(cleaned, shape) and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="trapezoid",
             trapezoid_top=4,
@@ -461,7 +461,7 @@ def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
                 "area" in lower or "perimeter" in lower or _wants_geometry_angles(lower),
             ),
         )
-    if mtm.has_draw_shape(lower, "parallelogram") and not _requests_geometry_measurement(lower):
+    if mtm.has_draw_shape(cleaned, "parallelogram") and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="parallelogram",
             base=8,
@@ -512,7 +512,7 @@ def _extract_sector_intent(cleaned: str) -> MathIntent | None:
     # Defaults only when the user asked to draw the shape — never invent a
     # 90° / 5 cm sector for "sector of a circle with radius 5" alone.
     if (
-        mtm.has_draw_shape(lower, "sector") or mtm.has_draw_shape(lower, "pie slice")
+        mtm.has_draw_shape(cleaned, "sector") or mtm.has_draw_shape(cleaned, "pie slice")
     ) and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="sector",
@@ -590,7 +590,7 @@ def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
         char.isdigit() for char in cleaned
     ):
         return None
-    if mtm.has_draw_shape(lower, "triangle") and not _requests_geometry_measurement(lower):
+    if mtm.has_draw_shape(cleaned, "triangle") and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="triangle",
             base=8,

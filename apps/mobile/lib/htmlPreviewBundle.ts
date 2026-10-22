@@ -5,6 +5,7 @@
  * execution outside the existing WebView sandbox.
  */
 
+import { scanFences } from "@/lib/mdFenceScan";
 import { inlineScript } from "@/lib/previewSandbox";
 
 const HTML_PREVIEW_MAX_FILES = 8;
@@ -109,18 +110,6 @@ function uniqueName(kind: PreviewKind, used: Set<string>, preferred: string | nu
   return `${stem}-${used.size}${ext}`;
 }
 
-function isFenceOpenerLine(line: string): boolean {
-  let i = 0;
-  while (i < line.length && (line[i] === " " || line[i] === "\t")) i += 1;
-  return line.startsWith("```", i);
-}
-
-function fenceInfoFromLine(line: string): string {
-  let i = 0;
-  while (i < line.length && (line[i] === " " || line[i] === "\t")) i += 1;
-  return line.slice(i + 3);
-}
-
 /**
  * State for an incremental preview-file scan. While a reply streams, content
  * grows append-only, so each flush rescans just the new suffix (from the
@@ -140,71 +129,36 @@ export type PreviewScanState = {
 
 type CollectResult = {
   files: PreviewFile[];
-  /** Offset of the unclosed preview fence's opener, or `markdown.length`. */
+  /** Offset of the opener of a fence still open (of any language), or `markdown.length`. */
   openFenceStart: number;
   trailingOpen: boolean;
 };
 
 /**
- * Collect html/css/js fences from `markdown`, appending to `files`/`used`.
- * Linear scan by line-start offsets — no regex on the body (CodeQL).
+ * Collect html/css/js fences from `markdown`, appending to `files`/`used`. Fences are read
+ * as the renderer reads them (`scanFences`, no regex on the body): an ```html example inside
+ * a ```markdown fence is that fence's text, and a ``` line closes only its own fence.
  */
 function collectPreviewFilesInto(
   markdown: string,
   files: PreviewFile[],
   used: Set<string>,
 ): CollectResult {
-  let i = 0;
   let openFenceStart = markdown.length;
   let trailingOpen = false;
-  while (i < markdown.length && files.length < HTML_PREVIEW_MAX_FILES) {
-    const nl = markdown.indexOf("\n", i);
-    const lineEnd = nl === -1 ? markdown.length : nl;
-    const line = markdown.slice(i, lineEnd);
-    const nextLine = nl === -1 ? markdown.length : nl + 1;
-    if (!isFenceOpenerLine(line)) {
-      i = nextLine;
-      continue;
-    }
-    const info = fenceInfoFromLine(line);
-    const lang = fenceLangFromInfo(info);
-    const kind = kindForLang(lang);
-    if (kind == null) {
-      i = nextLine;
-      continue;
-    }
-    const { rest } = firstToken(info.trim());
+  for (const span of scanFences(markdown, true)) {
+    // Mid-stream, the next scan resumes at this opener: a scan that started inside
+    // the fence would read its closer as an opener.
+    if (!span.closed) openFenceStart = span.start;
+    if (files.length >= HTML_PREVIEW_MAX_FILES) break;
+    const kind = kindForLang(fenceLangFromInfo(span.info));
+    if (kind == null) continue;
+    const { rest } = firstToken(span.info);
     const hinted = rest ? sanitizePreviewFilename(firstToken(rest).token, kind) : null;
-    const bodyStart = nextLine;
-    let cursor = nextLine;
-    let bodyEnd = markdown.length;
-    let closed = false;
-    while (cursor < markdown.length) {
-      const bnl = markdown.indexOf("\n", cursor);
-      const bLineEnd = bnl === -1 ? markdown.length : bnl;
-      if (isFenceOpenerLine(markdown.slice(cursor, bLineEnd))) {
-        closed = true;
-        bodyEnd = cursor;
-        cursor = bnl === -1 ? markdown.length : bnl + 1;
-        break;
-      }
-      if (bnl === -1) {
-        cursor = markdown.length;
-        break;
-      }
-      cursor = bnl + 1;
-    }
-    if (!closed) {
-      // Unclosed fence (mid-stream): collect the partial body, and resume
-      // from this opener next time so the file is replaced, not duplicated.
-      openFenceStart = i;
-      trailingOpen = true;
-      i = markdown.length;
-    } else {
-      i = cursor;
-    }
-    const content = markdown.slice(bodyStart, bodyEnd).replace(/\n$/, "");
+    const content = span.body.replace(/\n$/, "");
     if (!content.trim()) continue;
+    // An open fence's partial file is replaced, not duplicated, by the next scan.
+    trailingOpen = !span.closed;
     const clipped =
       content.length > HTML_PREVIEW_MAX_FILE_CHARS
         ? content.slice(0, HTML_PREVIEW_MAX_FILE_CHARS)

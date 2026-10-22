@@ -16,7 +16,7 @@ from app.modules.math.tools.school.probability_formulas import (
     extract_probability_formulas,
     probability_formula_block,
 )
-from app.services.number_text import SIGNED_DECIMAL
+from app.services.number_text import SIGNED_DECIMAL, count_word_pattern, number_word_value
 from app.services.workout import Workout, math_line, render_workout
 
 _BINOMIAL_PARAM = re.compile(
@@ -38,11 +38,7 @@ _DICE_CONDITIONAL_SUM = re.compile(
 )
 
 
-_COUNT_WORDS = {
-    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
-}  # fmt: skip
-_COUNT = r"(\d{1,3}|" + "|".join(_COUNT_WORDS) + ")"
+_COUNT = r"(\d{1,3}|" + count_word_pattern() + ")"
 _CHANCE = re.compile(r"\b(?:probability|chance|likelihood)\b", re.IGNORECASE)
 _NOT_EXACTLY = re.compile(
     r"\b(?:at\s+least|at\s+most|more\s+than|fewer\s+than|less\s+than|no\s+more\s+than|"
@@ -168,7 +164,7 @@ def binomial_trials_direct_request(text: str) -> bool:
 
 
 def _count(text: str) -> int:
-    return _COUNT_WORDS.get(text.lower()) or int(text)
+    return number_word_value(text.lower()) or int(text)
 
 
 def _trials_intent(cleaned: str) -> MathIntent | None:

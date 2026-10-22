@@ -1114,38 +1114,38 @@ describe("useChatSend math scans", () => {
     mockReadScan.mockRejectedValueOnce(new Error("offline"));
     await expect(current.readScan(scan, "math", controller.signal)).resolves.toBeNull();
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(429, JSON.stringify({ detail: "Too many scans in a row. Try again in a few minutes." })),
+      new ApiRequestError(429, JSON.stringify({ detail: { code: "scan_rate_limited", message: "Too many scans." } })),
     );
     await expect(current.readScan(scan, "math", controller.signal)).resolves.toEqual({
       error: "chat.scan_rate_limit",
     });
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(413, JSON.stringify({ detail: "Image too large" })),
+      new ApiRequestError(413, JSON.stringify({ detail: { code: "image_too_large", message: "Image too large" } })),
     );
     await expect(current.readScan(scan, "math", controller.signal)).resolves.toEqual({
       error: "chat.scan_too_large",
     });
     // Every subject names the same refusals: an oversized chemistry or physics photo too.
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(413, JSON.stringify({ detail: "Image too large" })),
+      new ApiRequestError(413, JSON.stringify({ detail: { code: "image_too_large", message: "Image too large" } })),
     );
     await expect(current.readScan(scan, "chemistry", controller.signal)).resolves.toEqual({
       error: "chat.scan_too_large",
     });
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(404, JSON.stringify({ detail: "Not available" })),
+      new ApiRequestError(404, JSON.stringify({ detail: { code: "not_available", message: "Not available" } })),
     );
     await expect(current.readScan(scan, "physics", controller.signal)).resolves.toEqual({
       error: "chat.scan_unavailable",
     });
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(429, JSON.stringify({ detail: "Too many scans in a row. Try again in a few minutes." })),
+      new ApiRequestError(429, JSON.stringify({ detail: { code: "scan_rate_limited", message: "Too many scans." } })),
     );
     await expect(current.readScan(scan, "chemistry", controller.signal)).resolves.toEqual({
       error: "chat.scan_rate_limit",
     });
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(404, JSON.stringify({ detail: "Not available" })),
+      new ApiRequestError(404, JSON.stringify({ detail: { code: "not_available", message: "Not available" } })),
     );
     await expect(current.readScan(scan, "chemistry", controller.signal)).resolves.toEqual({
       error: "chat.scan_unavailable",

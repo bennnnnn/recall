@@ -10,13 +10,7 @@ import { invalidateGalleryCache } from "@/features/attachments/model/galleryList
 
 jest.mock("@/lib/api", () => ({ api: { generateImage: jest.fn() } }));
 jest.mock("@/lib/api/client", () => ({
-  ApiRequestError: class extends Error {
-    status: number;
-    constructor(code: number, message = "") {
-      super(message);
-      this.status = code;
-    }
-  },
+  ApiRequestError: jest.requireActual("@/lib/api/errorBody").ApiRequestError,
 }));
 jest.mock("@/features/attachments/model/attachments", () => ({ uploadChatAttachment: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({ notifyWarning: jest.fn() }));
@@ -288,7 +282,9 @@ describe("image generation submit steps", () => {
     [true, "chat.quota_exceeded_pro"],
     [false, "chat.quota_exceeded_free"],
   ])("names the plan's limit when the quota runs out (isPaid %p)", async (isPaid, message) => {
-    (api.generateImage as jest.Mock).mockRejectedValueOnce(new ApiRequestError(429, "You've reached today's limit"));
+    (api.generateImage as jest.Mock).mockRejectedValueOnce(
+      new ApiRequestError(429, JSON.stringify({ detail: { code: "daily_limit", message: "Image limit." } })),
+    );
     const { submit, replay, options } = await setup({ isPaid });
     await submit({ prompt: "cat", userMessage: "Draw a cat" });
     expect(options.onOpenUpgrade).not.toHaveBeenCalled();

@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import user_cache
 from app.core.config import Settings
 from app.core.validation import LOCALE_NAMES
-from app.exceptions import ChatServiceError
+from app.exceptions import DomainError
 from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.account.settings_intent import SettingsChange, SettingsField
@@ -78,10 +78,8 @@ def _normalize_appearance(value: str) -> str:
     return _APPEARANCE_ALIASES.get(value, value)
 
 
-class SettingsProposalError(ChatServiceError):
-    def __init__(self, detail: str, *, status_code: int = 400) -> None:
-        super().__init__(detail)
-        self.status_code = status_code
+class SettingsProposalError(DomainError):
+    """A settings card that can no longer be confirmed."""
 
 
 def _proposal_key(user_id: UUID, proposal_id: str) -> str:
@@ -281,12 +279,8 @@ async def materialize_memory_reset_reply(
 
 
 async def _clear_memory(session: AsyncSession, user_id: UUID) -> None:
-    try:
-        await memory_service.delete_all_memories(session, user_id)
-    except memory_service.MemoryWriteLockBusyError as exc:
-        raise SettingsProposalError(
-            "Memory is being updated right now — try again in a moment.", status_code=409
-        ) from exc
+    # Busy memory refuses as itself: 409 ``memory_busy``.
+    await memory_service.delete_all_memories(session, user_id)
 
 
 def _enabled_models_for(user: User, settings: Settings, model_id: str) -> list[str]:

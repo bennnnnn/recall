@@ -4,8 +4,10 @@
  * does not re-tokenize a growing open fence every throttle tick.
  */
 
+import { readFenceMarker, type OpenFence } from "@/lib/mdFenceScan";
+
 type OpenStreamScan = {
-  fenceOpen: boolean;
+  openFence: OpenFence | null;
   dollarOpen: boolean;
   bracketDepth: number;
 };
@@ -15,21 +17,21 @@ type OpenStreamRegion =
   | { kind: "math"; body: string }
   | { kind: "other"; text: string };
 
-const OPEN_FENCE_RE = /^(```|~~~)([^\n]*)(?:\n([\s\S]*))?$/;
-
-/** Closing ``` / ~~~ arrives in the open-fence body before scan.fenceOpen
- * flips — AnswerBlock then shows leftover backticks (and `` looking like
+/** Closing ``` / ~~~ arrives in the open-fence body before the scan sees the
+ * fence close — AnswerBlock then shows leftover backticks (and `` looking like
  * "..") until the fence is classified closed. */
 export function stripTrailingFenceCloser(body: string): string {
   return body.replace(/(?:\r?\n)?[`~]{1,3}\s*$/, "");
 }
 
+/** The tail's opener line read with the one fence grammar, and the body after it. */
 export function parseOpenFenceTail(liveRaw: string): { lang: string; body: string } | null {
-  const match = OPEN_FENCE_RE.exec(liveRaw);
-  if (!match) return null;
+  const newline = liveRaw.indexOf("\n");
+  const marker = readFenceMarker(newline < 0 ? liveRaw : liveRaw.slice(0, newline));
+  if (!marker) return null;
   return {
-    lang: (match[2] ?? "").trim(),
-    body: stripTrailingFenceCloser(match[3] ?? ""),
+    lang: marker.info,
+    body: stripTrailingFenceCloser(newline < 0 ? "" : liveRaw.slice(newline + 1)),
   };
 }
 
@@ -51,7 +53,7 @@ export function classifyOpenStreamTail(
 ): OpenStreamRegion {
   if (!liveRaw) return { kind: "other", text: "" };
 
-  if (scan?.fenceOpen) {
+  if (scan?.openFence) {
     const fence = parseOpenFenceTail(liveRaw);
     if (fence) return { kind: "fence", lang: fence.lang, body: fence.body };
   }

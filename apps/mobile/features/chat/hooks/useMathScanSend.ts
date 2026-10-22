@@ -8,8 +8,7 @@ import {
   scanSolveMessage,
 } from "@/lib/scanner/readBack";
 import {
-  scanFailureDetail,
-  scanFailureMessageKey,
+  scanFailureMessage,
   type ScanReadFailure,
 } from "@/lib/scanner/scanReadError";
 import {
@@ -70,10 +69,8 @@ export function useMathScanSend({
       } catch (error) {
         // Every subject names a missing reader, an oversized photo and a
         // limit the same way. Anything else stays generic.
-        const detail = scanFailureDetail(error);
-        if (!detail) return null;
-        const key = scanFailureMessageKey(detail);
-        return { error: key ? t(key) : detail };
+        const message = scanFailureMessage(error, t);
+        return message ? { error: message } : null;
       }
     },
     [t, token],

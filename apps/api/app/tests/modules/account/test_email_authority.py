@@ -13,7 +13,6 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
 
 from app.core.config import Settings
 from app.models.schemas import AppleAuthRequest, GoogleAuthRequest
@@ -229,10 +228,10 @@ async def test_login_api_answers_409_naming_the_earlier_sign_in(provider, body, 
         ),
     ):
         login = getattr(auth_router, f"{provider}_login")
-        with pytest.raises(HTTPException) as caught:
+        with pytest.raises(AccountExistsError) as caught:
             await login(body, request, session=AsyncMock(), settings=_SETTINGS, redis=AsyncMock())
     assert caught.value.status_code == 409
-    assert caught.value.detail == {
+    assert caught.value.body() == {
         "code": "account_exists",
         "sign_in_with": "apple",
         "message": (

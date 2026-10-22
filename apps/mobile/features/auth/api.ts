@@ -1,15 +1,15 @@
 /** Sign-in with Google, Apple, or dev auth, and the consent asked right after it.
  * Session refresh lives in lib/api/client.ts. */
-import { apiUrl, fetchWithTimeout, request } from "@/lib/api/client";
+import { ApiRequestError, apiUrl, fetchWithTimeout, request } from "@/lib/api/client";
 import type { AuthResult, User } from "@/lib/api/types";
 import { AccountExistsError, accountExistsProvider } from "@/features/auth/model/accountExists";
 import { deviceSessionFields } from "@/lib/deviceSession";
 
 async function loginFailure(response: Response, fallback: string): Promise<Error> {
-  const detail = await response.text();
-  const provider = accountExistsProvider(response.status, detail);
+  const refused = new ApiRequestError(response.status, await response.text());
+  const provider = accountExistsProvider(refused);
   if (provider) return new AccountExistsError(provider);
-  return new Error(detail || fallback);
+  return new Error(refused.message || fallback);
 }
 
 export async function loginWithGoogle(idToken: string): Promise<AuthResult> {

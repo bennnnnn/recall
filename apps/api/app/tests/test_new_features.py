@@ -116,7 +116,7 @@ def test_create_todo_with_other_users_chat_id_rejected():
             json={"content": "x", "chat_id": str(cid), "due_at": _DUE_AT},
         )
     assert r.status_code == 400
-    assert "Chat not found" in r.json()["detail"]
+    assert "Chat not found" in r.json()["detail"]["message"]
 
 
 def test_create_todo_with_unowned_chat_id_404s():

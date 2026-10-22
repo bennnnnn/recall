@@ -1,7 +1,8 @@
 import { useCallback, type MutableRefObject } from "react";
 
 import type { Message } from "@/lib/api";
-import { isSseAbortError, type ChatSsePayload } from "@/features/chat/model/sse";
+import { type ChatSsePayload } from "@/features/chat/model/sse";
+import { isAbortError } from "@/lib/api/abort";
 import { clearPendingChatTtft } from "@/features/chat/model/latency";
 import { applyChatEvent, type ChatEventContext } from "@/features/chat/model/chatEvents";
 import { restoreAssistantMessage } from "@/features/chat/model/regenerateLogic";
@@ -355,7 +356,7 @@ export function useChatIncomingEvents({
       // A private HTTP timeout may happen after the server received the
       // turn. Only caller cancellation is silent; keep uncertain delivery
       // out of the definitely-unsaved retry queue.
-      if (pending && !messageSaved && !isSseAbortError(err)) {
+      if (pending && !messageSaved && !isAbortError(err)) {
         queueUnsavedSend(pending, "send_rejected");
         reportError(t("chat.error_unreachable"), "send_rejected");
         return;
@@ -379,7 +380,7 @@ export function useChatIncomingEvents({
   const handleSendFailure = useCallback((err: unknown, ttftTurnId: string | null) => {
     const pending = pendingSendRef.current;
     pendingSendRef.current = null;
-    if (!isSseAbortError(err) && serverTookSend(pending) && streamingRef.current) {
+    if (!isAbortError(err) && serverTookSend(pending) && streamingRef.current) {
       // A dropped SSE stream stops its turn on the server, which saves at once.
       followTakenSend(
         (messageSaved) => settleFailedSend(err, ttftTurnId, pending, messageSaved),

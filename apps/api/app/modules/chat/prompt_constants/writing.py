@@ -11,7 +11,7 @@ from app.modules.chat.prompt_constants.writing_kind import (
     is_writing_deliverable_request,
     writing_request_kind,
 )
-from app.services.draft_fences import DRAFT_FENCE
+from app.services.draft_fences import draft_langs
 from app.services.text_normalize import collapse_ws
 
 # Relative / subordinating leads that are not a complete question.
@@ -151,8 +151,6 @@ def writing_format_hint(query_text: str | None) -> str | None:
     return None
 
 
-# The send-ready fences a reply drafts, as the mobile fence registry names them.
-_DRAFT_FENCE = DRAFT_FENCE
 _KIND_FENCE = {"email": "email", "message": "message", "social": "social"}
 # A short follow-up that changes a draft: "make it more polite", "shorter",
 # "add that I'll be back tomorrow", "another version", "translate it to Spanish",
@@ -260,9 +258,9 @@ def draft_followup(
 def _draft_in_history(prior_messages: Sequence[tuple[str, str]]) -> tuple[str, bool] | None:
     for role, content in reversed(prior_messages[-_FOLLOWUP_LOOKBACK:]):
         if role == "assistant":
-            fences = _DRAFT_FENCE.findall(content)
+            fences = draft_langs(content)
             if fences:
-                return fences[-1].lower(), True
+                return fences[-1], True
             if len(content) > _NEW_TOPIC_ANSWER_CHARS:
                 return None
         elif role == "user":

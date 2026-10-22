@@ -307,7 +307,7 @@ def test_persist_rejects_when_global_spend_cap_is_hit():
             },
         )
     assert response.status_code == 429
-    assert response.json()["detail"] == VOICE_SPEND_CAP_MESSAGE
+    assert response.json()["detail"]["message"] == VOICE_SPEND_CAP_MESSAGE
     persist.assert_not_awaited()
 
 
@@ -407,7 +407,7 @@ def test_realtime_session_mint_refused_below_the_minimum_session():
         asyncio.run(fake_redis.set(key, 3600 - 30))
         r = client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
         assert r.status_code == 429
-        assert r.json()["detail"] == quota_service.LIVE_TALK_MINUTES_USED_MESSAGE
+        assert r.json()["detail"]["message"] == quota_service.LIVE_TALK_MINUTES_USED_MESSAGE
         mint.assert_not_awaited()
 
 
@@ -714,5 +714,5 @@ def test_live_talk_persist_is_bounded_per_session_and_per_user(
     assert all(r.status_code == 204 for r in responses[:-1])
     assert responses[-1].status_code == last_status
     if last_detail is not None:
-        assert responses[-1].json()["detail"] == getattr(quota_service, last_detail)
+        assert responses[-1].json()["detail"]["message"] == getattr(quota_service, last_detail)
     assert persist.await_count == posts - int(last_status != 204)

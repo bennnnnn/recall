@@ -24,7 +24,7 @@ describe("parseOpenFenceTail", () => {
 
   it("BUG FIX regression: strips a closing fence marker that leaked into the open body", () => {
     // Live: ```answer body showed `x = 2 ``` ` (and `` looking like "..")
-    // until fenceOpen flipped and AnswerBlock remounted without the ticks.
+    // until the fence closed and AnswerBlock remounted without the ticks.
     expect(parseOpenFenceTail("```answer\nx = -2 or x = 2\n```")).toEqual({
       lang: "answer",
       body: "x = -2 or x = 2",
@@ -48,7 +48,7 @@ describe("classifyOpenStreamTail", () => {
   it("uses fence classification when the scan says a fence is open", () => {
     expect(
       classifyOpenStreamTail("```ts\nconst x = 1\n", {
-        fenceOpen: true,
+        openFence: { char: "`", len: 3 },
         dollarOpen: false,
         bracketDepth: 0,
       }),
@@ -58,7 +58,7 @@ describe("classifyOpenStreamTail", () => {
   it("uses math classification for open $$", () => {
     expect(
       classifyOpenStreamTail("$$\nE=mc^2\n", {
-        fenceOpen: false,
+        openFence: null,
         dollarOpen: true,
         bracketDepth: 0,
       }),
@@ -68,7 +68,7 @@ describe("classifyOpenStreamTail", () => {
   it("falls back to other for prose tails", () => {
     expect(
       classifyOpenStreamTail("still typing", {
-        fenceOpen: false,
+        openFence: null,
         dollarOpen: false,
         bracketDepth: 0,
       }),

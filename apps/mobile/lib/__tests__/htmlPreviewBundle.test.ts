@@ -109,3 +109,27 @@ describe("bundleHtmlPreview", () => {
     expect(out).toContain("body{}");
   });
 });
+
+describe("advancePreviewFilesScan reads fences as the renderer does (audit DUP-03)", () => {
+  it("leaves an html example shown inside another fence alone", () => {
+    const md = "To embed a page, write:\n\n````markdown\n```html\n<p>x</p>\n```\n````\n";
+    expect(advancePreviewFilesScan(null, md).files).toEqual([]);
+  });
+
+  it("reads a tilde fence", () => {
+    const files = advancePreviewFilesScan(null, "~~~html\n<p>a</p>\n~~~\n").files;
+    expect(files.map((f) => f.name)).toEqual(["index.html"]);
+  });
+
+  it("resumes at a code fence still streaming, so its closer is not read as an opener", () => {
+    const first = advancePreviewFilesScan(null, "```html\n<p>a</p>\n```\n\n```python\nprint(1)\n");
+    const done = advancePreviewFilesScan(first, `${first.source}\`\`\`\n\n\`\`\`css\nbody{}\n\`\`\`\n`);
+    expect(done.files.map((f) => f.name)).toEqual(["index.html", "styles.css"]);
+  });
+
+  it("keeps a finished file while an empty preview fence opens", () => {
+    const first = advancePreviewFilesScan(null, "```html\n<p>a</p>\n```\n\n```css\n");
+    const next = advancePreviewFilesScan(first, `${first.source}body{}\n`);
+    expect(next.files.map((f) => f.name)).toEqual(["index.html", "styles.css"]);
+  });
+});

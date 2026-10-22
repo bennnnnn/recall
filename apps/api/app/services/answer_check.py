@@ -29,6 +29,8 @@ from fractions import Fraction
 from typing import Literal
 
 from app.services.answer_fence import CHEMISTRY_NOTATION_LINE, answer_header_and_value
+from app.services.glyphs import SUBSCRIPT_DIGITS, SUPERSCRIPT_SIGNED
+from app.services.md_fence_scan import Fence, map_fence_blocks
 from app.services.school_rounding import round_places
 
 Verdict = Literal["same", "rounded", "conflict", "absent", "unknown"]
@@ -49,8 +51,8 @@ class VerifiedValue:
 
 # --- Cleaning ------------------------------------------------------------------------------
 
-_SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺", "0123456789-+")
-_SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
+_SUPERSCRIPTS = SUPERSCRIPT_SIGNED
+_SUBSCRIPTS = SUBSCRIPT_DIGITS
 _SUPERSCRIPT_RUN = re.compile(r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+")
 _TEX_WRAPPERS = re.compile(r"\\(?:mathrm|text|textrm|mathbf|operatorname|mathit|rm)\s*\{([^{}]*)\}")
 _TEX_FRAC = re.compile(r"\\[dt]?frac\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}")
@@ -219,7 +221,6 @@ def read_verified_value(answer_body: str) -> VerifiedValue | None:
 
 # --- The prose -----------------------------------------------------------------------------
 
-_FENCE_BLOCK = re.compile(r"^[ \t>]*(`{3,}|~{3,})[^\n]*\n.*?^[ \t>]*\1[ \t]*$", re.DOTALL | re.M)
 _MARKDOWN_HEADING = re.compile(r"^[ \t>]*#{1,6}[ \t]+(?P<title>.+?)[ \t#]*$")
 _BOLD_HEADING = re.compile(
     r"^[ \t>]*(?:\*\*|__)(?P<title>[^*_\n]+?)(?:\*\*|__)[ \t]*:?[ \t]*(?P<rest>.*)$"
@@ -257,15 +258,12 @@ _READABLE_FENCE_LANGS = frozenset({"", "copy", "text", "plain", "math", "latex",
 def _without_fences(prose: str) -> str:
     """Drop data fences (graph JSON, cards); keep the body of a text or math fence."""
 
-    def readable(match: re.Match[str]) -> str:
-        block = match.group(0).split("\n")
-        opener = block[0].strip(" \t>").lstrip("`~").strip()
-        lang = opener.split()[0].lower() if opener.split() else ""
-        if lang not in _READABLE_FENCE_LANGS:
+    def readable(fence: Fence, body: str) -> str:
+        if fence.lang not in _READABLE_FENCE_LANGS:
             return "\n"
-        return "\n" + "\n".join(block[1:-1]) + "\n"
+        return "\n" + body.rstrip("\n") + "\n"
 
-    return _FENCE_BLOCK.sub(readable, prose)
+    return map_fence_blocks(prose, readable)
 
 
 def _pieces(text: str) -> list[str]:

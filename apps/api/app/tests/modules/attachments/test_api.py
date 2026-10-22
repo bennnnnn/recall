@@ -725,7 +725,7 @@ def test_serve_file_missing_local_drops_row():
         )
 
     assert r.status_code == 404
-    assert r.json()["detail"] == "File missing"
+    assert r.json()["detail"]["message"] == "File missing"
     delete_rows.assert_awaited_once()
 
 
@@ -819,7 +819,7 @@ def test_upload_rejects_size_mismatch_with_declared_size():
         )
 
     assert r.status_code == 400
-    assert "size" in r.json()["detail"].lower()
+    assert "size" in r.json()["detail"]["message"].lower()
     gateway.write_bytes.assert_not_awaited()
     delete_rows.assert_awaited_once()
     refund_mock.assert_awaited_once()
@@ -1432,7 +1432,7 @@ def test_put_upload_empty_body_purges_row_and_refunds_quota():
         )
 
     assert r.status_code == 400
-    assert "size" in r.json()["detail"].lower()
+    assert "size" in r.json()["detail"]["message"].lower()
     gateway.delete_bytes.assert_awaited_once()
     delete_rows.assert_awaited_once()
     refund_mock.assert_awaited_once()

@@ -18,6 +18,7 @@ from app.modules.web_search.query_builders import (
 )
 from app.modules.web_search.recency import anchor_recency_to_year
 from app.modules.web_search.search_cache import run_cached_search
+from app.services.number_text import NUMBER_WORDS
 from app.services.prompt_safety import wrap_untrusted
 
 # The tool result the model reads: a search that errored is not one that found nothing.
@@ -31,18 +32,8 @@ _SEARCH_FAILED = (
     "from memory as checked."
 )
 
-_COUNT_WORDS = {
-    "one": 1,
-    "two": 2,
-    "three": 3,
-    "four": 4,
-    "five": 5,
-    "six": 6,
-    "seven": 7,
-    "eight": 8,
-    "nine": 9,
-    "ten": 10,
-}
+# A small explicit list size: one to ten, from number_text's one table.
+_COUNT_WORDS = {word: value for word, value in NUMBER_WORDS.items() if 1 <= value <= 10}
 
 
 def _requested_news_count(text: str) -> int | None:

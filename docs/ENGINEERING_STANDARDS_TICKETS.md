@@ -1299,10 +1299,10 @@ Not exceptions:
 
 ## Noticed, not ticketed
 
-- Student-claim grammar ("I got…", "my answer is…") is written twice: `physics/claims.py:30` and
-  `math/followup.py:261-275` (plus `math/tools/work_request.py:113`). Chemistry has none, so "I got
-  21.3 g, am I right?" is not checked there. A neutral `services/student_claim.py` would serve all
-  three subjects.
+- Done: student-claim grammar ("I got…", "my answer is…", "is that ok?") was written three times
+  and had drifted, and chemistry had none. `services/student_claim.py` owns the lead-ins and the
+  check; physics and both maths readers build on it, and chemistry solves the question without
+  the stated result and leaves the verdict to the model (audit DUP-08).
 - Done: gateways repeated inline httpx timeouts (`apple_auth.py` 10 s; `expo_push_gateway.py`,
   `revenuecat_gateway.py` and `email_gateway.py` 15 s), each with a client per call. They now use
   `gateways/http_client.get_pooled_client` with a named timeout constant, like the other gateways;

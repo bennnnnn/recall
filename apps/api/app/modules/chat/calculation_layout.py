@@ -20,9 +20,9 @@ from app.modules.chat.inline_code import code_span_opens_within, escaped_at, is_
 from app.modules.chat.markdown_regions import (
     display_math_lines,
     leave_prose_line,
-    read_fence_marker,
     rewrite_fenced,
 )
+from app.services.md_fence_scan import read_fence_marker
 
 _MATH_FENCE_LANGS = {"math", "latex", "tex", "equation"}
 _TEXT_COMMANDS = {"text", "mathrm", "mathbf", "textrm", "operatorname", "textbf", "mbox"}
@@ -434,7 +434,7 @@ def _interior_line_blocks_fold(line: str) -> bool:
     stripped = line.lstrip(" ")
     if not stripped:
         return False
-    if stripped.startswith(("|", "#", "```", "~~~", "- ", "* ", "+ ")):
+    if stripped.startswith(("|", "#", "- ", "* ", "+ ")) or read_fence_marker(stripped):
         return True
     digits = 0
     while digits < len(stripped) and stripped[digits].isdigit():
@@ -521,9 +521,7 @@ def _unwrap_math_line(line: str) -> str:
 
 def _rewrite_math_fence(opener: str, body: str, _closer: str) -> str | None:
     marker = read_fence_marker(opener)
-    lang = ""
-    if marker is not None and marker[2]:
-        lang = marker[2].split()[0].lower()
+    lang = marker.lang if marker is not None else ""
     if lang not in _MATH_FENCE_LANGS:
         return None
     physical = [line for line in body.split("\n") if line.strip()]

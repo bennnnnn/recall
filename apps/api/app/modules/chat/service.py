@@ -13,6 +13,7 @@ from app.core import jobs
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.exceptions import DomainError
 from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
 from app.modules.chat import finalize_registry
@@ -35,11 +36,8 @@ DEFAULT_CHAT_LIST_LIMIT = 200
 ARCHIVED_CHAT_LIST_LIMIT = 50
 
 
-class ChatsError(Exception):
-    def __init__(self, detail: str, *, status_code: int) -> None:
-        self.detail = detail
-        self.status_code = status_code
-        super().__init__(detail)
+class ChatsError(DomainError):
+    """A chat history refusal."""
 
 
 async def create_chat(

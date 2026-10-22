@@ -15,6 +15,16 @@ import {
   type SimulationVector,
   type SimulationVectorRole,
 } from "@/lib/physics/simulation/spec";
+import {
+  codePoints,
+  finiteNumber,
+  guard,
+  optionalList,
+  optionalText,
+  readPoint,
+  refuse,
+  requirePoint,
+} from "@/lib/fenceValidate";
 import { isJsonRecord } from "@/lib/jsonFence";
 
 const VECTOR_ROLES: readonly SimulationVectorRole[] = ["force", "result", "measure", "motion"];
@@ -52,43 +62,6 @@ const MAX_STROBE = 12;
  * reading so a stored reply renders exactly as before; a new field is as
  * strict as the server model, since anything it would refuse is a bug.
  */
-class MalformedScene extends Error {}
-
-function reject(): never {
-  throw new MalformedScene();
-}
-
-/** Length in code points, which is what the server's `max_length` counts. */
-function codePoints(text: string): number {
-  return Array.from(text).length;
-}
-
-/** A strictly finite `[x, y]` pair, or null. */
-function readPoint(raw: unknown): { x: number; y: number } | null {
-  if (!Array.isArray(raw) || raw.length !== 2) return null;
-  const x = finite(raw[0]);
-  const y = finite(raw[1]);
-  return x === null || y === null ? null : { x, y };
-}
-
-/** A new field's `[x, y]`: present and finite, or the scene is refused. */
-function requirePoint(raw: unknown): { x: number; y: number } {
-  return readPoint(raw) ?? reject();
-}
-
-/** An optional label on a new field: absent or null is none, too long is refused. */
-function optionalLabel(raw: unknown, max = MAX_SHORT_LABEL): string | undefined {
-  if (raw === undefined || raw === null) return undefined;
-  if (typeof raw !== "string" || codePoints(raw) > max) reject();
-  return raw || undefined;
-}
-
-/** A list field: absent is empty, anything but a short enough array is refused. */
-function optionalList(raw: unknown, max: number): unknown[] {
-  if (raw === undefined) return [];
-  if (!Array.isArray(raw) || raw.length > max) reject();
-  return raw;
-}
 
 function isIndex(raw: unknown): raw is number {
   return typeof raw === "number" && Number.isInteger(raw) && raw >= 0;
@@ -97,8 +70,8 @@ function isIndex(raw: unknown): raw is number {
 function parseVector(raw: unknown): SimulationVector | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
-  const dx = finite(row.dx);
-  const dy = finite(row.dy);
+  const dx = finiteNumber(row.dx);
+  const dy = finiteNumber(row.dy);
   if (dx === null || dy === null || (dx === 0 && dy === 0)) return null;
   const anchor = readPoint(row.anchor);
   if (!anchor) return null;
@@ -108,7 +81,7 @@ function parseVector(raw: unknown): SimulationVector | null {
       ? undefined
       : isIndex(row.body)
         ? row.body
-        : reject();
+        : refuse();
   return {
     anchor,
     dx,
@@ -123,25 +96,14 @@ function parseVector(raw: unknown): SimulationVector | null {
   };
 }
 
-/**
- * Strictly a JSON number — no coercion.
- *
- * `Number(null)` and `Number("")` are both 0, so a coercing reader accepts a
- * missing coordinate as the origin and quietly draws the body somewhere it
- * never was. The server always sends numbers, so nothing is lost by refusing
- * everything else.
- */
-function finite(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
 
 function parsePath(raw: unknown): number[][] | null {
   if (!Array.isArray(raw) || raw.length < 2 || raw.length > MAX_PATH_POINTS) return null;
   const out: number[][] = [];
   for (const pair of raw) {
     if (!Array.isArray(pair) || pair.length !== 2) return null;
-    const x = finite(pair[0]);
-    const y = finite(pair[1]);
+    const x = finiteNumber(pair[0]);
+    const y = finiteNumber(pair[1]);
     if (x === null || y === null) return null;
     out.push([x, y]);
   }
@@ -153,13 +115,13 @@ function parseBody(raw: unknown): SimulationBody | null {
   const row = raw as Record<string, unknown>;
   const path = parsePath(row.path);
   if (!path) return null;
-  const radius = finite(row.radius);
+  const radius = finiteNumber(row.radius);
   const shape: SimulationBodyShape =
     row.shape === undefined
       ? "circle"
       : row.shape === "circle" || row.shape === "box"
         ? row.shape
-        : reject();
+        : refuse();
   return {
     label: typeof row.label === "string" && row.label ? row.label.slice(0, 32) : undefined,
     // A non-positive radius would draw nothing at all, so it falls back rather
@@ -172,41 +134,41 @@ function parseBody(raw: unknown): SimulationBody | null {
 }
 
 function parseTether(raw: unknown): SimulationTether {
-  if (!isJsonRecord(raw) || !isIndex(raw.body)) reject();
+  if (!isJsonRecord(raw) || !isIndex(raw.body)) refuse();
   return { anchor: requirePoint(raw.anchor), body: raw.body };
 }
 
 function parsePulley(raw: unknown): SimulationPulley | undefined {
   if (raw === undefined || raw === null) return undefined;
-  if (!isJsonRecord(raw)) reject();
-  const radius = finite(raw.radius);
-  if (radius === null || radius <= 0) reject();
+  if (!isJsonRecord(raw)) refuse();
+  const radius = finiteNumber(raw.radius);
+  if (radius === null || radius <= 0) refuse();
   return { centre: requirePoint(raw.centre), radius };
 }
 
 function parsePlanet(raw: unknown): SimulationPlanet | undefined {
   if (raw === undefined || raw === null) return undefined;
-  if (!isJsonRecord(raw)) reject();
-  const radius = finite(raw.radius);
-  if (radius === null || radius <= 0) reject();
-  const label = optionalLabel(raw.label);
+  if (!isJsonRecord(raw)) refuse();
+  const radius = finiteNumber(raw.radius);
+  if (radius === null || radius <= 0) refuse();
+  const label = optionalText(raw.label, MAX_SHORT_LABEL);
   return label ? { radius, label } : { radius };
 }
 
 function parseAngle(raw: unknown): SimulationAngle {
-  if (!isJsonRecord(raw)) reject();
-  const startDeg = finite(raw.start_deg);
-  const endDeg = finite(raw.end_deg);
-  if (startDeg === null || endDeg === null || startDeg === endDeg) reject();
+  if (!isJsonRecord(raw)) refuse();
+  const startDeg = finiteNumber(raw.start_deg);
+  const endDeg = finiteNumber(raw.end_deg);
+  if (startDeg === null || endDeg === null || startDeg === endDeg) refuse();
   const arrow =
-    raw.arrow === undefined ? false : typeof raw.arrow === "boolean" ? raw.arrow : reject();
+    raw.arrow === undefined ? false : typeof raw.arrow === "boolean" ? raw.arrow : refuse();
   const role =
     raw.role === undefined
       ? "given"
       : raw.role === "given" || raw.role === "result"
         ? raw.role
-        : reject();
-  const label = optionalLabel(raw.label);
+        : refuse();
+  const label = optionalText(raw.label, MAX_SHORT_LABEL);
   return {
     vertex: requirePoint(raw.vertex),
     startDeg,
@@ -218,17 +180,17 @@ function parseAngle(raw: unknown): SimulationAngle {
 }
 
 function parseSolid(raw: unknown): SimulationSolid {
-  if (!isJsonRecord(raw) || !Array.isArray(raw.rect) || raw.rect.length !== 4) reject();
-  const [xMin, yMin, xMax, yMax] = raw.rect.map(finite);
-  if (xMin === null || yMin === null || xMax === null || yMax === null) reject();
-  if (xMax <= xMin || yMax <= yMin) reject();
+  if (!isJsonRecord(raw) || !Array.isArray(raw.rect) || raw.rect.length !== 4) refuse();
+  const [xMin, yMin, xMax, yMax] = raw.rect.map(finiteNumber);
+  if (xMin === null || yMin === null || xMax === null || yMax === null) refuse();
+  if (xMax <= xMin || yMax <= yMin) refuse();
   const kind =
     raw.kind === undefined
       ? "solid"
       : raw.kind === "solid" || raw.kind === "fluid"
         ? raw.kind
-        : reject();
-  const label = optionalLabel(raw.label);
+        : refuse();
+  const label = optionalText(raw.label, MAX_SHORT_LABEL);
   return { rect: { xMin, yMin, xMax, yMax }, kind, ...(label ? { label } : {}) };
 }
 
@@ -238,11 +200,11 @@ function parseArrowLabels(
   named: readonly unknown[],
 ): Partial<Record<SimulationArrow, string>> {
   if (raw === undefined) return {};
-  if (!isJsonRecord(raw)) reject();
+  if (!isJsonRecord(raw)) refuse();
   const out: Partial<Record<SimulationArrow, string>> = {};
   for (const [key, value] of Object.entries(raw)) {
-    if (!ARROW_KINDS.includes(key as SimulationArrow) || !named.includes(key)) reject();
-    if (typeof value !== "string" || codePoints(value) > MAX_SHORT_LABEL) reject();
+    if (!ARROW_KINDS.includes(key as SimulationArrow) || !named.includes(key)) refuse();
+    if (typeof value !== "string" || codePoints(value) > MAX_SHORT_LABEL) refuse();
     if (value) out[key as SimulationArrow] = value;
   }
   return out;
@@ -250,13 +212,13 @@ function parseArrowLabels(
 
 function parseStrobe(raw: unknown): number | undefined {
   if (raw === undefined || raw === null) return undefined;
-  if (!isIndex(raw) || raw < MIN_STROBE || raw > MAX_STROBE) reject();
+  if (!isIndex(raw) || raw < MIN_STROBE || raw > MAX_STROBE) refuse();
   return raw;
 }
 
 function parseTitleKey(raw: unknown): SceneTitleKey | undefined {
   if (raw === undefined || raw === null) return undefined;
-  if (typeof raw !== "string") reject();
+  if (typeof raw !== "string") refuse();
   // A key this build does not know only means a newer server named the scene:
   // the English `title` still says what it is, so the scene draws under it.
   return SCENE_TITLE_KEYS.includes(raw as SceneTitleKey) ? (raw as SceneTitleKey) : undefined;
@@ -278,12 +240,7 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
     return null;
   }
   if (!data || typeof data !== "object") return null;
-  try {
-    return readScene(data as Record<string, unknown>);
-  } catch (error) {
-    if (error instanceof MalformedScene) return null;
-    throw error;
-  }
+  return guard(() => readScene(data as Record<string, unknown>));
 }
 
 function readScene(row: Record<string, unknown>): SimulationSpec | null {
@@ -291,10 +248,10 @@ function readScene(row: Record<string, unknown>): SimulationSpec | null {
   const bodies = readBodies(row.bodies);
   if (!bodies) return null;
 
-  const xMin = finite(row.x_min);
-  const xMax = finite(row.x_max);
-  const yMin = finite(row.y_min);
-  const yMax = finite(row.y_max);
+  const xMin = finiteNumber(row.x_min);
+  const xMax = finiteNumber(row.x_max);
+  const yMin = finiteNumber(row.y_min);
+  const yMax = finiteNumber(row.y_max);
   if (xMin === null || xMax === null || yMin === null || yMax === null) return null;
   if (xMax <= xMin || yMax <= yMin) return null;
 
@@ -316,7 +273,7 @@ function readScene(row: Record<string, unknown>): SimulationSpec | null {
   // not the spring the solver sampled.
   if (row.type === "spring" && (anchor === undefined || bodies.length !== 1)) return null;
 
-  const inclineDeg = finite(row.incline_deg);
+  const inclineDeg = finiteNumber(row.incline_deg);
 
   const parts = readParts(row, namedArrows, bodies, vectors, centre);
   if (!parts) return null;
@@ -379,7 +336,7 @@ function readVectors(raw: unknown): SimulationVector[] | null {
 function readBeam(raw: unknown): SimulationSpec["beam"] {
   let beam: SimulationSpec["beam"];
   if (Array.isArray(raw) && raw.length === 4) {
-    const ends = raw.map(finite);
+    const ends = raw.map(finiteNumber);
     if (ends.every((v) => v !== null)) {
       beam = { x1: ends[0]!, y1: ends[1]!, x2: ends[2]!, y2: ends[3]! };
     }
@@ -402,7 +359,7 @@ function readParts(
   const solids = optionalList(row.solids, MAX_PARTS).map(parseSolid);
   const arrowLabels = parseArrowLabels(row.arrow_labels, namedArrows);
   const strobe = parseStrobe(row.strobe);
-  const alt = optionalLabel(row.alt, MAX_ALT);
+  const alt = optionalText(row.alt, MAX_ALT);
   const titleKey = parseTitleKey(row.title_key);
 
   // A string or an arrow riding on a body the scene does not have would be

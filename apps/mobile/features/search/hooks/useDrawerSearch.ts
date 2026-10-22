@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import type { TextInput } from "react-native";
 
 import { api, type SearchResult } from "@/lib/api";
+import { isAbortError } from "@/lib/api/abort";
 import { getSessionGeneration } from "@/lib/auth";
 import {
   DRAWER_SEARCH_DEBOUNCE_MS,
   DRAWER_SEARCH_PAGE_SIZE,
   hasMoreDrawerSearchResults,
-  isAbortError,
   isValidDrawerSearchQuery,
   mergeDrawerSearchResults,
 } from "@/features/search/model/drawerSearchLogic";

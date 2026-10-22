@@ -1,6 +1,11 @@
 /** Linear markdown-fence scan — no nested regex on assistant text. */
 
-/** CommonMark fence opener/closer: 3+ backticks or tildes, up to 3 leading spaces. */
+import { parseFenceLang } from "@/lib/codeHighlight";
+
+/**
+ * CommonMark fence opener/closer: 3+ backticks or tildes, up to 3 leading spaces. A backtick
+ * run's info holds no backtick: ```` ```inline``` ```` on one line is code, as on the server.
+ */
 export function readFenceMarker(
   line: string,
 ): { char: "`" | "~"; len: number; info: string } | null {
@@ -13,8 +18,9 @@ export function readFenceMarker(
     len += 1;
     i += 1;
   }
-  if (len < 3) return null;
-  return { char, len, info: line.slice(i).trim() };
+  const info = line.slice(i).trim();
+  if (len < 3 || (char === "`" && info.includes("`"))) return null;
+  return { char, len, info };
 }
 
 /** Fence even when indented 4+ spaces (CommonMark would treat that as code). */
@@ -24,16 +30,56 @@ export function readFenceMarkerLoose(
   return readFenceMarker(line) ?? readFenceMarker(line.trimStart());
 }
 
+/** A fence left open: its marker's character and run length. */
+export type OpenFence = { char: "`" | "~"; len: number };
+
+/** A closer of `open`: its character, at least as long, nothing after it (CommonMark). */
+export function closesFence(
+  marker: { char: "`" | "~"; len: number; info: string },
+  open: OpenFence,
+): boolean {
+  return marker.char === open.char && marker.len >= open.len && marker.info === "";
+}
+
+/**
+ * The fence open after `line`, given the one open before it. A fence line inside an open
+ * fence is its content unless it closes it; ` ``` | ```java` is a table cell's leftover,
+ * not an opener. `loose` also reads a fence indented 4+ spaces, as in a list item.
+ */
+export function fenceAfterLine(
+  open: OpenFence | null,
+  line: string,
+  loose = false,
+): OpenFence | null {
+  const marker = loose ? readFenceMarkerLoose(line) : readFenceMarker(line);
+  if (open) return marker && closesFence(marker, open) ? null : open;
+  return marker && !marker.info.includes("|") ? { char: marker.char, len: marker.len } : null;
+}
+
+/**
+ * For each line of `text.split("\n")`, whether a fence holds it, its opener and closer
+ * included. Line loops read this instead of flipping a flag on every ``` line, which a ```
+ * shown inside a ~~~ block turned inside out (audit DUP-03). Loose by default, as the
+ * loops it replaced: a fence indented in a list item is still one.
+ */
+export function fencedLines(text: string, loose = true): boolean[] {
+  let open: OpenFence | null = null;
+  return text.split("\n").map((line) => {
+    const before = open;
+    open = fenceAfterLine(open, line, loose);
+    return before != null || open != null;
+  });
+}
+
 /**
  * Apply `fn` only to prose between fenced regions. Fence openers, bodies, and
  * closers are copied byte-for-byte (including `$$` inside a Python string).
  */
 export function applyOutsideFences(text: string, fn: (prose: string) => string): string {
   if (!text) return fn(text);
-  const lines = text.split("\n");
+  const fenced = fencedLines(text, false);
   const out: string[] = [];
   let prose: string[] = [];
-  let open: { char: "`" | "~"; len: number } | null = null;
 
   const flushProse = () => {
     if (prose.length === 0) return;
@@ -41,98 +87,31 @@ export function applyOutsideFences(text: string, fn: (prose: string) => string):
     prose = [];
   };
 
-  for (const line of lines) {
-    const marker = readFenceMarker(line);
-    if (open) {
-      out.push(line);
-      if (
-        marker &&
-        marker.char === open.char &&
-        marker.len >= open.len &&
-        marker.info === ""
-      ) {
-        open = null;
-      }
-      continue;
+  text.split("\n").forEach((line, index) => {
+    if (!fenced[index]) {
+      prose.push(line);
+      return;
     }
-    // ` ``` | ```java` is a table-cell leftover, not a fence opener.
-    if (marker && !marker.info.includes("|")) {
-      flushProse();
-      out.push(line);
-      open = { char: marker.char, len: marker.len };
-      continue;
-    }
-    prose.push(line);
-  }
+    flushProse();
+    out.push(line);
+  });
   flushProse();
   return out.join("\n");
 }
 
-function isFenceCloser(line: string): boolean {
-  const stripped = line.trim();
-  return stripped.length >= 3 && stripped === "`".repeat(stripped.length);
-}
-
-function nextFenceMarkerLine(
-  text: string,
-  fromIndex: number,
-): { start: number; after: number; stripped: string } | null {
-  let index = fromIndex;
-  while (index < text.length) {
-    const newline = text.indexOf("\n", index);
-    const end = newline < 0 ? text.length : newline;
-    const line = text.slice(index, end);
-    const stripped = line.trim();
-    if (stripped.startsWith("```")) {
-      return { start: index, after: newline < 0 ? text.length : newline + 1, stripped };
-    }
-    if (newline < 0) return null;
-    index = newline + 1;
-  }
-  return null;
-}
-
-function findLangOpener(text: string, lang: string, start = 0): number | null {
-  const needle = "```" + lang.toLowerCase();
-  const lower = text.toLowerCase();
-  let index = start;
-  const tagLen = lang.length;
-  while (true) {
-    const pos = lower.indexOf(needle, index);
-    if (pos < 0) return null;
-    if (pos === 0 || text[pos - 1] === "\n") {
-      const after = pos + 3 + tagLen;
-      if (after >= text.length || " \t\r\n".includes(text[after] ?? "")) {
-        return pos;
-      }
-    }
-    index = pos + 1;
-  }
-}
-
+/** The text with the first closed ``lang`` fence's body replaced; null when there is none. */
 export function replaceFirstClosedFenceBody(
   text: string,
   lang: string,
   newBody: string,
 ): string | null {
-  let index = 0;
-  while (true) {
-    const opener = findLangOpener(text, lang, index);
-    if (opener == null) return null;
-    const newline = text.indexOf("\n", opener);
-    if (newline < 0) return null;
-    const marker = nextFenceMarkerLine(text, newline + 1);
-    if (marker == null || !isFenceCloser(marker.stripped)) {
-      index = newline + 1;
-      continue;
-    }
-    let stripped = newBody;
-    while (stripped.endsWith("\n")) {
-      stripped = stripped.slice(0, -1);
-    }
-    const body = `${stripped}\n`;
-    return text.slice(0, newline + 1) + body + text.slice(marker.start);
+  const span = closedLangFences(text, lang)[0];
+  if (span == null) return null;
+  let stripped = newBody;
+  while (stripped.endsWith("\n")) {
+    stripped = stripped.slice(0, -1);
   }
+  return text.slice(0, span.bodyStart) + `${stripped}\n` + text.slice(span.bodyEnd);
 }
 
 export function collectClosedFenceBodies(text: string, lang: string): string[] {
@@ -144,6 +123,22 @@ export function collectClosedFenceBodies(text: string, lang: string): string[] {
   return bodies;
 }
 
+/** Closed fences whose language (``parseFenceLang``) is ``lang``. */
+function closedLangFences(text: string, lang: string): FenceSpan[] {
+  const want = lang.toLowerCase();
+  return scanFences(text).filter((span) => span.closed && parseFenceLang(span.info) === want);
+}
+
+/** Past a fence's closer line and its line break. */
+function afterFence(text: string, span: FenceSpan): number {
+  return text[span.end] === "\n" ? span.end + 1 : span.end;
+}
+
+/**
+ * Rewrite each closed ``lang`` fence (opener through closer and its line break) as
+ * ``replace(body)``, the body with its last line break. CommonMark rules, as ``scanFences``:
+ * a ``` line inside a ~~~ block is that block's content (audit DUP-03).
+ */
 export function mapClosedLangFence(
   text: string,
   lang: string,
@@ -151,33 +146,27 @@ export function mapClosedLangFence(
 ): string {
   const pieces: string[] = [];
   let cursor = 0;
-  let index = 0;
-  while (true) {
-    const opener = findLangOpener(text, lang, index);
-    if (opener == null) {
-      pieces.push(text.slice(cursor));
-      break;
-    }
-    const newline = text.indexOf("\n", opener);
-    if (newline < 0) {
-      pieces.push(text.slice(cursor));
-      break;
-    }
-    const marker = nextFenceMarkerLine(text, newline + 1);
-    if (marker == null || !isFenceCloser(marker.stripped)) {
-      index = newline + 1;
-      continue;
-    }
-    pieces.push(text.slice(cursor, opener));
-    pieces.push(replace(text.slice(newline + 1, marker.start)));
-    cursor = marker.after;
-    index = marker.after;
+  for (const span of closedLangFences(text, lang)) {
+    pieces.push(text.slice(cursor, span.start));
+    pieces.push(replace(text.slice(span.bodyStart, span.bodyEnd)));
+    cursor = afterFence(text, span);
   }
+  pieces.push(text.slice(cursor));
   return pieces.join("");
 }
 
 export function stripClosedLangFence(text: string, lang: string): string {
   return mapClosedLangFence(text, lang, () => "");
+}
+
+/** The text without a last ``lang`` fence left open (a reply streaming or cut mid-fence). */
+export function stripUnclosedLangTail(text: string, lang: string): string {
+  const spans = scanFences(text);
+  const last = spans[spans.length - 1];
+  if (last == null || last.closed || parseFenceLang(last.info) !== lang.toLowerCase()) {
+    return text;
+  }
+  return text.slice(0, last.start);
 }
 
 /**
@@ -203,12 +192,7 @@ export function mapClosedFences(
     let end = -1;
     for (let j = i + 1; j < lines.length; j += 1) {
       const inner = readFenceMarker(lines[j]!);
-      if (
-        inner &&
-        inner.char === marker.char &&
-        inner.len >= marker.len &&
-        inner.info === ""
-      ) {
+      if (inner && closesFence(inner, marker)) {
         end = j;
         break;
       }
@@ -236,15 +220,20 @@ export type FenceSpan = {
   start: number;
   /** Offset just past the closer line's last character (the end of the text if unclosed). */
   end: number;
+  /** Offset of the first body line, and of the closer line (the end of the text if unclosed). */
+  bodyStart: number;
+  bodyEnd: number;
   closed: boolean;
 };
 
 /**
  * Every fence in reading order, by CommonMark rules: an opener is 3+ backticks or tildes, a
  * closer repeats the marker at least as long with no info string. An opener with no closer runs
- * to the end of the text, which is what a streaming reply looks like mid-fence.
+ * to the end of the text, which is what a streaming reply looks like mid-fence. `loose` also
+ * reads a fence indented 4+ spaces, as in a list item.
  */
-export function scanFences(text: string): FenceSpan[] {
+export function scanFences(text: string, loose = false): FenceSpan[] {
+  const read = loose ? readFenceMarkerLoose : readFenceMarker;
   const lines = text.split("\n");
   const starts: number[] = [];
   let offset = 0;
@@ -255,25 +244,28 @@ export function scanFences(text: string): FenceSpan[] {
   const spans: FenceSpan[] = [];
   let i = 0;
   while (i < lines.length) {
-    const marker = readFenceMarker(lines[i]!);
+    const marker = read(lines[i]!);
     if (!marker || marker.info.includes("|")) {
       i += 1;
       continue;
     }
     let close = -1;
     for (let j = i + 1; j < lines.length; j += 1) {
-      const inner = readFenceMarker(lines[j]!);
-      if (inner && inner.char === marker.char && inner.len >= marker.len && inner.info === "") {
+      const inner = read(lines[j]!);
+      if (inner && closesFence(inner, marker)) {
         close = j;
         break;
       }
     }
     const last = close < 0 ? lines.length - 1 : close;
+    const bodyStart = Math.min(text.length, starts[i]! + lines[i]!.length + 1);
     spans.push({
       info: marker.info,
       body: lines.slice(i + 1, close < 0 ? lines.length : close).join("\n"),
       start: starts[i]!,
       end: starts[last]! + lines[last]!.length,
+      bodyStart,
+      bodyEnd: close < 0 ? text.length : starts[close]!,
       closed: close >= 0,
     });
     i = last + 1;
@@ -287,30 +279,14 @@ export function mapUnlabeledClosedFences(
   replace: (body: string, original: string) => string,
 ): string {
   const pieces: string[] = [];
-  let index = 0;
-  while (true) {
-    const marker = nextFenceMarkerLine(text, index);
-    if (marker == null) {
-      pieces.push(text.slice(index));
-      break;
-    }
-    const lang = marker.stripped.replace(/^`+/, "").trim();
-    if (lang) {
-      pieces.push(text.slice(index, marker.after));
-      index = marker.after;
-      continue;
-    }
-    const closer = nextFenceMarkerLine(text, marker.after);
-    if (closer == null || !isFenceCloser(closer.stripped)) {
-      pieces.push(text.slice(index, marker.after));
-      index = marker.after;
-      continue;
-    }
-    const body = text.slice(marker.after, closer.start);
-    const original = text.slice(marker.start, closer.after);
-    pieces.push(text.slice(index, marker.start));
-    pieces.push(replace(body, original));
-    index = closer.after;
+  let cursor = 0;
+  for (const span of scanFences(text)) {
+    if (!span.closed || span.info !== "") continue;
+    const after = afterFence(text, span);
+    pieces.push(text.slice(cursor, span.start));
+    pieces.push(replace(text.slice(span.bodyStart, span.bodyEnd), text.slice(span.start, after)));
+    cursor = after;
   }
+  pieces.push(text.slice(cursor));
   return pieces.join("");
 }

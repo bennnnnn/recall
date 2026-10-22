@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
+from app.exceptions import DomainError
 from app.gateways import image_gateway, mock_llm
 from app.gateways.storage_gateway import (
     StorageGateway,
@@ -49,13 +50,8 @@ AspectRatio = Literal["1:1", "16:9", "9:16", "4:3", "3:4"]
 _ALLOWED_ASPECT_RATIOS: frozenset[str] = frozenset({"1:1", "16:9", "9:16", "4:3", "3:4"})
 
 
-class ImageGenerationError(Exception):
-    """Domain failure for image generation; router maps status_code → HTTP."""
-
-    def __init__(self, detail: str, *, status_code: int) -> None:
-        self.detail = detail
-        self.status_code = status_code
-        super().__init__(detail)
+class ImageGenerationError(DomainError):
+    """An image generation refusal."""
 
 
 async def _rollback_written_bytes(gateway: StorageGateway, storage_key: str | None) -> None:
@@ -187,12 +183,12 @@ async def _authorize_generation(
     regenerate with no reference ids reuses the images of the last user turn.
     """
     if not settings.image_generation_enabled:
-        raise ImageGenerationError("Not available", status_code=404)
+        raise ImageGenerationError("Not available", status_code=404, code="not_available")
     if not settings.attachments_enabled:
         raise ImageGenerationError("Attachments are disabled", status_code=503)
     if not can_use(user, "image_generation", settings):
         raise ImageGenerationError(
-            quota_service.IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE, status_code=403
+            quota_service.IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE, status_code=403, code="not_in_plan"
         )
 
     async with SessionLocal() as session:
@@ -214,7 +210,7 @@ async def _authorize_generation(
     redis = get_redis_client()
     if await quota_service.global_spend_exceeded(redis, settings):
         raise ImageGenerationError(
-            quota_service.IMAGE_GENERATION_SPEND_CAP_MESSAGE, status_code=429
+            quota_service.IMAGE_GENERATION_SPEND_CAP_MESSAGE, status_code=429, code="spend_cap"
         )
     return gateway, references, redis
 
@@ -248,7 +244,9 @@ class _ReservedQuota:
         self.day = await counters.reserve("image_generation", self.redis, self.user, self.settings)
         if not self.day:
             raise ImageGenerationError(
-                counters.limit_message("image_generation", self.user), status_code=429
+                counters.limit_message("image_generation", self.user),
+                status_code=429,
+                code="daily_limit",
             )
 
     async def __aexit__(

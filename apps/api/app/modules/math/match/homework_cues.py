@@ -10,11 +10,12 @@ import re
 
 from app.modules.math.match.calculus import y_prime_math_cue
 from app.modules.math.match.need_signals import has_digit
+from app.services.number_text import count_word_pattern
 from app.services.text_match import has_equation, word_index
 
 _CHANCE_WORD = re.compile(r"\b(?:probability|chance|likelihood)\b", re.IGNORECASE)
 _COUNTED_OUTCOME = re.compile(
-    r"\b(?:\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+"
+    rf"\b(?:\d{{1,3}}|{count_word_pattern()})\s+"
     r"(?:heads|tails|sixes)\b",
     re.IGNORECASE,
 )

@@ -1,26 +1,9 @@
 import {
   hasMoreDrawerSearchResults,
-  isAbortError,
   isValidDrawerSearchQuery,
   mergeDrawerSearchResults,
 } from "@/features/search/model/drawerSearchLogic";
 import type { SearchResult } from "@/lib/api";
-
-it("detects abort errors with or without a DOMException global", () => {
-  expect(isAbortError(new DOMException("Aborted", "AbortError"))).toBe(true);
-  const err = new Error("Aborted");
-  err.name = "AbortError";
-  expect(isAbortError(err)).toBe(true);
-  expect(isAbortError(new Error("network"))).toBe(false);
-  const domException = globalThis.DOMException;
-  Object.defineProperty(globalThis, "DOMException", { value: undefined, configurable: true });
-  try {
-    expect(isAbortError(err)).toBe(true);
-    expect(isAbortError({ name: "something-else" })).toBe(false);
-  } finally {
-    Object.defineProperty(globalThis, "DOMException", { value: domException, configurable: true });
-  }
-});
 
 it.each([
   ["  ", false], [" x ", false], [" hi ", false], [" hey ", true], ["😀😀", false], ["😀😀😀", true],

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.background_tasks import create_background_task as create_background_task
 from app.core.config import Settings
 from app.core.redis import get_redis_client as get_redis_client
+from app.exceptions import DomainError
 from app.models.orm import Memory, User
 from app.modules.memory import cache as _cache
 from app.modules.memory import crud as _crud
@@ -283,14 +284,24 @@ async def release_memory_write_lock(user_id: UUID, token: str | None) -> None:
     await _locks.release_memory_write_lock(_seams(), user_id, token)
 
 
-class MemoryWriteLockBusyError(Exception):
+class MemoryWriteLockBusyError(DomainError):
+    """Another write holds the user's memory; 409 ``memory_busy``."""
+
+    status_code = 409
+    default_code = "memory_busy"
+
     def __init__(self, user_id: UUID) -> None:
-        super().__init__(f"Memory write lock busy for user_id={user_id}")
+        super().__init__("Memory is being updated right now — try again in a moment.")
         self.user_id = user_id
 
 
-class MemoryEmptyTextError(Exception):
+class MemoryEmptyTextError(DomainError):
     """Edited memory text normalized to empty."""
+
+    default_code = "memory_empty"
+
+    def __init__(self, message: str = "Memory text cannot be empty") -> None:
+        super().__init__(message)
 
 
 async def _acquire_memory_write_lock_or_raise(user_id: UUID) -> str:

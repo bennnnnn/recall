@@ -19,20 +19,19 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
+from app.services.glyphs import OPERATOR_GLYPHS
+
 logger = logging.getLogger(__name__)
 
 _MAX_CANDIDATES = 24
 _MAX_TEXT = 2000
 
+# The operators are the shared table (services/glyphs.py); the rest are this check's.
 _UNICODE = {
     "²": "^2",
     "³": "^3",
     "⁴": "^4",
-    "\u2212": "-",  # minus sign
-    "\u2013": "-",  # en dash
-    "\u00d7": "*",  # multiplication sign
-    "·": "*",
-    "÷": "/",
+    **OPERATOR_GLYPHS,
     "π": "pi",
     "√": "sqrt",
     "≤": "<=",

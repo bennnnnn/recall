@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.redis import get_redis_client
+from app.exceptions import DomainError
 from app.gateways.storage_gateway import (
     LocalStorageGateway,
     StorageUnavailableError,
@@ -36,11 +37,8 @@ from app.services.quota import counters
 logger = logging.getLogger(__name__)
 
 
-class AttachmentWorkflowError(Exception):
-    def __init__(self, status_code: int, detail: str) -> None:
-        super().__init__(detail)
-        self.status_code = status_code
-        self.detail = detail
+class AttachmentWorkflowError(DomainError):
+    """An attachment read, upload or delete refusal."""
 
 
 @dataclass(frozen=True)
@@ -70,11 +68,13 @@ async def _verified_row(
     # a time, an R2 write) held this pooled connection idle in transaction throughout.
     await session.commit()
     if row is None:
-        raise AttachmentWorkflowError(404, "Not found")
+        raise AttachmentWorkflowError("Not found", status_code=404)
     gateway = get_storage_gateway(settings)
     if row.verified_at is None:
         if isinstance(gateway, LocalStorageGateway):
-            raise AttachmentWorkflowError(409, "The attachment has not finished uploading")
+            raise AttachmentWorkflowError(
+                "The attachment has not finished uploading", status_code=409
+            )
         error, removed = await ensure_verified_or_purge(
             gateway,
             session,
@@ -86,7 +86,7 @@ async def _verified_row(
         if error:
             if removed:
                 await _refund_upload(user, row)
-            raise AttachmentWorkflowError(400, error)
+            raise AttachmentWorkflowError(error, status_code=400)
     return row, gateway
 
 
@@ -152,12 +152,14 @@ async def delete_attachment(
     """Cancel a pending upload or remove a Library item (bytes, row, chat marker)."""
     row = await attachments_repo.get_by_id(session, attachment_id, user.id)
     if row is None:
-        raise AttachmentWorkflowError(404, "Not found")
+        raise AttachmentWorkflowError("Not found", status_code=404)
     if row.message_id is None:
         try:
             await cancel_pending_upload(session, settings, user=user, attachment_id=attachment_id)
         except AttachmentUploadError as exc:
-            raise AttachmentWorkflowError(exc.status_code, exc.detail) from exc
+            raise AttachmentWorkflowError(
+                exc.message, status_code=exc.status_code, code=exc.code
+            ) from exc
         return
     await _delete_library_attachment(session, settings, user, row)
 
@@ -211,12 +213,12 @@ async def store_local_upload(
 ) -> None:
     row = await attachments_repo.get_by_id(session, attachment_id, user.id, for_update=True)
     if row is None:
-        raise AttachmentWorkflowError(404, "Not found")
+        raise AttachmentWorkflowError("Not found", status_code=404)
     gateway = get_storage_gateway(settings)
     if not isinstance(gateway, LocalStorageGateway):
-        raise AttachmentWorkflowError(501, "Use presigned upload")
+        raise AttachmentWorkflowError("Use presigned upload", status_code=501)
     if row.message_id is not None:
-        raise AttachmentWorkflowError(409, "Attachment is already linked to a message")
+        raise AttachmentWorkflowError("Attachment is already linked to a message", status_code=409)
 
     cap = min(MAX_ATTACHMENT_SIZE, max(row.size_bytes, 0))
     detail: str | None = None
@@ -235,7 +237,7 @@ async def store_local_upload(
     if row.verified_at is not None:
         if detail is None and await gateway.read_bytes(row.storage_key) == data:
             return
-        raise AttachmentWorkflowError(409, "The attachment has already been uploaded")
+        raise AttachmentWorkflowError("The attachment has already been uploaded", status_code=409)
     if detail:
         removed = await purge_invalid_upload(
             gateway,
@@ -245,7 +247,7 @@ async def store_local_upload(
         )
         if removed:
             await _refund_upload(user, row)
-        raise AttachmentWorkflowError(400, detail)
+        raise AttachmentWorkflowError(detail, status_code=400)
 
     await gateway.write_bytes(row.storage_key, data)
     await attachments_repo.mark_verified(session, row.id)
@@ -260,11 +262,13 @@ async def confirm_upload(
     row = await attachments_repo.get_by_id(session, attachment_id, user.id)
     await session.commit()  # the check below downloads the whole object: no transaction open
     if row is None:
-        raise AttachmentWorkflowError(404, "Not found")
+        raise AttachmentWorkflowError("Not found", status_code=404)
     gateway = get_storage_gateway(settings)
     if isinstance(gateway, LocalStorageGateway):
         if row.verified_at is None:
-            raise AttachmentWorkflowError(409, "The attachment has not finished uploading")
+            raise AttachmentWorkflowError(
+                "The attachment has not finished uploading", status_code=409
+            )
         return
     error, removed = await ensure_verified_or_purge(
         gateway,
@@ -277,7 +281,7 @@ async def confirm_upload(
     if error:
         if removed:
             await _refund_upload(user, row)
-        raise AttachmentWorkflowError(400, error)
+        raise AttachmentWorkflowError(error, status_code=400)
 
 
 async def _drop_row_for_missing_file(session: AsyncSession, attachment_id: UUID) -> None:
@@ -305,10 +309,10 @@ async def get_file_access(
             raise
         except Exception:
             logger.exception("Thumbnail resize failed attachment_id=%s", attachment_id)
-            raise AttachmentWorkflowError(422, "Could not resize image") from None
+            raise AttachmentWorkflowError("Could not resize image", status_code=422) from None
         if thumb is None:
             await _drop_row_for_missing_file(session, row.id)
-            raise AttachmentWorkflowError(404, "File missing")
+            raise AttachmentWorkflowError("File missing", status_code=404)
         body, content_type = thumb
         return FileAccess(content_type=content_type, body=body)
     if isinstance(gateway, LocalStorageGateway):
@@ -320,7 +324,7 @@ async def get_file_access(
                 row.storage_key,
             )
             await _drop_row_for_missing_file(session, row.id)
-            raise AttachmentWorkflowError(404, "File missing")
+            raise AttachmentWorkflowError("File missing", status_code=404)
         return FileAccess(content_type=row.content_type, local_path=path)
     return FileAccess(
         content_type=row.content_type,

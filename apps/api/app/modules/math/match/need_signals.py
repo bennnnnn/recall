@@ -85,7 +85,7 @@ def named_rectangle(cleaned: str, lower: str) -> bool:
 
 def drawn_shape(cleaned: str, lower: str) -> bool:
     """A draw, show or sketch verb with a shape."""
-    return any(has_draw_shape(lower, shape) for shape in _DRAWN_SHAPES)
+    return any(has_draw_shape(cleaned, shape) for shape in _DRAWN_SHAPES)
 
 
 def shape_with_measures(cleaned: str, lower: str) -> bool:

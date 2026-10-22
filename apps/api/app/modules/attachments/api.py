@@ -18,7 +18,7 @@ from app.models.schemas import (
     AttachmentPresignOut,
 )
 from app.modules.attachments import workflow as attachment_workflow
-from app.modules.attachments.upload import AttachmentUploadError, create_presigned_upload
+from app.modules.attachments.upload import create_presigned_upload
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
 
@@ -49,8 +49,6 @@ def _workflow_http_errors() -> Iterator[None]:
     """Answer a workflow refusal with its status, and a storage outage with 503."""
     try:
         yield
-    except attachment_workflow.AttachmentWorkflowError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     except StorageUnavailableError as exc:
         raise _storage_http_error() from exc
 
@@ -106,8 +104,6 @@ async def presign_upload(
             size_bytes=body.size_bytes,
             filename=body.filename,
         )
-    except AttachmentUploadError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     except StorageUnavailableError as exc:
         raise _storage_http_error() from exc
 

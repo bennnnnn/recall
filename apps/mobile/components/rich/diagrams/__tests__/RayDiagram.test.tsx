@@ -6,6 +6,7 @@
  * commands and each label as its text and baseline. The expected positions
  * come from the pure helpers in `lib/physics/optics.ts`.
  */
+import { type Box } from "@/lib/physics/boxes";
 import { render } from "@testing-library/react-native";
 
 import { RayDiagram } from "@/components/rich/diagrams/RayDiagram";
@@ -21,7 +22,6 @@ import {
   toScreen,
   worldTransform,
   worldViewportHeight,
-  type Box,
   type LabelPlacement,
   type ScreenPoint,
 } from "@/lib/physics/optics";
