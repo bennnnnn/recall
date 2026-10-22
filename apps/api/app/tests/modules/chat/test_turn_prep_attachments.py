@@ -194,6 +194,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             "app.repositories.messages.count_for_chat",
             AsyncMock(return_value=0),
         ),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
         patch(
             "app.repositories.messages.create",
             AsyncMock(return_value=user_message),
@@ -321,6 +322,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             "app.repositories.messages.count_for_chat",
             AsyncMock(return_value=0),
         ),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
         patch(
             "app.repositories.messages.create",
             AsyncMock(return_value=user_message),
@@ -476,7 +478,8 @@ async def test_process_attachments_reuses_verified_bytes_for_format():
 
     verify_mock.assert_awaited_once()
     assert format_mock.await_args.kwargs["data"] == payload
-    assert result.bytes_by_key[row.storage_key] == payload
+    # A document's bytes are dropped once its excerpt is taken; only images keep theirs.
+    assert row.storage_key not in result.bytes_by_key
     read_mock.assert_not_awaited()
 
 

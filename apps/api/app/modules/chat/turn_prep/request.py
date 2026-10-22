@@ -46,6 +46,9 @@ class TurnRequest:
     force_rich_context: bool = False
     probe_attachment_rag: bool = True
     recent_messages: list[Any] | None = None
+    # Messages in the chat before this turn, counted when the window loaded (None:
+    # the prompt's gap reader counts them).
+    prior_count: int | None = None
     current_user_message_id: UUID | None = None
     # Models whose provider is failing, as read when the turn loaded; None reads
     # them again for the backups.

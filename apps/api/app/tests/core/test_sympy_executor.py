@@ -31,6 +31,15 @@ from app.modules.math.sympy_warmup import warm_math_worker
 from app.tests.sympy_support import ThreadSympyExecutor
 
 
+def _sleep(seconds: float) -> int:
+    time.sleep(seconds)
+    return 1
+
+
+def _divide(a: int, b: int) -> float:
+    return a / b
+
+
 def _add(a: int, b: int) -> int:
     """Picklable top-level function — the subprocess resolves it by qualified
     name from the forked ``sys.modules``."""
@@ -219,19 +228,51 @@ async def test_timeout_returns_quickly():
 
 
 @pytest.mark.asyncio
-async def test_cancel_kills_worker():
-    """CancelledError must hard-kill the pool (same as timeout), not orphan."""
+async def test_a_cancelled_solve_finishes_and_keeps_its_warm_worker():
+    """A caller's cancel (Stop, a closed socket) no longer kills the worker: the job runs
+    to its end, then the slot frees, and the next solve is not a cold start."""
     executor = ProcessPoolSympyExecutor(max_workers=1)
     set_sympy_executor(executor)
     try:
         first_pid = await run_sympy(_echo_pid, timeout=10)
-        task = asyncio.create_task(run_sympy(_sleep_forever, None, timeout=30))
-        await asyncio.sleep(0.3)
+        task = asyncio.create_task(run_sympy(_sleep, 0.5, timeout=30))
+        await asyncio.sleep(0.2)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        second_pid = await run_sympy(_echo_pid, timeout=10)
+        assert second_pid == first_pid
+    finally:
+        executor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_solve_past_its_deadline_is_still_killed():
+    executor = ProcessPoolSympyExecutor(max_workers=1)
+    set_sympy_executor(executor)
+    try:
+        first_pid = await run_sympy(_echo_pid, timeout=10)
+        task = asyncio.create_task(run_sympy(_sleep_forever, None, timeout=1.0))
+        await asyncio.sleep(0.2)
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
         second_pid = await run_sympy(_echo_pid, timeout=10)
         assert second_pid != first_pid
+    finally:
+        executor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_solve_error_keeps_the_worker():
+    """A job that raises leaves a healthy worker: killing it cost a ~4 s cold start."""
+    executor = ProcessPoolSympyExecutor(max_workers=1)
+    set_sympy_executor(executor)
+    try:
+        first_pid = await run_sympy(_echo_pid, timeout=10)
+        with pytest.raises(ZeroDivisionError):
+            await run_sympy(_divide, 1, 0, timeout=10)
+        assert await run_sympy(_echo_pid, timeout=10) == first_pid
     finally:
         executor.shutdown()
 
@@ -249,11 +290,6 @@ async def test_concurrent_call_queued_behind_single_worker():
     # Submit two calls concurrently; with max_workers=1 they serialize.
     results = await asyncio.gather(_slow_add(), _slow_add())
     assert results == [3, 3]
-
-
-def _sleep(seconds: float) -> int:
-    time.sleep(seconds)
-    return 1
 
 
 @pytest.mark.asyncio
@@ -407,14 +443,14 @@ def test_workers_exit_when_the_parent_dies_without_cleanup(sig: signal.Signals):
 _HELD_PIPE_SCRIPT = """
 import multiprocessing, os, time
 from types import SimpleNamespace
-from app.core import sympy_executor
+from app.core import sympy_worker_process
 
 # The parent pipe stays open (this process holds its write end), but the
 # recorded parent pid is not ours: the backstop must still end the worker.
 read_end, write_end = os.pipe()
 multiprocessing.parent_process = lambda: SimpleNamespace(sentinel=read_end, pid=os.getppid() + 1)
-sympy_executor.mp.parent_process = multiprocessing.parent_process
-sympy_executor._exit_with_parent()
+sympy_worker_process.mp.parent_process = multiprocessing.parent_process
+sympy_worker_process.exit_with_parent()
 time.sleep(30)
 raise SystemExit(3)
 """

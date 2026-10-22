@@ -20,7 +20,7 @@ from app.models.orm import Chat, User
 from app.modules.attachments import rag as attachment_rag
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan as plan_service
-from app.modules.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
+from app.modules.chat.turn_prep.mode import _TurnMode, classify_turn_mode
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
@@ -136,7 +136,12 @@ async def _read_missing(session: AsyncSession, turn: UserTurn, settings: Setting
     if turn.prior_count is None:
         turn.prior_count = await messages_repo.count_for_chat(session, turn.chat_id)
     if turn.turn_mode is None:
-        turn.turn_mode = await _classify_turn_mode(session, chat, turn.content)
+        recent = turn.recent_messages
+        if recent is None:
+            recent = await messages_repo.list_recent(
+                session, turn.chat_id, limit=settings.recent_message_window
+            )
+        turn.turn_mode = classify_turn_mode(recent, turn.content)
     return user
 
 

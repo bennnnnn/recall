@@ -16,8 +16,7 @@ from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.gateways.storage_gateway import get_storage_gateway
 from app.modules.attachments import repository as attachments_repo
-from app.modules.attachments.content_types import is_image_content_type
-from app.modules.attachments.quota import has_current_upload_reservation
+from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
 from app.modules.attachments.thumbnails import delete_thumbnails
 from app.services.quota import counters
 
@@ -229,16 +228,16 @@ async def reap_orphan_attachments(settings: Settings) -> int:
     failed = await delete_storage_keys(settings, removed_keys)
     await enqueue_failed_storage_deletes(failed)
 
-    # Refund the daily image slot for each reaped image.
+    # Refund the daily upload slot of each reaped upload.
     if rows_to_refund:
         redis = get_redis_client()
         for row in rows_to_refund:
-            if is_image_content_type(row.content_type) and has_current_upload_reservation(row):
+            if has_current_upload_reservation(row):
                 try:
-                    await counters.refund("image_upload", redis, row.user_id)
+                    await counters.refund(upload_counter(row.content_type), redis, row.user_id)
                 except Exception:
                     logger.warning(
-                        "Image quota refund failed user_id=%s", row.user_id, exc_info=True
+                        "Upload quota refund failed user_id=%s", row.user_id, exc_info=True
                     )
     logger.info("Reaped %d orphan attachment(s)", len(removed_keys))
     return len(removed_keys)

@@ -84,7 +84,7 @@ async def test_prompt_includes_messages_between_summary_and_recent_window():
             return False
 
     with (
-        patch("app.modules.chat.prompt_builder.SessionLocal", _Session),
+        patch("app.modules.attachments.rag.SessionLocal", _Session),
         patch("app.modules.chat.prompt_context.SessionLocal", _Session),
         patch(
             "app.modules.chat.prompt_context.messages_repo.count_for_chat",
@@ -150,7 +150,7 @@ async def test_prompt_keeps_the_message_pushed_out_by_the_current_turn():
             return False
 
     with (
-        patch("app.modules.chat.prompt_builder.SessionLocal", _Session),
+        patch("app.modules.attachments.rag.SessionLocal", _Session),
         patch("app.modules.chat.prompt_context.SessionLocal", _Session),
         patch(
             "app.modules.chat.prompt_context.messages_repo.count_for_chat",
@@ -231,7 +231,7 @@ async def test_continue_after_a_cut_long_reply_keeps_that_reply_whole():
             return False
 
     with (
-        patch("app.modules.chat.prompt_builder.SessionLocal", _Session),
+        patch("app.modules.attachments.rag.SessionLocal", _Session),
         patch("app.modules.chat.prompt_context.SessionLocal", _Session),
         patch(
             "app.modules.chat.prompt_context.messages_repo.count_for_chat",

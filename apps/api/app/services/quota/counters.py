@@ -14,6 +14,8 @@ from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.modules.billing.entitlements import Allowance, allowance
 from app.services.quota.messages import (
+    DOCUMENT_LIMIT_EXCEEDED_MESSAGE_FREE,
+    DOCUMENT_LIMIT_EXCEEDED_MESSAGE_PAID,
     IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_FREE,
     IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PAID,
     IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE,
@@ -146,6 +148,7 @@ async def raise_counter(redis: Redis, key: str, floor: int, *, ttl: int) -> None
 
 CounterName = Literal[
     "image_upload",
+    "document_upload",
     "speech_transcription",
     "speech_tts",
     "tavily_search",
@@ -179,6 +182,14 @@ COUNTERS: dict[CounterName, CounterSpec] = {
         prefix="imgup",
         allowance="daily_image_uploads",
         message=(IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE, IMAGE_LIMIT_EXCEEDED_MESSAGE_PAID),
+        refund=True,
+    ),
+    # Documents are parsed on the API machine (and may be OCR'd); with no cap one
+    # account could re-upload ten 10 MiB files a message, every message.
+    "document_upload": CounterSpec(
+        prefix="docup",
+        allowance="daily_document_uploads",
+        message=(DOCUMENT_LIMIT_EXCEEDED_MESSAGE_FREE, DOCUMENT_LIMIT_EXCEEDED_MESSAGE_PAID),
         refund=True,
     ),
     "speech_transcription": CounterSpec(

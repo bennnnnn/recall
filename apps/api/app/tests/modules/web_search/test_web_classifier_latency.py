@@ -37,7 +37,6 @@ def prompt_io():
         for target, value in [
             ("context.build_prompt_messages", [{"role": "user", "content": QUESTION}]),
             ("augment.fetch_web_and_tools", _NO_WEB),
-            ("augment._load_prior_user_messages", []),
         ]:
             stack.enter_context(
                 patch(f"app.modules.chat.turn_prep.{target}", AsyncMock(return_value=value))

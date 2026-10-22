@@ -185,10 +185,6 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
             "app.modules.chat.prompt_builder._load_context_blocks",
             AsyncMock(return_value=blocks),
         ),
-        patch(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            AsyncMock(return_value=[_EQUATION]),
-        ),
         patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
         patch(
             "app.modules.chat.turn_prep.context.plan_service.chat_fallback_models",

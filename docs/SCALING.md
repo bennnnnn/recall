@@ -39,7 +39,7 @@ Everything a turn or a request must agree on across machines lives in Redis or P
 | Last loaded user row, 60 s | `core/user_cache.py` | An edit saved on one machine (plan change from the RevenueCat webhook, a settings change, consent) reaches the others within 60 s. Consent is re-read from the row before a turn is refused. |
 | A chat created here, 120 s | `repositories/chats.py` (`_chat_cache`) | The send right after "new chat" skips a query. If the chat is deleted through another machine, this machine still starts a turn for it for up to 120 s, which then fails when it saves. |
 | Open chat sockets per user (5) | `modules/chat/ws_limits.py` | A user can hold 5 per machine, N×5 in all. The frame budget and idle timeout are per socket, so they are exact. |
-| SymPy process pool (3 workers, 2 s slot wait) | `core/sympy_executor.py` | Capacity grows with machines (3 per machine); a maths turn that waits more than 2 s for a slot on its machine is answered unverified. |
+| SymPy process pool (3 workers, 2 s slot wait, one slot per user) | `core/sympy_executor.py` | Capacity grows with machines (3 per machine); a maths turn that waits more than 2 s for a slot on its machine is answered unverified. A user holds at most one slot per machine, so one account's pathological expressions cannot take all three. A worker is killed only when a solve overruns; a Stop lets the solve finish first. |
 | In-flight turns, their Stop, the finalize task that saves the reply, the post-turn enqueue, follow-up questions | `modules/chat/` background tasks (`core/background_tasks.py`) | A machine that dies without the stop signal (OOM, host loss) loses the replies it had not saved yet; its `chatprep` lock and `chatfinal` marker expire within 30 s. |
 | Spend record and invalid-output counter after each model call | `gateways/llm_spend.py`, `gateways/structured_completion.py` | Written on a background task; lost only if the machine dies in that instant. |
 | Outbound HTTP pools, Google request session, Apple signing keys (1 h), storage client | `gateways/` | Each machine warms its own; no shared state. |
@@ -50,7 +50,9 @@ Everything a turn or a request must agree on across machines lives in Redis or P
 
 - **Postgres connections.** Every process has one SQLAlchemy pool of `DB_POOL_SIZE` 20 +
   `DB_MAX_OVERFLOW` 10 = up to 30 (`core/db.py`), the worker included, which needs far
-  fewer (8 jobs plus four schedulers). (N + M) × 30 client connections must fit Neon's
+  fewer (8 jobs plus five schedulers). A connection is pinged only after 30 s idle
+  (`core/db_ping.py`), not on every checkout, and no session is held open across a slow
+  call (`tests/architecture/test_session_awaits.py`). (N + M) × 30 client connections must fit Neon's
   pooler; the real limit is the compute's server pool (about 0.9 × its `max_connections`),
   which queues transactions beyond it. Set a smaller `DB_POOL_SIZE` on the worker (inline in
   its `fly.toml` process command, as `PROCESS_ROLE` is) before adding many.
@@ -59,7 +61,7 @@ Everything a turn or a request must agree on across machines lives in Redis or P
   pool: a burst opens a connection per concurrent command. Upstash limits concurrent
   connections per plan and bills per command.
 - **Redis commands per request.** An authenticated REST request costs the rate-limit
-  pipeline (INCR + EXPIRE) and up to three GETs for the token check. A finished chat turn
+  pipeline (INCR + EXPIRE) and one MGET for the token check. A finished chat turn
   enqueues up to seven jobs, one XADD each; the worker trims the stream on its own cadence.
 - **CPU.** One event loop per machine on a shared CPU. SymPy runs in its own processes and
   document parsing on threads, but prompt building, the maths/physics/chemistry readers
@@ -75,18 +77,14 @@ plugs in.
 1. **Decide how Fly counts WebSockets** (owner, PRODUCTION.md §4): with
    `[http_service.concurrency] type = "requests"`, 200 open chat sockets may fill a machine.
    Seam: `fly.toml`. Do this first; it decides when a second `app` machine is needed.
-2. **Bound and trim Redis use.** Give both clients a `max_connections` (a blocking pool) sized
-   to Upstash's limit ÷ machines; read the three revocation keys in one MGET
-   (`core/access_tokens.verify_access_token`); trim the jobs stream from the worker on a
-   timer instead of on every enqueue (`core/jobs/queue.enqueue`). Seams: `core/redis.py`,
-   `core/access_tokens.py`, `core/jobs/queue.py`.
+2. **Bound Redis connections.** Give both clients a `max_connections` (a blocking pool)
+   sized to Upstash's limit ÷ machines. Seam: `core/redis.py`.
 3. **Size the Postgres pool per role** (smaller on workers) and per Neon compute, so
    (N + M) × pool stays under the server pool. Seam: `DB_POOL_SIZE` / `DB_MAX_OVERFLOW`
    (`core/settings/infrastructure.py`), set per process group.
-4. **Share or invalidate the per-machine caches** once 60 s of stale plan or settings on
-   another machine matters: keep the row in this process but check a Redis generation key
-   per user on read (the `core/cache_generation.py` pattern), or publish invalidations.
-   Seams: `core/user_cache.py` (its three functions are the whole interface) and
+4. **Share or invalidate the chat cache** once 120 s of a deleted chat on another machine
+   matters. (User rows already carry a Redis generation that privacy writes bump: the
+   consent gate and the turn load re-read a row whose generation moved.) Seam:
    `repositories/chats.py` (`peek_recent_chat` / `forget_chat`).
 5. **Count chat sockets per user in Redis** if N×5 is too many: an expiring counter or set
    per user, refreshed while the socket lives. Seam: `modules/chat/ws_limits.py`
@@ -118,3 +116,13 @@ plugs in.
 
 Provider limits (OpenRouter, Tavily, Expo, Resend, RevenueCat) are per API key and do not
 grow with machines; raise them with the provider.
+
+## Data that grows with use
+
+| Table | Kept | Read |
+|---|---|---|
+| `message_chunks` (chat-history recall) | As long as the chat, at most 6 chunks a message | A search ranks the user's newest `CHAT_HISTORY_RAG_SEARCH_WINDOW` (2,000) chunks exactly; no vector index (a global HNSW filters by user only after its scan and found nothing for most users) |
+| `attachment_chunks` (document questions) | As long as the attachment | A search ranks the chat's newest `ATTACHMENT_RAG_SEARCH_WINDOW` (2,000) chunks exactly |
+| `memories` | 150 active facts a user | Similarity is computed in SQL; no vector leaves Postgres |
+| `product_events` | `ANALYTICS_EVENT_RETENTION_DAYS` (90) | An hourly worker cycle counts each older day into `product_event_daily` (events and distinct accounts per bucket, no user ids), then deletes it in batches |
+| `messages` search | Kept | Substring match through a trigram index that leads with `user_id`; three characters at least; "has more" from one extra row, never a count |

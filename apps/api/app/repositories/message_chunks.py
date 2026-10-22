@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import MessageChunk
+from app.models.orm import Memory, MessageChunk
 
 EMBEDDING_DIM = 1536
 
@@ -60,7 +59,6 @@ async def replace_chunks(
                 role=role,
                 chunk_index=index,
                 text=text,
-                embedding_json=None if vec is None else json.dumps(vec),
                 embedding=vec if vec is not None and len(vec) == EMBEDDING_DIM else None,
             )
         )
@@ -75,51 +73,57 @@ async def search_semantic(
     user_id: UUID,
     query_embedding: list[float],
     *,
+    window: int,
     exclude_message_ids: set[UUID] | None = None,
     limit: int = 6,
     max_distance: float | None = None,
 ) -> list[MessageChunk]:
-    filters = [
-        MessageChunk.user_id == user_id,
-        MessageChunk.embedding.isnot(None),
-    ]
+    """The ``limit`` chunks nearest ``query_embedding`` among the user's newest ``window``.
+
+    Chunks are kept as long as their chat, but a search ranks only the newest: an exact
+    distance over a bounded set, read through ``(user_id, created_at)``. A global vector
+    index filters by user only after its scan, so it found nothing for most users.
+    """
+    if len(query_embedding) != EMBEDDING_DIM:
+        return []
+    filters = [MessageChunk.user_id == user_id, MessageChunk.embedding.isnot(None)]
     if exclude_message_ids:
         filters.append(MessageChunk.message_id.notin_(exclude_message_ids))
-
-    if len(query_embedding) != EMBEDDING_DIM:
-        stmt = select(MessageChunk).where(*filters)
-        stmt = stmt.limit(max(limit * 4, 20))
-        result = await session.execute(stmt)
-        return list(result.scalars().all())
-
-    if max_distance is not None:
-        filters.append(MessageChunk.embedding.cosine_distance(query_embedding) <= max_distance)
-
-    stmt = (
-        select(MessageChunk)
+    # The LIMIT keeps the planner from flattening the window into the outer query.
+    newest = (
+        select(MessageChunk.id, MessageChunk.embedding)
         .where(*filters)
-        .order_by(MessageChunk.embedding.cosine_distance(query_embedding))
-        .limit(limit)
+        .order_by(MessageChunk.created_at.desc())
+        .limit(window)
+        .subquery("newest")
     )
-    result = await session.execute(stmt)
+    distance = newest.c.embedding.cosine_distance(query_embedding)
+    stmt = select(MessageChunk).join(newest, newest.c.id == MessageChunk.id)
+    if max_distance is not None:
+        stmt = stmt.where(distance <= max_distance)
+    result = await session.execute(stmt.order_by(distance).limit(limit))
     return list(result.scalars().all())
 
 
-async def delete_near(
+async def delete_near_fact(
     session: AsyncSession,
     user_id: UUID,
-    embedding: list[float],
+    fact_id: UUID,
     *,
     max_distance: float,
 ) -> None:
-    """Drop the user's chunks within ``max_distance`` (cosine) of ``embedding``; no commit."""
-    if len(embedding) != EMBEDDING_DIM:
-        return
+    """Drop the user's chunks within ``max_distance`` (cosine) of a memory fact's vector.
+
+    The fact's vector is read inside the statement, never loaded; a fact with no vector
+    deletes nothing. Every chunk of the user is compared, not only the window a search
+    reads: a chat deleted later must not bring an older copy back into it. No commit.
+    """
+    fact_vector = select(Memory.embedding).where(Memory.id == fact_id).scalar_subquery()
     await session.execute(
         delete(MessageChunk).where(
             MessageChunk.user_id == user_id,
             MessageChunk.embedding.isnot(None),
-            MessageChunk.embedding.cosine_distance(embedding) <= max_distance,
+            MessageChunk.embedding.cosine_distance(fact_vector) <= max_distance,
         )
     )
 

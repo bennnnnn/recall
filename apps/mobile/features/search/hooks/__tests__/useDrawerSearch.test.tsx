@@ -9,7 +9,7 @@ jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/lib/api", () => ({ api: { search: jest.fn() } }));
 const search = api.search as jest.Mock;
 const hit = (id: string): SearchResult => ({ match_type: "message", chat_id: "chat", chat_title: "Title", message_id: id, content: id, role: "user", created_at: "2026-09-04T00:00:00Z" });
-const page = (ids: string[], total = ids.length) => ({ results: ids.map(hit), total });
+const page = (ids: string[], hasMore = false) => ({ results: ids.map(hit), has_more: hasMore });
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => { resolve = done; });
@@ -34,7 +34,7 @@ beforeEach(() => { jest.useFakeTimers(); jest.clearAllMocks(); search.mockReset(
 afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
 
 it("clears account A results immediately and drops its late page when account B signs in", async () => {
-  search.mockResolvedValueOnce(page(["a"], 3));
+  search.mockResolvedValueOnce(page(["a"], true));
   const view = await mount();
   await query("alpha");
   const late = deferred<ReturnType<typeof page>>();
@@ -46,7 +46,7 @@ it("clears account A results immediately and drops its late page when account B 
   expect(current.searchOpen).toBe(false);
   expect(current.searchQuery).toBe("");
   expect(current.searchResults).toEqual([]);
-  await act(async () => { late.resolve(page(["old-a"], 3)); await request; });
+  await act(async () => { late.resolve(page(["old-a"], true)); await request; });
   expect(current.searchResults).toEqual([]);
 });
 
@@ -63,7 +63,7 @@ it("invalidates the old response as soon as a new query is typed, before debounc
 });
 
 it("does not append an old alpha page after alpha-beta-alpha", async () => {
-  search.mockResolvedValueOnce(page(["alpha-1"], 3));
+  search.mockResolvedValueOnce(page(["alpha-1"], true));
   await mount();
   await query("alpha");
   const late = deferred<ReturnType<typeof page>>();
@@ -72,27 +72,27 @@ it("does not append an old alpha page after alpha-beta-alpha", async () => {
   await act(async () => { request = current.loadMore(); });
   search.mockResolvedValueOnce(page(["beta"]));
   await query("beta");
-  search.mockResolvedValueOnce(page(["alpha-new"], 3));
+  search.mockResolvedValueOnce(page(["alpha-new"], true));
   await query("alpha");
-  await act(async () => { late.resolve(page(["old-alpha-page"], 3)); await request; });
+  await act(async () => { late.resolve(page(["old-alpha-page"], true)); await request; });
   expect(current.searchResults.map((result) => result.message_id)).toEqual(["alpha-new"]);
 });
 
 it("deduplicates consecutive load-more taps before React rerenders", async () => {
-  search.mockResolvedValueOnce(page(["first"], 3));
+  search.mockResolvedValueOnce(page(["first"], true));
   await mount();
   await query("alpha");
   const next = deferred<ReturnType<typeof page>>();
   search.mockReturnValue(next.promise);
   let requests!: Promise<void>[];
   await act(async () => { requests = [current.loadMore(), current.loadMore()]; });
-  await act(async () => { next.resolve(page(["second"], 3)); await Promise.all(requests); });
+  await act(async () => { next.resolve(page(["second"], true)); await Promise.all(requests); });
   expect(search).toHaveBeenCalledTimes(2);
   expect(current.searchResults.map((result) => result.message_id)).toEqual(["first", "second"]);
 });
 
 it("keeps successful pages and retries a failed page at the same offset", async () => {
-  search.mockResolvedValueOnce(page(["first"], 3));
+  search.mockResolvedValueOnce(page(["first"], true));
   await mount();
   await query("alpha");
   search.mockRejectedValueOnce(new Error("offline"));
@@ -100,7 +100,7 @@ it("keeps successful pages and retries a failed page at the same offset", async 
   expect(current.searchResults.map((result) => result.message_id)).toEqual(["first"]);
   expect(current.loadingMoreError).toBe(true);
   expect(current.searchError).toBe(false);
-  search.mockResolvedValueOnce(page(["second"], 3));
+  search.mockResolvedValueOnce(page(["second"], true));
   await act(async () => { await current.loadMore(); });
   expect(search.mock.calls[1][4]).toBe(1);
   expect(search.mock.calls[2][4]).toBe(1);
@@ -132,7 +132,7 @@ it("preserves search and an inflight response through ordinary token refresh", a
 });
 
 it("aborts pagination and ignores its completion when the drawer closes", async () => {
-  search.mockResolvedValueOnce(page(["first"], 3));
+  search.mockResolvedValueOnce(page(["first"], true));
   const view = await mount();
   await query("alpha");
   const late = deferred<ReturnType<typeof page>>();
@@ -142,7 +142,7 @@ it("aborts pagination and ignores its completion when the drawer closes", async 
   const signal = search.mock.calls[1][3]?.signal as AbortSignal | undefined;
   await view.rerender(<Probe open={false} />);
   expect(signal?.aborted).toBe(true);
-  await act(async () => { late.resolve(page(["late"], 3)); await request; });
+  await act(async () => { late.resolve(page(["late"], true)); await request; });
   expect(current.searchResults).toEqual([]);
 });
 
@@ -156,32 +156,32 @@ it("cancels a queued search focus when closing before the next animation frame",
   await view.unmount();
 });
 
-it("does not request empty, one-character or over-limit queries", async () => {
+it("does not request empty, short or over-limit queries", async () => {
   search.mockResolvedValue(page([]));
   await mount();
-  for (const value of ["   ", " a ", "x".repeat(201)]) await query(value);
+  for (const value of ["   ", " a ", " ab ", "x".repeat(201)]) await query(value);
   expect(search).not.toHaveBeenCalled();
   expect(current.hasSearchQuery).toBe(false);
   expect(current.searchLoading).toBe(false);
 });
 
 it("deduplicates overlapping page rows without reusing their consumed offset", async () => {
-  search.mockResolvedValueOnce(page(["first", "second"], 6));
+  search.mockResolvedValueOnce(page(["first", "second"], true));
   await mount();
   await query("alpha");
-  search.mockResolvedValueOnce(page(["second", "third"], 6));
+  search.mockResolvedValueOnce(page(["second", "third"], true));
   await act(async () => { await current.loadMore(); });
   expect(current.searchResults.map((result) => result.message_id)).toEqual(["first", "second", "third"]);
-  search.mockResolvedValueOnce(page(["fourth"], 6));
+  search.mockResolvedValueOnce(page(["fourth"], true));
   await act(async () => { await current.loadMore(); });
   expect(search.mock.calls[2][4]).toBe(4);
 });
 
-it("stops after an empty page even when a stale total still claims more rows", async () => {
-  search.mockResolvedValueOnce(page(["first"], 3));
+it("stops after an empty page even when the server still says more rows follow", async () => {
+  search.mockResolvedValueOnce(page(["first"], true));
   await mount();
   await query("alpha");
-  search.mockResolvedValueOnce(page([], 3));
+  search.mockResolvedValueOnce(page([], true));
   await act(async () => { await current.loadMore(); });
   expect(current.hasMore).toBe(false);
   await act(async () => { await current.loadMore(); });
@@ -190,7 +190,7 @@ it("stops after an empty page even when a stale total still claims more rows", a
 
 
 it.each(["query", "account", "drawer", "unmount"])("invalidates retained result callbacks after %s changes", async (change) => {
-  search.mockResolvedValue(page(["first"], 3));
+  search.mockResolvedValue(page(["first"], true));
   const view = await mount();
   await query("alpha");
   const retained = current.isCurrentSearch;
@@ -215,22 +215,22 @@ it.each(["query", "account", "drawer", "unmount"])("invalidates retained result 
 });
 
 it("does not clear the new page spinner when an old page finally resolves", async () => {
-  search.mockResolvedValueOnce(page(["alpha"], 3));
+  search.mockResolvedValueOnce(page(["alpha"], true));
   await mount();
   await query("alpha");
   const oldPage = deferred<ReturnType<typeof page>>();
   search.mockReturnValueOnce(oldPage.promise);
   let oldRequest!: Promise<void>;
   await act(async () => { oldRequest = current.loadMore(); });
-  search.mockResolvedValueOnce(page(["beta"], 3));
+  search.mockResolvedValueOnce(page(["beta"], true));
   await query("beta");
   const newPage = deferred<ReturnType<typeof page>>();
   search.mockReturnValueOnce(newPage.promise);
   let newRequest!: Promise<void>;
   await act(async () => { newRequest = current.loadMore(); });
-  await act(async () => { oldPage.resolve(page(["old"], 3)); await oldRequest; });
+  await act(async () => { oldPage.resolve(page(["old"], true)); await oldRequest; });
   expect(current.loadingMore).toBe(true);
-  await act(async () => { newPage.resolve(page(["new"], 2)); await newRequest; });
+  await act(async () => { newPage.resolve(page(["new"], true)); await newRequest; });
   expect(current.loadingMore).toBe(false);
   expect(current.searchResults.map((result) => result.message_id)).toEqual(["beta", "new"]);
 });

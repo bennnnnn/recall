@@ -11,13 +11,14 @@ from app.core.deps import get_current_user
 from app.main import create_app
 
 
-@pytest.mark.parametrize("query", ["  ", "\t\n", " a ", "x" * 201])
+# Two characters is too short: a trigram index cannot narrow it.
+@pytest.mark.parametrize("query", ["  ", "\t\n", " a ", " ab ", "x" * 201])
 def test_search_rejects_invalid_normalized_query(query):
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: MagicMock(id=uuid4())
     app.dependency_overrides[get_db] = lambda: AsyncMock()
     with patch(
-        "app.modules.search.service.search_conversations", AsyncMock(return_value=([], 0))
+        "app.modules.search.service.search_conversations", AsyncMock(return_value=([], False))
     ) as search:
         response = TestClient(app).get("/search", params={"q": query})
 
@@ -25,14 +26,14 @@ def test_search_rejects_invalid_normalized_query(query):
     search.assert_not_awaited()
 
 
-@pytest.mark.parametrize("query", ["  hello\t", " " * 201 + "ok" + " " * 201])
+@pytest.mark.parametrize("query", ["  hello\t", " " * 201 + "oak" + " " * 201])
 def test_search_passes_normalized_query(query):
     app = create_app()
     user_id = uuid4()
     app.dependency_overrides[get_current_user] = lambda: MagicMock(id=user_id)
     app.dependency_overrides[get_db] = lambda: AsyncMock()
     with patch(
-        "app.modules.search.service.search_conversations", AsyncMock(return_value=([], 0))
+        "app.modules.search.service.search_conversations", AsyncMock(return_value=([], False))
     ) as search:
         response = TestClient(app).get("/search", params={"q": query})
 

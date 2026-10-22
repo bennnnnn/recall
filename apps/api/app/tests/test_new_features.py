@@ -512,7 +512,7 @@ def test_search_returns_results():
     ]
     with patch(
         "app.modules.search.api.search_service.search_conversations",
-        AsyncMock(return_value=(fake_results, 1)),
+        AsyncMock(return_value=(fake_results, False)),
     ):
         client = TestClient(app)
         r = client.get(
@@ -521,7 +521,7 @@ def test_search_returns_results():
         )
     assert r.status_code == 200
     data = r.json()
-    assert data["total"] == 1
+    assert data["has_more"] is False
     assert len(data["results"]) == 1
     assert data["results"][0]["chat_title"] == "Test Chat"
 
@@ -533,7 +533,7 @@ def test_search_returns_empty():
     app = _app_with_user(user)
     with patch(
         "app.modules.search.api.search_service.search_conversations",
-        AsyncMock(return_value=([], 0)),
+        AsyncMock(return_value=([], False)),
     ):
         client = TestClient(app)
         r = client.get(
@@ -542,7 +542,7 @@ def test_search_returns_empty():
         )
     assert r.status_code == 200
     data = r.json()
-    assert data["total"] == 0
+    assert data["has_more"] is False
     assert data["results"] == []
 
 
@@ -556,14 +556,15 @@ def test_search_empty_query_fails():
     assert r.status_code == 422
 
 
-def test_search_single_char_query_fails():
-    """1-char queries defeat the trigram index — require at least 2 chars."""
+@pytest.mark.parametrize("query", ["a", "ab"])
+def test_search_short_query_fails(query):
+    """Queries under three characters defeat the trigram index."""
     from fastapi.testclient import TestClient
 
     user = _fake_user()
     app = _app_with_user(user)
     client = TestClient(app)
-    r = client.get("/search?q=a", headers={"Authorization": "Bearer tok"})
+    r = client.get(f"/search?q={query}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 422
 
 
@@ -586,16 +587,16 @@ def test_search_respects_limit():
     ]
     with patch(
         "app.modules.search.api.search_service.search_conversations",
-        AsyncMock(return_value=(fake_results, 42)),  # total=42, but only 5 returned
+        AsyncMock(return_value=(fake_results, True)),
     ):
         client = TestClient(app)
         r = client.get(
-            "/search?q=xx&limit=5",
+            "/search?q=xyz&limit=5",
             headers={"Authorization": "Bearer tok"},
         )
     assert r.status_code == 200
     data = r.json()
-    assert data["total"] == 42  # real total, not limited
+    assert data["has_more"] is True
     assert len(data["results"]) == 5
 
 

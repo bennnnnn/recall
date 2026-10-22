@@ -467,7 +467,20 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
         ),
         patch(
             "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
-            AsyncMock(side_effect=[[existing], [updated]]),
+            AsyncMock(return_value=[existing]),
+        ),
+        patch(
+            "app.modules.memory.extraction_workflow.memories_repo.list_embed_state",
+            AsyncMock(
+                return_value=[
+                    (
+                        updated.id,
+                        updated.text,
+                        updated.embedding is not None,
+                        updated.embedding_text_hash,
+                    )
+                ]
+            ),
         ),
         patch(
             "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
@@ -479,7 +492,6 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
         patch(EMBED_MANY, embed_each(embed_calls)),
-        patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
         await extract_and_store_memories(
             settings, user_id=uuid4(), chat_id=uuid4(), transcript="I like TypeScript now."
@@ -491,7 +503,6 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
         updated.id,
         updated.text,
         [0.9, 0.8],
-        "[0.9,0.8]",
         embedding_text_hash(updated.text),
     )
     assert embedding_write.await_args.kwargs == {"commit": False}
@@ -533,7 +544,20 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
         ),
         patch(
             "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
-            AsyncMock(side_effect=[[existing], [updated]]),
+            AsyncMock(return_value=[existing]),
+        ),
+        patch(
+            "app.modules.memory.extraction_workflow.memories_repo.list_embed_state",
+            AsyncMock(
+                return_value=[
+                    (
+                        updated.id,
+                        updated.text,
+                        updated.embedding is not None,
+                        updated.embedding_text_hash,
+                    )
+                ]
+            ),
         ),
         patch(
             "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
@@ -545,7 +569,6 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
         patch(EMBED_MANY, embed_each(embed_calls)),
-        patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
         await extract_and_store_memories(
             settings, user_id=uuid4(), chat_id=uuid4(), transcript="I like TypeScript now."
@@ -557,7 +580,6 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
         updated.id,
         updated.text,
         [0.9, 0.8],
-        "[0.9,0.8]",
         embedding_text_hash(updated.text),
     )
     assert embedding_write.await_args.kwargs == {"commit": False}
@@ -601,7 +623,20 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
         ),
         patch(
             "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
-            AsyncMock(side_effect=[[existing], [updated]]),
+            AsyncMock(return_value=[existing]),
+        ),
+        patch(
+            "app.modules.memory.extraction_workflow.memories_repo.list_embed_state",
+            AsyncMock(
+                return_value=[
+                    (
+                        updated.id,
+                        updated.text,
+                        updated.embedding is not None,
+                        updated.embedding_text_hash,
+                    )
+                ]
+            ),
         ),
         patch(
             "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
@@ -613,7 +648,6 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
         patch(EMBED_MANY, embed_each(embed_calls)),
-        patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
         await extract_and_store_memories(
             settings, user_id=uuid4(), chat_id=uuid4(), transcript="I like TypeScript now."
@@ -625,7 +659,6 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
         updated.id,
         updated.text,
         [0.9, 0.8],
-        "[0.9,0.8]",
         embedding_text_hash(updated.text),
     )
     assert embedding_write.await_args.kwargs == {"commit": False}

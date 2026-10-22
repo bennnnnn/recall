@@ -10,6 +10,6 @@ export const searchApi = {
     offset = 0,
   ) => {
     const params = new URLSearchParams({ q, limit: String(limit), offset: String(offset) });
-    return request<{ results: SearchResult[]; total: number }>(`/search?${params}`, token, init);
+    return request<{ results: SearchResult[]; has_more: boolean }>(`/search?${params}`, token, init);
   },
 };

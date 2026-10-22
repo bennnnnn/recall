@@ -214,6 +214,9 @@ async def list_messages_page(
     before: UUID | None = None,
 ) -> MessagePageOut:
     chat = await get_chat(session, user, chat_id)
+    # End the ownership read before waiting: up to 20 s for a stream and its save, with
+    # this connection idle in transaction while the save needed one from the same pool.
+    await session.commit()
     await finalize_registry.wait_for_inflight_stream(chat_id)
     await finalize_registry.wait_for_pending_finalize(chat_id, redis)
     msgs, has_more = await messages_repo.list_page(session, chat_id, limit=limit, before_id=before)
@@ -281,6 +284,7 @@ async def set_message_feedback(
     await get_chat(session, user, chat_id)
     message = await messages_repo.set_feedback(session, message_id, chat_id, feedback)
     if message is None:
+        await session.rollback()  # nothing was written; no transaction across the wait
         await finalize_registry.wait_for_pending_finalize(chat_id, redis)
         message = await messages_repo.set_feedback(session, message_id, chat_id, feedback)
     if message is None:
@@ -303,6 +307,7 @@ async def update_message_email(
     await get_chat(session, user, chat_id)
     message = await messages_repo.get_in_chat(session, message_id, chat_id)
     if message is None:
+        await session.commit()  # end the reads; no transaction across the wait
         await finalize_registry.wait_for_pending_finalize(chat_id, redis)
         message = await messages_repo.get_in_chat(session, message_id, chat_id)
     if message is None:

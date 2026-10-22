@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import delete, exists, or_, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 
 from app.core.timezone import resolve_timezone
 from app.core.ttl_cache import TtlCache
@@ -73,13 +74,29 @@ async def get_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> Chat
     return result.scalar_one_or_none()
 
 
+# What a chat list shows; ``summary`` (up to 6,000 characters) is read only for a prompt.
+_LIST_COLUMNS = load_only(
+    Chat.id,
+    Chat.user_id,
+    Chat.title,
+    Chat.model,
+    Chat.pinned,
+    Chat.archived,
+    Chat.created_at,
+    Chat.updated_at,
+    raiseload=True,
+)
+
+
 async def list_for_user(
     session: AsyncSession,
     user_id: UUID,
     limit: int | None = 200,
     *,
     include_archived: bool = False,
+    with_summary: bool = False,
 ) -> list[Chat]:
+    """The user's chats with messages: list columns only, unless ``with_summary`` (export)."""
     has_messages = exists().where(Message.chat_id == Chat.id)
     stmt = (
         select(Chat)
@@ -87,6 +104,8 @@ async def list_for_user(
         .where(has_messages)
         .order_by(Chat.pinned.desc(), Chat.updated_at.desc(), Chat.id.desc())
     )
+    if not with_summary:
+        stmt = stmt.options(_LIST_COLUMNS)
     if not include_archived:
         stmt = stmt.where(Chat.archived.is_(False))
     if limit is not None:
@@ -101,6 +120,7 @@ async def list_archived_for_user(
     has_messages = exists().where(Message.chat_id == Chat.id)
     result = await session.execute(
         select(Chat)
+        .options(_LIST_COLUMNS)
         .where(Chat.user_id == user_id, Chat.archived.is_(True))
         .where(has_messages)
         .order_by(Chat.updated_at.desc(), Chat.id.desc())

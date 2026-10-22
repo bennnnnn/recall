@@ -357,9 +357,9 @@ async def test_push_token_with_device_id_moves_only_on_the_same_device(world: Wo
 async def test_search_home_and_export_only_show_the_callers_data(world: World) -> None:
     c, a, b, data = world.client, world.a, world.b, world.a_data
     found_b = await c.get("/search", params={"q": data.secret_word}, headers=b.headers)
-    assert found_b.status_code == 200 and found_b.json()["total"] == 0
+    assert found_b.status_code == 200 and found_b.json()["results"] == []
     found_a = await c.get("/search", params={"q": data.secret_word}, headers=a.headers)
-    assert found_a.json()["total"] >= 1
+    assert len(found_a.json()["results"]) >= 1
 
     home = await c.get("/home", headers=b.headers)
     assert home.status_code == 200 and data.secret_word not in home.text

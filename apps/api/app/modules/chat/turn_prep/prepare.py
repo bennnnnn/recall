@@ -140,6 +140,7 @@ async def prepare_chat_turn(
         turn_mode=turn.turn_mode,
         probe_attachment_rag=_probe_attachment_rag(turn, history, settings),
         recent_messages=history,
+        prior_count=turn.prior_count if history is not None else None,
         current_user_message_id=turn.message_id,
         unhealthy_models=unhealthy,
     )

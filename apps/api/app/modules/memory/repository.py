@@ -1,3 +1,4 @@
+import math
 from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
@@ -35,6 +36,44 @@ async def list_for_user(
         select(Memory).where(*filters).order_by(Memory.type.asc(), Memory.last_confirmed_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def list_scored_for_user(
+    session: AsyncSession, user_id: UUID, query_vec: list[float]
+) -> list[tuple[Memory, float | None]]:
+    """The user's active and muted facts, each with its cosine similarity to ``query_vec``.
+
+    Postgres computes the similarities, so no vector leaves the database: loading both
+    vector copies of 150 facts moved ~7 MB and cost ~60 ms of event-loop CPU a turn. A
+    fact with no vector yet scores None.
+    """
+    similarity = (1 - Memory.embedding.cosine_distance(query_vec)).label("similarity")
+    result = await session.execute(
+        select(Memory, similarity)
+        .where(Memory.user_id == user_id, Memory.status.in_((ACTIVE_STATUS, MUTED_STATUS)))
+        .order_by(Memory.type.asc(), Memory.last_confirmed_at.desc())
+    )
+    return [(memory, _finite(score)) for memory, score in result.all()]
+
+
+def _finite(score: float | None) -> float | None:
+    """A zero vector's cosine is NaN in pgvector; it matches nothing."""
+    if score is None:
+        return None
+    value = float(score)
+    return 0.0 if math.isnan(value) else value
+
+
+async def list_embed_state(
+    session: AsyncSession, user_id: UUID
+) -> list[tuple[UUID, str, bool, str | None]]:
+    """``(id, text, has_vector, embedding_text_hash)`` of each active fact, vectors unread."""
+    result = await session.execute(
+        select(Memory.id, Memory.text, Memory.embedding.isnot(None), Memory.embedding_text_hash)
+        .where(Memory.user_id == user_id, Memory.status == ACTIVE_STATUS)
+        .order_by(Memory.type.asc(), Memory.last_confirmed_at.desc())
+    )
+    return [(row[0], row[1], bool(row[2]), row[3]) for row in result.all()]
 
 
 async def list_areas(session: AsyncSession, user_id: UUID) -> list[MemoryArea]:
@@ -233,7 +272,6 @@ async def update_text_and_embedding(
     memory_id: UUID,
     text: str,
     embedding: list[float],
-    embedding_json: str,
     *,
     embedding_text_hash: str | None = None,
     commit: bool = True,
@@ -245,7 +283,7 @@ async def update_text_and_embedding(
         return None
     memory.text = normalize_memory_text(text)
     memory.embedding = embedding
-    memory.embedding_json = embedding_json
+    memory.embedding_json = None
     memory.last_confirmed_at = func_now()
     if embedding_text_hash is not None:
         memory.embedding_text_hash = embedding_text_hash

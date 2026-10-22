@@ -2,7 +2,8 @@ import type { SearchResult } from "@/lib/api";
 
 export const DRAWER_SEARCH_DEBOUNCE_MS = 300;
 export const DRAWER_SEARCH_PAGE_SIZE = 20;
-const DRAWER_SEARCH_MIN_LENGTH = 2;
+// The server's minimum: a trigram index cannot narrow a shorter substring.
+const DRAWER_SEARCH_MIN_LENGTH = 3;
 const DRAWER_SEARCH_MAX_LENGTH = 200;
 const DRAWER_SEARCH_MAX_OFFSET = 10_000;
 
@@ -27,6 +28,7 @@ export function mergeDrawerSearchResults(previous: SearchResult[], incoming: Sea
   return [...byId.values()];
 }
 
-export function hasMoreDrawerSearchResults(nextOffset: number, total: number, lastPageSize: number): boolean {
-  return lastPageSize > 0 && nextOffset < total && nextOffset <= DRAWER_SEARCH_MAX_OFFSET;
+/** The server says whether hits follow the page (it reads one row past it, never a count). */
+export function hasMoreDrawerSearchResults(nextOffset: number, hasMore: boolean, lastPageSize: number): boolean {
+  return lastPageSize > 0 && hasMore && nextOffset <= DRAWER_SEARCH_MAX_OFFSET;
 }

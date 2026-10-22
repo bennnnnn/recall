@@ -101,6 +101,7 @@ async def delete_memory_fact(
 
         new_text = seams.join_memory_facts(facts)
         stored = seams.normalize_memory_text(new_text)
+        await session.commit()  # end the read before the embedding call (write lock held)
         try:
             new_vec = await embedding_gateway.embed_text(settings, stored)
         except Exception:
@@ -115,7 +116,6 @@ async def delete_memory_fact(
                     memory_id,
                     stored,
                     new_vec,
-                    embedding_gateway.serialize_embedding(new_vec),
                     embedding_text_hash=seams.embedding_text_hash(stored),
                     commit=False,
                 )
@@ -160,6 +160,15 @@ async def update_memory(
         memory = await memories_repo.get_by_id(session, user_id, memory_id)
         if memory is None:
             return None
+        new_vec: list[float] | None = None
+        if clean is not None:
+            # End the read before the embedding call (a provider round trip); the write
+            # lock keeps the row as read until the writes below.
+            await session.commit()
+            try:
+                new_vec = await embedding_gateway.embed_text(settings, clean)
+            except Exception:
+                logger.warning("Memory re-embed on edit failed", exc_info=True)
         updated: Memory | None = memory
         try:
             if status is not None:
@@ -169,11 +178,6 @@ async def update_memory(
                 if updated is None:
                     return None
             if clean is not None:
-                try:
-                    new_vec = await embedding_gateway.embed_text(settings, clean)
-                except Exception:
-                    logger.warning("Memory re-embed on edit failed", exc_info=True)
-                    new_vec = None
                 if new_vec is not None:
                     updated = await memories_repo.update_text_and_embedding(
                         session,
@@ -181,7 +185,6 @@ async def update_memory(
                         memory_id,
                         clean,
                         new_vec,
-                        embedding_gateway.serialize_embedding(new_vec),
                         embedding_text_hash=seams.embedding_text_hash(clean),
                         commit=False,
                     )

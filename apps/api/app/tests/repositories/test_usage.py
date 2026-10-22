@@ -7,8 +7,6 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import UsageDaily
-
 
 @pytest.fixture
 def fake_session():
@@ -34,38 +32,35 @@ async def test_get_for_date_returns_usage(fake_session):
 
 @pytest.mark.asyncio
 async def test_add_tokens_uses_on_conflict_upsert(fake_session):
-    """add_tokens must INSERT … ON CONFLICT DO UPDATE, not read-modify-write."""
-    from app.repositories.usage import add_tokens
+    """add_tokens must INSERT … ON CONFLICT DO UPDATE, not read-modify-write, and read
+    the totals back from RETURNING rather than a second SELECT."""
+    from app.repositories.usage import DayTotals, add_tokens
 
-    user_id = uuid4()
-    today = date.today()
-    mock_usage = MagicMock(spec=UsageDaily)
-    mock_usage.input_tokens = 100
-    mock_usage.output_tokens = 200
-    fake_session.get.return_value = mock_usage
+    fake_session.execute.return_value = MagicMock(**{"one.return_value": (100, 200)})
 
     result = await add_tokens(
         fake_session,
-        user_id,
-        today,
+        uuid4(),
+        date.today(),
         input_tokens=100,
         output_tokens=200,
         est_cost_usd=0.0125,
     )
 
     fake_session.execute.assert_awaited_once()
+    statement = str(fake_session.execute.await_args.args[0])
+    assert "ON CONFLICT" in statement and "RETURNING" in statement
+    fake_session.get.assert_not_called()
     fake_session.add.assert_not_called()
     fake_session.commit.assert_awaited()
-    fake_session.refresh.assert_awaited_once_with(mock_usage)
-    assert result is mock_usage
+    assert result == DayTotals(100, 200)
 
 
 @pytest.mark.asyncio
 async def test_add_tokens_flush_without_commit(fake_session):
     from app.repositories.usage import add_tokens
 
-    mock_usage = MagicMock(spec=UsageDaily)
-    fake_session.get.return_value = mock_usage
+    fake_session.execute.return_value = MagicMock(**{"one.return_value": (1, 2)})
 
     await add_tokens(
         fake_session, uuid4(), date.today(), input_tokens=1, output_tokens=2, commit=False
@@ -73,7 +68,6 @@ async def test_add_tokens_flush_without_commit(fake_session):
 
     fake_session.flush.assert_awaited_once()
     fake_session.commit.assert_not_called()
-    fake_session.refresh.assert_not_called()
 
 
 @pytest.mark.asyncio

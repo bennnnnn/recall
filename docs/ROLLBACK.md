@@ -37,6 +37,13 @@ after it:
    safe with a comment the CI guard looks for:
    `# expand-contract: release <sha/PR> stopped reading users.legacy_flag`.
 
+Contracts waiting for a later release:
+
+- `memories.embedding_json`, `message_chunks.embedding_json`,
+  `attachment_chunks.embedding_json`: no longer read; new writes store NULL (the
+  release that ranks memory in SQL, migration `0118`). Drop once no image that ranks
+  memory from the JSON copy is a rollback candidate.
+
 `app/tests/architecture/test_migration_safety.py` fails on a migration after
 `0111` whose `upgrade()` drops, renames or retypes without that comment, and on
 more than one alembic head. `0099` and `0106` dropped columns in the same

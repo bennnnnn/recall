@@ -140,6 +140,6 @@ async def test_the_re_read_ends_its_transaction_before_the_route_runs() -> None:
 
     user = SimpleNamespace(id=uuid4(), ai_data_consent_at=None)
     session = SimpleNamespace(refresh=refresh, commit=commit)
-    with patch("app.modules.account.consent.remember_user"):
+    with patch("app.modules.account.consent.remember_read"):
         assert await get_consented_user(user=user, session=session, redis=AsyncMock()) is user  # type: ignore[arg-type]
     assert calls == ["refresh", "commit"]

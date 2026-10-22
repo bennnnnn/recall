@@ -28,7 +28,7 @@ from app.modules.chat.prompt_constants import (
 )
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import RegenerateBackup
-from app.modules.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
+from app.modules.chat.turn_prep.mode import _TurnMode, classify_turn_mode
 from app.modules.chat.turn_settle import seed_usage_from_db
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import model_catalog, model_health
@@ -60,6 +60,10 @@ class RegenerateTurn:
     turn_mode: _TurnMode
     backup: RegenerateBackup | None
     omit_message_ids: set[UUID] | None
+    # The window read once here; the prompt reuses it (``omit_message_ids`` drops the
+    # reply being replaced), and the model health read beside it.
+    recent: list[Any]
+    unhealthy: frozenset[str] = frozenset()
 
 
 async def _prior_count_for_window(
@@ -92,12 +96,15 @@ async def _load_user(
         timing.mark_phase("user_ready")
         return user
     # A user handed in from the request cache can trail an agreement made, or a consent,
-    # memory or web-search switch turned off, on another machine: read the row.
+    # memory or web-search switch turned off, on another machine: read the row, and keep
+    # it for the next turn (a WebSocket turn has no request cache to fill it).
+    generation = await user_cache.read_generation(redis, user_id)
     async with deps.session_factory() as session:
         loaded = await deps.users.get_by_id(session, user_id)
     if loaded is None:
         raise ChatNotFoundError("User not found.")
     _require_consent(loaded)
+    user_cache.remember_read(loaded, generation)
     timing.mark_phase("user_ready")
     return loaded
 
@@ -260,11 +267,9 @@ async def load_new_turn(
             _load_history_after_finalize(deps, redis, settings, timing, chat_id),
             _unhealthy_models(redis, settings),
         )
-    # Only short confirmation turns touch the DB here; ordinary lightweight
-    # greetings classify synchronously, so opening a fresh AsyncSession has no
-    # checkout/network cost on the common path.
-    async with deps.session_factory() as session:
-        turn_mode = await _classify_turn_mode(session, loaded_chat, content)
+    # Read from the window just loaded: "yes" after a question, or "make it shorter"
+    # after a draft, used to read the messages again in a session of its own.
+    turn_mode = classify_turn_mode(recent, content)
     prior_user, prior_model = last_user_turn(recent)
     model = deps.plan.resolve_user_model_override(
         loaded_user,
@@ -310,8 +315,42 @@ async def load_regenerate_turn(
     # row. New turns gather wait with user/quota instead — prepare reads
     # messages only after both finish.
     await wait_for_pending_finalize(chat_id, redis, require_complete=True)
+    (user, chat, recent, prior_count, last_user), unhealthy = await asyncio.gather(
+        _read_regenerate_rows(deps, settings, user_id=user_id, chat_id=chat_id),
+        _unhealthy_models(redis, settings),
+    )
+    last = recent[-1]
+    model = deps.plan.resolve_regenerate_model(
+        user, model_alias, last_user.content, last.model, settings
+    )
     backup: RegenerateBackup | None = None
     omit_message_ids: set[UUID] | None = None
+    if last.role == "assistant":
+        backup = RegenerateBackup(content=last.content, model=last.model, message_id=last.id)
+        omit_message_ids = {last.id}
+    return RegenerateTurn(
+        user=user,
+        chat=chat,
+        model=model,
+        content=last_user.content,
+        prior_count=prior_count,
+        turn_mode=classify_turn_mode(recent, last_user.content),
+        backup=backup,
+        omit_message_ids=omit_message_ids,
+        recent=recent,
+        unhealthy=unhealthy,
+    )
+
+
+async def _read_regenerate_rows(
+    deps: ChatTurnDeps, settings: Settings, *, user_id: UUID, chat_id: UUID
+) -> tuple[User, Chat, list[Any], int, Any]:
+    """The user, the chat, the recent window and the count, in one session.
+
+    The last message and the last user message come from the window; it used to read
+    the messages four to six times.
+    """
+    window = settings.recent_message_window
     async with deps.session_factory() as session:
         user = await deps.users.get_by_id(session, user_id)
         if user is None:
@@ -320,28 +359,20 @@ async def load_regenerate_turn(
         chat = await deps.chats.get_by_id(session, chat_id, user_id)
         if chat is None:
             raise ChatNotFoundError("Chat not found.")
-        last = await deps.messages.get_last(session, chat_id)
-        if last is None:
+        recent = await deps.messages.list_recent(session, chat_id, limit=window)
+        if not recent:
             raise ChatNotFoundError("No messages to regenerate.")
-        last_user = await deps.messages.get_last_user(session, chat_id)
+        last_user = next((m for m in reversed(recent) if m.role == "user"), None)
+        if last_user is None:
+            # A window of replies only (rare): the user's line is further back.
+            last_user = await deps.messages.get_last_user(session, chat_id)
         if last_user is None:
             raise ChatNotFoundError("No user message to regenerate from.")
-        model = deps.plan.resolve_regenerate_model(
-            user, model_alias, last_user.content, last.model, settings
+        prior_count = await _prior_count_for_window(
+            recent,
+            window,
+            count_for_chat=deps.messages.count_for_chat,
+            session=session,
+            chat_id=chat_id,
         )
-        content = last_user.content
-        prior_count = await deps.messages.count_for_chat(session, chat_id)
-        if last.role == "assistant":
-            backup = RegenerateBackup(content=last.content, model=last.model, message_id=last.id)
-            omit_message_ids = {last.id}
-        turn_mode = await _classify_turn_mode(session, chat, content)
-    return RegenerateTurn(
-        user=user,
-        chat=chat,
-        model=model,
-        content=content,
-        prior_count=prior_count,
-        turn_mode=turn_mode,
-        backup=backup,
-        omit_message_ids=omit_message_ids,
-    )
+    return user, chat, recent, prior_count, last_user

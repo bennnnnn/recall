@@ -165,7 +165,7 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
     )
     if with_image:
         caption += f"\n\n[Image: /attachments/{uid}/file]"
-    last_user = SimpleNamespace(id=uuid4(), content=caption)
+    last_user = SimpleNamespace(id=uuid4(), role="user", content=caption)
     previous = SimpleNamespace(
         id=uuid4(), role="assistant", content="Original successful response", model="free-chat"
     )
@@ -205,9 +205,9 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         session_factory=FakeSessionCM,
         users={"get_by_id": AsyncMock(return_value=user)},
         chats={"get_by_id": AsyncMock(return_value=chat)},
+        # The window regenerate reads once: the user's line, then the reply to replace.
         messages={
-            "get_last": AsyncMock(return_value=previous),
-            "get_last_user": AsyncMock(return_value=last_user),
+            "list_recent": AsyncMock(return_value=[last_user, previous]),
             "count_for_chat": AsyncMock(return_value=2),
         },
         plan={"resolve_regenerate_model": lambda *_args: "free-chat"},
@@ -219,10 +219,6 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
     with (
         patch(f"{entry}.turn_resources", resources),
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch(
-            "app.modules.chat.turn_load._classify_turn_mode",
-            AsyncMock(return_value=MagicMock()),
-        ),
         patch(
             "app.modules.chat.turn_intercepts.try_image_lookup_for_turn",
             AsyncMock(return_value=False),

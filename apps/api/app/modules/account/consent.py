@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis_dep
-from app.core.user_cache import is_current, note_generation, remember_user
+from app.core.user_cache import is_current, read_generation, remember_read
 from app.exceptions import ConsentRequiredError
 from app.models.orm import User
 
@@ -52,10 +52,10 @@ async def get_consented_user(
     """
     if has_ai_data_consent(user) and await is_current(redis, user.id):
         return user
+    generation = await read_generation(redis, user.id)
     await session.refresh(user, attribute_names=list(_PRIVACY_COLUMNS))
     await session.commit()  # the re-read's transaction ends here, as in get_current_user
     if not has_ai_data_consent(user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=consent_required_detail())
-    remember_user(user)
-    await note_generation(redis, user.id)
+    remember_read(user, generation)
     return user

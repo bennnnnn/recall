@@ -59,6 +59,7 @@ async def load_prompt_window(
     query_text: str | None,
     omit_message_ids: set[UUID] | None,
     current_user_message_id: UUID | None,
+    prior_count: int | None = None,
 ) -> PromptWindow:
     """Keep what the token budget allows of the loaded rows, then the gap before them."""
     recent_limit = settings.recent_message_window
@@ -80,6 +81,7 @@ async def load_prompt_window(
         recent_limit=recent_limit,
         token_budget=max(0, settings.context_token_budget - tail_tokens),
         current_user_message_id=current_user_message_id,
+        prior_count=prior_count,
     )
     if omit_message_ids:
         gap = [m for m in gap if m.id not in omit_message_ids]

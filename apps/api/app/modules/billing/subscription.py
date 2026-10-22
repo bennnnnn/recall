@@ -173,6 +173,8 @@ async def _resync_transfer_source(
     would stick until the app reopened. Unreadable falls back to free, as
     before: the moved entitlement is no longer this account's.
     """
+    # The previous write re-read its row; end that transaction before the RevenueCat call.
+    await session.commit()
     plan = await resolve_plan_from_revenuecat(settings, app_user_id)
     if plan is None:
         logger.warning("RevenueCat TRANSFER source unreadable; free app_user_id=%s", app_user_id)

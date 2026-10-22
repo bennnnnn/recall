@@ -144,15 +144,6 @@ async def test_retrieve_for_prompt_wraps_hits_and_excludes():
             "app.modules.chat.history_rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[row]),
         ) as search,
-        patch(
-            "app.modules.chat.history_rag.embedding_gateway.parse_embedding",
-            return_value=[0.1] * 8,
-        ),
-        patch(
-            "app.modules.chat.history_rag.embedding_gateway.cosine_similarity",
-            return_value=0.9,
-        ),
-        patch("app.modules.chat.history_rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             Settings(chat_history_rag_enabled=True, mock_llm_enabled=True),
@@ -208,15 +199,6 @@ async def test_retrieve_for_prompt_uses_precomputed_vec_without_reembed():
             "app.modules.chat.history_rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[row]),
         ) as search,
-        patch(
-            "app.modules.chat.history_rag.embedding_gateway.parse_embedding",
-            return_value=[0.1] * 8,
-        ),
-        patch(
-            "app.modules.chat.history_rag.embedding_gateway.cosine_similarity",
-            return_value=0.9,
-        ),
-        patch("app.modules.chat.history_rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             Settings(chat_history_rag_enabled=True, mock_llm_enabled=True),
@@ -324,7 +306,7 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
     embed = AsyncMock(return_value=query_vec)
     row = MagicMock(text="User: We chose the blue couch.")
     with (
-        patch("app.modules.chat.prompt_builder.SessionLocal", _session_cm()),
+        patch("app.modules.attachments.rag.SessionLocal", _session_cm()),
         patch("app.modules.chat.prompt_context.SessionLocal", _session_cm()),
         patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
         patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),

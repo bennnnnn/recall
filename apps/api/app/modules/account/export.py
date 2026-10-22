@@ -271,6 +271,7 @@ async def _iter_export_json(
             user.id,
             limit=EXPORT_MAX_CHATS,
             include_archived=True,
+            with_summary=True,
         )
         chat_rows = [(_chat_header(chat), chat.id) for chat in chats]
 

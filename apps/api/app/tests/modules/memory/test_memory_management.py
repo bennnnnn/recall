@@ -99,7 +99,9 @@ async def test_memory_text_change_discards_stale_embeddings(
                 session, Settings(), row.user_id, row.id, 0
             )
 
-    sync_session.refresh(row)
+    sync_session.refresh(
+        row, attribute_names=["text", "embedding", "embedding_json", "embedding_text_hash"]
+    )
     assert row.embedding is None
     assert row.embedding_json is None
     assert row.embedding_text_hash is None
@@ -138,7 +140,8 @@ async def test_manual_memory_change_invalidates_home_after_commit(
             await memory_service.delete_memory_section(session, owner_id, row.type)
 
     _, invalidate_home = memory_services
-    session.commit.assert_awaited_once()
+    # An edit and a fact delete first end their read, before the embedding call.
+    assert session.commit.await_count == (2 if operation in {"edit", "delete_fact"} else 1)
     invalidate_home.assert_awaited_once_with(owner_id)
     # Stamped in the same commit, so the history scan cannot bring the old text back.
     edited_at = sync_session.execute(
@@ -256,7 +259,9 @@ async def test_late_background_embedding_cannot_replace_manual_edit_vector(
             session_factory=lambda: session,
         )
 
-    sync_session.refresh(row)
+    sync_session.refresh(
+        row, attribute_names=["text", "embedding", "embedding_json", "embedding_text_hash"]
+    )
     assert row.text == "Manual replacement."
     assert row.embedding is None
     assert row.embedding_text_hash is None

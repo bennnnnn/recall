@@ -33,7 +33,7 @@ async def test_verify_access_token_raises_when_redis_down():
     settings = Settings(jwt_secret="x" * 32)
     token = create_access_token(uuid4(), settings)
     redis = AsyncMock()
-    redis.get = AsyncMock(side_effect=RedisConnectionError("down"))
+    redis.mget = AsyncMock(side_effect=RedisConnectionError("down"))
     with pytest.raises(RedisUnavailableError):
         await tokens_service.verify_access_token(redis, token, settings)
 
@@ -127,3 +127,28 @@ def test_error_payload_for_redis_unavailable():
     payload = error_payload_for_exception(RedisUnavailableError())
     assert payload["type"] == "error"
     assert payload["code"] == "unavailable"
+
+
+@pytest.mark.asyncio
+async def test_verify_access_token_reads_the_revocation_keys_in_one_round_trip(fake_redis):
+    """Every authenticated request checks three revocation keys: one MGET, not three GETs."""
+    settings = Settings(jwt_secret="x" * 32)
+    user_id = uuid4()
+    token = create_access_token(user_id, settings, session_id="device-1")
+    calls: list[str] = []
+    original_mget, original_get = fake_redis.mget, fake_redis.get
+
+    async def mget(*keys):
+        calls.append("mget")
+        return await original_mget(*keys)
+
+    async def get(key):
+        calls.append("get")
+        return await original_get(key)
+
+    fake_redis.mget, fake_redis.get = mget, get
+    assert await tokens_service.verify_access_token(fake_redis, token, settings) == user_id
+    assert calls == ["mget"]
+    await fake_redis.set(f"revoked:sid:{'device-1'}", "1")
+    with pytest.raises(tokens_service.GoogleAuthError):
+        await tokens_service.verify_access_token(fake_redis, token, settings)

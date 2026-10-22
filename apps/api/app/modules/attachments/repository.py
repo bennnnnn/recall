@@ -374,11 +374,20 @@ async def set_index_coverage(
 
 async def mark_verified(session: AsyncSession, attachment_id: UUID, *, commit: bool = True) -> None:
     """Record that stored bytes matched the declared type/size."""
+    await mark_verified_many(session, [attachment_id], commit=commit)
+
+
+async def mark_verified_many(
+    session: AsyncSession, attachment_ids: list[UUID], *, commit: bool = True
+) -> None:
+    """Record, in one statement, that these uploads' bytes matched their type and size."""
     from sqlalchemy import update as sql_update
 
+    if not attachment_ids:
+        return
     await session.execute(
         sql_update(Attachment)
-        .where(Attachment.id == attachment_id)
+        .where(Attachment.id.in_(attachment_ids))
         .values(verified_at=datetime.now(UTC))
     )
     if commit:

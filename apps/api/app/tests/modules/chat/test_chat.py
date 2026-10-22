@@ -1368,7 +1368,7 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
     rag_block = "ATTACHED DOCUMENT CONTEXT"
 
     with (
-        patch("app.modules.chat.prompt_builder.SessionLocal", _FakeSessionCM),
+        patch("app.modules.attachments.rag.SessionLocal", _FakeSessionCM),
         patch("app.modules.chat.prompt_context.SessionLocal", _FakeSessionCM),
         patch(
             "app.modules.chat.prompt_context.chats_repo.get_by_id",
@@ -1428,7 +1428,7 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
     has_chunks = AsyncMock(return_value=True)
 
     with (
-        patch("app.modules.chat.prompt_builder.SessionLocal", _FakeSessionCM),
+        patch("app.modules.attachments.rag.SessionLocal", _FakeSessionCM),
         patch("app.modules.chat.prompt_context.SessionLocal", _FakeSessionCM),
         patch(
             "app.modules.chat.prompt_context.chats_repo.get_by_id",
@@ -1497,7 +1497,7 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
     list_recent = AsyncMock(return_value=[])
 
     with (
-        patch("app.modules.chat.prompt_builder.SessionLocal", _FakeSessionCM),
+        patch("app.modules.attachments.rag.SessionLocal", _FakeSessionCM),
         patch("app.modules.chat.prompt_context.SessionLocal", _FakeSessionCM),
         patch("app.repositories.messages.list_recent", list_recent),
         patch(
@@ -1525,21 +1525,16 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
     assert messages[-1]["content"] == "6!"
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_hi_is_lightweight():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_hi_is_lightweight():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "hi")
+    mode = classify_turn_mode([], "hi")
 
     assert mode.lightweight is True
     assert mode.rich_context is False
     assert mode.advice_memory is False
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("text", "advice"),
     [
@@ -1562,126 +1557,96 @@ async def test_classify_turn_mode_hi_is_lightweight():
         ("I have 2 hours before dinner, what can I cook?", True),
     ],
 )
-async def test_classify_turn_mode_a_sum_about_a_meal_is_not_food_advice(text: str, advice: bool):
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_a_sum_about_a_meal_is_not_food_advice(text: str, advice: bool):
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, text)
+    mode = classify_turn_mode([], text)
 
     assert mode.advice_memory is advice
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_draft_follow_up_gets_the_drafts_context():
+def test_classify_turn_mode_draft_follow_up_gets_the_drafts_context():
     """ "Email" after a text-message draft ran slim and signed the email "[Your Name]"."""
     from types import SimpleNamespace
 
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
     history = [
         SimpleNamespace(role="user", content="A text message to my wife"),
         SimpleNamespace(role="assistant", content="```message\nHey love, thinking of you.\n```"),
         SimpleNamespace(role="user", content="Email"),
     ]
-    list_recent = AsyncMock(return_value=history)
+    mode = classify_turn_mode(history, "Email")
 
-    with patch("app.modules.chat.turn_prep.mode.messages_repo.list_recent", list_recent):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "Email")
-
-    list_recent.assert_awaited_once()
     assert mode.rich_context is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_skips_history_for_lines_that_change_no_draft():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_skips_history_for_lines_that_change_no_draft():
+    from types import SimpleNamespace
 
-    chat = MagicMock()
-    chat.id = uuid4()
-    list_recent = AsyncMock()
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    with patch("app.modules.chat.turn_prep.mode.messages_repo.list_recent", list_recent):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "what is the capital of France")
+    draft = [
+        SimpleNamespace(role="user", content="A text message to my wife"),
+        SimpleNamespace(role="assistant", content="```message\nHey love.\n```"),
+    ]
 
-    list_recent.assert_not_awaited()
+    mode = classify_turn_mode(draft, "what is the capital of France")
+
     assert mode.rich_context is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_no_draft_in_history_stays_slim():
+def test_classify_turn_mode_no_draft_in_history_stays_slim():
     from types import SimpleNamespace
 
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
     history = [
         SimpleNamespace(role="user", content="what is the capital of France"),
         SimpleNamespace(role="assistant", content="Paris."),
     ]
-    with patch(
-        "app.modules.chat.turn_prep.mode.messages_repo.list_recent",
-        AsyncMock(return_value=history),
-    ):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "make it shorter")
+    mode = classify_turn_mode(history, "make it shorter")
 
     assert mode.rich_context is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_yes_after_offer_is_not_lightweight():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_yes_after_offer_is_not_lightweight():
+    from types import SimpleNamespace
 
-    chat = MagicMock()
-    chat.id = uuid4()
-    prior = MagicMock()
-    prior.content = "Want me to check the current result?"
-    get_last = AsyncMock(return_value=prior)
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    with patch("app.modules.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "yes")
+    prior = SimpleNamespace(role="assistant", content="Want me to check the current result?")
 
-    get_last.assert_awaited_once()
+    mode = classify_turn_mode([prior], "yes")
+
     assert mode.lightweight is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_no_after_a_question_is_not_lightweight():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_no_after_a_question_is_not_lightweight():
+    from types import SimpleNamespace
 
-    chat = MagicMock()
-    chat.id = uuid4()
-    prior = MagicMock()
-    prior.content = "Better late than never: it's good to act even after a delay. Understood?"
-    get_last = AsyncMock(return_value=prior)
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    with patch("app.modules.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "No")
+    prior = SimpleNamespace(
+        role="assistant",
+        content="Better late than never: it's good to act even after a delay. Understood?",
+    )
 
-    get_last.assert_awaited_once()
+    mode = classify_turn_mode([prior], "No")
+
     assert mode.lightweight is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_hi_does_not_load_last_assistant():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_hi_ignores_the_last_assistant():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-    get_last = AsyncMock(return_value=MagicMock())
+    question = MagicMock(role="assistant", content="Want me to check the current result?")
 
-    with patch("app.modules.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "hi")
+    mode = classify_turn_mode([question], "hi")
 
-    get_last.assert_not_awaited()
     assert mode.lightweight is True
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("text", "advice"),
     [
@@ -1694,26 +1659,19 @@ async def test_classify_turn_mode_hi_does_not_load_last_assistant():
         ("How much energy does it take to heat 500 g of milk from 5 °C to 60 °C?", False),
     ],
 )
-async def test_classify_turn_mode_food_in_a_problem_is_not_advice(text, advice):
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_food_in_a_problem_is_not_advice(text, advice):
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, text)
+    mode = classify_turn_mode([], text)
 
     assert mode.advice_memory is advice
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_profile_field_loads_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_profile_field_loads_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    education = await _classify_turn_mode(AsyncMock(), chat, "What is my education level")
-    language = await _classify_turn_mode(AsyncMock(), chat, "My second langauge")
+    education = classify_turn_mode([], "What is my education level")
+    language = classify_turn_mode([], "My second langauge")
 
     assert education.advice_memory is True
     assert education.rich_context is False
@@ -1721,12 +1679,9 @@ async def test_classify_turn_mode_profile_field_loads_memory():
     assert language.rich_context is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_profile_pushback_loads_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_profile_pushback_loads_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
     language = MagicMock()
     language.role = "user"
     language.content = "My second langauge"
@@ -1734,79 +1689,54 @@ async def test_classify_turn_mode_profile_pushback_loads_memory():
     pushback.role = "user"
     pushback.content = "U don't know. It?"
 
-    with patch(
-        "app.modules.chat.turn_prep.mode.messages_repo.list_recent",
-        AsyncMock(return_value=[language, pushback]),
-    ):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "You tell me")
+    mode = classify_turn_mode([language, pushback], "You tell me")
 
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_teaching_loads_memory_not_rich_context():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_teaching_loads_memory_not_rich_context():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "teach me about python variables")
+    mode = classify_turn_mode([], "teach me about python variables")
 
     assert mode.lightweight is False
     assert mode.rich_context is False
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_career_loads_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_career_loads_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "how do I prepare for a job interview")
+    mode = classify_turn_mode([], "how do I prepare for a job interview")
 
     assert mode.advice_memory is True
     assert mode.rich_context is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_lookup_does_not_load_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_lookup_does_not_load_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "what is the capital of France")
+    mode = classify_turn_mode([], "what is the capital of France")
 
     assert mode.advice_memory is False
     assert mode.rich_context is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_eat_tonight_is_advice_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_eat_tonight_is_advice_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "what should I eat tonight")
+    mode = classify_turn_mode([], "what should I eat tonight")
 
     assert mode.lightweight is False
     assert mode.rich_context is False
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_capabilities_overview_is_advice_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_capabilities_overview_is_advice_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(
-        AsyncMock(),
-        chat,
+    mode = classify_turn_mode(
+        [],
         "What can you help me with? Give a few concrete examples.",
     )
 
@@ -1815,20 +1745,15 @@ async def test_classify_turn_mode_capabilities_overview_is_advice_memory():
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_milk_preference_is_advice_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_milk_preference_is_advice_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "What milk do I drink.")
+    mode = classify_turn_mode([], "What milk do I drink.")
 
     assert mode.lightweight is False
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "text",
     [
@@ -1836,27 +1761,20 @@ async def test_classify_turn_mode_milk_preference_is_advice_memory():
         "Plan a workout for me.",
     ],
 )
-async def test_classify_turn_mode_ordinary_advice_phrasing_loads_memory(text: str):
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_ordinary_advice_phrasing_loads_memory(text: str):
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, text)
+    mode = classify_turn_mode([], text)
 
     assert mode.lightweight is False
     assert mode.rich_context is False
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_day_plan_skips_advice_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_day_plan_skips_advice_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "anything left tonight")
+    mode = classify_turn_mode([], "anything left tonight")
 
     assert mode.day_planning is True
     assert mode.rich_context is True

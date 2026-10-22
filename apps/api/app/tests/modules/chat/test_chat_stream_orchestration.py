@@ -60,7 +60,6 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
         patch("app.repositories.messages.create", AsyncMock()),
         patch("app.modules.chat.turn_prep.context.build_prompt_messages", mock_build),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
             AsyncMock(return_value=(None, [])),
@@ -113,7 +112,6 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
             AsyncMock(return_value=(None, [])),
@@ -181,7 +179,6 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
             AsyncMock(return_value=(None, [])),
@@ -239,7 +236,6 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
             AsyncMock(return_value=(None, [])),
@@ -298,7 +294,6 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.todos.extract.extract_todo_actions",
             AsyncMock(),
@@ -358,7 +353,6 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
             AsyncMock(return_value=(None, [])),
@@ -429,7 +423,6 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
             AsyncMock(return_value=(None, [])),
@@ -1758,7 +1751,6 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
             AsyncMock(return_value=(None, [])),
@@ -1812,7 +1804,6 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch("app.modules.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", AsyncMock()),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -1869,7 +1860,6 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch("app.modules.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -1932,9 +1922,6 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
                 "app.modules.chat.turn_prep.context.build_prompt_messages",
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
-        )
-        stack.enter_context(
-            patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[]))
         )
         stack.enter_context(
             patch(
@@ -2009,7 +1996,6 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
             AsyncMock(return_value=(None, [])),
@@ -2061,6 +2047,7 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
     fake_last.model = "free-chat"
 
     fake_last_user = MagicMock()
+    fake_last_user.role = "user"
     fake_last_user.content = "question"
 
     finalize = AsyncMock()
@@ -2080,21 +2067,15 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
             patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
-        )
-        stack.enter_context(
-            patch(
-                "app.repositories.messages.get_last_user",
-                AsyncMock(return_value=fake_last_user),
-            )
-        )
-        stack.enter_context(
             patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
         # Every plan can generate images now, so a short regenerate reads the
         # thread for an image follow-up before it searches.
         stack.enter_context(
-            patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
+            patch(
+                "app.repositories.messages.list_recent",
+                AsyncMock(return_value=[fake_last_user, fake_last]),
+            )
         )
         stack.enter_context(
             patch(
@@ -2112,12 +2093,6 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
             patch(
                 "app.modules.web_search.is_places_list_query",
                 MagicMock(return_value=False),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.repositories.messages.recent_user_contents",
-                AsyncMock(return_value=[]),
             )
         )
         stack.enter_context(
@@ -2195,6 +2170,7 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
     fake_last.model = "free-chat"
 
     fake_last_user = MagicMock()
+    fake_last_user.role = "user"
     fake_last_user.content = "question"
 
     async def track_build(request, *_args):
@@ -2238,16 +2214,13 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
             patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
+            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
         stack.enter_context(
             patch(
-                "app.repositories.messages.get_last_user",
-                AsyncMock(return_value=fake_last_user),
+                "app.repositories.messages.list_recent",
+                AsyncMock(return_value=[fake_last_user, fake_last]),
             )
-        )
-        stack.enter_context(
-            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
         stack.enter_context(
             patch(
@@ -2316,6 +2289,7 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
     fake_last.model = "free-chat"
 
     fake_last_user = MagicMock()
+    fake_last_user.role = "user"
     fake_last_user.content = "Best restaurants near me"
 
     fetch_web = AsyncMock(return_value=(None, None, [], None, False, None, None))
@@ -2334,21 +2308,15 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
             patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
-        )
-        stack.enter_context(
-            patch(
-                "app.repositories.messages.get_last_user",
-                AsyncMock(return_value=fake_last_user),
-            )
-        )
-        stack.enter_context(
             patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
         # Every plan can generate images now, so a short regenerate reads the
         # thread for an image follow-up before it searches.
         stack.enter_context(
-            patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
+            patch(
+                "app.repositories.messages.list_recent",
+                AsyncMock(return_value=[fake_last_user, fake_last]),
+            )
         )
         stack.enter_context(
             patch(
@@ -2360,12 +2328,6 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
             patch(
                 "app.modules.web_search.is_short_letter_answer",
                 MagicMock(return_value=False),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.repositories.messages.recent_user_contents",
-                AsyncMock(return_value=[]),
             )
         )
         stack.enter_context(

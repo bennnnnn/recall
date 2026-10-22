@@ -39,14 +39,12 @@ async def test_add_tokens_accumulates_across_multiple_calls(db_session):
     first = await usage_repo.add_tokens(
         db_session, user.id, today, input_tokens=100, output_tokens=50
     )
-    assert first.input_tokens == 100
-    assert first.output_tokens == 50
+    assert first == (100, 50)
 
     second = await usage_repo.add_tokens(
         db_session, user.id, today, input_tokens=30, output_tokens=20
     )
-    assert second.input_tokens == 130
-    assert second.output_tokens == 70
+    assert second == (130, 70)
 
     # Independent fresh SELECT (not just the in-memory object mutated above)
     # confirming the accumulated total actually persisted.

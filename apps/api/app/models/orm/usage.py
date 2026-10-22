@@ -35,6 +35,39 @@ class UsageDaily(Base):
     )
 
 
+class ProductEventDaily(Base):
+    """Per-day counts of product events past their retention (``modules/analytics/retention``).
+
+    One row per UTC day and bucket (event name, platform, app version, properties):
+    how many events, and from how many accounts. No user ids.
+    """
+
+    __tablename__ = "product_event_daily"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    platform: Mapped[str] = mapped_column(String(20), primary_key=True)
+    app_version: Mapped[str] = mapped_column(String(32), primary_key=True)
+    properties: Mapped[dict[str, str]] = mapped_column(JSONB, primary_key=True)
+    events: Mapped[int] = mapped_column(Integer, nullable=False)
+    users: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ProductEventRollupDay(Base):
+    """A UTC day whose events were counted into ``product_event_daily``.
+
+    Written in the counting transaction, so a cycle stopped while deleting that day's
+    rows only deletes the rest next time; it never counts the day again.
+    """
+
+    __tablename__ = "product_event_rollup_days"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    rolled_up_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class ProductEvent(Base):
     __tablename__ = "product_events"
     __table_args__ = (

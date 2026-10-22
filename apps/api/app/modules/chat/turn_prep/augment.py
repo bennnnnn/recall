@@ -7,16 +7,14 @@ so the final prompt is byte-identical to the old serial pipeline.
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Awaitable
 from dataclasses import dataclass, field
 from typing import Any
-from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
-from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules import web_search as web_search_service
 from app.modules.chat.prompt_builder import (
@@ -36,9 +34,11 @@ from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
 )
 from app.modules.web_search.subject import last_assistant_content
-from app.repositories import messages as messages_repo
 from app.services.solving import VerifiedSolveBlock
 from app.services.subject_solving import detect_subject, maybe_direct_subject_reply
+
+# Earlier user lines a web search may take its subject from.
+_PRIOR_USER_LINES = 8
 
 
 @dataclass
@@ -121,7 +121,7 @@ async def gather_and_inject(
     )
     if classify is not None:
         jobs.append(classify)
-    fetched = await _gather_or_cancel(jobs)
+    fetched = await gather_or_cancel(jobs)
     (
         web_block,
         math_block,
@@ -233,8 +233,9 @@ async def _fetch_web_with_priors(
     followup: SubjectFollowup,
     subject_text: str | None = None,
 ) -> WebAndSubject:
-    # Earlier user lines name the web search subject; loaded only when augmenting.
-    priors = await _load_prior_user_messages(identity.chat.id)
+    # Earlier user lines name the web search subject. They come from the prompt's own
+    # history: a second read of the messages raced the current line's insert.
+    priors = _prompt_prior_user_messages(prompt_messages, request.content)[-_PRIOR_USER_LINES:]
     geo = identity.geo
     return await fetch_web_and_tools(
         request.content,
@@ -255,21 +256,3 @@ async def _fetch_web_with_priors(
         redis=redis,
         subject_text=subject_text,
     )
-
-
-async def _load_prior_user_messages(chat_id: UUID) -> list[str]:
-    async with SessionLocal() as session:
-        return await messages_repo.recent_user_contents(session, chat_id)
-
-
-async def _gather_or_cancel(jobs: list[Awaitable[Any]]) -> list[Any]:
-    tasks = [asyncio.ensure_future(job) for job in jobs]
-    try:
-        return await asyncio.gather(*tasks)
-    except BaseException:
-        # gather does not cancel siblings when one fetch raises. Own all
-        # Phase B work so paid classification cannot outlive failed prep.
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
-        raise

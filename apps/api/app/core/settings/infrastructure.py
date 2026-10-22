@@ -21,8 +21,8 @@ class InfrastructureSettings(BaseModel):
     db_max_overflow: int = 10
     db_pool_timeout_seconds: float = 5.0
     # asyncpg connect timeout (default 60s) and per-statement timeout (default
-    # none). pool_pre_ping runs a statement on every checkout, so without a
-    # statement timeout one half-open pooled connection hung a request
+    # none). The idle-connection ping (core/db_ping.py) is a statement too, so
+    # without a statement timeout one half-open pooled connection hung a request
     # forever. Generous: account delete is one cascading DELETE. 0 disables.
     db_connect_timeout_seconds: float = 10.0
     db_command_timeout_seconds: float = 120.0

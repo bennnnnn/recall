@@ -288,10 +288,6 @@ async def test_fetches_run_concurrently_not_serially():
             AsyncMock(side_effect=fast_inject),
         ),
         patch(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
             "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
         ),
@@ -358,10 +354,6 @@ async def test_injects_in_stable_order_web_then_math():
             AsyncMock(return_value=("WEB_BLOCK", "MATH_BLOCK", [], None, False, None, None)),
         ),
         patch(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
             "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
         ),
@@ -404,7 +396,6 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
     chat = _make_chat()
     base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
     fetch_web = AsyncMock(return_value=(None, None, [], None, False, None, None))
-    load_prior = AsyncMock(return_value=[])
 
     with (
         patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
@@ -415,10 +406,6 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
         patch(
             "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
             fetch_web,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            load_prior,
         ),
         patch(
             "app.modules.chat.turn_prep.instant.extract_settings_changes",
@@ -449,16 +436,20 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
         )
 
     fetch_web.assert_not_awaited()
-    load_prior.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_web_augment_loads_priors():
-    """Web/math prefetch needs the earlier user lines for the search subject."""
+async def test_web_augment_takes_priors_from_the_prompt():
+    """Web/math prefetch names the search subject from the earlier user lines, read from
+    the prompt's own history rather than the messages again."""
     user = _make_user()
     chat = _make_chat()
-    base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
-    load_prior = AsyncMock(return_value=["earlier question"])
+    base_messages = [
+        {"role": "system", "content": "BASE"},
+        {"role": "user", "content": "earlier question"},
+        {"role": "user", "content": "explain photosynthesis"},
+    ]
+    fetch_web = AsyncMock(return_value=(None, None, [], None, False, None, None))
 
     with (
         patch("app.modules.chat.turn_prep.instant.SessionLocal", _FakeSessionCM),
@@ -466,14 +457,7 @@ async def test_web_augment_loads_priors():
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(base_messages)),
         ),
-        patch(
-            "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
-            AsyncMock(return_value=(None, None, [], None, False, None, None)),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            load_prior,
-        ),
+        patch("app.modules.chat.turn_prep.augment.fetch_web_and_tools", fetch_web),
         patch(
             "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
@@ -502,7 +486,7 @@ async def test_web_augment_loads_priors():
             MagicMock(),
         )
 
-    load_prior.assert_awaited()
+    assert fetch_web.await_args.kwargs["prior_user_messages"] == ["earlier question"]
 
 
 @pytest.mark.asyncio
@@ -537,10 +521,6 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
         patch(
             "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
             AsyncMock(return_value=(None, "MATH_BLOCK", [], verified, False, None, None)),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            AsyncMock(return_value=[]),
         ),
         patch(
             "app.modules.chat.turn_prep.instant.extract_settings_changes",
@@ -646,10 +626,6 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
             ),
         ),
         patch(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
             "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
         ),
@@ -714,10 +690,6 @@ async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None
             AsyncMock(return_value=(None, "MATH_BLOCK", [], verified, False, None, None)),
         ),
         patch(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
             "app.modules.chat.turn_prep.instant.extract_settings_changes",
             return_value=[],
         ),
@@ -765,10 +737,6 @@ async def _graph_it_bundle(fake_redis, priors: list[str]):
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=messages),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            AsyncMock(return_value=priors),
         ),
         patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
         patch(

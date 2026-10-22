@@ -97,10 +97,9 @@ def stub_recent(n: int) -> list[MagicMock]:
 
 def offline_session_patches():
     return (
-        patch("app.modules.chat.prompt_builder.SessionLocal", FakeSessionCM),
+        patch("app.modules.attachments.rag.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", FakeSessionCM),
-        patch("app.modules.chat.turn_prep.augment.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.context.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.instant.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.persist.SessionLocal", FakeSessionCM),

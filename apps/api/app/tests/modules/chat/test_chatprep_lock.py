@@ -209,6 +209,7 @@ async def test_regenerate_acquires_chatprep_lock():
     fake_last.content = "prior"
     fake_last.model = "free-chat"
     fake_last_user = MagicMock()
+    fake_last_user.role = "user"
     fake_last_user.content = "question"
 
     async def fake_stream(*_a, **_k):
@@ -220,8 +221,10 @@ async def test_regenerate_acquires_chatprep_lock():
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last)),
-        patch("app.repositories.messages.get_last_user", AsyncMock(return_value=fake_last_user)),
+        patch(
+            "app.repositories.messages.list_recent",
+            AsyncMock(return_value=[fake_last_user, fake_last]),
+        ),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2)),
         patch(
             "app.modules.billing.plan.resolve_user_model_override",

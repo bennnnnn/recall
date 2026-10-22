@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import date
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,12 +14,10 @@ from app.models.schemas import AttachmentPresignOut
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import MAX_ATTACHMENT_SIZE
 from app.modules.attachments.content_types import (
-    IMAGE_CONTENT_TYPES,
     is_allowed_content_type,
-    is_image_content_type,
     normalize_content_type,
 )
-from app.modules.attachments.quota import has_current_upload_reservation
+from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
 from app.services.quota import counters
 
 
@@ -68,14 +65,10 @@ async def create_presigned_upload(
         )
 
     redis = get_redis_client()
-    reserved_day: date | None = None
-    if normalized in IMAGE_CONTENT_TYPES:
-        reserved_day = await counters.reserve("image_upload", redis, user, settings)
-        if not reserved_day:
-            raise AttachmentUploadError(
-                counters.limit_message("image_upload", user),
-                status_code=429,
-            )
+    counter = upload_counter(normalized)
+    reserved_day = await counters.reserve(counter, redis, user, settings)
+    if not reserved_day:
+        raise AttachmentUploadError(counters.limit_message(counter, user), status_code=429)
 
     try:
         presigned = await gateway.presign_upload(
@@ -96,8 +89,7 @@ async def create_presigned_upload(
         )
         await session.commit()
     except Exception:
-        if reserved_day:
-            await counters.refund("image_upload", redis, user.id, day=reserved_day)
+        await counters.refund(counter, redis, user.id, day=reserved_day)
         raise
 
     return AttachmentPresignOut(
@@ -137,5 +129,5 @@ async def cancel_pending_upload(
 
     failed = await delete_storage_keys(settings, removed)
     await enqueue_failed_storage_deletes(failed)
-    if is_image_content_type(row.content_type) and has_current_upload_reservation(row):
-        await counters.refund("image_upload", get_redis_client(), user.id)
+    if has_current_upload_reservation(row):
+        await counters.refund(upload_counter(row.content_type), get_redis_client(), user.id)

@@ -45,12 +45,6 @@ class Memory(Base):
         Index("ix_memories_user_status", "user_id", "status"),
         Index("ix_memories_user_type_status", "user_id", "type", "status"),
         Index("ix_memories_user_topic_status", "user_id", "topic", "status"),
-        # DB index (migration 0033) is actually:
-        #   CREATE INDEX ix_memories_embedding ON memories USING hnsw (embedding vector_cosine_ops)
-        # Plain Index() can't express the hnsw method/vector_cosine_ops opclass; declared
-        # on `embedding` so autogenerate knows an index with this name exists here and
-        # won't propose dropping it.
-        Index("ix_memories_embedding", "embedding"),
         # Message, chat and fact deletes (FK SET NULL): without these each deleted row
         # scanned the whole table (migration 0116).
         Index(
@@ -119,8 +113,16 @@ class Memory(Base):
         ForeignKey("memories.id", ondelete="SET NULL"),
         nullable=True,
     )
-    embedding_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
+    # Neither vector copy is loaded with the row: recall ranks in SQL
+    # (``repository.list_scored_for_user``), and a read of either raises instead of
+    # quietly fetching ~50 KB a fact. ``embedding_json`` is no longer written; a later
+    # contract migration drops it.
+    embedding_json: Mapped[str | None] = mapped_column(
+        Text, nullable=True, deferred=True, deferred_raiseload=True
+    )
+    embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(1536), nullable=True, deferred=True, deferred_raiseload=True
+    )
     # Hash of the text this embedding was actually computed from — lets
     # extraction/consolidation detect "embedding is stale relative to text"
     # reliably across passes, not just within one call. See migration 0057.

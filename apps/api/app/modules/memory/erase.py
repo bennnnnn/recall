@@ -57,14 +57,9 @@ async def delete_fact_rows(
 async def purge_fact_chunks(session: AsyncSession, user_id: UUID, facts: Iterable[Memory]) -> None:
     """Drop past-chat snippets that state these facts, so recall cannot bring them back."""
     for fact in facts:
-        vector = getattr(fact, "embedding", None)
-        if vector is not None and len(vector) == chunks_repo.EMBEDDING_DIM:
-            await chunks_repo.delete_near(
-                session,
-                user_id,
-                [float(value) for value in vector],
-                max_distance=1.0 - _PURGE_MIN_SIMILARITY,
-            )
+        await chunks_repo.delete_near_fact(
+            session, user_id, fact.id, max_distance=1.0 - _PURGE_MIN_SIMILARITY
+        )
         names = fact_names(str(getattr(fact, "text", "") or ""))
         if names:
             # The user's own words that name all of it; an assistant line repeating

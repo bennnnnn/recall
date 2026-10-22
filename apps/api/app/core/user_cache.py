@@ -51,18 +51,40 @@ def cached_user(user_id: UUID) -> User | None:
     return _user_cache.get(user_id)
 
 
+def cached_copy(user_id: UUID) -> User | None:
+    """A detached copy of the cached row, for a caller that keeps it past one request."""
+    cached = _user_cache.get(user_id)
+    return _snapshot(cached) if isinstance(cached, User) else cached
+
+
 async def _read_generation(redis: Redis, user_id: UUID) -> int:
     raw = await redis.get(_GENERATION_KEY.format(user_id=user_id))
     return int(raw or 0)
 
 
-async def note_generation(redis: Redis, user_id: UUID) -> None:
-    """Remember which generation the row just cached was read at (best-effort)."""
+async def read_generation(redis: Redis, user_id: UUID) -> int | None:
+    """The account's generation, read *before* its row (None when Redis fails).
+
+    Read after the row, a write landing in between would mark the old row current.
+    """
     try:
-        _generations.put(user_id, await _read_generation(redis, user_id))
+        return await _read_generation(redis, user_id)
     except Exception:
-        _generations.pop(user_id)
         logger.warning("User generation read failed user_id=%s", user_id, exc_info=True)
+        return None
+
+
+def remember_read(user: User, generation: int | None) -> None:
+    """Cache a row read after ``read_generation`` returned ``generation``.
+
+    An unknown generation is forgotten, which ``is_current`` reads as 0: right for an
+    account never bumped, and a reload for any other.
+    """
+    remember_user(user)
+    if generation is None:
+        _generations.pop(user.id)
+    else:
+        _generations.put(user.id, generation)
 
 
 async def is_current(redis: Redis, user_id: UUID) -> bool:

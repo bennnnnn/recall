@@ -17,7 +17,7 @@ from pydantic import ValidationError
 from redis.asyncio import Redis
 from starlette.websockets import WebSocketState
 
-from app.core import access_tokens, chat_rate_limit, shutdown
+from app.core import access_tokens, chat_rate_limit, shutdown, user_cache
 from app.core.client_ip import client_ip_from_websocket
 from app.core.config import Settings, get_settings
 from app.core.log_context import bound_log_ids
@@ -198,6 +198,8 @@ async def _handle_message(
             settings,
             user_id=user_id,
             chat_id=chat_id,
+            # The turn checks the cached row is current before trusting it.
+            user=user_cache.cached_copy(user_id),
             content=request.content,
             model_alias=request.model,
             attachment_ids=request.attachment_ids,
