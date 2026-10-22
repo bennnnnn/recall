@@ -335,7 +335,7 @@ async def test_quota_enforced(fake_redis, used, requested, allowed):
 
 **Required services:** Neon Postgres + Upstash Redis (no Docker required). Local API rate limits: Homebrew Redis (`redis://127.0.0.1:6379`) if Upstash free-tier max-requests is exhausted.
 
-> **Neon setup:** use a **direct Neon account** (neon.com), *not* the Vercel-managed integration — the backend is FastAPI (not on Vercel), so that integration adds no value and limits the console/CLI/feature access. The project is in **AWS us-east-1** (N. Virginia), beside Fly's `iad`: each database round trip from the API stays within the region (us-east-2 cost about 10 ms a trip). Branches: `production` (Fly's secret only) and `dev` (local API and tests). Just point `DATABASE_URL` at `dev`.
+> **Neon setup:** use a **direct Neon account** (neon.com), *not* the Vercel-managed integration — the backend is FastAPI (not on Vercel), so that integration adds no value and limits the console/CLI/feature access. Databases live in **AWS us-east-1** (N. Virginia), beside Fly's `iad`: each round trip from the API stays within the region (us-east-2 cost about 10 ms a trip). Until launch, development uses a throwaway free database whose data does not matter; the paid production database is created fresh on deploy day (`docs/PRODUCTION.md` §0). Point `DATABASE_URL` at the development one.
 
 **Env** (`apps/api/.env`):
 
