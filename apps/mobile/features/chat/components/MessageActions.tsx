@@ -1,6 +1,5 @@
 /** The action rows under a chat message: copy for a sent one; copy, read aloud, thumbs and regenerate for a reply. */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import * as Clipboard from "expo-clipboard";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -16,47 +15,21 @@ import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
+import { useCopyText } from "@/ui/share/useCopyText";
 
-/** How long a Copy button shows its check after copying. */
-const COPIED_FEEDBACK_MS = 1500;
 /** Each action's touch target (the platform minimum). */
 const ACTION_SIZE = 44;
 
 type Feedback = "up" | "down" | null;
 
-function useCopyFeedback() {
-  const [copied, setCopied] = useState(false);
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showCopied = useCallback(() => {
-    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    setCopied(true);
-    resetTimerRef.current = setTimeout(() => {
-      resetTimerRef.current = null;
-      setCopied(false);
-    }, COPIED_FEEDBACK_MS);
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    },
-    [],
-  );
-
-  return { copied, showCopied };
-}
-
-/** Copy `text` and show the check, or do nothing for blank text. */
+/** Copy `text` and show the check; a refused copy says so. */
 function useCopyAction(text: string) {
-  const { copied, showCopied } = useCopyFeedback();
-  const copy = async () => {
-    if (!text.trim()) return;
-    await Clipboard.setStringAsync(text);
-    showCopied();
-    notifySuccess();
-  };
-  return { copied, copy };
+  const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
+  const { copied, copy } = useCopyText(() =>
+    reportRecoverableError(feedback, t("share.copy_failed")),
+  );
+  return { copied, copy: () => copy(text) };
 }
 
 function ActionButton({
